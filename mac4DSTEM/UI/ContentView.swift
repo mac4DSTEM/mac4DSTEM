@@ -17,7 +17,9 @@ struct ContentView: View {
 
     var body: some View {
         @Bindable var appState = appState
-        return NavigationSplitView {
+        // Pin all columns visible so the control sidebar never collapses out
+        // of view (it holds the analysis controls, not just navigation).
+        return NavigationSplitView(columnVisibility: .constant(.all)) {
             List {
                 Section("File") {
                     Button {
