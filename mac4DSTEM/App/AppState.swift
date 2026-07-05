@@ -219,6 +219,7 @@ final class AppState {
 
         await loadCurrentPattern()
         statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
+        await runCurrentAnalysis()
     }
 
     private func loadCurrentPattern() async {
@@ -228,6 +229,83 @@ final class AppState {
             currentPattern = try await fourD.pattern(ry: selectedScan.y, rx: selectedScan.x)
             patternVersion &+= 1
             statusText = "Pattern x \(selectedScan.x), y \(selectedScan.y) from \(descriptor.fileName)"
+        } catch {
+            present(error)
+        }
+    }
+
+    // MARK: - Analyses
+
+    /// Run whatever analysis the current mode calls for. Only the virtual
+    /// detector is wired in this slice; DPC / disks arrive in later slices.
+    func runCurrentAnalysis() async {
+        switch analysisMode {
+        case .virtualDetector: await runVirtualDetector()
+        default: break
+        }
+    }
+
+    /// Live aperture edits during a drag — store only; recompute on commit so
+    /// the GPU isn't hammered on every pixel of the drag.
+    func updateAperture(_ newAperture: Aperture) {
+        aperture = newAperture
+    }
+
+    func commitApertureChange() {
+        guard analysisMode == .virtualDetector else { return }
+        Task { await runVirtualDetector() }
+    }
+
+    /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
+    func applyDetectorPreset(_ preset: DetectorPreset) {
+        guard let descriptor else { return }
+        let qMax = Float(min(descriptor.qx, descriptor.qy)) / 2
+        if let radii = preset.radii(maxRadius: qMax) {
+            aperture.centerX = Float(descriptor.qx) / 2
+            aperture.centerY = Float(descriptor.qy) / 2
+            aperture.inner = radii.inner
+            aperture.outer = radii.outer
+        }
+        if analysisMode != .virtualDetector { analysisMode = .virtualDetector }
+        Task { await runVirtualDetector() }
+    }
+
+    /// Virtual-detector imaging over the whole cube. The annulus uses the
+    /// analytic fast path; rectangle/point use the general mask kernel. The
+    /// blocking GPU call is pushed off the main actor.
+    func runVirtualDetector() async {
+        guard let fourD, let descriptor else { return }
+        isBusy = true
+        statusText = "Computing virtual detector…"
+        defer { isBusy = false }
+
+        let ap = aperture
+        let shapeMode = virtualShape
+        let d = descriptor
+        do {
+            let cube = try await fourD.cubeBuffer()
+            let image = try await Task.detached(priority: .userInitiated) { () throws -> FloatImage in
+                switch shapeMode {
+                case .annulus:
+                    return try VirtualDetector.run(cube: cube, descriptor: d, aperture: ap)
+                case .rectangle:
+                    let half = Int(ap.outer.rounded())
+                    let shape = DetectorShape.rectangle(
+                        xMin: Int(ap.centerX.rounded()) - half,
+                        xMax: Int(ap.centerX.rounded()) + half,
+                        yMin: Int(ap.centerY.rounded()) - half,
+                        yMax: Int(ap.centerY.rounded()) + half)
+                    return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
+                case .point:
+                    let shape = DetectorShape.point(x: Int(ap.centerX.rounded()),
+                                                    y: Int(ap.centerY.rounded()))
+                    return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
+                }
+            }.value
+            resultImage = image
+            resultRGBA = nil
+            resultVersion &+= 1
+            statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
         } catch {
             present(error)
         }

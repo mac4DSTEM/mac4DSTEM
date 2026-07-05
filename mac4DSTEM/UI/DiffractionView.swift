@@ -60,15 +60,27 @@ struct DiffractionView: View {
             let box = fitted(in: size, aspect: CGFloat(qx) / CGFloat(qy))
             let norm = pattern.normalized(useLog: app.logScale)
 
-            MetalImageView(pixels: norm,
-                           width: qx, height: qy,
-                           contentVersion: app.patternVersion,
-                           colormap: app.colormap,
-                           zoom: 1, offset: .zero)
-                .frame(width: box.width, height: box.height)
-                .background(Color.black)
-                .border(Color.white.opacity(0.08))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack {
+                MetalImageView(pixels: norm,
+                               width: qx, height: qy,
+                               contentVersion: app.patternVersion,
+                               colormap: app.colormap,
+                               zoom: 1, offset: .zero)
+                    .background(Color.black)
+                    .border(Color.white.opacity(0.08))
+
+                // Interactive annular aperture (Virtual Detector mode only).
+                if app.analysisMode == .virtualDetector {
+                    ApertureControl(
+                        aperture: app.aperture,
+                        patternWidth: qx, patternHeight: qy,
+                        onEdited: { app.updateAperture($0) },
+                        onCommit: { app.commitApertureChange() }
+                    )
+                }
+            }
+            .frame(width: box.width, height: box.height)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             placeholder
         }

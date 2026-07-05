@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
-    @State private var showInspector = true
+    @State private var showInspector = false
 
     private var h5Types: [UTType] {
         [
@@ -56,13 +56,36 @@ struct ContentView: View {
                             }
                         }
                     }
+
+                    if appState.analysisMode == .virtualDetector {
+                        Section("Virtual detector") {
+                            Picker("Shape", selection: $appState.virtualShape) {
+                                ForEach(VirtualShapeMode.allCases) { shape in
+                                    Text(shape.rawValue).tag(shape)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+
+                            ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
+                                Button(preset.rawValue) {
+                                    appState.applyDetectorPreset(preset)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("mac4DSTEM")
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } detail: {
             Group {
                 if appState.hasDataset {
-                    DiffractionView()
+                    HSplitView {
+                        DiffractionView()
+                            .frame(minWidth: 260)
+                        StemImageView()
+                            .frame(minWidth: 260)
+                    }
                 } else {
                     VStack(spacing: 12) {
                         Text("mac4DSTEM").font(.title)
@@ -90,6 +113,12 @@ struct ContentView: View {
                     Label("Inspector", systemImage: "sidebar.trailing")
                 }
             }
+        }
+        .onChange(of: appState.analysisMode) {
+            Task { await appState.runCurrentAnalysis() }
+        }
+        .onChange(of: appState.virtualShape) {
+            appState.commitApertureChange()
         }
         .fileImporter(
             isPresented: $showImporter,

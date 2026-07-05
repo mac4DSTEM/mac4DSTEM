@@ -1,4 +1,21 @@
 import Foundation
+import Metal
+
+enum FourDError: LocalizedError {
+    case tooLargeForGPU(bytes: Int, budget: Int)
+    case allocationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .tooLargeForGPU(let bytes, let budget):
+            let gb = { (x: Int) in String(format: "%.2f GB", Double(x) / 1_073_741_824) }
+            return "This dataset (\(gb(bytes))) exceeds the per-pass GPU budget (~\(gb(budget))). "
+                 + "Out-of-core tiling is a planned feature; for now try a smaller crop."
+        case .allocationFailed:
+            return "Could not allocate the GPU buffer for the 4D cube."
+        }
+    }
+}
 
 actor FourDArray {
     private let reader: H5Reader
@@ -7,6 +24,9 @@ actor FourDArray {
     private var cache: [Int: DiffractionPattern] = [:]
     private var order: [Int] = []
     private let maxCachedPatterns = 96
+
+    // Whole-cube GPU buffer, built once on first analysis and reused.
+    private var cube: MTLBuffer?
 
     init(reader: H5Reader, descriptor: DatasetDescriptor) {
         self.reader = reader
@@ -32,6 +52,44 @@ actor FourDArray {
     func clearCache() {
         cache.removeAll(keepingCapacity: true)
         order.removeAll(keepingCapacity: true)
+    }
+
+    /// Build (once) and return the full 4D cube as one shared-storage GPU
+    /// buffer, [Ry*Rx*Qy*Qx] row-major Float. Streamed from disk one scan row
+    /// at a time and guarded by a fraction of the GPU working-set budget.
+    func cubeBuffer() async throws -> MTLBuffer {
+        if let cube { return cube }
+
+        let d = descriptor
+        let count = d.ry * d.rx * d.qy * d.qx
+        let bytes = count * MemoryLayout<Float>.stride
+        let budget = Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 2
+        guard bytes < budget else { throw FourDError.tooLargeForGPU(bytes: bytes, budget: budget) }
+
+        var all = [Float](repeating: 0, count: count)
+        let rowPix = d.rx * d.qy * d.qx
+
+        for ry in 0..<d.ry {
+            let row = try await reader.readScanRow(d, ry: ry)
+            all.withUnsafeMutableBufferPointer { dst in
+                row.withUnsafeBufferPointer { src in
+                    dst.baseAddress!.advanced(by: ry * rowPix)
+                        .update(from: src.baseAddress!, count: rowPix)
+                }
+            }
+        }
+
+        guard let buffer = MetalEngine.shared.device.makeBuffer(
+            bytes: all, length: bytes, options: .storageModeShared
+        ) else { throw FourDError.allocationFailed }
+        buffer.label = "4D cube (\(d.ry)x\(d.rx)x\(d.qy)x\(d.qx))"
+        cube = buffer
+        return buffer
+    }
+
+    /// Free the resident cube buffer (e.g. when switching datasets).
+    func releaseCube() {
+        cube = nil
     }
 
     private func key(ry: Int, rx: Int) -> Int {

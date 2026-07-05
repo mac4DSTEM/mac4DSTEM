@@ -309,6 +309,47 @@ actor H5Reader {
         return buffer
     }
 
+    /// Read an entire scan row: all Rx patterns for a fixed Ry, flattened as
+    /// [Rx * Qy * Qx]. This is the chunk-friendly unit used to stream the cube
+    /// into a single GPU buffer (FourDArray.cubeBuffer).
+    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
+        let datasetID = descriptor.datasetPath.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
+        defer { _ = hdf5.h5dclose(datasetID) }
+
+        let filespaceID = hdf5.h5dgetSpace(datasetID)
+        defer { _ = hdf5.h5sclose(filespaceID) }
+
+        let start: [hsize_t] = [hsize_t(ry), 0, 0, 0]
+        let count: [hsize_t] = [1, hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        let selectionStatus = start.withUnsafeBufferPointer { startBuffer in
+            count.withUnsafeBufferPointer { countBuffer in
+                hdf5.h5sselectHyperslab(
+                    filespaceID,
+                    h5SelectSet,
+                    startBuffer.baseAddress,
+                    nil,
+                    countBuffer.baseAddress,
+                    nil
+                )
+            }
+        }
+        guard selectionStatus >= 0 else { throw H5Error.readFailed("scan-row hyperslab selection") }
+
+        let memoryDimensions: [hsize_t] = [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        let memorySpaceID = memoryDimensions.withUnsafeBufferPointer {
+            hdf5.h5screateSimple(3, $0.baseAddress, nil)
+        }
+        defer { _ = hdf5.h5sclose(memorySpaceID) }
+
+        var buffer = [Float](repeating: 0, count: descriptor.rx * descriptor.qy * descriptor.qx)
+        let status = buffer.withUnsafeMutableBytes {
+            hdf5.h5dread(datasetID, hdf5.nativeFloat, memorySpaceID, filespaceID, h5DefaultProperty, $0.baseAddress)
+        }
+        guard status >= 0 else { throw H5Error.readFailed("scan row \(ry)") }
+        return buffer
+    }
+
     func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
         let objectID = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
         guard objectID >= 0 else { return nil }
