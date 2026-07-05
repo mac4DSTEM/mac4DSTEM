@@ -67,7 +67,7 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var isAvailable: Bool {
-        self == .virtualDetector || self == .dpc || self == .disks
+        self == .virtualDetector || self == .dpc || self == .disks || self == .strain
     }
 }
 
@@ -107,6 +107,12 @@ final class AppState {
     private(set) var braggVectors: BraggVectors?
     var diskParams = DiskDetectionParams() {
         didSet { Task { await detectCurrentPattern() } }   // live overlay tracks params
+    }
+
+    // Strain mapping state.
+    private(set) var strainMap: StrainMap?
+    var strainComponent: StrainComponent = .exx {
+        didSet { applyStrainDisplay() }
     }
 
     var aperture = Aperture()
@@ -238,6 +244,7 @@ final class AppState {
         braggVectors = nil
         braggPeakCount = nil
         currentPeaks = []
+        strainMap = nil
 
         // Pixel-scaled detection defaults, adapted to this detector
         // (py4DSTEM's absolute defaults assume ~512 px patterns).
@@ -278,6 +285,10 @@ final class AppState {
             // explicit (Detect All Disks) because it's expensive.
             await detectCurrentPattern()
             if let bv = braggVectors, let d = descriptor { showBraggMap(bv, descriptor: d) }
+        case .strain:
+            // Strain is computed explicitly (needs a disk-detection pass);
+            // just re-show it if already computed.
+            if strainMap != nil { applyStrainDisplay() }
         default: break
         }
     }
@@ -564,6 +575,47 @@ final class AppState {
         let bvm = vectors.map(qy: d.qy, qx: d.qx)
         resultImage = FloatImage(width: bvm.width, height: bvm.height,
                                  pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
+        resultRGBA = nil
+        resultVersion &+= 1
+    }
+
+    // MARK: - Strain mapping
+
+    /// Compute a strain map from the detected Bragg vectors (needs a prior
+    /// disk-detection pass). Auto-picks reference lattice vectors and uses the
+    /// scan-mean lattice as the unstrained reference.
+    func runStrainMapping() async {
+        guard let descriptor else { return }
+        guard let bragg = braggVectors else {
+            present(SimpleError("Run disk detection first — strain mapping needs detected Bragg peaks."))
+            return
+        }
+        isBusy = true
+        statusText = "Computing strain map…"
+        defer { isBusy = false }
+
+        let origin = calibration.meanOrigin
+            ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
+        let map = await Task.detached(priority: .userInitiated) {
+            StrainMapping.compute(bragg: bragg, originX: origin.x, originY: origin.y)
+        }.value
+        guard let map else {
+            present(SimpleError("Could not establish a lattice basis from the detected peaks (try detecting more disks)."))
+            return
+        }
+        strainMap = map
+        colormap = .rdbu   // diverging colormap is the right default for strain
+        applyStrainDisplay()
+        statusText = String(format: "Strain ✓  %.0f%% indexed · g1=(%.1f, %.1f) g2=(%.1f, %.1f)",
+                            map.indexedFraction * 100,
+                            map.refG1.x, map.refG1.y, map.refG2.x, map.refG2.y)
+    }
+
+    /// Show the selected strain component; masked positions read 0 (the center
+    /// of the diverging colormap).
+    private func applyStrainDisplay() {
+        guard let map = strainMap, analysisMode == .strain else { return }
+        resultImage = map.component(strainComponent)
         resultRGBA = nil
         resultVersion &+= 1
     }

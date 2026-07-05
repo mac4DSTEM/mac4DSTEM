@@ -35,6 +35,9 @@ The app is being built by **migrating features in small, buildable slices** from
 **Bragg disk detection (Slice 5)**
 - Synthetic probe-kernel generation (logistic disk minus a sine² sigmoid trench, zero-sum), hybrid cross-correlation (`corrPower`), maxima finding with the intensity/spacing/edge/count filter cascade, and sub-pixel refinement (parabolic or DFT-upsampled `multicorr`). Live per-pattern overlay while scrubbing, plus a full-scan pass (parallelized over scan rows) producing a Bragg vector map.
 
+**Strain mapping**
+- Strain from the detected Bragg vectors (py4DSTEM `process/strain`): auto-picks two reference lattice vectors, indexes each pattern's peaks to integer (h, k), fits the local lattice by intensity-weighted least squares, and computes the infinitesimal strain tensor (**εxx, εyy, εxy**) and **rotation θ** relative to the scan-mean lattice. Displayed per component on a diverging colormap. (User-selected reference region and manual g1/g2 refinement are planned.)
+
 ### Project structure
 
 ```text
@@ -105,9 +108,15 @@ Migration slices, in order:
 4. ✅ **DPC / iDPC** — center-of-mass magnitude/angle, HSV color-wheel vector display, Fourier iDPC integration.
 5. ✅ **Disk detection** — synthetic probe kernel, hybrid cross-correlation, sub-pixel Bragg-disk detection (parabolic + `multicorr`), Bragg vector maps.
 
-**The five migration slices are complete** — the py4DSTEM core-analysis path (I/O → virtual imaging → calibration → DPC → disk detection) is in place.
+**The five migration slices plus strain mapping are complete** — the py4DSTEM core-analysis path (I/O → virtual imaging → calibration → DPC → disk detection → strain) is in place.
 
-Next: strain mapping and lattice fitting, ACOM (polar route), parallax / ptychography (where **MLX** is introduced for GPU-batched FFT and iterative solvers), broader file-format readers (DM4/MIB/EMPAD), EMD-compatible export, and the distribution milestone (HDF5 bundling + sandbox + notarization).
+Still ahead (each its own focused effort):
+
+- **ACOM** — automated crystal-orientation mapping. A larger subsystem: a crystal-structure model, kinematic/Bloch structure factors, an orientation-plan (template library), and polar-space correlation. The `OrientationResult` type and `TemplateMatch.metal` are early building blocks; the intended route is polar correlation rather than brute-force template NCC.
+- **Parallax / ptychography** — iterative phase reconstruction, where **MLX** is introduced for GPU-batched FFTs and solvers. Multi-session.
+- **Broader readers** (DM4/MIB/EMPAD), EMD-compatible export.
+- **Distribution milestone** — HDF5 bundling + App Sandbox + notarization.
+- An **open-issues pass** and a dedicated **UI/UX refinement** cycle.
 
 ---
 

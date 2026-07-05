@@ -169,6 +169,28 @@ struct ContentView: View {
                             }
                         }
                     }
+
+                    if appState.analysisMode == .strain {
+                        Section("Strain") {
+                            Button {
+                                Task { await appState.runStrainMapping() }
+                            } label: {
+                                Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
+                            }
+                            .disabled(appState.isBusy || appState.braggVectors == nil)
+                            if appState.braggVectors == nil {
+                                Text("Detect Bragg disks first (Disks mode → Detect All Disks).")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                            if appState.strainMap != nil {
+                                Picker("Component", selection: $appState.strainComponent) {
+                                    ForEach(StrainComponent.allCases) { component in
+                                        Text(component.rawValue).tag(component)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("mac4DSTEM")
