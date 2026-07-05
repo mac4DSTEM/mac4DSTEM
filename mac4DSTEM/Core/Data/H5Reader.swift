@@ -169,9 +169,20 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     }
 
     private static func candidateLibraryPaths() -> [String] {
+        // Bundled first (self-contained / release builds), then common
+        // Homebrew and system locations used by development builds where the
+        // dylibs are not yet embedded in the app's Frameworks directory.
+        // The non-bundled fallbacks only succeed when App Sandbox is disabled;
+        // embedding the dylibs + re-enabling the sandbox + notarization is the
+        // distribution milestone, at which point the bundled paths take over.
         [
             Bundle.main.privateFrameworksURL?.appendingPathComponent("libhdf5.dylib").path,
-            Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("../Frameworks/libhdf5.dylib").standardized.path
+            Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("../Frameworks/libhdf5.dylib").standardized.path,
+            "/opt/homebrew/opt/hdf5/lib/libhdf5.dylib",   // Homebrew (Apple Silicon)
+            "/opt/homebrew/lib/libhdf5.dylib",
+            "/usr/local/opt/hdf5/lib/libhdf5.dylib",       // Homebrew (Intel)
+            "/usr/local/lib/libhdf5.dylib",
+            "libhdf5.dylib"                                // dyld default search paths
         ].compactMap { $0 }
     }
 }

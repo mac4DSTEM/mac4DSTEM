@@ -16,7 +16,8 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        @Bindable var appState = appState
+        return NavigationSplitView {
             List {
                 Section("File") {
                     Button {
@@ -27,29 +28,58 @@ struct ContentView: View {
                 }
 
                 Section("Analysis") {
-                    Picker("Mode", selection: Bindable(appState).analysisMode) {
+                    Picker("Mode", selection: $appState.analysisMode) {
                         ForEach(AnalysisMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
                 }
+
+                if let descriptor = appState.descriptor, descriptor.is4D {
+                    Section("Scan position") {
+                        scanSlider(label: "X", value: appState.selectedScan.x,
+                                   count: descriptor.rx) { x in
+                            appState.selectScan(x: x, y: appState.selectedScan.y)
+                        }
+                        scanSlider(label: "Y", value: appState.selectedScan.y,
+                                   count: descriptor.ry) { y in
+                            appState.selectScan(x: appState.selectedScan.x, y: y)
+                        }
+                    }
+
+                    Section("Display") {
+                        Toggle("Log scale", isOn: $appState.logScale)
+                        Picker("Colormap", selection: $appState.colormap) {
+                            ForEach(ColormapKind.allCases) { kind in
+                                Text(kind.displayName).tag(kind)
+                            }
+                        }
+                    }
+                }
             }
             .navigationTitle("mac4DSTEM")
         } detail: {
-            VStack(spacing: 12) {
-                Text("mac4DSTEM")
-                    .font(.title)
-                Text(appState.statusText)
-                    .foregroundStyle(.secondary)
-                if appState.currentPattern != nil {
-                    Text("Dataset loaded. Metal display migration is next.")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
+            Group {
+                if appState.hasDataset {
+                    DiffractionView()
+                } else {
+                    VStack(spacing: 12) {
+                        Text("mac4DSTEM").font(.title)
+                        Text(appState.statusText).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding()
+            .safeAreaInset(edge: .bottom) {
+                Text(appState.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+            }
             .inspector(isPresented: $showInspector) {
                 DatasetInspector()
             }
@@ -85,6 +115,25 @@ struct ContentView: View {
             Button("OK", role: .cancel) { appState.errorMessage = nil }
         } message: {
             Text(appState.errorMessage ?? "")
+        }
+    }
+
+    /// A labelled slider that scrubs one scan axis. `count` is the axis length;
+    /// the callback receives the clamped integer index.
+    private func scanSlider(label: String, value: Int, count: Int,
+                            onChange: @escaping (Int) -> Void) -> some View {
+        HStack {
+            Text("\(label) \(value)")
+                .font(.caption.monospaced())
+                .frame(width: 44, alignment: .leading)
+            Slider(
+                value: Binding(
+                    get: { Double(value) },
+                    set: { onChange(Int($0.rounded())) }
+                ),
+                in: 0...Double(max(count - 1, 1)),
+                step: 1
+            )
         }
     }
 }
