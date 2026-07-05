@@ -128,11 +128,28 @@ Still ahead (each its own focused effort):
 ## Open issues / known limitations
 
 - **Whole-cube analyses require the cube to fit in the GPU working-set budget.** Virtual detector, calibration, and DPC stream the full cube into one MTLBuffer; datasets beyond ~half the GPU budget throw a friendly "try a smaller crop" error. Out-of-core tiling is planned.
-- **Cube is expanded to float32** on load (HDF5 converts on read). Native-dtype (uint8/16) residency with in-kernel conversion is a planned memory optimization.
-- **HDF5 not yet bundled**; App Sandbox is off for development (see above).
-- **R–Q rotation has an inherent 180° ambiguity** (the curl/divergence metric is unchanged by flipping both CoM components). If iDPC contrast comes out inverted, the true rotation is θ + 180°; a manual override is a planned convenience.
-- **Origin coarse search deviates from py4DSTEM** (binned block-sum argmax instead of a Gaussian-blur argmax) for GPU efficiency; the windowed center-of-mass refinement that dominates the sub-pixel result is identical.
-- **No automated test suite yet.** Ports are validated by (a) numeric checks of the algorithms against known inputs during development, and (b) matching the py4DSTEM reference; a golden-value harness against py4DSTEM outputs is a candidate for later.
+- **Cube is expanded to float32 and duplicated during upload.** `FourDArray.cubeBuffer()` first builds a full Swift `[Float]`, then creates a full shared `MTLBuffer`; native-dtype residency and streamed upload would reduce peak memory.
+- **No automated test suite yet.** The active test plan currently has no tests. Ports are validated by numeric checks during development and comparison with py4DSTEM; a golden-value harness against py4DSTEM outputs is needed.
+- **DM4 reader has Swift concurrency warnings.** Current Swift 5 builds succeed, but Xcode reports warnings in `DM4Reader` that become errors in Swift 6 language mode.
+- **HDF5 rank-3 support is incomplete.** Rank-3 datasets are reshaped to `[1, N, Qy, Qx]`, but the reader still selects hyperslabs as if the file dataspace were rank 4.
+- **`AppState` is a large workflow coordinator.** It currently owns UI state, file I/O orchestration, calibration, analysis dispatch, result state, and progress reporting; this is becoming a maintainability and coupling risk.
+- **Long-running analyses are not cancellable.** Detached tasks do not carry a dataset-generation token or cancellation check, so stale work can update state after a file, mode, or parameter change.
+- **Calibration metadata is not fully propagated.** The model has q/r pixel-size fields, but dataset readers and `AppState` do not consistently populate or use them; ACOM scale, scale bars, colorbars, and reproducibility remain limited.
+- **ACOM orientation output is incomplete.** The matcher currently reports the best template and in-plane angle but returns zero Euler angles; full crystallographic orientation maps are not yet available.
+- **DM4 parsing can still crash on malformed files.** Some `ByteReader` loads advance through `Data` without bounds checks before throwing `truncated`.
+- **Disk-detection failure reporting has a small race.** `DiskDetection.detectAll` mutates its `failed` flag from concurrent workers without synchronization.
+- **Rotation calibration does not automatically refresh displayed DPC/iDPC results.** If a CoM field is cached, changing the calibrated R-Q rotation can leave the visible result stale until DPC display is reapplied.
+- **Full-scan disk detection allocates per-worker FFT scratch.** One `DiskDetector` is created per concurrent scan-row worker, which can create significant temporary memory pressure on large scans.
+- **Virtual diffraction is an all-scan-position reduction.** Each detector pixel loops over every scan position in the selected mask, so live selected-area diffraction can become expensive for large scans and detectors.
+- **Strain mapping uses the scan-mean lattice as the reference.** There is no user-selected unstrained region yet, so global strain or gradients can be normalized away.
+- **Strain basis selection is automatic and fragile.** The shortest non-collinear peak pair is chosen globally; false positives or mixed phases can poison indexing across the map.
+- **Origin coarse search deviates from py4DSTEM.** It uses a binned block-sum argmax instead of Gaussian-blur argmax for GPU efficiency; the fallback path can produce a usable-looking calibration even when py4DSTEM would signal failure.
+- **iDPC currently assumes unit scan pixels and uses power-of-two padding.** Physical scaling and edge artifacts need more explicit handling for quantitative interpretation.
+- **No graceful non-Metal fallback.** `MetalEngine` uses fatal initialization failures if no Metal device, command queue, or default library is available.
+- **HDF5 discovery is path-list based.** Valid datasets outside the known py4DSTEM/Gatan/HyperSpy layouts need manual path entry.
+- **Display normalization does not explicitly sanitize NaN/Inf.** Bad pixels can distort scaling or produce unstable visualization.
+- **HDF5 not yet bundled.** App Sandbox is off for development (see above).
+- **R-Q rotation has an inherent 180° ambiguity.** The curl/divergence metric is unchanged by flipping both CoM components. If iDPC contrast comes out inverted, the true rotation is θ + 180°; a manual override is planned.
 - Bundle identifier is still a development placeholder.
 
 ### UI / UX (polish cycle in progress)
