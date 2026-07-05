@@ -133,8 +133,22 @@ Still ahead (each its own focused effort):
 - **R–Q rotation has an inherent 180° ambiguity** (the curl/divergence metric is unchanged by flipping both CoM components). If iDPC contrast comes out inverted, the true rotation is θ + 180°; a manual override is a planned convenience.
 - **Origin coarse search deviates from py4DSTEM** (binned block-sum argmax instead of a Gaussian-blur argmax) for GPU efficiency; the windowed center-of-mass refinement that dominates the sub-pixel result is identical.
 - **No automated test suite yet.** Ports are validated by (a) numeric checks of the algorithms against known inputs during development, and (b) matching the py4DSTEM reference; a golden-value harness against py4DSTEM outputs is a candidate for later.
-- The pinned control sidebar leaves the macOS sidebar-toggle button inert (cosmetic); a fuller control-layout pass may move controls into a toolbar.
 - Bundle identifier is still a development placeholder.
+
+### UI / UX (polish cycle in progress)
+
+Done: toolbar mode switcher (all modes reachable), independently hideable tools + inspector panels, live-drag detector → real-space and real-space marker → diffraction, shape-correct + grid-snapped detector overlays, centered pattern-mode picker, higher-contrast position marker.
+
+Still open:
+
+- **Virtual diffraction** — a grid-snapped region tool on the real-space image that sums the selected positions' patterns into the CBED pane (reciprocal of virtual imaging), plus **active-pane** focus that scopes the tools panel to the clicked pane. In progress.
+- **Per-view histogram + draggable contrast** (min/max/gamma), shown in the inspector panel.
+- **Scale bars and colorbars with units** (nm real-space, Å⁻¹ / mrad diffraction) — needs the pixel-size calibration.
+- **Preprocessing / import** — no `.dm4` (or other raw TEM formats) support yet. A future import pipeline reads a raw `.dm4` from the microscope and writes a working `.h5`, with an **automatic calibration** step (origin, rotation, pixel sizes) and a **manual** override path when wanted — mirroring py4DSTEM's calibrate-and-export flow (kept separate from the main analysis UI). The DM4 binary format is fully specced and verified in [`docs/dm4-format.md`](docs/dm4-format.md), ready to implement.
+- **Results persistence + file tree** — save calibration, Bragg vectors, and result maps/plots into a companion sidecar `.h5` next to the original (never modifying the source), with load-on-reopen. The inspector's **bottom-right file tree** shows where things are stored (virtual images, disk detection, calibrations) so it's clear what's already been computed.
+- **Performance panel** (inspector, above the file tree) — live view of active processes, memory occupied, iterations/second, and a progress bar highlighting the running operation.
+- **Per-view histogram** with draggable contrast (min/max/gamma) for the real-space image, styled, in the inspector panel.
+- **macOS menu bar** — File / Edit / View / Window menus are still defaults; to be populated with commands + shortcuts.
 
 ---
 

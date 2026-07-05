@@ -34,8 +34,15 @@ struct DiffractionView: View {
             Text("Diffraction (CBED)")
                 .font(.headline)
             Spacer()
-            // Mean/max become meaningful once calibration computes them; until
-            // then the picker still works but falls back to the live pattern.
+            if let p = app.displayedPattern {
+                Text("\(p.qx) × \(p.qy)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        // Mean/max become meaningful once calibration computes them; the picker
+        // is centered over the pattern rather than crammed against the size.
+        .overlay {
             if app.meanPattern != nil {
                 Picker("", selection: Bindable(app).patternDisplayMode) {
                     ForEach(PatternDisplayMode.allCases) { m in
@@ -44,11 +51,6 @@ struct DiffractionView: View {
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
-            }
-            if let p = app.displayedPattern {
-                Text("\(p.qx) × \(p.qy)")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
             }
         }
     }

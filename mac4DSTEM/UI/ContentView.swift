@@ -90,18 +90,43 @@ struct ContentView: View {
                     }
 
                     if appState.analysisMode == .virtualDetector {
-                        Section("Virtual detector") {
-                            Picker("Shape", selection: $appState.virtualShape) {
-                                ForEach(VirtualShapeMode.allCases) { shape in
-                                    Text(shape.rawValue).tag(shape)
+                        if appState.activePane == .diffraction {
+                            Section("Detector → real space") {
+                                Picker("Shape", selection: $appState.virtualShape) {
+                                    ForEach(VirtualShapeMode.allCases) { shape in
+                                        Text(shape.rawValue).tag(shape)
+                                    }
                                 }
-                            }
-                            .pickerStyle(.segmented)
+                                .pickerStyle(.segmented)
 
-                            ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
-                                Button(preset.rawValue) {
-                                    appState.applyDetectorPreset(preset)
+                                ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
+                                    Button(preset.rawValue) {
+                                        appState.applyDetectorPreset(preset)
+                                    }
                                 }
+                                Text("Drag the detector on the diffraction pane; the real-space image updates live.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Section("Region → diffraction") {
+                                Picker("Shape", selection: $appState.realSpaceShape) {
+                                    ForEach(RegionShape.allCases) { shape in
+                                        Text(shape.rawValue).tag(shape)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+
+                                if appState.realSpaceShape != .point, let d = appState.descriptor {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Radius  \(Int(appState.realSpaceRadius)) px").font(.caption)
+                                        Slider(value: $appState.realSpaceRadius,
+                                               in: 1...Float(max(d.rx, d.ry) / 2))
+                                    }
+                                }
+                                Text(appState.realSpaceShape == .point
+                                     ? "Drag on the real-space image to scrub the diffraction pattern."
+                                     : "Drag the region on the real-space image; the summed pattern updates live.")
+                                    .font(.caption2).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -232,21 +257,39 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
             .toolbar(removing: .sidebarToggle)
         } detail: {
-            Group {
-                if appState.hasDataset {
-                    HSplitView {
-                        DiffractionView()
-                            .frame(minWidth: 260)
-                        StemImageView()
-                            .frame(minWidth: 260)
+            HStack(spacing: 0) {
+                Group {
+                    if appState.hasDataset {
+                        HSplitView {
+                            DiffractionView()
+                                .overlay(paneFocusBorder(active: appState.activePane == .diffraction))
+                                .contentShape(Rectangle())
+                                .onTapGesture { appState.activePane = .diffraction }
+                                .frame(minWidth: 260)
+                            StemImageView()
+                                .overlay(paneFocusBorder(active: appState.activePane == .realSpace))
+                                .contentShape(Rectangle())
+                                .onTapGesture { appState.activePane = .realSpace }
+                                .frame(minWidth: 260)
+                        }
+                    } else {
+                        VStack(spacing: 12) {
+                            Text("mac4DSTEM").font(.title)
+                            Text(appState.statusText).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding()
                     }
-                } else {
-                    VStack(spacing: 12) {
-                        Text("mac4DSTEM").font(.title)
-                        Text(appState.statusText).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Inspector as an explicit, independent panel so it coexists
+                // with the tools sidebar (both can be open at once).
+                if showInspector {
+                    Divider()
+                    DatasetInspector()
+                        .frame(width: 300)
+                        .background(.background)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -256,9 +299,6 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-            }
-            .inspector(isPresented: $showInspector) {
-                DatasetInspector()
             }
             .toolbar {
                 ToolbarItem(placement: .navigation) {
@@ -295,6 +335,12 @@ struct ContentView: View {
         .onChange(of: appState.virtualShape) {
             appState.commitApertureChange()
         }
+        .onChange(of: appState.realSpaceShape) {
+            appState.updateRealSpaceRegion()
+        }
+        .onChange(of: appState.realSpaceRadius) {
+            appState.updateRealSpaceRegion()
+        }
         .fileImporter(
             isPresented: $showImporter,
             allowedContentTypes: h5Types,
@@ -320,6 +366,14 @@ struct ContentView: View {
         } message: {
             Text(appState.errorMessage ?? "")
         }
+    }
+
+    /// Accent border marking the active pane.
+    private func paneFocusBorder(active: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .stroke(active ? Color.accentColor : Color.clear, lineWidth: 2)
+            .padding(1)
+            .allowsHitTesting(false)
     }
 
     /// A labelled slider that scrubs one scan axis. `count` is the axis length;

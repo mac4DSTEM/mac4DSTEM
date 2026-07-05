@@ -102,6 +102,22 @@ enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Which image pane the user is currently operating on. Determines which ROI
+/// tools the left panel shows and where interactions are routed.
+enum ActivePane {
+    case diffraction   // detector ROI → real-space image (virtual imaging)
+    case realSpace     // region ROI → diffraction pattern (virtual diffraction)
+}
+
+/// Real-space region shape for virtual diffraction. A point is plain scrubbing
+/// (one position); a region sums its positions' patterns.
+enum RegionShape: String, CaseIterable, Identifiable {
+    case point     = "Point"
+    case rectangle = "Rectangle"
+    case circle    = "Circle"
+    var id: String { rawValue }
+}
+
 @Observable
 final class AppState {
     private var reader: H5Reader?
@@ -159,6 +175,12 @@ final class AppState {
 
     var aperture = Aperture()
     var virtualShape: VirtualShapeMode = .annulus
+
+    // Active pane + real-space region (virtual diffraction).
+    var activePane: ActivePane = .diffraction
+    var realSpaceShape: RegionShape = .point
+    var realSpaceRadius: Float = 6            // scan px half-extent / radius
+    var virtualDiffractionPattern: DiffractionPattern?
     var dpcDisplay: DPCDisplayMode = .magnitude {
         didSet { applyDPCDisplay() }
     }
@@ -177,7 +199,15 @@ final class AppState {
     var statusText = "No file loaded"
     var errorMessage: String?
 
+    /// Fractional progress [0,1] of the running long operation, or nil when
+    /// idle / indeterminate. Drives the performance panel's progress bar.
+    var progress: Double?
+    /// Short label of what's currently running (for the performance panel).
+    var activeOperation: String?
+
     var displayedPattern: DiffractionPattern? {
+        // A real-space region ROI drives the CBED with the summed pattern.
+        if realSpaceShape != .point, let vd = virtualDiffractionPattern { return vd }
         switch patternDisplayMode {
         case .current: return currentPattern
         case .mean: return meanPattern ?? currentPattern
@@ -291,6 +321,10 @@ final class AppState {
         orientationMap = nil
         hasOrientationPlan = false
         hasOrientationMap = false
+        activePane = .diffraction
+        realSpaceShape = .point
+        virtualDiffractionPattern = nil
+        realSpaceRadius = Float(max(3, min(descriptor.rx, descriptor.ry) / 12))
 
         // Pixel-scaled detection defaults, adapted to this detector
         // (py4DSTEM's absolute defaults assume ~512 px patterns).
@@ -348,10 +382,13 @@ final class AppState {
     @ObservationIgnored private var vdPending = false
     @ObservationIgnored private var patternInFlight = false
     @ObservationIgnored private var patternPending = false
+    @ObservationIgnored private var vdiffInFlight = false
+    @ObservationIgnored private var vdiffPending = false
 
     /// Live aperture edit during a drag: store, then recompute the real-space
     /// image continuously (coalesced, quiet — no status/busy churn).
     func updateAperture(_ newAperture: Aperture) {
+        activePane = .diffraction
         aperture = newAperture
         scheduleLiveVirtualDetector()
     }
@@ -372,13 +409,31 @@ final class AppState {
         Task { await runVirtualDetector() }   // final pass, with status
     }
 
-    /// Live scan-position scrub (drag in the real-space image): update the
-    /// position and stream the diffraction pattern, coalesced.
+    /// Live scan-position scrub (drag in the real-space image). A point ROI
+    /// streams the single pattern; a region ROI streams the summed pattern.
     func scrubTo(x: Int, y: Int) {
         guard let d = descriptor else { return }
+        activePane = .realSpace
         let clamped = ScanPos(x: min(max(0, x), d.rx - 1), y: min(max(0, y), d.ry - 1))
         if clamped != selectedScan { selectedScan = clamped }
-        scheduleLoadPattern()
+        if realSpaceShape == .point {
+            scheduleLoadPattern()
+        } else {
+            scheduleVirtualDiffraction()
+        }
+    }
+
+    /// Re-run whichever real-space product matches the current region shape
+    /// (called when the shape or radius changes).
+    func updateRealSpaceRegion() {
+        activePane = .realSpace
+        if realSpaceShape == .point {
+            virtualDiffractionPattern = nil
+            patternVersion &+= 1
+            scheduleLoadPattern()
+        } else {
+            scheduleVirtualDiffraction()
+        }
     }
 
     private func scheduleLoadPattern() {
@@ -388,6 +443,49 @@ final class AppState {
             await loadCurrentPattern()
             patternInFlight = false
             if patternPending { patternPending = false; scheduleLoadPattern() }
+        }
+    }
+
+    private func scheduleVirtualDiffraction() {
+        if vdiffInFlight { vdiffPending = true; return }
+        vdiffInFlight = true
+        Task {
+            await computeVirtualDiffraction()
+            vdiffInFlight = false
+            if vdiffPending { vdiffPending = false; scheduleVirtualDiffraction() }
+        }
+    }
+
+    /// Sum the patterns over the current real-space region into the CBED pane.
+    private func computeVirtualDiffraction() async {
+        guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
+        let region = realSpaceRegionShape(d)
+        do {
+            let cube = try await fourD.cubeBuffer()
+            let pattern = try await Task.detached(priority: .userInitiated) {
+                try VirtualDetector.diffraction(cube: cube, descriptor: d, region: region)
+            }.value
+            virtualDiffractionPattern = pattern
+            patternVersion &+= 1
+        } catch {
+            // Quiet during live drag.
+        }
+    }
+
+    /// The current real-space region as a scan-space DetectorShape (centered on
+    /// the selected scan position).
+    private func realSpaceRegionShape(_ d: DatasetDescriptor) -> DetectorShape {
+        let r = Int(realSpaceRadius.rounded())
+        switch realSpaceShape {
+        case .point:
+            return .point(x: selectedScan.x, y: selectedScan.y)
+        case .rectangle:
+            return .rectangle(xMin: selectedScan.x - r, xMax: selectedScan.x + r + 1,
+                              yMin: selectedScan.y - r, yMax: selectedScan.y + r + 1)
+        case .circle:
+            return .circle(centerX: Float(selectedScan.x) + 0.5,
+                           centerY: Float(selectedScan.y) + 0.5,
+                           radius: realSpaceRadius + 0.5)
         }
     }
 
@@ -633,8 +731,10 @@ final class AppState {
         guard let kernel = probeKernel else { return }
 
         isBusy = true
+        activeOperation = "Disk detection"
+        progress = 0
         statusText = "Detecting Bragg disks…"
-        defer { isBusy = false }
+        defer { isBusy = false; progress = nil; activeOperation = nil }
 
         let params = diskParams
         let d = descriptor
@@ -643,6 +743,7 @@ final class AppState {
             let vectors = await Task.detached(priority: .userInitiated) { [weak self] () -> BraggVectors? in
                 DiskDetection.detectAll(cube: cube, descriptor: d, kernel: kernel, params: params) { fraction in
                     Task { @MainActor in
+                        self?.progress = fraction
                         self?.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
                     }
                 }
@@ -744,8 +845,10 @@ final class AppState {
         guard let plan = orientationPlan else { return }
 
         isBusy = true
+        activeOperation = "ACOM matching"
+        progress = 0
         statusText = "Matching orientations…"
-        defer { isBusy = false }
+        defer { isBusy = false; progress = nil; activeOperation = nil }
 
         let origin = calibration.meanOrigin
             ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
@@ -755,6 +858,7 @@ final class AppState {
                                          originX: origin.x, originY: origin.y,
                                          invAngstromPerPixel: scale) { fraction in
                 Task { @MainActor in
+                    self?.progress = fraction
                     self?.statusText = "Matching orientations… \(Int(fraction * 100)) %"
                 }
             }

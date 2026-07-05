@@ -75,6 +75,12 @@ struct StemImageView: View {
                 // Crosshair at the current scan position.
                 crosshair(box: box, imgW: dims.width, imgH: dims.height)
 
+                // Region-of-interest for virtual diffraction (sum patterns).
+                if app.realSpaceShape != .point {
+                    regionOverlay(box: box, imgW: dims.width, imgH: dims.height)
+                        .frame(width: box.width, height: box.height)
+                }
+
                 // Direction legend for the DPC color wheel.
                 if app.resultRGBA != nil {
                     colorWheelLegend
@@ -131,11 +137,50 @@ struct StemImageView: View {
     private func crosshair(box: CGSize, imgW: Int, imgH: Int) -> some View {
         let px = (CGFloat(app.selectedScan.x) + 0.5) / CGFloat(imgW) * box.width
         let py = (CGFloat(app.selectedScan.y) + 0.5) / CGFloat(imgH) * box.height
-        Circle()
-            .stroke(Color.white, lineWidth: 1.5)
-            .frame(width: 10, height: 10)
-            .position(x: px, y: py)
-            .allowsHitTesting(false)
+        // Double-stroke marker so it reads on any colormap / brightness.
+        ZStack {
+            Circle().stroke(Color.black.opacity(0.75), lineWidth: 3.5)
+            Circle().stroke(Color.white, lineWidth: 1.5)
+        }
+        .frame(width: 11, height: 11)
+        .position(x: px, y: py)
+        .allowsHitTesting(false)
+    }
+
+    /// Rectangle / circle ROI centered on the selected scan position, with a
+    /// resize handle. Summed patterns from inside it feed the diffraction pane.
+    private func regionOverlay(box: CGSize, imgW: Int, imgH: Int) -> some View {
+        let scaleX = box.width / CGFloat(imgW)
+        let scaleY = box.height / CGFloat(imgH)
+        let radiusScale = (scaleX + scaleY) / 2
+        let center = CGPoint(x: (CGFloat(app.selectedScan.x) + 0.5) * scaleX,
+                             y: (CGFloat(app.selectedScan.y) + 0.5) * scaleY)
+        let r = CGFloat(app.realSpaceRadius) * radiusScale
+        return ZStack {
+            Group {
+                if app.realSpaceShape == .circle {
+                    Circle().stroke(Color.orange, lineWidth: 1.5)
+                } else {
+                    Rectangle().stroke(Color.orange, lineWidth: 1.5)
+                }
+            }
+            .frame(width: r * 2, height: r * 2)
+            .position(center)
+
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 11, height: 11)
+                .position(x: center.x + r, y: app.realSpaceShape == .circle ? center.y : center.y + r)
+                .gesture(
+                    DragGesture(coordinateSpace: .local)
+                        .onChanged { value in
+                            let dx = abs(value.location.x - center.x)
+                            let dy = abs(value.location.y - center.y)
+                            let newR = app.realSpaceShape == .circle ? hypot(dx, dy) : max(dx, dy)
+                            app.realSpaceRadius = max(1, Float((newR / radiusScale).rounded()))
+                        }
+                )
+        }
     }
 
     private var placeholder: some View {

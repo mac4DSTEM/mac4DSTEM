@@ -42,6 +42,20 @@ struct DatasetInspector: View {
                     row("Inner r", String(format: "%.1f", appState.aperture.inner))
                     row("Outer r", String(format: "%.1f", appState.aperture.outer))
                 }
+
+                if let image = appState.resultImage {
+                    Section("Histogram (real space)") {
+                        HistogramView(pixels: image.pixels, version: appState.resultVersion)
+                    }
+                }
+
+                Section("Performance") {
+                    PerformanceView()
+                }
+
+                Section("Files & products") {
+                    ProductsView()
+                }
             } else {
                 Text("No dataset loaded")
                     .foregroundStyle(.secondary)

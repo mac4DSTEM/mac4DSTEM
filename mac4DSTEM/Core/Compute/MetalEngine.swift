@@ -102,6 +102,9 @@ nonisolated final class MetalEngine {
     private(set) lazy var virtualMaskPSO: MTLComputePipelineState? = {
         try? makeCompute("virtualMaskSum")
     }()
+    private(set) lazy var virtualDiffractionPSO: MTLComputePipelineState? = {
+        try? makeCompute("virtualDiffraction")
+    }()
     private(set) lazy var dpStatisticsPSO: MTLComputePipelineState? = {
         try? makeCompute("dpStatistics")
     }()
@@ -187,6 +190,30 @@ nonisolated final class MetalEngine {
         var d = dims
         try run(pso, name: "virtualMaskSum",
                 width: Int(dims.rx), height: Int(dims.ry)) { enc in
+            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(maskBuf, offset: 0, index: 1)
+            enc.setBuffer(out, offset: 0, index: 2)
+            enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
+        }
+        return arrayFromBuffer(out, count: n)
+    }
+
+    // MARK: Dispatch — Virtual (selected-area) diffraction
+
+    /// Sum every scan position selected by `scanMask` into one [Qy*Qx] pattern
+    /// — the reciprocal of virtualImage. `scanMask` is row-major [Ry*Rx].
+    func virtualDiffraction(cube: MTLBuffer, dims: CubeDims, scanMask: [Float]) throws -> [Float] {
+        guard let pso = virtualDiffractionPSO else { throw MetalError.functionMissing("virtualDiffraction") }
+        let n = Int(dims.qy) * Int(dims.qx)
+        precondition(scanMask.count == Int(dims.ry) * Int(dims.rx), "scanMask must be Ry*Rx")
+        let out = try makeOutputBuffer(floats: n, label: "virtualDiffraction")
+        guard let maskBuf = device.makeBuffer(bytes: scanMask,
+                                              length: scanMask.count * MemoryLayout<Float>.stride,
+                                              options: .storageModeShared)
+        else { throw MetalError.dispatchFailed("virtualDiffraction: mask buffer") }
+        var d = dims
+        try run(pso, name: "virtualDiffraction",
+                width: Int(dims.qx), height: Int(dims.qy)) { enc in
             enc.setBuffer(cube, offset: 0, index: 0)
             enc.setBuffer(maskBuf, offset: 0, index: 1)
             enc.setBuffer(out, offset: 0, index: 2)
