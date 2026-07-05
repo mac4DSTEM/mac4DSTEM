@@ -59,6 +59,43 @@ struct ContentView: View {
                         }
                     }
 
+                    Section("Calibration") {
+                        Picker("Origin fit", selection: $appState.originFitFunction) {
+                            ForEach(OriginFitFunction.allCases) { fit in
+                                Text(fit.rawValue).tag(fit)
+                            }
+                        }
+                        Button {
+                            Task { await appState.calibrateOrigin() }
+                        } label: {
+                            Label("Calibrate Origin", systemImage: "scope")
+                        }
+                        .disabled(appState.isBusy)
+                        Button {
+                            Task { await appState.calibrateRotation() }
+                        } label: {
+                            Label("Calibrate Rotation", systemImage: "rotate.3d")
+                        }
+                        .disabled(appState.isBusy)
+
+                        if let radius = appState.calibration.probeRadius {
+                            LabeledContent("Probe radius",
+                                           value: String(format: "%.1f px", radius))
+                                .font(.caption)
+                        }
+                        if let origin = appState.calibration.origin {
+                            LabeledContent("Fit residual",
+                                           value: String(format: "%.3f px RMS", origin.rmsResidual))
+                                .font(.caption)
+                        }
+                        if let rotation = appState.calibration.rotationRad {
+                            let transposed = (appState.calibration.transposeQR ?? false) ? " ⊤" : ""
+                            LabeledContent("R–Q rotation",
+                                           value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed))
+                                .font(.caption)
+                        }
+                    }
+
                     if appState.analysisMode == .virtualDetector {
                         Section("Virtual detector") {
                             Picker("Shape", selection: $appState.virtualShape) {

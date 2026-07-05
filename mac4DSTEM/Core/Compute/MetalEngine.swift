@@ -46,6 +46,25 @@ struct ApertureParams {
     var rOuter: Float    // annulus outer radius (px)
 }
 
+struct CoMParams {
+    var ry: UInt32
+    var rx: UInt32
+    var qy: UInt32
+    var qx: UInt32
+    var cx: Float        // global reference center (used when useOrigins == 0)
+    var cy: Float
+    var useOrigins: UInt32
+}
+
+struct OriginParams {
+    var ry: UInt32
+    var rx: UInt32
+    var qy: UInt32
+    var qx: UInt32
+    var r: Float         // probe radius estimate (px)
+    var rscale: Float    // CoM window = r * rscale
+}
+
 enum MetalError: LocalizedError {
     case noDevice
     case noLibrary
@@ -83,6 +102,19 @@ nonisolated final class MetalEngine {
     private(set) lazy var virtualMaskPSO: MTLComputePipelineState? = {
         try? makeCompute("virtualMaskSum")
     }()
+    private(set) lazy var dpStatisticsPSO: MTLComputePipelineState? = {
+        try? makeCompute("dpStatistics")
+    }()
+    private(set) lazy var measureOriginPSO: MTLComputePipelineState? = {
+        try? makeCompute("measureOrigin")
+    }()
+    private(set) lazy var centerOfMassPSO: MTLComputePipelineState? = {
+        try? makeCompute("centerOfMass")
+    }()
+
+    /// Bound in place of optional buffers a kernel will not read
+    /// (Metal validation requires every referenced slot to have a binding).
+    private let placeholderBuffer: MTLBuffer
 
     private init() {
         guard let dev = MTLCreateSystemDefaultDevice() else {
@@ -98,6 +130,7 @@ nonisolated final class MetalEngine {
         self.device = dev
         self.queue = q
         self.library = lib
+        self.placeholderBuffer = dev.makeBuffer(length: 16, options: .storageModePrivate)!
 
         // Display render pipelines (fullscreen triangle; LUT and RGBA fragments).
         func display(fragment: String) -> MTLRenderPipelineState {
@@ -160,6 +193,79 @@ nonisolated final class MetalEngine {
             enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
         }
         return arrayFromBuffer(out, count: n)
+    }
+
+    // MARK: Dispatch — Diffraction statistics (max / mean pattern)
+
+    /// Max and mean over all scan positions, per detector pixel.
+    /// Both are [Qy*Qx] row-major (py4DSTEM: get_dp_max / get_dp_mean).
+    func dpStatistics(cube: MTLBuffer, dims: CubeDims) throws -> (maxDP: [Float], meanDP: [Float]) {
+        guard let pso = dpStatisticsPSO else { throw MetalError.functionMissing("dpStatistics") }
+        let n = Int(dims.qy) * Int(dims.qx)
+        let outMax = try makeOutputBuffer(floats: n, label: "dpStatistics.max")
+        let outMean = try makeOutputBuffer(floats: n, label: "dpStatistics.mean")
+        var d = dims
+        try run(pso, name: "dpStatistics",
+                width: Int(dims.qx), height: Int(dims.qy)) { enc in
+            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(outMax, offset: 0, index: 1)
+            enc.setBuffer(outMean, offset: 0, index: 2)
+            enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
+        }
+        return (arrayFromBuffer(outMax, count: n), arrayFromBuffer(outMean, count: n))
+    }
+
+    // MARK: Dispatch — Origin measurement (calibration)
+
+    /// Measure the (000)-beam position of every pattern: coarse brightest-blob
+    /// search at the probe-radius scale, then windowed CoM refinement
+    /// (py4DSTEM get_origin). Returns interleaved [x0, y0] per scan position.
+    func measureOrigins(cube: MTLBuffer, params: OriginParams) throws -> [Float] {
+        guard let pso = measureOriginPSO else { throw MetalError.functionMissing("measureOrigin") }
+        let n = Int(params.ry) * Int(params.rx)
+        let out = try makeOutputBuffer(floats: n * 2, label: "measureOrigin")
+        var p = params
+        try run(pso, name: "measureOrigin",
+                width: Int(params.rx), height: Int(params.ry)) { enc in
+            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(out, offset: 0, index: 1)
+            enc.setBytes(&p, length: MemoryLayout<OriginParams>.stride, index: 2)
+        }
+        return arrayFromBuffer(out, count: n * 2)
+    }
+
+    // MARK: Dispatch — Center of Mass (DPC / rotation calibration)
+
+    /// CoM shift (Qx, Qy) per scan position, relative to per-position
+    /// `origins` (interleaved [x,y]) when given, else the global (cx, cy).
+    /// Returns interleaved [comx0, comy0, ...] of length 2*Ry*Rx.
+    func centerOfMass(cube: MTLBuffer, params: CoMParams, origins: [Float]? = nil) throws -> [Float] {
+        guard let pso = centerOfMassPSO else { throw MetalError.functionMissing("centerOfMass") }
+        let n = Int(params.ry) * Int(params.rx)
+        let out = try makeOutputBuffer(floats: n * 2, label: "centerOfMass")
+
+        var p = params
+        var originsBuf = placeholderBuffer
+        if let origins {
+            precondition(origins.count == n * 2, "origins must be 2*Ry*Rx interleaved")
+            guard let b = device.makeBuffer(bytes: origins,
+                                            length: origins.count * MemoryLayout<Float>.stride,
+                                            options: .storageModeShared)
+            else { throw MetalError.dispatchFailed("centerOfMass: origins buffer") }
+            originsBuf = b
+            p.useOrigins = 1
+        } else {
+            p.useOrigins = 0
+        }
+
+        try run(pso, name: "centerOfMass",
+                width: Int(params.rx), height: Int(params.ry)) { enc in
+            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(out, offset: 0, index: 1)
+            enc.setBytes(&p, length: MemoryLayout<CoMParams>.stride, index: 2)
+            enc.setBuffer(originsBuf, offset: 0, index: 3)
+        }
+        return arrayFromBuffer(out, count: n * 2)
     }
 
     // MARK: Helpers

@@ -93,6 +93,7 @@ final class AppState {
     }
 
     var calibration = Calibration()
+    var originFitFunction: OriginFitFunction = .plane
     var patternVersion = 0
     var resultVersion = 0
 
@@ -212,6 +213,8 @@ final class AppState {
             outer: Float(min(descriptor.qx, descriptor.qy)) / 4
         )
         acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage")
+        calibration = Calibration()
+        patternDisplayMode = .current
         meanPattern = nil
         maxPattern = nil
         resultImage = nil
@@ -309,5 +312,97 @@ final class AppState {
         } catch {
             present(error)
         }
+    }
+
+    // MARK: - Calibration
+
+    /// Origin calibration (py4DSTEM get_origin + fit_origin): max pattern →
+    /// probe size → per-pattern beam position → smooth fit. Also fills the
+    /// mean/max pattern display modes as a side effect.
+    func calibrateOrigin() async {
+        guard let fourD, let descriptor else { return }
+        isBusy = true
+        statusText = "Calibrating origin…"
+        defer { isBusy = false }
+
+        let fitFn = originFitFunction
+        let d = descriptor
+        do {
+            let cube = try await fourD.cubeBuffer()
+            let result = try await Task.detached(priority: .userInitiated) {
+                try OriginCalibration.run(cube: cube, descriptor: d, fitFunction: fitFn)
+            }.value
+
+            calibration.probeRadius = result.probeRadius
+            calibration.origin = result.origin
+            meanPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.meanDP)
+            maxPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.maxDP)
+            patternVersion &+= 1
+
+            // Recenter the aperture on the measured beam.
+            if let origin = calibration.meanOrigin {
+                aperture.centerX = origin.x
+                aperture.centerY = origin.y
+            }
+            let rms = result.origin.rmsResidual
+            statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",
+                                result.probeRadius, rms, fitFn.rawValue)
+
+            await runCurrentAnalysis()
+        } catch {
+            present(error)
+        }
+    }
+
+    /// R–Q rotation calibration: find the rotation (and detector transpose)
+    /// that makes the CoM field curl-free. Runs origin calibration first if
+    /// needed — the solver wants the descan-corrected field.
+    func calibrateRotation(maximizeDivergence: Bool = false) async {
+        guard let descriptor else { return }
+
+        if !calibration.hasFittedOrigin {
+            await calibrateOrigin()
+            guard calibration.hasFittedOrigin else { return }
+        }
+
+        isBusy = true
+        statusText = "Calibrating R–Q rotation…"
+        defer { isBusy = false }
+
+        let d = descriptor
+        do {
+            guard let com = try await computeCoMField() else { return }
+            let result = await Task.detached(priority: .userInitiated) {
+                RotationCalibration.solve(com: com, width: d.rx, height: d.ry,
+                                          maximizeDivergence: maximizeDivergence)
+            }.value
+            guard let result else {
+                present(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
+                return
+            }
+            calibration.rotationRad = result.rotationRad
+            calibration.transposeQR = result.transpose
+            statusText = String(format: "Rotation ✓  θ = %.1f°%@",
+                                result.rotationRad * 180 / .pi,
+                                result.transpose ? ", detector transposed" : "")
+        } catch {
+            present(error)
+        }
+    }
+
+    /// Measure the CoM shift field on the GPU, against calibrated origins when
+    /// available. Shared by rotation calibration and (later) DPC.
+    private func computeCoMField() async throws -> [Float]? {
+        guard let fourD, let descriptor else { return nil }
+        let origins = calibration.origin?.interleavedFitted
+        let center = calibration.meanOrigin ?? (x: aperture.centerX, y: aperture.centerY)
+        let d = descriptor
+        let cube = try await fourD.cubeBuffer()
+        let params = CoMParams(ry: UInt32(d.ry), rx: UInt32(d.rx),
+                               qy: UInt32(d.qy), qx: UInt32(d.qx),
+                               cx: center.x, cy: center.y, useOrigins: 0)
+        return try await Task.detached(priority: .userInitiated) {
+            try MetalEngine.shared.centerOfMass(cube: cube, params: params, origins: origins)
+        }.value
     }
 }
