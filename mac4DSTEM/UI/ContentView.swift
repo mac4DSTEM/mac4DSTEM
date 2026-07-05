@@ -12,6 +12,8 @@ struct ContentView: View {
             UTType(filenameExtension: "h5"),
             UTType(filenameExtension: "hdf5"),
             UTType(filenameExtension: "emd"),
+            UTType(filenameExtension: "dm4"),
+            UTType(filenameExtension: "dm3"),
             .data
         ].compactMap { $0 }
     }

@@ -18,7 +18,7 @@ enum FourDError: LocalizedError {
 }
 
 actor FourDArray {
-    private let reader: H5Reader
+    private let reader: any FourDDataSource
     let descriptor: DatasetDescriptor
 
     private var cache: [Int: DiffractionPattern] = [:]
@@ -28,7 +28,7 @@ actor FourDArray {
     // Whole-cube GPU buffer, built once on first analysis and reused.
     private var cube: MTLBuffer?
 
-    init(reader: H5Reader, descriptor: DatasetDescriptor) {
+    init(reader: any FourDDataSource, descriptor: DatasetDescriptor) {
         self.reader = reader
         self.descriptor = descriptor
     }

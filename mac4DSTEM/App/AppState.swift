@@ -120,7 +120,7 @@ enum RegionShape: String, CaseIterable, Identifiable {
 
 @Observable
 final class AppState {
-    private var reader: H5Reader?
+    private var reader: (any FourDDataSource)?
     private var fourD: FourDArray?
     private var openURL: URL?
 
@@ -244,11 +244,15 @@ final class AppState {
             defer { isBusy = false }
 
             do {
-                let descriptor = try await reader.describe(path: datasetPath)
+                guard let h5 = reader as? H5Reader else {
+                    present(SimpleError("Manual dataset paths are only supported for HDF5 files."))
+                    return
+                }
+                let descriptor = try await h5.describe(path: datasetPath)
                 if !datasets.contains(where: { $0.datasetPath == descriptor.datasetPath }) {
                     datasets.append(descriptor)
                 }
-                await activate(descriptor: descriptor, reader: reader)
+                await activate(descriptor: descriptor, reader: h5)
             } catch {
                 present(error)
             }
@@ -279,7 +283,10 @@ final class AppState {
         openURL = accessed ? url : nil
 
         do {
-            let reader = try H5Reader(path: url.path)
+            let ext = url.pathExtension.lowercased()
+            let reader: any FourDDataSource = (ext == "dm4" || ext == "dm3")
+                ? try DM4Reader(path: url.path)
+                : try H5Reader(path: url.path)
             let descriptor = try await reader.discoverPrimaryDataset()
             self.reader = reader
             datasets = [descriptor]
@@ -289,7 +296,7 @@ final class AppState {
         }
     }
 
-    private func activate(descriptor: DatasetDescriptor, reader: H5Reader) async {
+    private func activate(descriptor: DatasetDescriptor, reader: any FourDDataSource) async {
         guard descriptor.is4D else {
             present(H5Error.unsupportedRank(descriptor.shape.count))
             return
@@ -304,7 +311,7 @@ final class AppState {
             inner: 0,
             outer: Float(min(descriptor.qx, descriptor.qy)) / 4
         )
-        acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage")
+        acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage", onObjectPath: "/")
         calibration = Calibration()
         patternDisplayMode = .current
         meanPattern = nil

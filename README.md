@@ -147,7 +147,8 @@ Still open:
 - **Preprocessing / import** — no `.dm4` (or other raw TEM formats) support yet. A future import pipeline reads a raw `.dm4` from the microscope and writes a working `.h5`, with an **automatic calibration** step (origin, rotation, pixel sizes) and a **manual** override path when wanted — mirroring py4DSTEM's calibrate-and-export flow (kept separate from the main analysis UI). The DM4 binary format is fully specced and verified in [`docs/dm4-format.md`](docs/dm4-format.md), ready to implement.
 - **Results persistence + file tree** — save calibration, Bragg vectors, and result maps/plots into a companion sidecar `.h5` next to the original (never modifying the source), with load-on-reopen. The inspector's **bottom-right file tree** shows where things are stored (virtual images, disk detection, calibrations) so it's clear what's already been computed.
 - **Performance panel** (inspector, above the file tree) — live view of active processes, memory occupied, iterations/second, and a progress bar highlighting the running operation.
-- **Per-view histogram** with draggable contrast (min/max/gamma) for the real-space image, styled, in the inspector panel.
+- **Per-view histogram** with draggable contrast (min/max/gamma) for the real-space image, styled, in the inspector panel. The histogram exists; still to add is a **range slider on it that clips which intensities map into the image** (and it must interoperate cleanly with the log-count toggle).
+- **DP mean / max** views regressed out of easy reach — they should live in the tools panel when the diffraction (CBED) pane is the active (blue) pane, alongside the detector controls.
 - **macOS menu bar** — File / Edit / View / Window menus are still defaults; to be populated with commands + shortcuts.
 
 ---

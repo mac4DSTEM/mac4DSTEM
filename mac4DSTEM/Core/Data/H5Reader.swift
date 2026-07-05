@@ -187,7 +187,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     }
 }
 
-actor H5Reader {
+actor H5Reader: FourDDataSource {
     private let hdf5: HDF5Library
     private let fileID: hid_t
     let filePath: String
