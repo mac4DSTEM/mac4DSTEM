@@ -97,9 +97,23 @@ final class AppState {
     var patternVersion = 0
     var resultVersion = 0
 
+    // DPC: cached CoM shift field so display-mode switches don't re-run the GPU.
+    @ObservationIgnored private var comField: [Float]?
+
+    // Disk detection state.
+    var probeKernel: ProbeKernel?
+    var currentPeaks: [BraggPeak] = []
+    var braggPeakCount: Int?
+    private(set) var braggVectors: BraggVectors?
+    var diskParams = DiskDetectionParams() {
+        didSet { Task { await detectCurrentPattern() } }   // live overlay tracks params
+    }
+
     var aperture = Aperture()
     var virtualShape: VirtualShapeMode = .annulus
-    var dpcDisplay: DPCDisplayMode = .magnitude
+    var dpcDisplay: DPCDisplayMode = .magnitude {
+        didSet { applyDPCDisplay() }
+    }
     var colormap: ColormapKind = .viridis {
         didSet {
             patternVersion &+= 1
@@ -219,6 +233,19 @@ final class AppState {
         maxPattern = nil
         resultImage = nil
         resultRGBA = nil
+        comField = nil
+        probeKernel = nil
+        braggVectors = nil
+        braggPeakCount = nil
+        currentPeaks = []
+
+        // Pixel-scaled detection defaults, adapted to this detector
+        // (py4DSTEM's absolute defaults assume ~512 px patterns).
+        let qMin = Float(min(descriptor.qx, descriptor.qy))
+        var dp = DiskDetectionParams()
+        dp.minPeakSpacing = max(4, (qMin / 8).rounded())
+        dp.edgeBoundary = max(2, Int(qMin / 24))
+        diskParams = dp
 
         await loadCurrentPattern()
         statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
@@ -232,6 +259,7 @@ final class AppState {
             currentPattern = try await fourD.pattern(ry: selectedScan.y, rx: selectedScan.x)
             patternVersion &+= 1
             statusText = "Pattern x \(selectedScan.x), y \(selectedScan.y) from \(descriptor.fileName)"
+            await detectCurrentPattern()
         } catch {
             present(error)
         }
@@ -244,6 +272,12 @@ final class AppState {
     func runCurrentAnalysis() async {
         switch analysisMode {
         case .virtualDetector: await runVirtualDetector()
+        case .dpc:             await runDPC()
+        case .disks:
+            // Live overlay on the current pattern; the full-scan pass is
+            // explicit (Detect All Disks) because it's expensive.
+            await detectCurrentPattern()
+            if let bv = braggVectors, let d = descriptor { showBraggMap(bv, descriptor: d) }
         default: break
         }
     }
@@ -404,5 +438,133 @@ final class AppState {
         return try await Task.detached(priority: .userInitiated) {
             try MetalEngine.shared.centerOfMass(cube: cube, params: params, origins: origins)
         }.value
+    }
+
+    // MARK: - DPC
+
+    /// Measure the CoM field (against calibrated origins) and cache it, then
+    /// render the selected DPC view. The field is cached so switching between
+    /// magnitude / angle / color-wheel / iDPC is instant (no GPU re-run).
+    func runDPC() async {
+        guard descriptor != nil else { return }
+        isBusy = true
+        statusText = "Computing DPC (center of mass)…"
+        defer { isBusy = false }
+
+        do {
+            comField = try await computeCoMField()
+            applyDPCDisplay()
+            let ref = calibration.hasFittedOrigin ? "calibrated origins" : "global center"
+            statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
+        } catch {
+            present(error)
+        }
+    }
+
+    /// Derive the displayed image from the cached CoM field per `dpcDisplay`.
+    /// The calibrated R–Q rotation/transpose is applied first so the field is
+    /// in the scan frame. Cheap enough (scan-sized) to run on the main actor.
+    private func applyDPCDisplay() {
+        guard var com = comField, let d = descriptor, analysisMode == .dpc else { return }
+        if let rotation = calibration.rotationRad {
+            com = DPC.applyRotation(com: com, rotationRad: rotation,
+                                    transpose: calibration.transposeQR ?? false)
+        }
+        switch dpcDisplay {
+        case .magnitude:
+            resultImage = DPC.magnitudeImage(com: com, width: d.rx, height: d.ry)
+            resultRGBA = nil
+        case .angle:
+            resultImage = DPC.angleImage(com: com, width: d.rx, height: d.ry)
+            resultRGBA = nil
+        case .colorWheel:
+            resultRGBA = DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry)
+            resultImage = nil
+        case .idpc:
+            resultImage = DPC.integrateIDPC(com: com, width: d.rx, height: d.ry)
+            resultRGBA = nil
+        }
+        resultVersion &+= 1
+    }
+
+    // MARK: - Disk detection
+
+    /// Build the synthetic probe kernel from the calibrated probe radius,
+    /// running origin calibration first if needed.
+    func generateProbeKernel() async {
+        guard let descriptor else { return }
+        if calibration.probeRadius == nil {
+            await calibrateOrigin()
+            guard calibration.probeRadius != nil else { return }
+        }
+        guard let radius = calibration.probeRadius else { return }
+
+        guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
+            present(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
+            return
+        }
+        probeKernel = kernel
+        statusText = String(format: "Probe kernel ✓  r = %.1f px, trench %.0f–%.0f px",
+                            radius, kernel.trenchRadii.inner, kernel.trenchRadii.outer)
+        await detectCurrentPattern()
+    }
+
+    /// Live overlay: detect disks in the currently displayed pattern only.
+    func detectCurrentPattern() async {
+        guard analysisMode == .disks, let kernel = probeKernel,
+              let pattern = currentPattern else {
+            if !currentPeaks.isEmpty { currentPeaks = [] }
+            return
+        }
+        let params = diskParams
+        let peaks = await Task.detached(priority: .userInitiated) { () -> [BraggPeak] in
+            guard let detector = DiskDetector(kernel: kernel) else { return [] }
+            return detector.detect(pattern: pattern.pixels, params: params)
+        }.value
+        currentPeaks = peaks
+    }
+
+    /// Full-scan detection → BraggVectors + Bragg vector map.
+    func runDiskDetection() async {
+        guard let fourD, let descriptor else { return }
+        if probeKernel == nil { await generateProbeKernel() }
+        guard let kernel = probeKernel else { return }
+
+        isBusy = true
+        statusText = "Detecting Bragg disks…"
+        defer { isBusy = false }
+
+        let params = diskParams
+        let d = descriptor
+        do {
+            let cube = try await fourD.cubeBuffer()
+            let vectors = await Task.detached(priority: .userInitiated) { [weak self] () -> BraggVectors? in
+                DiskDetection.detectAll(cube: cube, descriptor: d, kernel: kernel, params: params) { fraction in
+                    Task { @MainActor in
+                        self?.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
+                    }
+                }
+            }.value
+            guard let vectors else {
+                present(SimpleError("Disk detection failed to initialize its FFT plan."))
+                return
+            }
+            braggVectors = vectors
+            braggPeakCount = vectors.totalPeakCount
+            showBraggMap(vectors, descriptor: d)
+            statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
+        } catch {
+            present(error)
+        }
+    }
+
+    /// Show the Bragg vector map (log-scaled — the central beam dominates the
+    /// raw histogram) in the result pane.
+    private func showBraggMap(_ vectors: BraggVectors, descriptor d: DatasetDescriptor) {
+        let bvm = vectors.map(qy: d.qy, qx: d.qx)
+        resultImage = FloatImage(width: bvm.width, height: bvm.height,
+                                 pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
+        resultRGBA = nil
+        resultVersion &+= 1
     }
 }

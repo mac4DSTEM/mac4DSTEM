@@ -29,6 +29,12 @@ The app is being built by **migrating features in small, buildable slices** from
 - **R–Q rotation calibration**: solves for the scan↔detector rotation (and detector transpose) by minimizing the curl of the center-of-mass field. Runs origin calibration first if needed.
 - **Diffraction statistics**: max and mean patterns over the whole cube, selectable as CBED display modes.
 
+**DPC / iDPC (Slice 4)**
+- Center-of-mass differential phase contrast with four views off one cached CoM field: **magnitude**, **angle**, an **HSV color wheel** (hue = deflection direction, brightness = magnitude, with an on-image legend), and **iDPC** via Fourier integration of the vector field. The calibrated R–Q rotation is applied so the field is in the scan frame.
+
+**Bragg disk detection (Slice 5)**
+- Synthetic probe-kernel generation (logistic disk minus a sine² sigmoid trench, zero-sum), hybrid cross-correlation (`corrPower`), maxima finding with the intensity/spacing/edge/count filter cascade, and sub-pixel refinement (parabolic or DFT-upsampled `multicorr`). Live per-pattern overlay while scrubbing, plus a full-scan pass (parallelized over scan rows) producing a Bragg vector map.
+
 ### Project structure
 
 ```text
@@ -96,10 +102,12 @@ Migration slices, in order:
 1. ✅ **Metal display** — file I/O, CBED rendering, scan scrubbing.
 2. ✅ **Virtual detector** — BF/ADF/HAADF, draggable aperture, real-space pane.
 3. ✅ **Calibration** — origin + R–Q rotation, DP max/mean.
-4. ⬜ **DPC / iDPC** — center-of-mass magnitude/angle, HSV color-wheel vector display, Fourier iDPC integration (the CoM kernel and `FFT2D` land here; the RGBA display path is added for the color wheel).
-5. ⬜ **Disk detection** — synthetic probe kernel, hybrid cross-correlation, sub-pixel Bragg-disk detection (parabolic + `multicorr`), Bragg vector maps.
+4. ✅ **DPC / iDPC** — center-of-mass magnitude/angle, HSV color-wheel vector display, Fourier iDPC integration.
+5. ✅ **Disk detection** — synthetic probe kernel, hybrid cross-correlation, sub-pixel Bragg-disk detection (parabolic + `multicorr`), Bragg vector maps.
 
-Beyond the slices: strain mapping and lattice fitting, ACOM (polar route), parallax / ptychography (where **MLX** is introduced for GPU-batched FFT and iterative solvers), broader file-format readers (DM4/MIB/EMPAD), EMD-compatible export, and the distribution milestone (HDF5 bundling + sandbox + notarization).
+**The five migration slices are complete** — the py4DSTEM core-analysis path (I/O → virtual imaging → calibration → DPC → disk detection) is in place.
+
+Next: strain mapping and lattice fitting, ACOM (polar route), parallax / ptychography (where **MLX** is introduced for GPU-batched FFT and iterative solvers), broader file-format readers (DM4/MIB/EMPAD), EMD-compatible export, and the distribution milestone (HDF5 bundling + sandbox + notarization).
 
 ---
 

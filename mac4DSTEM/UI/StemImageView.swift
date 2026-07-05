@@ -74,12 +74,39 @@ struct StemImageView: View {
 
                 // Crosshair at the current scan position.
                 crosshair(box: box, imgW: dims.width, imgH: dims.height)
+
+                // Direction legend for the DPC color wheel.
+                if app.resultRGBA != nil {
+                    colorWheelLegend
+                        .frame(width: 54, height: 54)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .bottomTrailing)
+                }
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             placeholder
         }
+    }
+
+    /// Hue wheel matching DPC.colorWheelRGBA (hue = atan2(cy,cx)/2π + 0.5),
+    /// brightness growing with magnitude → dark center.
+    private var colorWheelLegend: some View {
+        let stops = (0...12).map { i in
+            Gradient.Stop(color: Color(hue: (0.5 + Double(i) / 12)
+                                            .truncatingRemainder(dividingBy: 1),
+                                       saturation: 1, brightness: 1),
+                          location: Double(i) / 12)
+        }
+        return ZStack {
+            Circle().fill(AngularGradient(gradient: Gradient(stops: stops), center: .center))
+            Circle().fill(RadialGradient(colors: [.black, .clear],
+                                         center: .center, startRadius: 0, endRadius: 27))
+            Circle().stroke(Color.white.opacity(0.4), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
     }
 
     private func selectionLayer(box: CGSize, imgW: Int, imgH: Int) -> some View {

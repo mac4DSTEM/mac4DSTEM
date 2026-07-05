@@ -112,6 +112,63 @@ struct ContentView: View {
                             }
                         }
                     }
+
+                    if appState.analysisMode == .dpc {
+                        Section("DPC") {
+                            Picker("Display", selection: $appState.dpcDisplay) {
+                                ForEach(DPCDisplayMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            if !appState.calibration.hasFittedOrigin {
+                                Text("Tip: calibrate the origin first — DPC shifts are measured against the fitted beam position.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            } else if !appState.calibration.hasRotation {
+                                Text("Tip: calibrate the rotation for meaningful iDPC and vector direction.")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if appState.analysisMode == .disks {
+                        Section("Disk detection") {
+                            Button {
+                                Task { await appState.generateProbeKernel() }
+                            } label: {
+                                Label("Generate Probe Kernel", systemImage: "circle.circle")
+                            }
+                            .disabled(appState.isBusy)
+                            if let kernel = appState.probeKernel {
+                                LabeledContent("Kernel radius",
+                                               value: String(format: "%.1f px", kernel.probeRadius))
+                                    .font(.caption)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(format: "Correlation power  %.2f", appState.diskParams.corrPower))
+                                    .font(.caption)
+                                Slider(value: $appState.diskParams.corrPower, in: 0...1)
+                            }
+                            Picker("Subpixel", selection: $appState.diskParams.subpixel) {
+                                ForEach(SubpixelMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            Stepper(value: $appState.diskParams.maxNumPeaks, in: 1...500) {
+                                Text("Max peaks  \(appState.diskParams.maxNumPeaks)").font(.caption)
+                            }
+
+                            Button {
+                                Task { await appState.runDiskDetection() }
+                            } label: {
+                                Label("Detect All Disks", systemImage: "rays")
+                            }
+                            .disabled(appState.isBusy)
+                            if let count = appState.braggPeakCount {
+                                LabeledContent("Peaks found", value: "\(count)").font(.caption)
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("mac4DSTEM")

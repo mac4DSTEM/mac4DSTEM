@@ -78,11 +78,31 @@ struct DiffractionView: View {
                         onCommit: { app.commitApertureChange() }
                     )
                 }
+
+                // Detected Bragg disks for the current pattern (Disks mode).
+                if app.analysisMode == .disks, !app.currentPeaks.isEmpty {
+                    peakOverlay(box: box, qx: qx, qy: qy)
+                        .allowsHitTesting(false)
+                }
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             placeholder
+        }
+    }
+
+    /// Circles at the detected disk positions, sized to the probe radius.
+    private func peakOverlay(box: CGSize, qx: Int, qy: Int) -> some View {
+        let r = CGFloat(app.probeKernel?.probeRadius ?? 3) / CGFloat(qx) * box.width
+        return ZStack {
+            ForEach(Array(app.currentPeaks.enumerated()), id: \.offset) { _, p in
+                Circle()
+                    .stroke(Color.green, lineWidth: 1.2)
+                    .frame(width: 2 * r, height: 2 * r)
+                    .position(x: (CGFloat(p.x) + 0.5) / CGFloat(qx) * box.width,
+                              y: (CGFloat(p.y) + 0.5) / CGFloat(qy) * box.height)
+            }
         }
     }
 
