@@ -73,6 +73,7 @@ struct DiffractionView: View {
                 if app.analysisMode == .virtualDetector {
                     ApertureControl(
                         aperture: app.aperture,
+                        shape: app.virtualShape,
                         patternWidth: qx, patternHeight: qy,
                         onEdited: { app.updateAperture($0) },
                         onCommit: { app.commitApertureChange() }

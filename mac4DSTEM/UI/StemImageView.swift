@@ -110,17 +110,19 @@ struct StemImageView: View {
     }
 
     private func selectionLayer(box: CGSize, imgW: Int, imgH: Int) -> some View {
+        // Drag (or click) to move the scan position live — the diffraction pane
+        // streams the pattern as you go. minimumDistance 0 → a click also works.
         Rectangle()
             .fill(Color.clear)
             .contentShape(Rectangle())
             .gesture(
-                SpatialTapGesture(coordinateSpace: .local)
-                    .onEnded { value in
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onChanged { value in
                         let fx = value.location.x / box.width
                         let fy = value.location.y / box.height
                         let x = Int((fx * CGFloat(imgW)).rounded(.down))
                         let y = Int((fy * CGFloat(imgH)).rounded(.down))
-                        app.selectScan(x: x, y: y)
+                        app.scrubTo(x: x, y: y)
                     }
             )
     }

@@ -38,6 +38,11 @@ The app is being built by **migrating features in small, buildable slices** from
 **Strain mapping**
 - Strain from the detected Bragg vectors (py4DSTEM `process/strain`): auto-picks two reference lattice vectors, indexes each pattern's peaks to integer (h, k), fits the local lattice by intensity-weighted least squares, and computes the infinitesimal strain tensor (**εxx, εyy, εxy**) and **rotation θ** relative to the scan-mean lattice. Displayed per component on a diverging colormap. (User-selected reference region and manual g1/g2 refinement are planned.)
 
+**ACOM — crystal orientation mapping**
+- A `Crystal` model (lattice/metric + kinematic structure factors, Lobato scattering factors) with FCC/BCC/diamond presets and named materials, verified against known selection rules.
+- Orientation matching via a simplified **polar-correlation** route (the same principle as py4DSTEM's `crystal_ACOM`, without the spherical-harmonic machinery): sample zone axes, project each crystal's excited reflections to a polar (radial × azimuthal) template, and match each pattern's Bragg peaks against the library — recovering the zone axis and in-plane angle in one shot via azimuthal FFT correlation, with an EBSD-style reliability. Result maps: reliability, in-plane angle, score.
+- *Limitations (v1):* needs a Q-pixel-size scale to map detector pixels → Å⁻¹ (exposed as a slider; qualitative without it); high-symmetry zone axes are ambiguous (no fundamental-zone sampling yet — flagged by low reliability); no IPF orientation coloring yet.
+
 ### Project structure
 
 ```text
@@ -112,7 +117,7 @@ Migration slices, in order:
 
 Still ahead (each its own focused effort):
 
-- **ACOM** — automated crystal-orientation mapping. A larger subsystem: a crystal-structure model, kinematic/Bloch structure factors, an orientation-plan (template library), and polar-space correlation. The `OrientationResult` type and `TemplateMatch.metal` are early building blocks; the intended route is polar correlation rather than brute-force template NCC.
+- **ACOM refinements** — fundamental-zone (symmetry-reduced) zone-axis sampling to resolve high-symmetry ambiguity, IPF-colored orientation maps, automatic Q-calibration, and measured-probe templates. (The core crystal model + orientation matching is in place.)
 - **Parallax / ptychography** — iterative phase reconstruction, where **MLX** is introduced for GPU-batched FFTs and solvers. Multi-session.
 - **Broader readers** (DM4/MIB/EMPAD), EMD-compatible export.
 - **Distribution milestone** — HDF5 bundling + App Sandbox + notarization.

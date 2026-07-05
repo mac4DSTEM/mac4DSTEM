@@ -15,9 +15,11 @@ struct EulerAngles: Equatable, Hashable {
 }
 
 struct OrientationResult: Equatable {
-    /// Index into the template library for the best match.
+    /// Index into the template library (zone axis) for the best match.
     var templateIndex: Int
     var euler: EulerAngles
+    /// Best in-plane rotation angle (radians), from azimuthal correlation.
+    var inPlaneAngle: Float = 0
     /// Best normalized cross-correlation score.
     var score: Float
     /// Second-best score, used for reliability.
@@ -34,6 +36,7 @@ struct OrientationResult: Equatable {
     static let empty = OrientationResult(
         templateIndex: -1,
         euler: .zero,
+        inPlaneAngle: 0,
         score: 0,
         secondScore: 0,
         phaseID: -1
@@ -62,5 +65,13 @@ struct OrientationMap {
 
     var scoreImage: FloatImage {
         FloatImage(width: width, height: height, pixels: results.map { $0.score })
+    }
+
+    /// In-plane rotation angle at each position, in [0, 1) (radians / 2π) —
+    /// suitable for a cyclic colormap.
+    var inPlaneAngleImage: FloatImage {
+        let twoPi = Float(2 * Double.pi)
+        return FloatImage(width: width, height: height,
+                          pixels: results.map { $0.inPlaneAngle / twoPi })
     }
 }

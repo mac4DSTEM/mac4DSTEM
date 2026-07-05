@@ -67,8 +67,39 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var isAvailable: Bool {
-        self == .virtualDetector || self == .dpc || self == .disks || self == .strain
+        self == .virtualDetector || self == .dpc || self == .disks
+            || self == .strain || self == .acom
     }
+}
+
+/// Crystal presets offered for ACOM template generation.
+enum CrystalChoice: String, CaseIterable, Identifiable {
+    case gold      = "Gold (FCC)"
+    case aluminum  = "Aluminium (FCC)"
+    case nickel    = "Nickel (FCC)"
+    case copper    = "Copper (FCC)"
+    case iron      = "Iron (BCC)"
+    case silicon   = "Silicon (diamond)"
+    var id: String { rawValue }
+
+    var crystal: Crystal {
+        switch self {
+        case .gold:     return .gold
+        case .aluminum: return .aluminum
+        case .nickel:   return .nickel
+        case .copper:   return .copper
+        case .iron:     return .iron
+        case .silicon:  return .silicon
+        }
+    }
+}
+
+/// Which ACOM result map to display.
+enum ACOMDisplayMode: String, CaseIterable, Identifiable {
+    case reliability = "Reliability"
+    case inPlane     = "In-plane angle"
+    case score       = "Score"
+    var id: String { rawValue }
 }
 
 @Observable
@@ -113,6 +144,17 @@ final class AppState {
     private(set) var strainMap: StrainMap?
     var strainComponent: StrainComponent = .exx {
         didSet { applyStrainDisplay() }
+    }
+
+    // ACOM state.
+    @ObservationIgnored private(set) var orientationPlan: OrientationPlan?
+    @ObservationIgnored private(set) var orientationMap: OrientationMap?
+    var hasOrientationPlan = false
+    var hasOrientationMap = false
+    var acomCrystal: CrystalChoice = .gold
+    var acomScale: Double = 0.01           // Å⁻¹ per detector pixel (Q calibration)
+    var acomDisplay: ACOMDisplayMode = .reliability {
+        didSet { applyACOMDisplay() }
     }
 
     var aperture = Aperture()
@@ -245,6 +287,10 @@ final class AppState {
         braggPeakCount = nil
         currentPeaks = []
         strainMap = nil
+        orientationPlan = nil
+        orientationMap = nil
+        hasOrientationPlan = false
+        hasOrientationMap = false
 
         // Pixel-scaled detection defaults, adapted to this detector
         // (py4DSTEM's absolute defaults assume ~512 px patterns).
@@ -289,19 +335,60 @@ final class AppState {
             // Strain is computed explicitly (needs a disk-detection pass);
             // just re-show it if already computed.
             if strainMap != nil { applyStrainDisplay() }
+        case .acom:
+            if orientationMap != nil { applyACOMDisplay() }
         default: break
         }
     }
 
-    /// Live aperture edits during a drag — store only; recompute on commit so
-    /// the GPU isn't hammered on every pixel of the drag.
+    // Coalescing flags for live drag: at most one GPU pass / pattern load in
+    // flight; the latest state is recomputed when it finishes (drop frames in
+    // between so drags stay smooth without piling up work).
+    @ObservationIgnored private var vdInFlight = false
+    @ObservationIgnored private var vdPending = false
+    @ObservationIgnored private var patternInFlight = false
+    @ObservationIgnored private var patternPending = false
+
+    /// Live aperture edit during a drag: store, then recompute the real-space
+    /// image continuously (coalesced, quiet — no status/busy churn).
     func updateAperture(_ newAperture: Aperture) {
         aperture = newAperture
+        scheduleLiveVirtualDetector()
+    }
+
+    private func scheduleLiveVirtualDetector() {
+        guard analysisMode == .virtualDetector else { return }
+        if vdInFlight { vdPending = true; return }
+        vdInFlight = true
+        Task {
+            await runVirtualDetector(quiet: true)
+            vdInFlight = false
+            if vdPending { vdPending = false; scheduleLiveVirtualDetector() }
+        }
     }
 
     func commitApertureChange() {
         guard analysisMode == .virtualDetector else { return }
-        Task { await runVirtualDetector() }
+        Task { await runVirtualDetector() }   // final pass, with status
+    }
+
+    /// Live scan-position scrub (drag in the real-space image): update the
+    /// position and stream the diffraction pattern, coalesced.
+    func scrubTo(x: Int, y: Int) {
+        guard let d = descriptor else { return }
+        let clamped = ScanPos(x: min(max(0, x), d.rx - 1), y: min(max(0, y), d.ry - 1))
+        if clamped != selectedScan { selectedScan = clamped }
+        scheduleLoadPattern()
+    }
+
+    private func scheduleLoadPattern() {
+        if patternInFlight { patternPending = true; return }
+        patternInFlight = true
+        Task {
+            await loadCurrentPattern()
+            patternInFlight = false
+            if patternPending { patternPending = false; scheduleLoadPattern() }
+        }
     }
 
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
@@ -321,11 +408,13 @@ final class AppState {
     /// Virtual-detector imaging over the whole cube. The annulus uses the
     /// analytic fast path; rectangle/point use the general mask kernel. The
     /// blocking GPU call is pushed off the main actor.
-    func runVirtualDetector() async {
+    func runVirtualDetector(quiet: Bool = false) async {
         guard let fourD, let descriptor else { return }
-        isBusy = true
-        statusText = "Computing virtual detector…"
-        defer { isBusy = false }
+        if !quiet {
+            isBusy = true
+            statusText = "Computing virtual detector…"
+        }
+        defer { if !quiet { isBusy = false } }
 
         let ap = aperture
         let shapeMode = virtualShape
@@ -353,9 +442,11 @@ final class AppState {
             resultImage = image
             resultRGBA = nil
             resultVersion &+= 1
-            statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
+            if !quiet {
+                statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
+            }
         } catch {
-            present(error)
+            if !quiet { present(error) }
         }
     }
 
@@ -616,6 +707,71 @@ final class AppState {
     private func applyStrainDisplay() {
         guard let map = strainMap, analysisMode == .strain else { return }
         resultImage = map.component(strainComponent)
+        resultRGBA = nil
+        resultVersion &+= 1
+    }
+
+    // MARK: - ACOM (orientation mapping)
+
+    /// Build the orientation-plan template library for the selected crystal.
+    func generateOrientationPlan() async {
+        guard descriptor != nil else { return }
+        isBusy = true
+        statusText = "Generating orientation plan…"
+        defer { isBusy = false }
+
+        let crystal = acomCrystal.crystal
+        let plan = await Task.detached(priority: .userInitiated) {
+            OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 400)
+        }.value
+        guard let plan else {
+            present(SimpleError("Could not generate an orientation plan."))
+            return
+        }
+        orientationPlan = plan
+        hasOrientationPlan = true
+        statusText = "Orientation plan ✓  \(plan.count) templates (\(acomCrystal.rawValue))"
+    }
+
+    /// Match every scan position's Bragg peaks against the plan (needs a prior
+    /// disk-detection pass; builds the plan first if needed).
+    func runACOM() async {
+        guard let descriptor, let bragg = braggVectors else {
+            present(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
+            return
+        }
+        if orientationPlan == nil { await generateOrientationPlan() }
+        guard let plan = orientationPlan else { return }
+
+        isBusy = true
+        statusText = "Matching orientations…"
+        defer { isBusy = false }
+
+        let origin = calibration.meanOrigin
+            ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
+        let scale = acomScale
+        let map = await Task.detached(priority: .userInitiated) { [weak self] in
+            OrientationMatching.matchAll(bragg: bragg, plan: plan,
+                                         originX: origin.x, originY: origin.y,
+                                         invAngstromPerPixel: scale) { fraction in
+                Task { @MainActor in
+                    self?.statusText = "Matching orientations… \(Int(fraction * 100)) %"
+                }
+            }
+        }.value
+        orientationMap = map
+        hasOrientationMap = true
+        applyACOMDisplay()
+        statusText = "ACOM ✓  matched \(descriptor.rx) × \(descriptor.ry) positions"
+    }
+
+    private func applyACOMDisplay() {
+        guard let map = orientationMap, analysisMode == .acom else { return }
+        switch acomDisplay {
+        case .reliability: resultImage = map.reliabilityImage
+        case .score:       resultImage = map.scoreImage
+        case .inPlane:     resultImage = map.inPlaneAngleImage
+        }
         resultRGBA = nil
         resultVersion &+= 1
     }

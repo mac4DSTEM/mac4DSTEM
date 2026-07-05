@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
     @State private var showInspector = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     private var h5Types: [UTType] {
         [
@@ -17,9 +18,10 @@ struct ContentView: View {
 
     var body: some View {
         @Bindable var appState = appState
-        // Pin all columns visible so the control sidebar never collapses out
-        // of view (it holds the analysis controls, not just navigation).
-        return NavigationSplitView(columnVisibility: .constant(.all)) {
+        // The analysis-mode switcher lives in the toolbar (always visible), so
+        // the sidebar is free to hold just the active mode's controls — and can
+        // now be hidden without losing mode switching.
+        return NavigationSplitView(columnVisibility: $columnVisibility) {
             List {
                 Section("File") {
                     Button {
@@ -27,15 +29,6 @@ struct ContentView: View {
                     } label: {
                         Label("Open .h5 File", systemImage: "folder")
                     }
-                }
-
-                Section("Analysis") {
-                    Picker("Mode", selection: $appState.analysisMode) {
-                        ForEach(AnalysisMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
                 }
 
                 if let descriptor = appState.descriptor, descriptor.is4D {
@@ -191,10 +184,53 @@ struct ContentView: View {
                             }
                         }
                     }
+
+                    if appState.analysisMode == .acom {
+                        Section("ACOM (orientation)") {
+                            Picker("Crystal", selection: $appState.acomCrystal) {
+                                ForEach(CrystalChoice.allCases) { choice in
+                                    Text(choice.rawValue).tag(choice)
+                                }
+                            }
+                            Button {
+                                Task { await appState.generateOrientationPlan() }
+                            } label: {
+                                Label("Generate Plan", systemImage: "cube.transparent")
+                            }
+                            .disabled(appState.isBusy)
+                            if appState.hasOrientationPlan, let plan = appState.orientationPlan {
+                                LabeledContent("Templates", value: "\(plan.count)").font(.caption)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(format: "Å⁻¹ / pixel  %.4f", appState.acomScale)).font(.caption)
+                                Slider(value: $appState.acomScale, in: 0.001...0.05)
+                            }
+
+                            Button {
+                                Task { await appState.runACOM() }
+                            } label: {
+                                Label("Run ACOM", systemImage: "circle.grid.cross")
+                            }
+                            .disabled(appState.isBusy || appState.braggVectors == nil)
+                            if appState.braggVectors == nil {
+                                Text("Detect Bragg disks first (Disks → Detect All Disks).")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                            if appState.hasOrientationMap {
+                                Picker("Display", selection: $appState.acomDisplay) {
+                                    ForEach(ACOMDisplayMode.allCases) { mode in
+                                        Text(mode.rawValue).tag(mode)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("mac4DSTEM")
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+            .toolbar(removing: .sidebarToggle)
         } detail: {
             Group {
                 if appState.hasDataset {
@@ -225,10 +261,31 @@ struct ContentView: View {
                 DatasetInspector()
             }
             .toolbar {
-                Button {
-                    showInspector.toggle()
-                } label: {
-                    Label("Inspector", systemImage: "sidebar.trailing")
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        withAnimation { columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly }
+                    } label: {
+                        Label("Toggle tools", systemImage: "sidebar.leading")
+                    }
+                    .help("Show or hide the tools panel")
+                }
+                ToolbarItem(placement: .principal) {
+                    Picker("Analysis mode", selection: $appState.analysisMode) {
+                        ForEach(AnalysisMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                    .disabled(!appState.hasDataset)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showInspector.toggle()
+                    } label: {
+                        Label("Toggle inspector", systemImage: "sidebar.trailing")
+                    }
+                    .help("Show or hide the inspector panel")
                 }
             }
         }
