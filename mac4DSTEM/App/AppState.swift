@@ -1,5 +1,15 @@
 import Foundation
 
+struct SimpleError: LocalizedError {
+    let message: String
+
+    init(_ message: String) {
+        self.message = message
+    }
+
+    var errorDescription: String? { message }
+}
+
 /// A real-space scan position. x is the scan column and y is the scan row.
 struct ScanPos: Equatable {
     var x: Int
@@ -63,6 +73,10 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
 
 @Observable
 final class AppState {
+    private var reader: H5Reader?
+    private var fourD: FourDArray?
+    private var openURL: URL?
+
     var datasets: [DatasetDescriptor] = []
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
@@ -118,10 +132,104 @@ final class AppState {
     }
 
     func openFile(url: URL) {
-        statusText = "HDF5 loading is not migrated yet: \(url.lastPathComponent)"
+        Task { await openFileAsync(url: url) }
+    }
+
+    func selectDataset(_ descriptor: DatasetDescriptor) {
+        guard let reader else { return }
+        Task { await activate(descriptor: descriptor, reader: reader) }
+    }
+
+    func openManualPath(_ datasetPath: String) {
+        guard let reader else {
+            present(SimpleError("Open a file before entering a dataset path."))
+            return
+        }
+
+        Task {
+            isBusy = true
+            defer { isBusy = false }
+
+            do {
+                let descriptor = try await reader.describe(path: datasetPath)
+                if !datasets.contains(where: { $0.datasetPath == descriptor.datasetPath }) {
+                    datasets.append(descriptor)
+                }
+                await activate(descriptor: descriptor, reader: reader)
+            } catch {
+                present(error)
+            }
+        }
+    }
+
+    func selectScan(x: Int, y: Int) {
+        selectedScan = ScanPos(x: x, y: y)
+        Task { await loadCurrentPattern() }
     }
 
     func present(_ error: Error) {
         errorMessage = error.localizedDescription
+        statusText = "Error: \(error.localizedDescription)"
+    }
+
+    private func openFileAsync(url: URL) async {
+        isBusy = true
+        statusText = "Opening \(url.lastPathComponent)..."
+        errorMessage = nil
+        defer { isBusy = false }
+
+        if let openURL {
+            openURL.stopAccessingSecurityScopedResource()
+        }
+
+        let accessed = url.startAccessingSecurityScopedResource()
+        openURL = accessed ? url : nil
+
+        do {
+            let reader = try H5Reader(path: url.path)
+            let descriptor = try await reader.discoverPrimaryDataset()
+            self.reader = reader
+            datasets = [descriptor]
+            await activate(descriptor: descriptor, reader: reader)
+        } catch {
+            present(error)
+        }
+    }
+
+    private func activate(descriptor: DatasetDescriptor, reader: H5Reader) async {
+        guard descriptor.is4D else {
+            present(H5Error.unsupportedRank(descriptor.shape.count))
+            return
+        }
+
+        self.descriptor = descriptor
+        fourD = FourDArray(reader: reader, descriptor: descriptor)
+        selectedScan = ScanPos(x: 0, y: 0)
+        aperture = Aperture(
+            centerX: Float(descriptor.qx) / 2,
+            centerY: Float(descriptor.qy) / 2,
+            inner: 0,
+            outer: Float(min(descriptor.qx, descriptor.qy)) / 4
+        )
+        acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage")
+        meanPattern = nil
+        maxPattern = nil
+        resultImage = nil
+        resultRGBA = nil
+
+        await loadCurrentPattern()
+        statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
+    }
+
+    private func loadCurrentPattern() async {
+        guard let descriptor, let fourD else { return }
+
+        do {
+            currentPattern = try await fourD.pattern(ry: selectedScan.y, rx: selectedScan.x)
+            patternVersion &+= 1
+            statusText = "Pattern x \(selectedScan.x), y \(selectedScan.y) from \(descriptor.fileName)"
+        } catch {
+            present(error)
+        }
     }
 }

@@ -38,6 +38,7 @@
 				000000000000000000000010 /* mac4DSTEM */,
 				000000000000000000000020 /* Products */,
 				F68E4EE52FF9C43F00135C51 /* README.md */,
+				F68E4F842FF9D7A200135C51 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -47,6 +48,13 @@
 				000000000000000000000120 /* mac4DSTEM.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		F68E4F842FF9D7A200135C51 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -278,6 +286,11 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/mac4DSTEM/HDF5",
+					/opt/homebrew/Cellar/hdf5/2.1.1/lib,
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "devplaceholder.$(PROJECT_UNIQUE_VALUE:identifier).$(PRODUCT_NAME:identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -319,6 +332,11 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/mac4DSTEM/HDF5",
+					/opt/homebrew/Cellar/hdf5/2.1.1/lib,
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "devplaceholder.$(PROJECT_UNIQUE_VALUE:identifier).$(PRODUCT_NAME:identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
