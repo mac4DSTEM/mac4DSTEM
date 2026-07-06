@@ -4,11 +4,20 @@ import SwiftUI
 ///
 /// Bins are computed once when `pixels` changes (not on every redraw). A log-count
 /// toggle (default ON) tames the heavy-tailed distributions typical of STEM images.
+///
+/// When `rangeLo`/`rangeHi` bindings are provided, the histogram gains two
+/// draggable handles that pick a contrast window (fractions of the intensity
+/// range); the excluded tails are dimmed. The log toggle only scales the BAR
+/// HEIGHTS, so the two interact freely — handle positions are intensity-axis
+/// fractions either way.
 struct HistogramView: View {
     let pixels: [Float]
     /// Bump this when `pixels` changes (e.g. the result-image version counter)
     /// so recompute keys on a cheap Int instead of comparing the whole array.
     let version: Int
+    /// Optional contrast-window bindings in [0, 1] (fraction of the range).
+    var rangeLo: Binding<Float>? = nil
+    var rangeHi: Binding<Float>? = nil
 
     private static let binCount = 96
     private static let barHeight: CGFloat = 100
@@ -19,16 +28,33 @@ struct HistogramView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Log counts", isOn: $useLog)
-                .font(.caption)
-                .toggleStyle(.switch)
-                .controlSize(.mini)
+            HStack {
+                Toggle("Log counts", isOn: $useLog)
+                    .font(.caption)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                Spacer()
+                if let lo = rangeLo, let hi = rangeHi,
+                   lo.wrappedValue > 0 || hi.wrappedValue < 1 {
+                    Button("Reset range") {
+                        lo.wrappedValue = 0
+                        hi.wrappedValue = 1
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.link)
+                }
+            }
 
             Canvas { context, size in
                 draw(context: context, size: size)
             }
             .frame(height: Self.barHeight)
             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 4))
+            .overlay {
+                if let lo = rangeLo, let hi = rangeHi {
+                    rangeOverlay(lo: lo, hi: hi)
+                }
+            }
 
             if let stats {
                 HStack {
@@ -44,6 +70,65 @@ struct HistogramView: View {
         }
         .padding(.vertical, 2)
         .task(id: version) { recompute() }
+    }
+
+    /// Which handle the current drag is moving (nil between drags).
+    @State private var draggingHiHandle: Bool?
+
+    /// Dimmed excluded tails + two handle markers. Instead of tiny per-handle
+    /// hit areas (which clip at the row edges, making the hi handle at x = w
+    /// ungrabbable), the WHOLE histogram takes the drag and moves whichever
+    /// handle is nearest to the touch point.
+    private func rangeOverlay(lo: Binding<Float>, hi: Binding<Float>) -> some View {
+        GeometryReader { geo in
+            let w = max(geo.size.width, 1)
+            let h = geo.size.height
+            let loX = CGFloat(lo.wrappedValue) * w
+            let hiX = CGFloat(hi.wrappedValue) * w
+
+            ZStack(alignment: .topLeading) {
+                Rectangle()
+                    .fill(Color.black.opacity(0.4))
+                    .frame(width: max(loX, 0), height: h)
+                Rectangle()
+                    .fill(Color.black.opacity(0.4))
+                    .frame(width: max(w - hiX, 0), height: h)
+                    .offset(x: hiX)
+                handleBar(x: min(max(loX, 1), w - 1), height: h)
+                handleBar(x: min(max(hiX, 1), w - 1), height: h)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let f = Float(min(max(value.location.x / w, 0), 1))
+                        if draggingHiHandle == nil {
+                            draggingHiHandle =
+                                abs(f - hi.wrappedValue) < abs(f - lo.wrappedValue)
+                        }
+                        if draggingHiHandle == true {
+                            hi.wrappedValue = max(f, lo.wrappedValue + 0.01)
+                        } else {
+                            lo.wrappedValue = min(f, hi.wrappedValue - 0.01)
+                        }
+                    }
+                    .onEnded { _ in draggingHiHandle = nil }
+            )
+        }
+    }
+
+    private func handleBar(x: CGFloat, height: CGFloat) -> some View {
+        Rectangle()
+            .fill(Color.accentColor)
+            .frame(width: 2, height: height)
+            .overlay(alignment: .top) {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 9, height: 9)
+                    .offset(y: -4)
+            }
+            .position(x: x, y: height / 2)
+            .allowsHitTesting(false)
     }
 
     private func readout(_ label: String, _ value: Float) -> some View {

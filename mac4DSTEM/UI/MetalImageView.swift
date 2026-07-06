@@ -29,6 +29,10 @@ struct MetalImageView: NSViewRepresentable {
     /// When set, the view renders these packed RGBA8 bytes (width×height×4)
     /// through the RGBA pipeline instead of `pixels` + colormap.
     var rgba: [UInt8]? = nil
+    /// Display contrast window in normalized [0,1] intensity (histogram
+    /// clipping). Applied in the fragment shader — cheap, per-frame.
+    var displayLo: Float = 0
+    var displayHi: Float = 1
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -40,6 +44,9 @@ struct MetalImageView: NSViewRepresentable {
         view.isPaused = true                           // redraw only on demand
         view.enableSetNeedsDisplay = true
         view.delegate = context.coordinator
+        // Parent views zoom via scaleEffect (a layer transform); nearest
+        // magnification keeps the data pixels crisp instead of blurring.
+        view.layer?.magnificationFilter = .nearest
         return view
     }
 
@@ -51,6 +58,7 @@ struct MetalImageView: NSViewRepresentable {
                                 version: contentVersion)
         c.zoom = Float(max(zoom, 0.01))
         c.offset = SIMD2<Float>(Float(offset.width), Float(offset.height))
+        c.displayRange = SIMD2<Float>(displayLo, displayHi)
         view.needsDisplay = true
     }
 
@@ -61,6 +69,7 @@ struct MetalImageView: NSViewRepresentable {
         var colormap: ColormapKind = .viridis { didSet { lutDirty = true } }
         var zoom: Float = 1
         var offset = SIMD2<Float>(0, 0)
+        var displayRange = SIMD2<Float>(0, 1)
 
         private var dataTexture: MTLTexture?
         private var rgbaTexture: MTLTexture?
@@ -136,6 +145,8 @@ struct MetalImageView: NSViewRepresentable {
             if let rgba = rgbaTexture {
                 enc.setFragmentTexture(rgba, index: 0)
             } else {
+                var range = displayRange
+                enc.setFragmentBytes(&range, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
                 enc.setFragmentTexture(dataTexture, index: 0)
                 enc.setFragmentTexture(lutTexture, index: 1)
             }

@@ -45,7 +45,20 @@ struct DatasetInspector: View {
 
                 if let image = appState.resultImage {
                     Section("Histogram (real space)") {
-                        HistogramView(pixels: image.pixels, version: appState.resultVersion)
+                        HistogramView(pixels: image.pixels, version: appState.resultVersion,
+                                      rangeLo: Bindable(appState).displayRangeLo,
+                                      rangeHi: Bindable(appState).displayRangeHi)
+                        Text("Drag the handles to clip which intensities map into the image.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+
+                if let rotation = appState.lastRotationResult {
+                    Section("Rotation diagnostics") {
+                        RotationCurveView(result: rotation)
+                            .frame(height: 90)
+                        Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
+                            .font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
 
@@ -80,5 +93,51 @@ struct DatasetInspector: View {
             return String(format: "%.2f GB", megabytes / 1024)
         }
         return String(format: "%.1f MB", megabytes)
+    }
+}
+
+/// Line plot of the rotation-calibration objective curves — the data was
+/// always computed by RotationCalibration.solve; now it's actually shown, so
+/// a flat or multi-minimum curve (an untrustworthy calibration) is visible.
+struct RotationCurveView: View {
+    let result: RotationCalibration.Result
+
+    var body: some View {
+        Canvas { context, size in
+            let all = result.objectiveCurve + result.objectiveCurveTransposed
+            guard let lo = all.min(), let hi = all.max(), hi > lo,
+                  result.anglesDeg.count > 1 else { return }
+            let n = result.anglesDeg.count
+
+            func path(_ curve: [Float]) -> Path {
+                Path { p in
+                    for i in 0..<n {
+                        let x = CGFloat(i) / CGFloat(n - 1) * size.width
+                        let y = size.height * (1 - CGFloat((curve[i] - lo) / (hi - lo)))
+                        i == 0 ? p.move(to: CGPoint(x: x, y: y))
+                               : p.addLine(to: CGPoint(x: x, y: y))
+                    }
+                }
+            }
+
+            context.stroke(path(result.objectiveCurve),
+                           with: .color(.accentColor), lineWidth: 1.2)
+            context.stroke(path(result.objectiveCurveTransposed),
+                           with: .color(.secondary),
+                           style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+
+            // Marker at the chosen angle.
+            let chosenDeg = result.rotationRad * 180 / .pi
+            if let first = result.anglesDeg.first, let last = result.anglesDeg.last, last > first {
+                let fx = CGFloat((chosenDeg - first) / (last - first)) * size.width
+                context.stroke(
+                    Path { p in
+                        p.move(to: CGPoint(x: fx, y: 0))
+                        p.addLine(to: CGPoint(x: fx, y: size.height))
+                    },
+                    with: .color(.red.opacity(0.7)), lineWidth: 1)
+            }
+        }
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 4))
     }
 }

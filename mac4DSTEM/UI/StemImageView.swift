@@ -48,38 +48,50 @@ struct StemImageView: View {
     private func content(in size: CGSize) -> some View {
         if let dims = resultSize {
             let box = fitted(in: size, aspect: CGFloat(dims.width) / CGFloat(dims.height))
-            let norm = app.resultImage?.normalized(symmetric: app.colormap.isDiverging) ?? []
-            let effZoom = max(0.1, zoom * liveZoom)
+            let norm = app.normalizedResultPixels()   // cached per resultVersion
+            let effZoom = max(1, zoom * liveZoom)
 
             ZStack {
-                MetalImageView(pixels: norm,
-                               width: dims.width, height: dims.height,
-                               contentVersion: app.resultVersion,
-                               colormap: app.colormap,
-                               zoom: effZoom, offset: .zero,
-                               rgba: app.resultRGBA?.rgba)
-                    .frame(width: box.width, height: box.height)
-                    .background(Color.black)
-                    .border(Color.white.opacity(0.08))
-                    .gesture(
-                        MagnificationGesture()
-                            .onChanged { liveZoom = $0 }
-                            .onEnded { zoom = max(0.1, zoom * $0); liveZoom = 1 }
-                    )
-                    .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
-
-                // Transparent hit layer for click-to-select scan position.
-                selectionLayer(box: box, imgW: dims.width, imgH: dims.height)
-                    .frame(width: box.width, height: box.height)
-
-                // Crosshair at the current scan position.
-                crosshair(box: box, imgW: dims.width, imgH: dims.height)
-
-                // Region-of-interest for virtual diffraction (sum patterns).
-                if app.realSpaceShape != .point {
-                    regionOverlay(box: box, imgW: dims.width, imgH: dims.height)
+                // Image + overlays share ONE scaled container, so the
+                // crosshair / ROI / click mapping stay aligned at any zoom
+                // (SwiftUI maps hit-testing through the transform).
+                ZStack {
+                    MetalImageView(pixels: norm,
+                                   width: dims.width, height: dims.height,
+                                   contentVersion: app.resultVersion,
+                                   colormap: app.colormap,
+                                   zoom: 1, offset: .zero,
+                                   rgba: app.resultRGBA?.rgba,
+                                   displayLo: app.displayRangeLo,
+                                   displayHi: app.displayRangeHi)
                         .frame(width: box.width, height: box.height)
+                        .background(Color.black)
+
+                    // Transparent hit layer for click-to-select scan position.
+                    selectionLayer(box: box, imgW: dims.width, imgH: dims.height)
+                        .frame(width: box.width, height: box.height)
+
+                    // Crosshair at the current scan position.
+                    crosshair(box: box, imgW: dims.width, imgH: dims.height)
+
+                    // Region-of-interest for virtual diffraction (sum patterns).
+                    if app.realSpaceShape != .point {
+                        regionOverlay(box: box, imgW: dims.width, imgH: dims.height)
+                            .frame(width: box.width, height: box.height)
+                    }
                 }
+                .frame(width: box.width, height: box.height)
+                .scaleEffect(effZoom)
+                .frame(width: box.width, height: box.height)
+                .clipped()
+                .contentShape(Rectangle())
+                .border(Color.white.opacity(0.08))
+                .gesture(
+                    MagnificationGesture()
+                        .onChanged { liveZoom = $0 }
+                        .onEnded { zoom = min(max(1, zoom * $0), 64); liveZoom = 1 }
+                )
+                .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
 
                 // Direction legend for the DPC color wheel.
                 if app.resultRGBA != nil {
@@ -89,6 +101,16 @@ struct StemImageView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity,
                                alignment: .bottomTrailing)
                 }
+
+                // Calibrated scale bar (px fallback), re-quantized with zoom.
+                let rSize = app.calibration.rPixelSize
+                ScaleBarView(
+                    unitsPerPoint: (rSize ?? 1) * Double(dims.width)
+                        / Double(box.width) / Double(effZoom),
+                    unitLabel: rSize != nil ? (app.calibration.rPixelUnits ?? "nm") : "px")
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: .bottomLeading)
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

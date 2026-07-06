@@ -3,20 +3,18 @@
 //  Role: The live CBED (diffraction) pattern viewer. Shows the pattern at the
 //        currently-selected scan position, with optional log scaling.
 //
-//  MIGRATION NOTE: the interactive aperture overlay (Virtual Detector slice)
-//  and the Bragg-peak overlay (Disk Detection slice) are intentionally absent
-//  here — they depend on AppState members that arrive with those slices. This
-//  is the display-only version: render the CBED, switch current/mean/max, and
-//  scrub the scan position from the sidebar.
-//
-//  Kept at 1:1 (no pan/zoom) so a future SwiftUI aperture overlay stays
-//  pixel-accurate against the GPU-rendered pattern.
+//  ZOOM/PAN: magnify to zoom, drag the background to pan, double-click to
+//  reset. The image and the aperture / peak overlays live in ONE transformed
+//  container, so overlays and their drag handles stay pixel-accurate at any
+//  zoom (SwiftUI maps hit-testing through the transform; handle drags win
+//  over the background pan).
 //
 
 import SwiftUI
 
 struct DiffractionView: View {
     @Environment(AppState.self) private var app
+    @State private var zp = ZoomPanState()
 
     var body: some View {
         VStack(spacing: 6) {
@@ -60,33 +58,53 @@ struct DiffractionView: View {
         if let pattern = app.displayedPattern {
             let qx = pattern.qx, qy = pattern.qy
             let box = fitted(in: size, aspect: CGFloat(qx) / CGFloat(qy))
-            let norm = pattern.normalized(useLog: app.logScale)
+            let norm = app.normalizedPatternPixels()   // cached per patternVersion
 
             ZStack {
-                MetalImageView(pixels: norm,
-                               width: qx, height: qy,
-                               contentVersion: app.patternVersion,
-                               colormap: app.colormap,
-                               zoom: 1, offset: .zero)
-                    .background(Color.black)
-                    .border(Color.white.opacity(0.08))
+                ZStack {
+                    MetalImageView(pixels: norm,
+                                   width: qx, height: qy,
+                                   contentVersion: app.patternVersion,
+                                   colormap: app.colormap,
+                                   zoom: 1, offset: .zero)
+                        .frame(width: box.width, height: box.height)
+                        .background(Color.black)
 
-                // Interactive annular aperture (Virtual Detector mode only).
-                if app.analysisMode == .virtualDetector {
-                    ApertureControl(
-                        aperture: app.aperture,
-                        shape: app.virtualShape,
-                        patternWidth: qx, patternHeight: qy,
-                        onEdited: { app.updateAperture($0) },
-                        onCommit: { app.commitApertureChange() }
-                    )
-                }
+                    // Interactive annular aperture (Virtual Detector mode only).
+                    if app.analysisMode == .virtualDetector {
+                        ApertureControl(
+                            aperture: app.aperture,
+                            shape: app.virtualShape,
+                            patternWidth: qx, patternHeight: qy,
+                            onEdited: { app.updateAperture($0) },
+                            onCommit: { app.commitApertureChange() }
+                        )
+                    }
 
-                // Detected Bragg disks for the current pattern (Disks mode).
-                if app.analysisMode == .disks, !app.currentPeaks.isEmpty {
-                    peakOverlay(box: box, qx: qx, qy: qy)
-                        .allowsHitTesting(false)
+                    // Detected Bragg disks for the current pattern (Disks mode).
+                    if app.analysisMode == .disks, !app.currentPeaks.isEmpty {
+                        peakOverlay(box: box, qx: qx, qy: qy)
+                            .allowsHitTesting(false)
+                    }
                 }
+                .frame(width: box.width, height: box.height)
+                .scaleEffect(max(0.25, zp.effectiveZoom))
+                .offset(zp.effectiveOffset)
+                .frame(width: box.width, height: box.height)
+                .clipped()
+                .contentShape(Rectangle())
+                .border(Color.white.opacity(0.08))
+                .zoomPan($zp)
+
+                // Calibrated q-space scale bar (px fallback), zoom-aware.
+                let qSize = app.calibration.qPixelSize
+                ScaleBarView(
+                    unitsPerPoint: (qSize ?? 1) * Double(qx)
+                        / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
+                    unitLabel: qSize != nil ? (app.calibration.qPixelUnits ?? "1/nm") : "px")
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: .bottomLeading)
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

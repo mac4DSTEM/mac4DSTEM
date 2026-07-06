@@ -72,7 +72,9 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Crystal presets offered for ACOM template generation.
+/// Crystal presets offered for ACOM template generation. `.custom` is a
+/// user-defined cubic crystal (element + structure + lattice constant) —
+/// resolved by AppState.resolvedACOMCrystal, not here.
 enum CrystalChoice: String, CaseIterable, Identifiable {
     case gold      = "Gold (FCC)"
     case aluminum  = "Aluminium (FCC)"
@@ -80,6 +82,7 @@ enum CrystalChoice: String, CaseIterable, Identifiable {
     case copper    = "Copper (FCC)"
     case iron      = "Iron (BCC)"
     case silicon   = "Silicon (diamond)"
+    case custom    = "Custom…"
     var id: String { rawValue }
 
     var crystal: Crystal {
@@ -90,6 +93,7 @@ enum CrystalChoice: String, CaseIterable, Identifiable {
         case .copper:   return .copper
         case .iron:     return .iron
         case .silicon:  return .silicon
+        case .custom:   return .gold   // placeholder; see resolvedACOMCrystal
         }
     }
 }
@@ -141,6 +145,9 @@ final class AppState {
 
     var calibration = Calibration()
     var originFitFunction: OriginFitFunction = .plane
+    /// Full rotation-calibration result (objective curves) for the
+    /// diagnostics plot in the inspector.
+    var lastRotationResult: RotationCalibration.Result?
     var patternVersion = 0
     var resultVersion = 0
 
@@ -169,6 +176,18 @@ final class AppState {
     var hasOrientationMap = false
     var acomCrystal: CrystalChoice = .gold
     var acomScale: Double = 0.01           // Å⁻¹ per detector pixel (Q calibration)
+
+    // Custom (user-defined) cubic crystal for ACOM.
+    var customZ: Int = 79                                  // element (Au default)
+    var customStructure: Crystal.CubicStructure = .fcc
+    var customLatticeA: Double = 4.08                      // Å
+
+    /// The crystal ACOM should use — a preset, or the user-defined cubic cell.
+    var resolvedACOMCrystal: Crystal {
+        acomCrystal == .custom
+            ? Crystal.cubic(customStructure, a: customLatticeA, z: customZ)
+            : acomCrystal.crystal
+    }
     var acomDisplay: ACOMDisplayMode = .reliability {
         didSet { applyACOMDisplay() }
     }
@@ -196,14 +215,76 @@ final class AppState {
     var analysisMode: AnalysisMode = .virtualDetector
 
     var isBusy = false
-    var statusText = "No file loaded"
+    var statusText = "No file loaded" {
+        didSet { appendLog(statusText) }
+    }
     var errorMessage: String?
+
+    /// Rolling log of meaningful status events, shown in the output strip
+    /// below the image panes. Progress spam ("… 42 %") is filtered out.
+    private(set) var logMessages: [String] = []
+    var showLogPane = true
+
+    private func appendLog(_ message: String) {
+        guard !message.isEmpty, !message.hasSuffix("%") else { return }
+        if logMessages.last?.hasSuffix(message) == true { return }
+        let stamp = Self.logClock.string(from: Date())
+        logMessages.append("\(stamp)  \(message)")
+        if logMessages.count > 300 { logMessages.removeFirst(logMessages.count - 300) }
+    }
+
+    private static let logClock: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    /// Increments whenever a (new) dataset is activated. Long-running detached
+    /// analyses capture the epoch at launch and drop their results if it has
+    /// moved on — otherwise work from a previous file could land in the state
+    /// of the current one.
+    private(set) var datasetEpoch = 0
+
+    /// Display contrast window for the real-space result, as fractions of the
+    /// normalized [0,1] intensity range (driven by the histogram range slider,
+    /// applied in the fragment shader).
+    var displayRangeLo: Float = 0
+    var displayRangeHi: Float = 1
 
     /// Fractional progress [0,1] of the running long operation, or nil when
     /// idle / indeterminate. Drives the performance panel's progress bar.
     var progress: Double?
     /// Short label of what's currently running (for the performance panel).
     var activeOperation: String?
+
+    // Normalized-pixel caches: SwiftUI re-evaluates view bodies far more often
+    // than content changes, and normalization is O(pixels) + an allocation.
+    // Keyed on the version counters, so texture and cache invalidate together.
+    @ObservationIgnored private var patternNormCache: (version: Int, log: Bool, pixels: [Float])?
+    @ObservationIgnored private var resultNormCache: (version: Int, symmetric: Bool, pixels: [Float])?
+
+    /// Display-normalized pixels of `displayedPattern`, cached per patternVersion.
+    func normalizedPatternPixels() -> [Float] {
+        guard let pattern = displayedPattern else { return [] }
+        if let c = patternNormCache, c.version == patternVersion, c.log == logScale {
+            return c.pixels
+        }
+        let pixels = pattern.normalized(useLog: logScale)
+        patternNormCache = (patternVersion, logScale, pixels)
+        return pixels
+    }
+
+    /// Display-normalized pixels of `resultImage`, cached per resultVersion.
+    func normalizedResultPixels() -> [Float] {
+        guard let image = resultImage else { return [] }
+        let symmetric = colormap.isDiverging
+        if let c = resultNormCache, c.version == resultVersion, c.symmetric == symmetric {
+            return c.pixels
+        }
+        let pixels = image.normalized(symmetric: symmetric)
+        resultNormCache = (resultVersion, symmetric, pixels)
+        return pixels
+    }
 
     var displayedPattern: DiffractionPattern? {
         // A real-space region ROI drives the CBED with the summed pattern.
@@ -302,9 +383,13 @@ final class AppState {
             return
         }
 
+        datasetEpoch &+= 1
         self.descriptor = descriptor
         fourD = FourDArray(reader: reader, descriptor: descriptor)
         selectedScan = ScanPos(x: 0, y: 0)
+        displayRangeLo = 0
+        displayRangeHi = 1
+        lastRotationResult = nil
         aperture = Aperture(
             centerX: Float(descriptor.qx) / 2,
             centerY: Float(descriptor.qy) / 2,
@@ -313,6 +398,21 @@ final class AppState {
         )
         acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage", onObjectPath: "/")
         calibration = Calibration()
+        // Pixel sizes from file metadata (DM4 carries them; HDF5 usually not).
+        if let pc = await reader.pixelCalibration() {
+            calibration.rPixelSize = pc.rSize
+            calibration.rPixelUnits = pc.rUnits
+            calibration.qPixelSize = pc.qSize
+            calibration.qPixelUnits = pc.qUnits
+            // Auto-fill the ACOM Q scale (Å⁻¹/px) when the units are convertible.
+            if let q = pc.qSize, q > 0 {
+                switch pc.qUnits?.lowercased() {
+                case "1/nm", "1/nanometer": acomScale = q * 0.1
+                case "1/a", "1/å", "1/angstrom": acomScale = q
+                default: break
+                }
+            }
+        }
         patternDisplayMode = .current
         meanPattern = nil
         maxPattern = nil
@@ -350,7 +450,10 @@ final class AppState {
         guard let descriptor, let fourD else { return }
 
         do {
-            currentPattern = try await fourD.pattern(ry: selectedScan.y, rx: selectedScan.x)
+            let epoch = datasetEpoch
+            let pattern = try await fourD.pattern(ry: selectedScan.y, rx: selectedScan.x)
+            guard epoch == datasetEpoch else { return }
+            currentPattern = pattern
             patternVersion &+= 1
             statusText = "Pattern x \(selectedScan.x), y \(selectedScan.y) from \(descriptor.fileName)"
             await detectCurrentPattern()
@@ -468,10 +571,12 @@ final class AppState {
         guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
         let region = realSpaceRegionShape(d)
         do {
+            let epoch = datasetEpoch
             let cube = try await fourD.cubeBuffer()
             let pattern = try await Task.detached(priority: .userInitiated) {
                 try VirtualDetector.diffraction(cube: cube, descriptor: d, region: region)
             }.value
+            guard epoch == datasetEpoch else { return }
             virtualDiffractionPattern = pattern
             patternVersion &+= 1
         } catch {
@@ -525,6 +630,7 @@ final class AppState {
         let shapeMode = virtualShape
         let d = descriptor
         do {
+            let epoch = datasetEpoch
             let cube = try await fourD.cubeBuffer()
             let image = try await Task.detached(priority: .userInitiated) { () throws -> FloatImage in
                 switch shapeMode {
@@ -544,6 +650,7 @@ final class AppState {
                     return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
                 }
             }.value
+            guard epoch == datasetEpoch else { return }
             resultImage = image
             resultRGBA = nil
             resultVersion &+= 1
@@ -557,6 +664,33 @@ final class AppState {
 
     // MARK: - Calibration
 
+    /// Compute just the mean/max diffraction patterns (py4DSTEM get_dp_mean /
+    /// get_dp_max) so the Mean/Max display modes work without running the
+    /// full origin calibration.
+    func computeDPStatistics() async {
+        guard let fourD, let descriptor else { return }
+        isBusy = true
+        statusText = "Computing DP mean/max…"
+        defer { isBusy = false }
+
+        let d = descriptor
+        do {
+            let epoch = datasetEpoch
+            let dims = CubeDims(d)
+            let cube = try await fourD.cubeBuffer()
+            let (maxDP, meanDP) = try await Task.detached(priority: .userInitiated) {
+                try MetalEngine.shared.dpStatistics(cube: cube, dims: dims)
+            }.value
+            guard epoch == datasetEpoch else { return }
+            meanPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: meanDP)
+            maxPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: maxDP)
+            patternVersion &+= 1
+            statusText = "DP statistics ✓  (mean + max over \(d.rx) × \(d.ry) positions)"
+        } catch {
+            present(error)
+        }
+    }
+
     /// Origin calibration (py4DSTEM get_origin + fit_origin): max pattern →
     /// probe size → per-pattern beam position → smooth fit. Also fills the
     /// mean/max pattern display modes as a side effect.
@@ -569,10 +703,12 @@ final class AppState {
         let fitFn = originFitFunction
         let d = descriptor
         do {
+            let epoch = datasetEpoch
             let cube = try await fourD.cubeBuffer()
             let result = try await Task.detached(priority: .userInitiated) {
                 try OriginCalibration.run(cube: cube, descriptor: d, fitFunction: fitFn)
             }.value
+            guard epoch == datasetEpoch else { return }
 
             calibration.probeRadius = result.probeRadius
             calibration.origin = result.origin
@@ -612,17 +748,21 @@ final class AppState {
 
         let d = descriptor
         do {
+            let epoch = datasetEpoch
             guard let com = try await computeCoMField() else { return }
             let result = await Task.detached(priority: .userInitiated) {
                 RotationCalibration.solve(com: com, width: d.rx, height: d.ry,
                                           maximizeDivergence: maximizeDivergence)
             }.value
+            guard epoch == datasetEpoch else { return }
             guard let result else {
                 present(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
             }
             calibration.rotationRad = result.rotationRad
             calibration.transposeQR = result.transpose
+            lastRotationResult = result
+            applyDPCDisplay()   // a cached CoM field must not show a stale rotation
             statusText = String(format: "Rotation ✓  θ = %.1f°%@",
                                 result.rotationRad * 180 / .pi,
                                 result.transpose ? ", detector transposed" : "")
@@ -659,13 +799,28 @@ final class AppState {
         defer { isBusy = false }
 
         do {
-            comField = try await computeCoMField()
+            let epoch = datasetEpoch
+            let field = try await computeCoMField()
+            guard epoch == datasetEpoch else { return }
+            comField = field
             applyDPCDisplay()
             let ref = calibration.hasFittedOrigin ? "calibrated origins" : "global center"
             statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
         } catch {
             present(error)
         }
+    }
+
+    /// Flip the calibrated R–Q rotation by 180° — the curl/divergence solver
+    /// is blind to this (flipping both CoM components leaves both invariant),
+    /// so inverted iDPC contrast is fixed here, by hand.
+    func flipRotation180() {
+        guard var rotation = calibration.rotationRad else { return }
+        rotation += .pi
+        if rotation > .pi { rotation -= 2 * .pi }
+        calibration.rotationRad = rotation
+        applyDPCDisplay()
+        statusText = String(format: "Rotation flipped → θ = %.1f°", rotation * 180 / .pi)
     }
 
     /// Derive the displayed image from the cached CoM field per `dpcDisplay`.
@@ -724,10 +879,12 @@ final class AppState {
             return
         }
         let params = diskParams
+        let epoch = datasetEpoch
         let peaks = await Task.detached(priority: .userInitiated) { () -> [BraggPeak] in
             guard let detector = DiskDetector(kernel: kernel) else { return [] }
             return detector.detect(pattern: pattern.pixels, params: params)
         }.value
+        guard epoch == datasetEpoch else { return }
         currentPeaks = peaks
     }
 
@@ -746,6 +903,7 @@ final class AppState {
         let params = diskParams
         let d = descriptor
         do {
+            let epoch = datasetEpoch
             let cube = try await fourD.cubeBuffer()
             let vectors = await Task.detached(priority: .userInitiated) { [weak self] () -> BraggVectors? in
                 DiskDetection.detectAll(cube: cube, descriptor: d, kernel: kernel, params: params) { fraction in
@@ -755,6 +913,7 @@ final class AppState {
                     }
                 }
             }.value
+            guard epoch == datasetEpoch else { return }
             guard let vectors else {
                 present(SimpleError("Disk detection failed to initialize its FFT plan."))
                 return
@@ -795,9 +954,11 @@ final class AppState {
 
         let origin = calibration.meanOrigin
             ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
+        let epoch = datasetEpoch
         let map = await Task.detached(priority: .userInitiated) {
             StrainMapping.compute(bragg: bragg, originX: origin.x, originY: origin.y)
         }.value
+        guard epoch == datasetEpoch else { return }
         guard let map else {
             present(SimpleError("Could not establish a lattice basis from the detected peaks (try detecting more disks)."))
             return
@@ -828,17 +989,29 @@ final class AppState {
         statusText = "Generating orientation plan…"
         defer { isBusy = false }
 
-        let crystal = acomCrystal.crystal
+        let crystal = resolvedACOMCrystal
+        let missing = crystal.unsupportedElements
+        guard missing.isEmpty else {
+            present(SimpleError("No scattering factors for element(s) Z = "
+                + missing.map(String.init).joined(separator: ", ")
+                + " — structure factors would be wrong."))
+            return
+        }
+        let epoch = datasetEpoch
         let plan = await Task.detached(priority: .userInitiated) {
             OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 400)
         }.value
+        guard epoch == datasetEpoch else { return }
         guard let plan else {
             present(SimpleError("Could not generate an orientation plan."))
             return
         }
         orientationPlan = plan
         hasOrientationPlan = true
-        statusText = "Orientation plan ✓  \(plan.count) templates (\(acomCrystal.rawValue))"
+        let label = acomCrystal == .custom
+            ? "\(ScatteringFactors.symbols[customZ] ?? "Z\(customZ)") \(customStructure.rawValue), a = \(String(format: "%.3f", customLatticeA)) Å"
+            : acomCrystal.rawValue
+        statusText = "Orientation plan ✓  \(plan.count) templates (\(label))"
     }
 
     /// Match every scan position's Bragg peaks against the plan (needs a prior
@@ -860,6 +1033,7 @@ final class AppState {
         let origin = calibration.meanOrigin
             ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
         let scale = acomScale
+        let epoch = datasetEpoch
         let map = await Task.detached(priority: .userInitiated) { [weak self] in
             OrientationMatching.matchAll(bragg: bragg, plan: plan,
                                          originX: origin.x, originY: origin.y,
@@ -870,6 +1044,7 @@ final class AppState {
                 }
             }
         }.value
+        guard epoch == datasetEpoch else { return }
         orientationMap = map
         hasOrientationMap = true
         applyACOMDisplay()

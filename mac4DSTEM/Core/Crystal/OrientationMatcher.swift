@@ -135,17 +135,22 @@ enum OrientationMatching {
 
         map.results.withUnsafeMutableBufferPointer { out in
             let ptr = SendableBox(out.baseAddress!)
-            DispatchQueue.concurrentPerform(iterations: bragg.scanHeight) { ry in
+            // One matcher (FFT + scratch) per worker, rows strided (same
+            // pattern as DiskDetection.detectAll).
+            let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, bragg.scanHeight))
+            DispatchQueue.concurrentPerform(iterations: workers) { worker in
                 guard let matcher = OrientationMatcher(plan: plan) else { return }
-                for rx in 0..<w {
-                    let peaks = bragg.peaks[ry * w + rx]
-                    ptr.value[ry * w + rx] = matcher.match(
-                        peaks: peaks, originX: originX, originY: originY,
-                        invAngstromPerPixel: invAngstromPerPixel)
-                }
-                if let progress {
-                    lock.lock(); done += 1; let f = Double(done) / Double(bragg.scanHeight); lock.unlock()
-                    progress(f)
+                for ry in stride(from: worker, to: bragg.scanHeight, by: workers) {
+                    for rx in 0..<w {
+                        let peaks = bragg.peaks[ry * w + rx]
+                        ptr.value[ry * w + rx] = matcher.match(
+                            peaks: peaks, originX: originX, originY: originY,
+                            invAngstromPerPixel: invAngstromPerPixel)
+                    }
+                    if let progress {
+                        lock.lock(); done += 1; let f = Double(done) / Double(bragg.scanHeight); lock.unlock()
+                        progress(f)
+                    }
                 }
             }
         }

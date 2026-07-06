@@ -9,6 +9,16 @@
 
 import Foundation
 
+/// Pixel-size calibration read from the file, when the format carries it
+/// (DM4 does; plain HDF5 usually doesn't). Units are the file's own strings
+/// (Gatan: "nm" real-space, "1/nm" diffraction).
+struct PixelCalibration: Sendable {
+    var rSize: Double?
+    var rUnits: String?
+    var qSize: Double?
+    var qUnits: String?
+}
+
 protocol FourDDataSource: Actor {
     /// The primary 4D datacube in the file.
     func discoverPrimaryDataset() throws -> DatasetDescriptor
@@ -18,4 +28,6 @@ protocol FourDDataSource: Actor {
     func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float]
     /// A scalar attribute (e.g. accelerating voltage), or nil if absent.
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double?
+    /// Pixel sizes/units from file metadata, or nil if the format has none.
+    func pixelCalibration() -> PixelCalibration?
 }

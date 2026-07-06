@@ -128,18 +128,13 @@ Still ahead (each its own focused effort):
 ## Open issues / known limitations
 
 - **Whole-cube analyses require the cube to fit in the GPU working-set budget.** Virtual detector, calibration, and DPC stream the full cube into one MTLBuffer; datasets beyond ~half the GPU budget throw a friendly "try a smaller crop" error. Out-of-core tiling is planned.
-- **Cube is expanded to float32 and duplicated during upload.** `FourDArray.cubeBuffer()` first builds a full Swift `[Float]`, then creates a full shared `MTLBuffer`; native-dtype residency and streamed upload would reduce peak memory.
+- **Cube is expanded to float32.** Rows now stream directly into a page-aligned allocation handed to Metal via `bytesNoCopy` (the former duplicate-copy peak is gone), but native-dtype residency (e.g. uint16) would still halve memory for integer data.
 - **No automated test suite yet.** The active test plan currently has no tests. Ports are validated by numeric checks during development and comparison with py4DSTEM; a golden-value harness against py4DSTEM outputs is needed.
 - **DM4 reader has Swift concurrency warnings.** Current Swift 5 builds succeed, but Xcode reports warnings in `DM4Reader` that become errors in Swift 6 language mode.
-- **HDF5 rank-3 support is incomplete.** Rank-3 datasets are reshaped to `[1, N, Qy, Qx]`, but the reader still selects hyperslabs as if the file dataspace were rank 4.
 - **`AppState` is a large workflow coordinator.** It currently owns UI state, file I/O orchestration, calibration, analysis dispatch, result state, and progress reporting; this is becoming a maintainability and coupling risk.
-- **Long-running analyses are not cancellable.** Detached tasks do not carry a dataset-generation token or cancellation check, so stale work can update state after a file, mode, or parameter change.
-- **Calibration metadata is not fully propagated.** The model has q/r pixel-size fields, but dataset readers and `AppState` do not consistently populate or use them; ACOM scale, scale bars, colorbars, and reproducibility remain limited.
+- **Long-running analyses are not cancellable.** They now carry a dataset-generation epoch, so results from a previously-open file are dropped instead of landing in the new file's state — but a running pass still cannot be stopped mid-flight.
+- **Calibration metadata propagation is partial.** DM4 pixel sizes/units now populate `Calibration` (scale bars + ACOM scale use them; manual entry covers HDF5), but colorbars and persistence of calibration are still missing.
 - **ACOM orientation output is incomplete.** The matcher currently reports the best template and in-plane angle but returns zero Euler angles; full crystallographic orientation maps are not yet available.
-- **DM4 parsing can still crash on malformed files.** Some `ByteReader` loads advance through `Data` without bounds checks before throwing `truncated`.
-- **Disk-detection failure reporting has a small race.** `DiskDetection.detectAll` mutates its `failed` flag from concurrent workers without synchronization.
-- **Rotation calibration does not automatically refresh displayed DPC/iDPC results.** If a CoM field is cached, changing the calibrated R-Q rotation can leave the visible result stale until DPC display is reapplied.
-- **Full-scan disk detection allocates per-worker FFT scratch.** One `DiskDetector` is created per concurrent scan-row worker, which can create significant temporary memory pressure on large scans.
 - **Virtual diffraction is an all-scan-position reduction.** Each detector pixel loops over every scan position in the selected mask, so live selected-area diffraction can become expensive for large scans and detectors.
 - **Strain mapping uses the scan-mean lattice as the reference.** There is no user-selected unstrained region yet, so global strain or gradients can be normalized away.
 - **Strain basis selection is automatic and fragile.** The shortest non-collinear peak pair is chosen globally; false positives or mixed phases can poison indexing across the map.
@@ -147,10 +142,30 @@ Still ahead (each its own focused effort):
 - **iDPC currently assumes unit scan pixels and uses power-of-two padding.** Physical scaling and edge artifacts need more explicit handling for quantitative interpretation.
 - **No graceful non-Metal fallback.** `MetalEngine` uses fatal initialization failures if no Metal device, command queue, or default library is available.
 - **HDF5 discovery is path-list based.** Valid datasets outside the known py4DSTEM/Gatan/HyperSpy layouts need manual path entry.
-- **Display normalization does not explicitly sanitize NaN/Inf.** Bad pixels can distort scaling or produce unstable visualization.
 - **HDF5 not yet bundled.** App Sandbox is off for development (see above).
-- **R-Q rotation has an inherent 180° ambiguity.** The curl/divergence metric is unchanged by flipping both CoM components. If iDPC contrast comes out inverted, the true rotation is θ + 180°; a manual override is planned.
+- **R-Q rotation has an inherent 180° ambiguity.** The curl/divergence metric is unchanged by flipping both CoM components. If iDPC contrast comes out inverted, use the **Flip 180°** button in the Calibration section.
 - Bundle identifier is still a development placeholder.
+
+### Fixed (2026-07-06 pass)
+
+- DM4 `ByteReader` is now bounds-checked end-to-end — malformed/truncated files throw `truncated` instead of crashing; tag counts are sanity-capped.
+- Rank-3 HDF5 datasets now read correctly (hyperslab selection matches the file's real rank).
+- Stale-result guard: analyses capture a dataset epoch and drop results if a different dataset was activated mid-run.
+- `DiskDetection.detectAll` `failed`-flag data race fixed; disk detection and ACOM matching now use one worker-pooled detector/matcher per core (strided rows) instead of one per scan row.
+- Display normalization ignores NaN/Inf (finite min/max; non-finite pixels map to the low end).
+- Rotation calibration (and the 180° flip) immediately refresh a displayed DPC/iDPC result; the full objective curves are now plotted in the inspector ("Rotation diagnostics").
+- Cube upload no longer double-allocates (`bytesNoCopy` into a page-aligned buffer).
+- Normalized display pixels are cached per version counter instead of being recomputed on every SwiftUI render.
+- Scattering factors now cover all 103 elements (generated from py4DSTEM's Lobato table); unknown elements fail loudly. ACOM offers a **Custom** cubic crystal (element × FCC/BCC/SC/diamond × lattice constant). Materials Project lookup is a future step.
+- Export: result image / diffraction pattern as PNG (rendered as displayed), Bragg peaks as CSV (File section).
+- DP mean/max picker lives in the tools panel when the CBED pane is active, with a standalone "Compute Mean / Max" pass (no origin calibration required).
+- Histogram gained a draggable contrast window (applied in the fragment shader; independent of the log-counts toggle).
+- Output log strip below the image panes (toggleable) shows timestamped operation history.
+- Arrow keys step the scan position (Shift = 10 px).
+- Histogram range slider rewritten: the whole histogram takes the drag and moves the nearest handle (the old per-handle hit areas clipped at the row edge, so the hi handle was ungrabbable).
+- Split-view squeeze limits: sidebar capped at 300 pt, detail area has a 480 pt floor, window min width 1080 — panes can no longer be crushed into distorted slivers.
+- PNG exports now burn the scale bar into the image (bottom-left, same 1-2-5 quantization and units as on screen); small maps are integer-upscaled (nearest neighbor) to ≥512 px so the label stays legible without altering data pixels.
+- **Zoom + calibrated scale bars.** Both panes zoom (pinch; diffraction also pans by dragging the background; double-click resets). Image and overlays share one transformed container so the aperture, peaks, crosshair, and ROI stay pixel-accurate at any zoom (this also fixed the pre-existing overlay misalignment when the real-space view was zoomed). Each pane shows a 1-2-5 scale bar that re-quantizes with zoom — calibrated (nm / 1/nm) when pixel sizes are known, px otherwise. DM4 pixel sizes + units now flow into `Calibration` automatically (and auto-fill the ACOM Å⁻¹/px scale when units are convertible); manual pixel-size fields in the Calibration section cover plain HDF5.
 
 ### UI / UX (polish cycle in progress)
 
@@ -159,13 +174,12 @@ Done: toolbar mode switcher (all modes reachable), independently hideable tools 
 Still open:
 
 - **Virtual diffraction** — a grid-snapped region tool on the real-space image that sums the selected positions' patterns into the CBED pane (reciprocal of virtual imaging), plus **active-pane** focus that scopes the tools panel to the clicked pane. In progress.
-- **Per-view histogram + draggable contrast** (min/max/gamma), shown in the inspector panel.
-- **Scale bars and colorbars with units** (nm real-space, Å⁻¹ / mrad diffraction) — needs the pixel-size calibration.
+- **Per-view histogram draggable contrast**: min/max range slider is done (real-space view); gamma and a CBED-side window are still open.
+- ~~Scale bars with units~~ — done (zoom-aware 1-2-5 bars, px fallback). **Colorbars** (numeric color ↔ value legend) still open; mrad diffraction units (needs voltage) still open.
 - **Preprocessing / import** — no `.dm4` (or other raw TEM formats) support yet. A future import pipeline reads a raw `.dm4` from the microscope and writes a working `.h5`, with an **automatic calibration** step (origin, rotation, pixel sizes) and a **manual** override path when wanted — mirroring py4DSTEM's calibrate-and-export flow (kept separate from the main analysis UI). The DM4 binary format is fully specced and verified in [`docs/dm4-format.md`](docs/dm4-format.md), ready to implement.
 - **Results persistence + file tree** — save calibration, Bragg vectors, and result maps/plots into a companion sidecar `.h5` next to the original (never modifying the source), with load-on-reopen. The inspector's **bottom-right file tree** shows where things are stored (virtual images, disk detection, calibrations) so it's clear what's already been computed.
 - **Performance panel** (inspector, above the file tree) — live view of active processes, memory occupied, iterations/second, and a progress bar highlighting the running operation.
-- **Per-view histogram** with draggable contrast (min/max/gamma) for the real-space image, styled, in the inspector panel. The histogram exists; still to add is a **range slider on it that clips which intensities map into the image** (and it must interoperate cleanly with the log-count toggle).
-- **DP mean / max** views regressed out of easy reach — they should live in the tools panel when the diffraction (CBED) pane is the active (blue) pane, alongside the detector controls.
+- ~~Histogram range slider~~ and ~~DP mean/max in the tools panel~~ — done (see Fixed list below).
 - **macOS menu bar** — File / Edit / View / Window menus are still defaults; to be populated with commands + shortcuts.
 
 ---

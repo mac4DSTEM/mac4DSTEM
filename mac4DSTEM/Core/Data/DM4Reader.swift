@@ -45,7 +45,9 @@ actor DM4Reader: FourDDataSource {
     // Best-effort calibration.
     private(set) var voltage: Double?
     private(set) var qPixelSize: Double?
+    private(set) var qPixelUnits: String?
     private(set) var rPixelSize: Double?
+    private(set) var rPixelUnits: String?
 
     init(path: String) throws {
         guard let mapped = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else {
@@ -81,6 +83,12 @@ actor DM4Reader: FourDDataSource {
             return voltage
         }
         return nil
+    }
+
+    func pixelCalibration() -> PixelCalibration? {
+        guard qPixelSize != nil || rPixelSize != nil else { return nil }
+        return PixelCalibration(rSize: rPixelSize, rUnits: rPixelUnits,
+                                qSize: qPixelSize, qUnits: qPixelUnits)
     }
 
     // MARK: Pixel decode (little-endian → Float)
@@ -143,6 +151,7 @@ actor DM4Reader: FourDDataSource {
         guard byteord == 1 else { throw DM4Error.notLittleEndian }
 
         try walkGroup(&reader, prefix: "")
+        guard !reader.overran else { throw DM4Error.truncated }
         try locateDatacube()
     }
 
@@ -151,7 +160,7 @@ actor DM4Reader: FourDDataSource {
         _ = reader.u8()                                // is_open
         let nTags = Int(reader.special(dmVersion))
         for _ in 0..<nTags {
-            guard reader.remaining >= 3 else { throw DM4Error.truncated }
+            guard !reader.overran, reader.remaining >= 3 else { throw DM4Error.truncated }
             let tag = reader.u8()
             if tag == 0 { break }
             let labelLen = Int(reader.u16be())
@@ -171,6 +180,8 @@ actor DM4Reader: FourDDataSource {
         let delim = reader.bytes(4)
         guard delim == [37, 37, 37, 37] else { throw DM4Error.truncated }
         let ninfo = Int(reader.special(dmVersion))
+        // Malformed counts would otherwise drive a huge allocation below.
+        guard ninfo >= 0, ninfo <= 4096 else { throw DM4Error.truncated }
         var info = [UInt64](); info.reserveCapacity(ninfo)
         for _ in 0..<ninfo { info.append(reader.special(dmVersion)) }
         guard let encType = info.first.map(Int.init) else { return }
@@ -306,8 +317,14 @@ actor DM4Reader: FourDDataSource {
         // Per-dimension Scale (fastest first): dim 0 → Q, dim 2 → R (matches
         // py4DSTEM's pixelsize[0]/[2]).
         func scale(_ i: Int) -> Double? { numbers[prefix + "Calibrations.Dimension.\(i).Scale"] }
+        func units(_ i: Int) -> String? {
+            let u = strings[prefix + "Calibrations.Dimension.\(i).Units"]
+            return (u?.isEmpty ?? true) ? nil : u
+        }
         qPixelSize = scale(0)
+        qPixelUnits = units(0)
         rPixelSize = scale(2)
+        rPixelUnits = units(2)
         for (key, value) in numbers where key.contains("Microscope Info.Voltage") {
             voltage = value; break
         }
@@ -327,16 +344,23 @@ actor DM4Reader: FourDDataSource {
 
 /// A cursor over a Data buffer (assumed to start at index 0). Structure fields
 /// are big-endian; `value`/`u16le` read little-endian primitive values.
+///
+/// BOUNDS: every load is clamp-safe. Reads past the end return 0 and set
+/// `overran`, which the parser checks (walkGroup) to throw `.truncated`
+/// instead of crashing on malformed/truncated files.
 private struct ByteReader {
     let data: Data
     var offset = 0
+    /// True once any read went past the end of the buffer.
+    private(set) var overran = false
 
     init(_ data: Data) { self.data = data }
 
     var remaining: Int { data.count - offset }
 
     mutating func u8() -> UInt8 {
-        let v = data[offset]; offset += 1; return v
+        guard offset >= 0, offset < data.count else { overran = true; offset += 1; return 0 }
+        let v = data[data.startIndex + offset]; offset += 1; return v
     }
 
     mutating func u16be() -> UInt16 { load(UInt16.self).bigEndian }
@@ -349,8 +373,11 @@ private struct ByteReader {
     }
 
     mutating func bytes(_ n: Int) -> [UInt8] {
+        guard n >= 0, offset >= 0, offset <= data.count else { overran = true; offset += max(n, 0); return [] }
         let start = data.startIndex + offset
-        let slice = data[start..<min(start + n, data.endIndex)]
+        let end = min(start + n, data.endIndex)
+        if end - start < n { overran = true }
+        let slice = data[start..<max(start, end)]
         offset += n
         return [UInt8](slice)
     }
@@ -379,9 +406,13 @@ private struct ByteReader {
 
     mutating func seek(_ to: Int) { offset = to }
 
-    private mutating func load<T>(_ type: T.Type) -> T {
+    private mutating func load<T: FixedWidthInteger>(_ type: T.Type) -> T {
+        let size = MemoryLayout<T>.size
+        guard offset >= 0, offset + size <= data.count else {
+            overran = true; offset += size; return 0
+        }
         let v = data.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: T.self) }
-        offset += MemoryLayout<T>.size
+        offset += size
         return v
     }
 }

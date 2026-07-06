@@ -34,7 +34,10 @@ vertex VOut displayVertex(uint vid [[vertex_id]],
     return o;
 }
 
+// range = (lo, hi) in normalized [0,1] intensity: values <= lo map to the
+// bottom of the LUT, >= hi to the top (histogram contrast clipping).
 fragment float4 colormapFragment(VOut in [[stage_in]],
+                                 constant float2 &range [[buffer(0)]],
                                  texture2d<float> img [[texture(0)]],
                                  texture1d<float> lut [[texture(1)]])
 {
@@ -49,6 +52,7 @@ fragment float4 colormapFragment(VOut in [[stage_in]],
     }
 
     float v = clamp(img.sample(dataSampler, in.uv).r, 0.0, 1.0);
+    v = clamp((v - range.x) / max(range.y - range.x, 1e-6), 0.0, 1.0);
     float4 c = lut.sample(lutSampler, v);
     return float4(c.rgb, 1.0);
 }

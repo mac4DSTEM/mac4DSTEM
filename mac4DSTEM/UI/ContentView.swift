@@ -29,7 +29,17 @@ struct ContentView: View {
                     Button {
                         showImporter = true
                     } label: {
-                        Label("Open .h5 File", systemImage: "folder")
+                        Label("Open Dataset…", systemImage: "folder")
+                    }
+                    if appState.hasDataset {
+                        Menu {
+                            Button("Result Image as PNG…") { appState.exportResultImage() }
+                            Button("Diffraction Pattern as PNG…") { appState.exportDiffractionImage() }
+                            Button("Bragg Peaks as CSV…") { appState.exportBraggPeaksCSV() }
+                                .disabled(appState.braggVectors == nil)
+                        } label: {
+                            Label("Export", systemImage: "square.and.arrow.up")
+                        }
                     }
                 }
 
@@ -50,6 +60,30 @@ struct ContentView: View {
                         Picker("Colormap", selection: $appState.colormap) {
                             ForEach(ColormapKind.allCases) { kind in
                                 Text(kind.displayName).tag(kind)
+                            }
+                        }
+                    }
+
+                    // CBED pattern source (current / mean / max) lives here when
+                    // the diffraction pane is the active (blue) one.
+                    if appState.activePane == .diffraction {
+                        Section("Pattern") {
+                            if appState.meanPattern != nil {
+                                Picker("Show", selection: $appState.patternDisplayMode) {
+                                    ForEach(PatternDisplayMode.allCases) { m in
+                                        Text(m.rawValue).tag(m)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                            } else {
+                                Button {
+                                    Task { await appState.computeDPStatistics() }
+                                } label: {
+                                    Label("Compute Mean / Max", systemImage: "sum")
+                                }
+                                .disabled(appState.isBusy)
+                                Text("One pass over the cube; also computed by origin calibration.")
+                                    .font(.caption2).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -88,7 +122,25 @@ struct ContentView: View {
                             LabeledContent("R–Q rotation",
                                            value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed))
                                 .font(.caption)
+                            Button {
+                                appState.flipRotation180()
+                            } label: {
+                                Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
+                            }
+                            .help("The curl method can't tell θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
                         }
+
+                        // Pixel sizes: auto-filled from DM4 metadata, editable
+                        // (and the only way in for plain HDF5). Drives the
+                        // scale bars; 0 = uncalibrated (bars show px).
+                        pixelSizeField("r px size",
+                                       value: $appState.calibration.rPixelSize,
+                                       units: $appState.calibration.rPixelUnits,
+                                       defaultUnits: "nm")
+                        pixelSizeField("q px size",
+                                       value: $appState.calibration.qPixelSize,
+                                       units: $appState.calibration.qPixelUnits,
+                                       defaultUnits: "1/nm")
                     }
 
                     if appState.analysisMode == .virtualDetector {
@@ -219,6 +271,25 @@ struct ContentView: View {
                                     Text(choice.rawValue).tag(choice)
                                 }
                             }
+                            if appState.acomCrystal == .custom {
+                                Picker("Element", selection: $appState.customZ) {
+                                    ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
+                                        Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
+                                    }
+                                }
+                                Picker("Structure", selection: $appState.customStructure) {
+                                    ForEach(Crystal.CubicStructure.allCases) { s in
+                                        Text(s.rawValue).tag(s)
+                                    }
+                                }
+                                HStack {
+                                    Text("a (Å)").font(.caption)
+                                    TextField("a", value: $appState.customLatticeA,
+                                              format: .number.precision(.fractionLength(0...4)))
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 80)
+                                }
+                            }
                             Button {
                                 Task { await appState.generateOrientationPlan() }
                             } label: {
@@ -256,33 +327,50 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("mac4DSTEM")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             HStack(spacing: 0) {
-                Group {
-                    if appState.hasDataset {
-                        HSplitView {
-                            DiffractionView()
-                                .overlay(paneFocusBorder(active: appState.activePane == .diffraction))
-                                .contentShape(Rectangle())
-                                .onTapGesture { appState.activePane = .diffraction }
-                                .frame(minWidth: 260)
-                            StemImageView()
-                                .overlay(paneFocusBorder(active: appState.activePane == .realSpace))
-                                .contentShape(Rectangle())
-                                .onTapGesture { appState.activePane = .realSpace }
-                                .frame(minWidth: 260)
+                VStack(spacing: 0) {
+                    Group {
+                        if appState.hasDataset {
+                            HSplitView {
+                                DiffractionView()
+                                    .overlay(paneFocusBorder(active: appState.activePane == .diffraction))
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { appState.activePane = .diffraction }
+                                    .frame(minWidth: 220)
+                                StemImageView()
+                                    .overlay(paneFocusBorder(active: appState.activePane == .realSpace))
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { appState.activePane = .realSpace }
+                                    .frame(minWidth: 220)
+                            }
+                            .focusable()
+                            .focusEffectDisabled()
+                            .onKeyPress(phases: .down) { press in
+                                handleArrowKey(press)
+                            }
+                        } else {
+                            VStack(spacing: 12) {
+                                Text("mac4DSTEM").font(.title)
+                                Text(appState.statusText).foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding()
                         }
-                    } else {
-                        VStack(spacing: 12) {
-                            Text("mac4DSTEM").font(.title)
-                            Text(appState.statusText).foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // Output strip: rolling log of operations below the panes.
+                    if appState.showLogPane && appState.hasDataset {
+                        Divider()
+                        logPane
                     }
                 }
+                // Hard floor so dragging the sidebar/inspector can't crush the
+                // image panes into distorted slivers.
+                .frame(minWidth: 480)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Inspector as an explicit, independent panel so it coexists
@@ -320,6 +408,14 @@ struct ContentView: View {
                     .pickerStyle(.segmented)
                     .fixedSize()
                     .disabled(!appState.hasDataset)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        appState.showLogPane.toggle()
+                    } label: {
+                        Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
+                    }
+                    .help("Show or hide the output log below the image panes")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -368,6 +464,76 @@ struct ContentView: View {
         } message: {
             Text(appState.errorMessage ?? "")
         }
+    }
+
+    /// One pixel-size calibration row: numeric field + units label.
+    /// Entering a value > 0 calibrates (setting default units if none);
+    /// clearing to 0 returns to uncalibrated ("px" scale bars).
+    private func pixelSizeField(_ label: String,
+                                value: Binding<Double?>,
+                                units: Binding<String?>,
+                                defaultUnits: String) -> some View {
+        HStack {
+            Text(label).font(.caption)
+            Spacer()
+            TextField("0", value: Binding(
+                get: { value.wrappedValue ?? 0 },
+                set: {
+                    value.wrappedValue = $0 > 0 ? $0 : nil
+                    if $0 > 0, units.wrappedValue == nil {
+                        units.wrappedValue = defaultUnits
+                    }
+                }
+            ), format: .number.precision(.fractionLength(0...6)))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 90)
+            Text(units.wrappedValue ?? defaultUnits)
+                .font(.caption2).foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .leading)
+        }
+    }
+
+    /// Rolling output log below the image panes (auto-scrolls to the latest).
+    private var logPane: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(Array(appState.logMessages.enumerated()), id: \.offset) { index, line in
+                        Text(line)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .id(index)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+            }
+            .onChange(of: appState.logMessages.count) {
+                proxy.scrollTo(appState.logMessages.count - 1, anchor: .bottom)
+            }
+        }
+        .frame(height: 100)
+        .background(Color.black.opacity(0.15))
+    }
+
+    /// Arrow keys step the selected scan position (Shift = 10 px steps).
+    private func handleArrowKey(_ press: KeyPress) -> KeyPress.Result {
+        guard let d = appState.descriptor else { return .ignored }
+        let step = press.modifiers.contains(.shift) ? 10 : 1
+        var x = appState.selectedScan.x
+        var y = appState.selectedScan.y
+        switch press.key {
+        case .leftArrow:  x -= step
+        case .rightArrow: x += step
+        case .upArrow:    y -= step
+        case .downArrow:  y += step
+        default: return .ignored
+        }
+        appState.selectScan(x: min(max(0, x), d.rx - 1),
+                            y: min(max(0, y), d.ry - 1))
+        return .handled
     }
 
     /// Accent border marking the active pane.

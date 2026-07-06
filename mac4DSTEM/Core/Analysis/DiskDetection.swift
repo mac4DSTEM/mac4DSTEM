@@ -412,22 +412,31 @@ enum DiskDetection {
 
         let ok = results.withUnsafeMutableBufferPointer { buf -> Bool in
             let slots = Slots(ptr: buf.baseAddress!, cubeBase: base)
+            // One detector (FFT plan + padded scratch) per WORKER, rows strided
+            // across workers — not one per row, which churned multi-MB
+            // allocations on large scans. `failed` is guarded by the lock.
             var failed = false
-            DispatchQueue.concurrentPerform(iterations: d.ry) { ry in
-                guard let det = DiskDetector(kernel: kernel) else { failed = true; return }
-                for rx in 0..<d.rx {
-                    let pat = slots.cubeBase + ry * rowPix + rx * patPix
-                    slots.ptr[ry * d.rx + rx] = det.detect(pattern: pat, params: params)
+            let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, d.ry))
+            DispatchQueue.concurrentPerform(iterations: workers) { w in
+                guard let det = DiskDetector(kernel: kernel) else {
+                    rowsDone.lock(); failed = true; rowsDone.unlock(); return
                 }
-                if let progress {
-                    rowsDone.lock()
-                    doneCount += 1
-                    let f = Double(doneCount) / Double(d.ry)
-                    rowsDone.unlock()
-                    progress(f)
+                for ry in stride(from: w, to: d.ry, by: workers) {
+                    for rx in 0..<d.rx {
+                        let pat = slots.cubeBase + ry * rowPix + rx * patPix
+                        slots.ptr[ry * d.rx + rx] = det.detect(pattern: pat, params: params)
+                    }
+                    if let progress {
+                        rowsDone.lock()
+                        doneCount += 1
+                        let f = Double(doneCount) / Double(d.ry)
+                        rowsDone.unlock()
+                        progress(f)
+                    }
                 }
             }
-            return !failed
+            rowsDone.lock(); let bad = failed; rowsDone.unlock()
+            return !bad
         }
         guard ok else { return nil }
         return BraggVectors(scanWidth: d.rx, scanHeight: d.ry, peaks: results)

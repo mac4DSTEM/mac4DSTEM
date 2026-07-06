@@ -8,7 +8,7 @@ struct mac4DSTEMApp: App {
         WindowGroup {
             ContentView()
                 .environment(appState)
-                .frame(minWidth: 1000, minHeight: 640)
+                .frame(minWidth: 1080, minHeight: 640)
                 .preferredColorScheme(.dark)
         }
         .windowStyle(.titleBar)

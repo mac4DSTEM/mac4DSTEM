@@ -279,8 +279,18 @@ actor H5Reader: FourDDataSource {
         let filespaceID = hdf5.h5dgetSpace(datasetID)
         defer { _ = hdf5.h5sclose(filespaceID) }
 
-        let start: [hsize_t] = [hsize_t(ry), hsize_t(rx), 0, 0]
-        let count: [hsize_t] = [1, 1, hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        // Rank-3 files were reshaped to [1, N, Qy, Qx] in describe(); the file
+        // dataspace is still rank 3, so the hyperslab must drop the Ry axis.
+        let fileRank = Int(hdf5.h5sgetSimpleExtentNdims(filespaceID))
+        let start: [hsize_t]
+        let count: [hsize_t]
+        if fileRank == 3 {
+            start = [hsize_t(rx), 0, 0]
+            count = [1, hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        } else {
+            start = [hsize_t(ry), hsize_t(rx), 0, 0]
+            count = [1, 1, hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        }
         let selectionStatus = start.withUnsafeBufferPointer { startBuffer in
             count.withUnsafeBufferPointer { countBuffer in
                 hdf5.h5sselectHyperslab(
@@ -320,8 +330,18 @@ actor H5Reader: FourDDataSource {
         let filespaceID = hdf5.h5dgetSpace(datasetID)
         defer { _ = hdf5.h5sclose(filespaceID) }
 
-        let start: [hsize_t] = [hsize_t(ry), 0, 0, 0]
-        let count: [hsize_t] = [1, hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        // Same rank-3 handling as readPattern: the whole rank-3 dataset is one
+        // "scan row" of the reshaped [1, N, Qy, Qx] cube.
+        let fileRank = Int(hdf5.h5sgetSimpleExtentNdims(filespaceID))
+        let start: [hsize_t]
+        let count: [hsize_t]
+        if fileRank == 3 {
+            start = [0, 0, 0]
+            count = [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        } else {
+            start = [hsize_t(ry), 0, 0, 0]
+            count = [1, hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        }
         let selectionStatus = start.withUnsafeBufferPointer { startBuffer in
             count.withUnsafeBufferPointer { countBuffer in
                 hdf5.h5sselectHyperslab(
@@ -349,6 +369,10 @@ actor H5Reader: FourDDataSource {
         guard status >= 0 else { throw H5Error.readFailed("scan row \(ry)") }
         return buffer
     }
+
+    /// Plain HDF5 layouts carry no standard pixel-size metadata; the user can
+    /// enter it manually in the Calibration section.
+    func pixelCalibration() -> PixelCalibration? { nil }
 
     func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
         let objectID = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }

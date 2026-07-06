@@ -117,7 +117,9 @@ struct Crystal {
                     let gSq = gLen * gLen
                     var re = 0.0, im = 0.0
                     for site in sites {
-                        let fe = ScatteringFactors.electronScatteringFactor(z: site.z, gSquared: gSq)
+                        // Unsupported elements are caught up front by
+                        // `unsupportedElements`; 0 here is unreachable in practice.
+                        let fe = ScatteringFactors.electronScatteringFactor(z: site.z, gSquared: gSq) ?? 0
                         let phase = 2 * Double.pi * (Double(h) * site.fractional.x
                                                    + Double(k) * site.fractional.y
                                                    + Double(l) * site.fractional.z)
@@ -136,6 +138,13 @@ struct Crystal {
         }
         out.sort { $0.gLength < $1.gLength }
         return out
+    }
+
+    /// Atomic numbers in this crystal missing from the scattering-factor
+    /// table. Non-empty → structure factors would be silently wrong; callers
+    /// must check and fail loudly before generating templates.
+    var unsupportedElements: [Int] {
+        Array(Set(sites.map(\.z).filter { !ScatteringFactors.isSupported(z: $0) })).sorted()
     }
 
     // MARK: Presets
@@ -158,12 +167,36 @@ struct Crystal {
         ])
     }
 
+    /// Simple cubic (1 atom).
+    static func sc(a: Double, z: Int) -> Crystal {
+        Crystal(a: a, b: a, c: a, sites: [AtomSite(z: z, fractional: [0, 0, 0])])
+    }
+
     /// Diamond cubic (8 atoms) — FCC plus a (¼,¼,¼) shifted sublattice.
     static func diamond(a: Double, z: Int) -> Crystal {
         let base: [SIMD3<Double>] = [[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]]
         let shift = SIMD3<Double>(0.25, 0.25, 0.25)
         return Crystal(a: a, b: a, c: a,
                        sites: (base + base.map { $0 + shift }).map { AtomSite(z: z, fractional: $0) })
+    }
+
+    /// Cubic structure families offered for user-defined (custom) crystals.
+    enum CubicStructure: String, CaseIterable, Identifiable {
+        case fcc = "FCC"
+        case bcc = "BCC"
+        case sc = "Simple cubic"
+        case diamond = "Diamond"
+        var id: String { rawValue }
+    }
+
+    /// Build a single-element cubic crystal for the custom-crystal UI.
+    static func cubic(_ structure: CubicStructure, a: Double, z: Int) -> Crystal {
+        switch structure {
+        case .fcc:     return fcc(a: a, z: z)
+        case .bcc:     return bcc(a: a, z: z)
+        case .sc:      return sc(a: a, z: z)
+        case .diamond: return diamond(a: a, z: z)
+        }
     }
 
     // Named materials (lattice constants in Å).
