@@ -17,6 +17,8 @@ struct PixelCalibration: Sendable {
     var rUnits: String?
     var qSize: Double?
     var qUnits: String?
+    /// py4DSTEM QR_flip (detector axes transposed relative to scan), if stored.
+    var qrFlip: Bool?
 }
 
 protocol FourDDataSource: Actor {

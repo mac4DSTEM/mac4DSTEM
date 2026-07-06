@@ -398,17 +398,25 @@ final class AppState {
         )
         acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage", onObjectPath: "/")
         calibration = Calibration()
-        // Pixel sizes from file metadata (DM4 carries them; HDF5 usually not).
+        // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
-            calibration.rPixelSize = pc.rSize
-            calibration.rPixelUnits = pc.rUnits
+            var rSize = pc.rSize
+            var rUnits = pc.rUnits
+            // Normalize µm → nm (STEM-scale bars read better in nm).
+            if let r = rSize, ["µm", "um", "micron"].contains(rUnits?.lowercased() ?? "") {
+                rSize = r * 1000
+                rUnits = "nm"
+            }
+            calibration.rPixelSize = rSize
+            calibration.rPixelUnits = rUnits
             calibration.qPixelSize = pc.qSize
             calibration.qPixelUnits = pc.qUnits
+            if let flip = pc.qrFlip { calibration.transposeQR = flip }
             // Auto-fill the ACOM Q scale (Å⁻¹/px) when the units are convertible.
             if let q = pc.qSize, q > 0 {
                 switch pc.qUnits?.lowercased() {
-                case "1/nm", "1/nanometer": acomScale = q * 0.1
-                case "1/a", "1/å", "1/angstrom": acomScale = q
+                case "1/nm", "nm^-1", "1/nanometer": acomScale = q * 0.1
+                case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1": acomScale = q
                 default: break
                 }
             }

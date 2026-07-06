@@ -125,6 +125,31 @@ Still ahead (each its own focused effort):
 
 ---
 
+## Direction notes (2026-07-06 evaluation)
+
+- **.h5 calibration**: the py4DSTEM EMD files carry a full calibration bundle
+  (`<root>/metadatabundle/calibration/{Q,R}_pixel_size` + units, `QR_flip`) and
+  EMD `dim0–dim3` vectors — now read automatically (see Fixed list).
+- **DM4 self-calibration (future)**: when a raw `.dm4` is opened, the app should
+  be able to produce this calibration itself — origin + rotation + pixel sizes
+  written as a py4DSTEM-style calibration bundle into the exported `.h5`
+  (mirrors the current external preprocessing flow). Q-calibration from a known
+  crystal (fit Bragg radius of a known lattice spacing) is the missing piece.
+- **Large datasets, decided approach** (ladder): ① real-space crop at load,
+  ② detector (Q) binning at load = binned preview, ③ native-dtype residency,
+  ④ out-of-core tiled streaming for whole-cube passes, ⑤ streamed
+  preprocess/export to a new calibrated `.h5` (pending), ⑥ true sparse
+  (electron-counted) formats only when such data exists.
+- **Speed vs py4DSTEM+CUDA (assessment)**: whole-cube ops are memory-bandwidth
+  bound — we beat py4DSTEM-CPU by orders of magnitude, are competitive with
+  mid-range CUDA, won't out-bandwidth a 4090; our win is end-to-end interactive
+  latency (no Python, no PCIe copies). Disk detection is the exception (CPU
+  FFTs) — moving correlation to the GPU is the big remaining lever.
+- **Feature-revision plan**: DPC in physical units (mrad, needs voltage + Q cal);
+  measured vacuum probe from ROI; strain reference region + manual g1/g2 +
+  robust basis; ACOM symmetry reduction, Euler angles, IPF; colorbars;
+  results persistence to a sidecar `.h5` (py4DSTEM round-trip).
+
 ## Open issues / known limitations
 
 - **Whole-cube analyses require the cube to fit in the GPU working-set budget.** Virtual detector, calibration, and DPC stream the full cube into one MTLBuffer; datasets beyond ~half the GPU budget throw a friendly "try a smaller crop" error. Out-of-core tiling is planned.

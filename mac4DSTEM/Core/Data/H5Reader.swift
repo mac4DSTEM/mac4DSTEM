@@ -64,6 +64,10 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     typealias H5TgetClass = @convention(c) (hid_t) -> Int32
     typealias H5TgetSize = @convention(c) (hid_t) -> Int
     typealias H5TgetSign = @convention(c) (hid_t) -> Int32
+    typealias H5Tcopy = @convention(c) (hid_t) -> hid_t
+    typealias H5TsetSize = @convention(c) (hid_t, UInt) -> herr_t
+    typealias H5TisVariableStr = @convention(c) (hid_t) -> Int32
+    typealias H5AgetType = @convention(c) (hid_t) -> hid_t
     typealias H5Oopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
     typealias H5Oclose = @convention(c) (hid_t) -> herr_t
     typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
@@ -92,6 +96,10 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     let h5tgetClass: H5TgetClass
     let h5tgetSize: H5TgetSize
     let h5tgetSign: H5TgetSign
+    let h5tcopy: H5Tcopy
+    let h5tsetSize: H5TsetSize
+    let h5tisVariableStr: H5TisVariableStr
+    let h5agetType: H5AgetType
     let h5oopen: H5Oopen
     let h5oclose: H5Oclose
     let h5aopen: H5Aopen
@@ -99,6 +107,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     let h5aread: H5Aread
     let nativeFloat: hid_t
     let nativeDouble: hid_t
+    let stringC1: hid_t          // H5T_C_S1 base type for string reads
 
     static func load() throws -> HDF5Library {
         let paths = candidateLibraryPaths()
@@ -158,13 +167,18 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
             h5tgetClass: try symbol("H5Tget_class", as: H5TgetClass.self),
             h5tgetSize: try symbol("H5Tget_size", as: H5TgetSize.self),
             h5tgetSign: try symbol("H5Tget_sign", as: H5TgetSign.self),
+            h5tcopy: try symbol("H5Tcopy", as: H5Tcopy.self),
+            h5tsetSize: try symbol("H5Tset_size", as: H5TsetSize.self),
+            h5tisVariableStr: try symbol("H5Tis_variable_str", as: H5TisVariableStr.self),
+            h5agetType: try symbol("H5Aget_type", as: H5AgetType.self),
             h5oopen: try symbol("H5Oopen", as: H5Oopen.self),
             h5oclose: try symbol("H5Oclose", as: H5Oclose.self),
             h5aopen: try symbol("H5Aopen", as: H5Aopen.self),
             h5aclose: try symbol("H5Aclose", as: H5Aclose.self),
             h5aread: try symbol("H5Aread", as: H5Aread.self),
             nativeFloat: try global("H5T_NATIVE_FLOAT_g", as: hid_t.self),
-            nativeDouble: try global("H5T_NATIVE_DOUBLE_g", as: hid_t.self)
+            nativeDouble: try global("H5T_NATIVE_DOUBLE_g", as: hid_t.self),
+            stringC1: try global("H5T_C_S1_g", as: hid_t.self)
         )
     }
 
@@ -191,6 +205,9 @@ actor H5Reader: FourDDataSource {
     private let hdf5: HDF5Library
     private let fileID: hid_t
     let filePath: String
+    /// Path of the most recently described dataset — anchor for locating the
+    /// py4DSTEM calibration bundle / EMD dim vectors relative to the datacube.
+    private var lastDatasetPath: String?
 
     static let candidatePaths: [String] = [
         "/dm_dataset_root/dm_dataset/data",
@@ -262,6 +279,7 @@ actor H5Reader: FourDDataSource {
             }
         }
 
+        lastDatasetPath = path
         return DatasetDescriptor(
             filePath: filePath,
             datasetPath: path,
@@ -370,9 +388,130 @@ actor H5Reader: FourDDataSource {
         return buffer
     }
 
-    /// Plain HDF5 layouts carry no standard pixel-size metadata; the user can
-    /// enter it manually in the Calibration section.
-    func pixelCalibration() -> PixelCalibration? { nil }
+    /// Calibration from the file itself, tried in order:
+    ///  1. py4DSTEM EMD calibration bundle:
+    ///     <datacube-root>/metadatabundle/calibration/{Q,R}_pixel_size (+units,
+    ///     QR_flip) — the exact values py4DSTEM would load.
+    ///  2. EMD dim vectors dim0…dim3 beside the data (spacing = dim[1]−dim[0],
+    ///     units from the dataset attribute) — generic EMD/HyperSpy fallback.
+    /// Otherwise nil → manual entry in the Calibration section.
+    func pixelCalibration() -> PixelCalibration? {
+        guard let dsPath = lastDatasetPath else { return nil }
+        let components = dsPath.split(separator: "/").map(String.init)
+        var out = PixelCalibration(rSize: nil, rUnits: nil, qSize: nil, qUnits: nil)
+
+        // 1. py4DSTEM bundle: dataset ".../<group>/data" → "<group parent>".
+        if components.count >= 2 {
+            let root = "/" + components.dropLast(2).joined(separator: "/")
+            let cal = (root == "/" ? "" : root) + "/metadatabundle/calibration"
+            out.qSize = readScalarDouble(cal + "/Q_pixel_size")
+            out.qUnits = readStringDataset(cal + "/Q_pixel_units")
+            out.rSize = readScalarDouble(cal + "/R_pixel_size")
+            out.rUnits = readStringDataset(cal + "/R_pixel_units")
+            out.qrFlip = readScalarDouble(cal + "/QR_flip").map { $0 > 0.5 }
+        }
+
+        // 2. EMD dim-vector fallback ([Ry, Rx, Qy, Qx] → dim1 = R, dim3 = Q).
+        if out.rSize == nil || out.qSize == nil {
+            let parent = "/" + components.dropLast().joined(separator: "/")
+            func dim(_ i: Int) -> (size: Double, units: String?)? {
+                guard let v = readDoubleVector(parent + "/dim\(i)", maxCount: 65536),
+                      v.count >= 2, v[1] - v[0] > 0 else { return nil }
+                return (v[1] - v[0], readStringAttribute("units", onPath: parent + "/dim\(i)"))
+            }
+            if out.rSize == nil, let d = dim(1) { out.rSize = d.size; out.rUnits = d.units }
+            if out.qSize == nil, let d = dim(3) { out.qSize = d.size; out.qUnits = d.units }
+        }
+
+        return (out.rSize != nil || out.qSize != nil) ? out : nil
+    }
+
+    // MARK: Small typed readers (calibration metadata)
+
+    /// Number of elements in a dataset's dataspace (1 for scalar), or nil.
+    private func elementCount(spaceID: hid_t) -> Int? {
+        let rank = Int(hdf5.h5sgetSimpleExtentNdims(spaceID))
+        guard rank >= 0 else { return nil }
+        if rank == 0 { return 1 }
+        var dims = [hsize_t](repeating: 0, count: rank)
+        _ = dims.withUnsafeMutableBufferPointer {
+            hdf5.h5sgetSimpleExtentDims(spaceID, $0.baseAddress, nil)
+        }
+        return dims.reduce(1) { $0 * Int($1) }
+    }
+
+    private func readScalarDouble(_ path: String) -> Double? {
+        readDoubleVector(path, maxCount: 1)?.first
+    }
+
+    private func readDoubleVector(_ path: String, maxCount: Int) -> [Double]? {
+        let ds = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard ds >= 0 else { return nil }
+        defer { _ = hdf5.h5dclose(ds) }
+        let space = hdf5.h5dgetSpace(ds)
+        defer { _ = hdf5.h5sclose(space) }
+        guard let n = elementCount(spaceID: space), n >= 1, n <= maxCount else { return nil }
+        var buffer = [Double](repeating: 0, count: n)
+        let status = buffer.withUnsafeMutableBytes {
+            hdf5.h5dread(ds, hdf5.nativeDouble, 0, 0, h5DefaultProperty, $0.baseAddress)
+        }
+        return status >= 0 ? buffer : nil
+    }
+
+    /// Read a 1-element string dataset (variable- or fixed-length).
+    private func readStringDataset(_ path: String) -> String? {
+        let ds = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard ds >= 0 else { return nil }
+        defer { _ = hdf5.h5dclose(ds) }
+        let space = hdf5.h5dgetSpace(ds)
+        defer { _ = hdf5.h5sclose(space) }
+        guard elementCount(spaceID: space) == 1 else { return nil }
+        let fileType = hdf5.h5dgetType(ds)
+        defer { _ = hdf5.h5tclose(fileType) }
+        return readStringValue(fileType: fileType) { memType, buf in
+            hdf5.h5dread(ds, memType, 0, 0, h5DefaultProperty, buf)
+        }
+    }
+
+    /// Read a string attribute on the object at `path`.
+    private func readStringAttribute(_ name: String, onPath path: String) -> String? {
+        let obj = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
+        guard obj >= 0 else { return nil }
+        defer { _ = hdf5.h5oclose(obj) }
+        let attr = name.withCString { hdf5.h5aopen(obj, $0, h5DefaultProperty) }
+        guard attr >= 0 else { return nil }
+        defer { _ = hdf5.h5aclose(attr) }
+        let fileType = hdf5.h5agetType(attr)
+        defer { _ = hdf5.h5tclose(fileType) }
+        return readStringValue(fileType: fileType) { memType, buf in
+            hdf5.h5aread(attr, memType, buf)
+        }
+    }
+
+    /// Shared string decode: variable-length strings read a malloc'd char*
+    /// (freed here); fixed-length read into a sized buffer.
+    private func readStringValue(fileType: hid_t,
+                                 read: (hid_t, UnsafeMutableRawPointer?) -> herr_t) -> String? {
+        if hdf5.h5tisVariableStr(fileType) > 0 {
+            let memType = hdf5.h5tcopy(hdf5.stringC1)
+            defer { _ = hdf5.h5tclose(memType) }
+            _ = hdf5.h5tsetSize(memType, UInt.max)   // H5T_VARIABLE
+            var cString: UnsafeMutablePointer<CChar>?
+            let status = withUnsafeMutableBytes(of: &cString) { read(memType, $0.baseAddress) }
+            guard status >= 0, let cString else { return nil }
+            defer { free(cString) }
+            return String(cString: cString)
+        }
+        let size = hdf5.h5tgetSize(fileType)
+        guard size > 0, size < 4096 else { return nil }
+        let memType = hdf5.h5tcopy(hdf5.stringC1)
+        defer { _ = hdf5.h5tclose(memType) }
+        _ = hdf5.h5tsetSize(memType, UInt(size))
+        var buffer = [CChar](repeating: 0, count: size + 1)
+        let status = buffer.withUnsafeMutableBytes { read(memType, $0.baseAddress) }
+        guard status >= 0 else { return nil }
+        return String(cString: buffer)
+    }
 
     func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
         let objectID = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
