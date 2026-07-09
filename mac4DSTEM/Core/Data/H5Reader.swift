@@ -423,8 +423,10 @@ actor H5Reader: FourDDataSource {
             out.rUnits = string("R_pixel_units")
             // QR_flip: h5py stores Python bools as an int8-based enum
             // {FALSE, TRUE}, which HDF5 converts to integer memory types but
-            // not to double — so the attribute read must go through an int.
-            out.qrFlip = readScalarDouble(cal + "/QR_flip").map { $0 > 0.5 }
+            // not to double — both dataset and attribute reads go through an
+            // int (py4DSTEM 0.14 writes it as a bool-enum scalar DATASET).
+            out.qrFlip = readIntDataset(cal + "/QR_flip").map { $0 != 0 }
+                ?? readScalarDouble(cal + "/QR_flip").map { $0 > 0.5 }
                 ?? readIntAttribute("QR_flip", onPath: cal).map { $0 != 0 }
             // Origin (mean of the fitted per-position origins) and elliptical
             // distortion, under py4DSTEM Calibration's own key names. The full
@@ -496,6 +498,22 @@ actor H5Reader: FourDDataSource {
         return readStringValue(fileType: fileType) { memType, buf in
             hdf5.h5dread(ds, memType, 0, 0, h5DefaultProperty, buf)
         }
+    }
+
+    /// Read a 1-element integer-convertible dataset (plain ints, or h5py's
+    /// enum-typed Python bools — HDF5 converts enum→int but not enum→double).
+    private func readIntDataset(_ path: String) -> Int? {
+        let ds = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard ds >= 0 else { return nil }
+        defer { _ = hdf5.h5dclose(ds) }
+        let space = hdf5.h5dgetSpace(ds)
+        defer { _ = hdf5.h5sclose(space) }
+        guard elementCount(spaceID: space) == 1 else { return nil }
+        var value: Int32 = 0
+        let status = withUnsafeMutableBytes(of: &value) {
+            hdf5.h5dread(ds, hdf5.nativeInt, 0, 0, h5DefaultProperty, $0.baseAddress)
+        }
+        return status >= 0 ? Int(value) : nil
     }
 
     /// Read an integer-convertible attribute (plain ints, or h5py's

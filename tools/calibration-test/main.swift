@@ -2,8 +2,10 @@
 // Usage: harness <fixture.h5>  — expects the calibration written by make_fixture.c.
 import Foundation
 
+// Usage: harness <fixture.h5> [dataset-path]
 let fixturePath = CommandLine.arguments[1]
-let dsPath = "/test_root/datacube/data"
+let dsPath = CommandLine.arguments.count > 2
+    ? CommandLine.arguments[2] : "/test_root/datacube/data"
 
 func check(_ cond: Bool, _ msg: @autoclosure () -> String) {
     if !cond { print("FAIL(\(fixturePath)): \(msg())"); exit(1) }

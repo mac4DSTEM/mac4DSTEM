@@ -52,6 +52,14 @@ imaging > disk detection > ACOM > Metal/MLX performance > SwiftUI polish.
   (OrientationPlan, Crystal, ScatteringFactors, CubeDims, VirtualDetector,
   OriginCalibration, etc.).
 - Full clean build succeeds with zero Swift warnings.
+- Real py4DSTEM ground-truth fixture: `tools/calibration-test/real_py4dstem.h5`
+  written by py4DSTEM 0.14.19 itself (`make_real_fixture.py`; venv recipe in
+  that file). run.sh now verifies all 10 calibration values against it.
+  Findings: py4DSTEM 0.14 writes calibration values as scalar DATASETS (not
+  attributes — loader supports both); QR_flip is a bool-enum dataset, which
+  needed a new `readIntDataset` fallback in H5Reader (enum→double fails);
+  ellipse keys `a`/`b`/`theta` and datacube path `/datacube_root/datacube/data`
+  confirmed against real output.
 
 ## 4. Current roadmap order
 
@@ -70,12 +78,13 @@ UI → ACOM Euler angles → cancel for disk detection → Bragg vectors EMD exp
 
 ## 5. Current next slice
 
-Create a real py4DSTEM-written minimal EMD/HDF5 fixture and add it to the
-calibration verification flow. Plan: python venv with
-`References/py4DSTEM-dev` installed (+h5py/numpy), script writes a tiny
-calibrated DataCube to EMD, then run `tools/calibration-test` harness (or an
-extended run.sh step) against it. This replaces hand-built-fixture
-assumptions (emdfile layout, key names `a`/`b`/`theta`) with ground truth.
+Consume the file-loaded mean origin: in `AppState.activate(descriptor:reader:)`
+(~line 405, the `pixelCalibration()` block), use `pc.qx0Mean`/`pc.qy0Mean` as
+the default aperture/detector center when present. THE AXIS SWAP HAPPENS HERE,
+in exactly one documented place: app x = qy0Mean, app y = qx0Mean (see §6).
+Do NOT synthesize `Calibration.origin` maps (would falsely set
+hasFittedOrigin). Verify: build + load `tools/calibration-test/real_py4dstem.h5`
+mentally/by harness — expected aperture center x=32.25, y=31.5.
 
 ## 6. Important scientific conventions/risks
 
@@ -84,8 +93,8 @@ assumptions (emdfile layout, key names `a`/`b`/`theta`) with ground truth.
   with Qy as the row axis. So py4DSTEM qx0 ↔ app detector y, qy0 ↔ app x.
   `PixelCalibration.qx0Mean/qy0Mean` are stored in py4DSTEM's frame; convert
   at point of use, in exactly one documented place.
-- Ellipse key names `a`/`b`/`theta` match py4DSTEM to best knowledge but are
-  UNVERIFIED against a real py4DSTEM-written file (next slice fixes this).
+- Ellipse key names `a`/`b`/`theta`: VERIFIED against py4DSTEM 0.14.19 source
+  and a real file it wrote (`set_ellipse((a,b,theta))` → those literal keys).
 - Virtual detector masks use py4DSTEM's half-open convention rIn² ≤ r² < rOut².
 - ACOM in-plane angle is mod 180° (Friedel); euler output is placeholder —
   treat ACOM results as indicative, not validated.
