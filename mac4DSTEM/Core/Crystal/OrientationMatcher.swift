@@ -158,7 +158,7 @@ enum OrientationMatching {
     }
 
     /// Minimal wrapper to pass a mutable pointer into the concurrent closure.
-    private struct SendableBox: @unchecked Sendable {
+    private nonisolated struct SendableBox: @unchecked Sendable {
         let value: UnsafeMutablePointer<OrientationResult>
         init(_ v: UnsafeMutablePointer<OrientationResult>) { value = v }
     }

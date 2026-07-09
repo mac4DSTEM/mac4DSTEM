@@ -21,7 +21,7 @@ enum OriginFitFunction: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum OriginCalibration {
+nonisolated enum OriginCalibration {
 
     // MARK: - Probe size (py4DSTEM get_probe_size)
 

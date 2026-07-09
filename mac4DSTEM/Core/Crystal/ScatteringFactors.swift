@@ -16,7 +16,7 @@
 
 import Foundation
 
-enum ScatteringFactors {
+nonisolated enum ScatteringFactors {
 
     /// Lobato parameters keyed by atomic number Z (1...102).
     static let table: [Int: [Double]] = [

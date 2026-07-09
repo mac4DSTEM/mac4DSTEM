@@ -20,14 +20,14 @@ import Foundation
 import simd
 
 /// Shared polar-image geometry.
-struct PolarGeometry {
+nonisolated struct PolarGeometry {
     let nRadial: Int
     let nAzimuthal: Int          // power of two (azimuthal FFT length)
     let radialScale: Double      // radial units per bin
 }
 
 /// The library, with per-template azimuthal FFTs precomputed for matching.
-struct OrientationPlan {
+nonisolated struct OrientationPlan {
     let geometry: PolarGeometry
     let zoneAxes: [SIMD3<Double>]
     /// Per template: real polar image [nRadial*nAzimuthal] (mean-subtracted,

@@ -107,6 +107,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     let h5aread: H5Aread
     let nativeFloat: hid_t
     let nativeDouble: hid_t
+    let nativeInt: hid_t
     let stringC1: hid_t          // H5T_C_S1 base type for string reads
 
     static func load() throws -> HDF5Library {
@@ -178,6 +179,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
             h5aread: try symbol("H5Aread", as: H5Aread.self),
             nativeFloat: try global("H5T_NATIVE_FLOAT_g", as: hid_t.self),
             nativeDouble: try global("H5T_NATIVE_DOUBLE_g", as: hid_t.self),
+            nativeInt: try global("H5T_NATIVE_INT_g", as: hid_t.self),
             stringC1: try global("H5T_C_S1_g", as: hid_t.self)
         )
     }
@@ -401,14 +403,37 @@ actor H5Reader: FourDDataSource {
         var out = PixelCalibration(rSize: nil, rUnits: nil, qSize: nil, qUnits: nil)
 
         // 1. py4DSTEM bundle: dataset ".../<group>/data" → "<group parent>".
+        // emdfile's Metadata.to_h5 writes scalar/string entries as HDF5
+        // *attributes* on the calibration group (only arrays become
+        // datasets), so try the dataset form first, then the attribute form.
         if components.count >= 2 {
             let root = "/" + components.dropLast(2).joined(separator: "/")
             let cal = (root == "/" ? "" : root) + "/metadatabundle/calibration"
-            out.qSize = readScalarDouble(cal + "/Q_pixel_size")
-            out.qUnits = readStringDataset(cal + "/Q_pixel_units")
-            out.rSize = readScalarDouble(cal + "/R_pixel_size")
-            out.rUnits = readStringDataset(cal + "/R_pixel_units")
+            func scalar(_ name: String) -> Double? {
+                readScalarDouble(cal + "/" + name)
+                    ?? readDoubleAttribute(name, onObjectPath: cal)
+            }
+            func string(_ name: String) -> String? {
+                readStringDataset(cal + "/" + name)
+                    ?? readStringAttribute(name, onPath: cal)
+            }
+            out.qSize = scalar("Q_pixel_size")
+            out.qUnits = string("Q_pixel_units")
+            out.rSize = scalar("R_pixel_size")
+            out.rUnits = string("R_pixel_units")
+            // QR_flip: h5py stores Python bools as an int8-based enum
+            // {FALSE, TRUE}, which HDF5 converts to integer memory types but
+            // not to double — so the attribute read must go through an int.
             out.qrFlip = readScalarDouble(cal + "/QR_flip").map { $0 > 0.5 }
+                ?? readIntAttribute("QR_flip", onPath: cal).map { $0 != 0 }
+            // Origin (mean of the fitted per-position origins) and elliptical
+            // distortion, under py4DSTEM Calibration's own key names. The full
+            // per-position qx0/qy0 maps (2D array datasets) are not read here.
+            out.qx0Mean = scalar("qx0_mean")
+            out.qy0Mean = scalar("qy0_mean")
+            out.ellipseA = scalar("a")
+            out.ellipseB = scalar("b")
+            out.ellipseTheta = scalar("theta")
         }
 
         // 2. EMD dim-vector fallback ([Ry, Rx, Qy, Qx] → dim1 = R, dim3 = Q).
@@ -473,6 +498,22 @@ actor H5Reader: FourDDataSource {
         }
     }
 
+    /// Read an integer-convertible attribute (plain ints, or h5py's
+    /// enum-typed Python bools) on the object at `path`.
+    private func readIntAttribute(_ name: String, onPath path: String) -> Int? {
+        let obj = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
+        guard obj >= 0 else { return nil }
+        defer { _ = hdf5.h5oclose(obj) }
+        let attr = name.withCString { hdf5.h5aopen(obj, $0, h5DefaultProperty) }
+        guard attr >= 0 else { return nil }
+        defer { _ = hdf5.h5aclose(attr) }
+        var value: Int32 = 0
+        let status = withUnsafeMutableBytes(of: &value) {
+            hdf5.h5aread(attr, hdf5.nativeInt, $0.baseAddress)
+        }
+        return status >= 0 ? Int(value) : nil
+    }
+
     /// Read a string attribute on the object at `path`.
     private func readStringAttribute(_ name: String, onPath path: String) -> String? {
         let obj = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
@@ -490,12 +531,15 @@ actor H5Reader: FourDDataSource {
 
     /// Shared string decode: variable-length strings read a malloc'd char*
     /// (freed here); fixed-length read into a sized buffer.
+    /// The memory type is a copy of the file's own type — HDF5 has no
+    /// conversion path between UTF-8 and ASCII string types, so reading
+    /// h5py's UTF-8 strings through an ASCII H5T_C_S1 copy fails outright.
+    /// String(cString:) decodes UTF-8, of which ASCII is a subset.
     private func readStringValue(fileType: hid_t,
                                  read: (hid_t, UnsafeMutableRawPointer?) -> herr_t) -> String? {
+        let memType = hdf5.h5tcopy(fileType)
+        defer { _ = hdf5.h5tclose(memType) }
         if hdf5.h5tisVariableStr(fileType) > 0 {
-            let memType = hdf5.h5tcopy(hdf5.stringC1)
-            defer { _ = hdf5.h5tclose(memType) }
-            _ = hdf5.h5tsetSize(memType, UInt.max)   // H5T_VARIABLE
             var cString: UnsafeMutablePointer<CChar>?
             let status = withUnsafeMutableBytes(of: &cString) { read(memType, $0.baseAddress) }
             guard status >= 0, let cString else { return nil }
@@ -504,9 +548,6 @@ actor H5Reader: FourDDataSource {
         }
         let size = hdf5.h5tgetSize(fileType)
         guard size > 0, size < 4096 else { return nil }
-        let memType = hdf5.h5tcopy(hdf5.stringC1)
-        defer { _ = hdf5.h5tclose(memType) }
-        _ = hdf5.h5tsetSize(memType, UInt(size))
         var buffer = [CChar](repeating: 0, count: size + 1)
         let status = buffer.withUnsafeMutableBytes { read(memType, $0.baseAddress) }
         guard status >= 0 else { return nil }

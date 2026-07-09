@@ -23,7 +23,7 @@ import MetalKit
 // MARK: - Shared parameter structs (mirror the .metal definitions!)
 
 /// Cube shape only — used by kernels that need no further parameters.
-struct CubeDims {
+nonisolated struct CubeDims {
     var ry: UInt32
     var rx: UInt32
     var qy: UInt32

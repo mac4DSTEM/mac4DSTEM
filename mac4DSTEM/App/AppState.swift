@@ -365,9 +365,12 @@ final class AppState {
 
         do {
             let ext = url.pathExtension.lowercased()
-            let reader: any FourDDataSource = (ext == "dm4" || ext == "dm3")
-                ? try DM4Reader(path: url.path)
-                : try H5Reader(path: url.path)
+            let reader: any FourDDataSource
+            if ext == "dm4" || ext == "dm3" {
+                reader = try await DM4Reader(path: url.path)
+            } else {
+                reader = try H5Reader(path: url.path)
+            }
             let descriptor = try await reader.discoverPrimaryDataset()
             self.reader = reader
             datasets = [descriptor]
@@ -913,9 +916,9 @@ final class AppState {
         do {
             let epoch = datasetEpoch
             let cube = try await fourD.cubeBuffer()
-            let vectors = await Task.detached(priority: .userInitiated) { [weak self] () -> BraggVectors? in
+            let vectors = await Task.detached(priority: .userInitiated) { [self] () -> BraggVectors? in
                 DiskDetection.detectAll(cube: cube, descriptor: d, kernel: kernel, params: params) { fraction in
-                    Task { @MainActor in
+                    Task { @MainActor [weak self] in
                         self?.progress = fraction
                         self?.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
                     }
@@ -1042,11 +1045,11 @@ final class AppState {
             ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
         let scale = acomScale
         let epoch = datasetEpoch
-        let map = await Task.detached(priority: .userInitiated) { [weak self] in
+        let map = await Task.detached(priority: .userInitiated) { [self] in
             OrientationMatching.matchAll(bragg: bragg, plan: plan,
                                          originX: origin.x, originY: origin.y,
                                          invAngstromPerPixel: scale) { fraction in
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.progress = fraction
                     self?.statusText = "Matching orientations… \(Int(fraction * 100)) %"
                 }

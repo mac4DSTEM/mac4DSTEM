@@ -55,7 +55,7 @@ enum DetectorPreset: String, CaseIterable, Identifiable {
 
 // MARK: - VirtualDetector
 
-enum VirtualDetector {
+nonisolated enum VirtualDetector {
 
     // MARK: Fast path — analytic annulus (interactive dragging)
 

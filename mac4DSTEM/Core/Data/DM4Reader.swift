@@ -49,7 +49,10 @@ actor DM4Reader: FourDDataSource {
     private(set) var rPixelSize: Double?
     private(set) var rPixelUnits: String?
 
-    init(path: String) throws {
+    // Async so the init is actor-isolated and may call parse(), which
+    // mutates actor state; a synchronous actor init is nonisolated and
+    // such a call is an error in Swift 6 language mode.
+    init(path: String) async throws {
         guard let mapped = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else {
             throw DM4Error.cannotOpen(path)
         }
@@ -348,7 +351,7 @@ actor DM4Reader: FourDDataSource {
 /// BOUNDS: every load is clamp-safe. Reads past the end return 0 and set
 /// `overran`, which the parser checks (walkGroup) to throw `.truncated`
 /// instead of crashing on malformed/truncated files.
-private struct ByteReader {
+private nonisolated struct ByteReader {
     let data: Data
     var offset = 0
     /// True once any read went past the end of the buffer.

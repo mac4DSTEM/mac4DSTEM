@@ -1,7 +1,7 @@
 import Foundation
 
 /// Orientation as Bunge-convention Euler angles in radians.
-struct EulerAngles: Equatable, Hashable {
+nonisolated struct EulerAngles: Equatable, Hashable {
     var phi1: Float
     var Phi: Float
     var phi2: Float
@@ -14,7 +14,7 @@ struct EulerAngles: Equatable, Hashable {
     }
 }
 
-struct OrientationResult: Equatable {
+nonisolated struct OrientationResult: Equatable {
     /// Index into the template library (zone axis) for the best match.
     var templateIndex: Int
     var euler: EulerAngles
@@ -43,7 +43,7 @@ struct OrientationResult: Equatable {
     )
 }
 
-struct OrientationMap {
+nonisolated struct OrientationMap {
     let width: Int
     let height: Int
     var results: [OrientationResult]

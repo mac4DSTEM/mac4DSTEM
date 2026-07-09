@@ -19,6 +19,21 @@ struct PixelCalibration: Sendable {
     var qUnits: String?
     /// py4DSTEM QR_flip (detector axes transposed relative to scan), if stored.
     var qrFlip: Bool?
+
+    // py4DSTEM origin/ellipse calibration, kept under py4DSTEM's own names
+    // and axis frame to avoid a silent swap: py4DSTEM patterns are indexed
+    // (qx, qy) with qx along the FIRST (row) axis, so its qx corresponds to
+    // this app's detector y and its qy to this app's detector x. Convert at
+    // the point of use, not here.
+    /// Mean fitted beam origin along py4DSTEM's qx (first/row) axis, px.
+    var qx0Mean: Double? = nil
+    /// Mean fitted beam origin along py4DSTEM's qy (second/column) axis, px.
+    var qy0Mean: Double? = nil
+    /// Elliptical distortion parameters (py4DSTEM keys "a", "b", "theta";
+    /// theta in radians).
+    var ellipseA: Double? = nil
+    var ellipseB: Double? = nil
+    var ellipseTheta: Double? = nil
 }
 
 protocol FourDDataSource: Actor {

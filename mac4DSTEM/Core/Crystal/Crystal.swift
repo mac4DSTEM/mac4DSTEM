@@ -24,14 +24,14 @@ import Foundation
 import simd
 
 /// One atom in the unit cell.
-struct AtomSite {
+nonisolated struct AtomSite {
     var z: Int                       // atomic number
     var fractional: SIMD3<Double>    // (x, y, z) fractional coordinates
     var occupancy: Double = 1
 }
 
 /// One kinematically-allowed reflection.
-struct Reflection {
+nonisolated struct Reflection {
     let h: Int, k: Int, l: Int
     let g: SIMD3<Double>             // reciprocal-space vector (Å⁻¹), Cartesian
     let gLength: Double              // |g| (Å⁻¹)
@@ -40,7 +40,7 @@ struct Reflection {
     var intensity: Double           // |F|²
 }
 
-struct Crystal {
+nonisolated struct Crystal {
 
     // Cell parameters.
     let a: Double, b: Double, c: Double
