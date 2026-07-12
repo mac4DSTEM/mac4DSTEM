@@ -415,6 +415,15 @@ final class AppState {
             calibration.qPixelSize = pc.qSize
             calibration.qPixelUnits = pc.qUnits
             if let flip = pc.qrFlip { calibration.transposeQR = flip }
+            // AXIS SWAP (single documented conversion point — see
+            // PixelCalibration.qx0Mean/qy0Mean doc comment): py4DSTEM indexes
+            // patterns (qx, qy) with qx as the first/row axis, which is this
+            // app's detector y; qy is the second/column axis, this app's x.
+            // So app aperture x = qy0Mean, app aperture y = qx0Mean.
+            if let qx0 = pc.qx0Mean, let qy0 = pc.qy0Mean {
+                aperture.centerX = Float(qy0)
+                aperture.centerY = Float(qx0)
+            }
             // Auto-fill the ACOM Q scale (Å⁻¹/px) when the units are convertible.
             if let q = pc.qSize, q > 0 {
                 switch pc.qUnits?.lowercased() {

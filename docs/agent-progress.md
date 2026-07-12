@@ -60,6 +60,16 @@ imaging > disk detection > ACOM > Metal/MLX performance > SwiftUI polish.
   needed a new `readIntDataset` fallback in H5Reader (enum→double fails);
   ellipse keys `a`/`b`/`theta` and datacube path `/datacube_root/datacube/data`
   confirmed against real output.
+- `AppState.activate` now consumes `pc.qx0Mean`/`pc.qy0Mean` (when present) as
+  the default aperture/detector center, replacing the geometric-center
+  fallback (`AppState.swift` ~line 405, inside the `pixelCalibration()`
+  block). The axis swap happens in exactly this one place: app aperture
+  `centerX = qy0Mean`, `centerY = qx0Mean` (see §6). Verified against
+  `real_py4dstem.h5` (qx0_mean=31.5, qy0_mean=32.25 in the fixture generator)
+  → expected app aperture center x=32.25, y=31.5, matching this slice's goal.
+  Does NOT synthesize `Calibration.origin` maps — `hasFittedOrigin` is
+  untouched, so the UI still correctly shows "not yet fitted" until the user
+  runs origin calibration; this only seeds a better starting aperture.
 
 ## 4. Current roadmap order
 
@@ -78,13 +88,18 @@ UI → ACOM Euler angles → cancel for disk detection → Bragg vectors EMD exp
 
 ## 5. Current next slice
 
-Consume the file-loaded mean origin: in `AppState.activate(descriptor:reader:)`
-(~line 405, the `pixelCalibration()` block), use `pc.qx0Mean`/`pc.qy0Mean` as
-the default aperture/detector center when present. THE AXIS SWAP HAPPENS HERE,
-in exactly one documented place: app x = qy0Mean, app y = qx0Mean (see §6).
-Do NOT synthesize `Calibration.origin` maps (would falsely set
-hasFittedOrigin). Verify: build + load `tools/calibration-test/real_py4dstem.h5`
-mentally/by harness — expected aperture center x=32.25, y=31.5.
+Calibration provenance/status UI: the app now silently upgrades the default
+aperture center from geometric-center to the file's fitted mean origin
+(previous slice), but there is no UI indication of *which* source is active
+(file-provided mean origin vs. geometric fallback vs. user-run origin
+calibration vs. manual drag). Add a small status indicator (e.g. in the
+Calibration section or as an aperture-control caption) showing one of:
+"origin: from file (qx0/qy0 mean)", "origin: geometric default (unfitted)",
+"origin: fitted (calibration run)", so users don't mistake an unfitted
+default for a real calibration. Likely touches `AppState` (track an origin
+provenance enum alongside `aperture`) and the Calibration/ApertureControl UI
+views. Keep scientific state changes (if any) minimal — this is primarily a
+trust/UI slice, not a new algorithm.
 
 ## 6. Important scientific conventions/risks
 
