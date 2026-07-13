@@ -26,9 +26,17 @@ xcrun swiftc -o "$WORK/harness" \
   main.swift \
   "$REPO/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
+  "$REPO/mac4DSTEM/Core/Data/FourDDataSource.swift" \
+  "$REPO/mac4DSTEM/Core/Data/Calibration.swift" \
+  "$REPO/mac4DSTEM/Core/Data/FourDArray.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
   "$REPO/mac4DSTEM/Core/Compute/MetalEngine.swift" \
+  "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
+  "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
+  "$REPO/mac4DSTEM/Core/Analysis/TiledDiskDetection.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/VirtualDetector.swift" \
-  -framework Metal -framework MetalKit
+  -framework Accelerate -framework Metal -framework MetalKit
 
 cd "$WORK"
 ./harness expected.json

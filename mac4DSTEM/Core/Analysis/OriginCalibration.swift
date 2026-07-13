@@ -200,29 +200,87 @@ nonisolated enum OriginCalibration {
 
     // MARK: - Workflow
 
+    /// Out-of-core origin calibration: tiled statistics establish the probe
+    /// radius, a second tiled pass measures every pattern, and only the two
+    /// scan-sized origin fields remain for the CPU fit.
+    nonisolated static func tiledRun(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        fitFunction: OriginFitFunction = .plane,
+        rscale: Float = 1.2,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws ->
+        (probeRadius: Float, origin: OriginMaps, maxDP: [Float], meanDP: [Float])? {
+        guard cancellation?.isCancelled != true else { return nil }
+        let statsProgress: (@Sendable (Double) -> Void) = { fraction in
+            progress?(0.35 * fraction)
+        }
+        let statistics = try await VirtualDetector.tiledDPStatistics(
+            data: data, descriptor: d, maximumTileRows: maximumTileRows,
+            cancellation: cancellation, progress: statsProgress
+        )
+        guard cancellation?.isCancelled != true else { return nil }
+        let (radius, _, _) = probeSize(dp: statistics.maxDP, qy: d.qy, qx: d.qx)
+        let originProgress: (@Sendable (Double) -> Void) = { fraction in
+            progress?(0.35 + 0.55 * fraction)
+        }
+        let measured = try await VirtualDetector.tiledMeasuredOrigins(
+            data: data, descriptor: d, probeRadius: radius, rscale: rscale,
+            maximumTileRows: maximumTileRows, cancellation: cancellation,
+            progress: originProgress
+        )
+        guard cancellation?.isCancelled != true else { return nil }
+        let count = d.ry * d.rx
+        var measuredX = [Float](repeating: 0, count: count)
+        var measuredY = [Float](repeating: 0, count: count)
+        for index in 0..<count {
+            measuredX[index] = measured[2 * index]
+            measuredY[index] = measured[2 * index + 1]
+        }
+        let fitted = fitOrigin(measuredX: measuredX, measuredY: measuredY,
+                               width: d.rx, height: d.ry,
+                               fitFunction: fitFunction)
+        guard cancellation?.isCancelled != true else { return nil }
+        progress?(1)
+        return (
+            radius,
+            OriginMaps(width: d.rx, height: d.ry,
+                       measuredX: measuredX, measuredY: measuredY,
+                       fittedX: fitted.fittedX, fittedY: fitted.fittedY),
+            statistics.maxDP, statistics.meanDP
+        )
+    }
+
     /// Full origin calibration on a resident cube:
     /// max DP → probe size → per-pattern measurement → smooth fit.
     /// Returns the calibration pieces plus the max/mean patterns (useful as
     /// display modes, and the max DP documents what the fit was based on).
     nonisolated static func run(cube: MTLBuffer, descriptor d: DatasetDescriptor,
                     fitFunction: OriginFitFunction = .plane,
-                    rscale: Float = 1.2) throws
-        -> (probeRadius: Float, origin: OriginMaps, maxDP: [Float], meanDP: [Float]) {
+                    rscale: Float = 1.2,
+                    cancellation: AnalysisCancellationToken? = nil) throws
+        -> (probeRadius: Float, origin: OriginMaps, maxDP: [Float], meanDP: [Float])? {
+        guard cancellation?.isCancelled != true else { return nil }
         let engine = MetalEngine.shared
         let dims = CubeDims(d)
 
         let (maxDP, meanDP) = try engine.dpStatistics(cube: cube, dims: dims)
+        guard cancellation?.isCancelled != true else { return nil }
         let (r, _, _) = probeSize(dp: maxDP, qy: d.qy, qx: d.qx)
 
         let measured = try engine.measureOrigins(
             cube: cube,
             params: OriginParams(ry: dims.ry, rx: dims.rx, qy: dims.qy, qx: dims.qx,
                                  r: r, rscale: rscale))
+        guard cancellation?.isCancelled != true else { return nil }
 
         let n = d.ry * d.rx
         var mx = [Float](repeating: 0, count: n)
         var my = [Float](repeating: 0, count: n)
         for i in 0..<n {
+            if cancellation?.isCancelled == true { return nil }
             mx[i] = measured[2 * i]
             my[i] = measured[2 * i + 1]
         }
@@ -230,6 +288,7 @@ nonisolated enum OriginCalibration {
         let (fx, fy) = fitOrigin(measuredX: mx, measuredY: my,
                                  width: d.rx, height: d.ry,
                                  fitFunction: fitFunction)
+        guard cancellation?.isCancelled != true else { return nil }
         let maps = OriginMaps(width: d.rx, height: d.ry,
                               measuredX: mx, measuredY: my,
                               fittedX: fx, fittedY: fy)

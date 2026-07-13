@@ -51,3 +51,79 @@ struct ScaleBarView: View {
         return String(format: "%.3g", value)
     }
 }
+
+/// Numeric scalar legend for the exact colormap and contrast window displayed
+/// by a pane. Pre-colored scientific images use their own directional keys.
+struct ScalarColorbarView: View {
+    let colormap: ColormapKind
+    let low: Double
+    let high: Double
+    let unitLabel: String
+    var gamma: Float = 1
+    var marksZero = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Canvas { context, size in
+                let lut = Colormaps.lutRGBA(colormap, count: 128)
+                let stripWidth = size.width / 128
+                for index in 0..<128 {
+                    let fraction = Float(index) / 127
+                    let mapped = pow(fraction, 1 / max(gamma, 0.05))
+                    let lutIndex = min(127, Int((mapped * 127).rounded()))
+                    let offset = lutIndex * 4
+                    let color = Color(
+                        red: Double(lut[offset]) / 255,
+                        green: Double(lut[offset + 1]) / 255,
+                        blue: Double(lut[offset + 2]) / 255
+                    )
+                    context.fill(Path(CGRect(x: CGFloat(index) * stripWidth, y: 0,
+                                             width: stripWidth + 0.5, height: size.height)),
+                                 with: .color(color))
+                }
+                if marksZero, low < 0, high > 0 {
+                    let fraction = CGFloat(-low / (high - low))
+                    let x = fraction * size.width
+                    context.stroke(Path { path in
+                        path.move(to: CGPoint(x: x, y: 0))
+                        path.addLine(to: CGPoint(x: x, y: size.height))
+                    }, with: .color(.white), lineWidth: 1)
+                }
+            }
+            .frame(width: 132, height: 9)
+            .overlay(RoundedRectangle(cornerRadius: 1)
+                .stroke(Color.white.opacity(0.45), lineWidth: 0.5))
+
+            HStack(spacing: 4) {
+                Text(Self.format(low))
+                Spacer()
+                if marksZero, low < 0, high > 0 { Text("0") }
+                Spacer()
+                Text(Self.format(high))
+            }
+            .frame(width: 132)
+            if !unitLabel.isEmpty {
+                Text(unitLabel)
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+        }
+        .font(.caption2.monospacedDigit())
+        .foregroundStyle(.white)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)")
+    }
+
+    private static func format(_ value: Double) -> String {
+        guard value.isFinite else { return "—" }
+        if value == 0 { return "0" }
+        let magnitude = abs(value)
+        if magnitude >= 10_000 || magnitude < 0.001 {
+            return String(format: "%.2e", value)
+        }
+        return String(format: "%.4g", value)
+    }
+}

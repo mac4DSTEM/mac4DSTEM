@@ -25,6 +25,7 @@ import Metal
 nonisolated final class OrientationMatcher {
 
     private let plan: OrientationPlan
+    private let symmetry: ACOMCrystalSymmetry
     private let geo: PolarGeometry
     private let fft: FFT1D
 
@@ -34,9 +35,10 @@ nonisolated final class OrientationMatcher {
     private var corrRe: [Float]
     private var corrIm: [Float]
 
-    init?(plan: OrientationPlan) {
+    init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry = .cubic) {
         guard let fft = FFT1D(n: plan.geometry.nAzimuthal) else { return nil }
         self.plan = plan
+        self.symmetry = symmetry
         self.geo = plan.geometry
         self.fft = fft
         let n = geo.nRadial * geo.nAzimuthal
@@ -101,8 +103,14 @@ nonisolated final class OrientationMatcher {
         // |F|² pattern centrosymmetric.
         let bin = (na - bestBin) % na
         let angle = Float(Double(bin) / Double(na) * 2 * Double.pi)
-        return OrientationResult(templateIndex: bestT, euler: .zero, inPlaneAngle: angle,
-                                 score: max(best, 0), secondScore: max(second, 0), phaseID: 0)
+        let orientationMatrix = ACOMOrientation.matrix(
+            detectorBasis: plan.detectorBases[bestT], inPlaneAngle: angle
+        )
+        let reduced = symmetry.reduce(orientationMatrix)
+        let euler = EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix)
+        return OrientationResult(templateIndex: bestT, euler: euler, inPlaneAngle: angle,
+                                 score: max(best, 0), secondScore: max(second, 0), phaseID: 0,
+                                 symmetryDisorientationRad: reduced.disorientationRad)
     }
 
     private func writeRingFFTs(_ polar: [Float]) {
@@ -127,7 +135,10 @@ enum OrientationMatching {
     nonisolated static func matchAll(bragg: BraggVectors, plan: OrientationPlan,
                                      originX: Float, originY: Float,
                                      invAngstromPerPixel: Double = 1,
-                                     progress: (@Sendable (Double) -> Void)? = nil) -> OrientationMap {
+                                     symmetry: ACOMCrystalSymmetry = .cubic,
+                                     cancellation: AnalysisCancellationToken? = nil,
+                                     progress: (@Sendable (Double) -> Void)? = nil) -> OrientationMap? {
+        guard cancellation?.isCancelled != true else { return nil }
         var map = OrientationMap(width: bragg.scanWidth, height: bragg.scanHeight)
         let w = bragg.scanWidth
         let lock = NSLock()
@@ -139,14 +150,18 @@ enum OrientationMatching {
             // pattern as DiskDetection.detectAll).
             let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, bragg.scanHeight))
             DispatchQueue.concurrentPerform(iterations: workers) { worker in
-                guard let matcher = OrientationMatcher(plan: plan) else { return }
+                guard cancellation?.isCancelled != true else { return }
+                guard let matcher = OrientationMatcher(plan: plan, symmetry: symmetry) else { return }
                 for ry in stride(from: worker, to: bragg.scanHeight, by: workers) {
+                    if cancellation?.isCancelled == true { break }
                     for rx in 0..<w {
+                        if cancellation?.isCancelled == true { break }
                         let peaks = bragg.peaks[ry * w + rx]
                         ptr.value[ry * w + rx] = matcher.match(
                             peaks: peaks, originX: originX, originY: originY,
                             invAngstromPerPixel: invAngstromPerPixel)
                     }
+                    if cancellation?.isCancelled == true { break }
                     if let progress {
                         lock.lock(); done += 1; let f = Double(done) / Double(bragg.scanHeight); lock.unlock()
                         progress(f)
@@ -154,7 +169,7 @@ enum OrientationMatching {
                 }
             }
         }
-        return map
+        return cancellation?.isCancelled == true ? nil : map
     }
 
     /// Minimal wrapper to pass a mutable pointer into the concurrent closure.

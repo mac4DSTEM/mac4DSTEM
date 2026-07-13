@@ -1,10 +1,6 @@
 import Darwin
 import Foundation
 
-typealias hid_t = Int64
-typealias herr_t = Int32
-typealias hsize_t = UInt64
-
 nonisolated private let h5ReadOnly: UInt32 = 0x0000
 nonisolated private let h5DefaultProperty: hid_t = 0
 nonisolated private let h5SelectSet: Int32 = 0
@@ -185,20 +181,13 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     }
 
     private static func candidateLibraryPaths() -> [String] {
-        // Bundled first (self-contained / release builds), then common
-        // Homebrew and system locations used by development builds where the
-        // dylibs are not yet embedded in the app's Frameworks directory.
-        // The non-bundled fallbacks only succeed when App Sandbox is disabled;
-        // embedding the dylibs + re-enabling the sandbox + notarization is the
-        // distribution milestone, at which point the bundled paths take over.
+        // The app is self-contained. The environment override and bare-name
+        // fallback exist only for standalone source harnesses.
         [
+            ProcessInfo.processInfo.environment["MAC4DSTEM_HDF5_PATH"],
             Bundle.main.privateFrameworksURL?.appendingPathComponent("libhdf5.dylib").path,
             Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("../Frameworks/libhdf5.dylib").standardized.path,
-            "/opt/homebrew/opt/hdf5/lib/libhdf5.dylib",   // Homebrew (Apple Silicon)
-            "/opt/homebrew/lib/libhdf5.dylib",
-            "/usr/local/opt/hdf5/lib/libhdf5.dylib",       // Homebrew (Intel)
-            "/usr/local/lib/libhdf5.dylib",
-            "libhdf5.dylib"                                // dyld default search paths
+            "libhdf5.dylib"
         ].compactMap { $0 }
     }
 }
@@ -210,6 +199,7 @@ actor H5Reader: FourDDataSource {
     /// Path of the most recently described dataset — anchor for locating the
     /// py4DSTEM calibration bundle / EMD dim vectors relative to the datacube.
     private var lastDatasetPath: String?
+    private var lastDatasetShape: [Int]?
 
     static let candidatePaths: [String] = [
         "/dm_dataset_root/dm_dataset/data",
@@ -282,6 +272,7 @@ actor H5Reader: FourDDataSource {
         }
 
         lastDatasetPath = path
+        lastDatasetShape = shape
         return DatasetDescriptor(
             filePath: filePath,
             datasetPath: path,
@@ -340,8 +331,8 @@ actor H5Reader: FourDDataSource {
     }
 
     /// Read an entire scan row: all Rx patterns for a fixed Ry, flattened as
-    /// [Rx * Qy * Qx]. This is the chunk-friendly unit used to stream the cube
-    /// into a single GPU buffer (FourDArray.cubeBuffer).
+    /// [Rx * Qy * Qx]. This remains a useful compatibility primitive; bounded
+    /// whole-scan consumers prefer `readScanTile`.
     func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
         let datasetID = descriptor.datasetPath.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
         guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
@@ -390,6 +381,64 @@ actor H5Reader: FourDDataSource {
         return buffer
     }
 
+    func readScanTile(_ descriptor: DatasetDescriptor,
+                      yRange: Range<Int>) throws -> FourDScanTile {
+        guard yRange.lowerBound >= 0, yRange.upperBound <= descriptor.ry,
+              !yRange.isEmpty else {
+            throw H5Error.readFailed("invalid scan tile \(yRange)")
+        }
+        let datasetID = descriptor.datasetPath.withCString {
+            hdf5.h5dopen2(fileID, $0, h5DefaultProperty)
+        }
+        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
+        defer { _ = hdf5.h5dclose(datasetID) }
+        let filespaceID = hdf5.h5dgetSpace(datasetID)
+        defer { _ = hdf5.h5sclose(filespaceID) }
+
+        let fileRank = Int(hdf5.h5sgetSimpleExtentNdims(filespaceID))
+        let start: [hsize_t]
+        let count: [hsize_t]
+        if fileRank == 3 {
+            guard yRange == 0..<1 else {
+                throw H5Error.readFailed("rank-3 tile must be the sole scan row")
+            }
+            start = [0, 0, 0]
+            count = [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        } else {
+            start = [hsize_t(yRange.lowerBound), 0, 0, 0]
+            count = [hsize_t(yRange.count), hsize_t(descriptor.rx),
+                     hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        }
+        let selected = start.withUnsafeBufferPointer { starts in
+            count.withUnsafeBufferPointer { counts in
+                hdf5.h5sselectHyperslab(filespaceID, h5SelectSet,
+                                        starts.baseAddress, nil, counts.baseAddress, nil)
+            }
+        }
+        guard selected >= 0 else { throw H5Error.readFailed("scan-tile hyperslab selection") }
+
+        let memoryDimensions: [hsize_t] = fileRank == 3
+            ? [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+            : [hsize_t(yRange.count), hsize_t(descriptor.rx),
+               hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+        let memorySpaceID = memoryDimensions.withUnsafeBufferPointer {
+            hdf5.h5screateSimple(Int32(memoryDimensions.count), $0.baseAddress, nil)
+        }
+        defer { _ = hdf5.h5sclose(memorySpaceID) }
+        let pixelCount = yRange.count * descriptor.rx * descriptor.qy * descriptor.qx
+        var pixels = [Float](repeating: 0, count: pixelCount)
+        let status = pixels.withUnsafeMutableBytes {
+            hdf5.h5dread(datasetID, hdf5.nativeFloat, memorySpaceID, filespaceID,
+                         h5DefaultProperty, $0.baseAddress)
+        }
+        guard status >= 0 else { throw H5Error.readFailed("scan tile \(yRange)") }
+        return FourDScanTile(
+            yRange: yRange, scanWidth: descriptor.rx,
+            detectorHeight: descriptor.qy, detectorWidth: descriptor.qx,
+            pixels: pixels
+        )
+    }
+
     /// Calibration from the file itself, tried in order:
     ///  1. py4DSTEM EMD calibration bundle:
     ///     <datacube-root>/metadatabundle/calibration/{Q,R}_pixel_size (+units,
@@ -436,6 +485,28 @@ actor H5Reader: FourDDataSource {
             out.ellipseA = scalar("a")
             out.ellipseB = scalar("b")
             out.ellipseTheta = scalar("theta")
+            out.qrRotationRad = scalar("QR_rotation")
+            out.probeSemiangle = scalar("probe_semiangle")
+
+            // py4DSTEM Metadata writes array-valued calibration entries as
+            // datasets. qx0/qy0 are shaped [R_Nx,R_Ny], the same real-space
+            // order as this app's [Ry,Rx]; only their detector components are
+            // swapped later at the AppState activation boundary.
+            if let scanShape = lastDatasetShape.map({ Array($0.prefix(2)) }),
+               let qx0 = readDoubleMatrix(cal + "/qx0", expectedShape: scanShape),
+               let qy0 = readDoubleMatrix(cal + "/qy0", expectedShape: scanShape) {
+                let qx0Measured = readDoubleMatrix(
+                    cal + "/qx0_meas", expectedShape: scanShape)?.values
+                let qy0Measured = readDoubleMatrix(
+                    cal + "/qy0_meas", expectedShape: scanShape)?.values
+                out.originMaps = PixelOriginMaps(
+                    shape: scanShape,
+                    fittedQX: qx0.values,
+                    fittedQY: qy0.values,
+                    measuredQX: qx0Measured != nil && qy0Measured != nil ? qx0Measured : nil,
+                    measuredQY: qx0Measured != nil && qy0Measured != nil ? qy0Measured : nil
+                )
+            }
         }
 
         // 2. EMD dim-vector fallback ([Ry, Rx, Qy, Qx] → dim1 = R, dim3 = Q).
@@ -450,7 +521,12 @@ actor H5Reader: FourDDataSource {
             if out.qSize == nil, let d = dim(3) { out.qSize = d.size; out.qUnits = d.units }
         }
 
-        return (out.rSize != nil || out.qSize != nil) ? out : nil
+        let hasCalibration = out.rSize != nil || out.qSize != nil
+            || out.qrFlip != nil || out.qx0Mean != nil || out.qy0Mean != nil
+            || out.ellipseA != nil || out.ellipseB != nil || out.ellipseTheta != nil
+            || out.qrRotationRad != nil || out.probeSemiangle != nil
+            || out.originMaps != nil
+        return hasCalibration ? out : nil
     }
 
     // MARK: Small typed readers (calibration metadata)
@@ -483,6 +559,30 @@ actor H5Reader: FourDDataSource {
             hdf5.h5dread(ds, hdf5.nativeDouble, 0, 0, h5DefaultProperty, $0.baseAddress)
         }
         return status >= 0 ? buffer : nil
+    }
+
+    /// Read a finite rank-2 double-convertible dataset with an exact shape.
+    private func readDoubleMatrix(_ path: String,
+                                  expectedShape: [Int]) -> (shape: [Int], values: [Double])? {
+        guard expectedShape.count == 2, expectedShape.allSatisfy({ $0 > 0 }) else { return nil }
+        let ds = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard ds >= 0 else { return nil }
+        defer { _ = hdf5.h5dclose(ds) }
+        let space = hdf5.h5dgetSpace(ds)
+        defer { _ = hdf5.h5sclose(space) }
+        guard hdf5.h5sgetSimpleExtentNdims(space) == 2 else { return nil }
+        var dims = [hsize_t](repeating: 0, count: 2)
+        _ = dims.withUnsafeMutableBufferPointer {
+            hdf5.h5sgetSimpleExtentDims(space, $0.baseAddress, nil)
+        }
+        let shape = dims.map(Int.init)
+        guard shape == expectedShape else { return nil }
+        var values = [Double](repeating: 0, count: shape[0] * shape[1])
+        let status = values.withUnsafeMutableBytes {
+            hdf5.h5dread(ds, hdf5.nativeDouble, 0, 0, h5DefaultProperty, $0.baseAddress)
+        }
+        guard status >= 0, values.allSatisfy(\.isFinite) else { return nil }
+        return (shape, values)
     }
 
     /// Read a 1-element string dataset (variable- or fixed-length).

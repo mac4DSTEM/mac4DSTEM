@@ -63,7 +63,8 @@ struct StemImageView: View {
                                    zoom: 1, offset: .zero,
                                    rgba: app.resultRGBA?.rgba,
                                    displayLo: app.displayRangeLo,
-                                   displayHi: app.displayRangeHi)
+                                   displayHi: app.displayRangeHi,
+                                   gamma: app.resultGamma)
                         .frame(width: box.width, height: box.height)
                         .background(Color.black)
 
@@ -94,12 +95,36 @@ struct StemImageView: View {
                 .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
 
                 // Direction legend for the DPC color wheel.
-                if app.resultRGBA != nil {
+                if app.analysisMode == .dpc, app.dpcDisplay == .colorWheel {
                     colorWheelLegend
                         .frame(width: 54, height: 54)
                         .padding(10)
                         .frame(maxWidth: .infinity, maxHeight: .infinity,
                                alignment: .bottomTrailing)
+                }
+
+                if app.analysisMode == .acom, app.acomDisplay == .ipfZ {
+                    CubicIPFLegendView()
+                        .padding(7)
+                        .background(Color.black.opacity(0.48),
+                                    in: RoundedRectangle(cornerRadius: 4))
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .bottomTrailing)
+                }
+
+                if app.resultImage != nil, let range = app.resultDisplayedValueRange {
+                    ScalarColorbarView(
+                        colormap: app.colormap,
+                        low: range.low,
+                        high: range.high,
+                        unitLabel: app.currentResultValueUnits,
+                        gamma: app.resultGamma,
+                        marksZero: app.colormap.isDiverging
+                    )
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: .bottomTrailing)
                 }
 
                 // Calibrated scale bar (px fallback), re-quantized with zoom.

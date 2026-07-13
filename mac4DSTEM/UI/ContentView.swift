@@ -1,11 +1,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import simd
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
-    @State private var showInspector = false
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var showPreprocessingExport = false
 
     private var h5Types: [UTType] {
         [
@@ -23,20 +23,43 @@ struct ContentView: View {
         // The analysis-mode switcher lives in the toolbar (always visible), so
         // the sidebar is free to hold just the active mode's controls — and can
         // now be hidden without losing mode switching.
-        return NavigationSplitView(columnVisibility: $columnVisibility) {
+        return NavigationSplitView(columnVisibility: Binding(
+            get: { appState.showToolsPane ? .all : .detailOnly },
+            set: { appState.showToolsPane = $0 != .detailOnly }
+        )) {
             List {
                 Section("File") {
                     Button {
-                        showImporter = true
+                        appState.requestOpenDataset()
                     } label: {
                         Label("Open Dataset…", systemImage: "folder")
                     }
                     if appState.hasDataset {
+                        Button {
+                            showPreprocessingExport = true
+                        } label: {
+                            Label("Preprocess & Export…", systemImage: "shippingbox")
+                        }
+                        .disabled(appState.isBusy)
                         Menu {
                             Button("Result Image as PNG…") { appState.exportResultImage() }
+                            Button("Save Current Result to Session Sidecar") {
+                                appState.saveCurrentResultToSessionSidecar()
+                            }
+                            .disabled((appState.resultImage == nil && appState.resultRGBA == nil)
+                                      || appState.isBusy)
+                            Button("Save Calibration to Session Sidecar") {
+                                appState.saveCalibrationToSessionSidecar()
+                            }
+                            .disabled(appState.isBusy)
+                            Divider()
                             Button("Diffraction Pattern as PNG…") { appState.exportDiffractionImage() }
                             Button("Bragg Peaks as CSV…") { appState.exportBraggPeaksCSV() }
                                 .disabled(appState.braggVectors == nil)
+                            Button("py4DSTEM BraggVectors Sidecar…") {
+                                appState.exportBraggVectorsEMD()
+                            }
+                            .disabled(appState.braggVectors == nil || appState.isBusy)
                         } label: {
                             Label("Export", systemImage: "square.and.arrow.up")
                         }
@@ -117,9 +140,9 @@ struct ContentView: View {
                                            value: String(format: "%.1f px", radius))
                                 .font(.caption)
                         }
-                        if let origin = appState.calibration.origin {
+                        if let residual = appState.calibration.origin?.rmsResidual {
                             LabeledContent("Fit residual",
-                                           value: String(format: "%.3f px RMS", origin.rmsResidual))
+                                           value: String(format: "%.3f px RMS", residual))
                                 .font(.caption)
                         }
                         if let rotation = appState.calibration.rotationRad {
@@ -132,7 +155,53 @@ struct ContentView: View {
                             } label: {
                                 Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
                             }
-                            .help("The curl method can't tell θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
+                                .help("The curl method can't tell θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Ellipse fit annulus").font(.caption)
+                            HStack {
+                                TextField(
+                                    "inner",
+                                    value: $appState.ellipseFitInnerRadius,
+                                    format: .number.precision(.fractionLength(0...2))
+                                )
+                                Text("to").font(.caption2).foregroundStyle(.secondary)
+                                TextField(
+                                    "outer",
+                                    value: $appState.ellipseFitOuterRadius,
+                                    format: .number.precision(.fractionLength(0...2))
+                                )
+                                Text("px").font(.caption2).foregroundStyle(.secondary)
+                            }
+                            .textFieldStyle(.roundedBorder)
+                        }
+                        Button {
+                            Task { await appState.calibrateEllipse() }
+                        } label: {
+                            Label("Fit Ellipse", systemImage: "oval")
+                        }
+                        .disabled(appState.isBusy)
+                        .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
+                        if appState.calibration.hasEllipse,
+                           let a = appState.calibration.ellipseA,
+                           let b = appState.calibration.ellipseB,
+                           let theta = appState.calibration.ellipseTheta {
+                            LabeledContent(
+                                "Ellipse correction",
+                                value: String(format: "a %.4g · b %.4g · θ %.1f°",
+                                              a, b, theta * 180 / .pi)
+                            )
+                            .font(.caption)
+                            .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
+                            if let fit = appState.lastEllipseFit {
+                                LabeledContent(
+                                    "Ellipse residual",
+                                    value: String(format: "%.3f · %d/36 sectors",
+                                                  fit.normalizedResidual,
+                                                  fit.occupiedAngularBins)
+                                )
+                                .font(.caption)
+                            }
                         }
 
                         // Pixel sizes: auto-filled from DM4 metadata, editable
@@ -197,6 +266,19 @@ struct ContentView: View {
                                     Text(mode.rawValue).tag(mode)
                                 }
                             }
+                            if appState.dpcDisplay == .magnitudeMrad {
+                                if let scale = appState.dpcMilliradiansPerDetectorPixel {
+                                    LabeledContent(
+                                        "Angular scale",
+                                        value: String(format: "%.5g mrad / detector px", scale)
+                                    )
+                                    .font(.caption)
+                                } else {
+                                    Text("mrad needs accelerating voltage and Q pixel calibration.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
                             if !appState.calibration.hasFittedOrigin {
                                 Text("Tip: calibrate the origin first — DPC shifts are measured against the fitted beam position.")
                                     .font(.caption2).foregroundStyle(.secondary)
@@ -215,9 +297,17 @@ struct ContentView: View {
                                 Label("Generate Probe Kernel", systemImage: "circle.circle")
                             }
                             .disabled(appState.isBusy)
+                            Button {
+                                Task { await appState.generateMeasuredProbeKernel() }
+                            } label: {
+                                Label("Use Current CBED / ROI", systemImage: "scope")
+                            }
+                            .disabled(appState.isBusy || appState.displayedPattern == nil)
+                            .help("Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern.")
                             if let kernel = appState.probeKernel {
-                                LabeledContent("Kernel radius",
-                                               value: String(format: "%.1f px", kernel.probeRadius))
+                                LabeledContent("Kernel",
+                                               value: String(format: "%@ · %.1f px",
+                                                             kernel.source.rawValue, kernel.probeRadius))
                                     .font(.caption)
                             }
 
@@ -249,6 +339,40 @@ struct ContentView: View {
 
                     if appState.analysisMode == .strain {
                         Section("Strain") {
+                            Picker("Reference", selection: $appState.strainReferenceMode) {
+                                ForEach(StrainReferenceMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            if appState.strainReferenceMode == .selectedRegion {
+                                Text("The visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Picker("Basis", selection: $appState.strainBasisMode) {
+                                ForEach(StrainBasisMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            if appState.strainBasisMode == .manual {
+                                HStack {
+                                    Text("g₁").frame(width: 18, alignment: .leading)
+                                    TextField("x", value: $appState.strainG1X,
+                                              format: .number.precision(.fractionLength(3)))
+                                    TextField("y", value: $appState.strainG1Y,
+                                              format: .number.precision(.fractionLength(3)))
+                                }
+                                HStack {
+                                    Text("g₂").frame(width: 18, alignment: .leading)
+                                    TextField("x", value: $appState.strainG2X,
+                                              format: .number.precision(.fractionLength(3)))
+                                    TextField("y", value: $appState.strainG2Y,
+                                              format: .number.precision(.fractionLength(3)))
+                                }
+                                Text("Detector x/y offsets in calibrated pixels.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                             Button {
                                 Task { await appState.runStrainMapping() }
                             } label: {
@@ -309,6 +433,13 @@ struct ContentView: View {
                                 Text(String(format: "Å⁻¹ / pixel  %.4f", appState.acomScale)).font(.caption)
                                 Slider(value: $appState.acomScale, in: 0.001...0.05)
                             }
+                            Button {
+                                Task { await appState.calibrateQFromCrystal() }
+                            } label: {
+                                Label("Calibrate Q from Crystal", systemImage: "ruler")
+                            }
+                            .disabled(appState.isBusy || appState.braggVectors == nil)
+                            .help("Uses the median innermost detected Bragg radius and the selected crystal's first allowed reflection.")
 
                             Button {
                                 Task { await appState.runACOM() }
@@ -325,6 +456,13 @@ struct ContentView: View {
                                     ForEach(ACOMDisplayMode.allCases) { mode in
                                         Text(mode.rawValue).tag(mode)
                                     }
+                                }
+                                if appState.acomDisplay == .ipfZ {
+                                    CubicIPFLegendView()
+                                }
+                                if let text = appState.selectedEulerText {
+                                    LabeledContent("Cubic FZ Euler", value: text)
+                                        .font(.caption.monospacedDigit())
                                 }
                             }
                         }
@@ -380,7 +518,7 @@ struct ContentView: View {
 
                 // Inspector as an explicit, independent panel so it coexists
                 // with the tools sidebar (both can be open at once).
-                if showInspector {
+                if appState.showInspectorPane {
                     Divider()
                     DatasetInspector()
                         .frame(width: 300)
@@ -398,7 +536,7 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        withAnimation { columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly }
+                        withAnimation { appState.showToolsPane.toggle() }
                     } label: {
                         Label("Toggle tools", systemImage: "sidebar.leading")
                     }
@@ -424,7 +562,7 @@ struct ContentView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showInspector.toggle()
+                        appState.showInspectorPane.toggle()
                     } label: {
                         Label("Toggle inspector", systemImage: "sidebar.trailing")
                     }
@@ -443,6 +581,18 @@ struct ContentView: View {
         }
         .onChange(of: appState.realSpaceRadius) {
             appState.updateRealSpaceRegion()
+        }
+        .onChange(of: appState.openDatasetRequest) {
+            showImporter = true
+        }
+        .onChange(of: appState.preprocessingExportRequest) {
+            if appState.hasDataset { showPreprocessingExport = true }
+        }
+        .sheet(isPresented: $showPreprocessingExport) {
+            if let descriptor = appState.descriptor {
+                PreprocessingExportSheet(descriptor: descriptor)
+                    .environment(appState)
+            }
         }
         .fileImporter(
             isPresented: $showImporter,
@@ -566,6 +716,172 @@ struct ContentView: View {
                 step: 1
             )
         }
+    }
+}
+
+/// Guided front end for the bounded canonical DataCube writer. Defaults are
+/// deliberately lossless (full scan, Q bin 1); every destructive reduction is
+/// visible in the output preview before the save panel appears.
+struct PreprocessingExportSheet: View {
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+    let descriptor: DatasetDescriptor
+
+    @State private var cropEnabled = false
+    @State private var xStart: Int
+    @State private var xEnd: Int
+    @State private var yStart: Int
+    @State private var yEnd: Int
+    @State private var qBin = 1
+
+    init(descriptor: DatasetDescriptor) {
+        self.descriptor = descriptor
+        _xStart = State(initialValue: 0)
+        _xEnd = State(initialValue: max(0, descriptor.rx - 1))
+        _yStart = State(initialValue: 0)
+        _yEnd = State(initialValue: max(0, descriptor.ry - 1))
+    }
+
+    private var scanX: Range<Int> {
+        cropEnabled ? xStart..<(xEnd + 1) : 0..<descriptor.rx
+    }
+
+    private var scanY: Range<Int> {
+        cropEnabled ? yStart..<(yEnd + 1) : 0..<descriptor.ry
+    }
+
+    private var outputShape: [Int] {
+        [scanY.count, scanX.count, descriptor.qy / qBin, descriptor.qx / qBin]
+    }
+
+    private var estimatedBytes: Double {
+        outputShape.reduce(Double(MemoryLayout<Float>.size)) { $0 * Double($1) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "shippingbox")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                VStack(alignment: .leading) {
+                    Text("Preprocess & Export DataCube").font(.headline)
+                    Text("Canonical py4DSTEM EMD · float32 · chunked · atomic")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
+            Form {
+                Section("Real-space crop") {
+                    Toggle("Crop scan", isOn: $cropEnabled)
+                    if cropEnabled {
+                        HStack {
+                            Stepper("X start  \(xStart)", value: $xStart,
+                                    in: 0...max(0, xEnd))
+                            Stepper("X end  \(xEnd)", value: $xEnd,
+                                    in: xStart...max(xStart, descriptor.rx - 1))
+                        }
+                        HStack {
+                            Stepper("Y start  \(yStart)", value: $yStart,
+                                    in: 0...max(0, yEnd))
+                            Stepper("Y end  \(yEnd)", value: $yEnd,
+                                    in: yStart...max(yStart, descriptor.ry - 1))
+                        }
+                    }
+                }
+
+                Section("Diffraction binning") {
+                    Stepper("Integer Q bin  \(qBin)×", value: $qBin,
+                            in: 1...max(1, min(descriptor.qy, descriptor.qx)))
+                    Text("Bins are summed to preserve detector counts. Incomplete bottom/right blocks are trimmed, matching py4DSTEM bin_Q.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section("Output preview") {
+                    LabeledContent("Shape", value: outputShape.map(String.init).joined(separator: " × "))
+                    LabeledContent("Float32 data", value: ByteCountFormatter.string(
+                        fromByteCount: Int64(estimatedBytes), countStyle: .file
+                    ))
+                    if descriptor.qy % qBin != 0 || descriptor.qx % qBin != 0 {
+                        Label(
+                            "Trims \(descriptor.qy % qBin) detector row(s) and \(descriptor.qx % qBin) column(s)",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(.caption).foregroundStyle(.orange)
+                    }
+                    if appState.calibration.qPixelSize == nil
+                        || appState.calibration.rPixelSize == nil {
+                        Label("Missing pixel sizes remain uncalibrated in the output.",
+                              systemImage: "ruler")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Choose Destination…") {
+                    let options = CalibratedDataCubeExportOptions(
+                        scanY: scanY, scanX: scanX, qBin: qBin, tileRows: 1
+                    )
+                    dismiss()
+                    appState.exportCalibratedDataCube(options: options)
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 560, height: 570)
+    }
+}
+
+/// Compact sampled m-3m inverse-pole-figure key. The map and legend share the
+/// same color function, keeping the on-screen key aligned with exported pixels.
+struct CubicIPFLegendView: View {
+    var body: some View {
+        VStack(spacing: 1) {
+            Canvas { context, size in
+                let left = SIMD2<Double>(4, Double(size.height - 3))
+                let right = SIMD2<Double>(Double(size.width - 4), Double(size.height - 3))
+                let top = SIMD2<Double>(Double(size.width / 2), 3)
+                let steps = 36
+                let radius = max(1.4, Double(size.width) / Double(steps) * 0.65)
+                for topIndex in 0...steps {
+                    for rightIndex in 0...(steps - topIndex) {
+                        let wt = Double(topIndex) / Double(steps)
+                        let wr = Double(rightIndex) / Double(steps)
+                        let wl = 1 - wt - wr
+                        let point = left * wl + right * wr + top * wt
+                        let direction = simd_normalize(
+                            SIMD3(0.0, 0.0, 1.0) * wl
+                                + simd_normalize(SIMD3(1.0, 0.0, 1.0)) * wr
+                                + simd_normalize(SIMD3(1.0, 1.0, 1.0)) * wt
+                        )
+                        let rgb = CubicOrientationSymmetry.ipfColor(direction: direction)
+                        let rect = CGRect(x: point.x - radius, y: point.y - radius,
+                                          width: radius * 2, height: radius * 2)
+                        context.fill(Path(ellipseIn: rect), with: .color(Color(
+                            red: Double(rgb.x), green: Double(rgb.y), blue: Double(rgb.z)
+                        )))
+                    }
+                }
+            }
+            .frame(width: 116, height: 62)
+            HStack {
+                Text("001")
+                Spacer()
+                Text("111")
+                Spacer()
+                Text("101")
+            }
+            .font(.caption2.monospacedDigit())
+            .frame(width: 132)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cubic inverse pole figure color key: 001 red, 101 green, 111 blue")
     }
 }
 

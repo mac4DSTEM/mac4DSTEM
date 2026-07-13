@@ -33,6 +33,7 @@ struct MetalImageView: NSViewRepresentable {
     /// clipping). Applied in the fragment shader — cheap, per-frame.
     var displayLo: Float = 0
     var displayHi: Float = 1
+    var gamma: Float = 1
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -59,6 +60,7 @@ struct MetalImageView: NSViewRepresentable {
         c.zoom = Float(max(zoom, 0.01))
         c.offset = SIMD2<Float>(Float(offset.width), Float(offset.height))
         c.displayRange = SIMD2<Float>(displayLo, displayHi)
+        c.gamma = max(gamma, 0.05)
         view.needsDisplay = true
     }
 
@@ -70,6 +72,7 @@ struct MetalImageView: NSViewRepresentable {
         var zoom: Float = 1
         var offset = SIMD2<Float>(0, 0)
         var displayRange = SIMD2<Float>(0, 1)
+        var gamma: Float = 1
 
         private var dataTexture: MTLTexture?
         private var rgbaTexture: MTLTexture?
@@ -145,8 +148,8 @@ struct MetalImageView: NSViewRepresentable {
             if let rgba = rgbaTexture {
                 enc.setFragmentTexture(rgba, index: 0)
             } else {
-                var range = displayRange
-                enc.setFragmentBytes(&range, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+                var display = SIMD4<Float>(displayRange.x, displayRange.y, gamma, 0)
+                enc.setFragmentBytes(&display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
                 enc.setFragmentTexture(dataTexture, index: 0)
                 enc.setFragmentTexture(lutTexture, index: 1)
             }

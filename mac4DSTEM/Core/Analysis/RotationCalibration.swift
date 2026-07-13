@@ -47,7 +47,9 @@ enum RotationCalibration {
     /// The field should already be descan-corrected (measured against fitted
     /// origins), i.e. py4DSTEM's "normalized" CoM.
     nonisolated static func solve(com: [Float], width: Int, height: Int,
-                      maximizeDivergence: Bool = false) -> Result? {
+                      maximizeDivergence: Bool = false,
+                      cancellation: AnalysisCancellationToken? = nil) -> Result? {
+        guard cancellation?.isCancelled != true else { return nil }
         guard width >= 3, height >= 3 else { return nil }
 
         let n = width * height
@@ -97,6 +99,7 @@ enum RotationCalibration {
         curve.reserveCapacity(anglesDeg.count)
         curveT.reserveCapacity(anglesDeg.count)
         for deg in anglesDeg {
+            if cancellation?.isCancelled == true { return nil }
             let rad = deg * .pi / 180
             curve.append(objective(thetaRad: rad, transpose: false))
             curveT.append(objective(thetaRad: rad, transpose: true))
@@ -117,6 +120,7 @@ enum RotationCalibration {
 
         // Refinement: 0.1° steps within ±1° of the grid winner.
         for deg in stride(from: bestDeg - 1, through: bestDeg + 1, by: 0.1) {
+            if cancellation?.isCancelled == true { return nil }
             let v = objective(thetaRad: Float(deg) * .pi / 180, transpose: transpose)
             if maximizeDivergence ? v > bestVal : v < bestVal {
                 bestVal = v

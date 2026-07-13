@@ -6,26 +6,28 @@
 //        sine²-sigmoid "trench" normalized to unit sum — so it integrates to
 //        zero and responds to disk-shaped features, not to background.
 //
-//  PADDED-GRID CONVENTION: vDSP's FFT needs power-of-two sizes, so detection
-//  runs on a padded grid (Py × Px ≥ Qy × Qx, see DiskDetector). The kernel is
-//  built directly on that padded grid using *wrapped* coordinates — i.e. it
+//  NATIVE-GRID CONVENTION: detection runs on the detector's exact Q shape so
+//  its circular correlation matches NumPy/py4DSTEM for non-radix-2 data. The
+//  kernel is built directly on that grid using *wrapped* coordinates — i.e. it
 //  is corner-centered from birth, exactly the layout circular correlation
 //  needs — which sidesteps py4DSTEM's Fourier-shift step entirely. Patterns
-//  are zero-padded at the origin corner, so correlation peaks land at the
-//  disk's original detector coordinates.
+//  and correlation peaks land at the disk's original detector coordinates.
 //
-//  Currently the probe is SYNTHETIC: a logistic-edge disk from the calibrated
-//  probe radius. That matches py4DSTEM's generate_synthetic_probe and works
-//  well for data with sharp disks. // FUTURE: measured vacuum probe from a
-//  scan ROI (Probe.from_vacuum_data) once ROI selection exists in the UI.
+//  Supports a synthetic logistic disk and a measured vacuum pattern selected
+//  with the app's real-space ROI. Both use the same normalized sine² trench.
 //
 
 import Foundation
 
+enum ProbeKernelSource: String, Sendable {
+    case synthetic = "Synthetic"
+    case measured = "Measured ROI"
+}
+
 /// A ready-to-use detection kernel: real-space form (for inspection) plus its
-/// precomputed conjugated Fourier transform on the padded grid.
+/// precomputed conjugated Fourier transform on the native detector grid.
 struct ProbeKernel {
-    /// Padded (power-of-two) grid dimensions the kernel lives on.
+    /// Exact detector grid dimensions the kernel lives on.
     let px: Int
     let py: Int
     /// Detector dimensions the kernel was built for.
@@ -34,8 +36,9 @@ struct ProbeKernel {
     /// The probe radius (px) and sigmoid trench radii used to build it.
     let probeRadius: Float
     let trenchRadii: (inner: Float, outer: Float)
+    let source: ProbeKernelSource
 
-    /// Corner-centered, zero-sum kernel on the padded grid [py * px].
+    /// Corner-centered, zero-sum kernel on the native grid [py * px].
     let kernel: [Float]
     /// conj(FFT2(kernel)) — the term every pattern's FFT is multiplied with.
     let ftRe: [Float]
@@ -53,14 +56,14 @@ struct ProbeKernel {
     nonisolated static func synthetic(radius: Float, width: Float = 2,
                           qy: Int, qx: Int,
                           trenchRadii: (Float, Float)? = nil) -> ProbeKernel? {
-        let px = FFT2D.nextPow2(qx)
-        let py = FFT2D.nextPow2(qy)
+        let px = qx
+        let py = qy
         guard let fft = FFT2D(nx: px, ny: py), radius > 0 else { return nil }
 
         let (ri, ro) = trenchRadii ?? (radius, 2 * radius)
 
         // Both the probe and the trench are radial functions of the wrapped
-        // (corner-centered) radius on the padded grid.
+        // (corner-centered) radius on the native grid.
         var probe = [Float](repeating: 0, count: py * px)
         var trench = [Float](repeating: 0, count: py * px)
         var probeSum: Float = 0
@@ -99,6 +102,81 @@ struct ProbeKernel {
 
         return ProbeKernel(px: px, py: py, qx: qx, qy: qy,
                            probeRadius: radius, trenchRadii: (ri, ro),
+                           source: .synthetic,
                            kernel: kernel, ftRe: re, ftIm: im)
+    }
+
+    /// Vacuum-probe kernel following py4DSTEM's measured-probe sigmoid route:
+    /// mask outside the bright probe, bilinearly shift its supplied center to
+    /// the correlation origin, normalize, then subtract the sine² trench.
+    nonisolated static func measured(
+        pattern: DiffractionPattern,
+        originX: Float,
+        originY: Float,
+        radius: Float,
+        trenchRadii: (Float, Float)? = nil
+    ) -> ProbeKernel? {
+        let qx = pattern.qx, qy = pattern.qy
+        let px = qx, py = qy
+        guard let fft = FFT2D(nx: px, ny: py), radius > 0,
+              pattern.pixels.count == qx * qy else { return nil }
+        let (ri, ro) = trenchRadii ?? (radius, 2 * radius)
+        guard ro > ri else { return nil }
+
+        // A cosine shoulder from r to 2r is the native lightweight analogue
+        // of Probe.from_vacuum_data's threshold/dilation distance mask.
+        var centered = [Float](repeating: 0, count: py * px)
+        let rowFloor = Int(floor(-originY))
+        let colFloor = Int(floor(-originX))
+        let rowFraction = -originY - Float(rowFloor)
+        let colFraction = -originX - Float(colFloor)
+        var probeSum: Float = 0
+        func wrapped(_ value: Int, _ count: Int) -> Int { (value % count + count) % count }
+        for y in 0..<qy {
+            for x in 0..<qx {
+                let dx = Float(x) - originX, dy = Float(y) - originY
+                let distance = (dx * dx + dy * dy).squareRoot()
+                let shoulder = min(max((distance - radius) / max(radius, 1e-6), 0), 1)
+                let mask = cos(.pi / 2 * shoulder) * cos(.pi / 2 * shoulder)
+                let value = max(pattern.pixels[y * qx + x], 0) * mask
+                guard value > 0 else { continue }
+                probeSum += value
+                let y0 = wrapped(y + rowFloor, py), y1 = wrapped(y + rowFloor + 1, py)
+                let x0 = wrapped(x + colFloor, px), x1 = wrapped(x + colFloor + 1, px)
+                centered[y0 * px + x0] += value * (1 - rowFraction) * (1 - colFraction)
+                centered[y1 * px + x0] += value * rowFraction * (1 - colFraction)
+                centered[y0 * px + x1] += value * (1 - rowFraction) * colFraction
+                centered[y1 * px + x1] += value * rowFraction * colFraction
+            }
+        }
+        guard probeSum > 0 else { return nil }
+
+        var trench = [Float](repeating: 0, count: py * px)
+        var trenchSum: Float = 0
+        for y in 0..<py {
+            let wy = Float(y < py / 2 ? y : y - py)
+            for x in 0..<px {
+                let wx = Float(x < px / 2 ? x : x - px)
+                let distance = (wx * wx + wy * wy).squareRoot()
+                let t = min(max((distance - ri) / (ro - ri), 0), 1)
+                let value = cos(.pi / 2 * t) * cos(.pi / 2 * t)
+                trench[y * px + x] = value
+                trenchSum += value
+            }
+        }
+        guard trenchSum > 0 else { return nil }
+        var kernel = [Float](repeating: 0, count: py * px)
+        for index in kernel.indices {
+            kernel[index] = centered[index] / probeSum - trench[index] / trenchSum
+        }
+        var re = kernel
+        var im = [Float](repeating: 0, count: kernel.count)
+        fft.transform(re: &re, im: &im, forward: true)
+        for index in im.indices { im[index] = -im[index] }
+        return ProbeKernel(
+            px: px, py: py, qx: qx, qy: qy,
+            probeRadius: radius, trenchRadii: (ri, ro), source: .measured,
+            kernel: kernel, ftRe: re, ftIm: im
+        )
     }
 }

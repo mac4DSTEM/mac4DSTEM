@@ -13,7 +13,8 @@
 //
 //  Geometry: radial bins are in the same units as the matched peaks' radii
 //  (Å⁻¹ if the detector is Q-calibrated; see OrientationMatcher for the pixel
-//  → Å⁻¹ scale). Zone axes are sampled on a hemisphere (beam ±n equivalent).
+//  → Å⁻¹ scale). Current crystals are cubic, so zone axes are sampled
+//  directly in the m-3m [001]-[101]-[111] fundamental sector.
 //
 
 import Foundation
@@ -30,6 +31,8 @@ nonisolated struct PolarGeometry {
 nonisolated struct OrientationPlan {
     let geometry: PolarGeometry
     let zoneAxes: [SIMD3<Double>]
+    /// py4DSTEM-style detector bases: lab x/y/z columns in crystal coordinates.
+    let detectorBases: [simd_double3x3]
     /// Per template: real polar image [nRadial*nAzimuthal] (mean-subtracted,
     /// unit-normalized) — kept for inspection/visualization.
     let templates: [[Float]]
@@ -52,13 +55,16 @@ nonisolated struct OrientationPlan {
                          zoneAxisCount: Int = 600,
                          sgWidth: Double = 0.03,
                          sgMax: Double = 0.1,
-                         azimBlurBins: Double = 1.5) -> OrientationPlan? {
+                         azimBlurBins: Double = 1.5,
+                         cancellation: AnalysisCancellationToken? = nil) -> OrientationPlan? {
+        guard cancellation?.isCancelled != true else { return nil }
         guard let fft = FFT1D(n: nAzimuthal) else { return nil }
         let geo = PolarGeometry(nRadial: nRadial, nAzimuthal: nAzimuthal,
                                 radialScale: kMax / Double(nRadial))
         let reflections = crystal.reflections(kMax: kMax)
         guard !reflections.isEmpty else { return nil }
-        let axes = sampleZoneAxes(count: zoneAxisCount)
+        let axes = CubicOrientationSymmetry.sampleFundamentalZone(count: zoneAxisCount)
+        let bases = axes.map(ACOMOrientation.detectorBasis)
 
         var templates: [[Float]] = []
         var fftRe: [[Float]] = []
@@ -66,6 +72,7 @@ nonisolated struct OrientationPlan {
         templates.reserveCapacity(axes.count)
 
         for n in axes {
+            if cancellation?.isCancelled == true { return nil }
             let spots = project(reflections: reflections, zoneAxis: n,
                                 sgWidth: sgWidth, sgMax: sgMax)
             var polar = buildPolar(spots: spots, geometry: geo, azimBlurBins: azimBlurBins)
@@ -74,7 +81,7 @@ nonisolated struct OrientationPlan {
             templates.append(polar); fftRe.append(re); fftIm.append(im)
         }
 
-        return OrientationPlan(geometry: geo, zoneAxes: axes,
+        return OrientationPlan(geometry: geo, zoneAxes: axes, detectorBases: bases,
                                templates: templates, templateFFTRe: fftRe, templateFFTIm: fftIm)
     }
 
@@ -87,10 +94,11 @@ nonisolated struct OrientationPlan {
     static func project(reflections: [Reflection], zoneAxis n: SIMD3<Double>,
                         sgWidth: Double, sgMax: Double)
         -> [(r: Double, azim: Double, weight: Double)] {
-        // In-plane orthonormal basis (e1, e2) ⊥ n.
-        let ref: SIMD3<Double> = abs(n.x) < 0.9 ? [1, 0, 0] : [0, 1, 0]
-        let e1 = simd_normalize(simd_cross(n, ref))
-        let e2 = simd_cross(n, e1)
+        // In-plane basis is shared with the stored orientation matrix so the
+        // Euler result cannot reconstruct a subtly different reference axis.
+        let basis = ACOMOrientation.detectorBasis(zoneAxis: n)
+        let e1 = basis.columns.0
+        let e2 = basis.columns.1
 
         var spots: [(r: Double, azim: Double, weight: Double)] = []
         spots.reserveCapacity(reflections.count)
@@ -185,19 +193,4 @@ nonisolated struct OrientationPlan {
         if norm > 0 { for i in 0..<img.count { img[i] /= norm } }
     }
 
-    /// Roughly-uniform hemisphere sampling (Fibonacci sphere, z ≥ 0). Beam ±n
-    /// are equivalent, so a hemisphere suffices.
-    static func sampleZoneAxes(count: Int) -> [SIMD3<Double>] {
-        var axes: [SIMD3<Double>] = []
-        let golden = Double.pi * (3 - 5.0.squareRoot())
-        let total = count * 2
-        for i in 0..<total {
-            let z = 1 - 2 * (Double(i) + 0.5) / Double(total)
-            if z < -1e-9 { continue }
-            let r = (max(0, 1 - z * z)).squareRoot()
-            let theta = golden * Double(i)
-            axes.append(SIMD3(r * cos(theta), r * sin(theta), z))
-        }
-        return axes
-    }
 }

@@ -42,6 +42,7 @@ struct StrainMap {
     let mask: [Bool]                      // false → too few peaks to fit
     let refG1: (x: Float, y: Float)
     let refG2: (x: Float, y: Float)
+    let referencePositionCount: Int
     let indexedFraction: Float           // fraction of positions successfully fit
 
     /// One component as a display image; masked positions are set to 0 (the
@@ -66,12 +67,25 @@ enum StrainMapping {
     /// origin. Returns nil if a lattice basis can't be established.
     nonisolated static func compute(bragg: BraggVectors,
                                     originX: Float, originY: Float,
-                                    minNumPeaks: Int = 5) -> StrainMap? {
+                                    minNumPeaks: Int = 5,
+                                    referenceMask: [Bool]? = nil,
+                                    initialBasis: (g1: (x: Float, y: Float),
+                                                   g2: (x: Float, y: Float))? = nil,
+                                    cancellation: AnalysisCancellationToken? = nil) -> StrainMap? {
+        guard cancellation?.isCancelled != true else { return nil }
         let w = bragg.scanWidth, h = bragg.scanHeight
         let n = w * h
+        guard referenceMask == nil || referenceMask?.count == n else { return nil }
 
-        guard let (g1, g2) = chooseLatticeVectors(bragg: bragg, x0: originX, y0: originY)
-        else { return nil }
+        let basis: (g1: (x: Float, y: Float), g2: (x: Float, y: Float))?
+        if let initialBasis {
+            basis = initialBasis
+        } else {
+            basis = chooseLatticeVectors(
+                bragg: bragg, x0: originX, y0: originY, cancellation: cancellation
+            )
+        }
+        guard let (g1, g2) = basis else { return nil }
 
         // Per-position local lattice vectors, from indexing + weighted fit.
         var lg1x = [Float](repeating: 0, count: n)
@@ -84,6 +98,7 @@ enum StrainMapping {
         guard let betaInv = invert2x2(g1.x, g2.x, g1.y, g2.y) else { return nil }
 
         for idx in 0..<n {
+            if cancellation?.isCancelled == true { return nil }
             let peaks = bragg.peaks[idx]
             if peaks.count < minNumPeaks { continue }
 
@@ -105,11 +120,13 @@ enum StrainMapping {
             mask[idx] = true
         }
 
-        // Reference lattice = mean over valid positions.
+        // Reference lattice = mean over valid positions in the optional
+        // user-selected unstrained region (whole scan when absent).
         var refG1 = (x: Float(0), y: Float(0))
         var refG2 = (x: Float(0), y: Float(0))
         var valid = 0
-        for idx in 0..<n where mask[idx] {
+        for idx in 0..<n where mask[idx] && (referenceMask?[idx] ?? true) {
+            if cancellation?.isCancelled == true { return nil }
             refG1.x += lg1x[idx]; refG1.y += lg1y[idx]
             refG2.x += lg2x[idx]; refG2.y += lg2y[idx]
             valid += 1
@@ -127,6 +144,7 @@ enum StrainMapping {
         guard let mRefInv = invert2x2(refG1.x, refG1.y, refG2.x, refG2.y) else { return nil }
 
         for idx in 0..<n where mask[idx] {
+            if cancellation?.isCancelled == true { return nil }
             // X = M_ref⁻¹ · M_local ; β = Xᵀ.  M_local rows = local g1, g2.
             let m00 = lg1x[idx], m01 = lg1y[idx]
             let m10 = lg2x[idx], m11 = lg2y[idx]
@@ -145,7 +163,8 @@ enum StrainMapping {
         return StrainMap(width: w, height: h,
                          exx: exx, eyy: eyy, exy: exy, theta: theta, mask: mask,
                          refG1: refG1, refG2: refG2,
-                         indexedFraction: Float(valid) / Float(n))
+                         referencePositionCount: valid,
+                         indexedFraction: Float(mask.filter { $0 }.count) / Float(n))
     }
 
     // MARK: - Lattice-vector selection
@@ -154,10 +173,12 @@ enum StrainMapping {
     /// the origin), and the shortest one sufficiently non-collinear with it.
     nonisolated static func chooseLatticeVectors(bragg: BraggVectors,
                                                  x0: Float, y0: Float,
-                                                 minRadius: Float = 2)
+                                                 minRadius: Float = 2,
+                                                 cancellation: AnalysisCancellationToken? = nil)
         -> (g1: (x: Float, y: Float), g2: (x: Float, y: Float))? {
         var vecs: [(x: Float, y: Float, r: Float)] = []
         for positionPeaks in bragg.peaks {
+            if cancellation?.isCancelled == true { return nil }
             for p in positionPeaks {
                 let vx = p.x - x0, vy = p.y - y0
                 let r = (vx * vx + vy * vy).squareRoot()

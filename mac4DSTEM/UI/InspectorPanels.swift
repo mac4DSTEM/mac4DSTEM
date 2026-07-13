@@ -19,12 +19,32 @@ struct PerformanceView: View {
                 } else {
                     ProgressView().progressViewStyle(.linear)   // indeterminate
                 }
+                if appState.canCancelActiveOperation {
+                    Button(role: .cancel) {
+                        appState.cancelActiveOperation()
+                    } label: {
+                        Label("Cancel", systemImage: "xmark.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                }
             } else {
                 labeled("Status", "Idle")
             }
 
-            TimelineView(.periodic(from: .now, by: 1.5)) { _ in
-                labeled("App memory", String(format: "%.0f MB", SystemMonitor.residentMemoryMB()))
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                VStack(alignment: .leading, spacing: 4) {
+                    if let metrics = appState.activeOperationMetrics(at: context.date) {
+                        labeled("Elapsed", duration(metrics.elapsed))
+                        if let rate = metrics.unitsPerSecond {
+                            labeled("Throughput", String(format: "%.1f positions/s", rate))
+                        }
+                        if let eta = metrics.eta {
+                            labeled("ETA", duration(eta))
+                        }
+                    }
+                    labeled("App memory", String(format: "%.0f MB", SystemMonitor.residentMemoryMB()))
+                }
             }
             if let descriptor = appState.descriptor {
                 labeled("Cube (f32)", SystemMonitor.byteString(descriptor.byteCountAsFloat32))
@@ -40,11 +60,17 @@ struct PerformanceView: View {
             Text(value).font(.caption).foregroundStyle(.secondary)
         }
     }
+
+    private func duration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return total >= 60
+            ? String(format: "%d:%02d", total / 60, total % 60)
+            : "\(total) s"
+    }
 }
 
-/// A file-tree-style view of the source dataset and what's been computed. Once
-/// results persist to a companion `.h5`, this becomes the on-disk tree; for now
-/// it shows the source plus in-memory products (provenance).
+/// A file-tree-style view of the source, in-memory products, and supported
+/// objects discovered in the stable companion sidecar.
 struct ProductsView: View {
     @Environment(AppState.self) private var appState
 
@@ -66,9 +92,47 @@ struct ProductsView: View {
             product("Strain map", done: appState.strainMap != nil)
             product("Orientation map", done: appState.hasOrientationMap)
 
-            Text("Saving results to a companion .h5 is planned.")
+            Text("Saved session sidecar")
                 .font(.caption2).foregroundStyle(.tertiary)
                 .padding(.top, 6)
+
+            if let descriptor = appState.descriptor, appState.sessionInventory.hasSidecar {
+                let sidecar = BraggVectorEMDWriter.sessionSidecarURL(
+                    forSourcePath: descriptor.filePath
+                )
+                treeRow(icon: "externaldrive", text: sidecar.lastPathComponent, indent: 0)
+                if appState.sessionInventory.hasCalibration {
+                    treeRow(icon: "scope", text: "Calibration", indent: 1)
+                }
+                if appState.sessionInventory.hasBraggVectors {
+                    treeRow(icon: "circle.grid.cross", text: "BraggVectors", indent: 1)
+                }
+                ForEach(appState.sessionInventory.results) { result in
+                    HStack(spacing: 4) {
+                        Button {
+                            Task { await appState.selectSavedSessionResult(result) }
+                        } label: {
+                            savedResultRow(
+                                result,
+                                isCurrent: result.id == appState.sessionInventory.currentResultID
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        Button(role: .destructive) {
+                            Task { await appState.removeSavedSessionResult(result) }
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(appState.isBusy)
+                        .help("Remove this saved result from the session sidecar")
+                    }
+                }
+            } else {
+                Text("No companion results saved yet.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -96,5 +160,23 @@ struct ProductsView: View {
                 Text(detail).font(.caption2.monospaced()).foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func savedResultRow(_ result: SessionResultDescriptor, isCurrent: Bool) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Spacer().frame(width: 12)
+            Image(systemName: isCurrent ? "eye.fill" : (result.storage == .rgba8 ? "paintpalette" : "map"))
+                .font(.caption2)
+                .foregroundStyle(isCurrent ? Color.accentColor : Color.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(result.displayName).font(.caption).lineLimit(1)
+                Text("\(result.kind) · \(result.width)×\(result.height) · \(result.storage == .rgba8 ? "RGBA" : result.valueUnits)")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .help(result.id)
     }
 }

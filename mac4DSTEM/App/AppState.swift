@@ -49,7 +49,8 @@ enum VirtualShapeMode: String, CaseIterable, Identifiable {
 }
 
 enum DPCDisplayMode: String, CaseIterable, Identifiable {
-    case magnitude = "Magnitude"
+    case magnitude = "Magnitude (detector px)"
+    case magnitudeMrad = "Magnitude (mrad)"
     case angle = "Angle"
     case colorWheel = "Color Wheel"
     case idpc = "iDPC"
@@ -101,8 +102,13 @@ enum CrystalChoice: String, CaseIterable, Identifiable {
 
 /// Which ACOM result map to display.
 enum ACOMDisplayMode: String, CaseIterable, Identifiable {
+    case ipfZ        = "IPF · Z"
     case reliability = "Reliability"
+    case disorientation = "Cubic FZ angle"
     case inPlane     = "In-plane angle"
+    case phi1        = "Euler φ₁"
+    case Phi         = "Euler Φ"
+    case phi2        = "Euler φ₂"
     case score       = "Score"
     var id: String { rawValue }
 }
@@ -123,11 +129,24 @@ enum RegionShape: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum StrainReferenceMode: String, CaseIterable, Identifiable {
+    case wholeScan = "Whole-scan mean"
+    case selectedRegion = "Current real-space ROI"
+    var id: String { rawValue }
+}
+
+enum StrainBasisMode: String, CaseIterable, Identifiable {
+    case automatic = "Automatic"
+    case manual = "Manual g₁ / g₂"
+    var id: String { rawValue }
+}
+
 @Observable
 final class AppState {
     private var reader: (any FourDDataSource)?
     private var fourD: FourDArray?
     private var openURL: URL?
+    @ObservationIgnored var scopedSessionSidecarURL: URL?
 
     var datasets: [DatasetDescriptor] = []
     var descriptor: DatasetDescriptor?
@@ -137,15 +156,26 @@ final class AppState {
     var currentPattern: DiffractionPattern?
     var resultImage: FloatImage?
     var resultRGBA: RGBAImage?
+    /// Set only while `resultImage` is the scalar map restored from the stable
+    /// session sidecar. New scientific results clear it at publication.
+    @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)?
+    /// Read-only inventory of supported objects in the stable companion file.
+    var sessionInventory: SessionSidecarInventory = .empty
 
     var meanPattern: DiffractionPattern?
     var maxPattern: DiffractionPattern?
     var patternDisplayMode: PatternDisplayMode = .current {
-        didSet { patternVersion &+= 1 }
+        didSet {
+            patternVersion &+= 1
+            Task { await detectCurrentPattern() }
+        }
     }
 
     var calibration = Calibration()
     var originFitFunction: OriginFitFunction = .plane
+    var ellipseFitInnerRadius: Double = 10
+    var ellipseFitOuterRadius: Double = 30
+    private(set) var lastEllipseFit: EllipseCalibrationFit?
     /// Full rotation-calibration result (objective curves) for the
     /// diagnostics plot in the inspector.
     var lastRotationResult: RotationCalibration.Result?
@@ -160,6 +190,7 @@ final class AppState {
     var currentPeaks: [BraggPeak] = []
     var braggPeakCount: Int?
     private(set) var braggVectors: BraggVectors?
+    @ObservationIgnored private var liveDetectionRequest: UInt64 = 0
     var diskParams = DiskDetectionParams() {
         didSet { Task { await detectCurrentPattern() } }   // live overlay tracks params
     }
@@ -183,6 +214,14 @@ final class AppState {
     var customStructure: Crystal.CubicStructure = .fcc
     var customLatticeA: Double = 4.08                      // Å
 
+    var selectedEulerText: String? {
+        guard let map = orientationMap,
+              selectedScan.x >= 0, selectedScan.x < map.width,
+              selectedScan.y >= 0, selectedScan.y < map.height else { return nil }
+        let degrees = map[selectedScan.x, selectedScan.y].euler.degrees
+        return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
+    }
+
     /// The crystal ACOM should use — a preset, or the user-defined cubic cell.
     var resolvedACOMCrystal: Crystal {
         acomCrystal == .custom
@@ -201,6 +240,12 @@ final class AppState {
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
     var virtualDiffractionPattern: DiffractionPattern?
+    var strainReferenceMode: StrainReferenceMode = .wholeScan
+    var strainBasisMode: StrainBasisMode = .automatic
+    var strainG1X: Float = 10
+    var strainG1Y: Float = 0
+    var strainG2X: Float = 0
+    var strainG2Y: Float = 10
     var dpcDisplay: DPCDisplayMode = .magnitude {
         didSet { applyDPCDisplay() }
     }
@@ -213,6 +258,11 @@ final class AppState {
     var logScale = true {
         didSet { patternVersion &+= 1 }
     }
+    /// Display contrast window for the diffraction pane. Kept independent of
+    /// the real-space result window so adjusting a CBED never changes a map.
+    var patternDisplayRangeLo: Float = 0
+    var patternDisplayRangeHi: Float = 1
+    var patternGamma: Float = 1
     var analysisMode: AnalysisMode = .virtualDetector
 
     var isBusy = false
@@ -225,6 +275,13 @@ final class AppState {
     /// below the image panes. Progress spam ("… 42 %") is filtered out.
     private(set) var logMessages: [String] = []
     var showLogPane = true
+    var showToolsPane = true
+    var showInspectorPane = false
+    private(set) var openDatasetRequest = 0
+    private(set) var preprocessingExportRequest = 0
+
+    func requestOpenDataset() { openDatasetRequest &+= 1 }
+    func requestPreprocessingExport() { preprocessingExportRequest &+= 1 }
 
     private func appendLog(_ message: String) {
         guard !message.isEmpty, !message.hasSuffix("%") else { return }
@@ -251,12 +308,120 @@ final class AppState {
     /// applied in the fragment shader).
     var displayRangeLo: Float = 0
     var displayRangeHi: Float = 1
+    var resultGamma: Float = 1
+
+    /// Raw-value endpoints currently assigned to the scalar result colorbar.
+    var resultDisplayedValueRange: (low: Double, high: Double)? {
+        guard let image = resultImage else { return nil }
+        let (rawLow, rawHigh) = image.minMax
+        guard rawLow.isFinite, rawHigh.isFinite else { return nil }
+        let baseLow: Double
+        let baseHigh: Double
+        if colormap.isDiverging {
+            let magnitude = Double(max(abs(rawLow), abs(rawHigh)))
+            baseLow = -magnitude
+            baseHigh = magnitude
+        } else {
+            baseLow = Double(rawLow)
+            baseHigh = Double(rawHigh)
+        }
+        let span = baseHigh - baseLow
+        return (baseLow + span * Double(displayRangeLo),
+                baseLow + span * Double(displayRangeHi))
+    }
+
+    /// Raw intensity endpoints currently assigned to the CBED colorbar. When
+    /// log display is active, transform-space clipping is inverted back to
+    /// intensity so the labels remain physically interpretable.
+    var patternDisplayedValueRange: (low: Double, high: Double)? {
+        guard let pattern = displayedPattern else { return nil }
+        var low = Double.greatestFiniteMagnitude
+        var high = -Double.greatestFiniteMagnitude
+        for pixel in pattern.pixels where pixel.isFinite {
+            let value = logScale ? log10(1 + Double(max(pixel, 0))) : Double(pixel)
+            low = min(low, value)
+            high = max(high, value)
+        }
+        guard low <= high else { return nil }
+        let span = high - low
+        let clippedLow = low + span * Double(patternDisplayRangeLo)
+        let clippedHigh = low + span * Double(patternDisplayRangeHi)
+        if logScale {
+            return (pow(10, clippedLow) - 1, pow(10, clippedHigh) - 1)
+        }
+        return (clippedLow, clippedHigh)
+    }
 
     /// Fractional progress [0,1] of the running long operation, or nil when
     /// idle / indeterminate. Drives the performance panel's progress bar.
     var progress: Double?
     /// Short label of what's currently running (for the performance panel).
     var activeOperation: String?
+    @ObservationIgnored private var activeOperationStartedAt: Date?
+    private(set) var activeOperationTotalUnits: Int?
+    @ObservationIgnored private var activeCancellation: AnalysisCancellationToken?
+
+    var canCancelActiveOperation: Bool {
+        isBusy && activeCancellation != nil
+    }
+
+    func beginCancellableOperation(
+        _ name: String, status: String, totalUnits: Int? = nil
+    )
+        -> AnalysisCancellationToken {
+        activeCancellation?.cancel()
+        let token = AnalysisCancellationToken()
+        activeCancellation = token
+        isBusy = true
+        activeOperation = name
+        activeOperationStartedAt = Date()
+        activeOperationTotalUnits = totalUnits
+        progress = 0
+        statusText = status
+        return token
+    }
+
+    func finishCancellableOperation(_ token: AnalysisCancellationToken) {
+        guard activeCancellation === token else { return }
+        activeCancellation = nil
+        isBusy = false
+        progress = nil
+        activeOperation = nil
+        activeOperationStartedAt = nil
+        activeOperationTotalUnits = nil
+    }
+
+    func activeOperationMetrics(at now: Date = Date())
+        -> (elapsed: TimeInterval, unitsPerSecond: Double?, eta: TimeInterval?)? {
+        guard let started = activeOperationStartedAt else { return nil }
+        let elapsed = max(0, now.timeIntervalSince(started))
+        guard elapsed > 0, let fraction = progress, fraction > 0 else {
+            return (elapsed, nil, nil)
+        }
+        let rate = activeOperationTotalUnits.map { Double($0) * fraction / elapsed }
+        let eta = fraction < 1 ? elapsed * (1 - fraction) / fraction : 0
+        return (elapsed, rate, eta)
+    }
+
+    /// Cross-file operation helpers keep extensions from reaching into the
+    /// token identity itself while still rejecting late progress/status work.
+    func isCurrentOperation(_ token: AnalysisCancellationToken) -> Bool {
+        activeCancellation === token
+    }
+
+    func updateCancellableOperation(
+        _ token: AnalysisCancellationToken, progress fraction: Double, status: String
+    ) {
+        guard activeCancellation === token, !token.isCancelled else { return }
+        progress = fraction
+        statusText = status
+    }
+
+    func cancelActiveOperation() {
+        guard let token = activeCancellation, !token.isCancelled else { return }
+        token.cancel()
+        statusText = "Cancelling \(activeOperation ?? "operation")…"
+    }
 
     // Normalized-pixel caches: SwiftUI re-evaluates view bodies far more often
     // than content changes, and normalization is O(pixels) + an allocation.
@@ -300,6 +465,11 @@ final class AppState {
     var patternMinMax: (Float, Float)? { displayedPattern?.minMax }
 
     var hasDataset: Bool { descriptor?.is4D == true }
+
+    /// Narrow handoff used by the export workflow without exposing the mutable
+    /// reader slot to views. The returned value is an actor and remains safe to
+    /// use from the detached preprocessing task.
+    func currentDataSourceForExport() -> (any FourDDataSource)? { reader }
 
     func changeMode(_ mode: AnalysisMode) {
         guard mode.isAvailable else { return }
@@ -360,6 +530,10 @@ final class AppState {
         if let openURL {
             openURL.stopAccessingSecurityScopedResource()
         }
+        if let scopedSessionSidecarURL {
+            scopedSessionSidecarURL.stopAccessingSecurityScopedResource()
+            self.scopedSessionSidecarURL = nil
+        }
 
         let accessed = url.startAccessingSecurityScopedResource()
         openURL = accessed ? url : nil
@@ -387,20 +561,45 @@ final class AppState {
             return
         }
 
+        // Dataset replacement is also a cancellation boundary. The epoch still
+        // independently prevents any non-cooperative GPU result from landing.
+        activeCancellation?.cancel()
+        activeCancellation = nil
+        activeOperation = nil
+        activeOperationStartedAt = nil
+        activeOperationTotalUnits = nil
+        progress = nil
+        isBusy = false
         datasetEpoch &+= 1
         self.descriptor = descriptor
         fourD = FourDArray(reader: reader, descriptor: descriptor)
         selectedScan = ScanPos(x: 0, y: 0)
         displayRangeLo = 0
         displayRangeHi = 1
+        resultGamma = 1
+        patternDisplayRangeLo = 0
+        patternDisplayRangeHi = 1
+        patternGamma = 1
         lastRotationResult = nil
+        lastEllipseFit = nil
+        let detectorHalfSize = Double(min(descriptor.qx, descriptor.qy)) / 2
+        ellipseFitInnerRadius = max(1, detectorHalfSize * 0.35)
+        ellipseFitOuterRadius = max(ellipseFitInnerRadius + 2, detectorHalfSize * 0.9)
         aperture = Aperture(
             centerX: Float(descriptor.qx) / 2,
             centerY: Float(descriptor.qy) / 2,
             inner: 0,
             outer: Float(min(descriptor.qx, descriptor.qy)) / 4
         )
-        acceleratingVoltage = await reader.readDoubleAttribute("accelerating_voltage", onObjectPath: "/")
+        if let rawVoltage = await reader.readDoubleAttribute(
+            "accelerating_voltage", onObjectPath: "/"
+        ) {
+            // py4DSTEM metadata commonly stores eV while microscope UI and
+            // DM tags may expose kV. Keep one app convention: kV.
+            acceleratingVoltage = rawVoltage > 1_000 ? rawVoltage / 1_000 : rawVoltage
+        } else {
+            acceleratingVoltage = nil
+        }
         calibration = Calibration()
         // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
@@ -416,6 +615,11 @@ final class AppState {
             calibration.qPixelSize = pc.qSize
             calibration.qPixelUnits = pc.qUnits
             if let flip = pc.qrFlip { calibration.transposeQR = flip }
+            calibration.rotationRad = pc.qrRotationRad.map(Float.init)
+            calibration.probeRadius = pc.probeSemiangle.map(Float.init)
+            calibration.ellipseA = pc.ellipseA
+            calibration.ellipseB = pc.ellipseB
+            calibration.ellipseTheta = pc.ellipseTheta
             // AXIS SWAP (single documented conversion point — see
             // PixelCalibration.qx0Mean/qy0Mean doc comment): py4DSTEM indexes
             // patterns (qx, qy) with qx as the first/row axis, which is this
@@ -425,6 +629,18 @@ final class AppState {
                 aperture.centerX = Float(qy0)
                 aperture.centerY = Float(qx0)
                 calibration.originProvenance = .fileMean
+            }
+            // Full py4DSTEM origin maps use real-space order [R_Nx, R_Ny],
+            // matching app [Ry, Rx]. Detector coordinates still need the one
+            // documented swap: py4DSTEM qx -> app y, qy -> app x.
+            if let maps = pc.originMaps,
+               let appMaps = maps.appOriginMaps(width: descriptor.rx, height: descriptor.ry) {
+                calibration.origin = appMaps
+                if let origin = calibration.meanOrigin {
+                    aperture.centerX = origin.x
+                    aperture.centerY = origin.y
+                }
+                calibration.originProvenance = .fileMaps
             }
             // Auto-fill the ACOM Q scale (Å⁻¹/px) when the units are convertible.
             if let q = pc.qSize, q > 0 {
@@ -440,6 +656,8 @@ final class AppState {
         maxPattern = nil
         resultImage = nil
         resultRGBA = nil
+        restoredResultInfo = nil
+        sessionInventory = .empty
         comField = nil
         probeKernel = nil
         braggVectors = nil
@@ -463,9 +681,106 @@ final class AppState {
         dp.edgeBoundary = max(2, Int(qMin / 24))
         diskParams = dp
 
+        let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
         await loadCurrentPattern()
         statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
         await runCurrentAnalysis()
+        if let sessionSnapshot {
+            restoreSessionResult(from: sessionSnapshot, for: descriptor)
+        }
+    }
+
+    private func loadSessionSnapshot(
+        for descriptor: DatasetDescriptor
+    ) async -> SessionSidecarSnapshot? {
+        let url = resolvedSessionSidecarURL(for: descriptor)
+            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let epoch = datasetEpoch
+        do {
+            let snapshot = try await Task.detached(priority: .utility) {
+                try BraggVectorEMDWriter.loadSession(from: url)
+            }.value
+            guard epoch == datasetEpoch else { return nil }
+            sessionInventory = snapshot.inventory
+            if let sessionCalibration = snapshot.calibration {
+                applySessionCalibration(sessionCalibration, for: descriptor)
+            }
+            return snapshot
+        } catch {
+            guard epoch == datasetEpoch else { return nil }
+            statusText = "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func applySessionCalibration(
+        _ saved: PixelCalibration, for descriptor: DatasetDescriptor
+    ) {
+        if let value = saved.rSize { calibration.rPixelSize = value }
+        if let value = saved.rUnits { calibration.rPixelUnits = value }
+        if let value = saved.qSize { calibration.qPixelSize = value }
+        if let value = saved.qUnits { calibration.qPixelUnits = value }
+        if let value = saved.qrFlip { calibration.transposeQR = value }
+        if let value = saved.qrRotationRad { calibration.rotationRad = Float(value) }
+        if let value = saved.probeSemiangle { calibration.probeRadius = Float(value) }
+        if let value = saved.ellipseA { calibration.ellipseA = value }
+        if let value = saved.ellipseB { calibration.ellipseB = value }
+        if let value = saved.ellipseTheta { calibration.ellipseTheta = value }
+
+        var restoredMaps = false
+        if let maps = saved.originMaps,
+           let appMaps = maps.appOriginMaps(width: descriptor.rx, height: descriptor.ry) {
+            calibration.origin = appMaps
+            if let origin = calibration.meanOrigin {
+                aperture.centerX = origin.x
+                aperture.centerY = origin.y
+            }
+            calibration.originProvenance = .sessionMaps
+            restoredMaps = true
+        }
+        if !restoredMaps, let qx0 = saved.qx0Mean, let qy0 = saved.qy0Mean {
+            calibration.origin = nil
+            aperture.centerX = Float(qy0)
+            aperture.centerY = Float(qx0)
+            calibration.originProvenance = .sessionMean
+        }
+        if let q = saved.qSize, q > 0 {
+            switch saved.qUnits?.lowercased() {
+            case "1/nm", "nm^-1", "1/nanometer": acomScale = q * 0.1
+            case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
+                acomScale = q
+            default: break
+            }
+        }
+    }
+
+    private func restoreSessionResult(
+        from snapshot: SessionSidecarSnapshot, for descriptor: DatasetDescriptor
+    ) {
+        let url = resolvedSessionSidecarURL(for: descriptor)
+            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        if let map = snapshot.currentResult {
+            guard map.width == descriptor.rx, map.height == descriptor.ry else {
+                statusText = "Ignored \(url.lastPathComponent): saved map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
+                return
+            }
+            resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
+            resultRGBA = nil
+            restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
+        } else if let map = snapshot.currentRGBAResult {
+            guard map.width == descriptor.rx, map.height == descriptor.ry else {
+                statusText = "Ignored \(url.lastPathComponent): saved RGBA map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
+                return
+            }
+            resultImage = nil
+            resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
+            restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
+        } else {
+            return
+        }
+        resultVersion &+= 1
+        statusText = "Restored \(restoredResultInfo?.displayName ?? "result") ← \(url.lastPathComponent)"
     }
 
     private func loadCurrentPattern() async {
@@ -597,13 +912,13 @@ final class AppState {
         let region = realSpaceRegionShape(d)
         do {
             let epoch = datasetEpoch
-            let cube = try await fourD.cubeBuffer()
-            let pattern = try await Task.detached(priority: .userInitiated) {
-                try VirtualDetector.diffraction(cube: cube, descriptor: d, region: region)
-            }.value
+            let pattern = try await VirtualDetector.tiledDiffraction(
+                data: fourD, descriptor: d, region: region
+            )
             guard epoch == datasetEpoch else { return }
             virtualDiffractionPattern = pattern
             patternVersion &+= 1
+            await detectCurrentPattern()
         } catch {
             // Quiet during live drag.
         }
@@ -626,6 +941,32 @@ final class AppState {
         }
     }
 
+    /// Boolean scan mask sharing the point/rectangle/circle semantics of the
+    /// visible real-space ROI. Used as the unstrained strain reference.
+    private func realSpaceRegionMask(_ d: DatasetDescriptor) -> [Bool] {
+        let r = Int(realSpaceRadius.rounded())
+        let circleRadius = realSpaceRadius + 0.5
+        let circleRadius2 = circleRadius * circleRadius
+        var mask = [Bool](repeating: false, count: d.ry * d.rx)
+        for y in 0..<d.ry {
+            for x in 0..<d.rx {
+                let included: Bool
+                switch realSpaceShape {
+                case .point:
+                    included = x == selectedScan.x && y == selectedScan.y
+                case .rectangle:
+                    included = abs(x - selectedScan.x) <= r && abs(y - selectedScan.y) <= r
+                case .circle:
+                    let dx = Float(x - selectedScan.x)
+                    let dy = Float(y - selectedScan.y)
+                    included = dx * dx + dy * dy < circleRadius2
+                }
+                mask[y * d.rx + x] = included
+            }
+        }
+        return mask
+    }
+
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
     func applyDetectorPreset(_ preset: DetectorPreset) {
         guard let descriptor else { return }
@@ -644,41 +985,70 @@ final class AppState {
     /// blocking GPU call is pushed off the main actor.
     func runVirtualDetector(quiet: Bool = false) async {
         guard let fourD, let descriptor else { return }
-        if !quiet {
-            isBusy = true
-            statusText = "Computing virtual detector…"
+        let cancellation = quiet ? nil : beginCancellableOperation(
+            "Virtual detector", status: "Computing virtual detector…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer {
+            if let cancellation { finishCancellableOperation(cancellation) }
         }
-        defer { if !quiet { isBusy = false } }
 
         let ap = aperture
         let shapeMode = virtualShape
         let d = descriptor
         do {
             let epoch = datasetEpoch
-            let cube = try await fourD.cubeBuffer()
-            let image = try await Task.detached(priority: .userInitiated) { () throws -> FloatImage in
-                switch shapeMode {
-                case .circle:
-                    let shape = DetectorShape.circle(
-                        centerX: ap.centerX, centerY: ap.centerY, radius: ap.outer)
-                    return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
-                case .annulus:
-                    return try VirtualDetector.run(cube: cube, descriptor: d, aperture: ap)
-                case .rectangle:
-                    let half = Int(ap.outer.rounded())
-                    let shape = DetectorShape.rectangle(
+            if cancellation?.isCancelled == true {
+                statusText = "Virtual detector cancelled"
+                return
+            }
+            let progressUpdate: (@Sendable (Double) -> Void)?
+            if let token = cancellation {
+                progressUpdate = { @Sendable [weak self] fraction in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isCurrentOperation(token) else { return }
+                        self.progress = fraction
+                        self.statusText = "Computing virtual detector… \(Int(fraction * 100)) %"
+                    }
+                }
+            } else {
+                progressUpdate = nil
+            }
+            let image: FloatImage
+            switch shapeMode {
+            case .circle:
+                image = try await VirtualDetector.tiledImage(
+                    data: fourD, descriptor: d,
+                    shape: .circle(centerX: ap.centerX, centerY: ap.centerY,
+                                   radius: ap.outer),
+                    cancellation: cancellation, progress: progressUpdate)
+            case .annulus:
+                image = try await VirtualDetector.tiledRun(
+                    data: fourD, descriptor: d, aperture: ap,
+                    cancellation: cancellation, progress: progressUpdate)
+            case .rectangle:
+                let half = Int(ap.outer.rounded())
+                image = try await VirtualDetector.tiledImage(
+                    data: fourD, descriptor: d,
+                    shape: .rectangle(
                         xMin: Int(ap.centerX.rounded()) - half,
                         xMax: Int(ap.centerX.rounded()) + half,
                         yMin: Int(ap.centerY.rounded()) - half,
-                        yMax: Int(ap.centerY.rounded()) + half)
-                    return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
-                case .point:
-                    let shape = DetectorShape.point(x: Int(ap.centerX.rounded()),
-                                                    y: Int(ap.centerY.rounded()))
-                    return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
-                }
-            }.value
+                        yMax: Int(ap.centerY.rounded()) + half),
+                    cancellation: cancellation, progress: progressUpdate)
+            case .point:
+                image = try await VirtualDetector.tiledImage(
+                    data: fourD, descriptor: d,
+                    shape: .point(x: Int(ap.centerX.rounded()),
+                                  y: Int(ap.centerY.rounded())),
+                    cancellation: cancellation, progress: progressUpdate)
+            }
             guard epoch == datasetEpoch else { return }
+            if cancellation?.isCancelled == true {
+                statusText = "Virtual detector cancelled"
+                return
+            }
+            restoredResultInfo = nil
             resultImage = image
             resultRGBA = nil
             resultVersion &+= 1
@@ -686,7 +1056,8 @@ final class AppState {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }
         } catch {
-            if !quiet { present(error) }
+            if cancellation?.isCancelled == true { statusText = "Virtual detector cancelled" }
+            else if !quiet { present(error) }
         }
     }
 
@@ -697,25 +1068,37 @@ final class AppState {
     /// full origin calibration.
     func computeDPStatistics() async {
         guard let fourD, let descriptor else { return }
-        isBusy = true
-        statusText = "Computing DP mean/max…"
-        defer { isBusy = false }
+        let cancellation = beginCancellableOperation(
+            "DP statistics", status: "Computing DP mean/max…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
         let d = descriptor
         do {
             let epoch = datasetEpoch
-            let dims = CubeDims(d)
-            let cube = try await fourD.cubeBuffer()
-            let (maxDP, meanDP) = try await Task.detached(priority: .userInitiated) {
-                try MetalEngine.shared.dpStatistics(cube: cube, dims: dims)
-            }.value
+            let statistics = try await VirtualDetector.tiledDPStatistics(
+                data: fourD, descriptor: d, cancellation: cancellation
+            ) { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    guard let self, self.isCurrentOperation(cancellation) else { return }
+                    self.progress = fraction
+                    self.statusText = "Computing DP mean/max… \(Int(fraction * 100)) %"
+                }
+            }
+            let (maxDP, meanDP) = statistics
             guard epoch == datasetEpoch else { return }
+            if cancellation.isCancelled {
+                statusText = "DP statistics cancelled"
+                return
+            }
             meanPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: meanDP)
             maxPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: maxDP)
             patternVersion &+= 1
             statusText = "DP statistics ✓  (mean + max over \(d.rx) × \(d.ry) positions)"
         } catch {
-            present(error)
+            if cancellation.isCancelled { statusText = "DP statistics cancelled" }
+            else { present(error) }
         }
     }
 
@@ -724,19 +1107,32 @@ final class AppState {
     /// mean/max pattern display modes as a side effect.
     func calibrateOrigin() async {
         guard let fourD, let descriptor else { return }
-        isBusy = true
-        statusText = "Calibrating origin…"
-        defer { isBusy = false }
+        let cancellation = beginCancellableOperation(
+            "Origin calibration", status: "Calibrating origin…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
         let fitFn = originFitFunction
         let d = descriptor
         do {
             let epoch = datasetEpoch
-            let cube = try await fourD.cubeBuffer()
-            let result = try await Task.detached(priority: .userInitiated) {
-                try OriginCalibration.run(cube: cube, descriptor: d, fitFunction: fitFn)
-            }.value
+            let result = try await OriginCalibration.tiledRun(
+                data: fourD, descriptor: d, fitFunction: fitFn,
+                cancellation: cancellation
+            ) { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    guard let self, self.isCurrentOperation(cancellation) else { return }
+                    self.progress = fraction
+                    self.statusText = "Calibrating origin… \(Int(fraction * 100)) %"
+                }
+            }
             guard epoch == datasetEpoch else { return }
+            if cancellation.isCancelled {
+                statusText = "Origin calibration cancelled"
+                return
+            }
+            guard let result else { return }
 
             calibration.probeRadius = result.probeRadius
             calibration.origin = result.origin
@@ -750,13 +1146,87 @@ final class AppState {
                 aperture.centerY = origin.y
                 calibration.originProvenance = .fitted
             }
-            let rms = result.origin.rmsResidual
+            let rms = result.origin.rmsResidual ?? 0
             statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",
                                 result.probeRadius, rms, fitFn.rawValue)
 
             await runCurrentAnalysis()
         } catch {
-            present(error)
+            if cancellation.isCancelled { statusText = "Origin calibration cancelled" }
+            else { present(error) }
+        }
+    }
+
+    /// Fit py4DSTEM-native `(a,b,theta)` from the detector-shaped Bragg map
+    /// when one is visible, otherwise from the scan-mean diffraction pattern.
+    /// The fitter owns the qx=row/qy=column convention; this method performs
+    /// the single app x/y swap at its boundary.
+    func calibrateEllipse() async {
+        guard let descriptor else { return }
+        let detectorPattern: DiffractionPattern
+        let sourceName: String
+        if analysisMode == .disks, let image = resultImage,
+           image.width == descriptor.qx, image.height == descriptor.qy {
+            detectorPattern = DiffractionPattern(
+                qy: descriptor.qy, qx: descriptor.qx, pixels: image.pixels
+            )
+            sourceName = "Bragg-vector map"
+        } else {
+            if meanPattern == nil { await computeDPStatistics() }
+            guard let meanPattern else {
+                present(SimpleError("Compute a mean diffraction pattern before fitting ellipse distortion."))
+                return
+            }
+            detectorPattern = meanPattern
+            sourceName = "mean diffraction pattern"
+        }
+        guard ellipseFitInnerRadius >= 0,
+              ellipseFitOuterRadius > ellipseFitInnerRadius else {
+            present(SimpleError("Ellipse fit outer radius must be larger than its inner radius."))
+            return
+        }
+
+        let centerQX = Double(aperture.centerY)
+        let centerQY = Double(aperture.centerX)
+        let inner = ellipseFitInnerRadius
+        let outer = ellipseFitOuterRadius
+        let epoch = datasetEpoch
+        let cancellation = beginCancellableOperation(
+            "Ellipse calibration", status: "Fitting detector ellipse…", totalUnits: 1
+        )
+        defer { finishCancellableOperation(cancellation) }
+        do {
+            let fit = try await Task.detached(priority: .userInitiated) {
+                try EllipseCalibration.fit1D(
+                    pattern: detectorPattern,
+                    centerQX: centerQX, centerQY: centerQY,
+                    innerRadius: inner, outerRadius: outer
+                )
+            }.value
+            guard epoch == datasetEpoch, !cancellation.isCancelled else {
+                statusText = "Ellipse calibration cancelled"
+                return
+            }
+            calibration.ellipseA = fit.a
+            calibration.ellipseB = fit.b
+            calibration.ellipseTheta = fit.theta
+            lastEllipseFit = fit
+            progress = 1
+
+            // A displayed Bragg map can be reprojected immediately because
+            // raw peak storage remains unchanged. Strain/ACOM are deliberately
+            // not relabeled; users rerun those quantitative analyses.
+            if analysisMode == .disks, let vectors = braggVectors {
+                showBraggMap(vectors, descriptor: descriptor)
+            }
+            statusText = String(
+                format: "Ellipse ✓  a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
+                fit.a, fit.b, fit.theta * 180 / .pi,
+                fit.normalizedResidual, sourceName
+            )
+        } catch {
+            if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
+            else { present(error) }
         }
     }
 
@@ -771,19 +1241,29 @@ final class AppState {
             guard calibration.hasFittedOrigin else { return }
         }
 
-        isBusy = true
-        statusText = "Calibrating R–Q rotation…"
-        defer { isBusy = false }
+        let cancellation = beginCancellableOperation(
+            "R–Q rotation", status: "Calibrating R–Q rotation…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
         let d = descriptor
         do {
             let epoch = datasetEpoch
-            guard let com = try await computeCoMField() else { return }
+            guard let com = try await computeCoMField(cancellation: cancellation) else {
+                if cancellation.isCancelled { statusText = "R–Q rotation cancelled" }
+                return
+            }
             let result = await Task.detached(priority: .userInitiated) {
                 RotationCalibration.solve(com: com, width: d.rx, height: d.ry,
-                                          maximizeDivergence: maximizeDivergence)
+                                          maximizeDivergence: maximizeDivergence,
+                                          cancellation: cancellation)
             }.value
             guard epoch == datasetEpoch else { return }
+            if cancellation.isCancelled {
+                statusText = "R–Q rotation cancelled"
+                return
+            }
             guard let result else {
                 present(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
@@ -796,24 +1276,32 @@ final class AppState {
                                 result.rotationRad * 180 / .pi,
                                 result.transpose ? ", detector transposed" : "")
         } catch {
-            present(error)
+            if cancellation.isCancelled { statusText = "R–Q rotation cancelled" }
+            else { present(error) }
         }
     }
 
     /// Measure the CoM shift field on the GPU, against calibrated origins when
     /// available. Shared by rotation calibration and (later) DPC.
-    private func computeCoMField() async throws -> [Float]? {
+    private func computeCoMField(
+        cancellation: AnalysisCancellationToken? = nil
+    ) async throws -> [Float]? {
+        guard cancellation?.isCancelled != true else { return nil }
         guard let fourD, let descriptor else { return nil }
         let origins = calibration.origin?.interleavedFitted
         let center = calibration.meanOrigin ?? (x: aperture.centerX, y: aperture.centerY)
         let d = descriptor
-        let cube = try await fourD.cubeBuffer()
-        let params = CoMParams(ry: UInt32(d.ry), rx: UInt32(d.rx),
-                               qy: UInt32(d.qy), qx: UInt32(d.qx),
-                               cx: center.x, cy: center.y, useOrigins: 0)
-        return try await Task.detached(priority: .userInitiated) {
-            try MetalEngine.shared.centerOfMass(cube: cube, params: params, origins: origins)
-        }.value
+        let result = try await VirtualDetector.tiledCenterOfMass(
+            data: fourD, descriptor: d, center: center, origins: origins,
+            cancellation: cancellation
+        ) { [weak self] fraction in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let cancellation, !self.isCurrentOperation(cancellation) { return }
+                self.progress = fraction
+            }
+        }
+        return cancellation?.isCancelled == true ? nil : result
     }
 
     // MARK: - DPC
@@ -822,21 +1310,28 @@ final class AppState {
     /// render the selected DPC view. The field is cached so switching between
     /// magnitude / angle / color-wheel / iDPC is instant (no GPU re-run).
     func runDPC() async {
-        guard descriptor != nil else { return }
-        isBusy = true
-        statusText = "Computing DPC (center of mass)…"
-        defer { isBusy = false }
+        guard let descriptor else { return }
+        let cancellation = beginCancellableOperation(
+            "DPC", status: "Computing DPC (center of mass)…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
         do {
             let epoch = datasetEpoch
-            let field = try await computeCoMField()
+            let field = try await computeCoMField(cancellation: cancellation)
             guard epoch == datasetEpoch else { return }
+            if cancellation.isCancelled {
+                statusText = "DPC cancelled"
+                return
+            }
             comField = field
             applyDPCDisplay()
             let ref = calibration.hasFittedOrigin ? "calibrated origins" : "global center"
             statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
         } catch {
-            present(error)
+            if cancellation.isCancelled { statusText = "DPC cancelled" }
+            else { present(error) }
         }
     }
 
@@ -857,6 +1352,7 @@ final class AppState {
     /// in the scan frame. Cheap enough (scan-sized) to run on the main actor.
     private func applyDPCDisplay() {
         guard var com = comField, let d = descriptor, analysisMode == .dpc else { return }
+        restoredResultInfo = nil
         if let rotation = calibration.rotationRad {
             com = DPC.applyRotation(com: com, rotationRad: rotation,
                                     transpose: calibration.transposeQR ?? false)
@@ -864,6 +1360,16 @@ final class AppState {
         switch dpcDisplay {
         case .magnitude:
             resultImage = DPC.magnitudeImage(com: com, width: d.rx, height: d.ry)
+            resultRGBA = nil
+        case .magnitudeMrad:
+            if let scale = dpcMilliradiansPerDetectorPixel {
+                resultImage = DPC.physicalMagnitudeImage(
+                    com: com, width: d.rx, height: d.ry,
+                    milliradiansPerPixel: scale
+                )
+            } else {
+                resultImage = DPC.magnitudeImage(com: com, width: d.rx, height: d.ry)
+            }
             resultRGBA = nil
         case .angle:
             resultImage = DPC.angleImage(com: com, width: d.rx, height: d.ry)
@@ -876,6 +1382,21 @@ final class AppState {
             resultRGBA = nil
         }
         resultVersion &+= 1
+    }
+
+    var dpcMilliradiansPerDetectorPixel: Float? {
+        guard let voltageKV = acceleratingVoltage,
+              let qSize = calibration.qPixelSize else { return nil }
+        let invAngstrom: Double
+        switch calibration.qPixelUnits?.lowercased() {
+        case "1/nm", "nm^-1", "1/nanometer": invAngstrom = qSize * 0.1
+        case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
+            invAngstrom = qSize
+        default: return nil
+        }
+        return DPC.milliradiansPerDetectorPixel(
+            voltageKV: voltageKV, invAngstromPerPixel: invAngstrom
+        )
     }
 
     // MARK: - Disk detection
@@ -900,10 +1421,37 @@ final class AppState {
         await detectCurrentPattern()
     }
 
+    /// Build a measured kernel from the CBED currently displayed. With a
+    /// rectangle/circle real-space ROI this is its summed vacuum pattern;
+    /// normalization makes sum versus mean immaterial.
+    func generateMeasuredProbeKernel() async {
+        guard descriptor != nil, let pattern = displayedPattern else { return }
+        if calibration.probeRadius == nil {
+            await calibrateOrigin()
+            guard calibration.probeRadius != nil else { return }
+        }
+        guard let radius = calibration.probeRadius else { return }
+        let origin = calibration.meanOrigin
+            ?? (x: aperture.centerX, y: aperture.centerY)
+        guard let kernel = ProbeKernel.measured(
+            pattern: pattern, originX: origin.x, originY: origin.y, radius: radius
+        ) else {
+            present(SimpleError("The current CBED/ROI did not contain a usable measured probe."))
+            return
+        }
+        probeKernel = kernel
+        statusText = String(
+            format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI", radius
+        )
+        await detectCurrentPattern()
+    }
+
     /// Live overlay: detect disks in the currently displayed pattern only.
     func detectCurrentPattern() async {
+        liveDetectionRequest &+= 1
+        let request = liveDetectionRequest
         guard analysisMode == .disks, let kernel = probeKernel,
-              let pattern = currentPattern else {
+              let pattern = displayedPattern else {
             if !currentPeaks.isEmpty { currentPeaks = [] }
             return
         }
@@ -913,7 +1461,9 @@ final class AppState {
             guard let detector = DiskDetector(kernel: kernel) else { return [] }
             return detector.detect(pattern: pattern.pixels, params: params)
         }.value
-        guard epoch == datasetEpoch else { return }
+        guard epoch == datasetEpoch,
+              request == liveDetectionRequest,
+              analysisMode == .disks else { return }
         currentPeaks = peaks
     }
 
@@ -923,26 +1473,33 @@ final class AppState {
         if probeKernel == nil { await generateProbeKernel() }
         guard let kernel = probeKernel else { return }
 
-        isBusy = true
-        activeOperation = "Disk detection"
-        progress = 0
-        statusText = "Detecting Bragg disks…"
-        defer { isBusy = false; progress = nil; activeOperation = nil }
+        let cancellation = beginCancellableOperation(
+            "Disk detection", status: "Detecting Bragg disks…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
         let params = diskParams
         let d = descriptor
         do {
             let epoch = datasetEpoch
-            let cube = try await fourD.cubeBuffer()
-            let vectors = await Task.detached(priority: .userInitiated) { [self] () -> BraggVectors? in
-                DiskDetection.detectAll(cube: cube, descriptor: d, kernel: kernel, params: params) { fraction in
-                    Task { @MainActor [weak self] in
-                        self?.progress = fraction
-                        self?.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
-                    }
+            let vectors = await DiskDetection.detectAll(
+                data: fourD, descriptor: d, kernel: kernel,
+                params: params, cancellation: cancellation
+            ) { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          self.activeCancellation === cancellation,
+                          !cancellation.isCancelled else { return }
+                    self.progress = fraction
+                    self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
                 }
-            }.value
+            }
             guard epoch == datasetEpoch else { return }
+            if cancellation.isCancelled {
+                statusText = "Disk detection cancelled"
+                return
+            }
             guard let vectors else {
                 present(SimpleError("Disk detection failed to initialize its FFT plan."))
                 return
@@ -951,19 +1508,31 @@ final class AppState {
             braggPeakCount = vectors.totalPeakCount
             showBraggMap(vectors, descriptor: d)
             statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
-        } catch {
-            present(error)
         }
     }
 
     /// Show the Bragg vector map (log-scaled — the central beam dominates the
     /// raw histogram) in the result pane.
     private func showBraggMap(_ vectors: BraggVectors, descriptor d: DatasetDescriptor) {
-        let bvm = vectors.map(qy: d.qy, qx: d.qx)
+        let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
+        let bvm = calibrated.map(qy: d.qy, qx: d.qx)
+        restoredResultInfo = nil
         resultImage = FloatImage(width: bvm.width, height: bvm.height,
                                  pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
         resultRGBA = nil
         resultVersion &+= 1
+    }
+
+    /// Raw peaks remain the source of truth; analysis calibration is derived
+    /// on demand so imported or newly fitted origin/ellipse values immediately
+    /// affect Bragg maps, strain, and ACOM without re-running detection.
+    private func calibratedBraggVectors(
+        _ vectors: BraggVectors,
+        descriptor d: DatasetDescriptor
+    ) -> (vectors: BraggVectors, origin: (x: Float, y: Float)) {
+        let origin = calibration.meanOrigin
+            ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
+        return (vectors.calibrated(with: calibration, referenceOrigin: origin), origin)
     }
 
     // MARK: - Strain mapping
@@ -977,26 +1546,46 @@ final class AppState {
             present(SimpleError("Run disk detection first — strain mapping needs detected Bragg peaks."))
             return
         }
-        isBusy = true
-        statusText = "Computing strain map…"
-        defer { isBusy = false }
+        let cancellation = beginCancellableOperation(
+            "Strain mapping", status: "Computing strain map…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
-        let origin = calibration.meanOrigin
-            ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
+        let calibrated = calibratedBraggVectors(bragg, descriptor: descriptor)
+        let origin = calibrated.origin
+        let referenceMask = strainReferenceMode == .selectedRegion
+            ? realSpaceRegionMask(descriptor) : nil
+        let initialBasis = strainBasisMode == .manual
+            ? (g1: (x: strainG1X, y: strainG1Y),
+               g2: (x: strainG2X, y: strainG2Y)) : nil
         let epoch = datasetEpoch
         let map = await Task.detached(priority: .userInitiated) {
-            StrainMapping.compute(bragg: bragg, originX: origin.x, originY: origin.y)
+            StrainMapping.compute(bragg: calibrated.vectors,
+                                  originX: origin.x, originY: origin.y,
+                                  referenceMask: referenceMask,
+                                  initialBasis: initialBasis,
+                                  cancellation: cancellation)
         }.value
         guard epoch == datasetEpoch else { return }
+        if cancellation.isCancelled {
+            statusText = "Strain mapping cancelled"
+            return
+        }
         guard let map else {
             present(SimpleError("Could not establish a lattice basis from the detected peaks (try detecting more disks)."))
             return
         }
         strainMap = map
+        if strainBasisMode == .automatic {
+            strainG1X = map.refG1.x; strainG1Y = map.refG1.y
+            strainG2X = map.refG2.x; strainG2Y = map.refG2.y
+        }
         colormap = .rdbu   // diverging colormap is the right default for strain
         applyStrainDisplay()
-        statusText = String(format: "Strain ✓  %.0f%% indexed · g1=(%.1f, %.1f) g2=(%.1f, %.1f)",
+        statusText = String(format: "Strain ✓  %.0f%% indexed · %d ref positions · g1=(%.1f, %.1f) g2=(%.1f, %.1f)",
                             map.indexedFraction * 100,
+                            map.referencePositionCount,
                             map.refG1.x, map.refG1.y, map.refG2.x, map.refG2.y)
     }
 
@@ -1004,6 +1593,7 @@ final class AppState {
     /// of the diverging colormap).
     private func applyStrainDisplay() {
         guard let map = strainMap, analysisMode == .strain else { return }
+        restoredResultInfo = nil
         resultImage = map.component(strainComponent)
         resultRGBA = nil
         resultVersion &+= 1
@@ -1012,11 +1602,46 @@ final class AppState {
     // MARK: - ACOM (orientation mapping)
 
     /// Build the orientation-plan template library for the selected crystal.
+    func calibrateQFromCrystal() async {
+        guard let descriptor, let rawBragg = braggVectors else {
+            present(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
+            return
+        }
+        let crystal = resolvedACOMCrystal
+        let calibrated = calibratedBraggVectors(rawBragg, descriptor: descriptor)
+        let epoch = datasetEpoch
+        let estimate = await Task.detached(priority: .userInitiated) {
+            guard let firstShell = crystal.reflections(kMax: 2.5).first?.gLength else {
+                return nil as QCalibrationEstimate?
+            }
+            return KnownCrystalQCalibration.estimate(
+                bragg: calibrated.vectors, origin: calibrated.origin,
+                referenceRadiusInvAngstrom: firstShell
+            )
+        }.value
+        guard epoch == datasetEpoch else { return }
+        guard let estimate else {
+            present(SimpleError("Could not identify a non-central first Bragg shell."))
+            return
+        }
+        acomScale = estimate.invAngstromPerPixel
+        calibration.qPixelSize = estimate.invAngstromPerPixel
+        calibration.qPixelUnits = "Å⁻¹"
+        statusText = String(
+            format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %d positions",
+            estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
+            estimate.sampleCount
+        )
+    }
+
+    /// Build the orientation-plan template library for the selected crystal.
     func generateOrientationPlan() async {
         guard descriptor != nil else { return }
-        isBusy = true
-        statusText = "Generating orientation plan…"
-        defer { isBusy = false }
+        let cancellation = beginCancellableOperation(
+            "Orientation plan", status: "Generating orientation plan…",
+            totalUnits: 400
+        )
+        defer { finishCancellableOperation(cancellation) }
 
         let crystal = resolvedACOMCrystal
         let missing = crystal.unsupportedElements
@@ -1028,9 +1653,14 @@ final class AppState {
         }
         let epoch = datasetEpoch
         let plan = await Task.detached(priority: .userInitiated) {
-            OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 400)
+            OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 400,
+                                     cancellation: cancellation)
         }.value
         guard epoch == datasetEpoch else { return }
+        if cancellation.isCancelled {
+            statusText = "Orientation-plan generation cancelled"
+            return
+        }
         guard let plan else {
             present(SimpleError("Could not generate an orientation plan."))
             return
@@ -1053,27 +1683,39 @@ final class AppState {
         if orientationPlan == nil { await generateOrientationPlan() }
         guard let plan = orientationPlan else { return }
 
-        isBusy = true
-        activeOperation = "ACOM matching"
-        progress = 0
-        statusText = "Matching orientations…"
-        defer { isBusy = false; progress = nil; activeOperation = nil }
+        let cancellation = beginCancellableOperation(
+            "ACOM matching", status: "Matching orientations…",
+            totalUnits: descriptor.rx * descriptor.ry
+        )
+        defer { finishCancellableOperation(cancellation) }
 
-        let origin = calibration.meanOrigin
-            ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
+        let calibrated = calibratedBraggVectors(bragg, descriptor: descriptor)
+        let origin = calibrated.origin
         let scale = acomScale
         let epoch = datasetEpoch
         let map = await Task.detached(priority: .userInitiated) { [self] in
-            OrientationMatching.matchAll(bragg: bragg, plan: plan,
+            OrientationMatching.matchAll(bragg: calibrated.vectors, plan: plan,
                                          originX: origin.x, originY: origin.y,
-                                         invAngstromPerPixel: scale) { fraction in
+                                         invAngstromPerPixel: scale,
+                                         cancellation: cancellation) { fraction in
                 Task { @MainActor [weak self] in
-                    self?.progress = fraction
-                    self?.statusText = "Matching orientations… \(Int(fraction * 100)) %"
+                    guard let self,
+                          self.activeCancellation === cancellation,
+                          !cancellation.isCancelled else { return }
+                    self.progress = fraction
+                    self.statusText = "Matching orientations… \(Int(fraction * 100)) %"
                 }
             }
         }.value
         guard epoch == datasetEpoch else { return }
+        if cancellation.isCancelled {
+            statusText = "ACOM matching cancelled"
+            return
+        }
+        guard let map else {
+            present(SimpleError("ACOM matching failed to initialize."))
+            return
+        }
         orientationMap = map
         hasOrientationMap = true
         applyACOMDisplay()
@@ -1082,10 +1724,20 @@ final class AppState {
 
     private func applyACOMDisplay() {
         guard let map = orientationMap, analysisMode == .acom else { return }
+        restoredResultInfo = nil
         switch acomDisplay {
+        case .ipfZ:
+            resultImage = nil
+            resultRGBA = map.ipfZImage
+            resultVersion &+= 1
+            return
         case .reliability: resultImage = map.reliabilityImage
+        case .disorientation: resultImage = map.symmetryDisorientationImage
         case .score:       resultImage = map.scoreImage
         case .inPlane:     resultImage = map.inPlaneAngleImage
+        case .phi1:        resultImage = map.phi1Image
+        case .Phi:         resultImage = map.PhiImage
+        case .phi2:        resultImage = map.phi2Image
         }
         resultRGBA = nil
         resultVersion &+= 1

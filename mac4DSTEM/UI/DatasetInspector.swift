@@ -50,6 +50,23 @@ struct DatasetInspector: View {
                                       rangeHi: Bindable(appState).displayRangeHi)
                         Text("Drag the handles to clip which intensities map into the image.")
                             .font(.caption2).foregroundStyle(.tertiary)
+                        gammaControl("Gamma", value: Bindable(appState).resultGamma)
+                    }
+                }
+
+                if let pattern = appState.displayedPattern {
+                    Section("Histogram (diffraction)") {
+                        HistogramView(
+                            pixels: pattern.contrastPixels(useLog: appState.logScale),
+                            version: appState.patternVersion,
+                            rangeLo: Bindable(appState).patternDisplayRangeLo,
+                            rangeHi: Bindable(appState).patternDisplayRangeHi
+                        )
+                        Text(appState.logScale
+                             ? "Contrast is selected on the log10(1 + intensity) axis."
+                             : "Drag the handles to set the CBED intensity window.")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                        gammaControl("Gamma", value: Bindable(appState).patternGamma)
                     }
                 }
 
@@ -75,6 +92,16 @@ struct DatasetInspector: View {
             }
         }
         .frame(minWidth: 240)
+    }
+
+    private func gammaControl(_ label: String, value: Binding<Float>) -> some View {
+        HStack {
+            Text(label).font(.caption)
+            Slider(value: value, in: 0.2...3)
+            Text(String(format: "%.2f", value.wrappedValue))
+                .font(.caption.monospacedDigit())
+                .frame(width: 36, alignment: .trailing)
+        }
     }
 
     private func row(_ label: String, _ value: String, mono: Bool = false) -> some View {

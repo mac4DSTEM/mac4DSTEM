@@ -52,12 +52,17 @@ struct DiffractionPattern {
 
     /// Normalize for display. CBED patterns span many orders of magnitude, so log display is useful.
     nonisolated func normalized(useLog: Bool) -> [Float] {
-        if useLog {
-            let logPixels = pixels.map { $0.isFinite ? Float(log10(1.0 + Double(max($0, 0)))) : 0 }
-            return FloatImage(width: qx, height: qy, pixels: logPixels).normalized()
-        }
+        FloatImage(width: qx, height: qy,
+                   pixels: contrastPixels(useLog: useLog)).normalized()
+    }
 
-        return FloatImage(width: qx, height: qy, pixels: pixels).normalized()
+    /// Values along the CBED contrast/histogram axis before [0,1]
+    /// normalization. Log mode uses log10(1 + max(I, 0)).
+    nonisolated func contrastPixels(useLog: Bool) -> [Float] {
+        guard useLog else { return pixels }
+        return pixels.map {
+            $0.isFinite ? Float(log10(1.0 + Double(max($0, 0)))) : 0
+        }
     }
 
     nonisolated var asFloatImage: FloatImage { FloatImage(width: qx, height: qy, pixels: pixels) }

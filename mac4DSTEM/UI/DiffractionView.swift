@@ -66,7 +66,10 @@ struct DiffractionView: View {
                                    width: qx, height: qy,
                                    contentVersion: app.patternVersion,
                                    colormap: app.colormap,
-                                   zoom: 1, offset: .zero)
+                                   zoom: 1, offset: .zero,
+                                   displayLo: app.patternDisplayRangeLo,
+                                   displayHi: app.patternDisplayRangeHi,
+                                   gamma: app.patternGamma)
                         .frame(width: box.width, height: box.height)
                         .background(Color.black)
 
@@ -105,6 +108,19 @@ struct DiffractionView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity,
                            alignment: .bottomLeading)
+
+                if let range = app.patternDisplayedValueRange {
+                    ScalarColorbarView(
+                        colormap: app.colormap,
+                        low: range.low,
+                        high: range.high,
+                        unitLabel: logScaleLabel,
+                        gamma: app.patternGamma
+                    )
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: .bottomTrailing)
+                }
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -113,16 +129,30 @@ struct DiffractionView: View {
         }
     }
 
+    private var logScaleLabel: String {
+        app.logScale ? "intensity · log display" : "intensity"
+    }
+
     /// Circles at the detected disk positions, sized to the probe radius.
     private func peakOverlay(box: CGSize, qx: Int, qy: Int) -> some View {
-        let r = CGFloat(app.probeKernel?.probeRadius ?? 3) / CGFloat(qx) * box.width
+        let r = PeakOverlayGeometry.radius(
+            probeRadius: app.probeKernel?.probeRadius ?? 3,
+            patternWidth: qx,
+            patternHeight: qy,
+            box: box
+        )
         return ZStack {
             ForEach(Array(app.currentPeaks.enumerated()), id: \.offset) { _, p in
                 Circle()
                     .stroke(Color.green, lineWidth: 1.2)
                     .frame(width: 2 * r, height: 2 * r)
-                    .position(x: (CGFloat(p.x) + 0.5) / CGFloat(qx) * box.width,
-                              y: (CGFloat(p.y) + 0.5) / CGFloat(qy) * box.height)
+                    .position(PeakOverlayGeometry.center(
+                        x: p.x,
+                        y: p.y,
+                        patternWidth: qx,
+                        patternHeight: qy,
+                        box: box
+                    ))
             }
         }
     }

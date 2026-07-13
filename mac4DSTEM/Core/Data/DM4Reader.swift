@@ -80,6 +80,19 @@ actor DM4Reader: FourDDataSource {
         return decode(byteOffset: start, count: rowPix)
     }
 
+    func readScanTile(_ descriptor: DatasetDescriptor,
+                      yRange: Range<Int>) throws -> FourDScanTile {
+        let lower = max(0, yRange.lowerBound)
+        let upper = min(ry, yRange.upperBound)
+        let range = lower..<max(lower, upper)
+        let rowPix = rx * qy * qx
+        let start = dataOffset + lower * rowPix * elementSize
+        return FourDScanTile(
+            yRange: range, scanWidth: rx, detectorHeight: qy, detectorWidth: qx,
+            pixels: decode(byteOffset: start, count: range.count * rowPix)
+        )
+    }
+
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {
         let lower = name.lowercased()
         if lower.contains("voltage") || lower.contains("beam_energy") || lower.contains("kv") {

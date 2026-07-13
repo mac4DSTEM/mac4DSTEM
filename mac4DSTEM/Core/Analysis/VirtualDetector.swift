@@ -15,6 +15,7 @@
 //  them in `Task.detached`), never directly on the main actor.
 //
 
+import Foundation
 import Metal
 
 // MARK: - Detector geometry (py4DSTEM get_virtual_image modes)
@@ -57,6 +58,232 @@ enum DetectorPreset: String, CaseIterable, Identifiable {
 // MARK: - VirtualDetector
 
 nonisolated enum VirtualDetector {
+
+    private enum TileOperation {
+        case shape(DetectorShape)
+        case aperture(Aperture)
+    }
+
+    /// Bounded-memory virtual imaging. Scan rows are read as contiguous tiles;
+    /// each tile uses the existing production Metal kernels and is copied into
+    /// its stable output rows only after the dispatch completes.
+    static func tiledImage(
+        data: FourDArray,
+        descriptor: DatasetDescriptor,
+        shape: DetectorShape,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> FloatImage {
+        try await tiled(data: data, descriptor: descriptor, operation: .shape(shape),
+                        maximumTileRows: maximumTileRows,
+                        cancellation: cancellation, progress: progress)
+    }
+
+    static func tiledRun(
+        data: FourDArray,
+        descriptor: DatasetDescriptor,
+        aperture: Aperture,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> FloatImage {
+        try await tiled(data: data, descriptor: descriptor, operation: .aperture(aperture),
+                        maximumTileRows: maximumTileRows,
+                        cancellation: cancellation, progress: progress)
+    }
+
+    private static func tiled(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        operation: TileOperation,
+        maximumTileRows: Int?,
+        cancellation: AnalysisCancellationToken?,
+        progress: (@Sendable (Double) -> Void)?
+    ) async throws -> FloatImage {
+        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        var output = [Float](repeating: 0, count: d.ry * d.rx)
+        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let range = lower..<min(d.ry, lower + rowsPerTile)
+            let tile = try await data.scanTile(yRange: range)
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            guard let buffer = MetalEngine.shared.device.makeBuffer(
+                bytes: tile.pixels,
+                length: tile.pixels.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+            ) else { throw FourDError.allocationFailed }
+            buffer.label = "4D scan tile rows \(range.lowerBound)..<\(range.upperBound)"
+            let tileDescriptor = DatasetDescriptor(
+                filePath: d.filePath, datasetPath: d.datasetPath,
+                shape: [range.count, d.rx, d.qy, d.qx],
+                dtypeDescription: d.dtypeDescription, chunkShape: nil
+            )
+            let tileImage: FloatImage
+            switch operation {
+            case .shape(let shape):
+                tileImage = try image(cube: buffer, descriptor: tileDescriptor, shape: shape)
+            case .aperture(let aperture):
+                tileImage = try run(cube: buffer, descriptor: tileDescriptor, aperture: aperture)
+            }
+            output.replaceSubrange(lower * d.rx..<range.upperBound * d.rx,
+                                   with: tileImage.pixels)
+            progress?(Double(range.upperBound) / Double(d.ry))
+        }
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        return FloatImage(width: d.rx, height: d.ry, pixels: output)
+    }
+
+    /// Tiled max/mean diffraction patterns. Per-tile statistics stay on Metal;
+    /// a weighted reduction combines them without retaining any prior tile.
+    static func tiledDPStatistics(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> (maxDP: [Float], meanDP: [Float]) {
+        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        let detectorCount = d.qy * d.qx
+        var maximum = [Float](repeating: -.greatestFiniteMagnitude, count: detectorCount)
+        var weightedMean = [Double](repeating: 0, count: detectorCount)
+        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let range = lower..<min(d.ry, lower + rowsPerTile)
+            let tile = try await data.scanTile(yRange: range)
+            guard let buffer = MetalEngine.shared.device.makeBuffer(
+                bytes: tile.pixels,
+                length: tile.pixels.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+            ) else { throw FourDError.allocationFailed }
+            let tileDescriptor = DatasetDescriptor(
+                filePath: d.filePath, datasetPath: d.datasetPath,
+                shape: [range.count, d.rx, d.qy, d.qx],
+                dtypeDescription: d.dtypeDescription, chunkShape: nil
+            )
+            let stats = try MetalEngine.shared.dpStatistics(
+                cube: buffer, dims: CubeDims(tileDescriptor)
+            )
+            let scanCount = Double(range.count * d.rx)
+            for index in 0..<detectorCount {
+                maximum[index] = max(maximum[index], stats.maxDP[index])
+                weightedMean[index] += Double(stats.meanDP[index]) * scanCount
+            }
+            progress?(Double(range.upperBound) / Double(d.ry))
+        }
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let total = Double(d.ry * d.rx)
+        return (maximum, weightedMean.map { Float($0 / total) })
+    }
+
+    /// Bounded selected-area diffraction. Each tile contributes one partial
+    /// detector sum; only that Q-sized accumulator survives between tiles.
+    static func tiledDiffraction(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        region: DetectorShape,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil
+    ) async throws -> DiffractionPattern {
+        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        let fullMask = makeMask(shape: region, qy: d.ry, qx: d.rx)
+        var sum = [Float](repeating: 0, count: d.qy * d.qx)
+        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let range = lower..<min(d.ry, lower + rowsPerTile)
+            let tile = try await data.scanTile(yRange: range)
+            guard let buffer = MetalEngine.shared.device.makeBuffer(
+                bytes: tile.pixels,
+                length: tile.pixels.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+            ) else { throw FourDError.allocationFailed }
+            let tileDescriptor = DatasetDescriptor(
+                filePath: d.filePath, datasetPath: d.datasetPath,
+                shape: [range.count, d.rx, d.qy, d.qx],
+                dtypeDescription: d.dtypeDescription, chunkShape: nil
+            )
+            let mask = Array(fullMask[lower * d.rx..<range.upperBound * d.rx])
+            let partial = try MetalEngine.shared.virtualDiffraction(
+                cube: buffer, dims: CubeDims(tileDescriptor), scanMask: mask
+            )
+            for index in sum.indices { sum[index] += partial[index] }
+        }
+        return DiffractionPattern(qy: d.qy, qx: d.qx, pixels: sum)
+    }
+
+    /// Bounded origin measurement after a probe radius has been established.
+    static func tiledMeasuredOrigins(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        probeRadius: Float,
+        rscale: Float = 1.2,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> [Float] {
+        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
+        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let range = lower..<min(d.ry, lower + rowsPerTile)
+            let tile = try await data.scanTile(yRange: range)
+            guard let buffer = MetalEngine.shared.device.makeBuffer(
+                bytes: tile.pixels,
+                length: tile.pixels.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+            ) else { throw FourDError.allocationFailed }
+            let params = OriginParams(
+                ry: UInt32(range.count), rx: UInt32(d.rx),
+                qy: UInt32(d.qy), qx: UInt32(d.qx),
+                r: probeRadius, rscale: rscale
+            )
+            let measured = try MetalEngine.shared.measureOrigins(cube: buffer, params: params)
+            output.replaceSubrange(lower * d.rx * 2..<range.upperBound * d.rx * 2,
+                                   with: measured)
+            progress?(Double(range.upperBound) / Double(d.ry))
+        }
+        return output
+    }
+
+    /// Bounded center-of-mass measurement with optional per-position origins.
+    static func tiledCenterOfMass(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        center: (x: Float, y: Float),
+        origins: [Float]? = nil,
+        maximumTileRows: Int? = nil,
+        cancellation: AnalysisCancellationToken? = nil,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> [Float] {
+        precondition(origins == nil || origins?.count == d.ry * d.rx * 2)
+        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
+        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let range = lower..<min(d.ry, lower + rowsPerTile)
+            let tile = try await data.scanTile(yRange: range)
+            guard let buffer = MetalEngine.shared.device.makeBuffer(
+                bytes: tile.pixels,
+                length: tile.pixels.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared
+            ) else { throw FourDError.allocationFailed }
+            let tileOrigins = origins.map {
+                Array($0[lower * d.rx * 2..<range.upperBound * d.rx * 2])
+            }
+            let params = CoMParams(
+                ry: UInt32(range.count), rx: UInt32(d.rx),
+                qy: UInt32(d.qy), qx: UInt32(d.qx),
+                cx: center.x, cy: center.y, useOrigins: 0
+            )
+            let measured = try MetalEngine.shared.centerOfMass(
+                cube: buffer, params: params, origins: tileOrigins
+            )
+            output.replaceSubrange(lower * d.rx * 2..<range.upperBound * d.rx * 2,
+                                   with: measured)
+            progress?(Double(range.upperBound) / Double(d.ry))
+        }
+        return output
+    }
 
     // MARK: Fast path — analytic annulus (interactive dragging)
 

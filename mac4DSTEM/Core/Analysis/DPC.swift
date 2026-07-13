@@ -49,6 +49,34 @@ enum DPC {
         return FloatImage(width: width, height: height, pixels: out)
     }
 
+    /// Relativistic electron wavelength for accelerating voltage in kV.
+    /// λ[Å] = 12.2639 / sqrt(V[eV] · (1 + 0.97845e-6 V[eV])).
+    nonisolated static func electronWavelengthAngstrom(voltageKV: Double) -> Double? {
+        guard voltageKV.isFinite, voltageKV > 0 else { return nil }
+        let volts = voltageKV * 1_000
+        return 12.2639 / sqrt(volts * (1 + 0.97845e-6 * volts))
+    }
+
+    /// Small-angle scattering conversion: θ ≈ λ·q. Returns milliradians per
+    /// detector pixel for q calibration in Å⁻¹/pixel.
+    nonisolated static func milliradiansPerDetectorPixel(
+        voltageKV: Double,
+        invAngstromPerPixel: Double
+    ) -> Float? {
+        guard invAngstromPerPixel.isFinite, invAngstromPerPixel > 0,
+              let wavelength = electronWavelengthAngstrom(voltageKV: voltageKV)
+        else { return nil }
+        return Float(1_000 * wavelength * invAngstromPerPixel)
+    }
+
+    nonisolated static func physicalMagnitudeImage(
+        com: [Float], width: Int, height: Int, milliradiansPerPixel: Float
+    ) -> FloatImage {
+        var pixels = magnitudeImage(com: com, width: width, height: height).pixels
+        for index in pixels.indices { pixels[index] *= milliradiansPerPixel }
+        return FloatImage(width: width, height: height, pixels: pixels)
+    }
+
     /// Direction of the CoM shift, in radians mapped to [0, 1] for display.
     nonisolated static func angleImage(com: [Float], width: Int, height: Int) -> FloatImage {
         let n = width * height

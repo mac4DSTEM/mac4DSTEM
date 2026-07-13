@@ -18,10 +18,10 @@
 //  Coordinates: peaks are (x = detector column, y = row), app convention.
 //  py4DSTEM's (qx, qy) has x as the row axis — translated here, nowhere else.
 //
-//  The full-scan pass parallelizes over scan rows with one detector (and its
-//  FFT scratch) per worker; the cube is read straight from the shared
-//  MTLBuffer. multicorr is ~10× slower than poly per pattern — poly is the
-//  interactive default, multicorr the strain-analysis choice.
+//  The full-scan pass reads bounded scan-row tiles, then parallelizes each
+//  tile with one detector (and its FFT scratch) per worker. multicorr is
+//  ~10× slower than poly per pattern — poly is the interactive default,
+//  multicorr the strain-analysis choice.
 //
 
 import Foundation
@@ -31,7 +31,7 @@ import Metal
 // MARK: - Types
 
 /// One detected Bragg reflection, in detector pixels (x = column, y = row).
-struct BraggPeak {
+struct BraggPeak: Sendable {
     var x: Float
     var y: Float
     var intensity: Float
@@ -61,12 +61,43 @@ struct DiskDetectionParams {
 }
 
 /// Detected peaks for every scan position, row-major [ry][rx].
-struct BraggVectors {
+struct BraggVectors: Sendable {
     let scanWidth: Int
     let scanHeight: Int
     let peaks: [[BraggPeak]]              // count == scanWidth * scanHeight
 
     var totalPeakCount: Int { peaks.reduce(0) { $0 + $1.count } }
+
+    /// Vectors for calibrated scientific analysis. Raw detector coordinates
+    /// remain stored for overlays and py4DSTEM `_v_uncal` export. Per-position
+    /// origins are first collapsed onto `referenceOrigin`, then py4DSTEM's
+    /// ellipse matrix is applied in its native qx/qy axis convention.
+    nonisolated func calibrated(
+        with calibration: Calibration,
+        referenceOrigin: (x: Float, y: Float)
+    ) -> BraggVectors {
+        let origins = calibration.origin
+        let canUseMaps = origins?.width == scanWidth
+            && origins?.height == scanHeight
+            && origins?.fittedX.count == peaks.count
+            && origins?.fittedY.count == peaks.count
+        guard canUseMaps || calibration.hasEllipse else { return self }
+
+        var transformed = peaks
+        for scan in transformed.indices {
+            let localX = canUseMaps ? origins!.fittedX[scan] : referenceOrigin.x
+            let localY = canUseMaps ? origins!.fittedY[scan] : referenceOrigin.y
+            for peak in transformed[scan].indices {
+                let raw = transformed[scan][peak]
+                let offset = calibration.ellipseCorrectedOffset(
+                    dx: raw.x - localX, dy: raw.y - localY
+                )
+                transformed[scan][peak].x = referenceOrigin.x + offset.x
+                transformed[scan][peak].y = referenceOrigin.y + offset.y
+            }
+        }
+        return BraggVectors(scanWidth: scanWidth, scanHeight: scanHeight, peaks: transformed)
+    }
 
     /// Bragg vector map: intensity-weighted 2D histogram of all peak
     /// positions in detector space (bilinear deposition, py4DSTEM's
@@ -100,10 +131,10 @@ nonisolated final class DiskDetector {
 
     private let kernel: ProbeKernel
     private let fft: FFT2D
-    private let px: Int, py: Int          // padded dims
+    private let px: Int, py: Int          // exact detector/FFT dims
     private let qx: Int, qy: Int          // detector dims
 
-    // Scratch (padded grid)
+    // Scratch (native detector grid)
     private var re: [Float]
     private var im: [Float]
     private var ccRe: [Float]             // complex correlation, kept for multicorr
@@ -159,7 +190,7 @@ nonisolated final class DiskDetector {
     // MARK: Stage 1 — hybrid cross correlation
 
     private func crossCorrelate(pattern: UnsafePointer<Float>, corrPower: Float) {
-        // Zero-pad the pattern at the origin corner.
+        // Copy the pattern onto the native circular-correlation grid.
         let n = px * py
         for i in 0..<n { re[i] = 0; im[i] = 0 }
         for y in 0..<qy {
@@ -193,8 +224,7 @@ nonisolated final class DiskDetector {
 
     private func findMaxima(in ar: [Float], params p: DiskDetectionParams) -> [BraggPeak] {
         // Local maxima by strict/loose 8-neighbor comparison, restricted to
-        // the real detector region minus the edge boundary (peaks can't sit
-        // in the zero padding).
+        // the detector region minus the edge boundary.
         let eb = max(1, p.edgeBoundary)
         var found: [BraggPeak] = []
         guard qy - eb > eb, qx - eb > eb else { return [] }
@@ -256,6 +286,23 @@ nonisolated final class DiskDetector {
             let dy = (iy1 - iy1_) / (4 * ix0 - 2 * iy1 - 2 * iy1_)
             if dx.isFinite { peaks[i].x += dx }
             if dy.isFinite { peaks[i].y += dy }
+
+            // py4DSTEM updates the reported peak intensity after polynomial
+            // refinement using bilinear interpolation of the same correlation
+            // image. Keeping the integer-pixel value biases refined peaks high.
+            let refinedX = peaks[i].x
+            let refinedY = peaks[i].y
+            let x0 = Int(refinedX.rounded(.down))
+            let x1 = Int(refinedX.rounded(.up))
+            let y0 = Int(refinedY.rounded(.down))
+            let y1 = Int(refinedY.rounded(.up))
+            let fx = refinedX - Float(x0)
+            let fy = refinedY - Float(y0)
+            peaks[i].intensity =
+                (1 - fx) * (1 - fy) * ar[y0 * px + x0]
+                + fx * (1 - fy) * ar[y0 * px + x1]
+                + (1 - fx) * fy * ar[y1 * px + x0]
+                + fx * fy * ar[y1 * px + x1]
         }
     }
 
@@ -356,14 +403,23 @@ nonisolated final class DiskDetector {
         for i in 0..<taps.count { taps[i] /= s }
 
         // Horizontal pass into scratch `im` reuse is unsafe (used elsewhere);
-        // use a local temp sized to the padded grid.
+        // use a local temp sized to the correlation grid.
         var tmp = [Float](repeating: 0, count: px * py)
+        // scipy.ndimage.gaussian_filter defaults to half-sample symmetric
+        // `reflect`: -1 -> 0, -2 -> 1, n -> n-1.
+        func reflected(_ raw: Int, count: Int) -> Int {
+            var value = raw
+            while value < 0 || value >= count {
+                value = value < 0 ? -value - 1 : 2 * count - value - 1
+            }
+            return value
+        }
         for y in 0..<py {
             let row = y * px
             for x in 0..<px {
                 var acc: Float = 0
                 for t in -radius...radius {
-                    let xx = min(max(x + t, 0), px - 1)
+                    let xx = reflected(x + t, count: px)
                     acc += src[row + xx] * taps[t + radius]
                 }
                 tmp[row + x] = acc
@@ -373,7 +429,7 @@ nonisolated final class DiskDetector {
             for x in 0..<px {
                 var acc: Float = 0
                 for t in -radius...radius {
-                    let yy = min(max(y + t, 0), py - 1)
+                    let yy = reflected(y + t, count: py)
                     acc += tmp[yy * px + x] * taps[t + radius]
                 }
                 dst[y * px + x] = acc
@@ -393,7 +449,9 @@ enum DiskDetection {
                           descriptor d: DatasetDescriptor,
                           kernel: ProbeKernel,
                           params: DiskDetectionParams,
+                          cancellation: AnalysisCancellationToken? = nil,
                           progress: (@Sendable (Double) -> Void)? = nil) -> BraggVectors? {
+        guard cancellation?.isCancelled != true else { return nil }
         let base = cube.contents().bindMemory(to: Float.self,
                                               capacity: d.ry * d.rx * d.qy * d.qx)
         let patPix = d.qy * d.qx
@@ -418,14 +476,18 @@ enum DiskDetection {
             var failed = false
             let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, d.ry))
             DispatchQueue.concurrentPerform(iterations: workers) { w in
+                guard cancellation?.isCancelled != true else { return }
                 guard let det = DiskDetector(kernel: kernel) else {
                     rowsDone.lock(); failed = true; rowsDone.unlock(); return
                 }
                 for ry in stride(from: w, to: d.ry, by: workers) {
+                    if cancellation?.isCancelled == true { break }
                     for rx in 0..<d.rx {
+                        if cancellation?.isCancelled == true { break }
                         let pat = slots.cubeBase + ry * rowPix + rx * patPix
                         slots.ptr[ry * d.rx + rx] = det.detect(pattern: pat, params: params)
                     }
+                    if cancellation?.isCancelled == true { break }
                     if let progress {
                         rowsDone.lock()
                         doneCount += 1
@@ -436,7 +498,7 @@ enum DiskDetection {
                 }
             }
             rowsDone.lock(); let bad = failed; rowsDone.unlock()
-            return !bad
+            return !bad && cancellation?.isCancelled != true
         }
         guard ok else { return nil }
         return BraggVectors(scanWidth: d.rx, scanHeight: d.ry, peaks: results)
