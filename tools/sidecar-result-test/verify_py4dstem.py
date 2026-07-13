@@ -2,6 +2,7 @@
 """Validate the merged session tree through py4DSTEM 0.14.19 and h5py."""
 
 import sys
+import json
 
 import h5py
 import numpy as np
@@ -46,9 +47,9 @@ np.testing.assert_allclose(
 # directly in HDF5 as well as validating py4DSTEM's data/metadata promotion.
 with h5py.File(path, "r") as f:
     session_root = f["/braggvectors_root"]
-    assert session_root.attrs["mac4dstem_session_schema"] == "3"
+    assert session_root.attrs["mac4dstem_session_schema"] == "4"
     nodes = session_root.attrs["mac4dstem_result_nodes"].split("\n")
-    assert len(nodes) == 3, nodes
+    assert len(nodes) == 8, nodes
     assert session_root.attrs["mac4dstem_current_result"] == nodes[-1]
     assert "result_map" not in session_root
     assert "external_analysis" in session_root
@@ -71,15 +72,28 @@ with h5py.File(path, "r") as f:
 
     groups = [session_root[node] for node in nodes]
     assert [group.attrs["mac4dstem_kind"] for group in groups] == [
-        "virtual_image", "strain_exx", "acom_ipf_z"
+        "virtual_image", "strain_exx", "acom_ipf_z",
+        "parallax_subpixel_bf", "parallax_corrected_phase", "parallax_depth",
+        "ptychography_object_phase", "ptychography_object_amplitude",
     ]
-    for group in groups:
+    for group in groups[:3]:
         np.testing.assert_allclose(group["dim0"][:], [0, 1.75])
         np.testing.assert_allclose(group["dim1"][:], [0, 1.75])
         assert group["dim0"].attrs["name"] == "Rx"
         assert group["dim1"].attrs["name"] == "Ry"
         assert group["dim0"].attrs["units"] == "nm"
         assert group["dim1"].attrs["units"] == "nm"
+
+    expected_sampling = [
+        (0.625, 0.625), (2.0, 2.0), (2.0, 2.0), (0.4, 0.6), (0.4, 0.6)
+    ]
+    for group, sampling in zip(groups[3:], expected_sampling):
+        np.testing.assert_allclose(group["dim0"][:], [0, sampling[0]])
+        np.testing.assert_allclose(group["dim1"][:], [0, sampling[1]])
+        assert group["dim0"].attrs["units"] == "A"
+        assert group["dim1"].attrs["units"] == "A"
+        provenance = json.loads(group.attrs["mac4dstem_provenance"])
+        assert provenance
 
 for node, expected, name in (
     (nodes[0], np.array([[1.5, np.nan, -2.25], [4, 5.5, 6.75]], dtype=np.float32),
@@ -101,5 +115,10 @@ expected_rgba = np.array([
 np.testing.assert_array_equal(rgba.data, expected_rgba)
 assert rgba.metadata["mac4dstem"]["display_name"] == "ACOM · IPF · Z"
 
-print("PASS: py4dstem_two_realslices_rgba_array_and_preserved_braggvectors")
+for node, shape in zip(nodes[3:], [(4, 5), (2, 3), (2, 3), (3, 4), (3, 4)]):
+    result = py4DSTEM.read(path, datapath=f"/braggvectors_root/{node}")
+    assert isinstance(result, RealSlice), type(result)
+    assert result.data.shape == shape
+
+print("PASS: py4dstem_stabilized_realslices_rgba_and_preserved_braggvectors")
 print("sidecar-result-test: all passed")

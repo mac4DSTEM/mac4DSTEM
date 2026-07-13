@@ -85,6 +85,30 @@ struct Harness {
         calibration.ellipseB = 0.9
         calibration.ellipseTheta = 0.2
 
+        // The guided sheet derives readiness from the app-frame calibration,
+        // then passes the same values across the py4DSTEM boundary below.
+        var appCalibration = Calibration()
+        appCalibration.originProvenance = .fileMaps
+        appCalibration.probeRadius = 6
+        appCalibration.ellipseA = 1.1
+        appCalibration.ellipseB = 0.9
+        appCalibration.ellipseTheta = 0.2
+        appCalibration.rotationRad = 0.3
+        appCalibration.transposeQR = true
+        appCalibration.qPixelSize = 0.25
+        appCalibration.qPixelUnits = "A^-1"
+        appCalibration.rPixelSize = 2.5
+        appCalibration.rPixelUnits = "A"
+        let readiness = CalibrationReadinessReport.make(
+            calibration: appCalibration,
+            provenance: CalibrationProvenance(
+                probe: .importedFile, ellipse: .importedFile,
+                rotation: .importedFile, qScale: .importedFile,
+                rScale: .importedFile
+            )
+        )
+        try require(readiness.isReady, "complete fixture did not traverse readiness")
+
         let options = CalibratedDataCubeExportOptions(
             scanY: 1..<3, scanX: 1..<4, qBin: 2, tileRows: 1
         )

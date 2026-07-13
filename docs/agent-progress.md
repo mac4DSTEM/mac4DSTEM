@@ -11,7 +11,7 @@ py4DSTEM workflows with a polished, interactive Mac UI. Reference source:
 py4DSTEM parity, then buildability, workflow coverage, performance, and polish.
 Work in small slices that end with a green build and targeted verification.
 
-## 2. Confirmed state (2026-07-13)
+## 2. Confirmed state (2026-07-14)
 
 - HDF5/EMD (`H5Reader`) and DM3/DM4 (`DM4Reader`) load behind the actor-based
   `FourDDataSource` protocol. The full app builds cleanly with Xcode-beta.
@@ -23,7 +23,8 @@ Work in small slices that end with a green build and targeted verification.
 - Known incomplete: the session sidecar stores scalar/RGBA maps plus full
   supported calibration and preserves unrecognized external root objects, but
   the app does not yet create/view plot nodes or restore the controls behind a
-  saved result. Ten scientific harnesses cover calibration, tiled execution,
+  saved result. A native XCTest bundle now covers fast production contracts;
+  nineteen scientific harnesses cover calibration, tiled execution,
   disks, overlays, ACOM, strain, cancellation, EMD/session persistence, and
   calibrated preprocessing export.
 
@@ -245,6 +246,207 @@ Work in small slices that end with a green build and targeted verification.
   existing session/DataCube persistence. `tools/ellipse-calibration-test/`
   source-locks the formulas and covers non-square rotated and near-circular
   rings, detector-axis conversion, blank data, and four-spot degeneracy.
+- The preprocessing sheet now begins with a derived five-item calibration
+  readiness guide: origin/probe, ellipse, R-Q rotation, Q scale, and R scale.
+  Each item names file/session/in-app/manual provenance, validates finite
+  physical values, and offers the existing measurement operation or a manual
+  scale field. Missing items trigger a named explicit confirmation before the
+  save panel; the app never invents a value. Provenance resets on activation,
+  successful operations publish it only after their cancellation boundary,
+  and manual aperture recentering now clears superseded origin maps so export
+  writes the manual mean. `tools/calibration-readiness-test/` covers empty,
+  imported, session, measured, manual, mixed, and invalid partial states; the
+  preprocessing fixture traverses a fully ready report into the exact
+  py4DSTEM round trip.
+- `ParallaxPreprocessor` now source-locks the default non-iterative half of
+  py4DSTEM `Parallax.preprocess`: mean-DP 0.8-threshold BF selection,
+  row-major qx/qy indices, reciprocal vectors, relativistic wavelength/probe
+  angles, sine-squared edge blending, weighted order-0 normalization, padded
+  `[BF,Ry,Rx]` stack, and incoherent BF/error initialization. Two scan-tiled
+  passes write directly into the final stack layout; a 1 GiB preview ceiling
+  rejects unsafe allocations. Physical R/Q units, voltage, origin, rotation,
+  and transpose are explicit prerequisites/metadata and are never guessed.
+  Ptycho mode exposes only **Prepare Parallax Preview** plus diagnostics; no
+  reconstruction is claimed. Calibration changes invalidate the preview,
+  while cancellation/dataset epochs suppress partial publication.
+  `tools/parallax-preprocessing-test/` source-locks the checked-in formulas
+  and matches a non-square fixture under forced one-row tiles, including
+  nm/Å/mrad conversions, mid-pass cancellation, and the memory ceiling.
+- `MatrixDFTCorrelation` extracts the former disk-only multicorr patch into one
+  source-locked helper shared by disk detection and parallax. It implements
+  `align_images_fourier`'s circular three-point parabolic seed, ties-to-even
+  half-pixel rounding, factor-8 matrix-DFT patch, final parabolic polish, and
+  wrapped fractional result. Existing disk multicorr parity remains green.
+- `ParallaxAligner.alignNextLevel` continues the default `[4, 2, 1]`
+  coarse-to-fine schedule from the prior shifted stack/masks/total shifts/BF
+  and convergence history. The new shift estimate is fit against the cumulative
+  field before applying only its increment; median recentering and reconstruction
+  then match py4DSTEM. Every level is immutable, memory-bounded, cancellable,
+  and a cancelled continuation leaves the last completed result unchanged.
+  `alignOneLevel` retains its integer compatibility path for regression coverage.
+  Ptycho mode now exposes **Align Next Level** / **Reset Alignment**, schedule
+  position, factor, and convergence history; export metadata names the general
+  aligned preview. `tools/parallax-alignment-test/` source-locks integer levels
+  and factor-8 continuation across every default bin on asymmetric non-square
+  known fractional circular shifts. Cumulative shifts agree within 0.005 px,
+  arrays within 0.002, BF within 0.0002; reset, completion, cancellation
+  retention, memory rejection, and preprocessing immutability are covered.
+- `ParallaxAberrationFitter.fitLowOrder` ports py4DSTEM's first aberration-fit
+  stage without mutating calibration: aligned scan shifts are converted to Å,
+  probe angles from mrad to radians, an affine transform is solved, and a true
+  2×2 right polar decomposition recovers rotation plus C1/C12a/C12b. Normal,
+  transpose, and forced-rotation conventions match SciPy/py4DSTEM within
+  2e-5 in `tools/parallax-aberration-test/`; incomplete schedules and singular
+  angle fields reject publication. The UI exposes the diagnostic fit only
+  after alignment completion and reports its measured-vs-fitted RMS.
+- `ParallaxAberrationFitter.fitHigherOrder` adds py4DSTEM's default seven
+  `(m,n,a)` terms through radial order 3, passive-rotation gradient samples,
+  C1/C12 initialization, and recursive, recursive-exclusive, or global
+  incremental least-squares modes. The existing fit action now runs the default
+  recursive mode and reports all coefficients plus residual improvement while
+  leaving aligned data untouched. The aberration harness source-locks every
+  term/gradient plus coefficients and fitted shifts for all three modes.
+- `ParallaxAberrationCorrector` applies the fitted even/odd CTF phase surfaces,
+  zero-DC signed-sine transfer, optional low-pass and shared high-pass
+  Butterworth envelopes, exact-shape FFT, and deterministic padding crop. The
+  correction is a separate cancellable result; fit/alignment remain immutable.
+  The aberration harness matches full-fit, filtered, and C1-only NumPy arrays
+  for χ surfaces, complex transfer, padded phase, and non-square crop.
+- `ParallaxPreprocessResult` now retains py4DSTEM's distinct
+  `_stack_BF_unshifted` alongside the edge-blended alignment stack. Both are
+  filled during the same tiled second pass and counted under the 1 GiB resident
+  ceiling; the preprocessing fixture source-locks both arrays. Alignment still
+  accounts one input stack through `stackByteCount`, while the UI reports their
+  combined resident bytes.
+- `ParallaxSubpixelReconstructor` ports the non-position-corrected bilinear path
+  from `Parallax.subpixel_alignment`: BF/DF sampling limits and automatic factor,
+  ties-to-even output rounding, circular four-neighbor deposition from the
+  immutable unwindowed stack, SciPy-reflect Gaussian density normalization,
+  optional sinc deconvolution, and py4DSTEM's rounded padded-object crop. Output
+  arrays have an explicit working-memory limit and cooperative cancellation.
+  **Upsample BF** exposes automatic/explicit factor, sigma, and sinc filtering;
+  result metadata uses an explicit displayed-product tag so a retained phase
+  correction cannot mislabel a newly published BF image.
+- `tools/parallax-subpixel-test/` source-locks the checked-in parallax and KDE
+  helper contracts. Its asymmetric non-square fractional-shift fixture matches
+  automatic and explicit factors, padded/cropped arrays, and exact-shape sinc
+  filtering, and rejects incomplete alignment, invalid factors, memory excess,
+  and cancellation. Debug build and all four parallax harnesses passed after
+  this checkpoint.
+- The same subpixel implementation now supports py4DSTEM's optional Lanczos
+  deposition, including the current checked-in Cartesian window expression,
+  plus iterative probe-position correction. Centered-gradient and checkerboard
+  search branches use periodic bilinear scoring, adaptive/minimum steps, padded
+  edge-window gating, full KDE recomputation, and per-iteration score history.
+  Publication remains atomic after the final iteration; work arrays are included
+  in the ceiling and cancellation is checked before and during each iteration.
+  The Ptycho controls expose interpolation order, iteration count, and step mode.
+- The subpixel fixture now matches order-2 Lanczos KDE and both two-iteration
+  position-search branches for final padded/cropped BF, full probe dx/dy fields,
+  and every convergence value. It also exercises invalid Lanczos order and
+  cancellation after the baseline KDE. Debug build passed after this checkpoint.
+- `ParallaxDepthSectioner` ports py4DSTEM `depth_section` for explicit finite Å
+  planes. It evaluates the full fitted CTF or C1 fallback, zeroes DC, propagates
+  each immutable shifted virtual-BF image using its probe angle, applies the
+  optional information-limit envelope, averages probes, and retains a contiguous
+  padded float32 depth stack with deterministic cropped-plane access. Output and
+  scratch memory are bounded; cancellation is checked within and between planes.
+- Ptycho mode now computes depth stacks and exposes a reusable displayed-product
+  picker for preprocess, alignment, subpixel BF, corrected phase, and depth.
+  Depth plane changes reuse the retained stack, preserve all other products, and
+  update result/export metadata without recomputation. `tools/parallax-depth-test/`
+  matches full-fit, C1 fallback, and fractional-power filtered non-square golden
+  stacks/crops, invalid plane access, memory rejection, and cancellation. Debug
+  build passed after this checkpoint.
+- `SingleslicePtychography` is the first iterative engine behind an explicit
+  prepared-input/options/result boundary. Its CPU reference path ports the
+  checked-in single-slice complex-object full-batch GD operators: ties-to-even
+  patch centers, fractional Fourier probe shifts, periodic corner-centered
+  patches, measured-amplitude projection, probe/object overlap normalizers,
+  simultaneous adjoint updates, and total-intensity-normalized error. Inputs are
+  immutable and only a completed multi-iteration result is returned.
+- `PtychographyPreparer` bridges the active tiled source to that engine with
+  bilinear periodic origin recentering, square-root amplitudes, calibrated
+  object sampling/scan positions, source-compatible complex aperture-probe
+  initialization, and explicit resident memory/cancellation boundaries. Ptycho
+  controls expose iteration count, step, normalization minimum, and fixed probe;
+  object phase/amplitude reuse the retained complex result and distinct metadata.
+- `tools/singleslice-ptychography-test/` source-locks py4DSTEM's forward,
+  amplitude, patch, adjoint, normalization, and error contracts. A non-square
+  fractional-position fixture matches every error plus final complex object and
+  probe arrays and cropped phase/amplitude within 3e-5, and covers immutability,
+  invalid options, memory rejection, and cancellation. Debug build passed.
+- Session schema v4 allows scalar `RealSlice` results to have independent row
+  and column sampling plus units and a sorted-JSON provenance dictionary. These
+  values round-trip through group attributes/inventory/native load and drive the
+  EMD dimension vectors; legacy maps without them still fall back to session R
+  calibration. Scalar selection/reopen no longer incorrectly requires scan shape,
+  while RGBA compatibility remains scan-shaped.
+- Current-result save now supplies stable provenance for parallax subpixel BF,
+  corrected phase, selected depth, and ptychographic phase/amplitude, including
+  factor/kernel/position/filter, depth/CTF, or engine/method/iteration/error/update
+  controls as applicable. Restored scalar metadata survives re-save. The sidecar
+  harness adds all five kinds with asymmetric sampling/shapes and validates native
+  inventory/load plus direct py4DSTEM RealSlice reads under preservation and
+  cancellation. Debug build and the extended sidecar harness passed.
+- `ScientificSeriesGeometry` provides deterministic linear/log plot geometry,
+  splits invalid samples into visible gaps, centers single/constant series, and
+  maps pointer positions to the nearest valid sample. SwiftUI renders retained
+  parallax alignment, KDE position-correction, and ptychography GD histories
+  with grids, selection markers, exact sample readout, and no analysis rerun.
+- Saved-result inventory rows now expose arbitrary map shape, float32/RGBA8
+  storage, value units, per-axis sampling, and a bounded priority summary of
+  scientific provenance. `tools/result-presentation-test/` covers empty,
+  single, ranged, log, non-finite/gapped, selection, sampling, and provenance
+  formatting. The nineteenth standalone harness and Debug build passed.
+- `SessionControlRehydration` is a pure typed boundary for schema-v4 provenance.
+  It recognizes subpixel KDE/kernel/position controls, phase filters, selected
+  depth/CTF/information controls, and single-slice GD iteration/update controls;
+  non-finite, malformed, out-of-range, legacy, and unsupported-engine fields are
+  ignored independently. **Apply Saved Controls** appears only for a selected
+  scalar result with at least one valid setting, changes controls without
+  launching work, and explicitly says transient arrays still require a rerun.
+  Applying a saved depth plane sets a one-plane start/end/count configuration.
+- The result-presentation harness now covers every rehydrated result family plus
+  malformed/legacy/unsupported provenance. It and the Debug app build passed at
+  the final campaign checkpoint.
+- Final cross-slice regression on 2026-07-14 passed parallax preprocessing,
+  alignment, aberration fitting/correction, KDE/position correction, depth,
+  single-slice ptychography, the native/py4DSTEM sidecar suite, result
+  presentation/rehydration, and a clean unsigned Debug build.
+- Architecture/testing checkpoint 1 added the `mac4DSTEMTests` unit-test bundle
+  to the synchronized Xcode project. Its first three production-level XCTest
+  cases cover linear/log/gapped plot geometry, empty/single handling, and valid
+  versus malformed saved-control provenance; `xcodebuild test` passes against
+  the macOS app host.
+- `tools/run-tests.sh` is the discoverable aggregate entry point for `unit`,
+  `campaign`, `scientific`, and `all` layers. Shared Python discovery honors an
+  explicit `PYTHON`, active environments, a repo `.venv`, and conventional
+  py4DSTEM Conda locations, accepting only interpreters that import NumPy. All
+  Python-backed harnesses no longer contain a username-specific path. A NumPy
+  parallax golden and the full native/py4DSTEM sidecar round-trip passed through
+  the resolver.
+- Architecture/testing checkpoint 2 extracted active scientific-operation
+  identity, deterministic timing, unit-rate/ETA calculation, replacement
+  cancellation, stale-finish rejection, and reset into
+  `AnalysisOperationController`. `AppState` remains the observable facade and
+  clamps published progress, while dataset activation uses the controller's
+  cancellation/reset recovery boundary. Direct token reach-throughs in disk
+  and ACOM callbacks now use the same identity API.
+- Three controller XCTest methods cover replacement/late finish, injected-clock
+  metrics and over-complete progress, idempotent cancellation, and reset after
+  failure/dataset replacement. The suite now has six tests across two classes.
+- `tools/performance-baseline/` compiles optimized production FFT and
+  single-slice ptychography sources and emits versioned JSON plus checksums. It
+  is deliberately non-gating; compare the same machine/power mode before and
+  after performance work. Warm MacBook Air runs were about 4.6–6.3 ms for
+  twenty 256×256 FFT round trips, 0.32–0.50 ms for five exact 96×80 round trips,
+  and 5.3–8.5 ms for five iterations of the 8×8×32×32 ptychography fixture,
+  illustrating why these are trend measurements rather than pass thresholds.
+- Final foundation verification passed all six XCTest methods, the eight-harness
+  parallax/ptychography campaign (including native plus py4DSTEM sidecar reads),
+  the standalone cancellation suite, benchmark checksum reproduction, diff
+  hygiene, and a clean unsigned Debug build.
 
 ## 4. Roadmap order
 
@@ -258,7 +460,8 @@ Work in small slices that end with a green build and targeted verification.
 8. EMD-compatible result persistence/export — BraggVectors, named scalar
    RealSlices, RGBA Arrays, full supported calibration, deterministic reopen,
    selection/removal, external-object preservation, and inspector inventory
-   complete; native plot creation/viewing remains
+   complete; retained-history plots are native, while EMD plot-node creation
+   remains
 9. Out-of-core execution — complete for current whole-scan workflows; further
    Metal/MLX acceleration remains
 
@@ -271,24 +474,39 @@ out-of-core execution → ellipse-corrected vectors → controlled strain
 reference/basis → cubic FZ templates/Q calibration/measured probe → physical
 DPC and per-view gamma → RGBA session arrays/result management → Gaussian disk
 parity → calibrated preprocessing export/UI → native-shape disk DFT → external
-EMD-object preservation → in-app ellipse measurement.
+EMD-object preservation → in-app ellipse measurement → guided calibration
+readiness → parallax preprocessing foundation → integer coarse alignment →
+factor-8 coarse-to-fine continuation → low-order aberration fit → default
+higher-order recursive fit → aberration-corrected phase → bilinear/Lanczos KDE
+subpixel reconstruction → iterative probe-position correction → depth sectioning
+and reusable parallax product selection → single-slice ptychographic GD →
+schema-v4 stabilized-result persistence.
 
 ## 5. Current next slice
 
-Turn the existing calibration operations into a guided preprocess readiness
-checklist. It should show origin/probe, ellipse, R-Q rotation, Q pixel scale,
-and R pixel scale as measured/imported/manual/missing; offer the correct next
-action for each missing item; and launch the existing bounded DataCube export
-only after an explicit warning for any intentionally uncalibrated field. Keep
-the individual expert controls. Acceptance: readiness resets per dataset,
-imported/session values are distinguished from in-app measurements, no step
-silently invents calibration, cancellation leaves prior values intact, and a
-fixture can traverse the checklist into an exact py4DSTEM export.
+Begin ptychography-completeness checkpoint 1: add source-locked object/probe
+constraints behind explicit option/result boundaries, plus native probe
+amplitude/phase diagnostics that reuse the retained result. Keep the CPU
+reconstruction golden stable, bound memory/cancellation, and add focused XCTest
+only for pure policy while the Python harness remains the numeric oracle.
+
+The durable remaining program for later agents is: (1) architecture/testing,
+(2) ptychography completeness, (3) profile-driven Metal/MLX performance,
+(4) quantitative iDPC/strain/ellipse/non-cubic ACOM correctness gaps,
+(5) MIB/EMPAD and broader EMD, (6) UI/UX/multi-session/accessibility, and
+(7) credential-dependent distribution/notarization. README carries checkpoint
+estimates. EMD plot nodes and real-dataset acceptance belong in the applicable
+persistence/scientific checkpoints.
 
 ## 6. Scientific conventions and risks
 
 - Highest risk: py4DSTEM patterns use (qx, qy) with qx on the first/row axis;
   this app stores [Ry, Rx, Qy, Qx]. Thus py4DSTEM qx ↔ app y and qy ↔ app x.
+- Parallax is complete through depth sectioning/product selection, and the first
+  single-slice complex-object GD engine is integrated. All current scientific
+  paths have explicit memory/cancellation boundaries. Further iterative methods,
+  constraints, and GPU batching remain; persistence, browsing, and safe control
+  rehydration are complete for the current stabilized scalar products.
 - Ellipse keys `a`/`b`/`theta` can be imported or fitted from a broad-coverage
   detector ring. The lightweight 1-D conic fit is not the 11-parameter Janus
   Gaussian amorphous-ring model; broad background/overlapping rings may need
@@ -305,8 +523,9 @@ fixture can traverse the checklist into an exact py4DSTEM export.
 - Scalar emdfile metadata may be attributes or datasets; H5Reader supports both.
 - The current session schema preserves supported BraggVectors plus named scalar
   `RealSlice` and RGBA `Array` nodes listed in its manifest and opaque-copies
-  other root objects. Restoring a result restores pixels/label/units, not the
-  complete analysis controls that produced it.
+  other root objects. Restoring a result restores pixels/label/units; an explicit
+  action can additionally apply validated controls, but transient scientific
+  arrays and complex reconstructions are deliberately not serialized.
 - Session calibration overrides only fields present in the companion.
 - Default actor isolation is MainActor; new compute types need `nonisolated`.
 
@@ -321,11 +540,15 @@ fixture can traverse the checklist into an exact py4DSTEM export.
 - Cancellation: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/cancellation-test/run.sh`
 - BraggVectors export: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/bragg-export-test/run.sh`
 - Scalar result sidecar: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/sidecar-result-test/run.sh`
+- Result presentation: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/result-presentation-test/run.sh`
+- Performance baseline: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh benchmark`
 - Strain/Q/DPC: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/strain-test/run.sh`
 - Ellipse calibration: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/ellipse-calibration-test/run.sh`
 - Preprocessing export: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/preprocessing-export-test/run.sh`
 - Release package: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/package-test/run.sh`
-- No XCTest target exists; standalone harnesses live under `tools/`.
+- Fast tests: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh unit`
+- All layers: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh all`
+- XCTest complements rather than replaces the cross-language harnesses under `tools/`.
 
 ## 8. Preserve unless directly relevant
 

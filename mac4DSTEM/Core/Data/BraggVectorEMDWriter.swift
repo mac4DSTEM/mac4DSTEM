@@ -13,15 +13,25 @@ nonisolated struct ScalarResultMap: Sendable {
     let kind: String
     let displayName: String
     let valueUnits: String
+    let pixelSizeRow: Double?
+    let pixelSizeColumn: Double?
+    let pixelUnits: String?
+    let provenance: [String: String]
 
     init(width: Int, height: Int, pixels: [Float], kind: String,
-         displayName: String, valueUnits: String) {
+         displayName: String, valueUnits: String,
+         pixelSizeRow: Double? = nil, pixelSizeColumn: Double? = nil,
+         pixelUnits: String? = nil, provenance: [String: String] = [:]) {
         self.width = width
         self.height = height
         self.pixels = pixels
         self.kind = kind
         self.displayName = displayName
         self.valueUnits = valueUnits
+        self.pixelSizeRow = pixelSizeRow
+        self.pixelSizeColumn = pixelSizeColumn
+        self.pixelUnits = pixelUnits
+        self.provenance = provenance
     }
 }
 
@@ -51,6 +61,10 @@ nonisolated struct SessionResultDescriptor: Identifiable, Sendable, Equatable {
     let width: Int
     let height: Int
     let storage: SessionResultStorage
+    let pixelSizeRow: Double?
+    let pixelSizeColumn: Double?
+    let pixelUnits: String?
+    let provenance: [String: String]
 }
 
 nonisolated struct SessionSidecarInventory: Sendable, Equatable {
@@ -106,7 +120,7 @@ nonisolated enum BraggVectorEMDWriter {
     private static let schemaAttribute = "mac4dstem_session_schema"
     private static let resultNodesAttribute = "mac4dstem_result_nodes"
     private static let currentResultAttribute = "mac4dstem_current_result"
-    private static let sessionSchemaVersion = "3"
+    private static let sessionSchemaVersion = "4"
 
     enum WriterError: LocalizedError {
         case cancelled
@@ -237,7 +251,11 @@ nonisolated enum BraggVectorEMDWriter {
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
         guard map.width > 0, map.height > 0,
-              map.pixels.count == map.width * map.height else {
+              map.pixels.count == map.width * map.height,
+              map.pixelSizeRow == nil
+                || (map.pixelSizeRow!.isFinite && map.pixelSizeRow! > 0),
+              map.pixelSizeColumn == nil
+                || (map.pixelSizeColumn!.isFinite && map.pixelSizeColumn! > 0) else {
             throw WriterError.invalidDimensions("the scalar result map is inconsistent")
         }
         if let vectors { try validate(vectors: vectors, qWidth: qWidth, qHeight: qHeight) }
@@ -628,7 +646,19 @@ nonisolated enum BraggVectorEMDWriter {
             ) ?? "intensity",
             width: width,
             height: height,
-            storage: storage
+            storage: storage,
+            pixelSizeRow: try readStringAttribute(
+                "mac4dstem_pixel_size_row", on: group, hdf5: h5
+            ).flatMap(Double.init),
+            pixelSizeColumn: try readStringAttribute(
+                "mac4dstem_pixel_size_column", on: group, hdf5: h5
+            ).flatMap(Double.init),
+            pixelUnits: try readStringAttribute(
+                "mac4dstem_pixel_units", on: group, hdf5: h5
+            ),
+            provenance: decodeProvenance(try readStringAttribute(
+                "mac4dstem_provenance", on: group, hdf5: h5
+            ))
         )
     }
 
@@ -662,7 +692,19 @@ nonisolated enum BraggVectorEMDWriter {
             ) ?? "Restored result",
             valueUnits: try readStringAttribute(
                 "mac4dstem_value_units", on: group, hdf5: h5
-            ) ?? "intensity"
+            ) ?? "intensity",
+            pixelSizeRow: try readStringAttribute(
+                "mac4dstem_pixel_size_row", on: group, hdf5: h5
+            ).flatMap(Double.init),
+            pixelSizeColumn: try readStringAttribute(
+                "mac4dstem_pixel_size_column", on: group, hdf5: h5
+            ).flatMap(Double.init),
+            pixelUnits: try readStringAttribute(
+                "mac4dstem_pixel_units", on: group, hdf5: h5
+            ),
+            provenance: decodeProvenance(try readStringAttribute(
+                "mac4dstem_provenance", on: group, hdf5: h5
+            ))
         )
     }
 
@@ -1270,6 +1312,22 @@ nonisolated enum BraggVectorEMDWriter {
         try writeStringAttribute("mac4dstem_storage",
                                  value: SessionResultStorage.scalarFloat32.rawValue,
                                  on: group, hdf5: h5)
+        if let value = map.pixelSizeRow {
+            try writeStringAttribute("mac4dstem_pixel_size_row", value: String(value),
+                                     on: group, hdf5: h5)
+        }
+        if let value = map.pixelSizeColumn {
+            try writeStringAttribute("mac4dstem_pixel_size_column", value: String(value),
+                                     on: group, hdf5: h5)
+        }
+        if let units = map.pixelUnits {
+            try writeStringAttribute("mac4dstem_pixel_units", value: units,
+                                     on: group, hdf5: h5)
+        }
+        if let provenance = encodeProvenance(map.provenance) {
+            try writeStringAttribute("mac4dstem_provenance", value: provenance,
+                                     on: group, hdf5: h5)
+        }
 
         let dimensions = [hsize_t(map.height), hsize_t(map.width)]
         let space = dimensions.withUnsafeBufferPointer {
@@ -1291,11 +1349,12 @@ nonisolated enum BraggVectorEMDWriter {
         // actual display/physical units remain in the mac4DSTEM metadata.
         try writeStringAttribute("units", value: "intensity", on: dataset, hdf5: h5)
 
-        let step = calibration.rSize ?? 1
-        let dimUnits = calibration.rUnits ?? "pixels"
-        try writeDoubleVectorDataset("dim0", values: [0, step], name: "Rx",
+        let rowStep = map.pixelSizeRow ?? calibration.rSize ?? 1
+        let columnStep = map.pixelSizeColumn ?? calibration.rSize ?? 1
+        let dimUnits = map.pixelUnits ?? calibration.rUnits ?? "pixels"
+        try writeDoubleVectorDataset("dim0", values: [0, rowStep], name: "Rx",
                                      units: dimUnits, in: group, hdf5: h5)
-        try writeDoubleVectorDataset("dim1", values: [0, step], name: "Ry",
+        try writeDoubleVectorDataset("dim1", values: [0, columnStep], name: "Ry",
                                      units: dimUnits, in: group, hdf5: h5)
 
         let bundle = try createGroup("metadatabundle", in: group, hdf5: h5)
@@ -1312,6 +1371,10 @@ nonisolated enum BraggVectorEMDWriter {
                                in: metadata, hdf5: h5)
         try writeStringDataset("value_units", value: map.valueUnits, metadataType: "string",
                                in: metadata, hdf5: h5)
+        if let provenance = encodeProvenance(map.provenance) {
+            try writeStringDataset("provenance", value: provenance,
+                                   metadataType: "string", in: metadata, hdf5: h5)
+        }
         progress?(1)
     }
 
@@ -1525,6 +1588,22 @@ nonisolated enum BraggVectorEMDWriter {
             return withUnsafePointer(to: &pointer) { h5.h5awrite(attribute, type, $0) }
         }
         guard status >= 0 else { throw WriterError.hdf5("writing attribute \(name)") }
+    }
+
+    private static func encodeProvenance(_ values: [String: String]) -> String? {
+        guard !values.isEmpty,
+              JSONSerialization.isValidJSONObject(values),
+              let data = try? JSONSerialization.data(
+                withJSONObject: values, options: [.sortedKeys]
+              ) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func decodeProvenance(_ value: String?) -> [String: String] {
+        guard let value, let data = value.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: String] else { return [:] }
+        return dictionary
     }
 
     private static func writeScalarAttribute<T>(

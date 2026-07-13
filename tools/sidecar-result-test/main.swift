@@ -235,6 +235,71 @@ guard partialSnapshot.calibration?.rSize == 2.25,
 }
 print("PASS: partial_mismatched_origin_keeps_valid_scalars")
 
+let stabilizedMaps = [
+    ScalarResultMap(
+        width: 5, height: 4, pixels: (0..<20).map { Float($0) / 10 },
+        kind: "parallax_subpixel_bf", displayName: "Parallax subpixel BF",
+        valueUnits: "normalized_intensity", pixelSizeRow: 0.625,
+        pixelSizeColumn: 0.625, pixelUnits: "A",
+        provenance: ["source_product": "parallax_subpixel_bf", "upsample_factor": "3.2"]
+    ),
+    ScalarResultMap(
+        width: 3, height: 2, pixels: [-1, 0, 1, 2, 3, 4],
+        kind: "parallax_corrected_phase", displayName: "Parallax corrected phase",
+        valueUnits: "arbitrary_phase", pixelSizeRow: 2, pixelSizeColumn: 2,
+        pixelUnits: "A", provenance: ["full_fit": "true"]
+    ),
+    ScalarResultMap(
+        width: 3, height: 2, pixels: [4, 3, 2, 1, 0, -1],
+        kind: "parallax_depth", displayName: "Parallax depth 32.0 Å",
+        valueUnits: "arbitrary_phase", pixelSizeRow: 2, pixelSizeColumn: 2,
+        pixelUnits: "A", provenance: ["depth_angstrom": "32.0"]
+    ),
+    ScalarResultMap(
+        width: 4, height: 3, pixels: (0..<12).map { Float($0) * 0.01 - 0.05 },
+        kind: "ptychography_object_phase", displayName: "Ptychography object phase",
+        valueUnits: "rad", pixelSizeRow: 0.4, pixelSizeColumn: 0.6,
+        pixelUnits: "A", provenance: [
+            "engine": "singleslice", "method": "gradient-descent",
+            "iterations": "8", "final_error": "0.0125",
+        ]
+    ),
+    ScalarResultMap(
+        width: 4, height: 3, pixels: (0..<12).map { 1 + Float($0) * 0.02 },
+        kind: "ptychography_object_amplitude",
+        displayName: "Ptychography object amplitude", valueUnits: "dimensionless",
+        pixelSizeRow: 0.4, pixelSizeColumn: 0.6, pixelUnits: "A",
+        provenance: ["engine": "singleslice", "iterations": "8"]
+    ),
+]
+for map in stabilizedMaps {
+    try BraggVectorEMDWriter.mergeResultMap(
+        map, vectors: nil, qWidth: 7, qHeight: 5,
+        calibration: updatedCalibration, to: sidecar
+    )
+    let id = BraggVectorEMDWriter.resultNodeName(forKind: map.kind)
+    guard let loaded = try BraggVectorEMDWriter.loadResultMap(id: id, from: sidecar),
+          loaded.width == map.width, loaded.height == map.height,
+          loaded.pixels == map.pixels,
+          loaded.pixelSizeRow == map.pixelSizeRow,
+          loaded.pixelSizeColumn == map.pixelSizeColumn,
+          loaded.pixelUnits == map.pixelUnits,
+          loaded.provenance == map.provenance else {
+        fail("stabilized map did not round-trip: \(map.kind)")
+    }
+}
+let stabilizedSnapshot = try BraggVectorEMDWriter.loadSession(from: sidecar)
+guard stabilizedSnapshot.inventory.results.count == 8,
+      stabilizedSnapshot.inventory.currentResultID
+        == BraggVectorEMDWriter.resultNodeName(
+            forKind: stabilizedMaps.last!.kind
+        ),
+      stabilizedSnapshot.inventory.results.last?.provenance
+        == stabilizedMaps.last?.provenance else {
+    fail("stabilized result inventory/current metadata is incomplete")
+}
+print("PASS: parallax_and_ptychography_shapes_sampling_provenance_roundtrip")
+
 let beforeCancellation = try Data(contentsOf: sidecar)
 let token = AnalysisCancellationToken()
 do {

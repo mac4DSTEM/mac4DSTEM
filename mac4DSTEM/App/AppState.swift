@@ -70,8 +70,22 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
 
     var isAvailable: Bool {
         self == .virtualDetector || self == .dpc || self == .disks
-            || self == .strain || self == .acom
+            || self == .strain || self == .ptychography || self == .acom
     }
+}
+
+enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
+    case preprocess = "Preprocessed BF"
+    case alignment = "Aligned BF"
+    case subpixel = "Subpixel BF"
+    case correctedPhase = "Corrected phase"
+    case depth = "Depth plane"
+    case iterativePhase = "Ptychography phase"
+    case iterativeAmplitude = "Ptychography amplitude"
+    case iterativeProbePhase = "Probe phase"
+    case iterativeProbeAmplitude = "Probe amplitude"
+
+    var id: String { rawValue }
 }
 
 /// Crystal presets offered for ACOM template generation. `.custom` is a
@@ -159,6 +173,8 @@ final class AppState {
     /// Set only while `resultImage` is the scalar map restored from the stable
     /// session sidecar. New scientific results clear it at publication.
     @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)?
+    @ObservationIgnored var restoredResultPixelInfo:
+        (row: Double?, column: Double?, units: String?, provenance: [String: String])?
     /// Read-only inventory of supported objects in the stable companion file.
     var sessionInventory: SessionSidecarInventory = .empty
 
@@ -172,10 +188,57 @@ final class AppState {
     }
 
     var calibration = Calibration()
+    private(set) var calibrationProvenance = CalibrationProvenance()
     var originFitFunction: OriginFitFunction = .plane
     var ellipseFitInnerRadius: Double = 10
     var ellipseFitOuterRadius: Double = 30
     private(set) var lastEllipseFit: EllipseCalibrationFit?
+    private(set) var parallaxPreprocess: ParallaxPreprocessResult?
+    private(set) var parallaxAberrationFit: ParallaxAberrationFitResult?
+    private(set) var parallaxCorrection: ParallaxAberrationCorrectionResult?
+    private(set) var parallaxSubpixel: ParallaxSubpixelResult?
+    private(set) var parallaxDepth: ParallaxDepthResult?
+    private(set) var singleslicePtychography: SingleslicePtychographyResult?
+    var ptychographyIterations = 8
+    var ptychographyStepSize: Float = 0.5
+    var ptychographyNormalizationMinimum: Float = 1
+    var ptychographyFixProbe = false
+    var ptychographyConstrainObjectAmplitude = false
+    var ptychographyPurePhaseObject = false
+    var ptychographyFixProbeCenterOfMass = false
+    var ptychographyConstrainProbeAmplitude = false
+    var ptychographyProbeAmplitudeRadius: Float = 0.5
+    var ptychographyProbeAmplitudeWidth: Float = 0.05
+    var parallaxKDEUpsampleFactor: Double = 0
+    var parallaxKDESigmaPixels: Double = 0.125
+    var parallaxKDELowpass = false
+    var parallaxKDELanczosOrder = 0
+    var parallaxPositionCorrectionIterations = 0
+    var parallaxPositionCorrectionCheckerboard = false
+    var parallaxDepthStartAngstrom: Double = -256
+    var parallaxDepthEndAngstrom: Double = 256
+    var parallaxDepthPlaneCount = 33
+    var parallaxDepthUseFullFit = true
+    var parallaxDepthInformationLimit: Double = 0
+    var parallaxDepthInformationPower: Double = 1
+    private(set) var parallaxDepthSelectedIndex = 0
+    private(set) var parallaxResultProduct: ParallaxResultProduct = .preprocess
+    private(set) var parallaxHigherOrderFit: ParallaxHigherOrderAberrationFitResult? {
+        didSet {
+            parallaxCorrection = nil
+            parallaxDepth = nil
+        }
+    }
+    var parallaxQLowpassInvAngstrom: Double = 0
+    var parallaxQHighpassInvAngstrom: Double = 0
+    private(set) var parallaxAlignment: ParallaxAlignmentResult? {
+        didSet {
+            parallaxAberrationFit = nil
+            parallaxHigherOrderFit = nil
+            parallaxSubpixel = nil
+            parallaxDepth = nil
+        }
+    }
     /// Full rotation-calibration result (objective curves) for the
     /// diagnostics plot in the inspector.
     var lastRotationResult: RotationCalibration.Result?
@@ -283,6 +346,12 @@ final class AppState {
     func requestOpenDataset() { openDatasetRequest &+= 1 }
     func requestPreprocessingExport() { preprocessingExportRequest &+= 1 }
 
+    var calibrationReadiness: CalibrationReadinessReport {
+        CalibrationReadinessReport.make(
+            calibration: calibration, provenance: calibrationProvenance
+        )
+    }
+
     private func appendLog(_ message: String) {
         guard !message.isEmpty, !message.hasSuffix("%") else { return }
         if logMessages.last?.hasSuffix(message) == true { return }
@@ -355,72 +424,54 @@ final class AppState {
     /// Fractional progress [0,1] of the running long operation, or nil when
     /// idle / indeterminate. Drives the performance panel's progress bar.
     var progress: Double?
-    /// Short label of what's currently running (for the performance panel).
-    var activeOperation: String?
-    @ObservationIgnored private var activeOperationStartedAt: Date?
-    private(set) var activeOperationTotalUnits: Int?
-    @ObservationIgnored private var activeCancellation: AnalysisCancellationToken?
+    @ObservationIgnored private let operationController = AnalysisOperationController()
+    /// Short label and unit budget for the performance panel.
+    var activeOperation: String? { operationController.name }
+    var activeOperationTotalUnits: Int? { operationController.totalUnits }
 
     var canCancelActiveOperation: Bool {
-        isBusy && activeCancellation != nil
+        isBusy && operationController.hasActiveOperation
     }
 
     func beginCancellableOperation(
         _ name: String, status: String, totalUnits: Int? = nil
     )
         -> AnalysisCancellationToken {
-        activeCancellation?.cancel()
-        let token = AnalysisCancellationToken()
-        activeCancellation = token
+        let token = operationController.begin(name: name, totalUnits: totalUnits)
         isBusy = true
-        activeOperation = name
-        activeOperationStartedAt = Date()
-        activeOperationTotalUnits = totalUnits
         progress = 0
         statusText = status
         return token
     }
 
     func finishCancellableOperation(_ token: AnalysisCancellationToken) {
-        guard activeCancellation === token else { return }
-        activeCancellation = nil
+        guard operationController.finish(token) else { return }
         isBusy = false
         progress = nil
-        activeOperation = nil
-        activeOperationStartedAt = nil
-        activeOperationTotalUnits = nil
     }
 
     func activeOperationMetrics(at now: Date = Date())
-        -> (elapsed: TimeInterval, unitsPerSecond: Double?, eta: TimeInterval?)? {
-        guard let started = activeOperationStartedAt else { return nil }
-        let elapsed = max(0, now.timeIntervalSince(started))
-        guard elapsed > 0, let fraction = progress, fraction > 0 else {
-            return (elapsed, nil, nil)
-        }
-        let rate = activeOperationTotalUnits.map { Double($0) * fraction / elapsed }
-        let eta = fraction < 1 ? elapsed * (1 - fraction) / fraction : 0
-        return (elapsed, rate, eta)
+        -> AnalysisOperationMetrics? {
+        operationController.metrics(progress: progress, at: now)
     }
 
     /// Cross-file operation helpers keep extensions from reaching into the
     /// token identity itself while still rejecting late progress/status work.
     func isCurrentOperation(_ token: AnalysisCancellationToken) -> Bool {
-        activeCancellation === token
+        operationController.isCurrent(token)
     }
 
     func updateCancellableOperation(
         _ token: AnalysisCancellationToken, progress fraction: Double, status: String
     ) {
-        guard activeCancellation === token, !token.isCancelled else { return }
-        progress = fraction
+        guard operationController.isCurrent(token), !token.isCancelled else { return }
+        progress = min(1, max(0, fraction))
         statusText = status
     }
 
     func cancelActiveOperation() {
-        guard let token = activeCancellation, !token.isCancelled else { return }
-        token.cancel()
-        statusText = "Cancelling \(activeOperation ?? "operation")…"
+        guard let name = operationController.cancelCurrent() else { return }
+        statusText = "Cancelling \(name)…"
     }
 
     // Normalized-pixel caches: SwiftUI re-evaluates view bodies far more often
@@ -563,11 +614,7 @@ final class AppState {
 
         // Dataset replacement is also a cancellation boundary. The epoch still
         // independently prevents any non-cooperative GPU result from landing.
-        activeCancellation?.cancel()
-        activeCancellation = nil
-        activeOperation = nil
-        activeOperationStartedAt = nil
-        activeOperationTotalUnits = nil
+        operationController.reset()
         progress = nil
         isBusy = false
         datasetEpoch &+= 1
@@ -582,6 +629,10 @@ final class AppState {
         patternGamma = 1
         lastRotationResult = nil
         lastEllipseFit = nil
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        singleslicePtychography = nil
+        parallaxResultProduct = .preprocess
         let detectorHalfSize = Double(min(descriptor.qx, descriptor.qy)) / 2
         ellipseFitInnerRadius = max(1, detectorHalfSize * 0.35)
         ellipseFitOuterRadius = max(ellipseFitInnerRadius + 2, detectorHalfSize * 0.9)
@@ -601,6 +652,7 @@ final class AppState {
             acceleratingVoltage = nil
         }
         calibration = Calibration()
+        calibrationProvenance = CalibrationProvenance()
         // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
             var rSize = pc.rSize
@@ -614,12 +666,23 @@ final class AppState {
             calibration.rPixelUnits = rUnits
             calibration.qPixelSize = pc.qSize
             calibration.qPixelUnits = pc.qUnits
+            if rSize.map({ $0.isFinite && $0 > 0 }) == true {
+                calibrationProvenance.rScale = .importedFile
+            }
+            if pc.qSize.map({ $0.isFinite && $0 > 0 }) == true {
+                calibrationProvenance.qScale = .importedFile
+            }
             if let flip = pc.qrFlip { calibration.transposeQR = flip }
             calibration.rotationRad = pc.qrRotationRad.map(Float.init)
             calibration.probeRadius = pc.probeSemiangle.map(Float.init)
             calibration.ellipseA = pc.ellipseA
             calibration.ellipseB = pc.ellipseB
             calibration.ellipseTheta = pc.ellipseTheta
+            if calibration.hasRotation { calibrationProvenance.rotation = .importedFile }
+            if calibration.probeRadius.map({ $0.isFinite && $0 > 0 }) == true {
+                calibrationProvenance.probe = .importedFile
+            }
+            if calibration.hasEllipse { calibrationProvenance.ellipse = .importedFile }
             // AXIS SWAP (single documented conversion point — see
             // PixelCalibration.qx0Mean/qy0Mean doc comment): py4DSTEM indexes
             // patterns (qx, qy) with qx as the first/row axis, which is this
@@ -717,16 +780,35 @@ final class AppState {
     private func applySessionCalibration(
         _ saved: PixelCalibration, for descriptor: DatasetDescriptor
     ) {
-        if let value = saved.rSize { calibration.rPixelSize = value }
+        if let value = saved.rSize {
+            calibration.rPixelSize = value
+            calibrationProvenance.rScale = value.isFinite && value > 0 ? .sessionSidecar : nil
+        }
         if let value = saved.rUnits { calibration.rPixelUnits = value }
-        if let value = saved.qSize { calibration.qPixelSize = value }
+        if let value = saved.qSize {
+            calibration.qPixelSize = value
+            calibrationProvenance.qScale = value.isFinite && value > 0 ? .sessionSidecar : nil
+        }
         if let value = saved.qUnits { calibration.qPixelUnits = value }
         if let value = saved.qrFlip { calibration.transposeQR = value }
-        if let value = saved.qrRotationRad { calibration.rotationRad = Float(value) }
-        if let value = saved.probeSemiangle { calibration.probeRadius = Float(value) }
+        if let value = saved.qrRotationRad {
+            calibration.rotationRad = Float(value)
+            calibrationProvenance.rotation = value.isFinite ? .sessionSidecar : nil
+        }
+        if let value = saved.probeSemiangle {
+            calibration.probeRadius = Float(value)
+            calibrationProvenance.probe = value.isFinite && value > 0 ? .sessionSidecar : nil
+        }
+        let savedEllipseCount = [saved.ellipseA, saved.ellipseB, saved.ellipseTheta]
+            .compactMap { $0 }.count
         if let value = saved.ellipseA { calibration.ellipseA = value }
         if let value = saved.ellipseB { calibration.ellipseB = value }
         if let value = saved.ellipseTheta { calibration.ellipseTheta = value }
+        if savedEllipseCount > 0 {
+            calibrationProvenance.ellipse = calibration.hasEllipse
+                ? (savedEllipseCount == 3 ? .sessionSidecar : .mixed)
+                : nil
+        }
 
         var restoredMaps = false
         if let maps = saved.originMaps,
@@ -761,13 +843,12 @@ final class AppState {
         let url = resolvedSessionSidecarURL(for: descriptor)
             ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
         if let map = snapshot.currentResult {
-            guard map.width == descriptor.rx, map.height == descriptor.ry else {
-                statusText = "Ignored \(url.lastPathComponent): saved map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
-                return
-            }
             resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
             resultRGBA = nil
             restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
+            restoredResultPixelInfo = (
+                map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
+            )
         } else if let map = snapshot.currentRGBAResult {
             guard map.width == descriptor.rx, map.height == descriptor.ry else {
                 statusText = "Ignored \(url.lastPathComponent): saved RGBA map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
@@ -776,6 +857,7 @@ final class AppState {
             resultImage = nil
             resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
             restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
+            restoredResultPixelInfo = nil
         } else {
             return
         }
@@ -801,8 +883,8 @@ final class AppState {
 
     // MARK: - Analyses
 
-    /// Run whatever analysis the current mode calls for. Only the virtual
-    /// detector is wired in this slice; DPC / disks arrive in later slices.
+    /// Run the lightweight/default action for the current mode. Expensive
+    /// whole-scan workflows remain explicit buttons in their tool sections.
     func runCurrentAnalysis() async {
         switch analysisMode {
         case .virtualDetector: await runVirtualDetector()
@@ -816,9 +898,16 @@ final class AppState {
             // Strain is computed explicitly (needs a disk-detection pass);
             // just re-show it if already computed.
             if strainMap != nil { applyStrainDisplay() }
+        case .ptychography:
+            if let preview = parallaxAlignment?.previewImage
+                ?? parallaxPreprocess?.previewImage {
+                restoredResultInfo = nil
+                resultImage = preview
+                resultRGBA = nil
+                resultVersion &+= 1
+            }
         case .acom:
             if orientationMap != nil { applyACOMDisplay() }
-        default: break
         }
     }
 
@@ -837,10 +926,53 @@ final class AppState {
     func updateAperture(_ newAperture: Aperture) {
         activePane = .diffraction
         if newAperture.centerX != aperture.centerX || newAperture.centerY != aperture.centerY {
+            // A manual center supersedes fitted per-position maps. Retaining
+            // those maps would make export silently ignore the manual value.
+            calibration.origin = nil
             calibration.originProvenance = .manual
+            parallaxPreprocess = nil
+            parallaxAlignment = nil
         }
         aperture = newAperture
         scheduleLiveVirtualDetector()
+    }
+
+    func setManualQPixelSize(_ value: Double) {
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        if value.isFinite && value > 0 {
+            calibration.qPixelSize = value
+            calibration.qPixelUnits = calibration.qPixelUnits ?? "1/nm"
+            calibrationProvenance.qScale = .manual
+            switch calibration.qPixelUnits?.lowercased() {
+            case "1/nm", "nm^-1", "1/nanometer": acomScale = value * 0.1
+            case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
+                acomScale = value
+            default: break
+            }
+        } else {
+            calibration.qPixelSize = nil
+            calibrationProvenance.qScale = nil
+        }
+    }
+
+    func setManualRPixelSize(_ value: Double) {
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        if value.isFinite && value > 0 {
+            calibration.rPixelSize = value
+            calibration.rPixelUnits = calibration.rPixelUnits ?? "nm"
+            calibrationProvenance.rScale = .manual
+        } else {
+            calibration.rPixelSize = nil
+            calibrationProvenance.rScale = nil
+        }
+    }
+
+    func setManualAcceleratingVoltage(_ value: Double) {
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        acceleratingVoltage = value.isFinite && value > 0 ? value : nil
     }
 
     private func scheduleLiveVirtualDetector() {
@@ -1063,6 +1195,494 @@ final class AppState {
 
     // MARK: - Calibration
 
+    /// First parallax slice: build and preview py4DSTEM's normalized virtual-BF
+    /// stack and incoherent BF initialization. No iterative reconstruction is
+    /// performed or implied by this operation.
+    func prepareParallaxPreview() async {
+        guard let source = reader, let descriptor else { return }
+        let physical: ParallaxPhysicalCalibration
+        do {
+            physical = try ParallaxPhysicalCalibration.resolve(
+                calibration: calibration,
+                apertureCenterX: aperture.centerX,
+                apertureCenterY: aperture.centerY,
+                acceleratingVoltageKV: acceleratingVoltage
+            )
+        } catch {
+            present(error)
+            return
+        }
+
+        let epoch = datasetEpoch
+        let token = beginCancellableOperation(
+            "Parallax preprocessing", status: "Preparing virtual-BF stack…",
+            totalUnits: descriptor.ry * 2
+        )
+        defer { finishCancellableOperation(token) }
+        do {
+            let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    self?.updateCancellableOperation(
+                        token, progress: fraction,
+                        status: "Preparing virtual-BF stack… \(Int(fraction * 100)) %"
+                    )
+                }
+            }
+            let result = try await ParallaxPreprocessor.run(
+                source: source, descriptor: descriptor, calibration: physical,
+                cancellation: token, progress: progressUpdate
+            )
+            guard isCurrentOperation(token), datasetEpoch == epoch,
+                  !token.isCancelled else { return }
+            parallaxPreprocess = result
+            parallaxAlignment = nil
+            parallaxResultProduct = .preprocess
+            restoredResultInfo = nil
+            resultImage = result.previewImage
+            resultRGBA = nil
+            resultGamma = 1
+            displayRangeLo = 0
+            displayRangeHi = 1
+            resultVersion &+= 1
+            statusText = String(
+                format: "Parallax preprocessing ✓  %d BF pixels · λ %.5f Å · %.2f mrad max · error %.4f",
+                result.brightFieldPixelCount,
+                result.calibration.wavelengthAngstrom,
+                result.maximumProbeAngleMrad,
+                result.initialError
+            )
+        } catch ParallaxPreprocessor.PreprocessError.cancelled {
+            guard isCurrentOperation(token) else { return }
+            statusText = "Parallax preprocessing cancelled"
+        } catch {
+            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            present(error)
+        }
+    }
+
+    /// Run the next source-locked coarse-to-fine bin with factor-8 matrix-DFT
+    /// correlation. The last completed level remains published until the next
+    /// one succeeds and passes the operation/dataset publication guards.
+    func alignParallaxNextLevel() async {
+        guard let preprocessing = parallaxPreprocess else {
+            present(SimpleError("Prepare the parallax preview before alignment."))
+            return
+        }
+        let schedule = ParallaxAligner.defaultBinSchedule(
+            detectorIndices: preprocessing.detectorIndices
+        )
+        guard !schedule.isEmpty else {
+            present(SimpleError("The bright-field mask cannot form an alignment level."))
+            return
+        }
+        let completed = parallaxAlignment?.completedBins ?? []
+        guard completed.count < schedule.count else {
+            present(ParallaxAligner.AlignmentError.alignmentComplete)
+            return
+        }
+        let bin = schedule[completed.count]
+        guard parallaxAlignment == nil
+                || Array(schedule.prefix(completed.count)) == completed else {
+            present(SimpleError("Reset the stale parallax alignment before continuing."))
+            return
+        }
+        let groups = ParallaxAligner.groups(
+            detectorIndices: preprocessing.detectorIndices, alignmentBin: bin
+        )
+        let epoch = datasetEpoch
+        let token = beginCancellableOperation(
+            "Parallax alignment bin \(bin)",
+            status: "Aligning bin \(bin) virtual-BF groups…",
+            totalUnits: groups.count + preprocessing.brightFieldPixelCount
+        )
+        defer { finishCancellableOperation(token) }
+        do {
+            let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    self?.updateCancellableOperation(
+                        token, progress: fraction,
+                        status: "Aligning bin \(bin) virtual-BF groups… \(Int(fraction * 100)) %"
+                    )
+                }
+            }
+            var options = ParallaxAlignmentOptions()
+            options.upsampleFactor = 8
+            let prior = parallaxAlignment
+            let result = try await Task.detached(priority: .userInitiated) {
+                try ParallaxAligner.alignNextLevel(
+                    preprocessing: preprocessing, previous: prior, options: options,
+                    cancellation: token, progress: progressUpdate
+                )
+            }.value
+            guard isCurrentOperation(token), datasetEpoch == epoch,
+                  !token.isCancelled else { return }
+            parallaxAlignment = result
+            parallaxResultProduct = .alignment
+            restoredResultInfo = nil
+            resultImage = result.previewImage
+            resultRGBA = nil
+            resultGamma = 1
+            displayRangeLo = 0
+            displayRangeHi = 1
+            resultVersion &+= 1
+            statusText = String(
+                format: "Parallax alignment ✓  level %d/%d · bin %d · %d groups · %.2f px max shift · error %.4f → %.4f%@",
+                result.completedBins.count, result.alignmentSchedule.count,
+                result.alignmentBin, result.groups.count,
+                result.maximumShiftPixels,
+                result.errorHistory.dropLast().last ?? .nan,
+                result.currentError,
+                result.isComplete ? " · schedule complete" : ""
+            )
+        } catch ParallaxAligner.AlignmentError.cancelled {
+            guard isCurrentOperation(token) else { return }
+            statusText = "Parallax alignment bin \(bin) cancelled; last completed level retained"
+        } catch {
+            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            present(error)
+        }
+    }
+
+    func resetParallaxAlignment() {
+        guard !isBusy, let preprocessing = parallaxPreprocess else { return }
+        parallaxAlignment = nil
+        parallaxResultProduct = .preprocess
+        restoredResultInfo = nil
+        resultImage = preprocessing.previewImage
+        resultRGBA = nil
+        resultGamma = 1
+        displayRangeLo = 0
+        displayRangeHi = 1
+        resultVersion &+= 1
+        statusText = "Parallax alignment reset to the preprocessed preview"
+    }
+
+    func fitParallaxAberrations() {
+        guard let preprocessing = parallaxPreprocess,
+              let alignment = parallaxAlignment else {
+            present(SimpleError("Complete parallax preprocessing and alignment first."))
+            return
+        }
+        do {
+            let result = try ParallaxAberrationFitter.fitHigherOrder(
+                preprocessing: preprocessing, alignment: alignment
+            )
+            parallaxAberrationFit = result.lowOrder
+            parallaxHigherOrderFit = result
+            statusText = String(
+                format: "Recursive aberration fit ✓  %d terms · rotation %.2f° · RMS %.4f Å → %.4f Å",
+                result.terms.count,
+                result.lowOrder.rotationRad * 180 / .pi,
+                result.lowOrder.rmsResidualAngstrom,
+                result.rmsResidualAngstrom
+            )
+        } catch {
+            present(error)
+        }
+    }
+
+    func upsampleParallaxBF() async {
+        guard let preprocessing = parallaxPreprocess,
+              let alignment = parallaxAlignment, alignment.isComplete else {
+            present(SimpleError("Complete parallax alignment before KDE upsampling."))
+            return
+        }
+        let epoch = datasetEpoch
+        let token = beginCancellableOperation(
+            "Parallax KDE", status: "Upsampling aligned virtual-BF images…",
+            totalUnits: preprocessing.brightFieldPixelCount
+        )
+        defer { finishCancellableOperation(token) }
+        do {
+            var options = ParallaxSubpixelOptions()
+            options.upsampleFactor = parallaxKDEUpsampleFactor > 0
+                ? parallaxKDEUpsampleFactor : nil
+            options.kdeSigmaPixels = parallaxKDESigmaPixels
+            options.lowpassFilter = parallaxKDELowpass
+            options.lanczosOrder = parallaxKDELanczosOrder > 0
+                ? parallaxKDELanczosOrder : nil
+            options.positionCorrectionIterations = parallaxPositionCorrectionIterations > 0
+                ? parallaxPositionCorrectionIterations : nil
+            options.positionCorrectionCheckerboard = parallaxPositionCorrectionCheckerboard
+            let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    self?.updateCancellableOperation(
+                        token, progress: fraction,
+                        status: "Upsampling aligned virtual-BF images… \(Int(fraction * 100)) %"
+                    )
+                }
+            }
+            let result = try await Task.detached(priority: .userInitiated) {
+                try ParallaxSubpixelReconstructor.reconstruct(
+                    preprocessing: preprocessing, alignment: alignment,
+                    options: options, cancellation: token, progress: progressUpdate
+                )
+            }.value
+            guard isCurrentOperation(token), datasetEpoch == epoch,
+                  !token.isCancelled else { return }
+            parallaxSubpixel = result
+            parallaxResultProduct = .subpixel
+            restoredResultInfo = nil
+            resultImage = result.croppedBF
+            resultRGBA = nil
+            resultGamma = 1
+            displayRangeLo = 0
+            displayRangeHi = 1
+            resultVersion &+= 1
+            statusText = String(
+                format: "Parallax KDE ✓  ×%.2f · %.4f Å/px · %d × %d%@",
+                result.upsampleFactor, result.outputSamplingAngstrom,
+                result.croppedBF.height, result.croppedBF.width,
+                result.positionCorrectionScores.isEmpty
+                    ? "" : " · position corrected"
+            )
+        } catch ParallaxSubpixelReconstructor.ReconstructionError.cancelled {
+            guard isCurrentOperation(token) else { return }
+            statusText = "Parallax KDE cancelled; aligned result retained"
+        } catch {
+            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            present(error)
+        }
+    }
+
+    func computeParallaxDepthSections() async {
+        guard let preprocessing = parallaxPreprocess,
+              let alignment = parallaxAlignment,
+              let fit = parallaxHigherOrderFit else {
+            present(SimpleError("Fit parallax aberrations before depth sectioning."))
+            return
+        }
+        guard parallaxDepthPlaneCount > 0, parallaxDepthPlaneCount <= 257,
+              parallaxDepthStartAngstrom.isFinite,
+              parallaxDepthEndAngstrom.isFinite else {
+            present(SimpleError("Use 1–257 finite parallax depth planes."))
+            return
+        }
+        let depths: [Double]
+        if parallaxDepthPlaneCount == 1 {
+            depths = [parallaxDepthStartAngstrom]
+        } else {
+            depths = (0..<parallaxDepthPlaneCount).map { index in
+                parallaxDepthStartAngstrom
+                    + (parallaxDepthEndAngstrom - parallaxDepthStartAngstrom)
+                    * Double(index) / Double(parallaxDepthPlaneCount - 1)
+            }
+        }
+        var options = ParallaxDepthOptions()
+        options.depthsAngstrom = depths
+        options.useFullFit = parallaxDepthUseFullFit
+        options.informationLimitInvAngstrom = parallaxDepthInformationLimit > 0
+            ? parallaxDepthInformationLimit : nil
+        options.informationPower = parallaxDepthInformationPower
+        let epoch = datasetEpoch
+        let token = beginCancellableOperation(
+            "Parallax depth sectioning", status: "Computing depth planes…",
+            totalUnits: depths.count
+        )
+        defer { finishCancellableOperation(token) }
+        do {
+            let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    self?.updateCancellableOperation(
+                        token, progress: fraction,
+                        status: "Computing depth planes… \(Int(fraction * 100)) %"
+                    )
+                }
+            }
+            let result = try await Task.detached(priority: .userInitiated) {
+                try ParallaxDepthSectioner.section(
+                    preprocessing: preprocessing, alignment: alignment, fit: fit,
+                    options: options, cancellation: token, progress: progressUpdate
+                )
+            }.value
+            guard isCurrentOperation(token), datasetEpoch == epoch,
+                  !token.isCancelled else { return }
+            parallaxDepth = result
+            parallaxDepthSelectedIndex = depths.indices.min {
+                abs(depths[$0]) < abs(depths[$1])
+            } ?? 0
+            showParallaxProduct(.depth)
+            statusText = "Parallax depth sectioning ✓  \(depths.count) planes"
+        } catch ParallaxDepthSectioner.DepthError.cancelled {
+            guard isCurrentOperation(token) else { return }
+            statusText = "Parallax depth sectioning cancelled; prior products retained"
+        } catch {
+            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            present(error)
+        }
+    }
+
+    func runSingleslicePtychography() async {
+        guard let source = reader, let descriptor else {
+            present(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
+            return
+        }
+        let physical: ParallaxPhysicalCalibration
+        do {
+            physical = try ParallaxPhysicalCalibration.resolve(
+                calibration: calibration, apertureCenterX: aperture.centerX,
+                apertureCenterY: aperture.centerY,
+                acceleratingVoltageKV: acceleratingVoltage
+            )
+        } catch {
+            present(error)
+            return
+        }
+        let epoch = datasetEpoch
+        let token = beginCancellableOperation(
+            "Single-slice ptychography", status: "Preparing diffraction amplitudes…",
+            totalUnits: descriptor.ry + max(1, ptychographyIterations)
+        )
+        defer { finishCancellableOperation(token) }
+        do {
+            let prepareProgress: @Sendable (Double) -> Void = { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    self?.updateCancellableOperation(
+                        token, progress: fraction * 0.3,
+                        status: "Preparing diffraction amplitudes… \(Int(fraction * 100)) %"
+                    )
+                }
+            }
+            let input = try await PtychographyPreparer.prepare(
+                source: source, descriptor: descriptor, calibration: physical,
+                probeRadiusPixels: aperture.outer, cancellation: token,
+                progress: prepareProgress
+            )
+            var options = SingleslicePtychographyOptions()
+            options.iterations = ptychographyIterations
+            options.stepSize = ptychographyStepSize
+            options.normalizationMinimum = ptychographyNormalizationMinimum
+            options.fixProbe = ptychographyFixProbe
+            options.constrainObjectAmplitude = ptychographyConstrainObjectAmplitude
+            options.purePhaseObject = ptychographyPurePhaseObject
+            options.fixProbeCenterOfMass = ptychographyFixProbeCenterOfMass
+            options.constrainProbeAmplitude = ptychographyConstrainProbeAmplitude
+            options.probeAmplitudeRelativeRadius = ptychographyProbeAmplitudeRadius
+            options.probeAmplitudeRelativeWidth = ptychographyProbeAmplitudeWidth
+            let reconstructProgress: @Sendable (Double) -> Void = { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    self?.updateCancellableOperation(
+                        token, progress: 0.3 + fraction * 0.7,
+                        status: "Reconstructing object/probe… \(Int(fraction * 100)) %"
+                    )
+                }
+            }
+            let result = try await Task.detached(priority: .userInitiated) {
+                try SingleslicePtychography.reconstruct(
+                    input: input, options: options, cancellation: token,
+                    progress: reconstructProgress
+                )
+            }.value
+            guard isCurrentOperation(token), datasetEpoch == epoch,
+                  !token.isCancelled else { return }
+            singleslicePtychography = result
+            showParallaxProduct(.iterativePhase)
+            statusText = String(
+                format: "Single-slice ptychography ✓  %d iterations · error %.6f",
+                result.errorHistory.count, result.errorHistory.last ?? .nan
+            )
+        } catch SingleslicePtychography.ReconstructionError.cancelled {
+            guard isCurrentOperation(token) else { return }
+            statusText = "Single-slice ptychography cancelled; prior result retained"
+        } catch {
+            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            present(error)
+        }
+    }
+
+    var availableParallaxProducts: [ParallaxResultProduct] {
+        ParallaxResultProduct.allCases.filter {
+            switch $0 {
+            case .preprocess: parallaxPreprocess != nil
+            case .alignment: parallaxAlignment != nil
+            case .subpixel: parallaxSubpixel != nil
+            case .correctedPhase: parallaxCorrection != nil
+            case .depth: parallaxDepth != nil
+            case .iterativePhase, .iterativeAmplitude,
+                 .iterativeProbePhase, .iterativeProbeAmplitude:
+                singleslicePtychography != nil
+            }
+        }
+    }
+
+    func showParallaxProduct(_ product: ParallaxResultProduct) {
+        let image: FloatImage?
+        switch product {
+        case .preprocess: image = parallaxPreprocess?.previewImage
+        case .alignment: image = parallaxAlignment?.previewImage
+        case .subpixel: image = parallaxSubpixel?.croppedBF
+        case .correctedPhase: image = parallaxCorrection?.correctedPhase
+        case .depth: image = parallaxDepth?.croppedPlane(at: parallaxDepthSelectedIndex)
+        case .iterativePhase: image = singleslicePtychography?.objectPhase()
+        case .iterativeAmplitude: image = singleslicePtychography?.objectAmplitude()
+        case .iterativeProbePhase: image = singleslicePtychography?.probePhase()
+        case .iterativeProbeAmplitude: image = singleslicePtychography?.probeAmplitude()
+        }
+        guard let image else { return }
+        parallaxResultProduct = product
+        restoredResultInfo = nil
+        resultImage = image
+        resultRGBA = nil
+        resultGamma = 1
+        displayRangeLo = 0
+        displayRangeHi = 1
+        resultVersion &+= 1
+    }
+
+    func selectParallaxDepthPlane(_ index: Int) {
+        guard let depth = parallaxDepth, depth.depthsAngstrom.indices.contains(index) else {
+            return
+        }
+        parallaxDepthSelectedIndex = index
+        showParallaxProduct(.depth)
+    }
+
+    func correctParallaxPhase() async {
+        guard let preprocessing = parallaxPreprocess,
+              let alignment = parallaxAlignment,
+              let fit = parallaxHigherOrderFit else {
+            present(SimpleError("Fit parallax aberrations before phase correction."))
+            return
+        }
+        let epoch = datasetEpoch
+        let token = beginCancellableOperation(
+            "Parallax phase correction", status: "Applying aberration CTF…",
+            totalUnits: alignment.stackHeight
+        )
+        defer { finishCancellableOperation(token) }
+        do {
+            var options = ParallaxAberrationCorrectionOptions()
+            options.qLowpassInvAngstrom = parallaxQLowpassInvAngstrom != 0
+                ? parallaxQLowpassInvAngstrom : nil
+            options.qHighpassInvAngstrom = parallaxQHighpassInvAngstrom != 0
+                ? parallaxQHighpassInvAngstrom : nil
+            let result = try await Task.detached(priority: .userInitiated) {
+                try ParallaxAberrationCorrector.correct(
+                    preprocessing: preprocessing, alignment: alignment,
+                    fit: fit, options: options, cancellation: token
+                )
+            }.value
+            guard isCurrentOperation(token), datasetEpoch == epoch,
+                  !token.isCancelled else { return }
+            parallaxCorrection = result
+            parallaxResultProduct = .correctedPhase
+            restoredResultInfo = nil
+            resultImage = result.correctedPhase
+            resultRGBA = nil
+            resultGamma = 1
+            displayRangeLo = 0
+            displayRangeHi = 1
+            resultVersion &+= 1
+            statusText = "Parallax phase correction ✓  full fitted CTF · DC removed"
+        } catch ParallaxAberrationCorrector.CorrectionError.cancelled {
+            guard isCurrentOperation(token) else { return }
+            statusText = "Parallax phase correction cancelled; fit retained"
+        } catch {
+            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            present(error)
+        }
+    }
+
     /// Compute just the mean/max diffraction patterns (py4DSTEM get_dp_mean /
     /// get_dp_max) so the Mean/Max display modes work without running the
     /// full origin calibration.
@@ -1135,7 +1755,10 @@ final class AppState {
             guard let result else { return }
 
             calibration.probeRadius = result.probeRadius
+            calibrationProvenance.probe = .measuredInApp
             calibration.origin = result.origin
+            parallaxPreprocess = nil
+            parallaxAlignment = nil
             meanPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.meanDP)
             maxPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.maxDP)
             patternVersion &+= 1
@@ -1210,6 +1833,7 @@ final class AppState {
             calibration.ellipseA = fit.a
             calibration.ellipseB = fit.b
             calibration.ellipseTheta = fit.theta
+            calibrationProvenance.ellipse = .measuredInApp
             lastEllipseFit = fit
             progress = 1
 
@@ -1270,6 +1894,9 @@ final class AppState {
             }
             calibration.rotationRad = result.rotationRad
             calibration.transposeQR = result.transpose
+            calibrationProvenance.rotation = .measuredInApp
+            parallaxPreprocess = nil
+            parallaxAlignment = nil
             lastRotationResult = result
             applyDPCDisplay()   // a cached CoM field must not show a stale rotation
             statusText = String(format: "Rotation ✓  θ = %.1f°%@",
@@ -1343,6 +1970,9 @@ final class AppState {
         rotation += .pi
         if rotation > .pi { rotation -= 2 * .pi }
         calibration.rotationRad = rotation
+        calibrationProvenance.rotation = .manual
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
         applyDPCDisplay()
         statusText = String(format: "Rotation flipped → θ = %.1f°", rotation * 180 / .pi)
     }
@@ -1489,7 +2119,7 @@ final class AppState {
             ) { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
-                          self.activeCancellation === cancellation,
+                          self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
                     self.progress = fraction
                     self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
@@ -1627,6 +2257,9 @@ final class AppState {
         acomScale = estimate.invAngstromPerPixel
         calibration.qPixelSize = estimate.invAngstromPerPixel
         calibration.qPixelUnits = "Å⁻¹"
+        calibrationProvenance.qScale = .measuredInApp
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
         statusText = String(
             format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %d positions",
             estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
@@ -1700,7 +2333,7 @@ final class AppState {
                                          cancellation: cancellation) { fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
-                          self.activeCancellation === cancellation,
+                          self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
                     self.progress = fraction
                     self.statusText = "Matching orientations… \(Int(fraction * 100)) %"

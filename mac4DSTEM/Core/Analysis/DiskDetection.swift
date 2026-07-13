@@ -312,81 +312,16 @@ nonisolated final class DiskDetector {
     /// matrix-multiply DFT of Guizar-Sicairos et al. (upsampled_correlation).
     private func multicorrRefine(_ peaks: inout [BraggPeak], upsampleFactor: Int) {
         guard upsampleFactor > 2 else { return }
-        let u = Float(upsampleFactor)
         for i in 0..<peaks.count {
-            // Half-pixel start (py4DSTEM rounds the poly result to 0.5 px),
-            // then snap to the upsampled grid.
-            var sx = (peaks[i].x * 2).rounded() / 2
-            var sy = (peaks[i].y * 2).rounded() / 2
-            sx = (sx * u).rounded() / u
-            sy = (sy * u).rounded() / u
-
-            let globalShift = (Float(ceil(u * 1.5)) / 2).rounded(.down)
-            let up = dftUpsample(centerX: globalShift - u * sx,
-                                 centerY: globalShift - u * sy,
-                                 upsampleFactor: upsampleFactor)
-
-            // argmax of the upsampled patch + parabolic polish.
-            let m = Int(ceil(1.5 * u))
-            var bi = 0
-            for j in 1..<up.count where up[j] > up[bi] { bi = j }
-            var subY = Float(bi / m), subX = Float(bi % m)
-            let yy = bi / m, xx = bi % m
-            if yy > 0, yy < m - 1, xx > 0, xx < m - 1 {
-                let c = up[bi]
-                let xp = up[bi + 1], xm = up[bi - 1]
-                let yp = up[bi + m], ym = up[bi - m]
-                let ddx = (xp - xm) / (4 * c - 2 * xp - 2 * xm)
-                let ddy = (yp - ym) / (4 * c - 2 * yp - 2 * ym)
-                if ddx.isFinite { subX += ddx }
-                if ddy.isFinite { subY += ddy }
-            }
-            peaks[i].x = sx + (subX - globalShift) / u
-            peaks[i].y = sy + (subY - globalShift) / u
+            let refined = MatrixDFTCorrelation.refine(
+                correlationRe: ccRe, correlationIm: ccIm,
+                width: px, height: py,
+                initial: CorrelationPeak(row: peaks[i].y, column: peaks[i].x),
+                upsampleFactor: upsampleFactor
+            )
+            peaks[i].x = refined.column
+            peaks[i].y = refined.row
         }
-    }
-
-    /// real(rowKern · conj(m) · colKern) on an upsampled patch around the
-    /// peak (dftUpsample). centerX/Y are in upsampled-grid units.
-    private func dftUpsample(centerX: Float, centerY: Float, upsampleFactor: Int) -> [Float] {
-        let m = Int(ceil(1.5 * Float(upsampleFactor)))
-        let n = px * py
-
-        // t = conj(cc) · colKern   (complex [py × m])
-        // colKern[j,c] = exp(-2πi/(px·u) · wrap(j)·(c − centerX))
-        var tRe = [Float](repeating: 0, count: py * m)
-        var tIm = [Float](repeating: 0, count: py * m)
-        let wx = -2 * Float.pi / (Float(px) * Float(upsampleFactor))
-        for j in 0..<px {
-            let wj = Float(j < px / 2 ? j : j - px)
-            for c in 0..<m {
-                let ang = wx * wj * (Float(c) - centerX)
-                let (ca, sa) = (cos(ang), sin(ang))
-                for r in 0..<py {
-                    let i = r * px + j
-                    // conj(cc)[r,j] = (ccRe, −ccIm)
-                    tRe[r * m + c] += ccRe[i] * ca + ccIm[i] * sa
-                    tIm[r * m + c] += -ccIm[i] * ca + ccRe[i] * sa
-                }
-            }
-        }
-        _ = n
-
-        // up[r,c] = real( Σ_k rowKern[r,k] · t[k,c] )
-        // rowKern[r,k] = exp(-2πi/(py·u) · (r − centerY)·wrap(k))
-        var up = [Float](repeating: 0, count: m * m)
-        let wy = -2 * Float.pi / (Float(py) * Float(upsampleFactor))
-        for r in 0..<m {
-            for k in 0..<py {
-                let wk = Float(k < py / 2 ? k : k - py)
-                let ang = wy * (Float(r) - centerY) * wk
-                let (ca, sa) = (cos(ang), sin(ang))
-                for c in 0..<m {
-                    up[r * m + c] += ca * tRe[k * m + c] - sa * tIm[k * m + c]
-                }
-            }
-        }
-        return up
     }
 
     // MARK: Gaussian smoothing (separable, truncated at 4σ)

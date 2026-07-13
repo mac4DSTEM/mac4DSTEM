@@ -31,6 +31,176 @@ enum OriginProvenance: Equatable, Sendable {
         case .manual:           return "Manual aperture center"
         }
     }
+
+    var readinessProvenance: CalibrationValueProvenance? {
+        switch self {
+        case .geometricDefault: return nil
+        case .fileMean, .fileMaps: return .importedFile
+        case .sessionMean, .sessionMaps: return .sessionSidecar
+        case .fitted: return .measuredInApp
+        case .manual: return .manual
+        }
+    }
+}
+
+/// Source of a calibration value shown by the preprocessing readiness guide.
+/// This is tracked separately from the value itself so imported/session values
+/// are never presented as measurements performed by this app.
+enum CalibrationValueProvenance: String, Equatable, Sendable {
+    case importedFile = "Imported from file"
+    case sessionSidecar = "Restored from session"
+    case measuredInApp = "Measured in app"
+    case manual = "Manual"
+    case mixed = "Mixed sources"
+}
+
+/// Provenance for fields that do not already carry `OriginProvenance`.
+/// A nil entry means no trustworthy value is currently active.
+struct CalibrationProvenance: Equatable, Sendable {
+    var probe: CalibrationValueProvenance?
+    var ellipse: CalibrationValueProvenance?
+    var rotation: CalibrationValueProvenance?
+    var qScale: CalibrationValueProvenance?
+    var rScale: CalibrationValueProvenance?
+}
+
+enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
+    case originProbe = "Origin & probe"
+    case ellipse = "Ellipse distortion"
+    case rotation = "R–Q rotation"
+    case qScale = "Q pixel scale"
+    case rScale = "R pixel scale"
+
+    var id: String { rawValue }
+}
+
+enum CalibrationReadinessStatus: Equatable, Sendable {
+    case ready(CalibrationValueProvenance)
+    case missing
+
+    var isReady: Bool {
+        if case .ready = self { return true }
+        return false
+    }
+
+    var displayName: String {
+        switch self {
+        case .ready(let provenance): return provenance.rawValue
+        case .missing: return "Missing"
+        }
+    }
+}
+
+struct CalibrationReadinessItem: Identifiable, Equatable, Sendable {
+    let kind: CalibrationReadinessKind
+    let status: CalibrationReadinessStatus
+    let detail: String
+
+    var id: CalibrationReadinessKind { kind }
+}
+
+struct CalibrationReadinessReport: Equatable, Sendable {
+    let items: [CalibrationReadinessItem]
+
+    var missingItems: [CalibrationReadinessItem] {
+        items.filter { !$0.status.isReady }
+    }
+
+    var isReady: Bool { missingItems.isEmpty }
+
+    static func make(
+        calibration: Calibration,
+        provenance: CalibrationProvenance
+    ) -> CalibrationReadinessReport {
+        let originSource = calibration.originProvenance.readinessProvenance
+        let validProbe = calibration.probeRadius.map {
+            $0.isFinite && $0 > 0
+        } ?? false
+        let originAndProbeReady = originSource != nil && validProbe
+        let originProbeSource: CalibrationValueProvenance
+        if let originSource, let probeSource = provenance.probe,
+           originSource == probeSource {
+            originProbeSource = originSource
+        } else {
+            originProbeSource = .mixed
+        }
+        let probeDetail = validProbe
+            ? String(
+                format: "%.3g px (%@)", calibration.probeRadius!,
+                provenance.probe?.rawValue ?? "Unknown source"
+            )
+            : "Missing"
+        let originDetail = "Origin: \(originSource?.rawValue ?? "Missing") · Probe: \(probeDetail)"
+
+        let validEllipse = calibration.hasEllipse
+            && (calibration.ellipseA ?? 0) > 0
+            && (calibration.ellipseB ?? 0) > 0
+        let ellipseDetail: String
+        if validEllipse, let a = calibration.ellipseA, let b = calibration.ellipseB,
+           let theta = calibration.ellipseTheta {
+            ellipseDetail = String(
+                format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi
+            )
+        } else {
+            ellipseDetail = "No detector-distortion correction"
+        }
+
+        let validRotation = calibration.rotationRad?.isFinite == true
+        let rotationDetail: String
+        if let rotation = calibration.rotationRad, rotation.isFinite {
+            rotationDetail = String(
+                format: "%.1f°%@", rotation * 180 / .pi,
+                (calibration.transposeQR ?? false) ? " · transposed" : ""
+            )
+        } else {
+            rotationDetail = "Scan and detector axes are not aligned"
+        }
+
+        let validQ = calibration.qPixelSize.map { $0.isFinite && $0 > 0 } ?? false
+        let validR = calibration.rPixelSize.map { $0.isFinite && $0 > 0 } ?? false
+        let qDetail = validQ
+            ? String(format: "%.6g %@/px", calibration.qPixelSize!, calibration.qPixelUnits ?? "1/nm")
+            : "Reciprocal dimensions remain in pixels"
+        let rDetail = validR
+            ? String(format: "%.6g %@/px", calibration.rPixelSize!, calibration.rPixelUnits ?? "nm")
+            : "Real-space dimensions remain in pixels"
+
+        return CalibrationReadinessReport(items: [
+            CalibrationReadinessItem(
+                kind: .originProbe,
+                status: originAndProbeReady ? .ready(originProbeSource) : .missing,
+                detail: originDetail
+            ),
+            CalibrationReadinessItem(
+                kind: .ellipse,
+                status: readyStatus(validEllipse, provenance.ellipse),
+                detail: ellipseDetail
+            ),
+            CalibrationReadinessItem(
+                kind: .rotation,
+                status: readyStatus(validRotation, provenance.rotation),
+                detail: rotationDetail
+            ),
+            CalibrationReadinessItem(
+                kind: .qScale,
+                status: readyStatus(validQ, provenance.qScale),
+                detail: qDetail
+            ),
+            CalibrationReadinessItem(
+                kind: .rScale,
+                status: readyStatus(validR, provenance.rScale),
+                detail: rDetail
+            )
+        ])
+    }
+
+    private static func readyStatus(
+        _ valid: Bool,
+        _ provenance: CalibrationValueProvenance?
+    ) -> CalibrationReadinessStatus {
+        guard valid else { return .missing }
+        return .ready(provenance ?? .manual)
+    }
 }
 
 /// Per-scan-position position of the unscattered beam, in detector pixels.

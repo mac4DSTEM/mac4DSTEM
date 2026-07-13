@@ -9,6 +9,8 @@ trap 'rm -rf "$WORK"' EXIT
 
 : "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
 export DEVELOPER_DIR
+. "$REPO/tools/lib/python.sh"
+resolve_mac4dstem_python "$REPO"
 
 for library in libhdf5 libsz.2 libaec.0; do
   cp "$REPO/$library.dylib" "$WORK/"
@@ -25,6 +27,7 @@ xcrun swiftc -o "$WORK/harness" \
   "$REPO/mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift" \
   "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
   "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
   -framework Accelerate -framework Metal
@@ -35,7 +38,7 @@ export MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib"
 "$WORK/harness" "$WORK/session.mac4dstem.h5" "$WORK/source.h5"
 
 PYTHONPATH="$REPO/References/py4DSTEM-dev" \
-  /Users/paullobpreis/miniconda3/envs/py4dstem/bin/python \
+  "$PYTHON_BIN" \
   inject_unknown.py "$WORK/session.mac4dstem.h5"
 
 xcrun swiftc -parse-as-library -o "$WORK/preserve-unknown" \
@@ -48,6 +51,7 @@ xcrun swiftc -parse-as-library -o "$WORK/preserve-unknown" \
   "$REPO/mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift" \
   "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
   "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
   -framework Accelerate -framework Metal
@@ -55,5 +59,5 @@ codesign -f -s - "$WORK/preserve-unknown" 2>/dev/null
 "$WORK/preserve-unknown" "$WORK/session.mac4dstem.h5"
 
 PYTHONPATH="$REPO/References/py4DSTEM-dev" \
-  /Users/paullobpreis/miniconda3/envs/py4dstem/bin/python \
+  "$PYTHON_BIN" \
   verify_py4dstem.py "$WORK/session.mac4dstem.h5"

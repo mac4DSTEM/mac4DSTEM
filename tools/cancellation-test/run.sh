@@ -18,6 +18,7 @@ xcrun swiftc -o "$WORK/harness" \
   "$REPO/mac4DSTEM/Core/Data/Calibration.swift" \
   "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
   "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
   "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
   -framework Accelerate -framework Metal

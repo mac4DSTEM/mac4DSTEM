@@ -273,7 +273,7 @@ extension AppState {
         }
     }
 
-    /// Save the current scan-shaped scalar or scientific RGBA result to the stable companion
+    /// Save the current scalar or scan-shaped scientific RGBA result to the stable companion
     /// `<source>.mac4dstem.h5`. Existing BraggVectors are preserved when the
     /// current session has none, and a current detection replaces the saved
     /// vectors together with the map in one atomic publication.
@@ -282,12 +282,18 @@ extension AppState {
         let scalarMap: ScalarResultMap?
         let rgbaMap: RGBAResultMap?
         let metadata = restoredResultInfo ?? currentScalarResultMetadata
-        if let image = resultImage,
-           image.width == descriptor.rx, image.height == descriptor.ry {
+        if let image = resultImage {
+            let persistence = restoredResultInfo != nil
+                ? (restoredResultPixelInfo ?? (nil, nil, nil, [:]))
+                : currentScalarPersistenceMetadata
             scalarMap = ScalarResultMap(
                 width: image.width, height: image.height, pixels: image.pixels,
                 kind: metadata.kind, displayName: metadata.displayName,
-                valueUnits: metadata.valueUnits
+                valueUnits: metadata.valueUnits,
+                pixelSizeRow: persistence.row,
+                pixelSizeColumn: persistence.column,
+                pixelUnits: persistence.units,
+                provenance: persistence.provenance
             )
             rgbaMap = nil
         } else if let image = resultRGBA,
@@ -299,7 +305,7 @@ extension AppState {
                 valueUnits: metadata.valueUnits
             )
         } else {
-            present(SimpleError("No scan-shaped scalar or RGBA result is available to save."))
+            present(SimpleError("No scalar or scan-shaped RGBA result is available to save."))
             return
         }
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
@@ -361,11 +367,7 @@ extension AppState {
     /// analysis. This changes the in-session selection; the persisted current
     /// item remains the last atomically saved result.
     func selectSavedSessionResult(_ saved: SessionResultDescriptor) async {
-        guard let descriptor,
-              saved.width == descriptor.rx, saved.height == descriptor.ry else {
-            present(SimpleError("The saved result does not match the active scan shape."))
-            return
-        }
+        guard let descriptor else { return }
         let url = resolvedSessionSidecarURL(for: descriptor)
             ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
         let epoch = datasetEpoch
@@ -379,6 +381,9 @@ extension AppState {
                 resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
                 resultRGBA = nil
                 restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
+                restoredResultPixelInfo = (
+                    map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
+                )
             case .rgba8:
                 let map = try await Task.detached(priority: .utility) {
                     try BraggVectorEMDWriter.loadRGBAResultMap(id: saved.id, from: url)
@@ -387,6 +392,7 @@ extension AppState {
                 resultImage = nil
                 resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
                 restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
+                restoredResultPixelInfo = nil
             }
             sessionInventory = SessionSidecarInventory(
                 hasSidecar: sessionInventory.hasSidecar,
@@ -401,6 +407,49 @@ extension AppState {
             guard epoch == datasetEpoch else { return }
             present(error)
         }
+    }
+
+    /// Validated controls available for the scalar map currently selected from
+    /// the sidecar. This does not imply that its transient analysis arrays are
+    /// resident or recoverable.
+    var selectedSavedControlRehydration: SessionControlRehydration? {
+        guard let info = restoredResultInfo, let pixelInfo = restoredResultPixelInfo else {
+            return nil
+        }
+        let plan = SessionControlRehydration.parse(
+            kind: info.kind, provenance: pixelInfo.provenance
+        )
+        return plan.isEmpty ? nil : plan
+    }
+
+    func applySelectedSavedControls() {
+        guard let plan = selectedSavedControlRehydration else { return }
+        if let value = plan.kdeUpsampleFactor { parallaxKDEUpsampleFactor = value }
+        if let value = plan.kdeSigmaPixels { parallaxKDESigmaPixels = value }
+        if let value = plan.kdeLanczosOrder { parallaxKDELanczosOrder = value }
+        if let value = plan.positionIterations {
+            parallaxPositionCorrectionIterations = value
+        }
+        if let value = plan.kdeLowpass { parallaxKDELowpass = value }
+        if let value = plan.qLowpassInvAngstrom { parallaxQLowpassInvAngstrom = value }
+        if let value = plan.qHighpassInvAngstrom { parallaxQHighpassInvAngstrom = value }
+        if let value = plan.depthAngstrom {
+            parallaxDepthStartAngstrom = value
+            parallaxDepthEndAngstrom = value
+            parallaxDepthPlaneCount = 1
+        }
+        if let value = plan.depthUseFullFit { parallaxDepthUseFullFit = value }
+        if let value = plan.depthInformationLimit {
+            parallaxDepthInformationLimit = value
+        }
+        if let value = plan.depthInformationPower { parallaxDepthInformationPower = value }
+        if let value = plan.ptychographyIterations { ptychographyIterations = value }
+        if let value = plan.ptychographyStepSize { ptychographyStepSize = value }
+        if let value = plan.ptychographyNormalizationMinimum {
+            ptychographyNormalizationMinimum = value
+        }
+        if let value = plan.ptychographyFixProbe { ptychographyFixProbe = value }
+        statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct."
     }
 
     func removeSavedSessionResult(_ saved: SessionResultDescriptor) async {
@@ -571,7 +620,107 @@ extension AppState {
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
         case .ptychography:
-            return ("ptychography", "Ptychography result", "arbitrary")
+            switch parallaxResultProduct {
+            case .correctedPhase:
+                return ("parallax_corrected_phase", "Parallax corrected phase",
+                        "arbitrary_phase")
+            case .subpixel:
+                return ("parallax_subpixel_bf", "Parallax subpixel BF",
+                        "normalized_intensity")
+            case .alignment:
+                return ("parallax_alignment", "Parallax aligned BF",
+                        "normalized_intensity")
+            case .preprocess:
+                return ("parallax_preprocess", "Parallax incoherent BF preview",
+                        "normalized_intensity")
+            case .depth:
+                let depth = parallaxDepth?.depthsAngstrom[parallaxDepthSelectedIndex] ?? 0
+                return ("parallax_depth", String(format: "Parallax depth %.1f Å", depth),
+                        "arbitrary_phase")
+            case .iterativePhase:
+                return ("ptychography_object_phase", "Ptychography object phase", "rad")
+            case .iterativeAmplitude:
+                return ("ptychography_object_amplitude", "Ptychography object amplitude",
+                        "dimensionless")
+            }
+        }
+    }
+
+    private var currentScalarPersistenceMetadata:
+        (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        guard analysisMode == .ptychography else {
+            return (
+                calibration.rPixelSize, calibration.rPixelSize,
+                calibration.rPixelUnits, ["analysis_mode": analysisMode.rawValue]
+            )
+        }
+        switch parallaxResultProduct {
+        case .preprocess:
+            let sampling = parallaxPreprocess?.calibration.scanSamplingAngstrom
+            return (sampling, sampling, "A", ["source_product": "parallax_preprocess"])
+        case .alignment:
+            let sampling = parallaxPreprocess?.calibration.scanSamplingAngstrom
+            return (sampling, sampling, "A", [
+                "source_product": "parallax_alignment",
+                "levels": parallaxAlignment?.completedBins.map(String.init)
+                    .joined(separator: ",") ?? "",
+            ])
+        case .subpixel:
+            guard let result = parallaxSubpixel else { return (nil, nil, nil, [:]) }
+            return (result.outputSamplingAngstrom, result.outputSamplingAngstrom, "A", [
+                "source_product": "parallax_subpixel_bf",
+                "upsample_factor": String(result.upsampleFactor),
+                "kde_sigma_px": String(result.kdeSigmaPixels),
+                "interpolation": result.lanczosOrder.map { "lanczos_\($0)" } ?? "bilinear",
+                "position_iterations": String(max(0, result.positionCorrectionScores.count - 1)),
+                "sinc_lowpass": String(result.lowpassFilter),
+            ])
+        case .correctedPhase:
+            guard let result = parallaxCorrection else { return (nil, nil, nil, [:]) }
+            let lowpass = result.qLowpassInvAngstrom.map { String($0) } ?? "off"
+            let highpass = result.qHighpassInvAngstrom.map { String($0) } ?? "off"
+            let provenance: [String: String] = [
+                "source_product": "parallax_corrected_phase",
+                "full_fit": String(result.usedFullFit),
+                "q_lowpass_inv_a": lowpass,
+                "q_highpass_inv_a": highpass,
+            ]
+            return (result.samplingAngstrom, result.samplingAngstrom, "A", provenance)
+        case .depth:
+            guard let result = parallaxDepth,
+                  result.depthsAngstrom.indices.contains(parallaxDepthSelectedIndex) else {
+                return (nil, nil, nil, [:])
+            }
+            let informationLimit = result.informationLimitInvAngstrom
+                .map { String($0) } ?? "off"
+            let provenance: [String: String] = [
+                "source_product": "parallax_depth",
+                "depth_angstrom": String(result.depthsAngstrom[parallaxDepthSelectedIndex]),
+                "full_fit": String(result.usedFullFit),
+                "information_limit_inv_a": informationLimit,
+                "information_power": String(result.informationPower),
+            ]
+            return (result.samplingAngstrom, result.samplingAngstrom, "A", provenance)
+        case .iterativePhase, .iterativeAmplitude:
+            guard let result = singleslicePtychography else {
+                return (nil, nil, nil, [:])
+            }
+            return (
+                result.objectSamplingRowAngstrom,
+                result.objectSamplingColumnAngstrom,
+                "A",
+                [
+                    "source_product": parallaxResultProduct == .iterativePhase
+                        ? "ptychography_object_phase" : "ptychography_object_amplitude",
+                    "engine": "singleslice",
+                    "method": "gradient-descent",
+                    "iterations": String(result.errorHistory.count),
+                    "final_error": result.errorHistory.last.map { String($0) } ?? "",
+                    "step_size": String(ptychographyStepSize),
+                    "normalization_minimum": String(ptychographyNormalizationMinimum),
+                    "fix_probe": String(ptychographyFixProbe),
+                ]
+            )
         }
     }
 

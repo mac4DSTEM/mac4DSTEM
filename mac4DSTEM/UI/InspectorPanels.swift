@@ -129,6 +129,17 @@ struct ProductsView: View {
                         .help("Remove this saved result from the session sidecar")
                     }
                 }
+                if let controls = appState.selectedSavedControlRehydration {
+                    Button {
+                        appState.applySelectedSavedControls()
+                    } label: {
+                        Label("Apply Saved Controls", systemImage: "slider.horizontal.3")
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .disabled(appState.isBusy)
+                    .help("Apply \(controls.summary). This does not rerun or restore transient arrays.")
+                }
             } else {
                 Text("No companion results saved yet.")
                     .font(.caption2).foregroundStyle(.tertiary)
@@ -170,13 +181,28 @@ struct ProductsView: View {
                 .foregroundStyle(isCurrent ? Color.accentColor : Color.secondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(result.displayName).font(.caption).lineLimit(1)
-                Text("\(result.kind) · \(result.width)×\(result.height) · \(result.storage == .rgba8 ? "RGBA" : result.valueUnits)")
+                Text("\(result.width)×\(result.height) · \(result.storage == .rgba8 ? "RGBA8" : "float32") · \(result.valueUnits)")
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if let sampling = SessionResultPresentation.sampling(
+                    row: result.pixelSizeRow, column: result.pixelSizeColumn,
+                    units: result.pixelUnits
+                ) {
+                    Text(sampling)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if let provenance = SessionResultPresentation.provenance(result.provenance) {
+                    Text(provenance)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
             }
             Spacer()
         }
-        .help(result.id)
+        .help("\(result.kind) · \(result.id)")
     }
 }
