@@ -1,5 +1,29 @@
 import Foundation
 
+/// Where the detector origin currently shown by the aperture came from.
+/// This is deliberately separate from `hasFittedOrigin`: a py4DSTEM file can
+/// provide a trustworthy fitted *mean* without carrying the per-position maps
+/// needed by analyses that require descan correction.
+enum OriginProvenance: Equatable, Sendable {
+    /// Detector geometry only; no calibration has supplied an origin.
+    case geometricDefault
+    /// py4DSTEM qx0_mean/qy0_mean metadata, converted to the app's axis frame.
+    case fileMean
+    /// Mean of the per-position origin map fitted in this app.
+    case fitted
+    /// The user moved the aperture center after loading or calibration.
+    case manual
+
+    var displayName: String {
+        switch self {
+        case .geometricDefault: return "Geometric default (unfitted)"
+        case .fileMean:         return "From file (qx0/qy0 mean)"
+        case .fitted:           return "Fitted by calibration"
+        case .manual:           return "Manual aperture center"
+        }
+    }
+}
+
 /// Per-scan-position position of the unscattered beam, in detector pixels.
 struct OriginMaps {
     let width: Int
@@ -39,6 +63,9 @@ struct OriginMaps {
 }
 
 struct Calibration {
+    /// Provenance of the origin currently represented by the aperture center.
+    var originProvenance: OriginProvenance = .geometricDefault
+
     /// Radius of the central bright-field disk in detector pixels.
     var probeRadius: Float?
 

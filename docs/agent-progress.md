@@ -1,157 +1,115 @@
 # Agent progress — mac4DSTEM
 
-Persistent handoff between agent sessions. Read this INSTEAD of re-mapping the
-repository. Update it at the end of every session (append to "Completed
-slices", update "Current next slice"). Keep it concise.
+Persistent handoff between agent sessions. Read this before remapping the repo.
+At the end of a session, append completed work and replace the next slice.
 
-## 1. Project goal
+## 1. Goal and priorities
 
-Native macOS Swift/SwiftUI/Metal app for 4D-STEM analysis. Scientific
-reference: py4DSTEM (source checkout in `References/py4DSTEM-dev`). Work
-proceeds in small, buildable, scientifically safe slices. Priorities:
-correctness/py4DSTEM parity > buildability > loading/calibration > virtual
-imaging > disk detection > ACOM > Metal/MLX performance > SwiftUI polish.
+Native macOS Swift/SwiftUI/Metal app matching scientifically important
+py4DSTEM workflows with a polished, interactive Mac UI. Reference source:
+`References/py4DSTEM-dev` (read-only). Priorities are numeric correctness and
+py4DSTEM parity, then buildability, workflow coverage, performance, and polish.
+Work in small slices that end with a green build and targeted verification.
 
-## 2. Current confirmed state (2026-07-09)
+## 2. Confirmed state (2026-07-13)
 
-- Loads HDF5/EMD (`Core/Data/H5Reader.swift`, dlopen'd bundled libhdf5) and
-  Gatan DM4/DM3 (`Core/Data/DM4Reader.swift`), behind the `FourDDataSource`
-  actor protocol.
-- Working analysis surface (see `App/AppState.swift` func list): virtual
-  imaging/diffraction (Metal, `Shaders/*.metal`), DP statistics, origin +
-  rotation calibration, DPC, probe kernel, Bragg disk detection (CPU,
-  multi-worker), strain mapping, template-matching ACOM.
-- Known incomplete: ACOM `OrientationResult.euler` is a `.zero` placeholder;
-  ellipse calibration is read but never measured/applied; per-position origin
-  maps (`qx0`/`qy0` arrays) not read; no EMD writing; only one test
-  (calibration harness).
-- Build is clean: zero Swift warnings on a full clean build (Swift 6
-  concurrency issues resolved).
+- HDF5/EMD (`H5Reader`) and DM3/DM4 (`DM4Reader`) load behind the actor-based
+  `FourDDataSource` protocol. The full app builds cleanly with Xcode-beta.
+- Working surface: virtual imaging/diffraction, DP statistics, origin and R–Q
+  calibration, DPC/iDPC, probe kernel and Bragg disk detection, strain, and
+  simplified polar-correlation ACOM.
+- The Calibration UI now identifies the aperture center as geometric default,
+  file-provided qx0/qy0 mean, fitted in-app, or manually moved.
+- Known incomplete: ACOM Euler output is `.zero`; ellipse values are read but
+  not applied; per-position qx0/qy0 maps are not read; no EMD writer. Two
+  standalone harnesses cover calibration import and virtual detectors.
 
 ## 3. Completed slices
 
-- H5Reader reads py4DSTEM/EMD calibration metadata from both datasets and
-  HDF5 group attributes (emdfile `Metadata.to_h5` writes scalars/strings as
-  attributes).
-- Calibration regression harness exists: `tools/calibration-test/`
-  (C fixture generator + standalone Swift harness compiling H5Reader
-  unchanged; two fixtures: attribute-form and dataset-form).
-- QR_flip handling verified: h5py stores Python bools as int8-based enum
-  {FALSE,TRUE}; read via `readIntAttribute` (HDF5 converts enum→int, never
-  enum→double). Verified against hand-built enum fixtures.
-- UTF-8 HDF5 string reading fixed: `readStringValue` uses a copy of the
-  file's own string type (HDF5 has no UTF-8↔ASCII conversion path; h5py
-  writes UTF-8).
-- py4DSTEM origin/ellipse scalar keys (`qx0_mean`, `qy0_mean`, `a`, `b`,
-  `theta`) are read into `PixelCalibration` (kept in py4DSTEM's axis frame,
-  NOT yet consumed by the app — see conventions below).
-- DM4Reader Swift 6 actor-isolation warning fixed (async init; `ByteReader`
-  marked nonisolated).
-- AppState/compute-layer Swift 6 warnings fixed: weak-self captures moved to
-  inner @MainActor tasks; ~13 pure-value compute types marked `nonisolated`
-  (OrientationPlan, Crystal, ScatteringFactors, CubeDims, VirtualDetector,
-  OriginCalibration, etc.).
-- Full clean build succeeds with zero Swift warnings.
-- Real py4DSTEM ground-truth fixture: `tools/calibration-test/real_py4dstem.h5`
-  written by py4DSTEM 0.14.19 itself (`make_real_fixture.py`; venv recipe in
-  that file). run.sh now verifies all 10 calibration values against it.
-  Findings: py4DSTEM 0.14 writes calibration values as scalar DATASETS (not
-  attributes — loader supports both); QR_flip is a bool-enum dataset, which
-  needed a new `readIntDataset` fallback in H5Reader (enum→double fails);
-  ellipse keys `a`/`b`/`theta` and datacube path `/datacube_root/datacube/data`
-  confirmed against real output.
-- `AppState.activate` now consumes `pc.qx0Mean`/`pc.qy0Mean` (when present) as
-  the default aperture/detector center, replacing the geometric-center
-  fallback (`AppState.swift` ~line 405, inside the `pixelCalibration()`
-  block). The axis swap happens in exactly this one place: app aperture
-  `centerX = qy0Mean`, `centerY = qx0Mean` (see §6). Verified against
-  `real_py4dstem.h5` (qx0_mean=31.5, qy0_mean=32.25 in the fixture generator)
-  → expected app aperture center x=32.25, y=31.5, matching this slice's goal.
-  Does NOT synthesize `Calibration.origin` maps — `hasFittedOrigin` is
-  untouched, so the UI still correctly shows "not yet fitted" until the user
-  runs origin calibration; this only seeds a better starting aperture.
+- H5Reader reads calibration metadata from HDF5 attributes and datasets,
+  including UTF-8 strings, bool-enum `QR_flip`, Q/R pixel sizes and units,
+  `qx0_mean`/`qy0_mean`, and ellipse `a`/`b`/`theta`.
+- `tools/calibration-test/` verifies attribute-form, dataset-form, and
+  `real_py4dstem.h5` written by py4DSTEM 0.14.19. It asserts all ten values;
+  run result on 2026-07-13: all passed.
+- DM4Reader and compute code are clean under the project's approachable
+  concurrency settings; pure compute types are explicitly `nonisolated`.
+- `AppState.activate` consumes file qx0/qy0 means as the initial aperture
+  center. AXIS SWAP occurs only there: app x = py4DSTEM qy0, app y = qx0.
+  It does not synthesize per-position `Calibration.origin` maps.
+- `OriginProvenance` lives in `Core/Data/Calibration.swift`. Dataset activation
+  begins `.geometricDefault`; file means set `.fileMean`; successful origin
+  fitting sets `.fitted`; moving only the aperture center sets `.manual`;
+  radius-only edits preserve provenance. Detector presets now change radii
+  without discarding the current center/provenance. `ContentView` shows the
+  source in its Calibration section.
+- `tools/virtual-detector-test/run.sh` source-locks its standard-library
+  reference calculation to py4DSTEM `make_detector`, compiles the production
+  shaders and Swift wrappers, and tests a non-square synthetic cube. Annulus
+  (including exact inner boundary and near-edge fractional center), circle,
+  rectangle, and point all pass with max error 0. The comparison exposed the
+  old inclusive inner boundary; production now matches py4DSTEM's strict
+  `rIn² < r² < rOut²`. BF is a true circle and includes its center pixel;
+  ADF/HAADF remain annuli.
 
-## 4. Current roadmap order
+## 4. Roadmap order
 
-1. Reliable loading/calibration (real-file verification) ← ACTIVE
-2. Virtual imaging parity (numeric diff vs py4DSTEM)
-3. Bragg disk detection parity (parameter-semantics mapping)
-4. Origin/ellipse correction (consume mean origin; read origin maps; ellipse)
-5. ACOM completion (real Euler angles, QC display)
-6. Export/reporting (EMD writer py4DSTEM can re-open)
-7. Metal/MLX acceleration (only after CPU paths are parity-validated)
+1. Reliable loading/calibration baseline — complete
+2. Virtual-imaging parity against py4DSTEM — complete
+3. Origin-map import and ellipse correction — ACTIVE
+4. Bragg disk parity and parameter-semantics mapping
+5. ACOM completion: Euler angles, symmetry handling, QC/IPF display
+6. EMD-compatible result persistence/export
+7. Out-of-core execution and Metal/MLX acceleration after parity validation
 
-Agreed next ~10 slices (from roadmap session): real py4DSTEM fixture →
-consume mean origin in AppState → calibration provenance UI → virtual-imaging
-parity script → read origin maps → single-pattern disk parity → peak overlay
-UI → ACOM Euler angles → cancel for disk detection → Bragg vectors EMD export.
+Near-term slice sequence: virtual-imaging parity → read origin maps →
+single-pattern disk parity → peak-overlay refinements → ACOM Euler angles →
+disk cancellation → Bragg vectors EMD export.
 
 ## 5. Current next slice
 
-Calibration provenance/status UI: the app now silently upgrades the default
-aperture center from geometric-center to the file's fitted mean origin
-(previous slice), but there is no UI indication of *which* source is active
-(file-provided mean origin vs. geometric fallback vs. user-run origin
-calibration vs. manual drag). Add a small status indicator (e.g. in the
-Calibration section or as an aperture-control caption) showing one of:
-"origin: from file (qx0/qy0 mean)", "origin: geometric default (unfitted)",
-"origin: fitted (calibration run)", so users don't mistake an unfitted
-default for a real calibration. Likely touches `AppState` (track an origin
-provenance enum alongside `aperture`) and the Calibration/ApertureControl UI
-views. Keep scientific state changes (if any) minimal — this is primarily a
-trust/UI slice, not a new algorithm.
+Import fitted per-position `qx0`/`qy0` maps from py4DSTEM EMD calibration
+bundles and use them as `Calibration.origin` without rerunning calibration.
+First verify the exact on-disk array names, shapes and axis order by generating
+or inspecting a real py4DSTEM 0.14 fixture; do not infer them from the mean
+keys. Extend `PixelCalibration` and H5Reader to return fitted maps only when
+both arrays exist, are rank 2, have the scan shape, and contain finite values.
 
-## 6. Important scientific conventions/risks
+Convert py4DSTEM's detector axes in one documented place: qx0 → app y,
+qy0 → app x. Confirm whether the stored real-space array order is already
+[Ry,Rx] before flattening. On activation, populate an `OriginMaps` whose fitted
+arrays come from file; do not claim measured values exist unless corresponding
+`qx0_meas`/`qy0_meas` arrays are actually present. Preserve `.fileMean` for
+mean-only files and introduce a distinct file-map provenance label if useful.
 
-- **AXIS CONVENTION (highest risk in project):** py4DSTEM indexes patterns
-  (qx, qy) with qx along the FIRST (row) axis; this app uses [Ry, Rx, Qy, Qx]
-  with Qy as the row axis. So py4DSTEM qx0 ↔ app detector y, qy0 ↔ app x.
-  `PixelCalibration.qx0Mean/qy0Mean` are stored in py4DSTEM's frame; convert
-  at point of use, in exactly one documented place.
-- Ellipse key names `a`/`b`/`theta`: VERIFIED against py4DSTEM 0.14.19 source
-  and a real file it wrote (`set_ellipse((a,b,theta))` → those literal keys).
-- Virtual detector masks use py4DSTEM's half-open convention rIn² ≤ r² < rOut².
-- ACOM in-plane angle is mod 180° (Friedel); euler output is placeholder —
-  treat ACOM results as indicative, not validated.
-- emdfile Metadata: scalars/strings are HDF5 *attributes* on the calibration
-  group; arrays are datasets. Loader supports both forms.
-- Module compiles with main-actor default isolation: new compute types need
-  explicit `nonisolated` or they silently become @MainActor.
+Extend the calibration harness with non-square scan maps whose values make both
+real-space transposition and detector-axis swaps obvious. Acceptance: all map
+values and means verified, app build and both existing harnesses green, and
+mean-only fixtures retain their current behavior. Ellipse application remains
+a separate follow-up unless this slice exposes a required shared transform.
 
-## 7. Build/test commands
+## 6. Scientific conventions and risks
 
-- Xcode is Xcode-beta; the CLI needs:
-  `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer`
-- Build: `DEVELOPER_DIR=... xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -configuration Debug build -quiet`
-- Calibration regression test: `DEVELOPER_DIR=... tools/calibration-test/run.sh`
-  (builds fixtures with the repo's libhdf5, compiles H5Reader standalone,
-  asserts all calibration values; ad-hoc re-signs dylib copies in a temp dir
-  because the bundled dylibs' signatures don't validate for local tools).
-- No XCTest target exists; tests are standalone harnesses under `tools/`.
-- Warning check after concurrency-related edits: append
-  `2>&1 | grep ".swift.*warning"` to a clean build.
+- Highest risk: py4DSTEM patterns use (qx, qy) with qx on the first/row axis;
+  this app stores [Ry, Rx, Qy, Qx]. Thus py4DSTEM qx ↔ app y and qy ↔ app x.
+- Ellipse keys `a`/`b`/`theta` were verified against py4DSTEM 0.14.19 and a
+  real file. The values are not yet measured or applied by the app.
+- Virtual detector annuli use py4DSTEM's strict `rIn² < r² < rOut²`; circles
+  use `r² < rOut²` and therefore include a centered pixel.
+- ACOM in-plane angle is mod 180° (Friedel); Euler output is placeholder.
+- Scalar emdfile metadata may be attributes or datasets; H5Reader supports both.
+- Default actor isolation is MainActor; new compute types need `nonisolated`.
 
-## 8. Files not to touch unless relevant
+## 7. Verification commands
 
-- `References/` (py4DSTEM source, migration source, training data) — read-only
-  reference material.
-- `mac4DSTEM.xcodeproj/` internals, especially `project.pbxproj` (no test
-  target on purpose; adding files to the app target requires pbxproj edits —
-  avoid; `tools/` harnesses deliberately live outside the target).
-- `libhdf5.dylib`, `libsz.2.dylib`, `libaec.0.dylib` at repo root — do not
-  re-sign or modify in place (tools copy + ad-hoc sign instead).
-- `*.xcuserstate` — user state, churns on its own.
+- Build: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -configuration Debug -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`
+- Calibration: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/calibration-test/run.sh`
+- Virtual detector: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/virtual-detector-test/run.sh`
+- No XCTest target exists; standalone harnesses live under `tools/`.
 
-## 9. Resume instructions for future agents
+## 8. Preserve unless directly relevant
 
-1. Read this file; do NOT re-map the repository.
-2. Confirm build health cheaply: run the build command in §7 (expect zero
-   warnings) and `tools/calibration-test/run.sh` (expect "all passed").
-3. Implement the single slice in §5. Keep it small enough that the app builds
-   after the change. Prefer extending `tools/` harnesses over touching the
-   Xcode target.
-4. If a py4DSTEM behavior is in question, read the actual source under
-   `References/py4DSTEM-dev` rather than relying on memory; mark anything
-   still unverified as UNVERIFIED here.
-5. Before ending the session: update §3 (append), §5 (new next slice), and
-   any §6 risks resolved or discovered. Keep this file under ~120 lines.
+- Treat `References/`, repo-root dylibs, `project.pbxproj`, and `*.xcuserstate`
+  as read-only. Harnesses copy and ad-hoc-sign dylibs rather than modifying them.
+- Before finishing: run verification, update completed work and next slice here,
+  and use actual reference source for any disputed py4DSTEM behavior.

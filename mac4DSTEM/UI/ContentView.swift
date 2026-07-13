@@ -89,6 +89,11 @@ struct ContentView: View {
                     }
 
                     Section("Calibration") {
+                        LabeledContent("Aperture center",
+                                       value: appState.calibration.originProvenance.displayName)
+                            .font(.caption)
+                            .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
+
                         Picker("Origin fit", selection: $appState.originFitFunction) {
                             ForEach(OriginFitFunction.allCases) { fit in
                                 Text(fit.rawValue).tag(fit)

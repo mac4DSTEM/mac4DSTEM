@@ -47,9 +47,9 @@ kernel void virtualAperture(const device float    *data    [[buffer(0)]],
         for (uint x = 0; x < p.qx; ++x) {
             const float dx = float(x) - p.cx;
             const float r2 = dx * dx + dy2;
-            // Half-open interval [rIn, rOut) — matches py4DSTEM's detector
-            // masks (make_detector) and VirtualDetector.makeMask.
-            if (r2 >= rIn2 && r2 < rOut2) {
+            // Strict boundaries match py4DSTEM make_detector's annulus:
+            // rIn² < r² < rOut².
+            if (r2 > rIn2 && r2 < rOut2) {
                 sum += pat[rowBase + x];
             }
         }

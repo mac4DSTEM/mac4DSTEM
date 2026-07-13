@@ -4,7 +4,8 @@
 //        high-level intent (a preset, a dragged annulus, or any py4DSTEM
 //        detector geometry) into a GPU dispatch and hands back a `FloatImage`.
 //
-//  Two compute paths, same convention (half-open radii, [rIn, rOut)):
+//  Two compute paths, same convention as py4DSTEM make_detector:
+//  circle r² < rOut²; annulus rIn² < r² < rOut².
 //   • analytic annulus kernel — used while dragging, no mask rebuild
 //   • mask kernel — one detector-space weight image covers every geometry
 //     (py4DSTEM get_virtual_image modes: circle, annulus, rectangle, point)
@@ -104,15 +105,17 @@ nonisolated enum VirtualDetector {
     }
 
     /// Build the binary detector-space mask for a geometry, [Qy*Qx] row-major.
-    /// Radial shapes use the same half-open convention as py4DSTEM's
-    /// make_detector: rIn² ≤ r² < rOut².
+    /// Radial shapes match py4DSTEM's `make_detector` predicates exactly:
+    /// circle r² < rOut²; annulus rIn² < r² < rOut².
     nonisolated static func makeMask(shape: DetectorShape, qy: Int, qx: Int) -> [Float] {
         var mask = [Float](repeating: 0, count: qy * qx)
         switch shape {
         case .circle(let cx, let cy, let radius):
-            fillRadial(&mask, qy: qy, qx: qx, cx: cx, cy: cy, rIn: 0, rOut: radius)
+            fillRadial(&mask, qy: qy, qx: qx, cx: cx, cy: cy,
+                       rIn: 0, rOut: radius, includeInnerBoundary: true)
         case .annulus(let cx, let cy, let inner, let outer):
-            fillRadial(&mask, qy: qy, qx: qx, cx: cx, cy: cy, rIn: inner, rOut: outer)
+            fillRadial(&mask, qy: qy, qx: qx, cx: cx, cy: cy,
+                       rIn: inner, rOut: outer, includeInnerBoundary: false)
         case .rectangle(let xMin, let xMax, let yMin, let yMax):
             let x0 = max(0, xMin), x1 = min(qx, xMax)
             let y0 = max(0, yMin), y1 = min(qy, yMax)
@@ -127,7 +130,8 @@ nonisolated enum VirtualDetector {
     }
 
     private static func fillRadial(_ mask: inout [Float], qy: Int, qx: Int,
-                                   cx: Float, cy: Float, rIn: Float, rOut: Float) {
+                                   cx: Float, cy: Float, rIn: Float, rOut: Float,
+                                   includeInnerBoundary: Bool) {
         let rIn2 = rIn * rIn
         let rOut2 = rOut * rOut
         for y in 0..<qy {
@@ -136,7 +140,8 @@ nonisolated enum VirtualDetector {
             for x in 0..<qx {
                 let dx = Float(x) - cx
                 let r2 = dx * dx + dy2
-                if r2 >= rIn2 && r2 < rOut2 { mask[y * qx + x] = 1 }
+                let passesInner = includeInnerBoundary ? r2 >= rIn2 : r2 > rIn2
+                if passesInner && r2 < rOut2 { mask[y * qx + x] = 1 }
             }
         }
     }

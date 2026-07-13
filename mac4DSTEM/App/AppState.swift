@@ -40,6 +40,7 @@ enum PatternDisplayMode: String, CaseIterable, Identifiable {
 }
 
 enum VirtualShapeMode: String, CaseIterable, Identifiable {
+    case circle = "Circle"
     case annulus = "Annulus"
     case rectangle = "Rectangle"
     case point = "Point"
@@ -423,6 +424,7 @@ final class AppState {
             if let qx0 = pc.qx0Mean, let qy0 = pc.qy0Mean {
                 aperture.centerX = Float(qy0)
                 aperture.centerY = Float(qx0)
+                calibration.originProvenance = .fileMean
             }
             // Auto-fill the ACOM Q scale (Å⁻¹/px) when the units are convertible.
             if let q = pc.qSize, q > 0 {
@@ -519,6 +521,9 @@ final class AppState {
     /// image continuously (coalesced, quiet — no status/busy churn).
     func updateAperture(_ newAperture: Aperture) {
         activePane = .diffraction
+        if newAperture.centerX != aperture.centerX || newAperture.centerY != aperture.centerY {
+            calibration.originProvenance = .manual
+        }
         aperture = newAperture
         scheduleLiveVirtualDetector()
     }
@@ -626,10 +631,9 @@ final class AppState {
         guard let descriptor else { return }
         let qMax = Float(min(descriptor.qx, descriptor.qy)) / 2
         if let radii = preset.radii(maxRadius: qMax) {
-            aperture.centerX = Float(descriptor.qx) / 2
-            aperture.centerY = Float(descriptor.qy) / 2
             aperture.inner = radii.inner
             aperture.outer = radii.outer
+            virtualShape = preset == .brightField ? .circle : .annulus
         }
         if analysisMode != .virtualDetector { analysisMode = .virtualDetector }
         Task { await runVirtualDetector() }
@@ -654,6 +658,10 @@ final class AppState {
             let cube = try await fourD.cubeBuffer()
             let image = try await Task.detached(priority: .userInitiated) { () throws -> FloatImage in
                 switch shapeMode {
+                case .circle:
+                    let shape = DetectorShape.circle(
+                        centerX: ap.centerX, centerY: ap.centerY, radius: ap.outer)
+                    return try VirtualDetector.image(cube: cube, descriptor: d, shape: shape)
                 case .annulus:
                     return try VirtualDetector.run(cube: cube, descriptor: d, aperture: ap)
                 case .rectangle:
@@ -740,6 +748,7 @@ final class AppState {
             if let origin = calibration.meanOrigin {
                 aperture.centerX = origin.x
                 aperture.centerY = origin.y
+                calibration.originProvenance = .fitted
             }
             let rms = result.origin.rmsResidual
             statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",

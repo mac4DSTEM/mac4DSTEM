@@ -22,6 +22,7 @@ struct ApertureControl: View {
 
             ZStack {
                 switch shape {
+                case .circle:    circle(center: center, scaleX: scaleX, scaleY: scaleY, radiusScale: radiusScale)
                 case .annulus:   annulus(center: center, scaleX: scaleX, scaleY: scaleY, radiusScale: radiusScale)
                 case .rectangle: rectangle(center: center, scaleX: scaleX, scaleY: scaleY, radiusScale: radiusScale)
                 case .point:     point(center: center, scaleX: scaleX, scaleY: scaleY)
@@ -32,6 +33,19 @@ struct ApertureControl: View {
     }
 
     // MARK: Shapes
+
+    @ViewBuilder
+    private func circle(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, radiusScale: CGFloat) -> some View {
+        let outer = CGFloat(aperture.outer) * radiusScale
+        Circle()
+            .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+            .frame(width: outer * 2, height: outer * 2)
+            .position(center)
+        centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
+        handle(color: .yellow)
+            .position(x: center.x + outer, y: center.y)
+            .gesture(circleRadiusDrag(center: center, scale: radiusScale))
+    }
 
     @ViewBuilder
     private func annulus(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, radiusScale: CGFloat) -> some View {
@@ -138,6 +152,18 @@ struct ApertureControl: View {
                 } else {
                     updated.outer = max(updated.inner, radius)
                 }
+                onEdited(updated)
+            }
+            .onEnded { _ in onCommit() }
+    }
+
+    private func circleRadiusDrag(center: CGPoint, scale: CGFloat) -> some Gesture {
+        DragGesture(coordinateSpace: .local)
+            .onChanged { value in
+                let dx = value.location.x - center.x
+                let dy = value.location.y - center.y
+                var updated = aperture
+                updated.outer = max(1, Float(hypot(dx, dy) / scale))
                 onEdited(updated)
             }
             .onEnded { _ in onCommit() }

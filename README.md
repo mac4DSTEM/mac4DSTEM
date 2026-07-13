@@ -16,6 +16,7 @@ The app is being built by **migrating features in small, buildable slices** from
 
 **Data & display (Slice 1)**
 - Open HDF5 (`.h5` / `.hdf5` / `.emd`) 4D-STEM files. The datacube is auto-discovered across common py4DSTEM / Gatan (`dm_dataset_root`) / HyperSpy path layouts; a manual dataset-path override is available.
+- Open Gatan DM3/DM4 datacubes directly, including dimension and pixel-size metadata where present.
 - HDF5 is loaded at runtime via `dlopen`/`dlsym` (no link-time dependency) — see [HDF5 notes](#hdf5).
 - Live CBED (diffraction) viewer, GPU-rendered through a Metal display pipeline with colormap LUTs (Viridis / Inferno / Gray / RdBu) and optional log scaling.
 - Scan-position scrubbing (X/Y sliders), dataset inspector with shape/dtype/chunking/voltage metadata.
@@ -26,6 +27,7 @@ The app is being built by **migrating features in small, buildable slices** from
 
 **Calibration (Slice 3)**
 - **Origin calibration** (py4DSTEM `get_probe_size` → `get_origin` → `fit_origin`): estimates the probe radius from the max diffraction pattern, measures the unscattered-beam position per scan point on the GPU, and fits a smooth origin map (constant / plane / parabola). Reports probe radius and fit RMS residual.
+- The Calibration panel shows whether the aperture center is a geometric default, a py4DSTEM file-provided mean, a fit performed in the app, or a manual override.
 - **R–Q rotation calibration**: solves for the scan↔detector rotation (and detector transpose) by minimizing the curl of the center-of-mass field. Runs origin calibration first if needed.
 - **Diffraction statistics**: max and mean patterns over the whole cube, selectable as CBED display modes.
 
@@ -115,11 +117,13 @@ Migration slices, in order:
 
 **The five migration slices plus strain mapping are complete** — the py4DSTEM core-analysis path (I/O → virtual imaging → calibration → DPC → disk detection → strain) is in place.
 
+**Current focus:** continue numeric parity with py4DSTEM one workflow at a time. Virtual-detector imaging is now covered by a source-locked Metal parity harness; per-position origin-map import is next.
+
 Still ahead (each its own focused effort):
 
 - **ACOM refinements** — fundamental-zone (symmetry-reduced) zone-axis sampling to resolve high-symmetry ambiguity, IPF-colored orientation maps, automatic Q-calibration, and measured-probe templates. (The core crystal model + orientation matching is in place.)
 - **Parallax / ptychography** — iterative phase reconstruction, where **MLX** is introduced for GPU-batched FFTs and solvers. Multi-session.
-- **Broader readers** (DM4/MIB/EMPAD), EMD-compatible export.
+- **Broader readers** (MIB/EMPAD) and EMD-compatible export; DM3/DM4 direct reading is already implemented.
 - **Distribution milestone** — HDF5 bundling + App Sandbox + notarization.
 - An **open-issues pass** and a dedicated **UI/UX refinement** cycle.
 
@@ -154,8 +158,7 @@ Still ahead (each its own focused effort):
 
 - **Whole-cube analyses require the cube to fit in the GPU working-set budget.** Virtual detector, calibration, and DPC stream the full cube into one MTLBuffer; datasets beyond ~half the GPU budget throw a friendly "try a smaller crop" error. Out-of-core tiling is planned.
 - **Cube is expanded to float32.** Rows now stream directly into a page-aligned allocation handed to Metal via `bytesNoCopy` (the former duplicate-copy peak is gone), but native-dtype residency (e.g. uint16) would still halve memory for integer data.
-- **No automated test suite yet.** The active test plan currently has no tests. Ports are validated by numeric checks during development and comparison with py4DSTEM; a golden-value harness against py4DSTEM outputs is needed.
-- **DM4 reader has Swift concurrency warnings.** Current Swift 5 builds succeed, but Xcode reports warnings in `DM4Reader` that become errors in Swift 6 language mode.
+- **No Xcode test target yet.** Standalone harnesses cover calibration import and virtual-detector parity, but the remaining scientific workflows still need golden-value comparisons against py4DSTEM.
 - **`AppState` is a large workflow coordinator.** It currently owns UI state, file I/O orchestration, calibration, analysis dispatch, result state, and progress reporting; this is becoming a maintainability and coupling risk.
 - **Long-running analyses are not cancellable.** They now carry a dataset-generation epoch, so results from a previously-open file are dropped instead of landing in the new file's state — but a running pass still cannot be stopped mid-flight.
 - **Calibration metadata propagation is partial.** DM4 pixel sizes/units now populate `Calibration` (scale bars + ACOM scale use them; manual entry covers HDF5), but colorbars and persistence of calibration are still missing.
@@ -171,8 +174,10 @@ Still ahead (each its own focused effort):
 - **R-Q rotation has an inherent 180° ambiguity.** The curl/divergence metric is unchanged by flipping both CoM components. If iDPC contrast comes out inverted, use the **Flip 180°** button in the Calibration section.
 - Bundle identifier is still a development placeholder.
 
-### Fixed (2026-07-06 pass)
+### Fixed / completed
 
+- Virtual-detector parity harness (`tools/virtual-detector-test/run.sh`) exercises the production mask builder and Metal kernels on a non-square synthetic cube. Annulus, circle, rectangle, point, edge and exact-boundary cases match source-locked py4DSTEM results with zero error. This exposed and fixed the annulus inner boundary (`rIn² < r² < rOut²`, both strict); BF now uses a true circle so it retains the center pixel.
+- Origin provenance is explicit and visible: geometric default, file-provided `qx0_mean`/`qy0_mean`, fitted in-app, or manually moved aperture center. BF/ADF/HAADF presets change radii without discarding that center.
 - DM4 `ByteReader` is now bounds-checked end-to-end — malformed/truncated files throw `truncated` instead of crashing; tag counts are sanity-capped.
 - Rank-3 HDF5 datasets now read correctly (hyperslab selection matches the file's real rank).
 - Stale-result guard: analyses capture a dataset epoch and drop results if a different dataset was activated mid-run.
@@ -201,7 +206,7 @@ Still open:
 - **Virtual diffraction** — a grid-snapped region tool on the real-space image that sums the selected positions' patterns into the CBED pane (reciprocal of virtual imaging), plus **active-pane** focus that scopes the tools panel to the clicked pane. In progress.
 - **Per-view histogram draggable contrast**: min/max range slider is done (real-space view); gamma and a CBED-side window are still open.
 - ~~Scale bars with units~~ — done (zoom-aware 1-2-5 bars, px fallback). **Colorbars** (numeric color ↔ value legend) still open; mrad diffraction units (needs voltage) still open.
-- **Preprocessing / import** — no `.dm4` (or other raw TEM formats) support yet. A future import pipeline reads a raw `.dm4` from the microscope and writes a working `.h5`, with an **automatic calibration** step (origin, rotation, pixel sizes) and a **manual** override path when wanted — mirroring py4DSTEM's calibrate-and-export flow (kept separate from the main analysis UI). The DM4 binary format is fully specced and verified in [`docs/dm4-format.md`](docs/dm4-format.md), ready to implement.
+- **Preprocessing / import** — direct DM3/DM4 reading is implemented. Still missing is a preprocessing workflow that reads raw microscope data, performs **automatic calibration** (with manual overrides), and writes a canonical calibrated `.h5`, mirroring py4DSTEM's calibrate-and-export flow. The verified format notes live in [`docs/dm4-format.md`](docs/dm4-format.md).
 - **Results persistence + file tree** — save calibration, Bragg vectors, and result maps/plots into a companion sidecar `.h5` next to the original (never modifying the source), with load-on-reopen. The inspector's **bottom-right file tree** shows where things are stored (virtual images, disk detection, calibrations) so it's clear what's already been computed.
 - **Performance panel** (inspector, above the file tree) — live view of active processes, memory occupied, iterations/second, and a progress bar highlighting the running operation.
 - ~~Histogram range slider~~ and ~~DP mean/max in the tools panel~~ — done (see Fixed list below).
