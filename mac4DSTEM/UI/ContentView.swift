@@ -17,80 +17,52 @@ struct ContentView: View {
             UTType(filenameExtension: "dm3"),
             UTType(filenameExtension: "mib"),
             UTType(filenameExtension: "raw"),
-            UTType(filenameExtension: "xml"),
-            .data
+            UTType(filenameExtension: "xml")
         ].compactMap { $0 }
     }
 
     var body: some View {
         @Bindable var appState = appState
-        // The analysis-mode switcher lives in the toolbar (always visible), so
-        // the sidebar is free to hold just the active mode's controls — and can
-        // now be hidden without losing mode switching.
         return NavigationSplitView(columnVisibility: Binding(
             get: { appState.showToolsPane ? .all : .detailOnly },
             set: { appState.showToolsPane = $0 != .detailOnly }
         )) {
             List {
-                Section("File") {
-                    Button {
-                        appState.requestOpenDataset()
-                    } label: {
-                        Label("Open Dataset…", systemImage: "folder")
+                if let descriptor = appState.descriptor, descriptor.is4D {
+                    Section {
+                        datasetCard(descriptor)
                     }
-                    if appState.hasDataset {
-                        Button {
-                            showPreprocessingExport = true
-                        } label: {
-                            Label("Preprocess & Export…", systemImage: "shippingbox")
+
+                    Section("Workspace") {
+                        ForEach(WorkspaceArea.allCases) { area in
+                            workspaceButton(area)
                         }
-                        .disabled(appState.isBusy)
-                        Menu {
-                            Button("Result Image as PNG…") { appState.exportResultImage() }
-                            Button("Save Current Result to Session Sidecar") {
-                                appState.saveCurrentResultToSessionSidecar()
+                    }
+
+                    if !appState.workspaceArea.analysisModes.isEmpty {
+                        Section("Task") {
+                            ForEach(appState.workspaceArea.analysisModes) { mode in
+                                taskButton(mode)
                             }
-                            .disabled((appState.resultImage == nil && appState.resultRGBA == nil)
-                                      || appState.isBusy)
-                            Button("Save Calibration to Session Sidecar") {
-                                appState.saveCalibrationToSessionSidecar()
-                            }
-                            .disabled(appState.isBusy)
-                            Divider()
-                            Button("Diffraction Pattern as PNG…") { appState.exportDiffractionImage() }
-                            Button("Bragg Peaks as CSV…") { appState.exportBraggPeaksCSV() }
-                                .disabled(appState.braggVectors == nil)
-                            Button("py4DSTEM BraggVectors Sidecar…") {
-                                appState.exportBraggVectorsEMD()
-                            }
-                            .disabled(appState.braggVectors == nil || appState.isBusy)
-                        } label: {
-                            Label("Export", systemImage: "square.and.arrow.up")
+                            taskReadiness(appState.analysisMode)
                         }
                     }
                 }
 
-                if let descriptor = appState.descriptor, descriptor.is4D {
-                    Section("Workflow") {
-                        workflowRow("Open", detail: descriptor.fileName, complete: true)
-                        workflowRow(
-                            "Calibrate",
-                            detail: appState.calibrationReadiness.isReady
-                                ? "Ready" : "\(appState.calibrationReadiness.missingItems.count) items missing",
-                            complete: appState.calibrationReadiness.isReady
-                        )
-                        workflowRow(
-                            "Analyze", detail: appState.analysisMode.rawValue,
-                            complete: appState.resultImage != nil || appState.resultRGBA != nil
-                        )
-                        workflowRow(
-                            "Save / reopen",
-                            detail: appState.sessionInventory.hasSidecar ? "Session sidecar found" : "Not saved yet",
-                            complete: appState.sessionInventory.hasSidecar
-                        )
+                if !appState.hasDataset {
+                    Section("Dataset") {
+                    Button {
+                        appState.requestOpenDataset()
+                    } label: {
+                        Label(appState.hasDataset ? "Open Another…" : "Open Dataset…",
+                              systemImage: "folder")
                     }
+                    }
+                }
 
-                    Section("Scan position") {
+                if let descriptor = appState.descriptor, descriptor.is4D {
+                    if appState.workspaceArea == .prepare || appState.workspaceArea == .image {
+                        Section("Scan position") {
                         scanSlider(label: "X", value: appState.selectedScan.x,
                                    count: descriptor.rx) { x in
                             appState.selectScan(x: x, y: appState.selectedScan.y)
@@ -99,20 +71,31 @@ struct ContentView: View {
                                    count: descriptor.ry) { y in
                             appState.selectScan(x: appState.selectedScan.x, y: y)
                         }
+                        }
                     }
 
-                    Section("Display") {
-                        Toggle("Log scale", isOn: $appState.logScale)
-                        Picker("Colormap", selection: $appState.colormap) {
+                    if appState.workspaceArea != .results {
+                        Section("Display") {
+                        Toggle("Log diffraction", isOn: $appState.logScale)
+                        Picker("Diffraction", selection: $appState.patternColormap) {
                             ForEach(ColormapKind.allCases) { kind in
                                 Text(kind.displayName).tag(kind)
                             }
+                        }
+                        if appState.resultImage != nil {
+                            Picker("Result", selection: $appState.resultColormap) {
+                            ForEach(ColormapKind.allCases) { kind in
+                                Text(kind.displayName).tag(kind)
+                            }
+                            }
+                        }
                         }
                     }
 
                     // CBED pattern source (current / mean / max) lives here when
                     // the diffraction pane is the active (blue) one.
-                    if appState.activePane == .diffraction {
+                    if (appState.workspaceArea == .prepare || appState.workspaceArea == .image)
+                        && appState.activePane == .diffraction {
                         Section("Pattern") {
                             if appState.meanPattern != nil {
                                 Picker("Show", selection: $appState.patternDisplayMode) {
@@ -134,7 +117,8 @@ struct ContentView: View {
                         }
                     }
 
-                    Section("Calibration") {
+                    if appState.workspaceArea == .prepare {
+                        Section("Calibration") {
                         LabeledContent("Aperture center",
                                        value: appState.calibration.originProvenance.displayName)
                             .font(.caption)
@@ -180,7 +164,8 @@ struct ContentView: View {
                             }
                                 .help("The curl method can't tell θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
                         }
-                        VStack(alignment: .leading, spacing: 4) {
+                        DisclosureGroup("Advanced ellipse correction") {
+                            VStack(alignment: .leading, spacing: 4) {
                             Text("Ellipse fit annulus").font(.caption)
                             HStack {
                                 TextField(
@@ -197,15 +182,15 @@ struct ContentView: View {
                                 Text("px").font(.caption2).foregroundStyle(.secondary)
                             }
                             .textFieldStyle(.roundedBorder)
-                        }
-                        Button {
+                            }
+                            Button {
                             Task { await appState.calibrateEllipse() }
                         } label: {
                             Label("Fit Ellipse", systemImage: "oval")
                         }
                         .disabled(appState.isBusy)
                         .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
-                        if appState.calibration.hasEllipse,
+                            if appState.calibration.hasEllipse,
                            let a = appState.calibration.ellipseA,
                            let b = appState.calibration.ellipseB,
                            let theta = appState.calibration.ellipseTheta {
@@ -241,6 +226,7 @@ struct ContentView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            }
                         }
 
                         // Pixel sizes: auto-filled from DM4 metadata, editable
@@ -256,9 +242,10 @@ struct ContentView: View {
                                        units: appState.calibration.qPixelUnits,
                                        defaultUnits: "1/nm",
                                        onChange: appState.setManualQPixelSize)
+                        }
                     }
 
-                    if appState.analysisMode == .virtualDetector {
+                    if appState.workspaceArea == .image && appState.analysisMode == .virtualDetector {
                         if appState.activePane == .diffraction {
                             Section("Detector → real space") {
                                 Picker("Shape", selection: $appState.virtualShape) {
@@ -300,7 +287,7 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.analysisMode == .dpc {
+                    if appState.workspaceArea == .image && appState.analysisMode == .dpc {
                         Section("DPC") {
                             Picker("Display", selection: $appState.dpcDisplay) {
                                 ForEach(DPCDisplayMode.allCases) { mode in
@@ -354,7 +341,7 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.analysisMode == .disks {
+                    if appState.workspaceArea == .map && appState.analysisMode == .disks {
                         Section("Disk detection") {
                             Button {
                                 Task { await appState.generateProbeKernel() }
@@ -402,7 +389,7 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.analysisMode == .strain {
+                    if appState.workspaceArea == .map && appState.analysisMode == .strain {
                         Section("Strain") {
                             Picker("Reference", selection: $appState.strainReferenceMode) {
                                 ForEach(StrainReferenceMode.allCases) { mode in
@@ -446,7 +433,7 @@ struct ContentView: View {
                             }
                             .disabled(appState.isBusy || appState.braggVectors == nil)
                             if appState.braggVectors == nil {
-                                Text("Detect Bragg disks first (Disks mode → Detect All Disks).")
+                                Text("Detect Bragg disks first (Map → Bragg disks).")
                                     .font(.caption2).foregroundStyle(.secondary)
                             }
                             if appState.strainMap != nil {
@@ -495,9 +482,10 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.analysisMode == .ptychography {
-                        Section("Advanced · Parallax / ptychography") {
-                            Text("Builds py4DSTEM's normalized virtual bright-field stack, aligns it, and can publish a sampling-limited KDE reconstruction.")
+                    if appState.workspaceArea == .reconstruct && appState.analysisMode == .ptychography {
+                        Section("Reconstruction workflow") {
+                            reconstructionProgress
+                            Text("Start with a calibrated preview and alignment. Open single-slice ptychography only when you need iterative object/probe recovery.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
 
@@ -515,7 +503,7 @@ struct ContentView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            GroupBox("Single-slice ptychography") {
+                            DisclosureGroup("Single-slice ptychography") {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Picker("Method", selection: $appState.ptychographyMethod) {
                                         ForEach(SingleslicePtychographyMethod.allCases) { method in
@@ -769,6 +757,8 @@ struct ContentView: View {
                             }
 
                             if let preview = appState.parallaxPreprocess {
+                                DisclosureGroup("Run details") {
+                                    VStack(alignment: .leading, spacing: 5) {
                                 LabeledContent("BF detector pixels",
                                                value: "\(preview.brightFieldPixelCount)")
                                     .font(.caption)
@@ -930,6 +920,8 @@ struct ContentView: View {
                                         }
                                     }
                                 }
+                                    }
+                                }
                             } else {
                                 Text("Requires a calibrated origin, R–Q rotation, Q/R pixel sizes, and accelerating voltage. Missing values are rejected rather than guessed.")
                                     .font(.caption2)
@@ -938,7 +930,7 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.analysisMode == .acom {
+                    if appState.workspaceArea == .map && appState.analysisMode == .acom {
                         Section("ACOM (orientation)") {
                             Picker("Crystal", selection: $appState.acomCrystal) {
                                 ForEach(CrystalChoice.allCases) { choice in
@@ -964,36 +956,101 @@ struct ContentView: View {
                                         .frame(width: 80)
                                 }
                             }
-                            Button {
-                                Task { await appState.generateOrientationPlan() }
-                            } label: {
-                                Label("Generate Plan", systemImage: "cube.transparent")
+                            Picker("Quality", selection: $appState.acomQuality) {
+                                ForEach(ACOMQualityPreset.allCases) { quality in
+                                    Text(quality.rawValue).tag(quality)
+                                }
                             }
-                            .disabled(appState.isBusy)
-                            if appState.hasOrientationPlan, let plan = appState.orientationPlan {
-                                LabeledContent("Templates", value: "\(plan.count)").font(.caption)
+                            Text(appState.acomQuality.detail)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+
+                            Picker("Area", selection: $appState.acomScope) {
+                                ForEach(ACOMRunScope.allCases) { scope in
+                                    Text(scope.rawValue).tag(scope)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .accessibilityIdentifier("acom.scope")
+
+                            if appState.acomScope == .selectedRegion,
+                               let descriptor = appState.descriptor {
+                                Stepper(
+                                    "Center X  \(appState.selectedScan.x)",
+                                    value: Binding(
+                                        get: { appState.selectedScan.x },
+                                        set: { appState.selectScan(
+                                            x: $0, y: appState.selectedScan.y
+                                        ) }
+                                    ),
+                                    in: 0...max(0, descriptor.rx - 1)
+                                )
+                                Stepper(
+                                    "Center Y  \(appState.selectedScan.y)",
+                                    value: Binding(
+                                        get: { appState.selectedScan.y },
+                                        set: { appState.selectScan(
+                                            x: appState.selectedScan.x, y: $0
+                                        ) }
+                                    ),
+                                    in: 0...max(0, descriptor.ry - 1)
+                                )
+                                Stepper(
+                                    "Half-size  \(appState.acomRegionRadius) px",
+                                    value: $appState.acomRegionRadius,
+                                    in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
+                                )
+                                Text("The orange square on the map is matched at full spatial resolution.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            } else if appState.acomScope == .preview {
+                                Text("Samples at most 32 × 32 positions, then expands the coarse blocks for a rapid whole-field check.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
                             }
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(String(format: "Å⁻¹ / pixel  %.4f", appState.acomScale)).font(.caption)
-                                Slider(value: $appState.acomScale, in: 0.001...0.05)
-                            }
-                            Button {
-                                Task { await appState.calibrateQFromCrystal() }
-                            } label: {
-                                Label("Calibrate Q from Crystal", systemImage: "ruler")
-                            }
-                            .disabled(appState.isBusy || appState.braggVectors == nil)
-                            .help("Uses the median innermost detected Bragg radius and the selected crystal's first allowed reflection.")
+                            LabeledContent("Work", value: appState.acomWorkSummary)
+                                .font(.caption)
+                            LabeledContent("Expected", value: appState.acomEstimatedDurationText)
+                                .font(.caption)
 
-                            Button {
-                                Task { await appState.runACOM() }
-                            } label: {
-                                Label("Run ACOM", systemImage: "circle.grid.cross")
+                            DisclosureGroup("Engine & Q calibration") {
+                                Picker("Engine", selection: $appState.acomBackend) {
+                                    ForEach(ACOMMatchingBackend.allCases) { backend in
+                                        Text(backend.rawValue).tag(backend)
+                                    }
+                                }
+                                LabeledContent(
+                                    "Will use", value: appState.effectiveACOMBackend.rawValue
+                                )
+                                .font(.caption)
+                                if appState.acomBackend == .automatic {
+                                    Text("Automatic uses the fastest backend verified on the real-data benchmark, currently Accelerate CPU.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(String(format: "Å⁻¹ / pixel  %.4f", appState.acomScale))
+                                        .font(.caption)
+                                    Slider(value: $appState.acomScale, in: 0.001...0.05)
+                                }
+                                Button {
+                                    Task { await appState.calibrateQFromCrystal() }
+                                } label: {
+                                    Label("Calibrate Q from Crystal", systemImage: "ruler")
+                                }
+                                .disabled(appState.isBusy || appState.braggVectors == nil)
+                                .help("Uses the median innermost detected Bragg radius and the selected crystal's first allowed reflection.")
+                                if appState.hasOrientationPlan,
+                                   let plan = appState.orientationPlan {
+                                    LabeledContent("Cached plan", value: "\(plan.count) templates")
+                                        .font(.caption)
+                                }
                             }
-                            .disabled(appState.isBusy || appState.braggVectors == nil)
+
                             if appState.braggVectors == nil {
-                                Text("Detect Bragg disks first (Disks → Detect All Disks).")
+                                Text("Detect Bragg disks first (Map → Bragg disks).")
                                     .font(.caption2).foregroundStyle(.secondary)
                             }
                             if appState.hasOrientationMap {
@@ -1021,11 +1078,20 @@ struct ContentView: View {
                     }
                 }
             }
+            .listStyle(.sidebar)
             .navigationTitle("mac4DSTEM")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 300)
+            .navigationSplitViewColumnWidth(min: 250, ideal: 292, max: 340)
             .toolbar(removing: .sidebarToggle)
         } detail: {
-            HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if appState.hasDataset {
+                    ProductWorkspaceHeader()
+                }
+
+                if appState.hasDataset && appState.workspaceArea == .results {
+                    ResultsWorkspace()
+                } else {
+                    HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     Group {
                         if appState.hasDataset {
@@ -1047,54 +1113,7 @@ struct ContentView: View {
                                 handleArrowKey(press)
                             }
                         } else {
-                            VStack(spacing: 16) {
-                                Image(systemName: "circle.grid.cross")
-                                    .font(.system(size: 42, weight: .light))
-                                    .foregroundStyle(.tint)
-                                    .accessibilityHidden(true)
-                                Text("mac4DSTEM").font(.largeTitle)
-                                Text("Open a 4D-STEM dataset, calibrate it, then build reproducible maps in a native Mac workspace.")
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: 520)
-                                HStack {
-                                    Button("Open Dataset…") { appState.requestOpenDataset() }
-                                        .buttonStyle(.borderedProminent)
-                                        .keyboardShortcut(.defaultAction)
-                                    if appState.recoveryRecord != nil {
-                                        Button("Reopen Last Dataset") { appState.reopenLastDataset() }
-                                            .buttonStyle(.bordered)
-                                    }
-                                }
-                                if !appState.recentDatasets.isEmpty {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Recent datasets").font(.headline)
-                                        ForEach(appState.recentDatasets.prefix(6)) { recent in
-                                            HStack {
-                                                Button { appState.openRecent(recent) } label: {
-                                                    Label(recent.displayName, systemImage: "clock.arrow.circlepath")
-                                                        .lineLimit(1)
-                                                }
-                                                .buttonStyle(.plain)
-                                                .accessibilityHint("Reopens this dataset and its session sidecar")
-                                                Spacer()
-                                                Button { appState.removeRecent(recent) } label: {
-                                                    Image(systemName: "xmark.circle")
-                                                }
-                                                .buttonStyle(.borderless)
-                                                .help("Remove from Recents")
-                                                .accessibilityLabel("Remove \(recent.displayName) from Recents")
-                                            }
-                                        }
-                                    }
-                                    .frame(width: 420)
-                                    .padding()
-                                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
-                                }
-                                Text(appState.statusText).font(.caption).foregroundStyle(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding()
+                            WelcomeWorkspace()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1118,11 +1137,14 @@ struct ContentView: View {
                         .frame(width: 300)
                         .background(.background)
                 }
+                    }
+                }
             }
             .safeAreaInset(edge: .bottom) {
                 Text(appState.statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("status.bar")
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -1136,36 +1158,25 @@ struct ContentView: View {
                     }
                     .help("Show or hide the tools panel")
                 }
-                ToolbarItem(placement: .principal) {
-                    Picker("Analysis mode", selection: $appState.analysisMode) {
-                        ForEach(AnalysisMode.allCases) { mode in
-                            Text(mode.pickerName).tag(mode)
+                if appState.workspaceArea != .results {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            appState.showLogPane.toggle()
+                        } label: {
+                            Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
                         }
+                        .help("Show or hide the output log below the image panes")
                     }
-                    .pickerStyle(.segmented)
-                    .fixedSize()
-                    .disabled(!appState.hasDataset)
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        appState.showLogPane.toggle()
-                    } label: {
-                        Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            appState.showInspectorPane.toggle()
+                        } label: {
+                            Label("Toggle inspector", systemImage: "sidebar.trailing")
+                        }
+                        .help("Show or hide the inspector panel")
                     }
-                    .help("Show or hide the output log below the image panes")
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        appState.showInspectorPane.toggle()
-                    } label: {
-                        Label("Toggle inspector", systemImage: "sidebar.trailing")
-                    }
-                    .help("Show or hide the inspector panel")
                 }
             }
-        }
-        .onChange(of: appState.analysisMode) {
-            Task { await appState.runCurrentAnalysis() }
         }
         .onChange(of: appState.virtualShape) {
             appState.commitApertureChange()
@@ -1297,18 +1308,230 @@ struct ContentView: View {
             .allowsHitTesting(false)
     }
 
-    private func workflowRow(_ title: String, detail: String, complete: Bool) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: complete ? "checkmark.circle.fill" : "circle")
+    private func datasetCard(_ descriptor: DatasetDescriptor) -> some View {
+        let readiness = appState.productWorkflowReadiness
+        let coreCalibrated = readiness.hasOriginProbe && readiness.hasRotation
+            && readiness.hasQScale && readiness.hasRScale && readiness.hasVoltage
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 9) {
+                Image(systemName: "circle.grid.cross.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(descriptor.fileName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                    Text("\(descriptor.rx) × \(descriptor.ry) scan  ·  \(descriptor.qx) × \(descriptor.qy) detector")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Menu {
+                    Button("Open Another…") { appState.requestOpenDataset() }
+                    Button("Preprocess & Export…") { showPreprocessingExport = true }
+                        .disabled(appState.isBusy)
+                    Divider()
+                    Button("Save Calibration") {
+                        appState.saveCalibrationToSessionSidecar()
+                    }
+                    .disabled(appState.isBusy)
+                    Button("Export Diffraction PNG…") {
+                        appState.exportDiffractionImage()
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.body)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Dataset actions")
+            }
+
+            HStack(spacing: 6) {
+                Label(
+                    coreCalibrated ? "Core calibrated" : "Calibration incomplete",
+                    systemImage: coreCalibrated
+                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+                )
+                .foregroundStyle(coreCalibrated ? Color.green : Color.orange)
+                Spacer()
+                if !appState.sessionInventory.results.isEmpty {
+                    Text("\(appState.sessionInventory.results.count) saved")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption)
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Dataset \(descriptor.fileName)")
+        .accessibilityIdentifier("dataset.card")
+    }
+
+    private func workspaceButton(_ area: WorkspaceArea) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                appState.selectWorkspace(area)
+            }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: area.systemImage)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 5) {
+                        Text(area.title)
+                            .font(.subheadline.weight(
+                                appState.workspaceArea == area ? .semibold : .regular
+                            ))
+                        if area.isAdvanced {
+                            Text("ADV")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Text(area.subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if area == .results && !appState.sessionInventory.results.isEmpty {
+                    Text("\(appState.sessionInventory.results.count)")
+                        .font(.caption2.monospacedDigit())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.quaternary, in: Capsule())
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(appState.workspaceArea == area ? Color.accentColor : Color.primary)
+        .padding(.vertical, 3)
+        .accessibilityLabel(area.title)
+        .accessibilityIdentifier("workspace.\(area.rawValue)")
+        .accessibilityHint(area.subtitle)
+        .accessibilityAddTraits(appState.workspaceArea == area ? .isSelected : [])
+    }
+
+    private func taskButton(_ mode: AnalysisMode) -> some View {
+        Button {
+            appState.changeMode(mode)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: mode.systemImage)
+                    .frame(width: 20)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(mode.productTitle)
+                        .font(.subheadline.weight(appState.analysisMode == mode ? .semibold : .regular))
+                    Text(mode.productSubtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(appState.analysisMode == mode ? Color.accentColor : Color.primary)
+        .padding(.vertical, 3)
+        .accessibilityLabel(mode.productTitle)
+        .accessibilityIdentifier("task.\(mode.id)")
+        .accessibilityHint(mode.productSubtitle)
+        .accessibilityAddTraits(appState.analysisMode == mode ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private func taskReadiness(_ mode: AnalysisMode) -> some View {
+        let missing = ProductWorkflow.prerequisites(
+            for: mode,
+            readiness: appState.productWorkflowReadiness
+        )
+        let guidance = ProductWorkflow.guidance(
+            for: mode,
+            readiness: appState.productWorkflowReadiness
+        )
+        if missing.isEmpty && guidance.isEmpty {
+            Label("Ready with current dataset", systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+                .padding(.top, 3)
+                .accessibilityLabel("Current task is ready")
+        } else if missing.isEmpty {
+            VStack(alignment: .leading, spacing: 5) {
+                Label("Ready · qualitative output", systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(guidance, id: \.self) { item in
+                    Text(item)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Improve in Prepare") { appState.selectWorkspace(.prepare) }
+                    .font(.caption)
+            }
+            .padding(.top, 3)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(missing, id: \.self) { item in
+                    Label(item, systemImage: "exclamationmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                if missing.contains(where: { $0 != "Detect Bragg disks first" }) {
+                    Button("Go to Prepare") { appState.selectWorkspace(.prepare) }
+                        .font(.caption)
+                } else {
+                    Button("Go to Bragg Disks") {
+                        appState.changeMode(.disks)
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(.top, 3)
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    private var reconstructionProgress: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            reconstructionStep(
+                "1", "Prepare preview",
+                complete: appState.parallaxPreprocess != nil
+            )
+            reconstructionStep(
+                "2", "Align virtual bright-field stack",
+                complete: appState.parallaxAlignment?.isComplete == true
+            )
+            reconstructionStep(
+                "3", "Fit and correct phase",
+                complete: appState.parallaxCorrection != nil
+            )
+            reconstructionStep(
+                "4", "Inspect or reconstruct products",
+                complete: appState.singleslicePtychography != nil
+                    || appState.parallaxSubpixel != nil
+            )
+        }
+        .padding(10)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func reconstructionStep(_ number: String, _ title: String, complete: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle")
                 .foregroundStyle(complete ? Color.green : Color.secondary)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.caption)
-                Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-            }
+            Text(title)
+                .font(.caption)
+            Spacer()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityValue(complete ? "Complete" : "Needs attention")
+        .accessibilityValue(complete ? "Complete" : "Pending")
     }
 
     /// A labelled slider that scrubs one scan axis. `count` is the axis length;

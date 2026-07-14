@@ -1,10 +1,12 @@
 import Foundation
 import simd
 
-nonisolated enum ACOMMatchingBackend: String, Sendable, Equatable {
+nonisolated enum ACOMMatchingBackend: String, Sendable, Equatable, CaseIterable, Identifiable {
     case automatic = "Automatic"
     case cpu = "Accelerate CPU"
     case metal = "Metal GPU"
+
+    var id: String { rawValue }
 }
 
 /// py4DSTEM/orix-compatible Bunge Euler angles in radians. py4DSTEM stores an

@@ -96,8 +96,9 @@ extension AppState {
     }
 
     /// First save uses a standard panel, defaulted beside the source dataset.
-    /// That user action grants sandbox access to the companion; later saves and
-    /// automatic reopen use the stored security-scoped bookmark.
+    /// That user action grants sandbox access to create the companion. The
+    /// bookmark must be made only after atomic publication: Foundation cannot
+    /// bookmark the not-yet-existing URL returned by NSSavePanel.
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
         if let resolved = resolvedSessionSidecarURL(for: descriptor) { return resolved }
         let suggested = BraggVectorEMDWriter.sessionSidecarURL(
@@ -115,14 +116,6 @@ extension AppState {
         }
         _ = url.startAccessingSecurityScopedResource()
         scopedSessionSidecarURL = url
-        do {
-            try storeSessionBookmark(url, for: descriptor)
-        } catch {
-            scopedSessionSidecarURL = nil
-            url.stopAccessingSecurityScopedResource()
-            present(SimpleError("Could not remember access to the session sidecar: \(error.localizedDescription)"))
-            return nil
-        }
         return url
     }
 
@@ -147,8 +140,8 @@ extension AppState {
         if let rgba = resultRGBA {
             cg = Self.cgImage(rgba: rgba.rgba, width: rgba.width, height: rgba.height)
         } else if let image = resultImage {
-            let norm = image.normalized(symmetric: colormap.isDiverging)
-            let bytes = Self.applyColormap(norm, colormap: colormap,
+            let norm = image.normalized(symmetric: resultColormap.isDiverging)
+            let bytes = Self.applyColormap(norm, colormap: resultColormap,
                                            lo: displayRangeLo, hi: displayRangeHi,
                                            gamma: resultGamma)
             cg = Self.cgImage(rgba: bytes, width: image.width, height: image.height)
@@ -160,10 +153,11 @@ extension AppState {
             present(SimpleError("Could not render the result image for export."))
             return
         }
-        let rSize = calibration.rPixelSize
+        let pixel = currentResultPersistenceMetadata
+        let sampling = pixel.column ?? pixel.row
         let final = Self.burnScaleBar(on: cg,
-                                      unitsPerDataPixel: rSize,
-                                      unitLabel: rSize != nil ? (calibration.rPixelUnits ?? "nm") : "px")
+                                      unitsPerDataPixel: sampling,
+                                      unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
         Self.savePNG(final, suggestedName: exportBaseName + "_result.png", state: self)
     }
 
@@ -175,7 +169,7 @@ extension AppState {
             return
         }
         let norm = pattern.normalized(useLog: logScale)
-        let bytes = Self.applyColormap(norm, colormap: colormap,
+        let bytes = Self.applyColormap(norm, colormap: patternColormap,
                                        lo: patternDisplayRangeLo,
                                        hi: patternDisplayRangeHi,
                                        gamma: patternGamma)
@@ -281,11 +275,18 @@ extension AppState {
         guard let descriptor else { return }
         let scalarMap: ScalarResultMap?
         let rgbaMap: RGBAResultMap?
-        let metadata = restoredResultInfo ?? currentScalarResultMetadata
+        let metadata = restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
         if let image = resultImage {
-            let persistence = restoredResultInfo != nil
-                ? (restoredResultPixelInfo ?? (nil, nil, nil, [:]))
-                : currentScalarPersistenceMetadata
+            let persistence: (
+                row: Double?, column: Double?, units: String?, provenance: [String: String]
+            )
+            if restoredResultInfo != nil {
+                persistence = restoredResultPixelInfo ?? (nil, nil, nil, [:])
+            } else if navigationResultInfo != nil {
+                persistence = navigationResultPixelInfo ?? (nil, nil, nil, [:])
+            } else {
+                persistence = currentScalarPersistenceMetadata
+            }
             scalarMap = ScalarResultMap(
                 width: image.width, height: image.height, pixels: image.pixels,
                 kind: metadata.kind, displayName: metadata.displayName,
@@ -352,7 +353,15 @@ extension AppState {
                     guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
                     self.sessionInventory = inventory
                 }
-                self.statusText = "Saved \(metadata.displayName) → \(url.lastPathComponent)"
+                do {
+                    // The writer atomically published the target, so it now
+                    // exists and can safely back a persistent security bookmark.
+                    try self.storeSessionBookmark(url, for: descriptor)
+                    self.statusText = "Saved \(metadata.displayName) → \(url.lastPathComponent)"
+                } catch {
+                    self.statusText = "Saved \(metadata.displayName); choose the sidecar again after relaunch"
+                    self.errorMessage = "The result was saved to \(url.lastPathComponent), but mac4DSTEM could not remember access for a future launch: \(error.localizedDescription)"
+                }
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }
                 self.statusText = "Session sidecar save cancelled"
@@ -639,19 +648,24 @@ extension AppState {
             return (kind, "Strain · \(strainComponent.rawValue)", units)
         case .acom:
             let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
-            let kind: String
+            let baseKind: String
             switch acomDisplay {
-            case .ipfZ:        kind = "acom_ipf_z"
-            case .reliability: kind = "acom_reliability"
+            case .ipfZ:        baseKind = "acom_ipf_z"
+            case .reliability: baseKind = "acom_reliability"
             case .disorientation:
-                kind = "acom_\(orientationMap?.symmetry.rawValue ?? "symmetry")_fz_angle"
-            case .inPlane:     kind = "acom_in_plane"
-            case .phi1:        kind = "acom_phi1"
-            case .Phi:         kind = "acom_Phi"
-            case .phi2:        kind = "acom_phi2"
-            case .score:       kind = "acom_score"
+                baseKind = "acom_\(orientationMap?.symmetry.rawValue ?? "symmetry")_fz_angle"
+            case .inPlane:     baseKind = "acom_in_plane"
+            case .phi1:        baseKind = "acom_phi1"
+            case .Phi:         baseKind = "acom_Phi"
+            case .phi2:        baseKind = "acom_phi2"
+            case .score:       baseKind = "acom_score"
             }
-            return (kind, "ACOM · \(acomDisplay.rawValue)",
+            let scope = acomLastRunScope ?? .fullScan
+            let kind = scope == .fullScan
+                ? baseKind
+                : "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))"
+            let qualifier = scope == .fullScan ? "" : " \(scope.rawValue.lowercased())"
+            return (kind, "ACOM\(qualifier) · \(acomDisplay.rawValue)",
                     angular.contains(acomDisplay) ? "rad" : "dimensionless")
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
@@ -761,7 +775,23 @@ extension AppState {
                     "crystal_symmetry": map.symmetry.rawValue,
                     "matching_backend": map.matchingBackend.rawValue,
                     "template_count": String(map.templateCount),
+                    "quality": (acomLastRunQuality ?? acomQuality).rawValue,
+                    "run_scope": (acomLastRunScope ?? .fullScan).resultQualifier,
+                    "matched_position_count": String(
+                        acomLastMatchedPositionCount ?? map.width * map.height
+                    ),
                     "friedel_angle_period_degrees": "180",
+                ]
+            )
+        }
+        if analysisMode == .disks {
+            return (
+                calibration.qPixelSize, calibration.qPixelSize,
+                calibration.qPixelUnits,
+                [
+                    "analysis_mode": analysisMode.rawValue,
+                    "source_product": "bragg_vector_map",
+                    "coordinate_space": "reciprocal",
                 ]
             )
         }
@@ -858,7 +888,22 @@ extension AppState {
     }
 
     var currentResultValueUnits: String {
-        (restoredResultInfo ?? currentScalarResultMetadata).valueUnits
+        (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).valueUnits
+    }
+
+    var currentResultDisplayName: String {
+        (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).displayName
+    }
+
+    var currentResultKind: String {
+        (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).kind
+    }
+
+    var currentResultPersistenceMetadata:
+        (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        restoredResultPixelInfo
+            ?? navigationResultPixelInfo
+            ?? currentScalarPersistenceMetadata
     }
 
     private var exportBaseName: String {

@@ -26,15 +26,28 @@ struct StemImageView: View {
 
     /// Size of whichever result (scalar or RGBA) is active.
     private var resultSize: (width: Int, height: Int)? {
-        if let r = app.resultRGBA { return (r.width, r.height) }
-        if let r = app.resultImage { return (r.width, r.height) }
+        if let r = app.displayedResultRGBA { return (r.width, r.height) }
+        if let r = app.displayedResultImage { return (r.width, r.height) }
         return nil
+    }
+
+    private var mapsScanPositions: Bool {
+        guard let dims = resultSize, let descriptor = app.descriptor,
+              dims.width == descriptor.rx, dims.height == descriptor.ry else {
+            return false
+        }
+        if app.showsACOMRegionReference { return true }
+        let kind = app.displayedResultKind
+        return kind != "bragg_vector_map"
+            && !kind.hasPrefix("parallax_")
+            && !kind.hasPrefix("ptychography_")
     }
 
     private var header: some View {
         HStack {
-            Text(app.analysisMode.rawValue + " — real space")
+            Text(app.displayedResultName)
                 .font(.headline)
+                .accessibilityIdentifier("result.title")
             Spacer()
             if let r = resultSize {
                 Text("\(r.width) × \(r.height)")
@@ -58,25 +71,30 @@ struct StemImageView: View {
                 ZStack {
                     MetalImageView(pixels: norm,
                                    width: dims.width, height: dims.height,
-                                   contentVersion: app.resultVersion,
-                                   colormap: app.colormap,
+                                   contentVersion: app.displayedResultVersion,
+                                   colormap: app.displayedResultColormap,
                                    zoom: 1, offset: .zero,
-                                   rgba: app.resultRGBA?.rgba,
-                                   displayLo: app.displayRangeLo,
-                                   displayHi: app.displayRangeHi,
-                                   gamma: app.resultGamma)
+                                   rgba: app.displayedResultRGBA?.rgba,
+                                   displayLo: app.displayedResultRangeLo,
+                                   displayHi: app.displayedResultRangeHi,
+                                   gamma: app.displayedResultGamma)
                         .frame(width: box.width, height: box.height)
                         .background(Color.black)
 
                     // Transparent hit layer for click-to-select scan position.
-                    selectionLayer(box: box, imgW: dims.width, imgH: dims.height)
-                        .frame(width: box.width, height: box.height)
+                    if mapsScanPositions {
+                        selectionLayer(box: box, imgW: dims.width, imgH: dims.height)
+                            .frame(width: box.width, height: box.height)
+                    }
 
                     // Crosshair at the current scan position.
-                    crosshair(box: box, imgW: dims.width, imgH: dims.height)
+                    if mapsScanPositions {
+                        crosshair(box: box, imgW: dims.width, imgH: dims.height)
+                    }
 
                     // Region-of-interest for virtual diffraction (sum patterns).
-                    if app.realSpaceShape != .point {
+                    if mapsScanPositions, app.realSpaceShape != .point,
+                       app.realSpaceROIIsRelevant {
                         regionOverlay(box: box, imgW: dims.width, imgH: dims.height)
                             .frame(width: box.width, height: box.height)
                     }
@@ -95,7 +113,7 @@ struct StemImageView: View {
                 .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
 
                 // Direction legend for the DPC color wheel.
-                if app.analysisMode == .dpc, app.dpcDisplay == .colorWheel {
+                if app.displayedResultKind == "dpc_color" {
                     colorWheelLegend
                         .frame(width: 54, height: 54)
                         .padding(10)
@@ -103,7 +121,7 @@ struct StemImageView: View {
                                alignment: .bottomTrailing)
                 }
 
-                if app.analysisMode == .acom, app.acomDisplay == .ipfZ {
+                if app.displayedResultKind == "acom_ipf_z" {
                     Group {
                         if app.orientationMap?.symmetry == .hexagonal {
                             HexagonalIPFLegendView()
@@ -119,26 +137,28 @@ struct StemImageView: View {
                                alignment: .bottomTrailing)
                 }
 
-                if app.resultImage != nil, let range = app.resultDisplayedValueRange {
+                if app.displayedResultImage != nil,
+                   let range = app.resultDisplayedValueRange {
                     ScalarColorbarView(
-                        colormap: app.colormap,
+                        colormap: app.displayedResultColormap,
                         low: range.low,
                         high: range.high,
-                        unitLabel: app.currentResultValueUnits,
-                        gamma: app.resultGamma,
-                        marksZero: app.colormap.isDiverging
+                        unitLabel: app.displayedResultValueUnits,
+                        gamma: app.displayedResultGamma,
+                        marksZero: app.displayedResultColormap.isDiverging
                     )
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity,
                            alignment: .bottomTrailing)
                 }
 
-                // Calibrated scale bar (px fallback), re-quantized with zoom.
-                let rSize = app.calibration.rPixelSize
+                // Coordinate-aware scale bar (px fallback), re-quantized with zoom.
+                let pixel = app.displayedResultPixelMetadata
+                let sampling = pixel.column ?? pixel.row
                 ScaleBarView(
-                    unitsPerPoint: (rSize ?? 1) * Double(dims.width)
+                    unitsPerPoint: (sampling ?? 1) * Double(dims.width)
                         / Double(box.width) / Double(effZoom),
-                    unitLabel: rSize != nil ? (app.calibration.rPixelUnits ?? "nm") : "px")
+                    unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity,
                            alignment: .bottomLeading)
@@ -146,9 +166,14 @@ struct StemImageView: View {
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("\(app.analysisMode.rawValue) real-space result")
-            .accessibilityValue("Selected scan X \(app.selectedScan.x), Y \(app.selectedScan.y); \(dims.width) by \(dims.height) pixels")
-            .accessibilityHint("Use arrow keys to move the selected scan position; Shift moves ten pixels")
+            .accessibilityLabel(app.displayedResultName)
+            .accessibilityIdentifier("result.viewer")
+            .accessibilityValue(mapsScanPositions
+                ? "Selected scan X \(app.selectedScan.x), Y \(app.selectedScan.y); \(dims.width) by \(dims.height) pixels"
+                : "\(dims.width) by \(dims.height) pixels")
+            .accessibilityHint(mapsScanPositions
+                ? "Use arrow keys to move the selected scan position; Shift moves ten pixels"
+                : "Scientific image; scan-position selection is unavailable")
         } else {
             placeholder
         }

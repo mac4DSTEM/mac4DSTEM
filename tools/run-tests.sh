@@ -7,11 +7,21 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 : "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
 export DEVELOPER_DIR
 
-unit_tests() {
-  xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
-    -configuration Debug -destination 'platform=macOS' \
-    CODE_SIGNING_ALLOWED=NO -quiet
-}
+unit_tests() (
+  # Never let an unsigned test build replace the app that Xcode launches from
+  # its normal DerivedData directory. HDF5 is loaded lazily, so overwriting a
+  # running app can otherwise give the process and bundled dylib different code
+  # identities and make macOS reject the library.
+  local work
+  work="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-unit-tests.XXXXXX")"
+  trap 'rm -rf "$work"' EXIT
+
+  LLVM_PROFILE_FILE="$work/default-%p.profraw" \
+    xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
+      -configuration Debug -destination 'platform=macOS' \
+      -derivedDataPath "$work/DerivedData" \
+      CODE_SIGNING_ALLOWED=NO -quiet
+)
 
 run_harnesses() {
   for name in "$@"; do

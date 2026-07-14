@@ -131,6 +131,46 @@ enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum ACOMQualityPreset: String, CaseIterable, Identifiable {
+    case fast = "Fast"
+    case balanced = "Balanced"
+    case best = "Best"
+
+    var id: String { rawValue }
+
+    var templateCount: Int {
+        switch self {
+        case .fast: 96
+        case .balanced: 200
+        case .best: 400
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .fast: "96 templates · rapid screening"
+        case .balanced: "200 templates · recommended"
+        case .best: "400 templates · finest angular sampling"
+        }
+    }
+}
+
+enum ACOMRunScope: String, CaseIterable, Identifiable {
+    case preview = "Preview"
+    case selectedRegion = "Region"
+    case fullScan = "Full scan"
+
+    var id: String { rawValue }
+
+    var resultQualifier: String {
+        switch self {
+        case .preview: "preview"
+        case .selectedRegion: "region"
+        case .fullScan: "full"
+        }
+    }
+}
+
 /// Which image pane the user is currently operating on. Determines which ROI
 /// tools the left panel shows and where interactions are routed.
 enum ActivePane {
@@ -175,12 +215,33 @@ final class AppState {
     var acceleratingVoltage: Double?
 
     var currentPattern: DiffractionPattern?
-    var resultImage: FloatImage?
-    var resultRGBA: RGBAImage?
+    var resultImage: FloatImage? {
+        didSet {
+            navigationResultInfo = nil
+            navigationResultPixelInfo = nil
+        }
+    }
+    var resultRGBA: RGBAImage? {
+        didSet {
+            navigationResultInfo = nil
+            navigationResultPixelInfo = nil
+        }
+    }
+    /// Last structural scan-space image available for positioning regions.
+    /// This is navigation context, not a scientific result: selecting an ACOM
+    /// region must not replace the Bragg map/result that can still be saved.
+    var scanNavigationImage: FloatImage?
+    private(set) var scanNavigationVersion = 0
     /// Set only while `resultImage` is the scalar map restored from the stable
     /// session sidecar. New scientific results clear it at publication.
     @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)?
     @ObservationIgnored var restoredResultPixelInfo:
+        (row: Double?, column: Double?, units: String?, provenance: [String: String])?
+    /// Keeps a visible result correctly named when navigation changes the
+    /// selected task. A new publication clears these fields automatically.
+    @ObservationIgnored var navigationResultInfo:
+        (kind: String, displayName: String, valueUnits: String)?
+    @ObservationIgnored var navigationResultPixelInfo:
         (row: Double?, column: Double?, units: String?, provenance: [String: String])?
     /// Read-only inventory of supported objects in the stable companion file.
     var sessionInventory: SessionSidecarInventory = .empty
@@ -282,6 +343,172 @@ final class AppState {
         didSet { if acomCrystal != oldValue { invalidateACOMPlan() } }
     }
     var acomScale: Double = 0.01           // Å⁻¹ per detector pixel (Q calibration)
+    var acomBackend: ACOMMatchingBackend = .automatic
+    var acomQuality: ACOMQualityPreset = .balanced {
+        didSet { if acomQuality != oldValue { invalidateACOMPlan() } }
+    }
+    var acomScope: ACOMRunScope = .preview {
+        didSet {
+            if acomScope == .selectedRegion {
+                acomRegionSelectionActive = true
+                realSpaceShape = .rectangle
+                realSpaceRadius = Float(acomRegionRadius)
+                Task { await prepareACOMRegionReferenceImage() }
+            } else {
+                acomRegionSelectionActive = false
+            }
+        }
+    }
+    var acomRegionRadius = 24 {
+        didSet {
+            if acomScope == .selectedRegion {
+                acomRegionSelectionActive = true
+                realSpaceRadius = Float(acomRegionRadius)
+            }
+        }
+    }
+    private(set) var acomRegionSelectionActive = false
+    private(set) var acomLastRunScope: ACOMRunScope?
+    private(set) var acomLastRunQuality: ACOMQualityPreset?
+    private(set) var acomLastMatchedPositionCount: Int?
+    private(set) var acomLastPositionsPerSecond: Double?
+    @ObservationIgnored private var acomLastMeasuredTemplateCount: Int?
+    @ObservationIgnored private var acomLastMeasuredBackend: ACOMMatchingBackend?
+
+    /// Automatic is an explicit, inspectable policy rather than a claim that
+    /// the GPU is active. Real-data benchmarking may revise this policy, but
+    /// the UI always names the backend that will actually execute.
+    var effectiveACOMBackend: ACOMMatchingBackend {
+        acomBackend == .automatic ? .cpu : acomBackend
+    }
+
+    var acomBackendSummary: String {
+        acomBackend == .automatic
+            ? "Automatic · \(effectiveACOMBackend.rawValue)"
+            : effectiveACOMBackend.rawValue
+    }
+
+    private var acomScanSelection: ACOMScanSelection {
+        switch acomScope {
+        case .preview:
+            return .preview(maxDimension: 32)
+        case .selectedRegion:
+            return .square(
+                centerX: selectedScan.x, centerY: selectedScan.y,
+                radius: acomRegionRadius
+            )
+        case .fullScan:
+            return .full
+        }
+    }
+
+    var acomWorkPositionCount: Int {
+        guard let descriptor else { return 0 }
+        return acomScanSelection.positionCount(width: descriptor.rx, height: descriptor.ry)
+    }
+
+    var acomWorkSummary: String {
+        "\(acomWorkPositionCount.formatted()) positions × \(acomQuality.templateCount) templates"
+    }
+
+    var acomEstimatedDuration: TimeInterval? {
+        let templates = Double(acomQuality.templateCount)
+        let throughput: Double
+        if let measured = acomLastPositionsPerSecond,
+           let measuredTemplates = acomLastMeasuredTemplateCount,
+           acomLastMeasuredBackend == effectiveACOMBackend {
+            throughput = measured * Double(measuredTemplates) / templates
+        } else if effectiveACOMBackend == .cpu {
+            // Hands-on M3 Release baseline: 1,150 positions/s at 400 templates.
+            throughput = 1_150 * 400 / templates
+        } else {
+            return nil
+        }
+        return Double(acomWorkPositionCount) / max(throughput, 1)
+    }
+
+    var acomEstimatedDurationText: String {
+        guard let seconds = acomEstimatedDuration else {
+            return "Run a preview to measure"
+        }
+        if seconds < 1 { return "under 1 s" }
+        let total = Int(seconds.rounded(.up))
+        return total >= 60
+            ? String(format: "about %d:%02d", total / 60, total % 60)
+            : "about \(total) s"
+    }
+
+    var acomPrimaryActionTitle: String {
+        switch acomScope {
+        case .preview: "Preview Orientation"
+        case .selectedRegion: "Map Selected Region"
+        case .fullScan: "Run Full Orientation Map"
+        }
+    }
+
+    /// The analysis canvas temporarily shows a scan-space reference while a
+    /// region is being positioned. Results still reads the retained scientific
+    /// result, so the Bragg-vector map is never discarded or relabelled.
+    var showsACOMRegionReference: Bool {
+        workspaceArea == .map
+            && analysisMode == .acom
+            && acomScope == .selectedRegion
+            && acomRegionSelectionActive
+            && scanNavigationImage != nil
+    }
+
+    var displayedResultImage: FloatImage? {
+        showsACOMRegionReference ? scanNavigationImage : resultImage
+    }
+
+    var displayedResultRGBA: RGBAImage? {
+        showsACOMRegionReference ? nil : resultRGBA
+    }
+
+    var displayedResultName: String {
+        showsACOMRegionReference
+            ? "Select ACOM region · real-space reference"
+            : currentResultDisplayName
+    }
+
+    var displayedResultKind: String {
+        showsACOMRegionReference ? "acom_region_reference" : currentResultKind
+    }
+
+    var displayedResultValueUnits: String {
+        showsACOMRegionReference ? "intensity" : currentResultValueUnits
+    }
+
+    var displayedResultColormap: ColormapKind {
+        showsACOMRegionReference ? .viridis : resultColormap
+    }
+
+    var displayedResultRangeLo: Float {
+        showsACOMRegionReference ? 0 : displayRangeLo
+    }
+
+    var displayedResultRangeHi: Float {
+        showsACOMRegionReference ? 1 : displayRangeHi
+    }
+
+    var displayedResultGamma: Float {
+        showsACOMRegionReference ? 1 : resultGamma
+    }
+
+    var displayedResultVersion: Int {
+        showsACOMRegionReference ? scanNavigationVersion : resultVersion
+    }
+
+    var displayedResultPixelMetadata:
+        (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        if showsACOMRegionReference {
+            return (
+                calibration.rPixelSize, calibration.rPixelSize,
+                calibration.rPixelUnits, ["display_role": "acom_region_reference"]
+            )
+        }
+        return currentResultPersistenceMetadata
+    }
 
     // Custom (user-defined) cubic crystal for ACOM.
     var customZ: Int = 79 { didSet { if customZ != oldValue { invalidateACOMPlan() } } }
@@ -294,17 +521,23 @@ final class AppState {
 
     private func invalidateACOMPlan() {
         orientationPlan = nil
-        orientationMap = nil
         hasOrientationPlan = false
-        hasOrientationMap = false
     }
 
     var selectedEulerText: String? {
         guard let map = orientationMap,
               selectedScan.x >= 0, selectedScan.x < map.width,
               selectedScan.y >= 0, selectedScan.y < map.height else { return nil }
-        let degrees = map[selectedScan.x, selectedScan.y].euler.degrees
+        let result = map[selectedScan.x, selectedScan.y]
+        guard result.templateIndex >= 0 else { return nil }
+        let degrees = result.euler.degrees
         return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
+    }
+
+    var realSpaceROIIsRelevant: Bool {
+        (analysisMode == .virtualDetector && activePane == .realSpace)
+            || (analysisMode == .strain && strainReferenceMode == .selectedRegion)
+            || (analysisMode == .acom && acomScope == .selectedRegion)
     }
 
     /// The crystal ACOM should use — a preset, or the user-defined cubic cell.
@@ -338,11 +571,13 @@ final class AppState {
     var dpcDisplay: DPCDisplayMode = .magnitude {
         didSet { applyDPCDisplay() }
     }
-    var colormap: ColormapKind = .viridis {
-        didSet {
-            patternVersion &+= 1
-            resultVersion &+= 1
-        }
+    /// CBED and scientific products deliberately own separate color choices.
+    /// A diverging strain map must never recolor the diffraction evidence.
+    var patternColormap: ColormapKind = .viridis {
+        didSet { patternVersion &+= 1 }
+    }
+    var resultColormap: ColormapKind = .viridis {
+        didSet { resultVersion &+= 1 }
     }
     var logScale = true {
         didSet { patternVersion &+= 1 }
@@ -355,6 +590,7 @@ final class AppState {
     var analysisMode: AnalysisMode = .virtualDetector {
         didSet { if analysisMode != oldValue { persistRecoveryPosition() } }
     }
+    var workspaceArea: WorkspaceArea = .prepare
 
     var isBusy = false
     var statusText = "No file loaded" {
@@ -365,7 +601,7 @@ final class AppState {
     /// Rolling log of meaningful status events, shown in the output strip
     /// below the image panes. Progress spam ("… 42 %") is filtered out.
     private(set) var logMessages: [String] = []
-    var showLogPane = true
+    var showLogPane = false
     var showToolsPane = true
     var showInspectorPane = false
     private(set) var openDatasetRequest = 0
@@ -377,6 +613,20 @@ final class AppState {
     var calibrationReadiness: CalibrationReadinessReport {
         CalibrationReadinessReport.make(
             calibration: calibration, provenance: calibrationProvenance
+        )
+    }
+
+    var productWorkflowReadiness: ProductWorkflowReadiness {
+        let readyKinds = Set(calibrationReadiness.items.compactMap { item in
+            item.status.isReady ? item.kind : nil
+        })
+        return ProductWorkflowReadiness(
+            hasOriginProbe: readyKinds.contains(.originProbe),
+            hasRotation: readyKinds.contains(.rotation),
+            hasQScale: readyKinds.contains(.qScale),
+            hasRScale: readyKinds.contains(.rScale),
+            hasVoltage: acceleratingVoltage.map { $0.isFinite && $0 > 0 } ?? false,
+            hasBraggVectors: braggVectors != nil
         )
     }
 
@@ -409,12 +659,12 @@ final class AppState {
 
     /// Raw-value endpoints currently assigned to the scalar result colorbar.
     var resultDisplayedValueRange: (low: Double, high: Double)? {
-        guard let image = resultImage else { return nil }
+        guard let image = displayedResultImage else { return nil }
         let (rawLow, rawHigh) = image.minMax
         guard rawLow.isFinite, rawHigh.isFinite else { return nil }
         let baseLow: Double
         let baseHigh: Double
-        if colormap.isDiverging {
+        if displayedResultColormap.isDiverging {
             let magnitude = Double(max(abs(rawLow), abs(rawHigh)))
             baseLow = -magnitude
             baseHigh = magnitude
@@ -423,8 +673,8 @@ final class AppState {
             baseHigh = Double(rawHigh)
         }
         let span = baseHigh - baseLow
-        return (baseLow + span * Double(displayRangeLo),
-                baseLow + span * Double(displayRangeHi))
+        return (baseLow + span * Double(displayedResultRangeLo),
+                baseLow + span * Double(displayedResultRangeHi))
     }
 
     /// Raw intensity endpoints currently assigned to the CBED colorbar. When
@@ -506,7 +756,8 @@ final class AppState {
     // than content changes, and normalization is O(pixels) + an allocation.
     // Keyed on the version counters, so texture and cache invalidate together.
     @ObservationIgnored private var patternNormCache: (version: Int, log: Bool, pixels: [Float])?
-    @ObservationIgnored private var resultNormCache: (version: Int, symmetric: Bool, pixels: [Float])?
+    @ObservationIgnored private var resultNormCache:
+        (version: Int, regionReference: Bool, symmetric: Bool, pixels: [Float])?
 
     /// Display-normalized pixels of `displayedPattern`, cached per patternVersion.
     func normalizedPatternPixels() -> [Float] {
@@ -519,15 +770,19 @@ final class AppState {
         return pixels
     }
 
-    /// Display-normalized pixels of `resultImage`, cached per resultVersion.
+    /// Display-normalized pixels of the active analysis canvas, cached per
+    /// scientific-result or region-reference version.
     func normalizedResultPixels() -> [Float] {
-        guard let image = resultImage else { return [] }
-        let symmetric = colormap.isDiverging
-        if let c = resultNormCache, c.version == resultVersion, c.symmetric == symmetric {
+        guard let image = displayedResultImage else { return [] }
+        let regionReference = showsACOMRegionReference
+        let version = displayedResultVersion
+        let symmetric = displayedResultColormap.isDiverging
+        if let c = resultNormCache, c.version == version,
+           c.regionReference == regionReference, c.symmetric == symmetric {
             return c.pixels
         }
         let pixels = image.normalized(symmetric: symmetric)
-        resultNormCache = (resultVersion, symmetric, pixels)
+        resultNormCache = (version, regionReference, symmetric, pixels)
         return pixels
     }
 
@@ -552,11 +807,90 @@ final class AppState {
 
     func changeMode(_ mode: AnalysisMode) {
         guard mode.isAvailable else { return }
+        if mode != analysisMode,
+           resultImage != nil || resultRGBA != nil,
+           restoredResultInfo == nil,
+           navigationResultInfo == nil {
+            navigationResultInfo = (
+                currentResultKind, currentResultDisplayName, currentResultValueUnits
+            )
+            navigationResultPixelInfo = currentResultPersistenceMetadata
+        }
         analysisMode = mode
+        workspaceArea = mode.workspaceArea
+        if mode == .acom, acomScope == .selectedRegion {
+            acomRegionSelectionActive = true
+            Task { await prepareACOMRegionReferenceImage() }
+        }
+    }
+
+    /// Navigate at the product level without starting scientific work. Whole-
+    /// scan operations are always launched from an explicit action in their
+    /// task panel, so moving around the app is immediate and side-effect free.
+    func selectWorkspace(_ area: WorkspaceArea) {
+        workspaceArea = area
+        if let preferred = area.defaultAnalysisMode,
+           !area.analysisModes.contains(analysisMode) {
+            changeMode(preferred)
+        }
+    }
+
+    /// The prominent, user-facing action for the current workspace. This is
+    /// intentionally separate from `runCurrentAnalysis`, whose legacy contract
+    /// only refreshes lightweight/cached views for some modes.
+    func runPrimaryWorkspaceTask() async {
+        switch workspaceArea {
+        case .prepare:
+            if !calibration.hasFittedOrigin {
+                await calibrateOrigin()
+            } else if !calibration.hasRotation {
+                await calibrateRotation()
+            }
+        case .image:
+            await runCurrentAnalysis()
+        case .map:
+            switch analysisMode {
+            case .disks: await runDiskDetection()
+            case .strain: await runStrainMapping()
+            case .acom: await runACOM()
+            default: break
+            }
+        case .reconstruct:
+            if parallaxPreprocess == nil {
+                await prepareParallaxPreview()
+            } else if parallaxAlignment?.isComplete != true {
+                await alignParallaxNextLevel()
+            } else if parallaxHigherOrderFit == nil {
+                fitParallaxAberrations()
+            } else if parallaxCorrection == nil {
+                await correctParallaxPhase()
+            } else if parallaxSubpixel == nil {
+                await upsampleParallaxBF()
+            }
+        case .results:
+            break
+        }
     }
 
     func openFile(url: URL) {
         Task { await openFileAsync(url: url) }
+    }
+
+    /// Launch-only deterministic dataset for UI automation and repeatable
+    /// design walkthroughs. Normal users never enter this path.
+    func openDemoFixture() async {
+        let source = DemoFourDDataSource()
+        do {
+            let descriptor = try await source.discoverPrimaryDataset()
+            reader = source
+            datasets = [descriptor]
+            openURL = nil
+            await activate(descriptor: descriptor, reader: source)
+            acomDisplay = .ipfZ
+            statusText = "Demo fixture ready · no source file was modified"
+        } catch {
+            present(error)
+        }
     }
 
     func openRecent(_ recent: RecentDataset) {
@@ -659,6 +993,9 @@ final class AppState {
     }
 
     func selectScan(x: Int, y: Int) {
+        if analysisMode == .acom, acomScope == .selectedRegion {
+            acomRegionSelectionActive = true
+        }
         selectedScan = ScanPos(x: x, y: y)
         persistRecoveryPosition()
         Task { await loadCurrentPattern() }
@@ -822,6 +1159,8 @@ final class AppState {
         maxPattern = nil
         resultImage = nil
         resultRGBA = nil
+        scanNavigationImage = nil
+        scanNavigationVersion = 0
         restoredResultInfo = nil
         sessionInventory = .empty
         comField = nil
@@ -834,10 +1173,20 @@ final class AppState {
         orientationMap = nil
         hasOrientationPlan = false
         hasOrientationMap = false
+        acomLastRunScope = nil
+        acomLastRunQuality = nil
+        acomLastMatchedPositionCount = nil
+        acomLastPositionsPerSecond = nil
+        acomLastMeasuredTemplateCount = nil
+        acomLastMeasuredBackend = nil
+        acomRegionSelectionActive = false
+        acomScope = .preview
+        acomRegionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point
         virtualDiffractionPattern = nil
         realSpaceRadius = Float(max(3, min(descriptor.rx, descriptor.ry) / 12))
+        workspaceArea = .prepare
 
         // Pixel-scaled detection defaults, adapted to this detector
         // (py4DSTEM's absolute defaults assume ~512 px patterns).
@@ -855,6 +1204,7 @@ final class AppState {
             )
             if let mode = AnalysisMode(rawValue: recovery.analysisMode), mode.isAvailable {
                 analysisMode = mode
+                workspaceArea = mode.workspaceArea
             }
         }
         pendingRecovery = nil
@@ -1026,6 +1376,38 @@ final class AppState {
         }
     }
 
+    /// Ensure ACOM region selection has a real-space canvas even when a
+    /// recovered session opened directly into Map and never formed a virtual
+    /// image. A quiet ADF image gives structural contrast without replacing the
+    /// retained scientific result.
+    private func prepareACOMRegionReferenceImage() async {
+        guard analysisMode == .acom, acomScope == .selectedRegion,
+              scanNavigationImage == nil,
+              let fourD, let descriptor else { return }
+        let d = descriptor
+        let qRadius = Float(min(d.qx, d.qy)) / 2
+        let center = calibration.meanOrigin
+            ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
+        do {
+            let epoch = datasetEpoch
+            let image = try await VirtualDetector.tiledImage(
+                data: fourD, descriptor: d,
+                shape: .annulus(
+                    centerX: center.x, centerY: center.y,
+                    inner: 0.25 * qRadius, outer: 0.55 * qRadius
+                )
+            )
+            guard epoch == datasetEpoch,
+                  analysisMode == .acom, acomScope == .selectedRegion else { return }
+            scanNavigationImage = image
+            scanNavigationVersion &+= 1
+        } catch {
+            // Region selection can still use steppers if the reference image
+            // cannot be formed; do not turn a navigation convenience into a
+            // blocker for an otherwise valid ACOM run.
+        }
+    }
+
     // Coalescing flags for live drag: at most one GPU pass / pattern load in
     // flight; the latest state is recomputed when it finishes (drop frames in
     // between so drags stay smooth without piling up work).
@@ -1111,6 +1493,9 @@ final class AppState {
     func scrubTo(x: Int, y: Int) {
         guard let d = descriptor else { return }
         activePane = .realSpace
+        if analysisMode == .acom, acomScope == .selectedRegion {
+            acomRegionSelectionActive = true
+        }
         let clamped = ScanPos(x: min(max(0, x), d.rx - 1), y: min(max(0, y), d.ry - 1))
         if clamped != selectedScan { selectedScan = clamped }
         if realSpaceShape == .point {
@@ -1296,8 +1681,11 @@ final class AppState {
                 return
             }
             restoredResultInfo = nil
+            resultColormap = .viridis
             resultImage = image
             resultRGBA = nil
+            scanNavigationImage = image
+            scanNavigationVersion &+= 1
             resultVersion &+= 1
             if !quiet {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
@@ -2108,9 +2496,11 @@ final class AppState {
         }
         switch dpcDisplay {
         case .magnitude:
+            resultColormap = .viridis
             resultImage = DPC.magnitudeImage(com: com, width: d.rx, height: d.ry)
             resultRGBA = nil
         case .magnitudeMrad:
+            resultColormap = .viridis
             if let scale = dpcMilliradiansPerDetectorPixel {
                 resultImage = DPC.physicalMagnitudeImage(
                     com: com, width: d.rx, height: d.ry,
@@ -2121,12 +2511,15 @@ final class AppState {
             }
             resultRGBA = nil
         case .angle:
+            resultColormap = .viridis
             resultImage = DPC.angleImage(com: com, width: d.rx, height: d.ry)
             resultRGBA = nil
         case .colorWheel:
+            resultColormap = .viridis
             resultRGBA = DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry)
             resultImage = nil
         case .idpc:
+            resultColormap = .rdbu
             if let physical = idpcPhysicalCalibration {
                 resultImage = DPC.integratePhysicalIDPC(
                     com: com, width: d.rx, height: d.ry,
@@ -2293,6 +2686,7 @@ final class AppState {
         let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
         let bvm = calibrated.map(qy: d.qy, qx: d.qx)
         restoredResultInfo = nil
+        resultColormap = .viridis
         resultImage = FloatImage(width: bvm.width, height: bvm.height,
                                  pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
         resultRGBA = nil
@@ -2304,11 +2698,17 @@ final class AppState {
     /// affect Bragg maps, strain, and ACOM without re-running detection.
     private func calibratedBraggVectors(
         _ vectors: BraggVectors,
-        descriptor d: DatasetDescriptor
+        descriptor d: DatasetDescriptor,
+        positions: [Int]? = nil
     ) -> (vectors: BraggVectors, origin: (x: Float, y: Float)) {
         let origin = calibration.meanOrigin
             ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
-        return (vectors.calibrated(with: calibration, referenceOrigin: origin), origin)
+        return (
+            vectors.calibrated(
+                with: calibration, referenceOrigin: origin, positions: positions
+            ),
+            origin
+        )
     }
 
     // MARK: - Strain mapping
@@ -2360,7 +2760,7 @@ final class AppState {
             strainG1X = map.refG1.x; strainG1Y = map.refG1.y
             strainG2X = map.refG2.x; strainG2Y = map.refG2.y
         }
-        colormap = .rdbu   // diverging colormap is the right default for strain
+        resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
         statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
                             map.indexedFraction * 100,
@@ -2422,9 +2822,10 @@ final class AppState {
     /// Build the orientation-plan template library for the selected crystal.
     func generateOrientationPlan() async {
         guard descriptor != nil else { return }
+        let templateCount = acomQuality.templateCount
         let cancellation = beginCancellableOperation(
             "Orientation plan", status: "Generating orientation plan…",
-            totalUnits: 400
+            totalUnits: templateCount
         )
         defer { finishCancellableOperation(cancellation) }
 
@@ -2439,7 +2840,8 @@ final class AppState {
         }
         let epoch = datasetEpoch
         let plan = await Task.detached(priority: .userInitiated) {
-            OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 400,
+            OrientationPlan.generate(crystal: crystal, kMax: 1.2,
+                                     zoneAxisCount: templateCount,
                                      symmetry: symmetry,
                                      cancellation: cancellation)
         }.value
@@ -2460,8 +2862,8 @@ final class AppState {
         statusText = "Orientation plan ✓  \(plan.count) templates (\(label))"
     }
 
-    /// Match every scan position's Bragg peaks against the plan (needs a prior
-    /// disk-detection pass; builds the plan first if needed).
+    /// Match the chosen preview, selected region, or full scan against the
+    /// plan (needs a prior disk-detection pass; builds the plan first if needed).
     func runACOM() async {
         guard let descriptor, let bragg = braggVectors else {
             present(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
@@ -2470,27 +2872,50 @@ final class AppState {
         if orientationPlan == nil { await generateOrientationPlan() }
         guard let plan = orientationPlan else { return }
 
+        let selection = acomScanSelection
+        let scope = acomScope
+        let quality = acomQuality
+        let workCount = selection.positionCount(
+            width: descriptor.rx, height: descriptor.ry
+        )
+        let operationName: String
+        switch scope {
+        case .preview: operationName = "ACOM preview"
+        case .selectedRegion: operationName = "ACOM selected region"
+        case .fullScan: operationName = "ACOM full scan"
+        }
+
         let cancellation = beginCancellableOperation(
-            "ACOM matching", status: "Matching orientations…",
-            totalUnits: descriptor.rx * descriptor.ry
+            operationName, status: "\(operationName)…",
+            totalUnits: workCount
         )
         defer { finishCancellableOperation(cancellation) }
 
-        let calibrated = calibratedBraggVectors(bragg, descriptor: descriptor)
+        let selectedPositions = selection.sourceIndices(
+            width: descriptor.rx, height: descriptor.ry
+        )
+        let calibrated = calibratedBraggVectors(
+            bragg, descriptor: descriptor, positions: selectedPositions
+        )
         let origin = calibrated.origin
         let scale = acomScale
+        let backend = effectiveACOMBackend
         let epoch = datasetEpoch
+        let started = Date()
         let map = await Task.detached(priority: .userInitiated) { [self] in
             OrientationMatching.matchAll(bragg: calibrated.vectors, plan: plan,
                                          originX: origin.x, originY: origin.y,
                                          invAngstromPerPixel: scale,
+                                         backend: backend,
+                                         selection: selection,
                                          cancellation: cancellation) { fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
-                    self.progress = fraction
-                    self.statusText = "Matching orientations… \(Int(fraction * 100)) %"
+                    let shown = max(self.progress ?? 0, fraction)
+                    self.progress = shown
+                    self.statusText = "\(operationName)… \(Int(shown * 100)) %"
                 }
             }
         }.value
@@ -2505,13 +2930,26 @@ final class AppState {
         }
         orientationMap = map
         hasOrientationMap = true
+        acomLastRunScope = scope
+        acomLastRunQuality = quality
+        acomLastMatchedPositionCount = workCount
+        let elapsed = max(Date().timeIntervalSince(started), 0.001)
+        acomLastPositionsPerSecond = Double(workCount) / elapsed
+        acomLastMeasuredTemplateCount = plan.count
+        acomLastMeasuredBackend = map.matchingBackend
+        acomRegionSelectionActive = false
         applyACOMDisplay()
-        statusText = "ACOM ✓  \(map.matchingBackend.rawValue) · matched \(descriptor.rx) × \(descriptor.ry) positions"
+        statusText = String(
+            format: "ACOM %@ ✓  %@ · %@ positions · %.1f s",
+            scope.resultQualifier, map.matchingBackend.rawValue,
+            workCount.formatted(), elapsed
+        )
     }
 
     private func applyACOMDisplay() {
         guard let map = orientationMap, analysisMode == .acom else { return }
         restoredResultInfo = nil
+        resultColormap = .viridis
         switch acomDisplay {
         case .ipfZ:
             resultImage = nil

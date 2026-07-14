@@ -1,36 +1,14 @@
 import SwiftUI
 
-/// Live performance readout: the running operation + progress, process memory
-/// (refreshed on a timeline), the resident-cube size, and GPU budget.
+/// Live performance readout. The workspace header is the single progress and
+/// cancellation surface; the inspector only provides supporting metrics.
 struct PerformanceView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if appState.isBusy {
-                Text(appState.activeOperation ?? "Working…")
-                    .font(.caption)
-                if let progress = appState.progress {
-                    ProgressView(value: progress) {
-                        EmptyView()
-                    } currentValueLabel: {
-                        Text("\(Int(progress * 100)) %").font(.caption2).foregroundStyle(.secondary)
-                    }
-                } else {
-                    ProgressView().progressViewStyle(.linear)   // indeterminate
-                }
-                if appState.canCancelActiveOperation {
-                    Button(role: .cancel) {
-                        appState.cancelActiveOperation()
-                    } label: {
-                        Label("Cancel", systemImage: "xmark.circle")
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                }
-            } else {
-                labeled("Status", "Idle")
-            }
+            labeled("Status", appState.isBusy
+                    ? (appState.activeOperation ?? "Working…") : "Idle")
 
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 VStack(alignment: .leading, spacing: 4) {

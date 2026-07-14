@@ -15,6 +15,13 @@ security, accessibility, or a release blocker.
 5. Save calibrated data and named results into py4DSTEM-readable EMD/HDF5,
    reopen the session, and recover safely from cancellation or a failed write.
 
+The native product maps this workflow to five persistent destinations:
+**Prepare → Image / Map / Reconstruct → Results**. Algorithm choices live as
+tasks inside those destinations. Navigation never starts a costly analysis;
+the prominent task action, menu command, and progress/cancel treatment make
+execution explicit. Reconstruct remains visibly Advanced and Results owns the
+review/save/export lifecycle rather than hiding it in an inspector.
+
 ## Feature tiers
 
 ### Stable in v1
@@ -60,8 +67,10 @@ security, accessibility, or a release blocker.
 - **Interoperability:** each stable reader and exported object has an exact
   native fixture plus a direct py4DSTEM/emdfile read where applicable.
 - **Mac experience:** multiple datasets remain isolated, native menus and
-  keyboard navigation reach the workflow, state restoration is safe, and the
-  primary workflow is usable with VoiceOver and increased text size.
+  `⌘1…⌘5` keyboard navigation reach the outcome-based workflow, state
+  restoration is safe, expensive work is explicit, retained results remain
+  correctly identified across navigation, and the primary workflow is usable
+  with VoiceOver and increased text size.
 - **Distribution:** a clean Release build is self-contained, sandboxed,
   hardened, signed, notarized when credentials are supplied, and verified on a
   clean supported macOS account.

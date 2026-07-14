@@ -22,13 +22,13 @@ workflow, stable versus Advanced tiers, release gates, and scope-change rule.
   simplified polar-correlation ACOM.
 - The Calibration UI now identifies the aperture center as geometric default,
   file-provided qx0/qy0 mean/maps, fitted in-app, or manually moved.
-- Known incomplete: the session sidecar stores scalar/RGBA maps plus full
-  supported calibration and preserves unrecognized external root objects, but
-  the app does not yet create/view plot nodes or restore the controls behind a
-  saved result. A native XCTest bundle now covers fast production contracts;
-  twenty-one scientific harnesses cover calibration, tiled execution,
-  disks, overlays, ACOM, strain, cancellation, EMD/session persistence, and
-  calibrated preprocessing export.
+- The session sidecar stores scalar/RGBA maps plus full supported calibration,
+  preserves unrecognized external root objects, and supports explicit validated
+  parallax/ptychography control rehydration. It does not author EMD plot nodes
+  or serialize transient scientific arrays. A native XCTest bundle covers fast
+  production/workflow contracts; twenty-two scientific/interoperability
+  harnesses cover the numeric, tiled, cancellation, persistence, reader, and
+  packaging boundaries.
 
 ## 3. Completed slices
 
@@ -602,6 +602,148 @@ workflow, stable versus Advanced tiers, release gates, and scope-change rule.
   unsigned Debug build. The established GD result remains bitwise within its
   prior tolerances while constrained GD and DM/AP add independent goldens.
 
+- **Outcome-based v1 product redesign (six-checkpoint consolidated pass,
+  2026-07-14):**
+  1. `App/ProductWorkflow.swift` defines Prepare, Image, Map, Reconstruct, and
+     Results; every `AnalysisMode` maps to exactly one user-facing task.
+  2. `ContentView` replaces the global mode strip and technical checklist with
+     a dataset context card, persistent outcome navigation, contextual tasks,
+     and controls that appear only where they are relevant.
+  3. Task selection is side-effect free. `runPrimaryWorkspaceTask()` owns the
+     explicit primary action, including a guided parallax path through preview,
+     alignment, fitting, correction, and subpixel output. Prerequisite messages
+     link back to Prepare or Bragg disks; ellipse, ptychography, and detailed
+     reconstruction diagnostics use progressive disclosure.
+  4. `UI/ProductWorkspaceViews.swift` supplies the redesigned welcome screen,
+     contextual header/progress/cancel surface, and first-class Results
+     workspace with a large viewer, correct identity/units, PNG/session actions,
+     saved-result browsing/removal, and validated control rehydration.
+  5. The shell respects system appearance, hides the technical log by default,
+     supports Cmd-1…5 workspace navigation and focused-window execution, and
+     retains actionable errors, scalable panes, VoiceOver labels/hints, and
+     independent dataset windows. Navigation preserves the identity and
+     persistence metadata of the still-visible result until a new task
+     publishes, preventing stale-result mislabeling or wrong sidecar provenance.
+  6. `ProductWorkflowTests` adds five usability/architecture contracts for
+     routing, labels/defaults, actionable prerequisites, recommended flow, and
+     result identity across navigation. The fast suite is now thirteen methods.
+     README and v1 scope describe the shipped product model instead of the
+     retired toolbar-mode UI.
+
+- **Hands-on Release workflow audit (product-hardening checkpoint 1,
+  2026-07-14):**
+  - Granted Accessibility and Screen Recording control was used to launch a
+    separate Release app, open the real ignored `058` fixture through the native
+    importer, and operate the visible Prepare/Image/Map/Reconstruct/Results flow.
+    The user's Debug session and source dataset were not modified.
+  - Measured M3 wall-clock baselines were roughly 5 s for open plus the initial
+    330×330 virtual image, 15 s for 725,401 parabolic Bragg peaks, 5–7 s for
+    R–Q rotation, 3 s for DPC, 2 s for robust strain, and 94 s for the full
+    108,900-position/400-template Accelerate ACOM match. Release ACOM averaged
+    about 1,150 positions/s versus the reported 9.8 positions/s under Xcode's
+    `-Onone` Debug build.
+  - The audit reproduced the main UX defects instead of inferring them from
+    code: task actions remain enabled under global "complete calibration"
+    warnings; ACOM has no preview, quality choice, backend label, or preflight
+    ETA; progress is duplicated and visibly stale; stale inputs/results dominate
+    the canvas while work runs; the technical inspector/output consume first-run
+    space; sidebar subtitles clip; and selecting strain changes the CBED pane to
+    the result's RdBu colormap.
+  - The file importer accepts unrelated PNG files because `.data` is included in
+    its allowed types. A raw `CODE_SIGNING_ALLOWED=NO` Release app is also killed
+    when it first `dlopen`s HDF5 on the checkpoint macOS build; an ad-hoc-signed
+    audit copy works, matching the repository package audit's signed-library
+    contract. These are developer/product workflow findings, not scientific
+    failures.
+
+- **Optimized execution and task-readiness remediation (product-hardening
+  checkpoint 2, 2026-07-14):**
+  - The application target now compiles with `-O` in Debug, eliminating the
+    roughly 100× interactive ACOM penalty observed under `-Onone`; the project
+    and test target retain normal Debug settings so tests and supporting code
+    remain inspectable.
+  - ACOM exposes Automatic / Accelerate CPU / Metal choices and states the
+    effective backend before execution. Automatic intentionally resolves to the
+    measured CPU path until the real-dataset Metal comparison proves otherwise.
+  - Workspace gating is task-specific: DPC remains available with explicit
+    qualitative-output guidance, strain and ACOM require detected Bragg vectors,
+    ACOM treats missing Q calibration as quality guidance, and ptychography lists
+    its actual origin/rotation/Q/R/voltage requirements. Actions and warnings no
+    longer contradict one another.
+  - Diffraction and scalar-result colormaps are independent, so selecting strain
+    no longer recolors CBED. The native importer no longer advertises the generic
+    `.data` type and therefore cannot route unrelated PNGs into the HDF5 reader.
+  - The thirteen fast XCTest methods pass after this checkpoint, including the
+    updated workflow-readiness contracts.
+
+- **Bounded ACOM interaction model (product-hardening checkpoint 3,
+  2026-07-14):**
+  - Orientation no longer starts as an all-or-nothing whole-scan operation.
+    Preview samples at most 32×32 representative scan positions and expands
+    coarse blocks across the native scan geometry; Selected Region matches the
+    visible square around the chosen scan point at full spatial resolution; Full
+    Scan remains the explicit production path.
+  - Fast / Balanced / Best quality presets request 96 / 200 / 400 orientation
+    templates. Balanced is the product default. Changing future settings only
+    invalidates the cached plan and no longer silently discards or relabels the
+    still-visible previous result.
+  - The tools panel reports positions × templates and a preflight estimate from
+    the measured M3 Release baseline, then learns backend- and template-adjusted
+    throughput from the completed run. Preview and region products carry
+    distinct display names plus scope, quality, backend, template count, and
+    matched-position provenance in the session sidecar.
+  - Duplicate progress/cancel controls were removed from the technical
+    inspector; the task header is now the one canonical operation surface, while
+    the inspector retains elapsed time, throughput, ETA, memory, and GPU budget.
+  - Three new selection/quality XCTests cover preview bounds and expansion,
+    edge-clipped regions, and increasing template budgets. All sixteen fast
+    methods pass.
+
+- **Real-data ACOM backend and scheduler checkpoint (product-hardening
+  checkpoint 4, 2026-07-14):**
+  - `tools/real-acom-benchmark/` compiles the production dynamic HDF5 reader,
+    tiled origin calibration, Bragg detector, known-crystal Q calibration,
+    template generator, and CPU/Metal matchers around the ignored real `058`
+    dataset. It defaults to the bounded product preview and supports full scope
+    plus configurable template/preview budgets through environment variables.
+  - On the checkpoint M3, 900 real positions × 200 templates measured 0.317 s
+    CPU and 0.270 s Metal. Sustained full-scan work measured 50.8 s on the
+    optimized CPU path and 59.2 s on Metal. All 108,900 template choices and
+    recovered angle bins agreed exactly; maximum score and reliability errors
+    were 2.84e-7 and 3.46e-6.
+  - Full CPU work is now flattened across workers instead of assigning complete
+    scan rows, and progress locks are aggregated in batches. On the same heated
+    full-scan sequence this reduced the former 65.6 s row-scheduled path by
+    about 23%. Automatic remains the verified CPU backend, while Metal remains
+    explicit and parity-tested.
+  - Preview and region runs now apply origin/ellipse vector transforms only to
+    selected positions. Best-quality numerical matching is unchanged; Fast and
+    Balanced reduce the explicit template budget rather than silently changing
+    the Best algorithm.
+
+- **Deterministic native workflow gate (product-hardening checkpoint 5,
+  2026-07-14):**
+  - `DemoFourDDataSource` is a calibrated, deterministic 12×12×64×64 in-memory
+    fixture available only behind the `--demo-fixture` launch argument. It
+    performs no source-file or session-sidecar I/O and gives UI automation a
+    repeatable scientific workflow.
+  - Stable accessibility identifiers cover the dataset card, workspaces,
+    tasks, primary action, ACOM scope, status, result title, and result viewer.
+    `tools/ui-smoke-test/run.sh` builds/ad-hoc-signs an isolated app and drives
+    Demo → Map → Bragg disks → ACOM preview → Results with native Accessibility,
+    then captures `/tmp/mac4dstem-ui-smoke.png` for visual inspection.
+  - The smoke passes under the granted permissions. A production-level XCTest
+    independently checks that the fixture produces multiple detected peaks,
+    valid matched orientations, and nonzero scores. The fast suite is now
+    eighteen methods.
+  - Final verification: all eighteen XCTest methods and all 22 portable
+    scientific/interoperability harnesses pass; the standalone hardened Release
+    package audit passes; the native UI smoke passes. Locally available real
+    fixtures `058` and `060` pass in 2.03 s and 2.07 s. The aggregate real-data
+    command intentionally stops at its four-file manifest check because ignored
+    `056` and `057` HDF5 inputs are absent; the gate was not weakened to hide
+    missing acceptance data.
+
 ## 4. Roadmap order
 
 1. Reliable loading/calibration baseline — complete
@@ -647,12 +789,83 @@ The release owner must install/select a Developer ID Application certificate and
 notarytool profile, run the documented scripts in `docs/releasing.md`, preserve the
 submission log/hash, and smoke-test the notarized ZIP on a clean macOS 14+ account.
 
-The guided UI/accessibility checkpoint is complete. Ptychography/parallax is marked
-Advanced in both the mode selector and controls. Focused-window Run/Cancel commands,
-actionable Copy Details/Open Another errors, correct cubic/hexagonal in-canvas IPF
-keys, labeled image panes, scan/gamma/aperture sliders, accessible histogram range
-controls, and adjustable scientific histories cover the primary keyboard/VoiceOver
-workflow. The macOS 14 deployment floor compiles and all eight XCTest methods pass.
+Product-redesign verification on 2026-07-14: all eighteen XCTest methods and all
+22 standalone scientific/interoperability harnesses pass; the hardened Release
+package audit passes; and the 14-workload schema-v2 benchmark reproduces valid
+checksums. The two currently present ignored real-data files (`058`, `060`) pass
+their 330×330×64×64 goldens in 1.47/1.12 seconds. The aggregate runner then reports
+2 versus 4 expected files because `056` and `057` are absent from
+`References/training_dataset/`; restore those local files to rerun the complete
+four-file acceptance campaign. This is an input-corpus absence, not a numeric
+failure. The pre-existing modified Xcode user-interface-state file is user-owned
+and must remain excluded from implementation edits.
+
+For the next agent: preserve `WorkspaceArea` as the product navigation boundary,
+keep whole-scan work behind `runPrimaryWorkspaceTask()`, and keep Preview as the
+safe ACOM default. Do not restore the global analysis-mode strip or task-switch
+auto-run. The five-checkpoint hands-on hardening sequence is complete; future UX
+work should start from a new observed real-user failure, especially in the
+Advanced reconstruction workflow, and extend the deterministic demo/native smoke
+instead of returning to a broad control inventory.
+
+Hands-on hardening checkpoint 6 — Debug HDF5 signing repair — is complete.
+`tools/run-tests.sh unit` previously wrote an unsigned test product into Xcode's
+normal DerivedData. That could replace the app or one of its lazily loaded dylibs
+beneath an interactive run. A clean reproduction also exposed the underlying
+configuration gap: without a selected development team, Xcode ad-hoc-signed the
+app and HDF5 closure separately while Debug still requested Hardened Runtime
+library validation. macOS then rejected `libhdf5.dylib` with “mapping process and
+mapped file have different Team IDs.” Debug now leaves Hardened Runtime off for
+credential-free local launches; Release remains hardened. The unit runner uses a
+disposable DerivedData directory and redirects LLVM profile output there.
+
+Verification used the ordinary Xcode Debug product, not a package-test copy. A
+clean build passed deep signature verification and imported
+`058_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5` through the native file
+panel. The XCTest suite then passed while that app remained open; SHA-256
+hashes for the app executable and bundled `libhdf5.dylib` were identical before
+and after the run, no `default.profraw` appeared in the repository, and the same
+real dataset reopened successfully. `tools/ui-smoke-test/import-real.applescript`
+is the reusable Accessibility probe for this exact launch/import boundary.
+
+For the next agent: never use `CODE_SIGNING_ALLOWED=NO` for an app product that a
+person will launch, and never point unsigned tests at normal DerivedData. Use the
+aggregate runner, which now owns an isolated test build. Preserve the Debug-off /
+Release-on Hardened Runtime split unless the project gains a mandatory configured
+development team and a test proves the nested HDF5 identities match.
+
+Hands-on hardening checkpoint 7 — first session save and ACOM region canvas —
+is complete. The first Save-panel selection used to call
+`bookmarkData(.withSecurityScope)` before the selected sidecar existed, so the
+save aborted with Cocoa “no such file.” The selected URL is now kept under its
+live security scope, the writer atomically publishes the sidecar, and only then
+does the app persist/refresh the bookmark. A post-publication bookmark failure
+is reported accurately as a future-relaunch warning rather than claiming the
+already-written scientific result was not saved.
+
+ACOM selected-region setup no longer draws a scan ROI over the reciprocal-space
+Bragg-vector histogram. The app retains that 256×256 (or detector-sized) Bragg
+map as the scientific result while the Map canvas temporarily presents the last
+scan-sized virtual image; recovered sessions with no cached navigation image
+form a quiet ADF reference on demand. The orange rectangle, crosshair, click
+mapping, real-space scale, and summed-region CBED now share that scan coordinate
+system. Results/export/session persistence still see the retained Bragg map,
+whose scale metadata is reciprocal rather than nanometres.
+
+The product suite is now 18 XCTest methods; the new contract verifies a
+153×106 region canvas can coexist with a retained 256×256 Bragg map. The native
+Accessibility smoke now gives its isolated build a distinct bundle identity,
+publishes and verifies a non-empty brand-new session sidecar before continuing through
+Bragg detection, ACOM preview, and Results. That smoke and all sidecar
+round-trip/atomic-replacement/py4DSTEM interoperability cases pass.
+
+The outcome-based UI/accessibility checkpoint is complete. Ptychography/parallax is
+the Advanced **Reconstruct** workspace rather than a peer in a global mode strip.
+Prepare/Image/Map/Reconstruct/Results navigation, focused-window Run/Cancel and
+Cmd-1…5 commands, actionable Copy Details/Open Another errors, correct result
+identity, cubic/hexagonal in-canvas IPF keys, labeled image panes, accessible
+histogram controls, and adjustable histories cover the primary keyboard/VoiceOver
+workflow. The macOS 14 deployment floor compiles and all eighteen XCTest methods pass.
 
 Real-data acceptance is complete across all four checked-in 1–1.7 GB HDF5 datasets.
 `tools/real-data-acceptance` performs dynamic discovery, samples first/middle/last
@@ -668,7 +881,8 @@ machine-local dylib paths. `tools/release` contains Developer ID archive and
 notarytool/staple/Gatekeeper scripts; only certificate/profile-backed execution is
 external.
 
-Final repository gate passed on 2026-07-14: all eight XCTest methods, all 22
+The pre-redesign final repository gate passed on 2026-07-14: all eight then-current
+XCTest methods, all 22
 scientific/interoperability harnesses, the four full real-data goldens, and the
 hardened Release package audit completed through `tools/run-tests.sh all`.
 The follow-up performance baseline reproduced every checksum; representative M3
@@ -680,13 +894,14 @@ the direct-IDFT Metal median was 59.16 ms in this final run.
 The dataset-session foundation is complete. `DatasetWindow` owns one `AppState`
 inside each `WindowGroup` instance, while focused-scene command routing targets the
 active window and Command-N creates an independent dataset window. The recent/
-recovery store persists security-scoped bookmarks, selected scan position, and mode
+recovery store persists security-scoped bookmarks, selected scan position, and task
 only; scientific products stay in source/session files. The welcome screen offers
 Open, Reopen Last, and removable Recents. Replacement opening is transactional:
 the prior security scope/session remains alive until the new reader and descriptor
-are valid, and failed opens preserve the current dataset. A four-step live workflow
-guide covers open→calibrate→analyze→save. Two recovery-model XCTests bring the suite
-to eight methods; all pass with the Debug build on 2026-07-14.
+are valid, and failed opens preserve the current dataset. The earlier four-step
+checklist is replaced by the five outcome workspaces described above. Two
+recovery-model XCTests remain part of the eighteen-method suite; all pass with the
+Debug build on 2026-07-14.
 
 The direct-reader/interoperability checkpoint is complete for its frozen subsets.
 `EMPADReader` accepts vendor XML plus little-endian 130×128 float32 raw frames,
@@ -757,7 +972,7 @@ notarization/stapling, and a clean-account smoke test.
 
 ## 7. Verification commands
 
-- Build: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -configuration Debug -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`
+- Launchable Debug build: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -configuration Debug -destination 'platform=macOS' build -quiet`
 - Calibration: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/calibration-test/run.sh`
 - Virtual detector: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/virtual-detector-test/run.sh`
 - Disk detection: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/disk-detection-test/run.sh`
@@ -768,6 +983,8 @@ notarization/stapling, and a clean-account smoke test.
 - Scalar result sidecar: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/sidecar-result-test/run.sh`
 - Result presentation: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/result-presentation-test/run.sh`
 - Performance baseline: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh benchmark`
+- Real ACOM CPU/Metal: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/real-acom-benchmark/run.sh`
+- Native UI smoke (Accessibility permission): `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/ui-smoke-test/run.sh`
 - Strain/Q/DPC: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/strain-test/run.sh`
 - Quantitative iDPC: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/idpc-test/run.sh`
 - Ellipse calibration: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/ellipse-calibration-test/run.sh`

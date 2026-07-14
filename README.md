@@ -15,7 +15,78 @@ Algorithms are ported from py4DSTEM and validated against it; deviations are doc
 
 The app is being built by **migrating features in small, buildable slices** from `References/MigrationSource/` (read-only reference code). Each slice ends green (`⌘B`) and is verified before the next begins.
 
+**Hands-on product hardening (2026-07-14):** an automated Release-build
+walkthrough now exercises the checked-in `058` 330×330×64×64 dataset through
+open, calibration, imaging, Bragg detection, strain, ACOM, reconstruction
+guidance, and Results. The observed baseline is approximately 5 s to open/form
+the initial image, 15 s for 725,401 Bragg peaks, 3 s for DPC, 2 s for strain,
+and 94 s for 400-template ACOM on the checkpoint M3. The audit confirmed that
+the earlier multi-hour ACOM report was an unoptimized Debug-build failure, but
+also identified product defects now being closed: generic calibration warnings,
+no ACOM preview/ETA, duplicated progress, shared result/diffraction colormaps,
+an over-broad file importer, and developer Release-signing friction.
+
+The first remediation checkpoint keeps the app module optimized during normal
+Debug launches (while leaving XCTest debuggable), makes the selected/effective
+ACOM execution engine visible, replaces global calibration gating with
+task-specific readiness, separates CBED and result colormaps, and restricts the
+importer to supported microscopy formats. DPC may now run explicitly in
+qualitative mode; strain needs Bragg vectors; ACOM needs Bragg vectors and warns
+about missing Q calibration without pretending every calibration item blocks it.
+
+Orientation mapping now defaults to a bounded 32×32 whole-field preview instead
+of immediately committing to 108,900 positions. Users can choose Preview,
+Selected Region, or Full Scan; Fast (96), Balanced (200), and Best (400)
+template budgets; and an explicit execution engine. The tools panel states the
+work size and a measured preflight estimate, while the workspace header is the
+single progress/cancel location. Preview blocks are clearly named and persisted
+with scope/quality/backend provenance so they cannot be mistaken for a finished
+full-resolution map.
+
+The production backend decision is now exercised on the real `058` peak lists,
+not inferred from synthetic GPU microbenchmarks. A 900-position/200-template
+preview measured 0.317 s on Accelerate and 0.270 s on Metal with exact template
+and angle agreement. Under the sustained full 108,900-position load, the
+flattened CPU scheduler measured 50.8 s versus 59.2 s on Metal and reduced the
+former row-scheduled CPU path from 65.6 s. Automatic therefore remains CPU;
+Metal stays selectable and parity-gated. Preview/region calibration transforms
+only the positions that will actually be matched.
+
+For repeatable product checks, `--demo-fixture` opens a calibrated 12×12
+in-memory dataset only when explicitly launched by automation.
+`tools/ui-smoke-test/run.sh` builds an isolated app and drives the native
+Prepare/Map/Bragg/ACOM/Results UI through Accessibility; no user dataset or
+existing session sidecar is touched, and its first-save check uses a disposable
+companion inside the test directory. `tools/real-acom-benchmark/run.sh` rebuilds the
+production reader, calibration, disk, CPU, and Metal paths around a real HDF5
+fixture and fails if scientific backend parity drifts.
+
+A local-build HDF5 signing regression found during that hands-on pass is also
+closed. Debug builds without a configured Apple Development team no longer opt
+into Hardened Runtime library validation, so their separately embedded ad-hoc
+HDF5 dylibs load normally; Release builds remain hardened. The XCTest runner
+uses disposable DerivedData and coverage paths, so an unsigned test build can
+never overwrite the app Xcode launches or replace a dylib beneath a running
+process. A clean Debug build opened the real `058` fixture before and after the
+XCTest suite, with identical app/HDF5 hashes across the test run.
+
+Two follow-up workflow defects are closed as well. First Save to Session now
+publishes the selected sidecar before creating its persistent bookmark, rather
+than asking Foundation to bookmark a file that does not exist yet. ACOM Region
+selection now swaps only the analysis canvas to a scan-sized real-space
+reference and draws the orange ROI there; the reciprocal-space Bragg map remains
+the retained scientific result for Results/export/session saving. Reciprocal and
+real-space canvases also use their own calibrated scale metadata.
+
 ### Working now
+
+**Product experience (v1)**
+- Outcome-based workspaces replace the former wall of scientific modes: **Prepare**, **Image**, **Map**, **Reconstruct**, and **Results**. Each workspace reveals only its relevant tasks and controls.
+- A dataset card keeps shape, calibration readiness, saved-product count, and file actions visible without opening the technical inspector.
+- Costly work starts only from an explicit primary action or `⌘R`; navigation is immediate and never silently launches a whole-scan operation. Prerequisite guidance links users back to calibration or Bragg-disk detection when required.
+- Reconstruction is presented as a four-stage advanced workflow (preview → alignment → phase correction → products), with iterative ptychography and detailed diagnostics collapsed until requested.
+- Results have a dedicated workspace with a large scientific viewer, correct retained result identity/units, export and session-save actions, saved-product browsing/removal, and validated control rehydration.
+- The welcome experience, progress/cancellation treatment, native menus, `⌘1…⌘5` workspace navigation, VoiceOver labels, system light/dark appearance, per-window sessions, Recents, and failure recovery form one coherent Mac workflow.
 
 **Data & display (Slice 1)**
 - Open HDF5 (`.h5` / `.hdf5` / `.emd`) 4D-STEM files. The datacube is auto-discovered across common py4DSTEM / Gatan (`dm_dataset_root`) / HyperSpy path layouts; a manual dataset-path override is available.
@@ -70,9 +141,10 @@ mac4DSTEM/                       # Xcode project root (git repo)
     UI/                          # ContentView, Diffraction/StemImageView,
                                  #   MetalImageView, ApertureControl, Colormaps, …
     Support/                     # bridging header
-  mac4DSTEMTests/                # fast XCTest production contracts
+  mac4DSTEMTests/                # fast XCTest production + demo-workflow contracts
   tools/                         # cross-language goldens, interoperability,
-                                 # packaging, aggregate runner, benchmarks
+                                 # packaging, aggregate runner, real benchmarks,
+                                 # and native UI smoke automation
   References/                    # read-only, git-ignored
     MigrationSource/             # prior codebase; port features FROM here
     py4DSTEM-dev/                # algorithm reference
@@ -103,6 +175,10 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   -destination 'platform=macOS' build
 ```
 
+Do not add `CODE_SIGNING_ALLOWED=NO` to an app build that you intend to launch.
+Use `tools/run-tests.sh unit` for unsigned XCTest work; it builds into isolated
+temporary DerivedData and cannot disturb Xcode's normal Debug product.
+
 The non-gating performance harness runs optimized production CPU and Metal
 paths and emits schema-v2 JSON with warm-up/repeat samples, medians, workload
 dimensions, checksums, allocation estimates, and observed resident memory:
@@ -127,8 +203,11 @@ length. Wall-clock results are trend evidence, not CI pass thresholds.
 2. the app bundle's `Contents/Frameworks/`, then
 3. dyld's bare-name lookup for standalone harnesses.
 
-The target embeds and signs all three dylibs, enables Hardened Runtime and App
-Sandbox, and grants user-selected read/write plus app-scoped bookmark access.
+The target embeds and signs all three dylibs and enables App Sandbox, granting
+user-selected read/write plus app-scoped bookmark access. Release enables
+Hardened Runtime; local ad-hoc Debug builds leave it off so macOS does not reject
+the separately signed HDF5 closure. A Debug build signed by a configured team is
+still safe, while distribution must always use the hardened Release configuration.
 The first session-sidecar save presents a Save panel and remembers that explicit
 grant for later atomic saves/reopen. `tools/package-test/run.sh` performs a clean
 Release audit and bundle-only HDF5 smoke test. Developer ID signing and Apple
@@ -149,9 +228,9 @@ Migration slices, in order:
 
 **The five migration slices plus strain mapping are complete** — the py4DSTEM core-analysis path (I/O → virtual imaging → calibration → DPC → disk detection → strain) is in place.
 
-**Current focus:** the polished-v1 release program. Its workflow and acceptance gates are frozen in [`docs/v1-scope.md`](docs/v1-scope.md). The scientific, reader/interoperability, multi-window/UI/accessibility, checked-in real-data, and credential-free distribution gates are complete. The remaining public-release action is Developer ID signing/notarization by the credential owner; see [`docs/releasing.md`](docs/releasing.md).
+**Current focus:** the outcome-based v1 product workspace and the underlying scientific/reliability program are implemented. The remaining public-release action is Developer ID signing/notarization and a clean-account smoke test by the credential owner; see [`docs/releasing.md`](docs/releasing.md).
 
-**Final repository gate (2026-07-14):** eight XCTest methods, all 22 standalone harnesses, four full real-data goldens, the hardened Release audit, and the checksum-stable performance baseline pass. MIB/EMPAD are clearly labeled Preview until real vendor files are supplied; notarization and a clean-account launch test require the release owner.
+**Repository gate (2026-07-14):** the product pass has eighteen green XCTest methods, all 22 green standalone harnesses, a green native demo-workflow smoke test (including first-time session publication), a green hardened Release audit, and a reproduced 14-workload performance baseline. A clean ordinary Debug build also imports the real `058` HDF5 fixture; the isolated XCTest run leaves that app and its bundled HDF5 dylib byte-identical. Both locally present 330×330 real-data goldens pass; the complete four-file manifest passed before this UI-only change, but `056` and `057` are currently absent from the local ignored training-data directory, so that four-file aggregate could not be rerun. MIB/EMPAD remain Preview until real vendor files are supplied; notarization and a clean-account launch test require the release owner.
 
 Still ahead (each its own focused effort):
 
@@ -159,7 +238,7 @@ Still ahead (each its own focused effort):
 - **Parallax / ptychography** — calibrated parallax preprocessing through alignment, aberration fitting/correction, KDE/position refinement, depth sectioning, and product browsing are complete. The CPU exact-shape, full-batch single-slice engine supports gradient descent and DM/AP with opt-in py4DSTEM transmission, pure-phase, center-of-mass, and normalized support constraints; centered object/probe phase/amplitude diagnostics reuse the retained result. A GPU batch backend remains a post-v1 optimization; [MLX Swift](https://github.com/ml-explore/mlx-swift) is a viable future implementation option once the serial operator is reshaped into batches.
 - ✅ **Broader readers** — direct EMPAD XML/RAW (130×128 float32 with footer crop) and regular Merlin MIB U08/U16/U32 (1x1/2x2/2x2G with required ScanX/ScanY companion) are fixture-gated Preview readers. Ambiguous raw inputs fail with conversion/companion guidance. They need release-owner-supplied real vendor acquisitions before promotion to Stable. HDF5/EMD discovery now traverses arbitrary EMD root names after canonical fast paths; DM3/DM4 and py4DSTEM-readable result persistence remain supported.
 - ✅ **Distribution packaging** — embedded HDF5 closure, Hardened Runtime, App Sandbox, persistent sidecar grants, and a clean Release audit. Developer ID notarization is credential-dependent.
-- ✅ **Polished native workflow** — independent dataset windows, focused commands, bookmark-backed Recents/recovery, transactional opens, a live open→calibrate→analyze→save guide, Advanced labeling, and keyboard/VoiceOver access to image, aperture, histogram, and plot controls.
+- ✅ **Polished native workflow** — independent dataset windows, focused commands, bookmark-backed Recents/recovery, transactional opens, outcome-based workspaces, guided prerequisites and reconstruction stages, a first-class Results workspace, and keyboard/VoiceOver access to the primary workflow and scientific controls.
 
 ---
 
@@ -191,11 +270,11 @@ Still ahead (each its own focused effort):
 ## Open issues / known limitations
 
 - **Tiles are expanded to float32.** Peak memory is bounded independently of scan height, but native-dtype tile kernels (e.g. uint16) would reduce reader bandwidth and staging memory.
-- **Testing is deliberately layered.** Eight native XCTest methods cover fast production/workflow contracts. Twenty-two standalone scientific/interoperability harnesses, four 1–1.7 GB real-data goldens with a 15-second/file budget, and the Release package audit cover py4DSTEM parity, formats, forced tiles, cancellation, and distribution. `tools/run-tests.sh all` is the aggregate gate.
+- **Testing is deliberately layered.** Seventeen native XCTest methods cover fast production/workflow and deterministic-demo contracts. Twenty-two standalone scientific/interoperability harnesses, four 1–1.7 GB real-data goldens with a 15-second/file budget, and the Release package audit cover py4DSTEM parity, formats, forced tiles, cancellation, and distribution. The real ACOM benchmark and native UI smoke are explicit machine-local extensions; `tools/run-tests.sh all` remains the portable aggregate gate.
 - **`AppState` remains a large workflow facade.** Analysis-operation identity, timing, cancellation replacement, stale completion, and reset are now owned by `AnalysisOperationController`, but file I/O orchestration, calibration, analysis dispatch, and result publication still need incremental extraction as their campaigns touch them.
 - **Metal commands cannot be interrupted after submission.** Cancel immediately invalidates their result and keeps the main actor responsive, but the current GPU command finishes in the background. CPU disk/strain/ACOM loops and plan generation stop cooperatively at row/template boundaries.
 - ~~**Ellipse fitting is limited to a lightweight conic**~~ is resolved: the conic remains a deterministic initializer and safe fallback, while a bounded 11-parameter central-plus-asymmetric-Gaussian ring refinement supplies the accepted calibration when its physical and residual gates pass.
-- **Session result rehydration is pixel/metadata-level.** Named scalar RealSlices and lossless RGBA Arrays plus calibration/BraggVectors restore and are selectable/removable; unrecognized external root objects survive rewrites. The app still does not create/view plot nodes or reconstruct every analysis control behind a saved result.
+- **Session result rehydration is pixel/metadata-level.** Named scalar RealSlices and lossless RGBA Arrays plus calibration/BraggVectors restore and are selectable/removable; validated parallax/ptychography controls can be reapplied. Unrecognized external root objects survive rewrites, but the app does not create EMD plot nodes or reconstruct every transient scientific array.
 - **ACOM point-group coverage is deliberate rather than generic.** Cubic presets and HCP magnesium use validated deterministic reduction, fundamental-zone sampling, and IPF-Z. A future arbitrary crystal importer must supply an explicit point-group implementation instead of silently assuming cubic symmetry.
 - **Virtual diffraction is an all-scan-position reduction.** Each detector pixel loops over every scan position in the selected mask, so live selected-area diffraction can become expensive for large scans and detectors.
 - ~~**Shortest-pair automatic strain basis selection**~~ is resolved: automatic mode clusters repeated reciprocal vectors, scores bounded basis pairs by population consensus, rejects weak/ill-conditioned candidates and off-lattice local peaks, and reports its diagnostics. Manual g₁/g₂ and real-space reference ROIs remain available.
@@ -221,7 +300,7 @@ Still ahead (each its own focused effort):
 - Non-cubic ACOM now includes an HCP magnesium cell and the 12 proper rotations of 6/mmm. Plan sampling, reduction, IPF-Z presentation, export provenance, and the UI key all retain the selected symmetry; changing the crystal/custom cell invalidates stale plans. The orientation harness gates the complete group, orbit invariance, sector uniqueness, and native IPF key, while the matching harness runs a non-cubic plan through the production matcher.
 - The v1 vendor-reader checkpoint adds bounded, out-of-core EMPAD and Merlin MIB actors behind the same `FourDDataSource` interface as HDF5/DM4. `tools/vendor-reader-test/` generates byte-exact little-/big-endian fixtures and gates scan order, repeated MIB headers, EMPAD footer removal, and ambiguity failures. EMD discovery uses HDF5 link traversal, so valid 3D/4D `data` nodes no longer need one of six hard-coded root paths.
 - Dataset windows now own independent `AppState` graphs, so multiple files can remain open without sharing readers, cancellation, calibration, or results. Command routing follows the focused window. Security-scoped recent-file bookmarks and a lightweight last-session record restore scan position/mode on request; large/transient arrays are never copied into preferences. The welcome screen exposes Open, Reopen Last, and removable Recents, while failed replacement opens preserve the current usable dataset.
-- Long-running scientific operations share a thread-safe, single-operation cancellation token and expose **Cancel** in the performance inspector. Disk/strain/ACOM workers and orientation-plan generation exit at safe boundaries; GPU-backed virtual imaging, statistics, origin/rotation, and DPC discard completed work after cancellation. Dataset replacement cancels the token in addition to advancing the existing stale-result epoch. `tools/cancellation-test/run.sh` exercises cancel-before-start, mid-run production disk cancellation, normal completion, and replacement-token isolation.
+- Long-running scientific operations share a thread-safe, single-operation cancellation token and expose one canonical **Cancel** action in the workspace header. Disk/strain/ACOM workers and orientation-plan generation exit at safe boundaries; GPU-backed virtual imaging, statistics, origin/rotation, and DPC discard completed work after cancellation. Dataset replacement cancels the token in addition to advancing the existing stale-result epoch. `tools/cancellation-test/run.sh` exercises cancel-before-start, mid-run production disk cancellation, normal completion, and replacement-token isolation.
 - Native BraggVectors EMD export is available under **File → Export → py4DSTEM BraggVectors Sidecar…** and suggests `<source>_braggvectors.h5`. `BraggVectorEMDWriter` emits the exact EMD 1.0 custom/PointListArray hierarchy used by py4DSTEM 0.14, including variable-length compound `qx/qy/intensity` records, empty scan positions, shape metadata, and Q/R calibration. It converts app `y→qx`, `x→qy`, writes a same-directory temporary file, and atomically renames only after close and a final cancellation check. `tools/bragg-export-test/run.sh` validates source preservation, cancelled replacement safety/temp cleanup, and an exact checked-in-py4DSTEM round trip on non-square shapes.
 - Scalar result session persistence is available under **File → Export → Save Current Result to Session Sidecar**. Each kind gets a deterministic direct-root `RealSlice` node; a versioned manifest records save order and the current result. Whole-file rewrites copy all other supported maps and BraggVectors at the HDF5-object level. Dataset activation restores the compatible current map and fills the inspector's read-only sidecar inventory. `tools/sidecar-result-test/run.sh` verifies two-map enumeration, deterministic restore, same-kind replacement, NaN handling, cancellation/source safety, calibrated dimensions, BraggVectors preservation, and whole-file plus direct-node py4DSTEM 0.14.19 reads.
 - **Session schema v4** extends scalar results beyond the scan grid: parallax subpixel BF, corrected phase, selected depth planes, and ptychographic object phase/amplitude retain independent row/column sampling, Å units, and deterministic JSON provenance for source product, depth/factor/filter, engine/method, iteration/error, and update controls. Arbitrary scalar shapes can save, restore, and be selected; RGBA remains scan-shaped. The sidecar harness now covers all five stabilized kinds and exact native/py4DSTEM reads while preserving calibration, prior results, BraggVectors, source bytes, and opaque external nodes.
@@ -255,15 +334,17 @@ Still ahead (each its own focused effort):
 - Output log strip below the image panes (toggleable) shows timestamped operation history.
 - Arrow keys step the scan position (Shift = 10 px).
 - Histogram range slider rewritten: the whole histogram takes the drag and moves the nearest handle (the old per-handle hit areas clipped at the row edge, so the hi handle was ungrabbable).
-- Split-view squeeze limits: sidebar capped at 300 pt, detail area has a 480 pt floor, window min width 1080 — panes can no longer be crushed into distorted slivers.
+- Split-view squeeze limits: sidebar capped at 340 pt, detail area has a 480 pt floor, window min width 1080 — panes can no longer be crushed into distorted slivers.
 - PNG exports now burn the scale bar into the image (bottom-left, same 1-2-5 quantization and units as on screen); small maps are integer-upscaled (nearest neighbor) to ≥512 px so the label stays legible without altering data pixels.
 - **Zoom + calibrated scale bars.** Both panes zoom (pinch; diffraction also pans by dragging the background; double-click resets). Image and overlays share one transformed container so the aperture, peaks, crosshair, and ROI stay pixel-accurate at any zoom (this also fixed the pre-existing overlay misalignment when the real-space view was zoomed). Each pane shows a 1-2-5 scale bar that re-quantizes with zoom — calibrated (nm / 1/nm) when pixel sizes are known, px otherwise. DM4 pixel sizes + units now flow into `Calibration` automatically (and auto-fill the ACOM Å⁻¹/px scale when units are convertible); manual pixel-size fields in the Calibration section cover plain HDF5.
 
-### UI / UX (polish cycle in progress)
+### UI / UX (v1 product pass complete)
 
-Done: toolbar mode switcher (all modes reachable), independently hideable tools + inspector panels, live-drag detector → real-space and real-space marker → diffraction, shape-correct + grid-snapped detector overlays, centered pattern-mode picker, higher-contrast position marker, independent CBED/result histogram contrast, numeric scalar colorbars, DPC/IPF directional keys, and native File/View commands with shortcuts.
+The primary interface is organized around user outcomes rather than algorithm names. **Prepare** owns dataset inspection and calibration; **Image** contains virtual imaging and DPC/iDPC; **Map** contains Bragg disks, strain, and orientation; **Reconstruct** presents Advanced parallax/ptychography as a staged workflow; **Results** owns review, persistence, and export. Switching workspaces is side-effect free, while prominent task actions make expensive execution explicit.
 
-Still open:
+The workspace shell includes a compact dataset context card, prerequisite/readiness messaging, operation progress and cancellation in context, a quieter default with technical logs hidden, a redesigned welcome/Recents experience, correct result identity when navigating between tasks, system appearance support, and `⌘1…⌘5` navigation. The existing scientific viewers retain live detector/ROI interaction, independent contrast, scale bars, colorbars, DPC/IPF keys, zoom, and accessible controls.
+
+Scientific interaction details:
 
 - ~~**Virtual diffraction** and active-pane tools~~ are done: point scrubbing or grid-snapped rectangle/circle ROIs drive the CBED pane through bounded tiled reductions.
 - ~~Per-view histogram draggable contrast and gamma~~ are done independently for real-space and CBED views.
@@ -280,11 +361,11 @@ The durable handoff sequence is:
 3. ✅ **Profile-driven Metal/MLX performance — 3 checkpoints complete**.
 4. ✅ **Scientific correctness gaps and real-data validation — complete** (quantitative iDPC, strain robustness, fuller ellipse fitting, non-cubic ACOM, four full real-data virtual-image goldens).
 5. ✅ **MIB/EMPAD and broader EMD support — implementation complete; vendor readers remain Preview pending a real-file corpus**.
-6. ✅ **UI/UX, multi-session workflows, and accessibility — v1 checkpoint complete**.
+6. ✅ **UI/UX, multi-session workflows, and accessibility — outcome-based v1 product workspace complete**.
 7. **Distribution/notarization — repository work complete; credential-owner submission remains**.
 - ~~**Performance panel**~~ is live with operation/progress/cancel, elapsed time, positions/s, ETA, process memory, GPU, and working-set budget.
 - ~~Histogram range slider~~ and ~~DP mean/max in the tools panel~~ — done (see Fixed list below).
-- ~~**macOS menu bar**~~ — focused-window File, View, Run Current Analysis, and Cancel Analysis commands have native shortcuts.
+- ~~**macOS menu bar**~~ — focused-window File, View, Run Current Task, Cancel Analysis, and workspace commands have native shortcuts.
 
 ---
 

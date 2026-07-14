@@ -23,6 +23,71 @@ import Foundation
 import Accelerate
 import Metal
 
+/// Spatial work requested by the product-facing ACOM workflow. Preview keeps
+/// the full scan geometry but matches one representative position per coarse
+/// block, then expands that result across the block. A selected region leaves
+/// positions outside the square explicitly unmatched.
+nonisolated enum ACOMScanSelection: Sendable, Equatable {
+    case full
+    case preview(maxDimension: Int)
+    case square(centerX: Int, centerY: Int, radius: Int)
+
+    func sourceIndices(width: Int, height: Int) -> [Int] {
+        guard width > 0, height > 0 else { return [] }
+        switch self {
+        case .full:
+            return Array(0..<(width * height))
+        case .preview(let maxDimension):
+            let step = previewStep(width: width, height: height, maxDimension: maxDimension)
+            var indices: [Int] = []
+            indices.reserveCapacity(
+                ((width + step - 1) / step) * ((height + step - 1) / step)
+            )
+            for y in stride(from: 0, to: height, by: step) {
+                for x in stride(from: 0, to: width, by: step) {
+                    indices.append(y * width + x)
+                }
+            }
+            return indices
+        case .square(let centerX, let centerY, let radius):
+            let r = max(0, radius)
+            let x0 = max(0, centerX - r), x1 = min(width - 1, centerX + r)
+            let y0 = max(0, centerY - r), y1 = min(height - 1, centerY + r)
+            guard x0 <= x1, y0 <= y1 else { return [] }
+            var indices: [Int] = []
+            indices.reserveCapacity((x1 - x0 + 1) * (y1 - y0 + 1))
+            for y in y0...y1 {
+                for x in x0...x1 { indices.append(y * width + x) }
+            }
+            return indices
+        }
+    }
+
+    func positionCount(width: Int, height: Int) -> Int {
+        sourceIndices(width: width, height: height).count
+    }
+
+    func expandedPreview(_ map: OrientationMap) -> OrientationMap {
+        guard case .preview(let maxDimension) = self else { return map }
+        let step = previewStep(width: map.width, height: map.height,
+                               maxDimension: maxDimension)
+        var expanded = map
+        for y in 0..<map.height {
+            let sourceY = (y / step) * step
+            for x in 0..<map.width {
+                let sourceX = (x / step) * step
+                expanded[x, y] = map[sourceX, sourceY]
+            }
+        }
+        return expanded
+    }
+
+    private func previewStep(width: Int, height: Int, maxDimension: Int) -> Int {
+        let target = max(1, maxDimension)
+        return max(1, (max(width, height) + target - 1) / target)
+    }
+}
+
 nonisolated final class OrientationMatcher {
 
     private let plan: OrientationPlan
@@ -409,28 +474,53 @@ nonisolated final class MetalACOMMatcher {
 
 enum OrientationMatching {
 
-    /// Match every scan position's Bragg peaks against the plan, parallelized
-    /// over scan rows. Progress in [0, 1] reported from workers.
+    /// Match the requested scan positions against the plan. Full scans retain
+    /// the row-parallel fast path; preview and region work only touch their
+    /// selected source positions. Progress is the requested work, not the full
+    /// dataset size.
     nonisolated static func matchAll(bragg: BraggVectors, plan: OrientationPlan,
                                      originX: Float, originY: Float,
                                      invAngstromPerPixel: Double = 1,
                                      backend: ACOMMatchingBackend = .automatic,
+                                     selection: ACOMScanSelection = .full,
                                      cancellation: AnalysisCancellationToken? = nil,
                                      progress: (@Sendable (Double) -> Void)? = nil) -> OrientationMap? {
         guard cancellation?.isCancelled != true else { return nil }
+        let selectedIndices = selection.sourceIndices(
+            width: bragg.scanWidth, height: bragg.scanHeight
+        )
+        guard !selectedIndices.isEmpty else { return nil }
         // The exact Metal backend is retained for parity/performance testing,
         // but the current direct inverse-DFT kernel is slower than the
         // vectorized vDSP path on the v1 benchmark. Automatic therefore means
         // the measured production CPU backend until a batched FFT wins.
         if backend == .metal {
+            let input: BraggVectors
+            if selection == .full {
+                input = bragg
+            } else {
+                input = BraggVectors(
+                    scanWidth: selectedIndices.count, scanHeight: 1,
+                    peaks: selectedIndices.map { bragg.peaks[$0] }
+                )
+            }
             if let matcher = MetalACOMMatcher(plan: plan, symmetry: plan.symmetry),
-               let result = matcher.matchAll(
-                    bragg: bragg,
+               let matched = matcher.matchAll(
+                    bragg: input,
                     originX: originX, originY: originY,
                     invAngstromPerPixel: invAngstromPerPixel,
                     cancellation: cancellation, progress: progress
                ) {
-                return result
+                if selection == .full { return matched }
+                var result = OrientationMap(
+                    width: bragg.scanWidth, height: bragg.scanHeight,
+                    matchingBackend: .metal, symmetry: plan.symmetry,
+                    templateCount: plan.count
+                )
+                for (compact, source) in selectedIndices.enumerated() {
+                    result.results[source] = matched.results[compact]
+                }
+                return selection.expandedPreview(result)
             }
             return nil
         }
@@ -438,36 +528,56 @@ enum OrientationMatching {
             width: bragg.scanWidth, height: bragg.scanHeight,
             matchingBackend: .cpu, symmetry: plan.symmetry, templateCount: plan.count
         )
-        let w = bragg.scanWidth
         let lock = NSLock()
         var done = 0
 
         map.results.withUnsafeMutableBufferPointer { out in
             let ptr = SendableBox(out.baseAddress!)
-            // One matcher (FFT + scratch) per worker, rows strided (same
-            // pattern as DiskDetection.detectAll).
-            let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, bragg.scanHeight))
+            // Flattened round-robin work avoids the long-tail imbalance of
+            // assigning whole scan rows when peak counts vary spatially. Each
+            // worker still owns one FFT/scratch object. Progress is aggregated
+            // in batches so a full map does not take a lock per position.
+            let workers = max(
+                1, min(ProcessInfo.processInfo.activeProcessorCount,
+                       selectedIndices.count)
+            )
+            let progressBatch = max(1, selectedIndices.count / (workers * 100))
             DispatchQueue.concurrentPerform(iterations: workers) { worker in
                 guard cancellation?.isCancelled != true else { return }
-                guard let matcher = OrientationMatcher(plan: plan, symmetry: plan.symmetry) else { return }
-                for ry in stride(from: worker, to: bragg.scanHeight, by: workers) {
+                guard let matcher = OrientationMatcher(
+                    plan: plan, symmetry: plan.symmetry
+                ) else { return }
+                var pendingProgress = 0
+                for selected in stride(
+                    from: worker, to: selectedIndices.count, by: workers
+                ) {
                     if cancellation?.isCancelled == true { break }
-                    for rx in 0..<w {
-                        if cancellation?.isCancelled == true { break }
-                        let peaks = bragg.peaks[ry * w + rx]
-                        ptr.value[ry * w + rx] = matcher.match(
-                            peaks: peaks, originX: originX, originY: originY,
-                            invAngstromPerPixel: invAngstromPerPixel)
+                    let source = selectedIndices[selected]
+                    ptr.value[source] = matcher.match(
+                        peaks: bragg.peaks[source], originX: originX,
+                        originY: originY,
+                        invAngstromPerPixel: invAngstromPerPixel
+                    )
+                    pendingProgress += 1
+                    if progress != nil && pendingProgress >= progressBatch {
+                        lock.lock()
+                        done += pendingProgress
+                        let completed = done
+                        lock.unlock()
+                        pendingProgress = 0
+                        progress?(Double(completed) / Double(selectedIndices.count))
                     }
-                    if cancellation?.isCancelled == true { break }
-                    if let progress {
-                        lock.lock(); done += 1; let f = Double(done) / Double(bragg.scanHeight); lock.unlock()
-                        progress(f)
-                    }
+                }
+                if progress != nil && pendingProgress > 0 {
+                    lock.lock()
+                    done += pendingProgress
+                    let completed = done
+                    lock.unlock()
+                    progress?(Double(completed) / Double(selectedIndices.count))
                 }
             }
         }
-        return cancellation?.isCancelled == true ? nil : map
+        return cancellation?.isCancelled == true ? nil : selection.expandedPreview(map)
     }
 
     /// Minimal wrapper to pass a mutable pointer into the concurrent closure.

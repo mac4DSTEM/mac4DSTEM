@@ -65,7 +65,7 @@ struct DiffractionView: View {
                     MetalImageView(pixels: norm,
                                    width: qx, height: qy,
                                    contentVersion: app.patternVersion,
-                                   colormap: app.colormap,
+                                   colormap: app.patternColormap,
                                    zoom: 1, offset: .zero,
                                    displayLo: app.patternDisplayRangeLo,
                                    displayHi: app.patternDisplayRangeHi,
@@ -111,7 +111,7 @@ struct DiffractionView: View {
 
                 if let range = app.patternDisplayedValueRange {
                     ScalarColorbarView(
-                        colormap: app.colormap,
+                        colormap: app.patternColormap,
                         low: range.low,
                         high: range.high,
                         unitLabel: logScaleLabel,

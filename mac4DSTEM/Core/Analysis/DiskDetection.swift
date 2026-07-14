@@ -74,7 +74,8 @@ struct BraggVectors: Sendable {
     /// ellipse matrix is applied in its native qx/qy axis convention.
     nonisolated func calibrated(
         with calibration: Calibration,
-        referenceOrigin: (x: Float, y: Float)
+        referenceOrigin: (x: Float, y: Float),
+        positions: [Int]? = nil
     ) -> BraggVectors {
         let origins = calibration.origin
         let canUseMaps = origins?.width == scanWidth
@@ -84,7 +85,8 @@ struct BraggVectors: Sendable {
         guard canUseMaps || calibration.hasEllipse else { return self }
 
         var transformed = peaks
-        for scan in transformed.indices {
+        let selectedPositions = positions ?? Array(transformed.indices)
+        for scan in selectedPositions where transformed.indices.contains(scan) {
             let localX = canUseMaps ? origins!.fittedX[scan] : referenceOrigin.x
             let localY = canUseMaps ? origins!.fittedY[scan] : referenceOrigin.y
             for peak in transformed[scan].indices {
