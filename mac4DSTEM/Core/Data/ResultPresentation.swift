@@ -74,13 +74,15 @@ nonisolated enum SessionResultPresentation {
     static func provenance(_ values: [String: String], limit: Int = 3) -> String? {
         let order = [
             "depth_angstrom", "upsample_factor", "interpolation", "position_iterations",
-            "iterations", "final_error", "step_size", "fix_probe", "full_fit",
+            "method", "iterations", "final_error", "step_size",
+            "projection_parameter", "fix_probe", "full_fit",
             "information_limit_inv_a", "q_lowpass_inv_a", "q_highpass_inv_a"
         ]
         let labels: [String: String] = [
             "depth_angstrom": "depth", "upsample_factor": "upsample",
             "interpolation": "kernel", "position_iterations": "position iters",
-            "iterations": "iters", "final_error": "error", "step_size": "step",
+            "method": "method", "iterations": "iters", "final_error": "error",
+            "step_size": "step", "projection_parameter": "α",
             "fix_probe": "fixed probe", "full_fit": "full CTF",
             "information_limit_inv_a": "info limit", "q_lowpass_inv_a": "low-pass",
             "q_highpass_inv_a": "high-pass"
@@ -95,6 +97,10 @@ nonisolated enum SessionResultPresentation {
                raw != "off" { value += " Å⁻¹" }
             if raw == "true" { value = "yes" }
             if raw == "false" { value = "no" }
+            if key == "method" {
+                if raw == "gradient-descent" { value = "GD" }
+                if raw == "difference-map_alternating-projections" { value = "DM/AP" }
+            }
             parts.append("\(labels[key] ?? key) \(value)")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
@@ -123,9 +129,17 @@ nonisolated struct SessionControlRehydration: Equatable, Sendable {
     var depthInformationLimit: Double?
     var depthInformationPower: Double?
     var ptychographyIterations: Int?
+    var ptychographyMethod: String?
     var ptychographyStepSize: Float?
+    var ptychographyProjectionParameter: Float?
     var ptychographyNormalizationMinimum: Float?
     var ptychographyFixProbe: Bool?
+    var ptychographyConstrainObjectAmplitude: Bool?
+    var ptychographyPurePhaseObject: Bool?
+    var ptychographyFixProbeCenterOfMass: Bool?
+    var ptychographyConstrainProbeAmplitude: Bool?
+    var ptychographyProbeAmplitudeRadius: Float?
+    var ptychographyProbeAmplitudeWidth: Float?
 
     var appliedSettingNames: [String] {
         var names: [String] = []
@@ -141,9 +155,17 @@ nonisolated struct SessionControlRehydration: Equatable, Sendable {
         if depthInformationLimit != nil { names.append("information limit") }
         if depthInformationPower != nil { names.append("information power") }
         if ptychographyIterations != nil { names.append("ptychography iterations") }
+        if ptychographyMethod != nil { names.append("ptychography method") }
         if ptychographyStepSize != nil { names.append("step") }
+        if ptychographyProjectionParameter != nil { names.append("projection α") }
         if ptychographyNormalizationMinimum != nil { names.append("normalization") }
         if ptychographyFixProbe != nil { names.append("probe update") }
+        if ptychographyConstrainObjectAmplitude != nil { names.append("object transmission") }
+        if ptychographyPurePhaseObject != nil { names.append("pure-phase object") }
+        if ptychographyFixProbeCenterOfMass != nil { names.append("probe centering") }
+        if ptychographyConstrainProbeAmplitude != nil { names.append("probe support") }
+        if ptychographyProbeAmplitudeRadius != nil { names.append("support radius") }
+        if ptychographyProbeAmplitudeWidth != nil { names.append("support width") }
         return names
     }
 
@@ -173,9 +195,20 @@ nonisolated struct SessionControlRehydration: Equatable, Sendable {
             result.depthUseFullFit = boolean(p["full_fit"])
             result.depthInformationLimit = filterValue(p["information_limit_inv_a"])
             result.depthInformationPower = positiveDouble(p["information_power"])
-        case "ptychography_object_phase", "ptychography_object_amplitude":
-            guard p["engine"] == nil || p["engine"] == "singleslice",
-                  p["method"] == nil || p["method"] == "gradient-descent" else {
+        case "ptychography_object_phase", "ptychography_object_amplitude",
+             "ptychography_probe_phase", "ptychography_probe_amplitude":
+            guard p["engine"] == nil || p["engine"] == "singleslice" else {
+                return result
+            }
+            switch p["method"] {
+            case nil, "gradient-descent":
+                result.ptychographyMethod = "gradient-descent"
+            case "difference-map_alternating-projections":
+                result.ptychographyMethod = "difference-map_alternating-projections"
+                result.ptychographyProjectionParameter = boundedFloat(
+                    p["projection_parameter"], range: 0...1
+                )
+            default:
                 return result
             }
             result.ptychographyIterations = boundedInt(p["iterations"], range: 1...100_000)
@@ -184,6 +217,20 @@ nonisolated struct SessionControlRehydration: Equatable, Sendable {
                 p["normalization_minimum"]
             )
             result.ptychographyFixProbe = boolean(p["fix_probe"])
+            result.ptychographyConstrainObjectAmplitude = boolean(
+                p["constrain_object_amplitude"]
+            )
+            result.ptychographyPurePhaseObject = boolean(p["pure_phase_object"])
+            result.ptychographyFixProbeCenterOfMass = boolean(p["fix_probe_com"])
+            result.ptychographyConstrainProbeAmplitude = boolean(
+                p["constrain_probe_amplitude"]
+            )
+            result.ptychographyProbeAmplitudeRadius = boundedFloat(
+                p["probe_amplitude_radius"], range: 0...0.5
+            )
+            result.ptychographyProbeAmplitudeWidth = boundedFloat(
+                p["probe_amplitude_width"], range: Float.leastNonzeroMagnitude...0.5
+            )
         default:
             break
         }
@@ -210,6 +257,14 @@ nonisolated struct SessionControlRehydration: Equatable, Sendable {
     private static func positiveFloat(_ text: String?) -> Float? {
         guard let value = finiteDouble(text), value > 0, value <= Double(Float.greatestFiniteMagnitude)
         else { return nil }
+        return Float(value)
+    }
+
+    private static func boundedFloat(
+        _ text: String?, range: ClosedRange<Float>
+    ) -> Float? {
+        guard let value = finiteDouble(text), value >= Double(range.lowerBound),
+              value <= Double(range.upperBound) else { return nil }
         return Float(value)
     }
 

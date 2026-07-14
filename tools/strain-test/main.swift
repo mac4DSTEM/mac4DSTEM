@@ -32,7 +32,7 @@ guard whole.referencePositionCount == 4,
       abs(whole.eyy[2] - (1 - 11 / 10.5)) < 1e-5 else {
     fail("whole-scan reference values differ")
 }
-print("PASS: whole-scan mean reference")
+print("PASS: whole-scan component-median reference")
 
 guard let selected = StrainMapping.compute(
     bragg: vectors, originX: origin.x, originY: origin.y,
@@ -66,6 +66,83 @@ guard StrainMapping.compute(
     referenceMask: [false, false, false, false]
 ) == nil else { fail("empty reference region should fail") }
 print("PASS: empty reference rejected")
+
+// Non-square scan with missing positions, short/high-intensity false peaks,
+// off-lattice outliers, real strain, and one distorted reference position.
+let robustWidth = 5, robustHeight = 3
+var robustPeaks: [[BraggPeak]] = []
+let missing: Set<Int> = [7, 13]
+for index in 0..<(robustWidth * robustHeight) {
+    let row = index / robustWidth
+    let localG1: (Float, Float)
+    let localG2: (Float, Float)
+    if index == 4 {
+        localG1 = (10.6, 0); localG2 = (0, 9.4)
+    } else if row == 0 {
+        localG1 = (10, 0); localG2 = (0, 10)
+    } else {
+        localG1 = (9.5, 0); localG2 = (0, 10.5)
+    }
+    var peaks = latticePeaks(g1: localG1, g2: localG2)
+    if missing.contains(index) { peaks = Array(peaks.prefix(3)) }
+    if index == 0 || index == 6 {
+        peaks.append(BraggPeak(
+            x: origin.x + 2.4, y: origin.y + 0.1, intensity: 1_000
+        ))
+    }
+    peaks.append(BraggPeak(
+        x: origin.x + 24 + Float(index) * 0.37,
+        y: origin.y - 17 + Float(index) * 0.23,
+        intensity: 500
+    ))
+    robustPeaks.append(peaks)
+}
+let robustVectors = BraggVectors(
+    scanWidth: robustWidth, scanHeight: robustHeight, peaks: robustPeaks
+)
+let robustReference = (0..<(robustWidth * robustHeight)).map { $0 < robustWidth }
+guard let robust = StrainMapping.compute(
+    bragg: robustVectors, originX: origin.x, originY: origin.y,
+    referenceMask: robustReference
+) else { fail("consensus strain fit rejected a supported lattice") }
+guard robust.width == robustWidth, robust.height == robustHeight,
+      robust.referencePositionCount == 4,
+      robust.diagnostics.referenceCandidateCount == 5,
+      robust.diagnostics.referenceRejectedCount == 1,
+      robust.diagnostics.automaticBasis,
+      robust.diagnostics.basisSupportFraction > 0.75,
+      robust.diagnostics.basisConditionNumber < 3,
+      robust.mask.filter({ $0 }).count == robustWidth * robustHeight - missing.count,
+      !robust.mask[7], !robust.mask[13],
+      abs(robust.exx[5] - 0.05) < 2e-4,
+      abs(robust.eyy[5] + 0.05) < 2e-4 else {
+    fail("consensus/outlier/missing-position diagnostics or strain differ")
+}
+print("PASS: non-square consensus basis, local outliers, and robust reference")
+
+guard StrainMapping.compute(
+    bragg: robustVectors, originX: origin.x, originY: origin.y,
+    initialBasis: (g1: (x: 10, y: 0), g2: (x: 10, y: 0.5))
+) == nil else { fail("ill-conditioned manual basis should be rejected") }
+print("PASS: ill-conditioned manual basis rejected")
+
+let incoherent = BraggVectors(
+    scanWidth: 4, scanHeight: 3,
+    peaks: (0..<12).map { position in
+        (0..<6).map { peak in
+            let angle = Float(position * 19 + peak * 7) * 0.371
+            let radius = Float(5 + ((position * 11 + peak * 13) % 23))
+            return BraggPeak(
+                x: origin.x + radius * cos(angle),
+                y: origin.y + radius * sin(angle), intensity: 1
+            )
+        }
+    }
+)
+guard StrainMapping.compute(
+    bragg: incoherent, originX: origin.x, originY: origin.y
+) == nil else { fail("weak incoherent lattice consensus should be rejected") }
+print("PASS: weak lattice consensus rejected")
 
 let qRadii: [Float] = [10, 10.2, 9.8, 3, 20]
 let qVectors = BraggVectors(

@@ -9,6 +9,10 @@ trap 'rm -rf "$WORK"' EXIT
 
 : "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
 export DEVELOPER_DIR
+. "$REPO/tools/lib/python.sh"
+resolve_mac4dstem_python "$REPO"
+
+"$PYTHON_BIN" reference.py
 
 xcrun swiftc -o "$WORK/harness" \
   main.swift \

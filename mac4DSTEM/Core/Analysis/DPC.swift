@@ -20,6 +20,24 @@
 import Foundation
 import Accelerate
 
+nonisolated enum IDPCBoundaryCondition: String, Sendable {
+    /// Treat opposite scan edges as adjacent. Best for explicitly periodic
+    /// synthetic fields; real specimens can show wrap-around seams.
+    case periodic
+    /// Center the measured field in a larger zero-valued domain before the
+    /// Fourier solve, reducing opposite-edge coupling at additional cost.
+    case zeroPadded
+}
+
+/// Physical inputs needed to turn detector-pixel CoM shifts into a projected
+/// phase gradient. Scan sampling is in Å/pixel and reciprocal sampling is in
+/// Å⁻¹/detector-pixel, matching py4DSTEM's calibrated CoM convention.
+nonisolated struct IDPCPhysicalCalibration: Equatable, Sendable {
+    let rowSamplingAngstrom: Float
+    let columnSamplingAngstrom: Float
+    let reciprocalAngstromPerDetectorPixel: Float
+}
+
 enum DPC {
 
     /// Express the CoM field in the scan frame: optionally swap the detector
@@ -67,6 +85,58 @@ enum DPC {
               let wavelength = electronWavelengthAngstrom(voltageKV: voltageKV)
         else { return nil }
         return Float(1_000 * wavelength * invAngstromPerPixel)
+    }
+
+    /// Normalize the calibration spellings accepted elsewhere in the app into
+    /// the two physical quantities required by quantitative iDPC.
+    nonisolated static func physicalIDPCCalibration(
+        realPixelSize: Double?,
+        realPixelUnits: String?,
+        reciprocalPixelSize: Double?,
+        reciprocalPixelUnits: String?,
+        voltageKV: Double?
+    ) -> IDPCPhysicalCalibration? {
+        guard let realPixelSize, realPixelSize.isFinite, realPixelSize > 0,
+              let reciprocalPixelSize,
+              reciprocalPixelSize.isFinite, reciprocalPixelSize > 0 else { return nil }
+
+        let realUnits = normalizedUnit(realPixelUnits)
+        let scanAngstrom: Double
+        switch realUnits {
+        case "a", "å", "angstrom", "ang": scanAngstrom = realPixelSize
+        case "nm", "nanometer", "nanometre": scanAngstrom = realPixelSize * 10
+        case "pm", "picometer", "picometre": scanAngstrom = realPixelSize * 0.01
+        default: return nil
+        }
+
+        let reciprocalUnits = normalizedUnit(reciprocalPixelUnits)
+        let reciprocalAngstrom: Double
+        switch reciprocalUnits {
+        case "1/a", "1/å", "a^-1", "å^-1", "angstrom^-1", "1/angstrom":
+            reciprocalAngstrom = reciprocalPixelSize
+        case "1/nm", "nm^-1", "1/nanometer", "nanometer^-1":
+            reciprocalAngstrom = reciprocalPixelSize * 0.1
+        case "mrad":
+            guard let voltageKV,
+                  let wavelength = electronWavelengthAngstrom(voltageKV: voltageKV)
+            else { return nil }
+            reciprocalAngstrom = reciprocalPixelSize / (1_000 * wavelength)
+        default: return nil
+        }
+        guard scanAngstrom.isFinite, reciprocalAngstrom.isFinite,
+              scanAngstrom > 0, reciprocalAngstrom > 0 else { return nil }
+        return IDPCPhysicalCalibration(
+            rowSamplingAngstrom: Float(scanAngstrom),
+            columnSamplingAngstrom: Float(scanAngstrom),
+            reciprocalAngstromPerDetectorPixel: Float(reciprocalAngstrom)
+        )
+    }
+
+    private nonisolated static func normalizedUnit(_ unit: String?) -> String {
+        (unit ?? "")
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "ångström", with: "angstrom")
     }
 
     nonisolated static func physicalMagnitudeImage(
@@ -149,12 +219,28 @@ enum DPC {
     /// the 1/|q|² amplification of low-frequency noise (ε = 0 → pure inverse).
     ///
     /// The field is mean-subtracted (removes residual descan → the undefined
-    /// q=0 term) and zero-padded to power-of-two dimensions for vDSP; padding
-    /// can leak faint edge artifacts, acceptable at scan-map sizes.
+    /// q=0 term). `periodic` solves on the exact native scan grid;
+    /// `zeroPadded` centers it in an exact `paddingFactor`-larger grid. Both
+    /// choices are explicit because they encode different edge assumptions.
+    ///
+    /// For qualitative use, leave sampling and `comToGradientScale` at one.
+    /// For quantitative projected phase, use scan sampling in Å and convert
+    /// detector-pixel shifts to rad/Å with 2π·Q_pixel_size.
     nonisolated static func integrateIDPC(com: [Float], width: Int, height: Int,
-                              regularization: Float = 1e-4) -> FloatImage {
+                              regularization: Float = 1e-4,
+                              rowSampling: Float = 1,
+                              columnSampling: Float = 1,
+                              comToGradientScale: Float = 1,
+                              boundary: IDPCBoundaryCondition = .zeroPadded,
+                              paddingFactor: Int = 2) -> FloatImage {
         let n = width * height
-        guard n > 0, width > 1, height > 1 else {
+        guard n > 0, width > 1, height > 1,
+              com.count == n * 2,
+              regularization.isFinite, regularization >= 0,
+              rowSampling.isFinite, rowSampling > 0,
+              columnSampling.isFinite, columnSampling > 0,
+              comToGradientScale.isFinite,
+              paddingFactor > 0 else {
             return FloatImage(width: width, height: height,
                               pixels: [Float](repeating: 0, count: n))
         }
@@ -163,24 +249,35 @@ enum DPC {
         var cx = [Float](repeating: 0, count: n)
         var cy = [Float](repeating: 0, count: n)
         for i in 0..<n {
-            cx[i] = com[2 * i]
-            cy[i] = com[2 * i + 1]
+            cx[i] = com[2 * i] * comToGradientScale
+            cy[i] = com[2 * i + 1] * comToGradientScale
         }
         var mean: Float = 0
         vDSP_meanv(cx, 1, &mean, vDSP_Length(n)); vDSP_vsadd(cx, 1, [-mean], &cx, 1, vDSP_Length(n))
         vDSP_meanv(cy, 1, &mean, vDSP_Length(n)); vDSP_vsadd(cy, 1, [-mean], &cy, 1, vDSP_Length(n))
 
-        // Pad to power-of-two for vDSP's radix-2 2D FFT.
-        let nx = FFT2D.nextPow2(width)
-        let ny = FFT2D.nextPow2(height)
-        guard let fft = FFT2D(nx: nx, ny: ny) else {
-            return magnitudeImage(com: com, width: width, height: height)
+        let factor = boundary == .periodic ? 1 : max(1, paddingFactor)
+        guard width <= Int.max / factor, height <= Int.max / factor else {
+            return FloatImage(width: width, height: height,
+                              pixels: [Float](repeating: 0, count: n))
         }
+        let nx = width * factor
+        let ny = height * factor
+        guard let fft = FFT2D(nx: nx, ny: ny) else {
+            // Never disguise an integration failure as a scientifically
+            // different magnitude image.
+            return FloatImage(width: width, height: height,
+                              pixels: [Float](repeating: 0, count: n))
+        }
+
+        let xOffset = (nx - width) / 2
+        let yOffset = (ny - height) / 2
 
         func pad(_ src: [Float]) -> [Float] {
             var out = [Float](repeating: 0, count: nx * ny)
             for y in 0..<height {
-                out.replaceSubrange(y * nx ..< y * nx + width,
+                let destination = (y + yOffset) * nx + xOffset
+                out.replaceSubrange(destination ..< destination + width,
                                     with: src[y * width ..< (y + 1) * width])
             }
             return out
@@ -194,13 +291,14 @@ enum DPC {
         // φ̂ = (qx·X̂ + qy·Ŷ) / (i·2π·(q² + ε·q²max));  1/i → (re,im) = (im,-re)
         var pRe = [Float](repeating: 0, count: nx * ny)
         var pIm = [Float](repeating: 0, count: nx * ny)
-        let qxMax: Float = 0.5, qyMax: Float = 0.5
+        let qxMax: Float = 0.5 / columnSampling
+        let qyMax: Float = 0.5 / rowSampling
         let q2max = qxMax * qxMax + qyMax * qyMax
         let eps = regularization * q2max
         for ky in 0..<ny {
-            let qy = FFT2D.fftfreq(ky, ny)
+            let qy = FFT2D.fftfreq(ky, ny) / rowSampling
             for kx in 0..<nx {
-                let qx = FFT2D.fftfreq(kx, nx)
+                let qx = FFT2D.fftfreq(kx, nx) / columnSampling
                 let q2 = qx * qx + qy * qy
                 if q2 == 0 { continue }
                 let idx = ky * nx + kx
@@ -217,10 +315,33 @@ enum DPC {
         // Crop back to the scan size.
         var out = [Float](repeating: 0, count: n)
         for y in 0..<height {
+            let source = (y + yOffset) * nx + xOffset
             out.replaceSubrange(y * width ..< (y + 1) * width,
-                                with: pRe[y * nx ..< y * nx + width])
+                                with: pRe[source ..< source + width])
         }
+        // Phase has an arbitrary additive constant. Make that gauge explicit
+        // and deterministic for display, persistence, and numeric comparison.
+        vDSP_meanv(out, 1, &mean, vDSP_Length(n))
+        vDSP_vsadd(out, 1, [-mean], &out, 1, vDSP_Length(n))
         return FloatImage(width: width, height: height, pixels: out)
+    }
+
+    nonisolated static func integratePhysicalIDPC(
+        com: [Float], width: Int, height: Int,
+        calibration: IDPCPhysicalCalibration,
+        regularization: Float = 1e-4,
+        boundary: IDPCBoundaryCondition = .zeroPadded,
+        paddingFactor: Int = 2
+    ) -> FloatImage {
+        integrateIDPC(
+            com: com, width: width, height: height,
+            regularization: regularization,
+            rowSampling: calibration.rowSamplingAngstrom,
+            columnSampling: calibration.columnSamplingAngstrom,
+            comToGradientScale: 2 * .pi
+                * calibration.reciprocalAngstromPerDetectorPixel,
+            boundary: boundary, paddingFactor: paddingFactor
+        )
     }
 
 }

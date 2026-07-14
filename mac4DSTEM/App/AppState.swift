@@ -67,6 +67,8 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     case acom = "ACOM"
 
     var id: String { rawValue }
+    var isAdvanced: Bool { self == .ptychography }
+    var pickerName: String { isAdvanced ? "\(rawValue) · Advanced" : rawValue }
 
     var isAvailable: Bool {
         self == .virtualDetector || self == .dpc || self == .disks
@@ -98,6 +100,7 @@ enum CrystalChoice: String, CaseIterable, Identifiable {
     case copper    = "Copper (FCC)"
     case iron      = "Iron (BCC)"
     case silicon   = "Silicon (diamond)"
+    case magnesium = "Magnesium (HCP)"
     case custom    = "Custom…"
     var id: String { rawValue }
 
@@ -109,6 +112,7 @@ enum CrystalChoice: String, CaseIterable, Identifiable {
         case .copper:   return .copper
         case .iron:     return .iron
         case .silicon:  return .silicon
+        case .magnesium: return .magnesium
         case .custom:   return .gold   // placeholder; see resolvedACOMCrystal
         }
     }
@@ -118,7 +122,7 @@ enum CrystalChoice: String, CaseIterable, Identifiable {
 enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     case ipfZ        = "IPF · Z"
     case reliability = "Reliability"
-    case disorientation = "Cubic FZ angle"
+    case disorientation = "Symmetry FZ angle"
     case inPlane     = "In-plane angle"
     case phi1        = "Euler φ₁"
     case Phi         = "Euler Φ"
@@ -160,9 +164,12 @@ final class AppState {
     private var reader: (any FourDDataSource)?
     private var fourD: FourDArray?
     private var openURL: URL?
+    @ObservationIgnored private var pendingRecovery: DatasetRecoveryRecord?
     @ObservationIgnored var scopedSessionSidecarURL: URL?
 
     var datasets: [DatasetDescriptor] = []
+    private(set) var recentDatasets: [RecentDataset] = WorkspaceRecoveryStore.recent()
+    private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
     var acceleratingVoltage: Double?
@@ -200,7 +207,9 @@ final class AppState {
     private(set) var parallaxDepth: ParallaxDepthResult?
     private(set) var singleslicePtychography: SingleslicePtychographyResult?
     var ptychographyIterations = 8
+    var ptychographyMethod: SingleslicePtychographyMethod = .gradientDescent
     var ptychographyStepSize: Float = 0.5
+    var ptychographyProjectionParameter: Float = 1
     var ptychographyNormalizationMinimum: Float = 1
     var ptychographyFixProbe = false
     var ptychographyConstrainObjectAmplitude = false
@@ -269,13 +278,26 @@ final class AppState {
     @ObservationIgnored private(set) var orientationMap: OrientationMap?
     var hasOrientationPlan = false
     var hasOrientationMap = false
-    var acomCrystal: CrystalChoice = .gold
+    var acomCrystal: CrystalChoice = .gold {
+        didSet { if acomCrystal != oldValue { invalidateACOMPlan() } }
+    }
     var acomScale: Double = 0.01           // Å⁻¹ per detector pixel (Q calibration)
 
     // Custom (user-defined) cubic crystal for ACOM.
-    var customZ: Int = 79                                  // element (Au default)
-    var customStructure: Crystal.CubicStructure = .fcc
-    var customLatticeA: Double = 4.08                      // Å
+    var customZ: Int = 79 { didSet { if customZ != oldValue { invalidateACOMPlan() } } }
+    var customStructure: Crystal.CubicStructure = .fcc {
+        didSet { if customStructure != oldValue { invalidateACOMPlan() } }
+    }
+    var customLatticeA: Double = 4.08 {
+        didSet { if customLatticeA != oldValue { invalidateACOMPlan() } }
+    }
+
+    private func invalidateACOMPlan() {
+        orientationPlan = nil
+        orientationMap = nil
+        hasOrientationPlan = false
+        hasOrientationMap = false
+    }
 
     var selectedEulerText: String? {
         guard let map = orientationMap,
@@ -290,6 +312,10 @@ final class AppState {
         acomCrystal == .custom
             ? Crystal.cubic(customStructure, a: customLatticeA, z: customZ)
             : acomCrystal.crystal
+    }
+
+    var resolvedACOMSymmetry: ACOMCrystalSymmetry {
+        acomCrystal == .magnesium ? .hexagonal : .cubic
     }
     var acomDisplay: ACOMDisplayMode = .reliability {
         didSet { applyACOMDisplay() }
@@ -326,7 +352,9 @@ final class AppState {
     var patternDisplayRangeLo: Float = 0
     var patternDisplayRangeHi: Float = 1
     var patternGamma: Float = 1
-    var analysisMode: AnalysisMode = .virtualDetector
+    var analysisMode: AnalysisMode = .virtualDetector {
+        didSet { if analysisMode != oldValue { persistRecoveryPosition() } }
+    }
 
     var isBusy = false
     var statusText = "No file loaded" {
@@ -531,6 +559,74 @@ final class AppState {
         Task { await openFileAsync(url: url) }
     }
 
+    func openRecent(_ recent: RecentDataset) {
+        do {
+            let resolved = try WorkspaceRecoveryStore.resolve(recent.bookmark)
+            if recoveryRecord?.datasetID == recent.id { pendingRecovery = recoveryRecord }
+            if resolved.stale { refreshStoredBookmark(for: resolved.url, id: recent.id) }
+            openFile(url: resolved.url)
+        } catch {
+            recentDatasets.removeAll { $0.id == recent.id }
+            WorkspaceRecoveryStore.saveRecent(recentDatasets)
+            present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
+        }
+    }
+
+    func reopenLastDataset() {
+        guard let recoveryRecord,
+              let recent = recentDatasets.first(where: { $0.id == recoveryRecord.datasetID }) else {
+            present(SimpleError("No recoverable dataset is available.")); return
+        }
+        openRecent(recent)
+    }
+
+    func removeRecent(_ recent: RecentDataset) {
+        recentDatasets.removeAll { $0.id == recent.id }
+        WorkspaceRecoveryStore.saveRecent(recentDatasets)
+        if recoveryRecord?.datasetID == recent.id {
+            recoveryRecord = nil
+            WorkspaceRecoveryStore.clearRecovery()
+        }
+    }
+
+    private func rememberOpenedDataset(_ url: URL) {
+        do {
+            let bookmark = try WorkspaceRecoveryStore.bookmark(for: url)
+            let id = url.standardizedFileURL.path
+            let entry = RecentDataset(id: id, displayName: url.lastPathComponent,
+                                      bookmark: bookmark, lastOpened: Date())
+            recentDatasets.removeAll { $0.id == id }
+            recentDatasets.insert(entry, at: 0)
+            if recentDatasets.count > 8 { recentDatasets.removeLast(recentDatasets.count - 8) }
+            WorkspaceRecoveryStore.saveRecent(recentDatasets)
+            recoveryRecord = DatasetRecoveryRecord(
+                datasetID: id, bookmark: bookmark,
+                selectedX: selectedScan.x, selectedY: selectedScan.y,
+                analysisMode: analysisMode.rawValue, updated: Date()
+            )
+            WorkspaceRecoveryStore.saveRecovery(recoveryRecord!)
+        } catch {
+            statusText = "Loaded data, but recent-file access could not be remembered: \(error.localizedDescription)"
+        }
+    }
+
+    private func refreshStoredBookmark(for url: URL, id: String) {
+        guard let bookmark = try? WorkspaceRecoveryStore.bookmark(for: url),
+              let index = recentDatasets.firstIndex(where: { $0.id == id }) else { return }
+        recentDatasets[index].bookmark = bookmark
+        WorkspaceRecoveryStore.saveRecent(recentDatasets)
+    }
+
+    private func persistRecoveryPosition() {
+        guard descriptor != nil, var record = recoveryRecord else { return }
+        record.selectedX = selectedScan.x
+        record.selectedY = selectedScan.y
+        record.analysisMode = analysisMode.rawValue
+        record.updated = Date()
+        recoveryRecord = record
+        WorkspaceRecoveryStore.saveRecovery(record)
+    }
+
     func selectDataset(_ descriptor: DatasetDescriptor) {
         guard let reader else { return }
         Task { await activate(descriptor: descriptor, reader: reader) }
@@ -564,6 +660,7 @@ final class AppState {
 
     func selectScan(x: Int, y: Int) {
         selectedScan = ScanPos(x: x, y: y)
+        persistRecoveryPosition()
         Task { await loadCurrentPattern() }
     }
 
@@ -578,30 +675,36 @@ final class AppState {
         errorMessage = nil
         defer { isBusy = false }
 
-        if let openURL {
-            openURL.stopAccessingSecurityScopedResource()
-        }
-        if let scopedSessionSidecarURL {
-            scopedSessionSidecarURL.stopAccessingSecurityScopedResource()
-            self.scopedSessionSidecarURL = nil
-        }
-
+        let previousOpenURL = openURL
         let accessed = url.startAccessingSecurityScopedResource()
-        openURL = accessed ? url : nil
 
         do {
             let ext = url.pathExtension.lowercased()
             let reader: any FourDDataSource
             if ext == "dm4" || ext == "dm3" {
                 reader = try await DM4Reader(path: url.path)
+            } else if ext == "mib" {
+                reader = try MIBReader(path: url.path)
+            } else if ext == "raw" || ext == "xml" {
+                reader = try EMPADReader(path: url.path)
             } else {
                 reader = try H5Reader(path: url.path)
             }
             let descriptor = try await reader.discoverPrimaryDataset()
+            if let previousOpenURL {
+                previousOpenURL.stopAccessingSecurityScopedResource()
+            }
+            if let scopedSessionSidecarURL {
+                scopedSessionSidecarURL.stopAccessingSecurityScopedResource()
+                self.scopedSessionSidecarURL = nil
+            }
+            openURL = accessed ? url : nil
             self.reader = reader
             datasets = [descriptor]
             await activate(descriptor: descriptor, reader: reader)
+            rememberOpenedDataset(url)
         } catch {
+            if accessed { url.stopAccessingSecurityScopedResource() }
             present(error)
         }
     }
@@ -743,6 +846,18 @@ final class AppState {
         dp.minPeakSpacing = max(4, (qMin / 8).rounded())
         dp.edgeBoundary = max(2, Int(qMin / 24))
         diskParams = dp
+
+        if let recovery = pendingRecovery,
+           recovery.datasetID == URL(fileURLWithPath: descriptor.filePath).standardizedFileURL.path {
+            selectedScan = ScanPos(
+                x: min(max(0, recovery.selectedX), max(0, descriptor.rx - 1)),
+                y: min(max(0, recovery.selectedY), max(0, descriptor.ry - 1))
+            )
+            if let mode = AnalysisMode(rawValue: recovery.analysisMode), mode.isAvailable {
+                analysisMode = mode
+            }
+        }
+        pendingRecovery = nil
 
         let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
         await loadCurrentPattern()
@@ -1549,8 +1664,10 @@ final class AppState {
                 progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
+            options.method = ptychographyMethod
             options.iterations = ptychographyIterations
             options.stepSize = ptychographyStepSize
+            options.projectionParameter = ptychographyProjectionParameter
             options.normalizationMinimum = ptychographyNormalizationMinimum
             options.fixProbe = ptychographyFixProbe
             options.constrainObjectAmplitude = ptychographyConstrainObjectAmplitude
@@ -1578,7 +1695,8 @@ final class AppState {
             singleslicePtychography = result
             showParallaxProduct(.iterativePhase)
             statusText = String(
-                format: "Single-slice ptychography ✓  %d iterations · error %.6f",
+                format: "Single-slice ptychography ✓  %@ · %d iterations · error %.6f",
+                result.options.method.rawValue,
                 result.errorHistory.count, result.errorHistory.last ?? .nan
             )
         } catch SingleslicePtychography.ReconstructionError.cancelled {
@@ -1820,7 +1938,7 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
         do {
             let fit = try await Task.detached(priority: .userInitiated) {
-                try EllipseCalibration.fit1D(
+                try EllipseCalibration.fitBestAvailable(
                     pattern: detectorPattern,
                     centerQX: centerQX, centerQY: centerQY,
                     innerRadius: inner, outerRadius: outer
@@ -1844,7 +1962,8 @@ final class AppState {
                 showBraggMap(vectors, descriptor: descriptor)
             }
             statusText = String(
-                format: "Ellipse ✓  a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
+                format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
+                fit.model.rawValue,
                 fit.a, fit.b, fit.theta * 180 / .pi,
                 fit.normalizedResidual, sourceName
             )
@@ -2008,24 +2127,51 @@ final class AppState {
             resultRGBA = DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry)
             resultImage = nil
         case .idpc:
-            resultImage = DPC.integrateIDPC(com: com, width: d.rx, height: d.ry)
+            if let physical = idpcPhysicalCalibration {
+                resultImage = DPC.integratePhysicalIDPC(
+                    com: com, width: d.rx, height: d.ry,
+                    calibration: physical,
+                    boundary: .zeroPadded, paddingFactor: 2
+                )
+            } else {
+                resultImage = DPC.integrateIDPC(
+                    com: com, width: d.rx, height: d.ry,
+                    boundary: .zeroPadded, paddingFactor: 2
+                )
+            }
             resultRGBA = nil
         }
         resultVersion &+= 1
     }
 
     var dpcMilliradiansPerDetectorPixel: Float? {
-        guard let voltageKV = acceleratingVoltage,
-              let qSize = calibration.qPixelSize else { return nil }
+        guard let qSize = calibration.qPixelSize,
+              qSize.isFinite, qSize > 0 else { return nil }
         let invAngstrom: Double
         switch calibration.qPixelUnits?.lowercased() {
         case "1/nm", "nm^-1", "1/nanometer": invAngstrom = qSize * 0.1
         case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
             invAngstrom = qSize
+        case "mrad": return Float(qSize)
         default: return nil
         }
+        guard let voltageKV = acceleratingVoltage else { return nil }
         return DPC.milliradiansPerDetectorPixel(
             voltageKV: voltageKV, invAngstromPerPixel: invAngstrom
+        )
+    }
+
+    var idpcPhysicalCalibration: IDPCPhysicalCalibration? {
+        // A scale alone is insufficient: quantitative integration also needs
+        // per-position descan correction and a detector field rotated into the
+        // scan frame.
+        guard calibration.hasFittedOrigin, calibration.hasRotation else { return nil }
+        return DPC.physicalIDPCCalibration(
+            realPixelSize: calibration.rPixelSize,
+            realPixelUnits: calibration.rPixelUnits,
+            reciprocalPixelSize: calibration.qPixelSize,
+            reciprocalPixelUnits: calibration.qPixelUnits,
+            voltageKV: acceleratingVoltage
         )
     }
 
@@ -2168,8 +2314,8 @@ final class AppState {
     // MARK: - Strain mapping
 
     /// Compute a strain map from the detected Bragg vectors (needs a prior
-    /// disk-detection pass). Auto-picks reference lattice vectors and uses the
-    /// scan-mean lattice as the unstrained reference.
+    /// disk-detection pass). Automatic mode uses repeated-vector consensus;
+    /// local fits and the reference population reject outliers independently.
     func runStrainMapping() async {
         guard let descriptor else { return }
         guard let bragg = braggVectors else {
@@ -2203,7 +2349,10 @@ final class AppState {
             return
         }
         guard let map else {
-            present(SimpleError("Could not establish a lattice basis from the detected peaks (try detecting more disks)."))
+            let detail = strainBasisMode == .manual
+                ? "The manual basis is ill-conditioned or too few peaks index to it."
+                : "No well-conditioned lattice explains at least half of the detected peak population."
+            present(SimpleError("Could not publish strain. \(detail) Adjust disk thresholds or the reference/basis selection."))
             return
         }
         strainMap = map
@@ -2213,10 +2362,13 @@ final class AppState {
         }
         colormap = .rdbu   // diverging colormap is the right default for strain
         applyStrainDisplay()
-        statusText = String(format: "Strain ✓  %.0f%% indexed · %d ref positions · g1=(%.1f, %.1f) g2=(%.1f, %.1f)",
+        statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
                             map.indexedFraction * 100,
+                            map.diagnostics.basisSupportFraction * 100,
+                            map.diagnostics.basisResidualPixels,
+                            map.diagnostics.basisConditionNumber,
                             map.referencePositionCount,
-                            map.refG1.x, map.refG1.y, map.refG2.x, map.refG2.y)
+                            map.diagnostics.referenceCandidateCount)
     }
 
     /// Show the selected strain component; masked positions read 0 (the center
@@ -2277,6 +2429,7 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
 
         let crystal = resolvedACOMCrystal
+        let symmetry = resolvedACOMSymmetry
         let missing = crystal.unsupportedElements
         guard missing.isEmpty else {
             present(SimpleError("No scattering factors for element(s) Z = "
@@ -2287,6 +2440,7 @@ final class AppState {
         let epoch = datasetEpoch
         let plan = await Task.detached(priority: .userInitiated) {
             OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 400,
+                                     symmetry: symmetry,
                                      cancellation: cancellation)
         }.value
         guard epoch == datasetEpoch else { return }
@@ -2352,7 +2506,7 @@ final class AppState {
         orientationMap = map
         hasOrientationMap = true
         applyACOMDisplay()
-        statusText = "ACOM ✓  matched \(descriptor.rx) × \(descriptor.ry) positions"
+        statusText = "ACOM ✓  \(map.matchingBackend.rawValue) · matched \(descriptor.rx) × \(descriptor.ry) positions"
     }
 
     private func applyACOMDisplay() {

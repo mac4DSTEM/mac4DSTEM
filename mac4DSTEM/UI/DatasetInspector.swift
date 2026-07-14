@@ -98,6 +98,8 @@ struct DatasetInspector: View {
         HStack {
             Text(label).font(.caption)
             Slider(value: value, in: 0.2...3)
+                .accessibilityLabel(label)
+                .accessibilityValue(String(format: "%.2f", value.wrappedValue))
             Text(String(format: "%.2f", value.wrappedValue))
                 .font(.caption.monospacedDigit())
                 .frame(width: 36, alignment: .trailing)
@@ -166,5 +168,12 @@ struct RotationCurveView: View {
             }
         }
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 4))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Rotation calibration objective")
+        .accessibilityValue(String(
+            format: "chosen angle %.2f degrees, %@ detector axes",
+            result.rotationRad * 180 / .pi,
+            result.transpose ? "transposed" : "untransposed"
+        ))
     }
 }

@@ -34,7 +34,7 @@ cp real_py4dstem.h5 "$WORK/"
 cp real_py4dstem_origin_maps.h5 "$WORK/"
 
 cd "$WORK"
-./harness attrs.h5 2>/dev/null
+./harness attrs.h5 /test_root/datacube/data discover 2>/dev/null
 ./harness datasets.h5 2>/dev/null
 # Ground truth: written by py4DSTEM 0.14.19 itself (make_real_fixture.py).
 ./harness real_py4dstem.h5 /datacube_root/datacube/data 2>/dev/null

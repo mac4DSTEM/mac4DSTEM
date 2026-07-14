@@ -30,16 +30,18 @@ nonisolated struct PolarGeometry {
 /// The library, with per-template azimuthal FFTs precomputed for matching.
 nonisolated struct OrientationPlan {
     let geometry: PolarGeometry
+    let symmetry: ACOMCrystalSymmetry
     let zoneAxes: [SIMD3<Double>]
     /// py4DSTEM-style detector bases: lab x/y/z columns in crystal coordinates.
     let detectorBases: [simd_double3x3]
     /// Per template: real polar image [nRadial*nAzimuthal] (mean-subtracted,
     /// unit-normalized) — kept for inspection/visualization.
     let templates: [[Float]]
-    /// Per template: azimuthal FFT of each radial ring, laid out ring-major
-    /// [nRadial*nAzimuthal].
-    let templateFFTRe: [[Float]]
-    let templateFFTIm: [[Float]]
+    /// All template azimuthal FFTs in one contiguous
+    /// `[template, radial, azimuthal]` allocation. This layout is shared by the
+    /// optimized CPU matcher and the batched Metal backend.
+    let templateFFTRe: [Float]
+    let templateFFTIm: [Float]
 
     var count: Int { zoneAxes.count }
 
@@ -56,6 +58,7 @@ nonisolated struct OrientationPlan {
                          sgWidth: Double = 0.03,
                          sgMax: Double = 0.1,
                          azimBlurBins: Double = 1.5,
+                         symmetry: ACOMCrystalSymmetry = .cubic,
                          cancellation: AnalysisCancellationToken? = nil) -> OrientationPlan? {
         guard cancellation?.isCancelled != true else { return nil }
         guard let fft = FFT1D(n: nAzimuthal) else { return nil }
@@ -63,13 +66,15 @@ nonisolated struct OrientationPlan {
                                 radialScale: kMax / Double(nRadial))
         let reflections = crystal.reflections(kMax: kMax)
         guard !reflections.isEmpty else { return nil }
-        let axes = CubicOrientationSymmetry.sampleFundamentalZone(count: zoneAxisCount)
+        let axes = symmetry.sampleFundamentalZone(count: zoneAxisCount)
         let bases = axes.map(ACOMOrientation.detectorBasis)
 
         var templates: [[Float]] = []
-        var fftRe: [[Float]] = []
-        var fftIm: [[Float]] = []
+        var fftRe: [Float] = []
+        var fftIm: [Float] = []
         templates.reserveCapacity(axes.count)
+        fftRe.reserveCapacity(axes.count * nRadial * nAzimuthal)
+        fftIm.reserveCapacity(axes.count * nRadial * nAzimuthal)
 
         for n in axes {
             if cancellation?.isCancelled == true { return nil }
@@ -78,10 +83,12 @@ nonisolated struct OrientationPlan {
             var polar = buildPolar(spots: spots, geometry: geo, azimBlurBins: azimBlurBins)
             normalizeUnit(&polar)
             let (re, im) = ringFFTs(polar, geo: geo, fft: fft)
-            templates.append(polar); fftRe.append(re); fftIm.append(im)
+            templates.append(polar)
+            fftRe.append(contentsOf: re); fftIm.append(contentsOf: im)
         }
 
-        return OrientationPlan(geometry: geo, zoneAxes: axes, detectorBases: bases,
+        return OrientationPlan(geometry: geo, symmetry: symmetry,
+                               zoneAxes: axes, detectorBases: bases,
                                templates: templates, templateFFTRe: fftRe, templateFFTIm: fftIm)
     }
 

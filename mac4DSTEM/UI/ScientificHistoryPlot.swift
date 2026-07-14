@@ -60,6 +60,21 @@ struct ScientificHistoryPlot: View {
             }
             .frame(height: 58)
             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 4))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(selectionLabel)
+            .accessibilityHint("Adjust to inspect finite samples")
+            .accessibilityAdjustableAction { direction in
+                let indices = geometry.points.map(\.index)
+                guard !indices.isEmpty else { return }
+                let current = effectiveSelection ?? indices.last!
+                let position = indices.firstIndex(of: current) ?? indices.count - 1
+                switch direction {
+                case .increment: selectedIndex = indices[min(indices.count - 1, position + 1)]
+                case .decrement: selectedIndex = indices[max(0, position - 1)]
+                @unknown default: break
+                }
+            }
             HStack {
                 Text(scale == .logarithmic ? "log₁₀ scale" : "linear scale")
                 Spacer()

@@ -1,59 +1,105 @@
 import SwiftUI
 
-@main
-struct mac4DSTEMApp: App {
+private struct FocusedAppStateKey: FocusedValueKey {
+    typealias Value = AppState
+}
+
+extension FocusedValues {
+    var appState: AppState? {
+        get { self[FocusedAppStateKey.self] }
+        set { self[FocusedAppStateKey.self] = newValue }
+    }
+}
+
+/// Owns one state graph per window. Keeping this below WindowGroup (rather
+/// than on App) prevents a second dataset window from replacing the first
+/// window's reader, calibration, cancellation token, or results.
+private struct DatasetWindow: View {
     @State private var appState = AppState()
 
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environment(appState)
-                .frame(minWidth: 1080, minHeight: 640)
-                .preferredColorScheme(.dark)
+    var body: some View {
+        ContentView()
+            .environment(appState)
+            .focusedSceneValue(\.appState, appState)
+            .frame(minWidth: 1080, minHeight: 640)
+            .preferredColorScheme(.dark)
+    }
+}
+
+private struct DatasetCommands: Commands {
+    @FocusedValue(\.appState) private var appState
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Dataset Window") { openWindow(id: "dataset") }
+                .keyboardShortcut("n", modifiers: .command)
+            Button("Open Dataset…") { appState?.requestOpenDataset() }
+                .keyboardShortcut("o", modifiers: .command)
+                .disabled(appState == nil)
+            if let recovery = appState?.recoveryRecord {
+                Button("Reopen \(recoveryName(recovery))") { appState?.reopenLastDataset() }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
+            }
         }
-        .windowStyle(.titleBar)
-        .windowToolbarStyle(.unified)
-        .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("Open Dataset…") { appState.requestOpenDataset() }
-                    .keyboardShortcut("o", modifiers: .command)
+        CommandGroup(replacing: .importExport) {
+            Button("Export Result Image…") { appState?.exportResultImage() }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(appState?.resultImage == nil && appState?.resultRGBA == nil)
+            Button("Export Diffraction Pattern…") { appState?.exportDiffractionImage() }
+                .keyboardShortcut("e", modifiers: [.command, .option])
+                .disabled(appState?.displayedPattern == nil)
+            Button("Preprocess & Export DataCube…") { appState?.requestPreprocessingExport() }
+                .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+            Divider()
+            Button("Save Current Result to Session Sidecar") {
+                appState?.saveCurrentResultToSessionSidecar()
             }
-            CommandGroup(replacing: .importExport) {
-                Button("Export Result Image…") { appState.exportResultImage() }
-                    .keyboardShortcut("e", modifiers: [.command, .shift])
-                    .disabled(appState.resultImage == nil && appState.resultRGBA == nil)
-                Button("Export Diffraction Pattern…") { appState.exportDiffractionImage() }
-                    .keyboardShortcut("e", modifiers: [.command, .option])
-                    .disabled(appState.displayedPattern == nil)
-                Button("Preprocess & Export DataCube…") {
-                    appState.requestPreprocessingExport()
-                }
-                .disabled(!appState.hasDataset || appState.isBusy)
-                Divider()
-                Button("Save Current Result to Session Sidecar") {
-                    appState.saveCurrentResultToSessionSidecar()
-                }
-                .disabled((appState.resultImage == nil && appState.resultRGBA == nil)
-                          || appState.isBusy)
-                Button("Save Calibration to Session Sidecar") {
-                    appState.saveCalibrationToSessionSidecar()
-                }
-                .disabled(!appState.hasDataset || appState.isBusy)
+            .disabled((appState?.resultImage == nil && appState?.resultRGBA == nil)
+                      || appState?.isBusy == true)
+            Button("Save Calibration to Session Sidecar") {
+                appState?.saveCalibrationToSessionSidecar()
             }
-            CommandGroup(replacing: .sidebar) {
-                Button(appState.showToolsPane ? "Hide Tools" : "Show Tools") {
-                    appState.showToolsPane.toggle()
-                }
-                .keyboardShortcut("s", modifiers: [.command, .control])
-                Button(appState.showInspectorPane ? "Hide Inspector" : "Show Inspector") {
-                    appState.showInspectorPane.toggle()
-                }
-                .keyboardShortcut("i", modifiers: [.command, .control])
-                Button(appState.showLogPane ? "Hide Output" : "Show Output") {
-                    appState.showLogPane.toggle()
-                }
+            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+        }
+        CommandGroup(replacing: .sidebar) {
+            Button(appState?.showToolsPane == true ? "Hide Tools" : "Show Tools") {
+                appState?.showToolsPane.toggle()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            Button(appState?.showInspectorPane == true ? "Hide Inspector" : "Show Inspector") {
+                appState?.showInspectorPane.toggle()
+            }
+            .keyboardShortcut("i", modifiers: [.command, .control])
+            Button(appState?.showLogPane == true ? "Hide Output" : "Show Output") {
+                appState?.showLogPane.toggle()
+            }
                 .keyboardShortcut("l", modifiers: [.command, .control])
-            }
         }
+        CommandMenu("Analysis") {
+            Button("Run Current Analysis") {
+                if let appState { Task { await appState.runCurrentAnalysis() } }
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+            Button("Cancel Analysis") { appState?.cancelActiveOperation() }
+                .keyboardShortcut(.cancelAction)
+                .disabled(appState?.canCancelActiveOperation != true)
+        }
+    }
+
+    private func recoveryName(_ recovery: DatasetRecoveryRecord) -> String {
+        appState?.recentDatasets.first(where: { $0.id == recovery.datasetID })?.displayName
+            ?? "Last Dataset"
+    }
+}
+
+@main
+struct mac4DSTEMApp: App {
+    var body: some Scene {
+        WindowGroup("mac4DSTEM", id: "dataset") { DatasetWindow() }
+            .windowStyle(.titleBar)
+            .windowToolbarStyle(.unified)
+            .commands { DatasetCommands() }
     }
 }

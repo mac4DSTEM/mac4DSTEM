@@ -104,7 +104,13 @@ struct StemImageView: View {
                 }
 
                 if app.analysisMode == .acom, app.acomDisplay == .ipfZ {
-                    CubicIPFLegendView()
+                    Group {
+                        if app.orientationMap?.symmetry == .hexagonal {
+                            HexagonalIPFLegendView()
+                        } else {
+                            CubicIPFLegendView()
+                        }
+                    }
                         .padding(7)
                         .background(Color.black.opacity(0.48),
                                     in: RoundedRectangle(cornerRadius: 4))
@@ -139,6 +145,10 @@ struct StemImageView: View {
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("\(app.analysisMode.rawValue) real-space result")
+            .accessibilityValue("Selected scan X \(app.selectedScan.x), Y \(app.selectedScan.y); \(dims.width) by \(dims.height) pixels")
+            .accessibilityHint("Use arrow keys to move the selected scan position; Shift moves ten pixels")
         } else {
             placeholder
         }

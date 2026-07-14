@@ -156,4 +156,72 @@ let nearB = CubicOrientationSymmetry.ipfColor(direction: SIMD3(0.20001, 0.1, 0.9
 guard simd_length(nearA - nearB) < 0.001 else { fail("IPF color is not locally continuous") }
 print("PASS: IPF color is locally continuous")
 
+guard HexagonalOrientationSymmetry.operators.count == 12 else {
+    fail("hexagonal group has \(HexagonalOrientationSymmetry.operators.count) operators, expected 12")
+}
+for (index, symmetry) in HexagonalOrientationSymmetry.operators.enumerated() {
+    let determinantError = abs(simd_determinant(symmetry) - 1)
+    let orthogonalityError = maximumError(simd_transpose(symmetry) * symmetry, matrix([
+        [1, 0, 0], [0, 1, 0], [0, 0, 1],
+    ]))
+    guard determinantError <= 1e-12, orthogonalityError <= 1e-12 else {
+        fail("hexagonal operator \(index) is not a proper rotation")
+    }
+    for prior in 0..<index where maximumError(symmetry, HexagonalOrientationSymmetry.operators[prior]) < 1e-12 {
+        fail("hexagonal operators \(prior) and \(index) are duplicates")
+    }
+}
+print("PASS: 12 unique proper hexagonal symmetry operators")
+
+let hexRepresentative = HexagonalOrientationSymmetry.reduce(orbitSeed)
+for (index, symmetry) in HexagonalOrientationSymmetry.operators.enumerated() {
+    let equivalent = HexagonalOrientationSymmetry.reduce(symmetry * orbitSeed)
+    guard maximumError(equivalent.matrix, hexRepresentative.matrix) <= 2e-12,
+          abs(equivalent.disorientationRad - hexRepresentative.disorientationRad) <= 2e-7 else {
+        fail("hexagonal-equivalent orientation \(index) reduced differently")
+    }
+}
+print("PASS: hexagonal reduction is deterministic over a full symmetry orbit")
+
+let hexAxes = HexagonalOrientationSymmetry.sampleFundamentalZone(count: 96)
+guard hexAxes.count == 96 else { fail("hexagonal sampler returned \(hexAxes.count), expected 96") }
+let hexVertices = [
+    SIMD3<Double>(0, 0, 1),
+    SIMD3<Double>(1, 0, 0),
+    simd_normalize(SIMD3<Double>(cos(Double.pi / 6), sin(Double.pi / 6), 0)),
+]
+for index in hexVertices.indices where simd_length(hexAxes[index] - hexVertices[index]) > 1e-12 {
+    fail("hexagonal sampler omitted canonical vertex \(index)")
+}
+for (index, axis) in hexAxes.enumerated() {
+    var azimuth = atan2(axis.y, axis.x)
+    if azimuth < 0 { azimuth += 2 * .pi }
+    guard abs(simd_length(axis) - 1) <= 1e-12, axis.z >= -1e-12,
+          azimuth >= -1e-12, azimuth <= Double.pi / 6 + 1e-12 else {
+        fail("hexagonal sampled axis \(index) lies outside the 0...30 degree upper sector")
+    }
+    for prior in 0..<index where simd_dot(axis, hexAxes[prior]) > 1 - 1e-10 {
+        fail("hexagonal sampled axes \(prior) and \(index) are duplicates")
+    }
+}
+print("PASS: 96 unique hexagonal fundamental-zone template axes")
+
+let hexKeyDirections = [SIMD3<Double>(0, 0, 1), SIMD3<Double>(1, 0, 0),
+                        SIMD3<Double>(cos(.pi / 6), sin(.pi / 6), 0)]
+let hexKeyColors = [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)]
+for index in hexKeyDirections.indices {
+    let expected = hexKeyColors[index]
+    let actual = HexagonalOrientationSymmetry.ipfColor(direction: hexKeyDirections[index])
+    guard simd_length(actual - expected) < 1e-6 else {
+        fail("hexagonal IPF key vertex \(index) was \(actual), expected \(expected)")
+    }
+    for symmetry in HexagonalOrientationSymmetry.operators {
+        let equivalent = HexagonalOrientationSymmetry.ipfColor(direction: symmetry * hexKeyDirections[index])
+        guard simd_length(actual - equivalent) < 1e-6 else {
+            fail("hexagonal IPF color changed under symmetry at vertex \(index)")
+        }
+    }
+}
+print("PASS: native hexagonal IPF key vertices and symmetry invariance")
+
 print("acom-orientation-test: all passed")

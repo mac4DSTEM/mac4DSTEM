@@ -1,9 +1,25 @@
 //
 //  EllipseCalibration.swift
-//  Intensity-weighted conic fit matching py4DSTEM fit_ellipse_1D semantics.
+//  Detector-ellipse calibration. The conic path matches py4DSTEM fit_ellipse_1D;
+//  the profile path ports fit_ellipse_amorphous_ring's 11-parameter central
+//  Gaussian + asymmetric (Janus) Gaussian ring model.
 //
 
 import Foundation
+
+nonisolated enum EllipseCalibrationModel: String, Sendable, Equatable {
+    case conic = "Intensity-weighted conic"
+    case asymmetricGaussian = "Asymmetric Gaussian ring"
+}
+
+nonisolated struct EllipseProfileParameters: Sendable, Equatable {
+    let centralIntensity: Double
+    let ringIntensity: Double
+    let centralSigma: Double
+    let innerSigma: Double
+    let outerSigma: Double
+    let background: Double
+}
 
 nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
     /// Fitted center in py4DSTEM detector order: qx is row, qy is column.
@@ -12,10 +28,16 @@ nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
     let a: Double
     let b: Double
     let theta: Double
-    /// sqrt(sum(residual²) / sum(intensity²)); dimensionless conic error.
+    /// Dimensionless residual for the model that was accepted.
     let normalizedResidual: Double
+    let conicResidual: Double
     let sampleCount: Int
     let occupiedAngularBins: Int
+    let model: EllipseCalibrationModel
+    let profile: EllipseProfileParameters?
+    /// Populated when profile refinement was attempted but the conic fallback
+    /// was retained. This is diagnostic provenance, not a scientific failure.
+    let profileFallbackReason: String?
 }
 
 nonisolated enum EllipseCalibration {
@@ -200,9 +222,302 @@ nonisolated enum EllipseCalibration {
         return EllipseCalibrationFit(
             centerQX: parameters[0], centerQY: parameters[1],
             a: ellipse.a, b: ellipse.b, theta: ellipse.theta,
-            normalizedResidual: residual, sampleCount: samples.count,
-            occupiedAngularBins: occupiedCount
+            normalizedResidual: residual, conicResidual: residual,
+            sampleCount: samples.count, occupiedAngularBins: occupiedCount,
+            model: .conic, profile: nil, profileFallbackReason: nil
         )
+    }
+
+    /// Prefer the physically richer amorphous-ring profile, but never discard
+    /// a valid conic calibration merely because the profile is absent,
+    /// underconstrained, or incompatible with crystalline/overlapping signal.
+    static func fitBestAvailable(
+        pattern: DiffractionPattern,
+        centerQX: Double,
+        centerQY: Double,
+        innerRadius: Double,
+        outerRadius: Double,
+        maximumConicResidual: Double = 0.2,
+        maximumProfileResidual: Double = 0.22
+    ) throws -> EllipseCalibrationFit {
+        // A broad/asymmetric ring can legitimately exceed the strict conic
+        // publication residual while still providing a useful profile seed.
+        let conic = try fit1D(
+            pattern: pattern,
+            centerQX: centerQX, centerQY: centerQY,
+            innerRadius: innerRadius, outerRadius: outerRadius,
+            maximumResidual: max(0.4, maximumConicResidual)
+        )
+        do {
+            return try fitAmorphousRing(
+                pattern: pattern, initial: conic,
+                centerQX: centerQX, centerQY: centerQY,
+                innerRadius: innerRadius, outerRadius: outerRadius,
+                maximumResidual: maximumProfileResidual
+            )
+        } catch {
+            guard conic.conicResidual <= maximumConicResidual else { throw error }
+            return EllipseCalibrationFit(
+                centerQX: conic.centerQX, centerQY: conic.centerQY,
+                a: conic.a, b: conic.b, theta: conic.theta,
+                normalizedResidual: conic.normalizedResidual,
+                conicResidual: conic.conicResidual,
+                sampleCount: conic.sampleCount,
+                occupiedAngularBins: conic.occupiedAngularBins,
+                model: .conic, profile: nil,
+                profileFallbackReason: error.localizedDescription
+            )
+        }
+    }
+
+    /// Bounded Levenberg–Marquardt refinement of py4DSTEM's calibration-module
+    /// 11-parameter model. We optimize equivalent user-facing `(a,b,theta)`
+    /// variables instead of unconstrained `(A,B,C)`, then evaluate the exact
+    /// canonical model. This is an intentional numerical-stability deviation:
+    /// every candidate remains a physical ellipse.
+    static func fitAmorphousRing(
+        pattern: DiffractionPattern,
+        initial: EllipseCalibrationFit,
+        centerQX: Double,
+        centerQY: Double,
+        innerRadius: Double,
+        outerRadius: Double,
+        maximumResidual: Double = 0.22
+    ) throws -> EllipseCalibrationFit {
+        struct Sample {
+            let x: Double
+            let y: Double
+            let value: Double
+        }
+        guard pattern.qy > 2, pattern.qx > 2,
+              pattern.pixels.count == pattern.qy * pattern.qx,
+              innerRadius >= 0, outerRadius > innerRadius,
+              maximumResidual > 0 else {
+            throw FitError.invalidInput("dimensions or profile bounds are invalid")
+        }
+        var samples: [Sample] = []
+        var minimum = Double.greatestFiniteMagnitude
+        var maximum = -Double.greatestFiniteMagnitude
+        var globalMaximum = maximum
+        for value in pattern.pixels where value.isFinite {
+            globalMaximum = max(globalMaximum, Double(value))
+        }
+        for qx in 0..<pattern.qy {
+            let dx = Double(qx) - centerQX
+            for qy in 0..<pattern.qx {
+                let dy = Double(qy) - centerQY
+                let radius = hypot(dx, dy)
+                guard radius > innerRadius, radius < outerRadius else { continue }
+                let value = Double(pattern.pixels[qx * pattern.qx + qy])
+                guard value.isFinite else { continue }
+                samples.append(Sample(x: Double(qx), y: Double(qy), value: value))
+                minimum = min(minimum, value)
+                maximum = max(maximum, value)
+            }
+        }
+        let dynamicRange = maximum - minimum
+        guard samples.count >= 32, dynamicRange.isFinite,
+              dynamicRange > max(1, abs(maximum)) * 1e-6 else {
+            throw FitError.insufficientSignal
+        }
+
+        let ringWidth = outerRadius - innerRadius
+        let intensityLimit = 5 * max(1, abs(globalMaximum), dynamicRange)
+        let sigmaLimit = max(2, outerRadius * 2)
+        let centerLimit = max(2, ringWidth)
+        let axisMinimum = max(1, innerRadius * 0.5)
+        let axisMaximum = max(axisMinimum + 1, outerRadius * 1.5)
+        let backgroundLower = minimum - 2 * dynamicRange
+        let backgroundUpper = maximum + 2 * dynamicRange
+
+        // [I0,I1,sigma0,sigma1,sigma2,c,x0,y0,a,b,theta]
+        var parameters = [
+            max(0, globalMaximum - minimum), dynamicRange,
+            max(1, innerRadius / 2), max(1, ringWidth / 4), max(1, ringWidth / 4),
+            minimum, initial.centerQX, initial.centerQY,
+            initial.a, initial.b, initial.theta,
+        ]
+        let scales = [
+            max(1, dynamicRange), max(1, dynamicRange),
+            max(1, innerRadius / 2), max(1, ringWidth / 4), max(1, ringWidth / 4),
+            max(1, dynamicRange), 1, 1,
+            max(1, initial.a), max(1, initial.b), 1,
+        ]
+
+        func bounded(_ input: [Double]) -> [Double] {
+            var p = input
+            p[0] = min(intensityLimit, max(0, p[0]))
+            p[1] = min(intensityLimit, max(0, p[1]))
+            for index in 2...4 { p[index] = min(sigmaLimit, max(0.25, p[index])) }
+            p[5] = min(backgroundUpper, max(backgroundLower, p[5]))
+            p[6] = min(Double(pattern.qy - 1), max(0, p[6]))
+            p[6] = min(centerQX + centerLimit, max(centerQX - centerLimit, p[6]))
+            p[7] = min(Double(pattern.qx - 1), max(0, p[7]))
+            p[7] = min(centerQY + centerLimit, max(centerQY - centerLimit, p[7]))
+            p[8] = min(axisMaximum, max(axisMinimum, p[8]))
+            p[9] = min(axisMaximum, max(axisMinimum, p[9]))
+            if p[8] < p[9] {
+                p.swapAt(8, 9)
+                p[10] += .pi / 2
+            }
+            p[10].formTruncatingRemainder(dividingBy: .pi)
+            if p[10] < 0 { p[10] += .pi }
+            return p
+        }
+
+        func predictions(_ p: [Double], indices: [Int]) -> [Double] {
+            let a = p[8], b = p[9], theta = p[10]
+            let sinTheta = sin(theta), cosTheta = cos(theta)
+            let a2 = a * a, b2 = b * b
+            let sin2 = sinTheta * sinTheta, cos2 = cosTheta * cosTheta
+            var A = sin2 / b2 + cos2 / a2
+            var B = 2 * (b2 - a2) * sinTheta * cosTheta / (a2 * b2)
+            var C = cos2 / b2 + sin2 / a2
+            let radius = (a + b) / 2
+            let radius2 = radius * radius
+            A *= radius2; B *= radius2; C *= radius2
+            let twoSigma0 = 2 * p[2] * p[2]
+            let twoSigma1 = 2 * p[3] * p[3]
+            let twoSigma2 = 2 * p[4] * p[4]
+            return indices.map { index in
+                let sample = samples[index]
+                let dx = sample.x - p[6], dy = sample.y - p[7]
+                let ellipticalRadius2 = max(0, A * dx * dx + B * dx * dy + C * dy * dy)
+                let delta = sqrt(ellipticalRadius2) - radius
+                let ringSigma = delta < 0 ? twoSigma1 : twoSigma2
+                return p[0] * exp(-ellipticalRadius2 / twoSigma0)
+                    + p[1] * exp(-(delta * delta) / ringSigma) + p[5]
+            }
+        }
+
+        func optimize(_ start: [Double], indices: [Int]) throws -> [Double] {
+            var p = bounded(start)
+            var predicted = predictions(p, indices: indices)
+            var residual = zip(predicted, indices).map { value, index in
+                value - samples[index].value
+            }
+            var cost = residual.reduce(0) { $0 + $1 * $1 }
+            guard cost.isFinite else { throw FitError.didNotConverge }
+            var damping = 1e-3
+            var acceptedSteps = 0
+            let epsilon = 1e-4
+            for _ in 0..<80 {
+                var columns = [[Double]]()
+                columns.reserveCapacity(parameters.count)
+                for parameter in parameters.indices {
+                    var plus = p, minus = p
+                    plus[parameter] += scales[parameter] * epsilon
+                    minus[parameter] -= scales[parameter] * epsilon
+                    plus = bounded(plus); minus = bounded(minus)
+                    let high = predictions(plus, indices: indices)
+                    let low = predictions(minus, indices: indices)
+                    columns.append(zip(high, low).map { ($0 - $1) / (2 * epsilon) })
+                }
+                var normal = Array(
+                    repeating: [Double](repeating: 0, count: parameters.count),
+                    count: parameters.count
+                )
+                var gradient = [Double](repeating: 0, count: parameters.count)
+                for row in parameters.indices {
+                    for sampleIndex in residual.indices {
+                        gradient[row] += columns[row][sampleIndex] * residual[sampleIndex]
+                    }
+                    for column in row..<parameters.count {
+                        var value = 0.0
+                        for sampleIndex in residual.indices {
+                            value += columns[row][sampleIndex] * columns[column][sampleIndex]
+                        }
+                        normal[row][column] = value
+                        normal[column][row] = value
+                    }
+                }
+                for diagonal in parameters.indices {
+                    normal[diagonal][diagonal] += damping
+                        * max(normal[diagonal][diagonal], 1e-12)
+                }
+                guard let step = solve(normal, rhs: gradient.map { -$0 }) else {
+                    damping *= 10
+                    continue
+                }
+                var candidate = p
+                for index in parameters.indices { candidate[index] += step[index] * scales[index] }
+                candidate = bounded(candidate)
+                let trialPrediction = predictions(candidate, indices: indices)
+                let trialResidual = zip(trialPrediction, indices).map { value, index in
+                    value - samples[index].value
+                }
+                let trialCost = trialResidual.reduce(0) { $0 + $1 * $1 }
+                if trialCost < cost {
+                    let relativeImprovement = (cost - trialCost) / max(cost, 1e-20)
+                    p = candidate; predicted = trialPrediction; residual = trialResidual
+                    cost = trialCost; acceptedSteps += 1
+                    damping = max(1e-10, damping / 3)
+                    let stepNorm = sqrt(step.reduce(0) { $0 + $1 * $1 })
+                    if stepNorm < 1e-7 || relativeImprovement < 1e-10 { break }
+                } else {
+                    damping *= 10
+                }
+            }
+            guard acceptedSteps > 0, p.allSatisfy(\.isFinite) else {
+                throw FitError.didNotConverge
+            }
+            return p
+        }
+
+        let allIndices = Array(samples.indices)
+        parameters = try optimize(parameters, indices: allIndices)
+
+        // One robust refit mirrors py4DSTEM's optional outlier refinement while
+        // keeping the final acceptance residual defined over every selected pixel.
+        let firstPrediction = predictions(parameters, indices: allIndices)
+        let firstResiduals = zip(firstPrediction, samples).map { value, sample in
+            value - sample.value
+        }
+        let centerResidual = median(firstResiduals) ?? 0
+        let mad = median(firstResiduals.map { abs($0 - centerResidual) }) ?? 0
+        if mad > 0 {
+            let threshold = 4 * 1.4826 * mad
+            let inliers = allIndices.filter { abs(firstResiduals[$0] - centerResidual) <= threshold }
+            if inliers.count * 10 >= samples.count * 7, inliers.count < samples.count {
+                parameters = try optimize(parameters, indices: inliers)
+            }
+        }
+
+        let finalPrediction = predictions(parameters, indices: allIndices)
+        let finalCost = zip(finalPrediction, samples).reduce(0.0) { partial, pair in
+            let error = pair.0 - pair.1.value
+            return partial + error * error
+        }
+        let residual = sqrt(finalCost / Double(samples.count)) / dynamicRange
+        guard residual.isFinite, residual <= maximumResidual else {
+            throw FitError.excessiveResidual(residual)
+        }
+        guard hypot(parameters[6] - centerQX, parameters[7] - centerQY) <= centerLimit,
+              parameters[8] / parameters[9] <= 5 else {
+            throw FitError.invalidEllipse
+        }
+        return EllipseCalibrationFit(
+            centerQX: parameters[6], centerQY: parameters[7],
+            a: parameters[8], b: parameters[9], theta: parameters[10],
+            normalizedResidual: residual, conicResidual: initial.conicResidual,
+            sampleCount: samples.count,
+            occupiedAngularBins: initial.occupiedAngularBins,
+            model: .asymmetricGaussian,
+            profile: EllipseProfileParameters(
+                centralIntensity: parameters[0], ringIntensity: parameters[1],
+                centralSigma: parameters[2], innerSigma: parameters[3],
+                outerSigma: parameters[4], background: parameters[5]
+            ),
+            profileFallbackReason: nil
+        )
+    }
+
+    private static func median(_ values: [Double]) -> Double? {
+        guard !values.isEmpty else { return nil }
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        return sorted.count.isMultiple(of: 2)
+            ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 
     private static func isPhysicalConic(_ p: [Double]) -> Bool {

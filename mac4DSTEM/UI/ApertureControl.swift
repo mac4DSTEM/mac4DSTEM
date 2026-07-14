@@ -30,6 +30,28 @@ struct ApertureControl: View {
             }
             .contentShape(Rectangle())
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Virtual detector \(shape.rawValue.lowercased())")
+        .accessibilityValue(String(
+            format: "center X %.0f, Y %.0f, inner radius %.0f, outer radius %.0f pixels",
+            aperture.centerX, aperture.centerY, aperture.inner, aperture.outer
+        ))
+        .accessibilityRepresentation {
+            VStack {
+                accessibleSlider("Aperture center X", value: aperture.centerX,
+                                 range: 0...Float(max(0, patternWidth - 1))) { $0.centerX = $1 }
+                accessibleSlider("Aperture center Y", value: aperture.centerY,
+                                 range: 0...Float(max(0, patternHeight - 1))) { $0.centerY = $1 }
+                if shape == .annulus {
+                    accessibleSlider("Aperture inner radius", value: aperture.inner,
+                                     range: 0...max(0, aperture.outer)) { $0.inner = $1 }
+                }
+                if shape != .point {
+                    accessibleSlider("Aperture outer radius", value: aperture.outer,
+                                     range: max(1, aperture.inner)...Float(max(patternWidth, patternHeight))) { $0.outer = $1 }
+                }
+            }
+        }
     }
 
     // MARK: Shapes
@@ -138,6 +160,23 @@ struct ApertureControl: View {
             .frame(width: 12, height: 12)
             .overlay(Circle().stroke(Color.black.opacity(0.6), lineWidth: 1))
             .shadow(radius: 1)
+    }
+
+    private func accessibleSlider(
+        _ label: String, value: Float, range: ClosedRange<Float>,
+        update: @escaping (inout Aperture, Float) -> Void
+    ) -> some View {
+        Slider(value: Binding(
+            get: { value },
+            set: { newValue in
+                var changed = aperture
+                update(&changed, newValue.rounded())
+                onEdited(changed)
+                onCommit()
+            }
+        ), in: range, step: 1)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(Int(value.rounded())) pixels")
     }
 
     private func radiusDrag(center: CGPoint, scale: CGFloat, isInner: Bool) -> some Gesture {

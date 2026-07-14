@@ -1,6 +1,10 @@
 import Foundation
 
-struct Fixture: Decodable { let cases: [RingCase] }
+struct Fixture: Decodable {
+    let cases: [RingCase]
+    let profileCases: [ProfileCase]
+    let overlapCase: ProfileCase
+}
 struct RingCase: Decodable {
     let name: String
     let height: Int
@@ -10,6 +14,26 @@ struct RingCase: Decodable {
     let a: Double
     let b: Double
     let theta: Double
+    let innerRadius: Double
+    let outerRadius: Double
+    let pixels: [Float]
+}
+
+struct ProfileCase: Decodable {
+    let name: String
+    let height: Int
+    let width: Int
+    let centerQX: Double
+    let centerQY: Double
+    let a: Double
+    let b: Double
+    let theta: Double
+    let centralIntensity: Double
+    let ringIntensity: Double
+    let centralSigma: Double
+    let innerSigma: Double
+    let outerSigma: Double
+    let background: Double
     let innerRadius: Double
     let outerRadius: Double
     let pixels: [Float]
@@ -45,6 +69,47 @@ for test in fixture.cases {
     }
     print("PASS: \(test.name) center/axes/theta residual \(fit.normalizedResidual)")
 }
+
+for test in fixture.profileCases {
+    let pattern = DiffractionPattern(qy: test.height, qx: test.width, pixels: test.pixels)
+    let fit = try EllipseCalibration.fitBestAvailable(
+        pattern: pattern,
+        centerQX: test.centerQX + 0.7, centerQY: test.centerQY - 0.5,
+        innerRadius: test.innerRadius, outerRadius: test.outerRadius
+    )
+    guard fit.model == .asymmetricGaussian,
+          abs(fit.centerQX - test.centerQX) < 0.2,
+          abs(fit.centerQY - test.centerQY) < 0.2,
+          abs(fit.a - test.a) < 0.3,
+          abs(fit.b - test.b) < 0.3,
+          angleError(fit.theta, test.theta) < 0.015,
+          let profile = fit.profile,
+          abs(profile.innerSigma - test.innerSigma) < 0.35,
+          abs(profile.outerSigma - test.outerSigma) < 0.35,
+          abs(profile.background - test.background) < 0.5,
+          fit.normalizedResidual < 0.08 else {
+        fail("\(test.name) profile differs: \(fit)")
+    }
+    print("PASS: \(test.name) 11-parameter asymmetric profile")
+}
+
+let overlap = fixture.overlapCase
+let overlapPattern = DiffractionPattern(
+    qy: overlap.height, qx: overlap.width, pixels: overlap.pixels
+)
+let fallback = try EllipseCalibration.fitBestAvailable(
+    pattern: overlapPattern,
+    centerQX: overlap.centerQX, centerQY: overlap.centerQY,
+    innerRadius: overlap.innerRadius, outerRadius: overlap.outerRadius,
+    maximumConicResidual: 0.4, maximumProfileResidual: 0.001
+)
+guard fallback.model == .conic,
+      fallback.profile == nil,
+      fallback.profileFallbackReason != nil,
+      fallback.a.isFinite, fallback.b.isFinite else {
+    fail("overlapping-ring profile failure did not preserve the conic calibration")
+}
+print("PASS: overlapping/noisy profile retains safe conic fallback")
 
 let convention = fixture.cases[0]
 var calibration = Calibration()

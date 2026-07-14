@@ -9,6 +9,19 @@ nonisolated private let h5FloatClass: Int32 = 1
 nonisolated private let h5IntegerClass: Int32 = 0
 nonisolated private let h5TwosComplementSign: Int32 = 1
 
+nonisolated private final class H5LinkCollector: @unchecked Sendable {
+    var paths: [String] = []
+}
+
+nonisolated private let collectH5Link: @convention(c)
+    (hid_t, UnsafePointer<CChar>?, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t = {
+        _, name, _, context in
+        guard let name, let context else { return 0 }
+        let collector = Unmanaged<H5LinkCollector>.fromOpaque(context).takeUnretainedValue()
+        if collector.paths.count < 100_000 { collector.paths.append("/" + String(cString: name)) }
+        return 0
+    }
+
 enum H5Error: LocalizedError {
     case libraryUnavailable(String)
     case symbolMissing(String)
@@ -69,6 +82,10 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
     typealias H5Aclose = @convention(c) (hid_t) -> herr_t
     typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
+    typealias H5Literate = @convention(c)
+        (hid_t, UnsafePointer<CChar>?, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t
+    typealias H5Lvisit2 = @convention(c)
+        (hid_t, Int32, Int32, H5Literate, UnsafeMutableRawPointer?) -> herr_t
 
     let handle: UnsafeMutableRawPointer
     let h5open: H5open
@@ -101,6 +118,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     let h5aopen: H5Aopen
     let h5aclose: H5Aclose
     let h5aread: H5Aread
+    let h5lvisit2: H5Lvisit2
     let nativeFloat: hid_t
     let nativeDouble: hid_t
     let nativeInt: hid_t
@@ -173,6 +191,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
             h5aopen: try symbol("H5Aopen", as: H5Aopen.self),
             h5aclose: try symbol("H5Aclose", as: H5Aclose.self),
             h5aread: try symbol("H5Aread", as: H5Aread.self),
+            h5lvisit2: try symbol("H5Lvisit2", as: H5Lvisit2.self),
             nativeFloat: try global("H5T_NATIVE_FLOAT_g", as: hid_t.self),
             nativeDouble: try global("H5T_NATIVE_DOUBLE_g", as: hid_t.self),
             nativeInt: try global("H5T_NATIVE_INT_g", as: hid_t.self),
@@ -231,7 +250,28 @@ actor H5Reader: FourDDataSource {
                 return descriptor
             }
         }
-        throw H5Error.noDatasetFound(Self.candidatePaths)
+
+        // EMD 1.0 permits arbitrary root/node names. Visit links only after
+        // the fast canonical probes, then ask HDF5 itself which links are 3D/
+        // 4D datasets. This avoids baking a particular py4DSTEM root name into
+        // interoperability while keeping deterministic preference for `data`.
+        let collector = H5LinkCollector()
+        let unmanaged = Unmanaged.passUnretained(collector)
+        _ = hdf5.h5lvisit2(fileID, 0, 0, collectH5Link, unmanaged.toOpaque())
+        let candidates = collector.paths.sorted {
+            let lhsData = $0.hasSuffix("/data") ? 0 : 1
+            let rhsData = $1.hasSuffix("/data") ? 0 : 1
+            if lhsData != rhsData { return lhsData < rhsData }
+            let lhsDepth = $0.filter { $0 == "/" }.count
+            let rhsDepth = $1.filter { $0 == "/" }.count
+            return lhsDepth == rhsDepth ? $0 < $1 : lhsDepth < rhsDepth
+        }
+        for path in candidates where !Self.candidatePaths.contains(path) {
+            if let descriptor = try? describe(path: path), descriptor.is4D {
+                return descriptor
+            }
+        }
+        throw H5Error.noDatasetFound(Self.candidatePaths + candidates)
     }
 
     func describe(path: String) throws -> DatasetDescriptor {

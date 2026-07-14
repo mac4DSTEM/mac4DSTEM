@@ -1,6 +1,12 @@
 import Foundation
 import simd
 
+nonisolated enum ACOMMatchingBackend: String, Sendable, Equatable {
+    case automatic = "Automatic"
+    case cpu = "Accelerate CPU"
+    case metal = "Metal GPU"
+}
+
 /// py4DSTEM/orix-compatible Bunge Euler angles in radians. py4DSTEM stores an
 /// orientation matrix whose columns are lab x/y/z in crystal coordinates,
 /// then exports `matrix.T` through SciPy's extrinsic `zxz` decomposition.
@@ -356,22 +362,180 @@ nonisolated enum CubicOrientationSymmetry {
     }
 }
 
+/// Proper rotational subgroup of the hexagonal 6/mmm Laue class (D6): six
+/// rotations about c plus six twofold rotations about basal-plane axes. The
+/// diffraction/Friedel direction key folds the resulting sector to
+/// `[0001]-[10-10]-[11-20]`.
+nonisolated enum HexagonalOrientationSymmetry {
+    static let operators: [simd_double3x3] = {
+        var result: [simd_double3x3] = []
+        for index in 0..<6 {
+            let angle = Double(index) * .pi / 3
+            let c = cos(angle), s = sin(angle)
+            result.append(simd_double3x3(rows: [
+                [c, -s, 0], [s, c, 0], [0, 0, 1],
+            ]))
+        }
+        for index in 0..<6 {
+            let angle = Double(index) * .pi / 6
+            let x = cos(angle), y = sin(angle)
+            result.append(simd_double3x3(rows: [
+                [2 * x * x - 1, 2 * x * y, 0],
+                [2 * x * y, 2 * y * y - 1, 0],
+                [0, 0, -1],
+            ]))
+        }
+        return result
+    }()
+
+    static func reduce(_ matrix: simd_double3x3) ->
+        (matrix: simd_double3x3, disorientationRad: Float) {
+        var bestMatrix = matrix
+        var bestKey: [Double]?
+        var bestAngle = Double.pi
+        for symmetry in operators {
+            let candidate = symmetry * matrix
+            var quaternion = simd_quatd(simd_transpose(candidate))
+            if quaternion.real < 0 { quaternion = simd_quatd(
+                real: -quaternion.real, imag: -quaternion.imag
+            ) }
+            let key = [-quaternion.real, quaternion.imag.x,
+                       quaternion.imag.y, quaternion.imag.z]
+            if bestKey == nil || key.lexicographicallyPrecedes(bestKey!) {
+                bestKey = key
+                bestMatrix = candidate
+                bestAngle = 2 * acos(min(1, max(0, quaternion.real)))
+            }
+        }
+        return (bestMatrix, Float(bestAngle))
+    }
+
+    static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
+        let length = simd_length(direction)
+        guard length.isFinite, length > 1e-15 else { return [0, 0, 1] }
+        var value = direction / length
+        if value.z < 0 { value = -value }
+        let basal = hypot(value.x, value.y)
+        var azimuth = atan2(value.y, value.x).truncatingRemainder(dividingBy: .pi / 3)
+        if azimuth < 0 { azimuth += .pi / 3 }
+        if azimuth > .pi / 6 { azimuth = .pi / 3 - azimuth }
+        return simd_normalize(SIMD3(
+            basal * cos(azimuth), basal * sin(azimuth), value.z
+        ))
+    }
+
+    static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
+        guard count > 0 else { return [] }
+        let vertices = [
+            SIMD3<Double>(0, 0, 1),
+            SIMD3<Double>(1, 0, 0),
+            SIMD3<Double>(cos(.pi / 6), sin(.pi / 6), 0),
+        ]
+        if count <= vertices.count { return Array(vertices.prefix(count)) }
+        let candidateCount = max(192, count * 16)
+        let golden = Double.pi * (3 - 5.0.squareRoot())
+        var candidates: [SIMD3<Double>] = []
+        for index in 0..<candidateCount {
+            let z = 1 - 2 * (Double(index) + 0.5) / Double(candidateCount)
+            let radius = max(0, 1 - z * z).squareRoot()
+            candidates.append(reduceDirection(SIMD3(
+                radius * cos(golden * Double(index)),
+                radius * sin(golden * Double(index)), z
+            )))
+        }
+        var selected = vertices
+        var minimumChord = candidates.map { candidate in
+            vertices.map { 1 - simd_dot(candidate, $0) }.min() ?? 0
+        }
+        while selected.count < count {
+            guard let best = minimumChord.indices.max(by: {
+                minimumChord[$0] < minimumChord[$1]
+            }) else { break }
+            let next = candidates[best]
+            selected.append(next)
+            for index in candidates.indices {
+                minimumChord[index] = min(
+                    minimumChord[index], 1 - simd_dot(candidates[index], next)
+                )
+            }
+            minimumChord[best] = -.infinity
+        }
+        return selected
+    }
+
+    /// Explicit native 6/mmm IPF key: [0001] red, [10-10] green, [11-20]
+    /// blue. Square-root intensity and max normalization match conventional
+    /// IPF saturation while keeping the policy deterministic and dependency-free.
+    static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
+        let value = reduceDirection(direction)
+        let tilt = min(1, max(0, acos(min(1, max(0, value.z))) / (.pi / 2)))
+        let azimuth = min(.pi / 6, max(0, atan2(value.y, value.x)))
+        let fraction = azimuth / (.pi / 6)
+        var rgb = SIMD3<Double>(
+            sqrt(max(0, 1 - tilt)),
+            sqrt(max(0, tilt * (1 - fraction))),
+            sqrt(max(0, tilt * fraction))
+        )
+        let maximum = max(rgb.x, rgb.y, rgb.z)
+        if maximum > 0 { rgb /= maximum }
+        return SIMD3(Float(rgb.x), Float(rgb.y), Float(rgb.z))
+    }
+}
+
 /// Explicit symmetry policy for orientation reporting. The current crystal
 /// presets and custom editor are cubic; `.identity` is the safe fallback for
 /// future non-cubic structures until their point groups are implemented.
-nonisolated enum ACOMCrystalSymmetry {
+nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
     case cubic
+    case hexagonal
     case identity
+
+    var displayName: String {
+        switch self {
+        case .cubic: return "Cubic m-3m"
+        case .hexagonal: return "Hexagonal 6/mmm"
+        case .identity: return "Unreduced"
+        }
+    }
 
     func reduce(_ matrix: simd_double3x3) ->
         (matrix: simd_double3x3, disorientationRad: Float) {
         switch self {
         case .cubic:
             return CubicOrientationSymmetry.reduce(matrix)
+        case .hexagonal:
+            return HexagonalOrientationSymmetry.reduce(matrix)
         case .identity:
             let rotation = simd_transpose(matrix)
             let cosine = min(1, max(-1, (simd_trace(rotation) - 1) / 2))
             return (matrix, Float(acos(cosine)))
+        }
+    }
+
+
+    func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
+        switch self {
+        case .cubic: return CubicOrientationSymmetry.sampleFundamentalZone(count: count)
+        case .hexagonal: return HexagonalOrientationSymmetry.sampleFundamentalZone(count: count)
+        case .identity:
+            guard count > 0 else { return [] }
+            let golden = Double.pi * (3 - 5.0.squareRoot())
+            return (0..<count).map { index in
+                let z = (Double(index) + 0.5) / Double(count)
+                let radius = max(0, 1 - z * z).squareRoot()
+                return SIMD3(radius * cos(golden * Double(index)),
+                             radius * sin(golden * Double(index)), z)
+            }
+        }
+    }
+
+    func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
+        switch self {
+        case .cubic: return CubicOrientationSymmetry.ipfColor(direction: direction)
+        case .hexagonal: return HexagonalOrientationSymmetry.ipfColor(direction: direction)
+        case .identity:
+            let value = simd_normalize(direction)
+            return SIMD3(Float(abs(value.x)), Float(abs(value.y)), Float(abs(value.z)))
         }
     }
 }
@@ -421,11 +585,18 @@ nonisolated struct OrientationResult: Equatable {
 nonisolated struct OrientationMap {
     let width: Int
     let height: Int
+    let matchingBackend: ACOMMatchingBackend
+    let symmetry: ACOMCrystalSymmetry
+    let templateCount: Int
     var results: [OrientationResult]
 
-    init(width: Int, height: Int) {
+    init(width: Int, height: Int, matchingBackend: ACOMMatchingBackend = .cpu,
+         symmetry: ACOMCrystalSymmetry = .cubic, templateCount: Int = 0) {
         self.width = width
         self.height = height
+        self.matchingBackend = matchingBackend
+        self.symmetry = symmetry
+        self.templateCount = templateCount
         self.results = Array(repeating: .empty, count: width * height)
     }
 
@@ -464,7 +635,7 @@ nonisolated struct OrientationMap {
                    pixels: results.map { $0.symmetryDisorientationRad })
     }
 
-    /// Cubic inverse-pole-figure color for the sample Z (beam) direction.
+    /// Symmetry-specific inverse-pole-figure color for sample Z (beam).
     var ipfZImage: RGBAImage {
         var rgba = [UInt8]()
         rgba.reserveCapacity(results.count * 4)
@@ -473,7 +644,7 @@ nonisolated struct OrientationMap {
                 ? result.euler.py4DSTEMOrientationMatrix.columns.2
                 : SIMD3(0.0, 0.0, 0.0)
             let rgb = result.templateIndex >= 0
-                ? CubicOrientationSymmetry.ipfColor(direction: direction)
+                ? symmetry.ipfColor(direction: direction)
                 : SIMD3<Float>(repeating: 0)
             rgba.append(UInt8((max(0, min(1, rgb.x)) * 255).rounded()))
             rgba.append(UInt8((max(0, min(1, rgb.y)) * 255).rounded()))

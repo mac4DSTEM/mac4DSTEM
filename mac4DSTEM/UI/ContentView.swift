@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import simd
@@ -14,6 +15,9 @@ struct ContentView: View {
             UTType(filenameExtension: "emd"),
             UTType(filenameExtension: "dm4"),
             UTType(filenameExtension: "dm3"),
+            UTType(filenameExtension: "mib"),
+            UTType(filenameExtension: "raw"),
+            UTType(filenameExtension: "xml"),
             .data
         ].compactMap { $0 }
     }
@@ -67,6 +71,25 @@ struct ContentView: View {
                 }
 
                 if let descriptor = appState.descriptor, descriptor.is4D {
+                    Section("Workflow") {
+                        workflowRow("Open", detail: descriptor.fileName, complete: true)
+                        workflowRow(
+                            "Calibrate",
+                            detail: appState.calibrationReadiness.isReady
+                                ? "Ready" : "\(appState.calibrationReadiness.missingItems.count) items missing",
+                            complete: appState.calibrationReadiness.isReady
+                        )
+                        workflowRow(
+                            "Analyze", detail: appState.analysisMode.rawValue,
+                            complete: appState.resultImage != nil || appState.resultRGBA != nil
+                        )
+                        workflowRow(
+                            "Save / reopen",
+                            detail: appState.sessionInventory.hasSidecar ? "Session sidecar found" : "Not saved yet",
+                            complete: appState.sessionInventory.hasSidecar
+                        )
+                    }
+
                     Section("Scan position") {
                         scanSlider(label: "X", value: appState.selectedScan.x,
                                    count: descriptor.rx) { x in
@@ -194,6 +217,8 @@ struct ContentView: View {
                             .font(.caption)
                             .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
                             if let fit = appState.lastEllipseFit {
+                                LabeledContent("Ellipse model", value: fit.model.rawValue)
+                                    .font(.caption)
                                 LabeledContent(
                                     "Ellipse residual",
                                     value: String(format: "%.3f · %d/36 sectors",
@@ -201,6 +226,20 @@ struct ContentView: View {
                                                   fit.occupiedAngularBins)
                                 )
                                 .font(.caption)
+                                if let profile = fit.profile {
+                                    LabeledContent(
+                                        "Ring widths",
+                                        value: String(
+                                            format: "inner %.3g · outer %.3g px",
+                                            profile.innerSigma, profile.outerSigma
+                                        )
+                                    )
+                                    .font(.caption)
+                                } else if let reason = fit.profileFallbackReason {
+                                    Text("Profile fallback: \(reason)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
 
@@ -280,6 +319,29 @@ struct ContentView: View {
                                     Text("mrad needs accelerating voltage and Q pixel calibration.")
                                         .font(.caption2)
                                         .foregroundStyle(.orange)
+                                }
+                            }
+                            if appState.dpcDisplay == .idpc {
+                                if let physical = appState.idpcPhysicalCalibration {
+                                    LabeledContent("Output", value: "Projected phase (rad)")
+                                        .font(.caption)
+                                    LabeledContent(
+                                        "Sampling",
+                                        value: String(
+                                            format: "%.4g Å · Q %.4g Å⁻¹/px",
+                                            physical.rowSamplingAngstrom,
+                                            physical.reciprocalAngstromPerDetectorPixel
+                                        )
+                                    )
+                                    .font(.caption)
+                                    LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
+                                        .font(.caption)
+                                } else {
+                                    Text("Qualitative iDPC: fitted origin maps, R–Q rotation, and calibrated real/reciprocal pixel sizes are required. Q in mrad also needs accelerating voltage.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                    LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
+                                        .font(.caption)
                                 }
                             }
                             if !appState.calibration.hasFittedOrigin {
@@ -393,12 +455,48 @@ struct ContentView: View {
                                         Text(component.rawValue).tag(component)
                                     }
                                 }
+                                if let map = appState.strainMap {
+                                    LabeledContent(
+                                        map.diagnostics.automaticBasis
+                                            ? "Basis consensus" : "Basis support",
+                                        value: String(
+                                            format: "%.0f%% · %d/%d peaks",
+                                            map.diagnostics.basisSupportFraction * 100,
+                                            map.diagnostics.basisSupportCount,
+                                            map.diagnostics.basisObservationCount
+                                        )
+                                    )
+                                    .font(.caption)
+                                    LabeledContent(
+                                        "Basis fit",
+                                        value: String(
+                                            format: "RMS %.3g px · κ %.2f",
+                                            map.diagnostics.basisResidualPixels,
+                                            map.diagnostics.basisConditionNumber
+                                        )
+                                    )
+                                    .font(.caption)
+                                    LabeledContent(
+                                        "Local fits",
+                                        value: String(
+                                            format: "%.0f%% indexed · median RMS %.3g px",
+                                            map.indexedFraction * 100,
+                                            map.diagnostics.localResidualMedianPixels
+                                        )
+                                    )
+                                    .font(.caption)
+                                    LabeledContent(
+                                        "Reference inliers",
+                                        value: "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
+                                    )
+                                    .font(.caption)
+                                }
                             }
                         }
                     }
 
                     if appState.analysisMode == .ptychography {
-                        Section("Parallax preprocessing") {
+                        Section("Advanced · Parallax / ptychography") {
                             Text("Builds py4DSTEM's normalized virtual bright-field stack, aligns it, and can publish a sampling-limited KDE reconstruction.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
@@ -419,6 +517,11 @@ struct ContentView: View {
 
                             GroupBox("Single-slice ptychography") {
                                 VStack(alignment: .leading, spacing: 6) {
+                                    Picker("Method", selection: $appState.ptychographyMethod) {
+                                        ForEach(SingleslicePtychographyMethod.allCases) { method in
+                                            Text(method.rawValue).tag(method)
+                                        }
+                                    }
                                     HStack {
                                         TextField(
                                             "Iterations", value: $appState.ptychographyIterations,
@@ -426,7 +529,11 @@ struct ContentView: View {
                                         )
                                         .textFieldStyle(.roundedBorder)
                                         TextField(
-                                            "Step", value: $appState.ptychographyStepSize,
+                                            appState.ptychographyMethod == .gradientDescent
+                                                ? "Step" : "DM/AP α",
+                                            value: appState.ptychographyMethod == .gradientDescent
+                                                ? $appState.ptychographyStepSize
+                                                : $appState.ptychographyProjectionParameter,
                                             format: .number.precision(.fractionLength(0...3))
                                         )
                                         .textFieldStyle(.roundedBorder)
@@ -437,13 +544,48 @@ struct ContentView: View {
                                         .textFieldStyle(.roundedBorder)
                                     }
                                     Toggle("Fix probe", isOn: $appState.ptychographyFixProbe)
+                                    Toggle(
+                                        "Limit object transmission to 1",
+                                        isOn: $appState.ptychographyConstrainObjectAmplitude
+                                    )
+                                    Toggle(
+                                        "Pure-phase object",
+                                        isOn: $appState.ptychographyPurePhaseObject
+                                    )
+                                    .help("Sets reconstructed object amplitude to one after every iteration.")
+                                    if !appState.ptychographyFixProbe {
+                                        Toggle(
+                                            "Recenter probe each iteration",
+                                            isOn: $appState.ptychographyFixProbeCenterOfMass
+                                        )
+                                        Toggle(
+                                            "Constrain probe support",
+                                            isOn: $appState.ptychographyConstrainProbeAmplitude
+                                        )
+                                        if appState.ptychographyConstrainProbeAmplitude {
+                                            HStack {
+                                                TextField(
+                                                    "Support radius",
+                                                    value: $appState.ptychographyProbeAmplitudeRadius,
+                                                    format: .number.precision(.fractionLength(0...3))
+                                                )
+                                                .textFieldStyle(.roundedBorder)
+                                                TextField(
+                                                    "Edge width",
+                                                    value: $appState.ptychographyProbeAmplitudeWidth,
+                                                    format: .number.precision(.fractionLength(0...3))
+                                                )
+                                                .textFieldStyle(.roundedBorder)
+                                            }
+                                        }
+                                    }
                                     Button {
                                         Task { await appState.runSingleslicePtychography() }
                                     } label: {
                                         Label("Reconstruct Object", systemImage: "circle.hexagongrid")
                                     }
                                     .disabled(appState.isBusy)
-                                    .help("Runs the CPU exact-shape, full-batch py4DSTEM gradient-descent reference engine.")
+                                    .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
                                 }
                             }
 
@@ -619,7 +761,7 @@ struct ContentView: View {
                                     )
                                     .font(.caption)
                                     ScientificHistoryPlot(
-                                        title: "Ptychography GD error",
+                                        title: "\(iterative.options.method.rawValue) error",
                                         values: iterative.errorHistory,
                                         scale: .logarithmic
                                     )
@@ -861,10 +1003,17 @@ struct ContentView: View {
                                     }
                                 }
                                 if appState.acomDisplay == .ipfZ {
-                                    CubicIPFLegendView()
+                                    if appState.orientationMap?.symmetry == .hexagonal {
+                                        HexagonalIPFLegendView()
+                                    } else {
+                                        CubicIPFLegendView()
+                                    }
                                 }
                                 if let text = appState.selectedEulerText {
-                                    LabeledContent("Cubic FZ Euler", value: text)
+                                    LabeledContent(
+                                        "\(appState.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
+                                        value: text
+                                    )
                                         .font(.caption.monospacedDigit())
                                 }
                             }
@@ -898,9 +1047,51 @@ struct ContentView: View {
                                 handleArrowKey(press)
                             }
                         } else {
-                            VStack(spacing: 12) {
-                                Text("mac4DSTEM").font(.title)
-                                Text(appState.statusText).foregroundStyle(.secondary)
+                            VStack(spacing: 16) {
+                                Image(systemName: "circle.grid.cross")
+                                    .font(.system(size: 42, weight: .light))
+                                    .foregroundStyle(.tint)
+                                    .accessibilityHidden(true)
+                                Text("mac4DSTEM").font(.largeTitle)
+                                Text("Open a 4D-STEM dataset, calibrate it, then build reproducible maps in a native Mac workspace.")
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: 520)
+                                HStack {
+                                    Button("Open Dataset…") { appState.requestOpenDataset() }
+                                        .buttonStyle(.borderedProminent)
+                                        .keyboardShortcut(.defaultAction)
+                                    if appState.recoveryRecord != nil {
+                                        Button("Reopen Last Dataset") { appState.reopenLastDataset() }
+                                            .buttonStyle(.bordered)
+                                    }
+                                }
+                                if !appState.recentDatasets.isEmpty {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Recent datasets").font(.headline)
+                                        ForEach(appState.recentDatasets.prefix(6)) { recent in
+                                            HStack {
+                                                Button { appState.openRecent(recent) } label: {
+                                                    Label(recent.displayName, systemImage: "clock.arrow.circlepath")
+                                                        .lineLimit(1)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .accessibilityHint("Reopens this dataset and its session sidecar")
+                                                Spacer()
+                                                Button { appState.removeRecent(recent) } label: {
+                                                    Image(systemName: "xmark.circle")
+                                                }
+                                                .buttonStyle(.borderless)
+                                                .help("Remove from Recents")
+                                                .accessibilityLabel("Remove \(recent.displayName) from Recents")
+                                            }
+                                        }
+                                    }
+                                    .frame(width: 420)
+                                    .padding()
+                                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+                                }
+                                Text(appState.statusText).font(.caption).foregroundStyle(.secondary)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .padding()
@@ -948,7 +1139,7 @@ struct ContentView: View {
                 ToolbarItem(placement: .principal) {
                     Picker("Analysis mode", selection: $appState.analysisMode) {
                         ForEach(AnalysisMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
+                            Text(mode.pickerName).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -1018,6 +1209,14 @@ struct ContentView: View {
                 set: { if !$0 { appState.errorMessage = nil } }
             )
         ) {
+            Button("Copy Details") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(appState.errorMessage ?? "", forType: .string)
+            }
+            Button("Open Another…") {
+                appState.errorMessage = nil
+                appState.requestOpenDataset()
+            }
             Button("OK", role: .cancel) { appState.errorMessage = nil }
         } message: {
             Text(appState.errorMessage ?? "")
@@ -1098,6 +1297,20 @@ struct ContentView: View {
             .allowsHitTesting(false)
     }
 
+    private func workflowRow(_ title: String, detail: String, complete: Bool) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: complete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(complete ? Color.green : Color.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.caption)
+                Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(complete ? "Complete" : "Needs attention")
+    }
+
     /// A labelled slider that scrubs one scan axis. `count` is the axis length;
     /// the callback receives the clamped integer index.
     private func scanSlider(label: String, value: Int, count: Int,
@@ -1114,6 +1327,8 @@ struct ContentView: View {
                 in: 0...Double(max(count - 1, 1)),
                 step: 1
             )
+            .accessibilityLabel("Scan \(label) position")
+            .accessibilityValue("\(value) of \(max(0, count - 1))")
         }
     }
 }
@@ -1401,6 +1616,52 @@ struct CubicIPFLegendView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cubic inverse pole figure color key: 001 red, 101 green, 111 blue")
+    }
+}
+
+/// Native 6/mmm key sharing the production hexagonal color function.
+struct HexagonalIPFLegendView: View {
+    var body: some View {
+        VStack(spacing: 1) {
+            Canvas { context, size in
+                let left = SIMD2<Double>(4, Double(size.height - 3))
+                let right = SIMD2<Double>(Double(size.width - 4), Double(size.height - 3))
+                let top = SIMD2<Double>(Double(size.width / 2), 3)
+                let steps = 36
+                let radius = max(1.4, Double(size.width) / Double(steps) * 0.65)
+                for topIndex in 0...steps {
+                    for rightIndex in 0...(steps - topIndex) {
+                        let wt = Double(topIndex) / Double(steps)
+                        let wr = Double(rightIndex) / Double(steps)
+                        let wl = 1 - wt - wr
+                        let point = left * wl + right * wr + top * wt
+                        let direction = simd_normalize(
+                            SIMD3(0.0, 0.0, 1.0) * wl
+                                + SIMD3(1.0, 0.0, 0.0) * wr
+                                + SIMD3(cos(.pi / 6), sin(.pi / 6), 0.0) * wt
+                        )
+                        let rgb = HexagonalOrientationSymmetry.ipfColor(direction: direction)
+                        let rect = CGRect(x: point.x - radius, y: point.y - radius,
+                                          width: radius * 2, height: radius * 2)
+                        context.fill(Path(ellipseIn: rect), with: .color(Color(
+                            red: Double(rgb.x), green: Double(rgb.y), blue: Double(rgb.z)
+                        )))
+                    }
+                }
+            }
+            .frame(width: 116, height: 62)
+            HStack {
+                Text("0001")
+                Spacer()
+                Text("11-20")
+                Spacer()
+                Text("10-10")
+            }
+            .font(.caption2.monospacedDigit())
+            .frame(width: 142)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Hexagonal inverse pole figure color key: 0001 red, 10-10 green, 11-20 blue")
     }
 }
 

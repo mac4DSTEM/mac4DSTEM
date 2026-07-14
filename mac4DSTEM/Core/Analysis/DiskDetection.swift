@@ -141,6 +141,10 @@ nonisolated final class DiskDetector {
     private var ccIm: [Float]
     private var cc: [Float]               // real correlation
     private var smooth: [Float]
+    private var blurTemp: [Float]
+    private var blurPadded: [Float] = []
+    private var blurTaps: [Float] = []
+    private var cachedBlurSigma: Float = -.greatestFiniteMagnitude
 
     init?(kernel: ProbeKernel) {
         guard let fft = FFT2D(nx: kernel.px, ny: kernel.py) else { return nil }
@@ -155,6 +159,7 @@ nonisolated final class DiskDetector {
         ccIm = [Float](repeating: 0, count: n)
         cc = [Float](repeating: 0, count: n)
         smooth = [Float](repeating: 0, count: n)
+        blurTemp = [Float](repeating: 0, count: n)
     }
 
     // MARK: Detection (one pattern)
@@ -328,18 +333,24 @@ nonisolated final class DiskDetector {
 
     private func gaussianBlur(src: [Float], dst: inout [Float], sigma: Float) {
         let radius = max(1, Int((4 * sigma).rounded()))
-        var taps = [Float](repeating: 0, count: 2 * radius + 1)
-        var s: Float = 0
-        for i in -radius...radius {
-            let v = exp(-Float(i * i) / (2 * sigma * sigma))
-            taps[i + radius] = v
-            s += v
+        if sigma != cachedBlurSigma {
+            blurTaps = [Float](repeating: 0, count: 2 * radius + 1)
+            var sum: Float = 0
+            for i in -radius...radius {
+                let value = exp(-Float(i * i) / (2 * sigma * sigma))
+                blurTaps[i + radius] = value
+                sum += value
+            }
+            for index in blurTaps.indices { blurTaps[index] /= sum }
+            blurPadded = [Float](
+                repeating: 0, count: max(px, py) + 2 * radius
+            )
+            cachedBlurSigma = sigma
         }
-        for i in 0..<taps.count { taps[i] /= s }
 
-        // Horizontal pass into scratch `im` reuse is unsafe (used elsewhere);
-        // use a local temp sized to the correlation grid.
-        var tmp = [Float](repeating: 0, count: px * py)
+        // vDSP performs the same separable convolution as the prior scalar
+        // loops. Explicit padding retains scipy.ndimage's half-sample reflect
+        // boundary instead of substituting Accelerate's edge extension.
         // scipy.ndimage.gaussian_filter defaults to half-sample symmetric
         // `reflect`: -1 -> 0, -2 -> 1, n -> n-1.
         func reflected(_ raw: Int, count: Int) -> Int {
@@ -349,25 +360,43 @@ nonisolated final class DiskDetector {
             }
             return value
         }
+
         for y in 0..<py {
             let row = y * px
-            for x in 0..<px {
-                var acc: Float = 0
-                for t in -radius...radius {
-                    let xx = reflected(x + t, count: px)
-                    acc += src[row + xx] * taps[t + radius]
+            for paddedIndex in 0..<(px + 2 * radius) {
+                let x = reflected(paddedIndex - radius, count: px)
+                blurPadded[paddedIndex] = src[row + x]
+            }
+            blurPadded.withUnsafeBufferPointer { input in
+                blurTaps.withUnsafeBufferPointer { filter in
+                    blurTemp.withUnsafeMutableBufferPointer { output in
+                        vDSP_conv(
+                            input.baseAddress!, 1,
+                            filter.baseAddress!, 1,
+                            output.baseAddress!.advanced(by: row), 1,
+                            vDSP_Length(px), vDSP_Length(filter.count)
+                        )
+                    }
                 }
-                tmp[row + x] = acc
             }
         }
-        for y in 0..<py {
-            for x in 0..<px {
-                var acc: Float = 0
-                for t in -radius...radius {
-                    let yy = reflected(y + t, count: py)
-                    acc += tmp[yy * px + x] * taps[t + radius]
+
+        for x in 0..<px {
+            for paddedIndex in 0..<(py + 2 * radius) {
+                let y = reflected(paddedIndex - radius, count: py)
+                blurPadded[paddedIndex] = blurTemp[y * px + x]
+            }
+            blurPadded.withUnsafeBufferPointer { input in
+                blurTaps.withUnsafeBufferPointer { filter in
+                    dst.withUnsafeMutableBufferPointer { output in
+                        vDSP_conv(
+                            input.baseAddress!, 1,
+                            filter.baseAddress!, 1,
+                            output.baseAddress!.advanced(by: x), vDSP_Stride(px),
+                            vDSP_Length(py), vDSP_Length(filter.count)
+                        )
+                    }
                 }
-                dst[y * px + x] = acc
             }
         }
     }

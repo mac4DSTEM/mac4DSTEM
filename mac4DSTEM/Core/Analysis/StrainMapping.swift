@@ -8,7 +8,7 @@
 //      (index_bragg_directions: M = round(β⁻¹·(g − origin)))
 //   3. fit the local lattice matrix at each position by intensity-weighted
 //      least squares (fit_lattice_vectors)
-//   4. take the reference lattice as the mean over valid positions
+//   4. take the reference lattice as the component median over valid positions
 //      (get_reference_g1g2)
 //   5. strain per position = deviation of the local lattice from the
 //      reference (get_strain_from_reference_g1g2):
@@ -16,10 +16,9 @@
 //        e_xx = 1 − β₀₀,  e_yy = 1 − β₁₁,
 //        e_xy = −(β₀₁ + β₁₀)/2,  θ = (β₀₁ − β₁₀)/2
 //
-//  Strain is expressed in diffraction-space x/y. Rotating into a chosen real-
-//  space axis (py4DSTEM get_rotated_strain_map) is a later refinement, as is
-//  a user-selected reference region and manual g1/g2 — here g1/g2 are auto-
-//  picked (shortest non-collinear pair) and the reference is the scan mean.
+//  Strain is expressed in diffraction-space x/y. Automatic basis selection is
+//  a bounded consensus fit over repeated peak-vector clusters; local fits reject
+//  off-lattice peaks, and the robust reference rejects distorted positions.
 //
 
 import Foundation
@@ -44,6 +43,7 @@ struct StrainMap {
     let refG2: (x: Float, y: Float)
     let referencePositionCount: Int
     let indexedFraction: Float           // fraction of positions successfully fit
+    let diagnostics: StrainFitDiagnostics
 
     /// One component as a display image; masked positions are set to 0 (the
     /// center of a diverging colormap).
@@ -61,7 +61,31 @@ struct StrainMap {
     }
 }
 
-enum StrainMapping {
+struct StrainFitDiagnostics: Sendable {
+    let automaticBasis: Bool
+    let referenceMaskApplied: Bool
+    let basisObservationCount: Int
+    let basisSupportCount: Int
+    let basisSupportFraction: Float
+    let basisResidualPixels: Float
+    let basisConditionNumber: Float
+    let indexingTolerancePixels: Float
+    let localResidualMedianPixels: Float
+    let referenceCandidateCount: Int
+    let referenceRejectedCount: Int
+}
+
+nonisolated enum StrainMapping {
+
+    private struct BasisEstimate {
+        let g1: (x: Float, y: Float)
+        let g2: (x: Float, y: Float)
+        let observationCount: Int
+        let supportCount: Int
+        let residualPixels: Float
+        let conditionNumber: Float
+        let indexingTolerancePixels: Float
+    }
 
     /// Full strain-map computation from a set of Bragg vectors and a diffraction
     /// origin. Returns nil if a lattice basis can't be established.
@@ -77,15 +101,37 @@ enum StrainMapping {
         let n = w * h
         guard referenceMask == nil || referenceMask?.count == n else { return nil }
 
-        let basis: (g1: (x: Float, y: Float), g2: (x: Float, y: Float))?
+        let basisEstimate: BasisEstimate?
+        let automaticBasis = initialBasis == nil
         if let initialBasis {
-            basis = initialBasis
+            guard let condition = conditionNumber(
+                g1: initialBasis.g1, g2: initialBasis.g2
+            ), condition <= 8 else { return nil }
+            let observations = vectorObservations(
+                bragg: bragg, x0: originX, y0: originY,
+                minRadius: 0, cancellation: cancellation
+            )
+            let tolerance = indexingTolerance(g1: initialBasis.g1, g2: initialBasis.g2)
+            let score = scoreBasis(
+                g1: initialBasis.g1, g2: initialBasis.g2,
+                observations: observations, tolerance: tolerance
+            )
+            basisEstimate = BasisEstimate(
+                g1: initialBasis.g1, g2: initialBasis.g2,
+                observationCount: observations.count,
+                supportCount: score.support,
+                residualPixels: score.residual,
+                conditionNumber: condition,
+                indexingTolerancePixels: tolerance
+            )
         } else {
-            basis = chooseLatticeVectors(
+            basisEstimate = estimateLatticeBasis(
                 bragg: bragg, x0: originX, y0: originY, cancellation: cancellation
             )
         }
-        guard let (g1, g2) = basis else { return nil }
+        guard let basisEstimate else { return nil }
+        let g1 = basisEstimate.g1
+        let g2 = basisEstimate.g2
 
         // Per-position local lattice vectors, from indexing + weighted fit.
         var lg1x = [Float](repeating: 0, count: n)
@@ -93,6 +139,7 @@ enum StrainMapping {
         var lg2x = [Float](repeating: 0, count: n)
         var lg2y = [Float](repeating: 0, count: n)
         var mask = [Bool](repeating: false, count: n)
+        var localResiduals = [Float](repeating: 0, count: n)
 
         // β for indexing: columns are g1, g2. index = β⁻¹ · (peak − origin).
         guard let betaInv = invert2x2(g1.x, g2.x, g1.y, g2.y) else { return nil }
@@ -110,30 +157,44 @@ enum StrainMapping {
                 let vx = p.x - originX, vy = p.y - originY
                 let hf = betaInv.a * vx + betaInv.b * vy
                 let kf = betaInv.c * vx + betaInv.d * vy
-                hks.append((h: hf.rounded(), k: kf.rounded(),
-                            x: p.x - originX, y: p.y - originY,
-                            wgt: max(p.intensity, 0)))
+                let hIndex = hf.rounded(), kIndex = kf.rounded()
+                let predictedX = hIndex * g1.x + kIndex * g2.x
+                let predictedY = hIndex * g1.y + kIndex * g2.y
+                let residual = hypot(vx - predictedX, vy - predictedY)
+                if residual <= basisEstimate.indexingTolerancePixels,
+                   abs(hIndex) <= 8, abs(kIndex) <= 8 {
+                    hks.append((h: hIndex, k: kIndex,
+                                x: vx, y: vy,
+                                wgt: max(p.intensity, 1e-6)))
+                }
             }
-            guard let fit = fitLattice(hks) else { continue }
+            guard hks.count >= minNumPeaks,
+                  let fit = robustFitLattice(hks, minNumPeaks: minNumPeaks) else { continue }
             lg1x[idx] = fit.g1x; lg1y[idx] = fit.g1y
             lg2x[idx] = fit.g2x; lg2y[idx] = fit.g2y
+            localResiduals[idx] = fit.residual
             mask[idx] = true
         }
 
-        // Reference lattice = mean over valid positions in the optional
+        // Reference lattice = component median over robust inliers in the optional
         // user-selected unstrained region (whole scan when absent).
-        var refG1 = (x: Float(0), y: Float(0))
-        var refG2 = (x: Float(0), y: Float(0))
-        var valid = 0
-        for idx in 0..<n where mask[idx] && (referenceMask?[idx] ?? true) {
-            if cancellation?.isCancelled == true { return nil }
-            refG1.x += lg1x[idx]; refG1.y += lg1y[idx]
-            refG2.x += lg2x[idx]; refG2.y += lg2y[idx]
-            valid += 1
+        let referenceCandidates = (0..<n).filter {
+            mask[$0] && (referenceMask?[$0] ?? true)
         }
-        guard valid > 0 else { return nil }
-        let inv = 1 / Float(valid)
-        refG1.x *= inv; refG1.y *= inv; refG2.x *= inv; refG2.y *= inv
+        guard !referenceCandidates.isEmpty else { return nil }
+        let referenceInliers = robustReferenceIndices(
+            candidates: referenceCandidates,
+            g1x: lg1x, g1y: lg1y, g2x: lg2x, g2y: lg2y
+        )
+        guard !referenceInliers.isEmpty else { return nil }
+        guard cancellation?.isCancelled != true,
+              let refG1X = median(referenceInliers.map { lg1x[$0] }),
+              let refG1Y = median(referenceInliers.map { lg1y[$0] }),
+              let refG2X = median(referenceInliers.map { lg2x[$0] }),
+              let refG2Y = median(referenceInliers.map { lg2y[$0] }) else { return nil }
+        let refG1 = (x: refG1X, y: refG1Y)
+        let refG2 = (x: refG2X, y: refG2Y)
+        let valid = referenceInliers.count
 
         // Strain per position vs reference.
         var exx = [Float](repeating: 0, count: n)
@@ -160,43 +221,264 @@ enum StrainMapping {
             theta[idx] = (b01 - b10) / 2
         }
 
+        let validLocalResiduals = localResiduals.enumerated().compactMap {
+            mask[$0.offset] ? $0.element : nil
+        }
+        let diagnostics = StrainFitDiagnostics(
+            automaticBasis: automaticBasis,
+            referenceMaskApplied: referenceMask != nil,
+            basisObservationCount: basisEstimate.observationCount,
+            basisSupportCount: basisEstimate.supportCount,
+            basisSupportFraction: basisEstimate.observationCount > 0
+                ? Float(basisEstimate.supportCount) / Float(basisEstimate.observationCount) : 0,
+            basisResidualPixels: basisEstimate.residualPixels,
+            basisConditionNumber: basisEstimate.conditionNumber,
+            indexingTolerancePixels: basisEstimate.indexingTolerancePixels,
+            localResidualMedianPixels: median(validLocalResiduals) ?? 0,
+            referenceCandidateCount: referenceCandidates.count,
+            referenceRejectedCount: referenceCandidates.count - valid
+        )
         return StrainMap(width: w, height: h,
                          exx: exx, eyy: eyy, exy: exy, theta: theta, mask: mask,
                          refG1: refG1, refG2: refG2,
                          referencePositionCount: valid,
-                         indexedFraction: Float(mask.filter { $0 }.count) / Float(n))
+                         indexedFraction: Float(mask.filter { $0 }.count) / Float(n),
+                         diagnostics: diagnostics)
     }
 
     // MARK: - Lattice-vector selection
 
-    /// Auto-pick two reference lattice vectors: the shortest peak vector (about
-    /// the origin), and the shortest one sufficiently non-collinear with it.
+    private struct VectorObservation {
+        let x: Float
+        let y: Float
+        let radius: Float
+    }
+
+    private struct VectorCluster {
+        var sumX: Float
+        var sumY: Float
+        var count: Int
+
+        var x: Float { sumX / Float(count) }
+        var y: Float { sumY / Float(count) }
+        var radius: Float { hypot(x, y) }
+    }
+
+    private struct VectorCell: Hashable {
+        let x: Int
+        let y: Int
+    }
+
+    /// Compatibility entry point for callers that only need the vectors. The
+    /// full solver consumes `estimateLatticeBasis` so it can retain confidence
+    /// and residual diagnostics.
     nonisolated static func chooseLatticeVectors(bragg: BraggVectors,
                                                  x0: Float, y0: Float,
                                                  minRadius: Float = 2,
                                                  cancellation: AnalysisCancellationToken? = nil)
         -> (g1: (x: Float, y: Float), g2: (x: Float, y: Float))? {
-        var vecs: [(x: Float, y: Float, r: Float)] = []
+        guard let estimate = estimateLatticeBasis(
+            bragg: bragg, x0: x0, y0: y0,
+            minRadius: minRadius, cancellation: cancellation
+        ) else { return nil }
+        return (estimate.g1, estimate.g2)
+    }
+
+    private nonisolated static func vectorObservations(
+        bragg: BraggVectors, x0: Float, y0: Float, minRadius: Float,
+        cancellation: AnalysisCancellationToken?
+    ) -> [VectorObservation] {
+        var observations: [VectorObservation] = []
         for positionPeaks in bragg.peaks {
-            if cancellation?.isCancelled == true { return nil }
+            if cancellation?.isCancelled == true { return [] }
             for p in positionPeaks {
                 let vx = p.x - x0, vy = p.y - y0
-                let r = (vx * vx + vy * vy).squareRoot()
-                if r > minRadius { vecs.append((vx, vy, r)) }
+                let radius = hypot(vx, vy)
+                if radius > minRadius, radius.isFinite {
+                    observations.append(VectorObservation(x: vx, y: vy, radius: radius))
+                }
             }
         }
-        guard vecs.count >= 2 else { return nil }
-        vecs.sort { $0.r < $1.r }
+        return observations
+    }
 
-        let g1 = vecs[0]
-        // Non-collinear: |sin(angle)| > ~0.34  (≈ 20°..160°).
-        for v in vecs {
-            let cross = abs(v.x * g1.y - v.y * g1.x)
-            if cross / (v.r * g1.r) > 0.34 {
-                return ((g1.x, g1.y), (v.x, v.y))
+    /// Cluster repeated peak vectors, test bounded candidate pairs, and choose
+    /// the well-conditioned basis explaining the largest observation consensus.
+    private nonisolated static func estimateLatticeBasis(
+        bragg: BraggVectors, x0: Float, y0: Float, minRadius: Float = 2,
+        cancellation: AnalysisCancellationToken?
+    ) -> BasisEstimate? {
+        let observations = vectorObservations(
+            bragg: bragg, x0: x0, y0: y0,
+            minRadius: minRadius, cancellation: cancellation
+        )
+        guard cancellation?.isCancelled != true, observations.count >= 2 else { return nil }
+
+        // A typical first-shell scale from each position's nearest non-central
+        // peak makes clustering insensitive to a handful of globally short
+        // false detections.
+        var nearestRadii: [Float] = []
+        for peaks in bragg.peaks {
+            var nearest = Float.greatestFiniteMagnitude
+            for peak in peaks {
+                let radius = hypot(peak.x - x0, peak.y - y0)
+                if radius > minRadius { nearest = min(nearest, radius) }
+            }
+            if nearest.isFinite { nearestRadii.append(nearest) }
+        }
+        guard let typicalRadius = median(nearestRadii) else { return nil }
+        let clusterTolerance = max(0.5, typicalRadius * 0.18)
+
+        func cell(x: Float, y: Float) -> VectorCell {
+            VectorCell(
+                x: Int(floor(Double(x / clusterTolerance))),
+                y: Int(floor(Double(y / clusterTolerance)))
+            )
+        }
+
+        // A spatial hash keeps this pass near-linear even when a noisy dataset
+        // contains many unique outliers. Cluster centers can drift across cell
+        // boundaries, so their bucket membership is updated after every merge.
+        var clusters: [VectorCluster] = []
+        var clusterCells: [VectorCell] = []
+        var buckets: [VectorCell: [Int]] = [:]
+        for observation in observations.sorted(by: { $0.radius < $1.radius }) {
+            var nearestIndex: Int?
+            var nearestDistance = clusterTolerance
+            let observationCell = cell(x: observation.x, y: observation.y)
+            for cellY in (observationCell.y - 1)...(observationCell.y + 1) {
+                for cellX in (observationCell.x - 1)...(observationCell.x + 1) {
+                    for index in buckets[VectorCell(x: cellX, y: cellY)] ?? [] {
+                        let distance = hypot(observation.x - clusters[index].x,
+                                             observation.y - clusters[index].y)
+                        if distance < nearestDistance {
+                            nearestDistance = distance
+                            nearestIndex = index
+                        }
+                    }
+                }
+            }
+            if let nearestIndex {
+                let oldCell = clusterCells[nearestIndex]
+                clusters[nearestIndex].sumX += observation.x
+                clusters[nearestIndex].sumY += observation.y
+                clusters[nearestIndex].count += 1
+                let newCell = cell(
+                    x: clusters[nearestIndex].x, y: clusters[nearestIndex].y
+                )
+                if newCell != oldCell {
+                    buckets[oldCell]?.removeAll { $0 == nearestIndex }
+                    if buckets[oldCell]?.isEmpty == true { buckets[oldCell] = nil }
+                    buckets[newCell, default: []].append(nearestIndex)
+                    clusterCells[nearestIndex] = newCell
+                }
+            } else {
+                let index = clusters.count
+                clusters.append(VectorCluster(
+                    sumX: observation.x, sumY: observation.y, count: 1
+                ))
+                clusterCells.append(observationCell)
+                buckets[observationCell, default: []].append(index)
             }
         }
-        return nil
+
+        let occupiedPositions = max(1, bragg.peaks.filter { !$0.isEmpty }.count)
+        let minimumClusterSupport = max(1, Int(ceil(Double(occupiedPositions) * 0.08)))
+        let candidates = clusters
+            .filter { $0.count >= minimumClusterSupport && $0.radius > minRadius }
+            .sorted {
+                if $0.count != $1.count { return $0.count > $1.count }
+                return $0.radius < $1.radius
+            }
+            .prefix(24)
+        guard candidates.count >= 2 else { return nil }
+
+        var best: BasisEstimate?
+        for first in candidates.indices {
+            for second in candidates.indices where second > first {
+                if cancellation?.isCancelled == true { return nil }
+                let g1 = (x: candidates[first].x, y: candidates[first].y)
+                let g2 = (x: candidates[second].x, y: candidates[second].y)
+                guard let condition = conditionNumber(g1: g1, g2: g2), condition <= 8 else {
+                    continue
+                }
+                let tolerance = indexingTolerance(g1: g1, g2: g2)
+                let score = scoreBasis(
+                    g1: g1, g2: g2,
+                    observations: observations, tolerance: tolerance
+                )
+                guard score.support >= 2,
+                      Float(score.support) / Float(observations.count) >= 0.5 else { continue }
+                let estimate = BasisEstimate(
+                    g1: g1, g2: g2,
+                    observationCount: observations.count,
+                    supportCount: score.support,
+                    residualPixels: score.residual,
+                    conditionNumber: condition,
+                    indexingTolerancePixels: tolerance
+                )
+                guard let current = best else { best = estimate; continue }
+                let supportGain = estimate.supportCount - current.supportCount
+                if supportGain > 0
+                    || (supportGain == 0 && estimate.residualPixels < current.residualPixels - 1e-5)
+                    || (supportGain == 0
+                        && abs(estimate.residualPixels - current.residualPixels) <= 1e-5
+                        && hypot(estimate.g1.x, estimate.g1.y)
+                            + hypot(estimate.g2.x, estimate.g2.y)
+                            < hypot(current.g1.x, current.g1.y)
+                                + hypot(current.g2.x, current.g2.y)) {
+                    best = estimate
+                }
+            }
+        }
+        return best
+    }
+
+    private nonisolated static func scoreBasis(
+        g1: (x: Float, y: Float), g2: (x: Float, y: Float),
+        observations: [VectorObservation], tolerance: Float
+    ) -> (support: Int, residual: Float) {
+        guard let inverse = invert2x2(g1.x, g2.x, g1.y, g2.y) else {
+            return (0, .infinity)
+        }
+        var support = 0
+        var squaredResidual: Double = 0
+        for observation in observations {
+            let h = (inverse.a * observation.x + inverse.b * observation.y).rounded()
+            let k = (inverse.c * observation.x + inverse.d * observation.y).rounded()
+            guard abs(h) <= 8, abs(k) <= 8, h != 0 || k != 0 else { continue }
+            let residual = hypot(
+                observation.x - h * g1.x - k * g2.x,
+                observation.y - h * g1.y - k * g2.y
+            )
+            if residual <= tolerance {
+                support += 1
+                squaredResidual += Double(residual * residual)
+            }
+        }
+        return (
+            support,
+            support > 0 ? Float(sqrt(squaredResidual / Double(support))) : .infinity
+        )
+    }
+
+    private nonisolated static func indexingTolerance(
+        g1: (x: Float, y: Float), g2: (x: Float, y: Float)
+    ) -> Float {
+        max(0.5, 0.18 * min(hypot(g1.x, g1.y), hypot(g2.x, g2.y)))
+    }
+
+    private nonisolated static func conditionNumber(
+        g1: (x: Float, y: Float), g2: (x: Float, y: Float)
+    ) -> Float? {
+        let trace = g1.x * g1.x + g1.y * g1.y + g2.x * g2.x + g2.y * g2.y
+        let determinant = g1.x * g2.y - g2.x * g1.y
+        let discriminant = max(0, trace * trace - 4 * determinant * determinant)
+        let root = sqrt(discriminant)
+        let maximum = (trace + root) / 2
+        let minimum = (trace - root) / 2
+        guard minimum > 1e-10, maximum.isFinite else { return nil }
+        return sqrt(maximum / minimum)
     }
 
     // MARK: - Weighted lattice fit (fit_lattice_vectors)
@@ -206,7 +488,9 @@ enum StrainMapping {
     /// equations for each of the x and y coordinates.
     private nonisolated static func fitLattice(
         _ peaks: [(h: Float, k: Float, x: Float, y: Float, wgt: Float)]
-    ) -> (g1x: Float, g1y: Float, g2x: Float, g2y: Float)? {
+    ) -> (originX: Float, originY: Float,
+          g1x: Float, g1y: Float, g2x: Float, g2y: Float,
+          residual: Float)? {
         // Normal equations MᵀW M (3×3, symmetric) and MᵀW·[x, y] (3×2).
         var ata = [Double](repeating: 0, count: 9)
         var atbx = [Double](repeating: 0, count: 3)
@@ -221,9 +505,77 @@ enum StrainMapping {
             }
         }
         guard let cx = solve3(ata, atbx), let cy = solve3(ata, atby) else { return nil }
+        var squaredResidual: Double = 0
+        var weightSum: Double = 0
+        for peak in peaks {
+            let predictedX = cx[0] + cx[1] * Double(peak.h) + cx[2] * Double(peak.k)
+            let predictedY = cy[0] + cy[1] * Double(peak.h) + cy[2] * Double(peak.k)
+            let dx = Double(peak.x) - predictedX
+            let dy = Double(peak.y) - predictedY
+            let weight = Double(peak.wgt)
+            squaredResidual += weight * (dx * dx + dy * dy)
+            weightSum += weight
+        }
         // c[0] = origin, c[1] = g1, c[2] = g2 for each coordinate.
-        return (g1x: Float(cx[1]), g1y: Float(cy[1]),
-                g2x: Float(cx[2]), g2y: Float(cy[2]))
+        return (
+            originX: Float(cx[0]), originY: Float(cy[0]),
+            g1x: Float(cx[1]), g1y: Float(cy[1]),
+            g2x: Float(cx[2]), g2y: Float(cy[2]),
+            residual: weightSum > 0 ? Float(sqrt(squaredResidual / weightSum)) : .infinity
+        )
+    }
+
+    /// One reweighted pass removes a peak that happened to fall inside the
+    /// coarse indexing gate but is inconsistent with the local lattice fit.
+    private nonisolated static func robustFitLattice(
+        _ peaks: [(h: Float, k: Float, x: Float, y: Float, wgt: Float)],
+        minNumPeaks: Int
+    ) -> (originX: Float, originY: Float,
+          g1x: Float, g1y: Float, g2x: Float, g2y: Float,
+          residual: Float)? {
+        guard let initial = fitLattice(peaks) else { return nil }
+        let residuals = peaks.map { peak in
+            hypot(
+                peak.x - initial.originX - peak.h * initial.g1x - peak.k * initial.g2x,
+                peak.y - initial.originY - peak.h * initial.g1y - peak.k * initial.g2y
+            )
+        }
+        guard let center = median(residuals) else { return initial }
+        let deviations = residuals.map { abs($0 - center) }
+        let mad = median(deviations) ?? 0
+        let threshold = max(0.35, center + 3 * max(1.4826 * mad, 0.05))
+        let inliers = zip(peaks, residuals).compactMap { peak, residual in
+            residual <= threshold ? peak : nil
+        }
+        guard inliers.count >= minNumPeaks, inliers.count < peaks.count else { return initial }
+        return fitLattice(inliers) ?? initial
+    }
+
+    private nonisolated static func robustReferenceIndices(
+        candidates: [Int],
+        g1x: [Float], g1y: [Float], g2x: [Float], g2y: [Float]
+    ) -> [Int] {
+        guard candidates.count > 2 else { return candidates }
+        let centerG1X = median(candidates.map { g1x[$0] }) ?? 0
+        let centerG1Y = median(candidates.map { g1y[$0] }) ?? 0
+        let centerG2X = median(candidates.map { g2x[$0] }) ?? 0
+        let centerG2Y = median(candidates.map { g2y[$0] }) ?? 0
+        let residuals = candidates.map { index in
+            hypot(g1x[index] - centerG1X, g1y[index] - centerG1Y)
+                + hypot(g2x[index] - centerG2X, g2y[index] - centerG2Y)
+        }
+        let center = median(residuals) ?? 0
+        let mad = median(residuals.map { abs($0 - center) }) ?? 0
+        let basisScale = (
+            hypot(centerG1X, centerG1Y) + hypot(centerG2X, centerG2Y)
+        ) / 2
+        let threshold = center + max(3 * 1.4826 * mad, 0.02 * basisScale)
+        let inliers = zip(candidates, residuals).compactMap { index, residual in
+            residual <= threshold ? index : nil
+        }
+        // Do not let aggressive rejection turn a broad but valid reference
+        // population into a tiny, overconfident subset.
+        return inliers.count * 2 >= candidates.count ? inliers : candidates
     }
 
     // MARK: - Linear algebra helpers
@@ -235,6 +587,16 @@ enum StrainMapping {
         guard abs(det) > 1e-12 else { return nil }
         let inv = 1 / det
         return (a: d * inv, b: -b * inv, c: -c * inv, d: a * inv)
+    }
+
+    private nonisolated static func median(_ values: [Float]) -> Float? {
+        guard !values.isEmpty else { return nil }
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        if sorted.count.isMultiple(of: 2) {
+            return (sorted[middle - 1] + sorted[middle]) / 2
+        }
+        return sorted[middle]
     }
 
     /// Solve a 3×3 system by Gaussian elimination with partial pivoting.

@@ -444,11 +444,40 @@ extension AppState {
         }
         if let value = plan.depthInformationPower { parallaxDepthInformationPower = value }
         if let value = plan.ptychographyIterations { ptychographyIterations = value }
+        if let value = plan.ptychographyMethod {
+            switch value {
+            case "gradient-descent": ptychographyMethod = .gradientDescent
+            case "difference-map_alternating-projections":
+                ptychographyMethod = .differenceMapAlternatingProjections
+            default: break
+            }
+        }
         if let value = plan.ptychographyStepSize { ptychographyStepSize = value }
+        if let value = plan.ptychographyProjectionParameter {
+            ptychographyProjectionParameter = value
+        }
         if let value = plan.ptychographyNormalizationMinimum {
             ptychographyNormalizationMinimum = value
         }
         if let value = plan.ptychographyFixProbe { ptychographyFixProbe = value }
+        if let value = plan.ptychographyConstrainObjectAmplitude {
+            ptychographyConstrainObjectAmplitude = value
+        }
+        if let value = plan.ptychographyPurePhaseObject {
+            ptychographyPurePhaseObject = value
+        }
+        if let value = plan.ptychographyFixProbeCenterOfMass {
+            ptychographyFixProbeCenterOfMass = value
+        }
+        if let value = plan.ptychographyConstrainProbeAmplitude {
+            ptychographyConstrainProbeAmplitude = value
+        }
+        if let value = plan.ptychographyProbeAmplitudeRadius {
+            ptychographyProbeAmplitudeRadius = value
+        }
+        if let value = plan.ptychographyProbeAmplitudeWidth {
+            ptychographyProbeAmplitudeWidth = value
+        }
         statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct."
     }
 
@@ -589,7 +618,13 @@ extension AppState {
                         physical ? "DPC magnitude (mrad)" : "DPC magnitude",
                         physical ? "mrad" : "detector_px")
             case .angle:      return ("dpc_angle", "DPC angle", "rad")
-            case .idpc:       return ("idpc", "Integrated DPC", "arbitrary")
+            case .idpc:
+                let physical = idpcPhysicalCalibration != nil
+                return (
+                    physical ? "idpc_phase" : "idpc_qualitative",
+                    physical ? "iDPC projected phase" : "iDPC (qualitative)",
+                    physical ? "rad" : "detector_px_scan_px"
+                )
             case .colorWheel: return ("dpc_color", "DPC color wheel", "rgba")
             }
         case .strain:
@@ -608,7 +643,8 @@ extension AppState {
             switch acomDisplay {
             case .ipfZ:        kind = "acom_ipf_z"
             case .reliability: kind = "acom_reliability"
-            case .disorientation: kind = "acom_cubic_fz_angle"
+            case .disorientation:
+                kind = "acom_\(orientationMap?.symmetry.rawValue ?? "symmetry")_fz_angle"
             case .inPlane:     kind = "acom_in_plane"
             case .phi1:        kind = "acom_phi1"
             case .Phi:         kind = "acom_Phi"
@@ -642,12 +678,93 @@ extension AppState {
             case .iterativeAmplitude:
                 return ("ptychography_object_amplitude", "Ptychography object amplitude",
                         "dimensionless")
+            case .iterativeProbePhase:
+                return ("ptychography_probe_phase", "Ptychography probe phase", "rad")
+            case .iterativeProbeAmplitude:
+                return ("ptychography_probe_amplitude", "Ptychography probe amplitude",
+                        "dimensionless")
             }
         }
     }
 
     private var currentScalarPersistenceMetadata:
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        if analysisMode == .dpc, dpcDisplay == .idpc {
+            if let physical = idpcPhysicalCalibration {
+                return (
+                    Double(physical.rowSamplingAngstrom),
+                    Double(physical.columnSamplingAngstrom),
+                    "A",
+                    [
+                        "analysis_mode": analysisMode.rawValue,
+                        "source_product": "idpc_phase",
+                        "quantitative": "true",
+                        "boundary": "symmetric_zero_padded",
+                        "padding_factor": "2",
+                        "regularization": "0.0001",
+                        "reciprocal_angstrom_per_detector_pixel": String(
+                            physical.reciprocalAngstromPerDetectorPixel
+                        ),
+                        "com_to_phase_gradient": "2pi_q",
+                    ]
+                )
+            }
+            return (
+                calibration.rPixelSize, calibration.rPixelSize,
+                calibration.rPixelUnits,
+                [
+                    "analysis_mode": analysisMode.rawValue,
+                    "source_product": "idpc_qualitative",
+                    "quantitative": "false",
+                    "boundary": "symmetric_zero_padded",
+                    "padding_factor": "2",
+                    "regularization": "0.0001",
+                ]
+            )
+        }
+        if analysisMode == .strain, let map = strainMap {
+            let diagnostics = map.diagnostics
+            return (
+                calibration.rPixelSize, calibration.rPixelSize,
+                calibration.rPixelUnits,
+                [
+                    "analysis_mode": analysisMode.rawValue,
+                    "source_product": "strain_\(strainComponent.rawValue)",
+                    "basis_mode": diagnostics.automaticBasis ? "consensus" : "manual",
+                    "basis_support_fraction": String(diagnostics.basisSupportFraction),
+                    "basis_support_count": String(diagnostics.basisSupportCount),
+                    "basis_observation_count": String(diagnostics.basisObservationCount),
+                    "basis_residual_pixels": String(diagnostics.basisResidualPixels),
+                    "basis_condition_number": String(diagnostics.basisConditionNumber),
+                    "indexing_tolerance_pixels": String(diagnostics.indexingTolerancePixels),
+                    "indexed_fraction": String(map.indexedFraction),
+                    "local_residual_median_pixels": String(
+                        diagnostics.localResidualMedianPixels
+                    ),
+                    "reference_mode": diagnostics.referenceMaskApplied
+                        ? "selected-region" : "whole-scan",
+                    "reference_inliers": String(map.referencePositionCount),
+                    "reference_candidates": String(diagnostics.referenceCandidateCount),
+                    "reference_rejected": String(diagnostics.referenceRejectedCount),
+                    "reference_g1": "\(map.refG1.x),\(map.refG1.y)",
+                    "reference_g2": "\(map.refG2.x),\(map.refG2.y)",
+                ]
+            )
+        }
+        if analysisMode == .acom, let map = orientationMap {
+            return (
+                calibration.rPixelSize, calibration.rPixelSize,
+                calibration.rPixelUnits,
+                [
+                    "analysis_mode": analysisMode.rawValue,
+                    "source_product": "acom_\(acomDisplay.rawValue)",
+                    "crystal_symmetry": map.symmetry.rawValue,
+                    "matching_backend": map.matchingBackend.rawValue,
+                    "template_count": String(map.templateCount),
+                    "friedel_angle_period_degrees": "180",
+                ]
+            )
+        }
         guard analysisMode == .ptychography else {
             return (
                 calibration.rPixelSize, calibration.rPixelSize,
@@ -701,24 +818,40 @@ extension AppState {
                 "information_power": String(result.informationPower),
             ]
             return (result.samplingAngstrom, result.samplingAngstrom, "A", provenance)
-        case .iterativePhase, .iterativeAmplitude:
+        case .iterativePhase, .iterativeAmplitude,
+             .iterativeProbePhase, .iterativeProbeAmplitude:
             guard let result = singleslicePtychography else {
                 return (nil, nil, nil, [:])
             }
+            let sourceProduct: String
+            switch parallaxResultProduct {
+            case .iterativePhase: sourceProduct = "ptychography_object_phase"
+            case .iterativeAmplitude: sourceProduct = "ptychography_object_amplitude"
+            case .iterativeProbePhase: sourceProduct = "ptychography_probe_phase"
+            case .iterativeProbeAmplitude: sourceProduct = "ptychography_probe_amplitude"
+            default: sourceProduct = "ptychography_object_phase"
+            }
+            let options = result.options
             return (
                 result.objectSamplingRowAngstrom,
                 result.objectSamplingColumnAngstrom,
                 "A",
                 [
-                    "source_product": parallaxResultProduct == .iterativePhase
-                        ? "ptychography_object_phase" : "ptychography_object_amplitude",
+                    "source_product": sourceProduct,
                     "engine": "singleslice",
-                    "method": "gradient-descent",
+                    "method": options.method.provenanceName,
+                    "projection_parameter": String(options.projectionParameter),
                     "iterations": String(result.errorHistory.count),
                     "final_error": result.errorHistory.last.map { String($0) } ?? "",
-                    "step_size": String(ptychographyStepSize),
-                    "normalization_minimum": String(ptychographyNormalizationMinimum),
-                    "fix_probe": String(ptychographyFixProbe),
+                    "step_size": String(options.stepSize),
+                    "normalization_minimum": String(options.normalizationMinimum),
+                    "fix_probe": String(options.fixProbe),
+                    "constrain_object_amplitude": String(options.constrainObjectAmplitude),
+                    "pure_phase_object": String(options.purePhaseObject),
+                    "fix_probe_com": String(options.fixProbeCenterOfMass),
+                    "constrain_probe_amplitude": String(options.constrainProbeAmplitude),
+                    "probe_amplitude_radius": String(options.probeAmplitudeRelativeRadius),
+                    "probe_amplitude_width": String(options.probeAmplitudeRelativeWidth),
                 ]
             )
         }

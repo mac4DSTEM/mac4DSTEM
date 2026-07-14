@@ -66,12 +66,31 @@ require(depth.depthInformationLimit == 0.12 && depth.depthInformationPower == 1.
 
 let ptycho = SessionControlRehydration.parse(kind: "ptychography_object_amplitude", provenance: [
     "engine": "singleslice", "method": "gradient-descent", "iterations": "12",
-    "step_size": "0.25", "normalization_minimum": "0.75", "fix_probe": "yes"
+    "step_size": "0.25", "normalization_minimum": "0.75", "fix_probe": "yes",
+    "constrain_object_amplitude": "true", "pure_phase_object": "false",
+    "fix_probe_com": "true", "constrain_probe_amplitude": "true",
+    "probe_amplitude_radius": "0.42", "probe_amplitude_width": "0.09"
 ])
 require(ptycho.ptychographyIterations == 12 && ptycho.ptychographyStepSize == 0.25,
         "ptychography iterations/step")
 require(ptycho.ptychographyNormalizationMinimum == 0.75
         && ptycho.ptychographyFixProbe == true, "ptychography normalization/probe")
+require(ptycho.ptychographyConstrainObjectAmplitude == true
+        && ptycho.ptychographyPurePhaseObject == false,
+        "ptychography object constraints")
+require(ptycho.ptychographyFixProbeCenterOfMass == true
+        && ptycho.ptychographyConstrainProbeAmplitude == true,
+        "ptychography probe constraints")
+require(ptycho.ptychographyProbeAmplitudeRadius == 0.42
+        && ptycho.ptychographyProbeAmplitudeWidth == 0.09,
+        "ptychography support controls")
+let projection = SessionControlRehydration.parse(kind: "ptychography_probe_phase", provenance: [
+    "engine": "singleslice", "method": "difference-map_alternating-projections",
+    "projection_parameter": "0.8", "iterations": "5"
+])
+require(projection.ptychographyMethod == "difference-map_alternating-projections"
+        && projection.ptychographyProjectionParameter == 0.8,
+        "DM/AP method controls")
 
 let malformed = SessionControlRehydration.parse(kind: "parallax_subpixel_bf", provenance: [
     "upsample_factor": "0.5", "kde_sigma_px": "nan", "interpolation": "lanczos_99",

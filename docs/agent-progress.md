@@ -10,6 +10,8 @@ py4DSTEM workflows with a polished, interactive Mac UI. Reference source:
 `References/py4DSTEM-dev` (read-only). Priorities are numeric correctness and
 py4DSTEM parity, then buildability, workflow coverage, performance, and polish.
 Work in small slices that end with a green build and targeted verification.
+The v1 release contract is `docs/v1-scope.md`; it freezes the supported lab
+workflow, stable versus Advanced tiers, release gates, and scope-change rule.
 
 ## 2. Confirmed state (2026-07-14)
 
@@ -24,7 +26,7 @@ Work in small slices that end with a green build and targeted verification.
   supported calibration and preserves unrecognized external root objects, but
   the app does not yet create/view plot nodes or restore the controls behind a
   saved result. A native XCTest bundle now covers fast production contracts;
-  nineteen scientific harnesses cover calibration, tiled execution,
+  twenty-one scientific harnesses cover calibration, tiled execution,
   disks, overlays, ACOM, strain, cancellation, EMD/session persistence, and
   calibrated preprocessing export.
 
@@ -195,9 +197,22 @@ Work in small slices that end with a green build and targeted verification.
   harnesses cover the axis swap and exact transform.
 - Strain can use the visible point/rectangle/circle real-space ROI as its
   unstrained reference and accepts manual calibrated g₁/g₂ vectors when
-  automatic shortest-vector selection is unreliable. `tools/strain-test/`
-  verifies whole-scan and selected references, manual basis validation,
-  known-crystal Q calibration, and DPC physical-unit conversion.
+  desired. Automatic mode now clusters repeated reciprocal vectors over the
+  peak population, scores bounded basis pairs by integer-indexing consensus,
+  and requires at least 50% support plus condition number ≤8. Local indexing
+  rejects off-lattice and excessive-index peaks, then performs a MAD-gated
+  intensity-weighted refit. Spatial-hashed clustering keeps the population pass
+  near-linear even with many unique noise peaks. Reference positions receive a
+  second robust gate before py4DSTEM-compatible component medians define g₁/g₂.
+- Strain fit support/count/RMS/condition, indexing tolerance, indexed fraction,
+  median local RMS, and reference inlier/rejection counts are visible in the UI
+  and included in session provenance. Weak or ill-conditioned solutions fail
+  with an actionable message instead of publishing a plausible-looking map.
+  `tools/strain-test/` source-locks py4DSTEM indexing, weighted fitting, median
+  reference, and tensor formulas; its 5×3 fixture covers missing positions,
+  short and high-intensity off-lattice peaks, a distorted reference point,
+  ill-conditioned manual input, and an incoherent automatic population while
+  preserving the original whole-scan/ROI/manual/Q/DPC cases.
 - Cubic ACOM templates are sampled directly in the m-3m
   [001]-[101]-[111] fundamental sector with deterministic spherical
   farthest-point coverage. The ACOM harness verifies the requested count,
@@ -246,6 +261,31 @@ Work in small slices that end with a green build and targeted verification.
   existing session/DataCube persistence. `tools/ellipse-calibration-test/`
   source-locks the formulas and covers non-square rotated and near-circular
   rings, detector-axis conversion, blank data, and four-spot degeneracy.
+- Scientific-correctness checkpoint 3 adds `fitBestAvailable`: the existing
+  conic is the deterministic initializer and safe publication fallback, while
+  a bounded Levenberg–Marquardt refinement evaluates py4DSTEM calibration's
+  central Gaussian plus asymmetric inner/outer Gaussian ring profile. It uses
+  equivalent physical `(a,b,theta)` variables so non-physical `(A,B,C)` steps
+  cannot occur, then performs one MAD-gated refit. Model, residual, ring widths,
+  and fallback reason are visible; only accepted `a/b/theta` enter calibration.
+  The expanded source-locked fixture covers background, asymmetric width,
+  deterministic noise/outliers, and an overlapping-ring forced fallback on
+  non-square detectors. Focused harness and all six XCTest methods pass.
+- V1 ACOM performance checkpoint 1 extends the optimized benchmark with
+  400-template plan generation and deterministic 4×3/8×6 non-square matching,
+  including backend, dimensions, memory estimate, samples, and scientific
+  checksum. The original 48-position matcher measured 210.4 ms on the checkpoint
+  M3. Contiguous template FFT storage plus vectorized vDSP complex products
+  reduce the warmed median to 25.1 ms (8.4×) without changing the scalar-
+  reference template, angle bin, or scores.
+- V1 ACOM performance checkpoint 2 adds an exact batched Metal spectrum and
+  inverse-angle argmax backend. `tools/acom-matching-test/` proves exact template
+  choice and angle modulo Friedel symmetry, with score error below 3e-7 and
+  reliability error below 9e-7. The Metal median was 32.9 ms, slower than the
+  25.1 ms vector CPU result, so Automatic deliberately selects Accelerate; Metal
+  remains explicit experimental evidence until a true batched FFT wins. The app
+  reports the backend that actually produced each map. ACOM orientation/matching,
+  XCTest, optimized benchmark, and diff hygiene pass.
 - The preprocessing sheet now begins with a derived five-item calibration
   readiness guide: origin/probe, ellipse, R-Q rotation, Q scale, and R scale.
   Each item names file/session/in-app/manual provenance, validates finite
@@ -439,14 +479,128 @@ Work in small slices that end with a green build and targeted verification.
 - `tools/performance-baseline/` compiles optimized production FFT and
   single-slice ptychography sources and emits versioned JSON plus checksums. It
   is deliberately non-gating; compare the same machine/power mode before and
-  after performance work. Warm MacBook Air runs were about 4.6–6.3 ms for
-  twenty 256×256 FFT round trips, 0.32–0.50 ms for five exact 96×80 round trips,
-  and 5.3–8.5 ms for five iterations of the 8×8×32×32 ptychography fixture,
-  illustrating why these are trend measurements rather than pass thresholds.
+  after performance work.
+- Performance checkpoint 1 upgrades that harness to schema 2 and exercises
+  representative production workloads: exact/radix-2 FFT, correlation-
+  only and Gaussian-smoothed disk detection, selected-area Metal diffraction,
+  bounded Float32 tile staging, GD, and retained-exit-wave DM/AP. Each entry
+  records repeat samples/median, backend, dimensions, a checksum, a working-set
+  estimate, and maximum observed resident memory. `compare.py` emits
+  machine-readable ratios without turning noisy wall-clock values into gates.
+- On the 2026-07-14 Apple M3 checkpoint baseline (three warmed repeats), 24
+  128×128 disk patterns took 11.27 ms without smoothing and 26.75 ms with the
+  production σ=2 Gaussian/maxima path. By contrast, selected-area diffraction
+  and tile staging on a 24×24×96×96 cube took 0.64 ms and 0.55 ms; five 64-
+  position ptychography iterations took 6.79 ms (GD) and 9.59 ms (DM/AP).
+  Therefore checkpoint 2 targets the scalable disk path, beginning with the
+  scalar allocating separable Gaussian stage while retaining exact reflect-edge
+  semantics and scientific goldens. The saved local pre-change report is
+  `/tmp/mac4dstem-performance-before.json`; regenerate it for another machine.
+- Performance checkpoint 2 replaces `DiskDetector`'s per-pattern temporary
+  image and scalar horizontal/vertical tap loops with detector-owned reusable
+  scratch and `vDSP_conv`. Padding is still constructed explicitly with
+  SciPy's half-sample `reflect` mapping, and Gaussian taps are cached per sigma,
+  so the source-locked scientific contract is unchanged. The warmed 24-pattern
+  σ=2 median improved from 26.75 ms to 13.70 ms (1.95×); correlation-only stayed
+  effectively flat at 11.27→11.22 ms, confirming the gain came from the selected
+  stage. All disk goldens (including σ=1.25, exact-shape, measured-probe, and
+  calibration cases), all six XCTest methods, and an unsigned Debug build pass.
+  `/tmp/mac4dstem-performance-after-disk.json` and the comparison are ephemeral
+  local evidence; use the checked-in harness to reproduce on another machine.
+- Performance checkpoint 3 removes per-pattern allocation churn from
+  `SingleslicePtychography`: fixed-shape shifted-probe, patch, Fourier, index,
+  and DM previous-exit buffers now survive across every position/iteration.
+  `FractionalShiftPlan` caches separable complex row/column ramps once from the
+  immutable positions, changing repeated per-pixel trigonometry into compact
+  complex multiplies. Its O(patterns×(Qy+Qx)) storage is included in the
+  overflow-checked reconstruction memory ceiling and the benchmark estimate.
+- All GD, constrained-GD, DM/AP, diagnostics, invalid-option, memory, and
+  cancellation goldens remain green. Against the post-disk baseline, the warmed
+  small fixture improved 7.13→6.63 ms for GD (1.08×) and 9.82→9.44 ms for DM/AP
+  (1.04×). The harness now also records a 12×12 scan with 48×48 diffraction and
+  three iterations: 28.91 ms GD and 38.30 ms DM/AP on the checkpoint M3.
+- MLX Swift 0.31.3 was evaluated rather than added reflexively. Its official
+  package supplies macOS 14+ `MLXFFT`, but the current reconstruction issues
+  serial per-pattern FFTs interleaved with gather/scatter accumulation. A useful
+  GPU implementation therefore requires a deliberate batched operator and
+  new parity/memory tests; merely wrapping individual transforms would add a
+  large C++/Metal resource dependency without demonstrating a gain. Keep the
+  exact CPU implementation as reference/fallback and use the checked-in medium
+  workload as the acceptance target for that future backend.
+- Final performance-phase regression passed all six XCTest methods, all 19
+  scientific/interoperability harnesses, native plus direct-py4DSTEM HDF5/EMD
+  checks, forced-tile Metal paths, the final ten-workload benchmark, diff
+  hygiene, and the hardened/sandboxed Release package audit. No performance
+  threshold is a test gate; scientific checksums and goldens remain the gates.
+- Scientific-correctness checkpoint 1 makes iDPC quantitative only across a
+  strict readiness boundary: fitted per-position origins, R–Q rotation, positive
+  real-space sampling, and reciprocal sampling in Å⁻¹/nm⁻¹ (or mrad plus beam
+  voltage). Detector-pixel CoM shifts are converted to phase gradient with
+  `2π·Q_pixel_size`; FFT frequencies use row/column Å sampling, so the persisted
+  scalar is projected phase in radians. Missing prerequisites retain an explicit
+  `idpc_qualitative` detector-pixel×scan-pixel result rather than false units.
+- `DPC.integrateIDPC` now exposes periodic and centered zero-padded boundary
+  contracts. The app uses exact 2× zero padding instead of asymmetric next-
+  power-of-two padding, supports non-square/anisotropic grids, scales
+  regularization from physical Nyquist frequencies, and fixes the arbitrary
+  phase gauge to zero mean. Session provenance records quantitative status,
+  boundary, factor, regularization, Q scale, and physical map sampling.
+- New `tools/idpc-test` source-locks py4DSTEM's reciprocal CoM scaling, physical
+  `fftfreq` sampling, and padding-factor semantics, then checks a 5×7 NumPy
+  fixture. It recovers a known periodic phase in radians, independently matches
+  centered 2× padding, proves the boundary choices differ, preserves the
+  qualitative path, and covers Å/nm/mrad readiness conversions. Focused iDPC,
+  strain/DPC, calibration, result-presentation, and native/direct-py4DSTEM
+  sidecar suites plus XCTest/Debug build pass.
+- Final quantitative-iDPC regression passed all six XCTest methods, all 20
+  scientific/interoperability harnesses, native plus direct-py4DSTEM sidecar
+  reads, and the hardened/sandboxed Release package audit. An unavailable FFT
+  now returns an empty integration result rather than silently substituting the
+  scientifically different DPC magnitude image.
+- Scientific-correctness checkpoint 2 replaces the shortest-vector strain
+  heuristic with the bounded consensus/local/reference pipeline described
+  above. `StrainMapping` is explicitly nonisolated pure compute under the
+  project's default MainActor policy. The focused source-locked strain fixture,
+  all 20 scientific/interoperability harnesses, all six XCTest methods, and the
+  hardened/sandboxed Release package audit pass on 2026-07-14.
 - Final foundation verification passed all six XCTest methods, the eight-harness
   parallax/ptychography campaign (including native plus py4DSTEM sidecar reads),
   the standalone cancellation suite, benchmark checksum reproduction, diff
   hygiene, and a clean unsigned Debug build.
+- Ptychography-completeness checkpoint 1 extends the exact-shape full-batch GD
+  options with opt-in complex-object amplitude≤1 or pure-phase projection,
+  corner-centered probe center-of-mass correction, and py4DSTEM's normalized
+  real-space sigmoid support (relative radius/width). Constraints run after the
+  simultaneous adjoint update in py4DSTEM order, do not alter the established
+  default golden, are skipped for a fixed probe, and retain atomic cancellation.
+- `SingleslicePtychographyResult` now retains its exact options and exposes
+  centered probe phase/amplitude without recomputation. Both probe products use
+  object-grid Å sampling, have distinct persistence kinds/provenance, and appear
+  in the existing result picker. Persisted constraint controls round-trip through
+  the validated control-rehydration boundary rather than reading mutable UI state.
+- The ptychography Python fixture source-locks object threshold, corner CoM,
+  Fourier shift, sigmoid mask, and intensity renormalization contracts. It
+  matches constrained iteration errors, final complex object/probe, and centered
+  diagnostic pixels within 3e-5, while the result-presentation harness/XCTest
+  cover constraint provenance. Harness, XCTest, and Debug build passed.
+- Ptychography-completeness checkpoint 2 adds full-batch DM/AP under
+  `SingleslicePtychographyMethod`. For α∈[0,1], it uses py4DSTEM's deterministic
+  generalized coefficients `a=-α, b=1, c=1+α`, retains complex exit waves for
+  every diffraction pattern across iterations, applies the projection Fourier
+  branch, and replaces rather than increments object/probe in the normalized
+  adjoint. Its two exit-wave arrays are included in overflow-safe memory limits.
+- Method/α controls, result status/history labels, scalar provenance summaries,
+  and saved-control rehydration distinguish GD from DM/AP. The existing GD
+  golden remains unchanged. The extended Python fixture source-locks projection
+  coefficient/factor/exit-wave and replacement-adjoint expressions and matches
+  every DM/AP error, full complex object/probe, amplitude crop, and stable phase
+  crop (excluding undefined near-zero amplitude phase). Invalid α is rejected.
+  Ptychography harness, result-presentation harness, XCTest, and Debug build pass.
+- Final ptychography-completeness regression passed all six XCTest methods, the
+  eight-harness parallax/ptychography campaign, native plus direct-py4DSTEM
+  sidecar reads, the optimized benchmark/checksums, diff hygiene, and a clean
+  unsigned Debug build. The established GD result remains bitwise within its
+  prior tolerances while constrained GD and DM/AP add independent goldens.
 
 ## 4. Roadmap order
 
@@ -480,46 +634,118 @@ factor-8 coarse-to-fine continuation → low-order aberration fit → default
 higher-order recursive fit → aberration-corrected phase → bilinear/Lanczos KDE
 subpixel reconstruction → iterative probe-position correction → depth sectioning
 and reusable parallax product selection → single-slice ptychographic GD →
-schema-v4 stabilized-result persistence.
+schema-v4 stabilized-result persistence → ptychographic object/probe constraints
+and diagnostics → retained-exit-wave DM/AP reconstruction → quantitative iDPC
+with explicit boundary/fallback provenance → consensus and robust-reference
+strain fitting with persisted diagnostics → bounded asymmetric-Gaussian ellipse
+profile refinement with safe conic fallback.
 
 ## 5. Current next slice
 
-Begin ptychography-completeness checkpoint 1: add source-locked object/probe
-constraints behind explicit option/result boundaries, plus native probe
-amplitude/phase diagnostics that reuse the retained result. Keep the CPU
-reconstruction golden stable, bound memory/cancellation, and add focused XCTest
-only for pure policy while the Python harness remains the numeric oracle.
+No repository-owned v1 implementation slice remains after the final aggregate gate.
+The release owner must install/select a Developer ID Application certificate and
+notarytool profile, run the documented scripts in `docs/releasing.md`, preserve the
+submission log/hash, and smoke-test the notarized ZIP on a clean macOS 14+ account.
 
-The durable remaining program for later agents is: (1) architecture/testing,
-(2) ptychography completeness, (3) profile-driven Metal/MLX performance,
-(4) quantitative iDPC/strain/ellipse/non-cubic ACOM correctness gaps,
-(5) MIB/EMPAD and broader EMD, (6) UI/UX/multi-session/accessibility, and
-(7) credential-dependent distribution/notarization. README carries checkpoint
-estimates. EMD plot nodes and real-dataset acceptance belong in the applicable
-persistence/scientific checkpoints.
+The guided UI/accessibility checkpoint is complete. Ptychography/parallax is marked
+Advanced in both the mode selector and controls. Focused-window Run/Cancel commands,
+actionable Copy Details/Open Another errors, correct cubic/hexagonal in-canvas IPF
+keys, labeled image panes, scan/gamma/aperture sliders, accessible histogram range
+controls, and adjustable scientific histories cover the primary keyboard/VoiceOver
+workflow. The macOS 14 deployment floor compiles and all eight XCTest methods pass.
+
+Real-data acceptance is complete across all four checked-in 1–1.7 GB HDF5 datasets.
+`tools/real-data-acceptance` performs dynamic discovery, samples first/middle/last
+patterns, and runs a complete one-row-tiled production Metal virtual image. Shapes,
+finite fraction, min/max/mean/checksum goldens, and a 15-second/file ceiling are
+checked; the 2026-07-14 M3 run took 1.1–1.4 seconds per file.
+
+Credential-free distribution hardening is complete. The app now uses stable bundle
+ID `com.paullobpreis.mac4DSTEM`, version/build 1.0/1, macOS 14 minimum, copyright,
+hardened runtime, sandbox/bookmarks, and an app icon. The Release audit verifies all
+of these plus nested signatures, entitlements, bundled HDF5 closure, and absence of
+machine-local dylib paths. `tools/release` contains Developer ID archive and
+notarytool/staple/Gatekeeper scripts; only certificate/profile-backed execution is
+external.
+
+Final repository gate passed on 2026-07-14: all eight XCTest methods, all 22
+scientific/interoperability harnesses, the four full real-data goldens, and the
+hardened Release package audit completed through `tools/run-tests.sh all`.
+The follow-up performance baseline reproduced every checksum; representative M3
+medians were 24.27 ms for 48-position/400-template ACOM CPU matching, 14.02 ms
+for 24-pattern disk detection, 29.08/37.99 ms for medium GD/DM-AP ptychography,
+and 0.87 ms for selected-area diffraction. Automatic ACOM remains Accelerate CPU;
+the direct-IDFT Metal median was 59.16 ms in this final run.
+
+The dataset-session foundation is complete. `DatasetWindow` owns one `AppState`
+inside each `WindowGroup` instance, while focused-scene command routing targets the
+active window and Command-N creates an independent dataset window. The recent/
+recovery store persists security-scoped bookmarks, selected scan position, and mode
+only; scientific products stay in source/session files. The welcome screen offers
+Open, Reopen Last, and removable Recents. Replacement opening is transactional:
+the prior security scope/session remains alive until the new reader and descriptor
+are valid, and failed opens preserve the current dataset. A four-step live workflow
+guide covers open→calibrate→analyze→save. Two recovery-model XCTests bring the suite
+to eight methods; all pass with the Debug build on 2026-07-14.
+
+The direct-reader/interoperability checkpoint is complete for its frozen subsets.
+`EMPADReader` accepts vendor XML plus little-endian 130×128 float32 raw frames,
+crops the two footer rows, validates exact file size, and permits raw-only input
+only for an unambiguous square scan. `MIBReader` accepts regular per-frame U08,
+U16, and U32 big-endian MIB for 1x1/2x2/2x2G assemblies and requires a companion
+`.hdr` with positive ScanX/ScanY; packed R64 is rejected with conversion guidance.
+Both stream rows/tiles through `FourDDataSource`. The byte-level harness gates
+endianness, frame headers/footer, scan order, and ambiguity errors. H5Reader now
+falls back to HDF5 link traversal and deterministically discovers arbitrary EMD
+root names; the calibration harness covers that route. Debug build and focused
+format/calibration regressions pass on 2026-07-14.
+
+Non-cubic ACOM correctness is complete. `Crystal.magnesium` supplies a conventional
+HCP cell, `HexagonalOrientationSymmetry` implements the 12 proper rotations of
+6/mmm, and plan sampling/reduction/IPF-Z use a deterministic upper 0…30° sector.
+The UI and persistence record the symmetry and use a native dependency-free
+[0001]/[10-10]/[11-20] key (explicitly not claimed as an orix color golden).
+Changing a crystal or custom-cell parameter invalidates stale plans/maps, and the
+matcher now derives symmetry from the immutable plan so callers cannot mismatch
+them. Full-group, full-orbit, sector, color-invariance, non-cubic plan/matching,
+the then-current XCTest suite, and Debug compilation gates pass on 2026-07-14.
+
+Polished-v1 checkpoint 1 is complete: `docs/v1-scope.md` defines the core
+open→calibrate→analyze→save/reopen workflow, stable and Advanced feature tiers,
+post-v1 exclusions, and correctness/performance/reliability/interoperability/
+accessibility/distribution gates. Parallax and ptychography remain available
+but are explicitly Advanced rather than expanding the stable-core release gate.
+
+All repository-owned polished-v1 phases are complete: architecture/testing,
+ptychography completeness, measured performance, the four scientific-correctness
+checkpoints, selected readers/EMD discovery, multi-window UI/accessibility, the
+checked-in HDF5 real-data corpus, and credential-free distribution hardening.
+MIB/EMPAD remain explicitly fixture-validated Preview readers until the release
+owner supplies redistributable/locally testable real vendor acquisitions. Public
+distribution still requires the credential owner to execute Developer ID signing,
+notarization/stapling, and a clean-account smoke test.
 
 ## 6. Scientific conventions and risks
 
 - Highest risk: py4DSTEM patterns use (qx, qy) with qx on the first/row axis;
   this app stores [Ry, Rx, Qy, Qx]. Thus py4DSTEM qx ↔ app y and qy ↔ app x.
-- Parallax is complete through depth sectioning/product selection, and the first
-  single-slice complex-object GD engine is integrated. All current scientific
-  paths have explicit memory/cancellation boundaries. Further iterative methods,
-  constraints, and GPU batching remain; persistence, browsing, and safe control
-  rehydration are complete for the current stabilized scalar products.
+- Parallax is complete through depth sectioning/product selection. Single-slice
+  complex-object GD and DM/AP, object/probe constraints, diagnostics, persistence,
+  browsing, and control rehydration are integrated with explicit memory and
+  cancellation boundaries. Further methods and GPU batching remain.
 - Ellipse keys `a`/`b`/`theta` can be imported or fitted from a broad-coverage
-  detector ring. The lightweight 1-D conic fit is not the 11-parameter Janus
-  Gaussian amorphous-ring model; broad background/overlapping rings may need
-  preprocessing or a future full profile fit.
+  detector ring. The bounded 11-parameter asymmetric-Gaussian/Janus profile uses
+  the conic as an initializer and retains a residual-gated conic fallback.
 - Disk parity covers native radix-2 and non-radix-2 circular correlation plus
   nonzero `sigma_cc` and SciPy-reflect smoothing. Unsupported vDSP DFT lengths
   use an exact scalar fallback, which is correct but can be slow for large
   prime detector axes.
 - Virtual detector annuli use py4DSTEM's strict `rIn² < r² < rOut²`; circles
   use `r² < rOut²` and therefore include a centered pixel.
-- ACOM in-plane angle is mod 180° (Friedel). Current FCC/BCC/SC/diamond choices
-  use cubic reduction and IPF-Z; future non-cubic crystals must select the
-  explicit identity fallback until their point groups are implemented.
+- ACOM in-plane angle is mod 180° (Friedel). FCC/BCC/SC/diamond choices use
+  cubic reduction/IPF-Z and HCP magnesium uses the proper 6/mmm rotational
+  subgroup plus the documented native key. Further crystal families need an
+  explicit symmetry implementation rather than an implicit identity fallback.
 - Scalar emdfile metadata may be attributes or datasets; H5Reader supports both.
 - The current session schema preserves supported BraggVectors plus named scalar
   `RealSlice` and RGBA `Array` nodes listed in its manifest and opaque-copies
@@ -543,6 +769,7 @@ persistence/scientific checkpoints.
 - Result presentation: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/result-presentation-test/run.sh`
 - Performance baseline: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh benchmark`
 - Strain/Q/DPC: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/strain-test/run.sh`
+- Quantitative iDPC: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/idpc-test/run.sh`
 - Ellipse calibration: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/ellipse-calibration-test/run.sh`
 - Preprocessing export: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/preprocessing-export-test/run.sh`
 - Release package: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/package-test/run.sh`

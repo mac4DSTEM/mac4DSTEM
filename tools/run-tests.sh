@@ -25,8 +25,10 @@ run_harnesses() {
 
 scientific=(
   calibration-test calibration-readiness-test virtual-detector-test
-  disk-detection-test peak-overlay-test acom-orientation-test cancellation-test
+  disk-detection-test peak-overlay-test acom-orientation-test acom-matching-test
+  idpc-test cancellation-test
   bragg-export-test sidecar-result-test strain-test ellipse-calibration-test
+  vendor-reader-test
   preprocessing-export-test parallax-preprocessing-test parallax-alignment-test
   parallax-aberration-test parallax-subpixel-test parallax-depth-test
   singleslice-ptychography-test result-presentation-test
@@ -42,6 +44,6 @@ case "${1:-unit}" in
   benchmark) "$ROOT/tools/performance-baseline/run.sh" ;;
   campaign) unit_tests; run_harnesses "${campaign[@]}" ;;
   scientific) run_harnesses "${scientific[@]}" ;;
-  all) unit_tests; run_harnesses "${scientific[@]}" package-test ;;
+  all) unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
   *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all]" >&2; exit 64 ;;
 esac

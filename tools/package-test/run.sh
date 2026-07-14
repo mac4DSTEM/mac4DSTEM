@@ -23,6 +23,14 @@ xcodebuild \
 APP="$WORK/DerivedData/Build/Products/Release/mac4DSTEM.app"
 FRAMEWORKS="$APP/Contents/Frameworks"
 EXECUTABLE="$APP/Contents/MacOS/mac4DSTEM"
+INFO="$APP/Contents/Info.plist"
+
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
+  "com.paullobpreis.mac4DSTEM"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "1.0"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "1"
+test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "14.0"
+test -f "$APP/Contents/Resources/AppIcon.icns"
 
 for library in libhdf5.dylib libsz.2.dylib libaec.0.dylib; do
   test -f "$FRAMEWORKS/$library"
@@ -59,5 +67,6 @@ env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
   "$REPO/tools/calibration-test/real_py4dstem.h5"
 
 echo "PASS: hardened sandbox entitlements and nested signatures"
+echo "PASS: v1 identity, version, macOS 14 floor, and app icon"
 echo "PASS: no Homebrew/local dylib dependency in the Release product"
 echo "package-test: all passed"

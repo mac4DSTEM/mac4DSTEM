@@ -7,6 +7,7 @@ let fixturePath = CommandLine.arguments[1]
 let dsPath = CommandLine.arguments.count > 2
     ? CommandLine.arguments[2] : "/test_root/datacube/data"
 let expectsOriginMaps = CommandLine.arguments.dropFirst(3).first == "origin-maps"
+let expectsDiscovery = CommandLine.arguments.contains("discover")
 
 func check(_ cond: Bool, _ msg: @autoclosure () -> String) {
     if !cond { print("FAIL(\(fixturePath)): \(msg())"); exit(1) }
@@ -17,6 +18,11 @@ Task {
     do {
         let reader = try H5Reader(path: fixturePath)
         let desc = try await reader.describe(path: dsPath)
+        if expectsDiscovery {
+            let discovered = try await reader.discoverPrimaryDataset()
+            check(discovered.datasetPath == dsPath,
+                  "dynamic EMD discovery selected \(discovered.datasetPath), expected \(dsPath)")
+        }
         let expectedShape = expectsOriginMaps ? [2, 3, 4, 5] : [2, 2, 4, 4]
         check(desc.shape == expectedShape, "shape \(desc.shape)")
         let tileRange = 0..<min(2, desc.ry)

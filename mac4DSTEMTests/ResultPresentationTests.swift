@@ -31,12 +31,35 @@ final class ResultPresentationTests: XCTestCase {
                 "engine": "singleslice", "method": "gradient-descent",
                 "iterations": "12", "step_size": "0.25",
                 "normalization_minimum": "0.75", "fix_probe": "true",
+                "constrain_object_amplitude": "true", "pure_phase_object": "false",
+                "fix_probe_com": "true", "constrain_probe_amplitude": "true",
+                "probe_amplitude_radius": "0.42", "probe_amplitude_width": "0.09",
             ]
         )
         XCTAssertEqual(valid.ptychographyIterations, 12)
         XCTAssertEqual(valid.ptychographyStepSize, 0.25)
         XCTAssertEqual(valid.ptychographyNormalizationMinimum, 0.75)
         XCTAssertEqual(valid.ptychographyFixProbe, true)
+        XCTAssertEqual(valid.ptychographyConstrainObjectAmplitude, true)
+        XCTAssertEqual(valid.ptychographyPurePhaseObject, false)
+        XCTAssertEqual(valid.ptychographyFixProbeCenterOfMass, true)
+        XCTAssertEqual(valid.ptychographyConstrainProbeAmplitude, true)
+        XCTAssertEqual(valid.ptychographyProbeAmplitudeRadius, 0.42)
+        XCTAssertEqual(valid.ptychographyProbeAmplitudeWidth, 0.09)
+
+        let projection = SessionControlRehydration.parse(
+            kind: "ptychography_probe_phase",
+            provenance: [
+                "engine": "singleslice",
+                "method": "difference-map_alternating-projections",
+                "projection_parameter": "0.8", "iterations": "5",
+            ]
+        )
+        XCTAssertEqual(
+            projection.ptychographyMethod,
+            "difference-map_alternating-projections"
+        )
+        XCTAssertEqual(projection.ptychographyProjectionParameter, 0.8)
 
         let malformed = SessionControlRehydration.parse(
             kind: "parallax_subpixel_bf",

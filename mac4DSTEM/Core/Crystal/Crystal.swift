@@ -180,6 +180,18 @@ nonisolated struct Crystal {
                        sites: (base + base.map { $0 + shift }).map { AtomSite(z: z, fractional: $0) })
     }
 
+    /// Hexagonal close-packed primitive cell in the conventional 120° basis.
+    static func hcp(a: Double, c: Double, z: Int) -> Crystal {
+        Crystal(
+            a: a, b: a, c: c,
+            alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
+            sites: [
+                AtomSite(z: z, fractional: [0, 0, 0]),
+                AtomSite(z: z, fractional: [2.0 / 3.0, 1.0 / 3.0, 0.5]),
+            ]
+        )
+    }
+
     /// Cubic structure families offered for user-defined (custom) crystals.
     enum CubicStructure: String, CaseIterable, Identifiable {
         case fcc = "FCC"
@@ -206,6 +218,7 @@ nonisolated struct Crystal {
     static var copper: Crystal   { fcc(a: 3.6149, z: 29) }
     static var iron: Crystal     { bcc(a: 2.8665, z: 26) }
     static var silicon: Crystal  { diamond(a: 5.4309, z: 14) }
+    static var magnesium: Crystal { hcp(a: 3.2094, c: 5.2108, z: 12) }
 
     // MARK: - Small linear-algebra helpers (row-vector matrices)
 

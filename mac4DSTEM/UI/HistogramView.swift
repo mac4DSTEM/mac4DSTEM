@@ -55,6 +55,23 @@ struct HistogramView: View {
                     rangeOverlay(lo: lo, hi: hi)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Intensity histogram")
+            .accessibilityValue(histogramAccessibilityValue)
+            .accessibilityRepresentation {
+                if let lo = rangeLo, let hi = rangeHi {
+                    VStack {
+                        Slider(value: lo, in: 0...max(0, hi.wrappedValue - 0.01))
+                            .accessibilityLabel("Lower contrast limit")
+                            .accessibilityValue("\(Int(lo.wrappedValue * 100)) percent")
+                        Slider(value: hi, in: min(1, lo.wrappedValue + 0.01)...1)
+                            .accessibilityLabel("Upper contrast limit")
+                            .accessibilityValue("\(Int(hi.wrappedValue * 100)) percent")
+                    }
+                } else {
+                    Text(histogramAccessibilityValue)
+                }
+            }
 
             if let stats {
                 HStack {
@@ -74,6 +91,11 @@ struct HistogramView: View {
 
     /// Which handle the current drag is moving (nil between drags).
     @State private var draggingHiHandle: Bool?
+
+    private var histogramAccessibilityValue: String {
+        guard let stats else { return "No finite pixel statistics" }
+        return String(format: "minimum %.3g, mean %.3g, maximum %.3g", stats.min, stats.mean, stats.max)
+    }
 
     /// Dimmed excluded tails + two handle markers. Instead of tiny per-handle
     /// hit areas (which clip at the row edges, making the hi handle at x = w

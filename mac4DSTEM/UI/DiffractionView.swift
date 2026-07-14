@@ -124,6 +124,10 @@ struct DiffractionView: View {
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Diffraction pattern")
+            .accessibilityValue("Scan X \(app.selectedScan.x), Y \(app.selectedScan.y); \(qx) by \(qy) detector pixels")
+            .accessibilityHint("Pinch to zoom, drag to pan, or double click to reset")
         } else {
             placeholder
         }
