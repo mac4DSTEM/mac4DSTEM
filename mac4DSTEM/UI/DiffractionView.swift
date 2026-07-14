@@ -32,6 +32,13 @@ struct DiffractionView: View {
             Text("Diffraction (CBED)")
                 .font(.headline)
             Spacer()
+            if app.fitOverlayIsAvailable {
+                Toggle("Fit overlay", isOn: Bindable(app).showFitOverlay)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .font(.caption)
+                    .help("Draw the fitted model (origin/ellipse, strain lattice, or matched template) over the pattern.")
+            }
             if let p = app.displayedPattern {
                 Text("\(p.qx) × \(p.qy)")
                     .font(.caption.monospaced())
@@ -88,6 +95,26 @@ struct DiffractionView: View {
                     if app.analysisMode == .disks, !app.currentPeaks.isEmpty {
                         peakOverlay(box: box, qx: qx, qy: qy)
                             .allowsHitTesting(false)
+                    }
+
+                    // Fit-verification overlays: measured peaks vs the fitted
+                    // model (strain lattice / ACOM template / origin+ellipse).
+                    let fitStrain = app.strainFitOverlay
+                    let fitTemplate = app.acomFitOverlay
+                    let fitOrigin = app.originFitOverlayPoint
+                    let fitEllipse = app.ellipseFitOverlayPolyline
+                    if fitStrain != nil || fitTemplate != nil
+                        || fitOrigin != nil || !fitEllipse.isEmpty {
+                        PatternFitOverlayView(
+                            strain: fitStrain,
+                            template: fitTemplate,
+                            originPoint: fitOrigin,
+                            ellipse: fitEllipse,
+                            measuredPeaks: (fitStrain != nil || fitTemplate != nil)
+                                ? app.storedPeaksAtSelection : [],
+                            probeRadius: app.probeKernel?.probeRadius ?? 3,
+                            patternWidth: qx, patternHeight: qy, box: box
+                        )
                     }
                 }
                 .frame(width: box.width, height: box.height)

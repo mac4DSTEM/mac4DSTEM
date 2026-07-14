@@ -573,6 +573,9 @@ final class AppState {
     }
     /// CBED and scientific products deliberately own separate color choices.
     /// A diverging strain map must never recolor the diffraction evidence.
+    /// Draw fit-verification overlays (origin/ellipse, strain lattice,
+    /// matched ACOM template) on the diffraction pane.
+    var showFitOverlay = true
     var patternColormap: ColormapKind = .viridis {
         didSet { patternVersion &+= 1 }
     }
@@ -2976,5 +2979,121 @@ final class AppState {
         }
         resultRGBA = nil
         resultVersion &+= 1
+    }
+
+    // MARK: - Fit-verification overlays (diffraction pane)
+
+    /// Fit overlays are only meaningful on the single pattern they were
+    /// measured from: the per-position stored vectors do not describe the
+    /// mean/max pattern or an ROI-summed virtual pattern.
+    private var patternShowsSelectedPosition: Bool {
+        realSpaceShape == .point && patternDisplayMode == .current
+    }
+
+    private var overlayReferenceOrigin: (x: Float, y: Float)? {
+        guard let d = descriptor else { return nil }
+        return calibration.meanOrigin ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
+    }
+
+    /// Stored (raw detector) Bragg peaks at the selected scan position —
+    /// the measured evidence the strain/ACOM overlays are judged against.
+    var storedPeaksAtSelection: [BraggPeak] {
+        guard let bragg = braggVectors, let d = descriptor,
+              bragg.scanWidth == d.rx, bragg.scanHeight == d.ry,
+              patternShowsSelectedPosition else { return [] }
+        let scan = selectedScan.y * d.rx + selectedScan.x
+        guard bragg.peaks.indices.contains(scan) else { return [] }
+        return bragg.peaks[scan]
+    }
+
+    /// Local fitted lattice vs reference lattice at the selected position,
+    /// mapped back onto the raw pattern.
+    var strainFitOverlay: FitOverlays.StrainOverlay? {
+        guard showFitOverlay, analysisMode == .strain,
+              patternShowsSelectedPosition,
+              let map = strainMap, let d = descriptor,
+              map.width == d.rx, map.height == d.ry,
+              let origin = overlayReferenceOrigin else { return nil }
+        return FitOverlays.strainOverlay(
+            map: map,
+            scanIndex: selectedScan.y * d.rx + selectedScan.x,
+            calibration: calibration, referenceOrigin: origin,
+            patternWidth: d.qx, patternHeight: d.qy
+        )
+    }
+
+    /// The matched template's predicted reflections at the selected position.
+    var acomFitOverlay: FitOverlays.TemplateOverlay? {
+        guard showFitOverlay, analysisMode == .acom,
+              patternShowsSelectedPosition,
+              let plan = orientationPlan, let map = orientationMap,
+              let d = descriptor, map.width == d.rx, map.height == d.ry,
+              selectedScan.x >= 0, selectedScan.x < map.width,
+              selectedScan.y >= 0, selectedScan.y < map.height,
+              let origin = overlayReferenceOrigin else { return nil }
+        let result = map[selectedScan.x, selectedScan.y]
+        guard result.templateIndex >= 0 else { return nil }
+        return FitOverlays.acomTemplateOverlay(
+            result: result, plan: plan,
+            invAngstromPerPixel: acomScale,
+            calibration: calibration, referenceOrigin: origin,
+            scanIndex: selectedScan.y * d.rx + selectedScan.x,
+            scanWidth: d.rx, scanHeight: d.ry,
+            patternWidth: d.qx, patternHeight: d.qy
+        )
+    }
+
+    /// The origin the calibration would use for the displayed pattern:
+    /// per-position fitted origin for the current pattern, mean origin for
+    /// the mean/max pattern.
+    var originFitOverlayPoint: (x: Float, y: Float)? {
+        guard showFitOverlay, workspaceArea == .prepare,
+              calibration.hasFittedOrigin, let d = descriptor,
+              realSpaceShape == .point else { return nil }
+        switch patternDisplayMode {
+        case .current:
+            guard let mean = calibration.meanOrigin else { return nil }
+            return FitOverlays.localOrigin(
+                calibration: calibration, referenceOrigin: mean,
+                scanIndex: selectedScan.y * d.rx + selectedScan.x,
+                scanWidth: d.rx, scanHeight: d.ry
+            )
+        case .mean, .max:
+            return calibration.meanOrigin
+        }
+    }
+
+    /// Fitted ellipse sampled in raw detector pixels. Prefers the in-app fit
+    /// (which carries its own center); a session/file ellipse without a center
+    /// is drawn around the mean origin.
+    var ellipseFitOverlayPolyline: [FitOverlays.Marker] {
+        guard showFitOverlay, workspaceArea == .prepare,
+              descriptor != nil else { return [] }
+        if let fit = lastEllipseFit {
+            return FitOverlays.ellipsePolyline(
+                centerX: Float(fit.centerQY), centerY: Float(fit.centerQX),
+                a: fit.a, b: fit.b, theta: fit.theta
+            )
+        }
+        guard calibration.hasEllipse,
+              let a = calibration.ellipseA, let b = calibration.ellipseB,
+              let theta = calibration.ellipseTheta,
+              let mean = calibration.meanOrigin else { return [] }
+        return FitOverlays.ellipsePolyline(
+            centerX: mean.x, centerY: mean.y, a: a, b: b, theta: theta
+        )
+    }
+
+    /// True when the current mode/state could produce a fit overlay, so the
+    /// toggle only appears where it has an effect.
+    var fitOverlayIsAvailable: Bool {
+        guard descriptor != nil else { return false }
+        switch analysisMode {
+        case .strain: return strainMap != nil
+        case .acom: return hasOrientationMap
+        default:
+            return workspaceArea == .prepare
+                && (calibration.hasFittedOrigin || calibration.hasEllipse)
+        }
     }
 }

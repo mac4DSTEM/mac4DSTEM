@@ -27,6 +27,15 @@ nonisolated struct PolarGeometry {
     let radialScale: Double      // radial units per bin
 }
 
+/// One projected reflection of a template, in the template's polar frame:
+/// radius in the plan's radial units (Å⁻¹), azimuth in radians. Retained so a
+/// matched template can be projected back onto the diffraction pattern.
+nonisolated struct TemplateSpot: Sendable {
+    let r: Float
+    let azim: Float
+    let weight: Float
+}
+
 /// The library, with per-template azimuthal FFTs precomputed for matching.
 nonisolated struct OrientationPlan {
     let geometry: PolarGeometry
@@ -34,6 +43,9 @@ nonisolated struct OrientationPlan {
     let zoneAxes: [SIMD3<Double>]
     /// py4DSTEM-style detector bases: lab x/y/z columns in crystal coordinates.
     let detectorBases: [simd_double3x3]
+    /// Per template: the projected reflections the polar image was built from.
+    /// The overlay that verifies a match by eye draws exactly these spots.
+    let templateSpots: [[TemplateSpot]]
     /// Per template: real polar image [nRadial*nAzimuthal] (mean-subtracted,
     /// unit-normalized) — kept for inspection/visualization.
     let templates: [[Float]]
@@ -70,9 +82,11 @@ nonisolated struct OrientationPlan {
         let bases = axes.map(ACOMOrientation.detectorBasis)
 
         var templates: [[Float]] = []
+        var allSpots: [[TemplateSpot]] = []
         var fftRe: [Float] = []
         var fftIm: [Float] = []
         templates.reserveCapacity(axes.count)
+        allSpots.reserveCapacity(axes.count)
         fftRe.reserveCapacity(axes.count * nRadial * nAzimuthal)
         fftIm.reserveCapacity(axes.count * nRadial * nAzimuthal)
 
@@ -84,11 +98,15 @@ nonisolated struct OrientationPlan {
             normalizeUnit(&polar)
             let (re, im) = ringFFTs(polar, geo: geo, fft: fft)
             templates.append(polar)
+            allSpots.append(spots.map {
+                TemplateSpot(r: Float($0.r), azim: Float($0.azim), weight: Float($0.weight))
+            })
             fftRe.append(contentsOf: re); fftIm.append(contentsOf: im)
         }
 
         return OrientationPlan(geometry: geo, symmetry: symmetry,
                                zoneAxes: axes, detectorBases: bases,
+                               templateSpots: allSpots,
                                templates: templates, templateFFTRe: fftRe, templateFFTIm: fftIm)
     }
 
