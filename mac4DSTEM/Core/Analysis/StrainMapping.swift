@@ -39,14 +39,23 @@ struct StrainMap {
     let exy: [Float]
     let theta: [Float]
     let mask: [Bool]                      // false → too few peaks to fit
+    /// Per-position fitted lattice vectors and fit residuals (calibrated
+    /// detector px). Retained so the local fit can be verified against the
+    /// measured peaks on the diffraction pattern; zero where `mask` is false.
+    let localG1x: [Float]
+    let localG1y: [Float]
+    let localG2x: [Float]
+    let localG2y: [Float]
+    let localResidualPixels: [Float]
     let refG1: (x: Float, y: Float)
     let refG2: (x: Float, y: Float)
     let referencePositionCount: Int
     let indexedFraction: Float           // fraction of positions successfully fit
     let diagnostics: StrainFitDiagnostics
 
-    /// One component as a display image; masked positions are set to 0 (the
-    /// center of a diverging colormap).
+    /// One component as a display image. Masked (unfittable) positions become
+    /// NaN so they render as explicitly invalid — never as 0, which a diverging
+    /// colormap would show as "zero strain".
     func component(_ c: StrainComponent) -> FloatImage {
         let source: [Float]
         switch c {
@@ -56,7 +65,7 @@ struct StrainMap {
         case .theta: source = theta
         }
         var out = source
-        for i in 0..<out.count where !mask[i] { out[i] = 0 }
+        for i in 0..<out.count where !mask[i] { out[i] = .nan }
         return FloatImage(width: width, height: height, pixels: out)
     }
 }
@@ -240,6 +249,9 @@ nonisolated enum StrainMapping {
         )
         return StrainMap(width: w, height: h,
                          exx: exx, eyy: eyy, exy: exy, theta: theta, mask: mask,
+                         localG1x: lg1x, localG1y: lg1y,
+                         localG2x: lg2x, localG2y: lg2y,
+                         localResidualPixels: localResiduals,
                          refG1: refG1, refG2: refG2,
                          referencePositionCount: valid,
                          indexedFraction: Float(mask.filter { $0 }.count) / Float(n),

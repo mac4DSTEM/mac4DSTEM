@@ -145,7 +145,8 @@ struct StemImageView: View {
                         high: range.high,
                         unitLabel: app.displayedResultValueUnits,
                         gamma: app.displayedResultGamma,
-                        marksZero: app.displayedResultColormap.isDiverging
+                        marksZero: app.displayedResultColormap.isDiverging,
+                        showsMasked: app.displayedResultHasMaskedPixels()
                     )
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity,

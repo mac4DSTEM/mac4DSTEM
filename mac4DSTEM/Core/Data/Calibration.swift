@@ -299,6 +299,29 @@ struct Calibration: Sendable {
         let qy = t01 * Double(dy) + t11 * Double(dx)
         return (Float(qy), Float(qx))
     }
+
+    /// Exact inverse of `ellipseCorrectedOffset`: maps a calibrated detector
+    /// offset back to the raw (distorted) detector frame. Used by fit-overlay
+    /// rendering, which must place calibrated-space predictions onto the raw
+    /// pattern. Identity when no ellipse is set, matching the forward path.
+    nonisolated func ellipseUncorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
+        guard hasEllipse, let a = ellipseA, let b = ellipseB,
+              let theta = ellipseTheta else { return (dx, dy) }
+        let e = b / a
+        let sine = sin(theta - .pi / 2)
+        let cosine = cos(theta - .pi / 2)
+        let t00 = e * sine * sine + cosine * cosine
+        let t01 = sine * cosine * (1 - e)
+        let t11 = sine * sine + e * cosine * cosine
+        let det = t00 * t11 - t01 * t01
+        guard abs(det) > .leastNormalMagnitude else { return (dx, dy) }
+        // Forward returned (x: qy, y: qx); undo the same axis bookkeeping.
+        let qx = Double(dy)
+        let qy = Double(dx)
+        let rawDY = ( t11 * qx - t01 * qy) / det
+        let rawDX = (-t01 * qx + t00 * qy) / det
+        return (Float(rawDX), Float(rawDY))
+    }
 }
 
 extension PixelOriginMaps {

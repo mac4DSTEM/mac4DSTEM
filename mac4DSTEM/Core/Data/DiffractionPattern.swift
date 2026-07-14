@@ -20,19 +20,29 @@ struct FloatImage {
 
     nonisolated var minMax: (Float, Float) { finiteMinMax(pixels) }
 
+    /// Sentinel for invalid (masked / non-finite) pixels in display-normalized
+    /// space. Valid pixels normalize into [0,1]; renderers (the Metal fragment
+    /// shader and the PNG export colormap) show negative values as an explicit
+    /// masked color instead of a colormap entry.
+    nonisolated static let invalidDisplayValue: Float = -1
+
     /// Linearly normalize to [0, 1]. If symmetric, the scale is centered on
-    /// zero. Non-finite pixels map to the low end (0, or 0.5 for symmetric).
+    /// zero. Non-finite pixels map to `invalidDisplayValue`, never to a valid
+    /// color — "no data" must stay distinguishable from any real value.
     nonisolated func normalized(symmetric: Bool = false) -> [Float] {
+        let invalid = Self.invalidDisplayValue
         let (lo, hi) = minMax
         if symmetric {
             let magnitude = max(abs(lo), abs(hi))
-            guard magnitude > 0 else { return pixels.map { _ in 0.5 } }
-            return pixels.map { $0.isFinite ? 0.5 + 0.5 * ($0 / magnitude) : 0.5 }
+            guard magnitude > 0 else {
+                return pixels.map { $0.isFinite ? 0.5 : invalid }
+            }
+            return pixels.map { $0.isFinite ? 0.5 + 0.5 * ($0 / magnitude) : invalid }
         }
 
         let span = hi - lo
-        guard span > 0 else { return pixels.map { _ in 0.0 } }
-        return pixels.map { $0.isFinite ? ($0 - lo) / span : 0 }
+        guard span > 0 else { return pixels.map { $0.isFinite ? 0.0 : invalid } }
+        return pixels.map { $0.isFinite ? ($0 - lo) / span : invalid }
     }
 }
 

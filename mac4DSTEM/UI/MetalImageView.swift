@@ -7,7 +7,9 @@
 //
 //  CONTRACT:
 //    • `pixels` must already be normalized to [0,1] (callers use
-//      DiffractionPattern.normalized / FloatImage.normalized).
+//      DiffractionPattern.normalized / FloatImage.normalized). Invalid
+//      (masked) pixels are the negative FloatImage.invalidDisplayValue
+//      sentinel; the fragment shader renders them as neutral gray.
 //    • `contentVersion` must change whenever `pixels` changes. The Coordinator
 //      only re-uploads the GPU texture when the version changes, so panning and
 //      zooming (which change every frame) stay cheap.

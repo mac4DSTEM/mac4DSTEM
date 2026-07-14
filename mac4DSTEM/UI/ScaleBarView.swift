@@ -61,6 +61,9 @@ struct ScalarColorbarView: View {
     let unitLabel: String
     var gamma: Float = 1
     var marksZero = false
+    /// True when the displayed image contains masked (no-data) pixels, which
+    /// render as neutral gray; adds a swatch so the gray is self-explanatory.
+    var showsMasked = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -106,6 +109,17 @@ struct ScalarColorbarView: View {
                 Text(unitLabel)
                     .foregroundStyle(.white.opacity(0.75))
             }
+            if showsMasked {
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color(red: 0.32, green: 0.32, blue: 0.34))
+                        .frame(width: 10, height: 7)
+                        .overlay(RoundedRectangle(cornerRadius: 1)
+                            .stroke(Color.white.opacity(0.45), lineWidth: 0.5))
+                    Text("masked · no fit")
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
         }
         .font(.caption2.monospacedDigit())
         .foregroundStyle(.white)
@@ -114,7 +128,8 @@ struct ScalarColorbarView: View {
         .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)")
+        .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)"
+                            + (showsMasked ? ", gray marks masked pixels with no fit" : ""))
     }
 
     private static func format(_ value: Double) -> String {

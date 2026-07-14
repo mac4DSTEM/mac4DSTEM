@@ -50,7 +50,14 @@ fragment float4 colormapFragment(VOut in [[stage_in]],
         return float4(0.06, 0.06, 0.07, 1.0);
     }
 
-    float v = clamp(img.sample(dataSampler, in.uv).r, 0.0, 1.0);
+    float raw = img.sample(dataSampler, in.uv).r;
+    // Invalid/masked pixels arrive as a negative sentinel (see
+    // FloatImage.invalidDisplayValue). They get a dedicated neutral gray,
+    // never a colormap entry — "no data" must not look like a value.
+    if (raw < 0.0) {
+        return float4(0.32, 0.32, 0.34, 1.0);
+    }
+    float v = clamp(raw, 0.0, 1.0);
     v = clamp((v - display.x) / max(display.y - display.x, 1e-6), 0.0, 1.0);
     v = pow(v, 1.0 / max(display.z, 0.05));
     float4 c = lut.sample(lutSampler, v);

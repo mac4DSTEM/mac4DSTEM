@@ -192,15 +192,18 @@ struct HistogramView: View {
     }
 
     private func recompute() {
-        guard pixels.count > 1,
-              let lo = pixels.min(),
-              let hi = pixels.max() else {
+        // Non-finite pixels (masked "no data" positions) carry no intensity;
+        // including them would poison the stats and trap in Int(NaN) below.
+        let finite = pixels.filter(\.isFinite)
+        guard finite.count > 1,
+              let lo = finite.min(),
+              let hi = finite.max() else {
             bins = []
             stats = nil
             return
         }
 
-        let mean = pixels.reduce(Float(0)) { $0 + $1 } / Float(pixels.count)
+        let mean = finite.reduce(Float(0)) { $0 + $1 } / Float(finite.count)
         stats = (lo, hi, mean)
 
         let span = hi - lo
@@ -211,7 +214,7 @@ struct HistogramView: View {
 
         var counts = [Int](repeating: 0, count: Self.binCount)
         let inverseSpan = Float(Self.binCount) / span
-        for p in pixels {
+        for p in finite {
             var idx = Int((p - lo) * inverseSpan)
             if idx >= Self.binCount { idx = Self.binCount - 1 }
             if idx < 0 { idx = 0 }

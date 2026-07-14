@@ -757,7 +757,8 @@ final class AppState {
     // Keyed on the version counters, so texture and cache invalidate together.
     @ObservationIgnored private var patternNormCache: (version: Int, log: Bool, pixels: [Float])?
     @ObservationIgnored private var resultNormCache:
-        (version: Int, regionReference: Bool, symmetric: Bool, pixels: [Float])?
+        (version: Int, regionReference: Bool, symmetric: Bool,
+         pixels: [Float], hasInvalid: Bool)?
 
     /// Display-normalized pixels of `displayedPattern`, cached per patternVersion.
     func normalizedPatternPixels() -> [Float] {
@@ -782,8 +783,17 @@ final class AppState {
             return c.pixels
         }
         let pixels = image.normalized(symmetric: symmetric)
-        resultNormCache = (version, regionReference, symmetric, pixels)
+        let hasInvalid = pixels.contains { $0 < 0 }
+        resultNormCache = (version, regionReference, symmetric, pixels, hasInvalid)
         return pixels
+    }
+
+    /// True when the displayed scalar result contains masked (no-data) pixels,
+    /// which render as neutral gray. Drives the colorbar's masked swatch.
+    func displayedResultHasMaskedPixels() -> Bool {
+        guard displayedResultImage != nil else { return false }
+        _ = normalizedResultPixels()
+        return resultNormCache?.hasInvalid ?? false
     }
 
     var displayedPattern: DiffractionPattern? {

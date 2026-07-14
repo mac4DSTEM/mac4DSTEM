@@ -914,13 +914,19 @@ extension AppState {
     // MARK: - Rendering helpers
 
     /// Normalized [0,1] scalar pixels → packed RGBA via the colormap LUT,
-    /// with the same contrast window the shader applies on screen.
+    /// with the same contrast window the shader applies on screen. Negative
+    /// sentinel pixels (FloatImage.invalidDisplayValue) render as the same
+    /// masked gray the Metal shader uses.
     private static func applyColormap(_ pixels: [Float], colormap: ColormapKind,
                                       lo: Float, hi: Float, gamma: Float) -> [UInt8] {
         let lut = Colormaps.lutRGBA(colormap, count: 256)
         var out = [UInt8](repeating: 255, count: pixels.count * 4)
         let span = max(hi - lo, 1e-6)
         for (i, raw) in pixels.enumerated() {
+            if raw < 0 {
+                out[4 * i] = 82; out[4 * i + 1] = 82; out[4 * i + 2] = 87
+                continue
+            }
             let clipped = min(max((raw - lo) / span, 0), 1)
             let v = pow(clipped, 1 / max(gamma, 0.05))
             let li = Int((v * 255).rounded()) * 4
