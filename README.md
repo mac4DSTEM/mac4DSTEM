@@ -13,6 +13,15 @@ Algorithms are ported from py4DSTEM and validated against it; deviations are doc
 
 ## Current state
 
+**Post-v1 local roadmap (2026-07-14):** Phases 1–6 are implemented without changing
+the frozen v1 contract. Prepare has one calibration-readiness path; scientific results
+use an immutable typed payload/domain/mask/units/provenance model with cursor values and
+strain quality views; fitted calibration, strain, and ACOM evidence is inspectable on
+the CBED; detector/reconstruction products retain a scan navigator; saved products can
+be compared with semantic compatibility gating; and publication PNG plus coherent
+strain/orientation EMD bundles round-trip through py4DSTEM. Phase 7 remains a demand
+gate—no new analysis method was added merely to close the roadmap.
+
 The app is being built by **migrating features in small, buildable slices** from `References/MigrationSource/` (read-only reference code). Each slice ends green (`⌘B`) and is verified before the next begins.
 
 **Hands-on product hardening (2026-07-14):** an automated Release-build
@@ -43,14 +52,14 @@ single progress/cancel location. Preview blocks are clearly named and persisted
 with scope/quality/backend provenance so they cannot be mistaken for a finished
 full-resolution map.
 
-The production backend decision is now exercised on the real `058` peak lists,
-not inferred from synthetic GPU microbenchmarks. A 900-position/200-template
-preview measured 0.317 s on Accelerate and 0.270 s on Metal with exact template
-and angle agreement. Under the sustained full 108,900-position load, the
-flattened CPU scheduler measured 50.8 s versus 59.2 s on Metal and reduced the
-former row-scheduled CPU path from 65.6 s. Automatic therefore remains CPU;
-Metal stays selectable and parity-gated. Preview/region calibration transforms
-only the positions that will actually be matched.
+The production backend decision is exercised on the real `058` peak lists, not
+inferred from synthetic GPU microbenchmarks. The current action-to-result gate records
+plan/Q setup plus matching: a 900-position/200-template Preview took 0.73 s on the CPU
+reference (0.63 s with Metal), while the sustained 108,900-position run took 64.79 s on
+CPU versus 91.26 s on Metal. Template and angle choices were exact; maximum score and
+reliability errors stayed below 3.5×10⁻⁶. Automatic therefore remains CPU; Metal stays
+selectable and parity-gated. Input open/origin/Bragg preparation is reported separately
+(15.18 s in the full checkpoint) so it cannot be confused with the ACOM action latency.
 
 For repeatable product checks, `--demo-fixture` opens a calibrated 12×12
 in-memory dataset only when explicitly launched by automation.
@@ -60,6 +69,14 @@ existing session sidecar is touched, and its first-save check uses a disposable
 companion inside the test directory. `tools/real-acom-benchmark/run.sh` rebuilds the
 production reader, calibration, disk, CPU, and Metal paths around a real HDF5
 fixture and fails if scientific backend parity drifts.
+
+The closing aggregate gate passes 25 XCTest methods, 24 standalone scientific/
+interoperability harnesses, all seven local HDF5 goldens, and the clean hardened
+Release audit. The most recent completed native pass recorded readiness plus all six
+analysis paths and first session publication. A later repeat was blocked before its
+first UI assertion because the Codex desktop host would not relinquish the foreground
+graphics session; rerun the native smoke from an Accessibility-authorized Terminal
+session rather than treating that host condition as an application pass or failure.
 
 A local-build HDF5 signing regression found during that hands-on pass is also
 closed. Debug builds without a configured Apple Development team no longer opt
@@ -230,7 +247,7 @@ Migration slices, in order:
 
 **Current focus:** the outcome-based v1 product workspace and the underlying scientific/reliability program are implemented. The remaining public-release action is Developer ID signing/notarization and a clean-account smoke test by the credential owner; see [`docs/releasing.md`](docs/releasing.md).
 
-**Repository gate (2026-07-14):** the product pass has eighteen green XCTest methods, all 22 green standalone harnesses, a green native demo-workflow smoke test (including first-time session publication), a green hardened Release audit, and a reproduced 14-workload performance baseline. A clean ordinary Debug build also imports the real `058` HDF5 fixture; the isolated XCTest run leaves that app and its bundled HDF5 dylib byte-identical. Both locally present 330×330 real-data goldens pass; the complete four-file manifest passed before this UI-only change, but `056` and `057` are currently absent from the local ignored training-data directory, so that four-file aggregate could not be rerun. MIB/EMPAD remain Preview until real vendor files are supplied; notarization and a clean-account launch test require the release owner.
+**Repository gate (2026-07-14):** the post-v1 pass has 24 green XCTest methods, all 24 green standalone harnesses, a green native all-workspace demo smoke (including uncalibrated readiness, reconstruction, navigator, export surfaces, and first session publication), and a green hardened Release audit. Seven locally available real HDF5 datasets—float32 and uint16, 32–256 detector pixels, up to 4 GB—pass finite-pattern, exact virtual-image golden, forced one-row tile, and 15-second/file gates. MIB/EMPAD remain Preview until real vendor files are supplied; notarization and a clean-account launch test require the release owner.
 
 Still ahead (each its own focused effort):
 
@@ -270,7 +287,7 @@ Still ahead (each its own focused effort):
 ## Open issues / known limitations
 
 - **Tiles are expanded to float32.** Peak memory is bounded independently of scan height, but native-dtype tile kernels (e.g. uint16) would reduce reader bandwidth and staging memory.
-- **Testing is deliberately layered.** Seventeen native XCTest methods cover fast production/workflow and deterministic-demo contracts. Twenty-two standalone scientific/interoperability harnesses, four 1–1.7 GB real-data goldens with a 15-second/file budget, and the Release package audit cover py4DSTEM parity, formats, forced tiles, cancellation, and distribution. The real ACOM benchmark and native UI smoke are explicit machine-local extensions; `tools/run-tests.sh all` remains the portable aggregate gate.
+- **Testing is deliberately layered.** Twenty-five native XCTest methods cover fast production/workflow, typed-product semantics, failure recovery, deterministic-demo contracts, and publication-figure pixels. Twenty-four standalone scientific/interoperability harnesses—including fitted-overlay geometry and direct py4DSTEM scientific-bundle readback—seven real-data goldens with a 15-second/file budget, and the Release package audit cover py4DSTEM parity, formats, forced tiles, cancellation, and distribution. The real ACOM benchmark and native UI smoke are explicit machine-local extensions; `tools/run-tests.sh all` remains the aggregate gate.
 - **`AppState` remains a large workflow facade.** Analysis-operation identity, timing, cancellation replacement, stale completion, and reset are now owned by `AnalysisOperationController`, but file I/O orchestration, calibration, analysis dispatch, and result publication still need incremental extraction as their campaigns touch them.
 - **Metal commands cannot be interrupted after submission.** Cancel immediately invalidates their result and keeps the main actor responsive, but the current GPU command finishes in the background. CPU disk/strain/ACOM loops and plan generation stop cooperatively at row/template boundaries.
 - ~~**Ellipse fitting is limited to a lightweight conic**~~ is resolved: the conic remains a deterministic initializer and safe fallback, while a bounded 11-parameter central-plus-asymmetric-Gaussian ring refinement supplies the accepted calibration when its physical and residual gates pass.
@@ -359,7 +376,7 @@ The durable handoff sequence is:
 1. ✅ **Architecture and testing foundation — 2 checkpoints complete**.
 2. ✅ **Ptychography completeness — 2 checkpoints complete**.
 3. ✅ **Profile-driven Metal/MLX performance — 3 checkpoints complete**.
-4. ✅ **Scientific correctness gaps and real-data validation — complete** (quantitative iDPC, strain robustness, fuller ellipse fitting, non-cubic ACOM, four full real-data virtual-image goldens).
+4. ✅ **Scientific correctness gaps and real-data validation — complete** (quantitative iDPC, strain robustness, fuller ellipse fitting, non-cubic ACOM, seven full real-data virtual-image goldens).
 5. ✅ **MIB/EMPAD and broader EMD support — implementation complete; vendor readers remain Preview pending a real-file corpus**.
 6. ✅ **UI/UX, multi-session workflows, and accessibility — outcome-based v1 product workspace complete**.
 7. **Distribution/notarization — repository work complete; credential-owner submission remains**.

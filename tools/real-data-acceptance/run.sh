@@ -34,5 +34,8 @@ if (( ${#files} == 0 )); then
 fi
 cd "$WORK"
 MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./harness "${files[@]}" > report.json
+if [[ -n "${MAC4DSTEM_REAL_REPORT_OUTPUT:-}" ]]; then
+  cp report.json "$MAC4DSTEM_REAL_REPORT_OUTPUT"
+fi
 python3 "$ROOT/tools/real-data-acceptance/compare.py" \
   "$ROOT/tools/real-data-acceptance/expected.json" report.json

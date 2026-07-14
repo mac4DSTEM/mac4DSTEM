@@ -18,8 +18,14 @@ struct RealACOMReport: Codable {
     let matchedPositionCount: Int
     let templateCount: Int
     let reciprocalScale: Double
+    let inputPreparationSeconds: Double
+    let acomSetupSeconds: Double
     let cpuSeconds: Double
     let metalSeconds: Double
+    let cpuEndToEndSeconds: Double
+    let metalEndToEndSeconds: Double
+    let cpuOpenToResultSeconds: Double
+    let metalOpenToResultSeconds: Double
     let cpuPositionsPerSecond: Double
     let metalPositionsPerSecond: Double
     let cpuSpeedupOverMetal: Double
@@ -41,6 +47,7 @@ func note(_ message: String) {
 @main
 struct RealACOMBenchmark {
     static func main() async throws {
+        let actionStart = Date()
         guard let path = CommandLine.arguments.dropFirst().first else {
             fail("usage: real-acom-benchmark data.h5")
         }
@@ -71,6 +78,8 @@ struct RealACOMBenchmark {
         guard let rawVectors = await DiskDetection.detectAll(
             data: data, descriptor: descriptor, kernel: kernel, params: parameters
         ) else { fail("Bragg detection did not initialize") }
+        let inputPreparationSeconds = Date().timeIntervalSince(actionStart)
+        let acomActionStart = Date()
 
         var calibration = Calibration()
         calibration.origin = originFit.origin
@@ -92,6 +101,7 @@ struct RealACOMBenchmark {
         let selected = selection.sourceIndices(
             width: descriptor.rx, height: descriptor.ry
         )
+        let acomSetupSeconds = Date().timeIntervalSince(acomActionStart)
         note("CPU match: \(selected.count) positions × \(plan.count) templates")
         let cpuStart = Date()
         guard let cpu = OrientationMatching.matchAll(
@@ -148,8 +158,14 @@ struct RealACOMBenchmark {
             matchedPositionCount: selected.count,
             templateCount: plan.count,
             reciprocalScale: qEstimate.invAngstromPerPixel,
+            inputPreparationSeconds: inputPreparationSeconds,
+            acomSetupSeconds: acomSetupSeconds,
             cpuSeconds: cpuSeconds,
             metalSeconds: metalSeconds,
+            cpuEndToEndSeconds: acomSetupSeconds + cpuSeconds,
+            metalEndToEndSeconds: acomSetupSeconds + metalSeconds,
+            cpuOpenToResultSeconds: inputPreparationSeconds + acomSetupSeconds + cpuSeconds,
+            metalOpenToResultSeconds: inputPreparationSeconds + acomSetupSeconds + metalSeconds,
             cpuPositionsPerSecond: count / cpuSeconds,
             metalPositionsPerSecond: count / metalSeconds,
             cpuSpeedupOverMetal: metalSeconds / cpuSeconds,

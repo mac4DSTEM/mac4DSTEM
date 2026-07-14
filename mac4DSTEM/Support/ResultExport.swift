@@ -155,10 +155,140 @@ extension AppState {
         }
         let pixel = currentResultPersistenceMetadata
         let sampling = pixel.column ?? pixel.row
-        let final = Self.burnScaleBar(on: cg,
+        let withScale = Self.burnScaleBar(on: cg,
                                       unitsPerDataPixel: sampling,
                                       unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
+        let final = Self.publicationFigure(
+            image: withScale, title: currentResultDisplayName,
+            caption: publicationCaption,
+            valueRange: resultDisplayedValueRange,
+            valueUnits: currentResultValueUnits, colormap: resultColormap
+        )
         Self.savePNG(final, suggestedName: exportBaseName + "_result.png", state: self)
+    }
+
+    private var publicationCaption: String {
+        guard let product = displayedProduct else { return currentResultValueUnits }
+        var parts = [
+            product.domain.rawValue + " space",
+            product.quantitativeStatus.rawValue,
+        ]
+        if let step = product.sampling.column ?? product.sampling.row {
+            parts.append(String(format: "%.5g %@/px", step, product.sampling.units ?? "px"))
+        }
+        for key in ["source_product", "basis_mode", "matching_backend", "reference_mode"] {
+            if let value = product.provenance[key] { parts.append("\(key)=\(value)") }
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Export all coherent quantitative fields for the active strain or ACOM
+    /// result. Raw Euler angles are radians; validity is explicit; no missing
+    /// field is synthesized from display colors.
+    func exportScientificBundle() {
+        guard let descriptor, let maps = scientificBundleMaps() else {
+            present(SimpleError("Compute a strain or orientation map before exporting a scientific bundle."))
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = "Export Scientific EMD Bundle"
+        panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
+        panel.nameFieldStringValue = exportBaseName + "_scientific_bundle.h5"
+        guard panel.runModal() == .OK, let url = panel.url else {
+            statusText = "Scientific bundle export cancelled"
+            return
+        }
+        let calibration = sessionPixelCalibration(descriptor: descriptor)
+        let token = beginCancellableOperation(
+            "Scientific bundle", status: "Writing coherent EMD fields…",
+            totalUnits: maps.count
+        )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.finishCancellableOperation(token) }
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    try BraggVectorEMDWriter.writeScientificBundle(
+                        maps: maps, calibration: calibration, to: url,
+                        cancellation: token
+                    )
+                }.value
+                guard self.isCurrentOperation(token) else { return }
+                self.statusText = "Exported \(maps.count) coherent fields → \(url.lastPathComponent)"
+            } catch BraggVectorEMDWriter.WriterError.cancelled {
+                self.statusText = "Scientific bundle export cancelled"
+            } catch {
+                self.present(error)
+            }
+        }
+    }
+
+    func scientificBundleMaps() -> [ScalarResultMap]? {
+        let sampling = (calibration.rPixelSize, calibration.rPixelUnits)
+        if let map = strainMap {
+            let provenance = [
+                "bundle": "strain", "display_domain": "scan",
+                "reference_positions": String(map.referencePositionCount),
+                "indexed_fraction": String(map.indexedFraction),
+                "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
+            ]
+            func field(_ kind: String, _ name: String, _ units: String,
+                       _ pixels: [Float]) -> ScalarResultMap {
+                ScalarResultMap(
+                    width: map.width, height: map.height, pixels: pixels,
+                    kind: kind, displayName: name, valueUnits: units,
+                    pixelSizeRow: sampling.0, pixelSizeColumn: sampling.0,
+                    pixelUnits: sampling.1, provenance: provenance
+                )
+            }
+            let masked: ([Float]) -> [Float] = { values in
+                values.indices.map { map.mask[$0] ? values[$0] : Float.nan }
+            }
+            return [
+                field("strain_exx", "Strain ε_xx", "strain", masked(map.exx)),
+                field("strain_eyy", "Strain ε_yy", "strain", masked(map.eyy)),
+                field("strain_exy", "Strain ε_xy", "strain", masked(map.exy)),
+                field("strain_theta", "Lattice rotation θ", "rad", masked(map.theta)),
+                field("strain_validity", "Strain validity", "boolean", map.mask.map { $0 ? 1 : 0 }),
+                field("strain_fit_residual", "Local fit residual", "detector_px",
+                      masked(map.localResidualPixels)),
+            ]
+        }
+        if let map = orientationMap {
+            let valid = map.results.map { $0.templateIndex >= 0 }
+            let provenance = [
+                "bundle": "orientation", "display_domain": "scan",
+                "euler_convention": "Bunge extrinsic zxz, radians",
+                "symmetry": map.symmetry.rawValue,
+                "matching_backend": map.matchingBackend.rawValue,
+                "template_count": String(map.templateCount),
+                "q_inv_angstrom_per_pixel": String(acomScale),
+            ]
+            func values(_ body: (OrientationResult) -> Float) -> [Float] {
+                map.results.indices.map { valid[$0] ? body(map.results[$0]) : Float.nan }
+            }
+            func field(_ kind: String, _ name: String, _ units: String,
+                       _ pixels: [Float]) -> ScalarResultMap {
+                ScalarResultMap(
+                    width: map.width, height: map.height, pixels: pixels,
+                    kind: kind, displayName: name, valueUnits: units,
+                    pixelSizeRow: sampling.0, pixelSizeColumn: sampling.0,
+                    pixelUnits: sampling.1, provenance: provenance
+                )
+            }
+            return [
+                field("orientation_phi1", "Euler φ₁", "rad", values { $0.euler.phi1 }),
+                field("orientation_Phi", "Euler Φ", "rad", values { $0.euler.Phi }),
+                field("orientation_phi2", "Euler φ₂", "rad", values { $0.euler.phi2 }),
+                field("orientation_reliability", "Orientation reliability", "dimensionless",
+                      values { $0.reliability }),
+                field("orientation_score", "Orientation score", "dimensionless",
+                      values { $0.score }),
+                field("orientation_validity", "Orientation validity", "boolean",
+                      valid.map { $0 ? 1 : 0 }),
+            ]
+        }
+        return nil
     }
 
     /// Export the currently displayed diffraction pattern as a PNG, with the
@@ -393,6 +523,7 @@ extension AppState {
                 restoredResultPixelInfo = (
                     map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
                 )
+                restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
             case .rgba8:
                 let map = try await Task.detached(priority: .utility) {
                     try BraggVectorEMDWriter.loadRGBAResultMap(id: saved.id, from: url)
@@ -402,6 +533,7 @@ extension AppState {
                 resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
                 restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
                 restoredResultPixelInfo = nil
+                restoredResultDomain = nil
             }
             sessionInventory = SessionSidecarInventory(
                 hasSidecar: sessionInventory.hasSidecar,
@@ -415,6 +547,85 @@ extension AppState {
         } catch {
             guard epoch == datasetEpoch else { return }
             present(error)
+        }
+    }
+
+    /// Load a saved product into an immutable comparison slot without changing
+    /// the active scientific result or rerunning analysis.
+    func loadSavedSessionResult(_ saved: SessionResultDescriptor, into slot: ComparisonSlot) async {
+        guard let descriptor else { return }
+        let url = resolvedSessionSidecarURL(for: descriptor)
+            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        let epoch = datasetEpoch
+        do {
+            let product: DisplayedProduct?
+            switch saved.storage {
+            case .scalarFloat32:
+                let map = try await Task.detached(priority: .utility) {
+                    try BraggVectorEMDWriter.loadResultMap(id: saved.id, from: url)
+                }.value
+                guard let map else { return }
+                let domain = map.provenance["display_domain"].flatMap(ProductDomain.init)
+                    ?? legacyDomain(kind: map.kind, width: map.width, height: map.height,
+                                    descriptor: descriptor)
+                product = DisplayedProduct(
+                    kind: map.kind, displayName: map.displayName,
+                    payload: .scalar(FloatImage(width: map.width, height: map.height,
+                                                pixels: map.pixels)),
+                    domain: domain,
+                    sampling: ProductSampling(row: map.pixelSizeRow,
+                                              column: map.pixelSizeColumn,
+                                              units: map.pixelUnits),
+                    valueUnits: map.valueUnits,
+                    quantitativeStatus: map.provenance["quantitative_status"]
+                        .flatMap(ProductQuantitativeStatus.init)
+                        ?? quantitativeStatus(for: map.kind, units: map.valueUnits),
+                    provenance: map.provenance
+                )
+            case .rgba8:
+                let map = try await Task.detached(priority: .utility) {
+                    try BraggVectorEMDWriter.loadRGBAResultMap(id: saved.id, from: url)
+                }.value
+                guard let map else { return }
+                product = DisplayedProduct(
+                    kind: map.kind, displayName: map.displayName,
+                    payload: .rgba(RGBAImage(width: map.width, height: map.height,
+                                            rgba: map.rgba)),
+                    domain: legacyDomain(kind: map.kind, width: map.width,
+                                         height: map.height, descriptor: descriptor),
+                    sampling: ProductSampling(row: nil, column: nil, units: nil),
+                    valueUnits: map.valueUnits,
+                    quantitativeStatus: quantitativeStatus(
+                        for: map.kind, units: map.valueUnits
+                    )
+                )
+            }
+            guard epoch == datasetEpoch, let product else { return }
+            switch slot {
+            case .a: comparisonProductA = product
+            case .b: comparisonProductB = product
+            }
+            statusText = "Loaded \(saved.displayName) into comparison \(slot == .a ? "A" : "B")"
+        } catch {
+            guard epoch == datasetEpoch else { return }
+            present(error)
+        }
+    }
+
+    private func legacyDomain(
+        kind: String, width: Int, height: Int, descriptor: DatasetDescriptor
+    ) -> ProductDomain {
+        // Exact frozen-v1 kinds only. Unknown legacy data is treated as scan
+        // space only when its shape proves that mapping; no title parsing.
+        switch kind {
+        case "bragg_vector_map": return .detector
+        case "parallax_preprocess", "parallax_alignment", "parallax_subpixel_bf",
+             "parallax_corrected_phase", "parallax_depth",
+             "ptychography_object_phase", "ptychography_object_amplitude",
+             "ptychography_probe_phase", "ptychography_probe_amplitude":
+            return .reconstruction
+        default:
+            return width == descriptor.rx && height == descriptor.ry ? .scan : .detector
         }
     }
 
@@ -637,13 +848,21 @@ extension AppState {
             case .colorWheel: return ("dpc_color", "DPC color wheel", "rgba")
             }
         case .strain:
-            let units = strainComponent == .theta ? "rad" : "strain"
+            let units: String
+            switch strainComponent {
+            case .theta: units = "rad"
+            case .residual: units = "detector_px"
+            case .indexed: units = "boolean"
+            case .exx, .eyy, .exy: units = "strain"
+            }
             let kind: String
             switch strainComponent {
             case .exx:   kind = "strain_exx"
             case .eyy:   kind = "strain_eyy"
             case .exy:   kind = "strain_exy"
             case .theta: kind = "strain_theta"
+            case .residual: kind = "strain_fit_residual"
+            case .indexed: kind = "strain_indexed"
             }
             return (kind, "Strain · \(strainComponent.rawValue)", units)
         case .acom:
@@ -901,9 +1120,17 @@ extension AppState {
 
     var currentResultPersistenceMetadata:
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
-        restoredResultPixelInfo
+        let base = restoredResultPixelInfo
             ?? navigationResultPixelInfo
             ?? currentScalarPersistenceMetadata
+        var provenance = base.provenance
+        provenance["display_domain"] = (
+            restoredResultDomain ?? navigationResultDomain ?? activeResultDomain
+        ).rawValue
+        provenance["quantitative_status"] = quantitativeStatus(
+            for: currentResultKind, units: currentResultValueUnits
+        ).rawValue
+        return (base.row, base.column, base.units, provenance)
     }
 
     private var exportBaseName: String {
@@ -912,6 +1139,88 @@ extension AppState {
     }
 
     // MARK: - Rendering helpers
+
+    static func publicationFigure(
+        image: CGImage, title: String, caption: String,
+        valueRange: (low: Double, high: Double)?, valueUnits: String,
+        colormap: ColormapKind
+    ) -> CGImage {
+        let margin: CGFloat = 18
+        let captionHeight: CGFloat = 58
+        let colorbarWidth: CGFloat = valueRange == nil ? 0 : 76
+        let size = NSSize(
+            width: CGFloat(image.width) + margin * 2 + colorbarWidth,
+            height: CGFloat(image.height) + margin * 2 + captionHeight
+        )
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0
+        ), let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
+            return image
+        }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        NSColor.black.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        let imageRect = NSRect(
+            x: margin, y: margin + captionHeight,
+            width: CGFloat(image.width), height: CGFloat(image.height)
+        )
+        NSImage(cgImage: image, size: imageRect.size).draw(in: imageRect)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingTail
+        (title as NSString).draw(
+            in: NSRect(x: margin, y: 25, width: size.width - margin * 2, height: 24),
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+                .foregroundColor: NSColor.white, .paragraphStyle: paragraph,
+            ]
+        )
+        (caption as NSString).draw(
+            in: NSRect(x: margin, y: 7, width: size.width - margin * 2, height: 17),
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: 10),
+                .foregroundColor: NSColor(calibratedWhite: 0.78, alpha: 1),
+                .paragraphStyle: paragraph,
+            ]
+        )
+        if let range = valueRange {
+            let lut = Colormaps.lutRGBA(colormap, count: 256)
+            let barX = imageRect.maxX + 14
+            let barY = imageRect.minY
+            let barHeight = imageRect.height
+            for index in 0..<256 {
+                let offset = index * 4
+                NSColor(
+                    red: CGFloat(lut[offset]) / 255,
+                    green: CGFloat(lut[offset + 1]) / 255,
+                    blue: CGFloat(lut[offset + 2]) / 255, alpha: 1
+                ).setFill()
+                NSRect(x: barX, y: barY + CGFloat(index) / 256 * barHeight,
+                       width: 14, height: max(1, barHeight / 256 + 0.5)).fill()
+            }
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: NSColor.white,
+            ]
+            (String(format: "%.4g", range.high) as NSString).draw(
+                at: NSPoint(x: barX + 19, y: barY + barHeight - 12),
+                withAttributes: attributes
+            )
+            (String(format: "%.4g", range.low) as NSString).draw(
+                at: NSPoint(x: barX + 19, y: barY), withAttributes: attributes
+            )
+            (valueUnits as NSString).draw(
+                in: NSRect(x: barX, y: barY - 17, width: 65, height: 14),
+                withAttributes: attributes
+            )
+        }
+        return bitmap.cgImage ?? image
+    }
 
     /// Normalized [0,1] scalar pixels → packed RGBA via the colormap LUT,
     /// with the same contrast window the shader applies on screen. Negative
@@ -941,9 +1250,9 @@ extension AppState {
     /// Small maps are integer-upscaled (nearest neighbor, so data pixels stay
     /// exact) to ≥512 px wide first, keeping the bar and label legible.
     /// `unitsPerDataPixel` nil → uncalibrated, bar labelled in data px.
-    private static func burnScaleBar(on base: CGImage,
-                                     unitsPerDataPixel: Double?,
-                                     unitLabel: String) -> CGImage {
+    static func burnScaleBar(on base: CGImage,
+                             unitsPerDataPixel: Double?,
+                             unitLabel: String) -> CGImage {
         let scale = max(1, Int((512.0 / Double(base.width)).rounded(.up)))
         let outW = base.width * scale
         let outH = base.height * scale

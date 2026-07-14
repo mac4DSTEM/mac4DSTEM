@@ -385,6 +385,17 @@ struct ResultsWorkspace: View {
                 Label("Export PNG", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.bordered)
+            .accessibilityIdentifier("result.exportPNG")
+            if appState.strainMap != nil || appState.hasOrientationMap {
+                Button {
+                    appState.exportScientificBundle()
+                } label: {
+                    Label("Export Bundle", systemImage: "square.stack.3d.up")
+                }
+                .buttonStyle(.bordered)
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("result.exportBundle")
+            }
             Button {
                 appState.saveCurrentResultToSessionSidecar()
             } label: {
@@ -409,6 +420,12 @@ struct ResultsWorkspace: View {
             }
             .padding(16)
             Divider()
+
+            if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
+                ProductComparisonView(a: a, b: b)
+                    .frame(minHeight: 230, idealHeight: 300)
+                Divider()
+            }
 
             if appState.sessionInventory.results.isEmpty {
                 VStack(spacing: 10) {
@@ -490,6 +507,16 @@ struct ResultsWorkspace: View {
             .buttonStyle(.plain)
             .accessibilityHint("Displays this saved result")
 
+            VStack(spacing: 4) {
+                Button("A") { Task { await appState.loadSavedSessionResult(result, into: .a) } }
+                    .help("Load into comparison A")
+                    .accessibilityLabel("Load \(result.displayName) into comparison A")
+                Button("B") { Task { await appState.loadSavedSessionResult(result, into: .b) } }
+                    .help("Load into comparison B")
+                    .accessibilityLabel("Load \(result.displayName) into comparison B")
+            }
+            .buttonStyle(.bordered)
+
             Button(role: .destructive) {
                 Task { await appState.removeSavedSessionResult(result) }
             } label: {
@@ -506,5 +533,111 @@ struct ResultsWorkspace: View {
             in: RoundedRectangle(cornerRadius: 10)
         )
         .accessibilityIdentifier("session.savedResult")
+    }
+}
+
+private struct ProductComparisonView: View {
+    let a: DisplayedProduct
+    let b: DisplayedProduct
+    @State private var zoom: CGFloat = 1
+    @State private var liveZoom: CGFloat = 1
+    @State private var cursor: (x: Int, y: Int)?
+
+    private var difference: DisplayedProduct? { ProductComparison.difference(a, b) }
+    private var coordinatesCompatible: Bool {
+        a.domain == b.domain && a.width == b.width && a.height == b.height
+            && a.sampling == b.sampling
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Compare saved products").font(.headline)
+                Spacer()
+                Text("Shared zoom ×\(zoom * liveZoom, specifier: "%.1f")")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                panel(a, label: "A", colormap: .viridis)
+                panel(b, label: "B", colormap: .viridis)
+                if let difference { panel(difference, label: "A − B", colormap: .rdbu) }
+            }
+            switch ProductComparison.compatibility(a, b) {
+            case .compatible:
+                Text("Numeric difference enabled: domain, dimensions, units, sampling, and quantitative status match.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            case .incompatible(let reason):
+                Label("Difference unavailable: \(reason)", systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            let changes = ProductComparison.provenanceDifferences(a, b)
+            if !changes.isEmpty {
+                DisclosureGroup("Provenance differences (\(changes.count))") {
+                    ForEach(Array(changes.enumerated()), id: \.offset) { _, change in
+                        Text("\(change.key): \(change.left ?? "—")  ↔  \(change.right ?? "—")")
+                            .font(.caption2.monospaced()).textSelection(.enabled)
+                    }
+                }
+                .font(.caption)
+            }
+        }
+        .padding(12)
+        .accessibilityIdentifier("result.comparison")
+    }
+
+    private func panel(
+        _ product: DisplayedProduct, label: String, colormap: ColormapKind
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("\(label) · \(product.displayName)").font(.caption.weight(.semibold)).lineLimit(1)
+            GeometryReader { geometry in
+                let size = geometry.size
+                let rendered = renderPayload(product, colormap: colormap)
+                MetalImageView(
+                    pixels: rendered.pixels, width: product.width, height: product.height,
+                    contentVersion: 0, colormap: colormap, zoom: 1, offset: .zero,
+                    rgba: rendered.rgba, displayLo: 0, displayHi: 1, gamma: 1
+                )
+                .scaleEffect(max(1, zoom * liveZoom))
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .contentShape(Rectangle())
+                .gesture(MagnificationGesture()
+                    .onChanged { liveZoom = $0 }
+                    .onEnded { zoom = min(64, max(1, zoom * $0)); liveZoom = 1 })
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let point):
+                        if coordinatesCompatible {
+                            cursor = (
+                                min(product.width - 1, max(0, Int(point.x / max(size.width, 1) * CGFloat(product.width)))),
+                                min(product.height - 1, max(0, Int(point.y / max(size.height, 1) * CGFloat(product.height))))
+                            )
+                        }
+                    case .ended: cursor = nil
+                    }
+                }
+            }
+            .frame(minHeight: 120)
+            if let cursor, let sample = product.sample(x: cursor.x, y: cursor.y) {
+                Text(sample.accessibilityText).font(.caption2.monospacedDigit()).lineLimit(1)
+            } else {
+                Text("\(product.domain.rawValue) · \(product.valueUnits)")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Comparison \(label), \(product.displayName)")
+    }
+
+    private func renderPayload(_ product: DisplayedProduct, colormap: ColormapKind)
+        -> (pixels: [Float], rgba: [UInt8]?) {
+        switch product.payload {
+        case .scalar(let image):
+            return (image.normalized(symmetric: colormap.isDiverging), nil)
+        case .rgba(let image):
+            return ([Float](repeating: 0, count: image.width * image.height), image.rgba)
+        }
     }
 }

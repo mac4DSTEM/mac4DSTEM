@@ -12,6 +12,7 @@ struct StemImageView: View {
     @Environment(AppState.self) private var app
     @State private var zoom: CGFloat = 1
     @State private var liveZoom: CGFloat = 1
+    @State private var cursorSample: ProductSample?
 
     var body: some View {
         VStack(spacing: 6) {
@@ -32,15 +33,12 @@ struct StemImageView: View {
     }
 
     private var mapsScanPositions: Bool {
-        guard let dims = resultSize, let descriptor = app.descriptor,
+        guard app.displayedProduct?.domain == .scan,
+              let dims = resultSize, let descriptor = app.descriptor,
               dims.width == descriptor.rx, dims.height == descriptor.ry else {
             return false
         }
-        if app.showsACOMRegionReference { return true }
-        let kind = app.displayedResultKind
-        return kind != "bragg_vector_map"
-            && !kind.hasPrefix("parallax_")
-            && !kind.hasPrefix("ptychography_")
+        return true
     }
 
     private var header: some View {
@@ -53,6 +51,19 @@ struct StemImageView: View {
                 Text("\(r.width) × \(r.height)")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+            }
+            if app.displayedProduct?.domain == .detector {
+                Text("qᵧ →  ·  qₓ ↓")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .help("App detector columns are py4DSTEM qy; rows are qx.")
+                    .accessibilityLabel("Detector axes: q y increases right, q x increases down")
+            }
+            if let sample = cursorSample {
+                Text(sample.accessibilityText)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("result.cursorReadout")
             }
         }
     }
@@ -111,6 +122,18 @@ struct StemImageView: View {
                         .onEnded { zoom = min(max(1, zoom * $0), 64); liveZoom = 1 }
                 )
                 .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        let x = min(dims.width - 1, max(0,
+                            Int(location.x / max(box.width, 1) * CGFloat(dims.width))))
+                        let y = min(dims.height - 1, max(0,
+                            Int(location.y / max(box.height, 1) * CGFloat(dims.height))))
+                        cursorSample = app.displayedProduct?.sample(x: x, y: y)
+                    case .ended:
+                        cursorSample = nil
+                    }
+                }
 
                 // Direction legend for the DPC color wheel.
                 if app.displayedResultKind == "dpc_color" {
@@ -153,6 +176,14 @@ struct StemImageView: View {
                            alignment: .bottomTrailing)
                 }
 
+                if app.displayedProduct?.domain != .scan,
+                   let navigator = app.scanNavigationImage {
+                    scanNavigator(navigator)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .topLeading)
+                }
+
                 // Coordinate-aware scale bar (px fallback), re-quantized with zoom.
                 let pixel = app.displayedResultPixelMetadata
                 let sampling = pixel.column ?? pixel.row
@@ -169,15 +200,52 @@ struct StemImageView: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel(app.displayedResultName)
             .accessibilityIdentifier("result.viewer")
-            .accessibilityValue(mapsScanPositions
+            .accessibilityValue(cursorSample?.accessibilityText ?? (mapsScanPositions
                 ? "Selected scan X \(app.selectedScan.x), Y \(app.selectedScan.y); \(dims.width) by \(dims.height) pixels"
-                : "\(dims.width) by \(dims.height) pixels")
+                : "\(dims.width) by \(dims.height) pixels"))
             .accessibilityHint(mapsScanPositions
                 ? "Use arrow keys to move the selected scan position; Shift moves ten pixels"
                 : "Scientific image; scan-position selection is unavailable")
         } else {
             placeholder
         }
+    }
+
+    private func scanNavigator(_ image: FloatImage) -> some View {
+        let width: CGFloat = 118
+        let height = width * CGFloat(image.height) / CGFloat(max(image.width, 1))
+        return ZStack {
+            MetalImageView(
+                pixels: image.normalized(), width: image.width, height: image.height,
+                contentVersion: app.scanNavigationVersion, colormap: .viridis,
+                zoom: 1, offset: .zero, rgba: nil,
+                displayLo: 0, displayHi: 1, gamma: 1
+            )
+            .frame(width: width, height: height)
+            let x = (CGFloat(app.selectedScan.x) + 0.5) / CGFloat(image.width) * width
+            let y = (CGFloat(app.selectedScan.y) + 0.5) / CGFloat(image.height) * height
+            Circle().stroke(.white, lineWidth: 1.5)
+                .background(Circle().stroke(.black, lineWidth: 3))
+                .frame(width: 9, height: 9).position(x: x, y: y)
+        }
+        .frame(width: width, height: height)
+        .background(.black)
+        .overlay(alignment: .topLeading) {
+            Text("SCAN").font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white).padding(3)
+        }
+        .border(.white.opacity(0.55))
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+            let x = Int(value.location.x / width * CGFloat(image.width))
+            let y = Int(value.location.y / max(height, 1) * CGFloat(image.height))
+            app.scrubTo(x: x, y: y)
+        })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Scan navigator")
+        .accessibilityValue("Selected scan X \(app.selectedScan.x), Y \(app.selectedScan.y)")
+        .accessibilityHint("Click or drag to update the diffraction pattern")
+        .accessibilityIdentifier("result.scanNavigator")
     }
 
     /// Hue wheel matching DPC.colorWheelRGBA (hue = atan2(cy,cx)/2π + 0.5),

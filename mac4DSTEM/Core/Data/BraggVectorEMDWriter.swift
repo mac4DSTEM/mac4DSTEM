@@ -148,6 +148,73 @@ nonisolated enum BraggVectorEMDWriter {
         }
     }
 
+    /// Publish several related scalar fields as sibling EMD RealSlice nodes in
+    /// one atomic file. This is used for scientifically coherent strain and
+    /// orientation bundles; a cancelled or failed write never exposes a
+    /// partial collection.
+    static func writeScientificBundle(
+        maps: [ScalarResultMap], calibration: PixelCalibration, to destination: URL,
+        cancellation: AnalysisCancellationToken? = nil
+    ) throws {
+        guard !maps.isEmpty else {
+            throw WriterError.invalidDimensions("a scientific bundle needs at least one field")
+        }
+        let shape = (maps[0].width, maps[0].height)
+        guard shape.0 > 0, shape.1 > 0,
+              maps.allSatisfy({ $0.width == shape.0 && $0.height == shape.1
+                  && $0.pixels.count == shape.0 * shape.1 }) else {
+            throw WriterError.invalidDimensions("bundle fields must share one non-empty shape")
+        }
+        guard Set(maps.map(\.kind)).count == maps.count else {
+            throw WriterError.invalidDimensions("bundle field kinds must be unique")
+        }
+        try checkCancellation(cancellation)
+        let fm = FileManager.default
+        let temporary = destination.deletingLastPathComponent().appendingPathComponent(
+            ".\(destination.lastPathComponent).\(UUID().uuidString).tmp"
+        )
+        var published = false
+        defer { if !published { try? fm.removeItem(at: temporary) } }
+        let h5 = try HDF5WriteLibrary.load()
+        let file = temporary.path.withCString {
+            h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
+        }
+        guard file >= 0 else { throw WriterError.hdf5("creating the bundle file") }
+        do {
+            defer { _ = h5.h5fclose(file) }
+            try writeStringAttribute("emd_group_type", value: "file", on: file, hdf5: h5)
+            try writeScalarAttribute("version_major", value: Int32(1), type: h5.nativeInt,
+                                     on: file, hdf5: h5)
+            try writeScalarAttribute("version_minor", value: Int32(0), type: h5.nativeInt,
+                                     on: file, hdf5: h5)
+            try writeStringAttribute("authoring_program", value: "mac4DSTEM", on: file, hdf5: h5)
+            let root = try createGroup("scientific_bundle_root", in: file, hdf5: h5)
+            defer { _ = h5.h5gclose(root) }
+            try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
+            try writeStringAttribute("mac4dstem_bundle_schema", value: "1", on: root, hdf5: h5)
+            try writeStringAttribute("mac4dstem_bundle_fields",
+                                     value: maps.map(\.kind).joined(separator: "\n"),
+                                     on: root, hdf5: h5)
+            try writeCalibration(calibration, targetPath: nil, in: root, hdf5: h5)
+            for map in maps {
+                try checkCancellation(cancellation)
+                try writeResultMap(
+                    map, nodeName: resultNodeName(forKind: map.kind),
+                    calibration: calibration, in: root,
+                    cancellation: cancellation, progress: nil, hdf5: h5
+                )
+            }
+        }
+        try checkCancellation(cancellation)
+        let status = temporary.path.withCString { source in
+            destination.path.withCString { target in Darwin.rename(source, target) }
+        }
+        guard status == 0 else {
+            throw WriterError.publishFailed(String(cString: strerror(errno)))
+        }
+        published = true
+    }
+
     /// Stable discoverable companion path used for automatic reload.
     static func sessionSidecarURL(forSourcePath path: String) -> URL {
         let source = URL(fileURLWithPath: path)

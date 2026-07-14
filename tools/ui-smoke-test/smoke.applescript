@@ -28,6 +28,7 @@ end waitForIdentifier
 on clickIdentifier(theProcess, identifierValue)
     set candidate to my waitForIdentifier(theProcess, identifierValue, 20)
     tell application "System Events"
+        set frontmost of theProcess to true
         try
             perform action "AXPress" of candidate
         on error
@@ -46,6 +47,20 @@ on accessibleText(candidate)
     return ""
 end accessibleText
 
+on waitForResultContaining(theProcess, expectedText, timeoutSeconds)
+    set deadline to (current date) + timeoutSeconds
+    repeat while (current date) < deadline
+        set resultTitle to my waitForIdentifier(theProcess, "result.title", 5)
+        set resultName to my accessibleText(resultTitle)
+        if resultName contains expectedText then return resultName
+        delay 0.2
+    end repeat
+    set statusText to "unavailable"
+    set statusElement to my elementWithIdentifier(theProcess, "status.bar")
+    if statusElement is not missing value then set statusText to my accessibleText(statusElement)
+    error "Timed out waiting for result containing " & expectedText & "; status: " & statusText
+end waitForResultContaining
+
 on run argv
     if (count of argv) is not 1 then error "Expected app PID"
     set appPID to item 1 of argv as integer
@@ -55,32 +70,75 @@ on run argv
     end tell
 
     my waitForIdentifier(appProcess, "dataset.card", 30)
+    my waitForIdentifier(appProcess, "calibration.readiness", 10)
+
+    set imageStarted to current date
+    my clickIdentifier(appProcess, "workspace.image")
+    my clickIdentifier(appProcess, "task.Virtual Det")
+    try
+        my clickIdentifier(appProcess, "workspace.primaryAction")
+    on error messageText
+        error "Image primary action: " & messageText
+    end try
+    my waitForResultContaining(appProcess, "Virtual detector", 30)
+    set imageSeconds to (current date) - imageStarted
+
+    set dpcStarted to current date
+    my clickIdentifier(appProcess, "task.DPC")
+    try
+        my clickIdentifier(appProcess, "workspace.primaryAction")
+    on error messageText
+        error "DPC primary action: " & messageText
+    end try
+    my waitForResultContaining(appProcess, "DPC", 30)
+    set dpcSeconds to (current date) - dpcStarted
+
     my clickIdentifier(appProcess, "workspace.map")
     my clickIdentifier(appProcess, "task.Disks")
-    set diskAction to my waitForIdentifier(appProcess, "workspace.primaryAction", 10)
-    tell application "System Events" to click diskAction
+    set braggStarted to current date
+    try
+        my clickIdentifier(appProcess, "workspace.primaryAction")
+    on error messageText
+        error "Bragg primary action: " & messageText
+    end try
+    my waitForResultContaining(appProcess, "Bragg vector map", 30)
+    set braggSeconds to (current date) - braggStarted
 
-    delay 0.5
-    my waitForIdentifier(appProcess, "workspace.primaryAction", 30)
+    set strainStarted to current date
+    my clickIdentifier(appProcess, "task.Strain")
+    try
+        my clickIdentifier(appProcess, "workspace.primaryAction")
+    on error messageText
+        error "Strain primary action: " & messageText
+    end try
+    my waitForResultContaining(appProcess, "Strain", 30)
+    set strainSeconds to (current date) - strainStarted
 
     my clickIdentifier(appProcess, "task.ACOM")
     my waitForIdentifier(appProcess, "acom.scope", 10)
-    set previewAction to my waitForIdentifier(appProcess, "workspace.primaryAction", 10)
-    tell application "System Events" to click previewAction
+    set acomStarted to current date
+    try
+        my clickIdentifier(appProcess, "workspace.primaryAction")
+    on error messageText
+        error "ACOM primary action: " & messageText
+    end try
+    my waitForResultContaining(appProcess, "ACOM preview", 30)
+    set acomSeconds to (current date) - acomStarted
 
-    delay 0.5
-    set resultTitle to my waitForIdentifier(appProcess, "result.title", 30)
-    set deadline to (current date) + 30
-    repeat while (current date) < deadline
-        set resultName to my accessibleText(resultTitle)
-        if resultName contains "ACOM preview" then exit repeat
-        delay 0.2
-        set resultTitle to my waitForIdentifier(appProcess, "result.title", 5)
-    end repeat
-    set resultName to my accessibleText(resultTitle)
-    if resultName does not contain "ACOM preview" then error "Preview result was not published: " & resultName
+    set reconstructionStarted to current date
+    my clickIdentifier(appProcess, "workspace.reconstruct")
+    try
+        my clickIdentifier(appProcess, "workspace.primaryAction")
+    on error messageText
+        error "Reconstruction primary action: " & messageText
+    end try
+    my waitForResultContaining(appProcess, "Parallax incoherent BF preview", 30)
+    my waitForIdentifier(appProcess, "result.scanNavigator", 10)
+    set reconstructionSeconds to (current date) - reconstructionStarted
 
     my clickIdentifier(appProcess, "workspace.results")
     my waitForIdentifier(appProcess, "result.viewer", 10)
-    return "PASS: demo → Map → Bragg disks → ACOM preview → Results"
+    my waitForIdentifier(appProcess, "result.exportPNG", 10)
+    my waitForIdentifier(appProcess, "result.exportBundle", 10)
+    return "PASS: image=" & imageSeconds & "s dpc=" & dpcSeconds & "s bragg=" & braggSeconds & "s strain=" & strainSeconds & "s acom=" & acomSeconds & "s reconstruct=" & reconstructionSeconds & "s -> Results"
 end run

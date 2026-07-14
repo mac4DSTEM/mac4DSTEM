@@ -199,6 +199,8 @@ enum StrainBasisMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum ComparisonSlot: Equatable { case a, b }
+
 @Observable
 final class AppState {
     private var reader: (any FourDDataSource)?
@@ -219,12 +221,16 @@ final class AppState {
         didSet {
             navigationResultInfo = nil
             navigationResultPixelInfo = nil
+            navigationResultDomain = nil
+            if restoredResultInfo == nil { restoredResultDomain = nil }
         }
     }
     var resultRGBA: RGBAImage? {
         didSet {
             navigationResultInfo = nil
             navigationResultPixelInfo = nil
+            navigationResultDomain = nil
+            if restoredResultInfo == nil { restoredResultDomain = nil }
         }
     }
     /// Last structural scan-space image available for positioning regions.
@@ -237,14 +243,18 @@ final class AppState {
     @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)?
     @ObservationIgnored var restoredResultPixelInfo:
         (row: Double?, column: Double?, units: String?, provenance: [String: String])?
+    @ObservationIgnored var restoredResultDomain: ProductDomain?
     /// Keeps a visible result correctly named when navigation changes the
     /// selected task. A new publication clears these fields automatically.
     @ObservationIgnored var navigationResultInfo:
         (kind: String, displayName: String, valueUnits: String)?
     @ObservationIgnored var navigationResultPixelInfo:
         (row: Double?, column: Double?, units: String?, provenance: [String: String])?
+    @ObservationIgnored var navigationResultDomain: ProductDomain?
     /// Read-only inventory of supported objects in the stable companion file.
     var sessionInventory: SessionSidecarInventory = .empty
+    var comparisonProductA: DisplayedProduct?
+    var comparisonProductB: DisplayedProduct?
 
     var meanPattern: DiffractionPattern?
     var maxPattern: DiffractionPattern?
@@ -353,7 +363,7 @@ final class AppState {
                 acomRegionSelectionActive = true
                 realSpaceShape = .rectangle
                 realSpaceRadius = Float(acomRegionRadius)
-                Task { await prepareACOMRegionReferenceImage() }
+                Task { await ensureScanNavigator() }
             } else {
                 acomRegionSelectionActive = false
             }
@@ -372,6 +382,7 @@ final class AppState {
     private(set) var acomLastRunQuality: ACOMQualityPreset?
     private(set) var acomLastMatchedPositionCount: Int?
     private(set) var acomLastPositionsPerSecond: Double?
+    private(set) var acomLastEndToEndDuration: TimeInterval?
     @ObservationIgnored private var acomLastMeasuredTemplateCount: Int?
     @ObservationIgnored private var acomLastMeasuredBackend: ACOMMatchingBackend?
 
@@ -508,6 +519,90 @@ final class AppState {
             )
         }
         return currentResultPersistenceMetadata
+    }
+
+    /// The only semantic source used by result viewers and comparison/export
+    /// workflows. Legacy scalar/RGBA slots remain as frozen-v1 adapters.
+    var displayedProduct: DisplayedProduct? {
+        if showsACOMRegionReference, let image = scanNavigationImage {
+            return DisplayedProduct(
+                kind: "acom_region_reference",
+                displayName: "Select ACOM region · real-space reference",
+                payload: .scalar(image), domain: .scan,
+                sampling: ProductSampling(
+                    row: calibration.rPixelSize, column: calibration.rPixelSize,
+                    units: calibration.rPixelUnits
+                ),
+                valueUnits: "intensity", quantitativeStatus: .relative,
+                provenance: ["display_role": "acom_region_reference"]
+            )
+        }
+        guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
+                ?? resultRGBA.map(ProductPayload.rgba) else { return nil }
+        let metadata = currentResultPersistenceMetadata
+        let domain = restoredResultDomain ?? navigationResultDomain ?? activeResultDomain
+        let status = quantitativeStatus(for: currentResultKind, units: currentResultValueUnits)
+        var quality: [ProductQualityField] = []
+        var overlays: [ProductOverlayDescriptor] = []
+        var validity: [Bool]?
+        if analysisMode == .strain, let map = strainMap,
+           map.width == payload.dimensions.width, map.height == payload.dimensions.height {
+            validity = map.mask
+            quality = [
+                ProductQualityField(
+                    name: "fit residual", units: "detector_px",
+                    image: FloatImage(width: map.width, height: map.height,
+                                      pixels: map.localResidualPixels)
+                ),
+                ProductQualityField(
+                    name: "indexed", units: "boolean",
+                    image: FloatImage(width: map.width, height: map.height,
+                                      pixels: map.mask.map { $0 ? 1 : 0 })
+                ),
+            ]
+            overlays.append(ProductOverlayDescriptor(
+                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit"
+            ))
+        } else if analysisMode == .acom, let map = orientationMap,
+                  map.width == payload.dimensions.width, map.height == payload.dimensions.height {
+            validity = map.results.map { $0.templateIndex >= 0 }
+            quality = [
+                ProductQualityField(name: "reliability", units: "dimensionless",
+                                    image: map.reliabilityImage),
+                ProductQualityField(name: "score", units: "dimensionless",
+                                    image: map.scoreImage),
+            ]
+            overlays.append(ProductOverlayDescriptor(
+                kind: "matched_template", provenance: "selected ACOM orientation template"
+            ))
+        }
+        return DisplayedProduct(
+            kind: currentResultKind, displayName: currentResultDisplayName,
+            payload: payload, domain: domain, validityMask: validity,
+            qualityFields: quality,
+            sampling: ProductSampling(row: metadata.row, column: metadata.column,
+                                      units: metadata.units),
+            valueUnits: currentResultValueUnits, quantitativeStatus: status,
+            provenance: metadata.provenance, overlays: overlays
+        )
+    }
+
+    var activeResultDomain: ProductDomain {
+        switch analysisMode {
+        case .disks: .detector
+        case .ptychography: .reconstruction
+        case .virtualDetector, .dpc, .strain, .acom: .scan
+        }
+    }
+
+    func quantitativeStatus(for kind: String, units: String)
+        -> ProductQuantitativeStatus {
+        if kind == "dpc_color" || kind.contains("ipf") { return .categorical }
+        if kind == "idpc_qualitative" || units.contains("intensity")
+            || units.contains("arbitrary") || units.contains("log_") {
+            return .relative
+        }
+        return .quantitative
     }
 
     // Custom (user-defined) cubic crystal for ACOM.
@@ -828,12 +923,13 @@ final class AppState {
                 currentResultKind, currentResultDisplayName, currentResultValueUnits
             )
             navigationResultPixelInfo = currentResultPersistenceMetadata
+            navigationResultDomain = activeResultDomain
         }
         analysisMode = mode
         workspaceArea = mode.workspaceArea
         if mode == .acom, acomScope == .selectedRegion {
             acomRegionSelectionActive = true
-            Task { await prepareACOMRegionReferenceImage() }
+            Task { await ensureScanNavigator() }
         }
     }
 
@@ -891,8 +987,8 @@ final class AppState {
 
     /// Launch-only deterministic dataset for UI automation and repeatable
     /// design walkthroughs. Normal users never enter this path.
-    func openDemoFixture() async {
-        let source = DemoFourDDataSource()
+    func openDemoFixture(calibrated: Bool = true) async {
+        let source = DemoFourDDataSource(includesCalibration: calibrated)
         do {
             let descriptor = try await source.discoverPrimaryDataset()
             reader = source
@@ -1190,6 +1286,7 @@ final class AppState {
         acomLastRunQuality = nil
         acomLastMatchedPositionCount = nil
         acomLastPositionsPerSecond = nil
+        acomLastEndToEndDuration = nil
         acomLastMeasuredTemplateCount = nil
         acomLastMeasuredBackend = nil
         acomRegionSelectionActive = false
@@ -1327,6 +1424,7 @@ final class AppState {
             restoredResultPixelInfo = (
                 map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
             )
+            restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
         } else if let map = snapshot.currentRGBAResult {
             guard map.width == descriptor.rx, map.height == descriptor.ry else {
                 statusText = "Ignored \(url.lastPathComponent): saved RGBA map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
@@ -1336,6 +1434,7 @@ final class AppState {
             resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
             restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
             restoredResultPixelInfo = nil
+            restoredResultDomain = nil
         } else {
             return
         }
@@ -1393,9 +1492,11 @@ final class AppState {
     /// recovered session opened directly into Map and never formed a virtual
     /// image. A quiet ADF image gives structural contrast without replacing the
     /// retained scientific result.
-    private func prepareACOMRegionReferenceImage() async {
-        guard analysisMode == .acom, acomScope == .selectedRegion,
-              scanNavigationImage == nil,
+    /// Quietly build persistent real-space context used for region selection
+    /// and for detector/reconstruction products. Failure is non-fatal because
+    /// the primary scientific result remains usable without the convenience.
+    func ensureScanNavigator() async {
+        guard scanNavigationImage == nil,
               let fourD, let descriptor else { return }
         let d = descriptor
         let qRadius = Float(min(d.qx, d.qy)) / 2
@@ -1410,8 +1511,7 @@ final class AppState {
                     inner: 0.25 * qRadius, outer: 0.55 * qRadius
                 )
             )
-            guard epoch == datasetEpoch,
-                  analysisMode == .acom, acomScope == .selectedRegion else { return }
+            guard epoch == datasetEpoch else { return }
             scanNavigationImage = image
             scanNavigationVersion &+= 1
         } catch {
@@ -1760,6 +1860,7 @@ final class AppState {
             displayRangeLo = 0
             displayRangeHi = 1
             resultVersion &+= 1
+            Task { await ensureScanNavigator() }
             statusText = String(
                 format: "Parallax preprocessing ✓  %d BF pixels · λ %.5f Å · %.2f mrad max · error %.4f",
                 result.brightFieldPixelCount,
@@ -2704,6 +2805,7 @@ final class AppState {
                                  pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
         resultRGBA = nil
         resultVersion &+= 1
+        Task { await ensureScanNavigator() }
     }
 
     /// Raw peaks remain the source of truth; analysis calibration is derived
@@ -2784,11 +2886,14 @@ final class AppState {
                             map.diagnostics.referenceCandidateCount)
     }
 
-    /// Show the selected strain component; masked positions read 0 (the center
-    /// of the diverging colormap).
+    /// Show the selected strain component; masked positions remain NaN and
+    /// render with the explicit no-data color, never as neutral zero strain.
     private func applyStrainDisplay() {
         guard let map = strainMap, analysisMode == .strain else { return }
         restoredResultInfo = nil
+        restoredResultDomain = nil
+        resultColormap = (strainComponent == .residual || strainComponent == .indexed)
+            ? .viridis : .rdbu
         resultImage = map.component(strainComponent)
         resultRGBA = nil
         resultVersion &+= 1
@@ -2878,6 +2983,7 @@ final class AppState {
     /// Match the chosen preview, selected region, or full scan against the
     /// plan (needs a prior disk-detection pass; builds the plan first if needed).
     func runACOM() async {
+        let actionStarted = Date()
         guard let descriptor, let bragg = braggVectors else {
             present(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
             return
@@ -2914,7 +3020,6 @@ final class AppState {
         let scale = acomScale
         let backend = effectiveACOMBackend
         let epoch = datasetEpoch
-        let started = Date()
         let map = await Task.detached(priority: .userInitiated) { [self] in
             OrientationMatching.matchAll(bragg: calibrated.vectors, plan: plan,
                                          originX: origin.x, originY: origin.y,
@@ -2934,6 +3039,7 @@ final class AppState {
         }.value
         guard epoch == datasetEpoch else { return }
         if cancellation.isCancelled {
+            acomLastEndToEndDuration = Date().timeIntervalSince(actionStarted)
             statusText = "ACOM matching cancelled"
             return
         }
@@ -2946,7 +3052,8 @@ final class AppState {
         acomLastRunScope = scope
         acomLastRunQuality = quality
         acomLastMatchedPositionCount = workCount
-        let elapsed = max(Date().timeIntervalSince(started), 0.001)
+        let elapsed = max(Date().timeIntervalSince(actionStarted), 0.001)
+        acomLastEndToEndDuration = elapsed
         acomLastPositionsPerSecond = Double(workCount) / elapsed
         acomLastMeasuredTemplateCount = plan.count
         acomLastMeasuredBackend = map.matchingBackend

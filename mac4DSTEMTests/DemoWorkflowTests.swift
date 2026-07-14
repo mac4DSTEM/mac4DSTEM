@@ -42,4 +42,35 @@ final class DemoWorkflowTests: XCTestCase {
             "score \(maximumScore); total peaks \(vectors.totalPeakCount); first radii \(firstRadii)"
         )
     }
+
+    func testDemoFixturePublishesAReconstructionPreview() async throws {
+        let source = DemoFourDDataSource()
+        let descriptor = try await source.discoverPrimaryDataset()
+        var calibration = Calibration()
+        calibration.qPixelSize = 0.02
+        calibration.qPixelUnits = "Å⁻¹"
+        calibration.rPixelSize = 0.5
+        calibration.rPixelUnits = "nm"
+        calibration.rotationRad = 0
+        calibration.transposeQR = false
+        calibration.originProvenance = .fileMaps
+        let physical = try ParallaxPhysicalCalibration.resolve(
+            calibration: calibration,
+            apertureCenterX: 32, apertureCenterY: 32,
+            acceleratingVoltageKV: 200
+        )
+        let result: ParallaxPreprocessResult
+        do {
+            result = try await ParallaxPreprocessor.run(
+                source: source, descriptor: descriptor, calibration: physical
+            )
+        } catch {
+            XCTFail("Demo reconstruction preview failed: \(error.localizedDescription)")
+            return
+        }
+        XCTAssertGreaterThan(result.brightFieldPixelCount, 0)
+        XCTAssertEqual(result.previewImage.width, descriptor.rx)
+        XCTAssertEqual(result.previewImage.height, descriptor.ry)
+        XCTAssertTrue(result.previewImage.pixels.allSatisfy(\.isFinite))
+    }
 }

@@ -99,9 +99,9 @@ nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         value: Double, units: String?, wavelength: Double
     ) -> Double? {
         switch normalized(units) {
-        case "a^-1", "å^-1", "1/a", "1/å", "1/angstrom", "angstrom^-1":
+        case "a^-1", "å^-1", "a⁻¹", "å⁻¹", "1/a", "1/å", "1/angstrom", "angstrom^-1":
             return value
-        case "nm^-1", "1/nm", "1/nanometer", "nanometer^-1":
+        case "nm^-1", "nm⁻¹", "1/nm", "1/nanometer", "nanometer^-1":
             return value * 0.1
         case "mrad":
             return value / wavelength / 1_000

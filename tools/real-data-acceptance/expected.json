@@ -1,46 +1,65 @@
 [
   {
-    "file": "056_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5",
+    "file": "036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5",
     "datasetPath": "/dm_dataset_root/dm_dataset/data",
-    "shape": [256, 256, 64, 64],
-    "dtype": "float32",
+    "shape": [153, 106, 256, 256], "dtype": "float32",
     "finitePatternFraction": 1.0,
-    "virtualImageMinimum": 9385089.0,
-    "virtualImageMaximum": 21670696.0,
-    "virtualImageMean": 15984990.890045166,
-    "virtualImageChecksum": 136128529993983.0
+    "virtualImageMinimum": 35838932.0, "virtualImageMaximum": 1684706400.0,
+    "virtualImageMean": 731076250.6104329,
+    "virtualImageChecksum": 1526121890038644.0
   },
   {
-    "file": "057_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5",
+    "file": "051_STEM SI_preprocessed_unfiltered_bin_4_20260629.h5",
     "datasetPath": "/dm_dataset_root/dm_dataset/data",
-    "shape": [330, 334, 64, 64],
-    "dtype": "float32",
+    "shape": [128, 128, 64, 64], "dtype": "float32",
     "finitePatternFraction": 1.0,
-    "virtualImageMinimum": 7716949.5,
-    "virtualImageMaximum": 23066170.0,
-    "virtualImageMean": 16396995.93706224,
-    "virtualImageChecksum": 233120579781700.0
+    "virtualImageMinimum": 36462908.0, "virtualImageMaximum": 673254340.0,
+    "virtualImageMean": 134606985.4387207,
+    "virtualImageChecksum": 282437645095052.0
   },
   {
     "file": "058_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5",
     "datasetPath": "/dm_dataset_root/dm_dataset/data",
-    "shape": [330, 330, 64, 64],
-    "dtype": "float32",
+    "shape": [330, 330, 64, 64], "dtype": "float32",
     "finitePatternFraction": 1.0,
-    "virtualImageMinimum": 8886276.0,
-    "virtualImageMaximum": 20143430.0,
+    "virtualImageMinimum": 8886276.0, "virtualImageMaximum": 20143430.0,
     "virtualImageMean": 16020603.71637282,
     "virtualImageChecksum": 224963594299354.0
   },
   {
     "file": "060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5",
     "datasetPath": "/dm_dataset_root/dm_dataset/data",
-    "shape": [330, 330, 64, 64],
-    "dtype": "float32",
+    "shape": [330, 330, 64, 64], "dtype": "float32",
     "finitePatternFraction": 1.0,
-    "virtualImageMinimum": 13363785.0,
-    "virtualImageMaximum": 21730662.0,
+    "virtualImageMinimum": 13363785.0, "virtualImageMaximum": 21730662.0,
     "virtualImageMean": 18617151.05772268,
     "virtualImageChecksum": 261423097180335.0
+  },
+  {
+    "file": "Au_ref_ROI15_preprocessed_unfiltered_bin_4_20241214.h5",
+    "datasetPath": "/dm_dataset_root/dm_dataset/data",
+    "shape": [205, 310, 64, 64], "dtype": "float32",
+    "finitePatternFraction": 1.0,
+    "virtualImageMinimum": 2212014.5, "virtualImageMaximum": 32720338.0,
+    "virtualImageMean": 5929632.773367427,
+    "virtualImageChecksum": 48560508532515.25
+  },
+  {
+    "file": "COPL_Ni65Cu35_C_ROI6_240911_aper_70_conv_2.1_spot_6_CL_35_stepsize_3_r_x_200_r_y_200_GIF_512x512_preprocessed_unfiltered_bin_4_20240912.h5",
+    "datasetPath": "/dm_dataset_root/dm_dataset/data",
+    "shape": [200, 200, 32, 32], "dtype": "float32",
+    "finitePatternFraction": 1.0,
+    "virtualImageMinimum": 165361170.0, "virtualImageMaximum": 1355070600.0,
+    "virtualImageMean": 828183611.8268,
+    "virtualImageChecksum": 4268705234958912.0
+  },
+  {
+    "file": "sim_Au_data_all_binned.h5",
+    "datasetPath": "/4DSTEM_simulation/4DSTEM_AuNanoplatelet/data",
+    "shape": [100, 84, 125, 125], "dtype": "uint16",
+    "finitePatternFraction": 1.0,
+    "virtualImageMinimum": 128250.0, "virtualImageMaximum": 555840.0,
+    "virtualImageMean": 383697.1630952381,
+    "virtualImageChecksum": 414133653412.0
   }
 ]

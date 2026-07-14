@@ -1,7 +1,83 @@
+import AppKit
 import XCTest
 @testable import mac4DSTEM
 
 final class ProductWorkflowTests: XCTestCase {
+    func testPublicationFigureBurnsScaleCaptionAndColorbar() throws {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let baseContext = try XCTUnwrap(CGContext(
+            data: nil, width: 16, height: 12,
+            bitsPerComponent: 8, bytesPerRow: 16 * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        baseContext.setFillColor(NSColor.systemRed.cgColor)
+        baseContext.fill(CGRect(x: 0, y: 0, width: 16, height: 12))
+        let base = try XCTUnwrap(baseContext.makeImage())
+
+        let withScale = AppState.burnScaleBar(
+            on: base, unitsPerDataPixel: 0.5, unitLabel: "nm"
+        )
+        XCTAssertEqual(withScale.width, 512)
+        XCTAssertEqual(withScale.height, 384)
+
+        let figure = AppState.publicationFigure(
+            image: withScale, title: "Strain ε_xx",
+            caption: "scan space · quantitative · 0.5 nm/px · basis_mode=consensus",
+            valueRange: (low: -0.025, high: 0.025), valueUnits: "strain",
+            colormap: .rdbu
+        )
+        XCTAssertEqual(figure.width, 624)
+        XCTAssertEqual(figure.height, 478)
+
+        var pixels = [UInt8](repeating: 0, count: figure.width * figure.height * 4)
+        let raster = try XCTUnwrap(CGContext(
+            data: &pixels, width: figure.width, height: figure.height,
+            bitsPerComponent: 8, bytesPerRow: figure.width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        raster.draw(figure, in: CGRect(x: 0, y: 0,
+                                       width: figure.width, height: figure.height))
+
+        func rgb(x: Int, y: Int) -> (UInt8, UInt8, UInt8) {
+            let offset = (y * figure.width + x) * 4
+            return (pixels[offset], pixels[offset + 1], pixels[offset + 2])
+        }
+        func isInk(_ value: (UInt8, UInt8, UInt8)) -> Bool {
+            value.0 > 20 || value.1 > 20 || value.2 > 20
+        }
+        func isNearWhite(_ value: (UInt8, UInt8, UInt8)) -> Bool {
+            value.0 > 225 && value.1 > 225 && value.2 > 225
+        }
+
+        var captionInk = 0
+        for y in 0..<76 {
+            for x in 18..<500 where isInk(rgb(x: x, y: y)) { captionInk += 1 }
+        }
+        for y in (figure.height - 76)..<figure.height {
+            for x in 18..<500 where isInk(rgb(x: x, y: y)) { captionInk += 1 }
+        }
+        XCTAssertGreaterThan(captionInk, 100, "title/provenance caption disappeared")
+
+        var colorbarColors = Set<UInt32>()
+        for y in 76..<(76 + withScale.height) {
+            let value = rgb(x: 550, y: y)
+            colorbarColors.insert(
+                UInt32(value.0) << 16 | UInt32(value.1) << 8 | UInt32(value.2)
+            )
+        }
+        XCTAssertGreaterThan(colorbarColors.count, 100, "colorbar lost its numeric gradient")
+
+        var whitePixels = 0
+        for y in 76..<(76 + withScale.height) {
+            for x in 18..<(18 + withScale.width) where isNearWhite(rgb(x: x, y: y)) {
+                whitePixels += 1
+            }
+        }
+        XCTAssertGreaterThan(whitePixels, 200, "burned scale bar/label disappeared")
+    }
+
     func testEveryAnalysisHasOneProductWorkspace() {
         let routed = WorkspaceArea.allCases.flatMap(\.analysisModes)
         XCTAssertEqual(Set(routed.map(\.id)).count, AnalysisMode.allCases.count)
@@ -69,13 +145,20 @@ final class ProductWorkflowTests: XCTestCase {
         let state = AppState()
         state.resultImage = FloatImage(width: 1, height: 1, pixels: [1])
         XCTAssertEqual(state.currentResultDisplayName, "Virtual detector · Annulus")
+        XCTAssertEqual(state.displayedProduct?.domain, .scan)
 
         state.changeMode(.dpc)
         XCTAssertEqual(state.currentResultDisplayName, "Virtual detector · Annulus")
         XCTAssertEqual(state.currentResultKind, "virtual_annulus")
+        XCTAssertEqual(state.displayedProduct?.domain, .scan)
 
         state.resultImage = FloatImage(width: 1, height: 1, pixels: [2])
         XCTAssertEqual(state.currentResultDisplayName, "DPC magnitude")
+        XCTAssertEqual(state.displayedProduct?.domain, .scan)
+
+        state.changeMode(.disks)
+        state.resultImage = FloatImage(width: 1, height: 1, pixels: [3])
+        XCTAssertEqual(state.displayedProduct?.domain, .detector)
     }
 
     func testACOMRegionUsesScanReferenceWithoutReplacingBraggResult() {
@@ -113,5 +196,115 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.resultImage?.height, 256)
         XCTAssertEqual(state.currentResultKind, "bragg_vector_map")
         XCTAssertEqual(state.currentResultPersistenceMetadata.units, "Å⁻¹")
+    }
+
+    func testCalibrationReadinessExplainsWhatEveryFieldUnlocks() {
+        XCTAssertEqual(CalibrationReadinessKind.allCases.count, 5)
+        for kind in CalibrationReadinessKind.allCases {
+            XCTAssertTrue(kind.unlockSummary.hasPrefix("Unlocks")
+                          || kind.unlockSummary.hasPrefix("Corrects"))
+            XCTAssertTrue(kind.unlockSummary.hasSuffix("."))
+        }
+        XCTAssertTrue(CalibrationReadinessKind.qScale.unlockSummary.contains("reciprocal"))
+        XCTAssertTrue(CalibrationReadinessKind.rScale.unlockSummary.contains("scale bars"))
+    }
+
+    func testRejectedStrainPixelsAreNoDataRatherThanZeroStrain() {
+        let map = StrainMap(
+            width: 2, height: 1,
+            exx: [0.125, 0], eyy: [0, 0], exy: [0, 0], theta: [0, 0],
+            mask: [true, false],
+            localG1x: [1, 0], localG1y: [0, 0],
+            localG2x: [0, 0], localG2y: [1, 0],
+            localResidualPixels: [0.01, 0],
+            refG1: (1, 0), refG2: (0, 1),
+            referencePositionCount: 1, indexedFraction: 0.5,
+            diagnostics: StrainFitDiagnostics(
+                automaticBasis: true, referenceMaskApplied: false,
+                basisObservationCount: 1, basisSupportCount: 1,
+                basisSupportFraction: 1, basisResidualPixels: 0,
+                basisConditionNumber: 1, indexingTolerancePixels: 1,
+                localResidualMedianPixels: 0.01,
+                referenceCandidateCount: 1, referenceRejectedCount: 0
+            )
+        )
+        let image = map.component(.exx)
+        XCTAssertEqual(image.pixels[0], 0.125)
+        XCTAssertTrue(image.pixels[1].isNaN)
+        XCTAssertEqual(image.normalized(symmetric: true)[1], FloatImage.invalidDisplayValue)
+    }
+
+    func testDisplayedProductCarriesDomainMaskUnitsQualityAndCursorValues() throws {
+        let image = FloatImage(width: 2, height: 1, pixels: [1.25, .nan])
+        let quality = FloatImage(width: 2, height: 1, pixels: [0.02, 0.9])
+        let product = DisplayedProduct(
+            kind: "strain_exx", displayName: "Strain",
+            payload: .scalar(image), domain: .scan,
+            qualityFields: [ProductQualityField(
+                name: "fit residual", units: "detector_px", image: quality
+            )],
+            sampling: ProductSampling(row: 0.5, column: 0.5, units: "nm"),
+            valueUnits: "strain", quantitativeStatus: .quantitative,
+            provenance: ["method": "local_lattice_fit"]
+        )
+        XCTAssertEqual(product.domain, .scan)
+        XCTAssertEqual(product.provenance["display_domain"], "scan")
+        XCTAssertEqual(product.validityMask, [true, false])
+        XCTAssertEqual(try XCTUnwrap(product.sample(x: 0, y: 0)).value, 1.25)
+        XCTAssertEqual(product.sample(x: 0, y: 0)?.quality["fit residual"], 0.02)
+        XCTAssertNil(product.sample(x: 1, y: 0)?.value)
+        XCTAssertTrue(product.sample(x: 1, y: 0)?.accessibilityText.contains("no data") == true)
+        XCTAssertNil(product.sample(x: 2, y: 0))
+    }
+
+    func testDifferenceRequiresNumericSemanticParityAndPreservesNoData() throws {
+        func product(_ values: [Float], units: String = "strain",
+                     domain: ProductDomain = .scan) -> DisplayedProduct {
+            DisplayedProduct(
+                kind: "strain", displayName: "strain",
+                payload: .scalar(FloatImage(width: 2, height: 1, pixels: values)),
+                domain: domain,
+                sampling: ProductSampling(row: 1, column: 1, units: "nm"),
+                valueUnits: units, quantitativeStatus: .quantitative
+            )
+        }
+        let difference = try XCTUnwrap(ProductComparison.difference(
+            product([3, .nan]), product([1, 2])
+        ))
+        guard case .scalar(let image) = difference.payload else {
+            return XCTFail("Expected scalar difference")
+        }
+        XCTAssertEqual(image.pixels[0], 2, accuracy: 1e-7)
+        XCTAssertTrue(image.pixels[1].isNaN)
+        XCTAssertEqual(difference.validityMask, [true, false])
+        XCTAssertEqual(
+            ProductComparison.compatibility(product([1, 2]), product([1, 2], units: "rad")),
+            .incompatible("Value units differ.")
+        )
+        XCTAssertNil(ProductComparison.difference(
+            product([1, 2]), product([1, 2], domain: .detector)
+        ))
+    }
+
+    func testStrainQualityViewsRetainMaskMeaning() {
+        let map = StrainMap(
+            width: 2, height: 1, exx: [0, 0], eyy: [0, 0], exy: [0, 0], theta: [0, 0],
+            mask: [true, false], localG1x: [1, 0], localG1y: [0, 0],
+            localG2x: [0, 0], localG2y: [1, 0], localResidualPixels: [0.125, 0],
+            refG1: (1, 0), refG2: (0, 1), referencePositionCount: 1,
+            indexedFraction: 0.5,
+            diagnostics: StrainFitDiagnostics(
+                automaticBasis: true, referenceMaskApplied: false,
+                basisObservationCount: 1, basisSupportCount: 1,
+                basisSupportFraction: 1, basisResidualPixels: 0,
+                basisConditionNumber: 1, indexingTolerancePixels: 1,
+                localResidualMedianPixels: 0.125,
+                referenceCandidateCount: 1, referenceRejectedCount: 0
+            )
+        )
+        XCTAssertEqual(map.component(.residual).pixels[0], 0.125)
+        XCTAssertTrue(map.component(.residual).pixels[1].isNaN)
+        XCTAssertEqual(map.component(.indexed).pixels[0], 1)
+        XCTAssertTrue(map.component(.indexed).pixels[1].isNaN)
     }
 }

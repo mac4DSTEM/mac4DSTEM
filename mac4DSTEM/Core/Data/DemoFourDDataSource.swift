@@ -12,6 +12,11 @@ actor DemoFourDDataSource: FourDDataSource {
     )
 
     private var rowCache: [Int: [Float]] = [:]
+    private let includesCalibration: Bool
+
+    init(includesCalibration: Bool = true) {
+        self.includesCalibration = includesCalibration
+    }
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
 
@@ -59,6 +64,7 @@ actor DemoFourDDataSource: FourDDataSource {
     }
 
     func pixelCalibration() -> PixelCalibration? {
+        guard includesCalibration else { return nil }
         let count = Self.descriptor.rx * Self.descriptor.ry
         let center = Double(Self.descriptor.qx) / 2
         return PixelCalibration(

@@ -72,6 +72,24 @@ enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
     case rScale = "R pixel scale"
 
     var id: String { rawValue }
+
+    /// User-facing consequence of establishing this calibration field. Kept
+    /// beside the readiness model so Prepare and export present the same
+    /// scientific contract instead of maintaining two drifting explanations.
+    var unlockSummary: String {
+        switch self {
+        case .originProbe:
+            return "Unlocks descan-corrected DPC, Bragg vectors, strain, and reconstruction."
+        case .ellipse:
+            return "Corrects detector distortion in Bragg, strain, and orientation coordinates."
+        case .rotation:
+            return "Unlocks scan-frame DPC/iDPC and calibrated reconstruction geometry."
+        case .qScale:
+            return "Unlocks reciprocal units, physical orientation matching, and quantitative phase."
+        case .rScale:
+            return "Unlocks real-space axes, scale bars, and quantitative reconstruction sampling."
+        }
+    }
 }
 
 enum CalibrationReadinessStatus: Equatable, Sendable {

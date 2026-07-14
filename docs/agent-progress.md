@@ -26,7 +26,7 @@ workflow, stable versus Advanced tiers, release gates, and scope-change rule.
   preserves unrecognized external root objects, and supports explicit validated
   parallax/ptychography control rehydration. It does not author EMD plot nodes
   or serialize transient scientific arrays. A native XCTest bundle covers fast
-  production/workflow contracts; twenty-two scientific/interoperability
+  production/workflow contracts; twenty-four scientific/interoperability
   harnesses cover the numeric, tiled, cancellation, persistence, reader, and
   packaging boundaries.
 
@@ -784,6 +784,56 @@ profile refinement with safe conic fallback.
 
 ## 5. Current next slice
 
+Post-v1 Roadmap Phases 1–6 are locally complete as of 2026-07-14. The frozen
+`docs/v1-scope.md` contract is unchanged. The implementation adds the shared Prepare
+readiness path, explicit invalid strain, an immutable displayed-product contract,
+cursor/quality inspection, fitted scientific overlays, persistent scan navigation,
+action-to-publication ACOM timing, semantic saved-product comparison, publication PNG,
+and atomic coherent strain/orientation EMD bundles. Phase 7 remains a demand gate.
+
+Verification added/extended here covers typed masks/domains/units/quality/cursor,
+compatible and rejected differences, residual/indexed strain, canonical `Å⁻¹`
+reconstruction calibration, native uncalibrated and all-workspace demo paths,
+fit-overlay perturbations, atomic bundle cancellation, and direct py4DSTEM RealSlice
+readback. The closing `tools/run-tests.sh all` command exited zero: all 25 XCTest
+methods, all 24 standalone scientific/interoperability harnesses, all seven locally
+available HDF5 goldens, and the isolated hardened Release package audit passed. The
+real-data timings were 5.69/0.36/1.39/1.36/0.89/0.33/1.14 s, each below the 15 s/file
+gate. The simulated-Au reader prints diagnostics while its canonical-path probes miss,
+then succeeds through deterministic dataset discovery and passes its golden.
+
+Checkpoint M3 end-to-end evidence: native demo readiness 11 s; Image 5 s, DPC 4 s,
+Bragg 4 s, strain 5 s, ACOM 5 s, reconstruction 6 s. On real `058`, balanced ACOM
+Preview was 0.73 s action-to-result; balanced full scan was 64.79 s CPU and 91.26 s
+Metal for 108,900 positions, with exact template/angle parity and <3.5×10⁻⁶ maximum
+score/reliability drift. The recorded evidence revises the provisional full-scan budget
+from 60 to 70 s and retains Accelerate CPU as Automatic.
+
+The completed native pass also published a non-empty first session sidecar and left
+the scan navigator and export-bundle controls visible in the captured Results screen.
+A publication-figure XCTest independently gates exact pixel dimensions, title/caption
+ink, the calibrated scale bar, and colorbar diversity. It caught `NSImage.lockFocus()`
+using the active display's 2× Retina backing scale; export now renders through an
+explicit one-point-per-pixel bitmap and is display-independent.
+A closing repeat after adding explicit accessibility waits built successfully but was
+blocked before `dataset.card`: the Codex desktop host retained foreground ownership,
+the app remained healthy in `NSApplication.run` but had zero windows/no CoreGraphics
+connection, and Finder, System Events, and direct AppKit activation were all refused.
+That repeat is not claimed as passed. `tools/ui-smoke-test/run.sh` now clears only its
+disposable bundle's saved window frame and preserves the calibration-launch log on
+failure; rerun it from a normal Accessibility-authorized Terminal GUI session.
+
+The next repository work must come from demonstrated demand or an observed failure.
+External follow-ups are: 3–5 microscopist usability sessions at the Phase 1/3/5
+observation gates; real vendor MIB/EMPAD acquisitions beyond synthetic fixtures;
+Developer ID/notarization credentials and a clean-account notarized-app smoke; and
+performance confirmation on additional Mac classes. The native smoke repeat above is
+also a hands-on environment check, not an implementation item. Preserve the CPU
+scientific reference and require numeric plus failure parity before changing Automatic
+to an accelerated backend.
+
+### Prior checkpoint log
+
 No repository-owned v1 implementation slice remains after the final aggregate gate.
 The release owner must install/select a Developer ID Application certificate and
 notarytool profile, run the documented scripts in `docs/releasing.md`, preserve the
@@ -982,6 +1032,7 @@ notarization/stapling, and a clean-account smoke test.
 - BraggVectors export: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/bragg-export-test/run.sh`
 - Scalar result sidecar: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/sidecar-result-test/run.sh`
 - Result presentation: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/result-presentation-test/run.sh`
+- Scientific bundle: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/scientific-bundle-test/run.sh`
 - Performance baseline: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh benchmark`
 - Real ACOM CPU/Metal: `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/real-acom-benchmark/run.sh`
 - Native UI smoke (Accessibility permission): `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/ui-smoke-test/run.sh`

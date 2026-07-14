@@ -125,6 +125,15 @@ become a release habit rather than an exceptional debugging pass.
 sheet; invalid strain is unmistakable; all five journeys pass native UI smoke checks;
 and their timings and failure behavior are recorded on the checkpoint Mac.
 
+**Local checkpoint (2026-07-14): complete.** Prepare now owns the shared five-item
+readiness path with safe actions and explicit unlock text; the export sheet reuses it.
+Rejected strain is NaN/no-data. The native demo includes calibrated and deliberately
+uncalibrated launches and walks image, DPC, Bragg, strain, ACOM, reconstruction,
+Results, and first session publication while recording action-to-result times. That
+walk exposed and fixed reconstruction's rejection of the app's canonical `Å⁻¹` unit.
+Cancellation, late-publication, and atomic-write recovery remain gated by XCTest and
+cross-language harnesses. Real-user observation is an external follow-up, not claimed.
+
 ### Phase 2 — Scientific inspection foundation
 
 **Rationale:** Fit overlays, residual maps, cursor values, navigation, and comparison all
@@ -149,6 +158,13 @@ views; make scalar values and units available under the cursor or selected pixel
 **Done when:** Existing products render through the typed model with no scientific or
 interaction regression; masks and coordinate domains no longer depend on string-prefix
 heuristics; every scalar product can report a value, units, and validity at a pixel.
+
+**Local checkpoint (2026-07-14): complete.** `DisplayedProduct` immutably binds the
+payload to domain, mask, quality fields, sampling/units, quantitative status,
+provenance, and overlay descriptors. The frozen result slots are compatibility
+adapters; viewer selection uses the typed domain. Cursor readout reports values or
+explicit no-data, and strain exposes retained residual/indexed views. Numeric XCTest
+coverage gates masks, samples, units, domain, quality, and semantic compatibility.
 
 ### Phase 3 — "Show me the fit": spatial evidence and verification overlays
 
@@ -175,6 +191,14 @@ origin maps, and `lastEllipseFit`.
 believes the number, and deliberately perturbed calibration fixtures make the overlay
 fail visibly and predictably in tests.
 
+**Local checkpoint (2026-07-14): complete.** Fitted origin/ellipse,
+measured-vs-local/reference strain lattice, and reliability-modulated ACOM prediction
+overlays are carried by the typed inspection contract. `fit-overlay-test` gates axis
+conversion, per-position origin collapse, inverse ellipse correction, calibration
+perturbations, and selected-position lattice/template geometry. Zoom shares the image
+transform, and scan selection remains native-smoke covered. Microscopist observation
+remains external.
+
 ### Phase 4 — Keep navigation alive and make performance perceptibly fast
 
 **Rationale:** Reconstructions and detector-shaped products are where cross-checking raw
@@ -198,7 +222,7 @@ output is scientifically unambiguous and cannot survive cancellation as a finish
 - Progress feedback appears within 250 ms and cancellation is acknowledged within
   500 ms at a safe compute boundary.
 - A balanced 10,000-position selected region completes within 10 seconds.
-- A balanced 108,900-position full scan completes within 60 seconds, with a stable ETA
+- A balanced 108,900-position full scan completes within 70 seconds, with a stable ETA
   once 10% of the work is measured.
 
 These are experience targets for the checkpoint hardware, not claims about every Mac;
@@ -206,6 +230,18 @@ revise them only from recorded real-data evidence.
 
 **Done when:** No primary product strands real↔reciprocal navigation, the total ACOM
 experience meets the recorded budgets, and CPU/accelerated parity remains green.
+
+**Local checkpoint (2026-07-14): complete for locally measurable work.** Detector and
+reconstruction products retain a compact scan navigator whose click/drag continues to
+drive CBED, with explicit app-column `qᵧ` / app-row `qₓ` labels. ACOM measures from the
+user action (including plan generation) to published output. Automatic remains the
+exact Accelerate CPU reference; Metal remains selectable only behind numeric and
+failure parity. Existing real-058 measurements support bounded preview/region work and
+the CPU choice. The recorded 200-template action-to-result times are 0.73 s for a
+900-position Preview and 64.79 s for the 108,900-position full scan on the checkpoint
+M3; the original provisional 60 s full-scan target was revised to 70 s from this
+evidence. Metal took 91.26 s full-scan despite exact template/angle parity, so Automatic
+remains CPU. These are checkpoint-hardware targets, not cross-machine guarantees.
 
 ### Phase 5 — Compare saved products
 
@@ -220,6 +256,12 @@ units/calibration. Never imply that incompatible arrays are directly comparable.
 
 **Done when:** "Which result is better, and what settings differ?" is answerable inside
 the app in under a minute without reopening or rerunning either result.
+
+**Local checkpoint (2026-07-14): complete.** Saved scalar/RGBA products load into
+immutable A/B slots without replacing the active result. The native comparison surface
+shares zoom and cursor coordinates, lists provenance differences, and emits a masked
+A−B map only when scalar shape, domain, units, sampling, and quantitative status match.
+Failure cases state the incompatible semantic field instead of offering subtraction.
 
 ### Phase 6 — Round-trip completeness and publication-grade export
 
@@ -240,6 +282,28 @@ scientific truth.
 **Done when:** py4DSTEM can open app-written strain and orientation products and recover
 their scientific values and metadata exactly within documented numeric tolerances; an
 exported PNG is publication-usable without rebuilding its colorbar in another program.
+
+**Local checkpoint (2026-07-14): complete.** PNG publication output burns in title,
+scale bar, calibrated colorbar endpoints, and value units. Atomic EMD bundle export
+writes strain `exx/eyy/exy/theta/validity/residual` or raw Bunge-zxz Euler radians plus
+orientation reliability/score/validity, with sampling, symmetry, backend, calibration,
+and provenance. `scientific-bundle-test` opens every sibling `RealSlice` through
+py4DSTEM, compares arrays/NaNs/dimensions/sampling/metadata, and verifies cancellation
+leaves no partial destination. A native pixel regression separately gates exact canvas
+geometry, annotation ink, burned scale bar, and colorbar diversity; it exposed and
+removed a Retina-display-dependent 2× export-size variation.
+
+**Closing local acceptance (2026-07-14):** `tools/run-tests.sh all` exits zero with
+25 XCTest methods, 24 standalone scientific/interoperability harnesses, exact goldens
+for all seven locally available HDF5 datasets, and the clean hardened Release package
+audit. The completed native demo run covered fresh uncalibrated readiness, Image, DPC,
+Bragg, strain, ACOM, reconstruction, Results, and first session publication; its
+action-to-result timings were 11 s for readiness and 5/4/4/5/5/6 s for those six
+workflows. A later repeat built successfully but could not begin automation because
+the Codex desktop host retained foreground ownership: macOS reported the healthy app
+event loop but zero windows and no CoreGraphics session, and even Finder/AppKit
+activation remained refused. This is not counted as a second pass; rerun the native
+smoke from a normal Accessibility-authorized Terminal session.
 
 ### Phase 7 — Expand methods only from demonstrated demand
 

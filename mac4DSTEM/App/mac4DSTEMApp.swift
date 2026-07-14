@@ -29,7 +29,10 @@ private struct DatasetWindow: View {
                     return
                 }
                 loadedLaunchFixture = true
-                await appState.openDemoFixture()
+                let uncalibrated = ProcessInfo.processInfo.arguments.contains(
+                    "--demo-uncalibrated"
+                )
+                await appState.openDemoFixture(calibrated: !uncalibrated)
             }
     }
 }

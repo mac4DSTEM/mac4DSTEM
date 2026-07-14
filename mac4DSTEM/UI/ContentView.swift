@@ -118,7 +118,11 @@ struct ContentView: View {
                     }
 
                     if appState.workspaceArea == .prepare {
-                        Section("Calibration") {
+                        Section("Calibration path") {
+                            CalibrationReadinessChecklist()
+                        }
+
+                        Section("Calibration details") {
                         LabeledContent("Aperture center",
                                        value: appState.calibration.originProvenance.displayName)
                             .font(.caption)
@@ -1619,15 +1623,8 @@ struct PreprocessingExportSheet: View {
 
             Form {
                 Section("Calibration readiness") {
-                    ForEach(readiness.items) { item in
-                        readinessRow(item)
-                    }
-                    if readiness.isReady {
-                        Label("All calibration fields will be written to the DataCube.",
-                              systemImage: "checkmark.seal.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    } else {
+                    CalibrationReadinessChecklist()
+                    if !readiness.isReady {
                         Text("Missing fields are allowed only after an explicit export warning; no value is invented.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -1699,90 +1696,6 @@ struct PreprocessingExportSheet: View {
             }
         } message: {
             Text("Missing: \(missingCalibrationSummary). Those fields will remain in pixel coordinates or be omitted from the output metadata.")
-        }
-    }
-
-    @ViewBuilder
-    private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Label(
-                    item.kind.rawValue,
-                    systemImage: item.status.isReady
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-                )
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-                Spacer()
-                Text(item.status.displayName)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
-            }
-            Text(item.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if !item.status.isReady {
-                readinessAction(for: item.kind)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-
-    @ViewBuilder
-    private func readinessAction(for kind: CalibrationReadinessKind) -> some View {
-        switch kind {
-        case .originProbe:
-            Button("Measure Origin & Probe") {
-                Task { await appState.calibrateOrigin() }
-            }
-            .disabled(appState.isBusy)
-        case .ellipse:
-            Button("Fit Detector Ellipse") {
-                Task { await appState.calibrateEllipse() }
-            }
-            .disabled(appState.isBusy)
-        case .rotation:
-            Button("Measure R–Q Rotation") {
-                Task { await appState.calibrateRotation() }
-            }
-            .disabled(appState.isBusy)
-        case .qScale:
-            HStack {
-                if appState.braggVectors != nil {
-                    Button("Calibrate from \(appState.acomCrystal.rawValue)") {
-                        Task { await appState.calibrateQFromCrystal() }
-                    }
-                    .disabled(appState.isBusy)
-                }
-                manualScaleField(
-                    value: appState.calibration.qPixelSize,
-                    units: appState.calibration.qPixelUnits ?? "1/nm",
-                    onChange: appState.setManualQPixelSize
-                )
-            }
-        case .rScale:
-            manualScaleField(
-                value: appState.calibration.rPixelSize,
-                units: appState.calibration.rPixelUnits ?? "nm",
-                onChange: appState.setManualRPixelSize
-            )
-        }
-    }
-
-    private func manualScaleField(
-        value: Double?, units: String, onChange: @escaping (Double) -> Void
-    ) -> some View {
-        HStack(spacing: 6) {
-            Text("Manual")
-                .font(.caption)
-            TextField("0", value: Binding(
-                get: { value ?? 0 }, set: onChange
-            ), format: .number.precision(.fractionLength(0...6)))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 100)
-            Text("\(units)/px")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 

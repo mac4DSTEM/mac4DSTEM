@@ -28,6 +28,8 @@ enum StrainComponent: String, CaseIterable, Identifiable {
     case eyy   = "ε_yy"
     case exy   = "ε_xy"
     case theta = "θ (rotation)"
+    case residual = "Fit residual"
+    case indexed = "Indexed"
     var id: String { rawValue }
 }
 
@@ -63,6 +65,12 @@ struct StrainMap {
         case .eyy:   source = eyy
         case .exy:   source = exy
         case .theta: source = theta
+        case .residual: source = localResidualPixels
+        case .indexed:
+            return FloatImage(
+                width: width, height: height,
+                pixels: mask.map { $0 ? 1 : Float.nan }
+            )
         }
         var out = source
         for i in 0..<out.count where !mask[i] { out[i] = .nan }

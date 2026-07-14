@@ -35,13 +35,15 @@ run_harnesses() {
 
 scientific=(
   calibration-test calibration-readiness-test virtual-detector-test
-  disk-detection-test peak-overlay-test acom-orientation-test acom-matching-test
+  disk-detection-test peak-overlay-test fit-overlay-test
+  acom-orientation-test acom-matching-test
   idpc-test cancellation-test
   bragg-export-test sidecar-result-test strain-test ellipse-calibration-test
   vendor-reader-test
   preprocessing-export-test parallax-preprocessing-test parallax-alignment-test
   parallax-aberration-test parallax-subpixel-test parallax-depth-test
   singleslice-ptychography-test result-presentation-test
+  scientific-bundle-test
 )
 campaign=(
   parallax-preprocessing-test parallax-alignment-test parallax-aberration-test
