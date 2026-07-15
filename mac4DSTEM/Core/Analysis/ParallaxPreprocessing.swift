@@ -51,10 +51,11 @@ nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         }
         guard let rSize = calibration.rPixelSize,
               rSize.isFinite, rSize > 0,
-              let scanSampling = scanAngstrom(value: rSize,
-                                               units: calibration.rPixelUnits) else {
+              let scanSampling = CalibrationUnitConversion.realAngstromPerPixel(
+                value: rSize, units: calibration.rPixelUnits
+              ) else {
             throw ParallaxPreprocessor.PreprocessError.missingCalibration(
-                "Set a positive R pixel size in Å or nm."
+                "Set a positive R pixel size in Å, nm, or pm."
             )
         }
         guard let energyKV = acceleratingVoltageKV,
@@ -67,8 +68,10 @@ nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         let wavelength = ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: energyEV)
         guard let qSize = calibration.qPixelSize,
               qSize.isFinite, qSize > 0,
-              let reciprocalSampling = reciprocalAngstrom(
-                value: qSize, units: calibration.qPixelUnits, wavelength: wavelength
+              let reciprocalSampling =
+                CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+                    value: qSize, units: calibration.qPixelUnits,
+                    wavelengthAngstrom: wavelength
               ) else {
             throw ParallaxPreprocessor.PreprocessError.missingCalibration(
                 "Set a positive Q pixel size in Å⁻¹, nm⁻¹, or mrad."
@@ -87,35 +90,6 @@ nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         )
     }
 
-    private static func scanAngstrom(value: Double, units: String?) -> Double? {
-        switch normalized(units) {
-        case "a", "å", "angstrom", "ang", "å": return value
-        case "nm", "nanometer", "nanometers": return value * 10
-        default: return nil
-        }
-    }
-
-    private static func reciprocalAngstrom(
-        value: Double, units: String?, wavelength: Double
-    ) -> Double? {
-        switch normalized(units) {
-        case "a^-1", "å^-1", "a⁻¹", "å⁻¹", "1/a", "1/å", "1/angstrom", "angstrom^-1":
-            return value
-        case "nm^-1", "nm⁻¹", "1/nm", "1/nanometer", "nanometer^-1":
-            return value * 0.1
-        case "mrad":
-            return value / wavelength / 1_000
-        default:
-            return nil
-        }
-    }
-
-    private static func normalized(_ units: String?) -> String {
-        (units ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .replacingOccurrences(of: " ", with: "")
-    }
 }
 
 nonisolated struct ParallaxPreprocessOptions: Equatable, Sendable {

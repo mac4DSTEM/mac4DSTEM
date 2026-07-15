@@ -89,6 +89,56 @@ struct Harness {
                     "partial origin/probe detail lost manual origin")
         print("PASS: partial and non-physical values stay missing")
 
+        var pixelMetadata = completeCalibration(origin: .fileMaps)
+        pixelMetadata.qPixelSize = 1
+        pixelMetadata.qPixelUnits = "pixels"
+        pixelMetadata.rPixelSize = 1
+        pixelMetadata.rPixelUnits = "pixels"
+        let pixelReport = CalibrationReadinessReport.make(
+            calibration: pixelMetadata, provenance: completeProvenance(.importedFile)
+        )
+        try require(pixelReport.missingItems.map(\.kind) == [.qScale, .rScale],
+                    "positive pixel metadata was mistaken for physical calibration")
+        try require(pixelReport.missingItems.allSatisfy { $0.detail.contains("pixels") },
+                    "pixel-unit readiness did not explain the prerequisite block")
+        print("PASS: pixel metadata does not claim physical readiness")
+
+        var unitless = completeCalibration(origin: .manual)
+        unitless.qPixelUnits = nil
+        unitless.rPixelUnits = nil
+        let unitlessReport = CalibrationReadinessReport.make(
+            calibration: unitless, provenance: completeProvenance(.manual)
+        )
+        try require(unitlessReport.missingItems.map(\.kind) == [.qScale, .rScale],
+                    "missing units were silently guessed")
+        print("PASS: missing physical units are never guessed")
+
+        var poorOrigin = completeCalibration(origin: .fitted)
+        poorOrigin.origin = OriginMaps(
+            width: 2, height: 1,
+            measuredX: [0, 20], measuredY: [0, 20],
+            fittedX: [0, 0], fittedY: [0, 0]
+        )
+        let poorOriginReport = CalibrationReadinessReport.make(
+            calibration: poorOrigin, provenance: completeProvenance(.measuredInApp)
+        )
+        try require(poorOriginReport.missingItems.map(\.kind) == [.originProbe],
+                    "high-residual origin fit unlocked quantitative workflows")
+        try require(poorOriginReport.missingItems[0].detail.contains("exceeds probe radius"),
+                    "high-residual origin block lacks actionable detail")
+
+        poorOrigin.origin = OriginMaps(
+            width: 2, height: 1,
+            measuredX: [0, 1], measuredY: [0, 1],
+            fittedX: [0, 0], fittedY: [0, 0]
+        )
+        let acceptableOriginReport = CalibrationReadinessReport.make(
+            calibration: poorOrigin, provenance: completeProvenance(.measuredInApp)
+        )
+        try require(acceptableOriginReport.isReady,
+                    "origin fit within the probe radius was rejected")
+        print("PASS: origin residual gates quantitative readiness")
+
         let manual = CalibrationReadinessReport.make(
             calibration: completeCalibration(origin: .manual),
             provenance: completeProvenance(.manual)

@@ -1554,11 +1554,11 @@ final class AppState {
             calibration.qPixelSize = value
             calibration.qPixelUnits = calibration.qPixelUnits ?? "1/nm"
             calibrationProvenance.qScale = .manual
-            switch calibration.qPixelUnits?.lowercased() {
-            case "1/nm", "nm^-1", "1/nanometer": acomScale = value * 0.1
-            case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
-                acomScale = value
-            default: break
+            if let invAngstrom =
+                CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+                    value: value, units: calibration.qPixelUnits
+                ) {
+                acomScale = invAngstrom
             }
         } else {
             calibration.qPixelSize = nil
@@ -2654,14 +2654,13 @@ final class AppState {
     var dpcMilliradiansPerDetectorPixel: Float? {
         guard let qSize = calibration.qPixelSize,
               qSize.isFinite, qSize > 0 else { return nil }
-        let invAngstrom: Double
-        switch calibration.qPixelUnits?.lowercased() {
-        case "1/nm", "nm^-1", "1/nanometer": invAngstrom = qSize * 0.1
-        case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
-            invAngstrom = qSize
-        case "mrad": return Float(qSize)
-        default: return nil
+        if CalibrationUnitConversion.normalized(calibration.qPixelUnits) == "mrad" {
+            return Float(qSize)
         }
+        guard let invAngstrom =
+                CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+                    value: qSize, units: calibration.qPixelUnits
+                ) else { return nil }
         guard let voltageKV = acceleratingVoltage else { return nil }
         return DPC.milliradiansPerDetectorPixel(
             voltageKV: voltageKV, invAngstromPerPixel: invAngstrom

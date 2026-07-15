@@ -79,8 +79,12 @@ guard let angstrom = DPC.physicalIDPCCalibration(
     realPixelSize: 0.2, realPixelUnits: "nm",
     reciprocalPixelSize: 0.25, reciprocalPixelUnits: "1/nm",
     voltageKV: nil
+), let unicodeUnits = DPC.physicalIDPCCalibration(
+    realPixelSize: 200, realPixelUnits: "pm",
+    reciprocalPixelSize: 0.025, reciprocalPixelUnits: "Å⁻¹",
+    voltageKV: nil
 ) else { fail("physical calibration conversion returned nil") }
-guard angstrom == nanometer,
+guard angstrom == nanometer, angstrom == unicodeUnits,
       abs(angstrom.rowSamplingAngstrom - 2) < 1e-7,
       abs(angstrom.reciprocalAngstromPerDetectorPixel - 0.025) < 1e-7 else {
     fail("Å/nm physical calibration conversions differ")

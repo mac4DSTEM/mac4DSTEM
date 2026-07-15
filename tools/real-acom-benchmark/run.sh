@@ -38,6 +38,7 @@ xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
 DATASET="${1:-$ROOT/References/training_dataset/058_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5}"
+DATASET="${DATASET:A}"
 if [[ ! -f "$DATASET" ]]; then
   echo "SKIP: real ACOM dataset is absent: $DATASET"
   exit 0

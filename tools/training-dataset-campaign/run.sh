@@ -1,0 +1,80 @@
+#!/bin/zsh
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
+export DEVELOPER_DIR
+
+for lib in libhdf5 libsz.2 libaec.0; do
+  cp "$ROOT/$lib.dylib" "$WORK/"
+  codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null
+done
+for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
+  xcrun -sdk macosx metal -c "$source" -o "$WORK/${source:t:r}.air"
+done
+xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
+
+SRC="$ROOT/mac4DSTEM/Core"
+xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
+  "$SRC/Data/HDF5Types.swift" "$SRC/Data/H5Reader.swift" \
+  "$SRC/Data/DatasetDescriptor.swift" "$SRC/Data/DiffractionPattern.swift" \
+  "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" \
+  "$SRC/Data/Calibration.swift" "$SRC/Data/DisplayedProduct.swift" \
+  "$SRC/Data/BraggVectorEMDWriter.swift" \
+  "$SRC/Compute/AnalysisCancellationToken.swift" "$SRC/Compute/FFT1D.swift" \
+  "$SRC/Compute/FFT2D.swift" "$SRC/Compute/MatrixDFTCorrelation.swift" \
+  "$SRC/Compute/MetalEngine.swift" \
+  "$SRC/Analysis/ProbeKernel.swift" "$SRC/Analysis/DiskDetection.swift" \
+  "$SRC/Analysis/TiledDiskDetection.swift" "$SRC/Analysis/VirtualDetector.swift" \
+  "$SRC/Analysis/OriginCalibration.swift" "$SRC/Analysis/RotationCalibration.swift" \
+  "$SRC/Analysis/EllipseCalibration.swift" "$SRC/Analysis/DPC.swift" \
+  "$SRC/Analysis/StrainMapping.swift" "$SRC/Analysis/QCalibration.swift" \
+  "$SRC/Analysis/ParallaxPreprocessing.swift" \
+  "$SRC/Analysis/OrientationResult.swift" \
+  "$SRC/Crystal/ScatteringFactors.swift" "$SRC/Crystal/Crystal.swift" \
+  "$SRC/Crystal/OrientationPlan.swift" "$SRC/Crystal/OrientationMatcher.swift" \
+  "$ROOT/tools/training-dataset-campaign/main.swift" \
+  -framework Accelerate -framework Metal -framework MetalKit
+codesign -f -s - "$WORK/harness" 2>/dev/null
+
+if (( $# > 0 )); then
+  files=("$@")
+else
+  files=("$ROOT"/References/training_dataset/*.h5(N))
+fi
+if (( ${#files} == 0 )); then
+  echo "SKIP: no training datasets"; exit 0
+fi
+absolute_files=()
+for file in "${files[@]}"; do
+  absolute_files+=("${file:A}")
+done
+
+OUTPUT="$WORK/output"
+mkdir -p "$OUTPUT"
+cd "$WORK"
+MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" \
+  /usr/bin/time -l ./harness "$OUTPUT" "${absolute_files[@]}" \
+  2> campaign.log | sed '/^\[MetalEngine\]/d' > report.json
+
+source "$ROOT/tools/lib/python.sh"
+resolve_mac4dstem_python "$ROOT"
+"$PYTHON_BIN" "$ROOT/tools/training-dataset-campaign/verify_py4dstem.py" "$OUTPUT" \
+  > py4dstem.log
+
+if [[ -n "${MAC4DSTEM_CAMPAIGN_REPORT_OUTPUT:-}" ]]; then
+  cp report.json "$MAC4DSTEM_CAMPAIGN_REPORT_OUTPUT"
+fi
+if [[ -n "${MAC4DSTEM_CAMPAIGN_LOG_OUTPUT:-}" ]]; then
+  cp campaign.log "$MAC4DSTEM_CAMPAIGN_LOG_OUTPUT"
+fi
+if [[ -n "${MAC4DSTEM_CAMPAIGN_EXPORT_DIR:-}" ]]; then
+  mkdir -p "$MAC4DSTEM_CAMPAIGN_EXPORT_DIR"
+  cp "$OUTPUT"/*.h5 "$MAC4DSTEM_CAMPAIGN_EXPORT_DIR/"
+fi
+
+cat campaign.log >&2
+cat py4dstem.log >&2
+cat report.json

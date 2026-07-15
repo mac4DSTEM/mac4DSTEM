@@ -53,6 +53,8 @@ enum H5Error: LocalizedError {
 
 nonisolated private struct HDF5Library: @unchecked Sendable {
     typealias H5open = @convention(c) () -> herr_t
+    typealias H5EAuto2 = @convention(c) (hid_t, UnsafeMutableRawPointer?) -> herr_t
+    typealias H5EsetAuto2 = @convention(c) (hid_t, H5EAuto2?, UnsafeMutableRawPointer?) -> herr_t
     typealias H5Fopen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
     typealias H5Fclose = @convention(c) (hid_t) -> herr_t
     typealias H5Dopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
@@ -89,6 +91,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
 
     let handle: UnsafeMutableRawPointer
     let h5open: H5open
+    let h5esetAuto2: H5EsetAuto2
     let h5fopen: H5Fopen
     let h5fclose: H5Fclose
     let h5dopen2: H5Dopen2
@@ -158,10 +161,16 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
 
         let h5open = try symbol("H5open", as: H5open.self)
         _ = h5open()
+        let h5esetAuto2 = try symbol("H5Eset_auto2", as: H5EsetAuto2.self)
+        // Missing optional py4DSTEM/EMD paths are normal during discovery.
+        // HDF5 otherwise writes a full native stack to stderr for each probe;
+        // the app reports its own actionable errors instead.
+        _ = h5esetAuto2(h5DefaultProperty, nil, nil)
 
         return HDF5Library(
             handle: handle,
             h5open: h5open,
+            h5esetAuto2: h5esetAuto2,
             h5fopen: try symbol("H5Fopen", as: H5Fopen.self),
             h5fclose: try symbol("H5Fclose", as: H5Fclose.self),
             h5dopen2: try symbol("H5Dopen2", as: H5Dopen2.self),
@@ -231,6 +240,7 @@ actor H5Reader: FourDDataSource {
 
     init(path: String) throws {
         let hdf5 = try HDF5Library.load()
+        _ = hdf5.h5esetAuto2(h5DefaultProperty, nil, nil)
         let id = path.withCString { hdf5.h5fopen($0, h5ReadOnly, h5DefaultProperty) }
         guard id >= 0 else { throw H5Error.cannotOpenFile(path) }
         self.hdf5 = hdf5
@@ -245,6 +255,7 @@ actor H5Reader: FourDDataSource {
     }
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor {
+        silenceAutomaticErrors()
         for path in Self.candidatePaths {
             if let descriptor = try? describe(path: path), descriptor.is4D {
                 return descriptor
@@ -275,6 +286,7 @@ actor H5Reader: FourDDataSource {
     }
 
     func describe(path: String) throws -> DatasetDescriptor {
+        silenceAutomaticErrors()
         let datasetID = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
         guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(path) }
         defer { _ = hdf5.h5dclose(datasetID) }
@@ -323,6 +335,7 @@ actor H5Reader: FourDDataSource {
     }
 
     func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
+        silenceAutomaticErrors()
         let datasetID = descriptor.datasetPath.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
         guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
         defer { _ = hdf5.h5dclose(datasetID) }
@@ -374,6 +387,7 @@ actor H5Reader: FourDDataSource {
     /// [Rx * Qy * Qx]. This remains a useful compatibility primitive; bounded
     /// whole-scan consumers prefer `readScanTile`.
     func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
+        silenceAutomaticErrors()
         let datasetID = descriptor.datasetPath.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
         guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
         defer { _ = hdf5.h5dclose(datasetID) }
@@ -423,6 +437,7 @@ actor H5Reader: FourDDataSource {
 
     func readScanTile(_ descriptor: DatasetDescriptor,
                       yRange: Range<Int>) throws -> FourDScanTile {
+        silenceAutomaticErrors()
         guard yRange.lowerBound >= 0, yRange.upperBound <= descriptor.ry,
               !yRange.isEmpty else {
             throw H5Error.readFailed("invalid scan tile \(yRange)")
@@ -487,6 +502,7 @@ actor H5Reader: FourDDataSource {
     ///     units from the dataset attribute) — generic EMD/HyperSpy fallback.
     /// Otherwise nil → manual entry in the Calibration section.
     func pixelCalibration() -> PixelCalibration? {
+        silenceAutomaticErrors()
         guard let dsPath = lastDatasetPath else { return nil }
         let components = dsPath.split(separator: "/").map(String.init)
         var out = PixelCalibration(rSize: nil, rUnits: nil, qSize: nil, qUnits: nil)
@@ -713,6 +729,7 @@ actor H5Reader: FourDDataSource {
     }
 
     func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
+        silenceAutomaticErrors()
         let objectID = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
         guard objectID >= 0 else { return nil }
         defer { _ = hdf5.h5oclose(objectID) }
@@ -741,5 +758,12 @@ actor H5Reader: FourDDataSource {
         default:
             return "class \(typeClass), \(size) bytes"
         }
+    }
+
+    /// HDF5's default error stack is thread-local. Actor continuations may
+    /// resume on a different worker, so disable native stderr printing at each
+    /// public entry point rather than assuming the initializer's thread sticks.
+    private func silenceAutomaticErrors() {
+        _ = hdf5.h5esetAuto2(h5DefaultProperty, nil, nil)
     }
 }

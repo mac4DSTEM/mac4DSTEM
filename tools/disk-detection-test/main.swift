@@ -201,6 +201,43 @@ guard nativePeaks.count == 1,
 }
 print("PASS: non-radix-2 native circular correlation")
 
+// vDSP's general DFT omits pure radix-3/5 sizes such as 27 and 125. Verify
+// selected analytic bins, not only a round trip, so a radix/exponent mismatch
+// cannot pass by applying two inverse mistakes.
+func verifyExactRadixFFT(size: Int, impulseRow: Int, impulseColumn: Int) {
+    var real = [Float](repeating: 0, count: size * size)
+    var imaginary = [Float](repeating: 0, count: real.count)
+    real[impulseRow * size + impulseColumn] = 1
+    guard let fft = FFT2D(nx: size, ny: size) else {
+        fail("\(size)×\(size) exact-radix FFT setup returned nil")
+    }
+    fft.transform(re: &real, im: &imaginary, forward: true)
+    let bins = [(0, 0), (1, 2), (size / 7, size / 4),
+                (size / 2, size / 2), (size - 1, size * 3 / 4)]
+    for (frequencyRow, frequencyColumn) in bins {
+        let phase = -2 * Float.pi * (
+            Float(frequencyRow * impulseRow + frequencyColumn * impulseColumn)
+            / Float(size)
+        )
+        let index = frequencyRow * size + frequencyColumn
+        guard abs(real[index] - cos(phase)) < 2e-5,
+              abs(imaginary[index] - sin(phase)) < 2e-5 else {
+            fail("\(size)×\(size) exact-radix analytic bin mismatch at \(frequencyRow),\(frequencyColumn)")
+        }
+    }
+    fft.transform(re: &real, im: &imaginary, forward: false)
+    for index in real.indices {
+        let expected: Float = index == impulseRow * size + impulseColumn ? 1 : 0
+        guard abs(real[index] - expected) < 2e-5,
+              abs(imaginary[index]) < 2e-5 else {
+            fail("\(size)×\(size) exact-radix round-trip mismatch at \(index)")
+        }
+    }
+}
+verifyExactRadixFFT(size: 27, impulseRow: 5, impulseColumn: 8)
+verifyExactRadixFFT(size: 125, impulseRow: 7, impulseColumn: 11)
+print("PASS: 27×27 radix-3 and 125×125 radix-5 FFT analytic parity")
+
 var measuredPixels = [Float](repeating: 0, count: 8 * 8)
 measuredPixels[4 * 8 + 3] = 7
 let measuredPattern = DiffractionPattern(qy: 8, qx: 8, pixels: measuredPixels)

@@ -64,6 +64,69 @@ struct CalibrationProvenance: Equatable, Sendable {
     var rScale: CalibrationValueProvenance?
 }
 
+/// One normalization contract for the physical sampling units accepted by
+/// readiness, DPC/iDPC, ACOM scale setup, and reconstruction preprocessing.
+/// Pixel labels deliberately do not pass: a positive value such as
+/// `1 pixels/pixel` is metadata, but it is not a physical calibration.
+nonisolated enum CalibrationUnitConversion {
+    static func normalized(_ unit: String?) -> String {
+        (unit ?? "")
+            .precomposedStringWithCanonicalMapping
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "ångström", with: "angstrom")
+    }
+
+    static func realAngstromPerPixel(value: Double, units: String?) -> Double? {
+        guard value.isFinite, value > 0 else { return nil }
+        switch normalized(units) {
+        case "a", "å", "angstrom", "ang":
+            return value
+        case "nm", "nanometer", "nanometers", "nanometre", "nanometres":
+            return value * 10
+        case "pm", "picometer", "picometers", "picometre", "picometres":
+            return value * 0.01
+        default:
+            return nil
+        }
+    }
+
+    static func reciprocalInvAngstromPerPixel(
+        value: Double, units: String?, wavelengthAngstrom: Double? = nil
+    ) -> Double? {
+        guard value.isFinite, value > 0 else { return nil }
+        switch normalized(units) {
+        case "1/a", "1/å", "a^-1", "å^-1", "a⁻¹", "å⁻¹",
+             "angstrom^-1", "angstrom⁻¹", "1/angstrom", "ang^-1", "ang⁻¹":
+            return value
+        case "1/nm", "nm^-1", "nm⁻¹", "1/nanometer", "1/nanometre",
+             "nanometer^-1", "nanometer⁻¹", "nanometre^-1", "nanometre⁻¹":
+            return value * 0.1
+        case "mrad":
+            guard let wavelengthAngstrom,
+                  wavelengthAngstrom.isFinite, wavelengthAngstrom > 0 else { return nil }
+            return value / (1_000 * wavelengthAngstrom)
+        default:
+            return nil
+        }
+    }
+
+    static func isPhysicalReciprocalUnit(_ units: String?) -> Bool {
+        if normalized(units) == "mrad" { return true }
+        return reciprocalInvAngstromPerPixel(value: 1, units: units) != nil
+    }
+
+    static func isPixelUnit(_ units: String?) -> Bool {
+        switch normalized(units) {
+        case "px", "pixel", "pixels", "1", "1/px", "1/pixel", "1/pixels":
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
     case originProbe = "Origin & probe"
     case ellipse = "Ellipse distortion"
@@ -134,7 +197,19 @@ struct CalibrationReadinessReport: Equatable, Sendable {
         let validProbe = calibration.probeRadius.map {
             $0.isFinite && $0 > 0
         } ?? false
-        let originAndProbeReady = originSource != nil && validProbe
+        let originResidual = calibration.origin?.rmsResidual
+        let originFitAcceptable: Bool
+        if let originResidual, let probeRadius = calibration.probeRadius {
+            // A fitted descan field whose RMS error is larger than the direct
+            // beam disk is not a quantitative origin calibration. File/session
+            // maps without raw measured arrays have no residual to judge and
+            // retain their explicit provenance-based readiness.
+            originFitAcceptable = originResidual.isFinite
+                && originResidual <= probeRadius
+        } else {
+            originFitAcceptable = true
+        }
+        let originAndProbeReady = originSource != nil && validProbe && originFitAcceptable
         let originProbeSource: CalibrationValueProvenance
         if let originSource, let probeSource = provenance.probe,
            originSource == probeSource {
@@ -148,7 +223,13 @@ struct CalibrationReadinessReport: Equatable, Sendable {
                 provenance.probe?.rawValue ?? "Unknown source"
             )
             : "Missing"
-        let originDetail = "Origin: \(originSource?.rawValue ?? "Missing") · Probe: \(probeDetail)"
+        var originDetail = "Origin: \(originSource?.rawValue ?? "Missing") · Probe: \(probeDetail)"
+        if let originResidual {
+            originDetail += String(format: " · Fit RMS %.4g px", originResidual)
+            if !originFitAcceptable {
+                originDetail += " (exceeds probe radius; recalibrate before quantitative use)"
+            }
+        }
 
         let validEllipse = calibration.hasEllipse
             && (calibration.ellipseA ?? 0) > 0
@@ -174,14 +255,37 @@ struct CalibrationReadinessReport: Equatable, Sendable {
             rotationDetail = "Scan and detector axes are not aligned"
         }
 
-        let validQ = calibration.qPixelSize.map { $0.isFinite && $0 > 0 } ?? false
-        let validR = calibration.rPixelSize.map { $0.isFinite && $0 > 0 } ?? false
-        let qDetail = validQ
-            ? String(format: "%.6g %@/px", calibration.qPixelSize!, calibration.qPixelUnits ?? "1/nm")
-            : "Reciprocal dimensions remain in pixels"
-        let rDetail = validR
-            ? String(format: "%.6g %@/px", calibration.rPixelSize!, calibration.rPixelUnits ?? "nm")
-            : "Real-space dimensions remain in pixels"
+        let positiveQ = calibration.qPixelSize.map { $0.isFinite && $0 > 0 } ?? false
+        let positiveR = calibration.rPixelSize.map { $0.isFinite && $0 > 0 } ?? false
+        let validQ = positiveQ
+            && CalibrationUnitConversion.isPhysicalReciprocalUnit(calibration.qPixelUnits)
+        let validR = calibration.rPixelSize.flatMap {
+            CalibrationUnitConversion.realAngstromPerPixel(
+                value: $0, units: calibration.rPixelUnits
+            )
+        } != nil
+        let qDetail: String
+        if validQ, let size = calibration.qPixelSize, let units = calibration.qPixelUnits {
+            qDetail = String(format: "%.6g %@/px", size, units)
+        } else if positiveQ, let size = calibration.qPixelSize {
+            let units = calibration.qPixelUnits ?? "no units"
+            qDetail = CalibrationUnitConversion.isPixelUnit(calibration.qPixelUnits)
+                ? String(format: "Reciprocal dimensions remain in pixels (%.6g %@/px)", size, units)
+                : "Reciprocal scale lacks supported physical units (\(units))"
+        } else {
+            qDetail = "Reciprocal dimensions remain in pixels"
+        }
+        let rDetail: String
+        if validR, let size = calibration.rPixelSize, let units = calibration.rPixelUnits {
+            rDetail = String(format: "%.6g %@/px", size, units)
+        } else if positiveR, let size = calibration.rPixelSize {
+            let units = calibration.rPixelUnits ?? "no units"
+            rDetail = CalibrationUnitConversion.isPixelUnit(calibration.rPixelUnits)
+                ? String(format: "Real-space dimensions remain in pixels (%.6g %@/px)", size, units)
+                : "Real-space scale lacks supported physical units (\(units))"
+        } else {
+            rDetail = "Real-space dimensions remain in pixels"
+        }
 
         return CalibrationReadinessReport(items: [
             CalibrationReadinessItem(

@@ -100,29 +100,17 @@ enum DPC {
               let reciprocalPixelSize,
               reciprocalPixelSize.isFinite, reciprocalPixelSize > 0 else { return nil }
 
-        let realUnits = normalizedUnit(realPixelUnits)
-        let scanAngstrom: Double
-        switch realUnits {
-        case "a", "å", "angstrom", "ang": scanAngstrom = realPixelSize
-        case "nm", "nanometer", "nanometre": scanAngstrom = realPixelSize * 10
-        case "pm", "picometer", "picometre": scanAngstrom = realPixelSize * 0.01
-        default: return nil
+        guard let scanAngstrom = CalibrationUnitConversion.realAngstromPerPixel(
+            value: realPixelSize, units: realPixelUnits
+        ) else { return nil }
+        let wavelength = voltageKV.flatMap {
+            electronWavelengthAngstrom(voltageKV: $0)
         }
-
-        let reciprocalUnits = normalizedUnit(reciprocalPixelUnits)
-        let reciprocalAngstrom: Double
-        switch reciprocalUnits {
-        case "1/a", "1/å", "a^-1", "å^-1", "angstrom^-1", "1/angstrom":
-            reciprocalAngstrom = reciprocalPixelSize
-        case "1/nm", "nm^-1", "1/nanometer", "nanometer^-1":
-            reciprocalAngstrom = reciprocalPixelSize * 0.1
-        case "mrad":
-            guard let voltageKV,
-                  let wavelength = electronWavelengthAngstrom(voltageKV: voltageKV)
-            else { return nil }
-            reciprocalAngstrom = reciprocalPixelSize / (1_000 * wavelength)
-        default: return nil
-        }
+        guard let reciprocalAngstrom =
+                CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+                    value: reciprocalPixelSize, units: reciprocalPixelUnits,
+                    wavelengthAngstrom: wavelength
+                ) else { return nil }
         guard scanAngstrom.isFinite, reciprocalAngstrom.isFinite,
               scanAngstrom > 0, reciprocalAngstrom > 0 else { return nil }
         return IDPCPhysicalCalibration(
@@ -130,13 +118,6 @@ enum DPC {
             columnSamplingAngstrom: Float(scanAngstrom),
             reciprocalAngstromPerDetectorPixel: Float(reciprocalAngstrom)
         )
-    }
-
-    private nonisolated static func normalizedUnit(_ unit: String?) -> String {
-        (unit ?? "")
-            .lowercased()
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "ångström", with: "angstrom")
     }
 
     nonisolated static func physicalMagnitudeImage(
