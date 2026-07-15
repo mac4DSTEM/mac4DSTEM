@@ -65,8 +65,13 @@ struct ProductsView: View {
 
             product("Origin calibration", done: appState.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibration.hasRotation)
-            product("Bragg disks", done: appState.braggVectors != nil,
-                    detail: appState.braggPeakCount.map { "\($0) peaks" })
+            product(
+                "Bragg disks",
+                done: appState.hasCurrentBraggVectors,
+                detail: appState.diskDetectionSettingsAreStale
+                    ? "settings changed · rerun"
+                    : appState.braggPeakCount.map { "\($0) peaks" }
+            )
             product("Strain map", done: appState.strainMap != nil)
             product("Orientation map", done: appState.hasOrientationMap)
 

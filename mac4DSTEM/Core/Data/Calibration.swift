@@ -69,6 +69,12 @@ struct CalibrationProvenance: Equatable, Sendable {
 /// Pixel labels deliberately do not pass: a positive value such as
 /// `1 pixels/pixel` is metadata, but it is not a physical calibration.
 nonisolated enum CalibrationUnitConversion {
+    /// Canonical labels offered by the manual calibration controls. File
+    /// imports may use any accepted spelling below; manual edits normalize to
+    /// one of these labels so the value and its physical meaning are explicit.
+    static let editableRealUnits = ["Å", "nm", "pm"]
+    static let editableReciprocalUnits = ["Å⁻¹", "nm⁻¹", "mrad"]
+
     static func normalized(_ unit: String?) -> String {
         (unit ?? "")
             .precomposedStringWithCanonicalMapping
@@ -92,6 +98,19 @@ nonisolated enum CalibrationUnitConversion {
         }
     }
 
+    static func canonicalEditableRealUnit(_ units: String?) -> String? {
+        switch normalized(units) {
+        case "a", "å", "angstrom", "ang":
+            return "Å"
+        case "nm", "nanometer", "nanometers", "nanometre", "nanometres":
+            return "nm"
+        case "pm", "picometer", "picometers", "picometre", "picometres":
+            return "pm"
+        default:
+            return nil
+        }
+    }
+
     static func reciprocalInvAngstromPerPixel(
         value: Double, units: String?, wavelengthAngstrom: Double? = nil
     ) -> Double? {
@@ -107,6 +126,21 @@ nonisolated enum CalibrationUnitConversion {
             guard let wavelengthAngstrom,
                   wavelengthAngstrom.isFinite, wavelengthAngstrom > 0 else { return nil }
             return value / (1_000 * wavelengthAngstrom)
+        default:
+            return nil
+        }
+    }
+
+    static func canonicalEditableReciprocalUnit(_ units: String?) -> String? {
+        switch normalized(units) {
+        case "1/a", "1/å", "a^-1", "å^-1", "a⁻¹", "å⁻¹",
+             "angstrom^-1", "angstrom⁻¹", "1/angstrom", "ang^-1", "ang⁻¹":
+            return "Å⁻¹"
+        case "1/nm", "nm^-1", "nm⁻¹", "1/nanometer", "1/nanometre",
+             "nanometer^-1", "nanometer⁻¹", "nanometre^-1", "nanometre⁻¹":
+            return "nm⁻¹"
+        case "mrad":
+            return "mrad"
         default:
             return nil
         }

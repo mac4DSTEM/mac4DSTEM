@@ -237,15 +237,17 @@ struct ContentView: View {
                         // (and the only way in for plain HDF5). Drives the
                         // scale bars; 0 = uncalibrated (bars show px).
                         pixelSizeField("r px size",
-                                       value: appState.calibration.rPixelSize,
-                                       units: appState.calibration.rPixelUnits,
-                                       defaultUnits: "nm",
-                                       onChange: appState.setManualRPixelSize)
+                                       value: appState.manualRPixelSize,
+                                       units: appState.manualRPixelUnits,
+                                       unitOptions: CalibrationUnitConversion.editableRealUnits,
+                                       onChange: appState.setManualRPixelSize,
+                                       onUnitChange: appState.setManualRPixelUnits)
                         pixelSizeField("q px size",
-                                       value: appState.calibration.qPixelSize,
-                                       units: appState.calibration.qPixelUnits,
-                                       defaultUnits: "1/nm",
-                                       onChange: appState.setManualQPixelSize)
+                                       value: appState.manualQPixelSize,
+                                       units: appState.manualQPixelUnits,
+                                       unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
+                                       onChange: appState.setManualQPixelSize,
+                                       onUnitChange: appState.setManualQPixelUnits)
                         }
                     }
 
@@ -347,49 +349,7 @@ struct ContentView: View {
 
                     if appState.workspaceArea == .map && appState.analysisMode == .disks {
                         Section("Disk detection") {
-                            Button {
-                                Task { await appState.generateProbeKernel() }
-                            } label: {
-                                Label("Generate Probe Kernel", systemImage: "circle.circle")
-                            }
-                            .disabled(appState.isBusy)
-                            Button {
-                                Task { await appState.generateMeasuredProbeKernel() }
-                            } label: {
-                                Label("Use Current CBED / ROI", systemImage: "scope")
-                            }
-                            .disabled(appState.isBusy || appState.displayedPattern == nil)
-                            .help("Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern.")
-                            if let kernel = appState.probeKernel {
-                                LabeledContent("Kernel",
-                                               value: String(format: "%@ · %.1f px",
-                                                             kernel.source.rawValue, kernel.probeRadius))
-                                    .font(.caption)
-                            }
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(String(format: "Correlation power  %.2f", appState.diskParams.corrPower))
-                                    .font(.caption)
-                                Slider(value: $appState.diskParams.corrPower, in: 0...1)
-                            }
-                            Picker("Subpixel", selection: $appState.diskParams.subpixel) {
-                                ForEach(SubpixelMode.allCases) { mode in
-                                    Text(mode.rawValue).tag(mode)
-                                }
-                            }
-                            Stepper(value: $appState.diskParams.maxNumPeaks, in: 1...500) {
-                                Text("Max peaks  \(appState.diskParams.maxNumPeaks)").font(.caption)
-                            }
-
-                            Button {
-                                Task { await appState.runDiskDetection() }
-                            } label: {
-                                Label("Detect All Disks", systemImage: "rays")
-                            }
-                            .disabled(appState.isBusy)
-                            if let count = appState.braggPeakCount {
-                                LabeledContent("Peaks found", value: "\(count)").font(.caption)
-                            }
+                            DiskDetectionControls()
                         }
                     }
 
@@ -435,8 +395,11 @@ struct ContentView: View {
                             } label: {
                                 Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
                             }
-                            .disabled(appState.isBusy || appState.braggVectors == nil)
-                            if appState.braggVectors == nil {
+                            .disabled(appState.isBusy || !appState.hasCurrentBraggVectors)
+                            if appState.diskDetectionSettingsAreStale {
+                                Text("Detection settings changed — rerun Detect All Disks before strain.")
+                                    .font(.caption2).foregroundStyle(.orange)
+                            } else if appState.braggVectors == nil {
                                 Text("Detect Bragg disks first (Map → Bragg disks).")
                                     .font(.caption2).foregroundStyle(.secondary)
                             }
@@ -1044,7 +1007,7 @@ struct ContentView: View {
                                 } label: {
                                     Label("Calibrate Q from Crystal", systemImage: "ruler")
                                 }
-                                .disabled(appState.isBusy || appState.braggVectors == nil)
+                                .disabled(appState.isBusy || !appState.hasCurrentBraggVectors)
                                 .help("Uses the median innermost detected Bragg radius and the selected crystal's first allowed reflection.")
                                 if appState.hasOrientationPlan,
                                    let plan = appState.orientationPlan {
@@ -1053,7 +1016,10 @@ struct ContentView: View {
                                 }
                             }
 
-                            if appState.braggVectors == nil {
+                            if appState.diskDetectionSettingsAreStale {
+                                Text("Detection settings changed — rerun Detect All Disks before ACOM.")
+                                    .font(.caption2).foregroundStyle(.orange)
+                            } else if appState.braggVectors == nil {
                                 Text("Detect Bragg disks first (Map → Bragg disks).")
                                     .font(.caption2).foregroundStyle(.secondary)
                             }
@@ -1238,14 +1204,15 @@ struct ContentView: View {
         }
     }
 
-    /// One pixel-size calibration row: numeric field + units label.
-    /// Entering a value > 0 calibrates (setting default units if none);
+    /// One pixel-size calibration row: numeric field + physical-unit picker.
+    /// Entering a value > 0 calibrates with the visible selected units;
     /// clearing to 0 returns to uncalibrated ("px" scale bars).
     private func pixelSizeField(_ label: String,
                                 value: Double?,
-                                units: String?,
-                                defaultUnits: String,
-                                onChange: @escaping (Double) -> Void) -> some View {
+                                units: String,
+                                unitOptions: [String],
+                                onChange: @escaping (Double) -> Void,
+                                onUnitChange: @escaping (String) -> Void) -> some View {
         HStack {
             Text(label).font(.caption)
             Spacer()
@@ -1255,9 +1222,16 @@ struct ContentView: View {
             ), format: .number.precision(.fractionLength(0...6)))
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 90)
-            Text(units ?? defaultUnits)
-                .font(.caption2).foregroundStyle(.secondary)
-                .frame(width: 38, alignment: .leading)
+            Picker("Units", selection: Binding(
+                get: { units }, set: onUnitChange
+            )) {
+                ForEach(unitOptions, id: \.self) { unit in
+                    Text(unit).tag(unit)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(width: 68, alignment: .leading)
         }
     }
 

@@ -37,7 +37,7 @@ struct BraggPeak: Sendable {
     var intensity: Float
 }
 
-enum SubpixelMode: String, CaseIterable, Identifiable {
+enum SubpixelMode: String, CaseIterable, Identifiable, Sendable {
     case pixel     = "Pixel"
     case poly      = "Parabolic"
     case multicorr = "Fourier (multicorr)"
@@ -47,8 +47,9 @@ enum SubpixelMode: String, CaseIterable, Identifiable {
 /// Detection parameters, mirroring find_Bragg_disks. Defaults follow
 /// py4DSTEM where scale-free; AppState adapts the pixel-scaled ones
 /// (minPeakSpacing, edgeBoundary) to the detector size on dataset load.
-struct DiskDetectionParams {
+struct DiskDetectionParams: Equatable, Sendable {
     var corrPower: Float = 1              // 1 = cross, 0 = phase correlation
+    var sigmaDP: Float = 0                // gaussian smoothing before correlation
     var sigmaCC: Float = 2                // gaussian smoothing of CC before maxima
     var subpixel: SubpixelMode = .poly
     var upsampleFactor: Int = 16
@@ -58,6 +59,17 @@ struct DiskDetectionParams {
     var minPeakSpacing: Float = 60
     var edgeBoundary: Int = 20
     var maxNumPeaks: Int = 70
+
+    /// py4DSTEM's literal spacing/edge defaults target roughly 512-pixel
+    /// patterns. Preserve its scale-free defaults while keeping the spatial
+    /// filters useful on smaller detectors.
+    static func detectorAdapted(qy: Int, qx: Int) -> DiskDetectionParams {
+        var params = DiskDetectionParams()
+        let qMin = Float(min(qx, qy))
+        params.minPeakSpacing = max(4, (qMin / 8).rounded())
+        params.edgeBoundary = max(2, Int(qMin / 24))
+        return params
+    }
 }
 
 /// Detected peaks for every scan position, row-major [ry][rx].
@@ -168,7 +180,11 @@ nonisolated final class DiskDetector {
 
     /// Detect Bragg disks in one [qy * qx] pattern.
     func detect(pattern: UnsafePointer<Float>, params: DiskDetectionParams) -> [BraggPeak] {
-        crossCorrelate(pattern: pattern, corrPower: params.corrPower)
+        crossCorrelate(
+            pattern: pattern,
+            corrPower: params.corrPower,
+            sigmaDP: params.sigmaDP
+        )
 
         // Smooth (or copy) the real CC for maxima finding.
         if params.sigmaCC > 0 {
@@ -196,8 +212,13 @@ nonisolated final class DiskDetector {
 
     // MARK: Stage 1 — hybrid cross correlation
 
-    private func crossCorrelate(pattern: UnsafePointer<Float>, corrPower: Float) {
-        // Copy the pattern onto the native circular-correlation grid.
+    private func crossCorrelate(
+        pattern: UnsafePointer<Float>,
+        corrPower: Float,
+        sigmaDP: Float
+    ) {
+        // Copy the pattern onto the native circular-correlation grid, then
+        // optionally apply py4DSTEM's pre-correlation diffraction smoothing.
         let n = px * py
         for i in 0..<n { re[i] = 0; im[i] = 0 }
         for y in 0..<qy {
@@ -205,6 +226,10 @@ nonisolated final class DiskDetector {
                 buf.baseAddress!.advanced(by: y * px)
                     .update(from: pattern + y * qx, count: qx)
             }
+        }
+        if sigmaDP > 0 {
+            gaussianBlur(src: re, dst: &smooth, sigma: sigmaDP)
+            re = smooth
         }
         fft.transform(re: &re, im: &im, forward: true)
 

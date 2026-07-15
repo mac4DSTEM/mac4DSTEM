@@ -35,6 +35,7 @@ SOURCE_CONTRACTS = (
     (CROSS_SOURCE, "m = np.fft.fft2(ar) * template_FT"),
     (CROSS_SOURCE, "cc = np.abs(m) ** (corrPower) * np.exp(1j * np.angle(m))"),
     (CROSS_SOURCE, "cc = np.maximum(np.real(np.fft.ifft2(cc)), 0)"),
+    (DETECTION_SOURCE, "DP = gaussian_filter(DP, sigma_dp)"),
     (DETECTION_SOURCE, "minSpacing=minPeakSpacing"),
     (MAXIMA_SOURCE, "(ar >= np.roll(ar, (-1, 0), axis=(0, 1)))"),
     (MAXIMA_SOURCE, "(ar > np.roll(ar, (1, 1), axis=(0, 1)))"),
@@ -94,7 +95,7 @@ for row in range(ROWS):
         pattern.append(value)
 
 
-def correlation():
+def correlation(values):
     # ifft(fft(pattern) * conj(fft(kernel))) expressed directly as circular
     # cross-correlation. This is the corrPower=1 branch of py4DSTEM.
     result = [0.0] * (ROWS * COLS)
@@ -106,14 +107,14 @@ def correlation():
                 pattern_base = row * COLS
                 kernel_base = kernel_row * COLS
                 for col in range(COLS):
-                    total += pattern[pattern_base + col] * kernel[
+                    total += values[pattern_base + col] * kernel[
                         kernel_base + (col - out_col) % COLS
                     ]
             result[out_row * COLS + out_col] = total
     return result
 
 
-raw_cc = correlation()
+raw_cc = correlation(pattern)
 cc = [max(value, 0.0) for value in raw_cc]
 
 
@@ -309,12 +310,36 @@ def multicorr_refine(row_shift, col_shift, upsample_factor, spectrum):
 
 
 def find_peaks(params):
-    correlation_image = cc if params["corrPower"] == 1 else hybrid_cc
+    if params["sigmaDP"] > 0:
+        smoothed_pattern = gaussian_filter_reflect(pattern, params["sigmaDP"])
+        unsmoothed_correlation = correlation(smoothed_pattern)
+        spectrum = fft2(unsmoothed_correlation)
+        if params["corrPower"] == 1:
+            correlation_image = [max(value, 0.0) for value in unsmoothed_correlation]
+        else:
+            powered_spectrum = [
+                [
+                    value
+                    * (
+                        abs(value) ** (params["corrPower"] - 1)
+                        if abs(value) > 0
+                        else 0
+                    )
+                    for value in row
+                ]
+                for row in spectrum
+            ]
+            correlation_image = [
+                max(value, 0.0) for value in ifft2(powered_spectrum)
+            ]
+            spectrum = powered_spectrum
+    else:
+        correlation_image = cc if params["corrPower"] == 1 else hybrid_cc
+        spectrum = image_corr if params["corrPower"] == 1 else hybrid_spectrum
     if params["sigmaCC"] > 0:
         correlation_image = gaussian_filter_reflect(
             correlation_image, params["sigmaCC"]
         )
-    spectrum = image_corr if params["corrPower"] == 1 else hybrid_spectrum
     edge = max(1, params["edgeBoundary"])
     peaks = []
     for row in range(edge, ROWS - edge):
@@ -408,6 +433,7 @@ def find_peaks(params):
 def case(name, **overrides):
     params = {
         "corrPower": 1.0,
+        "sigmaDP": 0.0,
         "sigmaCC": 0.0,
         "subpixel": "pixel",
         "upsampleFactor": 8,
@@ -433,6 +459,7 @@ cases = [
     case("parabolic", subpixel="poly"),
     case("multicorr_eight", subpixel="multicorr", upsampleFactor=8),
     case("hybrid_half", corrPower=0.5),
+    case("pattern_sigma_0_75", sigmaDP=0.75, subpixel="poly"),
     case("gaussian_sigma_1_25", sigmaCC=1.25, subpixel="poly"),
 ]
 

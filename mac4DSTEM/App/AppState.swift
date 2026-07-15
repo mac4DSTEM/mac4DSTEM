@@ -333,9 +333,29 @@ final class AppState {
     var currentPeaks: [BraggPeak] = []
     var braggPeakCount: Int?
     private(set) var braggVectors: BraggVectors?
+    private(set) var completedDiskParams: DiskDetectionParams?
     @ObservationIgnored private var liveDetectionRequest: UInt64 = 0
     var diskParams = DiskDetectionParams() {
         didSet { Task { await detectCurrentPattern() } }   // live overlay tracks params
+    }
+
+    /// Return every detector control to the same size-aware defaults used
+    /// when this dataset was opened.
+    func resetDiskDetectionParams() {
+        guard let descriptor else { return }
+        diskParams = .detectorAdapted(qy: descriptor.qy, qx: descriptor.qx)
+    }
+
+    /// Full-scan vectors remain available for comparison, but downstream
+    /// analysis must not silently imply that newly previewed settings produced
+    /// them.
+    var diskDetectionSettingsAreStale: Bool {
+        guard braggVectors != nil, let completedDiskParams else { return false }
+        return completedDiskParams != diskParams
+    }
+
+    var hasCurrentBraggVectors: Bool {
+        braggVectors != nil && !diskDetectionSettingsAreStale
     }
 
     // Strain mapping state.
@@ -724,7 +744,7 @@ final class AppState {
             hasQScale: readyKinds.contains(.qScale),
             hasRScale: readyKinds.contains(.rScale),
             hasVoltage: acceleratingVoltage.map { $0.isFinite && $0 > 0 } ?? false,
-            hasBraggVectors: braggVectors != nil
+            hasBraggVectors: hasCurrentBraggVectors
         )
     }
 
@@ -1275,6 +1295,7 @@ final class AppState {
         comField = nil
         probeKernel = nil
         braggVectors = nil
+        completedDiskParams = nil
         braggPeakCount = nil
         currentPeaks = []
         strainMap = nil
@@ -1298,13 +1319,7 @@ final class AppState {
         realSpaceRadius = Float(max(3, min(descriptor.rx, descriptor.ry) / 12))
         workspaceArea = .prepare
 
-        // Pixel-scaled detection defaults, adapted to this detector
-        // (py4DSTEM's absolute defaults assume ~512 px patterns).
-        let qMin = Float(min(descriptor.qx, descriptor.qy))
-        var dp = DiskDetectionParams()
-        dp.minPeakSpacing = max(4, (qMin / 8).rounded())
-        dp.edgeBoundary = max(2, Int(qMin / 24))
-        diskParams = dp
+        diskParams = .detectorAdapted(qy: descriptor.qy, qx: descriptor.qx)
 
         if let recovery = pendingRecovery,
            recovery.datasetID == URL(fileURLWithPath: descriptor.filePath).standardizedFileURL.path {
@@ -1547,22 +1562,62 @@ final class AppState {
         scheduleLiveVirtualDetector()
     }
 
+    var manualQPixelUnits: String {
+        CalibrationUnitConversion.canonicalEditableReciprocalUnit(
+            calibration.qPixelUnits
+        ) ?? "nm⁻¹"
+    }
+
+    /// Do not place an imported `1 pixels/px` placeholder beside the manual
+    /// physical-unit picker. Until the user supplies a physical unit/value,
+    /// the action field is intentionally empty (rendered as zero by SwiftUI).
+    var manualQPixelSize: Double? {
+        guard CalibrationUnitConversion.canonicalEditableReciprocalUnit(
+            calibration.qPixelUnits
+        ) != nil else { return nil }
+        return calibration.qPixelSize
+    }
+
+    var manualRPixelUnits: String {
+        CalibrationUnitConversion.canonicalEditableRealUnit(
+            calibration.rPixelUnits
+        ) ?? "nm"
+    }
+
+    var manualRPixelSize: Double? {
+        guard CalibrationUnitConversion.canonicalEditableRealUnit(
+            calibration.rPixelUnits
+        ) != nil else { return nil }
+        return calibration.rPixelSize
+    }
+
     func setManualQPixelSize(_ value: Double) {
         parallaxPreprocess = nil
         parallaxAlignment = nil
         if value.isFinite && value > 0 {
             calibration.qPixelSize = value
-            calibration.qPixelUnits = calibration.qPixelUnits ?? "1/nm"
+            // A manual number is entered beside a physical-unit picker. If the
+            // file only supplied `pixels`, replace that index placeholder with
+            // the picker's visible default instead of retaining pixels/px.
+            calibration.qPixelUnits = manualQPixelUnits
             calibrationProvenance.qScale = .manual
-            if let invAngstrom =
-                CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
-                    value: value, units: calibration.qPixelUnits
-                ) {
-                acomScale = invAngstrom
-            }
+            updateACOMScaleFromQCalibration()
         } else {
             calibration.qPixelSize = nil
             calibrationProvenance.qScale = nil
+        }
+    }
+
+    func setManualQPixelUnits(_ units: String) {
+        guard let canonical =
+                CalibrationUnitConversion.canonicalEditableReciprocalUnit(units)
+        else { return }
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        calibration.qPixelUnits = canonical
+        if calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
+            calibrationProvenance.qScale = .manual
+            updateACOMScaleFromQCalibration()
         }
     }
 
@@ -1571,11 +1626,35 @@ final class AppState {
         parallaxAlignment = nil
         if value.isFinite && value > 0 {
             calibration.rPixelSize = value
-            calibration.rPixelUnits = calibration.rPixelUnits ?? "nm"
+            calibration.rPixelUnits = manualRPixelUnits
             calibrationProvenance.rScale = .manual
         } else {
             calibration.rPixelSize = nil
             calibrationProvenance.rScale = nil
+        }
+    }
+
+    func setManualRPixelUnits(_ units: String) {
+        guard let canonical = CalibrationUnitConversion.canonicalEditableRealUnit(units)
+        else { return }
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        calibration.rPixelUnits = canonical
+        if calibration.rPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
+            calibrationProvenance.rScale = .manual
+        }
+    }
+
+    private func updateACOMScaleFromQCalibration() {
+        guard let value = calibration.qPixelSize else { return }
+        let wavelength = acceleratingVoltage.flatMap {
+            DPC.electronWavelengthAngstrom(voltageKV: $0)
+        }
+        if let invAngstrom = CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+            value: value, units: calibration.qPixelUnits,
+            wavelengthAngstrom: wavelength
+        ) {
+            acomScale = invAngstrom
         }
     }
 
@@ -2787,6 +2866,7 @@ final class AppState {
                 return
             }
             braggVectors = vectors
+            completedDiskParams = params
             braggPeakCount = vectors.totalPeakCount
             showBraggMap(vectors, descriptor: d)
             statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
@@ -2832,6 +2912,10 @@ final class AppState {
     /// local fits and the reference population reject outliers independently.
     func runStrainMapping() async {
         guard let descriptor else { return }
+        guard !diskDetectionSettingsAreStale else {
+            present(SimpleError("Detection settings changed — run Detect All Disks again before computing strain."))
+            return
+        }
         guard let bragg = braggVectors else {
             present(SimpleError("Run disk detection first — strain mapping needs detected Bragg peaks."))
             return
@@ -2902,6 +2986,10 @@ final class AppState {
 
     /// Build the orientation-plan template library for the selected crystal.
     func calibrateQFromCrystal() async {
+        guard !diskDetectionSettingsAreStale else {
+            present(SimpleError("Detection settings changed — run Detect All Disks again before calibrating reciprocal pixels."))
+            return
+        }
         guard let descriptor, let rawBragg = braggVectors else {
             present(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
             return
@@ -2983,6 +3071,10 @@ final class AppState {
     /// plan (needs a prior disk-detection pass; builds the plan first if needed).
     func runACOM() async {
         let actionStarted = Date()
+        guard !diskDetectionSettingsAreStale else {
+            present(SimpleError("Detection settings changed — run Detect All Disks again before ACOM."))
+            return
+        }
         guard let descriptor, let bragg = braggVectors else {
             present(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
             return

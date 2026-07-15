@@ -18,6 +18,7 @@ struct DetectionCase: Decodable {
 
 struct Parameters: Decodable {
     let corrPower: Float
+    let sigmaDP: Float?
     let sigmaCC: Float
     let subpixel: String
     let upsampleFactor: Int
@@ -85,6 +86,7 @@ guard let detector = DiskDetector(kernel: kernel) else {
 for test in fixture.cases {
     var params = DiskDetectionParams()
     params.corrPower = test.params.corrPower
+    params.sigmaDP = test.params.sigmaDP ?? 0
     params.sigmaCC = test.params.sigmaCC
     switch test.params.subpixel {
     case "pixel": params.subpixel = .pixel

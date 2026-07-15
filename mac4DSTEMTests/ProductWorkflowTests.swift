@@ -209,6 +209,37 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertTrue(CalibrationReadinessKind.rScale.unlockSummary.contains("scale bars"))
     }
 
+    func testManualPixelScaleReplacesIndexUnitsWithExplicitPhysicalUnits() {
+        let state = AppState()
+        state.calibration.rPixelSize = 1
+        state.calibration.rPixelUnits = "pixels"
+        state.calibration.qPixelSize = 1
+        state.calibration.qPixelUnits = "pixels"
+
+        XCTAssertEqual(state.manualRPixelUnits, "nm")
+        XCTAssertEqual(state.manualQPixelUnits, "nm⁻¹")
+        XCTAssertNil(state.manualRPixelSize)
+        XCTAssertNil(state.manualQPixelSize)
+
+        state.setManualRPixelSize(0.5)
+        XCTAssertEqual(state.calibration.rPixelSize, 0.5)
+        XCTAssertEqual(state.calibration.rPixelUnits, "nm")
+        XCTAssertEqual(state.manualRPixelSize, 0.5)
+        XCTAssertEqual(state.calibrationProvenance.rScale, .manual)
+
+        state.setManualRPixelUnits("Å")
+        XCTAssertEqual(state.calibration.rPixelUnits, "Å")
+        let rItem = state.calibrationReadiness.items.first { $0.kind == .rScale }
+        XCTAssertEqual(rItem?.status, .ready(.manual))
+
+        state.setManualQPixelSize(0.25)
+        XCTAssertEqual(state.calibration.qPixelUnits, "nm⁻¹")
+        XCTAssertEqual(state.acomScale, 0.025, accuracy: 1e-12)
+        state.setManualQPixelUnits("Å⁻¹")
+        XCTAssertEqual(state.calibration.qPixelUnits, "Å⁻¹")
+        XCTAssertEqual(state.acomScale, 0.25, accuracy: 1e-12)
+    }
+
     func testRejectedStrainPixelsAreNoDataRatherThanZeroStrain() {
         let map = StrainMap(
             width: 2, height: 1,

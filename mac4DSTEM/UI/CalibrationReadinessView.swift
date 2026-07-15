@@ -84,7 +84,7 @@ struct CalibrationReadinessChecklist: View {
             .accessibilityIdentifier("calibration.action.rotation")
         case .qScale:
             HStack {
-                if appState.braggVectors != nil {
+                if appState.hasCurrentBraggVectors {
                     Button("Calibrate from \(appState.acomCrystal.rawValue)") {
                         Task { await appState.calibrateQFromCrystal() }
                     }
@@ -92,25 +92,30 @@ struct CalibrationReadinessChecklist: View {
                     .accessibilityIdentifier("calibration.action.qCrystal")
                 }
                 manualScaleField(
-                    value: appState.calibration.qPixelSize,
-                    units: appState.calibration.qPixelUnits ?? "1/nm",
+                    value: appState.manualQPixelSize,
+                    units: appState.manualQPixelUnits,
+                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
-                    onChange: appState.setManualQPixelSize
+                    onChange: appState.setManualQPixelSize,
+                    onUnitChange: appState.setManualQPixelUnits
                 )
             }
         case .rScale:
             manualScaleField(
-                value: appState.calibration.rPixelSize,
-                units: appState.calibration.rPixelUnits ?? "nm",
+                value: appState.manualRPixelSize,
+                units: appState.manualRPixelUnits,
+                unitOptions: CalibrationUnitConversion.editableRealUnits,
                 identifier: "calibration.action.rManual",
-                onChange: appState.setManualRPixelSize
+                onChange: appState.setManualRPixelSize,
+                onUnitChange: appState.setManualRPixelUnits
             )
         }
     }
 
     private func manualScaleField(
-        value: Double?, units: String, identifier: String,
-        onChange: @escaping (Double) -> Void
+        value: Double?, units: String, unitOptions: [String], identifier: String,
+        onChange: @escaping (Double) -> Void,
+        onUnitChange: @escaping (String) -> Void
     ) -> some View {
         HStack(spacing: 6) {
             Text("Manual")
@@ -121,8 +126,19 @@ struct CalibrationReadinessChecklist: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 100)
                 .accessibilityIdentifier(identifier)
-            Text("\(units)/px")
-                .font(.caption)
+            Picker("Units", selection: Binding(
+                get: { units }, set: onUnitChange
+            )) {
+                ForEach(unitOptions, id: \.self) { unit in
+                    Text(unit).tag(unit)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .accessibilityIdentifier(identifier + ".units")
+            Text("/px")
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }
