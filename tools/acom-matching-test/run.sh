@@ -30,6 +30,7 @@ xcrun swiftc -O -o "$WORK/harness" \
   "$ROOT/mac4DSTEM/Core/Analysis/OrientationResult.swift" \
   "$ROOT/mac4DSTEM/Core/Crystal/ScatteringFactors.swift" \
   "$ROOT/mac4DSTEM/Core/Crystal/Crystal.swift" \
+  "$ROOT/mac4DSTEM/Core/Crystal/CrystalModel.swift" \
   "$ROOT/mac4DSTEM/Core/Crystal/OrientationPlan.swift" \
   "$ROOT/mac4DSTEM/Core/Crystal/OrientationMatcher.swift" \
   -framework Accelerate -framework Metal -framework MetalKit

@@ -1,0 +1,131 @@
+import SwiftUI
+
+/// Diagnostic and fitting controls that supplement the single readiness path.
+/// Physical Q/R values are intentionally edited only in the readiness rows,
+/// so the same value, unit, provenance, and consequence cannot drift between
+/// duplicate controls.
+struct CalibrationDetailsView: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var appState = appState
+        DisclosureGroup("Fit diagnostics & advanced correction") {
+            LabeledContent(
+                "Aperture center",
+                value: appState.calibration.originProvenance.displayName
+            )
+            .font(.caption)
+            .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
+
+            Picker("Origin fit", selection: $appState.originFitFunction) {
+                ForEach(OriginFitFunction.allCases) { fit in
+                    Text(fit.rawValue).tag(fit)
+                }
+            }
+            Button {
+                Task { await appState.calibrateOrigin() }
+            } label: {
+                Label("Calibrate Origin", systemImage: "scope")
+            }
+            .disabled(appState.isBusy)
+            Button {
+                Task { await appState.calibrateRotation() }
+            } label: {
+                Label("Calibrate Rotation", systemImage: "rotate.3d")
+            }
+            .disabled(appState.isBusy)
+
+            if let radius = appState.calibration.probeRadius {
+                LabeledContent("Probe radius", value: String(format: "%.1f px", radius))
+                    .font(.caption)
+            }
+            if let residual = appState.calibration.origin?.rmsResidual {
+                LabeledContent("Fit residual", value: String(format: "%.3f px RMS", residual))
+                    .font(.caption)
+            }
+            if let rotation = appState.calibration.rotationRad {
+                let transposed = (appState.calibration.transposeQR ?? false) ? " ⊤" : ""
+                LabeledContent(
+                    "R–Q rotation",
+                    value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed)
+                )
+                .font(.caption)
+                Button {
+                    appState.flipRotation180()
+                } label: {
+                    Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
+                }
+                .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
+            }
+
+            ellipseControls(appState: appState)
+        }
+    }
+
+    @ViewBuilder
+    private func ellipseControls(appState: AppState) -> some View {
+        @Bindable var appState = appState
+        DisclosureGroup("Ellipse correction") {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Fit annulus").font(.caption)
+                HStack {
+                    TextField(
+                        "inner", value: $appState.ellipseFitInnerRadius,
+                        format: .number.precision(.fractionLength(0...2))
+                    )
+                    Text("to").font(.caption2).foregroundStyle(.secondary)
+                    TextField(
+                        "outer", value: $appState.ellipseFitOuterRadius,
+                        format: .number.precision(.fractionLength(0...2))
+                    )
+                    Text("px").font(.caption2).foregroundStyle(.secondary)
+                }
+                .textFieldStyle(.roundedBorder)
+            }
+            Button {
+                Task { await appState.calibrateEllipse() }
+            } label: {
+                Label("Fit Ellipse", systemImage: "oval")
+            }
+            .disabled(appState.isBusy)
+            .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
+
+            if appState.calibration.hasEllipse,
+               let a = appState.calibration.ellipseA,
+               let b = appState.calibration.ellipseB,
+               let theta = appState.calibration.ellipseTheta {
+                LabeledContent(
+                    "Correction",
+                    value: String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
+                )
+                .font(.caption)
+                .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
+                if let fit = appState.lastEllipseFit {
+                    LabeledContent("Model", value: fit.model.rawValue).font(.caption)
+                    LabeledContent(
+                        "Residual",
+                        value: String(
+                            format: "%.3f · %d/36 sectors",
+                            fit.normalizedResidual, fit.occupiedAngularBins
+                        )
+                    )
+                    .font(.caption)
+                    if let profile = fit.profile {
+                        LabeledContent(
+                            "Ring widths",
+                            value: String(
+                                format: "inner %.3g · outer %.3g px",
+                                profile.innerSigma, profile.outerSigma
+                            )
+                        )
+                        .font(.caption)
+                    } else if let reason = fit.profileFallbackReason {
+                        Text("Profile fallback: \(reason)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}

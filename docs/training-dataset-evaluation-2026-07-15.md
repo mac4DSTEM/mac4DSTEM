@@ -36,7 +36,7 @@ The Au file also contains the equal-shape alternate node `/4DSTEM_simulation/4DS
 - Added an origin-quality gate: a measured-map RMS residual above the probe radius no longer unlocks quantitative origin/probe workflows. The UI detail explains that recalibration is required.
 - Disabled HDF5's thread-local automatic stderr stack at every reader entry point; mac4DSTEM continues to return its own actionable errors.
 - Updated the real-data goldens to the current four files and fixed relative paths in the ACOM runner.
-- Added `tools/training-dataset-campaign/`, a reproducible optimized real-data matrix with cancellation/restart, source-preservation checks, atomic sidecars, native reopen, and py4DSTEM readback.
+- Added `tools/training-dataset-campaign/`, a reproducible optimized real-data matrix with cancellation/restart, source-preservation checks, atomic sidecars, native reopen, and py4DSTEM readback. Dataset voltage, alternate HDF5 nodes, and optional phase models now come from its explicit manifest; the harness never derives scientific inputs from a filename.
 
 ## Final dataset matrix
 
@@ -45,11 +45,13 @@ Common passes for every file: import/discovery, five-position CBED navigation, p
 | Dataset | Origin/probe | Ellipse | Bragg | Strain | ACOM | Quantitative iDPC / reconstruction |
 |---|---|---|---:|---|---|---|
 | Particle | Quality-blocked: RMS 18.2948 px > 10.6244 px radius | Blocked: residual 0.469 | 42,734 peaks | No supported well-conditioned basis | Missing material and expected map | Blocked: physical Q missing |
-| Si/SiGe | Quality-blocked: RMS 11.6551 px > 5.0264 px radius | Did not converge | 123,885 peaks | No supported well-conditioned basis | Operational Si-diamond proxy; 138/138 sampled positions matched, not quantitatively validated | Blocked: physical Q/R missing |
+| Si/SiGe | Quality-blocked: RMS 11.6551 px > 5.0264 px radius | Did not converge | 123,885 peaks | No supported well-conditioned basis | Operational explicit Si-diamond manifest model; 138/138 sampled positions matched, not quantitatively validated | Blocked: physical Q/R missing |
 | WS₂ | Pass: RMS 0.0010 px | Pass: a 32.678, b 32.563, residual 0.0618 | 16,384 peaks | No supported well-conditioned basis | Blocked: no WS₂/custom non-cubic crystal model | Blocked: physical Q/R missing |
 | Simulated Au | Pass: RMS 0.1616 px | Blocked: residual 0.466 | 103,657 peaks | Operational: 52.0% indexed, no expected strain map | Operational: 176/340 sampled positions matched, not quantitatively validated | Blocked: physical R missing |
 
-The Si/SiGe and Au ACOM runs demonstrate operational execution only. The Si file name contains both Si and SiGe, and neither dataset includes an expected orientation map or complete simulation parameters, so the output must not be treated as a validated physical result.
+The Si/SiGe and Au ACOM runs demonstrate operational execution only. Their phase choices are explicit campaign-fixture inputs, not filename inference. Neither dataset includes an expected orientation map or complete simulation parameters, so the output must not be treated as a validated physical result.
+
+The generic sampled-pattern disk funnel explains the WS₂ default result without a material-specific branch: 45–47 edge-qualified maxima survive the absolute threshold in each sampled pattern, but only one survives the default `0.005` relative-to-brightest threshold. The detector therefore does find candidate disks; their correlation peaks are less than 0.5% of the dominant reference peak. The Advanced Detection UI now shows this stage-by-stage and lets the user lower or disable the relative cutoff before rerunning the full scan.
 
 ## Performance and behavior
 
@@ -75,7 +77,7 @@ The dedicated final Au ACOM benchmark retained exact CPU/Metal template and angl
 
 ## Verification
 
-- 25/25 native XCTest cases passed on the final code.
+- 32/32 native XCTest cases passed on the final code.
 - 24/24 standalone scientific harnesses passed.
 - All four real-data golden checks passed within their timing budgets.
 - All four final py4DSTEM readbacks passed.

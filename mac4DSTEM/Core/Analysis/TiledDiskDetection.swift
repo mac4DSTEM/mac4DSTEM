@@ -22,6 +22,12 @@ extension DiskDetection {
         progress: (@Sendable (Double) -> Void)? = nil
     ) async -> BraggVectors? {
         guard cancellation?.isCancelled != true else { return nil }
+        let context = DiskDetectionContext(
+            qy: d.qy, qx: d.qx, probeRadius: kernel.probeRadius
+        )
+        guard !params.validationIssues(in: context).contains(where: {
+            $0.severity == .error
+        }) else { return nil }
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var allPeaks = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
 
@@ -58,6 +64,11 @@ extension DiskDetection {
         }
 
         progress?(1)
-        return BraggVectors(scanWidth: d.rx, scanHeight: d.ry, peaks: allPeaks)
+        return BraggVectors(
+            scanWidth: d.rx, scanHeight: d.ry, peaks: allPeaks,
+            detectionProvenance: params.provenance(
+                kernel: kernel, qy: d.qy, qx: d.qx
+            )
+        )
     }
 }

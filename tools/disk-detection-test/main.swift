@@ -102,7 +102,16 @@ for test in fixture.cases {
     params.edgeBoundary = test.params.edgeBoundary
     params.maxNumPeaks = test.params.maxNumPeaks
 
-    let actual = detector.detect(pattern: fixture.pattern, params: params)
+    let validation = params.validationIssues(
+        in: DiskDetectionContext(qy: qy, qx: qx, probeRadius: kernel.probeRadius)
+    )
+    guard !validation.contains(where: { $0.severity == .error }) else {
+        fail("\(test.name) configuration failed validation: \(validation)")
+    }
+    let detected = detector.detectWithDiagnostics(
+        pattern: fixture.pattern, params: params
+    )
+    let actual = detected.peaks
     let actualDescription = actual.map {
         "(x=\($0.x),y=\($0.y),i=\($0.intensity))"
     }.joined(separator: ", ")
@@ -131,6 +140,11 @@ for test in fixture.cases {
     }
     guard maximumIntensityError <= 2e-4 else {
         fail("\(test.name) max intensity error \(maximumIntensityError)")
+    }
+    guard detected.diagnostics.acceptedCount == actual.count,
+          detected.diagnostics.localMaximumCount >= actual.count,
+          detected.diagnostics.correlationMaximum.isFinite else {
+        fail("\(test.name) diagnostics do not describe the accepted peaks")
     }
     print("PASS: \(test.name) peaks \(actual.count), max intensity error \(maximumIntensityError)")
 }
@@ -252,5 +266,17 @@ guard measuredKernel.source == .measured,
     fail("measured probe was not centered and zero-normalized")
 }
 print("PASS: measured vacuum probe kernel centering and normalization")
+
+let provenance = nativeParams.provenance(
+    kernel: nativeKernel, qy: nativeQY, qx: nativeQX
+)
+guard provenance["detection_algorithm"] == DiskDetectionParams.algorithmID,
+      provenance["subpixel"] == "pixel",
+      provenance["kernel_source"] == "synthetic",
+      provenance["detector_qy"] == String(nativeQY),
+      provenance["detector_qx"] == String(nativeQX) else {
+    fail("disk-detection provenance is incomplete: \(provenance)")
+}
+print("PASS: validated parameter contract, diagnostics, and provenance")
 
 print("disk-detection-test: all passed")

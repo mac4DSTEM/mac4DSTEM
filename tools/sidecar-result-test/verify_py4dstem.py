@@ -47,12 +47,18 @@ np.testing.assert_allclose(
 # directly in HDF5 as well as validating py4DSTEM's data/metadata promotion.
 with h5py.File(path, "r") as f:
     session_root = f["/braggvectors_root"]
-    assert session_root.attrs["mac4dstem_session_schema"] == "4"
+    assert session_root.attrs["mac4dstem_session_schema"] == "5"
     nodes = session_root.attrs["mac4dstem_result_nodes"].split("\n")
     assert len(nodes) == 8, nodes
     assert session_root.attrs["mac4dstem_current_result"] == nodes[-1]
     assert "result_map" not in session_root
     assert "external_analysis" in session_root
+    detection_provenance = json.loads(
+        session_root["braggvectors"].attrs["mac4dstem_detection_provenance"]
+    )
+    assert detection_provenance["detection_algorithm"] == "py4dstem_find_bragg_disks_native_v1"
+    assert detection_provenance["min_relative_intensity"] == "0.005"
+    assert detection_provenance["subpixel"] == "poly"
 
     calibration = session_root["metadatabundle/calibration"]
     assert calibration["QR_rotation"][()] == -0.625
@@ -76,13 +82,23 @@ with h5py.File(path, "r") as f:
         "parallax_subpixel_bf", "parallax_corrected_phase", "parallax_depth",
         "ptychography_object_phase", "ptychography_object_amplitude",
     ]
-    for group in groups[:3]:
+    for group in groups[:2]:
         np.testing.assert_allclose(group["dim0"][:], [0, 1.75])
         np.testing.assert_allclose(group["dim1"][:], [0, 1.75])
         assert group["dim0"].attrs["name"] == "Rx"
         assert group["dim1"].attrs["name"] == "Ry"
         assert group["dim0"].attrs["units"] == "nm"
         assert group["dim1"].attrs["units"] == "nm"
+
+    rgba_group = groups[2]
+    np.testing.assert_allclose(rgba_group["dim0"][:], [0, 2.5])
+    np.testing.assert_allclose(rgba_group["dim1"][:], [0, 3.5])
+    assert rgba_group["dim0"].attrs["units"] == "nm"
+    assert rgba_group["dim1"].attrs["units"] == "nm"
+    rgba_provenance = json.loads(rgba_group.attrs["mac4dstem_provenance"])
+    assert rgba_provenance["quantitative_status"] == "exploratory"
+    assert rgba_provenance["material_model_id"] == "au_fcc"
+    assert rgba_provenance["q_scale_provenance"] == "exploratory"
 
     expected_sampling = [
         (0.625, 0.625), (2.0, 2.0), (2.0, 2.0), (0.4, 0.6), (0.4, 0.6)
@@ -114,6 +130,9 @@ expected_rgba = np.array([
 ], dtype=np.uint8)
 np.testing.assert_array_equal(rgba.data, expected_rgba)
 assert rgba.metadata["mac4dstem"]["display_name"] == "ACOM · IPF · Z"
+assert json.loads(rgba.metadata["mac4dstem"]["provenance"])[
+    "quantitative_status"
+] == "exploratory"
 
 for node, shape in zip(nodes[3:], [(4, 5), (2, 3), (2, 3), (3, 4), (3, 4)]):
     result = py4DSTEM.read(path, datapath=f"/braggvectors_root/{node}")

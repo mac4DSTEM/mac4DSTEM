@@ -1,0 +1,24 @@
+{
+  "Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5": {
+    "voltageKV": 300,
+    "phaseModelID": null,
+    "alternateDatasetPaths": []
+  },
+  "downsample_Si_SiGe_exp.h5": {
+    "voltageKV": 200,
+    "phaseModelID": "si_diamond",
+    "alternateDatasetPaths": []
+  },
+  "polycrystal_2D_WS2.h5": {
+    "voltageKV": 200,
+    "phaseModelID": null,
+    "alternateDatasetPaths": []
+  },
+  "sim_Au_data_all_binned.h5": {
+    "voltageKV": 200,
+    "phaseModelID": "au_fcc",
+    "alternateDatasetPaths": [
+      "/4DSTEM_simulation/4DSTEM_polyAu/data"
+    ]
+  }
+}

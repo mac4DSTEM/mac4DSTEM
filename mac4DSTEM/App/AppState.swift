@@ -90,87 +90,6 @@ enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 }
 
-/// Crystal presets offered for ACOM template generation. `.custom` is a
-/// user-defined cubic crystal (element + structure + lattice constant) —
-/// resolved by AppState.resolvedACOMCrystal, not here.
-enum CrystalChoice: String, CaseIterable, Identifiable {
-    case gold      = "Gold (FCC)"
-    case aluminum  = "Aluminium (FCC)"
-    case nickel    = "Nickel (FCC)"
-    case copper    = "Copper (FCC)"
-    case iron      = "Iron (BCC)"
-    case silicon   = "Silicon (diamond)"
-    case magnesium = "Magnesium (HCP)"
-    case custom    = "Custom…"
-    var id: String { rawValue }
-
-    var crystal: Crystal {
-        switch self {
-        case .gold:     return .gold
-        case .aluminum: return .aluminum
-        case .nickel:   return .nickel
-        case .copper:   return .copper
-        case .iron:     return .iron
-        case .silicon:  return .silicon
-        case .magnesium: return .magnesium
-        case .custom:   return .gold   // placeholder; see resolvedACOMCrystal
-        }
-    }
-}
-
-/// Which ACOM result map to display.
-enum ACOMDisplayMode: String, CaseIterable, Identifiable {
-    case ipfZ        = "IPF · Z"
-    case reliability = "Reliability"
-    case disorientation = "Symmetry FZ angle"
-    case inPlane     = "In-plane angle"
-    case phi1        = "Euler φ₁"
-    case Phi         = "Euler Φ"
-    case phi2        = "Euler φ₂"
-    case score       = "Score"
-    var id: String { rawValue }
-}
-
-enum ACOMQualityPreset: String, CaseIterable, Identifiable {
-    case fast = "Fast"
-    case balanced = "Balanced"
-    case best = "Best"
-
-    var id: String { rawValue }
-
-    var templateCount: Int {
-        switch self {
-        case .fast: 96
-        case .balanced: 200
-        case .best: 400
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .fast: "96 templates · rapid screening"
-        case .balanced: "200 templates · recommended"
-        case .best: "400 templates · finest angular sampling"
-        }
-    }
-}
-
-enum ACOMRunScope: String, CaseIterable, Identifiable {
-    case preview = "Preview"
-    case selectedRegion = "Region"
-    case fullScan = "Full scan"
-
-    var id: String { rawValue }
-
-    var resultQualifier: String {
-        switch self {
-        case .preview: "preview"
-        case .selectedRegion: "region"
-        case .fullScan: "full"
-        }
-    }
-}
-
 /// Which image pane the user is currently operating on. Determines which ROI
 /// tools the left panel shows and where interactions are routed.
 enum ActivePane {
@@ -331,9 +250,11 @@ final class AppState {
     // Disk detection state.
     var probeKernel: ProbeKernel?
     var currentPeaks: [BraggPeak] = []
+    private(set) var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
     var braggPeakCount: Int?
     private(set) var braggVectors: BraggVectors?
     private(set) var completedDiskParams: DiskDetectionParams?
+    private(set) var completedDiskSummary: DiskDetectionScanSummary?
     @ObservationIgnored private var liveDetectionRequest: UInt64 = 0
     var diskParams = DiskDetectionParams() {
         didSet { Task { await detectCurrentPattern() } }   // live overlay tracks params
@@ -344,6 +265,23 @@ final class AppState {
     func resetDiskDetectionParams() {
         guard let descriptor else { return }
         diskParams = .detectorAdapted(qy: descriptor.qy, qx: descriptor.qx)
+    }
+
+    var diskDetectionContext: DiskDetectionContext? {
+        guard let descriptor else { return nil }
+        return DiskDetectionContext(
+            qy: descriptor.qy, qx: descriptor.qx,
+            probeRadius: probeKernel?.probeRadius ?? calibration.probeRadius
+        )
+    }
+
+    var diskDetectionValidationIssues: [DiskDetectionValidationIssue] {
+        guard let context = diskDetectionContext else { return [] }
+        return diskParams.validationIssues(in: context)
+    }
+
+    var diskDetectionConfigurationIsValid: Bool {
+        !diskDetectionValidationIssues.contains { $0.severity == .error }
     }
 
     /// Full-scan vectors remain available for comparison, but downstream
@@ -369,10 +307,14 @@ final class AppState {
     @ObservationIgnored private(set) var orientationMap: OrientationMap?
     var hasOrientationPlan = false
     var hasOrientationMap = false
-    var acomCrystal: CrystalChoice = .gold {
-        didSet { if acomCrystal != oldValue { invalidateACOMPlan() } }
+    var acomModelSelection: CrystalModelSelection = .none {
+        didSet { if acomModelSelection != oldValue { invalidateACOMPlan() } }
     }
-    var acomScale: Double = 0.01           // Å⁻¹ per detector pixel (Q calibration)
+    var acomExploratoryScale: Double = 0.01 {
+        didSet {
+            if acomExploratoryScale != oldValue { invalidateACOMResult() }
+        }
+    }
     var acomBackend: ACOMMatchingBackend = .automatic
     var acomQuality: ACOMQualityPreset = .balanced {
         didSet { if acomQuality != oldValue { invalidateACOMPlan() } }
@@ -400,6 +342,7 @@ final class AppState {
     private(set) var acomRegionSelectionActive = false
     private(set) var acomLastRunScope: ACOMRunScope?
     private(set) var acomLastRunQuality: ACOMQualityPreset?
+    private(set) var acomLastRunSemantics: ACOMRunSemantics?
     private(set) var acomLastMatchedPositionCount: Int?
     private(set) var acomLastPositionsPerSecond: Double?
     private(set) var acomLastEndToEndDuration: TimeInterval?
@@ -561,7 +504,9 @@ final class AppState {
                 ?? resultRGBA.map(ProductPayload.rgba) else { return nil }
         let metadata = currentResultPersistenceMetadata
         let domain = restoredResultDomain ?? navigationResultDomain ?? activeResultDomain
-        let status = quantitativeStatus(for: currentResultKind, units: currentResultValueUnits)
+        let status = metadata.provenance["quantitative_status"]
+            .flatMap(ProductQuantitativeStatus.init)
+            ?? quantitativeStatus(for: currentResultKind, units: currentResultValueUnits)
         var quality: [ProductQualityField] = []
         var overlays: [ProductOverlayDescriptor] = []
         var validity: [Bool]?
@@ -617,6 +562,9 @@ final class AppState {
 
     func quantitativeStatus(for kind: String, units: String)
         -> ProductQuantitativeStatus {
+        if kind.hasPrefix("acom_") {
+            return acomLastRunSemantics?.productStatus(for: kind) ?? .exploratory
+        }
         if kind == "dpc_color" || kind.contains("ipf") { return .categorical }
         if kind == "idpc_qualitative" || units.contains("intensity")
             || units.contains("arbitrary") || units.contains("log_") {
@@ -637,6 +585,22 @@ final class AppState {
     private func invalidateACOMPlan() {
         orientationPlan = nil
         hasOrientationPlan = false
+        invalidateACOMResult()
+    }
+
+    private func invalidateACOMResult() {
+        orientationMap = nil
+        hasOrientationMap = false
+        acomLastRunScope = nil
+        acomLastRunQuality = nil
+        acomLastRunSemantics = nil
+        acomLastMatchedPositionCount = nil
+        if analysisMode == .acom {
+            resultImage = nil
+            resultRGBA = nil
+            restoredResultInfo = nil
+            resultVersion &+= 1
+        }
     }
 
     var selectedEulerText: String? {
@@ -655,16 +619,74 @@ final class AppState {
             || (analysisMode == .acom && acomScope == .selectedRegion)
     }
 
-    /// The crystal ACOM should use — a preset, or the user-defined cubic cell.
-    var resolvedACOMCrystal: Crystal {
-        acomCrystal == .custom
-            ? Crystal.cubic(customStructure, a: customLatticeA, z: customZ)
-            : acomCrystal.crystal
+    /// The explicitly selected complete phase model — never a filename- or
+    /// dataset-derived fallback.
+    var resolvedACOMModel: CrystalModel? {
+        let model: CrystalModel?
+        switch acomModelSelection {
+        case .none:
+            model = nil
+        case .library(let id):
+            model = CrystalModelLibrary.model(id: id)
+        case .customCubic:
+            model = CrystalModelLibrary.customCubic(
+                structure: customStructure,
+                latticeA: customLatticeA,
+                atomicNumber: customZ
+            )
+        }
+        guard let model, model.isUsable else { return nil }
+        return model
     }
 
-    var resolvedACOMSymmetry: ACOMCrystalSymmetry {
-        acomCrystal == .magnesium ? .hexagonal : .cubic
+    var acomModelSelectionIssue: String? {
+        switch acomModelSelection {
+        case .none:
+            return "Choose the phase model used to generate orientation templates."
+        case .library(let id):
+            guard let model = CrystalModelLibrary.model(id: id) else {
+                return "The selected phase model is no longer available."
+            }
+            return model.validationIssues.first?.message
+        case .customCubic:
+            let model = CrystalModelLibrary.customCubic(
+                structure: customStructure,
+                latticeA: customLatticeA,
+                atomicNumber: customZ
+            )
+            return model.validationIssues.first?.message
+        }
     }
+
+    var acomScaleSemantics: ACOMScaleSemantics {
+        if let value = calibration.qPixelSize {
+            let wavelength = acceleratingVoltage.flatMap {
+                DPC.electronWavelengthAngstrom(voltageKV: $0)
+            }
+            if let physical = CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+                value: value, units: calibration.qPixelUnits,
+                wavelengthAngstrom: wavelength
+            ) {
+                return ACOMScaleSemantics(
+                    invAngstromPerPixel: physical,
+                    provenance: ACOMQScaleProvenance(calibrationProvenance.qScale)
+                )
+            }
+        }
+        return ACOMScaleSemantics(
+            invAngstromPerPixel: acomExploratoryScale,
+            provenance: .exploratory
+        )
+    }
+
+    var acomScale: Double { acomScaleSemantics.invAngstromPerPixel }
+
+    var acomInterpretationLabel: String {
+        acomScaleSemantics.provenance.isPhysical
+            ? "Physical matching"
+            : "Exploratory matching"
+    }
+
     var acomDisplay: ACOMDisplayMode = .reliability {
         didSet { applyACOMDisplay() }
     }
@@ -744,7 +766,10 @@ final class AppState {
             hasQScale: readyKinds.contains(.qScale),
             hasRScale: readyKinds.contains(.rScale),
             hasVoltage: acceleratingVoltage.map { $0.isFinite && $0 > 0 } ?? false,
-            hasBraggVectors: hasCurrentBraggVectors
+            hasBraggVectors: hasCurrentBraggVectors,
+            hasACOMMaterial: acomModelSelection != .none,
+            hasSupportedACOMMaterial: resolvedACOMModel != nil,
+            hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical
         )
     }
 
@@ -1274,14 +1299,6 @@ final class AppState {
                 }
                 calibration.originProvenance = .fileMaps
             }
-            // Auto-fill the ACOM Q scale (Å⁻¹/px) when the units are convertible.
-            if let q = pc.qSize, q > 0 {
-                switch pc.qUnits?.lowercased() {
-                case "1/nm", "nm^-1", "1/nanometer": acomScale = q * 0.1
-                case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1": acomScale = q
-                default: break
-                }
-            }
         }
         patternDisplayMode = .current
         meanPattern = nil
@@ -1296,15 +1313,19 @@ final class AppState {
         probeKernel = nil
         braggVectors = nil
         completedDiskParams = nil
+        completedDiskSummary = nil
         braggPeakCount = nil
         currentPeaks = []
+        currentDiskDiagnostics = nil
         strainMap = nil
         orientationPlan = nil
         orientationMap = nil
         hasOrientationPlan = false
         hasOrientationMap = false
+        acomModelSelection = .none
         acomLastRunScope = nil
         acomLastRunQuality = nil
+        acomLastRunSemantics = nil
         acomLastMatchedPositionCount = nil
         acomLastPositionsPerSecond = nil
         acomLastEndToEndDuration = nil
@@ -1417,14 +1438,6 @@ final class AppState {
             aperture.centerY = Float(qx0)
             calibration.originProvenance = .sessionMean
         }
-        if let q = saved.qSize, q > 0 {
-            switch saved.qUnits?.lowercased() {
-            case "1/nm", "nm^-1", "1/nanometer": acomScale = q * 0.1
-            case "1/a", "1/å", "a^-1", "å^-1", "1/angstrom", "angstrom^-1":
-                acomScale = q
-            default: break
-            }
-        }
     }
 
     private func restoreSessionResult(
@@ -1448,8 +1461,10 @@ final class AppState {
             resultImage = nil
             resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
             restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
-            restoredResultPixelInfo = nil
-            restoredResultDomain = nil
+            restoredResultPixelInfo = (
+                map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
+            )
+            restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
         } else {
             return
         }
@@ -1601,10 +1616,11 @@ final class AppState {
             // the picker's visible default instead of retaining pixels/px.
             calibration.qPixelUnits = manualQPixelUnits
             calibrationProvenance.qScale = .manual
-            updateACOMScaleFromQCalibration()
+            invalidateACOMResult()
         } else {
             calibration.qPixelSize = nil
             calibrationProvenance.qScale = nil
+            invalidateACOMResult()
         }
     }
 
@@ -1617,8 +1633,8 @@ final class AppState {
         calibration.qPixelUnits = canonical
         if calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
             calibrationProvenance.qScale = .manual
-            updateACOMScaleFromQCalibration()
         }
+        invalidateACOMResult()
     }
 
     func setManualRPixelSize(_ value: Double) {
@@ -1645,23 +1661,13 @@ final class AppState {
         }
     }
 
-    private func updateACOMScaleFromQCalibration() {
-        guard let value = calibration.qPixelSize else { return }
-        let wavelength = acceleratingVoltage.flatMap {
-            DPC.electronWavelengthAngstrom(voltageKV: $0)
-        }
-        if let invAngstrom = CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
-            value: value, units: calibration.qPixelUnits,
-            wavelengthAngstrom: wavelength
-        ) {
-            acomScale = invAngstrom
-        }
-    }
-
     func setManualAcceleratingVoltage(_ value: Double) {
         parallaxPreprocess = nil
         parallaxAlignment = nil
         acceleratingVoltage = value.isFinite && value > 0 ? value : nil
+        if CalibrationUnitConversion.normalized(calibration.qPixelUnits) == "mrad" {
+            invalidateACOMResult()
+        }
     }
 
     private func scheduleLiveVirtualDetector() {
@@ -2814,18 +2820,33 @@ final class AppState {
         guard analysisMode == .disks, let kernel = probeKernel,
               let pattern = displayedPattern else {
             if !currentPeaks.isEmpty { currentPeaks = [] }
+            currentDiskDiagnostics = nil
             return
         }
         let params = diskParams
+        let context = DiskDetectionContext(
+            qy: pattern.qy, qx: pattern.qx, probeRadius: kernel.probeRadius
+        )
+        guard !params.validationIssues(in: context).contains(where: {
+            $0.severity == .error
+        }) else {
+            currentPeaks = []
+            currentDiskDiagnostics = nil
+            return
+        }
         let epoch = datasetEpoch
-        let peaks = await Task.detached(priority: .userInitiated) { () -> [BraggPeak] in
-            guard let detector = DiskDetector(kernel: kernel) else { return [] }
-            return detector.detect(pattern: pattern.pixels, params: params)
+        let result = await Task.detached(priority: .userInitiated) {
+            () -> DiskDetectionPatternResult? in
+            guard let detector = DiskDetector(kernel: kernel) else { return nil }
+            return detector.detectWithDiagnostics(
+                pattern: pattern.pixels, params: params
+            )
         }.value
         guard epoch == datasetEpoch,
               request == liveDetectionRequest,
               analysisMode == .disks else { return }
-        currentPeaks = peaks
+        currentPeaks = result?.peaks ?? []
+        currentDiskDiagnostics = result?.diagnostics
     }
 
     /// Full-scan detection → BraggVectors + Bragg vector map.
@@ -2834,13 +2855,27 @@ final class AppState {
         if probeKernel == nil { await generateProbeKernel() }
         guard let kernel = probeKernel else { return }
 
+        let params = diskParams
+        let context = DiskDetectionContext(
+            qy: descriptor.qy, qx: descriptor.qx, probeRadius: kernel.probeRadius
+        )
+        let errors = params.validationIssues(in: context).filter {
+            $0.severity == .error
+        }
+        guard errors.isEmpty else {
+            present(SimpleError(
+                "Disk-detection settings are invalid: "
+                    + errors.map(\.message).joined(separator: " ")
+            ))
+            return
+        }
+
         let cancellation = beginCancellableOperation(
             "Disk detection", status: "Detecting Bragg disks…",
             totalUnits: descriptor.rx * descriptor.ry
         )
         defer { finishCancellableOperation(cancellation) }
 
-        let params = diskParams
         let d = descriptor
         do {
             let epoch = datasetEpoch
@@ -2867,6 +2902,9 @@ final class AppState {
             }
             braggVectors = vectors
             completedDiskParams = params
+            completedDiskSummary = DiskDetectionScanSummary(
+                vectors: vectors, maximumPeaks: params.maxNumPeaks
+            )
             braggPeakCount = vectors.totalPeakCount
             showBraggMap(vectors, descriptor: d)
             statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
@@ -2994,11 +3032,16 @@ final class AppState {
             present(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
             return
         }
-        let crystal = resolvedACOMCrystal
+        guard let model = resolvedACOMModel else {
+            present(SimpleError(acomModelSelectionIssue
+                ?? "Choose a valid phase model before calibrating reciprocal pixels."))
+            return
+        }
+        let modelRevision = model.revisionID
         let calibrated = calibratedBraggVectors(rawBragg, descriptor: descriptor)
         let epoch = datasetEpoch
         let estimate = await Task.detached(priority: .userInitiated) {
-            guard let firstShell = crystal.reflections(kMax: 2.5).first?.gLength else {
+            guard let firstShell = model.crystal.reflections(kMax: 2.5).first?.gLength else {
                 return nil as QCalibrationEstimate?
             }
             return KnownCrystalQCalibration.estimate(
@@ -3006,15 +3049,16 @@ final class AppState {
                 referenceRadiusInvAngstrom: firstShell
             )
         }.value
-        guard epoch == datasetEpoch else { return }
+        guard epoch == datasetEpoch,
+              modelRevision == resolvedACOMModel?.revisionID else { return }
         guard let estimate else {
             present(SimpleError("Could not identify a non-central first Bragg shell."))
             return
         }
-        acomScale = estimate.invAngstromPerPixel
         calibration.qPixelSize = estimate.invAngstromPerPixel
         calibration.qPixelUnits = "Å⁻¹"
         calibrationProvenance.qScale = .measuredInApp
+        invalidateACOMResult()
         parallaxPreprocess = nil
         parallaxAlignment = nil
         statusText = String(
@@ -3034,9 +3078,13 @@ final class AppState {
         )
         defer { finishCancellableOperation(cancellation) }
 
-        let crystal = resolvedACOMCrystal
-        let symmetry = resolvedACOMSymmetry
-        let missing = crystal.unsupportedElements
+        guard let model = resolvedACOMModel else {
+            present(SimpleError(acomModelSelectionIssue
+                ?? "Choose a valid phase model before generating an orientation plan."))
+            return
+        }
+        let modelRevision = model.revisionID
+        let missing = model.crystal.unsupportedElements
         guard missing.isEmpty else {
             present(SimpleError("No scattering factors for element(s) Z = "
                 + missing.map(String.init).joined(separator: ", ")
@@ -3045,12 +3093,13 @@ final class AppState {
         }
         let epoch = datasetEpoch
         let plan = await Task.detached(priority: .userInitiated) {
-            OrientationPlan.generate(crystal: crystal, kMax: 1.2,
+            OrientationPlan.generate(crystal: model.crystal, kMax: 1.2,
                                      zoneAxisCount: templateCount,
-                                     symmetry: symmetry,
+                                     symmetry: model.symmetry,
                                      cancellation: cancellation)
         }.value
-        guard epoch == datasetEpoch else { return }
+        guard epoch == datasetEpoch,
+              modelRevision == resolvedACOMModel?.revisionID else { return }
         if cancellation.isCancelled {
             statusText = "Orientation-plan generation cancelled"
             return
@@ -3061,10 +3110,7 @@ final class AppState {
         }
         orientationPlan = plan
         hasOrientationPlan = true
-        let label = acomCrystal == .custom
-            ? "\(ScatteringFactors.symbols[customZ] ?? "Z\(customZ)") \(customStructure.rawValue), a = \(String(format: "%.3f", customLatticeA)) Å"
-            : acomCrystal.rawValue
-        statusText = "Orientation plan ✓  \(plan.count) templates (\(label))"
+        statusText = "Orientation plan ✓  \(plan.count) templates (\(model.displayName))"
     }
 
     /// Match the chosen preview, selected region, or full scan against the
@@ -3077,6 +3123,11 @@ final class AppState {
         }
         guard let descriptor, let bragg = braggVectors else {
             present(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
+            return
+        }
+        guard let model = resolvedACOMModel else {
+            present(SimpleError(acomModelSelectionIssue
+                ?? "Choose a valid phase model before running ACOM."))
             return
         }
         if orientationPlan == nil { await generateOrientationPlan() }
@@ -3108,7 +3159,15 @@ final class AppState {
             bragg, descriptor: descriptor, positions: selectedPositions
         )
         let origin = calibrated.origin
-        let scale = acomScale
+        let scaleSemantics = acomScaleSemantics
+        let scale = scaleSemantics.invAngstromPerPixel
+        let runSemantics = ACOMRunSemantics(
+            materialModelID: model.id,
+            materialDescription: model.displayName,
+            scale: scaleSemantics,
+            materialProvenance: model.provenance
+        )
+        let modelRevision = model.revisionID
         let backend = effectiveACOMBackend
         let epoch = datasetEpoch
         let map = await Task.detached(priority: .userInitiated) { [self] in
@@ -3138,10 +3197,16 @@ final class AppState {
             present(SimpleError("ACOM matching failed to initialize."))
             return
         }
+        guard resolvedACOMModel?.revisionID == modelRevision,
+              acomScaleSemantics == scaleSemantics else {
+            statusText = "Discarded ACOM result because its material or Q scale changed"
+            return
+        }
         orientationMap = map
         hasOrientationMap = true
         acomLastRunScope = scope
         acomLastRunQuality = quality
+        acomLastRunSemantics = runSemantics
         acomLastMatchedPositionCount = workCount
         let elapsed = max(Date().timeIntervalSince(actionStarted), 0.001)
         acomLastEndToEndDuration = elapsed
@@ -3151,8 +3216,9 @@ final class AppState {
         acomRegionSelectionActive = false
         applyACOMDisplay()
         statusText = String(
-            format: "ACOM %@ ✓  %@ · %@ positions · %.1f s",
+            format: "ACOM %@ ✓  %@ · %@ · %@ positions · %.1f s",
             scope.resultQualifier, map.matchingBackend.rawValue,
+            runSemantics.scale.provenance.displayName,
             workCount.formatted(), elapsed
         )
     }

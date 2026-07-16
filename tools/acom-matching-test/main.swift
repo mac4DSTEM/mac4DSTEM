@@ -5,6 +5,27 @@ func fail(_ message: String) -> Never {
     exit(1)
 }
 
+let catalog = CrystalModelLibrary.models
+let catalogIDs = Set(catalog.map(\.id))
+guard !catalog.isEmpty, catalogIDs.count == catalog.count else {
+    fail("crystal-model catalog identifiers must be present and unique")
+}
+for model in catalog {
+    guard model.isUsable else {
+        fail("crystal-model \(model.id) failed validation: \(model.validationIssues.map(\.code))")
+    }
+    guard !model.crystal.reflections(kMax: 1.2).isEmpty else {
+        fail("crystal-model \(model.id) generated no reflections")
+    }
+    guard let catalogPlan = OrientationPlan.generate(
+        crystal: model.crystal, kMax: 1.2, zoneAxisCount: 12,
+        symmetry: model.symmetry
+    ), catalogPlan.symmetry == model.symmetry, catalogPlan.count == 12 else {
+        fail("crystal-model \(model.id) could not generate its declared symmetry plan")
+    }
+}
+print("PASS: \(catalog.count) explicit crystal models validate and generate symmetry-consistent plans")
+
 func vectors(plan: OrientationPlan, crystal: Crystal, width: Int, height: Int) -> BraggVectors {
     let reflections = crystal.reflections(kMax: 1.2)
     let scale = 0.01

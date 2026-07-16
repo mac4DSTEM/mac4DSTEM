@@ -13,6 +13,7 @@ enum ProductDomain: String, Codable, Sendable {
 enum ProductQuantitativeStatus: String, Codable, Sendable {
     case quantitative
     case relative
+    case exploratory
     case categorical
 }
 

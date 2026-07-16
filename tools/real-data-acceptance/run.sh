@@ -24,6 +24,7 @@ xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
   "$SRC/Compute/MatrixDFTCorrelation.swift" "$SRC/Compute/MetalEngine.swift" \
   "$SRC/Analysis/ProbeKernel.swift" "$SRC/Analysis/DiskDetection.swift" \
   "$SRC/Analysis/TiledDiskDetection.swift" "$SRC/Analysis/VirtualDetector.swift" \
+  "$SRC/Analysis/OriginCalibration.swift" \
   "$ROOT/tools/real-data-acceptance/main.swift" \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null

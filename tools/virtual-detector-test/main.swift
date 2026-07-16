@@ -203,7 +203,9 @@ diskParams.sigmaCC = 0
 diskParams.subpixel = .pixel
 diskParams.minRelativeIntensity = 0
 diskParams.minPeakSpacing = 0
-diskParams.edgeBoundary = 0
+// The maxima detector needs a one-pixel neighborhood; zero was historically
+// clamped to one internally and is now rejected by the public contract.
+diskParams.edgeBoundary = 1
 diskParams.maxNumPeaks = 8
 guard let residentDisks = DiskDetection.detectAll(
     cube: cubeBuffer, descriptor: d, kernel: diskKernel, params: diskParams

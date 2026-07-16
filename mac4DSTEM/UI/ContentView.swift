@@ -118,136 +118,9 @@ struct ContentView: View {
                     }
 
                     if appState.workspaceArea == .prepare {
-                        Section("Calibration path") {
+                        Section("Calibration") {
                             CalibrationReadinessChecklist()
-                        }
-
-                        Section("Calibration details") {
-                        LabeledContent("Aperture center",
-                                       value: appState.calibration.originProvenance.displayName)
-                            .font(.caption)
-                            .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
-
-                        Picker("Origin fit", selection: $appState.originFitFunction) {
-                            ForEach(OriginFitFunction.allCases) { fit in
-                                Text(fit.rawValue).tag(fit)
-                            }
-                        }
-                        Button {
-                            Task { await appState.calibrateOrigin() }
-                        } label: {
-                            Label("Calibrate Origin", systemImage: "scope")
-                        }
-                        .disabled(appState.isBusy)
-                        Button {
-                            Task { await appState.calibrateRotation() }
-                        } label: {
-                            Label("Calibrate Rotation", systemImage: "rotate.3d")
-                        }
-                        .disabled(appState.isBusy)
-
-                        if let radius = appState.calibration.probeRadius {
-                            LabeledContent("Probe radius",
-                                           value: String(format: "%.1f px", radius))
-                                .font(.caption)
-                        }
-                        if let residual = appState.calibration.origin?.rmsResidual {
-                            LabeledContent("Fit residual",
-                                           value: String(format: "%.3f px RMS", residual))
-                                .font(.caption)
-                        }
-                        if let rotation = appState.calibration.rotationRad {
-                            let transposed = (appState.calibration.transposeQR ?? false) ? " ⊤" : ""
-                            LabeledContent("R–Q rotation",
-                                           value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed))
-                                .font(.caption)
-                            Button {
-                                appState.flipRotation180()
-                            } label: {
-                                Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
-                            }
-                                .help("The curl method can't tell θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
-                        }
-                        DisclosureGroup("Advanced ellipse correction") {
-                            VStack(alignment: .leading, spacing: 4) {
-                            Text("Ellipse fit annulus").font(.caption)
-                            HStack {
-                                TextField(
-                                    "inner",
-                                    value: $appState.ellipseFitInnerRadius,
-                                    format: .number.precision(.fractionLength(0...2))
-                                )
-                                Text("to").font(.caption2).foregroundStyle(.secondary)
-                                TextField(
-                                    "outer",
-                                    value: $appState.ellipseFitOuterRadius,
-                                    format: .number.precision(.fractionLength(0...2))
-                                )
-                                Text("px").font(.caption2).foregroundStyle(.secondary)
-                            }
-                            .textFieldStyle(.roundedBorder)
-                            }
-                            Button {
-                            Task { await appState.calibrateEllipse() }
-                        } label: {
-                            Label("Fit Ellipse", systemImage: "oval")
-                        }
-                        .disabled(appState.isBusy)
-                        .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
-                            if appState.calibration.hasEllipse,
-                           let a = appState.calibration.ellipseA,
-                           let b = appState.calibration.ellipseB,
-                           let theta = appState.calibration.ellipseTheta {
-                            LabeledContent(
-                                "Ellipse correction",
-                                value: String(format: "a %.4g · b %.4g · θ %.1f°",
-                                              a, b, theta * 180 / .pi)
-                            )
-                            .font(.caption)
-                            .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
-                            if let fit = appState.lastEllipseFit {
-                                LabeledContent("Ellipse model", value: fit.model.rawValue)
-                                    .font(.caption)
-                                LabeledContent(
-                                    "Ellipse residual",
-                                    value: String(format: "%.3f · %d/36 sectors",
-                                                  fit.normalizedResidual,
-                                                  fit.occupiedAngularBins)
-                                )
-                                .font(.caption)
-                                if let profile = fit.profile {
-                                    LabeledContent(
-                                        "Ring widths",
-                                        value: String(
-                                            format: "inner %.3g · outer %.3g px",
-                                            profile.innerSigma, profile.outerSigma
-                                        )
-                                    )
-                                    .font(.caption)
-                                } else if let reason = fit.profileFallbackReason {
-                                    Text("Profile fallback: \(reason)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            }
-                        }
-
-                        // Pixel sizes: auto-filled from DM4 metadata, editable
-                        // (and the only way in for plain HDF5). Drives the
-                        // scale bars; 0 = uncalibrated (bars show px).
-                        pixelSizeField("r px size",
-                                       value: appState.manualRPixelSize,
-                                       units: appState.manualRPixelUnits,
-                                       unitOptions: CalibrationUnitConversion.editableRealUnits,
-                                       onChange: appState.setManualRPixelSize,
-                                       onUnitChange: appState.setManualRPixelUnits)
-                        pixelSizeField("q px size",
-                                       value: appState.manualQPixelSize,
-                                       units: appState.manualQPixelUnits,
-                                       unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                                       onChange: appState.setManualQPixelSize,
-                                       onUnitChange: appState.setManualQPixelUnits)
+                            CalibrationDetailsView()
                         }
                     }
 
@@ -898,153 +771,7 @@ struct ContentView: View {
                     }
 
                     if appState.workspaceArea == .map && appState.analysisMode == .acom {
-                        Section("ACOM (orientation)") {
-                            Picker("Crystal", selection: $appState.acomCrystal) {
-                                ForEach(CrystalChoice.allCases) { choice in
-                                    Text(choice.rawValue).tag(choice)
-                                }
-                            }
-                            if appState.acomCrystal == .custom {
-                                Picker("Element", selection: $appState.customZ) {
-                                    ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
-                                        Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
-                                    }
-                                }
-                                Picker("Structure", selection: $appState.customStructure) {
-                                    ForEach(Crystal.CubicStructure.allCases) { s in
-                                        Text(s.rawValue).tag(s)
-                                    }
-                                }
-                                HStack {
-                                    Text("a (Å)").font(.caption)
-                                    TextField("a", value: $appState.customLatticeA,
-                                              format: .number.precision(.fractionLength(0...4)))
-                                        .textFieldStyle(.roundedBorder)
-                                        .frame(width: 80)
-                                }
-                            }
-                            Picker("Quality", selection: $appState.acomQuality) {
-                                ForEach(ACOMQualityPreset.allCases) { quality in
-                                    Text(quality.rawValue).tag(quality)
-                                }
-                            }
-                            Text(appState.acomQuality.detail)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-
-                            Picker("Area", selection: $appState.acomScope) {
-                                ForEach(ACOMRunScope.allCases) { scope in
-                                    Text(scope.rawValue).tag(scope)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .accessibilityIdentifier("acom.scope")
-
-                            if appState.acomScope == .selectedRegion,
-                               let descriptor = appState.descriptor {
-                                Stepper(
-                                    "Center X  \(appState.selectedScan.x)",
-                                    value: Binding(
-                                        get: { appState.selectedScan.x },
-                                        set: { appState.selectScan(
-                                            x: $0, y: appState.selectedScan.y
-                                        ) }
-                                    ),
-                                    in: 0...max(0, descriptor.rx - 1)
-                                )
-                                Stepper(
-                                    "Center Y  \(appState.selectedScan.y)",
-                                    value: Binding(
-                                        get: { appState.selectedScan.y },
-                                        set: { appState.selectScan(
-                                            x: appState.selectedScan.x, y: $0
-                                        ) }
-                                    ),
-                                    in: 0...max(0, descriptor.ry - 1)
-                                )
-                                Stepper(
-                                    "Half-size  \(appState.acomRegionRadius) px",
-                                    value: $appState.acomRegionRadius,
-                                    in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
-                                )
-                                Text("The orange square on the map is matched at full spatial resolution.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            } else if appState.acomScope == .preview {
-                                Text("Samples at most 32 × 32 positions, then expands the coarse blocks for a rapid whole-field check.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            LabeledContent("Work", value: appState.acomWorkSummary)
-                                .font(.caption)
-                            LabeledContent("Expected", value: appState.acomEstimatedDurationText)
-                                .font(.caption)
-
-                            DisclosureGroup("Engine & Q calibration") {
-                                Picker("Engine", selection: $appState.acomBackend) {
-                                    ForEach(ACOMMatchingBackend.allCases) { backend in
-                                        Text(backend.rawValue).tag(backend)
-                                    }
-                                }
-                                LabeledContent(
-                                    "Will use", value: appState.effectiveACOMBackend.rawValue
-                                )
-                                .font(.caption)
-                                if appState.acomBackend == .automatic {
-                                    Text("Automatic uses the fastest backend verified on the real-data benchmark, currently Accelerate CPU.")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(String(format: "Å⁻¹ / pixel  %.4f", appState.acomScale))
-                                        .font(.caption)
-                                    Slider(value: $appState.acomScale, in: 0.001...0.05)
-                                }
-                                Button {
-                                    Task { await appState.calibrateQFromCrystal() }
-                                } label: {
-                                    Label("Calibrate Q from Crystal", systemImage: "ruler")
-                                }
-                                .disabled(appState.isBusy || !appState.hasCurrentBraggVectors)
-                                .help("Uses the median innermost detected Bragg radius and the selected crystal's first allowed reflection.")
-                                if appState.hasOrientationPlan,
-                                   let plan = appState.orientationPlan {
-                                    LabeledContent("Cached plan", value: "\(plan.count) templates")
-                                        .font(.caption)
-                                }
-                            }
-
-                            if appState.diskDetectionSettingsAreStale {
-                                Text("Detection settings changed — rerun Detect All Disks before ACOM.")
-                                    .font(.caption2).foregroundStyle(.orange)
-                            } else if appState.braggVectors == nil {
-                                Text("Detect Bragg disks first (Map → Bragg disks).")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
-                            if appState.hasOrientationMap {
-                                Picker("Display", selection: $appState.acomDisplay) {
-                                    ForEach(ACOMDisplayMode.allCases) { mode in
-                                        Text(mode.rawValue).tag(mode)
-                                    }
-                                }
-                                if appState.acomDisplay == .ipfZ {
-                                    if appState.orientationMap?.symmetry == .hexagonal {
-                                        HexagonalIPFLegendView()
-                                    } else {
-                                        CubicIPFLegendView()
-                                    }
-                                }
-                                if let text = appState.selectedEulerText {
-                                    LabeledContent(
-                                        "\(appState.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
-                                        value: text
-                                    )
-                                        .font(.caption.monospacedDigit())
-                                }
-                            }
-                        }
+                        ACOMControlsView()
                     }
                 }
             }
@@ -1201,37 +928,6 @@ struct ContentView: View {
             Button("OK", role: .cancel) { appState.errorMessage = nil }
         } message: {
             Text(appState.errorMessage ?? "")
-        }
-    }
-
-    /// One pixel-size calibration row: numeric field + physical-unit picker.
-    /// Entering a value > 0 calibrates with the visible selected units;
-    /// clearing to 0 returns to uncalibrated ("px" scale bars).
-    private func pixelSizeField(_ label: String,
-                                value: Double?,
-                                units: String,
-                                unitOptions: [String],
-                                onChange: @escaping (Double) -> Void,
-                                onUnitChange: @escaping (String) -> Void) -> some View {
-        HStack {
-            Text(label).font(.caption)
-            Spacer()
-            TextField("0", value: Binding(
-                get: { value ?? 0 },
-                set: onChange
-            ), format: .number.precision(.fractionLength(0...6)))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 90)
-            Picker("Units", selection: Binding(
-                get: { units }, set: onUnitChange
-            )) {
-                ForEach(unitOptions, id: \.self) { unit in
-                    Text(unit).tag(unit)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .frame(width: 68, alignment: .leading)
         }
     }
 
@@ -1439,7 +1135,7 @@ struct ContentView: View {
                 .accessibilityLabel("Current task is ready")
         } else if missing.isEmpty {
             VStack(alignment: .leading, spacing: 5) {
-                Label("Ready · qualitative output", systemImage: "checkmark.circle")
+                Label("Ready · limited interpretation", systemImage: "checkmark.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 ForEach(guidance, id: \.self) { item in
@@ -1459,7 +1155,12 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
-                if missing.contains(where: { $0 != "Detect Bragg disks first" }) {
+                if missing.contains(where: { $0.hasPrefix("Choose an ACOM")
+                    || $0.hasPrefix("The selected ACOM") }) {
+                    Text("Select the material in the ACOM controls below.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else if missing.contains(where: { $0 != "Detect Bragg disks first" }) {
                     Button("Go to Prepare") { appState.selectWorkspace(.prepare) }
                         .font(.caption)
                 } else {

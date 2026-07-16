@@ -114,7 +114,21 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(ProductWorkflow.prerequisites(
             for: .acom,
             readiness: ProductWorkflowReadiness(hasBraggVectors: true)
+        ), ["Choose an ACOM material model"])
+        XCTAssertEqual(ProductWorkflow.prerequisites(
+            for: .acom,
+            readiness: ProductWorkflowReadiness(
+                hasBraggVectors: true, hasACOMMaterial: true,
+                hasSupportedACOMMaterial: true
+            )
         ), [])
+        XCTAssertEqual(ProductWorkflow.prerequisites(
+            for: .acom,
+            readiness: ProductWorkflowReadiness(
+                hasBraggVectors: true, hasACOMMaterial: true,
+                hasSupportedACOMMaterial: false
+            )
+        ), ["The selected ACOM material is not supported"])
 
         let reconstructionMissing = ProductWorkflow.prerequisites(
             for: .ptychography,
@@ -238,6 +252,75 @@ final class ProductWorkflowTests: XCTestCase {
         state.setManualQPixelUnits("Å⁻¹")
         XCTAssertEqual(state.calibration.qPixelUnits, "Å⁻¹")
         XCTAssertEqual(state.acomScale, 0.25, accuracy: 1e-12)
+    }
+
+    func testACOMRequiresExplicitMaterialAndPreservesScaleMeaning() {
+        let state = AppState()
+        XCTAssertEqual(state.acomModelSelection, .none)
+        XCTAssertEqual(state.acomScaleSemantics.provenance, .exploratory)
+        XCTAssertEqual(state.acomScale, 0.01, accuracy: 1e-12)
+        XCTAssertFalse(state.productWorkflowReadiness.hasACOMMaterial)
+
+        state.acomModelSelection = .library("not_a_model")
+        XCTAssertTrue(state.productWorkflowReadiness.hasACOMMaterial)
+        XCTAssertFalse(state.productWorkflowReadiness.hasSupportedACOMMaterial)
+        XCTAssertNotNil(state.acomModelSelectionIssue)
+
+        state.acomModelSelection = .library("au_fcc")
+        XCTAssertTrue(state.productWorkflowReadiness.hasSupportedACOMMaterial)
+        XCTAssertEqual(state.resolvedACOMModel?.displayName, "Gold (FCC)")
+        state.acomExploratoryScale = 0.02
+        XCTAssertEqual(state.acomScale, 0.02, accuracy: 1e-12)
+        XCTAssertEqual(state.acomScaleSemantics.provenance, .exploratory)
+
+        state.setManualQPixelSize(0.25)
+        XCTAssertEqual(state.acomScaleSemantics.provenance, .manual)
+        XCTAssertTrue(state.productWorkflowReadiness.hasPhysicalACOMScale)
+    }
+
+    func testCrystalModelLibraryIsCompleteAndSymmetryValidated() {
+        let models = CrystalModelLibrary.models
+        XCTAssertEqual(Set(models.map(\.id)).count, models.count)
+        XCTAssertFalse(models.isEmpty)
+        for model in models {
+            XCTAssertTrue(model.isUsable, "\(model.displayName): \(model.validationIssues)")
+            XCTAssertFalse(model.crystal.sites.isEmpty)
+            XCTAssertFalse(model.crystal.reflections(kMax: 1.2).isEmpty)
+            XCTAssertEqual(model.provenance["crystal_model_id"], model.id)
+            XCTAssertEqual(model.provenance["crystal_symmetry"], model.symmetry.rawValue)
+        }
+
+        let invalid = CrystalModelLibrary.customCubic(
+            structure: .fcc, latticeA: 0, atomicNumber: 79
+        )
+        XCTAssertFalse(invalid.isUsable)
+        XCTAssertTrue(invalid.validationIssues.contains {
+            $0.code == "invalid_cell_lengths"
+        })
+    }
+
+    func testACOMRunSemanticsNeverPromotesFallbackScale() {
+        let exploratory = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Gold (FCC)",
+            scale: ACOMScaleSemantics(
+                invAngstromPerPixel: 0.01, provenance: .exploratory
+            )
+        )
+        XCTAssertEqual(exploratory.productStatus(for: "acom_reliability"), .exploratory)
+        XCTAssertEqual(exploratory.productStatus(for: "acom_ipf_z"), .exploratory)
+        XCTAssertEqual(exploratory.provenance["interpretation"], "exploratory")
+
+        let physical = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Gold (FCC)",
+            scale: ACOMScaleSemantics(
+                invAngstromPerPixel: 0.02, provenance: .importedFile
+            )
+        )
+        XCTAssertEqual(physical.productStatus(for: "acom_reliability"), .relative)
+        XCTAssertEqual(physical.productStatus(for: "acom_score"), .relative)
+        XCTAssertEqual(physical.productStatus(for: "acom_phi1"), .quantitative)
+        XCTAssertEqual(physical.productStatus(for: "acom_ipf_z"), .categorical)
+        XCTAssertEqual(physical.provenance["q_scale_provenance"], "imported_file")
     }
 
     func testRejectedStrainPixelsAreNoDataRatherThanZeroStrain() {

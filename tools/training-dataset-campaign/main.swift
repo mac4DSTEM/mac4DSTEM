@@ -38,6 +38,12 @@ struct ImportedCalibrationReport: Codable {
     let hasOriginMaps: Bool
 }
 
+struct CampaignFixtureMetadata: Codable {
+    let voltageKV: Double?
+    let phaseModelID: String?
+    let alternateDatasetPaths: [String]?
+}
+
 struct DatasetCampaignReport: Codable {
     let file: String
     let fileBytes: Int64
@@ -142,7 +148,10 @@ private func pixelCalibration(
     return output
 }
 
-private func evaluate(path: String, outputDirectory: URL) async throws
+private func evaluate(
+    path: String, metadata: CampaignFixtureMetadata,
+    outputDirectory: URL
+) async throws
     -> DatasetCampaignReport {
     let campaignStart = Date()
     let fileName = URL(fileURLWithPath: path).lastPathComponent
@@ -159,8 +168,7 @@ private func evaluate(path: String, outputDirectory: URL) async throws
     )
 
     var alternatePaths: [String] = []
-    if fileName == "sim_Au_data_all_binned.h5" {
-        let alternate = "/4DSTEM_simulation/4DSTEM_polyAu/data"
+    for alternate in metadata.alternateDatasetPaths ?? [] {
         if let alternateDescriptor = try? await reader.describe(path: alternate),
            alternateDescriptor.shape == descriptor.shape {
             alternatePaths.append(alternate)
@@ -170,15 +178,21 @@ private func evaluate(path: String, outputDirectory: URL) async throws
     let fileVoltage = await reader.readDoubleAttribute(
         "accelerating_voltage", onObjectPath: "/"
     )
-    let noteVoltage: Double = fileName.hasPrefix("Particle_1_") ? 300 : 200
     let voltageKV: Double
     let voltageSource: String
     if let fileVoltage, fileVoltage.isFinite, fileVoltage > 0 {
         voltageKV = fileVoltage > 1_000 ? fileVoltage / 1_000 : fileVoltage
         voltageSource = "HDF5 root attribute"
+    } else if let declaredVoltage = metadata.voltageKV,
+              declaredVoltage.isFinite, declaredVoltage > 0 {
+        voltageKV = declaredVoltage
+        voltageSource = "explicit campaign manifest"
     } else {
-        voltageKV = noteVoltage
-        voltageSource = "References/training_dataset/metadata.md"
+        throw NSError(
+            domain: "training-dataset-campaign", code: 5,
+            userInfo: [NSLocalizedDescriptionKey:
+                "No physical accelerating voltage was supplied by the file or campaign manifest"]
+        )
     }
     let imported = await reader.pixelCalibration()
     let importedReport = ImportedCalibrationReport(
@@ -598,16 +612,10 @@ private func evaluate(path: String, outputDirectory: URL) async throws
         )
     }
 
-    let material: (name: String, crystal: Crystal)?
-    if fileName == "sim_Au_data_all_binned.h5" {
-        material = ("Au (filename)", .gold)
-    } else if fileName == "downsample_Si_SiGe_exp.h5" {
-        material = ("Si diamond operational proxy (filename also contains SiGe)", .silicon)
-    } else {
-        material = nil
-    }
-    if let material,
-       let firstShell = material.crystal.reflections(kMax: 2.5).first?.gLength,
+    let phaseModel = metadata.phaseModelID.flatMap(CrystalModelLibrary.model(id:))
+    if let phaseModel,
+       phaseModel.isUsable,
+       let firstShell = phaseModel.crystal.reflections(kMax: 2.5).first?.gLength,
        let qEstimate = KnownCrystalQCalibration.estimate(
             bragg: vectors, origin: meanOrigin,
             referenceRadiusInvAngstrom: firstShell
@@ -617,7 +625,8 @@ private func evaluate(path: String, outputDirectory: URL) async throws
         provenance.qScale = .measuredInApp
         let acomStart = Date()
         let plan = OrientationPlan.generate(
-            crystal: material.crystal, kMax: 1.2, zoneAxisCount: 96
+            crystal: phaseModel.crystal, kMax: 1.2, zoneAxisCount: 96,
+            symmetry: phaseModel.symmetry
         )
         let selection = ACOMScanSelection.preview(maxDimension: 24)
         let orientation = plan.flatMap {
@@ -639,7 +648,7 @@ private func evaluate(path: String, outputDirectory: URL) async throws
             }
             stages["acom"] = CampaignStage(
                 "pass_operational_not_quantitatively_validated", seconds: acomSeconds,
-                detail: "\(material.name) · \(valid.count)/\(selectedIndices.count) sampled positions matched · no expected orientation map/simulation parameters supplied",
+                detail: "Explicit \(phaseModel.displayName) model · \(valid.count)/\(selectedIndices.count) sampled positions matched · no expected orientation map/simulation parameters supplied",
                 metrics: [
                     "q_inv_angstrom_per_px": qEstimate.invAngstromPerPixel,
                     "templates": Double(plan.count),
@@ -656,10 +665,11 @@ private func evaluate(path: String, outputDirectory: URL) async throws
         }
     } else {
         let detail: String
-        if fileName == "polycrystal_2D_WS2.h5" {
-            detail = "Not quantitatively testable: the app has no WS₂ crystal preset/custom non-cubic structure model"
-        } else if material == nil {
-            detail = "Not quantitatively testable: material/crystal and expected orientation map are missing"
+        if let modelID = metadata.phaseModelID,
+           CrystalModelLibrary.model(id: modelID) == nil {
+            detail = "Not quantitatively testable: explicit phase model '\(modelID)' is unavailable"
+        } else if phaseModel == nil {
+            detail = "Not quantitatively testable: no explicit phase model or expected orientation map was supplied"
         } else {
             detail = "Not quantitatively testable: known-crystal Q calibration could not be established"
         }
@@ -775,9 +785,9 @@ private func evaluate(path: String, outputDirectory: URL) async throws
 @main
 struct TrainingDatasetCampaign {
     static func main() async throws {
-        guard CommandLine.arguments.count >= 3 else {
+        guard CommandLine.arguments.count >= 4 else {
             FileHandle.standardError.write(Data(
-                "usage: harness output-directory data.h5 ...\n".utf8
+                "usage: harness output-directory manifest.json data.h5 ...\n".utf8
             ))
             exit(64)
         }
@@ -787,13 +797,27 @@ struct TrainingDatasetCampaign {
         try FileManager.default.createDirectory(
             at: outputDirectory, withIntermediateDirectories: true
         )
+        let manifestURL = URL(fileURLWithPath: CommandLine.arguments[2])
+        let manifest = try JSONDecoder().decode(
+            [String: CampaignFixtureMetadata].self,
+            from: Data(contentsOf: manifestURL)
+        )
         var reports: [DatasetCampaignReport] = []
-        for path in CommandLine.arguments.dropFirst(2) {
+        for path in CommandLine.arguments.dropFirst(3) {
+            let fileName = URL(fileURLWithPath: path).lastPathComponent
+            guard let metadata = manifest[fileName] else {
+                throw NSError(
+                    domain: "training-dataset-campaign", code: 6,
+                    userInfo: [NSLocalizedDescriptionKey:
+                        "No explicit campaign metadata exists for \(fileName)"]
+                )
+            }
             FileHandle.standardError.write(Data(
-                "[campaign] \(URL(fileURLWithPath: path).lastPathComponent)\n".utf8
+                "[campaign] \(fileName)\n".utf8
             ))
             reports.append(try await evaluate(
-                path: path, outputDirectory: outputDirectory
+                path: path, metadata: metadata,
+                outputDirectory: outputDirectory
             ))
         }
         let encoder = JSONEncoder()

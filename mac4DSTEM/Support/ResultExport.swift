@@ -254,16 +254,19 @@ extension AppState {
                       masked(map.localResidualPixels)),
             ]
         }
-        if let map = orientationMap {
+        if let map = orientationMap, let semantics = acomLastRunSemantics {
             let valid = map.results.map { $0.templateIndex >= 0 }
-            let provenance = [
+            var provenance = semantics.provenance
+            provenance.merge([
                 "bundle": "orientation", "display_domain": "scan",
                 "euler_convention": "Bunge extrinsic zxz, radians",
                 "symmetry": map.symmetry.rawValue,
                 "matching_backend": map.matchingBackend.rawValue,
                 "template_count": String(map.templateCount),
-                "q_inv_angstrom_per_pixel": String(acomScale),
-            ]
+                "quantitative_status": semantics.productStatus(
+                    for: "orientation_bundle"
+                ).rawValue,
+            ], uniquingKeysWith: { _, new in new })
             func values(_ body: (OrientationResult) -> Float) -> [Float] {
                 map.results.indices.map { valid[$0] ? body(map.results[$0]) : Float.nan }
             }
@@ -415,7 +418,7 @@ extension AppState {
             } else if navigationResultInfo != nil {
                 persistence = navigationResultPixelInfo ?? (nil, nil, nil, [:])
             } else {
-                persistence = currentScalarPersistenceMetadata
+                persistence = currentResultPersistenceMetadata
             }
             scalarMap = ScalarResultMap(
                 width: image.width, height: image.height, pixels: image.pixels,
@@ -429,11 +432,16 @@ extension AppState {
             rgbaMap = nil
         } else if let image = resultRGBA,
                   image.width == descriptor.rx, image.height == descriptor.ry {
+            let persistence = currentResultPersistenceMetadata
             scalarMap = nil
             rgbaMap = RGBAResultMap(
                 width: image.width, height: image.height, rgba: image.rgba,
                 kind: metadata.kind, displayName: metadata.displayName,
-                valueUnits: metadata.valueUnits
+                valueUnits: metadata.valueUnits,
+                pixelSizeRow: persistence.row,
+                pixelSizeColumn: persistence.column,
+                pixelUnits: persistence.units,
+                provenance: persistence.provenance
             )
         } else {
             present(SimpleError("No scalar or scan-shaped RGBA result is available to save."))
@@ -532,8 +540,10 @@ extension AppState {
                 resultImage = nil
                 resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
                 restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
-                restoredResultPixelInfo = nil
-                restoredResultDomain = nil
+                restoredResultPixelInfo = (
+                    map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
+                )
+                restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
             }
             sessionInventory = SessionSidecarInventory(
                 hasSidecar: sessionInventory.hasSidecar,
@@ -591,13 +601,18 @@ extension AppState {
                     kind: map.kind, displayName: map.displayName,
                     payload: .rgba(RGBAImage(width: map.width, height: map.height,
                                             rgba: map.rgba)),
-                    domain: legacyDomain(kind: map.kind, width: map.width,
-                                         height: map.height, descriptor: descriptor),
-                    sampling: ProductSampling(row: nil, column: nil, units: nil),
+                    domain: map.provenance["display_domain"].flatMap(ProductDomain.init)
+                        ?? legacyDomain(kind: map.kind, width: map.width,
+                                        height: map.height, descriptor: descriptor),
+                    sampling: ProductSampling(
+                        row: map.pixelSizeRow, column: map.pixelSizeColumn,
+                        units: map.pixelUnits
+                    ),
                     valueUnits: map.valueUnits,
-                    quantitativeStatus: quantitativeStatus(
-                        for: map.kind, units: map.valueUnits
-                    )
+                    quantitativeStatus: map.provenance["quantitative_status"]
+                        .flatMap(ProductQuantitativeStatus.init)
+                        ?? quantitativeStatus(for: map.kind, units: map.valueUnits),
+                    provenance: map.provenance
                 )
             }
             guard epoch == datasetEpoch, let product else { return }
@@ -985,22 +1000,24 @@ extension AppState {
             )
         }
         if analysisMode == .acom, let map = orientationMap {
+            var provenance = acomLastRunSemantics?.provenance ?? [:]
+            provenance.merge([
+                "analysis_mode": analysisMode.rawValue,
+                "source_product": "acom_\(acomDisplay.rawValue)",
+                "crystal_symmetry": map.symmetry.rawValue,
+                "matching_backend": map.matchingBackend.rawValue,
+                "template_count": String(map.templateCount),
+                "quality": (acomLastRunQuality ?? acomQuality).rawValue,
+                "run_scope": (acomLastRunScope ?? .fullScan).resultQualifier,
+                "matched_position_count": String(
+                    acomLastMatchedPositionCount ?? map.width * map.height
+                ),
+                "friedel_angle_period_degrees": "180",
+            ], uniquingKeysWith: { _, new in new })
             return (
                 calibration.rPixelSize, calibration.rPixelSize,
                 calibration.rPixelUnits,
-                [
-                    "analysis_mode": analysisMode.rawValue,
-                    "source_product": "acom_\(acomDisplay.rawValue)",
-                    "crystal_symmetry": map.symmetry.rawValue,
-                    "matching_backend": map.matchingBackend.rawValue,
-                    "template_count": String(map.templateCount),
-                    "quality": (acomLastRunQuality ?? acomQuality).rawValue,
-                    "run_scope": (acomLastRunScope ?? .fullScan).resultQualifier,
-                    "matched_position_count": String(
-                        acomLastMatchedPositionCount ?? map.width * map.height
-                    ),
-                    "friedel_angle_period_degrees": "180",
-                ]
+                provenance
             )
         }
         if analysisMode == .disks {
@@ -1127,9 +1144,11 @@ extension AppState {
         provenance["display_domain"] = (
             restoredResultDomain ?? navigationResultDomain ?? activeResultDomain
         ).rawValue
-        provenance["quantitative_status"] = quantitativeStatus(
-            for: currentResultKind, units: currentResultValueUnits
-        ).rawValue
+        if provenance["quantitative_status"] == nil {
+            provenance["quantitative_status"] = quantitativeStatus(
+                for: currentResultKind, units: currentResultValueUnits
+            ).rawValue
+        }
         return (base.row, base.column, base.units, provenance)
     }
 

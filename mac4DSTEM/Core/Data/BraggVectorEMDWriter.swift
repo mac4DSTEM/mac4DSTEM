@@ -44,6 +44,28 @@ nonisolated struct RGBAResultMap: Sendable {
     let kind: String
     let displayName: String
     let valueUnits: String
+    let pixelSizeRow: Double?
+    let pixelSizeColumn: Double?
+    let pixelUnits: String?
+    let provenance: [String: String]
+
+    init(
+        width: Int, height: Int, rgba: [UInt8], kind: String,
+        displayName: String, valueUnits: String,
+        pixelSizeRow: Double? = nil, pixelSizeColumn: Double? = nil,
+        pixelUnits: String? = nil, provenance: [String: String] = [:]
+    ) {
+        self.width = width
+        self.height = height
+        self.rgba = rgba
+        self.kind = kind
+        self.displayName = displayName
+        self.valueUnits = valueUnits
+        self.pixelSizeRow = pixelSizeRow
+        self.pixelSizeColumn = pixelSizeColumn
+        self.pixelUnits = pixelUnits
+        self.provenance = provenance
+    }
 }
 
 nonisolated enum SessionResultStorage: String, Sendable {
@@ -120,7 +142,7 @@ nonisolated enum BraggVectorEMDWriter {
     private static let schemaAttribute = "mac4dstem_session_schema"
     private static let resultNodesAttribute = "mac4dstem_result_nodes"
     private static let currentResultAttribute = "mac4dstem_current_result"
-    private static let sessionSchemaVersion = "4"
+    private static let sessionSchemaVersion = "5"
 
     enum WriterError: LocalizedError {
         case cancelled
@@ -801,7 +823,19 @@ nonisolated enum BraggVectorEMDWriter {
             ) ?? "Restored RGBA result",
             valueUnits: try readStringAttribute(
                 "mac4dstem_value_units", on: group, hdf5: h5
-            ) ?? "rgba"
+            ) ?? "rgba",
+            pixelSizeRow: try readStringAttribute(
+                "mac4dstem_pixel_size_row", on: group, hdf5: h5
+            ).flatMap(Double.init),
+            pixelSizeColumn: try readStringAttribute(
+                "mac4dstem_pixel_size_column", on: group, hdf5: h5
+            ).flatMap(Double.init),
+            pixelUnits: try readStringAttribute(
+                "mac4dstem_pixel_units", on: group, hdf5: h5
+            ),
+            provenance: decodeProvenance(try readStringAttribute(
+                "mac4dstem_provenance", on: group, hdf5: h5
+            ))
         )
     }
 
@@ -1145,6 +1179,12 @@ nonisolated enum BraggVectorEMDWriter {
                                     on: bragg, hdf5: h5)
             try writeShapeMetadata(scanHeight: vectors.scanHeight, scanWidth: vectors.scanWidth,
                                    qHeight: qHeight, qWidth: qWidth, in: bragg, hdf5: h5)
+            if let provenance = encodeProvenance(vectors.detectionProvenance) {
+                try writeStringAttribute(
+                    "mac4dstem_detection_provenance", value: provenance,
+                    on: bragg, hdf5: h5
+                )
+            }
             try writePeakGrid(vectors, in: bragg, cancellation: cancellation,
                               progress: progress, hdf5: h5)
         } else if canCopyBragg, let existingID {
@@ -1467,6 +1507,22 @@ nonisolated enum BraggVectorEMDWriter {
         try writeStringAttribute("mac4dstem_storage",
                                  value: SessionResultStorage.rgba8.rawValue,
                                  on: group, hdf5: h5)
+        if let value = map.pixelSizeRow {
+            try writeStringAttribute("mac4dstem_pixel_size_row", value: String(value),
+                                     on: group, hdf5: h5)
+        }
+        if let value = map.pixelSizeColumn {
+            try writeStringAttribute("mac4dstem_pixel_size_column", value: String(value),
+                                     on: group, hdf5: h5)
+        }
+        if let units = map.pixelUnits {
+            try writeStringAttribute("mac4dstem_pixel_units", value: units,
+                                     on: group, hdf5: h5)
+        }
+        if let provenance = encodeProvenance(map.provenance) {
+            try writeStringAttribute("mac4dstem_provenance", value: provenance,
+                                     on: group, hdf5: h5)
+        }
 
         let dimensions = [hsize_t(map.height), hsize_t(map.width), 4]
         let space = dimensions.withUnsafeBufferPointer {
@@ -1486,11 +1542,12 @@ nonisolated enum BraggVectorEMDWriter {
         }) >= 0 else { throw WriterError.hdf5("writing the RGBA result pixels") }
         try writeStringAttribute("units", value: "rgba8", on: dataset, hdf5: h5)
 
-        let step = calibration.rSize ?? 1
-        let dimUnits = calibration.rUnits ?? "pixels"
-        try writeDoubleVectorDataset("dim0", values: [0, step], name: "Rx",
+        let rowStep = map.pixelSizeRow ?? calibration.rSize ?? 1
+        let columnStep = map.pixelSizeColumn ?? calibration.rSize ?? 1
+        let dimUnits = map.pixelUnits ?? calibration.rUnits ?? "pixels"
+        try writeDoubleVectorDataset("dim0", values: [0, rowStep], name: "Rx",
                                      units: dimUnits, in: group, hdf5: h5)
-        try writeDoubleVectorDataset("dim1", values: [0, step], name: "Ry",
+        try writeDoubleVectorDataset("dim1", values: [0, columnStep], name: "Ry",
                                      units: dimUnits, in: group, hdf5: h5)
         try writeDoubleVectorDataset("dim2", values: [0, 1], name: "RGBA",
                                      units: "channel", in: group, hdf5: h5)
@@ -1511,6 +1568,10 @@ nonisolated enum BraggVectorEMDWriter {
                                metadataType: "string", in: metadata, hdf5: h5)
         try writeStringDataset("storage", value: SessionResultStorage.rgba8.rawValue,
                                metadataType: "string", in: metadata, hdf5: h5)
+        if let provenance = encodeProvenance(map.provenance) {
+            try writeStringDataset("provenance", value: provenance,
+                                   metadataType: "string", in: metadata, hdf5: h5)
+        }
         progress?(1)
     }
 

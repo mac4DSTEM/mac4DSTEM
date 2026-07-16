@@ -14,7 +14,8 @@ struct DiskDetectionControls: View {
     }
 
     private var maximumEdgeBoundary: Int {
-        max(1, (detectorMinimum - 1) / 2)
+        appState.diskDetectionContext?.maximumEdgeBoundary
+            ?? max(1, (detectorMinimum - 1) / 2)
     }
 
     var body: some View {
@@ -46,36 +47,87 @@ struct DiskDetectionControls: View {
         }
 
         parameterSlider(
-            title: "Correlation power",
-            value: floatBinding(\.corrPower, in: 0...1),
-            range: 0...1,
-            step: 0.05,
+            title: DiskDetectionParameterID.correlationPower.title,
+            value: floatBinding(
+                \.corrPower, in: floatEditorRange(.correlationPower)
+            ),
+            range: floatEditorRange(.correlationPower),
+            step: Float(DiskDetectionParameterID.correlationPower.editorStep!),
             valueText: String(format: "%.2f", appState.diskParams.corrPower)
         )
-        .help("1 is cross-correlation, 0 is phase-correlation, and intermediate values are hybrid correlation.")
+        .help(DiskDetectionParameterID.correlationPower.explanation)
 
-        Picker("Subpixel", selection: parameterBinding(\.subpixel)) {
+        Picker(
+            DiskDetectionParameterID.subpixel.title,
+            selection: parameterBinding(\.subpixel)
+        ) {
             ForEach(SubpixelMode.allCases) { mode in
                 Text(mode.rawValue).tag(mode)
             }
         }
-        .help("Pixel is fastest; Parabolic is the interactive default; Fourier (multicorr) is slowest and intended for strain-grade localization.")
+        .help(DiskDetectionParameterID.subpixel.explanation)
 
         Stepper(value: maximumPeaksBinding, in: 1...500) {
-            Text("Maximum peaks  \(appState.diskParams.maxNumPeaks)")
+            Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskParams.maxNumPeaks)")
                 .font(.caption)
         }
-        .help("Maximum number of correlation maxima returned for each diffraction pattern.")
+        .help(DiskDetectionParameterID.maximumPeaks.explanation)
 
         if appState.probeKernel != nil {
             LabeledContent("Current CBED", value: "\(appState.currentPeaks.count) peaks")
                 .font(.caption.monospacedDigit())
                 .accessibilityIdentifier("disk.currentPeakCount")
+            if let diagnostics = appState.currentDiskDiagnostics {
+                LabeledContent(
+                    "Acceptance funnel",
+                    value: "\(diagnostics.localMaximumCount) candidates → \(diagnostics.acceptedCount) accepted"
+                )
+                .font(.caption2.monospacedDigit())
+                .help("Edge-qualified local maxima before filters, followed by the final accepted peak count.")
+                Text(
+                    "absolute \(diagnostics.afterAbsoluteThresholdCount) · relative \(diagnostics.afterRelativeThresholdCount) · spacing \(diagnostics.afterSpacingCount)"
+                )
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                if diagnostics.wasCountLimited {
+                    Label(
+                        "This pattern was truncated to the configured maximum peak count.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                if appState.diskParams.minRelativeIntensity > 0,
+                   !diagnostics.relativeReferenceWasAvailable {
+                    Label(
+                        "The selected reference-peak rank is absent in this pattern; the relative filter cannot be evaluated.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         } else {
             Text("Build a probe kernel to preview detections on the current CBED.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+
+        ForEach(
+            Array(appState.diskDetectionValidationIssues.enumerated()), id: \.offset
+        ) { _, issue in
+            Label(
+                issue.message,
+                systemImage: issue.severity == .error
+                    ? "xmark.octagon.fill" : "exclamationmark.triangle.fill"
+            )
+            .font(.caption2)
+            .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
+            .fixedSize(horizontal: false, vertical: true)
         }
 
         DisclosureGroup(isExpanded: $showsAdvanced) {
@@ -84,22 +136,26 @@ struct DiskDetectionControls: View {
                     .font(.caption.weight(.semibold))
 
                 parameterSlider(
-                    title: "Pattern smoothing σ",
-                    value: floatBinding(\.sigmaDP, in: 0...10),
-                    range: 0...10,
-                    step: 0.1,
+                    title: DiskDetectionParameterID.patternSigma.title,
+                    value: floatBinding(
+                        \.sigmaDP, in: floatEditorRange(.patternSigma)
+                    ),
+                    range: floatEditorRange(.patternSigma),
+                    step: Float(DiskDetectionParameterID.patternSigma.editorStep!),
                     valueText: String(format: "%.1f px", appState.diskParams.sigmaDP)
                 )
-                .help("Gaussian σ applied to each diffraction pattern before correlation. It can suppress pixel noise, but excessive smoothing merges nearby features.")
+                .help(DiskDetectionParameterID.patternSigma.explanation)
 
                 parameterSlider(
-                    title: "Correlation smoothing σ",
-                    value: floatBinding(\.sigmaCC, in: 0...10),
-                    range: 0...10,
-                    step: 0.1,
+                    title: DiskDetectionParameterID.correlationSigma.title,
+                    value: floatBinding(
+                        \.sigmaCC, in: floatEditorRange(.correlationSigma)
+                    ),
+                    range: floatEditorRange(.correlationSigma),
+                    step: Float(DiskDetectionParameterID.correlationSigma.editorStep!),
                     valueText: String(format: "%.1f px", appState.diskParams.sigmaCC)
                 )
-                .help("Gaussian σ applied to the correlation map before maxima are selected. Zero disables smoothing.")
+                .help(DiskDetectionParameterID.correlationSigma.explanation)
 
                 Divider()
 
@@ -107,7 +163,7 @@ struct DiskDetectionControls: View {
                     .font(.caption.weight(.semibold))
 
                 HStack {
-                    Text("Minimum absolute")
+                    Text(DiskDetectionParameterID.minimumAbsoluteIntensity.title)
                         .font(.caption)
                     Spacer()
                     TextField(
@@ -122,10 +178,10 @@ struct DiskDetectionControls: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                .help("Minimum correlation-peak intensity on the absolute correlation scale. Zero disables this filter; values depend on the data and probe kernel.")
+                .help(DiskDetectionParameterID.minimumAbsoluteIntensity.explanation)
 
                 HStack {
-                    Text("Minimum relative")
+                    Text(DiskDetectionParameterID.minimumRelativeIntensity.title)
                         .font(.caption)
                     Spacer()
                     TextField(
@@ -140,13 +196,13 @@ struct DiskDetectionControls: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                .help("Minimum peak intensity as a percentage of the selected reference peak. Zero disables this filter.")
+                .help(DiskDetectionParameterID.minimumRelativeIntensity.explanation)
 
                 Stepper(value: relativePeakRankBinding, in: 1...max(1, appState.diskParams.maxNumPeaks)) {
-                    Text("Reference peak  #\(appState.diskParams.relativeToPeak + 1)")
+                    Text("\(DiskDetectionParameterID.relativeReferencePeak.title)  #\(appState.diskParams.relativeToPeak + 1)")
                         .font(.caption)
                 }
-                .help("Rank used by the relative intensity filter: #1 is the brightest correlation maximum, #2 the next brightest, and so on.")
+                .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
                 Stepper(
                     value: floatBinding(\.minPeakSpacing, in: 0...Float(detectorMinimum)),
@@ -154,20 +210,22 @@ struct DiskDetectionControls: View {
                     step: 1
                 ) {
                     Text(String(
-                        format: "Minimum spacing  %.0f px", appState.diskParams.minPeakSpacing
+                        format: "%@  %.0f px",
+                        DiskDetectionParameterID.minimumPeakSpacing.title,
+                        appState.diskParams.minPeakSpacing
                     ))
                     .font(.caption)
                 }
-                .help("Minimum center-to-center separation. When maxima are too close, the brighter candidate is kept.")
+                .help(DiskDetectionParameterID.minimumPeakSpacing.explanation)
 
                 Stepper(
                     value: intBinding(\.edgeBoundary, in: 1...maximumEdgeBoundary),
                     in: 1...maximumEdgeBoundary
                 ) {
-                    Text("Edge exclusion  \(appState.diskParams.edgeBoundary) px")
+                    Text("\(DiskDetectionParameterID.edgeBoundary.title)  \(appState.diskParams.edgeBoundary) px")
                         .font(.caption)
                 }
-                .help("Reject maxima whose centers lie within this many detector pixels of any pattern edge.")
+                .help(DiskDetectionParameterID.edgeBoundary.explanation)
 
                 if appState.diskParams.subpixel == .multicorr {
                     Divider()
@@ -180,10 +238,10 @@ struct DiskDetectionControls: View {
                         in: 4...64,
                         step: 4
                     ) {
-                        Text("Upsampling  \(appState.diskParams.upsampleFactor)×")
+                        Text("\(DiskDetectionParameterID.upsampleFactor.title)  \(appState.diskParams.upsampleFactor)×")
                             .font(.caption)
                     }
-                    .help("Matrix-DFT upsampling used only by Fourier (multicorr) refinement. Higher values improve sampling at increased cost.")
+                    .help(DiskDetectionParameterID.upsampleFactor.explanation)
                 }
 
                 Text("Changes update the rings on the current CBED. Run the full-scan action to apply them to strain and ACOM.")
@@ -210,7 +268,7 @@ struct DiskDetectionControls: View {
         } label: {
             Label("Detect All Disks", systemImage: "rays")
         }
-        .disabled(appState.isBusy)
+        .disabled(appState.isBusy || !appState.diskDetectionConfigurationIsValid)
         .accessibilityIdentifier("disk.detectAll")
 
         if appState.diskDetectionSettingsAreStale {
@@ -221,6 +279,24 @@ struct DiskDetectionControls: View {
         } else if let count = appState.braggPeakCount {
             LabeledContent("Peaks found", value: "\(count)")
                 .font(.caption)
+            if let summary = appState.completedDiskSummary {
+                LabeledContent(
+                    "Per pattern",
+                    value: String(
+                        format: "median %.1f · range %d–%d",
+                        summary.medianPeakCount,
+                        summary.minimumPeakCount,
+                        summary.maximumPeakCount
+                    )
+                )
+                .font(.caption2.monospacedDigit())
+                ForEach(Array(summary.warnings.enumerated()), id: \.offset) { _, warning in
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 
@@ -242,6 +318,13 @@ struct DiskDetectionControls: View {
             .font(.caption)
             Slider(value: value, in: range, step: step)
         }
+    }
+
+    private func floatEditorRange(
+        _ parameter: DiskDetectionParameterID
+    ) -> ClosedRange<Float> {
+        let range = parameter.editorRange ?? 0...1
+        return Float(range.lowerBound)...Float(range.upperBound)
     }
 
     private func parameterBinding<Value>(

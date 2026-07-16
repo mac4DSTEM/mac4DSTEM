@@ -34,6 +34,7 @@ xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
   "$SRC/Analysis/ParallaxPreprocessing.swift" \
   "$SRC/Analysis/OrientationResult.swift" \
   "$SRC/Crystal/ScatteringFactors.swift" "$SRC/Crystal/Crystal.swift" \
+  "$SRC/Crystal/CrystalModel.swift" \
   "$SRC/Crystal/OrientationPlan.swift" "$SRC/Crystal/OrientationMatcher.swift" \
   "$ROOT/tools/training-dataset-campaign/main.swift" \
   -framework Accelerate -framework Metal -framework MetalKit
@@ -56,7 +57,8 @@ OUTPUT="$WORK/output"
 mkdir -p "$OUTPUT"
 cd "$WORK"
 MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" \
-  /usr/bin/time -l ./harness "$OUTPUT" "${absolute_files[@]}" \
+  /usr/bin/time -l ./harness "$OUTPUT" \
+  "$ROOT/tools/training-dataset-campaign/manifest.json" "${absolute_files[@]}" \
   2> campaign.log | sed '/^\[MetalEngine\]/d' > report.json
 
 source "$ROOT/tools/lib/python.sh"

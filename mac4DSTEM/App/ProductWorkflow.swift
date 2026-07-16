@@ -106,6 +106,9 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     var hasRScale = false
     var hasVoltage = false
     var hasBraggVectors = false
+    var hasACOMMaterial = false
+    var hasSupportedACOMMaterial = false
+    var hasPhysicalACOMScale = false
 }
 
 enum ProductWorkflow {
@@ -123,8 +126,15 @@ enum ProductWorkflow {
             if !readiness.hasQScale { missing.append("Set the Q pixel scale") }
             if !readiness.hasRScale { missing.append("Set the R pixel scale") }
             if !readiness.hasVoltage { missing.append("Set the accelerating voltage") }
-        case .strain, .acom:
+        case .strain:
             if !readiness.hasBraggVectors { missing.append("Detect Bragg disks first") }
+        case .acom:
+            if !readiness.hasBraggVectors { missing.append("Detect Bragg disks first") }
+            if !readiness.hasACOMMaterial {
+                missing.append("Choose an ACOM material model")
+            } else if !readiness.hasSupportedACOMMaterial {
+                missing.append("The selected ACOM material is not supported")
+            }
         }
         return missing
     }
@@ -153,9 +163,9 @@ enum ProductWorkflow {
                 ? []
                 : ["Uses the current detector origin; calibrate it for corrected Bragg vectors."]
         case .acom:
-            return readiness.hasQScale
+            return readiness.hasPhysicalACOMScale
                 ? []
-                : ["Uses the adjustable qualitative Q scale; set Q sampling for physical matching."]
+                : ["Exploratory matching only: set physical Q sampling for quantitative orientation output."]
         }
     }
 

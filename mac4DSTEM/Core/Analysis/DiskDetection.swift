@@ -31,23 +31,204 @@ import Metal
 // MARK: - Types
 
 /// One detected Bragg reflection, in detector pixels (x = column, y = row).
-struct BraggPeak: Sendable {
+nonisolated struct BraggPeak: Sendable {
     var x: Float
     var y: Float
     var intensity: Float
 }
 
-enum SubpixelMode: String, CaseIterable, Identifiable, Sendable {
+nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Sendable {
     case pixel     = "Pixel"
     case poly      = "Parabolic"
     case multicorr = "Fourier (multicorr)"
     var id: String { rawValue }
+
+    var provenanceID: String {
+        switch self {
+        case .pixel: "pixel"
+        case .poly: "poly"
+        case .multicorr: "multicorr"
+        }
+    }
+}
+
+/// Stable parameter identifiers shared by the numerical detector, UI, tests,
+/// and persisted provenance. UI labels are deliberately defined here so a
+/// control cannot drift away from the quantity consumed by the core.
+nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
+    case correlationPower = "corr_power"
+    case patternSigma = "sigma_dp_px"
+    case correlationSigma = "sigma_cc_px"
+    case subpixel = "subpixel"
+    case upsampleFactor = "upsample_factor"
+    case minimumAbsoluteIntensity = "min_absolute_intensity"
+    case minimumRelativeIntensity = "min_relative_intensity"
+    case relativeReferencePeak = "relative_to_peak"
+    case minimumPeakSpacing = "min_peak_spacing_px"
+    case edgeBoundary = "edge_boundary_px"
+    case maximumPeaks = "max_num_peaks"
+
+    var title: String {
+        switch self {
+        case .correlationPower: "Correlation power"
+        case .patternSigma: "Pattern smoothing σ"
+        case .correlationSigma: "Correlation smoothing σ"
+        case .subpixel: "Subpixel localization"
+        case .upsampleFactor: "Fourier upsampling"
+        case .minimumAbsoluteIntensity: "Minimum absolute"
+        case .minimumRelativeIntensity: "Minimum relative"
+        case .relativeReferencePeak: "Reference peak"
+        case .minimumPeakSpacing: "Minimum spacing"
+        case .edgeBoundary: "Edge exclusion"
+        case .maximumPeaks: "Maximum peaks"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .correlationPower:
+            "Hybrid-correlation exponent: 1 is cross-correlation, 0 is phase-correlation, and intermediate values mix both."
+        case .patternSigma:
+            "Gaussian σ in detector pixels applied to each diffraction pattern before correlation. Excessive smoothing can merge nearby features."
+        case .correlationSigma:
+            "Gaussian σ in detector pixels applied to the correlation map before maxima selection. Zero disables this smoothing."
+        case .subpixel:
+            "Pixel is fastest; Parabolic is the interactive default; Fourier multicorr uses matrix-DFT refinement for strain-grade localization."
+        case .upsampleFactor:
+            "Matrix-DFT upsampling used only by Fourier multicorr. Higher values refine the sampling at increased cost."
+        case .minimumAbsoluteIntensity:
+            "Minimum correlation-peak intensity on the absolute correlation scale. Zero disables this data- and kernel-dependent filter."
+        case .minimumRelativeIntensity:
+            "Minimum peak intensity as a fraction of the selected ranked reference peak. Zero disables the filter."
+        case .relativeReferencePeak:
+            "Intensity rank used by the relative filter. The UI calls the brightest candidate #1; the py4DSTEM-compatible stored parameter uses zero-based index 0."
+        case .minimumPeakSpacing:
+            "Minimum center-to-center separation in detector pixels. When candidates are closer, the brighter one is retained."
+        case .edgeBoundary:
+            "Reject maxima whose centers lie within this many detector pixels of an edge. At least one pixel is needed for neighborhood testing."
+        case .maximumPeaks:
+            "Maximum number of accepted correlation maxima returned for each diffraction pattern."
+        }
+    }
+
+    /// Recommended editor bounds. Dynamic detector-size and peak-rank bounds
+    /// are supplied by `DiskDetectionContext` and `DiskDetectionParams`.
+    var editorRange: ClosedRange<Double>? {
+        switch self {
+        case .correlationPower: 0...1
+        case .patternSigma, .correlationSigma: 0...10
+        case .upsampleFactor: 4...64
+        case .minimumRelativeIntensity: 0...1
+        case .maximumPeaks: 1...500
+        case .minimumAbsoluteIntensity, .subpixel, .relativeReferencePeak,
+             .minimumPeakSpacing, .edgeBoundary: nil
+        }
+    }
+
+    var editorStep: Double? {
+        switch self {
+        case .correlationPower: 0.05
+        case .patternSigma, .correlationSigma: 0.1
+        case .upsampleFactor: 4
+        case .minimumRelativeIntensity: 0.001
+        case .maximumPeaks, .relativeReferencePeak, .minimumPeakSpacing,
+             .edgeBoundary: 1
+        case .minimumAbsoluteIntensity, .subpixel: nil
+        }
+    }
+}
+
+nonisolated struct DiskDetectionContext: Sendable, Equatable {
+    let qy: Int
+    let qx: Int
+    let probeRadius: Float?
+
+    var detectorMinimum: Int { min(qx, qy) }
+    var maximumEdgeBoundary: Int { max(1, (detectorMinimum - 1) / 2) }
+}
+
+nonisolated enum DiskDetectionValidationSeverity: Sendable, Equatable {
+    case warning
+    case error
+}
+
+nonisolated struct DiskDetectionValidationIssue: Sendable, Equatable {
+    let field: DiskDetectionParameterID
+    let severity: DiskDetectionValidationSeverity
+    let message: String
+}
+
+/// Per-pattern selection funnel. These diagnostics explain a zero- or
+/// low-peak preview without changing the py4DSTEM-compatible filter order.
+nonisolated struct DiskDetectionPatternDiagnostics: Sendable, Equatable {
+    let localMaximumCount: Int
+    let afterAbsoluteThresholdCount: Int
+    let afterRelativeThresholdCount: Int
+    let afterSpacingCount: Int
+    let acceptedCount: Int
+    let wasCountLimited: Bool
+    let relativeReferenceIntensity: Float?
+    let relativeReferenceWasAvailable: Bool
+    let correlationMaximum: Float
+}
+
+nonisolated struct DiskDetectionPatternResult: Sendable {
+    let peaks: [BraggPeak]
+    let diagnostics: DiskDetectionPatternDiagnostics
+}
+
+nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
+    let positionCount: Int
+    let totalPeakCount: Int
+    let minimumPeakCount: Int
+    let medianPeakCount: Double
+    let maximumPeakCount: Int
+    let zeroPeakPositionCount: Int
+    /// Positions whose returned count equals the configured ceiling. The
+    /// aggregate vectors cannot distinguish an exact count from truncation;
+    /// per-pattern diagnostics use `wasCountLimited` when that distinction is
+    /// available.
+    let atMaximumPositionCount: Int
+
+    init(vectors: BraggVectors, maximumPeaks: Int) {
+        let counts = vectors.peaks.map(\.count).sorted()
+        positionCount = counts.count
+        totalPeakCount = counts.reduce(0, +)
+        minimumPeakCount = counts.first ?? 0
+        maximumPeakCount = counts.last ?? 0
+        zeroPeakPositionCount = counts.filter { $0 == 0 }.count
+        atMaximumPositionCount = counts.filter { $0 >= maximumPeaks }.count
+        if counts.isEmpty {
+            medianPeakCount = 0
+        } else if counts.count.isMultiple(of: 2) {
+            medianPeakCount = Double(counts[counts.count / 2 - 1] + counts[counts.count / 2]) / 2
+        } else {
+            medianPeakCount = Double(counts[counts.count / 2])
+        }
+    }
+
+    var warnings: [String] {
+        guard positionCount > 0 else { return ["No scan positions were evaluated."] }
+        var result: [String] = []
+        if zeroPeakPositionCount * 2 > positionCount {
+            result.append("More than half of scan positions contain no accepted peaks; inspect the kernel and intensity thresholds.")
+        }
+        if atMaximumPositionCount * 10 > positionCount {
+            result.append("More than 10% of scan positions reached the maximum-peak limit; raise the limit and rerun to check for truncation.")
+        }
+        if medianPeakCount <= 1 {
+            result.append("The median pattern contains at most one accepted peak; spacing or thresholds may be too restrictive for lattice analysis.")
+        }
+        return result
+    }
 }
 
 /// Detection parameters, mirroring find_Bragg_disks. Defaults follow
 /// py4DSTEM where scale-free; AppState adapts the pixel-scaled ones
 /// (minPeakSpacing, edgeBoundary) to the detector size on dataset load.
-struct DiskDetectionParams: Equatable, Sendable {
+nonisolated struct DiskDetectionParams: Equatable, Sendable {
+    static let algorithmID = "py4dstem_find_bragg_disks_native_v1"
+
     var corrPower: Float = 1              // 1 = cross, 0 = phase correlation
     var sigmaDP: Float = 0                // gaussian smoothing before correlation
     var sigmaCC: Float = 2                // gaussian smoothing of CC before maxima
@@ -70,13 +251,102 @@ struct DiskDetectionParams: Equatable, Sendable {
         params.edgeBoundary = max(2, Int(qMin / 24))
         return params
     }
+
+    func validationIssues(in context: DiskDetectionContext) -> [DiskDetectionValidationIssue] {
+        var issues: [DiskDetectionValidationIssue] = []
+        func error(_ field: DiskDetectionParameterID, _ message: String) {
+            issues.append(.init(field: field, severity: .error, message: message))
+        }
+        func warning(_ field: DiskDetectionParameterID, _ message: String) {
+            issues.append(.init(field: field, severity: .warning, message: message))
+        }
+
+        if !corrPower.isFinite || !(0...1).contains(corrPower) {
+            error(.correlationPower, "Correlation power must be finite and between 0 and 1.")
+        }
+        if !sigmaDP.isFinite || sigmaDP < 0 {
+            error(.patternSigma, "Pattern smoothing σ must be finite and non-negative.")
+        }
+        if !sigmaCC.isFinite || sigmaCC < 0 {
+            error(.correlationSigma, "Correlation smoothing σ must be finite and non-negative.")
+        }
+        if subpixel == .multicorr && upsampleFactor <= 2 {
+            error(.upsampleFactor, "Fourier multicorr requires an upsampling factor greater than 2.")
+        }
+        if !minAbsoluteIntensity.isFinite || minAbsoluteIntensity < 0 {
+            error(.minimumAbsoluteIntensity, "Minimum absolute intensity must be finite and non-negative.")
+        }
+        if !minRelativeIntensity.isFinite || !(0...1).contains(minRelativeIntensity) {
+            error(.minimumRelativeIntensity, "Minimum relative intensity must be a fraction between 0 and 1.")
+        }
+        if maxNumPeaks < 1 {
+            error(.maximumPeaks, "Maximum peaks must be at least 1.")
+        }
+        if relativeToPeak < 0 || relativeToPeak >= maxNumPeaks {
+            error(.relativeReferencePeak, "The relative reference rank must be smaller than the maximum peak count.")
+        }
+        if !minPeakSpacing.isFinite || minPeakSpacing < 0 {
+            error(.minimumPeakSpacing, "Minimum spacing must be finite and non-negative.")
+        }
+        if context.qx < 3 || context.qy < 3 {
+            error(.edgeBoundary, "Disk detection requires detector dimensions of at least 3 × 3 pixels.")
+        } else if edgeBoundary < 1 || edgeBoundary > context.maximumEdgeBoundary {
+            error(.edgeBoundary, "Edge exclusion must be between 1 and \(context.maximumEdgeBoundary) pixels for this detector.")
+        }
+        if minPeakSpacing >= Float(context.detectorMinimum) / 2 {
+            warning(.minimumPeakSpacing, "This spacing is at least half the detector width and will usually retain only one peak.")
+        }
+        if let radius = context.probeRadius, radius.isFinite, radius > 0 {
+            if sigmaDP > radius {
+                warning(.patternSigma, "Pattern smoothing exceeds the measured probe radius and may erase disk separation.")
+            }
+            if sigmaCC > radius {
+                warning(.correlationSigma, "Correlation smoothing exceeds the measured probe radius and may merge maxima.")
+            }
+        }
+        return issues
+    }
+
+    func provenance(kernel: ProbeKernel, qy: Int, qx: Int) -> [String: String] {
+        [
+            "detection_algorithm": Self.algorithmID,
+            DiskDetectionParameterID.correlationPower.rawValue: String(corrPower),
+            DiskDetectionParameterID.patternSigma.rawValue: String(sigmaDP),
+            DiskDetectionParameterID.correlationSigma.rawValue: String(sigmaCC),
+            DiskDetectionParameterID.subpixel.rawValue: subpixel.provenanceID,
+            DiskDetectionParameterID.upsampleFactor.rawValue: String(upsampleFactor),
+            DiskDetectionParameterID.minimumAbsoluteIntensity.rawValue: String(minAbsoluteIntensity),
+            DiskDetectionParameterID.minimumRelativeIntensity.rawValue: String(minRelativeIntensity),
+            DiskDetectionParameterID.relativeReferencePeak.rawValue: String(relativeToPeak),
+            DiskDetectionParameterID.minimumPeakSpacing.rawValue: String(minPeakSpacing),
+            DiskDetectionParameterID.edgeBoundary.rawValue: String(edgeBoundary),
+            DiskDetectionParameterID.maximumPeaks.rawValue: String(maxNumPeaks),
+            "kernel_source": kernel.source.provenanceID,
+            "kernel_probe_radius_px": String(kernel.probeRadius),
+            "kernel_trench_inner_px": String(kernel.trenchRadii.inner),
+            "kernel_trench_outer_px": String(kernel.trenchRadii.outer),
+            "detector_qy": String(qy),
+            "detector_qx": String(qx),
+        ]
+    }
 }
 
 /// Detected peaks for every scan position, row-major [ry][rx].
-struct BraggVectors: Sendable {
+nonisolated struct BraggVectors: Sendable {
     let scanWidth: Int
     let scanHeight: Int
     let peaks: [[BraggPeak]]              // count == scanWidth * scanHeight
+    let detectionProvenance: [String: String]
+
+    init(
+        scanWidth: Int, scanHeight: Int, peaks: [[BraggPeak]],
+        detectionProvenance: [String: String] = [:]
+    ) {
+        self.scanWidth = scanWidth
+        self.scanHeight = scanHeight
+        self.peaks = peaks
+        self.detectionProvenance = detectionProvenance
+    }
 
     var totalPeakCount: Int { peaks.reduce(0) { $0 + $1.count } }
 
@@ -110,7 +380,10 @@ struct BraggVectors: Sendable {
                 transformed[scan][peak].y = referenceOrigin.y + offset.y
             }
         }
-        return BraggVectors(scanWidth: scanWidth, scanHeight: scanHeight, peaks: transformed)
+        return BraggVectors(
+            scanWidth: scanWidth, scanHeight: scanHeight, peaks: transformed,
+            detectionProvenance: detectionProvenance
+        )
     }
 
     /// Bragg vector map: intensity-weighted 2D histogram of all peak
@@ -180,6 +453,14 @@ nonisolated final class DiskDetector {
 
     /// Detect Bragg disks in one [qy * qx] pattern.
     func detect(pattern: UnsafePointer<Float>, params: DiskDetectionParams) -> [BraggPeak] {
+        detectWithDiagnostics(pattern: pattern, params: params).peaks
+    }
+
+    /// Detect one pattern and retain the complete acceptance funnel for UI
+    /// diagnostics. The numerical path is identical to `detect`.
+    func detectWithDiagnostics(
+        pattern: UnsafePointer<Float>, params: DiskDetectionParams
+    ) -> DiskDetectionPatternResult {
         crossCorrelate(
             pattern: pattern,
             corrPower: params.corrPower,
@@ -193,21 +474,33 @@ nonisolated final class DiskDetector {
             smooth = cc
         }
 
-        var peaks = findMaxima(in: smooth, params: params)
+        var result = findMaxima(in: smooth, params: params)
 
         if params.subpixel != .pixel {
-            polyRefine(&peaks, in: smooth)
+            polyRefine(&result.peaks, in: smooth)
         }
         if params.subpixel == .multicorr {
-            multicorrRefine(&peaks, upsampleFactor: params.upsampleFactor)
+            multicorrRefine(&result.peaks, upsampleFactor: params.upsampleFactor)
         }
-        return peaks
+        return DiskDetectionPatternResult(
+            peaks: result.peaks,
+            diagnostics: result.diagnostics
+        )
     }
 
     /// Convenience for [Float] input (live single-pattern path).
     func detect(pattern: [Float], params: DiskDetectionParams) -> [BraggPeak] {
         precondition(pattern.count == qy * qx)
         return pattern.withUnsafeBufferPointer { detect(pattern: $0.baseAddress!, params: params) }
+    }
+
+    func detectWithDiagnostics(
+        pattern: [Float], params: DiskDetectionParams
+    ) -> DiskDetectionPatternResult {
+        precondition(pattern.count == qy * qx)
+        return pattern.withUnsafeBufferPointer {
+            detectWithDiagnostics(pattern: $0.baseAddress!, params: params)
+        }
     }
 
     // MARK: Stage 1 — hybrid cross correlation
@@ -254,12 +547,26 @@ nonisolated final class DiskDetector {
 
     // MARK: Stage 2+3 — maxima + filter cascade (get_maxima_2D port)
 
-    private func findMaxima(in ar: [Float], params p: DiskDetectionParams) -> [BraggPeak] {
+    private func findMaxima(
+        in ar: [Float], params p: DiskDetectionParams
+    ) -> (peaks: [BraggPeak], diagnostics: DiskDetectionPatternDiagnostics) {
         // Local maxima by strict/loose 8-neighbor comparison, restricted to
         // the detector region minus the edge boundary.
         let eb = max(1, p.edgeBoundary)
         var found: [BraggPeak] = []
-        guard qy - eb > eb, qx - eb > eb else { return [] }
+        guard qy - eb > eb, qx - eb > eb else {
+            return (
+                [],
+                DiskDetectionPatternDiagnostics(
+                    localMaximumCount: 0, afterAbsoluteThresholdCount: 0,
+                    afterRelativeThresholdCount: 0, afterSpacingCount: 0,
+                    acceptedCount: 0, wasCountLimited: false,
+                    relativeReferenceIntensity: nil,
+                    relativeReferenceWasAvailable: p.minRelativeIntensity == 0,
+                    correlationMaximum: ar.max() ?? 0
+                )
+            )
+        }
         for y in eb..<(qy - eb) {
             for x in eb..<(qx - eb) {
                 let i = y * px + x
@@ -275,15 +582,22 @@ nonisolated final class DiskDetector {
             }
         }
         found.sort { $0.intensity > $1.intensity }
+        let localMaximumCount = found.count
 
         // Intensity thresholds.
         if p.minAbsoluteIntensity > 0 {
             found.removeAll { $0.intensity < p.minAbsoluteIntensity }
         }
+        let afterAbsoluteThresholdCount = found.count
+        var relativeReferenceIntensity: Float?
+        var relativeReferenceWasAvailable = p.minRelativeIntensity == 0
         if p.minRelativeIntensity > 0, found.count > p.relativeToPeak {
             let ref = found[p.relativeToPeak].intensity
+            relativeReferenceIntensity = ref
+            relativeReferenceWasAvailable = true
             found.removeAll { $0.intensity / ref < p.minRelativeIntensity }
         }
+        let afterRelativeThresholdCount = found.count
 
         // Min spacing: walk brightest-first, drop anything too close to a
         // kept peak.
@@ -299,11 +613,26 @@ nonisolated final class DiskDetector {
             }
             found = kept
         }
+        let afterSpacingCount = found.count
 
+        let wasCountLimited = found.count > p.maxNumPeaks
         if found.count > p.maxNumPeaks {
             found.removeLast(found.count - p.maxNumPeaks)
         }
-        return found
+        return (
+            found,
+            DiskDetectionPatternDiagnostics(
+                localMaximumCount: localMaximumCount,
+                afterAbsoluteThresholdCount: afterAbsoluteThresholdCount,
+                afterRelativeThresholdCount: afterRelativeThresholdCount,
+                afterSpacingCount: afterSpacingCount,
+                acceptedCount: found.count,
+                wasCountLimited: wasCountLimited,
+                relativeReferenceIntensity: relativeReferenceIntensity,
+                relativeReferenceWasAvailable: relativeReferenceWasAvailable,
+                correlationMaximum: ar.max() ?? 0
+            )
+        )
     }
 
     // MARK: Stage 4a — parabolic subpixel
@@ -443,6 +772,12 @@ enum DiskDetection {
                           cancellation: AnalysisCancellationToken? = nil,
                           progress: (@Sendable (Double) -> Void)? = nil) -> BraggVectors? {
         guard cancellation?.isCancelled != true else { return nil }
+        let context = DiskDetectionContext(
+            qy: d.qy, qx: d.qx, probeRadius: kernel.probeRadius
+        )
+        guard !params.validationIssues(in: context).contains(where: {
+            $0.severity == .error
+        }) else { return nil }
         let base = cube.contents().bindMemory(to: Float.self,
                                               capacity: d.ry * d.rx * d.qy * d.qx)
         let patPix = d.qy * d.qx
@@ -492,6 +827,11 @@ enum DiskDetection {
             return !bad && cancellation?.isCancelled != true
         }
         guard ok else { return nil }
-        return BraggVectors(scanWidth: d.rx, scanHeight: d.ry, peaks: results)
+        return BraggVectors(
+            scanWidth: d.rx, scanHeight: d.ry, peaks: results,
+            detectionProvenance: params.provenance(
+                kernel: kernel, qy: d.qy, qx: d.qx
+            )
+        )
     }
 }

@@ -2,7 +2,9 @@
 """Validate the native Swift sidecar through checked-in py4DSTEM 0.14.19."""
 
 import sys
+import json
 
+import h5py
 import numpy as np
 import py4DSTEM
 from py4DSTEM.braggvectors import BraggVectors
@@ -35,5 +37,15 @@ assert cal.get_Q_pixel_units() == "A^-1"
 assert cal.get_R_pixel_size() == 1.75
 assert cal.get_R_pixel_units() == "nm"
 assert bool(cal.get_QR_flip()) is True
+with h5py.File(path, "r") as handle:
+    provenance = handle["/braggvectors_root/braggvectors"].attrs[
+        "mac4dstem_detection_provenance"
+    ]
+    if isinstance(provenance, bytes):
+        provenance = provenance.decode("utf-8")
+    provenance = json.loads(provenance)
+    assert provenance["detection_algorithm"] == "py4dstem_find_bragg_disks_native_v1"
+    assert provenance["sigma_cc_px"] == "2.0"
+    assert provenance["subpixel"] == "poly"
 print("PASS: py4dstem_0.14.19_roundtrip axes values calibration")
 print("bragg-export-test: all passed")

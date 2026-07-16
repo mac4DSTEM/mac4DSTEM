@@ -84,12 +84,13 @@ struct CalibrationReadinessChecklist: View {
             .accessibilityIdentifier("calibration.action.rotation")
         case .qScale:
             HStack {
-                if appState.hasCurrentBraggVectors {
-                    Button("Calibrate from \(appState.acomCrystal.rawValue)") {
+                if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
+                    Button("Calibrate from selected material") {
                         Task { await appState.calibrateQFromCrystal() }
                     }
                     .disabled(appState.isBusy)
                     .accessibilityIdentifier("calibration.action.qCrystal")
+                    .help("Selected ACOM phase model: \(model.displayName)")
                 }
                 manualScaleField(
                     value: appState.manualQPixelSize,

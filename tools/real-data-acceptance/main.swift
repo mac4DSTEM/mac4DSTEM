@@ -13,6 +13,12 @@ struct AcceptanceReport: Codable {
     let shape: [Int]
     let dtype: String
     let finitePatternFraction: Double
+    let diskProbeRadiusPixels: Float
+    let diskSampleCandidateCounts: [Int]
+    let diskSampleAfterAbsoluteCounts: [Int]
+    let diskSampleAfterRelativeCounts: [Int]
+    let diskSampleAfterSpacingCounts: [Int]
+    let diskSamplePeakCounts: [Int]
     let virtualImageMinimum: Float
     let virtualImageMaximum: Float
     let virtualImageMean: Double
@@ -40,6 +46,7 @@ func fail(_ message: String) -> Never {
                 (descriptor.ry - 1, descriptor.rx - 1),
             ]
             var finite = 0, sampled = 0
+            var sampledPatterns: [[Float]] = []
             for (y, x) in positions {
                 let pattern = try await reader.readPattern(descriptor, ry: y, rx: x)
                 guard pattern.count == descriptor.qy * descriptor.qx else {
@@ -47,9 +54,64 @@ func fail(_ message: String) -> Never {
                 }
                 finite += pattern.filter(\.isFinite).count
                 sampled += pattern.count
+                sampledPatterns.append(pattern)
             }
             let finiteFraction = Double(finite) / Double(sampled)
             guard finiteFraction >= 0.999 else { fail("\(path): finite fraction \(finiteFraction)") }
+
+            var sampledMaximum = [Float](
+                repeating: -.greatestFiniteMagnitude,
+                count: descriptor.qy * descriptor.qx
+            )
+            for pattern in sampledPatterns {
+                for index in pattern.indices {
+                    sampledMaximum[index] = max(sampledMaximum[index], pattern[index])
+                }
+            }
+            let probe = OriginCalibration.probeSize(
+                dp: sampledMaximum, qy: descriptor.qy, qx: descriptor.qx
+            )
+            guard probe.r.isFinite, probe.r > 0,
+                  let kernel = ProbeKernel.synthetic(
+                    radius: probe.r, qy: descriptor.qy, qx: descriptor.qx
+                  ),
+                  let detector = DiskDetector(kernel: kernel) else {
+                fail("\(path): sampled-pattern probe/detector initialization failed")
+            }
+            let diskParameters = DiskDetectionParams.detectorAdapted(
+                qy: descriptor.qy, qx: descriptor.qx
+            )
+            let diskErrors = diskParameters.validationIssues(
+                in: DiskDetectionContext(
+                    qy: descriptor.qy, qx: descriptor.qx,
+                    probeRadius: probe.r
+                )
+            ).filter { $0.severity == .error }
+            guard diskErrors.isEmpty else {
+                fail("\(path): adapted disk configuration invalid: \(diskErrors)")
+            }
+            let diskResults = sampledPatterns.map {
+                detector.detectWithDiagnostics(pattern: $0, params: diskParameters)
+            }
+            guard diskResults.allSatisfy({
+                $0.diagnostics.correlationMaximum.isFinite
+                    && $0.diagnostics.localMaximumCount >= $0.peaks.count
+            }) else {
+                fail("\(path): disk diagnostics are non-finite or inconsistent")
+            }
+            let diskCandidateCounts = diskResults.map {
+                $0.diagnostics.localMaximumCount
+            }
+            let diskAfterAbsoluteCounts = diskResults.map {
+                $0.diagnostics.afterAbsoluteThresholdCount
+            }
+            let diskAfterRelativeCounts = diskResults.map {
+                $0.diagnostics.afterRelativeThresholdCount
+            }
+            let diskAfterSpacingCounts = diskResults.map {
+                $0.diagnostics.afterSpacingCount
+            }
+            let diskPeakCounts = diskResults.map { $0.peaks.count }
 
             let data = FourDArray(reader: reader, descriptor: descriptor)
             let radius = Float(min(descriptor.qx, descriptor.qy)) * 0.1
@@ -71,6 +133,12 @@ func fail(_ message: String) -> Never {
                 file: URL(fileURLWithPath: path).lastPathComponent,
                 datasetPath: descriptor.datasetPath, shape: descriptor.shape,
                 dtype: descriptor.dtypeDescription, finitePatternFraction: finiteFraction,
+                diskProbeRadiusPixels: probe.r,
+                diskSampleCandidateCounts: diskCandidateCounts,
+                diskSampleAfterAbsoluteCounts: diskAfterAbsoluteCounts,
+                diskSampleAfterRelativeCounts: diskAfterRelativeCounts,
+                diskSampleAfterSpacingCounts: diskAfterSpacingCounts,
+                diskSamplePeakCounts: diskPeakCounts,
                 virtualImageMinimum: minimum, virtualImageMaximum: maximum,
                 virtualImageMean: mean, virtualImageChecksum: checksum,
                 elapsedSeconds: Date().timeIntervalSince(start)

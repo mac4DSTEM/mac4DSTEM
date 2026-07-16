@@ -11,7 +11,9 @@ security, accessibility, or a release blocker.
 3. Establish or verify origin, ellipse, R–Q rotation, reciprocal sampling, and
    real-space sampling without silently inventing physical units.
 4. Produce virtual images, DPC/iDPC, Bragg vectors, strain, and orientation maps
-   with visible quality diagnostics and cancellable progress.
+   with visible quality diagnostics and cancellable progress. Orientation mapping
+   requires an explicit supported material; an uncalibrated Q-scale run remains
+   permanently labelled Exploratory through export and session reopen.
 5. Save calibrated data and named results into py4DSTEM-readable EMD/HDF5,
    reopen the session, and recover safely from cancellation or a failed write.
 
@@ -33,8 +35,10 @@ review/save/export lifecycle rather than hiding it in an inspector.
   qualitative fallback otherwise.
 - Bragg-disk detection and py4DSTEM-compatible BraggVectors export.
 - Strain mapping with basis/reference diagnostics and failure rejection.
-- ACOM for point groups implemented and validated by v1, with CPU scientific
-  fallback and an accelerated backend only when parity is demonstrated.
+- ACOM for the explicitly implemented cubic and HCP-magnesium point groups, with CPU
+  scientific fallback and an accelerated backend only when parity is demonstrated.
+  Other phases are accepted only after their complete model and point-group behavior
+  are implemented and validated; v1 does not infer a phase from a file name or image.
 - Named result/calibration sidecars, result browsing, and safe reopen/removal.
 
 ### Advanced in v1

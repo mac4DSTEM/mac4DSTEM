@@ -24,14 +24,14 @@ import Foundation
 import simd
 
 /// One atom in the unit cell.
-nonisolated struct AtomSite {
+nonisolated struct AtomSite: Sendable {
     var z: Int                       // atomic number
     var fractional: SIMD3<Double>    // (x, y, z) fractional coordinates
     var occupancy: Double = 1
 }
 
 /// One kinematically-allowed reflection.
-nonisolated struct Reflection {
+nonisolated struct Reflection: Sendable {
     let h: Int, k: Int, l: Int
     let g: SIMD3<Double>             // reciprocal-space vector (Å⁻¹), Cartesian
     let gLength: Double              // |g| (Å⁻¹)
@@ -40,7 +40,7 @@ nonisolated struct Reflection {
     var intensity: Double           // |F|²
 }
 
-nonisolated struct Crystal {
+nonisolated struct Crystal: Sendable {
 
     // Cell parameters.
     let a: Double, b: Double, c: Double
@@ -193,12 +193,21 @@ nonisolated struct Crystal {
     }
 
     /// Cubic structure families offered for user-defined (custom) crystals.
-    enum CubicStructure: String, CaseIterable, Identifiable {
+    nonisolated enum CubicStructure: String, CaseIterable, Identifiable, Sendable {
         case fcc = "FCC"
         case bcc = "BCC"
         case sc = "Simple cubic"
         case diamond = "Diamond"
         var id: String { rawValue }
+
+        var provenanceID: String {
+            switch self {
+            case .fcc: "fcc"
+            case .bcc: "bcc"
+            case .sc: "simple_cubic"
+            case .diamond: "diamond"
+            }
+        }
     }
 
     /// Build a single-element cubic crystal for the custom-crystal UI.

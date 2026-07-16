@@ -28,6 +28,11 @@ let vectors = BraggVectors(
          BraggPeak(x: 6, y: 4, intensity: 4),
          BraggPeak(x: 2.25, y: 1.5, intensity: 8)],
         [BraggPeak(x: 5.875, y: 3.125, intensity: 7.5)],
+    ],
+    detectionProvenance: [
+        "detection_algorithm": DiskDetectionParams.algorithmID,
+        "sigma_cc_px": "2.0",
+        "subpixel": "poly",
     ]
 )
 let calibration = PixelCalibration(

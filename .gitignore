@@ -1,4 +1,13 @@
-References/.DS_Store
-/References
+# macOS and per-developer Xcode state
 .DS_Store
-mac4DSTEM/.DS_Store
+**/.DS_Store
+**/xcuserdata/
+*.xcuserstate
+
+# Machine-local scientific corpora and migration snapshots. The checked-in
+# py4DSTEM source lock remains tracked even though its parent is ignored.
+/References
+
+# Local build products
+/build/
+/DerivedData/

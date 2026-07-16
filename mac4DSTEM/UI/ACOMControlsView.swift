@@ -1,0 +1,248 @@
+import SwiftUI
+
+/// ACOM's complete user-facing contract. Keeping material, scale semantics,
+/// work scope, and result diagnostics together prevents a physically labelled
+/// output from being assembled out of unrelated controls elsewhere.
+struct ACOMControlsView: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var appState = appState
+        Section("ACOM (orientation)") {
+            Picker("Phase model", selection: $appState.acomModelSelection) {
+                Text("Choose phase…").tag(CrystalModelSelection.none)
+                ForEach(CrystalModelLibrary.models) { model in
+                    Text(model.displayName).tag(CrystalModelSelection.library(model.id))
+                }
+                Text("Custom cubic…").tag(CrystalModelSelection.customCubic)
+            }
+            .accessibilityIdentifier("acom.material")
+
+            if let reason = appState.acomModelSelectionIssue {
+                Label(reason, systemImage: "nosign")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let model = appState.resolvedACOMModel {
+                LabeledContent("Symmetry", value: model.symmetry.displayName)
+                    .font(.caption)
+                Text("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if appState.acomModelSelection == .customCubic {
+                customCrystalEditor(appState: appState)
+            }
+
+            Picker("Quality", selection: $appState.acomQuality) {
+                ForEach(ACOMQualityPreset.allCases) { quality in
+                    Text(quality.rawValue).tag(quality)
+                }
+            }
+            Text(appState.acomQuality.detail)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            scopeControls(appState: appState)
+
+            LabeledContent("Work", value: appState.acomWorkSummary)
+                .font(.caption)
+            LabeledContent("Expected", value: appState.acomEstimatedDurationText)
+                .font(.caption)
+
+            DisclosureGroup("Engine & Q scale") {
+                engineControls(appState: appState)
+                qScaleControls(appState: appState)
+            }
+
+            prerequisiteStatus
+            resultControls(appState: appState)
+        }
+    }
+
+    @ViewBuilder
+    private func customCrystalEditor(appState: AppState) -> some View {
+        @Bindable var appState = appState
+        Picker("Element", selection: $appState.customZ) {
+            ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
+                Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
+            }
+        }
+        Picker("Structure", selection: $appState.customStructure) {
+            ForEach(Crystal.CubicStructure.allCases) { structure in
+                Text(structure.rawValue).tag(structure)
+            }
+        }
+        HStack {
+            Text("a (Å)").font(.caption)
+            TextField(
+                "a", value: $appState.customLatticeA,
+                format: .number.precision(.fractionLength(0...4))
+            )
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 80)
+        }
+        Text("Custom models are single-element cubic cells. Compound or other point-group models require a complete validated phase definition.")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func scopeControls(appState: AppState) -> some View {
+        @Bindable var appState = appState
+        Picker("Area", selection: $appState.acomScope) {
+            ForEach(ACOMRunScope.allCases) { scope in
+                Text(scope.rawValue).tag(scope)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("acom.scope")
+
+        if appState.acomScope == .selectedRegion, let descriptor = appState.descriptor {
+            Stepper(
+                "Center X  \(appState.selectedScan.x)",
+                value: Binding(
+                    get: { appState.selectedScan.x },
+                    set: { appState.selectScan(x: $0, y: appState.selectedScan.y) }
+                ),
+                in: 0...max(0, descriptor.rx - 1)
+            )
+            Stepper(
+                "Center Y  \(appState.selectedScan.y)",
+                value: Binding(
+                    get: { appState.selectedScan.y },
+                    set: { appState.selectScan(x: appState.selectedScan.x, y: $0) }
+                ),
+                in: 0...max(0, descriptor.ry - 1)
+            )
+            Stepper(
+                "Half-size  \(appState.acomRegionRadius) px",
+                value: $appState.acomRegionRadius,
+                in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
+            )
+            Text("The orange square is matched at full spatial resolution.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        } else if appState.acomScope == .preview {
+            Text("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func engineControls(appState: AppState) -> some View {
+        @Bindable var appState = appState
+        Picker("Engine", selection: $appState.acomBackend) {
+            ForEach(ACOMMatchingBackend.allCases) { backend in
+                Text(backend.rawValue).tag(backend)
+            }
+        }
+        LabeledContent("Will use", value: appState.effectiveACOMBackend.rawValue)
+            .font(.caption)
+        if appState.acomBackend == .automatic {
+            Text("Automatic currently uses the real-data-verified Accelerate CPU backend.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func qScaleControls(appState: AppState) -> some View {
+        @Bindable var appState = appState
+        let semantics = appState.acomScaleSemantics
+        LabeledContent("Interpretation", value: appState.acomInterpretationLabel)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(semantics.provenance.isPhysical ? Color.green : Color.orange)
+        LabeledContent(
+            "Q scale",
+            value: String(format: "%.6g Å⁻¹/px", semantics.invAngstromPerPixel)
+        )
+        .font(.caption.monospacedDigit())
+        LabeledContent("Provenance", value: semantics.provenance.displayName)
+            .font(.caption)
+
+        if semantics.provenance.isPhysical {
+            Button("Review Q Calibration in Prepare") {
+                appState.selectWorkspace(.prepare)
+            }
+            .font(.caption)
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Exploratory scale  \(appState.acomExploratoryScale, specifier: "%.4f") Å⁻¹/px")
+                    .font(.caption)
+                Slider(value: $appState.acomExploratoryScale, in: 0.001...0.05)
+                Text("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+        }
+
+        Button {
+            Task { await appState.calibrateQFromCrystal() }
+        } label: {
+            Label("Calibrate Q from Selected Material", systemImage: "ruler")
+        }
+        .disabled(
+            appState.isBusy || !appState.hasCurrentBraggVectors
+                || appState.resolvedACOMModel == nil
+        )
+        .help("Uses the median innermost detected Bragg radius and the selected material's first allowed reflection.")
+
+        if appState.hasOrientationPlan, let plan = appState.orientationPlan {
+            LabeledContent("Cached plan", value: "\(plan.count) templates")
+                .font(.caption)
+        }
+    }
+
+    @ViewBuilder
+    private var prerequisiteStatus: some View {
+        if appState.diskDetectionSettingsAreStale {
+            Text("Detection settings changed — rerun Detect All Disks before ACOM.")
+                .font(.caption2).foregroundStyle(.orange)
+        } else if appState.braggVectors == nil {
+            Text("Detect Bragg disks first (Map → Bragg disks).")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func resultControls(appState: AppState) -> some View {
+        @Bindable var appState = appState
+        if appState.hasOrientationMap {
+            if let semantics = appState.acomLastRunSemantics {
+                Label(
+                    semantics.scale.provenance.isPhysical
+                        ? "Physical ACOM result" : "Exploratory ACOM result",
+                    systemImage: semantics.scale.provenance.isPhysical
+                        ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
+                )
+                .font(.caption.weight(.medium))
+                .foregroundStyle(
+                    semantics.scale.provenance.isPhysical ? Color.green : Color.orange
+                )
+            }
+            Picker("Display", selection: $appState.acomDisplay) {
+                ForEach(ACOMDisplayMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            if appState.acomDisplay == .ipfZ {
+                if appState.orientationMap?.symmetry == .hexagonal {
+                    HexagonalIPFLegendView()
+                } else {
+                    CubicIPFLegendView()
+                }
+            }
+            if let text = appState.selectedEulerText {
+                LabeledContent(
+                    "\(appState.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
+                    value: text
+                )
+                .font(.caption.monospacedDigit())
+            }
+        }
+    }
+}

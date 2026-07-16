@@ -19,14 +19,21 @@
 
 import Foundation
 
-enum ProbeKernelSource: String, Sendable {
+nonisolated enum ProbeKernelSource: String, Sendable {
     case synthetic = "Synthetic"
     case measured = "Measured ROI"
+
+    var provenanceID: String {
+        switch self {
+        case .synthetic: "synthetic"
+        case .measured: "measured_roi"
+        }
+    }
 }
 
 /// A ready-to-use detection kernel: real-space form (for inspection) plus its
 /// precomputed conjugated Fourier transform on the native detector grid.
-struct ProbeKernel {
+nonisolated struct ProbeKernel: Sendable {
     /// Exact detector grid dimensions the kernel lives on.
     let px: Int
     let py: Int

@@ -20,6 +20,11 @@ let vectors = BraggVectors(
         [BraggPeak(x: 3, y: 2, intensity: 1)],
         [BraggPeak(x: 2.25, y: 1.5, intensity: 8)],
         [BraggPeak(x: 5.875, y: 3.125, intensity: 7.5)],
+    ],
+    detectionProvenance: [
+        "detection_algorithm": DiskDetectionParams.algorithmID,
+        "min_relative_intensity": "0.005",
+        "subpixel": "poly",
     ]
 )
 var calibration = PixelCalibration(
@@ -159,7 +164,15 @@ let rgba = RGBAResultMap(
         255, 0, 0, 255,   0, 255, 0, 255,   0, 0, 255, 255,
         12, 34, 56, 255,  78, 90, 123, 255,  210, 220, 230, 128,
     ],
-    kind: "acom_ipf_z", displayName: "ACOM · IPF · Z", valueUnits: "rgba"
+    kind: "acom_ipf_z", displayName: "ACOM · IPF · Z", valueUnits: "rgba",
+    pixelSizeRow: 2.5, pixelSizeColumn: 3.5, pixelUnits: "nm",
+    provenance: [
+        "display_domain": "scan",
+        "quantitative_status": "exploratory",
+        "material_model_id": "au_fcc",
+        "q_inv_angstrom_per_pixel": "0.01",
+        "q_scale_provenance": "exploratory",
+    ]
 )
 try BraggVectorEMDWriter.mergeRGBAResultMap(
     rgba, vectors: nil, qWidth: 7, qHeight: 5,
@@ -172,7 +185,12 @@ guard rgbaSnapshot.inventory.results.map(\.id) == [firstID, replacementID, rgbaI
       rgbaSnapshot.inventory.currentResultID == rgbaID,
       rgbaSnapshot.currentResult == nil,
       rgbaSnapshot.currentRGBAResult?.rgba == rgba.rgba,
-      rgbaSnapshot.currentRGBAResult?.displayName == rgba.displayName else {
+      rgbaSnapshot.currentRGBAResult?.displayName == rgba.displayName,
+      rgbaSnapshot.currentRGBAResult?.pixelSizeRow == 2.5,
+      rgbaSnapshot.currentRGBAResult?.pixelSizeColumn == 3.5,
+      rgbaSnapshot.currentRGBAResult?.pixelUnits == "nm",
+      rgbaSnapshot.currentRGBAResult?.provenance == rgba.provenance,
+      rgbaSnapshot.inventory.results.last?.provenance == rgba.provenance else {
     fail("RGBA result did not append, become current, and round-trip exactly")
 }
 guard try BraggVectorEMDWriter.loadRGBAResultMap(id: rgbaID, from: sidecar)?.rgba
