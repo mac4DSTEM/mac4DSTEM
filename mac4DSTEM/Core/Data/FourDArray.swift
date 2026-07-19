@@ -59,12 +59,15 @@ actor FourDArray {
         return tile
     }
 
-    /// Rows that fit within a conservative quarter of Metal's recommended
-    /// working set. `maximumRows` lets parity tests force tiny tiles.
+    /// Rows that fit within a conservative eighth of Metal's recommended
+    /// working set. Tiled passes double-buffer (one tile processing, one
+    /// prefetching), so two resident tiles at this halved per-tile budget
+    /// keep total staging within the prior single-tile quarter-of-working-set
+    /// bound. `maximumRows` lets parity tests force tiny tiles.
     func scanTileRows(maximumRows: Int? = nil) -> Int {
         let bytesPerRow = descriptor.rx * descriptor.qy * descriptor.qx
             * MemoryLayout<Float>.stride
-        let budget = max(1, Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 4)
+        let budget = max(1, Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 8)
         let budgetRows = max(1, budget / max(1, bytesPerRow))
         return max(1, min(descriptor.ry, maximumRows ?? budgetRows))
     }

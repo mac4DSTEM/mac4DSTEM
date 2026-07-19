@@ -55,6 +55,43 @@ enum DetectorPreset: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Tile prefetching (overlap tile I/O with GPU compute)
+
+/// Reads the next scan tile while the caller's current tile is on the GPU.
+/// At most two tiles are resident (one processing, one arriving); with the
+/// halved per-tile row budget in FourDArray.scanTileRows, total staging
+/// memory stays within the prior single-tile bound.
+nonisolated struct TilePrefetcher {
+    private let data: FourDArray
+    private var pending: Task<FourDScanTile, Error>?
+
+    init(data: FourDArray) { self.data = data }
+
+    /// Return the tile for `range` (from the prefetch when one is pending),
+    /// then begin reading `nextRange` in the background.
+    mutating func tile(
+        for range: Range<Int>, prefetching nextRange: Range<Int>?
+    ) async throws -> FourDScanTile {
+        let current: FourDScanTile
+        if let pending {
+            current = try await pending.value
+        } else {
+            current = try await data.scanTile(yRange: range)
+        }
+        precondition(current.yRange == range, "prefetch order broke")
+        pending = nextRange.map { next in
+            let data = data
+            return Task { try await data.scanTile(yRange: next) }
+        }
+        return current
+    }
+
+    /// Abandon a pending read (it completes in the background and is
+    /// discarded — bounded at one tile, same spirit as uninterruptible GPU
+    /// commands).
+    func cancel() { pending?.cancel() }
+}
+
 // MARK: - VirtualDetector
 
 nonisolated enum VirtualDetector {
@@ -103,16 +140,26 @@ nonisolated enum VirtualDetector {
     ) async throws -> FloatImage {
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var output = [Float](repeating: 0, count: d.ry * d.rx)
-        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let range = lower..<min(d.ry, lower + rowsPerTile)
-            let tile = try await data.scanTile(yRange: range)
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        var prefetcher = TilePrefetcher(data: data)
+        for (index, range) in ranges.enumerated() {
+            guard cancellation?.isCancelled != true else {
+                prefetcher.cancel(); throw CancellationError()
+            }
+            let tile = try await prefetcher.tile(
+                for: range,
+                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
+            )
+            guard cancellation?.isCancelled != true else {
+                prefetcher.cancel(); throw CancellationError()
+            }
             guard let buffer = MetalEngine.shared.device.makeBuffer(
                 bytes: tile.pixels,
                 length: tile.pixels.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared
-            ) else { throw FourDError.allocationFailed }
+            ) else { prefetcher.cancel(); throw FourDError.allocationFailed }
             buffer.label = "4D scan tile rows \(range.lowerBound)..<\(range.upperBound)"
             let tileDescriptor = DatasetDescriptor(
                 filePath: d.filePath, datasetPath: d.datasetPath,
@@ -126,11 +173,13 @@ nonisolated enum VirtualDetector {
             case .aperture(let aperture):
                 tileImage = try run(cube: buffer, descriptor: tileDescriptor, aperture: aperture)
             }
-            output.replaceSubrange(lower * d.rx..<range.upperBound * d.rx,
+            output.replaceSubrange(range.lowerBound * d.rx..<range.upperBound * d.rx,
                                    with: tileImage.pixels)
             progress?(Double(range.upperBound) / Double(d.ry))
         }
-        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        guard cancellation?.isCancelled != true else {
+            prefetcher.cancel(); throw CancellationError()
+        }
         return FloatImage(width: d.rx, height: d.ry, pixels: output)
     }
 
@@ -147,15 +196,23 @@ nonisolated enum VirtualDetector {
         let detectorCount = d.qy * d.qx
         var maximum = [Float](repeating: -.greatestFiniteMagnitude, count: detectorCount)
         var weightedMean = [Double](repeating: 0, count: detectorCount)
-        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let range = lower..<min(d.ry, lower + rowsPerTile)
-            let tile = try await data.scanTile(yRange: range)
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        var prefetcher = TilePrefetcher(data: data)
+        for (index, range) in ranges.enumerated() {
+            guard cancellation?.isCancelled != true else {
+                prefetcher.cancel(); throw CancellationError()
+            }
+            let tile = try await prefetcher.tile(
+                for: range,
+                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
+            )
             guard let buffer = MetalEngine.shared.device.makeBuffer(
                 bytes: tile.pixels,
                 length: tile.pixels.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared
-            ) else { throw FourDError.allocationFailed }
+            ) else { prefetcher.cancel(); throw FourDError.allocationFailed }
             let tileDescriptor = DatasetDescriptor(
                 filePath: d.filePath, datasetPath: d.datasetPath,
                 shape: [range.count, d.rx, d.qy, d.qx],
@@ -171,7 +228,9 @@ nonisolated enum VirtualDetector {
             }
             progress?(Double(range.upperBound) / Double(d.ry))
         }
-        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        guard cancellation?.isCancelled != true else {
+            prefetcher.cancel(); throw CancellationError()
+        }
         let total = Double(d.ry * d.rx)
         return (maximum, weightedMean.map { Float($0 / total) })
     }
@@ -188,21 +247,29 @@ nonisolated enum VirtualDetector {
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         let fullMask = makeMask(shape: region, qy: d.ry, qx: d.rx)
         var sum = [Float](repeating: 0, count: d.qy * d.qx)
-        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let range = lower..<min(d.ry, lower + rowsPerTile)
-            let tile = try await data.scanTile(yRange: range)
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        var prefetcher = TilePrefetcher(data: data)
+        for (index, range) in ranges.enumerated() {
+            guard cancellation?.isCancelled != true else {
+                prefetcher.cancel(); throw CancellationError()
+            }
+            let tile = try await prefetcher.tile(
+                for: range,
+                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
+            )
             guard let buffer = MetalEngine.shared.device.makeBuffer(
                 bytes: tile.pixels,
                 length: tile.pixels.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared
-            ) else { throw FourDError.allocationFailed }
+            ) else { prefetcher.cancel(); throw FourDError.allocationFailed }
             let tileDescriptor = DatasetDescriptor(
                 filePath: d.filePath, datasetPath: d.datasetPath,
                 shape: [range.count, d.rx, d.qy, d.qx],
                 dtypeDescription: d.dtypeDescription, chunkShape: nil
             )
-            let mask = Array(fullMask[lower * d.rx..<range.upperBound * d.rx])
+            let mask = Array(fullMask[range.lowerBound * d.rx..<range.upperBound * d.rx])
             let partial = try MetalEngine.shared.virtualDiffraction(
                 cube: buffer, dims: CubeDims(tileDescriptor), scanMask: mask
             )
@@ -223,22 +290,30 @@ nonisolated enum VirtualDetector {
     ) async throws -> [Float] {
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
-        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let range = lower..<min(d.ry, lower + rowsPerTile)
-            let tile = try await data.scanTile(yRange: range)
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        var prefetcher = TilePrefetcher(data: data)
+        for (index, range) in ranges.enumerated() {
+            guard cancellation?.isCancelled != true else {
+                prefetcher.cancel(); throw CancellationError()
+            }
+            let tile = try await prefetcher.tile(
+                for: range,
+                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
+            )
             guard let buffer = MetalEngine.shared.device.makeBuffer(
                 bytes: tile.pixels,
                 length: tile.pixels.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared
-            ) else { throw FourDError.allocationFailed }
+            ) else { prefetcher.cancel(); throw FourDError.allocationFailed }
             let params = OriginParams(
                 ry: UInt32(range.count), rx: UInt32(d.rx),
                 qy: UInt32(d.qy), qx: UInt32(d.qx),
                 r: probeRadius, rscale: rscale
             )
             let measured = try MetalEngine.shared.measureOrigins(cube: buffer, params: params)
-            output.replaceSubrange(lower * d.rx * 2..<range.upperBound * d.rx * 2,
+            output.replaceSubrange(range.lowerBound * d.rx * 2..<range.upperBound * d.rx * 2,
                                    with: measured)
             progress?(Double(range.upperBound) / Double(d.ry))
         }
@@ -258,17 +333,25 @@ nonisolated enum VirtualDetector {
         precondition(origins == nil || origins?.count == d.ry * d.rx * 2)
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
-        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let range = lower..<min(d.ry, lower + rowsPerTile)
-            let tile = try await data.scanTile(yRange: range)
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        var prefetcher = TilePrefetcher(data: data)
+        for (index, range) in ranges.enumerated() {
+            guard cancellation?.isCancelled != true else {
+                prefetcher.cancel(); throw CancellationError()
+            }
+            let tile = try await prefetcher.tile(
+                for: range,
+                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
+            )
             guard let buffer = MetalEngine.shared.device.makeBuffer(
                 bytes: tile.pixels,
                 length: tile.pixels.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared
-            ) else { throw FourDError.allocationFailed }
+            ) else { prefetcher.cancel(); throw FourDError.allocationFailed }
             let tileOrigins = origins.map {
-                Array($0[lower * d.rx * 2..<range.upperBound * d.rx * 2])
+                Array($0[range.lowerBound * d.rx * 2..<range.upperBound * d.rx * 2])
             }
             let params = CoMParams(
                 ry: UInt32(range.count), rx: UInt32(d.rx),
@@ -278,7 +361,7 @@ nonisolated enum VirtualDetector {
             let measured = try MetalEngine.shared.centerOfMass(
                 cube: buffer, params: params, origins: tileOrigins
             )
-            output.replaceSubrange(lower * d.rx * 2..<range.upperBound * d.rx * 2,
+            output.replaceSubrange(range.lowerBound * d.rx * 2..<range.upperBound * d.rx * 2,
                                    with: measured)
             progress?(Double(range.upperBound) / Double(d.ry))
         }

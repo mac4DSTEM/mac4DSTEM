@@ -82,17 +82,59 @@ detached full-pattern detection (`App/AppState.swift:2838`); the request
 counter discards stale *results* but the *work* still runs. Reuse the
 `vdInFlight`/`vdPending` coalescing already built for aperture drags.
 
-**B3. Overlap I/O and GPU in the tiled passes.** Every tiled operation copies
-a tile into a fresh `MTLBuffer`, dispatches, and blocks (`waitUntilCompleted`)
-before reading the next tile. Double-buffering (read tile N+1 while N
-computes) should roughly halve wall-clock for whole-cube passes on I/O-bound
-datasets. Verify with `tools/performance-baseline`.
+**B3. Overlap I/O and GPU in the tiled passes.** ✅ *(2026-07-19: a shared
+`TilePrefetcher` double-buffers all six tiled loops — five in
+`VirtualDetector` plus `TiledDiskDetection.detectAll` — reading tile N+1
+while tile N is on the GPU; every early-exit path abandons the pending read.
+`FourDArray.scanTileRows` halves the per-tile row budget so two resident
+tiles stay within the prior single-tile memory bound. Gates green:
+virtual-detector (incl. forced-tile cancellation), disk-detection,
+cancellation harnesses; baseline comparison bit-identical checksums, deltas
+within noise. The harness's in-memory sources make I/O nearly free, so the
+measured wall-clock win there is ~0 by design — the overlap benefit applies
+to on-disk datasets and should be quantified in the next real-data manifest
+run. Follow-up noted: `tools/cancellation-test` compiles only the resident
+disk path, not `TiledDiskDetection`/`VirtualDetector`; tiled-path
+cancellation is covered by virtual-detector-test today, but widening
+cancellation-test's compile list would close the gap explicitly.)* Every
+tiled operation copies a tile into a fresh `MTLBuffer`, dispatches, and
+blocks (`waitUntilCompleted`) before reading the next tile. Double-buffering
+(read tile N+1 while N computes) should roughly halve wall-clock for
+whole-cube passes on I/O-bound datasets.
 
-**B4. GPU disk-detection correlation.** The 2026-07-06 assessment still
-stands: whole-cube ops are bandwidth-bound and already fast; per-pattern CPU
-FFT correlation is the big remaining lever (15 s for 725k peaks on the 058
-baseline). A Metal (or MLX) batched-FFT correlation path, parity-gated like
-the ACOM Metal backend, is the single highest-value performance project.
+**B4. GPU disk-detection correlation.** ⏸ *Deliberately deferred
+(2026-07-19): scoped below as a standalone project rather than half-landed at
+the end of the Milestone-4 budget. A parity-gated design beats an unvalidated
+kernel.* The 2026-07-06 assessment still stands: whole-cube ops are
+bandwidth-bound and already fast; per-pattern CPU FFT correlation is the big
+remaining lever (15 s for 725k peaks on the 058 baseline). A Metal (or MLX)
+batched-FFT correlation path, parity-gated like the ACOM Metal backend, is
+the single highest-value performance project.
+
+*Standalone scope (one to two focused sessions):*
+1. *Kernel:* batched Stockham radix-2 FFT in threadgroup memory
+   (`Shaders/DiskCorrelation.metal`) for power-of-two detector dims — the
+   common case; non-power-of-two detectors stay on the existing exact-shape
+   CPU path, selected per dataset at kernel-build time.
+2. *Phase 1 pipeline:* per resident tile, GPU computes forward FFT → complex
+   multiply with the precomputed kernel FFT → hybrid `|m|^(p−1)` power →
+   inverse FFT → thresholded real CC maps; CPU keeps maxima cascade +
+   subpixel (readback equals input volume — acceptable while FFT dominates).
+   `multicorr` initially falls back to CPU (needs the complex CC; 2×
+   readback). Phase 2 moves maxima/filters on-GPU to return compact peak
+   lists.
+3. *Parity gate:* extend `tools/disk-detection-test` with a GPU-vs-CPU case:
+   identical accepted peak sets after the full cascade, positions exact,
+   intensities within 1e-4 relative (FFT reassociation forbids bit
+   equality). Any peak-set difference fails.
+4. *Selection policy:* exactly the ACOM precedent — CPU remains the oracle
+   and the Automatic default until the real-data manifest benchmark (058
+   class, end-to-end including readback) shows the GPU path faster;
+   Metal stays selectable and parity-gated. The README performance narrative
+   changes only with those measured numbers.
+5. *Expected (to be measured, not claimed):* correlation is the dominant
+   per-pattern cost; a bandwidth-limited batched FFT suggests 3–6× on that
+   stage, 2–4× end-to-end after Amdahl with maxima + I/O.
 
 **B5. Small hot-loop items.** ✅ `crossCorrelate` copies two full arrays per
 pattern (`re = ccRe; im = ccIm`); `OrientationMatcher.match` ring-sum is a
@@ -149,7 +191,15 @@ secondary controls (labels at `.secondary`, controls `.small`), and
 typographic rhythm in the inspector (monospaced digits for all numerics —
 partially done). No new features; polish only.
 
-**D4. Result storytelling.** Results already carry
+**D4. Result storytelling.** ✅ *(2026-07-19: the result viewer now shows a
+persistent colored interpretation badge — quantitative green, relative blue,
+exploratory orange, categorical purple — and a one-click quality-inspection
+toggle that displays the paired quality field (strain ↔ fit residual, ACOM ↔
+reliability) with its own viridis colorbar and units. Inspection is
+viewer-level only: `displayedProduct`, exports, and persistence semantics are
+untouched, and all ProductWorkflowTests contracts pass. DPC/IPF color
+legends are suppressed while a scalar quality map is displayed.)* Results
+already carry
 Quantitative/Relative/Exploratory/Categorical status — surface it as a
 persistent colored badge on the viewer (not only in inspector text), and pair
 every map with its quality field (strain ↔ residual, ACOM ↔ reliability) as a
@@ -206,3 +256,15 @@ two-instrument vendor-reader validation) remain as listed in ROADMAP.
 Ready-to-run session prompts executing this plan (four sequential milestones,
 subagent delegation, per-milestone gates) are in
 [`implementation-prompts-2026-07-19.md`](implementation-prompts-2026-07-19.md).
+
+## Execution record (2026-07-19)
+
+All four milestones ran the same day. Resolved: A1–A4, B1–B3, B5, C4, D1–D2,
+D4–D6 (D6's ACOM route verified pre-existing). Partial: D3 (off-grid spacing
++ monospaced numerics landed; rhythm/accent pass deferred to a
+display-verified session) and D7 (icon review + capture checklist recorded;
+screenshots need a GUI session). Deferred by design: B4 (scoped standalone
+above), C1–C3 (ride-along extractions per ROADMAP Priority 3). Remaining user
+actions: run `tools/ui-smoke-test/run.sh` from an Accessibility-authorized
+terminal, capture `docs/screenshots/`, re-measure the real-data ACOM/disk
+timings (the −76% CPU ACOM change stales the historical numbers).

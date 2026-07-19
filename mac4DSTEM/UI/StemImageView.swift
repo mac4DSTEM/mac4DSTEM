@@ -25,8 +25,14 @@ struct StemImageView: View {
         .padding(8)
     }
 
-    /// Size of whichever result (scalar or RGBA) is active.
+    /// Size of whichever result (scalar or RGBA) is active. While a quality
+    /// field is being inspected, its own dimensions take precedence — it is
+    /// scan-shaped like the result, but the view should never assume they
+    /// match exactly.
     private var resultSize: (width: Int, height: Int)? {
+        if let field = app.displayedQualityField {
+            return (field.image.width, field.image.height)
+        }
         if let r = app.displayedResultRGBA { return (r.width, r.height) }
         if let r = app.displayedResultImage { return (r.width, r.height) }
         return nil
@@ -46,6 +52,8 @@ struct StemImageView: View {
             Text(app.displayedResultName)
                 .font(.headline)
                 .accessibilityIdentifier("result.title")
+            statusBadge
+            qualityToggle
             Spacer()
             if let r = resultSize {
                 Text("\(r.width) × \(r.height)")
@@ -68,11 +76,71 @@ struct StemImageView: View {
         }
     }
 
+    /// Persistent, colored badge naming the displayed result's interpretation
+    /// status — or, while a quality field is being inspected, a neutral badge
+    /// naming that field instead of relabeling the scientific result.
+    @ViewBuilder
+    private var statusBadge: some View {
+        if let field = app.displayedQualityField {
+            statusCapsule(text: "quality · \(field.name) (\(field.units))", color: .gray)
+                .accessibilityLabel("Inspecting quality field \(field.name), units \(field.units)")
+        } else if let status = app.displayedProduct?.quantitativeStatus {
+            statusCapsule(text: status.rawValue.capitalized, color: statusColor(status))
+                .accessibilityLabel("Interpretation status: \(status.rawValue.capitalized)")
+        }
+    }
+
+    private func statusColor(_ status: ProductQuantitativeStatus) -> Color {
+        switch status {
+        case .quantitative: .green
+        case .relative: .blue
+        case .exploratory: .orange
+        case .categorical: .purple
+        }
+    }
+
+    private func statusCapsule(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.85), in: Capsule())
+            .help("Interpretation status of the displayed result")
+            .accessibilityIdentifier("result.statusBadge")
+    }
+
+    /// Toggle to swap the viewer to the displayed product's paired quality
+    /// field (strain ↔ fit residual, ACOM ↔ reliability). Display-only — it
+    /// never touches the retained product, exports, or persistence. Hidden
+    /// entirely when the displayed result carries no quality field.
+    @ViewBuilder
+    private var qualityToggle: some View {
+        if app.displayedProduct?.qualityFields.isEmpty == false {
+            Toggle(isOn: Bindable(app).inspectQualityField) {
+                Image(systemName: app.inspectQualityField
+                      ? "exclamationmark.magnifyingglass" : "checkmark.seal")
+            }
+            .toggleStyle(.button)
+            .controlSize(.small)
+            .help("Inspect the quality field paired with this result (display only — exports and saved products are unchanged)")
+            .accessibilityLabel(app.inspectQualityField
+                ? "Showing quality field; toggle to show the result"
+                : "Inspect the quality field paired with this result")
+            .accessibilityIdentifier("result.qualityToggle")
+        }
+    }
+
     @ViewBuilder
     private func content(in size: CGSize) -> some View {
         if let dims = resultSize {
             let box = fitted(in: size, aspect: CGFloat(dims.width) / CGFloat(dims.height))
-            let norm = app.normalizedResultPixels()   // cached per resultVersion
+            // Quality inspection swaps the viewer to the paired quality field
+            // (display only) — a distinct version space so the texture cache
+            // re-uploads on toggle instead of reusing the scientific result's.
+            let qualityField = app.displayedQualityField
+            let norm = qualityField != nil
+                ? app.normalizedQualityPixels() : app.normalizedResultPixels()   // cached per resultVersion
             let effZoom = max(1, zoom * liveZoom)
 
             ZStack {
@@ -82,13 +150,15 @@ struct StemImageView: View {
                 ZStack {
                     MetalImageView(pixels: norm,
                                    width: dims.width, height: dims.height,
-                                   contentVersion: app.displayedResultVersion,
-                                   colormap: app.displayedResultColormap,
+                                   contentVersion: qualityField != nil
+                                       ? app.displayedResultVersion &+ 0x4000_0000
+                                       : app.displayedResultVersion,
+                                   colormap: qualityField != nil ? .viridis : app.displayedResultColormap,
                                    zoom: 1, offset: .zero,
-                                   rgba: app.displayedResultRGBA?.rgba,
-                                   displayLo: app.displayedResultRangeLo,
-                                   displayHi: app.displayedResultRangeHi,
-                                   gamma: app.displayedResultGamma)
+                                   rgba: qualityField != nil ? nil : app.displayedResultRGBA?.rgba,
+                                   displayLo: qualityField != nil ? 0 : app.displayedResultRangeLo,
+                                   displayHi: qualityField != nil ? 1 : app.displayedResultRangeHi,
+                                   gamma: qualityField != nil ? 1 : app.displayedResultGamma)
                         .frame(width: box.width, height: box.height)
                         .background(Color.black)
 
@@ -135,8 +205,10 @@ struct StemImageView: View {
                     }
                 }
 
-                // Direction legend for the DPC color wheel.
-                if app.displayedResultKind == "dpc_color" {
+                // Direction legend for the DPC color wheel. Suppressed while
+                // inspecting a quality field — the viewer is showing a scalar
+                // viridis map, not the color-wheel-encoded result.
+                if qualityField == nil, app.displayedResultKind == "dpc_color" {
                     colorWheelLegend
                         .frame(width: 54, height: 54)
                         .padding(10)
@@ -144,7 +216,7 @@ struct StemImageView: View {
                                alignment: .bottomTrailing)
                 }
 
-                if app.displayedResultKind == "acom_ipf_z" {
+                if qualityField == nil, app.displayedResultKind == "acom_ipf_z" {
                     Group {
                         if app.orientationMap?.symmetry == .hexagonal {
                             HexagonalIPFLegendView()
@@ -160,7 +232,20 @@ struct StemImageView: View {
                                alignment: .bottomTrailing)
                 }
 
-                if app.displayedResultImage != nil,
+                if let field = qualityField, let range = app.displayedQualityValueRange {
+                    ScalarColorbarView(
+                        colormap: .viridis,
+                        low: range.low,
+                        high: range.high,
+                        unitLabel: field.units,
+                        gamma: 1,
+                        marksZero: false,
+                        showsMasked: false
+                    )
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: .bottomTrailing)
+                } else if app.displayedResultImage != nil,
                    let range = app.resultDisplayedValueRange {
                     ScalarColorbarView(
                         colormap: app.displayedResultColormap,

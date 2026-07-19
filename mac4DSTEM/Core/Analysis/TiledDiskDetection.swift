@@ -31,17 +31,24 @@ extension DiskDetection {
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var allPeaks = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
 
-        for lower in stride(from: 0, to: d.ry, by: rowsPerTile) {
-            guard cancellation?.isCancelled != true else { return nil }
-            let upper = min(d.ry, lower + rowsPerTile)
-            let range = lower..<upper
-            guard let tile = try? await data.scanTile(yRange: range) else { return nil }
-            guard cancellation?.isCancelled != true else { return nil }
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        var prefetcher = TilePrefetcher(data: data)
+        for (index, range) in ranges.enumerated() {
+            guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
+            let lower = range.lowerBound
+            let upper = range.upperBound
+            guard let tile = try? await prefetcher.tile(
+                for: range,
+                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
+            ) else { prefetcher.cancel(); return nil }
+            guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
             guard let buffer = MetalEngine.shared.device.makeBuffer(
                 bytes: tile.pixels,
                 length: tile.pixels.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared
-            ) else { return nil }
+            ) else { prefetcher.cancel(); return nil }
             buffer.label = "Disk detection tile rows \(range.lowerBound)..<\(range.upperBound)"
             let tileDescriptor = DatasetDescriptor(
                 filePath: d.filePath, datasetPath: d.datasetPath,
@@ -56,7 +63,7 @@ extension DiskDetection {
                         (Double(lower) + fraction * Double(range.count)) / Double(d.ry)
                     )
                 }
-            ) else { return nil }
+            ) else { prefetcher.cancel(); return nil }
             allPeaks.replaceSubrange(
                 lower * d.rx..<upper * d.rx,
                 with: detected.peaks

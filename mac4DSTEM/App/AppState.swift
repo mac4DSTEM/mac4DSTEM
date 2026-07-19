@@ -574,6 +574,18 @@ final class AppState {
         return .quantitative
     }
 
+    /// Viewer-level quality inspection: shows the displayed product's paired
+    /// quality field (strain ↔ fit residual, ACOM ↔ reliability) in the result
+    /// viewer without touching the retained product, exports, or persistence.
+    var inspectQualityField = false
+
+    /// The quality field currently shown instead of the scientific map, when
+    /// inspection is on and the displayed product carries one.
+    var displayedQualityField: ProductQualityField? {
+        guard inspectQualityField else { return nil }
+        return displayedProduct?.qualityFields.first
+    }
+
     // Custom (user-defined) cubic crystal for ACOM.
     var customZ: Int = 79 { didSet { if customZ != oldValue { invalidateACOMPlan() } } }
     var customStructure: Crystal.CubicStructure = .fcc {
@@ -846,6 +858,14 @@ final class AppState {
                 baseLow + span * Double(displayedResultRangeHi))
     }
 
+    /// Raw-value endpoints of the quality field currently being inspected, for
+    /// its colorbar. `nil` when no quality field is being inspected.
+    var displayedQualityValueRange: (low: Double, high: Double)? {
+        guard let field = displayedQualityField else { return nil }
+        let (low, high) = field.image.minMax
+        return (Double(low), Double(high))
+    }
+
     /// Raw intensity endpoints currently assigned to the CBED colorbar. When
     /// log display is active, transform-space clipping is inverted back to
     /// intensity so the labels remain physically interpretable.
@@ -965,6 +985,22 @@ final class AppState {
         let pixels = image.normalized(symmetric: symmetric)
         let hasInvalid = pixels.contains { $0 < 0 }
         resultNormCache = (version, regionReference, symmetric, pixels, hasInvalid)
+        return pixels
+    }
+
+    @ObservationIgnored private var qualityNormCache: (version: Int, name: String, pixels: [Float])?
+
+    /// Display-normalized pixels of the quality field currently being
+    /// inspected, cached per (result version, field name) — mirrors
+    /// `normalizedResultPixels()`.
+    func normalizedQualityPixels() -> [Float] {
+        guard let field = displayedQualityField else { return [] }
+        let version = displayedResultVersion
+        if let c = qualityNormCache, c.version == version, c.name == field.name {
+            return c.pixels
+        }
+        let pixels = field.image.normalized(symmetric: false)
+        qualityNormCache = (version, field.name, pixels)
         return pixels
     }
 

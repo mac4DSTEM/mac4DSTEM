@@ -20,9 +20,12 @@ tools/run-tests.sh all
 ```
 
 A full-codebase review with a sequenced fix/polish plan is recorded in
-[`docs/code-review-2026-07-19.md`](docs/code-review-2026-07-19.md); its
-correctness items (ellipse-fit input, DM4 truncation/overflow handling, ROI
-mask parity) belong to Priority 1 below, its design/usage items to Priority 2.
+[`docs/code-review-2026-07-19.md`](docs/code-review-2026-07-19.md). Its four
+milestones were executed the same day (correctness fixes, responsiveness and
+forgiveness, first-run/polish, result storytelling + tiled I/O overlap); the
+doc's execution record lists what remains: the scoped GPU disk-correlation
+project (B4), the display-verified visual pass and screenshot set (D3/D7),
+and ride-along AppState extractions (C1–C3).
 
 ## Priority 1 — scientific interpretation
 
