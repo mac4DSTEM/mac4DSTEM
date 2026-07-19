@@ -32,16 +32,27 @@ struct WelcomeWorkspace: View {
                 }
                 .frame(maxWidth: 780)
 
-                HStack(spacing: 10) {
-                    Button("Open Dataset…") { appState.requestOpenDataset() }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .keyboardShortcut(.defaultAction)
-                    if appState.recoveryRecord != nil {
-                        Button("Reopen Last Dataset") { appState.reopenLastDataset() }
-                            .buttonStyle(.bordered)
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        Button("Open Dataset…") { appState.requestOpenDataset() }
+                            .buttonStyle(.borderedProminent)
                             .controlSize(.large)
+                            .keyboardShortcut(.defaultAction)
+                        if appState.recoveryRecord != nil {
+                            Button("Reopen Last Dataset") { appState.reopenLastDataset() }
+                                .buttonStyle(.bordered)
+                                .controlSize(.large)
+                        }
+                        Button("Try Demo Data") {
+                            Task { await appState.openDemoFixture() }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .accessibilityIdentifier("welcome.demoButton")
                     }
+                    Text("The demo is a small synthetic 4D-STEM dataset — every workspace works, and nothing on disk is touched.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 if !appState.recentDatasets.isEmpty {
@@ -118,7 +129,7 @@ struct WelcomeWorkspace: View {
     }
 
     private func welcomeCard(icon: String, title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(Color.accentColor)
@@ -157,7 +168,7 @@ struct ProductWorkspaceHeader: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Image(systemName: headerIcon)
                 .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(Color.accentColor)
@@ -165,8 +176,8 @@ struct ProductWorkspaceHeader: View {
                 .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 7) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
                     Text(headerTitle)
                         .font(.title3.weight(.semibold))
                     if appState.workspaceArea.isAdvanced {
@@ -301,7 +312,7 @@ struct ProductWorkspaceHeader: View {
         HStack(spacing: 10) {
             ProgressView(value: appState.progress)
                 .frame(width: 110)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(appState.activeOperation ?? "Working…")
                     .font(.caption.weight(.medium))
                     .lineLimit(1)
@@ -362,8 +373,8 @@ struct ResultsWorkspace: View {
     }
 
     private var currentResultSummary: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(appState.currentResultDisplayName)
                     .font(.headline)
                 HStack(spacing: 8) {
@@ -483,7 +494,7 @@ struct ResultsWorkspace: View {
                         .foregroundStyle(Color.accentColor)
                         .frame(width: 28, height: 28)
                         .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(result.displayName)
                             .font(.subheadline.weight(.medium))
                             .lineLimit(2)
@@ -588,7 +599,7 @@ private struct ProductComparisonView: View {
     private func panel(
         _ product: DisplayedProduct, label: String, colormap: ColormapKind
     ) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("\(label) · \(product.displayName)").font(.caption.weight(.semibold)).lineLimit(1)
             GeometryReader { geometry in
                 let size = geometry.size

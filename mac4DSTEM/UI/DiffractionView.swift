@@ -127,14 +127,28 @@ struct DiffractionView: View {
                 .zoomPan($zp)
 
                 // Calibrated q-space scale bar (px fallback), zoom-aware.
+                // mrad mode shows the direct scattering angle, but falls back
+                // to the reciprocal/px behavior automatically if the Q
+                // calibration or voltage needed for it disappears.
                 let qSize = app.calibration.qPixelSize
-                ScaleBarView(
-                    unitsPerPoint: (qSize ?? 1) * Double(qx)
-                        / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
-                    unitLabel: qSize != nil ? (app.calibration.qPixelUnits ?? "1/nm") : "px")
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomLeading)
+                if app.patternScaleUnit == .milliradians,
+                   let mradPerPixel = app.dpcMilliradiansPerDetectorPixel {
+                    ScaleBarView(
+                        unitsPerPoint: Double(mradPerPixel) * Double(qx)
+                            / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
+                        unitLabel: "mrad")
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .bottomLeading)
+                } else {
+                    ScaleBarView(
+                        unitsPerPoint: (qSize ?? 1) * Double(qx)
+                            / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
+                        unitLabel: qSize != nil ? (app.calibration.qPixelUnits ?? "1/nm") : "px")
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .bottomLeading)
+                }
 
                 if let range = app.patternDisplayedValueRange {
                     ScalarColorbarView(

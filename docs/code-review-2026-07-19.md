@@ -129,20 +129,25 @@ superseded fitted maps," or (b) retain the fit and require an explicit
 `didSet` (model/quality changes invalidating ACOM plans is fine; losing
 measured calibration is not).
 
-**D2. First-run experience.** The welcome window lists Open/Recents but the
+**D2. First-run experience.** ✅ *(2026-07-19: Try Demo Data on the welcome screen opens the in-memory fixture; the demo status line names the Prepare → Image → Map → Results path and each task already lists its own prerequisites.)* The welcome window lists Open/Recents but the
 app's strongest asset — guided readiness — only appears after opening a file.
 Ship a small bundled demo dataset (or generate the demo fixture from the
 welcome screen, which already exists behind `--demo-fixture`) and a 60-second
 guided tour: open → calibrate → virtual image → Bragg → strain. A scientist
 should reach a strain map without reading anything.
 
-**D3. Progressive disclosure is done; visual hierarchy is next.** The
-workspace shell is structurally right. Invest one focused pass in: consistent
-8-pt spacing grid in the tools panel, a single accent color reserved for the
-primary action per workspace, calmer secondary controls (labels at
-`.secondary`, controls `.small`), and typographic rhythm in the inspector
-(monospaced digits for all numerics — partially done). No new features;
-polish only.
+**D3. Progressive disclosure is done; visual hierarchy is next.** ◐
+*(2026-07-19 partial: off-grid spacing outliers in the workspace shell and
+inspector snapped to the 4/8/12 grid; the performance panel's live numerics
+now use monospaced digits. The dominant spacing-10 rhythm, the per-workspace
+accent audit, and control-size calming are deliberately deferred to a session
+with a working display — sweeping visual changes must be verified rendered,
+not reasoned from source.)* The workspace shell is structurally right. Invest
+one focused pass in: consistent 8-pt spacing grid in the tools panel, a
+single accent color reserved for the primary action per workspace, calmer
+secondary controls (labels at `.secondary`, controls `.small`), and
+typographic rhythm in the inspector (monospaced digits for all numerics —
+partially done). No new features; polish only.
 
 **D4. Result storytelling.** Results already carry
 Quantitative/Relative/Exploratory/Categorical status — surface it as a
@@ -151,7 +156,7 @@ every map with its quality field (strain ↔ residual, ACOM ↔ reliability) as 
 one-click toggle rather than a separate display-mode choice. This is the
 feature reviewers of scientific software will notice.
 
-**D5. Colorbar/scale-bar polish.** B1's cached ranges also fix label jitter
+**D5. Colorbar/scale-bar polish.** ✅ *(2026-07-19: mrad CBED scale option added — segmented Reciprocal/mrad picker in Display, shown only when Q calibration + voltage exist, with automatic reciprocal fallback. B1 fixed the label jitter.)* B1's cached ranges also fix label jitter
 during drags. Add the missing direct scattering-angle (mrad) CBED axis option
 noted in the old README — the calibration machinery for it already exists
 (`DPC.milliradiansPerDetectorPixel`).
@@ -163,10 +168,24 @@ the existing diagnostics instead: open the acceptance funnel, highlight the
 offending threshold, or link the calibration step. The funnel diagnostics
 exist — connect them to the failure paths.
 
-**D7. App icon / identity.** Present (recent "new icons" commit) but worth a
-final pass against macOS 26 icon conventions before public release, plus a
-product screenshot set for the README/website — currently there is no visual
-anywhere in the repo for a deeply visual application.
+**D7. App icon / identity.** *(2026-07-19 review done; capture blocked by
+host.)* Icon review: the diffraction-dot motif (bright central beam, radiating
+spots) is scientifically apt and distinctive. Gaps against current macOS
+conventions, in priority order: (1) it is a full-bleed sharp-cornered square —
+macOS does not auto-mask app icons, so it reads as a foreign tile next to
+rounded-rect neighbors; redraw on the standard squircle canvas. (2) The
+all-black background is heavy on light desktops; use a subtle
+material/gradient inside the squircle. (3) Consider carrying the app's
+accent→cyan gradient (already the welcome-screen identity) into the spots;
+all-grayscale reads flat in the Dock. (4) For macOS 26, build through Icon
+Composer's layered `.icon` format to get the glass treatment; keep PNG
+fallbacks. — Screenshot set: this session has no display access
+(`screencapture` fails; `loginwindow` frontmost), so capture is a
+release-owner action from a GUI session: launch the app, click **Try Demo
+Data**, and capture welcome, Prepare (readiness list), Image (virtual
+detector + aperture), Map (Bragg overlay + funnel, strain map), and Results
+into `docs/screenshots/`, then embed the two best in the README's What-it-does
+section.
 
 ## E. Suggested sequencing
 

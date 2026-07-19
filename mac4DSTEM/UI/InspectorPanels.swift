@@ -35,7 +35,9 @@ struct PerformanceView: View {
 
     private func labeled(_ label: String, _ value: String) -> some View {
         LabeledContent(label) {
-            Text(value).font(.caption).foregroundStyle(.secondary)
+            // Monospaced digits: these values refresh continuously, and
+            // proportional digits make the whole column jitter.
+            Text(value).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
 
@@ -132,7 +134,7 @@ struct ProductsView: View {
     }
 
     private func treeRow(icon: String, text: String, indent: Int, mono: Bool = false) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             if indent > 0 { Spacer().frame(width: CGFloat(indent) * 12) }
             Image(systemName: icon).font(.caption2).foregroundStyle(.secondary)
             Text(text)
@@ -144,7 +146,7 @@ struct ProductsView: View {
     }
 
     private func product(_ name: String, done: Bool, detail: String? = nil) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: done ? "checkmark.circle.fill" : "circle")
                 .font(.caption2)
                 .foregroundStyle(done ? Color.green : Color.secondary.opacity(0.5))
@@ -157,12 +159,12 @@ struct ProductsView: View {
     }
 
     private func savedResultRow(_ result: SessionResultDescriptor, isCurrent: Bool) -> some View {
-        HStack(alignment: .top, spacing: 6) {
+        HStack(alignment: .top, spacing: 8) {
             Spacer().frame(width: 12)
             Image(systemName: isCurrent ? "eye.fill" : (result.storage == .rgba8 ? "paintpalette" : "map"))
                 .font(.caption2)
                 .foregroundStyle(isCurrent ? Color.accentColor : Color.secondary)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(result.displayName).font(.caption).lineLimit(1)
                 Text("\(result.width)×\(result.height) · \(result.storage == .rgba8 ? "RGBA8" : "float32") · \(result.valueUnits)")
                     .font(.caption2.monospaced())

@@ -77,6 +77,15 @@ struct ContentView: View {
                     if appState.workspaceArea != .results {
                         Section("Display") {
                         Toggle("Log diffraction", isOn: $appState.logScale)
+                        if appState.patternScaleMradAvailable {
+                            Picker("Q-scale units", selection: $appState.patternScaleUnit) {
+                                ForEach(PatternScaleUnit.allCases) { unit in
+                                    Text(unit.rawValue).tag(unit)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .help("Reciprocal shows the calibrated Q pixel units; mrad shows the direct scattering angle (θ ≈ λ·q from the accelerating voltage).")
+                        }
                         Picker("Diffraction", selection: $appState.patternColormap) {
                             ForEach(ColormapKind.allCases) { kind in
                                 Text(kind.displayName).tag(kind)

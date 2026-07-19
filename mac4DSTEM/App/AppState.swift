@@ -39,6 +39,12 @@ enum PatternDisplayMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum PatternScaleUnit: String, CaseIterable, Identifiable {
+    case reciprocal = "Reciprocal"
+    case milliradians = "mrad"
+    var id: String { rawValue }
+}
+
 enum VirtualShapeMode: String, CaseIterable, Identifiable {
     case circle = "Circle"
     case annulus = "Annulus"
@@ -711,6 +717,9 @@ final class AppState {
     var patternColormap: ColormapKind = .viridis {
         didSet { patternVersion &+= 1 }
     }
+    var patternScaleUnit: PatternScaleUnit = .reciprocal
+    /// mrad labelling needs both a physical Q calibration and the voltage.
+    var patternScaleMradAvailable: Bool { dpcMilliradiansPerDetectorPixel != nil }
     var resultColormap: ColormapKind = .viridis {
         didSet { resultVersion &+= 1 }
     }
@@ -1057,8 +1066,9 @@ final class AppState {
         Task { await openFileAsync(url: url) }
     }
 
-    /// Launch-only deterministic dataset for UI automation and repeatable
-    /// design walkthroughs. Normal users never enter this path.
+    /// Deterministic in-memory dataset shared by UI automation, repeatable
+    /// design walkthroughs, and the welcome screen's Try Demo Data path —
+    /// every workspace works without a file and nothing on disk is touched.
     func openDemoFixture(calibrated: Bool = true) async {
         let source = DemoFourDDataSource(includesCalibration: calibrated)
         do {
@@ -1068,7 +1078,7 @@ final class AppState {
             openURL = nil
             await activate(descriptor: descriptor, reader: source)
             acomDisplay = .ipfZ
-            statusText = "Demo fixture ready · no source file was modified"
+            statusText = "Demo ready — follow Prepare → Image → Map (Bragg, then Strain) → Results; each task lists anything it still needs"
         } catch {
             present(error)
         }
