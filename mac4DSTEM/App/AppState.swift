@@ -1773,28 +1773,13 @@ final class AppState {
 
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
     /// visible real-space ROI. Used as the unstrained strain reference.
+    /// Derived from the same DetectorShape as virtual diffraction so both
+    /// consumers select the identical pixel set (the previous hand-written
+    /// circle predicate diverged from the ROI by half a pixel).
     private func realSpaceRegionMask(_ d: DatasetDescriptor) -> [Bool] {
-        let r = Int(realSpaceRadius.rounded())
-        let circleRadius = realSpaceRadius + 0.5
-        let circleRadius2 = circleRadius * circleRadius
-        var mask = [Bool](repeating: false, count: d.ry * d.rx)
-        for y in 0..<d.ry {
-            for x in 0..<d.rx {
-                let included: Bool
-                switch realSpaceShape {
-                case .point:
-                    included = x == selectedScan.x && y == selectedScan.y
-                case .rectangle:
-                    included = abs(x - selectedScan.x) <= r && abs(y - selectedScan.y) <= r
-                case .circle:
-                    let dx = Float(x - selectedScan.x)
-                    let dy = Float(y - selectedScan.y)
-                    included = dx * dx + dy * dy < circleRadius2
-                }
-                mask[y * d.rx + x] = included
-            }
-        }
-        return mask
+        VirtualDetector.makeMask(
+            shape: realSpaceRegionShape(d), qy: d.ry, qx: d.rx
+        ).map { $0 != 0 }
     }
 
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
@@ -2493,10 +2478,24 @@ final class AppState {
         guard let descriptor else { return }
         let detectorPattern: DiffractionPattern
         let sourceName: String
-        if analysisMode == .disks, let image = resultImage,
-           image.width == descriptor.qx, image.height == descriptor.qy {
+        if analysisMode == .disks, let vectors = braggVectors {
+            // The displayed Bragg map is log-scaled for display and already
+            // carries any active ellipse correction. The intensity-weighted
+            // fit needs the measured evidence instead: raw peak intensities,
+            // collapsed onto the mean origin, with no ellipse applied —
+            // fitting an already-corrected map would converge toward no
+            // distortion and overwrite a valid calibration.
+            var uncorrected = calibration
+            uncorrected.ellipseA = nil
+            uncorrected.ellipseB = nil
+            uncorrected.ellipseTheta = nil
+            let origin = calibration.meanOrigin
+                ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
+            let bvm = vectors.calibrated(
+                with: uncorrected, referenceOrigin: origin
+            ).map(qy: descriptor.qy, qx: descriptor.qx)
             detectorPattern = DiffractionPattern(
-                qy: descriptor.qy, qx: descriptor.qx, pixels: image.pixels
+                qy: descriptor.qy, qx: descriptor.qx, pixels: bvm.pixels
             )
             sourceName = "Bragg-vector map"
         } else {

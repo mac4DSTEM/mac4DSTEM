@@ -71,13 +71,13 @@ actor DM4Reader: FourDDataSource {
     func readPattern(_ descriptor: DatasetDescriptor, ry scanY: Int, rx scanX: Int) throws -> [Float] {
         let patPix = qy * qx
         let start = dataOffset + (scanY * rx + scanX) * patPix * elementSize
-        return decode(byteOffset: start, count: patPix)
+        return try decode(byteOffset: start, count: patPix)
     }
 
     func readScanRow(_ descriptor: DatasetDescriptor, ry scanY: Int) throws -> [Float] {
         let rowPix = rx * qy * qx
         let start = dataOffset + scanY * rowPix * elementSize
-        return decode(byteOffset: start, count: rowPix)
+        return try decode(byteOffset: start, count: rowPix)
     }
 
     func readScanTile(_ descriptor: DatasetDescriptor,
@@ -87,9 +87,10 @@ actor DM4Reader: FourDDataSource {
         let range = lower..<max(lower, upper)
         let rowPix = rx * qy * qx
         let start = dataOffset + lower * rowPix * elementSize
+        let pixels = try decode(byteOffset: start, count: range.count * rowPix)
         return FourDScanTile(
             yRange: range, scanWidth: rx, detectorHeight: qy, detectorWidth: qx,
-            pixels: decode(byteOffset: start, count: range.count * rowPix)
+            pixels: pixels
         )
     }
 
@@ -109,10 +110,12 @@ actor DM4Reader: FourDDataSource {
 
     // MARK: Pixel decode (little-endian → Float)
 
-    private func decode(byteOffset start: Int, count: Int) -> [Float] {
+    private func decode(byteOffset start: Int, count: Int) throws -> [Float] {
         var out = [Float](repeating: 0, count: count)
         let need = count * elementSize
-        guard start >= 0, start + need <= data.count else { return out }
+        // A slice past the mapping means a truncated file; never hand back
+        // zero-filled pixels as if they were read.
+        guard start >= 0, start + need <= data.count else { throw DM4Error.truncated }
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             guard let base = raw.baseAddress else { return }
             let p = base + start
@@ -171,7 +174,10 @@ actor DM4Reader: FourDDataSource {
         try locateDatacube()
     }
 
-    private func walkGroup(_ reader: inout ByteReader, prefix: String) throws {
+    private func walkGroup(_ reader: inout ByteReader, prefix: String, depth: Int = 0) throws {
+        // Bound recursion so a maliciously/corruptly deep tag tree fails
+        // with .truncated instead of overflowing the call stack.
+        guard depth <= 64 else { throw DM4Error.truncated }
         _ = reader.u8()                                // is_sorted
         _ = reader.u8()                                // is_open
         let nTags = Int(reader.special(dmVersion))
@@ -187,7 +193,7 @@ actor DM4Reader: FourDDataSource {
             if tag == 21 {
                 try readDataTag(&reader, path: path, label: label)
             } else if tag == 20 {
-                try walkGroup(&reader, prefix: path)
+                try walkGroup(&reader, prefix: path, depth: depth + 1)
             }
         }
     }
@@ -295,8 +301,18 @@ actor DM4Reader: FourDDataSource {
             elementSize = Self.pixelSize(dtype)
             dataOffset = array.offset
 
-            // Sanity: the blob must hold exactly the cube.
-            let expected = ry * rx * qy * qx * elementSize
+            // Sanity: the blob must hold exactly the cube. Chain
+            // multiplication with overflow checks so absurd tag-derived
+            // dims reject the candidate instead of trapping.
+            let (p1, o1) = ry.multipliedReportingOverflow(by: rx)
+            let (p2, o2) = p1.multipliedReportingOverflow(by: qy)
+            let (p3, o3) = p2.multipliedReportingOverflow(by: qx)
+            let (expected, o4) = p3.multipliedReportingOverflow(by: elementSize)
+            guard !(o1 || o2 || o3 || o4) else { continue }
+            // The mapping must hold the whole cube; only then is a declared
+            // array.bytes == 0 (some writers omit it) still tolerated.
+            let (end, o5) = dataOffset.addingReportingOverflow(expected)
+            guard !o5, end <= data.count else { continue }
             guard array.bytes == expected || array.bytes == 0 else { continue }
 
             descriptor = DatasetDescriptor(

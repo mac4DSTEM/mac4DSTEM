@@ -20,7 +20,17 @@ aspirational. The items below are the gap between "excellent engineering" and
 
 ## A. Correctness / scientific-contract items
 
-**A1. Ellipse calibration fits the log-scaled display image.**
+*All four items resolved 2026-07-19 (Milestone 1). A1: `calibrateEllipse` now
+fits the raw-intensity Bragg-vector map built from stored peaks, collapsed
+onto the mean origin with no ellipse applied (log-scaled, already-corrected
+display pixels are no longer fit inputs). A2/A3: `DM4Reader.decode` throws
+`.truncated` instead of returning zeros, cube sizing uses overflow-checked
+arithmetic plus a mapping-coverage guard, and tag-tree recursion is capped at
+depth 64; gated by the new `tools/dm4-robustness-test` harness (registered in
+the scientific suite). A4: the strain reference mask is now derived from the
+same `DetectorShape` as virtual diffraction via `VirtualDetector.makeMask`.*
+
+**A1. Ellipse calibration fits the log-scaled display image.** ✅
 `AppState.calibrateEllipse` (`App/AppState.swift:2496`) feeds `resultImage`
 into the fit when in Disks mode, but that image is `log10(1 + BVM)` from
 `showBraggMap` (`App/AppState.swift:2922`). The conic model is
@@ -29,7 +39,7 @@ Bragg-vector map (ring positions unaffected; weighting is not).
 *Fix:* fit the raw calibrated BVM, or add a `DEVIATION` note if log-weighting
 is deliberate. *Gate:* `tools/ellipse-calibration-test/run.sh`.
 
-**A2. Truncated DM4 files degrade to silent zeros.** `DM4Reader.decode`
+**A2. Truncated DM4 files degrade to silent zeros.** ✅ `DM4Reader.decode`
 (`Core/Data/DM4Reader.swift:112`) returns zero-filled buffers past EOF, and
 `locateDatacube` accepts a declared byte count of 0
 (`Core/Data/DM4Reader.swift:300`). A file truncated mid-cube "opens" and shows
@@ -37,12 +47,12 @@ blank patterns — the opposite of the app's explicit-failure philosophy.
 *Fix:* throw `.truncated` when a requested slice exceeds the mapping; require
 the blob length to match the cube. *Gate:* extend `tools/vendor-reader-test`.
 
-**A3. Corrupt DM4 metadata can crash.** `ry*rx*qy*qx*elementSize`
+**A3. Corrupt DM4 metadata can crash.** ✅ `ry*rx*qy*qx*elementSize`
 (`Core/Data/DM4Reader.swift:299`) traps on Int overflow for absurd tag values;
 `walkGroup` recursion is depth-unbounded. *Fix:* multiply via
 `multipliedReportingOverflow`, cap recursion depth (~64), reject on either.
 
-**A4. Half-pixel mismatch between strain reference mask and displayed ROI.**
+**A4. Half-pixel mismatch between strain reference mask and displayed ROI.** ✅
 `realSpaceRegionShape` centers the circle at `selectedScan + 0.5`
 (`App/AppState.swift:1768`); `realSpaceRegionMask` measures from the integer
 position (`App/AppState.swift:1790`). Edge pixels can differ between what
