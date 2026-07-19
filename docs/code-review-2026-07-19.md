@@ -61,13 +61,23 @@ both from one region predicate.
 
 ## B. Performance (ranked by user-perceived value)
 
-**B1. Cache the colorbar value ranges.** `patternDisplayedValueRange`
+*B1, B2, B5 resolved 2026-07-19 (Milestone 2). B1: both colorbar ranges now
+cache their O(pixels) base scan behind the existing version-counter pattern.
+B2: `detectCurrentPattern` coalesces via inFlight/pending like the aperture
+drag. B5: `crossCorrelate` computes the complex product in place (ccRe/ccIm
+populated only for multicorr) and the ACOM ring-sum uses contiguous
+`vDSP_vadd` accumulation. Measured on the M3 checkpoint (Release harness,
+repeats 5 / warmups 2): `acom_matching_medium_cpu` 59.93 → 14.32 ms (−76%),
+`acom_matching_small` −61%, `acom_matching_medium_metal` −17%; disk paths
+flat; every benchmark checksum bit-identical. B3/B4 remain open (Milestone 5).*
+
+**B1. Cache the colorbar value ranges.** ✅ `patternDisplayedValueRange`
 (`App/AppState.swift:826`) loops every CBED pixel — with a `log10` each in log
 mode — on every SwiftUI evaluation; `resultDisplayedValueRange` recomputes
 `minMax` similarly. Join them to the existing versioned caches
 (`patternNormCache` pattern).
 
-**B2. Coalesce live disk detection.** Each `diskParams` change spawns a
+**B2. Coalesce live disk detection.** ✅ Each `diskParams` change spawns a
 detached full-pattern detection (`App/AppState.swift:2838`); the request
 counter discards stale *results* but the *work* still runs. Reuse the
 `vdInFlight`/`vdPending` coalescing already built for aperture drags.
@@ -84,7 +94,7 @@ FFT correlation is the big remaining lever (15 s for 725k peaks on the 058
 baseline). A Metal (or MLX) batched-FFT correlation path, parity-gated like
 the ACOM Metal backend, is the single highest-value performance project.
 
-**B5. Small hot-loop items.** `crossCorrelate` copies two full arrays per
+**B5. Small hot-loop items.** ✅ `crossCorrelate` copies two full arrays per
 pattern (`re = ccRe; im = ccIm`); `OrientationMatcher.match` ring-sum is a
 scalar strided loop next to an otherwise vectorized path.
 
@@ -98,7 +108,7 @@ ROADMAP Priority 3 is correct as written; the review adds only ordering:
    the right seam).
 2. Then **calibration state + provenance** (self-contained value cluster).
 3. Then file-open/session orchestration.
-4. Delete vestigial `AnalysisMode.isAvailable` (always true) and deduplicate
+4. ✅ *(2026-07-19)* Delete vestigial `AnalysisMode.isAvailable` (always true) and deduplicate
    the transform-matrix construction in
    `Calibration.ellipseCorrectedOffset`/`ellipseUncorrectedOffset`
    (`Core/Data/Calibration.swift:445`) on the next touch of those files.
@@ -111,7 +121,7 @@ workspace next changes (the pattern `ProductWorkspaceViews` already follows).
 The scientific core is trustworthy; the product gap is now *feel*. Ordered by
 impact per effort:
 
-**D1. Forgiveness.** One accidental aperture-center nudge silently discards a
+**D1. Forgiveness.** ✅ *(2026-07-19: fitted origin maps displaced by a manual center drag are retained in a superseded slot and recoverable via Restore Fitted Origin in Calibration; export honesty preserved.)* One accidental aperture-center nudge silently discards a
 whole-scan origin fit (`updateAperture`, `App/AppState.swift:1566` — correct
 in intent, harsh in effect). Add: (a) a status-bar undo for "manual center
 superseded fitted maps," or (b) retain the fit and require an explicit
@@ -146,7 +156,7 @@ during drags. Add the missing direct scattering-angle (mrad) CBED axis option
 noted in the old README — the calibration machinery for it already exists
 (`DPC.milliradiansPerDetectorPixel`).
 
-**D6. Error empathy.** Failure messages are honest but terminal
+**D6. Error empathy.** ✅ *(2026-07-19: zero-peak full scans and rejected strain now name the measured peak population and point at the acceptance funnel/Bragg-panel controls; the ACOM→Q-calibration route already existed in ACOMControlsView and was verified.)* Failure messages are honest but terminal
 (`present(error)` → alert). For the three most common failures (no Bragg
 peaks accepted, strain basis rejected, ACOM without Q calibration) route to
 the existing diagnostics instead: open the acceptance funnel, highlight the

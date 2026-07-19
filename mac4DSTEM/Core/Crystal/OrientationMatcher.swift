@@ -167,13 +167,30 @@ nonisolated final class OrientationMatcher {
                     }
                 }
             }
-            for a in 0..<na {
-                var real: Float = 0, imaginary: Float = 0
-                for r in 0..<nr {
-                    real += productRe[r * na + a]
-                    imaginary += productIm[r * na + a]
+            // Ring sum, ascending in r: contiguous row accumulation via vDSP
+            // instead of a strided column-sum. Per output element the adds
+            // occur in the same r-ascending order as the scalar loop.
+            corrRe.withUnsafeMutableBufferPointer { corrReBuf in
+                corrIm.withUnsafeMutableBufferPointer { corrImBuf in
+                    productRe.withUnsafeBufferPointer { productReBuf in
+                        productIm.withUnsafeBufferPointer { productImBuf in
+                            vDSP_vclr(corrReBuf.baseAddress!, 1, vDSP_Length(na))
+                            vDSP_vclr(corrImBuf.baseAddress!, 1, vDSP_Length(na))
+                            for r in 0..<nr {
+                                vDSP_vadd(
+                                    corrReBuf.baseAddress!, 1,
+                                    productReBuf.baseAddress! + r * na, 1,
+                                    corrReBuf.baseAddress!, 1, vDSP_Length(na)
+                                )
+                                vDSP_vadd(
+                                    corrImBuf.baseAddress!, 1,
+                                    productImBuf.baseAddress! + r * na, 1,
+                                    corrImBuf.baseAddress!, 1, vDSP_Length(na)
+                                )
+                            }
+                        }
+                    }
                 }
-                corrRe[a] = real; corrIm[a] = imaginary
             }
             fft.transform(re: &corrRe, im: &corrIm, forward: false)
             var localBest: Float = -.greatestFiniteMagnitude

@@ -464,7 +464,8 @@ nonisolated final class DiskDetector {
         crossCorrelate(
             pattern: pattern,
             corrPower: params.corrPower,
-            sigmaDP: params.sigmaDP
+            sigmaDP: params.sigmaDP,
+            retainComplexCorrelation: params.subpixel == .multicorr
         )
 
         // Smooth (or copy) the real CC for maxima finding.
@@ -508,7 +509,8 @@ nonisolated final class DiskDetector {
     private func crossCorrelate(
         pattern: UnsafePointer<Float>,
         corrPower: Float,
-        sigmaDP: Float
+        sigmaDP: Float,
+        retainComplexCorrelation: Bool
     ) {
         // Copy the pattern onto the native circular-correlation grid, then
         // optionally apply py4DSTEM's pre-correlation diffraction smoothing.
@@ -529,18 +531,21 @@ nonisolated final class DiskDetector {
         // m = FFT(pattern) · conj(FFT(kernel));  hybrid: m · |m|^(p−1)
         let kRe = kernel.ftRe, kIm = kernel.ftIm
         for i in 0..<n {
-            var mr = re[i] * kRe[i] - im[i] * kIm[i]
-            var mi = re[i] * kIm[i] + im[i] * kRe[i]
+            let pr = re[i], pi = im[i]
+            var mr = pr * kRe[i] - pi * kIm[i]
+            var mi = pr * kIm[i] + pi * kRe[i]
             if corrPower != 1 {
                 let mag = (mr * mr + mi * mi).squareRoot()
                 let f = mag > 0 ? pow(mag, corrPower - 1) : 0
                 mr *= f; mi *= f
             }
-            ccRe[i] = mr; ccIm[i] = mi
+            re[i] = mr; im[i] = mi
+            if retainComplexCorrelation { ccRe[i] = mr; ccIm[i] = mi }
         }
 
-        // CC = max(Re(IFFT(cc)), 0). Keep ccRe/ccIm for multicorr.
-        re = ccRe; im = ccIm
+        // CC = max(Re(IFFT(cc)), 0), computed in place on re/im. ccRe/ccIm
+        // are only populated when the caller needs the complex correlation
+        // retained (multicorrRefine is the sole consumer).
         fft.transform(re: &re, im: &im, forward: false)
         vDSP_vthres(re, 1, [0], &cc, 1, vDSP_Length(n))
     }

@@ -17,6 +17,16 @@ struct CalibrationDetailsView: View {
             .font(.caption)
             .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
 
+            if appState.canRestoreFittedOrigin {
+                Button {
+                    appState.restoreFittedOrigin()
+                } label: {
+                    Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
+                }
+                .disabled(appState.isBusy)
+                .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
+            }
+
             Picker("Origin fit", selection: $appState.originFitFunction) {
                 ForEach(OriginFitFunction.allCases) { fit in
                     Text(fit.rawValue).tag(fit)

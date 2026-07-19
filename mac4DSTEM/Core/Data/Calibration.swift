@@ -439,20 +439,30 @@ struct Calibration: Sendable {
         return (origin.fittedX.reduce(0, +) / count, origin.fittedY.reduce(0, +) / count)
     }
 
+    /// py4DSTEM `_transform` ellipse matrix in the native (qx=row, qy=column)
+    /// frame — the single construction shared by the forward and inverse
+    /// offset corrections so the two paths cannot drift.
+    private nonisolated func ellipseTransform()
+        -> (t00: Double, t01: Double, t11: Double)? {
+        guard hasEllipse, let a = ellipseA, let b = ellipseB,
+              let theta = ellipseTheta else { return nil }
+        let e = b / a
+        let sine = sin(theta - .pi / 2)
+        let cosine = cos(theta - .pi / 2)
+        return (
+            t00: e * sine * sine + cosine * cosine,
+            t01: sine * cosine * (1 - e),
+            t11: sine * sine + e * cosine * cosine
+        )
+    }
+
     /// Apply py4DSTEM `BraggVectors.cal._transform(..., ellipse=True)` to a
     /// detector offset. The axis swap is explicit: py4DSTEM [qx,qy] is this
     /// app's [dy,dx], and theta stays in that native py4DSTEM frame.
     nonisolated func ellipseCorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
-        guard hasEllipse, let a = ellipseA, let b = ellipseB,
-              let theta = ellipseTheta else { return (dx, dy) }
-        let e = b / a
-        let sine = sin(theta - .pi / 2)
-        let cosine = cos(theta - .pi / 2)
-        let t00 = e * sine * sine + cosine * cosine
-        let t01 = sine * cosine * (1 - e)
-        let t11 = sine * sine + e * cosine * cosine
-        let qx = t00 * Double(dy) + t01 * Double(dx)
-        let qy = t01 * Double(dy) + t11 * Double(dx)
+        guard let t = ellipseTransform() else { return (dx, dy) }
+        let qx = t.t00 * Double(dy) + t.t01 * Double(dx)
+        let qy = t.t01 * Double(dy) + t.t11 * Double(dx)
         return (Float(qy), Float(qx))
     }
 
@@ -461,21 +471,14 @@ struct Calibration: Sendable {
     /// rendering, which must place calibrated-space predictions onto the raw
     /// pattern. Identity when no ellipse is set, matching the forward path.
     nonisolated func ellipseUncorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
-        guard hasEllipse, let a = ellipseA, let b = ellipseB,
-              let theta = ellipseTheta else { return (dx, dy) }
-        let e = b / a
-        let sine = sin(theta - .pi / 2)
-        let cosine = cos(theta - .pi / 2)
-        let t00 = e * sine * sine + cosine * cosine
-        let t01 = sine * cosine * (1 - e)
-        let t11 = sine * sine + e * cosine * cosine
-        let det = t00 * t11 - t01 * t01
+        guard let t = ellipseTransform() else { return (dx, dy) }
+        let det = t.t00 * t.t11 - t.t01 * t.t01
         guard abs(det) > .leastNormalMagnitude else { return (dx, dy) }
         // Forward returned (x: qy, y: qx); undo the same axis bookkeeping.
         let qx = Double(dy)
         let qy = Double(dx)
-        let rawDY = ( t11 * qx - t01 * qy) / det
-        let rawDX = (-t01 * qx + t00 * qy) / det
+        let rawDY = ( t.t11 * qx - t.t01 * qy) / det
+        let rawDX = (-t.t01 * qx + t.t00 * qy) / det
         return (Float(rawDX), Float(rawDY))
     }
 }

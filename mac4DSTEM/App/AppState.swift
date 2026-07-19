@@ -69,11 +69,6 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var isAdvanced: Bool { self == .ptychography }
     var pickerName: String { isAdvanced ? "\(rawValue) · Advanced" : rawValue }
-
-    var isAvailable: Bool {
-        self == .virtualDetector || self == .dpc || self == .disks
-            || self == .strain || self == .ptychography || self == .acom
-    }
 }
 
 enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
@@ -800,20 +795,42 @@ final class AppState {
     var displayRangeHi: Float = 1
     var resultGamma: Float = 1
 
+    // Base-range caches: SwiftUI re-evaluates these colorbar endpoints far
+    // more often than content changes, and the base scan is O(pixels). Keyed
+    // on the same version counters as the normalized-pixel caches; the cheap
+    // contrast-window arithmetic stays per-access so slider drags never
+    // rescan the image.
+    @ObservationIgnored private var resultValueRangeCache:
+        (version: Int, regionReference: Bool, symmetric: Bool,
+         low: Double, high: Double)?
+    @ObservationIgnored private var patternValueRangeCache:
+        (version: Int, log: Bool, low: Double, high: Double)?
+
     /// Raw-value endpoints currently assigned to the scalar result colorbar.
     var resultDisplayedValueRange: (low: Double, high: Double)? {
         guard let image = displayedResultImage else { return nil }
-        let (rawLow, rawHigh) = image.minMax
-        guard rawLow.isFinite, rawHigh.isFinite else { return nil }
+        let version = displayedResultVersion
+        let regionReference = showsACOMRegionReference
+        let symmetric = displayedResultColormap.isDiverging
         let baseLow: Double
         let baseHigh: Double
-        if displayedResultColormap.isDiverging {
-            let magnitude = Double(max(abs(rawLow), abs(rawHigh)))
-            baseLow = -magnitude
-            baseHigh = magnitude
+        if let c = resultValueRangeCache, c.version == version,
+           c.regionReference == regionReference, c.symmetric == symmetric {
+            baseLow = c.low
+            baseHigh = c.high
         } else {
-            baseLow = Double(rawLow)
-            baseHigh = Double(rawHigh)
+            let (rawLow, rawHigh) = image.minMax
+            guard rawLow.isFinite, rawHigh.isFinite else { return nil }
+            if symmetric {
+                let magnitude = Double(max(abs(rawLow), abs(rawHigh)))
+                baseLow = -magnitude
+                baseHigh = magnitude
+            } else {
+                baseLow = Double(rawLow)
+                baseHigh = Double(rawHigh)
+            }
+            resultValueRangeCache = (version, regionReference, symmetric,
+                                     baseLow, baseHigh)
         }
         let span = baseHigh - baseLow
         return (baseLow + span * Double(displayedResultRangeLo),
@@ -825,14 +842,25 @@ final class AppState {
     /// intensity so the labels remain physically interpretable.
     var patternDisplayedValueRange: (low: Double, high: Double)? {
         guard let pattern = displayedPattern else { return nil }
-        var low = Double.greatestFiniteMagnitude
-        var high = -Double.greatestFiniteMagnitude
-        for pixel in pattern.pixels where pixel.isFinite {
-            let value = logScale ? log10(1 + Double(max(pixel, 0))) : Double(pixel)
-            low = min(low, value)
-            high = max(high, value)
+        let low: Double
+        let high: Double
+        if let c = patternValueRangeCache, c.version == patternVersion,
+           c.log == logScale {
+            low = c.low
+            high = c.high
+        } else {
+            var scanLow = Double.greatestFiniteMagnitude
+            var scanHigh = -Double.greatestFiniteMagnitude
+            for pixel in pattern.pixels where pixel.isFinite {
+                let value = logScale ? log10(1 + Double(max(pixel, 0))) : Double(pixel)
+                scanLow = min(scanLow, value)
+                scanHigh = max(scanHigh, value)
+            }
+            guard scanLow <= scanHigh else { return nil }
+            low = scanLow
+            high = scanHigh
+            patternValueRangeCache = (patternVersion, logScale, low, high)
         }
-        guard low <= high else { return nil }
         let span = high - low
         let clippedLow = low + span * Double(patternDisplayRangeLo)
         let clippedHigh = low + span * Double(patternDisplayRangeHi)
@@ -959,7 +987,6 @@ final class AppState {
     func currentDataSourceForExport() -> (any FourDDataSource)? { reader }
 
     func changeMode(_ mode: AnalysisMode) {
-        guard mode.isAvailable else { return }
         if mode != analysisMode,
            resultImage != nil || resultRGBA != nil,
            restoredResultInfo == nil,
@@ -1247,6 +1274,7 @@ final class AppState {
         }
         calibration = Calibration()
         calibrationProvenance = CalibrationProvenance()
+        clearSupersededFittedOrigin()
         // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
             var rSize = pc.rSize
@@ -1348,7 +1376,7 @@ final class AppState {
                 x: min(max(0, recovery.selectedX), max(0, descriptor.rx - 1)),
                 y: min(max(0, recovery.selectedY), max(0, descriptor.ry - 1))
             )
-            if let mode = AnalysisMode(rawValue: recovery.analysisMode), mode.isAvailable {
+            if let mode = AnalysisMode(rawValue: recovery.analysisMode) {
                 analysisMode = mode
                 workspaceArea = mode.workspaceArea
             }
@@ -1561,13 +1589,51 @@ final class AppState {
     @ObservationIgnored private var vdiffInFlight = false
     @ObservationIgnored private var vdiffPending = false
 
+    /// Fitted origin maps displaced by a manual aperture-center drag. Kept
+    /// out of `calibration` so export honesty holds (a manual center never
+    /// silently coexists with stale maps) while an accidental nudge stays
+    /// recoverable via Restore Fitted Origin.
+    @ObservationIgnored private var supersededFittedOrigin:
+        (maps: OriginMaps, provenance: OriginProvenance)?
+    private(set) var canRestoreFittedOrigin = false
+
+    private func clearSupersededFittedOrigin() {
+        supersededFittedOrigin = nil
+        canRestoreFittedOrigin = false
+    }
+
+    /// Undo a manual center that displaced fitted origin maps: reinstate the
+    /// maps with their original provenance and recenter the aperture on
+    /// their mean.
+    func restoreFittedOrigin() {
+        guard let superseded = supersededFittedOrigin else { return }
+        clearSupersededFittedOrigin()
+        calibration.origin = superseded.maps
+        calibration.originProvenance = superseded.provenance
+        if let mean = calibration.meanOrigin {
+            aperture.centerX = mean.x
+            aperture.centerY = mean.y
+        }
+        parallaxPreprocess = nil
+        parallaxAlignment = nil
+        statusText = "Fitted origin restored — \(superseded.provenance.displayName)"
+        scheduleLiveVirtualDetector()
+    }
+
     /// Live aperture edit during a drag: store, then recompute the real-space
     /// image continuously (coalesced, quiet — no status/busy churn).
     func updateAperture(_ newAperture: Aperture) {
         activePane = .diffraction
         if newAperture.centerX != aperture.centerX || newAperture.centerY != aperture.centerY {
             // A manual center supersedes fitted per-position maps. Retaining
-            // those maps would make export silently ignore the manual value.
+            // those maps inside `calibration` would make export silently
+            // ignore the manual value — so they move to the recoverable
+            // superseded slot instead of being destroyed.
+            if let displaced = calibration.origin {
+                supersededFittedOrigin = (displaced, calibration.originProvenance)
+                canRestoreFittedOrigin = true
+                statusText = "Manual aperture center — fitted origin set aside (Restore Fitted Origin in Calibration undoes this)"
+            }
             calibration.origin = nil
             calibration.originProvenance = .manual
             parallaxPreprocess = nil
@@ -2447,6 +2513,7 @@ final class AppState {
             calibration.probeRadius = result.probeRadius
             calibrationProvenance.probe = .measuredInApp
             calibration.origin = result.origin
+            clearSupersededFittedOrigin()
             parallaxPreprocess = nil
             parallaxAlignment = nil
             meanPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.meanDP)
@@ -2812,8 +2879,30 @@ final class AppState {
         await detectCurrentPattern()
     }
 
+    // Same coalescing contract as the live virtual-detector drag: at most one
+    // detection in flight; parameter changes during a slider drag mark work
+    // pending instead of piling up detached detections that only get
+    // discarded by the request counter after running to completion.
+    @ObservationIgnored private var liveDetectionInFlight = false
+    @ObservationIgnored private var liveDetectionPending = false
+
     /// Live overlay: detect disks in the currently displayed pattern only.
     func detectCurrentPattern() async {
+        if liveDetectionInFlight {
+            liveDetectionPending = true
+            return
+        }
+        liveDetectionInFlight = true
+        await performLiveDetection()
+        liveDetectionInFlight = false
+        if liveDetectionPending {
+            liveDetectionPending = false
+            Task { await detectCurrentPattern() }
+        }
+    }
+
+    /// One live-detection pass over the latest displayed pattern/parameters.
+    private func performLiveDetection() async {
         liveDetectionRequest &+= 1
         let request = liveDetectionRequest
         guard analysisMode == .disks, let kernel = probeKernel,
@@ -2906,7 +2995,14 @@ final class AppState {
             )
             braggPeakCount = vectors.totalPeakCount
             showBraggMap(vectors, descriptor: d)
-            statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
+            if vectors.totalPeakCount == 0 {
+                // An empty result is a dead end unless it points at the
+                // evidence: the live acceptance funnel and scan summary in
+                // the Bragg panel show which filter removed everything.
+                statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
+            } else {
+                statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
+            }
         }
     }
 
@@ -2984,10 +3080,22 @@ final class AppState {
             return
         }
         guard let map else {
-            let detail = strainBasisMode == .manual
+            var detail = strainBasisMode == .manual
                 ? "The manual basis is ill-conditioned or too few peaks index to it."
                 : "No well-conditioned lattice explains at least half of the detected peak population."
-            present(SimpleError("Could not publish strain. \(detail) Adjust disk thresholds or the reference/basis selection."))
+            // Name the measured peak population so the failure points at the
+            // specific detection setting to revisit instead of dead-ending.
+            if let summary = completedDiskSummary, summary.positionCount > 0 {
+                detail += String(
+                    format: " Detected input: median %.1f peaks per pattern, %d%% of positions empty.",
+                    summary.medianPeakCount,
+                    summary.zeroPeakPositionCount * 100 / summary.positionCount
+                )
+                if let warning = summary.warnings.first {
+                    detail += " " + warning
+                }
+            }
+            present(SimpleError("Could not publish strain. \(detail) Adjust the thresholds in the Bragg panel or the reference/basis selection, then rerun."))
             return
         }
         strainMap = map
