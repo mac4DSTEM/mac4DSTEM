@@ -19,6 +19,11 @@ The aggregate repository claim is only the result of:
 tools/run-tests.sh all
 ```
 
+A full-codebase review with a sequenced fix/polish plan is recorded in
+[`docs/code-review-2026-07-19.md`](docs/code-review-2026-07-19.md); its
+correctness items (ellipse-fit input, DM4 truncation/overflow handling, ROI
+mask parity) belong to Priority 1 below, its design/usage items to Priority 2.
+
 ## Priority 1 — scientific interpretation
 
 1. Keep every result's material model, scale, units, interpretation status, quality,
