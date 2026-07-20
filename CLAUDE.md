@@ -17,8 +17,10 @@ before committing anything touching Core/ or the science. The QC playthrough
 is EVALUATION ONLY — never change app logic under mac4DSTEM/ to make a step
 pass; log friction to docs/ui-workflow-backlog.md instead.
 
-When the task lands: tick its box in the Status checklist, update any doc it
-affects, and stop with a short summary. Commit only if I ask.
+When the task lands, run the "Task closeout" checklist at the top of
+docs/qc-playthrough-prompts.md exactly (tick the box, record findings in
+pipelines §9, log UI friction to the backlog, do not commit), then stop with
+a short summary. Commit only if I ask.
 ```
 
 ## What this is

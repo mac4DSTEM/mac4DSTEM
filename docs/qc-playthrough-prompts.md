@@ -20,6 +20,25 @@ below when a task lands.
 - ⬜ **Prompt 2 — fan out to all datasets.**
 - ⬜ **Prompt 4 — full-scan + IPF ACOM.**
 
+## Task closeout — run these EXACT steps at the end of every task (this is the anti-chaos rule)
+
+Standardized handoff so docs never drift. Do all of it before stopping:
+
+1. **Tick the box** in the Status checklist above (⬜ → ✅) and add the run
+   folder path if the task produced one.
+2. **Record findings** in `docs/py4dstem-pipelines.md` §9 (what worked, what
+   the app did, any deviation noticed).
+3. **Log UI friction** (anything a user would stumble on) as a new item in
+   `docs/ui-workflow-backlog.md`, tagged UI-only vs workflow-logic.
+4. **Do NOT modify app logic** under `mac4DSTEM/` — evaluation only. If the app
+   blocked the pipeline, that's a backlog item, not a code change.
+5. **Do NOT commit** unless the user asks. Leave the working tree for review.
+6. **Stop with a short summary**: what ran, where the outputs are, what the next
+   unchecked task is.
+
+If a task can't finish, leave its box unchecked, write why in §9, and stop —
+never mark done what isn't.
+
 ---
 
 ## Shared context (every prompt already references this — here for you)
