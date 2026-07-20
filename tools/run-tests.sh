@@ -16,10 +16,14 @@ unit_tests() (
   work="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-unit-tests.XXXXXX")"
   trap 'rm -rf "$work"' EXIT
 
+  # -only-testing scopes this to the fast unit-test target. Without it,
+  # adding mac4DSTEMUITests (tools/ui-qc-playthrough) would silently pull a
+  # slow, screen-driving UI playthrough into every normal test run.
   LLVM_PROFILE_FILE="$work/default-%p.profraw" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
       -configuration Debug -destination 'platform=macOS' \
       -derivedDataPath "$work/DerivedData" \
+      -only-testing:mac4DSTEMTests \
       CODE_SIGNING_ALLOWED=NO -quiet
 )
 
