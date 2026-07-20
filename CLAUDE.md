@@ -3,6 +3,24 @@
 Single entry point for any agent (or human) opening this repo cold. It does
 not duplicate the docs; it tells you what to read and where things go.
 
+## Session kickoff prompt (copy-paste to start a session)
+
+```
+Pick up the mac4DSTEM project. Read CLAUDE.md first (app overview, the two
+work-threads, file-placement rules, hard rules, process). Then open
+docs/qc-playthrough-prompts.md, read the Status checklist, and take the next
+unchecked task — copy its prompt and execute it end to end.
+
+Follow docs/development-process.md: use an Explore subagent (Haiku) to locate
+code, implement on the default model, and get a Fable 5 / /code-review pass
+before committing anything touching Core/ or the science. The QC playthrough
+is EVALUATION ONLY — never change app logic under mac4DSTEM/ to make a step
+pass; log friction to docs/ui-workflow-backlog.md instead.
+
+When the task lands: tick its box in the Status checklist, update any doc it
+affects, and stop with a short summary. Commit only if I ask.
+```
+
 ## What this is
 
 **mac4DSTEM** — a native macOS (Swift / SwiftUI / Metal) app for interactive
@@ -90,6 +108,10 @@ and they build.
   — use `tools/run-tests.sh unit` for unsigned XCTest work.
 - **Port deviations from py4DSTEM get an inline `DEVIATION` note** with the
   reason.
+- **Keep docs current as part of "done"** — no file self-updates. When a task
+  lands, tick the status checklist in `docs/qc-playthrough-prompts.md` and
+  update the doc it affects. Full conventions (model/subagent tiers, review
+  gates, where new work goes, delivery): **`docs/development-process.md`**.
 - Commit/push only when asked; this is a solo-dev repo with linear `main`.
 
 ## Build / test / run
