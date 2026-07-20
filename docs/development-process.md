@@ -28,15 +28,21 @@ not trust a cheap model to sign off on science.
 | Locate code, "where is X", read-only search, mechanical passes | **Explore** subagent | **Haiku** (cheapest/fastest) |
 | Design a change / weigh approaches before coding | **Plan** subagent | **Opus** |
 | Implement | main session | **Sonnet** (default) |
-| Review a working diff before commit | `/code-review` | **Fable 5** (high-end) |
-| Adversarial parity review of `Core/` / science changes | direct subagent, prompted to *refute* | **Fable 5** |
-| Review a whole branch, thoroughly | `/code-review ultra` (ultrareview — cloud multi-agent, billed, you trigger it) | — |
+| Review a working diff before commit | `/code-review` | **Opus** |
+| Adversarial parity review of `Core/` / science changes | direct subagent, prompted to *refute* | **Opus** (Fable 5 for the highest-stakes case) |
+| Review a whole branch / final pre-release pass | `/code-review ultra` (ultrareview — cloud multi-agent, billed, you trigger it) | — |
 | Security pass before a release | `/security-review` | high-end |
 | Tidy the diff (reuse, simplify) | `/simplify` | Sonnet |
 
-Rule of thumb: **Haiku scouts, Sonnet builds, Opus designs, Fable 5 judges.**
-Never let the model that *wrote* a science-affecting change be the only one
-that *approves* it.
+Rule of thumb: **Haiku scouts, Sonnet builds, Opus designs & judges; Fable 5 /
+ultrareview only for the highest-stakes science change or the final
+pre-release pass.** Never let the model that *wrote* a science-affecting
+change be the only one that *approves* it.
+
+**Target review by stakes, not blanket** — evaluation-only work (the QC
+tasks: test target + docs, no `mac4DSTEM/` change) needs no premium review;
+`/code-review` on Sonnet or a self-check is enough. Reserve Opus review for
+real app/`Core/` changes.
 
 - **Science-affecting or `Core/` changes get an adversarial review**: have a
   high-end model *try to refute* that the port still matches py4DSTEM (with a
