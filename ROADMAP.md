@@ -20,7 +20,7 @@ tools/run-tests.sh all
 ```
 
 A full-codebase review with a sequenced fix/polish plan is recorded in
-[`docs/code-review-2026-07-19.md`](docs/code-review-2026-07-19.md). Its four
+[`docs/archive/code-review-2026-07-19.md`](docs/archive/code-review-2026-07-19.md). Its four
 milestones were executed the same day (correctness fixes, responsiveness and
 forgiveness, first-run/polish, result storytelling + tiled I/O overlap); the
 doc's execution record lists what remains: the scoped GPU disk-correlation

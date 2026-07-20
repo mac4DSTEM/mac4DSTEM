@@ -4,7 +4,21 @@ Hand any prompt below to a **fresh agent on an empty context**. Each is
 self-contained: it names the files to read first, the constraints, how to
 run, and the definition of done. Copy the whole block for the task you want.
 
-**Where this lives:** `docs/qc-playthrough-prompts.md` (this file).
+**Where this lives:** `docs/qc-playthrough-prompts.md` (this file). This is the
+**single source of truth for QC-initiative status** — update the checklist
+below when a task lands.
+
+## Status — what's done, what's next
+
+- ✅ **Baseline: ACOM pipeline on `sim_Au`** — clean end-to-end
+  (`References/training_runs/run_2026-07-21_0013/`). The reference the other
+  pipelines extend.
+- ✅ **Prompt 3 — UI/workflow backlog** — done, produced
+  `docs/ui-workflow-backlog.md`.
+- ⬜ **Prompt 1 — strain + phase-contrast pipelines** (recommended next: strain
+  is closest, it reuses the proven disk-detection step).
+- ⬜ **Prompt 2 — fan out to all datasets.**
+- ⬜ **Prompt 4 — full-scan + IPF ACOM.**
 
 ---
 

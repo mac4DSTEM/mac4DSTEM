@@ -11,7 +11,9 @@ and the reason.
 
 - The frozen v1 workflow, feature tiers, and acceptance gates: [`docs/v1-scope.md`](docs/v1-scope.md)
 - Current priorities and scope rules: [`ROADMAP.md`](ROADMAP.md)
-- Code-review findings and next-step plan: [`docs/code-review-2026-07-19.md`](docs/code-review-2026-07-19.md)
+- Canonical py4DSTEM analysis pipelines + UI evaluation: [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md)
+- Ranked UI/workflow backlog: [`docs/ui-workflow-backlog.md`](docs/ui-workflow-backlog.md)
+- Superseded point-in-time notes (reviews, dated evaluations): [`docs/archive/`](docs/archive/)
 - Where historical checkpoint detail lives: [`docs/development-history.md`](docs/development-history.md) (short answer: Git history)
 
 ## Status
@@ -112,12 +114,19 @@ mac4DSTEM/                       # Xcode project root (git repo)
     UI/                          # ContentView, viewers, controls, inspectors
     Support/                     # export, system monitor, bridging header
   mac4DSTEMTests/                # fast XCTest production/workflow contracts
-  tools/                         # 24 scientific/interoperability harnesses,
+  mac4DSTEMUITests/              # visible XCUITest QC playthrough (drives the
+                                 #   real app through py4DSTEM pipelines);
+                                 #   evaluation only, never modifies app logic
+  tools/                         # scientific/interoperability harnesses,
                                  #   real-data acceptance, packaging audit,
-                                 #   UI smoke automation, aggregate runner
-  References/
+                                 #   UI smoke + ui-qc-playthrough, aggregate runner
+  docs/                          # design/scope/process docs (dated + superseded
+                                 #   notes live in docs/archive/)
+  References/                    # vendored external material + data (gitignored)
     py4DSTEM-dev/                # checked-in py4DSTEM 0.14.19 source lock
-    training_dataset/            # ignored, machine-local real-data corpus
+    py4DSTEM_tutorials-main/     # canonical tutorial notebooks (pipeline source)
+    training_dataset/            # machine-local real-data corpus
+    training_runs/               # QC playthrough outputs (screenshots, logs, PNGs)
   libhdf5.dylib, libaec.0.dylib, libsz.2.dylib   # bundled HDF5 closure
 ```
 
