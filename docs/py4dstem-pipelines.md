@@ -389,6 +389,32 @@ pipeline end-to-end. The same skeleton (load → calibrate → virtual DF →
 disks → phase model → Q-from-crystal → analysis) extends to strain and to
 the other datasets.
 
+## 10. The closed evaluation loop (the intended workflow)
+
+The goal is one loop: **run py4DSTEM's canonical workflow on a dataset →
+replicate it in mac4DSTEM → quantify the deviation → feed that into a better
+UI → repeat.** Today that loop is realized by two tracks that both exist but
+are **not yet joined**:
+
+| Half | Track | What it produces | Level |
+|------|-------|------------------|-------|
+| Replicate + check deviation | `tools/training-dataset-campaign/` (`run.sh`, `main.swift`, `verify_py4dstem.py`) | mac4DSTEM Core results on each dataset, read back through py4DSTEM for parity/interop | **headless, algorithm-level** |
+| Use it to improve the UI | QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`) | screenshots, per-datacube logs, exported maps; friction → `docs/ui-workflow-backlog.md` | **visible, workflow-level** |
+
+**The missing wire:** the UI playthrough does not itself diff against
+py4DSTEM, and the campaign's deviation numbers don't attach to UI findings.
+Closing the loop means letting a UI-QC run cite the parity result for the
+same dataset — so a UI finding reads "this step is confusing *and* its output
+is within/without X% of py4DSTEM." Until then, treat them as two evidence
+streams that a human joins.
+
+**How the loop drives v1.0:** each QC prompt (`docs/qc-playthrough-prompts.md`)
+advances the UI half; `tools/run-tests.sh scientific` + the campaign advance
+the parity half; a finished v1 is *both halves green* + the
+`docs/ui-workflow-backlog.md` items closed + release-owner signing. Doing real
+science = running the calibrated pipelines (e.g. the physical-scale ACOM in
+§9.1) on your data and trusting the numbers because the parity half backs them.
+
 ## Appendix: source notebooks consulted
 
 `basics_00_load_and_preprocess`, `basics_01_visualization_and_virtualimaging`,
