@@ -155,6 +155,10 @@ private struct QCWorkflow {
         attachScreenshot(step: "03_virtual_df")
         try exportCurrentResult(filename: "virtual_df.png")
 
+        try runDPC()
+        attachScreenshot(step: "03b_dpc")
+        try exportCurrentResult(filename: "dpc.png")
+
         try runDiskDetection()
         attachScreenshot(step: "04_disks")
         try exportCurrentResult(filename: "bragg_vector_map.png")
@@ -169,7 +173,22 @@ private struct QCWorkflow {
             try exportCurrentResult(filename: "orientation_map.png")
         }
 
-        attachScreenshot(step: "07_results")
+        // Strain only needs Bragg vectors (docs/py4dstem-pipelines.md §4), so
+        // it runs regardless of whether a phase model was available for ACOM.
+        if try runStrainMapping() {
+            attachScreenshot(step: "06b_strain")
+            try exportCurrentResult(filename: "strain_map.png")
+        }
+
+        // Parallax/ptychography additionally need R+Q pixel size and the
+        // accelerating voltage (§5b); on a dataset missing any of those this
+        // self-gates and logs a finding rather than failing the run.
+        if try runParallaxReconstruction() {
+            attachScreenshot(step: "07_parallax")
+            try exportCurrentResult(filename: "parallax_reconstruction.png")
+        }
+
+        attachScreenshot(step: "08_results")
     }
 
     /// Library phase model (matching the app's ACOM material picker labels)
@@ -247,6 +266,21 @@ private struct QCWorkflow {
         log.bullet("Result: \(driver.currentStatusText())")
     }
 
+    /// DPC (docs/py4dstem-pipelines.md §5a) needs no Bragg detection or
+    /// crystal calibration — only energy + geometry, and even those are
+    /// optional (ProductWorkflow.prerequisites for .dpc is always empty; a
+    /// missing calibration just makes the result qualitative). The app's
+    /// default display mode (magnitude, in detector px) needs no voltage at
+    /// all, so this runs unconditionally right after Virtual DF.
+    private func runDPC() throws {
+        log.subsection("3b. DPC (Image)")
+        try driver.click("workspace.image")
+        try driver.click("task.DPC")
+        try driver.click("workspace.primaryAction", timeout: 15)
+        try driver.waitForResultTitleContaining("DPC", timeout: 240)
+        log.bullet("Result: \(driver.currentStatusText())")
+    }
+
     private func runDiskDetection() throws {
         log.subsection("4. Bragg disk detection (Map)")
         try driver.click("workspace.map")
@@ -309,6 +343,112 @@ private struct QCWorkflow {
         try driver.click("workspace.primaryAction", timeout: 15)
         try driver.waitForResultTitleContaining("ACOM", timeout: 600)
         log.bullet("Result: \(driver.currentStatusText())")
+    }
+
+    /// Strain (docs/py4dstem-pipelines.md §4) only needs detected Bragg
+    /// vectors — origin/rotation help but aren't a hard prerequisite
+    /// (ProductWorkflow.prerequisites for .strain only checks
+    /// hasBraggVectors). The app defaults to whole-scan reference and
+    /// automatic basis-vector selection, which is exactly what py4DSTEM's
+    /// basics_04 tutorial does when no ROI is chosen, so this test leaves
+    /// both pickers at their defaults rather than driving them (neither has
+    /// an accessibility identifier — see docs/ui-workflow-backlog.md).
+    ///
+    /// Whole-scan automatic basis fitting is a genuine per-dataset scientific
+    /// outcome, not just an automation risk: on messier real data it can fail
+    /// to find a well-conditioned lattice (confirmed on
+    /// downsample_Si_SiGe_exp — see docs/py4dstem-pipelines.md §7 finding #6,
+    /// reference/basis choice). That failure is logged as a finding rather
+    /// than thrown, so it doesn't abort the rest of this datacube's run
+    /// (in particular, so Parallax still gets a chance to run afterward).
+    /// Returns whether a strain map actually published (so the caller knows
+    /// whether there is a result to export).
+    private func runStrainMapping() throws -> Bool {
+        log.subsection("6b. Strain mapping (Map)")
+        try driver.click("workspace.map")
+        try driver.click("task.Strain")
+        _ = try driver.waitForExistence("workspace.primaryAction", timeout: 20)
+        log.bullet("Reference: whole-scan mean (app default) · Basis: automatic (app default)")
+
+        try driver.click("workspace.primaryAction", timeout: 15)
+        do {
+            try driver.waitForResultTitleContaining("Strain", timeout: 300)
+            log.bullet("Result: \(driver.currentStatusText())")
+            return true
+        } catch {
+            log.recordError("Strain mapping did not complete: \(error)")
+            log.note(
+                "\n**Strain skipped** — whole-scan automatic basis fitting did not converge "
+                + "on this dataset (see error above). A different reference ROI or manual "
+                + "basis might succeed, but those pickers have no accessibility identifier "
+                + "(eval-only — not added; see docs/ui-workflow-backlog.md).\n"
+            )
+            // A publish failure surfaces as a blocking "Something went wrong"
+            // alert that would otherwise swallow the next click.
+            driver.dismissErrorAlertIfPresent()
+            return false
+        }
+    }
+
+    /// Parallax/ptychography (docs/py4dstem-pipelines.md §5b/§5c) is driven
+    /// entirely through `workspace.primaryAction`, which advances through
+    /// "Prepare Preview" -> "Align Next Level" (repeated once per
+    /// coarse-to-fine bin) -> "Fit Aberrations" -> "Correct Phase" ->
+    /// "Upsample BF" -> disabled "Reconstruction Ready". Unlike the Prepare
+    /// origin/rotation loop, the SAME label can legitimately reappear across
+    /// several clicks (one bin level per "Align Next Level" click), so this
+    /// waits out each busy cycle rather than waiting for the label to change.
+    ///
+    /// Requires fitted origin + rotation + R and Q pixel size + accelerating
+    /// voltage (ProductWorkflow.prerequisites for .ptychography) — on a
+    /// dataset missing any of those the primary action renders but stays
+    /// disabled, which this logs as a finding and treats as a skip rather
+    /// than a hard failure, matching the "or log as a finding" allowance in
+    /// this prompt for the accelerating-voltage field.
+    /// Returns whether any stage actually ran (so the caller knows whether
+    /// there is a result to export).
+    private func runParallaxReconstruction() throws -> Bool {
+        log.subsection("7. Parallax reconstruction (Reconstruct)")
+        try driver.click("workspace.reconstruct")
+        try driver.click("task.Ptycho")
+        _ = try driver.waitForExistence("workspace.primaryAction", timeout: 20)
+
+        let stageWhitelist: Set<String> = [
+            "Prepare Preview", "Align Next Level", "Fit Aberrations",
+            "Correct Phase", "Upsample BF",
+        ]
+        var ranStages: [String] = []
+        var guardCount = 0
+        while guardCount < 12 {
+            guardCount += 1
+            let primaryAction = driver.element("workspace.primaryAction")
+            guard primaryAction.waitForExistence(timeout: 10) else { break }
+            let label = AXDriver.bestText(primaryAction)
+            guard stageWhitelist.contains(label) else { break }
+            guard primaryAction.isEnabled else {
+                log.bullet(
+                    "Reconstruct primary action (\"\(label)\") is disabled — a required "
+                    + "prerequisite (fitted origin, R-Q rotation, R or Q pixel size, or "
+                    + "accelerating voltage) is missing for this dataset."
+                )
+                break
+            }
+            try driver.click("workspace.primaryAction", timeout: 15)
+            ranStages.append(label)
+            log.bullet("Ran \"\(label)\"")
+            try driver.waitForPrimaryActionBusyCycle(timeout: 300, describing: "\"\(label)\" to finish")
+        }
+
+        guard !ranStages.isEmpty else {
+            log.note(
+                "\n**Parallax reconstruction skipped** — primary action never became "
+                + "available for this dataset (see prerequisite note above).\n"
+            )
+            return false
+        }
+        log.bullet("Ran stages: \(ranStages.joined(separator: " → "))")
+        log.bullet("Result: \(driver.currentStatusText())")
+        return true
     }
 
     private func exportCurrentResult(filename: String) throws {

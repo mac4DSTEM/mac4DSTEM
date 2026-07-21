@@ -80,6 +80,38 @@ struct AXDriver {
         }
     }
 
+    /// Waits out one click's busy cycle on `workspace.primaryAction` without
+    /// caring whether its label changes — some stages (parallax "Align Next
+    /// Level" advances one bin level per click, so the SAME label can
+    /// legitimately reappear several times before the label finally
+    /// advances). First tolerates the button vanishing while the op runs
+    /// (best-effort; a very fast op may never be observed missing), then
+    /// waits for it to come back, which is when the app is idle again.
+    func waitForPrimaryActionBusyCycle(timeout: TimeInterval, describing description: String) throws {
+        let el = element("workspace.primaryAction")
+        let disappearDeadline = Date().addingTimeInterval(3)
+        while el.exists, Date() < disappearDeadline {
+            Thread.sleep(forTimeInterval: 0.15)
+        }
+        guard el.waitForExistence(timeout: timeout) else {
+            throw QCError("Timed out after \(Int(timeout))s waiting for \(description)")
+        }
+    }
+
+    /// Dismisses the app's "Something went wrong" error alert if one is on
+    /// screen. `AppState.present(error:)` blocks the rest of the UI behind a
+    /// modal until acknowledged, so any step that can genuinely fail at
+    /// runtime (not just time out waiting for a result) needs to clear this
+    /// before the workflow can click anything else — confirmed by a real
+    /// failure where a strain-computation error left this alert up and the
+    /// next click (switching workspaces) was silently swallowed by it.
+    func dismissErrorAlertIfPresent(timeout: TimeInterval = 3) {
+        let okButton = app.buttons["OK"]
+        guard okButton.waitForExistence(timeout: timeout) else { return }
+        okButton.click()
+        pause()
+    }
+
     func waitForDisappearance(
         _ identifier: String, timeout: TimeInterval, describing description: String? = nil
     ) throws {
