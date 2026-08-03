@@ -15,10 +15,52 @@ below when a task lands.
   pipelines extend.
 - ✅ **Prompt 3 — UI/workflow backlog** — done, produced
   `docs/ui-workflow-backlog.md`.
-- ⬜ **Prompt 1 — strain + phase-contrast pipelines** (recommended next: strain
-  is closest, it reuses the proven disk-detection step).
-- ⬜ **Prompt 2 — fan out to all datasets.**
-- ⬜ **Prompt 4 — full-scan + IPF ACOM.**
+- ✅ **Prompt 1 — strain + phase-contrast pipelines** — done 2026-08-03.
+  Runs: `References/training_runs/run_2026-08-03_1345/` (sim_Au, 0 failures),
+  `run_2026-08-03_1309/` (Particle_1), `run_2026-08-03_1319/` (WS₂ + Si/SiGe).
+  Findings in `docs/py4dstem-pipelines.md` §9.2; backlog items #7–#11.
+  **DPC** runs on all four datasets; **strain** produces and exports an ε_xx
+  map on `sim_Au` (and fails on the other three at automatic basis fitting —
+  three distinct causes, §9.2.1); **kV is settable through the UI** after all
+  (located structurally, so §7.4 is a discoverability finding, not a dead end).
+  **Reconstruct did not run on any dataset** — after voltage is filled in, each
+  is still blocked by a *different* prerequisite (see the §9.2 table), which is
+  backlog #7. That is a real gate in the app + training set, not a harness
+  limitation, so it is recorded as a finding rather than worked around.
+- ✅ **Prompt 2 — fan out to all datasets** — done 2026-08-03.
+  Run: `References/training_runs/run_2026-08-03_1404/` — one no-argument run,
+  all four datacubes, **30 m 22 s, 0 failures**, each with screenshots, PNG
+  exports and `log.md`. Per-dataset summary in `docs/py4dstem-pipelines.md`
+  §9.3. Robustness confirmed: three datacubes hit a real app-side failure
+  (strain non-convergence + its modal error sheet) and the run logged,
+  recovered and continued every time. All numbers reproduced the §9.2
+  standalone runs exactly, so those findings are not artefacts of invocation.
+  Each log now opens with a `## Routing` section naming the §6 pipeline for
+  that dataset.
+- ✅ **Prompt 4 — full-scan + IPF ACOM** — done 2026-08-03.
+  Run: `References/training_runs/run_2026-08-03_1459/` (sim_Au, 0 errors).
+  Full-scan orientation map (**8,400 positions × 200 templates in 0.7 s**) and
+  the **IPF · Z** coloring both produced, screenshotted and exported alongside
+  the preview/Reliability map. Findings in `docs/py4dstem-pipelines.md` §9.4;
+  new backlog items #12 (Preview/Reliability defaults are too conservative —
+  full scan is sub-second here) and #13 (a full-scan result carries *no* scope
+  qualifier, so it is the least-labelled product). Both controls were driven
+  without app changes: the segmented `acom.scope` by segment label, the
+  identifier-free display picker by its current value.
+
+**All four prompts are now complete — this file is finished.** The evaluation
+phase is done; the follow-on work changes app code and therefore leaves the
+eval-only track.
+
+> **→ The active phase is now `docs/ui-implementation-prompts.md`.** It carries
+> the live status checklist and five cold-start prompts that act on what this
+> evaluation found. Start there.
+
+This file remains the reference for **how the harness is driven** and for the
+eval-only rules that still apply whenever the QC playthrough is *extended*
+rather than *used*. The playthrough itself is now the **acceptance test** for
+the implementation phase: re-run `tools/ui-qc-playthrough/run.sh` with no
+argument after any change and diff against `run_2026-08-03_1404/` (§9.3).
 
 ## Task closeout — run these EXACT steps at the end of every task (this is the anti-chaos rule)
 

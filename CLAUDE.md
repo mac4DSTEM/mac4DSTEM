@@ -8,19 +8,21 @@ not duplicate the docs; it tells you what to read and where things go.
 ```
 Pick up the mac4DSTEM project. Read CLAUDE.md first (app overview, the two
 work-threads, file-placement rules, hard rules, process). Then open
-docs/qc-playthrough-prompts.md, read the Status checklist, and take the next
-unchecked task — copy its prompt and execute it end to end.
+docs/ui-implementation-prompts.md, read the Status checklist, and take the
+next unchecked task — copy its prompt and execute it end to end.
 
-Follow docs/development-process.md: use an Explore subagent (Haiku) to locate
-code, implement on the default model, and get a Fable 5 / /code-review pass
-before committing anything touching Core/ or the science. The QC playthrough
-is EVALUATION ONLY — never change app logic under mac4DSTEM/ to make a step
-pass; log friction to docs/ui-workflow-backlog.md instead.
+This phase CHANGES APP CODE (the eval-only QC phase is finished), so follow
+docs/development-process.md properly: use an Explore subagent (Haiku) to
+locate code, implement on the default model, and take the review gate the
+prompt names — /code-review for app logic, and an adversarial parity review
+plus a tools/ fixture for anything touching Core/ or the science. Never let
+the model that wrote a science-affecting change be the only one to approve it.
 
 When the task lands, run the "Task closeout" checklist at the top of
-docs/qc-playthrough-prompts.md exactly (tick the box, record findings in
-pipelines §9, log UI friction to the backlog, do not commit), then stop with
-a short summary. Commit only if I ask.
+docs/ui-implementation-prompts.md exactly (tick the box, close the backlog
+items, run the tests the change earns, re-run the QC playthrough and diff it
+against References/training_runs/run_2026-08-03_1404/, take the review gate,
+do not commit), then stop with a short summary. Commit only if I ask.
 ```
 
 ## What this is
@@ -39,25 +41,34 @@ removes most of the confusion:
   (scientific-contract polish, UI consolidation, distribution readiness).
   Governed by `ROADMAP.md` (3 standing priorities) and `docs/v1-scope.md`
   (frozen release contract). This is the long-lived product.
-- **Thread B — the QC-playthrough evaluation → UI improvement.** The *current
-  active initiative*. We drive the real app through the canonical py4DSTEM
-  analysis pipelines (an XCUITest that watches on screen), compare against
-  py4DSTEM, and turn every workflow friction into a UI/workflow improvement.
-  **Thread B feeds Thread A's Priority 2 (product clarity).** It is
-  **evaluation only** — it never modifies app logic.
+- **Thread B — the QC-playthrough evaluation → UI improvement.** We drive the
+  real app through the canonical py4DSTEM analysis pipelines (an XCUITest that
+  watches on screen), compare against py4DSTEM, and turn every workflow
+  friction into a UI/workflow improvement. **Thread B feeds Thread A's
+  Priority 2 (product clarity).** It has **two phases**: the *evaluation*
+  phase (finished — eval-only, never modified app logic) and the
+  *implementation* phase (current — it does change app code).
 
 ## Current initiative (Thread B) — start here for "what do I do next"
 
-- **What it is + all pipelines, step by step:** `docs/py4dstem-pipelines.md`
-  (also holds the app-vs-py4DSTEM findings §7 and the scope/roadmap §8).
 - **Next actions + live status — cold-start prompts for a fresh agent:**
-  `docs/qc-playthrough-prompts.md`. It carries the authoritative "what's done /
-  what's next" checklist and four self-contained task prompts; hand one to a
-  new session. (Read its Status section first — don't restate status here.)
+  **`docs/ui-implementation-prompts.md`** (the *current* phase — acts on what
+  the evaluation found; app code changes here, so tests and review gates
+  apply). It carries the authoritative "what's done / what's next" checklist
+  and five self-contained task prompts; hand one to a new session. Read its
+  Status section first — don't restate status here.
+- **The finished evaluation phase:** `docs/qc-playthrough-prompts.md` — all
+  four prompts complete. Still the reference for *how the harness is driven*
+  and for its eval-only rules.
+- **What it is + all pipelines, step by step:** `docs/py4dstem-pipelines.md`
+  (also holds the app-vs-py4DSTEM findings §7, the scope/roadmap §8, and the
+  empirical run findings §9).
 - **The UI backlog these findings produced:** `docs/ui-workflow-backlog.md`
-  (ranked, each item tagged UI-only vs workflow-logic, core-untouched).
+  (13 ranked items, each tagged UI-only vs workflow-logic, core-untouched).
 - **The harness + how to run it:** `mac4DSTEMUITests/` +
-  `tools/ui-qc-playthrough/run.sh [dataset-substring]`.
+  `tools/ui-qc-playthrough/run.sh [dataset-substring]`. It is now the
+  **acceptance test** for the implementation phase; baseline to diff against is
+  `References/training_runs/run_2026-08-03_1404/` (§9.3).
 - Session memory (direction + gotchas):
   `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/qc-playthrough-pipeline-eval.md`.
 

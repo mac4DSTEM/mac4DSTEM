@@ -99,17 +99,68 @@ struct AXDriver {
     }
 
     /// Dismisses the app's "Something went wrong" error alert if one is on
-    /// screen. `AppState.present(error:)` blocks the rest of the UI behind a
-    /// modal until acknowledged, so any step that can genuinely fail at
-    /// runtime (not just time out waiting for a result) needs to clear this
-    /// before the workflow can click anything else — confirmed by a real
-    /// failure where a strain-computation error left this alert up and the
-    /// next click (switching workspaces) was silently swallowed by it.
-    func dismissErrorAlertIfPresent(timeout: TimeInterval = 3) {
-        let okButton = app.buttons["OK"]
-        guard okButton.waitForExistence(timeout: timeout) else { return }
-        okButton.click()
-        pause()
+    /// screen, returning the message it carried. `AppState.present(error:)`
+    /// blocks the rest of the UI behind a modal until acknowledged, so any
+    /// step that can genuinely fail at runtime (not just time out waiting for
+    /// a result) needs to clear this before the workflow can click anything
+    /// else — confirmed by a real failure where a strain-computation error
+    /// left this alert up and the next click (switching workspaces) was
+    /// silently swallowed by it.
+    ///
+    /// `ContentView`'s `.alert("Something went wrong")` is a SwiftUI alert,
+    /// which AppKit presents as a window-modal *sheet*. A bare
+    /// `app.buttons["OK"]` lookup proved unreliable against it (an earlier run
+    /// left the sheet up and lost every later click — see
+    /// `References/training_runs/run_2026-07-21_0153/.../ERROR_state.png`), so
+    /// this searches the sheet/dialog containers explicitly, falls back to the
+    /// app-wide button query and then to Escape, and — crucially — verifies
+    /// the sheet actually went away instead of assuming the click landed.
+    @discardableResult
+    func dismissErrorAlertIfPresent(timeout: TimeInterval = 5) -> String? {
+        guard let sheet = errorAlert(timeout: timeout) else { return nil }
+        var lines: [String] = []
+        for staticText in sheet.descendants(matching: .staticText).allElementsBoundByIndex {
+            let line = Self.bestText(staticText)
+            if !line.isEmpty, line != "Something went wrong" { lines.append(line) }
+        }
+        let message = lines.joined(separator: " ")
+
+        // Three tries, then give up and leave it on screen rather than clicking
+        // blindly: the caller still gets the message, and the next step's
+        // screenshot shows the stuck sheet.
+        for _ in 0..<3 {
+            let ok = sheet.descendants(matching: .button)["OK"]
+            if ok.exists, ok.isHittable {
+                ok.click()
+            } else if app.buttons["OK"].exists, app.buttons["OK"].isHittable {
+                app.buttons["OK"].click()
+            } else {
+                app.typeKey(.escape, modifierFlags: [])
+            }
+            pause()
+            if errorAlert(timeout: 1) == nil { break }
+        }
+        return message.isEmpty ? "(unreadable alert message)" : message
+    }
+
+    /// The "Something went wrong" sheet, if it is currently up. Checks both
+    /// container types AppKit uses for a window-modal SwiftUI alert.
+    private func errorAlert(timeout: TimeInterval) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            for container in [app.sheets, app.dialogs] {
+                let match = container.containing(
+                    .staticText, identifier: "Something went wrong"
+                ).firstMatch
+                if match.exists { return match }
+            }
+            for candidate in [app.sheets.firstMatch, app.dialogs.firstMatch]
+            where candidate.exists && candidate.buttons["OK"].exists {
+                return candidate
+            }
+            Thread.sleep(forTimeInterval: 0.3)
+        } while Date() < deadline
+        return nil
     }
 
     func waitForDisappearance(
@@ -162,6 +213,152 @@ struct AXDriver {
             throw QCError("Menu option \"\(optionLabel)\" not found in picker \(identifier)")
         }
         item.click()
+        pause()
+    }
+
+    // MARK: - Structural lookup (controls with no accessibility identifier)
+
+    /// Finds a control that has **no accessibility identifier** by the visible
+    /// label sitting next to it on the same row.
+    ///
+    /// Several controls this workflow needs are plain `Picker`/`TextField`s
+    /// with no `.accessibilityIdentifier(...)`: the accelerating-voltage field
+    /// (`UI/ContentView.swift:344`, whose row label is a *separate*
+    /// `Text("Voltage")`, so the field's own title is empty) and the Strain
+    /// panel's Reference/Basis pickers (`UI/ContentView.swift:240,251`). The QC
+    /// playthrough is evaluation-only, so it cannot add identifiers to app
+    /// code — it locates them the way a person does instead, by the label
+    /// they read on screen.
+    ///
+    /// Matching rule: among controls of `type`, keep those whose vertical
+    /// centre falls inside the label's row and that start to the *right* of the
+    /// label, then take the leftmost. That is exactly the `HStack {
+    /// Text(label); Spacer(); control }` layout these rows use.
+    ///
+    /// Returns nil rather than throwing — every caller treats "not reachable
+    /// via the UI" as a *finding to log*, not a test failure.
+    func control(
+        _ type: XCUIElement.ElementType, inRowWithLabel label: String, timeout: TimeInterval = 8
+    ) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let labels = app.descendants(matching: .staticText).allElementsBoundByIndex
+                .filter { Self.bestText($0) == label && $0.exists && $0.frame.height > 0 }
+            let candidates = app.descendants(matching: type).allElementsBoundByIndex
+                .filter { $0.exists && $0.frame.width > 0 }
+            for labelElement in labels {
+                let row = labelElement.frame
+                let midY = row.midY
+                let onSameRow = candidates
+                    .filter { $0.frame.minY <= midY && $0.frame.maxY >= midY }
+                    // Strictly to the right, so a same-type lookup (reading a
+                    // LabeledContent's value) never returns the label itself.
+                    .filter { $0.frame.minX > row.minX }
+                    .sorted { $0.frame.minX < $1.frame.minX }
+                if let match = onSameRow.first { return match }
+            }
+            Thread.sleep(forTimeInterval: 0.3)
+        } while Date() < deadline
+        return nil
+    }
+
+    /// Finds an identifier-free control by the option it is **currently
+    /// showing**, which beats a label lookup whenever the label is ambiguous.
+    ///
+    /// Needed for the ACOM display-mode `Picker("Display", …)`
+    /// (`UI/ACOMControlsView.swift:227`): the word "Display" is also a sidebar
+    /// section header, so `control(_:inRowWithLabel: "Display")` could bind to
+    /// the wrong row. The picker's *value* ("Reliability", "IPF · Z", …) is
+    /// unique in the window, so match on that instead.
+    func control(
+        _ type: XCUIElement.ElementType, showingOneOf values: Set<String>,
+        timeout: TimeInterval = 8
+    ) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            for candidate in app.descendants(matching: type).allElementsBoundByIndex
+            where candidate.exists && values.contains(Self.bestText(candidate)) {
+                return candidate
+            }
+            Thread.sleep(forTimeInterval: 0.3)
+        } while Date() < deadline
+        return nil
+    }
+
+    /// Selects one option of a `.pickerStyle(.segmented)` Picker. macOS renders
+    /// it as an AXRadioGroup whose selection is not exposed as the group's own
+    /// text, so the only way in is to click the child carrying `optionLabel`
+    /// — which is also exactly what a person does. Used for `acom.scope`
+    /// ("Preview" / "Region" / "Full scan").
+    func selectSegment(in identifier: String, optionLabel: String, timeout: TimeInterval = 10) throws {
+        app.activate()
+        let group = try waitForExistence(identifier, timeout: timeout)
+        for type in [XCUIElement.ElementType.radioButton, .button] {
+            let segment = group.descendants(matching: type)[optionLabel]
+            if segment.exists, segment.isHittable {
+                segment.click()
+                pause()
+                return
+            }
+        }
+        throw QCError(
+            "Segment \"\(optionLabel)\" not found in \(identifier) (tried radio buttons and "
+            + "buttons; segments present: \(segmentLabels(in: group)))"
+        )
+    }
+
+    /// Every clickable child label of a segmented control, for a failure
+    /// message that says what *was* there instead of just what wasn't.
+    private func segmentLabels(in group: XCUIElement) -> String {
+        var found: [String] = []
+        for type in [XCUIElement.ElementType.radioButton, .button] {
+            for child in group.descendants(matching: type).allElementsBoundByIndex {
+                let text = Self.bestText(child)
+                if !text.isEmpty { found.append(text) }
+            }
+        }
+        return found.isEmpty ? "(none readable)" : found.joined(separator: ", ")
+    }
+
+    /// Reads a control that `control(_:inRowWithLabel:)` may not have found at
+    /// all, so a log line distinguishes "the control says nothing" from "the
+    /// control could not be reached" instead of printing an empty string for
+    /// both.
+    func text(of element: XCUIElement?) -> String {
+        guard let element else { return "(not reachable via the UI)" }
+        return Self.bestText(element)
+    }
+
+    /// Selects an option in an already-located menu-style `Picker` element
+    /// (the identifier-free counterpart of `selectMenuOption(picker:…)`).
+    func selectMenuOption(in element: XCUIElement, optionLabel: String) throws {
+        app.activate()
+        guard element.isHittable else {
+            throw QCError("Picker exists but is not hittable (selecting \"\(optionLabel)\")")
+        }
+        element.click()
+        pause(0.5)
+        let item = app.menuItems[optionLabel]
+        guard item.waitForExistence(timeout: 5) else {
+            app.typeKey(.escape, modifierFlags: [])
+            throw QCError("Menu option \"\(optionLabel)\" not found")
+        }
+        item.click()
+        pause()
+    }
+
+    /// `typeAndCommit(_:text:)` for an element located structurally rather
+    /// than by identifier.
+    func typeAndCommit(element: XCUIElement, text: String) throws {
+        app.activate()
+        guard element.isHittable else {
+            throw QCError("Field exists but is not hittable (typing \"\(text)\")")
+        }
+        element.click()
+        pause(0.3)
+        element.typeKey("a", modifierFlags: .command)
+        element.typeText(text)
+        element.typeKey(.tab, modifierFlags: [])
         pause()
     }
 
@@ -225,20 +422,39 @@ struct AXDriver {
     /// status bar for a diagnostic message on timeout — same strategy as
     /// tools/ui-smoke-test/smoke.applescript's waitForResultContaining.
     func waitForResultTitleContaining(_ substring: String, timeout: TimeInterval) throws {
+        try waitForResultTitle(containing: substring, notContaining: nil, timeout: timeout)
+    }
+
+    /// Waits for `result.title` to contain `containing` and — when given — to
+    /// *not* contain `notContaining`.
+    ///
+    /// The exclusion is what makes a re-run of the same analysis detectable. A
+    /// full-scan ACOM result is titled "ACOM · Reliability" while a preview one
+    /// is "ACOM preview · Reliability" (the qualifier is empty for full scan —
+    /// `Support/ResultExport.swift:901`). Waiting for "ACOM" alone would match
+    /// the preview result still on screen and return instantly, reporting
+    /// success before the full-scan run had even started.
+    func waitForResultTitle(
+        containing substring: String, notContaining excluded: String?, timeout: TimeInterval
+    ) throws {
         let titleElement = element("result.title")
         let deadline = Date().addingTimeInterval(timeout)
         while true {
             // macOS static text carries its content in AXValue, not AXTitle,
             // so read value-first (bestText) rather than .label, which is
             // empty here.
-            if titleElement.exists,
-               Self.bestText(titleElement).localizedCaseInsensitiveContains(substring) {
-                return
+            if titleElement.exists {
+                let title = Self.bestText(titleElement)
+                let matches = title.localizedCaseInsensitiveContains(substring)
+                let clean = excluded.map { !title.localizedCaseInsensitiveContains($0) } ?? true
+                if matches, clean { return }
             }
             if Date() > deadline {
+                let exclusion = excluded.map { " and not containing \"\($0)\"" } ?? ""
                 throw QCError(
                     "Timed out after \(Int(timeout))s waiting for result title containing "
-                        + "\"\(substring)\" — last status: \(currentStatusText())"
+                        + "\"\(substring)\"\(exclusion) — last title: "
+                        + "\"\(Self.bestText(titleElement))\", last status: \(currentStatusText())"
                 )
             }
             Thread.sleep(forTimeInterval: 0.4)
@@ -271,6 +487,43 @@ struct AXDriver {
             .map(Self.bestText)
             .filter { !$0.isEmpty }
         return texts.isEmpty ? ["(no readable text under calibration.readiness)"] : texts
+    }
+
+    // MARK: - ACOM work estimate
+
+    /// The ACOM panel's own "Work" and "Expected" `LabeledContent` rows
+    /// (`UI/ACOMControlsView.swift:50–53`). Reading them right after a scope
+    /// change is the cheapest proof the change landed — the position count
+    /// jumps from the preview subset to the whole scan *before* anything runs,
+    /// so the log records the intent as well as the outcome. No accessibility
+    /// identifiers, hence the label-relative read.
+    func acomWorkEstimateText() -> [String] {
+        ["Work", "Expected"].compactMap { label in
+            guard let value = control(.staticText, inRowWithLabel: label, timeout: 3) else {
+                return nil
+            }
+            let text = Self.bestText(value)
+            return text.isEmpty ? nil : "\(label): \(text)"
+        }
+    }
+
+    // MARK: - Strain diagnostics
+
+    /// The four `LabeledContent` diagnostic rows the Strain panel publishes
+    /// alongside a successful strain map (`UI/ContentView.swift:295–328`).
+    /// They are the app's own quality read-out — basis support, fit residual,
+    /// indexed fraction, reference inliers — so they belong in the QC log as
+    /// evidence next to the exported image. None of them has an accessibility
+    /// identifier, hence the label-relative read.
+    func strainDiagnosticsText() -> [String] {
+        ["Basis consensus", "Basis support", "Basis fit", "Local fits", "Reference inliers"]
+            .compactMap { label in
+                guard let value = control(.staticText, inRowWithLabel: label, timeout: 2) else {
+                    return nil
+                }
+                let text = Self.bestText(value)
+                return text.isEmpty ? nil : "\(label): \(text)"
+            }
     }
 
     // MARK: - Screenshots

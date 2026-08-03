@@ -389,6 +389,211 @@ pipeline end-to-end. The same skeleton (load → calibrate → virtual DF →
 disks → phase model → Q-from-crystal → analysis) extends to strain and to
 the other datasets.
 
+### 9.2 Strain + phase-contrast pipelines added (all four datasets, 2026-08-03)
+
+The harness now also drives **DPC** (§5a), **strain** (§4) and the
+**Reconstruct** workspace (§5b/§5c) after the ACOM skeleton above. Run
+folders: `References/training_runs/run_2026-08-03_1345/` (sim_Au — the
+verification run on the final harness; `run_..._1302/` is the same result from
+an earlier build), `run_2026-08-03_1309/` (Particle_1), `run_2026-08-03_1319/`
+(WS₂ + Si/SiGe). Every datacube completed its run — no step aborted a datacube.
+
+| Dataset | DPC | Disks (peaks) | Q from crystal | ACOM | Strain | Reconstruct |
+|---------|-----|---------------|----------------|------|--------|-------------|
+| `sim_Au` | ✅ | 103,657 | ✅ 0.0198 Å⁻¹/px | ✅ Physical, 525 pos | ✅ **ε_xx, 52% indexed** | ⛔ R pixel scale |
+| `downsample_Si_SiGe_exp` | ✅ | 123,885 | ✅ 0.0372 Å⁻¹/px | ✅ Physical, 232 pos | ⛔ basis fit | ⛔ origin RMS + R scale |
+| `polycrystal_2D_WS2` | ✅ | 16,384 | — (no model) | ⛔ no WS₂ in library | ⛔ basis fit | ⛔ Q + R scale |
+| `Particle_1…300kV` | ✅ | 42,734 | — (no model) | — (no model) | ⛔ basis fit | ⛔ origin RMS + Q scale |
+
+**What this settles for the three new pipelines:**
+
+- **DPC works on every dataset, with no prerequisites at all.** It publishes
+  "DPC ✓ (Magnitude (detector px) vs calibrated origins)" straight after
+  virtual DF. This matches `ProductWorkflow.prerequisites(for: .dpc)` being
+  empty, and confirms §7.5: the phase-contrast path really is independent of
+  the Bragg path. Note the *default* display mode is magnitude in detector
+  pixels, which needs no voltage — a quantitative phase image would.
+- **Strain succeeds on `sim_Au` with the app's own defaults** (whole-scan mean
+  reference, automatic basis): 100% basis support (95,229/95,257 peaks), basis
+  fit RMS 1.06 px, κ 4.78, 52% of positions locally indexed, 3,853/4,365
+  reference inliers. ε_xx was the displayed and exported component.
+- **Strain fails on the other three, always at the same place** — automatic
+  basis fitting: *"No well-conditioned lattice explains at least half of the
+  detected peak population."* The three failures are *not* the same problem
+  underneath, which is the useful part (see 9.2.1).
+- **The accelerating voltage is now reachable and settable through the UI.**
+  The field has no accessibility identifier, but it can be located
+  structurally by its "Voltage" row label, and the test typed 200/300 kV into
+  it successfully on all four datasets. So §7.4's concern is confirmed as a
+  *discoverability* problem, not an automation dead end — the earlier plan to
+  log kV as unreachable is superseded.
+- **No dataset in the training set can reach a Reconstruct run**, but not
+  because of kV. Once voltage is filled in, the remaining gate is always one
+  of the other four prerequisites, and it differs per dataset (see the table).
+  On `sim_Au` the *only* missing item is the R pixel scale.
+
+#### 9.2.1 Why strain's automatic basis fails — three different causes
+
+The app's error text is the same, but the diagnostics it prints separate the
+cases cleanly, and none of them is a wrong computation:
+
+- **`polycrystal_2D_WS2` — starved input.** Median **1.0 peaks per pattern**
+  across 16,384 positions, i.e. essentially only the direct beam was accepted.
+  The default disk-detection thresholds simply do not transfer to WS₂'s much
+  weaker 2D-material diffraction. The app says as much ("spacing or thresholds
+  may be too restrictive"). This is a *parameter* problem the user must fix in
+  the Bragg panel.
+- **`downsample_Si_SiGe_exp` and `Particle_1` — adequate input, ill-conditioned
+  whole-scan basis.** Median 12.0 and 16.0 peaks per pattern respectively, 0%
+  empty positions. There are plenty of peaks; the whole-scan *average* lattice
+  is just not well-conditioned. This is exactly the reference-choice subtlety
+  in §4 and §7.6: `strain_01_Si_SiGe.ipynb` picks g₁,g₂ from an unstrained
+  reference region, not from the whole scan. The app supports this (Reference →
+  "Current real-space ROI", Basis → "Manual g₁ / g₂"), so the capability is
+  present — it is the *default* that does not generalize.
+
+The QC run deliberately does **not** tune the thresholds or pick a reference
+ROI. Both are scientific judgements a user makes while looking at the data;
+a scripted run choosing them would be inventing the analysis rather than
+evaluating the app's out-of-the-box path. That is the finding.
+
+#### 9.2.2 Other observations from these runs
+
+- **Origin readiness is stricter than "origin measured".** On
+  `downsample_Si_SiGe_exp` (fit RMS 11.66 px, probe 5.03 px) and `Particle_1`
+  (RMS 18.29 px, probe 10.6 px) the app measures an origin but reports the row
+  as **Missing**, with "exceeds probe radius; recalibrate before quantitative
+  use". That is good scientific hygiene — and it is also the hidden reason
+  Reconstruct stays disabled on those two, which the Reconstruct task itself
+  never explains.
+- **`polycrystal_2D_WS2` has no phase model in the app's crystal library.**
+  `CrystalModel` ships FCC/BCC/diamond/HCP metals + Si (`CrystalModel.swift:135`);
+  WS₂ is hexagonal 2D and absent, so both ACOM and Q-from-crystal are
+  unavailable for it. §6 lists WS₂ as an ACOM+strain dataset, so this is a real
+  coverage gap rather than a UI issue.
+- **`Particle_1` imports its R pixel scale from the file: 49.5 nm/px** — which
+  disagrees with the `ss30nm` token in its own filename. The app correctly
+  prefers file metadata over the filename (and the harness only types a manual
+  R value when the field is still empty), but the discrepancy is worth knowing
+  before quoting real-space distances from that dataset.
+- **A failed compute leaves a modal sheet that swallows every later click.**
+  `AppState.present(error:)` renders SwiftUI's `.alert("Something went wrong")`
+  as a window-modal sheet. In `run_2026-07-21_0153` the strain failure left it
+  up and the whole rest of that datacube's run was lost. Fixed on the harness
+  side (`AXDriver.dismissErrorAlertIfPresent` now finds the sheet, verifies it
+  closed, and captures its message into the log) — but a user hits the same
+  wall, just interactively.
+- **Mechanical note (runner flakiness).** One `run.sh` invocation died with
+  *"Failed to initialize for UI testing … Timed out while enabling automation
+  mode"* before launching the app, and the identical rerun passed. `run.sh`
+  ad-hoc re-signs the runner on every invocation, which changes its code
+  identity and can invalidate the Accessibility (TCC) grant. If it recurs,
+  rerun once before debugging anything; if it persists, re-grant Accessibility
+  to the driving process in System Settings → Privacy & Security.
+- **Mechanical note (test-only).** Controls with no accessibility identifier
+  are still reachable: locate the visible row label and take the control on the
+  same row (`AXDriver.control(_:inRowWithLabel:)`). This is how kV, the Strain
+  Reference/Basis/Component pickers, and the strain diagnostic read-outs are
+  now driven and logged, with no change to app code.
+
+### 9.3 Full fan-out: one run, every dataset (2026-08-03)
+
+A single no-argument `tools/ui-qc-playthrough/run.sh` drove all four training
+datacubes back to back: **`References/training_runs/run_2026-08-03_1404/`**,
+**30 m 22 s, 0 test failures**, every datacube with its own folder of
+screenshots, PNG exports and `log.md`. Datasets are processed in
+case-insensitive filename order, each in a freshly launched app.
+
+| Dataset | Wall clock | Screens | Exports | Outcome |
+|---------|-----------|---------|---------|---------|
+| `downsample_Si_SiGe_exp` (1.2 GB) | 9 m 05 s | 8 | 4 | virtual DF, DPC, 123,885 disks, Q = 0.0372 Å⁻¹/px, ACOM 232 pos · strain ⛔, reconstruct ⛔ |
+| `Particle_1…300kV` (253 MB) | 8 m 12 s | 6 | 3 | virtual DF, DPC, 42,734 disks · no phase model → no ACOM/Q · strain ⛔, reconstruct ⛔ |
+| `polycrystal_2D_WS2` (1.0 GB) | 8 m 14 s | 6 | 3 | virtual DF, DPC, 16,384 disks · no WS₂ model → no ACOM/Q · strain ⛔, reconstruct ⛔ |
+| `sim_Au_data_all_binned` (501 MB) | 4 m 46 s | 9 | 5 | **complete**: virtual DF, DPC, 103,657 disks, Q = 0.0198 Å⁻¹/px, ACOM 525 pos, **strain ε_xx** · reconstruct ⛔ |
+
+**Robustness holds at scale — this is the load-bearing result.** Three of the
+four datacubes hit a genuine app-side failure (strain non-convergence, each
+raising the modal "Something went wrong" sheet), and in every case the harness
+logged it, dismissed the sheet, carried on to the Reconstruct step, wrote that
+datacube's `log.md`, terminated the app and moved to the next file. The suite
+reports 0 failures because a *logged, non-throwing* skip is the designed
+outcome for an app-side gate; a thrown step would still be captured per
+datacube (`ERROR_state.png` + `failedDatacubes`) without aborting the run.
+
+**Every number reproduced the §9.2 standalone runs exactly** — same peak counts
+(123,885 / 42,734 / 16,384 / 103,657), same Q pixel sizes, same ACOM position
+counts, same strain diagnostics (52% indexed, RMS 1.06 px, κ 4.78, 3,853/4,365
+reference inliers), same median peaks-per-pattern in each failure. Running the
+datasets together rather than one at a time changed nothing, so the §9.2
+findings are not artefacts of how the harness was invoked.
+
+**Routing.** Each log now opens with a `## Routing` section naming the pipeline
+§6 assigns to that dataset and the steps the run will attempt. Routing is by
+*capability gate*, not a per-file script: every dataset is offered the full
+pipeline and each step self-gates on what the app actually has (a phase model
+for ACOM, Bragg vectors for strain, the five calibration prerequisites for
+reconstruct). A skipped step is therefore always a recorded finding about the
+app or the data — never a routing choice made to avoid an awkward result.
+
+**Nothing new broke, and nothing new was learned about the app** beyond §9.2 —
+which is itself the point of this task: the harness is now a repeatable
+whole-suite acceptance run, so a future UI change can be measured against this
+exact baseline.
+
+### 9.4 ACOM rounded out: full-scan + IPF·Z (`sim_Au`, 2026-08-03)
+
+§9.1's ACOM ran at **Preview** scope and exported the **Reliability** map. The
+harness now also runs the full scan and captures the IPF-colored orientation —
+the display py4DSTEM's `plot_orientation_maps` leads with (§3.5). Run:
+`References/training_runs/run_2026-08-03_1459/`, **0 errors**, all three ACOM
+products exported (`orientation_map.png`, `orientation_map_full_scan.png`,
+`orientation_map_ipf_z.png`).
+
+| Step | Scope | Work | Result |
+|------|-------|------|--------|
+| 6 | Preview | 525 positions | `ACOM preview ✓ · Physical · 0.1 s` |
+| 6c | **Full scan** | **8,400 positions × 200 templates** | `ACOM full ✓ · Physical · 0.7 s` |
+| 6d | (re-render) | — | `ACOM · IPF · Z`, Categorical, cubic IPF legend |
+
+**Full-scan ACOM is not slow — it is essentially free here.** The task brief
+budgeted ≥600 s; the whole 84 × 100 scan matched against 200 templates in
+**0.7 s** (the panel's own estimate said "about 2 s"). Preview scope samples at
+most 32 × 32 positions to keep an interactive feel, but on a dataset this size
+that caution costs the user the full-resolution map for no meaningful wait. The
+generous timeout stays in the harness for larger scans, but §9.1's "the run used
+Preview scope" is a *default* worth revisiting, not a performance constraint.
+
+**Both controls were reachable without touching app code.**
+- `acom.scope` is a `.segmented` Picker, so its selection is not readable as
+  text — but its segments are individually clickable by visible label
+  ("Preview" / "Region" / "Full scan"). The switch is confirmed by the panel's
+  own Work read-out jumping 525 → 8,400 positions *before* the run, and by the
+  result afterwards.
+- The **display-mode picker has no accessibility identifier** and its label
+  ("Display") collides with a sidebar section header — so it was located by the
+  option it was *currently showing* ("Reliability"), which is unique in the
+  window. So this is a discoverability finding, not an automation dead end —
+  the same conclusion §9.2 reached for the kV field. No identifier was added
+  (eval-only).
+
+**A full-scan result title carries no scope qualifier.** Preview publishes
+"ACOM preview · Reliability", full scan publishes plain "ACOM · Reliability"
+(`Support/ResultExport.swift:901`); the export *kind* likewise drops the
+qualifier only for full scan. Consequences worth knowing:
+- Any wait keyed on "ACOM" alone silently matches the *previous* preview result
+  and reports success before the new run starts. The harness now waits for a
+  title containing "ACOM" **and not** "preview".
+- For a reader, "ACOM · Reliability" is the *less* qualified label for the
+  *more* complete result — the full-resolution map is the one whose title says
+  least about how it was produced.
+
+**Switching display does not recompute.** `acomDisplay`'s `didSet` calls
+`applyACOMDisplay()`, which re-renders the cached `orientationMap` — IPF·Z
+swaps `resultImage` for `resultRGBA` (`App/AppState.swift:3383`). So the status
+bar still shows the previous step's message while the result title and the
+exported product are already IPF·Z. Cheap and correct, but it means the status
+bar is not a reliable signal that a display change landed — the result title is.
+
 ## 10. The closed evaluation loop (the intended workflow)
 
 The goal is one loop: **run py4DSTEM's canonical workflow on a dataset →

@@ -116,10 +116,10 @@ private struct QCWorkflow {
         log.section("Calibration")
         log.bullet("Accelerating voltage assumption: \(hints.acceleratingVoltageKV) kV — source: \(hints.voltageSource)")
         log.note(
-            "  (Not entered into the UI: the app's own accelerating-voltage field only "
-            + "appears under Reconstruct → Ptychography, outside this workflow's scope. "
-            + "Recorded here for reference; the app separately auto-imports "
-            + "`accelerating_voltage` from file metadata into the same field when present.)"
+            "  (The app's accelerating-voltage field only appears under Reconstruct → "
+            + "Ptychography and has no accessibility identifier; step 7 locates it "
+            + "structurally by its \"Voltage\" row label and fills it in only if the app "
+            + "did not already auto-import `accelerating_voltage` from file metadata.)"
         )
         if let scanStep = hints.scanStepNM {
             log.bullet("Filename scan-step token: \(scanStep) nm (candidate r-space pixel size)")
@@ -139,6 +139,22 @@ private struct QCWorkflow {
         } else {
             log.bullet("No known library phase model for this dataset — ACOM will be skipped.")
         }
+
+        log.section("Routing")
+        log.bullet("Pipeline assigned by docs/py4dstem-pipelines.md §6: \(Self.pipelineNote(for: fileName))")
+        log.bullet(
+            "Steps this run will attempt: virtual imaging → DPC → Bragg disks"
+            + (phaseModel == nil ? "" : " → Q-from-crystal → ACOM")
+            + " → strain → reconstruct."
+        )
+        log.note(
+            "  (Routing is by *capability gate*, not a fixed per-file script: every dataset "
+            + "is offered the full pipeline and each step self-gates on what the app "
+            + "actually has — a phase model for ACOM, Bragg vectors for strain, the five "
+            + "calibration prerequisites for reconstruct. A skipped step is therefore a "
+            + "recorded finding about the app or the data, never a routing decision made "
+            + "here to avoid an awkward result.)"
+        )
 
         // Canonical crystalline (Bragg) pipeline, in the app's own Prepare→Map
         // order (see docs/py4dstem-pipelines.md §3). The app measures origin &
@@ -171,6 +187,21 @@ private struct QCWorkflow {
             try runOrientationMap()
             attachScreenshot(step: "06_orientation_map")
             try exportCurrentResult(filename: "orientation_map.png")
+
+            // Round out ACOM (docs/py4dstem-pipelines.md §3.5): the preview
+            // above is a 525-position subset shown as Reliability, whereas
+            // py4DSTEM's plot_orientation_maps presents the IPF-colored
+            // orientation of every position. Both extras are additive — a
+            // failure in either leaves the preview result already exported.
+            if try runFullScanOrientationMap() {
+                attachScreenshot(step: "06c_orientation_map_full_scan")
+                try exportCurrentResult(filename: "orientation_map_full_scan.png")
+
+                if try showIPFZOrientationMap() {
+                    attachScreenshot(step: "06d_orientation_map_ipf_z")
+                    try exportCurrentResult(filename: "orientation_map_ipf_z.png")
+                }
+            }
         }
 
         // Strain only needs Bragg vectors (docs/py4dstem-pipelines.md §4), so
@@ -183,12 +214,34 @@ private struct QCWorkflow {
         // Parallax/ptychography additionally need R+Q pixel size and the
         // accelerating voltage (§5b); on a dataset missing any of those this
         // self-gates and logs a finding rather than failing the run.
-        if try runParallaxReconstruction() {
+        if try runParallaxReconstruction(hints: hints) {
             attachScreenshot(step: "07_parallax")
             try exportCurrentResult(filename: "parallax_reconstruction.png")
         }
 
         attachScreenshot(step: "08_results")
+    }
+
+    /// The pipeline `docs/py4dstem-pipelines.md` §6 assigns to each training
+    /// dataset, for the log. Descriptive only — it records what §6 *expects*
+    /// so a reader can compare it against what the run actually achieved; it
+    /// never gates a step.
+    private static func pipelineNote(for fileName: String) -> String {
+        let lower = fileName.lowercased()
+        if lower.contains("sim_au") {
+            return "virtual imaging → disks → calibrate Q from gold → ACOM (200 kV)"
+        }
+        if lower.contains("ws2") {
+            return "disks → calibrate → ACOM + strain (200 kV) — note §9.2.2: the app's "
+                + "crystal library has no WS₂ model, so the ACOM half is unavailable"
+        }
+        if lower.contains("si_sige") || lower.contains("sige") {
+            return "disks → origin+rotation → strain (200 kV)"
+        }
+        if lower.contains("particle_1") {
+            return "virtual imaging; disks/strain if crystalline (300 kV)"
+        }
+        return "not listed in §6 — full pipeline attempted, every step self-gating"
     }
 
     /// Library phase model (matching the app's ACOM material picker labels)
@@ -345,6 +398,126 @@ private struct QCWorkflow {
         log.bullet("Result: \(driver.currentStatusText())")
     }
 
+    /// Re-runs ACOM at **full-scan** scope, so every scan position is matched
+    /// rather than the preview's 32×32-sampled subset
+    /// (`UI/ACOMControlsView.swift:129`). `acom.scope` carries an accessibility
+    /// identifier but is a `.segmented` Picker, i.e. an AXRadioGroup whose
+    /// selection is not readable as text — so the option is chosen by clicking
+    /// the segment carrying its visible label, and the *result* is what
+    /// confirms the switch took effect.
+    ///
+    /// Returns whether a full-scan map published, so the caller knows whether
+    /// there is something to export. A failure here is logged, not thrown: the
+    /// preview map is already exported, and losing the extras must not cost the
+    /// rest of the datacube's run.
+    private func runFullScanOrientationMap() throws -> Bool {
+        log.subsection("6c. Full-scan orientation map (ACOM)")
+        try driver.click("workspace.map")
+        try driver.click("task.ACOM")
+        _ = try driver.waitForExistence("acom.scope", timeout: 20)
+
+        do {
+            try driver.selectSegment(in: "acom.scope", optionLabel: "Full scan")
+        } catch {
+            log.recordError("Could not select the ACOM full-scan scope: \(error)")
+            log.note(
+                "\n**Full-scan ACOM skipped** — the `acom.scope` segmented control did not "
+                + "expose a clickable \"Full scan\" segment. Preview-scope ACOM is unaffected "
+                + "and already exported.\n"
+            )
+            return false
+        }
+        log.bullet("Scope set to \"Full scan\" (was Preview)")
+        for line in driver.acomWorkEstimateText() { log.bullet("  \(line)") }
+
+        try driver.click("workspace.primaryAction", timeout: 15)
+        do {
+            // A full-scan title drops the scope qualifier ("ACOM · Reliability"
+            // vs "ACOM preview · Reliability"), so the absence of "preview" is
+            // the signal that the new run replaced the old result.
+            try driver.waitForResultTitle(
+                containing: "ACOM", notContaining: "preview", timeout: 900
+            )
+            log.bullet("Result: \(driver.currentStatusText())")
+            return true
+        } catch {
+            log.recordError("Full-scan ACOM did not complete: \(error)")
+            if let alert = driver.dismissErrorAlertIfPresent() {
+                log.bullet("App error alert: \(alert)")
+            }
+            return false
+        }
+    }
+
+    /// Switches the ACOM result to **IPF · Z** orientation coloring — the
+    /// display py4DSTEM's `plot_orientation_maps` leads with (§3.5), as opposed
+    /// to the Reliability map the earlier steps export.
+    ///
+    /// The display-mode picker (`UI/ACOMControlsView.swift:227`) has no
+    /// accessibility identifier, and its label ("Display") collides with a
+    /// sidebar section header — so it is located by the option it is currently
+    /// showing instead. Per this task's constraints, an unreachable picker is
+    /// logged as a finding rather than fixed in app code.
+    private func showIPFZOrientationMap() throws -> Bool {
+        log.subsection("6d. IPF · Z orientation coloring (ACOM)")
+        // The export step above left us on Results; the picker lives under Map.
+        try driver.click("workspace.map")
+        try driver.click("task.ACOM")
+
+        let modeLabels = Set(Self.acomDisplayModeLabels)
+        guard let picker = driver.control(.popUpButton, showingOneOf: modeLabels, timeout: 15) else {
+            log.recordError(
+                "ACOM display-mode picker could not be located. It has no accessibility "
+                + "identifier, and neither its current value nor its \"Display\" label "
+                + "resolved to a reachable control."
+            )
+            log.note(
+                "\n**IPF · Z skipped — finding.** The ACOM display mode is not reachable "
+                + "through the UI for automation, so the orientation coloring py4DSTEM leads "
+                + "with cannot be captured. Not fixed here: eval-only. "
+                + "See docs/ui-workflow-backlog.md.\n"
+            )
+            return false
+        }
+        log.bullet("Display mode before: \(AXDriver.bestText(picker))")
+
+        do {
+            try driver.selectMenuOption(in: picker, optionLabel: Self.ipfZLabel)
+        } catch {
+            log.recordError("Could not select the \"\(Self.ipfZLabel)\" display mode: \(error)")
+            return false
+        }
+        do {
+            try driver.waitForResultTitle(containing: "IPF", notContaining: nil, timeout: 120)
+            // The result title is the evidence here, not the status bar: no new
+            // compute runs (switching display re-renders the existing map via
+            // AppState.applyACOMDisplay), so the status bar still shows whatever
+            // the previous step left there.
+            log.bullet(
+                "Displayed product: \(driver.readValueText("result.title")) "
+                + "— RGBA orientation coloring, not a scalar map, so it carries an IPF "
+                + "legend instead of a colorbar."
+            )
+            log.bullet("Status bar (unchanged — no recompute): \(driver.currentStatusText())")
+            return true
+        } catch {
+            log.recordError("IPF · Z display did not appear: \(error)")
+            if let alert = driver.dismissErrorAlertIfPresent() {
+                log.bullet("App error alert: \(alert)")
+            }
+            return false
+        }
+    }
+
+    /// `ACOMDisplayMode` raw values (`App/ACOMWorkflow.swift:4`). Duplicated
+    /// here because the test target does not link the app's types; kept in one
+    /// place so a rename shows up as one failing lookup, not several.
+    private static let acomDisplayModeLabels = [
+        "IPF · Z", "Reliability", "Symmetry FZ angle", "In-plane angle",
+        "Euler φ₁", "Euler Φ", "Euler φ₂", "Score",
+    ]
+    private static let ipfZLabel = "IPF · Z"
+
     /// Strain (docs/py4dstem-pipelines.md §4) only needs detected Bragg
     /// vectors — origin/rotation help but aren't a hard prerequisite
     /// (ProductWorkflow.prerequisites for .strain only checks
@@ -368,24 +541,44 @@ private struct QCWorkflow {
         try driver.click("workspace.map")
         try driver.click("task.Strain")
         _ = try driver.waitForExistence("workspace.primaryAction", timeout: 20)
-        log.bullet("Reference: whole-scan mean (app default) · Basis: automatic (app default)")
+
+        // Both pickers are identifier-free, so read them off the screen the way
+        // a person would (see AXDriver.control(_:inRowWithLabel:)). Read, don't
+        // change: the defaults (whole-scan mean + automatic basis) are exactly
+        // what py4DSTEM's basics_04 does when no ROI is chosen, and picking a
+        // reference ROI or hand-entering g₁/g₂ would be the test inventing a
+        // scientific choice rather than evaluating the app's own default path.
+        let reference = driver.control(.popUpButton, inRowWithLabel: "Reference")
+        let basis = driver.control(.popUpButton, inRowWithLabel: "Basis")
+        log.bullet(
+            "Reference: \(driver.text(of: reference)) · Basis: \(driver.text(of: basis)) "
+            + "— both left at the app defaults"
+        )
 
         try driver.click("workspace.primaryAction", timeout: 15)
         do {
             try driver.waitForResultTitleContaining("Strain", timeout: 300)
             log.bullet("Result: \(driver.currentStatusText())")
+            let component = driver.control(.popUpButton, inRowWithLabel: "Component")
+            log.bullet(
+                "Displayed strain component: \(driver.text(of: component)) "
+                + "— this is the component exported below."
+            )
+            for line in driver.strainDiagnosticsText() { log.bullet("  \(line)") }
             return true
         } catch {
             log.recordError("Strain mapping did not complete: \(error)")
+            // A publish failure surfaces as a blocking "Something went wrong"
+            // sheet that would otherwise swallow every later click.
+            let alert = driver.dismissErrorAlertIfPresent()
+            if let alert { log.bullet("App error alert: \(alert)") }
             log.note(
                 "\n**Strain skipped** — whole-scan automatic basis fitting did not converge "
-                + "on this dataset (see error above). A different reference ROI or manual "
-                + "basis might succeed, but those pickers have no accessibility identifier "
-                + "(eval-only — not added; see docs/ui-workflow-backlog.md).\n"
+                + "on this dataset (see error above). The app's own remedy text points at the "
+                + "Bragg thresholds or the reference/basis selection; this test deliberately "
+                + "does not tune either, because both are scientific choices the *user* makes "
+                + "(see docs/ui-workflow-backlog.md).\n"
             )
-            // A publish failure surfaces as a blocking "Something went wrong"
-            // alert that would otherwise swallow the next click.
-            driver.dismissErrorAlertIfPresent()
             return false
         }
     }
@@ -400,18 +593,23 @@ private struct QCWorkflow {
     /// waits out each busy cycle rather than waiting for the label to change.
     ///
     /// Requires fitted origin + rotation + R and Q pixel size + accelerating
-    /// voltage (ProductWorkflow.prerequisites for .ptychography) — on a
-    /// dataset missing any of those the primary action renders but stays
-    /// disabled, which this logs as a finding and treats as a skip rather
-    /// than a hard failure, matching the "or log as a finding" allowance in
-    /// this prompt for the accelerating-voltage field.
+    /// voltage (ProductWorkflow.prerequisites for .ptychography). Voltage is
+    /// the one this step can supply itself (see setAcceleratingVoltage); the
+    /// other four come from Prepare. On a dataset missing any of them the
+    /// primary action renders but stays disabled, so this dumps the
+    /// calibration panel — which names the actual culprit — and treats it as a
+    /// skip rather than a hard failure. Measured outcome: none of the four
+    /// training datasets satisfies all five, and the missing item differs per
+    /// dataset (docs/py4dstem-pipelines.md §9.2, backlog #7).
     /// Returns whether any stage actually ran (so the caller knows whether
     /// there is a result to export).
-    private func runParallaxReconstruction() throws -> Bool {
+    private func runParallaxReconstruction(hints: DatacubeFilenameCalibration.Hints) throws -> Bool {
         log.subsection("7. Parallax reconstruction (Reconstruct)")
         try driver.click("workspace.reconstruct")
         try driver.click("task.Ptycho")
         _ = try driver.waitForExistence("workspace.primaryAction", timeout: 20)
+
+        try setAcceleratingVoltage(hints: hints)
 
         let stageWhitelist: Set<String> = [
             "Prepare Preview", "Align Next Level", "Fit Aberrations",
@@ -428,9 +626,15 @@ private struct QCWorkflow {
             guard primaryAction.isEnabled else {
                 log.bullet(
                     "Reconstruct primary action (\"\(label)\") is disabled — a required "
-                    + "prerequisite (fitted origin, R-Q rotation, R or Q pixel size, or "
-                    + "accelerating voltage) is missing for this dataset."
+                    + "prerequisite (fitted origin, R–Q rotation, R or Q pixel size, or "
+                    + "accelerating voltage) is missing for this dataset. Calibration panel "
+                    + "state at this point:"
                 )
+                try driver.click("workspace.prepare")
+                for line in driver.calibrationPanelText() { log.bullet("  \(line)") }
+                // Back to Reconstruct so the run's closing screenshot shows the
+                // dead end itself rather than the panel we detoured to read.
+                try driver.click("workspace.reconstruct")
                 break
             }
             try driver.click("workspace.primaryAction", timeout: 15)
@@ -449,6 +653,51 @@ private struct QCWorkflow {
         log.bullet("Ran stages: \(ranStages.joined(separator: " → "))")
         log.bullet("Result: \(driver.currentStatusText())")
         return true
+    }
+
+    /// Accelerating voltage is a hard prerequisite for parallax/ptychography
+    /// (`ProductWorkflow.prerequisites` for `.ptychography`) and py4DSTEM
+    /// passes it straight into the constructor (docs/py4dstem-pipelines.md
+    /// §5a–c). In the app it is a bare `TextField` under Reconstruct →
+    /// Ptychography with **no accessibility identifier**
+    /// (`UI/ContentView.swift:344`) — its row label is a separate
+    /// `Text("Voltage")`, so this locates it structurally by that label rather
+    /// than adding an identifier to app code (which eval-only forbids).
+    ///
+    /// The app auto-imports `accelerating_voltage` from file metadata when the
+    /// H5 carries it, so this only types a value when the field reads empty/0,
+    /// and always logs which of the two supplied the number.
+    private func setAcceleratingVoltage(hints: DatacubeFilenameCalibration.Hints) throws {
+        guard let field = driver.control(.textField, inRowWithLabel: "Voltage") else {
+            log.recordError(
+                "Accelerating-voltage field could not be located under Reconstruct → "
+                + "Ptychography, even structurally by its \"Voltage\" row label. Parallax/"
+                + "ptychography cannot be driven without it."
+            )
+            log.note(
+                "\n**Finding — kV is unreachable to automation.** The field has no "
+                + "accessibility identifier (docs/py4dstem-pipelines.md §7.4). Not added "
+                + "here: eval-only. See docs/ui-workflow-backlog.md.\n"
+            )
+            return
+        }
+        let imported = AXDriver.bestText(field)
+        let importedValue = Double(imported.replacingOccurrences(of: ",", with: "."))
+        if let importedValue, importedValue > 0 {
+            log.bullet(
+                "Accelerating voltage already set to \(imported) kV — auto-imported by the "
+                + "app from the file's `accelerating_voltage` metadata. Left as-is."
+            )
+            return
+        }
+        let kV = hints.acceleratingVoltageKV
+        try driver.typeAndCommit(element: field, text: String(format: "%.0f", kV))
+        log.bullet(
+            "Entered accelerating voltage \(String(format: "%.0f", kV)) kV — source: "
+            + "\(hints.voltageSource). The field was empty, i.e. the file carried no "
+            + "`accelerating_voltage` metadata. Field now reads: "
+            + "\(AXDriver.bestText(field))"
+        )
     }
 
     private func exportCurrentResult(filename: String) throws {
