@@ -57,6 +57,11 @@ review/save/export lifecycle rather than hiding it in an inspector.
 - Complete py4DSTEM API parity, every phase-retrieval method, GPU ptychography,
   materials-service integration, plugin architecture, and arbitrary EMD plot
   authoring.
+- Real/diffraction-space cropping, and partial or diffraction-binned loading of
+  large datasets. Captured with their constraints in
+  [`docs/post-v1-ideas.md`](post-v1-ideas.md) — that file is where post-v1
+  ideas needing `Core/` changes are parked, since
+  `docs/ui-workflow-backlog.md` is contractually UI/workflow-only.
 
 ## Release acceptance gates
 

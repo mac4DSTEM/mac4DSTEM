@@ -80,6 +80,12 @@ removes most of the confusion:
 - **`docs/v1-scope.md`** — the frozen v1 release contract. Consult when
   deciding whether a proposed change is in scope (ROADMAP's scope rule points
   here); not a "read first" doc.
+- **`docs/post-v1-ideas.md`** — parking lot for ideas that are out of v1 scope
+  *and* would touch `Core/` (cropping, partial/binned loading). Deliberately
+  separate from `docs/ui-workflow-backlog.md`, which is contractually
+  UI/workflow-only and must stay safe to hand out as implementation prompts.
+  Nothing here is committed to; entries record the non-obvious constraints so a
+  later session doesn't rediscover them.
 
 ## Where things go (file-placement rules)
 
