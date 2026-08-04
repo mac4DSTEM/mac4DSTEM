@@ -586,13 +586,40 @@ private func evaluate(
         )
     }
 
-    guard let kernel = ProbeKernel.synthetic(
-        radius: originFit.probeRadius, qy: descriptor.qy, qx: descriptor.qx
-    ) else {
-        throw NSError(
-            domain: "training-dataset-campaign", code: 3,
-            userInfo: [NSLocalizedDescriptionKey: "Probe kernel did not initialize"]
-        )
+    // DIAGNOSTIC ONLY (backlog #18): a QC recording showed the app succeeding
+    // on Si_SiGe strain using "Use Current CBED/ROI" — AppState.
+    // generateMeasuredProbeKernel() → ProbeKernel.measured(pattern:...), built
+    // from the dataset's own central-disk shape — where the campaign always
+    // uses ProbeKernel.synthetic(radius:...), an idealized template. Every
+    // other calibration input (peak count, spacing, ellipse state, origin fit,
+    // probe radius, reference/basis) was checked and matches exactly, so the
+    // kernel is the only remaining candidate. MAC4DSTEM_DISK_KERNEL_MEASURED
+    // swaps it in to test that hypothesis; not a permanent campaign mode.
+    let kernel: ProbeKernel
+    if ProcessInfo.processInfo.environment["MAC4DSTEM_DISK_KERNEL_MEASURED"] != nil {
+        guard let measured = ProbeKernel.measured(
+            pattern: DiffractionPattern(
+                qy: descriptor.qy, qx: descriptor.qx, pixels: originFit.meanDP
+            ),
+            originX: meanOrigin.x, originY: meanOrigin.y,
+            radius: originFit.probeRadius
+        ) else {
+            throw NSError(
+                domain: "training-dataset-campaign", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Measured probe kernel did not initialize"]
+            )
+        }
+        kernel = measured
+    } else {
+        guard let synthetic = ProbeKernel.synthetic(
+            radius: originFit.probeRadius, qy: descriptor.qy, qx: descriptor.qx
+        ) else {
+            throw NSError(
+                domain: "training-dataset-campaign", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Probe kernel did not initialize"]
+            )
+        }
+        kernel = synthetic
     }
     // The origin fit above measured the probe radius, so the campaign has it
     // before detection runs and must pass it: the detector-scaled fallback

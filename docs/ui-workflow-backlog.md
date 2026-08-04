@@ -525,11 +525,22 @@ Two fixes, both cheap:
 
 ---
 
-## #18 — The campaign cannot reproduce the app's strain result on Si_SiGe
+## #18 — The campaign cannot reproduce the app's strain result on Si_SiGe  ·  Priority: LOW (test-harness gap, not a v1 blocker)
 
-**Found 2026-08-04 while fixing the disk-spacing default (pipelines §10.3).
-This supersedes the strain half of #5 and #8 as the thing actually worth
-fixing.**
+**NOT a release blocker — read this before picking it up.** The app already
+produces a correct Si_SiGe strain map (100% indexed, 98% basis support,
+confirmed by frame-by-frame video analysis, 2026-08-04) — that is real
+operational evidence per ROADMAP P1.4's evidence tiers, independent of
+automated parity. And the campaign's one dataset with an actual py4DSTEM
+comparison — sim_Au — passes, unaffected by anything below (all 47 metrics
+bit-identical before/after the disk-spacing fix). What's unresolved is that
+the *campaign harness* cannot yet reproduce the app's success, for a reason
+six tested hypotheses have failed to find. `docs/v1-scope.md`'s correctness
+gate requires deviations to be explicit, not that every one be resolved —
+this is now thoroughly documented, so that bar is met. Pick this up when
+someone wants deeper harness confidence, not to unblock v1.
+
+**Found 2026-08-04 while fixing the disk-spacing default (pipelines §10.3).**
 
 The release owner produced a clean strain map in the **app** on
 `downsample_Si_SiGe_exp` (100% indexed, 100% basis support, RMS 0.885 px,
@@ -554,11 +565,53 @@ been reporting.
 
 **Tooling now available:** `MAC4DSTEM_DISK_SIGMA_CC`,
 `MAC4DSTEM_DISK_MIN_SPACING`, `MAC4DSTEM_DISK_EDGE` make the campaign reproduce
-a hand-tuned session exactly. Next step is to dump the calibration state and
-the first N calibrated vectors from both paths and diff them, rather than
-inspecting more code.
+a hand-tuned session exactly. `MAC4DSTEM_DISK_KERNEL_MEASURED` swaps in
+`ProbeKernel.measured` (see below — tested and ruled out, kept for reuse).
 
-**Core untouched:** unknown until located — likely harness-side.
+**2026-08-04, later: a screen recording of the successful app session was
+frame-analyzed and two more candidates were tested and RULED OUT — do not
+re-try either:**
+
+1. **Kernel type.** The recording showed the successful run used **"Use
+   Current CBED/ROI"** (`AppState.generateMeasuredProbeKernel()` →
+   `ProbeKernel.measured`, built from the dataset's actual central-disk shape)
+   rather than the synthetic idealized kernel the campaign always builds
+   (`ProbeKernel.synthetic`). This looked like a strong, structural candidate —
+   it is a real code-level difference, confirmed by the app's own log line
+   ("Measured probe kernel ✓ r = 5.0 px from current CBED/ROI"). Tested via
+   `MAC4DSTEM_DISK_KERNEL_MEASURED=1`: peak count changes as expected (267,025
+   vs 248,368 synthetic — the kernel genuinely is different), but **strain
+   still fails identically** ("No sufficiently supported, well-conditioned
+   lattice basis was found"). Ruled out.
+2. **Aperture feeding origin calibration.** The release owner's own
+   hypothesis — that placing/moving the virtual detector before running
+   calibration changes the fit. Checked in code: `calibrateOrigin()` calls
+   `OriginCalibration.tiledRun(data:descriptor:fitFunction:cancellation:)` with
+   no aperture parameter at all; the aperture is only *recentered* onto the
+   result afterward. Cannot affect the fit. Ruled out without needing a test.
+
+**Also confirmed matching exactly by frame analysis (so also not the
+cause):** ellipse fit fails to converge identically in both paths, with the
+same error text ("Detector ellipse fitting did not converge."), so neither
+applies a correction; `Calibration.meanOrigin` is exactly
+`(Σ fittedX/n, Σ fittedY/n)` in both; Reference = Whole-scan mean and
+Basis = Automatic in both; spacing/σCC/edge and peak count (248,118 in the
+recording vs 248,368 reproduced with spacing=10 alone, σCC/edge at default)
+match to 0.1%.
+
+**What has NOT been tried:** the actual instrumented diff this entry
+originally called for — dump `Calibration` state, `referenceOrigin`, and the
+first ~20 *calibrated* vectors at matching scan positions from both paths and
+compare them directly, rather than testing one hypothesis at a time from
+outside. Given how much has been ruled out already, the remaining difference
+is likely small and specific (e.g. a float32/float64 path, an ordering
+dependency in `expand`/consensus that a near-identical peak SET realizes
+differently even at a near-identical peak COUNT, or something in
+`StrainMapping`'s basis search itself) — better found by diffing actual data
+than by further black-box guessing.
+
+**Core untouched:** unknown until located — likely harness-side, but not
+proven; `StrainMapping.compute` itself has not been ruled out.
 
 ---
 
