@@ -41,6 +41,29 @@ compute that already behaves correctly. Details below.
 
 ---
 
+## Design-pass items — do not implement piecemeal
+
+Most items below are a mechanical fix: reproduce, patch, test, done in one
+session. The two marked **[DESIGN PASS]** are different — the release owner
+wants these thought through deliberately (what the control should feel like,
+how it fits the rest of the workspace) rather than patched reactively. Do not
+hand these out as an ordinary implementation prompt; scope a design pass first
+(Plan subagent / Opus, weighing 2–3 approaches) before writing code. This
+section is the standing place to park a UI idea that isn't ready to execute
+yet — add to it rather than starting a new doc.
+
+- **#16** — controls intermittently unresponsive. Reproduction is still
+  mechanical (find the trigger, fix the stale state) — but once found, the
+  release owner wants the fix considered against *why* the app accumulated
+  this kind of state bug at all, not just patched at the one site found.
+- **#17** — rotate the real-space image. Scope rationale already written
+  below, but on reflection this deserves the same treatment: how rotation
+  should compose with every real-space view, the export-provenance question,
+  and whether the control family (rotate/flip/whatever else the browser needs)
+  should be designed as a set rather than one feature at a time.
+
+---
+
 ## #1 — Gate & sign-post ACOM's prerequisites  ·  Priority: HIGH  ·  Layer: WF + UI  ·  Effort: M
 
 **✅ CLOSED 2026-08-04** — shipped with #7 as one generic mechanism:
