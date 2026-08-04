@@ -225,6 +225,90 @@ final class ProductWorkflowTests: XCTestCase {
         )
     }
 
+    /// IPF·Z is promoted over the Reliability default only for a user who has
+    /// not chosen a display. The flag is what separates "still on the default"
+    /// from "asked for Reliability", which `didSet` alone cannot see — if it
+    /// stopped being set, a completed map would overrule a deliberate choice.
+    func testChoosingAnACOMDisplayIsRecordedSoItIsNotLaterOverridden() {
+        let state = AppState()
+        XCTAssertEqual(state.acomDisplay, .reliability)
+        XCTAssertFalse(state.acomDisplayIsUserChosen)
+
+        state.selectACOMDisplay(.score)
+        XCTAssertEqual(state.acomDisplay, .score)
+        XCTAssertTrue(state.acomDisplayIsUserChosen)
+
+        // Re-selecting the default is still a choice, not a reset.
+        state.selectACOMDisplay(.reliability)
+        XCTAssertEqual(state.acomDisplay, .reliability)
+        XCTAssertTrue(state.acomDisplayIsUserChosen)
+    }
+
+    /// The hint is a forward pointer, so what it *doesn't* say matters as much
+    /// as what it does: repeating the calibration checklist or the task group
+    /// labels would be noise on the exact screens that already say it.
+    func testNextStepHintPointsForwardAndStaysSilentWhereTheUIAlreadyExplains() {
+        var readiness = ProductWorkflowReadiness()
+
+        // Prepare: silent while the checklist is still naming missing fields.
+        XCTAssertNil(ProductWorkflow.nextStepHint(
+            for: .prepare, readiness: readiness, calibrationReady: false
+        ))
+        XCTAssertNotNil(ProductWorkflow.nextStepHint(
+            for: .prepare, readiness: readiness, calibrationReady: true
+        ))
+
+        // Map: silent before disks exist — the task group labels already say
+        // which tasks require Bragg vectors.
+        XCTAssertNil(ProductWorkflow.nextStepHint(
+            for: .map, readiness: readiness, calibrationReady: true
+        ))
+
+        // Image points at the Bragg path only while it is still unsatisfied.
+        XCTAssertNotNil(ProductWorkflow.nextStepHint(
+            for: .image, readiness: readiness, calibrationReady: true
+        ))
+
+        readiness.hasBraggVectors = true
+        XCTAssertNil(ProductWorkflow.nextStepHint(
+            for: .image, readiness: readiness, calibrationReady: true
+        ))
+        XCTAssertNotNil(ProductWorkflow.nextStepHint(
+            for: .map, readiness: readiness, calibrationReady: true
+        ))
+
+        // Terminal for this purpose regardless of state.
+        for ready in [false, true] {
+            XCTAssertNil(ProductWorkflow.nextStepHint(
+                for: .results, readiness: readiness, calibrationReady: ready
+            ))
+            XCTAssertNil(ProductWorkflow.nextStepHint(
+                for: .reconstruct, readiness: readiness, calibrationReady: ready
+            ))
+        }
+    }
+
+    /// Every task belongs to exactly one prerequisite family, and `.disks` must
+    /// be the producer — a single "requires Bragg vectors" label spanning Map
+    /// would be wrong about the one task that satisfies it.
+    func testTaskPrerequisiteFamiliesSplitTheBraggDependencyCorrectly() {
+        XCTAssertEqual(AnalysisMode.disks.prerequisiteFamily, .producesBraggVectors)
+        XCTAssertEqual(AnalysisMode.strain.prerequisiteFamily, .requiresBraggVectors)
+        XCTAssertEqual(AnalysisMode.acom.prerequisiteFamily, .requiresBraggVectors)
+        for mode in [AnalysisMode.virtualDetector, .dpc, .ptychography] {
+            XCTAssertEqual(mode.prerequisiteFamily, .phaseContrast, "\(mode)")
+        }
+
+        // Grouping must not drop or duplicate a task in any workspace.
+        for area in WorkspaceArea.allCases {
+            let grouped = TaskPrerequisiteFamily.allCases.flatMap { family in
+                area.analysisModes.filter { $0.prerequisiteFamily == family }
+            }
+            XCTAssertEqual(Set(grouped), Set(area.analysisModes), "\(area)")
+            XCTAssertEqual(grouped.count, area.analysisModes.count, "\(area)")
+        }
+    }
+
     func testNavigationDoesNotRelabelTheVisibleScientificResult() {
         let state = AppState()
         state.resultImage = FloatImage(width: 1, height: 1, pixels: [1])

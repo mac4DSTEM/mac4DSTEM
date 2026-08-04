@@ -100,6 +100,14 @@ struct ACOMControlsView: View {
             LabeledContent("Expected", value: appState.acomEstimatedDurationText)
                 .font(.caption)
                 .accessibilityIdentifier("acom.expected")
+            if let suggestion = appState.acomFullScanSuggestion {
+                Button(suggestion) {
+                    appState.acomScope = .fullScan
+                }
+                .font(.caption)
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("acom.suggestFullScan")
+            }
 
             DisclosureGroup("Engine & Q scale") {
                 engineControls(appState: appState)
@@ -273,7 +281,13 @@ struct ACOMControlsView: View {
                     semantics.scale.provenance.isPhysical ? Color.green : Color.orange
                 )
             }
-            Picker("Display", selection: $appState.acomDisplay) {
+            // Routed through `selectACOMDisplay` rather than bound directly, so
+            // an explicit choice here is recorded and a later completed map
+            // never silently promotes IPF·Z over it.
+            Picker("Display", selection: Binding(
+                get: { appState.acomDisplay },
+                set: { appState.selectACOMDisplay($0) }
+            )) {
                 ForEach(ACOMDisplayMode.allCases) { mode in
                     Text(mode.rawValue).tag(mode)
                 }

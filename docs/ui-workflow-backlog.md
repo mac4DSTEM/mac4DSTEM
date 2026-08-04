@@ -61,6 +61,47 @@ yet — add to it rather than starting a new doc.
   should compose with every real-space view, the export-provenance question,
   and whether the control family (rotate/flip/whatever else the browser needs)
   should be designed as a set rather than one feature at a time.
+- **#21** — the Reconstruct workspace is cramped, and says everything twice.
+  See below; found by playthrough 2026-08-05.
+
+### Observed 2026-08-05 — a Reconstruct playthrough, for the design pass
+
+Two screenshots of the **Reconstruct** workspace on `downsample_Si_SiGe_exp`
+(reached after a successful strain map: 100% indexed, RMS 0.99 px, κ 4.84).
+Concrete material for whoever takes the design pass:
+
+1. **#16 reproduced, with a location.** The first screenshot has the sidebar
+   "Prepare" header drawn over the window traffic lights, and the
+   prerequisite rows drawn over the "mac4DSTEM" title bar. The second, same
+   screen after navigating, lays out correctly. So the symptom is not only
+   "buttons go inert" — it is **layout/scroll state**, and Reconstruct is a
+   place it happens. Whoever reproduces #16 should start here.
+
+2. **The prerequisite list is on screen twice.** The main pane renders
+   "Needed before Parallax & ptychography can run" — all five requirements
+   with Ready/Missing and two `Open Prepare` buttons. The sidebar Task section
+   simultaneously renders the *missing* subset plus `Go to Prepare`. Neither is
+   wrong on its own; together they are most of the vertical space in the
+   screenshot and the reason it reads as cramped. This is a consequence of #7's
+   checklist being mounted under every primary action while the main pane also
+   has one. **The design pass should decide which surface owns this**, rather
+   than either being trimmed in isolation.
+
+3. **#4's group label is marginal in single-task workspaces** — my own change,
+   flagged here rather than left to rot. Reconstruct has exactly one task, so
+   "No Bragg vectors required" sits above a single row. It earns its place in
+   Map (three tasks, two families) and is close to noise with one. Candidate
+   refinement: only label when a workspace actually contains more than one
+   family, or more than one task. Deliberately *not* patched reactively — it
+   belongs with the same design pass, since the answer depends on what that
+   pass decides about the sidebar's role overall (point 2).
+
+4. **#17's use case is now concrete.** The strain map is 200 × 50 — a wide,
+   short strip sitting beside a square 128 × 128 CBED, so most of the result
+   pane is empty. Rotating it 90° for *display* would let both panes use their
+   space. This is presentation only, "just for the show" in the release owner's
+   words — see #17 below for why that still has real constraints (true scan
+   indices, scale-bar axis, export provenance).
 
 ---
 
@@ -94,7 +135,19 @@ on).
 
 ---
 
-## #2 — Make "Calibrate Q from Selected Material" the obvious path  ·  Priority: HIGH  ·  Layer: UI  ·  Effort: S
+## #2 — Make "Calibrate Q from Selected Material" the obvious path  ·  Priority: HIGH  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
+
+**Shipped:** in `CalibrationReadinessChecklist.readinessAction(for:)` (`qScale`
+case), when a phase model is resolved the crystal-calibration button now
+renders `.borderedProminent` above an "or manual" fallback row; when no phase
+model is available the manual field is preceded by a reason that names
+whichever half of the two-part prerequisite is actually unmet: "Detect disks
+and choose a phase model to calibrate Q from a known crystal." when disks
+haven't been detected yet, or "Choose a phase model to calibrate Q from a
+known crystal." when disks are already in hand and only the phase model is
+missing (fixed post-review — the single generic sentence had been telling
+users who'd already detected disks to redo that step). Presentation-only
+reorder/branching of existing controls/state, matches the proposal.
 
 **Finding (§7.2, §9.1):** for a known standard (e.g. gold), the canonical way
 to get the Q pixel size is matching detected peaks to the crystal's structure
@@ -156,7 +209,21 @@ change. (Note: adding the a11y identifier is an app-code change, so it is
 
 ---
 
-## #4 — Group tasks by prerequisite (Bragg path vs phase-contrast path)  ·  Priority: MED  ·  Layer: UI  ·  Effort: S
+## #4 — Group tasks by prerequisite (Bragg path vs phase-contrast path)  ·  Priority: MED  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
+
+**Shipped:** `TaskPrerequisiteFamily` (`App/ProductWorkflow.swift`) +
+`AnalysisMode.prerequisiteFamily`; the sidebar Task section now renders one
+light caption per non-empty family before its tasks. Identifiers
+`task.group.{producesBragg,requiresBragg,phaseContrast}`.
+
+**Deviation from the proposal:** three families, not two. The item suggested a
+"requires Bragg vectors" header over Disks/Strain/ACOM, but `.disks` *produces*
+the vectors the other two consume — one header spanning Map would be wrong
+about the one task that satisfies it. So Disks gets "Produces Bragg vectors",
+Strain/ACOM get "Requires Bragg vectors", and the phase-contrast tasks get
+"No Bragg vectors required". Pinned by
+`testTaskPrerequisiteFamiliesSplitTheBraggDependencyCorrectly`, which also
+asserts the grouping neither drops nor duplicates a task in any workspace.
 
 **Finding (§7.5):** two families of analysis have very different
 prerequisites: the **Bragg-vector path** (Disks → ACOM/Strain) needs disk
@@ -225,7 +292,20 @@ adding identifiers alongside this change would be cheap.
 
 ---
 
-## #6 — Optional: in-flow ordering hints  ·  Priority: LOW  ·  Layer: UI  ·  Effort: S
+## #6 — Optional: in-flow ordering hints  ·  Priority: LOW  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
+
+**Shipped:** `ProductWorkflow.nextStepHint(for:readiness:calibrationReady:)` —
+a pure function alongside the existing `guidance(...)`, not a second
+mechanism — rendered as one caption under the Workspace section
+(`workspace.nextStepHint`). Prepare → Image/Map, Image → Map, Map → Results.
+
+**Deliberately silent** on three screens, because a hint that repeats what is
+already visible is noise: Prepare while calibration is incomplete (the
+readiness checklist already names each missing field), Map before disks exist
+(**#4**'s group labels already say which tasks need Bragg vectors), and
+Results/Reconstruct. That silence is the part most likely to regress, so it is
+what `testNextStepHintPointsForwardAndStaysSilentWhereTheUIAlreadyExplains`
+asserts. No workspace re-ordering, per the item's explicit "NOT recommended".
 
 **Finding (§7.1, softened):** the app's Prepare→Map order is valid (it
 measures origin independently, unlike py4DSTEM's disks-first requirement), so
@@ -334,7 +414,24 @@ read errors). Keep "Copy Details" available from the non-modal surface.
 
 ---
 
-## #10 — Surface R pixel scale provenance and conflicts  ·  Priority: LOW-MED  ·  Layer: UI  ·  Effort: S
+## #10 — Surface R pixel scale provenance and conflicts  ·  Priority: LOW-MED  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
+
+**Shipped:** both halves, in `CalibrationReadinessChecklist`. The `rScale`
+action now leads with "R pixel scale cannot be measured from the data — enter
+it from the acquisition parameters" above the manual field. The conflict note
+is rendered in `readinessRow` rather than `readinessAction`, because an
+imported-but-wrong R scale is *ready* — the one state the existing action
+branch never draws. `scanStepAngstromPerPixel(inFilename:)` parses an
+`ss<number><unit>` token (nm/pm/µm/Å, decimals, case-insensitive, last path
+component only) and compares in Å/px at a 5% tolerance, so a unit difference
+is not reported as a conflict and an abbreviated token is not flagged for
+rounding. Identifier `calibration.rScale.filenameConflict`.
+
+**Deviation from the proposal:** the parser is `internal`, not `private`, so
+`mac4DSTEMTests/CalibrationReadinessFilenameTests.swift` (7 cases) can pin the
+false-positive guards — the note contradicts a correct imported calibration if
+it ever fires wrongly, so `bin2` / `45x90` / `300kV` / `cl-600mm` and
+no-token filenames are all asserted to parse as nil.
 
 **Finding (§9.2.2):** R pixel scale is the most common Reconstruct blocker
 (3/4 datasets), and it is the one calibration with **no measurement path** in
@@ -379,7 +476,30 @@ that cannot help.
 
 ---
 
-## #12 — Revisit the ACOM Preview default, and lead with IPF·Z  ·  Priority: MED  ·  Layer: UI (+ light WF)  ·  Effort: S
+## #12 — Revisit the ACOM Preview default, and lead with IPF·Z  ·  Priority: MED  ·  Layer: UI (+ light WF)  ·  Effort: S  ·  ✅ Done
+
+**Shipped (b) as proposed:** a completed map with a resolved symmetry promotes
+`acomDisplay` to `.ipfZ` (`promoteIPFZDisplayIfDefault`). Guarded twice — never
+when `map.symmetry == .identity` (no fundamental zone, so an IPF key would be a
+fabricated legend), and never over an explicit choice: the picker now routes
+through `selectACOMDisplay(_:)`, which records `acomDisplayIsUserChosen`
+(a `didSet` cannot tell a human choice from a programmatic default). Reset per
+dataset. Pinned by
+`testChoosingAnACOMDisplayIsRecordedSoItIsNotLaterOverridden`.
+
+**Shipped (a) as the affordance, NOT the default change** — the item offered
+either. Changing the default was rejected: `acomEstimatedDuration` is nil
+without a measured throughput or the CPU baseline, so on a fresh GPU session
+the app cannot know a full scan is cheap, and the default would only flip
+*after* a preview had already been run. Instead `acomFullScanSuggestion`
+surfaces a one-click "Run the full scan instead — about N s" button
+(`acom.suggestFullScan`) beside the Expected row, offered only from `.preview`,
+only when grounded, and only under 5 s. It reuses the existing estimator via a
+shared `acomEstimatedDuration(forPositions:)` so the suggestion can never
+disagree with the "Expected" row.
+
+**Also:** the display picker's accessibility identifier the item asked for was
+already added under **#3**; the label disambiguation is retained.
 
 **Finding (§9.4):** ACOM defaults to **Preview** scope (≤32 × 32 sampled
 positions) and to the **Reliability** display. Measured on `sim_Au`: the full
@@ -409,7 +529,31 @@ identifier alongside this change is cheap.
 
 ---
 
-## #13 — A full-scan ACOM result is the least-labelled one  ·  Priority: LOW-MED  ·  Layer: UI  ·  Effort: S
+## #13 — A full-scan ACOM result is the least-labelled one  ·  Priority: LOW-MED  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
+
+**Shipped both halves** — display name *and* the persisted `kind`. All three
+scopes are now named uniformly: "ACOM full scan · Reliability",
+`acom_full_reliability` (previously `acom_reliability`, the only unqualified
+spelling).
+
+**The compatibility caveat was real, and it found a live bug.**
+`UI/StemImageView.swift` gated the IPF colour-key legend on
+`displayedResultKind == "acom_ipf_z"` — exact equality. Adding a scope token
+would have removed the legend from full-scan IPF maps, i.e. the exact product
+**#12** just promoted to the default. It is now a `contains("ipf_z")` check,
+which additionally **fixes a pre-existing bug**: preview and region IPF maps
+(`acom_preview_ipf_z`) never matched that equality, so they had never shown a
+colour key at all. Substring matching also keeps kinds saved *before* this
+change working on reopen.
+
+**Checked, not assumed:** `ACOMRunSemantics.productStatus(for:)` already
+matched by substring; `tools/sidecar-result-test/` hardcodes its own
+`acom_ipf_z` fixture rather than calling `ResultExport`, so it is unaffected
+(confirmed — full `scientific` suite green, 28/28). The QC harness's two waits
+still match ("ACOM full scan · Reliability" contains "ACOM", not "preview"), so
+its test-side workaround keeps working; it could now assert "full scan"
+positively instead, which is left alone because that harness cannot currently
+be run to verify (needs Accessibility permission).
 
 **Finding (§9.4):** result titles are "ACOM preview · Reliability" for preview
 and "ACOM region · …" for a region, but plain **"ACOM · Reliability"** for a
@@ -664,7 +808,14 @@ that undermines the mechanism v1 relies on to explain itself.
 
 ---
 
-## #17 — Rotate the real-space image in the browser (display only)
+## #17 — Rotate the real-space image in the browser (display only)  ·  [DESIGN PASS]
+
+**Concrete case, 2026-08-05:** on `downsample_Si_SiGe_exp` the strain map is
+**200 × 50** and renders beside a square **128 × 128** CBED, leaving most of the
+result pane empty. Rotating the real-space view 90° would let both panes use
+their space. Confirmed by the release owner as presentation only — "not a
+scientific rotation in that sense, just for the show" — which is exactly the
+framing that makes the constraints below matter rather than disappear.
 
 **Requested by the release owner, 2026-08-04.** A 200 × 50 scan is displayed
 as a wide, short strip that is awkward to read. There should be a way to rotate

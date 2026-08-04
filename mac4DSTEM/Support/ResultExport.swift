@@ -894,12 +894,15 @@ extension AppState {
             case .phi2:        baseKind = "acom_phi2"
             case .score:       baseKind = "acom_score"
             }
+            // All three scopes are named, including full scan. Previously the
+            // qualifier was empty only for full scan, so the most complete
+            // product was the one whose label said least about how it was made,
+            // and preview vs full-scan results were told apart by the *absence*
+            // of a word — which silently matched a stale preview in the QC
+            // harness and is unresolvable for a user comparing exported PNGs.
             let scope = acomLastRunScope ?? .fullScan
-            let kind = scope == .fullScan
-                ? baseKind
-                : "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))"
-            let qualifier = scope == .fullScan ? "" : " \(scope.rawValue.lowercased())"
-            return (kind, "ACOM\(qualifier) · \(acomDisplay.rawValue)",
+            let kind = "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))"
+            return (kind, "ACOM \(scope.rawValue.lowercased()) · \(acomDisplay.rawValue)",
                     angular.contains(acomDisplay) ? "rad" : "dimensionless")
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")

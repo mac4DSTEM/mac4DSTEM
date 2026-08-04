@@ -433,6 +433,22 @@ final class AppState {
     }
 
     var acomEstimatedDuration: TimeInterval? {
+        acomEstimatedDuration(forPositions: acomWorkPositionCount)
+    }
+
+    /// What a full-scan run would cost, using the same throughput the panel
+    /// already shows for the current scope — deliberately not a second
+    /// estimator, so the suggestion cannot disagree with the "Expected" row.
+    var acomFullScanEstimatedDuration: TimeInterval? {
+        guard let descriptor else { return nil }
+        return acomEstimatedDuration(
+            forPositions: ACOMScanSelection.full.positionCount(
+                width: descriptor.rx, height: descriptor.ry
+            )
+        )
+    }
+
+    private func acomEstimatedDuration(forPositions positions: Int) -> TimeInterval? {
         let templates = Double(acomQuality.templateCount)
         let throughput: Double
         if let measured = acomLastPositionsPerSecond,
@@ -445,7 +461,27 @@ final class AppState {
         } else {
             return nil
         }
-        return Double(acomWorkPositionCount) / max(throughput, 1)
+        return Double(positions) / max(throughput, 1)
+    }
+
+    /// A full scan this cheap is offered as one click instead of leaving the
+    /// user on a 32×32 preview. Measured motivation: sim_Au's full 84×100 scan
+    /// against 200 templates ran in 0.7 s while the panel estimated ~2 s.
+    ///
+    /// 5 s is the ceiling because the run is already cancellable and reports
+    /// progress, so the cost of accepting is bounded and visible; and the
+    /// estimate is only offered at all once it is grounded (a measured
+    /// throughput, or the CPU baseline), never on an unmeasured GPU guess.
+    /// Only offered from `.preview` — a user who deliberately chose a region
+    /// is not second-guessed.
+    var acomFullScanSuggestion: String? {
+        guard acomScope == .preview,
+              let seconds = acomFullScanEstimatedDuration,
+              seconds <= 5
+        else { return nil }
+        return seconds < 1
+            ? "Run the full scan instead — under 1 s"
+            : "Run the full scan instead — about \(Int(seconds.rounded())) s"
     }
 
     var acomEstimatedDurationText: String {
@@ -759,6 +795,31 @@ final class AppState {
 
     var acomDisplay: ACOMDisplayMode = .reliability {
         didSet { applyACOMDisplay() }
+    }
+
+    /// Whether the user has picked a display themselves. Set only by
+    /// `selectACOMDisplay(_:)` from the picker, so a completed map may promote
+    /// IPF·Z once without ever overriding a deliberate choice.
+    private(set) var acomDisplayIsUserChosen = false
+
+    /// The picker's setter. Distinguishes a human choice from the programmatic
+    /// default below, which `didSet` alone cannot.
+    func selectACOMDisplay(_ mode: ACOMDisplayMode) {
+        acomDisplayIsUserChosen = true
+        acomDisplay = mode
+    }
+
+    /// py4DSTEM's `plot_orientation_maps` leads with the IPF coloring, and it
+    /// is the map a user following the tutorial came for; Reliability is the
+    /// quality check, one click away. Promoted only when the crystal actually
+    /// has a symmetry to color by — `.identity` has no fundamental zone, so an
+    /// IPF key there would be a fabricated legend.
+    private func promoteIPFZDisplayIfDefault(for map: OrientationMap) {
+        guard !acomDisplayIsUserChosen,
+              acomDisplay == .reliability,
+              map.symmetry != .identity
+        else { return }
+        acomDisplay = .ipfZ
     }
 
     var aperture = Aperture()
@@ -1523,6 +1584,7 @@ final class AppState {
         acomLastMeasuredBackend = nil
         acomRegionSelectionActive = false
         acomScope = .preview
+        acomDisplayIsUserChosen = false
         acomRegionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point
@@ -3500,6 +3562,7 @@ final class AppState {
         acomLastMeasuredTemplateCount = plan.count
         acomLastMeasuredBackend = map.matchingBackend
         acomRegionSelectionActive = false
+        promoteIPFZDisplayIfDefault(for: map)
         applyACOMDisplay()
         statusText = String(
             format: "ACOM %@ ✓  %@ · %@ · %@ positions · %.1f s",

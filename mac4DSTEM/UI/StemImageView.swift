@@ -216,7 +216,12 @@ struct StemImageView: View {
                                alignment: .bottomTrailing)
                 }
 
-                if qualityField == nil, app.displayedResultKind == "acom_ipf_z" {
+                // Substring, not equality: the kind now always carries a scope
+                // (`acom_full_ipf_z`, `acom_preview_ipf_z`). Equality matched
+                // only the un-suffixed full-scan spelling, so preview and
+                // region IPF maps never got their colour key — and it also
+                // keeps kinds saved before that change working on reopen.
+                if qualityField == nil, app.displayedResultKind.contains("ipf_z") {
                     Group {
                         if app.orientationMap?.symmetry == .hexagonal {
                             HexagonalIPFLegendView()

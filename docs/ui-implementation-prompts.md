@@ -87,12 +87,32 @@ Commit only if I ask.
   (voltage, strain pickers + diagnostics, ACOM display + Work/Expected).
   Open: VoiceOver + increased-text-size runtime verification — needs a human
   session; nothing headless can honestly tick a VoiceOver gate.
-- ◐ **Prompt E — result labelling & presentation batch**: #9 shipped
-  2026-08-04 (compute failures → non-modal status bar + log,
+- ✅ **Prompt E — result labelling & presentation batch** (closed 2026-08-05).
+  #9 shipped 2026-08-04 (compute failures → non-modal status bar + log,
   `ErrorRoutingTests`; adversarial review then caught that mid-compute
   file/IO errors were being demoted too — `presentComputeFailure` now
-  escalates data-source failures back to the modal, with a test). #2, #4,
-  #6, #10, #12, #13 remain.
+  escalates data-source failures back to the modal, with a test). The
+  remaining six — **#2, #10, #4, #6, #12, #13** — all shipped 2026-08-05 in one
+  sequential pass. No `Core/` file was touched by any of them; `unit` 76/76 and
+  `scientific` 28/28 green at the end. Each backlog entry carries what actually
+  shipped; three deviated from the proposal and say so:
+  - **#4** needed *three* prerequisite families, not two — `.disks` produces
+    the Bragg vectors that `.strain`/`.acom` consume, so the item's single
+    "requires Bragg vectors" header would have mislabelled the one task that
+    satisfies it.
+  - **#12** shipped the one-click full-scan *affordance* rather than flipping
+    the default scope: the work estimate is nil without a measured throughput,
+    so a fresh GPU session cannot know a full scan is cheap and the default
+    would only flip after a preview had already run.
+  - **#13** ran into the compatibility caveat it predicted, and it was real —
+    the IPF colour-key legend was gated on `kind == "acom_ipf_z"` exactly.
+    Fixing it to a substring match also repaired a **pre-existing** bug:
+    preview and region IPF maps had never shown a colour key.
+  Two follow-ups were *not* done and are deliberate: the QC harness could now
+  assert "full scan" positively instead of "not preview", but that harness
+  can't currently be run to verify (Accessibility permission); and **#5**/#8's
+  reference/basis UI half remains open — only their disk-detection half shipped,
+  under Prompt C.
 - ✅ **CIF import — user-reachable** (2026-08-04; not a Prompt A–E item, this
   serves ROADMAP P1.3 "admit a new phase only through the generic model
   contract"). `Core/Crystal/CIFImport.swift` parses cell parameters, the

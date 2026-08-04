@@ -37,12 +37,33 @@ struct ContentView: View {
                         ForEach(WorkspaceArea.allCases) { area in
                             workspaceButton(area)
                         }
+                        if let hint = ProductWorkflow.nextStepHint(
+                            for: appState.workspaceArea,
+                            readiness: appState.productWorkflowReadiness,
+                            calibrationReady: appState.calibrationReadiness.isReady
+                        ) {
+                            Text(hint)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("workspace.nextStepHint")
+                        }
                     }
 
                     if !appState.workspaceArea.analysisModes.isEmpty {
                         Section("Task") {
-                            ForEach(appState.workspaceArea.analysisModes) { mode in
-                                taskButton(mode)
+                            ForEach(TaskPrerequisiteFamily.allCases) { family in
+                                let modes = appState.workspaceArea.analysisModes
+                                    .filter { $0.prerequisiteFamily == family }
+                                if !modes.isEmpty {
+                                    Text(family.groupLabel)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityIdentifier(
+                                            "task.group.\(family.accessibilitySuffix)"
+                                        )
+                                    ForEach(modes) { taskButton($0) }
+                                }
                             }
                             taskReadiness(appState.analysisMode)
                         }

@@ -55,7 +55,52 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var isAdvanced: Bool { self == .reconstruct }
 }
 
+/// Which side of the Bragg-vector dependency a task sits on.
+///
+/// Two families of analysis have very different prerequisites: the Bragg path
+/// (disks → strain/ACOM) needs disk detection and crystal calibration, while
+/// the phase-contrast path (DPC, parallax, ptychography) needs only energy and
+/// geometry. The task lists interleave them across Image / Map / Reconstruct,
+/// which leaves the shared "you need Bragg vectors first" dependency invisible.
+///
+/// Deliberately three cases, not two: `.disks` *produces* the vectors that
+/// `.strain` and `.acom` consume, so a single "requires Bragg vectors" label
+/// spanning all of Map would be wrong about the one task that satisfies it.
+///
+/// `allCases` order is the order groups are presented in.
+enum TaskPrerequisiteFamily: CaseIterable, Identifiable, Sendable {
+    case producesBraggVectors
+    case requiresBraggVectors
+    case phaseContrast
+
+    var id: Self { self }
+
+    var groupLabel: String {
+        switch self {
+        case .producesBraggVectors: "Produces Bragg vectors"
+        case .requiresBraggVectors: "Requires Bragg vectors"
+        case .phaseContrast: "No Bragg vectors required"
+        }
+    }
+
+    var accessibilitySuffix: String {
+        switch self {
+        case .producesBraggVectors: "producesBragg"
+        case .requiresBraggVectors: "requiresBragg"
+        case .phaseContrast: "phaseContrast"
+        }
+    }
+}
+
 extension AnalysisMode {
+    var prerequisiteFamily: TaskPrerequisiteFamily {
+        switch self {
+        case .disks: .producesBraggVectors
+        case .strain, .acom: .requiresBraggVectors
+        case .virtualDetector, .dpc, .ptychography: .phaseContrast
+        }
+    }
+
     var workspaceArea: WorkspaceArea {
         switch self {
         case .virtualDetector, .dpc: .image
@@ -234,6 +279,40 @@ enum ProductWorkflow {
             return readiness.hasPhysicalACOMScale
                 ? []
                 : ["Exploratory matching only: set physical Q sampling for quantitative orientation output."]
+        }
+    }
+
+    /// One forward pointer for the current workspace — what a first-time user
+    /// would sensibly do next, so the dependency chain is walkable without
+    /// already knowing it.
+    ///
+    /// Deliberately silent in three situations, because a hint that repeats
+    /// something already on screen is noise rather than guidance:
+    /// - Prepare with calibration still incomplete — the readiness checklist
+    ///   already names each missing field and its action.
+    /// - Map before disks exist — the task group labels
+    ///   (`TaskPrerequisiteFamily`) already say which tasks need Bragg vectors.
+    /// - Results and Reconstruct — terminal for this purpose; nothing to point at.
+    static func nextStepHint(
+        for area: WorkspaceArea,
+        readiness: ProductWorkflowReadiness,
+        calibrationReady: Bool
+    ) -> String? {
+        switch area {
+        case .prepare:
+            return calibrationReady
+                ? "Next: create an image, or detect Bragg disks in Map to unlock strain and orientation."
+                : nil
+        case .image:
+            return readiness.hasBraggVectors
+                ? nil
+                : "Next: detect Bragg disks in Map to unlock strain and orientation."
+        case .map:
+            return readiness.hasBraggVectors
+                ? "Next: review and export in Results."
+                : nil
+        case .reconstruct, .results:
+            return nil
         }
     }
 
