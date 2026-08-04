@@ -43,6 +43,13 @@ compute that already behaves correctly. Details below.
 
 ## #1 — Gate & sign-post ACOM's prerequisites  ·  Priority: HIGH  ·  Layer: WF + UI  ·  Effort: M
 
+**✅ CLOSED 2026-08-04** — shipped with #7 as one generic mechanism:
+`ProductWorkflow.prerequisiteItems(for:readiness:)` (the legacy string API now
+derives from it) + `UI/TaskPrerequisiteChecklist.swift`, mounted under every
+task's primary action, each unmet row linking to Prepare / the providing task /
+the in-panel control. ACOM's disks + material rows render exactly as this item
+asked; nothing was special-cased.
+
 **Finding (§7.3):** ACOM needs (a) detected Bragg disks and (b) a chosen
 crystal phase model. Today the ACOM primary action is clickable before either
 exists, so it runs and produces nothing (this caused the first round of QC
@@ -89,6 +96,15 @@ entry.
 ---
 
 ## #3 — Give accelerating voltage a first-class home  ·  Priority: MED  ·  Layer: UI + WF  ·  Effort: M
+
+**◐ PARTIAL 2026-08-04** — the accessibility half shipped: the voltage field
+now has `calibration.acceleratingVoltage` + a proper accessibility label, the
+strain pickers got `strain.reference/basis/component`, the ACOM display picker
+got `acom.display` with a disambiguated label, and the strain-diagnostics /
+ACOM Work·Expected rows got identifiers. The prerequisite checklist (#7) also
+points at the voltage row. Still open: moving the field to a shared
+setup/calibration home, and a VoiceOver + increased-text-size runtime pass
+(needs a human at the machine — not verifiable headlessly).
 
 **Finding (§7.4, refined by §9.2):** DPC, parallax, and ptychography all
 require the beam energy (py4DSTEM passes it straight into each constructor).
@@ -192,6 +208,12 @@ change, and the app's independent origin measurement makes it unnecessary.
 
 ## #7 — Tell the Reconstruct task which prerequisite is missing  ·  Priority: HIGH  ·  Layer: UI (+ light WF)  ·  Effort: S-M
 
+**✅ CLOSED 2026-08-04** — see #1: one generic checklist serves Reconstruct,
+ACOM, strain, and future tasks. Reconstruct now names all five prerequisites
+on screen with per-row navigation. Covered by
+`ProductWorkflowTests.testPrerequisiteChecklistItemsMatchPrerequisiteStrings`
+(legacy strings and checklist provably cannot drift).
+
 **Finding (§9.2):** `ProductWorkflow.prerequisites(for: .ptychography)` requires
 five things — fitted origin, R–Q rotation, Q pixel scale, R pixel scale,
 accelerating voltage. On **all four** training datasets the Reconstruct primary
@@ -249,6 +271,13 @@ ill-conditioned-basis failure says *"choose a reference ROI"* (see #5).
 ---
 
 ## #9 — A failed compute should not block the whole window  ·  Priority: MED  ·  Layer: UI  ·  Effort: S
+
+**✅ CLOSED 2026-08-04** — `AppState.presentComputeFailure(_:)` routes 46
+compute-step failure sites (strain, ACOM, calibration, DPC, disks, parallax,
+ptychography) to the status bar + log pane, non-modally; session/file-level
+failures (file open, dataset activation, pattern reads) and export-write
+failures deliberately keep the modal. Covered by `ErrorRoutingTests` (3 tests,
+including the measured strain scenario).
 
 **Finding (§9.2.2):** `AppState.present(error:)` shows SwiftUI's
 `.alert("Something went wrong")`, which AppKit presents as a **window-modal
@@ -371,6 +400,60 @@ construction for `.acom`).
 string is persisted, so changing it is a compatibility question, not purely
 cosmetic; the *display name* half is safe on its own and is the higher-value
 part.
+
+---
+
+## #14 — `expand` splits symmetry-equivalent sites at ordinary CIF precision
+
+**Found by:** adversarial review of the CIF point-group check (2026-08-04),
+not by the QC playthrough. **Pre-existing** — predates the symmetry work and is
+independent of it.
+
+`CIFImport.expand` dedupes symmetry images at a fixed `1e-4` fractional
+tolerance (`Core/Crystal/CIFImport.swift`, `expand`). Applied to an asymmetric
+unit written to the entirely ordinary **3 decimals**, the generated images miss
+each other by more than that, so they are kept as distinct atoms. Magnesium
+given as `Mg 0.333 0.667 0.25` plus the real P6₃/mmc operators expands to
+**6 Mg sites instead of 2** — three times the atoms in the cell.
+
+**Why it matters:** site multiplicity feeds the kinematic structure factors
+directly, so the ACOM template intensities are wrong, silently.
+`CrystalModel.validationIssues` has no minimum-interatomic-distance check, so
+nothing catches it. Worse, it is spelling-dependent: the *same* structure at
+the *same* precision is handled differently depending on whether the CIF lists
+a symop loop or the full P1 site list.
+
+**Fix direction:** make the dedup tolerance consistent with
+`symmetryPositionTolerance` (5e-3) rather than a separate 1e-4 constant, and
+add a minimum-interatomic-distance validation issue so an over-populated cell
+is rejected loudly instead of producing quiet nonsense. Needs a fixture in
+`tools/cif-symmetry-test/` covering the symop-loop path at 2/3/4 decimals —
+the current cases all supply explicit site lists, which is why this was missed.
+
+**Core untouched:** no — this is `Core/Crystal`, and it changes structure
+factors. Adversarial review + fixture required.
+
+---
+
+## #15 — `classifyFamily`'s metric tolerance is unreachable
+
+**Found by:** the same review. **Pre-existing**, cosmetic-to-moderate.
+
+`CIFImport.classifyFamily` admits a cubic/hexagonal metric at `1e-3` relative
+on lengths and `0.05°` on angles, but `CrystalModel.validationIssues` re-checks
+the same metric at `1e-6` relative. Anything in the gap is admitted by the
+point-group step and then rejected by model validation with a *different*
+message: a cell with a=4.0782, b=4.0812, c=4.0782 reports "Cubic m-3m symmetry
+requires a = b = c…" rather than a point-group error naming the real problem.
+
+**Fix direction:** pick one tolerance and use it in both places, or have
+`classifyFamily` reject the in-between band itself with a message that names
+the offending axis pair. Note this also invalidates the reasoning in the
+`symmetryPositionTolerance` doc comment, which cites the 1e-3 metric gate as
+upstream justification — 1e-6 is what actually survives, so that comment should
+be corrected when this is fixed.
+
+**Core untouched:** no, but low risk — error routing only, no numerics.
 
 ---
 

@@ -242,6 +242,7 @@ struct ContentView: View {
                                     Text(mode.rawValue).tag(mode)
                                 }
                             }
+                            .accessibilityIdentifier("strain.reference")
                             if appState.strainReferenceMode == .selectedRegion {
                                 Text("The visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained.")
                                     .font(.caption2)
@@ -253,6 +254,7 @@ struct ContentView: View {
                                     Text(mode.rawValue).tag(mode)
                                 }
                             }
+                            .accessibilityIdentifier("strain.basis")
                             if appState.strainBasisMode == .manual {
                                 HStack {
                                     Text("g₁").frame(width: 18, alignment: .leading)
@@ -291,6 +293,7 @@ struct ContentView: View {
                                         Text(component.rawValue).tag(component)
                                     }
                                 }
+                                .accessibilityIdentifier("strain.component")
                                 if let map = appState.strainMap {
                                     LabeledContent(
                                         map.diagnostics.automaticBasis
@@ -303,6 +306,7 @@ struct ContentView: View {
                                         )
                                     )
                                     .font(.caption)
+                                    .accessibilityIdentifier("strain.diagnostics.basisSupport")
                                     LabeledContent(
                                         "Basis fit",
                                         value: String(
@@ -312,6 +316,7 @@ struct ContentView: View {
                                         )
                                     )
                                     .font(.caption)
+                                    .accessibilityIdentifier("strain.diagnostics.basisFit")
                                     LabeledContent(
                                         "Local fits",
                                         value: String(
@@ -321,11 +326,13 @@ struct ContentView: View {
                                         )
                                     )
                                     .font(.caption)
+                                    .accessibilityIdentifier("strain.diagnostics.localFits")
                                     LabeledContent(
                                         "Reference inliers",
                                         value: "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
                                     )
                                     .font(.caption)
+                                    .accessibilityIdentifier("strain.diagnostics.referenceInliers")
                                 }
                             }
                         }
@@ -347,6 +354,8 @@ struct ContentView: View {
                                 ), format: .number.precision(.fractionLength(0...2)))
                                     .textFieldStyle(.roundedBorder)
                                     .frame(width: 90)
+                                    .accessibilityLabel("Accelerating voltage (kV)")
+                                    .accessibilityIdentifier("calibration.acceleratingVoltage")
                                 Text("kV")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)

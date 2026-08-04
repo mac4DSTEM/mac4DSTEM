@@ -265,11 +265,12 @@ struct AXDriver {
     /// Finds an identifier-free control by the option it is **currently
     /// showing**, which beats a label lookup whenever the label is ambiguous.
     ///
-    /// Needed for the ACOM display-mode `Picker("Display", …)`
-    /// (`UI/ACOMControlsView.swift:227`): the word "Display" is also a sidebar
-    /// section header, so `control(_:inRowWithLabel: "Display")` could bind to
-    /// the wrong row. The picker's *value* ("Reliability", "IPF · Z", …) is
-    /// unique in the window, so match on that instead.
+    /// Used for the ACOM display-mode picker: the word "Display" is also a
+    /// sidebar section header, so `control(_:inRowWithLabel: "Display")`
+    /// could bind to the wrong row, while the picker's *value*
+    /// ("Reliability", "IPF · Z", …) is unique in the window. The picker
+    /// gained an `acom.display` identifier on 2026-08-04 (backlog #3); this
+    /// value route stays as the deliberate fallback.
     func control(
         _ type: XCUIElement.ElementType, showingOneOf values: Set<String>,
         timeout: TimeInterval = 8

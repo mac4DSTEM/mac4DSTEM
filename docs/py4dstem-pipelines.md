@@ -606,12 +606,194 @@ are **not yet joined**:
 | Replicate + check deviation | `tools/training-dataset-campaign/` (`run.sh`, `main.swift`, `verify_py4dstem.py`) | mac4DSTEM Core results on each dataset, read back through py4DSTEM for parity/interop | **headless, algorithm-level** |
 | Use it to improve the UI | QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`) | screenshots, per-datacube logs, exported maps; friction → `docs/ui-workflow-backlog.md` | **visible, workflow-level** |
 
-**The missing wire:** the UI playthrough does not itself diff against
-py4DSTEM, and the campaign's deviation numbers don't attach to UI findings.
-Closing the loop means letting a UI-QC run cite the parity result for the
-same dataset — so a UI finding reads "this step is confusing *and* its output
-is within/without X% of py4DSTEM." Until then, treat them as two evidence
-streams that a human joins.
+**The wire that joins them** (added 2026-08-04, ui-implementation-prompts.md
+Prompt A): the campaign now exports, per dataset, the exact arrays the app
+produced for the products a user actually looks at — the strain map and the
+full-scan ACOM orientation map — alongside the Bragg vectors they were
+computed from (`<stem>.parity_input.json` next to the EMD sidecar).
+`tools/training-dataset-campaign/parity_py4dstem.py` recomputes the same
+products with py4DSTEM's own code from the same Bragg vectors and writes one
+machine-readable parity record per dataset+product to
+`References/parity_records/latest/` (`{dataset, product, metrics, tolerance,
+tolerance_basis, pass}`; `pass: null` marks a recorded non-comparable, e.g. a
+dataset with no phase model). The comparisons are designed to isolate blame:
+strain feeds py4DSTEM the app's own basis so the record measures the
+index/fit/tensor port, with reference-selection deviation reported separately;
+ACOM lets py4DSTEM build its own template bank and measures cubic-symmetry
+misorientation, since the two implementations sample orientation space
+differently by design. Tolerances are recorded first proposals — each record
+carries its `tolerance_basis` string. The QC playthrough cites the matching
+record in its per-datacube `log.md` right after the strain and full-scan ACOM
+exports (`mac4DSTEMUITests/Support/ParityRecords.swift`), so a UI finding now
+reads "this step is confusing *and* its output agrees/disagrees with py4DSTEM
+by this much." A failing record is a finding to report, never a tolerance to
+widen. The campaign (and with it the parity step) is run explicitly via
+`tools/training-dataset-campaign/run.sh`, which fails on a failing record
+unless `MAC4DSTEM_PARITY_REPORT_ONLY=1`; it is deliberately not part of
+`tools/run-tests.sh scientific` (real-data runtime).
+
+**First records (2026-08-04, all four datasets):** sim_Au strain **PASS**
+(estimator-matched, ~2e-4 median per component; the unmatched-estimator
+weighting DEVIATION is ~5e-3 median, documented in
+`Core/Analysis/StrainMapping.swift`). sim_Au ACOM **FAIL** — 8.0° median
+misorientation vs py4DSTEM; Si_SiGe ACOM **FAIL** harder (40° median). Also
+recorded: the app's ACOM reliability (1 − second/best) is ≈0 at nearly every
+position and cannot rank confidence. WS2 and Particle_1 have no phase model →
+recorded non-comparable. **The ACOM numbers in this paragraph are superseded
+by §10.1 — the comparator that produced them was itself wrong.**
+
+### 10.1 The comparator was wrong, and so was the app (2026-08-04, later)
+
+Before trusting the numbers above, the comparator was checked on its own.
+Two defects, one in the instrument and one in the app.
+
+**Instrument.** `misorientation_deg` inserted the symmetry operator between
+the two matrices (`A @ op @ B.T`), which minimises over LAB-side operators.
+Both codebases store orientation matrices with *columns = lab axes in crystal
+coordinates* (py4DSTEM `crystal_ACOM.py:762` uses `M.T @ g_vec_all`), so
+symmetry is a crystal-axis relabelling and acts on the **left**. The shipped
+metric was therefore invariant under the lab-frame difference it existed to
+measure and sensitive to the relabelling it was supposed to absorb — exactly
+backwards. `tools/training-dataset-campaign/test_parity_metric.py` pins this:
+relabelling moved the old metric by up to 51°, while a genuine frame change
+moved it by 0°. The `lab_swap`-on-the-left "fix" was a no-op for a correct
+metric (that matrix *is* a cubic symmetry operator), and it had been tuned on
+sim_Au — where py4DSTEM puts every sampled position within 10° of one
+orientation, so the region is a single grain and *any* constant frame map fits.
+The correct map is derived, not fitted: `M_app = M_py @ P`, a right
+multiplication. The metric is now gated by `tools/run-tests.sh scientific`.
+
+**App.** Correcting the metric did not rescue the app: over the entire
+plausible lab-frame family (in-plane rotation × handedness) the best sim_Au
+median was 8.9° and Si_SiGe stayed ~39°. So the divergence was real. It was
+then localised against ground truth — patterns synthesised from *known*
+orientations with py4DSTEM's own forward model, matched by both
+implementations (`tools/acom-groundtruth/`):
+
+- The app's **zone axis was fine** (3.15° median, vs py4DSTEM 1.45°, on a
+  96-template bank whose sampling is ~2–3°). The error was almost entirely
+  **in-plane**, and bimodal: 0° or ±180°, i.e. a coin flip.
+- Cause, provable from the source and confirmed to machine precision: the plan
+  used a flat Ewald sphere, `sg = g·n`, which is **odd** under g → −g while its
+  Gaussian weight is **even**. Every template came out exactly π-periodic in
+  azimuth (measured asymmetry `0.000e+00` for all 96), so the azimuthal
+  correlation had two identical maxima 180° apart and the argmax had nothing
+  to choose between them. This is one cause with two symptoms: it is also why
+  the reliability metric is ≈0 — though bank density contributes too, since
+  reliability is still only ~0.03 even at 8.5° template spacing.
+- Adding the curvature (`sg = g·n + λ|g|²/2`) breaks the periodicity but on its
+  own does **not** fix the match: with raw intensities the brightest ring
+  dominates the correlation and swamps the asymmetry. py4DSTEM's
+  `power_intensity = 0.25` is what makes it visible. That exponent is **read
+  from py4DSTEM's source, not fitted**: `crystal_ACOM.py` declares
+  `power_intensity: float = 0.25` (line 33, templates) and
+  `power_intensity_experiment: float = 0.25` (line 34, experimental image) as
+  `orientation_plan`'s defaults, applied at lines 809/816 and 1062. Note the
+  same signature carries `power_radial: float = 1.0` (line 32), an outer-shell
+  up-weighting the app does **not** implement — an un-ported deviation, so far
+  untested. Both of the changes below are needed:
+
+  | plan | π-asym | zone axis | full orientation |
+  |------|--------|-----------|------------------|
+  | flat, power 1 (as shipped) | 0.000 | 3.15° | **23.7°** |
+  | flat, power 0.25 | 0.000 | 2.10° | 14.5° |
+  | curved, power 1 | 0.282 | 3.09° | 26.3° |
+  | **curved, power 0.25** | 0.206 | **2.10°** | **3.05°** |
+  | py4DSTEM control | — | 1.45° | 1.16° |
+
+Both changes are now in `Core/Crystal/OrientationPlan.swift` (see the
+`DEVIATION (sign)` note — py4DSTEM's lab z is the negative of this plan's zone
+axis, so the curvature term's sign differs between the two forms) and threaded
+from `AppState` and the campaign, which pass the beam wavelength.
+
+**Re-measured on real data:** sim_Au ACOM 8.0° → **5.21°** median, and the
+app's match score rose from 0.087 to 0.453 — still FAIL at that point. The
+residual was the radial representation, resolved in §10.2.
+
+**Si_SiGe is not a valid ACOM comparison.** py4DSTEM's own map on this dataset
+is spatially incoherent — adjacent scan positions disagree by 39.6° median,
+against a ~40° random baseline for cubic — and stays that way when its
+template bank is widened from 1.2 to 2.0 Å⁻¹ so that all peaks fall inside it.
+Grains are far larger than a scan step, so the reference is not resolving the
+microstructure here; this is py4DSTEM's *strain* tutorial specimen and ACOM is
+not a workflow its own notebooks run on it. The comparator now measures
+neighbour coherence on both sides and records the dataset as **not comparable**
+rather than reporting an app failure. The previous "Si_SiGe FAILs harder"
+reading blamed the app for the reference's noise.
+
+### 10.2 Radial representation, reliability, and the first ACOM PASS (2026-08-04)
+
+**The radial hypothesis from §10.1, tested and confirmed.** The app deposited
+each peak into its single nearest radial bin (width kMax/32 ≈ 0.0375 Å⁻¹);
+py4DSTEM convolves with a Gaussian of `corr_kernel_size` = 0.08 Å⁻¹. This is
+invisible on synthetic peaks — they land at exactly the radii the templates
+were built from, so template and pattern round into the same bin — which is
+why §10.1's synthetic result was already 3.05°. It is only testable with
+radial error injected, so `tools/acom-groundtruth/` was driven with two kinds,
+both real: per-peak jitter (disk-fit noise) and a systematic scale error (the
+Q calibration is estimated from the first ring). Everything else held fixed;
+the only variable is the deposition kernel. Full-orientation median error:
+
+  | radial error | nearest-bin (as shipped) | 0.08 Å⁻¹ kernel |
+  |---|---|---|
+  | none | 3.05° (score 0.925) | 3.05° (score 0.936) |
+  | 0.5% scale | **32.07°** (score 0.810) | 3.05° (score 0.935) |
+  | 1% scale | 30.40° (score 0.737) | 3.05° (score 0.933) |
+  | 2% scale | 34.45° (score 0.490) | 3.05° (score 0.928) |
+  | 4% scale | 40.95° (score 0.223) | 3.05° (score 0.910) |
+  | 0.01 Å⁻¹ jitter | 24.86° | 3.05° |
+  | 0.04 Å⁻¹ jitter | 30.75° | 2.98° |
+
+**Half a percent** of Q-calibration error — 0.13 of a bin at 1 Å⁻¹ — was
+enough to take the app from 3° to 32°. The kernel is flat across the entire
+sweep. That also explains the real-data score of 0.453 against 0.925 on
+synthetic. `OrientationPlan.buildPolar` now spreads each spot over the
+neighbouring shells by its true unrounded radius, defaulting to py4DSTEM's
+0.08 Å⁻¹; pinned by `testPeaksSurviveRadialErrorSmallerThanABin`.
+
+**Reliability now ranks.** `1 − second/best` was measured against the best of
+*all* other templates, which on any dense bank is the winner's own neighbour a
+couple of degrees away — near-identical by construction. The runner-up is now
+the best template at least 10° away in zone axis, matching py4DSTEM's
+`min_angle_between_matches_deg` rule in `match_single_pattern`. A confidence
+measure's job is to *rank*, so it was scored on a population with a real
+spread of quality (clean / starved of peaks / polluted with spurious peaks /
+radial error):
+
+  | | old (any template) | new (≥10° away) |
+  |---|---|---|
+  | range | 0.001–0.161 | 0.001–0.457 |
+  | Spearman vs error | −0.069 | −0.291 |
+  | top-quartile error | 2.30° | **2.25°** |
+  | bottom-quartile error | 4.45° | **30.99°** |
+
+The old metric barely separated the best quarter from the worst and ranked
+*spurious* patterns above clean ones (0.052 vs 0.022). On real sim_Au the new
+metric has median 0.327 (was ~0.02), Spearman −0.47 against measured error,
+and its top half is 1.93° vs 3.48° for the bottom half — recorded per dataset
+as `app_reliability_*`. The comparator still picks the confident subset with
+py4DSTEM's correlation, not the app's reliability, so the app cannot select
+the answers it is graded on.
+
+**All four datasets, one run (stride 4).** `sim_Au` ACOM **PASS** — 2.14°
+median, 98.5% within 5°, p90 3.69°, against the 3° / 80% tolerance; the app's
+neighbour coherence is 2.81° against py4DSTEM's 1.68°. This is the first ACOM
+PASS. `sim_Au` strain **PASS** (~2e-4 median per component, unchanged).
+`Si_SiGe` ACOM **not comparable** — py4DSTEM's own map is spatially incoherent
+there (§10.1). `WS2` and `Particle_1` ACOM **not comparable** — neither has a
+phase model (`manifest.json` sets `phaseModelID: null`), so the app does not
+compute ACOM at all; for WS2 that is the ROADMAP P1.3 rule working as intended
+(no validated hexagonal WS₂ model exists, and the app must reject rather than
+infer), and Particle_1's material is genuinely unknown.
+
+**Open, and not an ACOM problem:** strain is `not comparable` on three of four
+datasets because the app produced no strain map — the campaign reports "No
+sufficiently supported, well-conditioned lattice basis was found" for
+`Si_SiGe`, `WS2` and `Particle_1`. Si_SiGe is py4DSTEM's *strain* tutorial
+specimen, so the app failing to find a lattice basis there is a real gap in
+the strain prerequisite chain, untested and unexplained so far. All three also
+carry "Origin fit RMS exceeds the fitted probe radius", which is the more
+likely upstream cause.
 
 **How the loop drives v1.0:** each QC prompt (`docs/qc-playthrough-prompts.md`)
 advances the UI half; `tools/run-tests.sh scientific` + the campaign advance

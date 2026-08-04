@@ -206,8 +206,15 @@ func acomCase(
         let raw = calibration.ellipseUncorrectedOffset(
             dx: radius * cos(azimuth), dy: radius * sin(azimuth)
         )
+        // templateSpots carry the plan's already-compressed weight. A detected
+        // Bragg peak carries a physical intensity, which the matcher then
+        // compresses itself — so undo the plan's power here, or the fixture
+        // applies it twice and flattens the pattern the match is judged on.
+        let intensity = plan.intensityPower == 1
+            ? spot.weight
+            : pow(spot.weight, Float(1 / plan.intensityPower))
         return BraggPeak(x: localOrigin.x + raw.x, y: localOrigin.y + raw.y,
-                         intensity: spot.weight)
+                         intensity: intensity)
     }
     let vectors = BraggVectors(scanWidth: 1, scanHeight: 1, peaks: [rawPeaks])
     let calibrated = vectors.calibrated(with: calibration, referenceOrigin: reference)

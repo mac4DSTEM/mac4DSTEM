@@ -1,0 +1,38 @@
+#!/bin/zsh
+# Baseline + parity gate for the Bragg disk-correlation path — the step a
+# Metal backend is meant to accelerate (ROADMAP B4).
+#
+# Compiles the *production* Core sources (not a copy) against a small harness,
+# so the thing measured is the thing that ships. Input is generated from a
+# fixed seed, so this needs no dataset and runs in seconds — unlike the QC
+# playthrough, this is a loop you can iterate against.
+#
+#   tools/disk-correlation-parity/run.sh              # verify against baseline.json
+#   tools/disk-correlation-parity/run.sh --record     # re-pin the baseline
+#   tools/disk-correlation-parity/run.sh --backend cpu-parallel  # the shipping path
+set -euo pipefail
+
+cd "$(dirname "$0")"
+REPO="$(cd ../.. && pwd)"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
+export DEVELOPER_DIR
+
+# -O so the timing reflects a release build. Without it the CPU baseline is
+# unrepresentatively slow and any GPU comparison is flattering by default.
+xcrun swiftc -O -o "$WORK/harness" \
+  main.swift \
+  "$REPO/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
+  "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
+  "$REPO/mac4DSTEM/Core/Data/FourDDataSource.swift" \
+  "$REPO/mac4DSTEM/Core/Data/Calibration.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
+  "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \
+  "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
+  "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
+  -framework Accelerate -framework Metal
+
+"$WORK/harness" --baseline "$PWD/baseline.json" "$@"

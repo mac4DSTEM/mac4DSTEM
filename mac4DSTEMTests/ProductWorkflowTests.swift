@@ -140,6 +140,76 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(reconstructionMissing, ["Set the accelerating voltage"])
     }
 
+    func testPrerequisiteChecklistItemsMatchPrerequisiteStrings() {
+        let complete = ProductWorkflowReadiness(
+            hasOriginProbe: true, hasRotation: true, hasQScale: true,
+            hasRScale: true, hasVoltage: true, hasBraggVectors: true,
+            hasACOMMaterial: true, hasSupportedACOMMaterial: true,
+            hasPhysicalACOMScale: true
+        )
+        let syntheticStates = [
+            ProductWorkflowReadiness(),
+            complete,
+            // sim_Au's measured Reconstruct blocker: everything but R scale.
+            ProductWorkflowReadiness(
+                hasOriginProbe: true, hasRotation: true, hasQScale: true,
+                hasRScale: false, hasVoltage: true
+            ),
+            ProductWorkflowReadiness(
+                hasBraggVectors: true, hasACOMMaterial: true,
+                hasSupportedACOMMaterial: false
+            )
+        ]
+        for mode in AnalysisMode.allCases {
+            for readiness in syntheticStates {
+                let items = ProductWorkflow.prerequisiteItems(
+                    for: mode, readiness: readiness
+                )
+                // The checklist's unmet rows are exactly the legacy gating
+                // strings, in the same order — the two surfaces cannot drift.
+                XCTAssertEqual(
+                    items.filter { !$0.isSatisfied }.map(\.title),
+                    ProductWorkflow.prerequisites(for: mode, readiness: readiness)
+                )
+                // Row ids are unique so accessibility identifiers are stable.
+                XCTAssertEqual(Set(items.map(\.id)).count, items.count)
+            }
+            XCTAssertTrue(
+                ProductWorkflow.prerequisiteItems(for: mode, readiness: complete)
+                    .allSatisfy(\.isSatisfied)
+            )
+        }
+
+        // The sim_Au case: the checklist shows all five rows with only R scale
+        // unmet, and points it at the Prepare workspace.
+        let simAu = ProductWorkflow.prerequisiteItems(
+            for: .ptychography,
+            readiness: ProductWorkflowReadiness(
+                hasOriginProbe: true, hasRotation: true, hasQScale: true,
+                hasRScale: false, hasVoltage: true
+            )
+        )
+        XCTAssertEqual(simAu.count, 5)
+        XCTAssertEqual(simAu.filter { !$0.isSatisfied }.map(\.id), ["rScale"])
+        XCTAssertEqual(
+            simAu.first { $0.id == "rScale" }?.title, "Set the R pixel scale"
+        )
+        XCTAssertEqual(simAu.first { $0.id == "rScale" }?.resolution, .prepare)
+
+        // Cross-task prerequisites navigate to the producing task; in-panel
+        // ones point at the panel instead of navigating away.
+        let strainItems = ProductWorkflow.prerequisiteItems(
+            for: .strain, readiness: ProductWorkflowReadiness()
+        )
+        XCTAssertEqual(strainItems.map(\.resolution), [.task(.disks)])
+        let acomItems = ProductWorkflow.prerequisiteItems(
+            for: .acom, readiness: ProductWorkflowReadiness(hasBraggVectors: true)
+        )
+        XCTAssertEqual(acomItems.first { $0.id == "braggVectors" }?.isSatisfied, true)
+        guard case .taskPanel = acomItems.first(where: { $0.id == "acomMaterial" })?.resolution
+        else { return XCTFail("ACOM material should resolve in its own panel") }
+    }
+
     func testRecommendedFlowMovesTowardAReusableResult() {
         XCTAssertEqual(
             ProductWorkflow.recommendedNextArea(calibrationReady: false, hasResult: false),

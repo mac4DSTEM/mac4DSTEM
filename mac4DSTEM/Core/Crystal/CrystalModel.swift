@@ -114,18 +114,21 @@ nonisolated struct CrystalModel: Identifiable, Sendable {
 }
 
 /// A scalable selection token: adding a library model does not require a new
-/// UI enum case. Imported models can use the same stable identifier route once
-/// a validated CIF importer and point-group resolver exist.
+/// UI enum case. Imported models use the same stable identifier route as
+/// library models — `.imported(id)` resolves against `AppState`'s
+/// session-local imported-model list rather than `CrystalModelLibrary`.
 nonisolated enum CrystalModelSelection: Hashable, Sendable, Identifiable {
     case none
     case library(String)
     case customCubic
+    case imported(String)
 
     var id: String {
         switch self {
         case .none: "none"
         case .library(let id): "library:\(id)"
         case .customCubic: "custom_cubic"
+        case .imported(let id): "imported:\(id)"
         }
     }
 }

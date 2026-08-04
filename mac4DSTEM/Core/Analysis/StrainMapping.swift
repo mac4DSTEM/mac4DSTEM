@@ -506,6 +506,15 @@ nonisolated enum StrainMapping {
     /// Intensity-weighted least-squares fit of [origin, g1, g2] to indexed
     /// peaks. Basis row for a peak is [1, h, k]; solves the 3×3 normal
     /// equations for each of the x and y coordinates.
+    ///
+    /// DEVIATION (measured 2026-08-04, tools/training-dataset-campaign parity):
+    /// py4DSTEM's fit_lattice_vectors multiplies both the design matrix and
+    /// the data by the intensity weight before lstsq, which minimizes
+    /// Σ w²·r². These normal equations weight by w once, minimizing Σ w·r² —
+    /// the statistically standard weighted least squares. On sim_Au the two
+    /// estimators differ by ~5e-3 median per strain component (vs ~2e-4 when
+    /// the estimators are matched). The parity record reports the deviation
+    /// magnitude per dataset; see parity_py4dstem.py `weighting_deviation_*`.
     private nonisolated static func fitLattice(
         _ peaks: [(h: Float, k: Float, x: Float, y: Float, wgt: Float)]
     ) -> (originX: Float, originY: Float,

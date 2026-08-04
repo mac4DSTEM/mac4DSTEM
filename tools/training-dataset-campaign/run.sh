@@ -75,7 +75,26 @@ fi
 if [[ -n "${MAC4DSTEM_CAMPAIGN_EXPORT_DIR:-}" ]]; then
   mkdir -p "$MAC4DSTEM_CAMPAIGN_EXPORT_DIR"
   cp "$OUTPUT"/*.h5 "$MAC4DSTEM_CAMPAIGN_EXPORT_DIR/"
+  cp "$OUTPUT"/*.parity_input.json "$MAC4DSTEM_CAMPAIGN_EXPORT_DIR/" 2>/dev/null || true
 fi
+
+# Parity records: recompute the QC-visible products (strain, full-scan ACOM)
+# with py4DSTEM from the app's own exported Bragg vectors, and publish the
+# machine-readable records where the QC playthrough can cite them. Runs after
+# the export copies so a parity failure never destroys the evidence needed to
+# diagnose it. MAC4DSTEM_PARITY_REPORT_ONLY=1 records without gating
+# (tolerance work); MAC4DSTEM_PARITY_ACOM_STRIDE trades ACOM comparison
+# density for time.
+RECORDS="$ROOT/References/parity_records/latest"
+mkdir -p "$RECORDS"
+parity_flags=()
+if [[ -n "${MAC4DSTEM_PARITY_REPORT_ONLY:-}" ]]; then
+  parity_flags+=(--report-only)
+fi
+"$PYTHON_BIN" "$ROOT/tools/training-dataset-campaign/parity_py4dstem.py" \
+  "$OUTPUT" "$RECORDS" \
+  --acom-stride "${MAC4DSTEM_PARITY_ACOM_STRIDE:-4}" \
+  "${parity_flags[@]}" 2>&1 | tee parity.log
 
 cat campaign.log >&2
 cat py4dstem.log >&2

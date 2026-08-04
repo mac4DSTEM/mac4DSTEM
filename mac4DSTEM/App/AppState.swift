@@ -311,6 +311,14 @@ final class AppState {
     var acomModelSelection: CrystalModelSelection = .none {
         didSet { if acomModelSelection != oldValue { invalidateACOMPlan() } }
     }
+    /// CIF files imported this run via `importCrystalModel(from:)`. Session-
+    /// local only (never written to disk or `UserDefaults`) — the same as
+    /// every other `acomModelSelection` option, which `activate(descriptor:
+    /// reader:)` always resets to `.none` on (re)open, so no phase model
+    /// (built-in, custom, or imported) ever silently carries over from a
+    /// previous session. See `acomModelSelectionIssue`'s `.imported` case for
+    /// what happens if a selection outlives its model within one run.
+    private(set) var importedCrystalModels: [CrystalModel] = []
     var acomExploratoryScale: Double = 0.01 {
         didSet {
             if acomExploratoryScale != oldValue { invalidateACOMResult() }
@@ -647,6 +655,8 @@ final class AppState {
                 latticeA: customLatticeA,
                 atomicNumber: customZ
             )
+        case .imported(let id):
+            model = importedCrystalModels.first { $0.id == id }
         }
         guard let model, model.isUsable else { return nil }
         return model
@@ -667,6 +677,15 @@ final class AppState {
                 latticeA: customLatticeA,
                 atomicNumber: customZ
             )
+            return model.validationIssues.first?.message
+        case .imported(let id):
+            guard let model = importedCrystalModels.first(where: { $0.id == id }) else {
+                // Reached only if a selection ever outlives its model within
+                // one run (e.g. a future "clear imports" action) — reopening
+                // the app never hits this, since `acomModelSelection` itself
+                // resets to `.none` on every dataset (re)activation.
+                return "The imported phase model is no longer available in this session — import the CIF again."
+            }
             return model.validationIssues.first?.message
         }
     }
@@ -1102,6 +1121,36 @@ final class AppState {
         Task { await openFileAsync(url: url) }
     }
 
+    /// Reads and parses a local CIF file, adding the result to this run's
+    /// imported-phase-model list and selecting it. Reading/parsing is Core's
+    /// job even though it is triggered from a picker — `CIFImport` does the
+    /// parsing, this just owns the file access and the resulting state.
+    ///
+    /// Failure here is routed like opening a dataset (`present`, the
+    /// window-modal path), not `presentComputeFailure`: a bad CIF is a fresh
+    /// file that never entered analysis state, so there is nothing mid-step
+    /// to keep usable — same category as a corrupt or unreadable dataset
+    /// file. `CIFImportError.errorDescription` names the offending tag,
+    /// value, symbol, or point group, so the modal shows a specific reason.
+    func importCrystalModel(from url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let baseName = url.deletingPathExtension().lastPathComponent
+            let model = try CIFImport.crystalModel(from: text, fileBaseName: baseName)
+            if let index = importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
+                importedCrystalModels[index] = model
+            } else {
+                importedCrystalModels.append(model)
+            }
+            acomModelSelection = .imported(model.id)
+            statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
+        } catch {
+            present(error)
+        }
+    }
+
     /// Deterministic in-memory dataset shared by UI automation, repeatable
     /// design walkthroughs, and the welcome screen's Try Demo Data path —
     /// every workspace works without a file and nothing on disk is touched.
@@ -1228,9 +1277,38 @@ final class AppState {
         Task { await loadCurrentPattern() }
     }
 
+    /// Session-level failure (file open/read, dataset activation, export
+    /// write): raises the window-modal "Something went wrong" alert in
+    /// addition to the status bar + log.
     func present(_ error: Error) {
         errorMessage = error.localizedDescription
         statusText = "Error: \(error.localizedDescription)"
+    }
+
+    /// Recoverable compute failure (an analysis step that did not converge or
+    /// whose preconditions are not met, e.g. no strain basis found): surfaces
+    /// on the existing non-blocking status bar + log pane only, so the rest
+    /// of the window stays usable (docs/ui-workflow-backlog.md #9).
+    ///
+    /// A data-source failure that reaches a compute catch block (corrupted or
+    /// vanished file mid-scan) is NOT a compute failure — it invalidates the
+    /// session, so it escalates to the modal path regardless of which stage
+    /// surfaced it.
+    func presentComputeFailure(_ error: Error) {
+        if isDataSourceFailure(error) {
+            present(error)
+            return
+        }
+        statusText = "Error: \(error.localizedDescription)"
+    }
+
+    private func isDataSourceFailure(_ error: Error) -> Bool {
+        if error is H5Error || error is DM4Error || error is VendorRawError
+            || error is FourDError {
+            return true
+        }
+        let ns = error as NSError
+        return ns.domain == NSCocoaErrorDomain || ns.domain == NSPOSIXErrorDomain
     }
 
     private func openFileAsync(url: URL) async {
@@ -1987,7 +2065,7 @@ final class AppState {
             }
         } catch {
             if cancellation?.isCancelled == true { statusText = "Virtual detector cancelled" }
-            else if !quiet { present(error) }
+            else if !quiet { presentComputeFailure(error) }
         }
     }
 
@@ -2007,7 +2085,7 @@ final class AppState {
                 acceleratingVoltageKV: acceleratingVoltage
             )
         } catch {
-            present(error)
+            presentComputeFailure(error)
             return
         }
 
@@ -2055,7 +2133,7 @@ final class AppState {
             statusText = "Parallax preprocessing cancelled"
         } catch {
             guard isCurrentOperation(token), datasetEpoch == epoch else { return }
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
@@ -2064,25 +2142,25 @@ final class AppState {
     /// one succeeds and passes the operation/dataset publication guards.
     func alignParallaxNextLevel() async {
         guard let preprocessing = parallaxPreprocess else {
-            present(SimpleError("Prepare the parallax preview before alignment."))
+            presentComputeFailure(SimpleError("Prepare the parallax preview before alignment."))
             return
         }
         let schedule = ParallaxAligner.defaultBinSchedule(
             detectorIndices: preprocessing.detectorIndices
         )
         guard !schedule.isEmpty else {
-            present(SimpleError("The bright-field mask cannot form an alignment level."))
+            presentComputeFailure(SimpleError("The bright-field mask cannot form an alignment level."))
             return
         }
         let completed = parallaxAlignment?.completedBins ?? []
         guard completed.count < schedule.count else {
-            present(ParallaxAligner.AlignmentError.alignmentComplete)
+            presentComputeFailure(ParallaxAligner.AlignmentError.alignmentComplete)
             return
         }
         let bin = schedule[completed.count]
         guard parallaxAlignment == nil
                 || Array(schedule.prefix(completed.count)) == completed else {
-            present(SimpleError("Reset the stale parallax alignment before continuing."))
+            presentComputeFailure(SimpleError("Reset the stale parallax alignment before continuing."))
             return
         }
         let groups = ParallaxAligner.groups(
@@ -2138,7 +2216,7 @@ final class AppState {
             statusText = "Parallax alignment bin \(bin) cancelled; last completed level retained"
         } catch {
             guard isCurrentOperation(token), datasetEpoch == epoch else { return }
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
@@ -2159,7 +2237,7 @@ final class AppState {
     func fitParallaxAberrations() {
         guard let preprocessing = parallaxPreprocess,
               let alignment = parallaxAlignment else {
-            present(SimpleError("Complete parallax preprocessing and alignment first."))
+            presentComputeFailure(SimpleError("Complete parallax preprocessing and alignment first."))
             return
         }
         do {
@@ -2176,14 +2254,14 @@ final class AppState {
                 result.rmsResidualAngstrom
             )
         } catch {
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
     func upsampleParallaxBF() async {
         guard let preprocessing = parallaxPreprocess,
               let alignment = parallaxAlignment, alignment.isComplete else {
-            present(SimpleError("Complete parallax alignment before KDE upsampling."))
+            presentComputeFailure(SimpleError("Complete parallax alignment before KDE upsampling."))
             return
         }
         let epoch = datasetEpoch
@@ -2240,7 +2318,7 @@ final class AppState {
             statusText = "Parallax KDE cancelled; aligned result retained"
         } catch {
             guard isCurrentOperation(token), datasetEpoch == epoch else { return }
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
@@ -2248,13 +2326,13 @@ final class AppState {
         guard let preprocessing = parallaxPreprocess,
               let alignment = parallaxAlignment,
               let fit = parallaxHigherOrderFit else {
-            present(SimpleError("Fit parallax aberrations before depth sectioning."))
+            presentComputeFailure(SimpleError("Fit parallax aberrations before depth sectioning."))
             return
         }
         guard parallaxDepthPlaneCount > 0, parallaxDepthPlaneCount <= 257,
               parallaxDepthStartAngstrom.isFinite,
               parallaxDepthEndAngstrom.isFinite else {
-            present(SimpleError("Use 1–257 finite parallax depth planes."))
+            presentComputeFailure(SimpleError("Use 1–257 finite parallax depth planes."))
             return
         }
         let depths: [Double]
@@ -2307,13 +2385,13 @@ final class AppState {
             statusText = "Parallax depth sectioning cancelled; prior products retained"
         } catch {
             guard isCurrentOperation(token), datasetEpoch == epoch else { return }
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
     func runSingleslicePtychography() async {
         guard let source = reader, let descriptor else {
-            present(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
+            presentComputeFailure(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
             return
         }
         let physical: ParallaxPhysicalCalibration
@@ -2324,7 +2402,7 @@ final class AppState {
                 acceleratingVoltageKV: acceleratingVoltage
             )
         } catch {
-            present(error)
+            presentComputeFailure(error)
             return
         }
         let epoch = datasetEpoch
@@ -2388,7 +2466,7 @@ final class AppState {
             statusText = "Single-slice ptychography cancelled; prior result retained"
         } catch {
             guard isCurrentOperation(token), datasetEpoch == epoch else { return }
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
@@ -2443,7 +2521,7 @@ final class AppState {
         guard let preprocessing = parallaxPreprocess,
               let alignment = parallaxAlignment,
               let fit = parallaxHigherOrderFit else {
-            present(SimpleError("Fit parallax aberrations before phase correction."))
+            presentComputeFailure(SimpleError("Fit parallax aberrations before phase correction."))
             return
         }
         let epoch = datasetEpoch
@@ -2481,7 +2559,7 @@ final class AppState {
             statusText = "Parallax phase correction cancelled; fit retained"
         } catch {
             guard isCurrentOperation(token), datasetEpoch == epoch else { return }
-            present(error)
+            presentComputeFailure(error)
         }
     }
 
@@ -2520,7 +2598,7 @@ final class AppState {
             statusText = "DP statistics ✓  (mean + max over \(d.rx) × \(d.ry) positions)"
         } catch {
             if cancellation.isCancelled { statusText = "DP statistics cancelled" }
-            else { present(error) }
+            else { presentComputeFailure(error) }
         }
     }
 
@@ -2579,7 +2657,7 @@ final class AppState {
             await runCurrentAnalysis()
         } catch {
             if cancellation.isCancelled { statusText = "Origin calibration cancelled" }
-            else { present(error) }
+            else { presentComputeFailure(error) }
         }
     }
 
@@ -2614,7 +2692,7 @@ final class AppState {
         } else {
             if meanPattern == nil { await computeDPStatistics() }
             guard let meanPattern else {
-                present(SimpleError("Compute a mean diffraction pattern before fitting ellipse distortion."))
+                presentComputeFailure(SimpleError("Compute a mean diffraction pattern before fitting ellipse distortion."))
                 return
             }
             detectorPattern = meanPattern
@@ -2622,7 +2700,7 @@ final class AppState {
         }
         guard ellipseFitInnerRadius >= 0,
               ellipseFitOuterRadius > ellipseFitInnerRadius else {
-            present(SimpleError("Ellipse fit outer radius must be larger than its inner radius."))
+            presentComputeFailure(SimpleError("Ellipse fit outer radius must be larger than its inner radius."))
             return
         }
 
@@ -2668,7 +2746,7 @@ final class AppState {
             )
         } catch {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
-            else { present(error) }
+            else { presentComputeFailure(error) }
         }
     }
 
@@ -2707,7 +2785,7 @@ final class AppState {
                 return
             }
             guard let result else {
-                present(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
+                presentComputeFailure(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
             }
             calibration.rotationRad = result.rotationRad
@@ -2722,7 +2800,7 @@ final class AppState {
                                 result.transpose ? ", detector transposed" : "")
         } catch {
             if cancellation.isCancelled { statusText = "R–Q rotation cancelled" }
-            else { present(error) }
+            else { presentComputeFailure(error) }
         }
     }
 
@@ -2776,7 +2854,7 @@ final class AppState {
             statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
         } catch {
             if cancellation.isCancelled { statusText = "DPC cancelled" }
-            else { present(error) }
+            else { presentComputeFailure(error) }
         }
     }
 
@@ -2891,7 +2969,7 @@ final class AppState {
         guard let radius = calibration.probeRadius else { return }
 
         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
-            present(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
+            presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
             return
         }
         probeKernel = kernel
@@ -2915,7 +2993,7 @@ final class AppState {
         guard let kernel = ProbeKernel.measured(
             pattern: pattern, originX: origin.x, originY: origin.y, radius: radius
         ) else {
-            present(SimpleError("The current CBED/ROI did not contain a usable measured probe."))
+            presentComputeFailure(SimpleError("The current CBED/ROI did not contain a usable measured probe."))
             return
         }
         probeKernel = kernel
@@ -2997,7 +3075,7 @@ final class AppState {
             $0.severity == .error
         }
         guard errors.isEmpty else {
-            present(SimpleError(
+            presentComputeFailure(SimpleError(
                 "Disk-detection settings are invalid: "
                     + errors.map(\.message).joined(separator: " ")
             ))
@@ -3031,7 +3109,7 @@ final class AppState {
                 return
             }
             guard let vectors else {
-                present(SimpleError("Disk detection failed to initialize its FFT plan."))
+                presentComputeFailure(SimpleError("Disk detection failed to initialize its FFT plan."))
                 return
             }
             braggVectors = vectors
@@ -3092,11 +3170,11 @@ final class AppState {
     func runStrainMapping() async {
         guard let descriptor else { return }
         guard !diskDetectionSettingsAreStale else {
-            present(SimpleError("Detection settings changed — run Detect All Disks again before computing strain."))
+            presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before computing strain."))
             return
         }
         guard let bragg = braggVectors else {
-            present(SimpleError("Run disk detection first — strain mapping needs detected Bragg peaks."))
+            presentComputeFailure(SimpleError("Run disk detection first — strain mapping needs detected Bragg peaks."))
             return
         }
         let cancellation = beginCancellableOperation(
@@ -3141,7 +3219,7 @@ final class AppState {
                     detail += " " + warning
                 }
             }
-            present(SimpleError("Could not publish strain. \(detail) Adjust the thresholds in the Bragg panel or the reference/basis selection, then rerun."))
+            presentComputeFailure(SimpleError("Could not publish strain. \(detail) Adjust the thresholds in the Bragg panel or the reference/basis selection, then rerun."))
             return
         }
         strainMap = map
@@ -3178,15 +3256,15 @@ final class AppState {
     /// Build the orientation-plan template library for the selected crystal.
     func calibrateQFromCrystal() async {
         guard !diskDetectionSettingsAreStale else {
-            present(SimpleError("Detection settings changed — run Detect All Disks again before calibrating reciprocal pixels."))
+            presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before calibrating reciprocal pixels."))
             return
         }
         guard let descriptor, let rawBragg = braggVectors else {
-            present(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
+            presentComputeFailure(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
             return
         }
         guard let model = resolvedACOMModel else {
-            present(SimpleError(acomModelSelectionIssue
+            presentComputeFailure(SimpleError(acomModelSelectionIssue
                 ?? "Choose a valid phase model before calibrating reciprocal pixels."))
             return
         }
@@ -3205,7 +3283,7 @@ final class AppState {
         guard epoch == datasetEpoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
         guard let estimate else {
-            present(SimpleError("Could not identify a non-central first Bragg shell."))
+            presentComputeFailure(SimpleError("Could not identify a non-central first Bragg shell."))
             return
         }
         calibration.qPixelSize = estimate.invAngstromPerPixel
@@ -3232,23 +3310,31 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
 
         guard let model = resolvedACOMModel else {
-            present(SimpleError(acomModelSelectionIssue
+            presentComputeFailure(SimpleError(acomModelSelectionIssue
                 ?? "Choose a valid phase model before generating an orientation plan."))
             return
         }
         let modelRevision = model.revisionID
         let missing = model.crystal.unsupportedElements
         guard missing.isEmpty else {
-            present(SimpleError("No scattering factors for element(s) Z = "
+            presentComputeFailure(SimpleError("No scattering factors for element(s) Z = "
                 + missing.map(String.init).joined(separator: ", ")
                 + " — structure factors would be wrong."))
             return
         }
         let epoch = datasetEpoch
+        // Without the beam energy the plan falls back to a flat Ewald sphere,
+        // which makes every template exactly π-periodic in azimuth and leaves
+        // the in-plane angle determined only modulo 180°. Pass the wavelength
+        // whenever the dataset carries a voltage.
+        let planWavelength = acceleratingVoltage.flatMap {
+            DPC.electronWavelengthAngstrom(voltageKV: $0)
+        }
         let plan = await Task.detached(priority: .userInitiated) {
             OrientationPlan.generate(crystal: model.crystal, kMax: 1.2,
                                      zoneAxisCount: templateCount,
                                      symmetry: model.symmetry,
+                                     wavelengthAngstrom: planWavelength,
                                      cancellation: cancellation)
         }.value
         guard epoch == datasetEpoch,
@@ -3258,7 +3344,7 @@ final class AppState {
             return
         }
         guard let plan else {
-            present(SimpleError("Could not generate an orientation plan."))
+            presentComputeFailure(SimpleError("Could not generate an orientation plan."))
             return
         }
         orientationPlan = plan
@@ -3271,15 +3357,15 @@ final class AppState {
     func runACOM() async {
         let actionStarted = Date()
         guard !diskDetectionSettingsAreStale else {
-            present(SimpleError("Detection settings changed — run Detect All Disks again before ACOM."))
+            presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before ACOM."))
             return
         }
         guard let descriptor, let bragg = braggVectors else {
-            present(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
+            presentComputeFailure(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
             return
         }
         guard let model = resolvedACOMModel else {
-            present(SimpleError(acomModelSelectionIssue
+            presentComputeFailure(SimpleError(acomModelSelectionIssue
                 ?? "Choose a valid phase model before running ACOM."))
             return
         }
@@ -3347,7 +3433,7 @@ final class AppState {
             return
         }
         guard let map else {
-            present(SimpleError("ACOM matching failed to initialize."))
+            presentComputeFailure(SimpleError("ACOM matching failed to initialize."))
             return
         }
         guard resolvedACOMModel?.revisionID == modelRevision,

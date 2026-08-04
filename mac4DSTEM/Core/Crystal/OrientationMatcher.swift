@@ -22,6 +22,7 @@
 import Foundation
 import Accelerate
 import Metal
+import simd
 
 /// Spatial work requested by the product-facing ACOM workflow. Preview keeps
 /// the full scan geometry but matches one representative position per coarse
@@ -128,8 +129,12 @@ nonisolated final class OrientationMatcher {
 
         let na = geo.nAzimuthal, nr = geo.nRadial
         let invScale = 1 / Float(na)     // undo vDSP's unnormalized inverse FFT
-        var best: Float = -.greatestFiniteMagnitude, second = best
-        var bestT = -1, bestBin = 0
+        // Every template's score is retained rather than reduced on the fly:
+        // the runner-up can only be chosen once the winner is known, because
+        // it has to be a template far enough from the winner to count as a
+        // different orientation (see selectOrientation).
+        var templateScores = [Float](repeating: 0, count: plan.count)
+        var templateBins = [UInt32](repeating: 0, count: plan.count)
 
         for t in 0..<plan.count {
             let templateOffset = t * nr * na
@@ -197,16 +202,17 @@ nonisolated final class OrientationMatcher {
             var localBin = 0
             for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
             localBest *= invScale
-            if localBest > best {
-                second = best; best = localBest; bestT = t; bestBin = localBin
-            } else if localBest > second {
-                second = localBest
-            }
+            templateScores[t] = localBest
+            templateBins[t] = UInt32(localBin)
         }
+        let selected = selectOrientation(
+            zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
+            distinctOrientationRad: plan.distinctOrientationRad
+        )
         return makeOrientationResult(
             plan: plan, symmetry: symmetry,
-            bestTemplate: bestT, bestBin: bestBin,
-            bestScore: best, secondScore: second
+            bestTemplate: selected.template, bestBin: selected.bin,
+            bestScore: selected.score, secondScore: selected.secondScore
         )
     }
 
@@ -228,12 +234,18 @@ nonisolated final class OrientationMatcher {
         guard peaks.count >= 2 else { return false }
         var spots: [(r: Double, azim: Double, weight: Double)] = []
         spots.reserveCapacity(peaks.count)
+        let power = plan.intensityPower
         for p in peaks {
             let dx = Double(p.x - originX), dy = Double(p.y - originY)
             let r = (dx * dx + dy * dy).squareRoot() * invAngstromPerPixel
-            spots.append((r: r, azim: atan2(dy, dx), weight: Double(max(p.intensity, 0))))
+            let intensity = Double(max(p.intensity, 0))
+            spots.append((r: r, azim: atan2(dy, dx),
+                          weight: power == 1 ? intensity : pow(intensity, power)))
         }
-        var polar = OrientationPlan.buildPolar(spots: spots, geometry: geo, azimBlurBins: 1.5)
+        var polar = OrientationPlan.buildPolar(
+            spots: spots, geometry: geo, azimBlurBins: 1.5,
+            radialKernelInvAngstrom: plan.radialKernelInvAngstrom
+        )
         OrientationPlan.normalizeUnit(&polar)
         writeRingFFTs(polar)
         return true
@@ -250,6 +262,46 @@ nonisolated final class OrientationMatcher {
             for a in 0..<na { expRe[base + a] = re[a]; expIm[base + a] = im[a] }
         }
     }
+}
+
+/// Pick the winning template and the best *distinct* runner-up.
+///
+/// `1 − second/best` is only a confidence measure if "second" is a genuinely
+/// different orientation. Taken over all templates it is not: on any
+/// reasonably dense bank the runner-up is the neighbouring zone axis two or
+/// three degrees away, whose polar image is near-identical to the winner's by
+/// construction, so the ratio collapses to ~0 for a perfect match and a
+/// hopeless one alike and cannot rank anything. Measured before this change:
+/// median 0.010 on clean synthetic patterns, and still only ~0.03 with the
+/// bank thinned to 8.5° spacing — so it is not merely a density artefact.
+///
+/// py4DSTEM's `match_single_pattern` handles this by zeroing the correlation
+/// within `min_angle_between_matches_deg` of an already-taken match before
+/// searching for the next (`crystal_ACOM.py`, the `min_angle_between_matches_deg`
+/// block). This is the same rule, applied to the runner-up.
+nonisolated func selectOrientation(
+    zoneAxes: [SIMD3<Double>], scores: [Float], bins: [UInt32],
+    distinctOrientationRad: Double
+) -> (template: Int, bin: Int, score: Float, secondScore: Float) {
+    var best: Float = -.greatestFiniteMagnitude
+    var bestTemplate = -1
+    for t in 0..<scores.count where scores[t] > best {
+        best = scores[t]; bestTemplate = t
+    }
+    guard bestTemplate >= 0 else { return (-1, 0, 0, 0) }
+
+    let winner = zoneAxes[bestTemplate]
+    let cosLimit = cos(distinctOrientationRad)
+    var second: Float = -.greatestFiniteMagnitude
+    for t in 0..<scores.count where t != bestTemplate {
+        // Templates closer than the limit describe the same orientation to
+        // within the bank's own resolution; they are not an alternative.
+        if simd_dot(zoneAxes[t], winner) > cosLimit { continue }
+        if scores[t] > second { second = scores[t] }
+    }
+    // A bank too coarse to hold any distinct alternative cannot express doubt.
+    if second == -.greatestFiniteMagnitude { second = 0 }
+    return (bestTemplate, Int(bins[bestTemplate]), best, second)
 }
 
 private nonisolated func makeOrientationResult(
@@ -377,24 +429,19 @@ nonisolated final class MetalACOMMatcher {
                 positionCount: count
             ) else { return nil }
             for local in 0..<count where valid[local] {
-                var best: Float = -.greatestFiniteMagnitude
-                var second = best
-                var bestTemplate = -1
-                var bestBin = 0
                 let offset = local * plan.count
-                for template in 0..<plan.count {
-                    let score = results.scores[offset + template]
-                    if score > best {
-                        second = best; best = score
-                        bestTemplate = template; bestBin = Int(results.bins[offset + template])
-                    } else if score > second {
-                        second = score
-                    }
-                }
+                // Identical selection to the CPU path, including the
+                // distinct-orientation rule for the runner-up.
+                let selected = selectOrientation(
+                    zoneAxes: plan.zoneAxes,
+                    scores: Array(results.scores[offset..<(offset + plan.count)]),
+                    bins: Array(results.bins[offset..<(offset + plan.count)]),
+                    distinctOrientationRad: plan.distinctOrientationRad
+                )
                 map.results[lower + local] = makeOrientationResult(
                     plan: plan, symmetry: symmetry,
-                    bestTemplate: bestTemplate, bestBin: bestBin,
-                    bestScore: best, secondScore: second
+                    bestTemplate: selected.template, bestBin: selected.bin,
+                    bestScore: selected.score, secondScore: selected.secondScore
                 )
             }
             progress?(Double(upper) / Double(total))

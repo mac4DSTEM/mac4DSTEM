@@ -35,17 +35,113 @@ Commit only if I ask.
 
 ## Status — what's done, what's next
 
-- ⬜ **Prompt A — close the parity wire** (`tools/` only, no app change).
-  Recommended first: it is the cheapest, and everything after it is easier to
-  trust once it exists.
-- ⬜ **Prompt B — task prerequisite checklists** (backlog #7, #1). First app
-  change of this phase.
+- ✅ **Prompt A — close the parity wire** (2026-08-04). Campaign exports
+  strain + full-scan ACOM (`*.parity_input.json`),
+  `tools/training-dataset-campaign/parity_py4dstem.py` recomputes both with
+  py4DSTEM (the vendored `References/py4DSTEM-dev`, importable under NumPy 2)
+  and publishes records to `References/parity_records/latest/`; the QC log
+  cites them (`mac4DSTEMUITests/Support/ParityRecords.swift`). **Two findings
+  it produced:** (1) strain-fit weighting DEVIATION (app Σw·r² vs py4DSTEM's
+  effective Σw²·r², ~5e-3 median on sim_Au; documented inline in
+  `Core/Analysis/StrainMapping.swift`, reported ungated as
+  `weighting_deviation_*`; estimator-matched parity PASSES at ~2e-4 median);
+  (2) **ACOM orientations diverged** — sim_Au full-scan vs py4DSTEM was 8.0°
+  median misorientation, 13% within 5°, and the record FAILED deliberately.
+  **Both causes were then found and fixed the same day** (pipelines doc
+  §10.1–§10.2): the polar deposition rounded each peak into its single nearest
+  radial bin instead of spreading it over neighbouring shells, which made the
+  match collapse under ≥0.5% Q-calibration error; and reliability
+  (1 − second/best) measured the runner-up against *any* other template, which
+  on a dense bank is the winner's own neighbour, so it was ≈0 and could not
+  rank confidence. `OrientationPlan.buildPolar` now uses py4DSTEM's 0.08 Å⁻¹
+  kernel and the runner-up must be ≥10° away in zone axis. **sim_Au ACOM now
+  PASSES: 2.14° median, 98.5% within 5°, p90 3.69°** against the 3° / 80%
+  tolerance (record regenerated 2026-08-04T14:02Z).
+- ✅ **Prompt B — task prerequisite checklists** (2026-08-04, backlog #7, #1
+  closed). `prerequisiteItems(for:readiness:)` + `TaskPrerequisiteChecklist`
+  under every primary action; legacy strings derive from the same model
+  (`ProductWorkflowTests` round-trip). Identifiers `workspace.prerequisite.*`.
 - ⬜ **Prompt C — defaults that don't generalize** (backlog #5, #8). Spike
   first — this one may not be "core untouched".
-- ⬜ **Prompt D — accessibility & control labelling** (v1 release gate,
-  backlog #3).
-- ⬜ **Prompt E — result labelling & presentation batch** (backlog #2, #4, #6,
-  #9, #10, #12, #13).
+- ◐ **Prompt D — accessibility & control labelling** (v1 release gate,
+  backlog #3): identifier/label-association half shipped 2026-08-04
+  (voltage, strain pickers + diagnostics, ACOM display + Work/Expected).
+  Open: VoiceOver + increased-text-size runtime verification — needs a human
+  session; nothing headless can honestly tick a VoiceOver gate.
+- ◐ **Prompt E — result labelling & presentation batch**: #9 shipped
+  2026-08-04 (compute failures → non-modal status bar + log,
+  `ErrorRoutingTests`; adversarial review then caught that mid-compute
+  file/IO errors were being demoted too — `presentComputeFailure` now
+  escalates data-source failures back to the modal, with a test). #2, #4,
+  #6, #10, #12, #13 remain.
+- ✅ **CIF import — user-reachable** (2026-08-04; not a Prompt A–E item, this
+  serves ROADMAP P1.3 "admit a new phase only through the generic model
+  contract"). `Core/Crystal/CIFImport.swift` parses cell parameters, the
+  `_atom_site_*` loop, and `_symmetry_equiv_pos_as_xyz` / `_space_group_symop_
+  operation_xyz`, expands the asymmetric unit, and builds a `CrystalModel`
+  through the *same* `validationIssues` gate as the built-in catalog.
+  Non-cubic/non-hexagonal cells are rejected (`unsupportedPointGroup`) rather
+  than coerced. **The point group is not taken from the cell metric alone** —
+  `verifyFamily` requires two independent generators to be real symmetries of
+  the expanded atom set (hexagonal: 6-fold ∥ c *and* 2-fold ∥ a; cubic: 3-fold
+  ∥ ⟨111⟩ *and* 4-fold ∥ c), each allowed to carry a translation so screw/glide
+  structures still pass. Without this, every trigonal mineral in the standard
+  hexagonal setting (quartz P3₂21, calcite R-3c) imported as `.hexagonal`, and
+  Laue-class impostors (apatite P6₃/m, pyrite Pa-3) got a group twice their
+  true order — a fabricated IPF key and half the template library they need.
+  Pinned by `tools/cif-symmetry-test/` (14 cases, in `run-tests.sh scientific`).
+  **The adversarial review earned its keep here:** the first implementation
+  checked only one generator per family (missing the Laue-class cases) and used
+  a 1e-3 tolerance that *rejected* HCP magnesium published to 3 decimals — a
+  shipped built-in model — which the original fixture could not see because it
+  used 7-decimal coordinates. The fixture now sweeps precision. Two pre-existing
+  defects the same review surfaced are filed as backlog **#14** (`expand`
+  splits equivalent sites at 3-decimal precision → wrong structure factors) and
+  **#15** (unreachable metric-tolerance band); neither is caused by this change.
+  Reachable from **ACOM ▸ Import CIF…**
+  (`acom.importCIF`, `UI/ACOMControlsView.swift`) → `AppState.
+  importCrystalModel(from:)` → the phase picker's `Imported:` section
+  (`CrystalModelSelection.imported`), with `crystal_model_source: imported` in
+  result provenance. Failures route to the window-modal path with the
+  offending tag/value/symbol named. Covered by `CIFImportTests` (parser) and
+  `CIFImportAppStateTests` (wiring + error routing).
+
+**Closeout gap (2026-08-04) — root cause now identified.** The QC playthrough
+acceptance re-run (closeout step 4) still has not executed. The earlier guess
+("the login session was locked/unattended") was **wrong**; it was measured this
+session and the real cause is narrower:
+
+- The GUI session is fine — `CGSessionCopyCurrentDictionary` reports
+  `OnConsole = 1`, not locked, 1 active display.
+- The app is fine — launched from the QC build it creates a real 1470×923
+  on-screen window, confirmed via `CGWindowListCopyWindowInfo`.
+- **XCUITest cannot *see* that window.** It launches the app, waits 30 s for
+  `Window (First Match)`, and fails with "App window never appeared after
+  launch" (`QCPlaythroughUITests.swift:72`) / "cannot request screenshot data
+  because it does not exist" (`AXDriver.swift:536`).
+
+That is the **Accessibility permission** requirement `tools/ui-qc-playthrough/run.sh`
+documents in its own header: the process *driving* the test needs
+Accessibility, and an agent-run shell does not have it. This cannot be granted
+from a script — it is a manual toggle in **System Settings ▸ Privacy & Security
+▸ Accessibility** for the terminal (or Xcode) that runs the script, and it
+needs the release owner.
+
+A second, unrelated blocker was found and cleared on the way: a **stale app
+instance holds the bundle ID**. XCUITest resolves `com.paullobpreis.mac4DSTEM`
+by bundle id, so a leftover debug build from a previous session is activated
+instead of the freshly built one. If it is stopped in Xcode's debugger it also
+survives `kill -9` until the attached `debugserver` is killed. Check
+`pgrep -lf "mac4DSTEM.app/Contents/MacOS/mac4DSTEM"` before every QC run.
+
+**Next attended session, after granting Accessibility to the driving terminal:**
+run `tools/ui-qc-playthrough/run.sh` (no argument) and diff against
+`References/training_runs/run_2026-08-03_1404/`. Expect ACOM numbers to
+**move** — the radial-kernel and reliability fixes (§10.2) changed orientation
+matching after that baseline was recorded, so sim_Au ACOM should improve rather
+than reproduce; peak counts, Q pixel sizes and strain diagnostics should not
+move. The Reconstruct step should name its blockers from the new checklist, and
+strain/ACOM steps should log `Parity vs py4DSTEM` citations.
 
 Backlog items #11 (WS₂ crystal model) is **not** in this phase — it is
 governed by `ROADMAP.md` Priority 1.3, which already sets the bar for admitting

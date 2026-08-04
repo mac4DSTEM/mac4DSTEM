@@ -32,9 +32,12 @@ func vectors(plan: OrientationPlan, crystal: Crystal, width: Int, height: Int) -
     let peaks = (0..<(width * height)).map { index -> [BraggPeak] in
         let template = (index * 17 + index / width) % plan.count
         let angle = Double((index * 7) % 64) / 64 * Double.pi
+        // intensityPower: 1 keeps the fixture's peak intensities physical —
+        // the matcher applies the plan's power to them, so generating them
+        // already compressed would apply it twice.
         return OrientationPlan.project(
             reflections: reflections, zoneAxis: plan.zoneAxes[template],
-            sgWidth: 0.03, sgMax: 0.1
+            sgWidth: 0.03, sgMax: 0.1, intensityPower: 1
         ).map { spot in
             BraggPeak(
                 x: 64 + Float(spot.r / scale * cos(spot.azim + angle)),
@@ -50,12 +53,21 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
     -> (template: Int, reportedBin: Int, score: Float, second: Float) {
     let geo = plan.geometry
     guard let fft = FFT1D(n: geo.nAzimuthal) else { fail("FFT setup") }
+    // Mirrors OrientationMatcher.prepareExperimentalFFT, including the plan's
+    // intensity power — the experimental image must be weighted exactly like
+    // the templates it is correlated against.
     let spots = peaks.map { peak in
         let dx = Double(peak.x - 64), dy = Double(peak.y - 64)
+        let intensity = Double(max(0, peak.intensity))
         return (r: hypot(dx, dy) * 0.01, azim: atan2(dy, dx),
-                weight: Double(max(0, peak.intensity)))
+                weight: plan.intensityPower == 1
+                    ? intensity : pow(intensity, plan.intensityPower))
     }
-    var polar = OrientationPlan.buildPolar(spots: spots, geometry: geo, azimBlurBins: 1.5)
+    // ...and the plan's radial kernel, for the same reason.
+    var polar = OrientationPlan.buildPolar(
+        spots: spots, geometry: geo, azimBlurBins: 1.5,
+        radialKernelInvAngstrom: plan.radialKernelInvAngstrom
+    )
     OrientationPlan.normalizeUnit(&polar)
     let (experimentalReal, experimentalImaginary) = OrientationPlan.ringFFTs(
         polar, geo: geo, fft: fft
@@ -63,8 +75,11 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
     let na = geo.nAzimuthal, nr = geo.nRadial
     var correlationReal = [Float](repeating: 0, count: na)
     var correlationImaginary = [Float](repeating: 0, count: na)
-    var best: Float = -.greatestFiniteMagnitude, second = best
-    var bestTemplate = -1, bestBin = 0
+    // Per-template scores are retained, then reduced by the same
+    // selectOrientation the production matcher uses — the runner-up has to be
+    // a template far enough away to be a different orientation.
+    var templateScores = [Float](repeating: 0, count: plan.count)
+    var templateBins = [UInt32](repeating: 0, count: plan.count)
     for template in 0..<plan.count {
         correlationReal = [Float](repeating: 0, count: na)
         correlationImaginary = [Float](repeating: 0, count: na)
@@ -87,11 +102,15 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
             local = correlationReal[index]; bin = index
         }
         local /= Float(na)
-        if local > best {
-            second = best; best = local; bestTemplate = template; bestBin = bin
-        } else if local > second { second = local }
+        templateScores[template] = local
+        templateBins[template] = UInt32(bin)
     }
-    return (bestTemplate, (na - bestBin) % na, best, second)
+    let selected = selectOrientation(
+        zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
+        distinctOrientationRad: plan.distinctOrientationRad
+    )
+    return (selected.template, (na - selected.bin) % na,
+            selected.score, selected.secondScore)
 }
 
 let crystal = Crystal.gold

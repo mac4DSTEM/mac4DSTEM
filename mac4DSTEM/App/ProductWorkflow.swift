@@ -111,32 +111,100 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     var hasPhysicalACOMScale = false
 }
 
+/// One requirement of a task, with its live status and where the satisfying
+/// control lives. `title` for an unmet item is byte-identical to the legacy
+/// `prerequisites(for:)` string, so gating text cannot drift between surfaces.
+struct TaskPrerequisite: Equatable, Identifiable, Sendable {
+    /// Where the control that satisfies this prerequisite lives, so UI can
+    /// link (navigate) or point (hint) without task-specific special cases.
+    enum Resolution: Equatable, Sendable {
+        /// Satisfied from the Prepare workspace (calibration checklist).
+        case prepare
+        /// Satisfied by running another analysis task first.
+        case task(AnalysisMode)
+        /// Satisfied by a control inside the current task's own tools panel;
+        /// the string is a short pointer to it.
+        case taskPanel(String)
+    }
+
+    /// Stable machine-readable key (used for accessibility identifiers).
+    let id: String
+    let title: String
+    let isSatisfied: Bool
+    let resolution: Resolution
+}
+
 enum ProductWorkflow {
+    /// The full requirement list for a task — met and unmet — in the same
+    /// order `prerequisites(for:)` has always reported the unmet subset.
+    static func prerequisiteItems(
+        for mode: AnalysisMode,
+        readiness: ProductWorkflowReadiness
+    ) -> [TaskPrerequisite] {
+        switch mode {
+        case .virtualDetector, .dpc, .disks:
+            return []
+        case .ptychography:
+            return [
+                TaskPrerequisite(
+                    id: "originProbe", title: "Calibrate the diffraction origin",
+                    isSatisfied: readiness.hasOriginProbe, resolution: .prepare
+                ),
+                TaskPrerequisite(
+                    id: "rotation", title: "Calibrate the R–Q rotation",
+                    isSatisfied: readiness.hasRotation, resolution: .prepare
+                ),
+                TaskPrerequisite(
+                    id: "qScale", title: "Set the Q pixel scale",
+                    isSatisfied: readiness.hasQScale, resolution: .prepare
+                ),
+                TaskPrerequisite(
+                    id: "rScale", title: "Set the R pixel scale",
+                    isSatisfied: readiness.hasRScale, resolution: .prepare
+                ),
+                TaskPrerequisite(
+                    id: "voltage", title: "Set the accelerating voltage",
+                    isSatisfied: readiness.hasVoltage,
+                    resolution: .taskPanel(
+                        "Enter the voltage in the Reconstruction workflow settings in the tools panel."
+                    )
+                )
+            ]
+        case .strain:
+            return [
+                TaskPrerequisite(
+                    id: "braggVectors", title: "Detect Bragg disks first",
+                    isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
+                )
+            ]
+        case .acom:
+            return [
+                TaskPrerequisite(
+                    id: "braggVectors", title: "Detect Bragg disks first",
+                    isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
+                ),
+                TaskPrerequisite(
+                    id: "acomMaterial",
+                    title: !readiness.hasACOMMaterial || readiness.hasSupportedACOMMaterial
+                        ? "Choose an ACOM material model"
+                        : "The selected ACOM material is not supported",
+                    isSatisfied: readiness.hasACOMMaterial
+                        && readiness.hasSupportedACOMMaterial,
+                    resolution: .taskPanel(
+                        "Select the material in the ACOM controls in the tools panel."
+                    )
+                )
+            ]
+        }
+    }
+
     static func prerequisites(
         for mode: AnalysisMode,
         readiness: ProductWorkflowReadiness
     ) -> [String] {
-        var missing: [String] = []
-        switch mode {
-        case .virtualDetector, .dpc, .disks:
-            break
-        case .ptychography:
-            if !readiness.hasOriginProbe { missing.append("Calibrate the diffraction origin") }
-            if !readiness.hasRotation { missing.append("Calibrate the R–Q rotation") }
-            if !readiness.hasQScale { missing.append("Set the Q pixel scale") }
-            if !readiness.hasRScale { missing.append("Set the R pixel scale") }
-            if !readiness.hasVoltage { missing.append("Set the accelerating voltage") }
-        case .strain:
-            if !readiness.hasBraggVectors { missing.append("Detect Bragg disks first") }
-        case .acom:
-            if !readiness.hasBraggVectors { missing.append("Detect Bragg disks first") }
-            if !readiness.hasACOMMaterial {
-                missing.append("Choose an ACOM material model")
-            } else if !readiness.hasSupportedACOMMaterial {
-                missing.append("The selected ACOM material is not supported")
-            }
-        }
-        return missing
+        prerequisiteItems(for: mode, readiness: readiness)
+            .filter { !$0.isSatisfied }
+            .map(\.title)
     }
 
     /// Non-blocking scientific context. These messages explain the units or

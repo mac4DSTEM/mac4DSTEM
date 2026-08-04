@@ -167,7 +167,23 @@ struct ProductWorkspaceHeader: View {
         )
     }
 
+    private var isTaskWorkspace: Bool {
+        appState.workspaceArea != .prepare && appState.workspaceArea != .results
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            headerRow
+            if isTaskWorkspace, !missingPrerequisites.isEmpty {
+                Divider()
+                TaskPrerequisiteChecklist()
+            }
+        }
+        .background(.bar)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var headerRow: some View {
         HStack(spacing: 12) {
             Image(systemName: headerIcon)
                 .font(.system(size: 22, weight: .medium))
@@ -193,15 +209,12 @@ struct ProductWorkspaceHeader: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if appState.workspaceArea != .prepare,
-                   appState.workspaceArea != .results,
-                   let first = missingPrerequisites.first {
-                    Label(first, systemImage: "exclamationmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                } else if appState.workspaceArea != .prepare,
-                          appState.workspaceArea != .results,
-                          let first = qualityGuidance.first {
+                // Unmet prerequisites render as the full checklist below the
+                // header row (TaskPrerequisiteChecklist), not as a one-line
+                // summary here.
+                if isTaskWorkspace,
+                   missingPrerequisites.isEmpty,
+                   let first = qualityGuidance.first {
                     Label(first, systemImage: "info.circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -225,8 +238,6 @@ struct ProductWorkspaceHeader: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(.bar)
-        .overlay(alignment: .bottom) { Divider() }
     }
 
     private var headerTitle: String {

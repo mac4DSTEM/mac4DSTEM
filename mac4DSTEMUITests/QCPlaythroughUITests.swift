@@ -196,6 +196,9 @@ private struct QCWorkflow {
             if try runFullScanOrientationMap() {
                 attachScreenshot(step: "06c_orientation_map_full_scan")
                 try exportCurrentResult(filename: "orientation_map_full_scan.png")
+                log.bullet(ParityRecords.citation(
+                    datacubeFileName: fileName, product: "acom"
+                ))
 
                 if try showIPFZOrientationMap() {
                     attachScreenshot(step: "06d_orientation_map_ipf_z")
@@ -209,6 +212,9 @@ private struct QCWorkflow {
         if try runStrainMapping() {
             attachScreenshot(step: "06b_strain")
             try exportCurrentResult(filename: "strain_map.png")
+            log.bullet(ParityRecords.citation(
+                datacubeFileName: fileName, product: "strain"
+            ))
         }
 
         // Parallax/ptychography additionally need R+Q pixel size and the
@@ -453,11 +459,10 @@ private struct QCWorkflow {
     /// display py4DSTEM's `plot_orientation_maps` leads with (§3.5), as opposed
     /// to the Reliability map the earlier steps export.
     ///
-    /// The display-mode picker (`UI/ACOMControlsView.swift:227`) has no
-    /// accessibility identifier, and its label ("Display") collides with a
-    /// sidebar section header — so it is located by the option it is currently
-    /// showing instead. Per this task's constraints, an unreachable picker is
-    /// logged as a finding rather than fixed in app code.
+    /// The display-mode picker now carries the `acom.display` identifier
+    /// (added 2026-08-04, backlog #3), but this lookup deliberately stays on
+    /// the current-value route: it is the fallback that found the gap, and it
+    /// keeps working if the identifier regresses.
     private func showIPFZOrientationMap() throws -> Bool {
         log.subsection("6d. IPF · Z orientation coloring (ACOM)")
         // The export step above left us on Results; the picker lives under Map.

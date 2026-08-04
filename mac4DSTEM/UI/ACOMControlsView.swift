@@ -1,10 +1,23 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,
 /// work scope, and result diagnostics together prevents a physically labelled
 /// output from being assembled out of unrelated controls elsewhere.
 struct ACOMControlsView: View {
     @Environment(AppState.self) private var appState
+    @State private var showCIFImporter = false
+
+    /// Nothing on a stock macOS declares `.cif`, so this resolves to the
+    /// dynamic type `dyn.ah62d4rv4ge80g4pg` — which is also what a `.cif` file
+    /// on disk resolves to, so the picker matches it. The fallback must be
+    /// `.data`, not `.plainText`: a `.cif` file does *not* conform to
+    /// `public.plain-text` (verified — its dynamic type conforms to
+    /// `public.data` only), so a `.plainText` fallback would grey out every
+    /// CIF in the picker.
+    private var cifTypes: [UTType] {
+        [UTType(filenameExtension: "cif") ?? .data]
+    }
 
     var body: some View {
         @Bindable var appState = appState
@@ -15,8 +28,37 @@ struct ACOMControlsView: View {
                     Text(model.displayName).tag(CrystalModelSelection.library(model.id))
                 }
                 Text("Custom cubic…").tag(CrystalModelSelection.customCubic)
+                if !appState.importedCrystalModels.isEmpty {
+                    Divider()
+                    ForEach(appState.importedCrystalModels) { model in
+                        // "Imported" prefix visually distinguishes a
+                        // user-supplied CIF from the vetted built-in library.
+                        Text("Imported: \(model.displayName)")
+                            .tag(CrystalModelSelection.imported(model.id))
+                    }
+                }
             }
             .accessibilityIdentifier("acom.material")
+
+            Button {
+                showCIFImporter = true
+            } label: {
+                Label("Import CIF…", systemImage: "square.and.arrow.down")
+            }
+            .font(.caption)
+            .accessibilityIdentifier("acom.importCIF")
+            .fileImporter(
+                isPresented: $showCIFImporter,
+                allowedContentTypes: cifTypes,
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first { appState.importCrystalModel(from: url) }
+                case .failure(let error):
+                    appState.present(error)
+                }
+            }
 
             if let reason = appState.acomModelSelectionIssue {
                 Label(reason, systemImage: "nosign")
@@ -26,6 +68,11 @@ struct ACOMControlsView: View {
             } else if let model = appState.resolvedACOMModel {
                 LabeledContent("Symmetry", value: model.symmetry.displayName)
                     .font(.caption)
+                if model.source == .imported {
+                    LabeledContent("Source", value: "Imported CIF")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
                 Text("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -49,8 +96,10 @@ struct ACOMControlsView: View {
 
             LabeledContent("Work", value: appState.acomWorkSummary)
                 .font(.caption)
+                .accessibilityIdentifier("acom.work")
             LabeledContent("Expected", value: appState.acomEstimatedDurationText)
                 .font(.caption)
+                .accessibilityIdentifier("acom.expected")
 
             DisclosureGroup("Engine & Q scale") {
                 engineControls(appState: appState)
@@ -229,6 +278,11 @@ struct ACOMControlsView: View {
                     Text(mode.rawValue).tag(mode)
                 }
             }
+            // "Display" alone collides with the sidebar section header of the
+            // same name; the accessibility label disambiguates for VoiceOver
+            // and label-based automation queries.
+            .accessibilityLabel("ACOM display mode")
+            .accessibilityIdentifier("acom.display")
             if appState.acomDisplay == .ipfZ {
                 if appState.orientationMap?.symmetry == .hexagonal {
                     HexagonalIPFLegendView()

@@ -74,7 +74,11 @@ strain.
 
 **ACOM orientation mapping.** Polar-correlation template matching against a
 validated `CrystalModel` catalog (FCC/BCC/diamond presets, HCP magnesium,
-custom cubic). Preview/region/full-scan scopes with measured ETA, CPU/Metal
+custom cubic, or your own structure via **Import CIF…**). Imported CIFs go
+through the same `CrystalModel` validation as the built-in catalog and are
+labelled *Imported* in the phase picker and in result provenance; cells
+outside the cubic and hexagonal point groups are rejected, not coerced.
+Preview/region/full-scan scopes with measured ETA, CPU/Metal
 backends with parity gating, EBSD-style reliability, IPF-Z maps, and Bunge
 Euler output. Physical matching requires calibrated Q sampling; anything else
 is permanently labeled **Exploratory**. Phases without a validated model
@@ -201,9 +205,14 @@ audit; Developer ID signing and notarization require release-owner credentials
 - **Session rehydration is pixel/metadata-level.** Saved maps, calibration, and
   BraggVectors restore; the app does not reconstruct every transient scientific
   array or create EMD plot nodes.
-- **ACOM point-group coverage is deliberate, not generic.** Cubic presets and
-  HCP magnesium are validated; an arbitrary-crystal importer must supply an
-  explicit point-group implementation.
+- **ACOM point-group coverage is deliberate, not generic.** Symmetry reduction
+  and IPF coloring are implemented for the cubic and hexagonal point groups
+  only. The CIF importer therefore accepts cubic and hexagonal cells and
+  rejects everything else outright rather than coercing it onto `.cubic`,
+  which would fabricate an IPF key and a fundamental-zone sampling that do not
+  correspond to the crystal. An imported phase is user-supplied evidence, not
+  a validated material: the built-in catalog is backed by ground-truth
+  fixtures (ROADMAP P1.2), imported CIFs are not.
 - **Virtual diffraction is an all-scan-position reduction** and can become
   expensive for large scans and detectors.
 - **Origin coarse search deviates from py4DSTEM** (binned block-sum argmax

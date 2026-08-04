@@ -44,6 +44,57 @@ struct CampaignFixtureMetadata: Codable {
     let alternateDatasetPaths: [String]?
 }
 
+// MARK: - Parity-input export (consumed by parity_py4dstem.py)
+//
+// The campaign exports the exact arrays the app produced for the products a
+// user actually looks at (strain map, full-scan ACOM orientation map) so the
+// Python side can recompute the same products with py4DSTEM from the same
+// Bragg vectors and quantify the deviation. Coordinates stay in the app frame
+// (x = scan/detector column, y = row); the Python reader owns the swap to
+// py4DSTEM's (qx = row, qy = column) convention, mirroring what
+// BraggVectorEMDWriter already does for the peak export.
+
+struct ParityStrainExport: Codable {
+    let refG1: [Double]        // app frame [x, y], calibrated detector px
+    let refG2: [Double]
+    let exx: [Float]
+    let eyy: [Float]
+    let exy: [Float]
+    let theta: [Float]
+    let mask: [Bool]
+    let indexedFraction: Double
+    let indexingTolerancePixels: Double
+}
+
+struct ParityACOMExport: Codable {
+    let crystalID: String
+    let cellAAngstrom: Double
+    let siteFractional: [[Double]]
+    let siteAtomicNumbers: [Int]
+    let symmetry: String
+    let kMaxInvAngstrom: Double
+    let zoneAxisCount: Int
+    let invAngstromPerPixel: Double
+    let templateIndex: [Int]
+    let reliability: [Float]
+    let score: [Float]
+    /// Row-major 3x3 crystal→lab rotation in py4DSTEM's convention
+    /// (EulerAngles.py4DSTEMOrientationMatrix); [] where unmatched.
+    let orientationMatrixRowMajor: [[Double]]
+}
+
+struct ParityInputExport: Codable {
+    let schema: Int
+    let dataset: String
+    let scanWidth: Int
+    let scanHeight: Int
+    let voltageKV: Double
+    let originX: Double        // app frame: x = detector column
+    let originY: Double
+    let strain: ParityStrainExport?
+    let acom: ParityACOMExport?
+}
+
 struct DatasetCampaignReport: Codable {
     let file: String
     let fileBytes: Int64
@@ -592,6 +643,17 @@ private func evaluate(
         bragg: vectors, originX: meanOrigin.x, originY: meanOrigin.y
     )
     let strainSeconds = Date().timeIntervalSince(strainStart)
+    var parityStrain: ParityStrainExport?
+    if let strain {
+        parityStrain = ParityStrainExport(
+            refG1: [Double(strain.refG1.x), Double(strain.refG1.y)],
+            refG2: [Double(strain.refG2.x), Double(strain.refG2.y)],
+            exx: strain.exx, eyy: strain.eyy, exy: strain.exy,
+            theta: strain.theta, mask: strain.mask,
+            indexedFraction: Double(strain.indexedFraction),
+            indexingTolerancePixels: Double(strain.diagnostics.indexingTolerancePixels)
+        )
+    }
     if let strain {
         stages["strain"] = CampaignStage(
             "pass_operational_not_quantitatively_validated", seconds: strainSeconds,
@@ -612,6 +674,7 @@ private func evaluate(
         )
     }
 
+    var parityACOM: ParityACOMExport?
     let phaseModel = metadata.phaseModelID.flatMap(CrystalModelLibrary.model(id:))
     if let phaseModel,
        phaseModel.isUsable,
@@ -624,9 +687,13 @@ private func evaluate(
         calibration.qPixelUnits = "Å⁻¹"
         provenance.qScale = .measuredInApp
         let acomStart = Date()
+        // The wavelength is what makes the templates asymmetric under g → −g;
+        // without it the in-plane angle is only determined modulo 180°
+        // (see OrientationPlan.project).
         let plan = OrientationPlan.generate(
             crystal: phaseModel.crystal, kMax: 1.2, zoneAxisCount: 96,
-            symmetry: phaseModel.symmetry
+            symmetry: phaseModel.symmetry,
+            wavelengthAngstrom: DPC.electronWavelengthAngstrom(voltageKV: voltageKV)
         )
         let selection = ACOMScanSelection.preview(maxDimension: 24)
         let orientation = plan.flatMap {
@@ -638,6 +705,40 @@ private func evaluate(
             )
         }
         let acomSeconds = Date().timeIntervalSince(acomStart)
+        // Full-scan match for the parity record: this is the product the QC
+        // playthrough exports as "orientation map (full scan)". The preview
+        // stage above stays untouched so its metrics remain comparable across
+        // campaign runs.
+        if let plan, let fullMap = OrientationMatching.matchAll(
+            bragg: vectors, plan: plan,
+            originX: meanOrigin.x, originY: meanOrigin.y,
+            invAngstromPerPixel: qEstimate.invAngstromPerPixel,
+            backend: .cpu, selection: .full
+        ) {
+            parityACOM = ParityACOMExport(
+                crystalID: phaseModel.id,
+                cellAAngstrom: phaseModel.crystal.a,
+                siteFractional: phaseModel.crystal.sites.map {
+                    [$0.fractional.x, $0.fractional.y, $0.fractional.z]
+                },
+                siteAtomicNumbers: phaseModel.crystal.sites.map(\.z),
+                symmetry: phaseModel.symmetry.rawValue,
+                kMaxInvAngstrom: 1.2, zoneAxisCount: 96,
+                invAngstromPerPixel: qEstimate.invAngstromPerPixel,
+                templateIndex: fullMap.results.map(\.templateIndex),
+                reliability: fullMap.results.map(\.reliability),
+                score: fullMap.results.map(\.score),
+                orientationMatrixRowMajor: fullMap.results.map { result in
+                    guard result.templateIndex >= 0 else { return [] }
+                    let m = result.euler.py4DSTEMOrientationMatrix
+                    return [
+                        m.columns.0.x, m.columns.1.x, m.columns.2.x,
+                        m.columns.0.y, m.columns.1.y, m.columns.2.y,
+                        m.columns.0.z, m.columns.1.z, m.columns.2.z,
+                    ]
+                }
+            )
+        }
         if let plan, let orientation {
             let selectedIndices = selection.sourceIndices(
                 width: descriptor.rx, height: descriptor.ry
@@ -767,6 +868,21 @@ private func evaluate(
             "sidecar_bytes": Double(fileSize(sidecar.path)),
             "source_unchanged": sourceUnchanged ? 1 : 0,
         ]
+    )
+
+    let parityInput = ParityInputExport(
+        schema: 1, dataset: fileName,
+        scanWidth: descriptor.rx, scanHeight: descriptor.ry,
+        voltageKV: voltageKV,
+        originX: Double(meanOrigin.x), originY: Double(meanOrigin.y),
+        strain: parityStrain, acom: parityACOM
+    )
+    let parityEncoder = JSONEncoder()
+    parityEncoder.outputFormatting = [.sortedKeys]
+    try parityEncoder.encode(parityInput).write(
+        to: outputDirectory.appendingPathComponent(
+            safeStem(fileName) + ".parity_input.json"
+        )
     )
 
     return DatasetCampaignReport(
