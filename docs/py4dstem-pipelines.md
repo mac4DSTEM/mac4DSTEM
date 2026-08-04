@@ -795,6 +795,100 @@ the strain prerequisite chain, untested and unexplained so far. All three also
 carry "Origin fit RMS exceeds the fitted probe radius", which is the more
 likely upstream cause.
 
+### 10.3 The strain blocker was the disk-spacing default — and that is only half of it (2026-08-04)
+
+**§10.2's attribution above is wrong and is left in place only as the record of
+what was believed.** "Origin fit RMS exceeds the fitted probe radius" is not
+what blocked strain: the release owner produced a clean, physically sensible
+SiGe-fin strain map *in the app* on `downsample_Si_SiGe_exp` — 100% indexed,
+100% basis support, RMS 0.885 px, κ 4.80 — while that same warning was showing
+and the calibration was still marked incomplete.
+
+**What was actually wrong.** `DiskDetectionParams.detectorAdapted` set
+`minPeakSpacing = qMin/8`, rescaling py4DSTEM's 60 px default (written for
+~512 px patterns) by detector size. Bragg spacing is set by camera length,
+voltage and d-spacing; it does not scale with the detector. Measured with the
+new `tools/bragg-spacing-probe/` (40 patterns per dataset, each dataset's own
+fitted probe radius):
+
+  | dataset | probe r | true nearest-neighbour | qMin/8 gate | % of peaks below the gate |
+  |---|---|---|---|---|
+  | downsample_Si_SiGe_exp | 5.03 px | **14.9 px** | 16 px | **96.9%** |
+  | Particle_1…bin8 | 10.6 px | **12.7 px** | 16 px | **94.4%** |
+  | sim_Au_data_all_binned | 6.1 px | 21.4 px | 16 px | 0.0% |
+  | polycrystal_2D_WS2 | 1.86 px | n/a — 1 peak/pattern | 16 px | n/a |
+
+On the first two the gate sits *above* the lattice, so it suppresses the
+shortest g-vectors — exactly the ones that define the strain basis. Isolated
+one parameter at a time: correlation smoothing and edge exclusion contribute
+nothing; `minPeakSpacing` accounts for the entire effect.
+
+**The fix.** `minPeakSpacing` now derives from the fitted probe radius
+(1.0·r) whenever one is known, since this filter exists to stop one disk
+producing two maxima, not to enforce a lattice period. 1.5·r and 2.0·r were
+measured and rejected — they regress Particle_1, whose disks overlap. Without
+a probe radius the old detector-scaled value is retained, which keeps
+`tools/disk-correlation-parity`'s recorded 2697-peak baseline valid.
+
+**Clamped to only ever loosen.** The probe-scaled value is capped at the
+detector-scaled one. Every training dataset has r < qMin/8, so *only the
+loosening direction was ever measured*; a large convergence semi-angle puts r
+above that (300 kV / 25 mrad ⇒ r ≈ 60 px on a 128 px detector) where the
+unclamped rule would suppress **more** than the value it replaced — and 60 px
+sits below the `detectorMinimum / 2` validation warning, so it would have
+failed silently at ~1 peak per pattern. Pinned by
+`testProbeScaledSpacingNeverExceedsTheDetectorScaledValue`.
+
+**Two caveats on the evidence above, both filed** (backlog #19, #20): the
+"true nearest-neighbour" figures are measured through a 10 px gate and so are
+floored at 10 px — the medians clear it but the low tail is truncated; and
+`Particle_1` may have **no Bragg reflections on its detector at all** (at
+α = 0.48 mrad the smallest reachable d-spacing is ~6.8 Å), in which case its
+maxima are intra-disk structure and it should not have been used to reject
+1.5·r and 2.0·r. The Si_SiGe and sim_Au evidence is unaffected by either.
+
+**Measured effect of the fix (full campaign, all four datasets):**
+
+  | dataset | peaks before | peaks after | strain |
+  |---|---|---|---|
+  | Si_SiGe | 123,885 | **248,384** | still no map |
+  | Particle_1 | — | 71,764 | **now computes** (57.7% indexed, κ 7.9) — parity **FAIL** |
+  | sim_Au | 103,657 | 103,657 | PASS, unchanged |
+  | WS2 | — | 16,384 | still no map |
+
+`sim_Au`'s strain and ACOM parity records are **bit-identical before and after
+— all 47 metrics** — so the one dataset carrying passing records is provably
+unaffected.
+
+**What is still unexplained, and matters more than the above.** Si_SiGe strain
+*still* fails in the campaign. Re-running the campaign with the release
+owner's exact hand-tuned detector settings detects **250,195 peaks — the same
+number to the peak as their successful app session** — and the campaign's
+strain still returns no basis. So:
+
+- the failure is **not** in disk detection; that input is now identical;
+- the app and the campaign call `StrainMapping.compute` the same way, on
+  vectors calibrated the same way, with the same `.plane` origin fit, and the
+  campaign does fit an ellipse before detection;
+- therefore **the campaign harness diverges from the app somewhere in the
+  strain path, and that divergence has not been located.**
+
+The consequence is the important part: every previous "app produced no strain
+map for this dataset" record was evidence about *the campaign*, not
+necessarily about the app. Those records cannot be cited as an app finding
+until the divergence is found. Locating it is the next strain task —
+`tools/training-dataset-campaign/main.swift` now honours
+`MAC4DSTEM_DISK_SIGMA_CC`, `MAC4DSTEM_DISK_MIN_SPACING` and
+`MAC4DSTEM_DISK_EDGE` so a hand-tuned session can be reproduced exactly, which
+is how the above was established.
+
+**Particle_1 strain now has a real number and it disagrees:** e_xx median
+absdiff 0.054 against a 0.001 gate (54×), with `reference_g1_absdiff_px` 0.89.
+That dataset has an 18.3 px origin RMS against a 10.6 px probe, so the robust
+and median reference bases diverge badly. A measured disagreement is strictly
+more information than the previous no-map, but it is a finding to investigate,
+not a tolerance to widen.
+
 **How the loop drives v1.0:** each QC prompt (`docs/qc-playthrough-prompts.md`)
 advances the UI half; `tools/run-tests.sh scientific` + the campaign advance
 the parity half; a finished v1 is *both halves green* + the

@@ -61,8 +61,27 @@ Commit only if I ask.
   closed). `prerequisiteItems(for:readiness:)` + `TaskPrerequisiteChecklist`
   under every primary action; legacy strings derive from the same model
   (`ProductWorkflowTests` round-trip). Identifiers `workspace.prerequisite.*`.
-- ⬜ **Prompt C — defaults that don't generalize** (backlog #5, #8). Spike
-  first — this one may not be "core untouched".
+- ◐ **Prompt C — defaults that don't generalize** (backlog #5, #8).
+  **The disk-detection half shipped 2026-08-04** and it was not "core
+  untouched": `DiskDetectionParams.detectorAdapted` scaled `minPeakSpacing`
+  by *detector size* (`qMin/8`, py4DSTEM's 60 px default rescaled from 512 px
+  patterns). Bragg spacing does not scale with the detector. Measured with the
+  new `tools/bragg-spacing-probe/`: the gate landed at 16 px against a true
+  lattice spacing of 14.9 px (Si_SiGe) and 12.7 px (Particle_1), suppressing
+  96.9% and 94.4% of genuine peaks — the shortest g-vectors, which define the
+  strain basis. Now derives from the fitted probe radius (1.0·r), **clamped so
+  it can only loosen**. Si_SiGe 123,885 → 248,384 peaks; Particle_1 strain now
+  computes at all; **sim_Au's 47 parity metrics are bit-identical** before and
+  after. Full write-up: pipelines doc **§10.3**.
+  **Two things this did NOT do, both filed:** Si_SiGe strain *still* fails in
+  the campaign even when handed a peak-identical input to a successful app
+  session (backlog **#18** — the campaign diverges from the app somewhere in
+  the strain path, and that means past "app produced no strain map" records
+  were evidence about the harness, not the app); and Particle_1 strain now
+  produces a number that fails parity by 54×. The adversarial review also
+  found the evidence has a floored measurement and a possibly-reflection-free
+  dataset in it (backlog **#19**, **#20**). The reference/basis UI half of #5
+  and #8 is untouched and its stated rationale has been corrected in place.
 - ◐ **Prompt D — accessibility & control labelling** (v1 release gate,
   backlog #3): identifier/label-association half shipped 2026-08-04
   (voltage, strain pickers + diagnostics, ACOM display + Work/Expected).

@@ -594,10 +594,24 @@ private func evaluate(
             userInfo: [NSLocalizedDescriptionKey: "Probe kernel did not initialize"]
         )
     }
-    var diskParameters = DiskDetectionParams()
-    let qMinimum = Float(min(descriptor.qx, descriptor.qy))
-    diskParameters.minPeakSpacing = max(4, (qMinimum / 8).rounded())
-    diskParameters.edgeBoundary = max(2, Int(qMinimum / 24))
+    // The origin fit above measured the probe radius, so the campaign has it
+    // before detection runs and must pass it: the detector-scaled fallback
+    // suppresses the shortest g-vectors on Si_SiGe and Particle_1, which is
+    // what left them with no strain map. See DiskDetectionParams.detectorAdapted.
+    var diskParameters = DiskDetectionParams.detectorAdapted(
+        qy: descriptor.qy, qx: descriptor.qx, probeRadius: originFit.probeRadius
+    )
+    // Overrides so the campaign can reproduce a hand-tuned run exactly. The
+    // release owner's manual Si_SiGe session differed from the campaign in
+    // three detector settings at once; without these the only way to tell
+    // which one mattered is to rebuild the harness per experiment.
+    // Unset (the normal case) = the derived defaults above.
+    if let value = ProcessInfo.processInfo.environment["MAC4DSTEM_DISK_SIGMA_CC"],
+       let sigma = Float(value) { diskParameters.sigmaCC = sigma }
+    if let value = ProcessInfo.processInfo.environment["MAC4DSTEM_DISK_MIN_SPACING"],
+       let spacing = Float(value) { diskParameters.minPeakSpacing = spacing }
+    if let value = ProcessInfo.processInfo.environment["MAC4DSTEM_DISK_EDGE"],
+       let edge = Int(value) { diskParameters.edgeBoundary = edge }
 
     let cancelledDiskToken = AnalysisCancellationToken()
     cancelledDiskToken.cancel()
@@ -632,9 +646,23 @@ private func evaluate(
         vectors.totalPeakCount > 0 ? "pass" : "fail",
         seconds: braggSeconds,
         detail: "Detected \(vectors.totalPeakCount) peaks",
+        // The detection parameters are recorded, not just the peak count: this
+        // is a gating harness, and the env overrides above can change its
+        // output from outside. Without these a run made with
+        // MAC4DSTEM_DISK_MIN_SPACING set is indistinguishable from a default
+        // run. `at_maximum_position_count` exposes maxNumPeaks truncation,
+        // which the yields this stage now produces can actually reach.
         metrics: [
             "peak_count": Double(vectors.totalPeakCount),
             "positions_per_second": Double(descriptor.ry * descriptor.rx) / max(braggSeconds, 1e-9),
+            "param_min_peak_spacing": Double(diskParameters.minPeakSpacing),
+            "param_sigma_cc": Double(diskParameters.sigmaCC),
+            "param_edge_boundary": Double(diskParameters.edgeBoundary),
+            "param_max_num_peaks": Double(diskParameters.maxNumPeaks),
+            "probe_radius_px": Double(originFit.probeRadius),
+            "at_maximum_position_count": Double(
+                vectors.peaks.reduce(0) { $0 + ($1.count >= diskParameters.maxNumPeaks ? 1 : 0) }
+            ),
         ]
     )
 

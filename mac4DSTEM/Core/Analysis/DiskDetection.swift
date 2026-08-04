@@ -244,10 +244,64 @@ nonisolated struct DiskDetectionParams: Equatable, Sendable {
     /// py4DSTEM's literal spacing/edge defaults target roughly 512-pixel
     /// patterns. Preserve its scale-free defaults while keeping the spatial
     /// filters useful on smaller detectors.
-    static func detectorAdapted(qy: Int, qx: Int) -> DiskDetectionParams {
+    ///
+    /// `probeRadius` is the fitted probe radius in detector pixels, when it is
+    /// known. Pass it whenever it is available — it is what makes
+    /// `minPeakSpacing` physically meaningful.
+    ///
+    /// DEVIATION from py4DSTEM: py4DSTEM's `minPeakSpacing` default is 60 px,
+    /// and rescaling that by detector size (`qMin / 8`, which reproduces ~60 on
+    /// a 512 px detector) is wrong in principle and measurably wrong in
+    /// practice. Bragg spacing is set by camera length, accelerating voltage
+    /// and d-spacing — it does not scale with the detector. Measured on the
+    /// training set with `tools/bragg-spacing-probe/` (40 patterns each,
+    /// peaks detected under each rule):
+    ///
+    /// | dataset | probe r | true nearest-neighbour | qMin/8 | 1.0·r |
+    /// |---|---|---|---|---|
+    /// | downsample_Si_SiGe_exp | 5.03 px | 14.9 px | 16 px → 487 peaks | 5 px → 989 |
+    /// | Particle_1…bin8 | 10.6 px | 12.7 px | 16 px → 455 | 11 px → 769 |
+    /// | sim_Au_data_all_binned | 6.1 px | 21.4 px | 16 px → 547 | 6 px → 547 |
+    ///
+    /// On the first two the detector-scaled gate lands *above* the lattice —
+    /// 96.9% and 94.4% of genuine peaks have a neighbour closer than it — so it
+    /// suppresses the shortest g-vectors, which are exactly the ones that
+    /// define the strain basis. Si_SiGe's yield halved to a median 12
+    /// peaks/pattern and the basis fit became unsolvable ("No well-conditioned
+    /// lattice explains at least half of the detected peak population"). On
+    /// sim_Au, whose lattice is coarser than the gate, the rule changes
+    /// nothing — its parity records are unaffected.
+    ///
+    /// The probe radius is the right scale because this filter exists to stop
+    /// one disk producing two maxima, not to enforce a lattice period. 1.0·r
+    /// was chosen over 1.5·r and 2.0·r, which both regress Particle_1 back to
+    /// ~455 peaks (its disks overlap — they sit closer together than one probe
+    /// diameter), and over 0.75·r, which admits ~8% more peaks on Particle_1
+    /// that cannot be distinguished from duplicate maxima.
+    ///
+    /// Without a probe radius the old detector-scaled value is retained: it is
+    /// only a transient placeholder, since detection needs a probe kernel and
+    /// therefore a radius before it can run at all.
+    static func detectorAdapted(
+        qy: Int, qx: Int, probeRadius: Float? = nil
+    ) -> DiskDetectionParams {
         var params = DiskDetectionParams()
         let qMin = Float(min(qx, qy))
-        params.minPeakSpacing = max(4, (qMin / 8).rounded())
+        let detectorScaled = max(4, (qMin / 8).rounded())
+        if let probeRadius, probeRadius.isFinite, probeRadius > 0 {
+            // Clamped so this can only ever *loosen* the gate, never tighten
+            // it. All four training datasets have r < qMin/8, so the clamp is
+            // inactive on every dataset the rule was measured against — but a
+            // large convergence semi-angle puts r above it, and there the
+            // unclamped rule would suppress more than the value it replaced.
+            // A 300 kV, 25 mrad probe on a 128 px detector reaches r ≈ 60 px,
+            // which is below the `detectorMinimum / 2` validation warning and
+            // would therefore have silently returned ~1 peak per pattern.
+            // Only the loosening direction is evidenced, so only that is taken.
+            params.minPeakSpacing = min(max(4, probeRadius.rounded()), detectorScaled)
+        } else {
+            params.minPeakSpacing = detectorScaled
+        }
         params.edgeBoundary = max(2, Int(qMin / 24))
         return params
     }

@@ -169,6 +169,19 @@ the *whole-scan average* lattice that is ill-conditioned. py4DSTEM's own
 exactly this reason. **The app already has both controls; the default is what
 does not generalise.**
 
+> **CORRECTION (2026-08-04).** "The input is fine — median 12 peaks per
+> pattern" was wrong, and the "12" was the symptom, not a healthy baseline.
+> The detector-scaled `minPeakSpacing` default sat *above* the true Bragg
+> spacing on Si_SiGe (16 px gate vs 14.9 px lattice) and Particle_1 (16 vs
+> 12.7), suppressing 96.9% and 94.4% of genuine peaks — the shortest
+> g-vectors, which are precisely what defines the basis. With the gate fixed
+> (pipelines doc §10.3) Si_SiGe detects 248,384 peaks instead of 123,885.
+> So the whole-scan *average* was not shown to be the problem; a starved peak
+> population was. The reference/basis UI work below still has independent
+> value — py4DSTEM really does pick an unstrained ROI for this specimen — but
+> it must not be justified by this evidence, and it is **not** the reason
+> Si_SiGe produced no strain map.
+
 **Change:** in the Strain task controls, (a) label the two pickers with what
 they mean for the result ("Reference defines zero strain"), (b) when the
 automatic basis fails, point the failure text at the *specific* control that
@@ -454,6 +467,158 @@ upstream justification — 1e-6 is what actually survives, so that comment shoul
 be corrected when this is fixed.
 
 **Core untouched:** no, but low risk — error routing only, no numerics.
+
+---
+
+## #19 — Does `Particle_1` have any Bragg reflections on the detector at all?
+
+**Raised by the adversarial review of the disk-spacing fix, 2026-08-04.
+Needs the release owner's acquisition parameters to settle.**
+
+The filename says `alpha=0p48 … cl-600mm … 300kV … bin8`, the detector is
+128×128, and the fitted probe radius is 10.6 px. If `alpha` is a convergence
+semi-angle of 0.48 mrad, the angular scale is 0.045 mrad/px, so the detector
+half-width of 64 px spans 2.9 mrad and the **smallest d-spacing reachable on
+the detector is ~6.8 Å**. No metal or oxide reflection lies there. The
+"nearest-neighbour spacing" measured as 12.7 px would correspond to d ≈ 34 Å,
+which is not a lattice plane. With 2r = 21.2 px against a 12.7 px spacing the
+disks would overlap by ~84%.
+
+The simpler reading is that those maxima are **structure inside the single
+central disk**, not distinct Bragg disks. Corroborating: Particle_1's strain
+now computes but fails parity by 54× (pipelines §10.3), and its origin fit RMS
+is 18.3 px against a 10.6 px probe — the app already flags that probe fit as
+unfit for quantitative use.
+
+**Why it matters:** Particle_1 was used to *reject* the 1.5·r and 2.0·r
+spacing rules, on the grounds that they "regress" its peak count. If its peaks
+are intra-disk structure, that rejection was backwards. The 1.0·r choice
+should be re-derived from Si_SiGe and sim_Au alone, or from a dataset with
+confirmed reflections. **Check the mean CBED for off-centre disks first.**
+
+**Also flagged:** the change makes a *flagged-invalid* quantity (a probe fit
+the app itself says to recalibrate) govern an upstream detection filter. Under
+the old rule a bad probe fit could not affect spacing at all.
+
+---
+
+## #20 — Re-measure the Bragg spacing distribution without a gate floor
+
+**Raised by the same review.** `tools/bragg-spacing-probe/` reports each
+variant's nearest-neighbour percentiles over *that variant's own accepted
+peaks*, so the distribution is hard-floored at the variant's own
+`minPeakSpacing`. The published "true nearest-neighbour" figures (14.9 px
+Si_SiGe, 12.7 px Particle_1 — pipelines §10.3) come from a 10 px run and are
+therefore floored at 10 px. The medians sit well above the floor so the
+qualitative finding holds, but the **low tail is truncated**, and for
+Particle_1 the shipped 11 px gate is only 1.7 px above the floor — the
+measurement cannot see whether it suppresses real peaks.
+
+Two fixes, both cheap:
+1. Run the distribution pass with `minPeakSpacing = 0` so the histogram is
+   unfloored, then re-check whether 1.0·r still beats 0.75·r.
+2. The 40-pattern sample is `prefix(40)` over a row-major strided grid, which
+   is not spatially balanced — on Particle_1 (90 rows) 36 of 40 samples land in
+   the top half and rows 65–89 are never read, which for a *particle* dataset
+   is the difference between on- and off-particle. Build the grid to land on 40,
+   or shuffle before truncating.
+
+---
+
+## #18 — The campaign cannot reproduce the app's strain result on Si_SiGe
+
+**Found 2026-08-04 while fixing the disk-spacing default (pipelines §10.3).
+This supersedes the strain half of #5 and #8 as the thing actually worth
+fixing.**
+
+The release owner produced a clean strain map in the **app** on
+`downsample_Si_SiGe_exp` (100% indexed, 100% basis support, RMS 0.885 px,
+κ 4.80). The **campaign** cannot, even when handed identical input: re-run with
+their exact detector settings it detects **250,195 peaks — the same number to
+the peak** — and `StrainMapping.compute` still returns no basis.
+
+Established, so do not re-derive:
+- not disk detection — the peak population is identical;
+- both call `StrainMapping.compute(bragg:originX:originY:)` on vectors from
+  `BraggVectors.calibrated(with:referenceOrigin:)`;
+- both use the `.plane` origin fit; the campaign does fit an ellipse before
+  detection;
+- `BraggVectors(scanWidth: d.rx, scanHeight: d.ry)` and the origin maps both
+  come from the same descriptor, so `canUseMaps` should hold.
+
+**Why it matters more than the strain map itself:** every
+`"app produced no strain map for this dataset"` parity record is evidence about
+the *campaign*, not the app. Until this is found, those records cannot be cited
+as app findings — which is most of what the strain half of the parity track has
+been reporting.
+
+**Tooling now available:** `MAC4DSTEM_DISK_SIGMA_CC`,
+`MAC4DSTEM_DISK_MIN_SPACING`, `MAC4DSTEM_DISK_EDGE` make the campaign reproduce
+a hand-tuned session exactly. Next step is to dump the calibration state and
+the first N calibrated vectors from both paths and diff them, rather than
+inspecting more code.
+
+**Core untouched:** unknown until located — likely harness-side.
+
+---
+
+## #16 — Controls intermittently unresponsive; navigating away and back clears it
+
+**Reported by the release owner, 2026-08-04**, observed across the last few
+sessions — the UI "got buggier". Buttons are sometimes blocked/inert, and
+clicking through the workspace sections and back usually restores them.
+Screenshot at the time showed the **Reconstruct** task with its prerequisite
+list ("Set the Q pixel scale / R pixel scale / accelerating voltage") while the
+Prepare section header was drawn overlapping the toolbar.
+
+**Not yet diagnosed — do not guess a fix.** That it clears on navigation points
+at stale view state rather than a genuine prerequisite block: candidates are a
+`@State` value surviving a task switch, a disabled-binding computed from a
+readiness snapshot that is not re-read, or a SwiftUI diffing problem in the
+section headers (the overlap in the screenshot suggests layout state is also
+involved). Reproduce first and capture *which* control, in *which* task, after
+*which* transition.
+
+**Why it matters beyond annoyance:** the prerequisite checklist shipped in
+Prompt B is what tells a user why a primary action is unavailable. If a control
+can be disabled while the checklist says it is ready — or ready while inert —
+that undermines the mechanism v1 relies on to explain itself.
+
+**Core untouched:** expected yes — this is view state.
+
+---
+
+## #17 — Rotate the real-space image in the browser (display only)
+
+**Requested by the release owner, 2026-08-04.** A 200 × 50 scan is displayed
+as a wide, short strip that is awkward to read. There should be a way to rotate
+how the real-space image is *presented* — with the scale bar following — while
+the underlying data, indices and exported product are untouched.
+
+**Scope this carefully; it is a scientific-labelling question, not just a
+transform:**
+
+- **90° steps + flips only, no arbitrary angle.** Multiples of 90° are exact
+  and need no interpolation. An arbitrary angle resamples the scan grid, which
+  makes a *displayed* image that no longer corresponds pixel-for-pixel to the
+  scan positions — much easier to mistake for modified data.
+- **Real space only.** Never offer this for the diffraction pattern: the app
+  already has a measured **R–Q rotation** calibration, and a display rotation
+  of the CBED would be indistinguishable from it. Name the control so the two
+  can never be confused.
+- **The inspector must keep reporting true scan indices.** `Current scan
+  position x (Rx) / y (Ry)` and the cursor→position mapping must invert the
+  display rotation, not follow it.
+- **The scale bar must recompute against the correct axis.** For a non-square
+  scan a 90° rotation swaps which R pixel size governs the displayed
+  horizontal, so a bar that just re-renders at the same length is wrong.
+- **Decide and document what export does** (ROADMAP P1.1: a result keeps its
+  interpretation through display *and* export). Either the publication figure
+  ignores the display rotation, or it applies it and records the orientation in
+  provenance. Silently baking an unrecorded rotation into an exported figure is
+  the one outcome that is not acceptable.
+
+**Core untouched:** yes, if it stays a presentation transform.
 
 ---
 
