@@ -49,22 +49,25 @@ removes most of the confusion:
   phase (finished — eval-only, never modified app logic) and the
   *implementation* phase (current — it does change app code).
 
-## Where v1.0 stands (2026-08-05)
+## Where v1.0 stands (2026-08-05, end of day)
 
-`tools/run-tests.sh all` is **green — exit 0, 30 harnesses**. The remaining
-items, their blockers, and the recommended next-session order are in
-**`docs/ui-implementation-prompts.md` § "Road to v1.0"** (which ends with a
-copy-paste prompt for the next session). The short version: the **QC playthrough
-acceptance re-run has not executed since 2026-08-04** and is the main
-verification debt; it and the two open layout bugs (#16/#22) are blocked on the
-same **Accessibility permission**.
+**The repo is at v1.0 release candidate.** `tools/run-tests.sh all` is
+**green — exit 0, 30 harnesses**. The remaining items, their blockers, and the
+next-session order are in **`docs/ui-implementation-prompts.md` § "Road to
+v1.0"** (which ends with a copy-paste prompt). The short version: the **QC
+playthrough acceptance re-run has not executed since 2026-08-04** and is the
+main verification debt; it and the two open layout bugs (#16/#22) are blocked
+on the same **Accessibility permission**, confirmed *not granted* on 2026-08-05.
+The last science blocker (backlog **#14**, CIF symmetry expansion) is closed.
 
-**The 2026-08-05 session is committed and pushed to `main` but NOT yet
-code-reviewed.** Review range **`a9e4268..901a6ef`** (25 files, +3075/−246; the
-only `Core/` file is `Core/Data/BraggVectorEMDWriter.swift`). Plan agreed with
-the release owner: the next session drives to **v1.0 release candidate**, then a
-dedicated **review/debug session** runs against that range, and **the v1.0 tag
-goes on after it** — not before.
+**Two bodies of work await review, in different places.** (1) Committed and
+pushed: **`a9e4268..901a6ef`** (25 files, +3075/−246; the only `Core/` file is
+`Core/Data/BraggVectorEMDWriter.swift`). (2) **Uncommitted in the working
+tree**: the #14 fix — `Core/Crystal/CIFImport.swift`,
+`Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift` — which
+has already taken its adversarial review and needs only the ordinary read.
+Plan agreed with the release owner: a dedicated **review/debug session** runs
+against both, and **the v1.0 tag goes on after it** — not before.
 
 ## Current initiative (Thread B) — start here for "what do I do next"
 

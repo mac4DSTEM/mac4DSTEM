@@ -216,6 +216,24 @@ Commit only if I ask.
   offending tag/value/symbol named. Covered by `CIFImportTests` (parser) and
   `CIFImportAppStateTests` (wiring + error routing).
 
+- ✅ **#14 — CIF symmetry expansion splits equivalent sites** (2026-08-05).
+  The "Road to v1.0" item 3 decision was **fix**, not gate-off. The dedup
+  tolerance now derives from each coordinate's written precision, and an
+  over-populated cell is rejected by a new `atomic_sites_too_close` validation
+  issue instead of producing silently wrong structure factors.
+  `tools/cif-symmetry-test/` grew 14 → **29 cases** and now covers the
+  symmetry-expansion path at 2/3/4/6/7 decimals in both spellings.
+  `run-tests.sh all` **exit 0, 30 harnesses**; `unit` 105, `scientific` 28.
+  **The adversarial review refuted the first version of the fix** — it
+  introduced three regressions (truncated ⅔ rejected at 3/4/6 decimals; a
+  0.163 Å symmetry break admitted as m-3m cubic because the point-group
+  tolerance was derived from the file's own precision; two distinct atoms
+  silently merged into one). All three were reproduced independently, fixed,
+  and are now fixture cases. Two further findings are filed as backlog **#31**
+  (O(n²) validation in a view body — accepted knowingly) and **#32**
+  (`isSymmetry`'s bijection guard survives mutation testing — pre-existing).
+  Full account in the backlog's #14 entry.
+
 **Closeout gap (2026-08-04) — root cause now identified.** The QC playthrough
 acceptance re-run (closeout step 4) still has not executed. The earlier guess
 ("the login session was locked/unattended") was **wrong**; it was measured this
@@ -287,13 +305,23 @@ wrong** — the aggregate run shows otherwise:
 |---|---|---|
 | 1 | **QC playthrough acceptance re-run** — closeout step 4, not executed since 2026-08-04 across ~8 landed tasks | Accessibility permission |
 | 2 | **#16 / #22 layout bugs** — five programmatic reproductions have failed; they need *real* clicks and drags | same permission (unblocks #1 too) |
-| 3 | **#14** — `CIFImport.expand` splits symmetry-equivalent sites at ordinary 3-decimal precision → silently wrong structure factors for imported CIFs. Science-affecting, in a **shipped** v1 feature | a decision: fix with fixture + adversarial review, or gate CIF import off for v1 |
+| 3 | ~~**#14** — `CIFImport.expand` splits symmetry-equivalent sites~~ | ✅ **Done 2026-08-05** — fixed, not gated off; fixture 14 → 29 cases; adversarial review taken and it refuted the first version |
 | 4 | **Distribution final mile** — Developer ID sign, notarize, verify on a clean macOS account | release owner's credentials + a clean account |
 | 5 | **`/code-review` on the full diff** | **deliberately last — see below** |
 
 Not blockers, explicitly: **#18/#19/#20** (harness-confidence work), **#11**
-(WS₂, roadmap-level), **#29/#30** (recorded investigations), **#3**'s remaining
+(WS₂, roadmap-level), **#29/#30** (recorded investigations), **#31/#32** (from
+#14's review — one accepted knowingly, one pre-existing), **#3**'s remaining
 "voltage field needs a shared home" polish.
+
+**Release-candidate status (2026-08-05, end of session).** Items 1 and 2 remain
+blocked on Accessibility, which was confirmed **not granted** this session
+(`osascript` → "not allowed assistive access", error −1728). Item 3 is closed.
+Item 4 is the release owner's. So the code is at **v1.0 release candidate**
+with one named verification debt — the QC playthrough acceptance re-run — and
+two open interaction/cosmetic layout bugs (#16/#22) that are not correctness
+issues. Whether those two ship as known issues or hold the tag is the release
+owner's call; nothing else in the repo is waiting on a decision.
 
 ### The review gate — deferred, with its baseline pinned
 
@@ -338,48 +366,56 @@ after RC costs nothing.
 2. **With the harness alive, reproduce #16/#22 by real clicks** — toolbar
    toggles, divider drags, sidebar overscroll. `SidebarLayoutTests` already
    asserts the healthy geometry, so a failing XCUITest is the missing half.
-3. **Decide #14** (fix vs gate CIF import). If fixing: `tools/cif-symmetry-test/`
-   needs a symop-loop case at 2/3/4 decimals, plus the adversarial review
-   `development-process.md` §2 requires for anything touching structure factors.
-4. **Then, and only then, `/code-review`.**
+3. ~~Decide #14~~ — **done 2026-08-05**: fixed rather than gated off, with the
+   adversarial review taken. The next session inherits nothing here.
+4. **The review session** — `git diff a9e4268..901a6ef`, plus the uncommitted
+   #14 change sitting on top of it (`Core/Crystal/CIFImport.swift`,
+   `Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift`).
+   That change has already had its adversarial review and carries 29 fixture
+   cases; it still needs the ordinary read.
 5. Distribution final mile when the release owner has credentials ready.
 
-**If Accessibility is still not granted**, steps 1 and 2 stay blocked; go
-straight to 3, then decide whether #16/#22 ship as known intermittent issues
-(they are interaction/cosmetic, not correctness) or hold v1.0.
+**If Accessibility is still not granted**, steps 1 and 2 stay blocked. With #14
+closed, no remaining code work is unblocked — everything else needs either that
+permission or the release owner's credentials — so the open decision is whether
+#16/#22 ship as known intermittent issues (they are interaction and cosmetic,
+not correctness) or hold v1.0.
 
 ### Copy-paste prompt for the next session
 
 ```
 Pick up mac4DSTEM. Read CLAUDE.md, then docs/ui-implementation-prompts.md
-§ "Road to v1.0" — that section has the five remaining items, their blockers,
-and the recommended order. Work that order.
+§ "Road to v1.0". This is the REVIEW/DEBUG session that was scheduled to
+follow the release-candidate work — the v1.0 tag goes on after it, not before.
 
-CONTEXT — the 2026-08-05 session's work is already COMMITTED AND PUSHED to
-main (a9e4268..901a6ef, 25 files). The tree is clean; there is nothing pending
-to tidy up. That work has NOT been code-reviewed yet — a dedicated review/debug
-session follows this one, against that exact range. Every change in it is
-recorded in docs/ui-workflow-backlog.md with what shipped and where it
-deviated, so do not re-derive or redo any of it.
+CONTEXT — two bodies of work need reading, and they are in different places:
+  1. COMMITTED: a9e4268..901a6ef on main (25 files, +3075/−246, the 2026-08-05
+     UI session). The only Core/ file in it is
+     Core/Data/BraggVectorEMDWriter.swift — I/O plumbing, no numerical effect.
+  2. UNCOMMITTED in the working tree: the backlog #14 fix (CIF symmetry
+     expansion). Three files — Core/Crystal/CIFImport.swift,
+     Core/Crystal/CrystalModel.swift, tools/cif-symmetry-test/main.swift.
+     This one has ALREADY had its adversarial review, which refuted the first
+     version of the fix; the resulting regressions are fixed and are now
+     fixture cases (29 of them). It needs the ordinary review read, not
+     another adversarial pass.
 
-Start with step 1: check whether Accessibility permission is granted to this
-terminal (a quick `osascript -e 'tell application "System Events" to return
-name of every window of process "Finder"'` fails with "not allowed assistive
-access" if it is not). If it IS granted, run tools/ui-qc-playthrough/run.sh
-with no argument and diff against References/training_runs/run_2026-08-03_1404/.
-ACOM numbers SHOULD move (the §10.2 radial-kernel and reliability fixes
-postdate that baseline); peak counts, Q pixel sizes and strain diagnostics
-should NOT — anything else that moves is a regression from the 2026-08-05 UI
-work and is the most valuable thing you can find.
+Every change in both is recorded in docs/ui-workflow-backlog.md with what
+shipped and where it deviated. Do not re-derive or redo any of it.
 
-If Accessibility is NOT granted, say so plainly, do not attempt to work around
-it, and go to step 3 (backlog #14) instead.
+Plain /code-review reviews only the uncommitted diff, so it covers (2) but not
+(1). For (1) use `git diff a9e4268..901a6ef` read in this session, or make a
+branch/PR from that range and use /code-review ultra.
 
-Do NOT run /code-review — the tree is clean so it would review nothing, and
-the review is a separate session against a9e4268..901a6ef.
+`tools/run-tests.sh all` was green at exit 0, 30 harnesses, with the #14 change
+in the tree. Re-run it before judging any failure.
 
-Goal for this session: reach v1.0 RELEASE CANDIDATE, not a v1.0 tag. The tag
-goes on after the review/debug session.
+Still blocked on Accessibility permission (confirmed not granted on
+2026-08-05): the QC playthrough acceptance re-run, and reproducing layout bugs
+#16/#22. If it has since been granted, run tools/ui-qc-playthrough/run.sh with
+no argument first and diff against References/training_runs/run_2026-08-03_1404/
+— ACOM numbers SHOULD move, peak counts / Q pixel sizes / strain diagnostics
+should NOT.
 
 Follow the Task closeout checklist. Do not commit unless asked.
 ```

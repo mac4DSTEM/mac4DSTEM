@@ -50,6 +50,12 @@ nonisolated enum CIFImportError: LocalizedError, Equatable {
     /// these would over-symmetrize the fundamental zone and fabricate an IPF
     /// key, which is exactly what this importer exists to prevent.
     case symmetryNotSupportedByStructure(family: String, expected: String)
+    /// The structure *would* carry the family's rotations if the coordinates
+    /// were taken at face value, but they are written too coarsely to tell a
+    /// real symmetry break from their own rounding. A separate case from
+    /// `symmetryNotSupportedByStructure` because the two say opposite things
+    /// about the user's structure, and only one of them is true.
+    case symmetryUnresolvableAtWrittenPrecision(family: String, decimals: Int)
     /// The assembled model failed `CrystalModel.validationIssues` for a
     /// reason not already surfaced as a more specific case above.
     case invalidModel([String])
@@ -72,6 +78,8 @@ nonisolated enum CIFImportError: LocalizedError, Equatable {
             return "Cell is not cubic or hexagonal (\(detail)); mac4DSTEM only implements cubic and hexagonal symmetry reduction, so this structure is rejected rather than mismapped onto a point group it doesn't have."
         case .symmetryNotSupportedByStructure(let family, let expected):
             return "Cell parameters look \(family), but the atom positions have no \(expected) — the structure does not actually have \(family) symmetry (a trigonal cell in the hexagonal setting is the usual cause). mac4DSTEM implements symmetry reduction for cubic and hexagonal only, so this is rejected rather than over-symmetrized."
+        case .symmetryUnresolvableAtWrittenPrecision(let family, let decimals):
+            return "The atom positions are written to \(decimals) decimal places, which is too coarse to confirm \(family) symmetry — at that precision a real symmetry break is indistinguishable from the rounding in the coordinates themselves. mac4DSTEM will not assume the symmetry, because assuming it would fabricate an orientation colour key. Re-export the CIF with more decimal places."
         case .invalidModel(let issues):
             return "Imported crystal model failed validation: \(issues.joined(separator: "; "))."
         }
@@ -93,7 +101,9 @@ nonisolated enum CIFImport {
             a: parsed.a, b: parsed.b, c: parsed.c,
             alphaDeg: parsed.alpha, betaDeg: parsed.beta, gammaDeg: parsed.gamma
         )
-        try verifyFamily(symmetry, sites: parsed.sites)
+        try verifyFamily(
+            symmetry, sites: parsed.sites, coarsestHalfStep: parsed.coarsestHalfStep
+        )
         let crystal = Crystal(
             a: parsed.a, b: parsed.b, c: parsed.c,
             alphaDeg: parsed.alpha, betaDeg: parsed.beta, gammaDeg: parsed.gamma,
@@ -132,6 +142,21 @@ nonisolated enum CIFImport {
         var a: Double, b: Double, c: Double
         var alpha: Double, beta: Double, gamma: Double
         var sites: [AtomSite]
+        /// Coarsest rounding half-step over every written fractional
+        /// coordinate — the precision the whole structure is limited by.
+        var coarsestHalfStep: Double
+    }
+
+    /// One asymmetric-unit site plus how precisely each of its coordinates was
+    /// *written*. `halfStep` is the half-width of the rounding interval of the
+    /// literal text — 5e-4 for `0.333`, 0 for `0.2500` (exactly ¼). Symmetry
+    /// expansion propagates it, which is the only way to tell "these two images
+    /// are the same site, blurred by rounding" from "these are two atoms".
+    private struct BaseSite {
+        let z: Int
+        let occupancy: Double
+        let position: SIMD3<Double>
+        let halfStep: SIMD3<Double>
     }
 
     private static func parse(_ text: String) throws -> ParsedStructure {
@@ -227,7 +252,7 @@ nonisolated enum CIFImport {
 
         guard !atomSiteRows.isEmpty else { throw CIFImportError.noAtomSites }
 
-        var baseSites: [(z: Int, occupancy: Double, position: SIMD3<Double>)] = []
+        var baseSites: [BaseSite] = []
         baseSites.reserveCapacity(atomSiteRows.count)
         for row in atomSiteRows {
             let label = row["_atom_site_label"] ?? "?"
@@ -254,24 +279,42 @@ nonisolated enum CIFImport {
             guard let atomicNumber = elementSymbolToZ[symbol] else {
                 throw CIFImportError.unknownElementSymbol(symbolSource, atomSiteLabel: label)
             }
-            baseSites.append((z: atomicNumber, occupancy: occupancy,
-                              position: SIMD3(x, y, zCoord)))
+            baseSites.append(BaseSite(
+                z: atomicNumber, occupancy: occupancy,
+                position: SIMD3(x, y, zCoord),
+                halfStep: SIMD3(
+                    coordinateHalfStep(xRaw), coordinateHalfStep(yRaw), coordinateHalfStep(zRaw)
+                )
+            ))
         }
 
         let sites: [AtomSite]
         if haveSymmetryLoop, !symmetryOps.isEmpty {
             let ops = try symmetryOps.map { try parseSymmetryOperation($0) }
-            sites = expand(baseSites, using: ops)
+            // Duplicate detection is a real-space question, so it needs the
+            // cell metric. The site list is irrelevant to `latReal`.
+            let lattice = Crystal(
+                a: a, b: b, c: c, alphaDeg: alpha, betaDeg: beta, gammaDeg: gamma, sites: []
+            ).latReal
+            sites = expand(baseSites, using: ops, latReal: lattice)
         } else {
             // No symmetry loop: the listed sites are already the complete
-            // cell contents (P1).
-            sites = baseSites.map { AtomSite(z: $0.z, fractional: $0.position, occupancy: $0.occupancy) }
+            // cell contents (P1). Wrap anyway — coordinates outside [0,1) are
+            // legal CIF, structure factors are periodic so it changes no
+            // physics, and leaving them raw would hide a close contact from a
+            // detector that only searches the neighbouring cells.
+            sites = baseSites.map {
+                AtomSite(z: $0.z, fractional: wrap($0.position), occupancy: $0.occupancy)
+            }
         }
 
+        let coarsestHalfStep = baseSites.reduce(0.0) {
+            max($0, max($1.halfStep.x, max($1.halfStep.y, $1.halfStep.z)))
+        }
         return ParsedStructure(
             dataBlockName: dataBlockName,
             a: a, b: b, c: c, alpha: alpha, beta: beta, gamma: gamma,
-            sites: sites
+            sites: sites, coarsestHalfStep: coarsestHalfStep
         )
     }
 
@@ -352,6 +395,50 @@ nonisolated enum CIFImport {
             throw CIFImportError.unparsableNumber(tag: tag, value: raw)
         }
         return value
+    }
+
+    /// How far a written fractional coordinate may sit from its true value,
+    /// judged from the literal text alone.
+    ///
+    /// Two very different things are written to the same number of decimals.
+    /// `0.2500` is *exactly* ¼ — a special position, carrying no error at all.
+    /// `0.333` is ⅓ spelled to 3 decimals and is wrong by 3.3e-4, which is 3×
+    /// the old fixed 1e-4 dedup tolerance and is why P6₃/mmc magnesium at
+    /// ordinary precision expanded to 6 atoms instead of 2 (backlog #14).
+    ///
+    /// The bound is `10⁻ᵈ`, not half of it, because **CIF writers truncate as
+    /// often as they round**: `0.6666` and `0.666666` are both ⅔ truncated,
+    /// and truncation error reaches a full ulp of the last decimal, twice what
+    /// a rounding assumption allows. Assuming rounding made this erratic in the
+    /// worst way — admitting truncated ⅔ at 5 and 7 decimals while rejecting it
+    /// at 3, 4 and 6, on which side of the bound the residual happened to land.
+    ///
+    /// A value landing exactly on a small dyadic rational is treated as exact.
+    /// Only denominators 1, 2, 4, 8, 16 are worth testing: a terminating
+    /// decimal `m/10ᵈ` can never equal `n/3` in lowest terms, so thirds and
+    /// sixths — the hexagonal special positions — are unreachable here by
+    /// construction and are handled by the decimal branch below.
+    ///
+    /// Capped at 1e-2 (2 decimals). Coarser than that is not real published
+    /// data, and widening further would start merging atoms that really are
+    /// distinct. Such a file keeps its duplicates and is rejected loudly by
+    /// `CrystalModel`'s close-contact check rather than silently mangled.
+    private static func coordinateHalfStep(_ raw: String) -> Double {
+        var text = raw
+        if let parenIndex = text.firstIndex(of: "(") {
+            text = String(text[text.startIndex..<parenIndex])
+        }
+        text = text.trimmingCharacters(in: .whitespaces)
+        guard let value = Double(text) else { return 0 }
+
+        for denominator in [1.0, 2, 4, 8, 16] {
+            let scaled = value * denominator
+            if abs(scaled - scaled.rounded()) <= 1e-12 * max(1, abs(scaled)) { return 0 }
+        }
+
+        guard let dot = text.firstIndex(of: ".") else { return 1e-2 }
+        let decimals = text.distance(from: text.index(after: dot), to: text.endIndex)
+        return min(1e-2, pow(10, -Double(decimals)))
     }
 
     // MARK: - Element symbols
@@ -483,25 +570,110 @@ nonisolated enum CIFImport {
 
     /// Applies every symmetry operation to every asymmetric-unit site,
     /// wraps into [0,1) fractional coordinates, and deduplicates positions
-    /// that land on the same site (periodic minimum-image distance).
+    /// that land on the same site.
+    ///
+    /// The dedup tolerance is *derived from the input*, not fixed. A site on a
+    /// special position is mapped onto itself by several operators, and each
+    /// image inherits the rounding error of the coordinates it was built from —
+    /// amplified by the operator's coefficients, since a row like `x-y` sums
+    /// two rounded numbers. Two images are the same atom when they agree to
+    /// within the error the *written precision* allows for both of them.
+    ///
+    /// A fixed tolerance cannot do this job: the old 1e-4 was three times too
+    /// tight for ⅓ written as `0.333`, so P6₃/mmc magnesium expanded to 6 atoms
+    /// instead of 2 and its structure factors were silently wrong (backlog
+    /// #14). Simply loosening it to 5e-3 would still fail at 2 decimals and
+    /// would begin merging distinct atoms in large cells.
+    ///
+    /// A merge additionally requires the two images to be within
+    /// `maxMergeDistance` in *real* space, which is what keeps a coarse cell
+    /// from collapsing chemistry: fractional tolerance means nothing until it
+    /// is multiplied by the lattice.
     private static func expand(
-        _ baseSites: [(z: Int, occupancy: Double, position: SIMD3<Double>)],
-        using ops: [SymOp]
+        _ baseSites: [BaseSite], using ops: [SymOp], latReal: [SIMD3<Double>]
     ) -> [AtomSite] {
-        let tolerance = 1e-4
-        var kept: [(z: Int, occupancy: Double, position: SIMD3<Double>)] = []
+        /// Ceiling on how far apart two images may be and still be called the
+        /// same atom. Rounding residuals live well below it — the worst case
+        /// this importer sees is ⅓ truncated to 2 decimals in a 3.2 Å cell,
+        /// about 0.06 Å. Real atoms live well above it.
+        ///
+        /// It is deliberately far tighter than the 0.5 Å close-contact limit,
+        /// and the gap between the two is the point: a pair that is too far
+        /// apart to be a rounding artefact but too close to be chemistry is
+        /// left in place and **rejected** by `CrystalModel.validationIssues`.
+        /// Merging that band instead would silently *delete* an atom, which is
+        /// the same class of quiet error as #14 with the sign flipped.
+        let maxMergeDistance = 0.10
+        let usableLattice = latReal.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }
+
+        struct Image {
+            let z: Int
+            let occupancy: Double
+            let position: SIMD3<Double>
+            /// Per-axis rounding uncertainty carried into this image.
+            let uncertainty: SIMD3<Double>
+        }
+
+        var kept: [Image] = []
         for site in baseSites {
             for op in ops {
                 let mapped = wrap(op.apply(site.position))
-                let isDuplicate = kept.contains {
-                    $0.z == site.z && periodicDistance($0.position, mapped) < tolerance
+                let uncertainty = SIMD3<Double>(
+                    propagate(op.rowX, site.halfStep),
+                    propagate(op.rowY, site.halfStep),
+                    propagate(op.rowZ, site.halfStep)
+                )
+                let isDuplicate = kept.contains { existing in
+                    guard existing.z == site.z else { return false }
+                    let tolerance = existing.uncertainty + uncertainty
+                    guard axisDelta(existing.position.x, mapped.x) <= max(tolerance.x, 1e-6),
+                          axisDelta(existing.position.y, mapped.y) <= max(tolerance.y, 1e-6),
+                          axisDelta(existing.position.z, mapped.z) <= max(tolerance.z, 1e-6)
+                    else { return false }
+                    guard usableLattice else { return true }
+                    return realDistance(existing.position, mapped, latReal) <= maxMergeDistance
                 }
                 if !isDuplicate {
-                    kept.append((z: site.z, occupancy: site.occupancy, position: mapped))
+                    kept.append(Image(
+                        z: site.z, occupancy: site.occupancy,
+                        position: mapped, uncertainty: uncertainty
+                    ))
                 }
             }
         }
         return kept.map { AtomSite(z: $0.z, fractional: $0.position, occupancy: $0.occupancy) }
+    }
+
+    /// Rounding error of one output coordinate: `|c_x|·δx + |c_y|·δy + |c_z|·δz`
+    /// for the operator row `(c_x, c_y, c_z)`. The translation is exact.
+    private static func propagate(_ row: SIMD3<Double>, _ halfStep: SIMD3<Double>) -> Double {
+        abs(row.x) * halfStep.x + abs(row.y) * halfStep.y + abs(row.z) * halfStep.z
+    }
+
+    /// Minimum-image separation along one fractional axis, in [0, 0.5].
+    private static func axisDelta(_ x: Double, _ y: Double) -> Double {
+        var d = abs(x - y).truncatingRemainder(dividingBy: 1)
+        if d > 0.5 { d = 1 - d }
+        return d
+    }
+
+    /// Real-space separation (Å) of two fractional positions, minimum image
+    /// over the 27 neighbouring cells so the cell's skew is respected.
+    private static func realDistance(
+        _ a: SIMD3<Double>, _ b: SIMD3<Double>, _ latReal: [SIMD3<Double>]
+    ) -> Double {
+        let base = a - b
+        var best = Double.infinity
+        for dx in -1...1 {
+            for dy in -1...1 {
+                for dz in -1...1 {
+                    let f = base + SIMD3<Double>(Double(dx), Double(dy), Double(dz))
+                    let cartesian = f.x * latReal[0] + f.y * latReal[1] + f.z * latReal[2]
+                    best = min(best, (cartesian * cartesian).sum())
+                }
+            }
+        }
+        return best.squareRoot()
     }
 
     private static func wrap(_ v: SIMD3<Double>) -> SIMD3<Double> {
@@ -515,11 +687,6 @@ nonisolated enum CIFImport {
     }
 
     private static func periodicDistance(_ a: SIMD3<Double>, _ b: SIMD3<Double>) -> Double {
-        func axisDelta(_ x: Double, _ y: Double) -> Double {
-            var d = abs(x - y).truncatingRemainder(dividingBy: 1)
-            if d > 0.5 { d = 1 - d }
-            return d
-        }
         let dx = axisDelta(a.x, b.x), dy = axisDelta(a.y, b.y), dz = axisDelta(a.z, b.z)
         return (dx * dx + dy * dy + dz * dz).squareRoot()
     }
@@ -584,7 +751,7 @@ nonisolated enum CIFImport {
     /// and requiring `t = 0` would reject HCP magnesium (6₃ about c,
     /// t = (0,0,½)) and diamond silicon — both shipped built-in models.
     private static func verifyFamily(
-        _ family: ACOMCrystalSymmetry, sites: [AtomSite]
+        _ family: ACOMCrystalSymmetry, sites: [AtomSite], coarsestHalfStep: Double
     ) throws {
         // Rotation parts in the *fractional* basis, so they are exact integer
         // matrices in either setting and no Cartesian conversion is needed.
@@ -613,7 +780,22 @@ nonisolated enum CIFImport {
             return
         }
         guard !sites.isEmpty else { return }
-        for generator in generators where !isSymmetry(generator.rotation, of: sites) {
+        let resolutionLimited = resolutionLimitedTolerance(coarsestHalfStep: coarsestHalfStep)
+        for generator in generators
+        where !isSymmetry(
+            generator.rotation, of: sites, positionTolerance: symmetryPositionTolerance
+        ) {
+            // Distinguish "this structure lacks the symmetry" from "this file
+            // is not written precisely enough to tell". Both are rejections —
+            // only the message differs, and only one of them is true.
+            if resolutionLimited > symmetryPositionTolerance,
+               isSymmetry(
+                   generator.rotation, of: sites, positionTolerance: resolutionLimited
+               ) {
+                throw CIFImportError.symmetryUnresolvableAtWrittenPrecision(
+                    family: familyName, decimals: decimalsResolved(from: coarsestHalfStep)
+                )
+            }
             throw CIFImportError.symmetryNotSupportedByStructure(
                 family: familyName, expected: generator.missing
             )
@@ -622,17 +804,46 @@ nonisolated enum CIFImport {
 
     /// Fractional-coordinate agreement required to call two sites the same.
     ///
-    /// Deliberately looser than `expand`'s 1e-4 dedup, because the residual
-    /// here is *amplified* rather than bare input rounding: the candidate
-    /// translation `t = x_j − R·x₀` carries its own rounding error, and the
-    /// hexagonal rotation `[[1,−1],[1,0]]` has singular values φ and 1/φ, so a
-    /// δ-rounded coordinate can land ~4δ away. Magnesium published to the
-    /// entirely ordinary 3 decimals (δ = 5e-4) produces a 2e-3 residual and
+    /// Deliberately looser than the merge tolerance in `expand`, because the
+    /// residual here is *amplified* rather than bare input rounding: testing
+    /// `x ↦ R·x + t` with `t = x_j − R·x₀` gives an image of `R·(x − x₀) + x_j`,
+    /// so with a per-coordinate half-step δ and rotation rows summing to
+    /// |c| ≤ 2, one axis is uncertain by `2(δ + δ) + δ = 5δ`, and over three
+    /// axes the Euclidean residual reaches ≈ 10δ. Magnesium published to the
+    /// entirely ordinary 3 decimals (δ = 1e-3) is right at that figure and
     /// would be rejected as trigonal at 1e-3 — a false reject on a shipped
-    /// built-in model. 5e-3 clears 3-decimal data with margin while staying an
-    /// order of magnitude below real symmetry breaking: quartz's oxygen misses
-    /// the 6-fold by ~0.2 fractional, not 0.005.
-    private static let symmetryPositionTolerance = 1e-3 * 5
+    /// built-in model. This clears 3-decimal data while staying an order of
+    /// magnitude below real symmetry breaking: quartz's oxygen misses the
+    /// 6-fold by ~0.2 fractional, not 0.005.
+    ///
+    /// **This is fixed on purpose — do not derive it from the file's written
+    /// precision.** Doing so was tried and reverted: it let a coarsely-written
+    /// file widen its own gate, and an FCC cell whose face-centre site was
+    /// displaced by 0.163 Å was then admitted as full m-3m cubic. The two
+    /// tolerances face opposite risks. A too-tight *merge* tolerance is loud —
+    /// the duplicates it leaves behind are caught downstream. A too-loose
+    /// *point-group* tolerance is silent, and fabricates an IPF colour key,
+    /// which is the single outcome this whole check exists to prevent. Coarse
+    /// data does not earn a wider gate; it earns the rejection below, which
+    /// says precisely that.
+    private static let symmetryPositionTolerance = 5e-3
+
+    /// The tolerance the file's own precision would justify (see
+    /// `symmetryPositionTolerance` for the ≈10δ derivation). Used **only to
+    /// explain a rejection**, never to grant one: when a generator fails the
+    /// fixed gate but would pass this one, the honest report is that the
+    /// coordinates are written too coarsely to confirm the symmetry — not that
+    /// the structure lacks it.
+    private static func resolutionLimitedTolerance(coarsestHalfStep: Double) -> Double {
+        10 * coarsestHalfStep
+    }
+
+    /// Inverse of `coordinateHalfStep`'s decimal branch, so the rejection can
+    /// name the precision the file was actually written to.
+    private static func decimalsResolved(from halfStep: Double) -> Int {
+        guard halfStep > 0 else { return 0 }
+        return max(0, Int((-log10(halfStep)).rounded()))
+    }
 
     /// Occupancies are dimensionless and must NOT share the position
     /// tolerance: symmetry-equivalent sites in a refined, disordered structure
@@ -652,7 +863,8 @@ nonisolated enum CIFImport {
     /// enumerated. (Site 0 sitting on a special position is irrelevant — the
     /// enumeration ranges over *targets*, not sources.)
     private static func isSymmetry(
-        _ rotation: (SIMD3<Double>) -> SIMD3<Double>, of sites: [AtomSite]
+        _ rotation: (SIMD3<Double>) -> SIMD3<Double>, of sites: [AtomSite],
+        positionTolerance: Double
     ) -> Bool {
         let reference = sites[0]
         let rotatedReference = rotation(reference.fractional)
@@ -674,7 +886,7 @@ nonisolated enum CIFImport {
                         && abs(sites[index].occupancy - site.occupancy)
                             <= symmetryOccupancyTolerance
                         && periodicDistance(sites[index].fractional, image)
-                            < symmetryPositionTolerance
+                            < positionTolerance
                 }
                 guard let target else { return false }
                 claimed.insert(target)

@@ -700,7 +700,80 @@ part.
 
 ---
 
-## #14 — `expand` splits symmetry-equivalent sites at ordinary CIF precision
+## #14 — `expand` splits symmetry-equivalent sites at ordinary CIF precision  ·  ✅ Done 2026-08-05
+
+**Shipped:** dedup tolerance is now derived from each coordinate's *written
+precision* instead of a fixed 1e-4, and a cell that is still over-populated is
+rejected by a new `atomic_sites_too_close` model-validation issue rather than
+producing quiet nonsense. Pinned by `tools/cif-symmetry-test/`, now 29 cases
+(was 14) — including the symmetry-expansion path, which the original fixture
+never reached because every "must admit" case supplied its cell contents
+explicitly. `run-tests.sh all` green, exit 0, 30 harnesses.
+
+**It deviated from the fix direction this item proposed, and the deviation is
+the whole story.** The item suggested reusing `symmetryPositionTolerance`
+(5e-3) as the dedup tolerance. That is a fixed constant, and a fixed constant
+is exactly what was wrong: 5e-3 still fails at 2 decimals and starts merging
+distinct atoms in large cells. What shipped infers each coordinate's rounding
+half-step from its literal text (`0.2500` is exactly ¼ and carries no error;
+`0.333` carries 1e-3), propagates it through the symmetry-operator rows, and
+merges only when both a per-axis precision bound and a 0.10 Å real-space cap
+agree.
+
+**The adversarial review earned its keep again — it refuted the first version
+of this fix, and every finding below was reproduced independently before being
+acted on.** Four defects, three of them regressions the fix itself introduced:
+
+- **Truncation, not rounding.** CIF writers truncate ⅔ to `0.6666` as often as
+  they round it, and truncation error is a full ulp of the last decimal —
+  twice what a rounding assumption allows. The first version therefore
+  *rejected* correct HCP magnesium at 3, 4 and 6 decimals while admitting it at
+  5 and 7, on which side of the bound the residual happened to land. The bound
+  is now `10⁻ᵈ`, not `0.5·10⁻ᵈ`.
+- **A precision-derived point-group tolerance is not safe, and was reverted.**
+  The first version also derived `symmetryPositionTolerance` from the file's
+  precision. That let a coarsely-written file widen its own gate — and worse,
+  it was a file-global maximum, so *the coordinate breaking the symmetry
+  supplied the excuse for tolerating the break*. An FCC cell whose face-centre
+  site was displaced by 0.163 Å was admitted as full m-3m cubic, fabricating an
+  IPF colour key: the exact outcome that gate exists to prevent. The two
+  tolerances face opposite risks — a too-tight *merge* tolerance is loud, a
+  too-loose *point-group* tolerance is silent — so the gate is fixed at 5e-3
+  again. Precision is now used **only to explain a rejection**: a new
+  `symmetryUnresolvableAtWrittenPrecision` error says the coordinates are too
+  coarse to confirm the symmetry, which is true, instead of claiming the
+  structure is trigonal, which is not.
+- **Over-merge deletes atoms silently.** A 0.30 Å real-space merge cap fused
+  two genuinely distinct sites 0.20 Å apart at 2 decimals and admitted the cell
+  one atom short — the same class of quiet error as #14 with the sign flipped.
+  The cap is now 0.10 Å, and the gap between it and the 0.5 Å close-contact
+  limit is deliberate: a pair too far apart to be rounding and too close to be
+  chemistry is now **rejected**, not merged.
+- **Split-site disorder is legitimate.** Two half-occupied images straddling a
+  special position 0.2–0.5 Å apart is routine refinement practice, and a
+  close-contact check with no occupancy awareness rejected those correct files
+  while telling the crystallographer their symmetry expansion had duplicated
+  sites — in files with no symmetry loop, where no expansion ever ran. Pairs
+  whose occupancies sum to ≤ 1 are now exempt, and the message states only what
+  was measured. Residual hole, documented in place: duplicates of an
+  already-part-occupied site are invisible to the check.
+
+Also fixed on the way: P1 coordinates outside `[0,1)` (legal CIF) were left
+unwrapped, hiding close contacts from a detector that only searches the
+neighbouring cells. The fixture now asserts the in-cell invariant for every
+admitted model.
+
+**Two findings from the same review are NOT fixed and are filed as #31 and
+#32.** Neither is caused by this change.
+
+**#15's dependency on this item is discharged** — the `symmetryPositionTolerance`
+doc comment no longer cites `expand`'s 1e-4. The tolerance-band question #15
+actually raises (1e-3 in `classifyFamily` vs 1e-6 in `validationIssues`) is
+untouched and still open.
+
+---
+
+<details><summary>Original report (2026-08-04)</summary>
 
 **Found by:** adversarial review of the CIF point-group check (2026-08-04),
 not by the QC playthrough. **Pre-existing** — predates the symmetry work and is
@@ -730,6 +803,8 @@ the current cases all supply explicit site lists, which is why this was missed.
 **Core untouched:** no — this is `Core/Crystal`, and it changes structure
 factors. Adversarial review + fixture required.
 
+</details>
+
 ---
 
 ## #15 — `classifyFamily`'s metric tolerance is unreachable
@@ -745,12 +820,15 @@ requires a = b = c…" rather than a point-group error naming the real problem.
 
 **Fix direction:** pick one tolerance and use it in both places, or have
 `classifyFamily` reject the in-between band itself with a message that names
-the offending axis pair. Note this also invalidates the reasoning in the
-`symmetryPositionTolerance` doc comment, which cites the 1e-3 metric gate as
-upstream justification — 1e-6 is what actually survives, so that comment should
-be corrected when this is fixed.
+the offending axis pair.
 
 **Core untouched:** no, but low risk — error routing only, no numerics.
+
+**Updated 2026-08-05.** The doc-comment half of this item is discharged —
+`symmetryPositionTolerance` was rewritten under #14 and no longer cites the
+1e-3 metric gate as its justification. The tolerance *band* itself is
+unchanged and this item stays open. Not a v1.0 blocker: the failure mode is a
+correct rejection carrying a less specific message, not a wrong result.
 
 ---
 
@@ -1360,6 +1438,57 @@ transform:**
   the one outcome that is not acceptable.
 
 **Core untouched:** yes, if it stays a presentation transform.
+
+---
+
+## #31 — `validationIssues` is O(n²) and runs in a SwiftUI view body
+
+**Found by:** the adversarial review of #14's fix, 2026-08-05. **Caused by that
+change**, and accepted knowingly rather than fixed.
+
+`CrystalModel.validationIssues` now contains a pairwise close-contact scan, and
+`ACOMControlsView` reads it through `AppState.acomModelSelectionIssue` on every
+re-render, with no memoization. Measured: 0.3 ms at 500 atoms, 3 ms at 2 000,
+19 ms at 5 000, **76 ms at 10 000**.
+
+**Why it shipped anyway:** the cells that reach ACOM are cubic or hexagonal
+phase models, which are tens of atoms, not thousands — every built-in model is
+under 10. A 10 000-atom import is a P1 supercell export, which is not a v1 use
+case. The check is O(n²) but gated behind a per-axis fractional prefilter that
+rejects almost every pair in three comparisons, so the constant is small.
+
+**Fix direction when it matters:** precompute the close-contact distance once
+in `CrystalModel`'s construction rather than recomputing it per read, or hoist
+the check to import time only. The first is preferable — it keeps the model
+contract in one place.
+
+**Core untouched:** no (`Core/Crystal`), but it is caching, not numerics.
+
+---
+
+## #32 — `isSymmetry`'s bijection check has no fixture coverage, and its stated counterexample does not exercise it
+
+**Found by:** the adversarial review of #14's fix, 2026-08-05, by mutation
+testing. **Pre-existing** — it predates that change and is unaffected by it.
+
+Deleting the `!claimed.contains(index)` guard from `CIFImport.isSymmetry` —
+the surjectivity check that makes the symmetry map a genuine permutation —
+leaves `tools/cif-symmetry-test/` **fully green**, both before and after the
+#14 work. So the guard is untested.
+
+Worse, the comment above it names a specific counterexample ("without this an
+FCC cell carrying a split atom … passes as cubic"), and the case that was built
+from that claim is rejected by a *different* path entirely: it still fails with
+the guard removed. The claim as written appears to be wrong.
+
+**Fix direction:** either construct a case that actually dies without the guard
+— it needs two distinct sites both landing within tolerance of the same target,
+which is what the guard exists to forbid — or delete the claim and keep the
+guard on its own merits. Do not leave a comment asserting a counterexample
+nobody has reproduced.
+
+**Core untouched:** no (`Core/Crystal`), but a fixture-only change if the
+guard turns out to be correct.
 
 ---
 
