@@ -162,7 +162,7 @@ Concrete material for whoever takes the design pass:
 
 ---
 
-## #1 — Gate & sign-post ACOM's prerequisites  ·  Priority: HIGH  ·  Layer: WF + UI  ·  Effort: M
+## #1 — Gate & sign-post ACOM's prerequisites  ·  Priority: HIGH  ·  Layer: WF + UI  ·  Effort: M  ·  ✅ Done
 
 **✅ CLOSED 2026-08-04** — shipped with #7 as one generic mechanism:
 `ProductWorkflow.prerequisiteItems(for:readiness:)` (the legacy string API now
@@ -228,7 +228,7 @@ entry.
 
 ---
 
-## #3 — Give accelerating voltage a first-class home  ·  Priority: MED  ·  Layer: UI + WF  ·  Effort: M
+## #3 — Give accelerating voltage a first-class home  ·  Priority: MED  ·  Layer: UI + WF  ·  Effort: M  ·  ✅ Done
 
 **✅ CLOSED 2026-08-05** — the identifier/label half shipped and stays; the
 VoiceOver runtime half was **deferred to v2.0** by an explicit scope change
@@ -322,7 +322,7 @@ buttons).
 
 ---
 
-## #5 — Make the strain reference/basis choice explicit  ·  Priority: HIGH  ·  Layer: UI  ·  Effort: S-M
+## #5 — Make the strain reference/basis choice explicit  ·  Priority: HIGH  ·  Layer: UI  ·  Effort: S-M  ·  ✅ Done
 
 *(Promoted from MED-LOW on the §9.2 evidence.)*
 
@@ -433,7 +433,7 @@ change, and the app's independent origin measurement makes it unnecessary.
 
 ---
 
-## #7 — Tell the Reconstruct task which prerequisite is missing  ·  Priority: HIGH  ·  Layer: UI (+ light WF)  ·  Effort: S-M
+## #7 — Tell the Reconstruct task which prerequisite is missing  ·  Priority: HIGH  ·  Layer: UI (+ light WF)  ·  Effort: S-M  ·  ✅ Done
 
 **✅ CLOSED 2026-08-04** — see #1: one generic checklist serves Reconstruct,
 ACOM, strain, and future tasks. Reconstruct now names all five prerequisites
@@ -472,7 +472,7 @@ site), `App/ProductWorkflow.swift` (expose the already-computed list).
 
 ---
 
-## #8 — Make the strain failure's "adjust the thresholds" advice actionable  ·  Priority: MED  ·  Layer: UI  ·  Effort: S
+## #8 — Make the strain failure's "adjust the thresholds" advice actionable  ·  Priority: MED  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
 
 **Finding (§9.2.1):** on `polycrystal_2D_WS2`, disk detection "succeeded" with
 16,384 peaks over 16,384 scan positions — a **median of 1.0 peaks per pattern**,
@@ -503,7 +503,7 @@ an ill-conditioned-basis failure says *"choose a reference ROI"* (see #5).
 
 ---
 
-## #9 — A failed compute should not block the whole window  ·  Priority: MED  ·  Layer: UI  ·  Effort: S
+## #9 — A failed compute should not block the whole window  ·  Priority: MED  ·  Layer: UI  ·  Effort: S  ·  ✅ Done
 
 **✅ CLOSED 2026-08-04** — `AppState.presentComputeFailure(_:)` routes 46
 compute-step failure sites (strain, ACOM, calibration, DPC, disks, parallax,
@@ -1262,7 +1262,120 @@ aligned monospaced value instead of being baked into the label text.
 
 ## #16 — Controls intermittently unresponsive; navigating away and back clears it
 
-**◐ MECHANISM FOUND + FIXED DEFENSIVELY 2026-08-05; TRIGGER STILL UNCONFIRMED.**
+**✅ REPRODUCED DETERMINISTICALLY 2026-08-05 (evening), by real synthesized
+input, after Accessibility was granted.** This is the first reproduction after
+five failed programmatic attempts, and it ends the "intermittent" framing:
+under the QC harness it happens **every time**, at the same step.
+
+**How to reproduce:** `tools/ui-qc-playthrough/run.sh`. It fails at step 3b on
+every dataset that reaches it, with
+`Element workspace.primaryAction exists but is not hittable`
+(`QCPlaythroughUITests.swift:72`). Run
+`References/training_runs/run_2026-08-05_2012/` holds two `ERROR_state.png`
+captures — the evidence, kept deliberately.
+
+**What the screenshots show — and it is #22's third report, not just #16.**
+The *whole split* is laid out roughly one titlebar-height (52 pt) too high:
+- the sidebar's top rows are drawn **under the traffic lights** ("Inspect and
+  calibrate the dataset" is clipped by the window edge);
+- the window title "mac4DSTEM" is drawn **over** the detail column's content;
+- the workspace header row — which carries `workspace.primaryAction`
+  (`UI/ProductWorkspaceViews.swift:231`) — is pushed above the visible area
+  entirely. It stays in the accessibility tree, so it "exists"; it cannot be
+  clicked, because it is not on screen and the titlebar hit-tests above it.
+
+**"Disabled button" was ruled out by geometry, not by the error text.** The
+button is `.disabled(!primaryActionEnabled)`, and a disabled `XCUIElement` is
+also un-hittable — so the message alone does not distinguish the two. But a
+disabled button would still be *drawn* in the header, and in both captures the
+header row is not on screen at all.
+
+**The sequence that triggers it** (from the XCUITest log, both datasets):
+click `workspace.image` → click `task.DPC` → `workspace.primaryAction` exists
+but is not hittable. A task switch inside the Image workspace, which is the one
+transition the earlier investigation drove programmatically and refuted — real
+input reproduces what mutating `AppState` did not.
+
+**THE TRIGGER IS NOW ISOLATED TO A SINGLE CLICK, and it overturns the earlier
+mechanism.** `03_virtual_df.png` and `ERROR_state.png` in the same run folder
+are the same window, seconds apart, and the only event between them is the
+click on `task.DPC`:
+
+| | `03_virtual_df.png` (before) | `ERROR_state.png` (after) |
+|---|---|---|
+| traffic lights | in the titlebar, content below | **drawn on top of sidebar rows** |
+| sidebar top row | "Prepare / Inspect and calibrate…" fully visible | clipped by the window's top edge |
+| workspace header | visible, **"Update Image"** button at top right | pushed above the visible area |
+| window size | 1470 × 838 | 1470 × 838 — *unchanged* |
+
+**So it is not the sidebar scroll view.** The earlier diagnosis (sidebar
+`NSScrollView` at clip origin 0) cannot be the whole story, because a sidebar
+scroll offset cannot move the *detail column's* header — and in these captures
+the detail column shifts by the same amount. What actually happens is that the
+**whole window's content is laid out ~52 pt (one titlebar height) too high**,
+as if the titlebar safe-area inset collapsed to zero. The sidebar measurement
+from 2026-08-05 morning is a *symptom* of that, not the cause.
+
+**Trigger:** switching task from *Virtual imaging* to *DPC & iDPC* inside the
+Image workspace, on a real dataset. Note the DPC header is taller than the
+Virtual-imaging one — it carries a readiness line and an "Improve in Prepare"
+button — so a header height change on task switch is the prime suspect.
+
+**A sixth in-process reproduction failed (2026-08-05 evening) — recorded so it
+is not repeated.** A hosted test built the real `ContentView` at both 838 and
+923 pt and drove `selectWorkspace(.image)` then `analysisMode = .dpc`:
+`safeAreaInsets.top` stayed 52 and the sidebar stayed at clip origin −52 at
+every step. Two reasons it proves less than it looks: it used
+`openDemoFixture()`, whose sidebar may be short enough never to scroll; and
+SwiftUI controls are accessibility *elements*, not `NSView`s, so
+`workspace.primaryAction` could not be located in-process at all — walking
+`accessibilityChildren()` from the content view did not surface it either. **A
+probe that cannot see its target must not be left behind as a passing test**,
+so it was deleted rather than committed.
+
+**CONFIRMED BY SCREEN RECORDING, 2026-08-05 (evening).** A 7.9 s capture of the
+release owner switching to DPC by hand, stepped at 10 fps, pins it to a
+**single frame**: at t ≈ 7.0 s the layout is healthy, at t ≈ 7.1 s it has
+collapsed, and the click that separates them is on the **DPC & iDPC task row**.
+No resize, no scroll, no other input.
+
+In the collapsed frame, `Diffraction (CBED)` is drawn **above** the "mac4DSTEM"
+window title and the traffic lights sit on top of the sidebar rows. Both
+columns moved together. This is a whole-window titlebar-inset collapse, and it
+is now reproducible three independent ways: by hand, by the QC harness, and in
+this recording.
+
+**Strongest untested lead — an infinite frame.** The XCUITest log for the same
+failure repeats
+`[DisplayManager] Could not find any displays containing rect (inf, inf, 0.0, 0.0)`.
+A view reporting an *infinite origin with zero size* is a degenerate layout
+result, not a normal state, and a NaN/∞ propagating through the layout pass
+would explain a safe-area inset collapsing to zero. Worth checking first:
+aspect-ratio or scale math in the image panes that can divide by a zero image
+dimension while the DPC result is momentarily absent. **This is a lead, not a
+diagnosis — verify before changing anything.**
+
+**The fix can now be tested empirically, which was never true before.**
+`tools/ui-qc-playthrough/run.sh sim_Au` fails at step 3b every run, in about
+two minutes. That is a real edit-test loop: make one hypothesis-driven change,
+run it, keep or discard. Do not batch several speculative changes into one run.
+Note it drives real windows on screen, so it needs the machine to itself.
+
+**A third failure mode appeared on the dataset after those two:**
+`Failed to synthesize event: Timed out while synthesizing event`
+(`AXDriver.swift:404`) — the app stopped accepting synthesized input entirely,
+which is the "inert" half of the original report in its strongest form.
+
+**Consequence for the QC playthrough:** it gates the entire pipeline at step 3b.
+The 2026-08-05 run finished in 413 s against the baseline's 30 m 22 s and never
+reached Bragg disks, ACOM or strain on any dataset, so **it produced no
+acceptance numbers** — the closeout-step-4 diff is still outstanding, now for a
+fixable reason rather than a permissions one.
+
+---
+
+**◐ Earlier state — MECHANISM FOUND + FIXED DEFENSIVELY 2026-08-05; TRIGGER
+UNCONFIRMED at the time.**
 
 **The two symptoms are one bug.** Measured in a real window (hosted test, real
 `ContentView`): the sidebar `NSScrollView` sits at clip origin **0** while its
@@ -1489,6 +1602,175 @@ nobody has reproduced.
 
 **Core untouched:** no (`Core/Crystal`), but a fixture-only change if the
 guard turns out to be correct.
+
+---
+
+## #33 — The green task tick means "ready", but reads as "done"
+
+**Reported by the release owner 2026-08-05**, hands-on: *"the green ticks right
+of Virtual imaging and DPC are already green before I even did the steps."*
+
+**Confirmed in code, not a misreading.** `ContentView.swift:1303` renders
+`taskUnmetCount(mode) == 0 ? "checkmark.circle.fill" : "exclamationmark.circle.fill"`.
+So green ✓ = *every prerequisite for this task is satisfied*; orange ! = one is
+missing. Nothing about it reports whether the task has produced a result.
+
+**Why it misleads:** the app already uses ✓ for *completed* elsewhere — the
+inspector's "Computed this session" list marks Origin calibration ✓ against
+empty circles for R–Q rotation, Bragg disks, Strain map, Orientation map. Two
+different meanings, one glyph, both on screen at once.
+
+**Fix direction:** reserve ✓ for "this produced a result" and give readiness a
+different affordance (an empty/filled state dot, or nothing at all when ready —
+readiness is already carried by the prerequisite checklist under the primary
+action, which is the one owner #21 established). Do **not** solve it with a
+tooltip.
+
+**Core untouched:** yes — presentation only.
+
+---
+
+## #34 — A cancelled Bragg detection still displays a Bragg vector map
+
+**Reported by the release owner 2026-08-05:** *"When I stop the Bragg disc
+detection, it shows a Bragg vector map regardless — this doesn't make sense."*
+Screenshot log reads `Detecting Bragg disks… / Cancelling Disk detection… /
+Disk detection cancelled`, with a fully rendered Bragg vector map beside it.
+
+**This contradicts a documented contract.** `README.md` § Known limitations
+states "Cancel invalidates the result immediately; the in-flight GPU command
+finishes in the background." A map left on screen after cancellation is either
+a stale product from an earlier run that is not labelled as such, or a partial
+result being presented as complete. Both are ROADMAP P1 problems — a displayed
+result must carry its validity — and the second is worse than cosmetic, because
+a partial peak set looks exactly like a real one.
+
+**Establish which it is first:** does the pane show the *previous* completed
+map, or a partial map from the cancelled run? The fix differs. If previous, it
+needs a label. If partial, it must be discarded.
+
+**Core untouched:** unlikely — result publication on the cancel path.
+
+---
+
+## #35 — Diffraction pane: a click must not move the detector
+
+**Reported by the release owner 2026-08-05**, then specified exactly:
+
+> Don't move the marker on click, only when grabbed and moved. Zoom in and move
+> around in the zoomed picture, unzoom by double-clicking. **This doesn't change
+> the mask.**
+
+**The contract, as four rules:**
+1. A plain click anywhere in the diffraction pane **never** moves the detector.
+2. The detector moves **only** while its handle is grabbed and dragged.
+3. Drag on empty area pans the zoomed image; double-click resets zoom/pan.
+4. Zoom and pan are display-only and **never** alter detector geometry.
+
+**Rule 4 is already guaranteed, and this was verified rather than assumed.**
+`ZoomPanState` is display state held in `DiffractionView`; the only writers of
+aperture geometry are `ApertureControl`'s own handle drags, which call
+`emit(_:)` → `app.updateAperture(_:)`. No zoom or pan path reaches it. So the
+mask is safe today.
+
+**RESOLVED BY SCREEN RECORDING, 2026-08-05 — the defect is in the OTHER pane.**
+A 46 s recording was analysed frame by frame (ffmpeg contact sheets at 1 and
+4 fps; the working images are disposable, the conclusion is not):
+
+- **The diffraction pane already satisfies all four rules.** Frames 4.5–10.5 s
+  show the detector being grabbed by its white centre dot and dragged, staying
+  put when the cursor moves away un-grabbed, and being dragged back. Correct
+  throughout. **Nothing to fix here** — the original report misattributed the
+  pane.
+- **The real-space pane violates rules 1–3.** Frames 26–34 s show the scan
+  marker sitting *directly under the cursor* and tracking it continuously
+  across the zoomed image, while the image content never moves.
+
+**Mechanism, confirmed in code.** `StemImageView.selectionLayer` uses
+`DragGesture(minimumDistance: 0)` and sits *above* `zoomPan`'s pan gesture. So
+in the real-space pane every click scrubs the scan position, and the scrub
+gesture always wins over the pan gesture — meaning **a zoomed real-space image
+cannot be panned at all**. Zooming in is therefore useless: you can magnify but
+never navigate.
+
+**What the release owner is asking for is that both panes follow the same four
+rules**, with the *diffraction* pane as the model, not real space.
+
+**This is not a light fix, and it is not obviously safe.** Click-to-scrub is
+the primary way a user explores a 4D-STEM dataset — clicking a scan position to
+see its CBED. Replacing it with grab-the-marker-only changes the app's most
+used gesture, and `mac4DSTEMUITests` may drive scrubbing by clicking. Options,
+in increasing order of disruption:
+1. **Pan wins when zoomed, scrub when not.** `zoom == 1` keeps today's
+   click-to-scrub; zoomed in, drag pans and the marker moves only by its own
+   handle. Preserves the common case, fixes the useless-zoom case. Mode-
+   dependent, which needs to be visible in the UI or it is just confusing.
+2. **Marker gets a grab handle, always.** Literal reading of the request, fully
+   consistent with the diffraction pane, and the biggest behavioural change.
+3. **Modifier key to pan** (e.g. space or ⌥ + drag). Conventional, discoverable
+   only if documented.
+
+**DECIDED 2026-08-05 by the release owner: option 1 — pan when zoomed, scrub
+when not.** Implement that; do not re-open the choice.
+
+**What option 1 means concretely:**
+- At zoom == 1 (the default), behaviour is **unchanged**: click or drag
+  anywhere in the real-space pane scrubs the scan position. This is the
+  gesture users make a hundred times a session and it must not regress.
+- Once zoomed in, **drag pans** the image, and the scan marker no longer
+  follows the cursor. The marker still needs a way to be moved while zoomed —
+  give it a grab handle, mirroring `ApertureControl`'s white centre handle in
+  the diffraction pane, so both panes share one vocabulary.
+- **Double-click resets zoom/pan** in the real-space pane. `ZoomPanModifier`
+  already provides this; verify it actually fires, because `selectionLayer`
+  currently sits above it and may be swallowing the second click.
+
+**Watch out for:** `mac4DSTEMUITests` may drive scrubbing by clicking the
+real-space image. Check `mac4DSTEMUITests/Support/AXDriver.swift` and the QC
+playthrough before assuming the change is invisible to the harness. Since the
+zoom == 1 path is unchanged, it should be — but verify rather than assume.
+
+**Also worth pinning with a test:** `SidebarLayoutTests` is a hosted target and
+can build a real window, so "at zoom == 1 a click still scrubs" is cheap to
+assert and is the regression that would hurt most.
+
+**Core untouched:** yes.
+
+---
+
+## #36 — No progress indication while a datacube loads
+
+**Reported by the release owner 2026-08-05:** *"When you open a dataset, for
+some time nothing happens… I want a loading bar that shows me the progress on
+that. Better than watching the Cube memory go up until it is stable, and the
+user won't wonder why he can't interact with the dataset."*
+
+The app already has the two things this needs — a determinate progress control
+in the workspace header (used by virtual detector, "34 %") and a live
+`Cube (f32)` figure in the performance panel. Load is the one long operation
+that reports neither, so the first thing a new user experiences is the one
+unexplained wait.
+
+**Core untouched:** likely not — the reader has to report progress.
+
+---
+
+## #37 — Cancelling the virtual detector takes a long time
+
+**Reported by the release owner 2026-08-05.** Visible in the log as repeated
+`Computing virtual detector… / Virtual detector cancelled` cycles, and in a
+screenshot as a header stuck at "Virtual detector 0 %" with Cancel showing.
+
+Partly expected and documented (`README.md`: Metal commands cannot be
+interrupted after submission; CPU loops stop at row/template boundaries), but
+"documented" is not the same as "acceptable" — the user is left watching a
+progress bar that no longer means anything. At minimum the UI should say it is
+finishing an in-flight GPU command rather than showing stalled progress.
+
+**Measure before changing anything:** how much of the delay is the in-flight
+command and how much is cancellation checking too coarsely.
+
+**Core untouched:** no — cancellation granularity lives in `Core/Compute`.
 
 ---
 

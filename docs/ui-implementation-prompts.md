@@ -1,5 +1,13 @@
 # UI implementation — reusable prompts for future sessions
 
+> **PHASE CLOSED 2026-08-05.** All five prompts (A–E) are complete and the v1.0
+> development phase is closed. This file is kept as the *record* of that phase —
+> what shipped, what deviated, and why. **For what happens next, read
+> [`docs/v2-onramp.md`](v2-onramp.md)**, which carries every open thread
+> forward. Do not start new work from the prompts below without checking there
+> first; several of them describe problems that have since been solved
+> differently.
+
 Hand any prompt below to a **fresh agent on an empty context**. Each is
 self-contained: it names the files to read first, the constraints, the review
 gate, how to verify, and the definition of done.
@@ -303,8 +311,8 @@ wrong** — the aggregate run shows otherwise:
 
 | # | Item | Blocked on |
 |---|---|---|
-| 1 | **QC playthrough acceptance re-run** — closeout step 4, not executed since 2026-08-04 across ~8 landed tasks | Accessibility permission |
-| 2 | **#16 / #22 layout bugs** — five programmatic reproductions have failed; they need *real* clicks and drags | same permission (unblocks #1 too) |
+| 1 | **QC playthrough acceptance re-run** — closeout step 4, not executed since 2026-08-04 across ~9 landed tasks | ~~Accessibility permission~~ **granted 2026-08-05**; now blocked on #16, which fails the run at step 3b |
+| 2 | **#16 / #22 layout bugs** — ~~five programmatic reproductions have failed~~ | **reproduced deterministically 2026-08-05** by real input; trigger isolated to one click; fix not in |
 | 3 | ~~**#14** — `CIFImport.expand` splits symmetry-equivalent sites~~ | ✅ **Done 2026-08-05** — fixed, not gated off; fixture 14 → 29 cases; adversarial review taken and it refuted the first version |
 | 4 | **Distribution final mile** — Developer ID sign, notarize, verify on a clean macOS account | release owner's credentials + a clean account |
 | 5 | **`/code-review` on the full diff** | **deliberately last — see below** |
@@ -314,14 +322,27 @@ Not blockers, explicitly: **#18/#19/#20** (harness-confidence work), **#11**
 #14's review — one accepted knowingly, one pre-existing), **#3**'s remaining
 "voltage field needs a shared home" polish.
 
-**Release-candidate status (2026-08-05, end of session).** Items 1 and 2 remain
-blocked on Accessibility, which was confirmed **not granted** this session
-(`osascript` → "not allowed assistive access", error −1728). Item 3 is closed.
-Item 4 is the release owner's. So the code is at **v1.0 release candidate**
-with one named verification debt — the QC playthrough acceptance re-run — and
-two open interaction/cosmetic layout bugs (#16/#22) that are not correctness
-issues. Whether those two ship as known issues or hold the tag is the release
-owner's call; nothing else in the repo is waiting on a decision.
+**Release-candidate status — 2026-08-05 evening, after Accessibility was
+granted.** The permission blocker is gone and the picture changed
+substantially:
+
+- **The QC harness runs**, driving real windows and real synthesized input.
+- **#16 reproduced on the first attempt, deterministically** — and it fails the
+  playthrough at step 3b on every dataset, so the run produced **no acceptance
+  numbers** (413 s against the baseline's 30 m 22 s; it never reached Bragg
+  disks, ACOM or strain). Item 1 stays open, but for a fixable reason rather
+  than a permissions one.
+- **The trigger is isolated to one click**, and the earlier mechanism is
+  overturned: it is a whole-window titlebar-inset collapse, not a sidebar
+  scroll offset. Evidence and reasoning in the backlog's #16 entry.
+- **Item 3 (#14) is closed.** Item 4 is the release owner's.
+
+So the code is at **v1.0 release candidate** with one interaction bug that now
+has a reliable reproduction, and one verification debt gated behind it. Whether
+#16/#22 hold the tag is the release owner's call.
+
+**The v1.0 development phase closed here.** Everything still open is carried
+forward in [`docs/v2-onramp.md`](v2-onramp.md).
 
 ### The review gate — deferred, with its baseline pinned
 
@@ -347,6 +368,12 @@ working diff, and the tree is now clean. Use either:
 - `git diff a9e4268..901a6ef`, read in a dedicated review session, or
 - a branch/PR made from that range, then `/code-review ultra`.
 
+> **Superseded 2026-08-05 evening — the range grew.** The backlog #14 CIF fix
+> was committed as **`9c940d1`** after this block was written, so the review
+> range is now **`a9e4268..9c940d1`**. The paragraph above is kept because its
+> reasoning about `BraggVectorEMDWriter.swift` still stands; only the endpoint
+> changed.
+
 **Sequencing — agreed 2026-08-05.** Next session pushes for v1.0; a dedicated
 **review/debug session** follows. To keep both intentions intact:
 next session takes the repo to **v1.0 release candidate**, the review/debug
@@ -368,11 +395,12 @@ after RC costs nothing.
    asserts the healthy geometry, so a failing XCUITest is the missing half.
 3. ~~Decide #14~~ — **done 2026-08-05**: fixed rather than gated off, with the
    adversarial review taken. The next session inherits nothing here.
-4. **The review session** — `git diff a9e4268..901a6ef`, plus the uncommitted
-   #14 change sitting on top of it (`Core/Crystal/CIFImport.swift`,
-   `Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift`).
-   That change has already had its adversarial review and carries 29 fixture
-   cases; it still needs the ordinary read.
+4. **The review session** — `git diff a9e4268..9c940d1`, which now contains
+   both the UI session and the #14 CIF fix (committed as `9c940d1`:
+   `Core/Crystal/CIFImport.swift`, `Core/Crystal/CrystalModel.swift`,
+   `tools/cif-symmetry-test/main.swift`). The #14 change has already had its
+   adversarial review and carries 29 fixture cases; it still needs the
+   ordinary read.
 5. Distribution final mile when the release owner has credentials ready.
 
 **If Accessibility is still not granted**, steps 1 and 2 stay blocked. With #14
@@ -388,34 +416,36 @@ Pick up mac4DSTEM. Read CLAUDE.md, then docs/ui-implementation-prompts.md
 § "Road to v1.0". This is the REVIEW/DEBUG session that was scheduled to
 follow the release-candidate work — the v1.0 tag goes on after it, not before.
 
-CONTEXT — two bodies of work need reading, and they are in different places:
-  1. COMMITTED: a9e4268..901a6ef on main (25 files, +3075/−246, the 2026-08-05
-     UI session). The only Core/ file in it is
-     Core/Data/BraggVectorEMDWriter.swift — I/O plumbing, no numerical effect.
-  2. UNCOMMITTED in the working tree: the backlog #14 fix (CIF symmetry
-     expansion). Three files — Core/Crystal/CIFImport.swift,
-     Core/Crystal/CrystalModel.swift, tools/cif-symmetry-test/main.swift.
-     This one has ALREADY had its adversarial review, which refuted the first
-     version of the fix; the resulting regressions are fixed and are now
-     fixture cases (29 of them). It needs the ordinary review read, not
-     another adversarial pass.
+SCOPE — review the APP (mac4DSTEM/). The testing periphery (tools/,
+mac4DSTEMTests/, mac4DSTEMUITests/) is out of scope unless something in the app
+review points at it.
+
+CONTEXT — everything to review is committed. Range: a9e4268..9c940d1.
+  1. a9e4268..901a6ef — the 2026-08-05 UI session (25 files, +3075/−246). The
+     only Core/ file is Core/Data/BraggVectorEMDWriter.swift — I/O plumbing,
+     no numerical effect.
+  2. 9c940d1 — the backlog #14 fix (CIF symmetry expansion):
+     Core/Crystal/CIFImport.swift, Core/Crystal/CrystalModel.swift,
+     tools/cif-symmetry-test/main.swift. This one has ALREADY had its
+     adversarial review, which refuted the first version of the fix; the
+     resulting regressions are fixed and are now fixture cases (29 of them).
+     It needs the ordinary review read, not another adversarial pass.
 
 Every change in both is recorded in docs/ui-workflow-backlog.md with what
 shipped and where it deviated. Do not re-derive or redo any of it.
 
-Plain /code-review reviews only the uncommitted diff, so it covers (2) but not
-(1). For (1) use `git diff a9e4268..901a6ef` read in this session, or make a
+Plain /code-review reviews only the uncommitted working diff, so it does NOT
+cover this range. Use `git diff a9e4268..9c940d1` read in session, or make a
 branch/PR from that range and use /code-review ultra.
 
-`tools/run-tests.sh all` was green at exit 0, 30 harnesses, with the #14 change
-in the tree. Re-run it before judging any failure.
+`tools/run-tests.sh all` was green at exit 0, 30 harnesses, at 9c940d1. Re-run
+it before judging any failure.
 
-Still blocked on Accessibility permission (confirmed not granted on
-2026-08-05): the QC playthrough acceptance re-run, and reproducing layout bugs
-#16/#22. If it has since been granted, run tools/ui-qc-playthrough/run.sh with
-no argument first and diff against References/training_runs/run_2026-08-03_1404/
-— ACOM numbers SHOULD move, peak counts / Q pixel sizes / strain diagnostics
-should NOT.
+KNOWN OPEN BUG, do not re-diagnose from scratch: backlog #16/#22. Accessibility
+IS granted now, so tools/ui-qc-playthrough/run.sh runs — but it fails at step
+3b on every dataset because of #16, so it yields no acceptance numbers. The
+trigger is isolated to one click and six in-process reproductions have failed;
+read the #16 backlog entry before touching it.
 
 Follow the Task closeout checklist. Do not commit unless asked.
 ```

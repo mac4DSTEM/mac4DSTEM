@@ -4,6 +4,13 @@ The release contract is [`docs/v1-scope.md`](docs/v1-scope.md). This roadmap is
 intentionally short: completed implementation history belongs in Git, and a passing
 workflow is not automatically a validated scientific claim.
 
+## Phase status (2026-08-05)
+
+The **v1.0 development phase is closed** and the repo is at release candidate.
+Handover for whatever comes next: **[`docs/v2-onramp.md`](docs/v2-onramp.md)**.
+The three priorities below are standing and outlive v1.0 — they are how work is
+judged, not a task list.
+
 ## Current baseline
 
 - Native macOS workflow: Prepare → Image / Map / Reconstruct → Results.

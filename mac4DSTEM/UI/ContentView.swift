@@ -1300,11 +1300,21 @@ struct ContentView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                // Backlog #33. This glyph reports READINESS — whether the
+                // task's prerequisites are met — not whether it has produced
+                // anything. It used to draw a green `checkmark.circle.fill`
+                // for "ready", which is the same symbol the inspector's
+                // "Computed this session" list uses for *done*, on screen at
+                // the same time. Reading "you may run this" as "you already
+                // ran this" was the obvious inference, and users made it.
+                //
+                // An empty circle instead, matching that list's own glyph for
+                // a product that does not exist yet. Blocked keeps the orange
+                // warning, which never had the ambiguity.
                 let unmet = taskUnmetCount(mode)
-                Image(systemName: unmet == 0
-                    ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                Image(systemName: unmet == 0 ? "circle" : "exclamationmark.circle.fill")
                     .font(.caption)
-                    .foregroundStyle(unmet == 0 ? Color.green : Color.orange)
+                    .foregroundStyle(unmet == 0 ? Color.secondary : Color.orange)
             }
             .contentShape(Rectangle())
         }

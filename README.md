@@ -18,12 +18,16 @@ and the reason.
 
 ## Status
 
-The frozen v1 workflow is implemented and the project is in **stabilization**:
-scientific-contract corrections, task-focused UI consolidation, incremental
-architecture extraction, and distribution readiness. The only aggregate
-repository claim is a passing `tools/run-tests.sh all` (native XCTest suite,
-24 standalone scientific/interoperability harnesses, the real-data manifest,
-and the hardened Release packaging audit).
+**v1.0 release candidate.** The frozen v1 workflow is implemented and the v1.0
+development phase closed on 2026-08-05. The only aggregate repository claim is
+a passing `tools/run-tests.sh all` — currently **exit 0 across 30 harnesses**
+(native XCTest suite, standalone scientific/interoperability harnesses, the
+real-data manifest, and the hardened Release packaging audit).
+
+Not yet tagged: a code-review pass and the distribution final mile (Developer
+ID signing, notarization, clean-account launch) come first. What a second
+development phase starts from is recorded in
+[`docs/v2-onramp.md`](docs/v2-onramp.md).
 
 ## What it does
 
@@ -193,6 +197,13 @@ audit; Developer ID signing and notarization require release-owner credentials
 
 ## Known limitations
 
+- **Layout can collapse after a task switch (open bug, backlog #16/#22).**
+  Switching task inside the Image workspace can lay the window's content out
+  about one titlebar-height too high: the top rows draw under the traffic
+  lights and stop responding to clicks, because the titlebar hit-tests above
+  them. Navigating away and back clears it. Interaction and cosmetic only — no
+  result is affected. Reproduced deterministically under UI automation on
+  2026-08-05; the trigger is isolated and the fix is not in yet.
 - **Tiles are expanded to float32.** Peak memory is bounded, but native-dtype
   tile kernels (e.g. uint16) would reduce reader bandwidth and staging memory.
 - **`AppState` remains a large workflow facade.** Operation lifecycle is

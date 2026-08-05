@@ -5,25 +5,37 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff prompt (copy-paste to start a session)
 
-```
-Pick up the mac4DSTEM project. Read CLAUDE.md first (app overview, the two
-work-threads, file-placement rules, hard rules, process). Then open
-docs/ui-implementation-prompts.md, read the Status checklist, and take the
-next unchecked task — copy its prompt and execute it end to end.
+**The v1.0 development phase is closed.** Which prompt you want depends on what
+you're doing:
 
-This phase CHANGES APP CODE (the eval-only QC phase is finished), so follow
-docs/development-process.md properly: use an Explore subagent (Haiku) to
-locate code, implement on the default model, and take the review gate the
-prompt names — /code-review for app logic, and an adversarial parity review
-plus a tools/ fixture for anything touching Core/ or the science. Never let
-the model that wrote a science-affecting change be the only one to approve it.
-
-When the task lands, run the "Task closeout" checklist at the top of
-docs/ui-implementation-prompts.md exactly (tick the box, close the backlog
-items, run the tests the change earns, re-run the QC playthrough and diff it
-against References/training_runs/run_2026-08-03_1404/, take the review gate,
-do not commit), then stop with a short summary. Commit only if I ask.
+**Finishing v1.0** (review, the #16 layout bug, distribution):
 ```
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-onramp.md § "Where v1.0 ended"
+and § "Open threads". The three outstanding items are backlog #16/#22 (layout
+collapses on a task switch — trigger isolated, do not re-attempt an in-process
+reproduction, it has failed six times), the QC playthrough acceptance re-run
+(blocked on #16, not on permission any more), and the distribution final mile
+(release-owner credentials).
+
+Everything awaiting review is committed — review range a9e4268..9c940d1 (the
+UI session, plus 9c940d1 for the #14 CIF fix). The v1.0 tag goes on after that
+review, not before. Do not commit unless I ask.
+```
+
+**Opening a second development phase:**
+```
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-onramp.md end to end — it is
+the handover from the v1.0 phase and groups every open thread by what it
+actually needs. Nothing in it is committed to; v2.0 scope is my decision, so
+bring me options rather than starting work.
+```
+
+Whatever the task: app-code changes follow `docs/development-process.md` —
+Explore subagent (Haiku) to locate code, implement on the default model, and
+take the review gate the work earns. Anything touching `Core/` or the science
+needs an adversarial review *and* a `tools/` fixture. Never let the model that
+wrote a science-affecting change be the only one to approve it — on 2026-08-05
+that review refuted a fix which had already passed all 30 harnesses.
 
 ## What this is
 
@@ -49,25 +61,40 @@ removes most of the confusion:
   phase (finished — eval-only, never modified app logic) and the
   *implementation* phase (current — it does change app code).
 
-## Where v1.0 stands (2026-08-05, end of day)
+## Where v1.0 stands (2026-08-05, close of the v1.0 development phase)
 
-**The repo is at v1.0 release candidate.** `tools/run-tests.sh all` is
-**green — exit 0, 30 harnesses**. The remaining items, their blockers, and the
-next-session order are in **`docs/ui-implementation-prompts.md` § "Road to
-v1.0"** (which ends with a copy-paste prompt). The short version: the **QC
-playthrough acceptance re-run has not executed since 2026-08-04** and is the
-main verification debt; it and the two open layout bugs (#16/#22) are blocked
-on the same **Accessibility permission**, confirmed *not granted* on 2026-08-05.
-The last science blocker (backlog **#14**, CIF symmetry expansion) is closed.
+**The repo is at v1.0 release candidate and the development phase is closed.**
+`tools/run-tests.sh all` is **green — exit 0, 30 harnesses**. The handover
+document for what comes next is **[`docs/v2-onramp.md`](docs/v2-onramp.md)** —
+read that before planning anything new.
 
-**Two bodies of work await review, in different places.** (1) Committed and
-pushed: **`a9e4268..901a6ef`** (25 files, +3075/−246; the only `Core/` file is
-`Core/Data/BraggVectorEMDWriter.swift`). (2) **Uncommitted in the working
-tree**: the #14 fix — `Core/Crystal/CIFImport.swift`,
-`Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift` — which
-has already taken its adversarial review and needs only the ordinary read.
-Plan agreed with the release owner: a dedicated **review/debug session** runs
-against both, and **the v1.0 tag goes on after it** — not before.
+Three things are outstanding, and they are different in kind:
+
+1. **Backlog #16/#22 — layout collapses on a task switch.** Reproduced
+   deterministically 2026-08-05 by real synthesized input, once Accessibility
+   was granted, and the trigger is isolated to a single click. It gates the QC
+   playthrough at step 3b. Not a correctness bug; it is the one thing that
+   would read badly in a release.
+2. **The QC playthrough acceptance re-run** — still has not produced a clean
+   diff since 2026-08-04. No longer blocked on permission (granted); now
+   blocked on #16. See `docs/v2-onramp.md` § "The one thing to do first".
+3. **Distribution final mile** — Developer ID signing, notarization, and a
+   clean-account launch. Release-owner actions, credentials required.
+
+**Everything awaiting review is now committed. Review range:
+`a9e4268..9c940d1`.** Two bodies of work inside it:
+- **`a9e4268..901a6ef`** — the 2026-08-05 UI session (25 files, +3075/−246; the
+  only `Core/` file is `Core/Data/BraggVectorEMDWriter.swift`, I/O plumbing).
+- **`9c940d1`** — the backlog #14 CIF fix (`Core/Crystal/CIFImport.swift`,
+  `Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift`).
+  Already took its adversarial review, which refuted the first version; it
+  needs only the ordinary read.
+
+A dedicated **review/debug session** runs against that range, and **the v1.0
+tag goes on after it** — not before.
+
+The last science blocker (backlog **#14**, CIF symmetry expansion → silently
+wrong structure factors for imported CIFs) is **closed**.
 
 ## Current initiative (Thread B) — start here for "what do I do next"
 
@@ -100,6 +127,11 @@ against both, and **the v1.0 tag goes on after it** — not before.
 - **`docs/v1-scope.md`** — the frozen v1 release contract. Consult when
   deciding whether a proposed change is in scope (ROADMAP's scope rule points
   here); not a "read first" doc.
+- **`docs/v2-onramp.md`** — **the handover for a second development phase.**
+  What v1.0 is, what it deliberately excluded, every open thread grouped by
+  what it actually needs (blocking / scope decision / deferred by recorded
+  scope change / harness confidence / small and known), and the working methods
+  that earned their keep. Start here when the next phase opens.
 - **`docs/post-v1-ideas.md`** — parking lot for ideas that are out of v1 scope
   *and* would touch `Core/` (cropping, partial/binned loading). Deliberately
   separate from `docs/ui-workflow-backlog.md`, which is contractually
