@@ -71,3 +71,35 @@ final class ResultPresentationTests: XCTestCase {
         XCTAssertTrue(malformed.isEmpty)
     }
 }
+
+/// Backlog #28. Strain and orientation are retained simultaneously; only the
+/// displayed product was ever single-valued. These pin the explicit switch and
+/// the export that used to drop whichever family was not in front.
+@MainActor
+final class ComputedProductSwitchTests: XCTestCase {
+
+    func testNothingIsOfferedBeforeAnythingIsComputed() {
+        let state = AppState()
+        XCTAssertTrue(state.availableComputedProducts.isEmpty)
+        // Must be inert rather than crash or publish an empty product.
+        state.showComputedProduct(.strain)
+        state.showComputedProduct(.orientation)
+        XCTAssertNil(state.resultImage)
+        XCTAssertNil(state.resultRGBA)
+    }
+
+    func testAnEmptyBundleIsNilRatherThanAnEmptyArray() {
+        let state = AppState()
+        XCTAssertNil(
+            state.scientificBundleMaps(),
+            "an empty bundle must stay nil so export reports 'compute something first'"
+        )
+        XCTAssertTrue(state.scientificBundleOmissions(in: []).isEmpty)
+    }
+
+    func testProductDisplayNamesAreStableForTheInspectorRows() {
+        XCTAssertEqual(AppState.ComputedProduct.strain.displayName, "Strain map")
+        XCTAssertEqual(AppState.ComputedProduct.orientation.displayName, "Orientation map")
+        XCTAssertEqual(AppState.ComputedProduct.allCases.count, 2)
+    }
+}

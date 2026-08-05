@@ -74,8 +74,10 @@ struct ProductsView: View {
                     ? "settings changed · rerun"
                     : appState.braggPeakCount.map { "\($0) peaks" }
             )
-            product("Strain map", done: appState.strainMap != nil)
-            product("Orientation map", done: appState.hasOrientationMap)
+            // Clickable when retained: these are held in memory simultaneously,
+            // so bringing one back needs no recompute (backlog #28).
+            showableProduct(.strain, done: appState.strainMap != nil)
+            showableProduct(.orientation, done: appState.hasOrientationMap)
 
             Text("Saved session sidecar")
                 .font(.caption2).foregroundStyle(.tertiary)
@@ -142,6 +144,26 @@ struct ProductsView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1).truncationMode(.middle)
             Spacer()
+        }
+    }
+
+    /// A computed product that can be put back in the viewer on click.
+    @ViewBuilder
+    private func showableProduct(
+        _ kind: AppState.ComputedProduct, done: Bool
+    ) -> some View {
+        if done {
+            Button {
+                appState.showComputedProduct(kind)
+            } label: {
+                product(kind.displayName, done: true, detail: "show")
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Display this result again — it is still in memory, nothing is recomputed")
+            .accessibilityIdentifier("computed.\(kind.rawValue)")
+        } else {
+            product(kind.displayName, done: false)
         }
     }
 

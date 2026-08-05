@@ -156,41 +156,75 @@ struct ContentView: View {
                     if appState.workspaceArea == .image && appState.analysisMode == .virtualDetector {
                         if appState.activePane == .diffraction {
                             Section("Detector → real space") {
-                                Picker("Shape", selection: $appState.virtualShape) {
+                                // The shape picker gets the row's full width —
+                                // an inline "Shape" label left four segments
+                                // fighting over what was left of a 292pt column.
+                                Picker("Detector shape", selection: $appState.virtualShape) {
                                     ForEach(VirtualShapeMode.allCases) { shape in
                                         Text(shape.rawValue).tag(shape)
                                     }
                                 }
                                 .pickerStyle(.segmented)
+                                .labelsHidden()
+                                .accessibilityLabel("Detector shape")
 
-                                ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
-                                    Button(preset.rawValue) {
-                                        appState.applyDetectorPreset(preset)
+                                // One compact row of conventional STEM
+                                // abbreviations, not three stacked full-width
+                                // buttons. Full names stay in the tooltip and
+                                // in the accessibility label.
+                                HStack(spacing: 6) {
+                                    Text("Presets")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer(minLength: 4)
+                                    ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
+                                        Button(Self.shortName(preset)) {
+                                            appState.applyDetectorPreset(preset)
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                        .help("Set the detector to a \(preset.rawValue) annulus")
+                                        .accessibilityLabel("Apply \(preset.rawValue) preset")
+                                        .accessibilityIdentifier(
+                                            "detector.preset.\(Self.shortName(preset).lowercased())"
+                                        )
                                     }
                                 }
+
                                 Text("Drag the detector on the diffraction pane; the real-space image updates live.")
                                     .font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         } else {
                             Section("Region → diffraction") {
-                                Picker("Shape", selection: $appState.realSpaceShape) {
+                                Picker("Region shape", selection: $appState.realSpaceShape) {
                                     ForEach(RegionShape.allCases) { shape in
                                         Text(shape.rawValue).tag(shape)
                                     }
                                 }
                                 .pickerStyle(.segmented)
+                                .labelsHidden()
+                                .accessibilityLabel("Region shape")
 
                                 if appState.realSpaceShape != .point, let d = appState.descriptor {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Radius  \(Int(appState.realSpaceRadius)) px").font(.caption)
+                                        HStack {
+                                            Text("Radius").font(.caption)
+                                            Spacer()
+                                            Text("\(Int(appState.realSpaceRadius)) px")
+                                                .font(.caption.monospacedDigit())
+                                                .foregroundStyle(.secondary)
+                                        }
                                         Slider(value: $appState.realSpaceRadius,
                                                in: 1...Float(max(d.rx, d.ry) / 2))
+                                        .accessibilityLabel("Region radius in pixels")
                                     }
                                 }
                                 Text(appState.realSpaceShape == .point
                                      ? "Drag on the real-space image to scrub the diffraction pattern."
                                      : "Drag the region on the real-space image; the summed pattern updates live.")
                                     .font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
@@ -257,17 +291,23 @@ struct ContentView: View {
 
                     if appState.workspaceArea == .map && appState.analysisMode == .strain {
                         Section("Strain") {
+                            strainFailureRemedy
+
                             Picker("Reference", selection: $appState.strainReferenceMode) {
                                 ForEach(StrainReferenceMode.allCases) { mode in
                                     Text(mode.rawValue).tag(mode)
                                 }
                             }
                             .accessibilityIdentifier("strain.reference")
-                            if appState.strainReferenceMode == .selectedRegion {
-                                Text("The visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
+                            // These two pickers ARE the scientific decision, so
+                            // they say what they decide rather than only what
+                            // they are set to (backlog #5).
+                            Text(appState.strainReferenceMode == .selectedRegion
+                                 ? "Defines zero strain: the visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained."
+                                 : "Defines zero strain: the whole scan is averaged, so strain is measured relative to the mean lattice.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
 
                             Picker("Basis", selection: $appState.strainBasisMode) {
                                 ForEach(StrainBasisMode.allCases) { mode in
@@ -275,6 +315,10 @@ struct ContentView: View {
                                 }
                             }
                             .accessibilityIdentifier("strain.basis")
+                            Text("The g₁ / g₂ pair every position is indexed against.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                             if appState.strainBasisMode == .manual {
                                 HStack {
                                     Text("g₁").frame(width: 18, alignment: .leading)
@@ -857,17 +901,32 @@ struct ContentView: View {
                         logPane
                     }
                 }
-                // Hard floor so dragging the sidebar/inspector can't crush the
-                // image panes into distorted slivers.
-                .frame(minWidth: 480)
+                // Floor so dragging the sidebar/inspector can't crush the image
+                // panes into distorted slivers — but a SOFT one.
+                //
+                // At 480, with a fixed 300pt inspector beside it, the detail
+                // column could not yield below 780pt. Against the window's own
+                // 1080pt minimum that leaves only 300pt for the tools pane,
+                // which is less than its own 250–340 range plus dividers — so
+                // the layout had almost no slack in exactly the configuration
+                // the release owner reported breaking (2026-08-05: tools +
+                // inspector both open, content clipped off both edges).
+                //
+                // NOT a confirmed fix for that report — it could not be
+                // reproduced headlessly (see docs/ui-design-pass-2026-08-05.md
+                // §1.7). It is slack the layout should have had anyway.
+                .frame(minWidth: 360)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Inspector as an explicit, independent panel so it coexists
                 // with the tools sidebar (both can be open at once).
                 if appState.showInspectorPane {
                     Divider()
+                    // Compressible rather than a fixed 300: a rigid panel here
+                    // was half of why widening the tools pane pushed content
+                    // off the window instead of just making things narrower.
                     DatasetInspector()
-                        .frame(width: 300)
+                        .frame(minWidth: 220, idealWidth: 300, maxWidth: 340)
                         .background(.background)
                 }
                     }
@@ -1079,26 +1138,89 @@ struct ContentView: View {
         .accessibilityIdentifier("dataset.card")
     }
 
-    /// A wide, short scan gets a wide, short pane instead of half a square one
-    /// (backlog #17a — see `ProductWorkflow.stacksImagePanesVertically`). The
-    /// axis follows the dataset's scan shape, so it is decided once when a
-    /// dataset opens and does not shift under the user mid-session.
+    /// Diffraction left, real space right — always.
+    ///
+    /// #17a briefly made this axis follow the scan aspect (a 200×50 map fills
+    /// far more of a wide, short pane). The release owner rejected it on sight:
+    /// the side-by-side arrangement is part of what the app *is*, and having it
+    /// change under a dataset is worse than an under-filled pane. Kept as two
+    /// named panes only so the split is readable.
+    /// After a failed strain run, offer the *one* control that addresses the
+    /// cause rather than restating both possibilities (backlog #5b, #8b).
     @ViewBuilder
+    private var strainFailureRemedy: some View {
+        switch appState.strainFailureCause {
+        case .starvedInput(let medianPeaks, let emptyPercent):
+            VStack(alignment: .leading, spacing: 5) {
+                Label(
+                    String(format: "Too few peaks: median %.1f per pattern, %d%% empty",
+                           medianPeaks, emptyPercent),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                Text("Indexing needs the direct beam plus two more reflections. "
+                     + "Lower the detection thresholds, not the reference.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Go to Bragg Disks") { appState.changeMode(.disks) }
+                    .font(.caption)
+                    .accessibilityIdentifier("strain.remedy.disks")
+            }
+            .padding(.bottom, 4)
+            .accessibilityIdentifier("strain.remedy")
+
+        case .illConditionedBasis:
+            VStack(alignment: .leading, spacing: 5) {
+                Label("No single lattice fits the whole reference",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                if appState.strainReferenceMode == .wholeScan {
+                    Text("The peak population is healthy. Averaging the whole scan "
+                         + "mixes regions with different lattices — pick an "
+                         + "unstrained region instead.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Use the current ROI as the reference") {
+                        appState.strainReferenceMode = .selectedRegion
+                    }
+                    .font(.caption)
+                    .accessibilityIdentifier("strain.remedy.useROI")
+                } else {
+                    Text("Move or resize the reference region onto an unstrained "
+                         + "area, or set g₁ and g₂ manually.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.bottom, 4)
+            .accessibilityIdentifier("strain.remedy")
+
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// Conventional STEM abbreviations, so three presets fit one sidebar row.
+    /// Lives here rather than on `DetectorPreset` because that type is in
+    /// `Core/`, which stays free of presentation concerns.
+    static func shortName(_ preset: DetectorPreset) -> String {
+        switch preset {
+        case .brightField: "BF"
+        case .adf: "ADF"
+        case .haadf: "HAADF"
+        case .custom: "Custom"
+        }
+    }
+
     private var imagePanes: some View {
-        let stacked = ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: appState.descriptor?.rx ?? 0,
-            scanHeight: appState.descriptor?.ry ?? 0
-        )
-        if stacked {
-            VSplitView {
-                diffractionPane.frame(minHeight: 180)
-                realSpacePane.frame(minHeight: 140)
-            }
-        } else {
-            HSplitView {
-                diffractionPane.frame(minWidth: 220)
-                realSpacePane.frame(minWidth: 220)
-            }
+        HSplitView {
+            diffractionPane.frame(minWidth: 170)
+            realSpacePane.frame(minWidth: 170)
         }
     }
 

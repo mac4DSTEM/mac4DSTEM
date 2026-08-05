@@ -49,6 +49,18 @@ removes most of the confusion:
   phase (finished — eval-only, never modified app logic) and the
   *implementation* phase (current — it does change app code).
 
+## Where v1.0 stands (2026-08-05)
+
+`tools/run-tests.sh all` is **green — exit 0, 30 harnesses**. Five things stand
+between the repo and v1.0, listed with their blockers in
+**`docs/ui-implementation-prompts.md` § "Road to v1.0"**, which also carries the
+recommended order for the next session. The short version: the **QC playthrough
+acceptance re-run has not executed since 2026-08-04** and is the main
+verification debt; it and the two open layout bugs (#16/#22) are blocked on the
+same **Accessibility permission**. **`/code-review` is the designated final gate
+before v1.0** and is user-invoked — an agent cannot launch it, and nothing
+should be called v1.0-complete before it has run.
+
 ## Current initiative (Thread B) — start here for "what do I do next"
 
 - **Next actions + live status — cold-start prompts for a fresh agent:**

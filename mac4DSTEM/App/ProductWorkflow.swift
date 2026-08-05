@@ -74,31 +74,6 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var showsTaskFamilyLabels: Bool { taskFamilyGroups.count > 1 }
 }
 
-extension ProductWorkflow {
-    /// Whether the diffraction and real-space panes should stack vertically
-    /// rather than sit side by side, chosen from the scan's aspect ratio
-    /// (backlog #17a).
-    ///
-    /// **Why this and not a display rotation.** The 2026-08-05 observation was
-    /// that a 200×50 strain map leaves most of the result pane empty, and the
-    /// proposed remedy was to rotate it 90°. Rotation cannot help: an image of
-    /// aspect *a* fitted into a pane of aspect *p* fills `min(a,p)/max(a,p)` of
-    /// it, which is unchanged by swapping *a* for *1/a* when the pane stays the
-    /// same shape. A 4:1 map in a square pane is 25% full either way. What
-    /// changes the answer is re-proportioning the *pane*.
-    ///
-    /// Side-by-side panes are roughly square (measured 660×646); stacked, each
-    /// is roughly 4:1. So a scan of aspect *a* fills `1/a` side-by-side and
-    /// `a/4.1` stacked, and stacking wins above `a² = 4.1`, i.e. **a ≈ 2**.
-    /// Si_SiGe at 4.0 stacks and goes from ~25% to ~98% of its pane; sim_Au at
-    /// 0.84 stays side by side. Tall scans never stack — for `a < 1` the
-    /// side-by-side pane is already the better shape.
-    static func stacksImagePanesVertically(scanWidth: Int, scanHeight: Int) -> Bool {
-        guard scanWidth > 0, scanHeight > 0 else { return false }
-        return Double(scanWidth) / Double(scanHeight) >= 2
-    }
-}
-
 /// Display-only orientation of the **real-space** image (backlog #17b).
 ///
 /// Quarter turns only: a multiple of 90° is exact and needs no interpolation,

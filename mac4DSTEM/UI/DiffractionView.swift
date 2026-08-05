@@ -31,6 +31,22 @@ struct DiffractionView: View {
         HStack {
             Text("Diffraction (CBED)")
                 .font(.headline)
+            // A summed pattern must never look like a single-position one:
+            // the ROI sum silently drives the probe kernel and the current-CBED
+            // peak count (#24).
+            if app.realSpaceShape != .point, app.virtualDiffractionPattern != nil {
+                Text("ROI SUM")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.85), in: Capsule())
+                    .help("This pattern is the sum over the real-space region, "
+                          + "not the pattern at one scan position. Set the "
+                          + "region shape to Point to see a single position.")
+                    .accessibilityLabel("Showing a region-summed pattern, not a single scan position")
+                    .accessibilityIdentifier("pattern.roiSumBadge")
+            }
             Spacer()
             if app.fitOverlayIsAvailable {
                 Toggle("Fit overlay", isOn: Bindable(app).showFitOverlay)

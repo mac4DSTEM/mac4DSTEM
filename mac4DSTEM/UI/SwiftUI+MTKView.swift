@@ -6,6 +6,7 @@
 //        don't each reinvent it.
 //
 
+import AppKit
 import SwiftUI
 
 /// Bundles the live zoom/pan state for an image viewer.
@@ -26,9 +27,30 @@ struct ZoomPanState: Equatable {
     mutating func reset() { self = ZoomPanState() }
 }
 
-/// Attaches magnify-to-zoom and drag-to-pan gestures that drive a ZoomPanState.
+/// Attaches magnify-to-zoom, drag-to-pan, scroll-to-zoom/pan and
+/// double-click-to-reset gestures that drive a `ZoomPanState`.
+///
+/// **Pointer conventions** (added 2026-08-05 — a mouse could not zoom at all,
+/// because `MagnificationGesture` is a trackpad pinch and nothing handled the
+/// scroll wheel):
+///
+/// | Input | Action |
+/// |---|---|
+/// | Pinch (trackpad) | zoom |
+/// | Drag | pan |
+/// | Scroll wheel (mouse, coarse deltas) | zoom |
+/// | Two-finger scroll (trackpad, precise deltas) | pan |
+/// | Double-click | reset this pane |
+///
+/// Splitting on `hasPreciseScrollingDeltas` is what lets one handler serve
+/// both devices: a wheel has no way to pan, and a trackpad already has pinch
+/// for zoom, so each device gets the gesture it lacks.
 struct ZoomPanModifier: ViewModifier {
     @Binding var state: ZoomPanState
+    @State private var scrollMonitor: Any?
+
+    private static let minimumZoom: CGFloat = 0.25
+    private static let maximumZoom: CGFloat = 64
 
     func body(content: Content) -> some View {
         content
@@ -37,7 +59,7 @@ struct ZoomPanModifier: ViewModifier {
                     MagnificationGesture()
                         .onChanged { state.liveZoom = $0 }
                         .onEnded {
-                            state.zoom = max(0.1, state.zoom * $0)
+                            state.zoom = clamp(state.zoom * $0)
                             state.liveZoom = 1
                         },
                     DragGesture()
@@ -51,6 +73,39 @@ struct ZoomPanModifier: ViewModifier {
             )
             // Double-click resets the view.
             .onTapGesture(count: 2) { state.reset() }
+            // Scroll events are only claimed while the pointer is actually over
+            // this pane, so the two viewers never fight over one wheel.
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: installScrollMonitor()
+                case .ended: removeScrollMonitor()
+                }
+            }
+            .onDisappear { removeScrollMonitor() }
+    }
+
+    private func clamp(_ zoom: CGFloat) -> CGFloat {
+        min(Self.maximumZoom, max(Self.minimumZoom, zoom))
+    }
+
+    private func installScrollMonitor() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            if event.hasPreciseScrollingDeltas {
+                state.offset.width += event.scrollingDeltaX
+                state.offset.height += event.scrollingDeltaY
+            } else {
+                // A wheel notch is ~1 line; keep it gentle and multiplicative
+                // so zooming feels the same at every magnification.
+                state.zoom = clamp(state.zoom * (1 + event.scrollingDeltaY * 0.05))
+            }
+            return nil   // consumed — don't let it scroll the sidebar behind
+        }
+    }
+
+    private func removeScrollMonitor() {
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        scrollMonitor = nil
     }
 }
 

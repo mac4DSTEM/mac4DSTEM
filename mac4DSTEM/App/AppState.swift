@@ -113,6 +113,32 @@ enum StrainReferenceMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Why the last strain run produced nothing.
+///
+/// Backlog #8: one message used to name two unrelated remedies ("adjust the
+/// thresholds in the Bragg panel **or** the reference/basis selection"), which
+/// left the user guessing which of two different tasks to go back to. These are
+/// genuinely different failures with different fixes, so they are distinguished
+/// and each names exactly one control.
+enum StrainFailureCause: Equatable {
+    /// Too few peaks per position for any lattice to exist. Detection problem.
+    case starvedInput(medianPeaks: Double, emptyPercent: Int)
+    /// A healthy peak population that no single lattice explains. Reference or
+    /// basis problem.
+    case illConditionedBasis
+
+    /// A 2D basis needs the direct beam plus two non-collinear g-vectors, so a
+    /// position with fewer than three peaks cannot be indexed at all. A median
+    /// below four means at least half the scan is at or under that floor, which
+    /// is a detection failure however the reference is chosen. Positions with
+    /// no peaks at all are the same problem stated more starkly.
+    static func classify(medianPeaks: Double, emptyPercent: Int) -> StrainFailureCause {
+        (medianPeaks < 4 || emptyPercent > 25)
+            ? .starvedInput(medianPeaks: medianPeaks, emptyPercent: emptyPercent)
+            : .illConditionedBasis
+    }
+}
+
 enum StrainBasisMode: String, CaseIterable, Identifiable {
     case automatic = "Automatic"
     case manual = "Manual g₁ / g₂"
@@ -708,11 +734,22 @@ final class AppState {
         return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
     }
 
-    var realSpaceROIIsRelevant: Bool {
-        (analysisMode == .virtualDetector && activePane == .realSpace)
-            || (analysisMode == .strain && strainReferenceMode == .selectedRegion)
-            || (analysisMode == .acom && acomScope == .selectedRegion)
-    }
+    /// Whether the real-space ROI must be drawn on the scan image.
+    ///
+    /// This is now simply "is an ROI in force", because `displayedPattern`
+    /// substitutes the ROI-summed pattern for the current one whenever
+    /// `realSpaceShape != .point` — in *every* task, not just the ones that
+    /// nominally use a region.
+    ///
+    /// The old rule listed the tasks where an ROI was *intended* (virtual
+    /// detector, strain-from-region, ACOM-from-region), which meant that after
+    /// setting a rectangle in Image, Bragg disks and Strain kept showing a
+    /// summed CBED while the scan image drew only a point crosshair. That is
+    /// not cosmetic: the summed pattern is what "Use Current CBED / ROI" builds
+    /// the probe kernel from and what the "Current CBED · N peaks" read-out
+    /// counts, so an invisible ROI silently changed the science. Reported by
+    /// the release owner 2026-08-05.
+    var realSpaceROIIsRelevant: Bool { realSpaceShape != .point }
 
     /// The explicitly selected complete phase model — never a filename- or
     /// dataset-derived fallback.
@@ -801,6 +838,10 @@ final class AppState {
     /// `selectACOMDisplay(_:)` from the picker, so a completed map may promote
     /// IPF·Z once without ever overriding a deliberate choice.
     private(set) var acomDisplayIsUserChosen = false
+
+    /// Why the last strain run failed, so the Strain panel can offer the one
+    /// control that fixes it. Cleared on success and on dataset activation.
+    private(set) var strainFailureCause: StrainFailureCause?
 
     /// Presentation-only orientation of the real-space viewer (backlog #17b).
     /// The retained product, its scan indices, and the scientific bundle are
@@ -1623,6 +1664,7 @@ final class AppState {
         acomDisplayIsUserChosen = false
         realSpaceDisplayOrientation = .identity
         realSpaceDisplayMirrored = false
+        strainFailureCause = nil
         acomRegionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point
@@ -1645,9 +1687,14 @@ final class AppState {
                 x: min(max(0, recovery.selectedX), max(0, descriptor.rx - 1)),
                 y: min(max(0, recovery.selectedY), max(0, descriptor.ry - 1))
             )
+            // The remembered task is restored, but the WORKSPACE is not: a
+            // reopened dataset always lands on Prepare. Dropping the user back
+            // into Map or Reconstruct started them mid-flow, past the step that
+            // confirms the dataset and its calibration are what they think —
+            // and calibration is per-session state that the recovery record
+            // does not carry. Reported by the release owner 2026-08-05.
             if let mode = AnalysisMode(rawValue: recovery.analysisMode) {
                 analysisMode = mode
-                workspaceArea = mode.workspaceArea
             }
         }
         pendingRecovery = nil
@@ -3351,24 +3398,57 @@ final class AppState {
             return
         }
         guard let map else {
-            var detail = strainBasisMode == .manual
-                ? "The manual basis is ill-conditioned or too few peaks index to it."
-                : "No well-conditioned lattice explains at least half of the detected peak population."
-            // Name the measured peak population so the failure points at the
-            // specific detection setting to revisit instead of dead-ending.
+            // Classify before wording: a starved peak population and an
+            // ill-conditioned lattice are different failures with different
+            // fixes, and naming both remedies every time (backlog #8) told the
+            // user to go and change settings in a task that was not at fault.
+            let cause: StrainFailureCause
             if let summary = completedDiskSummary, summary.positionCount > 0 {
-                detail += String(
-                    format: " Detected input: median %.1f peaks per pattern, %d%% of positions empty.",
-                    summary.medianPeakCount,
-                    summary.zeroPeakPositionCount * 100 / summary.positionCount
+                cause = .classify(
+                    medianPeaks: summary.medianPeakCount,
+                    emptyPercent: summary.zeroPeakPositionCount * 100 / summary.positionCount
                 )
-                if let warning = summary.warnings.first {
-                    detail += " " + warning
+            } else {
+                cause = .illConditionedBasis
+            }
+            strainFailureCause = cause
+
+            var detail: String
+            switch cause {
+            case .starvedInput(let medianPeaks, let emptyPercent):
+                detail = String(
+                    format: "Only %.1f peaks per pattern were detected (%d%% of positions "
+                        + "had none). Indexing a lattice needs the direct beam plus two "
+                        + "more reflections, so lower the detection thresholds in Bragg "
+                        + "disks and detect again.",
+                    medianPeaks, emptyPercent
+                )
+            case .illConditionedBasis:
+                detail = strainBasisMode == .manual
+                    ? "The manual basis is ill-conditioned, or too few peaks index to it. "
+                        + "Check g₁ and g₂, or switch the basis back to Automatic."
+                    : "The peak population is healthy, but no single lattice explains "
+                        + "enough of it — which is what happens when the reference "
+                        + "averages over regions with different lattices. "
+                        + (strainReferenceMode == .wholeScan
+                           ? "Pick an unstrained region as the reference instead."
+                           : "Try a different reference region, or set g₁ and g₂ manually.")
+                if let summary = completedDiskSummary, summary.positionCount > 0 {
+                    detail += String(
+                        format: " (Detected input: median %.1f peaks per pattern, "
+                            + "%d%% of positions empty.)",
+                        summary.medianPeakCount,
+                        summary.zeroPeakPositionCount * 100 / summary.positionCount
+                    )
                 }
             }
-            presentComputeFailure(SimpleError("Could not publish strain. \(detail) Adjust the thresholds in the Bragg panel or the reference/basis selection, then rerun."))
+            if let warning = completedDiskSummary?.warnings.first {
+                detail += " " + warning
+            }
+            presentComputeFailure(SimpleError("Could not publish strain. \(detail)"))
             return
         }
+        strainFailureCause = nil
         strainMap = map
         if strainBasisMode == .automatic {
             strainG1X = map.refG1.x; strainG1Y = map.refG1.y
@@ -3383,6 +3463,59 @@ final class AppState {
                             map.diagnostics.basisConditionNumber,
                             map.referencePositionCount,
                             map.diagnostics.referenceCandidateCount)
+    }
+
+    /// A whole-scan product computed earlier this session and still retained,
+    /// so it can be brought back to the viewer without recomputing it.
+    enum ComputedProduct: String, CaseIterable, Identifiable, Sendable {
+        case strain, orientation
+        var id: String { rawValue }
+        var displayName: String {
+            switch self {
+            case .strain: "Strain map"
+            case .orientation: "Orientation map"
+            }
+        }
+    }
+
+    /// Products held in memory right now. `strainMap` and `orientationMap` are
+    /// retained simultaneously — only the *displayed* one was ever
+    /// single-valued, which is why running ACOM and then Strain looked like it
+    /// had lost the first result (backlog #28).
+    var availableComputedProducts: [ComputedProduct] {
+        var products: [ComputedProduct] = []
+        if strainMap != nil { products.append(.strain) }
+        if hasOrientationMap { products.append(.orientation) }
+        return products
+    }
+
+    /// Bring a retained product back to the viewer.
+    ///
+    /// Deliberately an **explicit action**, not a side effect of `changeMode`:
+    /// navigating between tasks must never silently relabel the visible
+    /// result, which `testNavigationDoesNotRelabelTheVisibleScientificResult`
+    /// pins. The navigation/restored overrides are cleared first, because the
+    /// user is now asking for a specific product rather than carrying the
+    /// previous one along.
+    func showComputedProduct(_ product: ComputedProduct) {
+        navigationResultInfo = nil
+        navigationResultPixelInfo = nil
+        navigationResultDomain = nil
+        restoredResultInfo = nil
+        restoredResultDomain = nil
+        inspectQualityField = false
+        switch product {
+        case .strain:
+            guard strainMap != nil else { return }
+            analysisMode = .strain
+            workspaceArea = .map
+            applyStrainDisplay()
+        case .orientation:
+            guard hasOrientationMap else { return }
+            analysisMode = .acom
+            workspaceArea = .map
+            applyACOMDisplay()
+        }
     }
 
     /// Show the selected strain component; masked positions remain NaN and

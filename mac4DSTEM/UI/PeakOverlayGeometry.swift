@@ -19,6 +19,24 @@ enum PeakOverlayGeometry {
         )
     }
 
+    /// Inverse of `center(x:y:…)` — the detector pixel under a view point.
+    /// Kept beside the forward map so a drag can never land half a pixel away
+    /// from where the same value is drawn.
+    nonisolated static func pixel(
+        at point: CGPoint,
+        patternWidth: Int,
+        patternHeight: Int,
+        box: CGSize
+    ) -> (x: Float, y: Float) {
+        guard patternWidth > 0, patternHeight > 0, box.width > 0, box.height > 0 else {
+            return (0, 0)
+        }
+        return (
+            Float(point.x / box.width * CGFloat(patternWidth) - 0.5),
+            Float(point.y / box.height * CGFloat(patternHeight) - 0.5)
+        )
+    }
+
     nonisolated static func radius(
         probeRadius: Float,
         patternWidth: Int,

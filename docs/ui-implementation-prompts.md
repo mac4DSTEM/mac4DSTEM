@@ -61,7 +61,17 @@ Commit only if I ask.
   closed). `prerequisiteItems(for:readiness:)` + `TaskPrerequisiteChecklist`
   under every primary action; legacy strings derive from the same model
   (`ProductWorkflowTests` round-trip). Identifiers `workspace.prerequisite.*`.
-- ◐ **Prompt C — defaults that don't generalize** (backlog #5, #8).
+- ✅ **Prompt C — defaults that don't generalize** (backlog #5, #8) — **closed
+  2026-08-05** when the reference/basis UI half landed. `StrainFailureCause`
+  splits the strain failure into a *starved population* (→ "Go to Bragg Disks")
+  and an *ill-conditioned lattice* (→ "Use the current ROI as the reference"),
+  so the message names one control instead of two; both pickers now caption
+  what they decide. Threshold stated, not tuned (a basis needs 3 peaks, so
+  median < 4 or > 25% empty is a detection failure); pinned by
+  `StrainFailureCauseTests`. **Deviated** from the item's suggestion to key the
+  ROI suggestion on κ — κ only exists for a run that *succeeded*, so the peak
+  population decides instead. The disk-detection half is recorded below.
+- ◐ **Prompt C — the disk-detection half** (historical record).
   **The disk-detection half shipped 2026-08-04** and it was not "core
   untouched": `DiskDetectionParams.detectorAdapted` scaled `minPeakSpacing`
   by *detector size* (`qMin/8`, py4DSTEM's 60 px default rescaled from 512 px
@@ -82,11 +92,29 @@ Commit only if I ask.
   found the evidence has a floored measurement and a possibly-reflection-free
   dataset in it (backlog **#19**, **#20**). The reference/basis UI half of #5
   and #8 is untouched and its stated rationale has been corrected in place.
-- ◐ **Prompt D — accessibility & control labelling** (v1 release gate,
-  backlog #3): identifier/label-association half shipped 2026-08-04
-  (voltage, strain pickers + diagnostics, ACOM display + Work/Expected).
-  Open: VoiceOver + increased-text-size runtime verification — needs a human
-  session; nothing headless can honestly tick a VoiceOver gate.
+- ✅ **Prompt D — accessibility & control labelling** (backlog #3) —
+  **closed 2026-08-05, with its screen-reader half deferred to v2.0 by an
+  explicit scope change.**
+  - **Shipped and staying:** accessibility identifiers and label associations
+    (voltage, strain pickers + diagnostics, ACOM display + Work/Expected, and
+    everything added during the design pass). **These are not screen-reader
+    features** — they are the surface XCUITest matches on, and
+    `mac4DSTEMUITests/Support/AXDriver.swift` depends on them. Do not remove
+    them on the grounds that "accessibility is deferred".
+  - **Deferred:** VoiceOver runtime verification. The release owner removed the
+    screen-reader clause from the `docs/v1-scope.md` "Mac experience" gate on
+    2026-08-05 — no current or near-term user needs it, so the verification cost
+    bought nothing at v1. This is a recorded scope change under that file's
+    scope-change rule, **not** an untested gate.
+  - **Parked, not cancelled:** `docs/voiceover-verification-checklist.md` keeps
+    the written procedure so v2.0 starts from a checklist. It carries one
+    flagged unknown — items 2.1/2.2, the redesigned detector/region shape
+    pickers, use `.labelsHidden()` plus a separate `accessibilityLabel` and
+    have never been heard by anyone.
+  - **Worth keeping as ordinary UI review, not as a gate:** the checklist's
+    Part 4 (increased text size). It has nothing to do with screen readers — it
+    is a cheap layout stress test for truncation and overlap, which is the class
+    of bug this UI keeps producing.
 - ✅ **Prompt E — result labelling & presentation batch** (closed 2026-08-05).
   #9 shipped 2026-08-04 (compute failures → non-modal status bar + log,
   `ErrorRoutingTests`; adversarial review then caught that mid-compute
@@ -126,11 +154,23 @@ Commit only if I ask.
   - **#4 refined.** Family captions only where a workspace has >1 family —
     Reconstruct *and* Image lose theirs. Deviates from the "or more than one
     task" half of the proposal; reason in the backlog.
-  - **#17 split and shipped.** #17a (aspect-aware pane axis) is what actually
-    closed the 2026-08-05 observation — **rotation is area-neutral**, which the
-    arithmetic in the backlog now records. #17b (rotate/flip) shipped for
-    orientation, with the export split and the transform pinned in pixel
-    indices.
+  - **#17 split; #17b shipped, #17a reverted.** The arithmetic stands —
+    **rotation is area-neutral**, so the item's original rationale was wrong —
+    but #17a's remedy (stacking the panes for wide scans) was **rejected on
+    sight**: diffraction left / real space right is part of the app's identity,
+    and a layout that rearranges per dataset is worse than an under-filled
+    pane. Do not rebuild it. #17b (rotate/flip) shipped and the release owner
+    confirmed it looks right, with the export split and the transform pinned in
+    pixel indices.
+  - **#23 closed** — the virtual-detector controls (full-width shape picker,
+    presets as one compact BF · ADF · HAADF row instead of three stacked
+    full-width buttons).
+  - **#22 opened, unresolved** — a horizontal analogue of #16: toggling panes
+    clips the sidebar left *and* the inspector right, and dragging the tools
+    pane wide distorts. Neither reproduced headlessly. The detail column was
+    made compressible (rigid 780pt floor → ~580pt) on its own merits, but that
+    is **not** a confirmed fix. Read design-doc §1.7 before investigating —
+    it records a false positive worth not repeating.
   - **#16 mechanism found, trigger NOT.** Symptom is exactly the sidebar scroll
     view at clip origin 0 against a 52pt top inset — which is *also* why the
     top rows go inert, since the titlebar hit-tests above them. Seven candidate
@@ -218,6 +258,105 @@ governed by `ROADMAP.md` Priority 1.3, which already sets the bar for admitting
 a new phase (explicit lattice, atomic basis, symmetry reduction, structure
 factors, expected-orientation fixture, fit-overlay acceptance). Treat it as a
 separate, roadmap-level decision, not UI work.
+
+## Road to v1.0 — measured 2026-08-05, end of session
+
+**`tools/run-tests.sh all` — exit 0, 30 harnesses.** This is the aggregate
+repository claim (ROADMAP), and it was run *after* the day's `Core/Data`
+change. It covers `unit` (105) + `scientific` (28) + `real-data-acceptance` +
+`package-test`.
+
+**Two gates were assessed as "stale" earlier in the session and that was
+wrong** — the aggregate run shows otherwise:
+
+- **Performance:** `real-data-acceptance` asserts each of the four training
+  datasets against **its golden *and* its time budget** (0.74–0.94 s), all
+  PASS. The separate `tools/run-tests.sh benchmark` baseline is a broader
+  workload sweep and has no recorded artifact — that is the only part still
+  genuinely open.
+- **Distribution:** `package-test` PASSes bundled HDF5, **hardened sandbox
+  entitlements and nested signatures**, v1 identity/version/macOS 14 floor, and
+  **no Homebrew/local dylib** in the Release product. So "self-contained,
+  sandboxed, hardened" is verified. What remains is the credentialed final
+  mile — Developer ID signing, notarization, and verification on a clean
+  account (`tools/release/`, `docs/releasing.md`).
+
+### What actually stands between here and v1.0
+
+| # | Item | Blocked on |
+|---|---|---|
+| 1 | **QC playthrough acceptance re-run** — closeout step 4, not executed since 2026-08-04 across ~8 landed tasks | Accessibility permission |
+| 2 | **#16 / #22 layout bugs** — five programmatic reproductions have failed; they need *real* clicks and drags | same permission (unblocks #1 too) |
+| 3 | **#14** — `CIFImport.expand` splits symmetry-equivalent sites at ordinary 3-decimal precision → silently wrong structure factors for imported CIFs. Science-affecting, in a **shipped** v1 feature | a decision: fix with fixture + adversarial review, or gate CIF import off for v1 |
+| 4 | **Distribution final mile** — Developer ID sign, notarize, verify on a clean macOS account | release owner's credentials + a clean account |
+| 5 | **`/code-review` on the full diff** | **deliberately last — see below** |
+
+Not blockers, explicitly: **#18/#19/#20** (harness-confidence work), **#11**
+(WS₂, roadmap-level), **#29/#30** (recorded investigations), **#3**'s remaining
+"voltage field needs a shared home" polish.
+
+### The final gate
+
+**`/code-review` is the last test to pass before v1.0** — release owner's
+decision, 2026-08-05. Rationale: the working diff is still moving, and an
+independent review is worth most when it reviews the *final* shape rather than
+an intermediate one. It is user-invoked (an agent cannot launch it), so it is
+the release owner's explicit last action. Nothing else should be marked
+v1.0-complete until it has run and its findings are resolved.
+
+### Next session — recommended order
+
+1. **Confirm Accessibility is granted**, then run
+   `tools/ui-qc-playthrough/run.sh` (no argument) and diff against
+   `References/training_runs/run_2026-08-03_1404/`. Expect ACOM numbers to
+   **move** (the §10.2 radial-kernel and reliability fixes postdate that
+   baseline); peak counts, Q pixel sizes and strain diagnostics should **not**.
+   Any other movement is a regression from this week's UI work and is the
+   single most valuable thing to find.
+2. **With the harness alive, reproduce #16/#22 by real clicks** — toolbar
+   toggles, divider drags, sidebar overscroll. `SidebarLayoutTests` already
+   asserts the healthy geometry, so a failing XCUITest is the missing half.
+3. **Decide #14** (fix vs gate CIF import). If fixing: `tools/cif-symmetry-test/`
+   needs a symop-loop case at 2/3/4 decimals, plus the adversarial review
+   `development-process.md` §2 requires for anything touching structure factors.
+4. **Then, and only then, `/code-review`.**
+5. Distribution final mile when the release owner has credentials ready.
+
+**If Accessibility is still not granted**, steps 1 and 2 stay blocked; go
+straight to 3, then decide whether #16/#22 ship as known intermittent issues
+(they are interaction/cosmetic, not correctness) or hold v1.0.
+
+### Copy-paste prompt for the next session
+
+```
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/ui-implementation-prompts.md
+§ "Road to v1.0" — that section has the five remaining items, their blockers,
+and the recommended order. Work that order.
+
+IMPORTANT — the working tree has ~18 uncommitted modified files from the
+2026-08-05 session. That is deliberate: they are held for the /code-review
+gate. Do NOT commit, revert, stash, or "clean up" the tree, and do not treat
+it as unfinished work to redo. Every change in it is already recorded in
+docs/ui-workflow-backlog.md with what shipped and where it deviated.
+
+Start with step 1: check whether Accessibility permission is granted to this
+terminal (a quick `osascript -e 'tell application "System Events" to return
+name of every window of process "Finder"'` fails with "not allowed assistive
+access" if it is not). If it IS granted, run tools/ui-qc-playthrough/run.sh
+with no argument and diff against References/training_runs/run_2026-08-03_1404/.
+ACOM numbers SHOULD move (the §10.2 radial-kernel and reliability fixes
+postdate that baseline); peak counts, Q pixel sizes and strain diagnostics
+should NOT — anything else that moves is a regression from the 2026-08-05 UI
+work and is the most valuable thing you can find.
+
+If Accessibility is NOT granted, say so plainly, do not attempt to work around
+it, and go to step 3 (backlog #14) instead.
+
+Do NOT run /code-review — it is the designated final gate before v1.0 and the
+release owner invokes it themselves.
+
+Follow the Task closeout checklist. Do not commit unless asked.
+```
 
 ## Task closeout — run these EXACT steps at the end of every task
 
@@ -480,7 +619,20 @@ the correct scientific outcome.
 
 ---
 
-## PROMPT D — Accessibility & control labelling (v1 release gate + backlog #3)
+## PROMPT D — Accessibility & control labelling (backlog #3)
+
+> **⏸️ SUPERSEDED 2026-08-05 — do not hand this out as-is.** Its
+> identifier/label half is **done**. Its VoiceOver half was **deferred to
+> v2.0** by an explicit scope change: the screen-reader clause was removed from
+> `docs/v1-scope.md`'s "Mac experience" gate, so the premise this prompt opens
+> with ("Read docs/v1-scope.md … the primary workflow is usable with VoiceOver
+> and increased text size") **is no longer in that file**. Kept verbatim below
+> as the record of what was asked and why. If v2.0 revives it, start from
+> `docs/voiceover-verification-checklist.md` instead — the procedure is already
+> written.
+>
+> **Do not act on the parts of this prompt that suggest removing or reworking
+> accessibility identifiers.** They are the surface XCUITest matches on.
 
 ```
 Work in the mac4DSTEM repo. Read docs/v1-scope.md ("Mac experience" release

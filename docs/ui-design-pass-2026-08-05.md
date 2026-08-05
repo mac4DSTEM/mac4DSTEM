@@ -143,6 +143,48 @@ the fix does not depend on which remaining one it is.
 
 ---
 
+### 1.7 A second layout report, and a probe that turned out to be artificial
+
+**Added after the release owner reviewed the first implementation.** They
+reported two more layout problems: toggling the tools/inspector panes breaks
+the layout *horizontally* (sidebar text clipped off the left edge, inspector
+clipped off the right — the same class as §1.1 in the other axis), and dragging
+the tools pane very wide "gets distorted".
+
+**Neither could be reproduced headlessly, and one investigation produced a
+false positive that is worth recording so nobody repeats it.**
+
+- **Toggling panes: no overflow.** All 24 combinations of tools × inspector ×
+  log at window widths 1080 / 1200 / 1470 laid out inside the window exactly.
+- **Dragging wide: the probe was invalid.** Forcing the divider with
+  `NSSplitView.setPosition(_:ofDividerAt:)` produced a convincing-looking
+  desync — split item 800pt wide, sidebar List content stuck at 340pt and drawn
+  at x=1146, content overflowing the window by 57pt. It looked like the
+  reported bug and suggested an obvious fix (drop the column's `max:`).
+  **It was an artifact.** With the column-width modifier removed *entirely* the
+  content still sat at 340pt and x=1146, which proves the 340 is SwiftUI's own
+  default and, more importantly, that **a SwiftUI `NavigationSplitView` never
+  follows an externally forced divider position** — it owns that layout.
+  `setPosition` is therefore not a simulation of a user drag, and the "fix"
+  derived from it was reverted before it shipped.
+
+  A second tell was there in the screenshot the whole time and should have been
+  weighed sooner: the real bug clips the sidebar off the **left** (negative x),
+  while the probe pushed content off the **right**. Opposite signs, different
+  mechanisms.
+
+**What shipped anyway, on its own merits:** the detail column was rigid —
+`minWidth: 480` on the image panes beside a *fixed* 300pt inspector, so it
+could not yield below 780pt. Against the window's own 1080pt minimum that
+leaves 300pt for a tools pane whose declared range is 250–340 plus dividers,
+i.e. essentially no slack in exactly the configuration reported as breaking.
+That is now 360pt for the panes, a compressible 220–340pt inspector, and a
+170pt floor per image pane. **This is not a confirmed fix** — it is slack the
+layout should have had regardless, and it should reduce the pressure that
+whatever the real trigger is has to work with.
+
+**Still needs the release owner** (§6.5).
+
 ## 2. #21 — what the sidebar is for vs. the main pane
 
 ### 2.1 The duplication, costed
@@ -361,6 +403,13 @@ check is still outstanding** — the trigger remains unconfirmed.
    - If yes → the trigger is confirmed as top overscroll and
      `.scrollBounceBehavior(.basedOnSize)` is the fix. If no, try the same while
      switching workspace mid-scroll.
-4. **Optional but high value:** granting Accessibility (and Screen Recording)
+5. **Re-test the two layout reports from the first review round** (§1.7): does
+   toggling tools/inspector still break the layout, and does dragging the tools
+   pane very wide still distort? Neither reproduced headlessly, so the only
+   evidence available is yours. If they persist, the most useful next datum is
+   whether the sidebar content is clipped off the **left** while the inspector
+   is clipped off the **right** at the same moment — that says the whole split
+   is laid out wider than the window, rather than one column misbehaving.
+6. **Optional but high value:** granting Accessibility (and Screen Recording)
    to the terminal that runs `tools/ui-qc-playthrough/run.sh` also unblocks the
    QC acceptance re-run that has been outstanding since 2026-08-04.

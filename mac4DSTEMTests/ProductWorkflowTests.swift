@@ -336,48 +336,6 @@ final class ProductWorkflowTests: XCTestCase {
         }
     }
 
-    /// Backlog #17a. The pane axis follows the scan shape, and the crossover is
-    /// derived (a² = pane-aspect ratio ⇒ a ≈ 2), not picked by eye.
-    func testWideScansStackTheImagePanesAndNothingElseDoes() {
-        // downsample_Si_SiGe_exp — the dataset that produced the observation.
-        XCTAssertTrue(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 200, scanHeight: 50
-        ))
-
-        // The other training datasets must be unaffected.
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 84, scanHeight: 100), "sim_Au"
-        )
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 45, scanHeight: 90), "Particle_1"
-        )
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 128, scanHeight: 128), "polycrystal_2D_WS2"
-        )
-
-        // The crossover itself.
-        XCTAssertTrue(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 200, scanHeight: 100
-        ))
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 199, scanHeight: 100
-        ))
-
-        // A tall scan is already well served by a full-height pane, however
-        // extreme — the rule is deliberately one-sided.
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 50, scanHeight: 200
-        ))
-
-        // No dataset yet, or a degenerate descriptor, must not stack.
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 0, scanHeight: 0
-        ))
-        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
-            scanWidth: 200, scanHeight: 0
-        ))
-    }
-
     func testNavigationDoesNotRelabelTheVisibleScientificResult() {
         let state = AppState()
         state.resultImage = FloatImage(width: 1, height: 1, pixels: [1])

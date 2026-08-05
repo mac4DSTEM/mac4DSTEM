@@ -230,14 +230,24 @@ entry.
 
 ## #3 — Give accelerating voltage a first-class home  ·  Priority: MED  ·  Layer: UI + WF  ·  Effort: M
 
+**✅ CLOSED 2026-08-05** — the identifier/label half shipped and stays; the
+VoiceOver runtime half was **deferred to v2.0** by an explicit scope change
+(the screen-reader clause was removed from `docs/v1-scope.md`'s "Mac
+experience" gate — no current or near-term user needs it). The identifiers are
+*not* screen-reader features: they are what XCUITest matches on and what
+`AXDriver` depends on, so they must not be removed as part of that deferral.
+Procedure parked at `docs/voiceover-verification-checklist.md`. Still open and
+unrelated to accessibility: moving the voltage field to a shared
+setup/calibration home.
+
 **◐ PARTIAL 2026-08-04** — the accessibility half shipped: the voltage field
 now has `calibration.acceleratingVoltage` + a proper accessibility label, the
 strain pickers got `strain.reference/basis/component`, the ACOM display picker
 got `acom.display` with a disambiguated label, and the strain-diagnostics /
 ACOM Work·Expected rows got identifiers. The prerequisite checklist (#7) also
 points at the voltage row. Still open: moving the field to a shared
-setup/calibration home, and a VoiceOver + increased-text-size runtime pass
-(needs a human at the machine — not verifiable headlessly).
+setup/calibration home. (The VoiceOver runtime pass this originally also listed
+was deferred to v2.0 on 2026-08-05 — see the header above.)
 
 **Finding (§7.4, refined by §9.2):** DPC, parallax, and ptychography all
 require the beam energy (py4DSTEM passes it straight into each constructor).
@@ -340,12 +350,45 @@ does not generalise.**
 > it must not be justified by this evidence, and it is **not** the reason
 > Si_SiGe produced no strain map.
 
-**Change:** in the Strain task controls, (a) label the two pickers with what
-they mean for the result ("Reference defines zero strain"), (b) when the
-automatic basis fails, point the failure text at the *specific* control that
-would fix it rather than listing every possibility, and (c) consider making
-"Current real-space ROI" the suggested reference whenever the whole-scan fit is
-poorly conditioned (the app already computes κ and basis support — it knows).
+**✅ CLOSED 2026-08-05 — the reference/basis UI half, all three parts.**
+
+- **(a) The pickers now say what they decide.** A caption under each: Reference
+  → "Defines zero strain: …" (worded per mode — whole-scan mean vs the visible
+  ROI), Basis → "The g₁ / g₂ pair every position is indexed against."
+- **(b) The failure names one control, not two.** `StrainFailureCause`
+  classifies the failure before wording it, and each case names exactly one
+  remedy. A starved population says *"Only N peaks per pattern were detected …
+  lower the detection thresholds in Bragg disks"*; an ill-conditioned lattice
+  says *"the peak population is healthy, but no single lattice explains enough
+  of it"* and points at the reference. The old text ended "Adjust the
+  thresholds in the Bragg panel **or** the reference/basis selection", which
+  sent the user to a task that was often not at fault.
+- **(c) The suggestion is a button, not prose.** After an ill-conditioned
+  failure with the whole-scan reference, the Strain panel offers **"Use the
+  current ROI as the reference"** (`strain.remedy.useROI`); after a starved
+  failure it offers **"Go to Bragg Disks"** (`strain.remedy.disks`). Cleared on
+  success and on dataset activation, so a stale remedy is never shown.
+
+**The classification threshold is stated, not tuned:** a 2D basis needs the
+direct beam plus two non-collinear g-vectors, so three peaks is the floor at a
+position; a median below **4**, or more than **25%** of positions empty, is a
+detection failure whatever the reference is. Pinned by
+`StrainFailureCauseTests`, including a sweep asserting the two causes are
+mutually exclusive and total.
+
+**Deviation from the item:** it proposed using κ and basis support to decide
+when to suggest the ROI. Those are diagnostics of a run that *succeeded* — on
+the failure path there is no map and therefore no κ, so the decision is made
+from the peak population instead, which is available in both cases and is what
+actually distinguishes the two failures.
+
+**Original change proposed:** in the Strain task controls, (a) label the two
+pickers with what they mean for the result ("Reference defines zero strain"),
+(b) when the automatic basis fails, point the failure text at the *specific*
+control that would fix it rather than listing every possibility, and (c)
+consider making "Current real-space ROI" the suggested reference whenever the
+whole-scan fit is poorly conditioned (the app already computes κ and basis
+support — it knows).
 
 **Files:** `UI/ContentView.swift` (Strain section, L238–331 — the `Reference`
 and `Basis` pickers and the diagnostics rows), `App/AppState.swift`
@@ -440,12 +483,18 @@ remedy ("Adjust the thresholds in the Bragg panel or the reference/basis
 selection") names two unrelated causes and points at a panel in a different
 task.
 
-**Change:** (a) show the peaks-per-pattern median as a quality read-out on the
-disk-detection result itself, with a warning when it is ≲2 (the app already
-computes this number — it appears in the strain error text); (b) split the
-strain failure message so a starved-input failure says *"only ~1 peak per
-pattern was detected — lower the detection thresholds"* and an
-ill-conditioned-basis failure says *"choose a reference ROI"* (see #5).
+**✅ CLOSED 2026-08-05.** (a) shipped earlier — the Bragg panel shows
+"Per pattern · median N · range lo–hi" with the acceptance funnel beside it.
+(b) shipped with **#5**: `StrainFailureCause` splits the message so a starved
+population and an ill-conditioned lattice say different things and each offers
+one button. See #5 for the threshold and its justification.
+
+**Original change proposed:** (a) show the peaks-per-pattern median as a
+quality read-out on the disk-detection result itself, with a warning when it is
+≲2 (the app already computes this number — it appears in the strain error
+text); (b) split the strain failure message so a starved-input failure says
+*"only ~1 peak per pattern was detected — lower the detection thresholds"* and
+an ill-conditioned-basis failure says *"choose a reference ROI"* (see #5).
 
 **Files:** `UI/DiskDetectionControls.swift` (result read-out),
 `App/AppState.swift` (the strain failure message).
@@ -850,6 +899,289 @@ proven; `StrainMapping.compute` itself has not been ruled out.
 
 ---
 
+## #30 — Origin calibration over a NAS runs at ~3 MB/s  ·  investigation, not yet a change
+
+**Asked by the release owner 2026-08-05:** origin calibration on a 1.66 GB
+cube (`060_STEM…bin_4`, 330 × 330 scan, 64 × 64 detector) was taking ~5–9
+minutes. Is that normal, or is it the NAS?
+
+**Almost certainly the NAS, and the app's own read-out says so.** From the
+Performance panel: **208.6 positions/s**, ETA 7:29, 108,900 positions.
+
+- Each position is 64 × 64 float32 = **16 KB**, so 208.6 pos/s is an effective
+  **≈3.3 MB/s**.
+- A local SSD sustains 1–3 GB/s; gigabit Ethernet ≈110 MB/s; even 802.11n
+  ≈50 MB/s. **3.3 MB/s is ~30× below gigabit**, so this is not merely "a
+  network" — it is latency-dominated access.
+- Per position that is **4.8 ms**, which is the order of a filesystem round
+  trip, not of a 4096-pixel centre-of-mass fit.
+
+**The app is not doing small random reads.** `VirtualDetector.tiled` reads whole
+scan-row tiles sized from the GPU working set (`FourDArray.scanTileRows`), and
+`H5Reader` issues one *scan-tile hyperslab* per tile — large sequential reads.
+Origin calibration must stream the cube once (it computes the mean/max DP and a
+per-position origin), so ~1.7 GB has to cross the link regardless; at 3.3 MB/s
+that alone is ~8.5 min. **The cost is the link, not the algorithm.**
+
+**Decisive test for the release owner:** copy the file to the local SSD and
+re-run origin calibration, watching the same Throughput read-out. If it jumps
+by one to two orders of magnitude, this is settled and the guidance is simply
+"work from local storage". Worth checking whether the file is also *contiguous*
+(the inspector reports `Chunks: contiguous`), since an unchunked HDF5 dataset
+over SMB/NFS is a well-known worst case.
+
+**Only if a local copy is also slow** is there anything to fix in the app, in
+which case the next measurement is tile size versus wall-clock — `scanTileRows`
+divides the GPU working set by 8, which may be leaving read bandwidth unused.
+
+---
+
+## #29 — "Disk detection sometimes goes bad" — it is the origin fit, not the detection
+
+**Asked by the release owner 2026-08-05**, comparing two Bragg-vector maps on
+`downsample_Si_SiGe_exp`: one with sharp discrete spots, one a diffuse mass.
+
+**The detection was not different.** Their own two screenshots report
+**248,116 vs 248,384 peaks**, median **24.0 per pattern, range 16–42** in both.
+That is the same detection to within 0.1%.
+
+**What the map actually shows.** `AppState.showBraggMap` plots
+`calibratedBraggVectors(…)` — every peak is shifted by the **fitted origin of
+its own scan position** before being histogrammed. So the sharpness of the
+Bragg-vector map is a direct read-out of *origin-fit quality*, not of detection
+quality: with a good per-position origin the lattice collapses to points; with
+a bad one every position contributes a differently-displaced copy and the spots
+smear into a mass.
+
+**The corroborating number is in the same session's log:**
+`Origin ✓ r ≈ 5.0 px, fit RMS 11.655 px (Plane)` — an RMS more than **twice the
+probe radius**, which the app itself already flags as *"exceeds probe radius;
+recalibrate before quantitative use"*. The sharp map came from the run that
+used **Use Current CBED / ROI** (measured kernel, RMS 1.46 px, κ 4.59, 100%
+indexed); the diffuse one from a **Synthetic** kernel run.
+
+**So the answer is: recalibrate the origin** (measured probe kernel, and a fit
+model that can follow the descan — `Plane` may not, on a 200×50 scan).
+
+**The UI lesson, worth acting on:** the Bragg-vector map *is* the origin
+diagnostic, and nothing on that pane says so. Candidate: show the origin fit
+RMS (and its exceeds-probe-radius warning) beside the Bragg-vector map, so a
+smeared map names its own cause instead of being read as bad detection.
+**Not implemented** — filed here rather than patched reactively.
+
+---
+
+## #24 — An invisible real-space ROI silently changed the CBED  ·  ✅ Done 2026-08-05
+
+**Reported by the release owner:** after choosing a rectangle in Image, the
+Bragg-disks and Strain tasks still showed a region-summed CBED while the scan
+image drew only a point crosshair.
+
+**Root cause, and it was not cosmetic.** `AppState.displayedPattern`
+substitutes the ROI-summed pattern for the current one whenever
+`realSpaceShape != .point` — in *every* task. But `realSpaceROIIsRelevant`,
+which gates the overlay, listed only the tasks where a region was *intended*
+(virtual detector, strain-from-region, ACOM-from-region). So in Disks and
+Strain the sum was in force and invisible — and that summed pattern is what
+"Use Current CBED / ROI" builds the probe kernel from and what the
+"Current CBED · N peaks" read-out counts.
+
+**Shipped:** `realSpaceROIIsRelevant` is now simply `realSpaceShape != .point`
+— the same condition that substitutes the pattern, so the two cannot drift
+(pinned by `RealSpaceROIVisibilityTests`) — plus an orange **ROI SUM** badge
+(`pattern.roiSumBadge`) in the diffraction header whenever a summed pattern is
+displayed. The release owner offered "show the rectangle *or* only sum the
+point"; showing it was chosen because the ROI sum is a deliberate feature
+elsewhere, and the defect was that it was silent, not that it existed.
+
+---
+
+## #25 — Aperture drawn at the pixel corner, not its centre  ·  ✅ Done 2026-08-05
+
+Detector coordinates name pixel **centres** (`VirtualDetector.fillRadial`
+computes `dx = Float(x) - centerX` over integer indices), and
+`PeakOverlayGeometry` already drew peaks at `(v + 0.5) · scale`.
+`ApertureControl` used a bare `centerX * scaleX`, so the aperture rendered half
+a pixel up and to the left — clearly off-axis on a 32×32 detector.
+
+**Shipped:** both directions now route through `PeakOverlayGeometry`, which
+gained an exact inverse `pixel(at:…)`, so the draw map and the drag map have
+one definition. `OverlayGeometryTests` pins the half-pixel and the round trip.
+
+---
+
+## #26 — Zoom worked only with a trackpad, and only in one pane  ·  ✅ Done 2026-08-05
+
+`MagnificationGesture` is a trackpad pinch and nothing handled the scroll
+wheel, so **a mouse could not zoom at all**; the real-space pane had zoom but
+no pan, so zooming in stranded the user.
+
+**Shipped** — one set of conventions for both panes (`ZoomPanModifier`):
+pinch **or mouse wheel** zooms, drag **or two-finger scroll** pans, double-click
+resets that pane. Splitting on `NSEvent.hasPreciseScrollingDeltas` is what lets
+one handler serve both devices — a wheel cannot pan, a trackpad already pinches
+to zoom, so each device gets the gesture it lacks. The scroll monitor is
+installed only while the pointer is over a pane, so the two viewers never fight
+over one wheel. `StemImageView` adopted the shared `ZoomPanState`.
+
+---
+
+## #27 — Reopening a dataset landed mid-flow  ·  ✅ Done 2026-08-05
+
+The recovery record restored `workspaceArea = mode.workspaceArea`, so
+reopening dropped the user straight into Map or Reconstruct. The remembered
+*task* is still restored; the **workspace is not** — a reopened dataset always
+lands on Prepare, which is the step that confirms the dataset and its
+calibration, and calibration is per-session state the recovery record does not
+carry.
+
+---
+
+## #28 — Completed analyses are not switchable, and the bundle exports only one  ·  ✅ Done 2026-08-05
+
+**Shipped, both halves — plus a third defect found on the way.**
+
+**(b) Export.** `scientificBundleMaps()` early-returned out of the strain
+branch, so once a strain map existed the orientation fields could never be
+exported. It accumulates both now. The provenance question raised when this was
+filed turned out to be **already answered**: provenance is per-`ScalarResultMap`,
+and `tools/scientific-bundle-test` already builds a fixture holding
+`strain_*` *and* `orientation_*` together — the writer never needed changing.
+**A regression this could have introduced, and the guard for it:** the writer
+requires all fields to share one shape, and a *preview-scope* ACOM map is
+subsampled — so naively combining it with a full-scan strain map would have
+turned a previously-working export into a hard failure. The bundle now keeps
+the scan-shaped family and `scientificBundleOmissions(in:)` names anything left
+out in the status line, so a partial export never looks complete.
+
+**(a) Switching.** `AppState.ComputedProduct` + `availableComputedProducts` +
+`showComputedProduct(_:)`, wired to the inspector's existing *Computed this
+session* rows — "Strain map" and "Orientation map" become clickable with a
+`show` affordance once retained (`computed.strain`, `computed.orientation`).
+Nothing is recomputed; both maps were always in memory.
+**Deliberately an explicit action, not a side effect of `changeMode`:**
+navigation must never silently relabel the visible result, which
+`testNavigationDoesNotRelabelTheVisibleScientificResult` pins. Covered by
+`ComputedProductSwitchTests`.
+
+**Third defect, found while in this file — export was failing outright.**
+The release owner hit *"HDF5 export failed while creating the temporary file"*.
+Every write path built its scratch file as a **sibling** of the destination
+(`.<name>.<uuid>.tmp`). Under the app sandbox `NSSavePanel` grants access to
+*the file the user chose*, not to arbitrary new siblings in that folder, so
+creating it was denied. All three sites now go through
+`BraggVectorEMDWriter.temporaryPublishURL(for:)`, which uses the system
+`.itemReplacementDirectory` — writable under the sandbox and guaranteed to be
+on the same volume, so the `rename(2)` publish stays atomic. Falls back to the
+old sibling path only if the system cannot supply one.
+**This is a `Core/Data` change**, so it wants the review gate: it is I/O
+plumbing with no numerical effect, and `scientific` is 28/28 green including
+`scientific-bundle-test` and `sidecar-result-test`, but it should not be
+self-approved.
+
+**Original report (2026-08-05).** Running ACOM
+and then Strain shows no strain map, and an export carries only whichever
+product is in front.
+
+**Both halves are real and already half-solved by existing state:**
+
+1. **Switching.** `AppState` retains `strainMap` *and* `orientationMap`
+   simultaneously — only the *displayed* product is single-valued. So this is a
+   presentation gap, not a retention one: it needs a switcher over
+   "computed this session" (the inspector already lists exactly that under
+   *Files & products*), not a new cache. Saving to the session sidecar in
+   Results already persists products, but it is manual and per-product.
+2. **Export.** `ResultExport.scientificBundleMaps()` early-returns:
+   `if let map = strainMap { return strain fields }` and only *then* considers
+   `orientationMap`. With both computed, the orientation fields can never be
+   exported. It should emit both, which raises one real question to settle
+   first — whether a mixed bundle keeps one `provenance` block per field
+   (it must; strain and ACOM have different `quantitative_status` and different
+   run semantics).
+
+**Scope note:** the export half touches `Support/ResultExport.swift` and the
+EMD writer's field set, so it earns `tools/run-tests.sh scientific` and a
+session save-and-reopen check.
+
+---
+
+## #22 — Layout breaks when panes are toggled or the tools pane is dragged wide
+
+**Reported by the release owner 2026-08-05**, reviewing the design-pass build.
+Two symptoms, both horizontal analogues of **#16**:
+1. Toggling the tools / inspector panes clips the sidebar off the **left** edge
+   and the inspector off the **right** at the same time — the whole split laid
+   out wider than the window.
+2. Dragging the tools pane very wide "gets distorted".
+
+**Neither reproduced headlessly**, and the investigation produced a *false
+positive* recorded in `docs/ui-design-pass-2026-08-05.md` §1.7 so it is not
+repeated: driving the divider with `NSSplitView.setPosition(_:ofDividerAt:)`
+looks like it reproduces symptom 2, but a SwiftUI `NavigationSplitView` never
+follows an externally forced divider — it owns that layout — so the desync it
+shows is the probe's own. It also pushes content off the *right*, while the
+real report clips the *left*.
+
+**Shipped on its own merits, NOT as a confirmed fix:** the detail column was
+rigid (`minWidth: 480` panes + a *fixed* 300pt inspector = a 780pt floor), so
+against the 1080pt minimum window it had essentially no slack — the exact
+configuration reported as breaking. Now 360pt panes, a compressible 220–340pt
+inspector, and a 170pt per-pane floor.
+
+**Third report, 2026-08-05:** *"I minimized an info bar and the UI somewhat
+collapsed."* The screenshot shows **three things losing their top at once** —
+the sidebar's upper rows, the detail column's entire workspace header, and the
+inspector's upper rows — while the titlebar and traffic lights stay put. That
+is a different shape from #16 (one scroll view scrolled past its own top) and
+points at the whole split being laid out taller than the window.
+
+**Ruled out by measurement (do not re-try):** toggling log/inspector in all
+combinations, three times over, in both a normal workspace and Reconstruct;
+with the tools pane collapsed as well; and — the one variable the screenshot
+actually showed — with the sidebar **scrolled down** first, at two scroll
+depths. The sidebar's `contentInsets.top` stayed 52 and its clip origin tracked
+the scroll exactly in every one. Nothing in the non-Results detail column
+declares a `minHeight`, so there is no obvious source for content taller than
+the window on that path.
+
+> **The pattern across all three reports (#16, #22, and this) is now the
+> finding.** Five independent programmatic reproductions have failed while the
+> release owner hits these routinely by hand. Mutating `AppState` is not the
+> same input path as clicking a real toolbar button or dragging a real divider,
+> and SwiftUI's layout demonstrably responds differently. **The missing
+> capability is real user input**, which needs the same **Accessibility
+> permission** that has blocked the QC playthrough since 2026-08-04. Granting it
+> converts these from unreproducible reports into an XCUITest that clicks the
+> actual controls. That is now the highest-value unblock in the repo.
+
+**Open:** the trigger. Needs the release owner to re-test (design doc §6.5), or
+Accessibility granted so the harness can drive real clicks.
+
+---
+
+## #23 — The virtual-detector controls look unfinished  ·  ✅ Done 2026-08-05
+
+**Reported by the release owner 2026-08-05:** *"the UI for choosing the
+detector in real space feels ugly to me."* The section rendered a `Shape`
+segmented picker whose inline label ate the row width, leaving four segments
+fighting over the rest of a 292pt column — and below it **three full-width
+stacked bordered buttons** (Bright Field / ADF / HAADF), which read as a
+placeholder rather than a control.
+
+**Shipped:** the shape picker takes the full row (`.labelsHidden()`, with an
+accessibility label so nothing is lost to VoiceOver), and the presets became
+one compact right-aligned row of conventional STEM abbreviations —
+**BF · ADF · HAADF** — as small bordered buttons under a "Presets" caption,
+with the full name in the tooltip and the accessibility label. Identifiers
+`detector.preset.{bf,adf,haadf}`. The "Region → diffraction" section got the
+same treatment for consistency, plus its radius readout moved to a right-
+aligned monospaced value instead of being baked into the label text.
+
+`ContentView.shortName(_:)` holds the abbreviations — deliberately *not* on
+`DetectorPreset`, which lives in `Core/`.
+
+---
+
 ## #16 — Controls intermittently unresponsive; navigating away and back clears it
 
 **◐ MECHANISM FOUND + FIXED DEFENSIVELY 2026-08-05; TRIGGER STILL UNCONFIRMED.**
@@ -917,7 +1249,23 @@ panes are ~660×646 — square — so the 200×50 strain map fills **25% before 
 rotation and 25% after it**. What recovers the space is re-proportioning the
 *pane*.
 
-### #17a — aspect-aware pane arrangement  ·  ✅ Done (this is what closed the observation)
+### #17a — aspect-aware pane arrangement  ·  ❌ BUILT, THEN REVERTED on sight 2026-08-05
+
+**Do not rebuild this.** It worked as designed — a 200×50 scan stacked the
+panes vertically and the map went from ~25% to ~98% of its pane — and the
+release owner rejected it immediately on seeing it: *"how come the diff and
+real space images are now on top and below, this is not ok, they should be left
+and right like we established right in the beginning."*
+
+The lesson is not that the arithmetic was wrong; it is that **the side-by-side
+arrangement is part of the app's identity**, and a layout that rearranges
+itself per dataset is worse than an under-filled pane. Space efficiency was the
+wrong objective to optimise here. Diffraction left, real space right, always.
+
+The arithmetic below still stands and is why the *original* #17 rationale was
+wrong — it just does not justify this remedy either.
+
+### ~~#17a — what it was~~ (reverted; kept for the reasoning)
 
 **Shipped:** `ProductWorkflow.stacksImagePanesVertically(scanWidth:scanHeight:)`
 + `ContentView.imagePanes`. A scan wider than 2:1 puts the diffraction and

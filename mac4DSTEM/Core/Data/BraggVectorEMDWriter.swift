@@ -192,11 +192,12 @@ nonisolated enum BraggVectorEMDWriter {
         }
         try checkCancellation(cancellation)
         let fm = FileManager.default
-        let temporary = destination.deletingLastPathComponent().appendingPathComponent(
-            ".\(destination.lastPathComponent).\(UUID().uuidString).tmp"
-        )
+        let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
-        defer { if !published { try? fm.removeItem(at: temporary) } }
+        defer {
+            if !published { try? fm.removeItem(at: temporary) }
+            if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
+        }
         let h5 = try HDF5WriteLibrary.load()
         let file = temporary.path.withCString {
             h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
@@ -302,11 +303,12 @@ nonisolated enum BraggVectorEMDWriter {
 
         try checkCancellation(cancellation)
         let fm = FileManager.default
-        let temporary = destination.deletingLastPathComponent().appendingPathComponent(
-            ".\(destination.lastPathComponent).\(UUID().uuidString).tmp"
-        )
+        let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
-        defer { if !published { try? fm.removeItem(at: temporary) } }
+        defer {
+            if !published { try? fm.removeItem(at: temporary) }
+            if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
+        }
         let h5 = try HDF5WriteLibrary.load()
         try await writeCalibratedDataCubeFile(
             at: temporary, source: source, descriptor: descriptor,
@@ -895,14 +897,11 @@ nonisolated enum BraggVectorEMDWriter {
         try checkCancellation(cancellation)
 
         let fm = FileManager.default
-        let directory = destination.deletingLastPathComponent()
-        let temporary = directory.appendingPathComponent(
-            ".\(destination.lastPathComponent).\(UUID().uuidString).tmp",
-            isDirectory: false
-        )
+        let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
             if !published { try? fm.removeItem(at: temporary) }
+            if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
         }
 
         let hdf5 = try HDF5WriteLibrary.load()
@@ -926,6 +925,38 @@ nonisolated enum BraggVectorEMDWriter {
 
     private static func checkCancellation(_ token: AnalysisCancellationToken?) throws {
         if token?.isCancelled == true { throw WriterError.cancelled }
+    }
+
+    /// A scratch URL to build a file in before publishing it onto `destination`.
+    ///
+    /// **Deliberately not a sibling of `destination`.** Every write path used to
+    /// build `.<name>.<uuid>.tmp` in the destination's own directory. Under the
+    /// app sandbox `NSSavePanel` grants access to *the file the user chose*, not
+    /// to arbitrary new siblings in that folder, so creating the scratch file was
+    /// denied and HDF5 failed with "creating the temporary file" — reported by
+    /// the release owner 2026-08-05, and it blocked export outright.
+    ///
+    /// `.itemReplacementDirectory` is the system-sanctioned answer: it is
+    /// writable under the sandbox and is guaranteed to be on the **same volume**
+    /// as `destination`, so the `rename(2)` publish stays atomic. Falls back to a
+    /// sibling only if the system cannot provide one, which preserves the old
+    /// behaviour rather than failing outright on an unusual volume.
+    private static func temporaryPublishURL(
+        for destination: URL
+    ) -> (url: URL, scratchDirectory: URL?) {
+        let name = ".\(destination.lastPathComponent).\(UUID().uuidString).tmp"
+        let fm = FileManager.default
+        if let directory = try? fm.url(
+            for: .itemReplacementDirectory, in: .userDomainMask,
+            appropriateFor: destination, create: true
+        ) {
+            return (directory.appendingPathComponent(name, isDirectory: false), directory)
+        }
+        return (
+            destination.deletingLastPathComponent()
+                .appendingPathComponent(name, isDirectory: false),
+            nil
+        )
     }
 
     private static func transformedCalibration(

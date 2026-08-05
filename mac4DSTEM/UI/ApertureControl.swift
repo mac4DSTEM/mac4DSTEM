@@ -17,8 +17,18 @@ struct ApertureControl: View {
             let scaleX = geometry.size.width / CGFloat(max(patternWidth, 1))
             let scaleY = geometry.size.height / CGFloat(max(patternHeight, 1))
             let radiusScale = (scaleX + scaleY) / 2
-            let center = CGPoint(x: CGFloat(aperture.centerX) * scaleX,
-                                 y: CGFloat(aperture.centerY) * scaleY)
+            // Detector coordinates name pixel CENTRES — `VirtualDetector`'s
+            // mask computes `dx = Float(x) - centerX` over integer pixel
+            // indices. This used to be a bare `centerX * scaleX`, which drew
+            // the aperture at the pixel's top-left corner and read as visibly
+            // off-axis on a small detector (reported 2026-08-05). Routed
+            // through PeakOverlayGeometry so the half-pixel convention has one
+            // definition shared with the Bragg-peak overlay.
+            let center = PeakOverlayGeometry.center(
+                x: aperture.centerX, y: aperture.centerY,
+                patternWidth: patternWidth, patternHeight: patternHeight,
+                box: geometry.size
+            )
 
             ZStack {
                 switch shape {
@@ -135,8 +145,17 @@ struct ApertureControl: View {
                 DragGesture(coordinateSpace: .local)
                     .onChanged { value in
                         var updated = aperture
-                        updated.centerX = Float(min(max(0, value.location.x / scaleX), CGFloat(patternWidth)))
-                        updated.centerY = Float(min(max(0, value.location.y / scaleY), CGFloat(patternHeight)))
+                        // Exact inverse of the draw map, so a drag puts the
+                        // centre under the cursor rather than half a pixel up
+                        // and to the left of it.
+                        let p = PeakOverlayGeometry.pixel(
+                            at: value.location,
+                            patternWidth: patternWidth, patternHeight: patternHeight,
+                            box: CGSize(width: CGFloat(patternWidth) * scaleX,
+                                        height: CGFloat(patternHeight) * scaleY)
+                        )
+                        updated.centerX = min(max(0, p.x), Float(patternWidth))
+                        updated.centerY = min(max(0, p.y), Float(patternHeight))
                         emit(updated)
                     }
                     .onEnded { _ in onCommit() }

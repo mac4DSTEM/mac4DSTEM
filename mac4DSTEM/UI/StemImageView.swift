@@ -2,7 +2,7 @@
 //  StemImageView.swift
 //  Role: The real-space result viewer. Shows whatever the current analysis
 //        produced — a virtual-detector image, and later DPC / disk maps.
-//        Magnify to zoom; click a pixel to make that the selected scan
+//        Zoom/pan (see ZoomPanModifier); click a pixel to make it the scan
 //        position (which updates the diffraction pane).
 //
 
@@ -10,8 +10,7 @@ import SwiftUI
 
 struct StemImageView: View {
     @Environment(AppState.self) private var app
-    @State private var zoom: CGFloat = 1
-    @State private var liveZoom: CGFloat = 1
+    @State private var zp = ZoomPanState()
     @State private var cursorSample: ProductSample?
 
     var body: some View {
@@ -204,7 +203,7 @@ struct StemImageView: View {
             let qualityField = app.displayedQualityField
             let norm = qualityField != nil
                 ? app.normalizedQualityPixels() : app.normalizedResultPixels()   // cached per resultVersion
-            let effZoom = max(1, zoom * liveZoom)
+            let effZoom = max(0.25, zp.effectiveZoom)
 
             ZStack {
                 // Image + overlays share ONE scaled container, so the
@@ -269,16 +268,16 @@ struct StemImageView: View {
                 .scaleEffect(x: mirrored ? -1 : 1, y: 1)
                 .frame(width: box.width, height: box.height)
                 .scaleEffect(effZoom)
+                .offset(zp.effectiveOffset)
                 .frame(width: box.width, height: box.height)
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { liveZoom = $0 }
-                        .onEnded { zoom = min(max(1, zoom * $0), 64); liveZoom = 1 }
-                )
-                .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
+                // Same pointer conventions as the diffraction pane: pinch or
+                // mouse wheel to zoom, drag or two-finger scroll to pan,
+                // double-click to reset. This pane previously had zoom but no
+                // pan at all, so zooming in stranded the user (2026-08-05).
+                .zoomPan($zp)
 
                 // Direction legend for the DPC color wheel. Suppressed while
                 // inspecting a quality field — the viewer is showing a scalar

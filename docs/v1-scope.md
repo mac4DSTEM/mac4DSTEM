@@ -62,6 +62,20 @@ review/save/export lifecycle rather than hiding it in an inspector.
   [`docs/post-v1-ideas.md`](post-v1-ideas.md) — that file is where post-v1
   ideas needing `Core/` changes are parked, since
   `docs/ui-workflow-backlog.md` is contractually UI/workflow-only.
+- **Screen-reader (VoiceOver) usability.** Moved out of the v1 "Mac
+  experience" gate on **2026-08-05** by the release owner, on the grounds that
+  no current or near-term user of this app needs it, so the verification cost
+  bought nothing at v1. Recorded rather than deleted because a release contract
+  with a gate everyone steps over devalues the other gates — this is a
+  deliberate scope change under the rule below, not an untested gate.
+  **What was kept, and is not affected:** the accessibility *identifiers* and
+  *label associations* that shipped 2026-08-04 and 2026-08-05 stay in the code.
+  They are not there for screen readers — they are the surface XCUITest matches
+  on, and `mac4DSTEMUITests/Support/AXDriver.swift` depends on them. Removing
+  them would break the QC playthrough.
+  The verification procedure is written and parked at
+  [`docs/voiceover-verification-checklist.md`](voiceover-verification-checklist.md)
+  so v2.0 starts from a checklist rather than from scratch.
 
 ## Release acceptance gates
 
@@ -77,9 +91,10 @@ review/save/export lifecycle rather than hiding it in an inspector.
   native fixture plus a direct py4DSTEM/emdfile read where applicable.
 - **Mac experience:** multiple datasets remain isolated, native menus and
   `⌘1…⌘5` keyboard navigation reach the outcome-based workflow, state
-  restoration is safe, expensive work is explicit, retained results remain
-  correctly identified across navigation, and the primary workflow is usable
-  with VoiceOver and increased text size.
+  restoration is safe, expensive work is explicit, and retained results remain
+  correctly identified across navigation.
+  **Screen-reader usability was removed from this gate on 2026-08-05** and
+  moved to Post-v1 — see below for the decision and what was kept.
 - **Distribution:** a clean Release build is self-contained, sandboxed,
   hardened, signed, notarized when credentials are supplied, and verified on a
   clean supported macOS account.

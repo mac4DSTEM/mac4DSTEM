@@ -286,7 +286,12 @@ extension AppState {
                     )
                 }.value
                 guard self.isCurrentOperation(token) else { return }
-                self.statusText = "Exported \(maps.count) coherent fields → \(url.lastPathComponent)"
+                let omitted = self.scientificBundleOmissions(in: maps)
+                self.statusText = omitted.isEmpty
+                    ? "Exported \(maps.count) coherent fields → \(url.lastPathComponent)"
+                    : "Exported \(maps.count) coherent fields → \(url.lastPathComponent) "
+                        + "· omitted \(omitted.joined(separator: ", ")) "
+                        + "(different scan shape — rerun it at full scan to include it)"
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 self.statusText = "Scientific bundle export cancelled"
             } catch {
@@ -295,8 +300,19 @@ extension AppState {
         }
     }
 
+    /// Every coherent quantitative field computed this session, not just the
+    /// one in front.
+    ///
+    /// This used to `return` out of the strain branch, so once a strain map
+    /// existed the orientation fields could never be exported — running ACOM
+    /// and then Strain silently produced a bundle with half the results
+    /// missing (backlog #28, reported 2026-08-05). Both are accumulated now.
+    /// Provenance was already per-`ScalarResultMap`, so a mixed bundle needs no
+    /// special handling: each field keeps its own `bundle`, run semantics and
+    /// `quantitative_status`, which strain and ACOM do not share.
     func scientificBundleMaps() -> [ScalarResultMap]? {
         let sampling = (calibration.rPixelSize, calibration.rPixelUnits)
+        var bundle: [ScalarResultMap] = []
         if let map = strainMap {
             // The bundle stays in scan-index order — a quantitative field must
             // stay addressable by (Rx, Ry) — but it records the orientation the
@@ -322,7 +338,7 @@ extension AppState {
             let masked: ([Float]) -> [Float] = { values in
                 values.indices.map { map.mask[$0] ? values[$0] : Float.nan }
             }
-            return [
+            bundle += [
                 field("strain_exx", "Strain ε_xx", "strain", masked(map.exx)),
                 field("strain_eyy", "Strain ε_yy", "strain", masked(map.eyy)),
                 field("strain_exy", "Strain ε_xy", "strain", masked(map.exy)),
@@ -361,7 +377,7 @@ extension AppState {
                     pixelUnits: sampling.1, provenance: provenance
                 )
             }
-            return [
+            bundle += [
                 field("orientation_phi1", "Euler φ₁", "rad", values { $0.euler.phi1 }),
                 field("orientation_Phi", "Euler Φ", "rad", values { $0.euler.Phi }),
                 field("orientation_phi2", "Euler φ₂", "rad", values { $0.euler.phi2 }),
@@ -373,7 +389,38 @@ extension AppState {
                       valid.map { $0 ? 1 : 0 }),
             ]
         }
-        return nil
+        // The writer requires every field in a bundle to share one shape. A
+        // preview-scope ACOM map is subsampled, so naively mixing it with a
+        // full-scan strain map would turn a previously-working export into a
+        // hard "bundle fields must share one non-empty shape" failure. Keep the
+        // scan-shaped family — those are the addressable, full-resolution
+        // fields — and let the caller say what was left out.
+        if Set(bundle.map { $0.width * 100_000 + $0.height }).count > 1 {
+            if let d = descriptor,
+               bundle.contains(where: { $0.width == d.rx && $0.height == d.ry }) {
+                bundle = bundle.filter { $0.width == d.rx && $0.height == d.ry }
+            } else if let largest = bundle.max(
+                by: { $0.width * $0.height < $1.width * $1.height }
+            ) {
+                bundle = bundle.filter {
+                    $0.width == largest.width && $0.height == largest.height
+                }
+            }
+        }
+        return bundle.isEmpty ? nil : bundle
+    }
+
+    /// Families that exist in memory but did not make it into the bundle,
+    /// so a partial export never looks like a complete one.
+    func scientificBundleOmissions(in maps: [ScalarResultMap]) -> [String] {
+        let included = Set(maps.compactMap { $0.provenance["bundle"] })
+        var omitted: [String] = []
+        if strainMap != nil, !included.contains("strain") { omitted.append("strain") }
+        if orientationMap != nil, acomLastRunSemantics != nil,
+           !included.contains("orientation") {
+            omitted.append("orientation")
+        }
+        return omitted
     }
 
     /// Export the currently displayed diffraction pattern as a PNG, with the
