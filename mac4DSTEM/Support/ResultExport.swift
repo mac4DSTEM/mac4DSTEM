@@ -136,25 +136,41 @@ extension AppState {
     /// Export the current real-space result (virtual image / DPC / strain /
     /// ACOM map) as a PNG, rendered as displayed, with the scale bar burned in.
     func exportResultImage() {
-        let cg: CGImage?
+        let source: (bytes: [UInt8], width: Int, height: Int)
         if let rgba = resultRGBA {
-            cg = Self.cgImage(rgba: rgba.rgba, width: rgba.width, height: rgba.height)
+            source = (rgba.rgba, rgba.width, rgba.height)
         } else if let image = resultImage {
             let norm = image.normalized(symmetric: resultColormap.isDiverging)
             let bytes = Self.applyColormap(norm, colormap: resultColormap,
                                            lo: displayRangeLo, hi: displayRangeHi,
                                            gamma: resultGamma)
-            cg = Self.cgImage(rgba: bytes, width: image.width, height: image.height)
+            source = (bytes, image.width, image.height)
         } else {
             present(SimpleError("No result image to export yet."))
             return
         }
+        // The publication figure is "as displayed", so it applies the display
+        // orientation (#17b) — and records it in the caption below, because an
+        // applied-but-unrecorded rotation is the one outcome that is not
+        // acceptable. The scientific bundle takes the opposite choice and stays
+        // in scan-index order; see `scientificBundleMaps()`.
+        let orientation = effectiveRealSpaceDisplayOrientation
+        let oriented = Self.orientedRGBA(
+            source.bytes, width: source.width, height: source.height,
+            orientation: orientation, mirrored: effectiveRealSpaceDisplayMirrored
+        )
+        let cg = Self.cgImage(
+            rgba: oriented.bytes, width: oriented.width, height: oriented.height
+        )
         guard let cg else {
             present(SimpleError("Could not render the result image for export."))
             return
         }
         let pixel = currentResultPersistenceMetadata
-        let sampling = pixel.column ?? pixel.row
+        // A quarter turn puts the other axis along the burnt-in bar, and for a
+        // non-square scan that is a different pixel size.
+        let sampling = orientation.swapsAxes
+            ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
         let withScale = Self.burnScaleBar(on: cg,
                                       unitsPerDataPixel: sampling,
                                       unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
@@ -179,7 +195,63 @@ extension AppState {
         for key in ["source_product", "basis_mode", "matching_backend", "reference_mode"] {
             if let value = product.provenance[key] { parts.append("\(key)=\(value)") }
         }
+        // Only when it is not the default: a figure that HAS been reoriented
+        // must say so on its face, and one that has not should not carry noise.
+        if !realSpaceDisplayIsDefault {
+            for key in ["display_rotation_deg", "display_flip"] {
+                if let value = realSpaceDisplayProvenance[key] {
+                    parts.append("\(key)=\(value)")
+                }
+            }
+        }
         return parts.joined(separator: " · ")
+    }
+
+    /// Quarter-turn + mirror on an RGBA8 buffer.
+    ///
+    /// Deliberately done in pixel indices rather than with a `CGContext`
+    /// transform: the context's y-axis points the opposite way to the view's,
+    /// so the sign of the rotation there is easy to get backwards and hard to
+    /// see in a review. Here the mapping is stated directly and pinned by
+    /// `ResultOrientationTests`.
+    ///
+    /// Matches SwiftUI's `rotationEffect`, which turns **clockwise** for a
+    /// positive angle, so source `(x, y)` lands at `(h-1-y, x)` for 90°. The
+    /// mirror is applied after the rotation, in display space, exactly as the
+    /// viewer composes them.
+    static func orientedRGBA(
+        _ bytes: [UInt8], width: Int, height: Int,
+        orientation: RealSpaceDisplayOrientation, mirrored: Bool
+    ) -> (bytes: [UInt8], width: Int, height: Int) {
+        guard width > 0, height > 0, bytes.count >= width * height * 4 else {
+            return (bytes, width, height)
+        }
+        if orientation == .identity && !mirrored { return (bytes, width, height) }
+
+        let outWidth = orientation.swapsAxes ? height : width
+        let outHeight = orientation.swapsAxes ? width : height
+        var out = [UInt8](repeating: 0, count: outWidth * outHeight * 4)
+
+        for y in 0..<height {
+            for x in 0..<width {
+                var dx: Int
+                var dy: Int
+                switch orientation {
+                case .identity: (dx, dy) = (x, y)
+                case .quarterTurn: (dx, dy) = (height - 1 - y, x)
+                case .halfTurn: (dx, dy) = (width - 1 - x, height - 1 - y)
+                case .threeQuarterTurn: (dx, dy) = (y, width - 1 - x)
+                }
+                if mirrored { dx = outWidth - 1 - dx }
+                let source = (y * width + x) * 4
+                let destination = (dy * outWidth + dx) * 4
+                out[destination] = bytes[source]
+                out[destination + 1] = bytes[source + 1]
+                out[destination + 2] = bytes[source + 2]
+                out[destination + 3] = bytes[source + 3]
+            }
+        }
+        return (out, outWidth, outHeight)
     }
 
     /// Export all coherent quantitative fields for the active strain or ACOM
@@ -226,12 +298,18 @@ extension AppState {
     func scientificBundleMaps() -> [ScalarResultMap]? {
         let sampling = (calibration.rPixelSize, calibration.rPixelUnits)
         if let map = strainMap {
-            let provenance = [
+            // The bundle stays in scan-index order — a quantitative field must
+            // stay addressable by (Rx, Ry) — but it records the orientation the
+            // user was viewing, so a figure made from this bundle can be
+            // reconciled with one exported from the app (#17b).
+            var provenance = [
                 "bundle": "strain", "display_domain": "scan",
                 "reference_positions": String(map.referencePositionCount),
                 "indexed_fraction": String(map.indexedFraction),
                 "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
+                "display_orientation_applied": "false",
             ]
+            provenance.merge(realSpaceDisplayProvenance) { current, _ in current }
             func field(_ kind: String, _ name: String, _ units: String,
                        _ pixels: [Float]) -> ScalarResultMap {
                 ScalarResultMap(
@@ -266,7 +344,11 @@ extension AppState {
                 "quantitative_status": semantics.productStatus(
                     for: "orientation_bundle"
                 ).rawValue,
+                // As for strain: scan-index order is preserved, and the
+                // viewer's orientation is recorded rather than applied (#17b).
+                "display_orientation_applied": "false",
             ], uniquingKeysWith: { _, new in new })
+            provenance.merge(realSpaceDisplayProvenance) { current, _ in current }
             func values(_ body: (OrientationResult) -> Float) -> [Float] {
                 map.results.indices.map { valid[$0] ? body(map.results[$0]) : Float.nan }
             }

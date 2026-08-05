@@ -52,20 +52,19 @@ struct ContentView: View {
 
                     if !appState.workspaceArea.analysisModes.isEmpty {
                         Section("Task") {
-                            ForEach(TaskPrerequisiteFamily.allCases) { family in
-                                let modes = appState.workspaceArea.analysisModes
-                                    .filter { $0.prerequisiteFamily == family }
-                                if !modes.isEmpty {
-                                    Text(family.groupLabel)
+                            let groups = appState.workspaceArea.taskFamilyGroups
+                            let showsLabels = appState.workspaceArea.showsTaskFamilyLabels
+                            ForEach(groups) { group in
+                                if showsLabels {
+                                    Text(group.family.groupLabel)
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                         .accessibilityIdentifier(
-                                            "task.group.\(family.accessibilitySuffix)"
+                                            "task.group.\(group.family.accessibilitySuffix)"
                                         )
-                                    ForEach(modes) { taskButton($0) }
                                 }
+                                ForEach(group.modes) { taskButton($0) }
                             }
-                            taskReadiness(appState.analysisMode)
                         }
                     }
                 }
@@ -815,6 +814,15 @@ struct ContentView: View {
                 }
             }
             .listStyle(.sidebar)
+            // Backlog #16. The symptom (sidebar rows drawn across the traffic
+            // lights, top rows inert because the titlebar hit-tests above them)
+            // is the sidebar scroll view sitting at clip origin 0 instead of
+            // -contentInsets.top — i.e. scrolled one titlebar-height past its
+            // own top. Measured: docTopInWindow 923 instead of 871 in a
+            // 923pt window with a 52pt titlebar. Elastic overscroll at the top
+            // is the remaining candidate for how it gets there, so bouncing is
+            // limited to the case where there is genuinely something to scroll.
+            .scrollBounceBehavior(.basedOnSize)
             .navigationTitle("mac4DSTEM")
             .navigationSplitViewColumnWidth(min: 250, ideal: 292, max: 340)
             .toolbar(removing: .sidebarToggle)
@@ -831,23 +839,12 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     Group {
                         if appState.hasDataset {
-                            HSplitView {
-                                DiffractionView()
-                                    .overlay(paneFocusBorder(active: appState.activePane == .diffraction))
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { appState.activePane = .diffraction }
-                                    .frame(minWidth: 220)
-                                StemImageView()
-                                    .overlay(paneFocusBorder(active: appState.activePane == .realSpace))
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { appState.activePane = .realSpace }
-                                    .frame(minWidth: 220)
-                            }
-                            .focusable()
-                            .focusEffectDisabled()
-                            .onKeyPress(phases: .down) { press in
-                                handleArrowKey(press)
-                            }
+                            imagePanes
+                                .focusable()
+                                .focusEffectDisabled()
+                                .onKeyPress(phases: .down) { press in
+                                    handleArrowKey(press)
+                                }
                         } else {
                             WelcomeWorkspace()
                         }
@@ -1082,6 +1079,43 @@ struct ContentView: View {
         .accessibilityIdentifier("dataset.card")
     }
 
+    /// A wide, short scan gets a wide, short pane instead of half a square one
+    /// (backlog #17a — see `ProductWorkflow.stacksImagePanesVertically`). The
+    /// axis follows the dataset's scan shape, so it is decided once when a
+    /// dataset opens and does not shift under the user mid-session.
+    @ViewBuilder
+    private var imagePanes: some View {
+        let stacked = ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: appState.descriptor?.rx ?? 0,
+            scanHeight: appState.descriptor?.ry ?? 0
+        )
+        if stacked {
+            VSplitView {
+                diffractionPane.frame(minHeight: 180)
+                realSpacePane.frame(minHeight: 140)
+            }
+        } else {
+            HSplitView {
+                diffractionPane.frame(minWidth: 220)
+                realSpacePane.frame(minWidth: 220)
+            }
+        }
+    }
+
+    private var diffractionPane: some View {
+        DiffractionView()
+            .overlay(paneFocusBorder(active: appState.activePane == .diffraction))
+            .contentShape(Rectangle())
+            .onTapGesture { appState.activePane = .diffraction }
+    }
+
+    private var realSpacePane: some View {
+        StemImageView()
+            .overlay(paneFocusBorder(active: appState.activePane == .realSpace))
+            .contentShape(Rectangle())
+            .onTapGesture { appState.activePane = .realSpace }
+    }
+
     private func workspaceButton(_ area: WorkspaceArea) -> some View {
         Button {
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -1144,74 +1178,36 @@ struct ContentView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                let unmet = taskUnmetCount(mode)
+                Image(systemName: unmet == 0
+                    ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(unmet == 0 ? Color.green : Color.orange)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(appState.analysisMode == mode ? Color.accentColor : Color.primary)
         .padding(.vertical, 3)
-        .accessibilityLabel(mode.productTitle)
+        .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
         .accessibilityAddTraits(appState.analysisMode == mode ? .isSelected : [])
     }
 
-    @ViewBuilder
-    private func taskReadiness(_ mode: AnalysisMode) -> some View {
-        let missing = ProductWorkflow.prerequisites(
-            for: mode,
-            readiness: appState.productWorkflowReadiness
-        )
-        let guidance = ProductWorkflow.guidance(
-            for: mode,
-            readiness: appState.productWorkflowReadiness
-        )
-        if missing.isEmpty && guidance.isEmpty {
-            Label("Ready with current dataset", systemImage: "checkmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.green)
-                .padding(.top, 3)
-                .accessibilityLabel("Current task is ready")
-        } else if missing.isEmpty {
-            VStack(alignment: .leading, spacing: 5) {
-                Label("Ready · limited interpretation", systemImage: "checkmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach(guidance, id: \.self) { item in
-                    Text(item)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button("Improve in Prepare") { appState.selectWorkspace(.prepare) }
-                    .font(.caption)
-            }
-            .padding(.top, 3)
-        } else {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(missing, id: \.self) { item in
-                    Label(item, systemImage: "exclamationmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-                if missing.contains(where: { $0.hasPrefix("Choose an ACOM")
-                    || $0.hasPrefix("The selected ACOM") }) {
-                    Text("Select the material in the ACOM controls below.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else if missing.contains(where: { $0 != "Detect Bragg disks first" }) {
-                    Button("Go to Prepare") { appState.selectWorkspace(.prepare) }
-                        .font(.caption)
-                } else {
-                    Button("Go to Bragg Disks") {
-                        appState.changeMode(.disks)
-                    }
-                    .font(.caption)
-                }
-            }
-            .padding(.top, 3)
-            .accessibilityElement(children: .contain)
-        }
+    private func taskUnmetCount(_ mode: AnalysisMode) -> Int {
+        ProductWorkflow.prerequisites(
+            for: mode, readiness: appState.productWorkflowReadiness
+        ).count
+    }
+
+    /// Readiness is folded into the button's own label rather than left on the
+    /// glyph: the button sets `accessibilityLabel`, which replaces its
+    /// children's, so a label on the image alone would never be announced.
+    private func taskAccessibilityLabel(_ mode: AnalysisMode) -> String {
+        let unmet = taskUnmetCount(mode)
+        if unmet == 0 { return "\(mode.productTitle), ready" }
+        return "\(mode.productTitle), \(unmet) requirement\(unmet == 1 ? "" : "s") missing"
     }
 
     private var reconstructionProgress: some View {

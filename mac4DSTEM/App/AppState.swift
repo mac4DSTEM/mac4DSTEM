@@ -802,6 +802,42 @@ final class AppState {
     /// IPF·Z once without ever overriding a deliberate choice.
     private(set) var acomDisplayIsUserChosen = false
 
+    /// Presentation-only orientation of the real-space viewer (backlog #17b).
+    /// The retained product, its scan indices, and the scientific bundle are
+    /// unaffected; see `RealSpaceDisplayOrientation` for why quarter turns only
+    /// and why this is never offered for the diffraction pane.
+    var realSpaceDisplayOrientation: RealSpaceDisplayOrientation = .identity
+
+    /// Display-only horizontal mirror, composed after the rotation.
+    var realSpaceDisplayMirrored = false
+
+    /// The orientation as it applies to whatever is on screen right now.
+    /// Identity for anything that is not scan-domain, so a detector-domain
+    /// product shown in the same viewer is never transformed.
+    var effectiveRealSpaceDisplayOrientation: RealSpaceDisplayOrientation {
+        displayedProduct?.domain == .scan ? realSpaceDisplayOrientation : .identity
+    }
+
+    var effectiveRealSpaceDisplayMirrored: Bool {
+        displayedProduct?.domain == .scan ? realSpaceDisplayMirrored : false
+    }
+
+    var realSpaceDisplayIsDefault: Bool {
+        effectiveRealSpaceDisplayOrientation == .identity && !effectiveRealSpaceDisplayMirrored
+    }
+
+    /// Provenance recorded on every export so a rotated figure is never an
+    /// unrecorded one (ROADMAP P1.1). The publication PNG applies the
+    /// orientation; the scientific bundle stays in scan-index order and carries
+    /// these keys as metadata describing what the user was looking at.
+    var realSpaceDisplayProvenance: [String: String] {
+        [
+            "display_rotation_deg":
+                String(Int(effectiveRealSpaceDisplayOrientation.degrees)),
+            "display_flip": effectiveRealSpaceDisplayMirrored ? "horizontal" : "none"
+        ]
+    }
+
     /// The picker's setter. Distinguishes a human choice from the programmatic
     /// default below, which `didSet` alone cannot.
     func selectACOMDisplay(_ mode: ACOMDisplayMode) {
@@ -1585,6 +1621,8 @@ final class AppState {
         acomRegionSelectionActive = false
         acomScope = .preview
         acomDisplayIsUserChosen = false
+        realSpaceDisplayOrientation = .identity
+        realSpaceDisplayMirrored = false
         acomRegionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point

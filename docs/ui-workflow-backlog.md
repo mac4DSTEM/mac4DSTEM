@@ -41,7 +41,17 @@ compute that already behaves correctly. Details below.
 
 ---
 
-## Design-pass items — do not implement piecemeal
+## Design-pass items — ✅ DESIGN PASS DONE 2026-08-05
+
+**The pass ran on 2026-08-05.** Design document:
+`docs/ui-design-pass-2026-08-05.md` (options weighed, measurements, decisions).
+The release owner chose **Option C** for the sidebar/main-pane split, the
+**#17a/#17b split**, and the **figure-applies / data-doesn't** export rule. All
+four items below are now closed or split — see each entry. The one thing still
+open is #16's *trigger*, which needs a human at a trackpad (§6 of the design
+doc); its mechanism, its fix and its regression test all landed.
+
+Kept below for the record of what the pass was for:
 
 Most items below are a mechanical fix: reproduce, patch, test, done in one
 session. The two marked **[DESIGN PASS]** are different — the release owner
@@ -63,6 +73,53 @@ yet — add to it rather than starting a new doc.
   should be designed as a set rather than one feature at a time.
 - **#21** — the Reconstruct workspace is cramped, and says everything twice.
   See below; found by playthrough 2026-08-05.
+
+## #21 — The Reconstruct workspace is cramped and says everything twice  ·  ✅ Done 2026-08-05
+
+**Costed before it was designed.** Reconstruct with 4 unmet prerequisites
+against 0, measured in a real 1470×923 window:
+
+| | 0 unmet | 4 unmet |
+|---|---|---|
+| Main-pane chrome above the image panes | 208pt | **399pt** |
+| Image pane | 646×646 | **516×516** (−36% area) |
+| Sidebar document (871pt of column) | 993pt | 1040pt |
+
+So the duplicated list cost **191pt of main pane and 47pt of an already
+overflowing sidebar, for the same information twice.**
+
+**Shipped — Option C, "one owner, two densities":**
+- **Readiness has exactly one owner, the main pane**, because that is where the
+  action it gates lives. `TaskPrerequisiteChecklist` now also owns the
+  "ready · limited interpretation" guidance that the sidebar block used to
+  show, so nothing moved from being explained twice to not at all.
+- **Unmet requirements get a full row with the control that fixes them;
+  satisfied ones collapse to one line**, and the whole detail section is
+  collapsible with a summary row that still names the task, the count, and the
+  first fix.
+- **The sidebar carries a per-task ✓/! glyph instead** (`taskButton`), folded
+  into the button's own accessibility label — which is strictly *more*
+  information than before, since the old block described only the *selected*
+  task while sitting in a list of all of them.
+
+**Measured after:** Reconstruct while blocked went **399pt → 231pt** of chrome,
+image panes **516² → 646²** (the same size as when nothing is blocked), and the
+sidebar **1040pt → 899pt**, cutting the column overflow from 169pt to 28pt.
+That last number is also **#16**'s structural fix.
+
+**Deviation from the design doc:** the doc proposed the detail be *expanded on
+first arrival and collapsed once seen*. It ships **collapsed by default**,
+because expanded-by-default was measured to recover **1pt of the 191** — the
+new summary row costs about what the satisfied rows saved, so the whole win is
+in the collapsed state. The "explains itself at the action" contract from
+Prompt B still holds: the collapsed row names the task, says "3 of 5 missing",
+and offers the first unmet item's own action button.
+
+Pinned by `SidebarLayoutTests.testBeingBlockedDoesNotShrinkTheImagePanes` and
+`testSidebarDocumentRoughlyFitsItsColumn` — both verified to fail without the
+change.
+
+---
 
 ### Observed 2026-08-05 — a Reconstruct playthrough, for the design pass
 
@@ -215,6 +272,17 @@ change. (Note: adding the a11y identifier is an app-code change, so it is
 `AnalysisMode.prerequisiteFamily`; the sidebar Task section now renders one
 light caption per non-empty family before its tasks. Identifiers
 `task.group.{producesBragg,requiresBragg,phaseContrast}`.
+
+**Refined 2026-08-05 (design pass).** The caption is now drawn only where a
+workspace has **more than one family** — `WorkspaceArea.showsTaskFamilyLabels`
++ `taskFamilyGroups`. Map keeps its captions; **Reconstruct** loses the one that
+sat above a single task, and **Image** loses one too. *Deviation from the
+release owner's candidate*, which was "more than one family **or** more than
+one task": Image has two tasks in one family, and a single caption spanning the
+whole list there says exactly as little as it did in Reconstruct, so the
+task-count clause would have kept noise for no work done. Keyed on family count
+because distinguishing families is the caption's entire job. Pinned by
+`testFamilyCaptionsAreDrawnOnlyWhereThereIsMoreThanOneFamily`.
 
 **Deviation from the proposal:** three families, not two. The item suggested a
 "requires Bragg vectors" header over Disks/Strain/ACOM, but `.disks` *produces*
@@ -784,7 +852,38 @@ proven; `StrainMapping.compute` itself has not been ruled out.
 
 ## #16 — Controls intermittently unresponsive; navigating away and back clears it
 
-**Reported by the release owner, 2026-08-04**, observed across the last few
+**◐ MECHANISM FOUND + FIXED DEFENSIVELY 2026-08-05; TRIGGER STILL UNCONFIRMED.**
+
+**The two symptoms are one bug.** Measured in a real window (hosted test, real
+`ContentView`): the sidebar `NSScrollView` sits at clip origin **0** while its
+`contentInsets.top` is **52** — scrolled exactly one titlebar-height past its
+own top. Healthy is `docTopInWindow=871, visibleOriginY=-52`; broken is
+`docTopInWindow=923, visibleOriginY=0`, i.e. the first rows land at the top of
+the *window*. That is both halves of the report at once: the rows draw across
+the traffic lights, **and** they stop responding, because the titlebar
+hit-tests above them. So the app did not accumulate a family of stale-state
+bugs — there is one, with two faces.
+
+**Seven candidate triggers were driven and REFUTED** (do not re-try): offset
+clamping when the sidebar document shrinks on a workspace switch — the most
+promising one, AppKit re-clamps to −52 correctly every time; the toolbar item
+count changing in Results; an animated `showToolsPane` round trip; log/inspector
+toggles; window resize; key resign/restore; rapid non-linear navigation.
+
+**Shipped:** `.scrollBounceBehavior(.basedOnSize)` on the sidebar `List`
+(`UI/ContentView.swift`) — top overscroll is the remaining candidate and this
+closes it — plus the structural half: removing the duplicated readiness block
+(**#21**) took the blocked-Reconstruct sidebar from **1040pt to 899pt** against
+871pt of column, so on most screens there is now nothing to scroll and nothing
+to overscroll. Pinned by
+`SidebarLayoutTests.testSidebarContentNeverDrawsOverTheTitlebar`, which asserts
+`clipOrigin == -contentInsets.top` after every one of the refuted transitions.
+
+**Still open, needs a human:** confirming the entry is top overscroll. Nothing
+headless can generate a real rubber-band trackpad gesture — see
+`docs/ui-design-pass-2026-08-05.md` §6.3 for the 60-second check.
+
+**Original report — reported by the release owner, 2026-08-04**, observed across the last few
 sessions — the UI "got buggier". Buttons are sometimes blocked/inert, and
 clicking through the workspace sections and back usually restores them.
 Screenshot at the time showed the **Reconstruct** task with its prerequisite
@@ -808,9 +907,76 @@ that undermines the mechanism v1 relies on to explain itself.
 
 ---
 
-## #17 — Rotate the real-space image in the browser (display only)  ·  [DESIGN PASS]
+## #17 — Rotate the real-space image in the browser (display only)  ·  ✅ Split & shipped 2026-08-05
 
-**Concrete case, 2026-08-05:** on `downsample_Si_SiGe_exp` the strain map is
+**The item's stated justification was falsified by arithmetic, and the item was
+split because of it.** Rotation cannot recover pane area: an image of aspect
+*a* fitted into a pane of aspect *p* fills `min(a,p)/max(a,p)` of it, which is
+unchanged when *a* becomes *1/a* and the pane keeps its shape. The measured
+panes are ~660×646 — square — so the 200×50 strain map fills **25% before the
+rotation and 25% after it**. What recovers the space is re-proportioning the
+*pane*.
+
+### #17a — aspect-aware pane arrangement  ·  ✅ Done (this is what closed the observation)
+
+**Shipped:** `ProductWorkflow.stacksImagePanesVertically(scanWidth:scanHeight:)`
++ `ContentView.imagePanes`. A scan wider than 2:1 puts the diffraction and
+real-space panes in a `VSplitView` instead of an `HSplitView`, so the wide map
+gets a full-width, short pane. The threshold is **derived, not chosen**:
+side-by-side panes are ~1:1 and stacked ones ~4.1:1, so a scan of aspect *a*
+fills `1/a` one way and `a/4.1` the other, and they cross at `a² = 4.1`, a ≈ 2.
+Si_SiGe (200×50, a = 4) goes from ~25% to ~98% of its pane; sim_Au (84×100),
+Particle_1 (45×90) and WS₂ (128×128) are all unaffected. Tall scans never
+stack — the rule is deliberately one-sided, because a full-height pane already
+suits them. The axis follows the dataset, so it is decided once on open and
+does not shift under the user. Pinned by
+`testWideScansStackTheImagePanesAndNothingElseDoes` (all four training
+datasets + the crossover at 199/100 vs 200/100).
+
+### #17b — display rotate/flip  ·  ✅ Done (built for orientation, not for area)
+
+**Shipped:** `RealSpaceDisplayOrientation` (quarter turns only) +
+`AppState.realSpaceDisplayOrientation` / `realSpaceDisplayMirrored`, reset per
+dataset, with a **"View orientation"** menu in the real-space pane header
+(`result.viewOrientation`) worded "display only — scan indices, saved products
+and the scientific bundle are unchanged" so it can never read as the measured
+R–Q rotation.
+
+Every constraint the item named, and how it was met:
+
+- **Quarter turns + mirror only** — the enum has no arbitrary angle to pass.
+- **Real space only** — the control and the transform are both gated on
+  `displayedProduct?.domain == .scan`, so the same viewer showing a
+  detector-domain product is never transformed, and `DiffractionView` has no
+  control at all. Pinned by `testOrientationIsIgnoredForNonScanProducts`.
+- **The inspector inverts rather than follows** — solved structurally instead
+  of by hand: the rotation is applied to the *shared* image+overlay container
+  and the cursor/selection mapping lives **inside** it, so SwiftUI's own hit
+  testing applies the inverse. There is no hand-rolled inversion that could
+  drift from the forward transform.
+- **The scale bar recomputes against the correct axis** — a quarter turn
+  switches it to `pixel.row` and to `dims.height` for the pixel count, on
+  screen and in the burnt-in figure both, because for a non-square scan that is
+  a different pixel size *and* a different extent.
+- **Export** — the release owner chose the split: the **publication PNG applies
+  the orientation and records it** (`display_rotation_deg`, `display_flip`
+  appended to the burnt-in caption, but only when it is not the default, so an
+  unrotated figure carries no noise); the **scientific EMD bundle stays in
+  scan-index order** and records the same two keys plus
+  `display_orientation_applied=false`. A quantitative field must stay
+  addressable by (Rx, Ry). Silently baking an unrecorded rotation into a figure
+  — the one unacceptable outcome — cannot happen on either path.
+
+**Deviation worth noting:** the pixel transform is implemented on the RGBA
+buffer in pixel indices (`AppState.orientedRGBA`), not as a `CGContext`
+transform. The context's y-axis points the opposite way to the view's, so the
+rotation sign there is easy to get backwards and nearly invisible in review —
+and with no Screen Recording permission this session, no one could have caught
+it by eye. In pixel indices it is pinned exactly by `ResultOrientationTests`
+(11 cases: direction, dimension swap, mirror composition order, 4×90° identity,
+channel travel, degenerate buffers).
+
+**Original item — concrete case, 2026-08-05:** on `downsample_Si_SiGe_exp` the strain map is
 **200 × 50** and renders beside a square **128 × 128** CBED, leaving most of the
 result pane empty. Rotating the real-space view 90° would let both panes use
 their space. Confirmed by the release owner as presentation only — "not a

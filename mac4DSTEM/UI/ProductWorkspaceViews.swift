@@ -174,7 +174,10 @@ struct ProductWorkspaceHeader: View {
     var body: some View {
         VStack(spacing: 0) {
             headerRow
-            if isTaskWorkspace, !missingPrerequisites.isEmpty {
+            // One surface owns readiness: unmet prerequisites AND the
+            // "ready, limited interpretation" guidance both render inside the
+            // checklist (design pass 2026-08-05, backlog #21).
+            if isTaskWorkspace, !missingPrerequisites.isEmpty || !qualityGuidance.isEmpty {
                 Divider()
                 TaskPrerequisiteChecklist()
             }
@@ -209,17 +212,9 @@ struct ProductWorkspaceHeader: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                // Unmet prerequisites render as the full checklist below the
-                // header row (TaskPrerequisiteChecklist), not as a one-line
-                // summary here.
-                if isTaskWorkspace,
-                   missingPrerequisites.isEmpty,
-                   let first = qualityGuidance.first {
-                    Label(first, systemImage: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                // Prerequisites and guidance both render as the checklist below
+                // the header row (TaskPrerequisiteChecklist), never as a
+                // one-line summary here — one owner, one place.
             }
 
             Spacer(minLength: 16)

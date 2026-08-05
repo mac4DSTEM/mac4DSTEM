@@ -54,6 +54,7 @@ struct StemImageView: View {
                 .accessibilityIdentifier("result.title")
             statusBadge
             qualityToggle
+            orientationControl
             Spacer()
             if let r = resultSize {
                 Text("\(r.width) × \(r.height)")
@@ -131,10 +132,72 @@ struct StemImageView: View {
         }
     }
 
+    /// View orientation for the real-space image (backlog #17b). Offered only
+    /// for scan-domain products: the diffraction pattern must never get one,
+    /// because the app already carries a measured R–Q rotation and a display
+    /// rotation of the CBED would be indistinguishable from it.
+    ///
+    /// The wording deliberately says "View orientation … display only" rather
+    /// than "rotate", so it cannot be read as the scientific rotation.
+    @ViewBuilder
+    private var orientationControl: some View {
+        if app.displayedProduct?.domain == .scan {
+            Menu {
+                Picker("View orientation", selection: Bindable(app).realSpaceDisplayOrientation) {
+                    ForEach(RealSpaceDisplayOrientation.allCases) { orientation in
+                        Text(orientation.displayName).tag(orientation)
+                    }
+                }
+                .pickerStyle(.inline)
+                Divider()
+                Toggle("Mirror horizontally", isOn: Bindable(app).realSpaceDisplayMirrored)
+                Divider()
+                Text("Display only — scan indices, saved products and the "
+                     + "scientific bundle are unchanged.")
+            } label: {
+                Image(systemName: isOrientationDefault
+                      ? "rotate.right" : "rotate.right.fill")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .controlSize(.small)
+            .help("View orientation of the real-space image — display only. "
+                  + "This is not the measured R–Q rotation calibration.")
+            .accessibilityLabel(
+                "View orientation, display only, currently "
+                    + app.realSpaceDisplayOrientation.displayName
+                    + (app.realSpaceDisplayMirrored ? ", mirrored horizontally" : "")
+            )
+            .accessibilityIdentifier("result.viewOrientation")
+        }
+    }
+
+    private var isOrientationDefault: Bool { app.realSpaceDisplayIsDefault }
+
+    /// The display orientation applies to scan-domain products only, so a
+    /// detector-domain result shown in this same viewer is never transformed.
+    /// Shared with the export path so the figure and the screen can never
+    /// disagree about what "as displayed" means.
+    private var orientation: RealSpaceDisplayOrientation {
+        app.effectiveRealSpaceDisplayOrientation
+    }
+
+    private var mirrored: Bool { app.effectiveRealSpaceDisplayMirrored }
+
     @ViewBuilder
     private func content(in size: CGSize) -> some View {
         if let dims = resultSize {
-            let box = fitted(in: size, aspect: CGFloat(dims.width) / CGFloat(dims.height))
+            let orientation = self.orientation
+            let imageAspect = CGFloat(dims.width) / CGFloat(dims.height)
+            // `box` is the footprint ON SCREEN, so it uses the rotated aspect;
+            // `imageBox` is the container the image and its overlays are laid
+            // out in, which stays in image orientation. A quarter turn swaps
+            // one into the other.
+            let box = fitted(
+                in: size, aspect: orientation.swapsAxes ? 1 / imageAspect : imageAspect
+            )
+            let imageBox = orientation.swapsAxes
+                ? CGSize(width: box.height, height: box.width) : box
             // Quality inspection swaps the viewer to the paired quality field
             // (display only) — a distinct version space so the texture cache
             // re-uploads on toggle instead of reusing the scientific result's.
@@ -147,6 +210,14 @@ struct StemImageView: View {
                 // Image + overlays share ONE scaled container, so the
                 // crosshair / ROI / click mapping stay aligned at any zoom
                 // (SwiftUI maps hit-testing through the transform).
+                //
+                // The display orientation (#17b) is applied to that same shared
+                // container, and the cursor/selection mapping lives INSIDE it.
+                // So the inverse transform is applied by SwiftUI's own hit
+                // testing: the inspector keeps reporting true scan indices
+                // rather than following the rotation, without this view ever
+                // hand-rolling an inversion that could drift from the forward
+                // transform.
                 ZStack {
                     MetalImageView(pixels: norm,
                                    width: dims.width, height: dims.height,
@@ -159,27 +230,43 @@ struct StemImageView: View {
                                    displayLo: qualityField != nil ? 0 : app.displayedResultRangeLo,
                                    displayHi: qualityField != nil ? 1 : app.displayedResultRangeHi,
                                    gamma: qualityField != nil ? 1 : app.displayedResultGamma)
-                        .frame(width: box.width, height: box.height)
+                        .frame(width: imageBox.width, height: imageBox.height)
                         .background(Color.black)
 
                     // Transparent hit layer for click-to-select scan position.
                     if mapsScanPositions {
-                        selectionLayer(box: box, imgW: dims.width, imgH: dims.height)
-                            .frame(width: box.width, height: box.height)
+                        selectionLayer(box: imageBox, imgW: dims.width, imgH: dims.height)
+                            .frame(width: imageBox.width, height: imageBox.height)
                     }
 
                     // Crosshair at the current scan position.
                     if mapsScanPositions {
-                        crosshair(box: box, imgW: dims.width, imgH: dims.height)
+                        crosshair(box: imageBox, imgW: dims.width, imgH: dims.height)
                     }
 
                     // Region-of-interest for virtual diffraction (sum patterns).
                     if mapsScanPositions, app.realSpaceShape != .point,
                        app.realSpaceROIIsRelevant {
-                        regionOverlay(box: box, imgW: dims.width, imgH: dims.height)
-                            .frame(width: box.width, height: box.height)
+                        regionOverlay(box: imageBox, imgW: dims.width, imgH: dims.height)
+                            .frame(width: imageBox.width, height: imageBox.height)
                     }
                 }
+                .frame(width: imageBox.width, height: imageBox.height)
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        let x = min(dims.width - 1, max(0,
+                            Int(location.x / max(imageBox.width, 1) * CGFloat(dims.width))))
+                        let y = min(dims.height - 1, max(0,
+                            Int(location.y / max(imageBox.height, 1) * CGFloat(dims.height))))
+                        cursorSample = app.displayedProduct?.sample(x: x, y: y)
+                    case .ended:
+                        cursorSample = nil
+                    }
+                }
+                .rotationEffect(.degrees(orientation.degrees))
+                .scaleEffect(x: mirrored ? -1 : 1, y: 1)
                 .frame(width: box.width, height: box.height)
                 .scaleEffect(effZoom)
                 .frame(width: box.width, height: box.height)
@@ -192,18 +279,6 @@ struct StemImageView: View {
                         .onEnded { zoom = min(max(1, zoom * $0), 64); liveZoom = 1 }
                 )
                 .onTapGesture(count: 2) { zoom = 1; liveZoom = 1 }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        let x = min(dims.width - 1, max(0,
-                            Int(location.x / max(box.width, 1) * CGFloat(dims.width))))
-                        let y = min(dims.height - 1, max(0,
-                            Int(location.y / max(box.height, 1) * CGFloat(dims.height))))
-                        cursorSample = app.displayedProduct?.sample(x: x, y: y)
-                    case .ended:
-                        cursorSample = nil
-                    }
-                }
 
                 // Direction legend for the DPC color wheel. Suppressed while
                 // inspecting a quality field — the viewer is showing a scalar
@@ -274,11 +349,19 @@ struct StemImageView: View {
                                alignment: .topLeading)
                 }
 
-                // Coordinate-aware scale bar (px fallback), re-quantized with zoom.
+                // Coordinate-aware scale bar (px fallback), re-quantized with
+                // zoom. The bar is horizontal on screen and does NOT rotate, so
+                // it must be computed against whichever image axis a quarter
+                // turn has put along the displayed horizontal — for a
+                // non-square scan that is a different R pixel size and a
+                // different pixel count, so a bar that merely re-rendered at
+                // the same length would be wrong (#17b).
                 let pixel = app.displayedResultPixelMetadata
-                let sampling = pixel.column ?? pixel.row
+                let sampling = orientation.swapsAxes
+                    ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
+                let pixelsAcross = orientation.swapsAxes ? dims.height : dims.width
                 ScaleBarView(
-                    unitsPerPoint: (sampling ?? 1) * Double(dims.width)
+                    unitsPerPoint: (sampling ?? 1) * Double(pixelsAcross)
                         / Double(box.width) / Double(effZoom),
                     unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
                     .padding(8)

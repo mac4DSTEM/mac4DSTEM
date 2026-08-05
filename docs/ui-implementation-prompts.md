@@ -113,6 +113,37 @@ Commit only if I ask.
   can't currently be run to verify (Accessibility permission); and **#5**/#8's
   reference/basis UI half remains open — only their disk-detection half shipped,
   under Prompt C.
+- ◐ **UI design pass — #16, #21, #4, #17** (2026-08-05). Not a Prompt A–E
+  item; the four coupled design-pass items, taken together as
+  `docs/ui-design-pass-2026-08-05.md` asked. Release owner chose **Option C**,
+  the **#17a/#17b split**, and **figure-applies / data-doesn't** for export.
+  **UI only — no `Core/` file was touched.** `unit` 76 → **92/92**,
+  `scientific` **28/28**, both green.
+  - **#21 closed.** Readiness has one owner (the main-pane checklist, which
+    also absorbed the sidebar's guidance block); the sidebar carries per-task
+    ✓/! glyphs. Blocked Reconstruct: chrome **399→231pt**, image panes
+    **516²→646²**, sidebar document **1040→899pt**.
+  - **#4 refined.** Family captions only where a workspace has >1 family —
+    Reconstruct *and* Image lose theirs. Deviates from the "or more than one
+    task" half of the proposal; reason in the backlog.
+  - **#17 split and shipped.** #17a (aspect-aware pane axis) is what actually
+    closed the 2026-08-05 observation — **rotation is area-neutral**, which the
+    arithmetic in the backlog now records. #17b (rotate/flip) shipped for
+    orientation, with the export split and the transform pinned in pixel
+    indices.
+  - **#16 mechanism found, trigger NOT.** Symptom is exactly the sidebar scroll
+    view at clip origin 0 against a 52pt top inset — which is *also* why the
+    top rows go inert, since the titlebar hit-tests above them. Seven candidate
+    triggers refuted by experiment. Shipped `.scrollBounceBehavior(.basedOnSize)`
+    plus #21's structural shrink. **Box stays unticked** until the release
+    owner runs the 60-second overscroll check in the design doc §6.3 — nothing
+    headless can generate a rubber-band trackpad gesture.
+  - **Reproduction method worth reusing:** `mac4DSTEMTests` is a *hosted*
+    target, so a test can build a real `NSWindow` around the real `ContentView`
+    and measure the AppKit view tree. That is how all the numbers above were
+    taken, with no Accessibility or Screen Recording grant — see
+    `mac4DSTEMTests/SidebarLayoutTests.swift`. It does not replace the QC
+    playthrough, but it catches layout regressions the QC harness never could.
 - ✅ **CIF import — user-reachable** (2026-08-04; not a Prompt A–E item, this
   serves ROADMAP P1.3 "admit a new phase only through the generic model
   contract"). `Core/Crystal/CIFImport.swift` parses cell parameters, the

@@ -301,12 +301,81 @@ final class ProductWorkflowTests: XCTestCase {
 
         // Grouping must not drop or duplicate a task in any workspace.
         for area in WorkspaceArea.allCases {
-            let grouped = TaskPrerequisiteFamily.allCases.flatMap { family in
-                area.analysisModes.filter { $0.prerequisiteFamily == family }
-            }
+            let grouped = area.taskFamilyGroups.flatMap(\.modes)
             XCTAssertEqual(Set(grouped), Set(area.analysisModes), "\(area)")
             XCTAssertEqual(grouped.count, area.analysisModes.count, "\(area)")
         }
+    }
+
+    /// The family caption exists to *distinguish* families, so it is drawn only
+    /// where there is more than one to distinguish (design pass 2026-08-05,
+    /// refining #4). Reconstruct had it sitting over a single task, and Image
+    /// over a single family — noise in both.
+    func testFamilyCaptionsAreDrawnOnlyWhereThereIsMoreThanOneFamily() {
+        XCTAssertTrue(WorkspaceArea.map.showsTaskFamilyLabels, "Map: disks vs strain/ACOM")
+        XCTAssertFalse(
+            WorkspaceArea.reconstruct.showsTaskFamilyLabels,
+            "Reconstruct has one task; a caption above it says nothing"
+        )
+        XCTAssertFalse(
+            WorkspaceArea.image.showsTaskFamilyLabels,
+            "Image has two tasks but one family; there is nothing to distinguish"
+        )
+
+        // Workspaces with no tasks must not claim to need captions.
+        for area in [WorkspaceArea.prepare, .results] {
+            XCTAssertTrue(area.taskFamilyGroups.isEmpty, "\(area)")
+            XCTAssertFalse(area.showsTaskFamilyLabels, "\(area)")
+        }
+
+        // The rule must agree with the grouping it labels.
+        for area in WorkspaceArea.allCases {
+            XCTAssertEqual(
+                area.showsTaskFamilyLabels, area.taskFamilyGroups.count > 1, "\(area)"
+            )
+        }
+    }
+
+    /// Backlog #17a. The pane axis follows the scan shape, and the crossover is
+    /// derived (a² = pane-aspect ratio ⇒ a ≈ 2), not picked by eye.
+    func testWideScansStackTheImagePanesAndNothingElseDoes() {
+        // downsample_Si_SiGe_exp — the dataset that produced the observation.
+        XCTAssertTrue(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 200, scanHeight: 50
+        ))
+
+        // The other training datasets must be unaffected.
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 84, scanHeight: 100), "sim_Au"
+        )
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 45, scanHeight: 90), "Particle_1"
+        )
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 128, scanHeight: 128), "polycrystal_2D_WS2"
+        )
+
+        // The crossover itself.
+        XCTAssertTrue(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 200, scanHeight: 100
+        ))
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 199, scanHeight: 100
+        ))
+
+        // A tall scan is already well served by a full-height pane, however
+        // extreme — the rule is deliberately one-sided.
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 50, scanHeight: 200
+        ))
+
+        // No dataset yet, or a degenerate descriptor, must not stack.
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 0, scanHeight: 0
+        ))
+        XCTAssertFalse(ProductWorkflow.stacksImagePanesVertically(
+            scanWidth: 200, scanHeight: 0
+        ))
     }
 
     func testNavigationDoesNotRelabelTheVisibleScientificResult() {

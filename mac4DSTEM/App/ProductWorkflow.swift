@@ -53,6 +53,91 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
 
     var defaultAnalysisMode: AnalysisMode? { analysisModes.first }
     var isAdvanced: Bool { self == .reconstruct }
+
+    /// This workspace's tasks, grouped into their prerequisite families in
+    /// `TaskPrerequisiteFamily.allCases` order. Empty families are dropped, so
+    /// the count of the result is the number of families actually present.
+    var taskFamilyGroups: [TaskFamilyGroup] {
+        TaskPrerequisiteFamily.allCases.compactMap { family in
+            let modes = analysisModes.filter { $0.prerequisiteFamily == family }
+            return modes.isEmpty ? nil : TaskFamilyGroup(family: family, modes: modes)
+        }
+    }
+
+    /// Whether the family captions (#4) earn their place here.
+    ///
+    /// A caption's job is to *distinguish* families. With only one family
+    /// present there is nothing to distinguish, so the caption states something
+    /// the workspace already implies and is pure noise — which is what
+    /// Reconstruct (one task) and Image (two tasks, one family) both looked
+    /// like. Keyed on family count rather than task count for that reason.
+    var showsTaskFamilyLabels: Bool { taskFamilyGroups.count > 1 }
+}
+
+extension ProductWorkflow {
+    /// Whether the diffraction and real-space panes should stack vertically
+    /// rather than sit side by side, chosen from the scan's aspect ratio
+    /// (backlog #17a).
+    ///
+    /// **Why this and not a display rotation.** The 2026-08-05 observation was
+    /// that a 200×50 strain map leaves most of the result pane empty, and the
+    /// proposed remedy was to rotate it 90°. Rotation cannot help: an image of
+    /// aspect *a* fitted into a pane of aspect *p* fills `min(a,p)/max(a,p)` of
+    /// it, which is unchanged by swapping *a* for *1/a* when the pane stays the
+    /// same shape. A 4:1 map in a square pane is 25% full either way. What
+    /// changes the answer is re-proportioning the *pane*.
+    ///
+    /// Side-by-side panes are roughly square (measured 660×646); stacked, each
+    /// is roughly 4:1. So a scan of aspect *a* fills `1/a` side-by-side and
+    /// `a/4.1` stacked, and stacking wins above `a² = 4.1`, i.e. **a ≈ 2**.
+    /// Si_SiGe at 4.0 stacks and goes from ~25% to ~98% of its pane; sim_Au at
+    /// 0.84 stays side by side. Tall scans never stack — for `a < 1` the
+    /// side-by-side pane is already the better shape.
+    static func stacksImagePanesVertically(scanWidth: Int, scanHeight: Int) -> Bool {
+        guard scanWidth > 0, scanHeight > 0 else { return false }
+        return Double(scanWidth) / Double(scanHeight) >= 2
+    }
+}
+
+/// Display-only orientation of the **real-space** image (backlog #17b).
+///
+/// Quarter turns only: a multiple of 90° is exact and needs no interpolation,
+/// so every displayed pixel still corresponds one-to-one to a scan position.
+/// An arbitrary angle would resample the scan grid and produce an image that
+/// looks like data but no longer maps to scan indices.
+///
+/// **Never offered for the diffraction pattern.** The app carries a *measured*
+/// R–Q rotation calibration, and a display rotation of the CBED would be
+/// indistinguishable from it on screen.
+enum RealSpaceDisplayOrientation: Int, CaseIterable, Identifiable, Sendable {
+    case identity = 0
+    case quarterTurn = 1
+    case halfTurn = 2
+    case threeQuarterTurn = 3
+
+    var id: Int { rawValue }
+    var degrees: Double { Double(rawValue) * 90 }
+
+    /// Whether this turn exchanges the displayed horizontal and vertical axes.
+    /// For a non-square scan that decides which R pixel size drives the scale
+    /// bar, so it must never be inferred from the angle at the call site.
+    var swapsAxes: Bool { rawValue % 2 == 1 }
+
+    var displayName: String {
+        switch self {
+        case .identity: "0°"
+        case .quarterTurn: "90°"
+        case .halfTurn: "180°"
+        case .threeQuarterTurn: "270°"
+        }
+    }
+}
+
+/// One prerequisite family and the tasks a workspace has in it.
+struct TaskFamilyGroup: Identifiable, Sendable {
+    let family: TaskPrerequisiteFamily
+    let modes: [AnalysisMode]
+    var id: TaskPrerequisiteFamily { family }
 }
 
 /// Which side of the Bragg-vector dependency a task sits on.
