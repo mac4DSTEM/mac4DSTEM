@@ -51,15 +51,20 @@ removes most of the confusion:
 
 ## Where v1.0 stands (2026-08-05)
 
-`tools/run-tests.sh all` is **green — exit 0, 30 harnesses**. Five things stand
-between the repo and v1.0, listed with their blockers in
-**`docs/ui-implementation-prompts.md` § "Road to v1.0"**, which also carries the
-recommended order for the next session. The short version: the **QC playthrough
+`tools/run-tests.sh all` is **green — exit 0, 30 harnesses**. The remaining
+items, their blockers, and the recommended next-session order are in
+**`docs/ui-implementation-prompts.md` § "Road to v1.0"** (which ends with a
+copy-paste prompt for the next session). The short version: the **QC playthrough
 acceptance re-run has not executed since 2026-08-04** and is the main
 verification debt; it and the two open layout bugs (#16/#22) are blocked on the
-same **Accessibility permission**. **`/code-review` is the designated final gate
-before v1.0** and is user-invoked — an agent cannot launch it, and nothing
-should be called v1.0-complete before it has run.
+same **Accessibility permission**.
+
+**The 2026-08-05 session is committed and pushed to `main` but NOT yet
+code-reviewed.** Review range **`a9e4268..901a6ef`** (25 files, +3075/−246; the
+only `Core/` file is `Core/Data/BraggVectorEMDWriter.swift`). Plan agreed with
+the release owner: the next session drives to **v1.0 release candidate**, then a
+dedicated **review/debug session** runs against that range, and **the v1.0 tag
+goes on after it** — not before.
 
 ## Current initiative (Thread B) — start here for "what do I do next"
 

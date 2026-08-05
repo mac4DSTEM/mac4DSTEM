@@ -295,14 +295,36 @@ Not blockers, explicitly: **#18/#19/#20** (harness-confidence work), **#11**
 (WS₂, roadmap-level), **#29/#30** (recorded investigations), **#3**'s remaining
 "voltage field needs a shared home" polish.
 
-### The final gate
+### The review gate — deferred, with its baseline pinned
 
-**`/code-review` is the last test to pass before v1.0** — release owner's
-decision, 2026-08-05. Rationale: the working diff is still moving, and an
-independent review is worth most when it reviews the *final* shape rather than
-an intermediate one. It is user-invoked (an agent cannot launch it), so it is
-the release owner's explicit last action. Nothing else should be marked
-v1.0-complete until it has run and its findings are resolved.
+**Updated 2026-08-05 (evening).** The session's work was **committed and pushed
+to `main`** rather than held in the working tree — a deliberate call by the
+release owner (protect the work, review it in its own session). That changes
+*how* the review can happen, so the baseline is pinned here before it becomes
+ambiguous:
+
+> **Review range: `a9e4268..901a6ef`** — 25 files, +3075 / −246.
+> `a9e4268` ("sesion end") is the last commit before the 2026-08-05 session;
+> `ab6d303` and `901a6ef` carry all of it.
+> **The only `Core/` file in the range is
+> `mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift`** (the sandbox temp-file
+> fix). It is the one change here that `development-process.md` §2 would put
+> behind an *adversarial* review rather than an ordinary one — it is I/O
+> plumbing with no numerical effect, and `run-tests.sh all` is green including
+> `scientific-bundle-test` and `sidecar-result-test`, but it should not be
+> self-approved.
+
+**Plain `/code-review` no longer applies** — it reviews the *uncommitted*
+working diff, and the tree is now clean. Use either:
+- `git diff a9e4268..901a6ef`, read in a dedicated review session, or
+- a branch/PR made from that range, then `/code-review ultra`.
+
+**Sequencing — agreed 2026-08-05.** Next session pushes for v1.0; a dedicated
+**review/debug session** follows. To keep both intentions intact:
+next session takes the repo to **v1.0 release candidate**, the review/debug
+session runs against the range above, and **the v1.0 tag goes on after that**.
+Reviewing after tagging is the one ordering that cannot be undone; reviewing
+after RC costs nothing.
 
 ### Next session — recommended order
 
@@ -333,11 +355,12 @@ Pick up mac4DSTEM. Read CLAUDE.md, then docs/ui-implementation-prompts.md
 § "Road to v1.0" — that section has the five remaining items, their blockers,
 and the recommended order. Work that order.
 
-IMPORTANT — the working tree has ~18 uncommitted modified files from the
-2026-08-05 session. That is deliberate: they are held for the /code-review
-gate. Do NOT commit, revert, stash, or "clean up" the tree, and do not treat
-it as unfinished work to redo. Every change in it is already recorded in
-docs/ui-workflow-backlog.md with what shipped and where it deviated.
+CONTEXT — the 2026-08-05 session's work is already COMMITTED AND PUSHED to
+main (a9e4268..901a6ef, 25 files). The tree is clean; there is nothing pending
+to tidy up. That work has NOT been code-reviewed yet — a dedicated review/debug
+session follows this one, against that exact range. Every change in it is
+recorded in docs/ui-workflow-backlog.md with what shipped and where it
+deviated, so do not re-derive or redo any of it.
 
 Start with step 1: check whether Accessibility permission is granted to this
 terminal (a quick `osascript -e 'tell application "System Events" to return
@@ -352,8 +375,11 @@ work and is the most valuable thing you can find.
 If Accessibility is NOT granted, say so plainly, do not attempt to work around
 it, and go to step 3 (backlog #14) instead.
 
-Do NOT run /code-review — it is the designated final gate before v1.0 and the
-release owner invokes it themselves.
+Do NOT run /code-review — the tree is clean so it would review nothing, and
+the review is a separate session against a9e4268..901a6ef.
+
+Goal for this session: reach v1.0 RELEASE CANDIDATE, not a v1.0 tag. The tag
+goes on after the review/debug session.
 
 Follow the Task closeout checklist. Do not commit unless asked.
 ```
