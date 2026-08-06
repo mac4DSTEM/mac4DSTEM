@@ -40,7 +40,9 @@ actually missing.
 
 **Data & display.** Opens HDF5 (`.h5`/`.hdf5`/`.emd` — py4DSTEM, Gatan,
 HyperSpy, and arbitrary EMD layouts via link traversal), Gatan DM3/DM4
-directly, plus Preview-tier EMPAD RAW/XML and Merlin MIB readers. HDF5 is
+directly (tag layout and the parts of it the reader relies on:
+[`docs/dm4-format.md`](docs/dm4-format.md)), plus Preview-tier EMPAD RAW/XML
+and Merlin MIB readers. HDF5 is
 loaded at runtime via `dlopen` (no link-time dependency — see
 [HDF5 notes](#hdf5)). GPU-rendered CBED viewer with colormap LUTs, log
 scaling, per-view contrast/gamma, zoom, and calibrated 1-2-5 scale bars.
@@ -197,22 +199,20 @@ audit; Developer ID signing and notarization require release-owner credentials
 
 ## Known limitations
 
-- **Layout can collapse after a task switch (open bug, backlog #16/#22).**
-  Switching task inside the Image workspace can lay the window's content out
-  about one titlebar-height too high: the top rows draw under the traffic
-  lights and stop responding to clicks, because the titlebar hit-tests above
-  them. Navigating away and back clears it. Interaction and cosmetic only — no
-  result is affected. Reproduced deterministically under UI automation on
-  2026-08-05; the trigger is isolated and the fix is not in yet.
 - **Tiles are expanded to float32.** Peak memory is bounded, but native-dtype
   tile kernels (e.g. uint16) would reduce reader bandwidth and staging memory.
 - **`AppState` remains a large workflow facade.** Operation lifecycle is
   extracted (`AnalysisOperationController`); file I/O orchestration,
   calibration, analysis dispatch, and result publication still need
   incremental extraction as their campaigns touch them.
-- **Metal commands cannot be interrupted after submission.** Cancel invalidates
-  the result immediately; the in-flight GPU command finishes in the background.
-  CPU loops stop cooperatively at row/template boundaries.
+- **Metal commands cannot be interrupted after submission.** Cancel discards
+  *the cancelled run's* result immediately — nothing partial is ever published —
+  while the in-flight GPU command finishes in the background. CPU loops stop
+  cooperatively at row/template boundaries. A **previously completed** result is
+  deliberately kept rather than thrown away, and the status line names what was
+  retained; if it no longer matches the settings in the panel, the viewer says
+  so (backlog #34). Cancelling a long GPU pass can still take a noticeable
+  moment (#37).
 - **Session rehydration is pixel/metadata-level.** Saved maps, calibration, and
   BraggVectors restore; the app does not reconstruct every transient scientific
   array or create EMD plot nodes.

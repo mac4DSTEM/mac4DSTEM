@@ -13,6 +13,18 @@ struct StemImageView: View {
     @State private var zp = ZoomPanState()
     @State private var cursorSample: ProductSample?
 
+    /// Name of the image+overlay container's coordinate space. The scan-marker
+    /// handle reads its drag here rather than in `.local`, which for a
+    /// `.position`ed view is that view's own frame, not the image's.
+    private static let imageSpace = "realSpaceImage"
+
+    /// Zoomed in means pan owns a plain drag and the marker owns its handle
+    /// (backlog #35). See `RealSpacePointerPolicy` for why zooming *out* is
+    /// deliberately still the scrub mode.
+    private var isZoomed: Bool {
+        RealSpacePointerPolicy.mode(zoom: zp.effectiveZoom) == .panAndGrab
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             header
@@ -46,24 +58,36 @@ struct StemImageView: View {
         return true
     }
 
+    /// Everything in this row is single-line on purpose. A wrapping title or a
+    /// wrapping cursor readout changes the header's *height*, which moves both
+    /// image panes — the pane header is not a place to let content decide
+    /// layout. The title yields first because it is the one thing also named by
+    /// the workspace header directly above.
     private var header: some View {
         HStack {
             Text(app.displayedResultName)
                 .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(app.displayedResultName)
                 .accessibilityIdentifier("result.title")
             statusBadge
+            staleBadge
             qualityToggle
             orientationControl
-            Spacer()
+            zoomModeBadge
+            Spacer(minLength: 8)
             if let r = resultSize {
                 Text("\(r.width) × \(r.height)")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+                    .fixedSize()
             }
             if app.displayedProduct?.domain == .detector {
                 Text("qᵧ →  ·  qₓ ↓")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+                    .fixedSize()
                     .help("App detector columns are py4DSTEM qy; rows are qx.")
                     .accessibilityLabel("Detector axes: q y increases right, q x increases down")
             }
@@ -71,8 +95,32 @@ struct StemImageView: View {
                 Text(sample.accessibilityText)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
                     .accessibilityIdentifier("result.cursorReadout")
             }
+        }
+    }
+
+    /// Zooming in changes who owns a drag (#35), and a mode nobody can see is
+    /// just confusing — so the pane says which one it is in, and how to leave.
+    @ViewBuilder
+    private var zoomModeBadge: some View {
+        if isZoomed, mapsScanPositions {
+            Text("PAN · ×\(zp.effectiveZoom, specifier: "%.1f")")
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.accentColor.opacity(0.85), in: Capsule())
+                .fixedSize()
+                .help("Zoomed in: drag to pan, drag the white marker to move the "
+                      + "scan position, double-click to reset. At 1× a click "
+                      + "anywhere moves the scan position.")
+                .accessibilityLabel(
+                    "Zoomed to \(String(format: "%.1f", zp.effectiveZoom)) times; "
+                        + "dragging pans, and the scan position moves by its marker handle"
+                )
+                .accessibilityIdentifier("result.zoomModeBadge")
         }
     }
 
@@ -87,6 +135,29 @@ struct StemImageView: View {
         } else if let status = app.displayedProduct?.quantitativeStatus {
             statusCapsule(text: status.rawValue.capitalized, color: statusColor(status))
                 .accessibilityLabel("Interpretation status: \(status.rawValue.capitalized)")
+        }
+    }
+
+    /// The displayed Bragg-vector map was produced by settings the Bragg panel
+    /// no longer holds (backlog #34).
+    ///
+    /// The app already knew this — `diskDetectionSettingsAreStale` gates strain
+    /// and ACOM, and the sidebar says "Full-scan peaks use earlier settings" —
+    /// but the *result pane* said nothing, so a map left over from an earlier
+    /// run (including one left behind by a cancelled re-run) read as the current
+    /// one. A displayed result has to carry its own validity (ROADMAP P1.1);
+    /// being correct in a panel the user is not looking at does not count.
+    @ViewBuilder
+    private var staleBadge: some View {
+        if app.analysisMode == .disks, app.diskDetectionSettingsAreStale,
+           app.displayedResultKind == "bragg_vector_map" {
+            statusCapsule(text: "Earlier settings", color: .orange)
+                .help("This map was produced by the previous detection settings. "
+                      + "Run Detect All Disks again to bring it up to date.")
+                .accessibilityLabel(
+                    "Stale: this map was produced by earlier detection settings"
+                )
+                .accessibilityIdentifier("result.staleBadge")
         }
     }
 
@@ -232,8 +303,13 @@ struct StemImageView: View {
                         .frame(width: imageBox.width, height: imageBox.height)
                         .background(Color.black)
 
-                    // Transparent hit layer for click-to-select scan position.
-                    if mapsScanPositions {
+                    // Who owns a plain drag here depends on zoom (#35). At zoom
+                    // 1 the whole pane scrubs, exactly as before. Zoomed in, the
+                    // scrub layer is not mounted at all — that is what lets the
+                    // drag fall through to `zoomPan` and finally makes a zoomed
+                    // real-space image pannable — and the marker gets its own
+                    // grab handle instead.
+                    if mapsScanPositions, !isZoomed {
                         selectionLayer(box: imageBox, imgW: dims.width, imgH: dims.height)
                             .frame(width: imageBox.width, height: imageBox.height)
                     }
@@ -251,6 +327,7 @@ struct StemImageView: View {
                     }
                 }
                 .frame(width: imageBox.width, height: imageBox.height)
+                .coordinateSpace(name: Self.imageSpace)
                 .contentShape(Rectangle())
                 .onContinuousHover { phase in
                     switch phase {
@@ -438,6 +515,8 @@ struct StemImageView: View {
         .allowsHitTesting(false)
     }
 
+    /// Whole-pane click/drag scrubbing. Mounted only at zoom 1 (#35) — the
+    /// gesture that a user makes a hundred times a session, unchanged.
     private func selectionLayer(box: CGSize, imgW: Int, imgH: Int) -> some View {
         // Drag (or click) to move the scan position live — the diffraction pane
         // streams the pattern as you go. minimumDistance 0 → a click also works.
@@ -447,27 +526,58 @@ struct StemImageView: View {
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                     .onChanged { value in
-                        let fx = value.location.x / box.width
-                        let fy = value.location.y / box.height
-                        let x = Int((fx * CGFloat(imgW)).rounded(.down))
-                        let y = Int((fy * CGFloat(imgH)).rounded(.down))
-                        app.scrubTo(x: x, y: y)
+                        // Same mapping the marker handle uses, so a click and a
+                        // handle drag can never disagree about which pixel a
+                        // point is in.
+                        let scan = RealSpacePointerPolicy.scanPosition(
+                            at: value.location,
+                            imageWidth: imgW, imageHeight: imgH, box: box
+                        )
+                        app.scrubTo(x: scan.x, y: scan.y)
                     }
             )
     }
 
     @ViewBuilder
     private func crosshair(box: CGSize, imgW: Int, imgH: Int) -> some View {
-        let px = (CGFloat(app.selectedScan.x) + 0.5) / CGFloat(imgW) * box.width
-        let py = (CGFloat(app.selectedScan.y) + 0.5) / CGFloat(imgH) * box.height
+        let center = RealSpacePointerPolicy.markerCenter(
+            scan: app.selectedScan, imageWidth: imgW, imageHeight: imgH, box: box
+        )
         // Double-stroke marker so it reads on any colormap / brightness.
+        // Zoomed in it is also the *only* way to move the scan position, so it
+        // gains a filled centre and a larger target — the same white centre
+        // handle vocabulary `ApertureControl` uses in the diffraction pane.
         ZStack {
+            if isZoomed {
+                Circle().fill(Color.white)
+                    .overlay(Circle().stroke(Color.black.opacity(0.6), lineWidth: 1))
+                    .frame(width: 12, height: 12)
+            }
             Circle().stroke(Color.black.opacity(0.75), lineWidth: 3.5)
             Circle().stroke(Color.white, lineWidth: 1.5)
         }
-        .frame(width: 11, height: 11)
-        .position(x: px, y: py)
-        .allowsHitTesting(false)
+        .frame(width: isZoomed ? 20 : 11, height: isZoomed ? 20 : 11)
+        .contentShape(Circle())
+        .position(x: center.x, y: center.y)
+        // Reading the drag in the image container's own named space rather than
+        // `.local` — `.local` on a `.position`ed view is that view's own 20pt
+        // frame, which would make the mapping below silently wrong.
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.imageSpace))
+                .onChanged { value in
+                    let scan = RealSpacePointerPolicy.scanPosition(
+                        at: value.location,
+                        imageWidth: imgW, imageHeight: imgH, box: box
+                    )
+                    app.scrubTo(x: scan.x, y: scan.y)
+                },
+            including: isZoomed ? .all : .none
+        )
+        .allowsHitTesting(isZoomed)
+        .accessibilityHidden(!isZoomed)
+        .accessibilityLabel("Scan position marker")
+        .accessibilityHint("Drag to move the selected scan position")
+        .accessibilityIdentifier("result.scanMarkerHandle")
     }
 
     /// Rectangle / circle ROI centered on the selected scan position, with a

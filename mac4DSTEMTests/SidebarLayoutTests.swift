@@ -84,6 +84,21 @@ final class SidebarLayoutTests: XCTestCase {
                     + "expected \(-inset). At origin 0 the first rows render under the "
                     + "titlebar, which hit-tests above them and swallows their clicks."
             )
+            // The clip-origin assertion above is NOT sufficient, and believing it
+            // was cost this bug five months. #16's real mechanism turned out to
+            // be the sidebar's *frame* growing taller than the window while its
+            // clip origin stayed perfectly correct — so every assertion here
+            // passed with the collapse on screen. Measured 2026-08-06: 1291.5pt
+            // of scroll view in a 923pt window. `SplitViewHeightTests` owns this
+            // invariant properly; this is the tripwire on the path that was
+            // already being driven.
+            let available = window.contentRect(forFrameRect: window.frame).height
+            XCTAssertLessThanOrEqual(
+                scroll.bounds.height, available + 1,
+                "\(stage): sidebar scroll view is \(scroll.bounds.height)pt inside a "
+                    + "\(available)pt window — a correct clip origin inside an "
+                    + "oversized frame still puts the top rows off-screen (#16/#22)."
+            )
         }
 
         assertSidebarTopIsBelowTheTitlebar("baseline · Prepare")

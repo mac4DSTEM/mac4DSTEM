@@ -74,7 +74,6 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
     var isAdvanced: Bool { self == .ptychography }
-    var pickerName: String { isAdvanced ? "\(rawValue) · Advanced" : rawValue }
 }
 
 enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
@@ -1100,7 +1099,6 @@ final class AppState {
     @ObservationIgnored private let operationController = AnalysisOperationController()
     /// Short label and unit budget for the performance panel.
     var activeOperation: String? { operationController.name }
-    var activeOperationTotalUnits: Int? { operationController.totalUnits }
 
     var canCancelActiveOperation: Bool {
         isBusy && operationController.hasActiveOperation
@@ -1637,6 +1635,10 @@ final class AppState {
         scanNavigationVersion = 0
         restoredResultInfo = nil
         sessionInventory = .empty
+        // Viewer-level inspection state belongs to the product being inspected,
+        // not to the app. Left set, it carried a previous dataset's "show me the
+        // fit residual instead" into a fresh file.
+        inspectQualityField = false
         comField = nil
         probeKernel = nil
         braggVectors = nil
@@ -3283,44 +3285,53 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
 
         let d = descriptor
-        do {
-            let epoch = datasetEpoch
-            let vectors = await DiskDetection.detectAll(
-                data: fourD, descriptor: d, kernel: kernel,
-                params: params, cancellation: cancellation
-            ) { [weak self] fraction in
-                Task { @MainActor [weak self] in
-                    guard let self,
-                          self.isCurrentOperation(cancellation),
-                          !cancellation.isCancelled else { return }
-                    self.progress = fraction
-                    self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
-                }
+        // No `do`/`catch` here, unlike the other analyses: `detectAll` reports
+        // failure by returning nil rather than by throwing.
+        let epoch = datasetEpoch
+        let vectors = await DiskDetection.detectAll(
+            data: fourD, descriptor: d, kernel: kernel,
+            params: params, cancellation: cancellation
+        ) { [weak self] fraction in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.isCurrentOperation(cancellation),
+                      !cancellation.isCancelled else { return }
+                self.progress = fraction
+                self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
             }
-            guard epoch == datasetEpoch else { return }
-            if cancellation.isCancelled {
-                statusText = "Disk detection cancelled"
-                return
-            }
-            guard let vectors else {
-                presentComputeFailure(SimpleError("Disk detection failed to initialize its FFT plan."))
-                return
-            }
-            braggVectors = vectors
-            completedDiskParams = params
-            completedDiskSummary = DiskDetectionScanSummary(
-                vectors: vectors, maximumPeaks: params.maxNumPeaks
-            )
-            braggPeakCount = vectors.totalPeakCount
-            showBraggMap(vectors, descriptor: d)
-            if vectors.totalPeakCount == 0 {
-                // An empty result is a dead end unless it points at the
-                // evidence: the live acceptance funnel and scan summary in
-                // the Bragg panel show which filter removed everything.
-                statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
-            } else {
-                statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
-            }
+        }
+        guard epoch == datasetEpoch else { return }
+        if cancellation.isCancelled {
+                // `DiskDetection.detectAll` returns nil on cancellation — never
+                // a partial `BraggVectors` — so nothing here is a half-finished
+                // result. What stays on screen is the PREVIOUS completed run,
+                // and saying so is the difference between this and the silent
+                // "it showed a Bragg vector map regardless" the release owner
+            // reported (backlog #34). Every other cancellable step in this
+            // file already names what it retained; this one did not.
+            statusText = braggVectors == nil
+                ? "Disk detection cancelled — no peaks were published"
+                : "Disk detection cancelled; the previous full-scan peaks are still shown"
+            return
+        }
+        guard let vectors else {
+            presentComputeFailure(SimpleError("Disk detection failed to initialize its FFT plan."))
+            return
+        }
+        braggVectors = vectors
+        completedDiskParams = params
+        completedDiskSummary = DiskDetectionScanSummary(
+            vectors: vectors, maximumPeaks: params.maxNumPeaks
+        )
+        braggPeakCount = vectors.totalPeakCount
+        showBraggMap(vectors, descriptor: d)
+        if vectors.totalPeakCount == 0 {
+            // An empty result is a dead end unless it points at the
+            // evidence: the live acceptance funnel and scan summary in
+            // the Bragg panel show which filter removed everything.
+            statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
+        } else {
+            statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
         }
     }
 

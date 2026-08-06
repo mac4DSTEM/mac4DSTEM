@@ -1138,13 +1138,6 @@ struct ContentView: View {
         .accessibilityIdentifier("dataset.card")
     }
 
-    /// Diffraction left, real space right — always.
-    ///
-    /// #17a briefly made this axis follow the scan aspect (a 200×50 map fills
-    /// far more of a wide, short pane). The release owner rejected it on sight:
-    /// the side-by-side arrangement is part of what the app *is*, and having it
-    /// change under a dataset is worse than an under-filled pane. Kept as two
-    /// named panes only so the split is readable.
     /// After a failed strain run, offer the *one* control that addresses the
     /// cause rather than restating both possibilities (backlog #5b, #8b).
     @ViewBuilder
@@ -1217,6 +1210,12 @@ struct ContentView: View {
         }
     }
 
+    /// Diffraction left, real space right — always.
+    ///
+    /// #17a briefly made this axis follow the scan aspect (a 200×50 map fills
+    /// far more of a wide, short pane). The release owner rejected it on sight:
+    /// the side-by-side arrangement is part of what the app *is*, and having it
+    /// change under a dataset is worse than an under-filled pane.
     private var imagePanes: some View {
         HSplitView {
             diffractionPane.frame(minWidth: 170)

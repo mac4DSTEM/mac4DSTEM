@@ -8,18 +8,20 @@ not duplicate the docs; it tells you what to read and where things go.
 **The v1.0 development phase is closed.** Which prompt you want depends on what
 you're doing:
 
-**Finishing v1.0** (review, the #16 layout bug, distribution):
+**Finishing v1.0** (review, distribution):
 ```
 Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-onramp.md § "Where v1.0 ended"
-and § "Open threads". The three outstanding items are backlog #16/#22 (layout
-collapses on a task switch — trigger isolated, do not re-attempt an in-process
-reproduction, it has failed six times), the QC playthrough acceptance re-run
-(blocked on #16, not on permission any more), and the distribution final mile
+and § "Open threads". Backlog #16/#22 is FIXED (2026-08-06) and pinned by
+mac4DSTEMTests/SplitViewHeightTests — what remains of it is one on-screen
+tools/ui-qc-playthrough/run.sh to confirm step 3b passes on the real app.
+Then the QC playthrough acceptance diff, and the distribution final mile
 (release-owner credentials).
 
-Everything awaiting review is committed — review range a9e4268..9c940d1 (the
-UI session, plus 9c940d1 for the #14 CIF fix). The v1.0 tag goes on after that
-review, not before. Do not commit unless I ask.
+Everything awaiting review is committed — review range a9e4268..HEAD (the UI
+session, 9c940d1 for the #14 CIF fix, and everything after; d47afb5 hides an
+app-code change behind a "changes to .md" message, so review by range, not by
+commit message). The v1.0 tag goes on after that review, not before. Do not
+commit unless I ask.
 ```
 
 **Opening a second development phase:**
@@ -70,25 +72,37 @@ read that before planning anything new.
 
 Three things are outstanding, and they are different in kind:
 
-1. **Backlog #16/#22 — layout collapses on a task switch.** Reproduced
-   deterministically 2026-08-05 by real synthesized input, once Accessibility
-   was granted, and the trigger is isolated to a single click. It gates the QC
-   playthrough at step 3b. Not a correctness bug; it is the one thing that
-   would read badly in a release.
+1. **Backlog #16/#22 — ✅ FIXED 2026-08-06.** The cause was a single
+   `.fixedSize(horizontal: false, vertical: true)` in
+   `UI/TaskPrerequisiteChecklist.swift`: an unbounded vertical text demand in
+   the detail column propagated a minimum height *past the window's own*, so
+   both columns were laid out taller than the window and their top rows fell
+   off it. It was never a scroll offset — which is why six attempts that
+   measured the offset all found it correct. Pinned by
+   `mac4DSTEMTests/SplitViewHeightTests` (no screen needed; verified to fail
+   3/3 without the fix). **Outstanding: one on-screen playthrough to confirm
+   the real app now gets past step 3b.**
 2. **The QC playthrough acceptance re-run** — still has not produced a clean
-   diff since 2026-08-04. No longer blocked on permission (granted); now
-   blocked on #16. See `docs/v2-onramp.md` § "The one thing to do first".
+   diff since 2026-08-04. The two things that blocked it are gone (permission,
+   then #16); note the Accessibility grant is keyed to a *version-scoped* path
+   and lapses on every Claude Code update. See `docs/v2-onramp.md` § "The one
+   thing to do first".
 3. **Distribution final mile** — Developer ID signing, notarization, and a
    clean-account launch. Release-owner actions, credentials required.
 
-**Everything awaiting review is now committed. Review range:
-`a9e4268..9c940d1`.** Two bodies of work inside it:
+**Everything awaiting review is committed. Review range: `a9e4268..HEAD`.**
+Three bodies of work inside it:
 - **`a9e4268..901a6ef`** — the 2026-08-05 UI session (25 files, +3075/−246; the
   only `Core/` file is `Core/Data/BraggVectorEMDWriter.swift`, I/O plumbing).
 - **`9c940d1`** — the backlog #14 CIF fix (`Core/Crystal/CIFImport.swift`,
   `Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift`).
   Already took its adversarial review, which refuted the first version; it
   needs only the ordinary read.
+- **`d47afb5` onward** — **use `HEAD`, not a pinned hash.** `d47afb5` is titled
+  "changes to .md" but also carries the backlog **#33** fix in
+  `UI/ContentView.swift`. Reviewing the literal range `a9e4268..9c940d1` that
+  this file used to name would have skipped it. If you commit app code, extend
+  the range rather than trusting the message.
 
 A dedicated **review/debug session** runs against that range, and **the v1.0
 tag goes on after it** — not before.
@@ -111,7 +125,11 @@ wrong structure factors for imported CIFs) is **closed**.
   (also holds the app-vs-py4DSTEM findings §7, the scope/roadmap §8, and the
   empirical run findings §9).
 - **The UI backlog these findings produced:** `docs/ui-workflow-backlog.md`
-  (13 ranked items, each tagged UI-only vs workflow-logic, core-untouched).
+  — now the repo's general open-items record, not only the QC findings: 43
+  numbered entries, most closed, each tagged with its layer. Items #1–#13 are
+  the original QC-derived, contractually core-untouched set; later ones include
+  hands-on reports (#33–#37), adversarial-review findings (#31, #32) and code
+  review (#38–#40, #43), some of which *do* touch `Core/` and say so.
 - **The harness + how to run it:** `mac4DSTEMUITests/` +
   `tools/ui-qc-playthrough/run.sh [dataset-substring]`. It is now the
   **acceptance test** for the implementation phase; baseline to diff against is

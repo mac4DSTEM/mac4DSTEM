@@ -23,6 +23,40 @@ struct TaskPrerequisiteChecklist: View {
     @Environment(AppState.self) private var appState
     @State private var isExpanded = false
 
+    /// **Do not remove the `lineLimit` this constant feeds. It is the fix for
+    /// backlog #16/#22, and without it the window's layout collapses.**
+    ///
+    /// Every wrapping `Text` in this view carries
+    /// `.fixedSize(horizontal: false, vertical: true)` so its explanation is not
+    /// truncated — this checklist is the *single owner* of readiness (#21), so
+    /// silently cutting it off is not acceptable. But `fixedSize(vertical:)`
+    /// means "give me whatever height my content needs at the proposed width",
+    /// and measured at a narrow proposed width these strings wrap to many lines.
+    /// That turns into a **hard minimum height** which propagates up through the
+    /// detail column, the outer `NSSplitView` and the hosting view — *past the
+    /// window's own height*. The sidebar then inherits a column taller than the
+    /// window, its top rows are laid out off-screen, and the titlebar hit-tests
+    /// over them: exactly the reported "controls go inert / rows draw across the
+    /// traffic lights".
+    ///
+    /// Measured 2026-08-06 in a 1470 × 923 window: switching Image → DPC took
+    /// the sidebar scroll view to **1291.5 pt** and the root's `fittingSize` to
+    /// **1343.5 pt**. Capping the wrap caps the demand and both return to 923.
+    ///
+    /// This view is the only place in the app where an unbounded vertical text
+    /// demand sits in the detail column outside a scroll view — the other 18
+    /// `fixedSize` sites are inside the sidebar `List`, which scrolls, so they
+    /// are harmless. Pinned by
+    /// `SplitViewHeightTests.testNothingIsLaidOutTallerThanTheWindowOnATaskSwitch`.
+    ///
+    /// Four rather than three: at the narrowest supported detail column the
+    /// longest of these strings (the satisfied summary, which concatenates every
+    /// met requirement) needs about three, so four leaves headroom while still
+    /// bounding the demand. A cap does not *force* lines — short strings are
+    /// unaffected — so a generous cap costs nothing and only removes the
+    /// pathological case.
+    private static let explanationLineLimit = 4
+
     private var items: [TaskPrerequisite] {
         ProductWorkflow.prerequisiteItems(
             for: appState.analysisMode,
@@ -106,6 +140,7 @@ struct TaskPrerequisiteChecklist: View {
             )
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .lineLimit(Self.explanationLineLimit)   // #16 — see the constant
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("workspace.prerequisites.satisfied")
         }
@@ -120,6 +155,7 @@ struct TaskPrerequisiteChecklist: View {
                 Text(item)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(Self.explanationLineLimit)   // #16 — see the constant
                     .fixedSize(horizontal: false, vertical: true)
             }
             Button("Improve in Prepare") { appState.selectWorkspace(.prepare) }
@@ -162,6 +198,7 @@ struct TaskPrerequisiteChecklist: View {
             Text(hint)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(Self.explanationLineLimit)   // #16 — see the constant
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("workspace.prerequisite.\(item.id).hint")
         }

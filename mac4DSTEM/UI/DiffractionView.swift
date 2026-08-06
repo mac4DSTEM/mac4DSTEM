@@ -27,10 +27,18 @@ struct DiffractionView: View {
         .padding(8)
     }
 
+    /// The Current/Mean/Max picker used to be a **centered `.overlay`** on this
+    /// row. An overlay does not participate in the row's layout, so at the
+    /// 360pt minimum pane width the ~170pt `fixedSize` picker was drawn straight
+    /// through the "Diffraction (CBED)" title and the size readout — it only
+    /// looked correct on a wide window. It is a row member now, so the HStack
+    /// budgets space for it and the title truncates instead of being overdrawn.
     private var header: some View {
         HStack {
             Text("Diffraction (CBED)")
                 .font(.headline)
+                .lineLimit(1)
+                .layoutPriority(-1)
             // A summed pattern must never look like a single-position one:
             // the ROI sum silently drives the probe kernel and the current-CBED
             // peak count (#24).
@@ -47,31 +55,33 @@ struct DiffractionView: View {
                     .accessibilityLabel("Showing a region-summed pattern, not a single scan position")
                     .accessibilityIdentifier("pattern.roiSumBadge")
             }
-            Spacer()
+            Spacer(minLength: 8)
+            // Mean/max become meaningful once calibration computes them.
+            if app.meanPattern != nil {
+                Picker("Pattern source", selection: Bindable(app).patternDisplayMode) {
+                    ForEach(PatternDisplayMode.allCases) { m in
+                        Text(m.rawValue).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityLabel("Pattern source")
+                .accessibilityIdentifier("pattern.displayMode")
+            }
             if app.fitOverlayIsAvailable {
                 Toggle("Fit overlay", isOn: Bindable(app).showFitOverlay)
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .font(.caption)
+                    .fixedSize()
                     .help("Draw the fitted model (origin/ellipse, strain lattice, or matched template) over the pattern.")
             }
             if let p = app.displayedPattern {
                 Text("\(p.qx) × \(p.qy)")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
-            }
-        }
-        // Mean/max become meaningful once calibration computes them; the picker
-        // is centered over the pattern rather than crammed against the size.
-        .overlay {
-            if app.meanPattern != nil {
-                Picker("", selection: Bindable(app).patternDisplayMode) {
-                    ForEach(PatternDisplayMode.allCases) { m in
-                        Text(m.rawValue).tag(m)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
+                    .fixedSize()
             }
         }
     }

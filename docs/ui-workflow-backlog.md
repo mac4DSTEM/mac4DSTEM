@@ -1,13 +1,35 @@
 # mac4DSTEM UI / Workflow Backlog
 
-Ranked, actionable changes derived from evaluating the app against the
-canonical py4DSTEM pipelines (see `docs/py4dstem-pipelines.md` §7–§9). Every
-item is a **workflow-layer or presentation-layer** change — the scientific
-core in `Core/` is untouched, and each item says so explicitly.
+The repo's item-level record of open and closed work. It **started** as the
+ranked output of evaluating the app against the canonical py4DSTEM pipelines
+(`docs/py4dstem-pipelines.md` §7–§9) and has since become the general place
+findings land, whatever found them.
 
 **Layer key:** `UI` = SwiftUI views only (`mac4DSTEM/UI/`). `WF` = workflow
 state/sequencing (`mac4DSTEM/App/AppState.swift`,
-`mac4DSTEM/App/ProductWorkflow.swift`). No item touches `Core/`.
+`mac4DSTEM/App/ProductWorkflow.swift`).
+
+**Read the "Core untouched" line on each item; do not assume.** Items **#1–#13**
+are the original QC-derived set and are contractually UI/workflow-only, which is
+what makes them safe to hand out as implementation prompts. Later items are not
+all in that category: **#11, #14, #15, #31, #32** are `Core/Crystal`, **#37** is
+`Core/Compute`, and **#36** needs the reader to report progress. Anything
+touching `Core/` needs an adversarial review *and* a `tools/` fixture — see
+`CLAUDE.md`. Ideas that are out of v1 scope *and* touch `Core/` live in
+`docs/post-v1-ideas.md` instead, deliberately.
+
+## What is actually still open
+
+Everything else on this page is closed. As of **2026-08-06**:
+
+| Item | What it needs |
+|---|---|
+| **#16 / #22** | Cause found and fixed 2026-08-06 (one modifier — see the entry). **Outstanding: one on-screen `tools/ui-qc-playthrough/run.sh sim_Au` to confirm step 3b now passes.** |
+| **#36, #37, #38, #39, #43** | Ordinary work, scoped and ready. #43 is a gate defect, not an app one. |
+| **#40** | A decision from the release owner about which surface owns Q calibration. |
+| **#11, #15, #31, #32** | `Core/Crystal`; #11 is a roadmap-level scope question, the rest are small and known. |
+| **#18, #19, #20** | Harness confidence and acquisition parameters, not app defects. |
+| **#29, #30** | Recorded investigations; no change proposed yet. |
 
 **Evidence base:** the clean `sim_Au` run (§9.1 of the pipelines doc) plus
 the earlier failed runs. The failures were all in the *test automation*, but
@@ -24,7 +46,11 @@ prerequisite that the Reconstruct task never names.
 
 ---
 
-## Recommended first three
+## Recommended first three — ✅ ALL THREE CLOSED 2026-08-04/05
+
+**Kept only as the record of what the evaluation phase judged most important.**
+For what to do next, use the *"What is actually still open"* table above, not
+this list.
 
 1. **#7 Reconstruct prerequisite checklist** — a disabled button with no
    explanation, on 4/4 datasets. The single largest dead end measured so far.
@@ -32,7 +58,7 @@ prerequisite that the Reconstruct task never names.
    MED-LOW on new evidence: the automatic whole-scan basis is the *only* thing
    standing between three datasets and a strain map, and the app already has
    the controls that would fix it.
-3. **#1 ACOM prerequisite gating** — same pattern as #7, still unfixed, and
+3. **#1 ACOM prerequisite gating** — same pattern as #7, and
    the thing that silently produced nothing in the earliest runs.
 
 All three are the same class of problem — *the app knows exactly what is
@@ -1183,7 +1209,7 @@ session save-and-reopen check.
 
 ---
 
-## #22 — Layout breaks when panes are toggled or the tools pane is dragged wide
+## #22 — Layout breaks when panes are toggled or the tools pane is dragged wide  ·  ✅ Same bug as #16 — fixed 2026-08-06
 
 **Reported by the release owner 2026-08-05**, reviewing the design-pass build.
 Two symptoms, both horizontal analogues of **#16**:
@@ -1260,7 +1286,7 @@ aligned monospaced value instead of being baked into the label text.
 
 ---
 
-## #16 — Controls intermittently unresponsive; navigating away and back clears it
+## #16 — Controls intermittently unresponsive; navigating away and back clears it  ·  ✅ Cause found & fixed 2026-08-06 (on-screen confirmation outstanding)
 
 **✅ REPRODUCED DETERMINISTICALLY 2026-08-05 (evening), by real synthesized
 input, after Accessibility was granted.** This is the first reproduction after
@@ -1274,7 +1300,210 @@ every dataset that reaches it, with
 `References/training_runs/run_2026-08-05_2012/` holds two `ERROR_state.png`
 captures — the evidence, kept deliberately.
 
-**What the screenshots show — and it is #22's third report, not just #16.**
+### ✅ MECHANISM FOUND 2026-08-06 — it is NOT a scroll offset, and never was
+
+**Instrumented run `run_2026-08-06_0120`.** A temporary probe
+(`Support/LayoutDiagnostics.swift`, inert without `--layout-diagnostics`) dumped
+the sidebar `NSScrollView`'s geometry on every task/workspace change. The two
+captures either side of the `task.DPC` click — timestamped 01:22:10–01:22:47,
+three seconds before `ERROR_state.png` at 01:22:50, so unambiguously the failing
+state:
+
+```
+[task→DPC immediate] window 1470.0 x 923.0  contentLayoutRect y=0.0 h=871.0  titlebarInset=52.0
+    scroll[0] x=0 w=325 h=923  | insetTop=52.0 clipOriginY=-52.0 expected=-52.0 DRIFT=+0.0 | docH=871.0   clipH=923.0
+[task→DPC settled]   window 1470.0 x 923.0  contentLayoutRect y=0.0 h=871.0  titlebarInset=52.0
+    scroll[0] x=0 w=325 h=1154 | insetTop=52.0 clipOriginY=-52.0 expected=-52.0 DRIFT=+0.0 | docH=1102.5 clipH=1154.5
+```
+
+**Three facts, and each one kills a standing hypothesis:**
+
+1. **`DRIFT = +0.0` at every single capture.** The clip origin is *exactly*
+   `-contentInsets.top` before, during and after the collapse. **The scroll
+   offset is never wrong.** Every scroll-offset hypothesis — the seven refuted
+   triggers, the top-overscroll theory, and the `.scrollBounceBehavior` fix
+   shipped defensively against it — was aimed at something that is not
+   happening. `docH (1102.5) < clipH (1154.5)`, so the sidebar has nothing to
+   scroll and is not scrolled.
+2. **`titlebarInset = 52.0` and `contentLayoutRect y=0 h=871` are identical
+   before and after.** The titlebar safe area does not collapse. The window does
+   not move or resize (1470 × 923 throughout).
+3. **The sidebar scroll view grows from `h=923` to `h=1154.5` — inside a 923 pt
+   window.** It is laid out **231.5 pt taller than the window that contains it**,
+   so its content necessarily extends above the visible area. That is the
+   collapse: the top rows are drawn off the top of the window, and the titlebar
+   hit-tests over what remains.
+
+**So the bug is that the split view is given more height than the window**, and
+both columns inherit it — which is exactly what #22's third report described
+("three things losing their top at once — the sidebar's upper rows, the detail
+column's entire workspace header, and the inspector's upper rows") and what the
+screenshot measurement below shows from the outside.
+
+**Why every previous attempt missed it:** they measured the scroll offset, which
+is correct, rather than the scroll view's *frame*, which is not. The
+2026-08-05 hosted test asserting `clipOrigin == -contentInsets.top` passes in the
+collapsed state — it would have gone green with the bug on screen.
+
+### 🎯 CAUSE FOUND 2026-08-06 — one modifier, bisected in a hosted test
+
+**It reproduces in-process** — `mac4DSTEMTests/SplitViewHeightTests.swift`, no
+screen needed. The six earlier in-process attempts failed because they hunted the
+*scroll offset*, which is correct; a frame height is a pure layout property and
+reproduces immediately. Driven with `openDemoFixture(calibrated: false)`, because
+the click only changes the layout when `guidance(for: .dpc, …)` is non-empty.
+
+**Measured, window 1470 × 923:**
+
+| Variant | sidebar scroll h | root `fittingSize.h` | verdict |
+|---|---|---|---|
+| Virtual imaging (baseline) | 923 | 226 | healthy |
+| **after switch to DPC** | **1291.5** | **1343.5** | **collapsed** |
+| `imagePanes`: `HSplitView` → `HStack` | 1291.5 | 1343.5 | **no effect — refuted** |
+| `TaskPrerequisiteChecklist` → `EmptyView` | 923 | 227 | healthy |
+| guidance `Text`: drop `.fixedSize(…vertical: true)` | 923 | 277.5 | healthy |
+| guidance `Text`: add `.lineLimit(3)`, keep `fixedSize` | 923 | 315.5 | healthy |
+
+**The cause is a single modifier**: `.fixedSize(horizontal: false, vertical: true)`
+on the guidance `Text` in `TaskPrerequisiteChecklist.limitedInterpretation`.
+`fixedSize(vertical:)` means *"never compress me — give me whatever height my
+content needs at the proposed width."* Measured at a narrow proposed width the
+text wraps to many lines, and `fixedSize` turns that into a **hard minimum
+height** which propagates up through the detail column → the outer `NSSplitView`
+→ the hosting view, past the window's own height. Everything else — the sidebar,
+the panes — merely inherits the split view's height. Bounding the wrap
+(`lineLimit(3)`) bounds the demand, which is what confirms the mechanism rather
+than merely correlating with it.
+
+This also explains every otherwise-puzzling observation: the scroll offset is
+never wrong because **nothing scrolls**; the titlebar inset never collapses
+because the window never changes; and the sidebar's top rows go off-screen only
+because the *column* is taller than the window.
+
+**Why this one interaction, and why #22 is the same bug.** The app has 22
+`.fixedSize(horizontal: false, vertical: true)` sites, but 18 are inside the
+sidebar `List` (a row may grow; the List scrolls) and one is in `WelcomeWorkspace`
+inside a `ScrollView`. **The only unbounded vertical text demands sitting in the
+detail column outside any scroll view are the three in
+`TaskPrerequisiteChecklist`** — the guidance text, the "Ready: …" satisfied
+summary, and the `.taskPanel` hint. That is exactly why the trigger is *mounting
+the checklist*, and why the release owner also hit it on **Reconstruct** (five
+prerequisites plus the voltage hint) — **#16 and #22 are one bug**.
+
+### ✅ FIXED 2026-08-06 — `lineLimit(4)` on all three checklist explanations
+
+**Shipped:** `TaskPrerequisiteChecklist.explanationLineLimit = 4`, applied to all
+three wrapping `Text`s — the guidance line, the satisfied summary, and the
+`.taskPanel` hint. `fixedSize` is *kept*, so nothing is truncated at any real
+column width; the cap only removes the unbounded demand. A cap does not force
+lines, so short strings are unaffected. Chosen over dropping `fixedSize`
+altogether because this checklist is the single owner of readiness (#21) and
+silently truncating its explanation to one line has a real cost.
+
+Applied to **all three** sites rather than only the bisected one: the other two
+render on the blocked path, which is where the release owner originally hit this
+on Reconstruct.
+
+**Pinned by `mac4DSTEMTests/SplitViewHeightTests.swift`**, which asserts the
+general invariant — *nothing inside the window may be laid out taller than the
+window* — rather than anything about `fixedSize`, so the guard survives a
+different remedy later.
+
+**Verified to fail without the change, 3 runs each way**, after a first version
+proved flaky: with a fixed `pump(0.6)` the task-switch case caught the unfixed
+build and the sweep did not; at `pump(0.9)` the sweep caught it and the
+task-switch case did not. Both now wait for layout *quiescence* instead of a
+guessed duration, and fail 3/3 unfixed, pass 3/3 fixed.
+
+`testABlockedTaskAlsoFitsTheWindow` is documented in place as **coverage, not a
+tripwire** — measured to pass 3/3 with the fix reverted, so a green run there is
+not evidence about #16.
+
+**`SidebarLayoutTests.testSidebarContentNeverDrawsOverTheTitlebar` gained a
+frame-height assertion.** It asserted `clipOrigin == -contentInsets.top`, which
+is **true throughout the collapse** — it went green with the bug on screen for
+months. A correct clip origin inside an oversized frame still puts the top rows
+off-screen.
+
+**Not yet confirmed on the real app.** The hosted test proves the layout
+invariant; it does not prove the QC playthrough now gets past step 3b. That run
+is the remaining check.
+
+**Superseded question — kept for the record:** *what demands 1154.5 pt?* The
+click's only structural effect is that `ProductWorkspaceHeader` mounts
+`TaskPrerequisiteChecklist` (because `guidance(for: .dpc, …)` is non-empty where
+`.virtualDetector`'s is empty), so the detail column's content grows. Something
+then propagates a height larger than the window back up to the split view instead
+of the column scrolling or compressing. **This is now a pure layout question with
+no interaction in it, so it should be answerable in a hosted test
+(`SidebarLayoutTests` already builds a real window) without needing the screen.**
+
+**Do not "fix" this by clamping the sidebar's height.** That would hide the
+symptom while the detail column still demands more than the window.
+
+---
+
+### Screenshot measurement 2026-08-06 — the "whole window too high" mechanism is WRONG
+
+**Reproduced again** (`run_2026-08-06_0058`, sim_Au, same failure at step 3b),
+and this time the two frames were **measured instead of eyeballed**: row-
+brightness cross-correlation of `03_virtual_df.png` against `ERROR_state.png`
+over separate x bands, both captures 2940 × 1846 native = 1470 × 923 pt.
+
+| Band | Displacement | Residual |
+|---|---|---|
+| Sidebar column, whole | **+89.5 pt (up)** | 2.0 |
+| Sidebar, upper half | **+89.5 pt (up)** | 1.2 |
+| Sidebar, lower half | **+89.5 pt (up)** | 2.4 |
+| Detail column, image panes | **−67.0 pt (down)** | 0.4 |
+| … diffraction pane alone | **−67.0 pt (down)** | 0.9 |
+| … real-space pane alone | **−67.0 pt (down)** | 0.1 |
+| Titlebar band | **0.0 pt** | — |
+| Traffic lights | **0.0 pt** | — |
+
+**The two columns move in opposite directions, by different amounts, under a
+stationary titlebar.** That is not a collapsed safe-area inset — a collapsed
+inset moves everything the same way by the same amount. The recorded mechanism
+("the whole window's content is laid out ~52 pt too high, as if the titlebar
+safe-area inset collapsed", "both columns moved together") is refuted. So is the
+inference built on it, that "a sidebar scroll offset cannot move the detail
+column's header, therefore it is not the sidebar scroll view."
+
+**The detail column's −67 pt is not a defect.** The DPC header is taller than
+the Virtual-imaging one because `ProductWorkflow.guidance(for: .dpc, …)` is
+non-empty while `.virtualDetector`'s is empty, so `ProductWorkspaceHeader` mounts
+`TaskPrerequisiteChecklist` on this click and everything below it is pushed down.
+That is the header doing its job. It is also why the earlier reading looked
+plausible: the header's *title row* really does end up above the visible area,
+but because the header grew, not because the column rose.
+
+**So the entire anomaly is the sidebar, rigidly translated 89.5 pt past its own
+top** — the upper and lower halves agree to the pixel, so it is a scroll offset,
+not a layout stretch. Which revives exactly the hypothesis that was retired:
+
+> *"offset clamping when the sidebar document shrinks on a workspace switch —
+> the most promising one, AppKit re-clamps to −52 correctly every time"*
+
+That refutation was obtained **programmatically, on a workspace switch**. The
+real trigger is a **task switch under real input**, and this entry's own recorded
+lesson is that those are not the same input path. **The seven-refuted list should
+not be treated as covering it.**
+
+**Not yet established, and the next thing to test:** *why* the offset ends up at
++89.5 pt. Note it does not match the 52 pt (`contentInsets.top`) that the
+2026-08-05 hosted test measured, so the two observations are not obviously the
+same state and that discrepancy is itself unexplained. The sidebar's content does
+change on this click — the `Region → diffraction` section is unmounted and a
+shorter `DPC` section takes its place — so a document-height change is present
+and is the obvious thing to instrument first. **Do not fix anything from this
+paragraph; it is the hypothesis, not the finding.**
+
+Measurement script kept out of the repo deliberately (it is disposable); the
+numbers above and the two captures in `run_2026-08-06_0058/` are the evidence.
+
+---
+
+**Earlier reading of the same screenshots — SUPERSEDED by the measurement above.**
 The *whole split* is laid out roughly one titlebar-height (52 pt) too high:
 - the sidebar's top rows are drawn **under the traffic lights** ("Inspect and
   calibrate the dataset" is clipped by the window edge);
@@ -1345,15 +1574,54 @@ columns moved together. This is a whole-window titlebar-inset collapse, and it
 is now reproducible three independent ways: by hand, by the QC harness, and in
 this recording.
 
-**Strongest untested lead — an infinite frame.** The XCUITest log for the same
-failure repeats
-`[DisplayManager] Could not find any displays containing rect (inf, inf, 0.0, 0.0)`.
-A view reporting an *infinite origin with zero size* is a degenerate layout
-result, not a normal state, and a NaN/∞ propagating through the layout pass
-would explain a safe-area inset collapsing to zero. Worth checking first:
-aspect-ratio or scale math in the image panes that can divide by a zero image
-dimension while the DPC result is momentarily absent. **This is a lead, not a
-diagnosis — verify before changing anything.**
+### ❌ The "infinite frame" lead is DEAD — measured 2026-08-06, do not re-try
+
+The 27 `(inf, inf, 0.0, 0.0)` lines in `run_2026-08-06_0058` were mapped onto
+test-relative time and correlated with the XCUITest activity log. They are
+**background noise, not a signature of the collapse**:
+
+- First occurrence at **t ≈ 8 s**, during app launch — ~130 s before the trigger.
+- A dense burst at **t ≈ 127–136 s** coincides exactly with the PNG export:
+  `⌘⇧G`, the Go-to-folder sheet, and two Return presses. Sheets and panels are
+  separate windows, and positioning one asks `DisplayManager` which display
+  contains a not-yet-established frame.
+- One fires at **t = 138.9 s**, right after the *benign* `workspace.image`
+  click that causes no collapse at all — and one at **t = 141.9 s** after the
+  `task.DPC` click that does. **The same line appears on the click that breaks
+  the layout and on the click that does not**, which is what retires it.
+
+`(inf, inf, 0, 0)` is exactly `CGRectNull` — the value AppKit *returns* from a
+rect operation that found nothing. It is an effect of ordinary window/sheet
+positioning here, not evidence of a NaN propagating through a layout pass.
+
+**Original text kept below for the record.**
+
+The XCUITest log repeats
+`[DisplayManager] Could not find any displays containing rect (inf, inf, 0.0, 0.0)`,
+and the entry previously called this the strongest untested lead on the grounds
+that an infinite origin with zero size is a degenerate layout result.
+
+**But `(inf, inf, 0, 0)` is exactly `CGRect.null`** — the documented value of
+`CGRectNull`, which is what AppKit *returns* from a rect operation that found
+nothing: an empty intersection, or the frame of a view lying wholly outside its
+clip. So the most economical reading is that this line is a **consequence** of
+the header being pushed off-screen, not a cause — and one obvious producer is
+XCUITest itself, asking for the hit point of the `workspace.primaryAction`
+element it has just found to be unhittable.
+
+**Cheap test that settles it, and should be done first:** check *when* the line
+appears in the run log. If it appears only at or after the step-3b hittability
+check, it is an artifact of probing an off-screen element and the lead is dead.
+If it appears **before** the collapse, it is real and worth chasing into the
+image panes' aspect/scale math. Noted 2026-08-06; not yet measured, because the
+run that would have measured it never launched (see the permission note below).
+
+**Before any run: confirm Accessibility is still granted.** On 2026-08-06 a
+reproduction attempt failed with `Timed out while enabling automation mode`
+after 60 s — the app never launched and no run folder was written. That is a
+*missing grant*, not a #16 symptom, and the grant is keyed to a version-scoped
+path (`claude-code/<version>/claude.app`), so it lapses on every Claude Code
+update. See `docs/v2-onramp.md` § "The one thing to do first".
 
 **The fix can now be tested empirically, which was never true before.**
 `tools/ui-qc-playthrough/run.sh sim_Au` fails at step 3b every run, in about
@@ -1605,7 +1873,20 @@ guard turns out to be correct.
 
 ---
 
-## #33 — The green task tick means "ready", but reads as "done"
+## #33 — The green task tick means "ready", but reads as "done"  ·  ✅ Done 2026-08-05
+
+**Shipped, and the entry below was left stale for a day — worth recording why.**
+The fix landed in `d47afb5`, a commit titled *"changes to .md"* that also
+touched `UI/ContentView.swift`. So the code moved and this entry did not, and a
+reviewer working the documented range `a9e4268..9c940d1` would have missed the
+change entirely. Found by the 2026-08-06 review; the review range in `CLAUDE.md`
+and `docs/v2-onramp.md` was corrected at the same time.
+
+`ContentView.taskButton` now draws an **empty `circle`** for a ready task and
+keeps the orange `exclamationmark.circle.fill` for a blocked one — matching the
+inspector's own glyph for "this product does not exist yet", so ✓ is left to
+mean *completed* everywhere. Readiness detail stays where **#21** put it: the
+prerequisite checklist under the primary action. No tooltip, per the item.
 
 **Reported by the release owner 2026-08-05**, hands-on: *"the green ticks right
 of Virtual imaging and DPC are already green before I even did the steps."*
@@ -1630,7 +1911,40 @@ tooltip.
 
 ---
 
-## #34 — A cancelled Bragg detection still displays a Bragg vector map
+## #34 — A cancelled Bragg detection still displays a Bragg vector map  ·  ✅ Done 2026-08-06
+
+**The open question is settled: it is a STALE PREVIOUS result, never a partial
+one.** Established by reading the cancellation path rather than by inference —
+`DiskDetection.detectAll` returns `nil` whenever the token is cancelled
+(`Core/Analysis/DiskDetection.swift`, the `return !bad && cancellation?.isCancelled != true`
+guard), so a half-finished `BraggVectors` cannot reach `AppState`. The cancel
+branch in `runDiskDetection` then returns early without touching `braggVectors`
+or `resultImage`, which leaves whatever the last completed run published on
+screen. So the worse of the two possibilities — a partial peak set presented as
+complete — does not happen.
+
+**What was actually wrong was silence, in two places, and both are fixed:**
+
+- **The cancel message named nothing.** Every other cancellable step in
+  `AppState` already says what it kept ("Parallax alignment bin N cancelled;
+  last completed level retained", "Parallax KDE cancelled; aligned result
+  retained"); disk detection alone said only "Disk detection cancelled". It now
+  says whether peaks are still shown or none were ever published.
+- **The result pane never said the map was out of date.**
+  `diskDetectionSettingsAreStale` already existed and already gated strain and
+  ACOM, and the *sidebar* already said "Full-scan peaks use earlier settings" —
+  but the viewer showed the map with its ordinary title. An orange
+  **"Earlier settings"** badge (`result.staleBadge`) now sits beside the
+  interpretation badge in `StemImageView`. Being correct in a panel the user is
+  not looking at does not satisfy ROADMAP P1.1.
+
+**Deliberately NOT done: discarding the previous map on cancel.** When the
+settings have not changed, that map is the current, valid, full-scan result and
+throwing it away would destroy good work to make a message simpler. The badge
+is keyed on the staleness the app already computes, so it appears exactly when
+the map and the panel disagree.
+
+<details><summary>Original report (2026-08-05)</summary>
 
 **Reported by the release owner 2026-08-05:** *"When I stop the Bragg disc
 detection, it shows a Bragg vector map regardless — this doesn't make sense."*
@@ -1651,9 +1965,48 @@ needs a label. If partial, it must be discarded.
 
 **Core untouched:** unlikely — result publication on the cancel path.
 
+</details>
+
+*(It turned out to be presentation only: `Core/` is untouched.)*
+
 ---
 
-## #35 — Diffraction pane: a click must not move the detector
+## #35 — Diffraction pane: a click must not move the detector  ·  ✅ Done 2026-08-06
+
+**Shipped as option 1, exactly as decided — pan when zoomed, scrub when not.**
+
+- `RealSpacePointerPolicy` (`UI/`) owns the decision and the marker geometry.
+  Zooming **out** is deliberately still the scrub mode: the image is then
+  smaller than its pane, so there is nothing to pan to and removing
+  click-to-scrub would cost a gesture and give nothing back.
+- At zoom 1 `StemImageView.selectionLayer` is mounted and behaves exactly as
+  before. Zoomed in it is **not mounted at all** — that, rather than any gesture
+  priority trick, is what lets a plain drag reach `zoomPan` and finally makes a
+  zoomed real-space image pannable.
+- The scan marker gains a filled white grab handle when zoomed, mirroring
+  `ApertureControl`'s centre handle, so both panes share one vocabulary.
+- **The mode is visible.** A `PAN · ×N` badge (`result.zoomModeBadge`) appears
+  in the pane header whenever the mode is not scrub, because a mode nobody can
+  see is just confusing — the one real objection to option 1 when it was chosen.
+- **Double-click reset was verified, not assumed**: at zoom 1 `selectionLayer`
+  does still swallow the second click, but `reset()` is a no-op at zoom 1; once
+  zoomed — the case that matters — the layer is gone and the double-click
+  reaches `ZoomPanModifier`.
+
+**Harness impact: none, and this was checked rather than assumed.** The item
+warned that `mac4DSTEMUITests` might drive scrubbing by clicking the real-space
+image. It does not — the QC playthrough only clicks identified controls
+(`workspace.*`, `task.*`, `calibration.*`), never the image.
+
+Pinned by `mac4DSTEMTests/RealSpacePointerPolicyTests.swift` (9 cases: the
+zoom-1 default, zoomed-out, zoomed-in, float noise either side of 1, and the
+marker geometry). **Mutation-tested:** deleting the half-pixel centre offset
+initially left the marker round-trip green — the marker merely slid to its
+pixel's leading edge, which still floors to the same index — so the assertion
+was strengthened to "the marker sits *strictly inside* its own pixel band", and
+that version does kill the mutant. Same failure mode as **#32**.
+
+<details><summary>Original item and the analysis behind option 1</summary>
 
 **Reported by the release owner 2026-08-05**, then specified exactly:
 
@@ -1736,6 +2089,8 @@ assert and is the regression that would hurt most.
 
 **Core untouched:** yes.
 
+</details>
+
 ---
 
 ## #36 — No progress indication while a datacube loads
@@ -1771,6 +2126,189 @@ finishing an in-flight GPU command rather than showing stalled progress.
 command and how much is cancellation checking too coarsely.
 
 **Core untouched:** no — cancellation granularity lives in `Core/Compute`.
+
+---
+
+## #38 — The image panes' scroll monitor consumes every scroll in the window
+
+**Found by:** code review, 2026-08-06. **Pre-existing** — it shipped with #26.
+
+`ZoomPanModifier.installScrollMonitor` (`UI/SwiftUI+MTKView.swift`) installs an
+`NSEvent.addLocalMonitorForEvents(matching: .scrollWheel)` and returns `nil`,
+which swallows the event. The comment says why — *"consumed — don't let it
+scroll the sidebar behind"* — and for scrolls **over the pane** that is right.
+
+But a local monitor is window-wide, not view-wide. It is armed by
+`onContinuousHover(.active)` and disarmed by `.ended`, so for as long as SwiftUI
+has not delivered an `.ended` — a pointer leaving through a divider, a window
+losing key, a pane disappearing on a task switch — every scroll anywhere in the
+window is eaten, including in the tools sidebar and the output log. The
+`onDisappear` cleanup covers teardown but not a missed `.ended`.
+
+**Why it is not fixed here:** the failure is a *missed event*, so judging it
+needs real input, which puts it in the same class as #16/#22 — six programmatic
+reproductions of that one failed. Guessing a fix is exactly what this repo has
+twice been burned by.
+
+**Fix direction when it is picked up:** gate the handler on the event's own
+location rather than on hover state — convert `event.locationInWindow` into the
+pane's frame and pass the event through (`return event`) when it falls outside.
+That makes correctness independent of ever receiving `.ended`, which is the
+property the current design lacks.
+
+**Core untouched:** yes.
+
+---
+
+## #39 — The Reconstruct tools sidebar is one flat wall of controls
+
+**Found by:** code review, 2026-08-06, following up the release owner's *"the UI
+feels very off … it got crowded"*.
+
+**#21 fixed the Reconstruct *main pane* and never touched the sidebar.** The
+`workspaceArea == .reconstruct` branch of `ContentView` is ~450 lines inside a
+single `Section`: roughly 20 `TextField`s, 8 toggles and 6 buttons, plus the
+"Run details" disclosure. Once `parallaxHigherOrderFit` exists, essentially all
+of it is on screen at once — KDE σ, Lanczos order, position-correction
+iterations, low/high-pass cutoffs, depth start/end/planes, information limit and
+power — in a 250–340pt column.
+
+**The structure to reuse already exists.** `reconstructionProgress` already
+models the workflow as four stages, and `primaryActionTitle` already knows which
+stage is next. The controls are simply not grouped by it.
+
+**Fix direction:** group each stage's parameters under the stage it belongs to
+and expand only the current one, keyed off the same stage the header's primary
+action names. Presentation only — no control changes meaning, none is removed.
+
+**Deliberately not patched reactively** (2026-08-06): the release owner scoped
+this session to fixing breakage rather than restructuring, and this is the same
+kind of decision #21 took a design pass to answer.
+
+**Core untouched:** yes.
+
+---
+
+## #40 — ACOM restates Prepare's Q calibration, and draws the IPF key twice
+
+**Found by:** code review, 2026-08-06. Same family as **#21** — one thing owned
+by two surfaces.
+
+Two duplications, both in `UI/ACOMControlsView.swift`:
+
+1. **Q calibration has two owners.** `qScaleControls` renders its own
+   *"Calibrate Q from Selected Material"* button plus Q-scale value and
+   provenance rows. `CalibrationReadinessChecklist`'s `qScale` case renders the
+   same action (*"Calibrate from selected material"*, made prominent by **#2**)
+   and the same provenance. Both call `calibrateQFromCrystal()`. It is milder
+   than #21 because ACOM's copy sits inside an *Engine & Q scale* disclosure —
+   but the disagreement it invites is real: #2 deliberately shaped how that
+   choice is *presented* in Prepare, and none of that shaping applies here.
+2. **The IPF colour key is drawn twice at once.** `resultControls` draws
+   `CubicIPFLegendView` / `HexagonalIPFLegendView` in the sidebar while
+   `StemImageView` draws the same legend over the image. A legend belongs with
+   the pixels it decodes.
+
+**Fix direction:** apply #21's rule — decide which surface *owns* readiness-like
+information, and have the other point at it. Prepare owns calibration, so ACOM's
+Q rows become a read-out plus the "Review Q Calibration in Prepare" link it
+already has; the image owns the legend.
+
+**Why it is a decision, not a patch:** moving where a control lives changes
+where a user has learned to look for it, and the ACOM panel's stated purpose is
+that *"keeping material, scale semantics, work scope and result diagnostics
+together prevents a physically labelled output from being assembled out of
+unrelated controls elsewhere"* — a real argument for the duplication that has to
+be answered rather than ignored. Needs the release owner's call on the
+destination.
+
+**Core untouched:** yes.
+
+---
+
+## #41 — The CBED pattern-source picker was drawn on top of its own header  ·  ✅ Done 2026-08-06
+
+**Found by:** code review, 2026-08-06. **Pre-existing.** Part of the release
+owner's *"it got crowded"* report, and the one part of it that was an outright
+drawing bug rather than density.
+
+`DiffractionView.header` placed the Current / Mean / Max segmented picker in a
+centred **`.overlay`** on the header `HStack`, with a comment explaining it was
+"centered over the pattern rather than crammed against the size". An overlay
+does not participate in its host's layout, so the ~170pt `fixedSize()` picker
+was drawn straight through *"Diffraction (CBED)"* — invisible on a wide window,
+guaranteed at the 360pt minimum detail-column width the layout actually allows.
+The picker only appears once mean/max exist, which is why it survived: it is
+absent until calibration has run.
+
+**Shipped:** it is a row member now, so the `HStack` budgets space for it and
+the title truncates instead of being overdrawn. It also gained the
+accessibility identifier (`pattern.displayMode`) and label it never had — it was
+an unlabelled `Picker("")`. The trailing read-outs are `fixedSize()` so the
+title is the thing that yields. **Checked, not assumed:** no test in
+`mac4DSTEMUITests` or `mac4DSTEMTests` reaches this picker, so the identifier is
+additive.
+
+The same pass gave `StemImageView.header` single-line policies, for the same
+reason: a wrapping title or cursor read-out changes the header's *height*, which
+moves both image panes.
+
+---
+
+## #42 — Aperture radius drags published fractional pixels; centre drags did not  ·  ✅ Done 2026-08-06
+
+**Found by:** code review, 2026-08-06. **Pre-existing**, and it survived #25's
+pass over this same file.
+
+`ApertureControl.emit(_:)` rounds every field before publishing, and its comment
+states the contract: *"a virtual detector sums whole pixels, so fractional edges
+are meaningless."* The centre handle and the rectangle handle used it. The
+annulus inner/outer handles and the circle radius handle called `onEdited`
+directly, so one control had two contracts — and the inspector's *Inner r /
+Outer r* rows showed whole or fractional pixels depending on which handle you
+had touched last.
+
+**Shipped:** all four handles route through `emit`. Presentation/handle
+plumbing only; `applyDetectorPreset` and the dataset-open defaults still set
+fractional radii deliberately, which is unchanged — the contract is that a
+*drag* snaps, not that a radius is always integral.
+
+---
+
+## #43 — The acceptance gate breaks if anyone saves a session for a training dataset
+
+**Found by:** the acceptance gate crashing during the 2026-08-06 review session.
+**Pre-existing**, and it is a *gate* defect, not an app defect.
+
+`tools/real-data-acceptance/run.sh:32` collects its inputs with
+
+```sh
+files=("$ROOT"/References/training_dataset/*.h5(N))
+```
+
+and hands every match to a harness that calls `fail()` — a hard `exit(1)`, seen
+as `Fatal error: … H5Error.noDatasetFound` — on anything that is not a datacube.
+
+**The app writes its session companion as `<source>.mac4dstem.h5`, deliberately
+beside the source file.** So the moment a session is saved for any dataset in
+`References/training_dataset/` — by a user, by the QC playthrough, or by a
+stray app instance — the next `tools/run-tests.sh all` dies partway through
+`real-data-acceptance` with an error that names 40 HDF5 paths and says nothing
+about the actual cause. Observed exactly that: exit 133, with
+`downsample_Si_SiGe_exp.mac4dstem.h5` present in the directory.
+
+**Why it matters more than the inconvenience:** the aggregate claim in
+`README.md` is *"`tools/run-tests.sh all` — exit 0 across 30 harnesses"*. A gate
+that fails from a file the app is designed to create is a gate whose green is
+partly luck, and the failure mode is loud but deeply unhelpful.
+
+**Fix direction:** exclude the app's own sidecars from the glob — they are
+identifiable by the `.mac4dstem.h5` suffix — and, separately, make the harness
+report an unreadable file as a named failure rather than a top-level fatal, so
+one bad file cannot take the whole gate down without saying which file it was.
+Both are small; neither is in this session's scope.
+
+**Core untouched:** yes — `tools/` only.
 
 ---
 

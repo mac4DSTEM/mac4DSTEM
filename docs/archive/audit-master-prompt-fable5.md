@@ -1,3 +1,16 @@
+> **ARCHIVED 2026-08-06 — do not run this.** It was written before the v1.0
+> development phase, to *define* what v1.0 should be. v1.0 has since been
+> defined and reached (`docs/v1-scope.md` is the frozen contract), so this
+> prompt's deliverable no longer exists to produce.
+>
+> It is archived rather than deleted because its "Precedence over repository
+> documents" section below asserts authority over `CLAUDE.md` and everything in
+> `docs/`. Left loose in `docs/`, unreferenced by any index, it was the single
+> most misleading file for anyone — human or agent — opening the repo cold.
+>
+> For what the repo is and where to start: **`CLAUDE.md`**. For what comes
+> after v1.0: **`docs/v2-onramp.md`**.
+
 # mac4DSTEM — Single-Pass Repository Audit and Version 1.0 Roadmap
 
 ## How to use this prompt

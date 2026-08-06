@@ -164,6 +164,12 @@ struct ApertureControl: View {
 
     /// Snap the geometry to whole detector pixels before publishing — a
     /// virtual detector sums whole pixels, so fractional edges are meaningless.
+    ///
+    /// **Every handle drag goes through here.** The radius handles used to call
+    /// `onEdited` directly, so dragging an inner/outer radius published
+    /// fractional pixels while dragging the centre snapped — one control, two
+    /// contracts, and the inspector's "Inner r / Outer r" rows showed whichever
+    /// handle you happened to have touched last.
     private func emit(_ a: Aperture) {
         var s = a
         s.centerX = s.centerX.rounded()
@@ -210,7 +216,7 @@ struct ApertureControl: View {
                 } else {
                     updated.outer = max(updated.inner, radius)
                 }
-                onEdited(updated)
+                emit(updated)
             }
             .onEnded { _ in onCommit() }
     }
@@ -222,7 +228,7 @@ struct ApertureControl: View {
                 let dy = value.location.y - center.y
                 var updated = aperture
                 updated.outer = max(1, Float(hypot(dx, dy) / scale))
-                onEdited(updated)
+                emit(updated)
             }
             .onEnded { _ in onCommit() }
     }
