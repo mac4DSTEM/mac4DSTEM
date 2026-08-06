@@ -322,6 +322,54 @@ final class SidebarLayoutTests: XCTestCase {
     /// playthrough would call `recordError` and skip parallax entirely, and the
     /// run would still finish. That is a gate failing quietly, so the field's
     /// presence is pinned here where it fails loudly instead.
+    /// The Result colormap must be reachable from Results.
+    ///
+    /// The 2026-08-06 polish pass moved the display controls into a collapsed
+    /// disclosure — right — and hid the whole section when
+    /// `workspaceArea == .results` — wrong. The Result picker is gated on
+    /// `resultImage != nil`, so the control that recolours a result existed in
+    /// every workspace *except* the one built for looking at results: you had
+    /// to leave the image to change how it was drawn. Reported from the real
+    /// app as "missing buttons", and confirmed fixed on screen.
+    ///
+    /// This asserts the *decision*, not the rendering, and that is deliberate.
+    /// A window-based version was written first and could not work: SwiftUI
+    /// builds a `Picker`'s `NSPopUpButton` menu lazily for a real assistive
+    /// client, so in-process every pop-up in the tree reports `itemTitles ==
+    /// []`, `title == ""`, `numberOfItems == 0` and a nil `selectedItem`
+    /// (measured 2026-08-06 — the same wall
+    /// `testAcceleratingVoltageStaysOutsideTheReconstructStages` documents for
+    /// accessibility identifiers). Nothing distinguishes the colormap picker
+    /// from any other pop-up, so the only available assertion would be a count
+    /// of anonymous controls — which passes just as happily on the wrong one.
+    /// Don't retry it.
+    func testDisplaySectionScopesItsContentsRatherThanHidingItself() throws {
+        for workspace in WorkspaceArea.allCases {
+            let expectsPatternControls = workspace != .results
+            XCTAssertEqual(
+                SidebarDisplaySection.showsPatternControls(in: workspace),
+                expectsPatternControls,
+                "\(workspace.rawValue): the pattern controls need a CBED pane to act on"
+            )
+
+            // With a result on screen the section must appear in *every*
+            // workspace — Results included. That is the regression.
+            XCTAssertTrue(
+                SidebarDisplaySection.isPresented(in: workspace, hasResult: true),
+                "\(workspace.rawValue): a result is displayed but its colormap control is "
+                    + "unreachable"
+            )
+
+            // Without one, only the workspaces that own a diffraction pane
+            // have anything left to show.
+            XCTAssertEqual(
+                SidebarDisplaySection.isPresented(in: workspace, hasResult: false),
+                expectsPatternControls,
+                "\(workspace.rawValue): an empty Display section must not be offered"
+            )
+        }
+    }
+
     func testAcceleratingVoltageStaysOutsideTheReconstructStages() async throws {
         let appState = AppState()
         await appState.openDemoFixture()

@@ -3,12 +3,16 @@
 Product ideas that are **out of v1 scope** but worth capturing while the
 thinking is fresh. Nothing here is committed to, scheduled, or promised.
 
-> **Both entries below have graduated.** They are now stages L3 (crop-on-read)
-> and L4 (bin-on-read) of the active plan,
+> **The first two entries have graduated.** Cropping and partial/binned loading
+> are now stages L3 (crop-on-read) and L4 (bin-on-read) of the active plan,
 > [`docs/load-pipeline-plan.md`](load-pipeline-plan.md) (2026-08-06), alongside
 > a resident in-memory cube and an open-time preview. Every trap recorded here
 > is reproduced there, with the py4DSTEM source lines that prove it. Keep this
 > file as the origin record; **plan from the plan.**
+>
+> **The third entry has not graduated** — *Q calibration is fragile to origin
+> error well below the readiness threshold* (2026-08-06) belongs to no plan yet
+> and needs a scope decision before anyone implements it.
 
 ## Why this file exists (and what does *not* belong here)
 
@@ -117,3 +121,74 @@ probably reuse that pattern rather than invent a second one.
 original dataset (recoverable, re-openable at full extent) or a *new* dataset
 in its own right? That answer determines session-restore and export behaviour,
 and it is much cheaper to decide before implementing than after.
+
+---
+
+## Q calibration is fragile to origin error well below the readiness threshold
+
+**Found 2026-08-06 by the adversarial review of the #46 fix.** #46 itself is
+closed: `calibrateQFromCrystal` now refuses when `Calibration.originFitRefusal`
+is non-nil, so a Q pixel size can no longer contradict a warning the app has
+already issued. What the review established is that the *threshold* that gate
+inherited is looser than the failure it guards against, and that a second route
+to the same wrong number is not gated at all. Both need `Core/` changes, which
+is why they are here and not in `docs/open-items.md`.
+
+**1. The gate fires at the probe radius; the estimator breaks at ~2 px.**
+`KnownCrystalQCalibration.estimate` discards peaks inside `minimumRadiusPixels`
+(default `2`, and `AppState.calibrateQFromCrystal` does not override it). By the
+mechanism #46 itself established — `BraggVectors.calibrated` re-centres every
+pattern on its fitted origin, so a per-position fit error δ puts the direct beam
+at radius |δ| — once δ exceeds 2 px the direct beam survives that filter and
+becomes the "innermost non-central reflection". The failure onset is therefore
+≈2 px, not the 5.03 px probe radius used by `originFitIsQuantitative`.
+Everything in `(2 px, probeRadius]` still calibrates and is still stamped
+`.measuredInApp`.
+
+The review's simulation of that mechanism (Si_SiGe: a = 14.9 px,
+|g₁₁₁| = 0.318925 Å⁻¹, true Q ≈ 0.02140) also makes the error **non-monotone** —
+≈1.1× at 2 px, peaking ≈3.5× at 3 px, falling to ≈2.4× by 11.66 px as δ
+saturates near 0.38a. So the current threshold rejects the mild end of the
+failure curve and accepts the severe end. Datasets with a larger probe radius
+(Particle_1, ≈10.6 px) have a correspondingly wider hole.
+
+**The suggested shape, not yet designed:** do the check *inside* `estimate`,
+where the observed innermost radius, its MAD, and the reference g-length are all
+in hand — e.g. refuse when the median innermost radius is implausibly small
+relative to the reference shell. That is dataset-independent and would catch
+item 2 below for free. It is deliberately **not** "tighten
+`originFitIsQuantitative` to 2 px": that predicate also drives the Prepare
+readiness badge, and "is this origin fit sane?" is a genuinely looser question
+than "may I measure a reciprocal scale in this frame?". Splitting them is part
+of the design work.
+
+**2. `meanOrigin == nil` silently measures from the geometric detector centre.**
+`AppState.calibratedBraggVectors` falls back to `(qx/2, qy/2)` when
+`calibration.meanOrigin` is nil. `meanOrigin` requires the per-position maps in
+`calibration.origin`, and the `.fileMean` import path sets `aperture.centerX/Y`
+from the file's `qx0_mean`/`qy0_mean` while leaving `calibration.origin` nil —
+so **the file's own stated beam centre is ignored** and radii are measured from
+the detector's geometric centre. `.fileMean` maps to a non-nil readiness
+provenance, so the Origin row reads ready; there is no residual, so
+`originFitIsQuantitative` returns `true` and the #46 gate does nothing.
+`.sessionMean` restore sets `calibration.origin = nil` explicitly and reaches
+the same state. Any beam more than ~2 px off the geometric centre then collapses
+the innermost radius exactly as in item 1.
+
+**3. The residual may not measure what the gate assumes.**
+`OriginMaps.rmsResidual` is RMS(measured − fitted), i.e. how far the *fit*
+departs from the per-position measurements — but the analysis path consumes
+`fittedX`/`fittedY`. A large residual is equally consistent with a fit too rigid
+to follow real descan (the fitted origin is displaced, and refusing is right)
+and with noisy per-position measurement that the fit correctly averages out (the
+fitted origin is fine, and refusing withholds a good calibration). #29 records
+this as unanswered; the #46 gate resolves it by assumption. The discriminating
+evidence already exists and has never been read:
+`tools/training-dataset-campaign` records `constant_rms_px` and
+`parabola_rms_px` beside the plane fit, so comparing the three fit functions on
+the same dataset should settle it cheaply.
+
+**Do not** re-derive this by replacing the estimator with nearest-neighbour
+spacing — that was tried on 2026-08-06 and refuted (breaks `tools/strain-test`
+on single-peak patterns; Q errors to +176% on superimposed lattices). The full
+refutation is in archived backlog #46.

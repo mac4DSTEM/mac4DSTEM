@@ -3,6 +3,38 @@ import SwiftUI
 import UniformTypeIdentifiers
 import simd
 
+/// Which display controls the sidebar's "Display" disclosure offers, per
+/// workspace.
+///
+/// Extracted so it can be tested. The rendered alternative cannot be: SwiftUI
+/// builds a `Picker`'s `NSPopUpButton` menu lazily for a real assistive client,
+/// so in-process the button carries no `itemTitles`, no `title`, no
+/// `selectedItem` and `numberOfItems == 0` (measured 2026-08-06, the same wall
+/// `SidebarLayoutTests` hit for accessibility identifiers). Counting anonymous
+/// pop-up buttons would pass just as happily on the wrong one.
+enum SidebarDisplaySection {
+
+    /// The pattern controls — `Log diffraction`, `Q-scale units`, and the
+    /// diffraction colormap — need a CBED pane to act on. Results reviews and
+    /// exports finished products and shows none, so they are omitted there.
+    static func showsPatternControls(in workspace: WorkspaceArea) -> Bool {
+        workspace != .results
+    }
+
+    /// Whether the section appears at all.
+    ///
+    /// The regression this guards: the section used to be hidden wholesale
+    /// whenever `workspace == .results`, while the Result colormap picker was
+    /// gated on a result existing. That put the control which recolours a
+    /// result in every workspace *except* the one built for looking at
+    /// results — you had to leave the image to change how it was drawn.
+    /// Scope the *contents* per workspace, never the section.
+    static func isPresented(in workspace: WorkspaceArea, hasResult: Bool) -> Bool {
+        showsPatternControls(in: workspace) || hasResult
+    }
+}
+
+
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
@@ -14,6 +46,10 @@ struct ContentView: View {
     /// why the column overflowed in every workspace (2026-08-06 polish pass).
     @AppStorage("sidebar.displaySection.expanded")
     private var displaySectionExpanded = false
+
+    private var showsPatternDisplayControls: Bool {
+        SidebarDisplaySection.showsPatternControls(in: appState.workspaceArea)
+    }
 
     /// Which Reconstruct stage the user has opened by hand. `nil` means "follow
     /// the workflow" — see `reconstructionStageBinding`.
@@ -107,29 +143,42 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.workspaceArea != .results {
-                        // Display settings are not what any workspace is *for*
-                        // — they are how the same data is drawn. Kept as a
-                        // disclosure so a task-scoped column stays about the
-                        // task, with the state remembered across launches so a
-                        // user who wants them open pays the gesture once.
-                        // `Q-scale units` is a units control, so it is one
-                        // obvious gesture away, never hidden.
+                    // Display settings are not what any workspace is *for*
+                    // — they are how the same data is drawn. Kept as a
+                    // disclosure so a task-scoped column stays about the
+                    // task, with the state remembered across launches so a
+                    // user who wants them open pays the gesture once.
+                    // `Q-scale units` is a units control, so it is one
+                    // obvious gesture away, never hidden.
+                    //
+                    // The *contents* are scoped per workspace, not the section
+                    // itself. Results has no diffraction pane, so the pattern
+                    // controls would act on nothing there — but it is the one
+                    // workspace built for looking at a result, and hiding the
+                    // whole section put the Result colormap in every workspace
+                    // *except* the one showing the image it recolours. You had
+                    // to leave Results to change how the thing you were looking
+                    // at was drawn.
+                    if SidebarDisplaySection.isPresented(
+                        in: appState.workspaceArea, hasResult: appState.resultImage != nil
+                    ) {
                         Section {
                             DisclosureGroup(isExpanded: $displaySectionExpanded) {
-                                Toggle("Log diffraction", isOn: $appState.logScale)
-                                if appState.patternScaleMradAvailable {
-                                    Picker("Q-scale units", selection: $appState.patternScaleUnit) {
-                                        ForEach(PatternScaleUnit.allCases) { unit in
-                                            Text(unit.rawValue).tag(unit)
+                                if showsPatternDisplayControls {
+                                    Toggle("Log diffraction", isOn: $appState.logScale)
+                                    if appState.patternScaleMradAvailable {
+                                        Picker("Q-scale units", selection: $appState.patternScaleUnit) {
+                                            ForEach(PatternScaleUnit.allCases) { unit in
+                                                Text(unit.rawValue).tag(unit)
+                                            }
                                         }
+                                        .pickerStyle(.segmented)
+                                        .help("Reciprocal shows the calibrated Q pixel units; mrad shows the direct scattering angle (θ ≈ λ·q from the accelerating voltage).")
                                     }
-                                    .pickerStyle(.segmented)
-                                    .help("Reciprocal shows the calibrated Q pixel units; mrad shows the direct scattering angle (θ ≈ λ·q from the accelerating voltage).")
-                                }
-                                Picker("Diffraction", selection: $appState.patternColormap) {
-                                    ForEach(ColormapKind.allCases) { kind in
-                                        Text(kind.displayName).tag(kind)
+                                    Picker("Diffraction", selection: $appState.patternColormap) {
+                                        ForEach(ColormapKind.allCases) { kind in
+                                            Text(kind.displayName).tag(kind)
+                                        }
                                     }
                                 }
                                 if appState.resultImage != nil {

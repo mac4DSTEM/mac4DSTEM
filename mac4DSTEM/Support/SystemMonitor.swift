@@ -28,7 +28,7 @@ enum SystemMonitor {
     }
 
     /// Format a byte count as MB or GB.
-    static func byteString(_ bytes: Int) -> String {
+    nonisolated static func byteString(_ bytes: Int) -> String {
         let mb = Double(bytes) / 1_048_576
         return mb >= 1024 ? String(format: "%.2f GB", mb / 1024) : String(format: "%.0f MB", mb)
     }

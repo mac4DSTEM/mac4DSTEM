@@ -16,25 +16,30 @@ kept as history. Cited numbers are prefixed `#` and refer to that file.
 
 ## Blocking the v1.0 tag
 
-**#46 — Q calibration is stamped "Measured in app" from an unusable origin.**
-On `downsample_Si_SiGe_exp` the origin fit residual is **11.66 px against a
-5.03 px probe radius**, which the app already flags *"exceeds probe radius;
-recalibrate before quantitative use"*. `calibrateQFromCrystal` runs anyway and
-labels the result `.measuredInApp`. The Q pixel size comes out **2.56× too
-large** (0.0548359 against ≈0.02140 Å⁻¹/px) and that label — not the warning —
-is what travels into export, reopen and the QC log.
+**Nothing.** #46 was fixed on 2026-08-06 (commit `87dce1c`), and
+`tools/run-tests.sh all` is green at 30 harnesses. What remains before the tag
+is a QC playthrough run *with* screenshots — see **Verification debt** — and
+that is a run, not a defect.
 
-- Likely fix: gate on the origin readiness the checklist already computes, or
-  carry a degraded provenance. Small; does not touch the estimator.
-- **Do not** replace the estimator with nearest-neighbour spacing. That was
-  tried on 2026-08-06, passed a purpose-built suite, and was refuted: it breaks
-  `tools/strain-test` (single-peak patterns), and it collapses on superimposed
-  lattices with Q errors up to +176%. The full refutation is in #46.
-- Upstream and larger: **#29** established on 2026-08-05 that the same residual
-  is why Bragg-vector maps sometimes look smeared, and that `Plane` may not
-  follow the descan on a 200×50 scan. A measured probe kernel via
-  **Use Current CBED / ROI** gave RMS 1.46 px. Whether the residual is a fitting
-  bug or genuine descan is still unanswered, and it feeds ACOM and strain too.
+**#46 — closed.** `calibrateQFromCrystal` now refuses when
+`Calibration.originFitRefusal` is non-nil, so a Q pixel size can no longer
+contradict a warning the app has already issued. The predicate
+(`originFitIsQuantitative`) is the single owner of that judgement and is read by
+the Prepare readiness row, the calibration action, and
+`tools/training-dataset-campaign`, so the badge, the app's behaviour, and the
+parity records cannot disagree. Covered by `mac4DSTEMTests/
+QCalibrationOriginGateTests` and `tools/calibration-readiness-test`.
+
+> **The defect class is not fully closed, and that was a deliberate scope
+> decision.** Adversarial review of the fix (2026-08-06) established that the
+> threshold it inherited — `residual <= probeRadius` — is looser than the
+> estimator's actual failure onset (≈2 px, set by `minimumRadiusPixels`), and
+> that `.fileMean`/`.sessionMean` imports reach the same wrong number by an
+> ungated route. Both need `Core/` changes, so they are recorded in
+> [`docs/post-v1-ideas.md`](post-v1-ideas.md) rather than here, which keeps this
+> file's no-`Core/` contract intact. #29 remains the upstream question: whether
+> the residual is a fitting bug or genuine descan is still unanswered, and it
+> feeds ACOM and strain too.
 
 ## Release-owner actions
 
@@ -58,6 +63,34 @@ stays frozen; `docs/load-pipeline-plan.md` becomes the single live plan; and
 `CLAUDE.md` loses the "two threads" framing in favour of pointing at the tag.
 The point is that every later bisect has a real tag to bisect against instead
 of "somewhere in `main`".
+
+## Fixed on 2026-08-06, after the #46 work
+
+Both were found by driving the real app, not by a test — worth remembering when
+deciding how much a green suite is worth.
+
+- **The Result colormap was unreachable from Results.** The 2026-08-06 polish
+  pass moved the display controls into a collapsed disclosure (right) and hid
+  the whole section in the Results workspace (wrong), while the Result picker
+  was gated on a result existing. The control that recolours a result was in
+  every workspace *except* the one built for looking at results. Now the
+  section scopes its *contents* per workspace: Results drops the pattern
+  controls, which have no CBED pane to act on, and keeps the Result colormap.
+  RGBA products (ACOM IPF maps) correctly show no colormap control at all,
+  since a colormap is meaningless on an RGB image. Pinned by
+  `SidebarLayoutTests.testDisplaySectionScopesItsContentsRatherThanHidingItself`
+  — which asserts the *decision*, because the rendering cannot be asserted:
+  SwiftUI builds a `Picker`'s `NSPopUpButton` menu lazily for a real assistive
+  client, so in-process every pop-up reports empty titles and zero items.
+- **The Origin & probe row called a measured origin "Missing".** With a fit
+  residual above the probe radius the row printed **"Missing"** directly above
+  its own detail line reading *"Origin: Measured in app · Probe: 5.03 px · Fit
+  RMS 11.66 px (exceeds probe radius…)"* — the #46 defect class exactly, a
+  label contradicting the data beside it. `CalibrationReadinessStatus` gained a
+  third case, `.unusable` ("Not quantitative"), whose `isReady` stays `false`,
+  so every gate and the prerequisite checklist behave identically; only the
+  word changed. `.missing` is still used when the origin or probe genuinely is
+  absent, and `tools/calibration-readiness-test` pins both directions.
 
 ## Verification debt
 

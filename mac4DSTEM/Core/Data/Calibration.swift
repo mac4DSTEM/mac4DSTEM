@@ -192,7 +192,25 @@ enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
 enum CalibrationReadinessStatus: Equatable, Sendable {
     case ready(CalibrationValueProvenance)
     case missing
+    /// Measured, but not to a standard that supports quantitative work.
+    ///
+    /// Distinct from `.missing` because the two are not the same fact, and the
+    /// row contradicted itself saying so: with a fit residual above the probe
+    /// radius the Origin & probe row printed **"Missing"** directly above its
+    /// own detail line reading *"Origin: Measured in app · Probe: 5.03 px ·
+    /// Fit RMS 11.66 px (exceeds probe radius…)"*. Reported from the real app
+    /// on 2026-08-06. The value exists; it is the *quality* that fails, and
+    /// "Missing" sends the user to re-measure something they already have
+    /// rather than to change how it is fitted.
+    ///
+    /// This is the #46 defect class — a label contradicting the data beside
+    /// it — so it gets the same treatment: say the true thing.
+    case unusable
 
+    /// `.unusable` is **not** ready, exactly like `.missing`. Every gate, the
+    /// `missingItems` list, and the task prerequisite checklist therefore
+    /// behave as they did before this case existed: it changes the *word*,
+    /// never the judgement.
     var isReady: Bool {
         if case .ready = self { return true }
         return false
@@ -202,6 +220,7 @@ enum CalibrationReadinessStatus: Equatable, Sendable {
         switch self {
         case .ready(let provenance): return provenance.rawValue
         case .missing: return "Missing"
+        case .unusable: return "Not quantitative"
         }
     }
 }
@@ -314,7 +333,13 @@ struct CalibrationReadinessReport: Equatable, Sendable {
         return CalibrationReadinessReport(items: [
             CalibrationReadinessItem(
                 kind: .originProbe,
-                status: originAndProbeReady ? .ready(originProbeSource) : .missing,
+                // Three outcomes, not two. `.unusable` is reserved for the
+                // case where the origin and probe are both *present* and it is
+                // only the fit quality that fails — otherwise something really
+                // is missing and the user does need to go measure it.
+                status: originAndProbeReady
+                    ? .ready(originProbeSource)
+                    : (originSource != nil && validProbe ? .unusable : .missing),
                 detail: originDetail
             ),
             CalibrationReadinessItem(

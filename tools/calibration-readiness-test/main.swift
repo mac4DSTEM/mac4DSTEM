@@ -127,6 +127,29 @@ struct Harness {
         try require(poorOriginReport.missingItems[0].detail.contains("exceeds probe radius"),
                     "high-residual origin block lacks actionable detail")
 
+        // The row must not call a measured origin "Missing". It did, directly
+        // above its own detail line reading "Origin: Measured in app · … Fit
+        // RMS 11.66 px (exceeds probe radius…)" — the #46 defect class,
+        // reported from the real app on 2026-08-06.
+        try require(poorOriginReport.missingItems[0].status == .unusable,
+                    "a measured-but-unusable origin is reported as missing")
+        try require(poorOriginReport.missingItems[0].status.displayName != "Missing",
+                    "the readiness word contradicts the detail beside it")
+        try require(!poorOriginReport.missingItems[0].status.isReady,
+                    "`.unusable` must not be ready — it changes the word, not the judgement")
+
+        // …and a genuinely absent origin must still say Missing, or the new
+        // case has simply swallowed the old one.
+        var absentOrigin = completeCalibration(origin: .fitted)
+        absentOrigin.origin = nil
+        absentOrigin.probeRadius = nil
+        let absentReport = CalibrationReadinessReport.make(
+            calibration: absentOrigin, provenance: completeProvenance(.measuredInApp)
+        )
+        let absentRow = absentReport.items.first { $0.kind == .originProbe }
+        try require(absentRow?.status == .missing,
+                    "an absent origin must still be reported as missing")
+
         poorOrigin.origin = OriginMaps(
             width: 2, height: 1,
             measuredX: [0, 1], measuredY: [0, 1],
