@@ -4,8 +4,23 @@
 **/xcuserdata/
 *.xcuserstate
 
-# Machine-local scientific corpora and migration snapshots. The checked-in
-# py4DSTEM source lock remains tracked even though its parent is ignored.
+# Xcode-generated SwiftPM workspace state. Regenerated on open; tracking it
+# only produces churn between machines.
+/.swiftpm/
+
+# Machine-local scientific corpora and migration snapshots.
+#
+# One deliberate exception: the py4DSTEM **Python source** under
+# References/py4DSTEM-dev/ stays tracked, because the inline `DEVIATION` notes
+# throughout Core/ cite it by file and line, and those citations are worthless
+# if the reader cannot see the exact version they refer to. Its LICENSE.txt and
+# CITATION.cff are kept with it, since vendoring GPL source without its licence
+# would be wrong.
+#
+# Its documentation, images, CI configuration and devcontainer are NOT tracked
+# (removed 2026-08-06): ~6.6 MB of material that serves no purpose here, and it
+# dominated both the repository's language statistics and anything built from
+# the working tree.
 /References
 
 # Local build products

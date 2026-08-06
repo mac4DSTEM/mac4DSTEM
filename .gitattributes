@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The py4DSTEM source lock under References/ is somebody else's project, kept
+# here so the inline `DEVIATION` notes can cite it by file and line. Marking it
+# vendored keeps it out of GitHub's language statistics — without this the repo
+# reports as majority Python, which misdescribes a native Swift/Metal
+# application — and out of diffs by default.
+References/** linguist-vendored
