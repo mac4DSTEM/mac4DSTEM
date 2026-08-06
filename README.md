@@ -2,7 +2,7 @@
 
 # mac4DSTEM
 
-**4D-STEM analysis that runs on your Mac, at the speed of a conversation.**
+**Interactive 4D-STEM analysis, native to Apple Silicon.**
 
 </div>
 
@@ -12,75 +12,88 @@
 
 ---
 
-## What it is
+## Overview
 
-4D-STEM produces enormous datasets: a full diffraction pattern recorded at
-every position the electron beam visits. Getting science out of them usually
-means writing Python, waiting on a cluster, and squinting at a notebook.
+Four-dimensional scanning transmission electron microscopy records a complete
+convergent-beam electron diffraction pattern at every probe position. The
+resulting datasets are large, and the analysis that extracts science from them —
+virtual imaging, strain, orientation, phase reconstruction — has conventionally
+been performed offline, in scripted environments, at a remove from the data.
 
-mac4DSTEM does it on your own machine, interactively. Drag a virtual detector
-across a diffraction pattern and watch the image form. Map strain across a
-sample. Index crystal orientations. See a result, change a parameter, see the
-new result — instead of re-running a script.
+mac4DSTEM brings that analysis into an interactive application. Detector
+geometry, calibration and reconstruction parameters can be adjusted against a
+live view of the data, so the effect of a decision is visible as it is made
+rather than after a batch run completes.
 
-It is built on Apple Silicon's GPU from the ground up, and validated against
-[py4DSTEM](https://github.com/py4dstem/py4DSTEM), the standard toolkit in the
-field, so the numbers it gives you are the numbers you would have got there.
+The application is built directly on Apple Silicon's unified memory and GPU. Its
+algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
+validated against it on experimental data, so results are traceable to the
+established reference implementation in the field.
 
-## What you can do with it
+## Capabilities
 
-- **Look at your data immediately** — open a dataset and explore real and
-  diffraction space side by side, with no setup step
-- **Form images from any detector** — bright field, annular dark field, HAADF,
-  or a custom shape you drag into place
-- **Measure strain** across a sample, with the fit quality shown next to the
-  map rather than buried in a log
-- **Map crystal orientation** against a built-in materials catalogue or your
-  own structure file
-- **Reconstruct phase** — DPC, iDPC, parallax and ptychography
-- **Export what you see**, with scale bar, units and calibration attached
+- **Data exploration** — real and reciprocal space presented together, with
+  calibrated scale bars, contrast control and GPU-rendered CBED display
+- **Virtual imaging** — bright-field, annular dark-field and HAADF geometries,
+  plus arbitrary annular, rectangular and point detectors positioned
+  interactively on the diffraction plane
+- **Calibration** — probe and origin fitting across the scan, elliptical
+  distortion correction, real–reciprocal rotation, and reciprocal-space
+  sampling against a known crystal
+- **Bragg disk detection** — GPU cross-correlation with parabolic and
+  DFT-upsampled subpixel refinement, and live acceptance diagnostics
+- **Strain mapping** — robust local lattice fitting against a whole-scan or
+  region reference, with basis consensus, residual and indexed fraction
+  reported alongside every map
+- **Orientation mapping** — polar-correlation template matching against a
+  validated crystal catalogue or an imported CIF, with reliability and
+  inverse-pole-figure output
+- **Phase reconstruction** — DPC, iDPC, parallax and single-slice ptychography
+- **Interoperability** — EMD export of Bragg vectors, calibrated datacubes and
+  preprocessed products, readable directly in py4DSTEM
 
-Every result carries its calibration and its provenance. When a number is not
-quantitative, the app says so instead of showing it anyway.
+Every quantity carries its calibration and its provenance through display,
+export and reopening. Where a measurement is not quantitatively supported, the
+result is labelled accordingly rather than presented as though it were.
 
 <!-- TODO: 2-3 screenshots — virtual imaging, a strain map, an orientation map. -->
 
 ## Status
 
-**v1.0.0** — the first release. The full analysis workflow is implemented and
-covered by 30 automated test suites, including parity checks against py4DSTEM
-on real experimental data.
+**v1.0.0** — first release. The analysis workflow is complete and covered by 30
+automated test suites, including parity harnesses measured against py4DSTEM
+0.14.19 on experimental datasets.
 
-Being straight about the limits: that verification is *numeric* — the app is
-checked against known-correct values, not against how it looks. The Merlin MIB
-and EMPAD RAW readers are preview-quality until more vendor data is available.
-The current list is in [`docs/open-items.md`](docs/open-items.md).
+Stated precisely: that verification is numerical. The application is tested
+against known-correct values, not against its rendered output. The Merlin MIB
+and EMPAD RAW readers remain preview-grade pending further vendor data. Current
+limitations are documented in [`docs/open-items.md`](docs/open-items.md).
 
 ## Requirements
 
-macOS 14 or later, Apple Silicon. No Python and nothing to install alongside it —
-everything the app needs is inside it.
+macOS 14 or later on Apple Silicon. No external runtime, toolchain or library
+installation is required; all dependencies are contained within the application.
 
-## Building it yourself
+## Building from source
 
-Open `mac4DSTEM.xcodeproj` in Xcode and press Run.
+Open `mac4DSTEM.xcodeproj` in Xcode and build the `mac4DSTEM` scheme.
 
-Architecture, the test suites, file-format notes and known limitations are in
-[`docs/technical-overview.md`](docs/technical-overview.md). Scope and release
-contracts are in [`docs/v1-scope.md`](docs/v1-scope.md) and
-[`CHANGELOG.md`](CHANGELOG.md); the analysis pipelines and how they map onto
-py4DSTEM are in [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
+Architecture, test suites, supported file formats and known limitations are
+documented in [`docs/technical-overview.md`](docs/technical-overview.md). Scope
+and release contracts are in [`docs/v1-scope.md`](docs/v1-scope.md) and
+[`CHANGELOG.md`](CHANGELOG.md); the analysis pipelines and their correspondence
+to py4DSTEM are described in
+[`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
 
-## Credit and licence
+## Attribution and licence
 
-mac4DSTEM's algorithms are ported from
+mac4DSTEM implements algorithms ported from
 **[py4DSTEM](https://github.com/py4dstem/py4DSTEM)** and validated against it.
-That project is the reason this one can exist — if you use mac4DSTEM in
-published work, please cite py4DSTEM for the underlying methods.
+Work published using mac4DSTEM should cite py4DSTEM for the underlying methods.
 
-Licensed under the **GNU General Public License v3.0**. See
+Released under the **GNU General Public License v3.0**. See
 [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
 ## Contact
 
-Questions, bug reports, or interest in contributing: **mail@mac4dstem.com**
+Enquiries, issue reports and collaboration: **mail@mac4dstem.com**
