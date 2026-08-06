@@ -3,11 +3,18 @@
 Product ideas that are **out of v1 scope** but worth capturing while the
 thinking is fresh. Nothing here is committed to, scheduled, or promised.
 
+> **Both entries below have graduated.** They are now stages L3 (crop-on-read)
+> and L4 (bin-on-read) of the active plan,
+> [`docs/load-pipeline-plan.md`](load-pipeline-plan.md) (2026-08-06), alongside
+> a resident in-memory cube and an open-time preview. Every trap recorded here
+> is reproduced there, with the py4DSTEM source lines that prove it. Keep this
+> file as the origin record; **plan from the plan.**
+
 ## Why this file exists (and what does *not* belong here)
 
 There are three other places an idea could go, and each excludes this kind:
 
-- **`docs/ui-workflow-backlog.md`** states in its own header that every item is
+- **`docs/open-items.md`** carries only UI/workflow-safe items; every one is
   a workflow- or presentation-layer change and that **no item touches `Core/`**.
   The ideas below all touch data loading and calibration semantics, so filing
   them there would break that contract — which is what makes that backlog

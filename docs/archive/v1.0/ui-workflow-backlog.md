@@ -2160,7 +2160,7 @@ property the current design lacks.
 
 ---
 
-## #39 — The Reconstruct tools sidebar is one flat wall of controls
+## #39 — The Reconstruct tools sidebar is one flat wall of controls  ·  ✅ Done 2026-08-06
 
 **Found by:** code review, 2026-08-06, following up the release owner's *"the UI
 feels very off … it got crowded"*.
@@ -2185,11 +2185,39 @@ action names. Presentation only — no control changes meaning, none is removed.
 this session to fixing breakage rather than restructuring, and this is the same
 kind of decision #21 took a design pass to answer.
 
+**Shipped 2026-08-06** as part of the density pass (**#44**), after the release
+owner chose the full option. Each of the four stages is a `DisclosureGroup`
+whose header carries the ✓/number glyph the old `reconstructionProgress` block
+drew; the stage the workflow is on is open, and opening another closes it.
+
+**`reconstructionProgress` and `reconstructionStep` were deleted, not kept.**
+With every stage header showing its own completion glyph beside the controls it
+gates, a separate summary block immediately above them restated the whole
+checklist — the #21 duplication this pass was removing everywhere else.
+
+**Two things stay outside the stages, deliberately:**
+- **The accelerating-voltage field.** `mac4DSTEMUITests.setAcceleratingVoltage`
+  finds it *structurally*, by looking for a text field in the row labelled
+  "Voltage". Inside a collapsed disclosure it would not exist, and the harness's
+  miss path calls `recordError` and skips parallax while the run still finishes
+  — a gate failing quietly. Pinned by
+  `SidebarLayoutTests.testAcceleratingVoltageStaysOutsideTheReconstructStages`.
+- **The displayed-product / depth-plane pickers**, because they choose what is
+  on screen right now rather than parameterising a step.
+
+**A limitation worth knowing for future tests:** that pin asserts by counting
+`NSTextField`s, not by accessibility identifier. Measured 2026-08-06 — SwiftUI
+puts its identifiers neither on the `NSView` tree nor on an accessibility tree
+reachable in-process (both walks return **0** identifiers); the tree is built
+lazily for a real assistive client. In-process layout tests can measure geometry
+and count real AppKit controls, and that is all. Identifier-level assertions
+belong in `mac4DSTEMUITests`.
+
 **Core untouched:** yes.
 
 ---
 
-## #40 — ACOM restates Prepare's Q calibration, and draws the IPF key twice
+## #40 — ACOM restates Prepare's Q calibration, and draws the IPF key twice  ·  ✅ Done 2026-08-06
 
 **Found by:** code review, 2026-08-06. Same family as **#21** — one thing owned
 by two surfaces.
@@ -2221,6 +2249,26 @@ together prevents a physically labelled output from being assembled out of
 unrelated controls elsewhere"* — a real argument for the duplication that has to
 be answered rather than ignored. Needs the release owner's call on the
 destination.
+
+**Decided 2026-08-06 — Prepare owns Q calibration.** Shipped:
+
+1. ACOM's own *"Calibrate Q from Selected Material"* button is gone. What stays
+   is the **read-out** ACOM genuinely needs in order to label its own results —
+   Interpretation, Q scale, Provenance — which answers the panel's stated
+   purpose without owning the *action*. The exploratory-scale slider stays too:
+   that is ACOM's own scale, not Prepare's calibration.
+2. **The "Review Q Calibration in Prepare" link is now unconditional.** It
+   previously appeared only when the scale was *already* physical, which is
+   backwards — an exploratory scale is exactly when a user needs telling where
+   to fix it. Identifier `acom.reviewQCalibration`.
+3. **The IPF colour key is drawn once**, by `StemImageView`, over the pixels it
+   decodes. The two copies were keyed differently — the sidebar on ACOM's own
+   `Display` picker, the image on the *displayed result* actually being an IPF-Z
+   map — so the sidebar copy could describe a colouring no visible pixel used.
+
+**Safe for the acceptance harness:** `mac4DSTEMUITests` drives
+`calibration.action.qCrystal` in Prepare, never ACOM's copy, so removing the
+duplicate does not touch the QC path.
 
 **Core untouched:** yes.
 
@@ -2328,3 +2376,305 @@ The items most likely to move it are **#5** and **#8** — if either lands, the
 three currently-failing strain runs are what should turn green, and a strain
 map on `downsample_Si_SiGe_exp` (the canonical py4DSTEM strain dataset) is the
 single clearest proof that the change worked.
+
+---
+
+## #44 — The UI explains itself permanently, and the panel jumps per task  ·  ✅ Done 2026-08-06
+
+**Reported by the release owner:** *"the app should feel considered, not just
+correct. It is dense rather than ugly. It explains itself permanently — a gray
+caption under every workspace row, every task row and every picker — so the
+guidance never stands down once learned, and the sidebar changes shape per task
+so the panel jumps."*
+
+**Costed before it was designed**, the way #21 was. Measured in a real 1470×923
+window at the declared 292pt sidebar, via
+`mac4DSTEMTests/SidebarDensityMeasurementTests` (a measurement harness, not a
+gate — it prints numbers and asserts nothing).
+
+### What the permanent captions cost
+
+| | with caption | without | Δ |
+|---|---|---|---|
+| 5 workspace rows | 170.0 pt | 107.0 pt | **−63.0** |
+| Map task rows (3) | 102.0 pt | 68.0 pt | **−34.0** |
+| Image task rows (2) | 68.0 pt | 44.0 pt | −24.0 |
+| Reconstruct task row (1) | 34.0 pt | 22.0 pt | −12.0 |
+| 6 standalone explainer blocks | 156.0 pt | — | **−156.0** |
+
+Every row measured **34.0pt with a caption against 20–24pt without** — the
+caption was a flat ~40% of each row.
+
+### The jump, quantified
+
+Sidebar document height against 871pt of column:
+
+| Workspace | ready before | after | blocked before | after |
+|---|---|---|---|---|
+| Prepare | 1081 | **871** | 1203 | **920** |
+| Map | 1000 | **871** | 968 | **871** |
+| Image | 949 | **871** | 917 | **871** |
+| Reconstruct | 919 | **871** | 887 | **871** |
+| Results | 871 | 871 | 871 | 871 |
+| **shape change** | **223pt** | **0pt** | **332pt** | **49pt** |
+
+**Four of five workspaces overflowed**, and the worst case was **Prepare, not
+Reconstruct** — which is how it went unnoticed:
+`testSidebarDocumentRoughlyFitsItsColumn` asserted on Reconstruct only.
+
+### Shipped — Option 3, "nothing scrolls"
+
+- **Row subtitles stand down.** `workspaceButton` / `taskButton` draw the
+  subtitle on the **selected row only**, plus `help` on hover. Nothing is lost:
+  all 11 subtitles were already on their row's `accessibilityHint`, verified in
+  the harness.
+- **`unlockSummary` demoted** from a permanent line under all six calibration
+  readiness rows to `help` + `accessibilityHint`.
+- **The 6 standalone explainer blocks** moved to `help` on the control they
+  describe.
+- **`Display` is a remembered disclosure** (`sidebar.displaySection.expanded`),
+  collapsed by default — display settings are not what a workspace is *for*.
+- **#39** (Reconstruct stages) and **#40** (ACOM duplication) folded in.
+
+### What was deliberately NOT demoted
+
+The hard constraint was that no scientific information may be lost — units,
+provenance, interpretation status, validity and staleness stay visible or one
+obvious gesture away. Three things were kept **fully visible** after being
+considered for demotion:
+
+- **`item.detail` on a satisfied readiness row.** An early draft collapsed ready
+  rows to one line. That was wrong twice over: for a ready Q row `detail` is the
+  calibrated **value and units** (`0.02 Å⁻¹/px`), and it is also what
+  `AXDriver.calibrationPanelText()` scrapes into the QC log — so hiding it would
+  have made a UI change look like a *lost calibration* in the acceptance diff.
+- **`status.displayName`**, which is provenance ("Imported from file").
+- **The g₁/g₂ unit.** `"Detector x/y offsets in calibrated pixels."` was the only
+  statement of those fields' units, so instead of moving it to hover, a visible
+  inline `px` was added to each row. A basis vector read in the wrong unit is a
+  silently wrong strain map.
+
+Unmet readiness rows are also never collapsed: their action buttons are what
+`mac4DSTEMUITests` drives, and a collapsed unmet row would make the playthrough
+take its "action did not appear" branch, which logs a finding and **continues**.
+
+### The contract, and why blocked Prepare is allowed 49pt
+
+`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` asserts every
+workspace, ready and blocked. The allowance is **`calibrated ? 8 : 60`**:
+in the calibrated steady state the column must fit exactly, so switching
+workspace cannot change the panel's shape at all; while calibration is
+outstanding, Prepare is a to-do list of up to five actions that must each keep
+their button on screen, and squeezing that to zero would mean hiding a
+calibration action — the trade this pass refused.
+
+### An existing #16 test had to change, deliberately
+
+`testSidebarContentNeverDrawsOverTheTitlebar` force-scrolled the sidebar 200pt
+and asserted AppKit re-clamps on a workspace switch. That was legal while every
+workspace overflowed by 200–350pt. Now that the calibrated sidebar fits exactly
+there is nothing to scroll, no scroll event fires, and the forced offset never
+re-clamps — measured `clipY 148, scrollH 923, windowH 923`. It was asserting on
+a state no gesture can produce. The forced offset is now clamped to the
+document's real scrollable range; the assertion itself is unchanged, and the
+original guarantee still runs wherever there is something to scroll.
+
+**Still open, found while measuring:** **22** instances of
+`.fixedSize(horizontal: false, vertical: true)` remain in `UI/` — including 4 in
+`TaskPrerequisiteChecklist`, the file that caused #16. Safe today and covered by
+`SplitViewHeightTests`, but it is the same loaded gun.
+
+**Also observed:** this machine's saved `NavigationSplitView` divider restores
+**144pt** on three of four saved windows — below the 250pt minimum
+`ContentView` declares. Every string wraps harder there than the layout was
+designed for, which is a plausible contributor to the "feels very off" report.
+Test harnesses now pin the width explicitly (`pinSidebarWidth`) so measurements
+describe the app as designed rather than as one machine left it.
+
+**Core untouched:** yes.
+
+---
+
+## #45 — The QC playthrough needs **two** permissions, and dies silently without the second  ·  ✅ Mitigated 2026-08-06
+
+**Found the hard way on 2026-08-06**, across three failed runs. `docs/v2-onramp.md`
+documented only the Accessibility grant; there is a second one, it is granted to
+a *different process*, and its failure mode is much worse.
+
+### The two grants are not the same, and not to the same process
+
+| | Granted to | Symptom when missing |
+|---|---|---|
+| **Accessibility** | `~/Library/Application Support/Claude/claude-code/<version>/claude.app` — the process that spawns the shell | `Timed out while enabling automation mode.` after ~60 s. App never launches, **no run directory**. |
+| **Screen & System Audio Recording** | the **test runner app**, `com.paullobpreis.mac4DSTEMUITests.xctrunner` — *not* the shell | `Failed to get screenshot: … Image creation failed.` App launches and loads the datacube, then dies. **Run directory created but empty — no `log.md`.** |
+
+The second one is the trap. The invoking shell having Screen Recording is **not
+sufficient and is actively misleading**: `screencapture` from the shell succeeds
+while the runner still fails, because `XCUIElement.screenshot()` executes in the
+ad-hoc-signed runner app (`TeamIdentifier=not set`), and TCC attribution does
+not roll up to `claude.app` for it.
+
+**Verify which process actually needs the Accessibility grant by measurement,
+not by reading this table** — the version number changes with every Claude Code
+update:
+
+```sh
+P=$$; for i in 1 2 3 4 5; do L=$(ps -o ppid=,comm= -p $P); echo "$P ${L#* }"; \
+  P=$(echo $L | awk '{print $1}'); [ "$P" = 1 ] && break; done
+```
+
+Measured 2026-08-06: `/bin/zsh` → `…/claude-code/2.1.221/claude.app/Contents/MacOS/claude`
+→ `/Applications/Claude.app/Contents/Helpers/disclaimer` → `/Applications/Claude.app`.
+The **second** entry is the one to grant; `/Applications/Claude.app` already
+having it does nothing.
+
+### Why the failure is silent, and what was changed
+
+A missing screenshot grant does not degrade gracefully. `XCUIScreenshot`
+unwinds; `QCPlaythroughUITests`'s own `catch` then attempts **another**
+screenshot for `ERROR_state`, which unwinds again and aborts the test **before
+`log.write`**. The result is a run directory containing an empty datacube
+folder and nothing else — no findings, no errors, no explanation. Measured:
+died 0.6 s after `dataset.card` appeared, at step 1.
+
+There is no tolerant variant — XCTest records a screenshot failure as a test
+failure regardless — so a run without the grant must **skip screenshots by
+decision**, not discover the problem by crashing.
+
+**Added `tools/ui-qc-playthrough/run.sh --no-screenshots`** (file-flag
+`.ui-qc-no-screenshots`, same not-an-env-var mechanism as `.ui-qc-filter`, and
+gitignored). It:
+
+- makes `AXDriver.screenshot` return `nil` rather than attempt capture;
+- logs `_(screenshot skipped …)_` at each checkpoint that would have had one;
+- writes a **⚠️ banner at the top of `log.md`** stating that no visual evidence
+  exists, that the numeric findings are unaffected, and that the log **is not a
+  valid baseline for a visual comparison**.
+
+**Defaults to off.** Screenshots are the normal path; losing them has to be an
+explicit choice, never a silent fallback. A `--no-screenshots` run proves the
+numbers and the workflow reaches its steps — it does **not** discharge the
+acceptance artifact.
+
+**App code untouched:** yes — all changes are in `mac4DSTEMUITests/` and
+`tools/`, so the eval-only rule holds.
+
+**Follow-up:** `docs/v2-onramp.md` § "The one thing to do first" documents only
+the Accessibility grant and should gain the second.
+
+---
+
+## #46 — Q calibration is stamped "Measured in app" from an origin the app itself calls unusable
+
+**Found by the 2026-08-06 acceptance diff.** Priority 1 (scientific
+interpretation). **This entry was rewritten once — the first diagnosis was
+wrong and was refuted on adversarial review. Both the wrong path and the
+refutation are kept below, because the wrong path is plausible and someone will
+try it again.**
+
+### The observation
+
+`downsample_Si_SiGe_exp` calibrates to **Q = 0.0548359 Å⁻¹/px**. Silicon
+(a = 5.4309 Å) gives |g₁₁₁| = 0.318925 Å⁻¹, and `tools/bragg-spacing-probe/`
+measures the lattice period as **14.9 px**, so Q should be ≈ **0.02140** — the
+shipped value is **2.56× too large**. Back-solved, the app measured an innermost
+radius of **5.82 px** against a 14.9 px lattice.
+
+`sim_Au_data_all_binned` is exactly right: |g₁₁₁| = 0.424709, Q = 0.0198261 →
+21.42 px, against a probe-measured 21.4 px.
+
+### The actual cause: a broken origin fit, not near-beam artefacts
+
+**This root cause was already known — see [#29](#29--disk-detection-sometimes-goes-bad--it-is-the-origin-fit-not-the-detection).**
+On 2026-08-05 the same 11.655 px fit RMS on the same dataset was traced to the
+origin fit, with the note that `Plane` may not be able to follow the descan on a
+200×50 scan, and that the remedy is a measured probe kernel
+(**Use Current CBED / ROI** gave RMS 1.46 px, κ 4.59, 100% indexed). What #46
+adds is the **downstream consequence**: that same origin silently produces a
+2.56×-wrong Q pixel size which is then labelled "Measured in app". #29 is about a
+diagnostic that does not name its own cause; #46 is about a *number* that
+asserts a confidence it has not earned.
+
+| dataset | probe radius | **origin Fit RMS** | lattice | Q verdict |
+|---|---|---|---|---|
+| sim_Au_data_all_binned | 6.1 px | **0.1616 px** | 21.4 px | correct |
+| downsample_Si_SiGe_exp | 5.03 px | **11.66 px** ⚠️ | 14.9 px | 2.56× high |
+| Particle_1…bin8 | 10.6 px | **18.29 px** ⚠️ | 13.0 px | no model; not reached |
+
+`BraggVectors.calibrated` re-centres every pattern on the *fitted* origin. When
+the fit residual is 11.66 px against a 14.9 px period, the reference origin sits
+roughly 0.4 lattice periods from the nearest lattice point, and the median
+distance from a random offset to the nearest point of a period-*a* lattice is
+0.37–0.40·a — **≈ 5.9 px for a = 14.9**, which reproduces the observed 5.82 px
+without invoking any spurious peak. It also explains why sim_Au is unaffected:
+its fit is clean, so the beam sits at r ≈ 0 and the 2 px guard removes it
+correctly.
+
+**The app already detects this** and says so in the readiness row:
+
+```
+Origin: Measured in app · Probe: 5.03 px (Measured in app) · Fit RMS 11.66 px
+        (exceeds probe radius; recalibrate before quantitative use)
+```
+
+### So what is the defect?
+
+**`calibrateQFromCrystal` runs anyway, and stamps `provenance.qScale =
+.measuredInApp`** on a value derived from an origin the app has already declared
+unfit for quantitative use. The Q row then reads "Measured in app" with no
+qualification, and that string is what flows into export, reopen, and the QC log.
+The number is wrong *and* it is labelled trustworthy — the readiness warning sits
+in a different row and does not travel with the value.
+
+**Fix direction (not implemented):** gate `calibrateQFromCrystal` on the same
+origin readiness the checklist already computes — either refuse with the app's
+own remedy text, or carry a degraded provenance so the label matches what is
+known. Small, and it does not touch the estimator. Still `Core`/`AppState`
+science, so it needs adversarial review plus a fixture.
+
+**Consider also:** the same suspect origin is passed to
+`OrientationMatching.matchAll` and `StrainMapping.compute`. Si_SiGe's ACOM parity
+is `misorientation_median 39.39°, fraction_within_5deg 0.2585` and its strain
+never converges — both consistent with an 11.66 px origin error. Whether the
+residual is a fitting bug or genuine descan the fit cannot follow is the real
+question, and it is upstream of Q entirely.
+
+### REFUTED — do not retry: replacing the estimator with nearest-neighbour spacing
+
+The first diagnosis blamed near-beam artefacts admitted by the corrected
+`minPeakSpacing`, and the proposed fix replaced the per-pattern *innermost
+radius* with the pooled median *nearest-neighbour spacing*. It was implemented,
+passed a purpose-built unit suite, and was then refuted:
+
+1. **It breaks a gating harness.** `tools/strain-test/main.swift` builds patterns
+   of **one peak each**; nearest-neighbour needs two, so the estimator returned
+   nil and `tools/strain-test/run.sh` exited 1 — `run-tests.sh scientific` and
+   `all` went red. Sparse single-peak patterns are a real regime, not a fixture
+   artefact: `polycrystal_2D_WS2` yields exactly 1 peak/pattern across all nine
+   probe variants.
+2. **Nearest-neighbour is itself a minimum statistic, and collapses on
+   superimposed lattices.** For 1/2/3/4 randomly rotated grains in a pattern the
+   pooled NN median goes 14.90 / 6.36 / 5.73 / 5.40 px — Q errors up to **+176%**,
+   worse than the defect being fixed. Cross-lattice coincidences are systematic,
+   so the median cannot absorb them. The *innermost radius* is exactly right in
+   all four cases, because every grain shares g = 0. Same collapse on ring or
+   textured patterns, where it measures azimuthal peak density rather than |g|.
+3. **It silently changed the weighting.** The old code took one sample per scan
+   position — the deleted comment said why: *"the per-position statistic avoids
+   dense patterns dominating the fit"*. The replacement took one per peak, so a
+   pattern's weight became its peak count.
+4. **`sampleCount` changed meaning and the status string was not updated**, so
+   the app would have reported "248384 positions" for a ~10000-position scan,
+   into the QC log as fact.
+
+**The "6% apart, so no threshold can work" table was also wrong** — it compared
+Si_SiGe's *innermost radius* (5.82) against Particle_1's *nearest-neighbour
+spacing* (13.0). Particle_1 has no library phase model, so no innermost radius
+was ever computed for it. Two different statistics in one column.
+
+**Lesson, the same one as 2026-08-05:** the fix passed every test written for
+it, including one verified to fail without it. What it never had was a check
+that the *diagnosis* was right. The origin Fit RMS was printed in the very log
+the finding was drawn from.
+
+**Core untouched:** yes — the refuted change was reverted; `strain-test` green.

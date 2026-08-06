@@ -49,6 +49,21 @@ final class QCPlaythroughUITests: XCTestCase {
 
             let log = RunLog(datacubeFileName: datacubeURL.lastPathComponent, sourceURL: datacubeURL)
 
+            // Loud, at the top of every affected log: a run without screenshots
+            // still proves the numbers, but it is *not* the full acceptance
+            // artifact, and nothing downstream should read it as one.
+            if OutputLayout.screenshotsDisabled {
+                log.note(
+                    "\n> **⚠️ SCREENSHOTS DISABLED FOR THIS RUN.** No visual evidence was "
+                    + "captured. The numeric findings below are unaffected — they are read "
+                    + "from the app's own controls — but this log must **not** be treated as "
+                    + "a complete acceptance artifact, and it is not a valid baseline for a "
+                    + "visual comparison. Cause: `XCUIScreenshot` runs in the ad-hoc-signed "
+                    + "test-runner app, which needs its own Screen & System Audio Recording "
+                    + "grant. Delete `.ui-qc-no-screenshots` and grant it to restore.\n"
+                )
+            }
+
             currentApp?.terminate()
             let app = XCUIApplication()
             currentApp = app
@@ -62,10 +77,10 @@ final class QCPlaythroughUITests: XCTestCase {
             } catch {
                 let message = "\(error)"
                 log.recordError(message)
-                if app.state == .runningForeground {
-                    let attachment = AXDriver(app: app).screenshot(
-                        name: "ERROR_state", outputDirectory: outputDirectory
-                    )
+                if app.state == .runningForeground,
+                   let attachment = AXDriver(app: app).screenshot(
+                       name: "ERROR_state", outputDirectory: outputDirectory
+                   ) {
                     self.add(attachment)
                     log.recordScreenshot(step: "on failure", fileName: "ERROR_state.png")
                 }
@@ -720,7 +735,11 @@ private struct QCWorkflow {
     // MARK: - Helpers
 
     private func attachScreenshot(step: String) {
-        let attachment = driver.screenshot(name: step, outputDirectory: outputDirectory)
+        guard let attachment = driver.screenshot(name: step, outputDirectory: outputDirectory)
+        else {
+            log.bullet("_(screenshot skipped at \"\(step)\" — screenshots disabled for this run)_")
+            return
+        }
         testCase.add(attachment)
         log.recordScreenshot(step: step, fileName: "\(step).png")
     }

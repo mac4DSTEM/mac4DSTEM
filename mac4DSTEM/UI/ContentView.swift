@@ -8,6 +8,17 @@ struct ContentView: View {
     @State private var showImporter = false
     @State private var showPreprocessingExport = false
 
+    /// Sidebar disclosure state, persisted so the choice survives relaunch.
+    /// Collapsed by default: these are display and diagnostic controls rather
+    /// than the task's own controls, and leaving them open was a large part of
+    /// why the column overflowed in every workspace (2026-08-06 polish pass).
+    @AppStorage("sidebar.displaySection.expanded")
+    private var displaySectionExpanded = false
+
+    /// Which Reconstruct stage the user has opened by hand. `nil` means "follow
+    /// the workflow" — see `reconstructionStageBinding`.
+    @State private var openedReconstructionStage: Int?
+
     private var h5Types: [UTType] {
         [
             UTType(filenameExtension: "h5"),
@@ -24,7 +35,9 @@ struct ContentView: View {
     var body: some View {
         @Bindable var appState = appState
         return NavigationSplitView(columnVisibility: Binding(
-            get: { appState.showToolsPane ? .all : .detailOnly },
+            get: {
+                appState.showToolsPane && !appState.isLoadingDataset ? .all : .detailOnly
+            },
             set: { appState.showToolsPane = $0 != .detailOnly }
         )) {
             List {
@@ -95,29 +108,41 @@ struct ContentView: View {
                     }
 
                     if appState.workspaceArea != .results {
-                        Section("Display") {
-                        Toggle("Log diffraction", isOn: $appState.logScale)
-                        if appState.patternScaleMradAvailable {
-                            Picker("Q-scale units", selection: $appState.patternScaleUnit) {
-                                ForEach(PatternScaleUnit.allCases) { unit in
-                                    Text(unit.rawValue).tag(unit)
+                        // Display settings are not what any workspace is *for*
+                        // — they are how the same data is drawn. Kept as a
+                        // disclosure so a task-scoped column stays about the
+                        // task, with the state remembered across launches so a
+                        // user who wants them open pays the gesture once.
+                        // `Q-scale units` is a units control, so it is one
+                        // obvious gesture away, never hidden.
+                        Section {
+                            DisclosureGroup(isExpanded: $displaySectionExpanded) {
+                                Toggle("Log diffraction", isOn: $appState.logScale)
+                                if appState.patternScaleMradAvailable {
+                                    Picker("Q-scale units", selection: $appState.patternScaleUnit) {
+                                        ForEach(PatternScaleUnit.allCases) { unit in
+                                            Text(unit.rawValue).tag(unit)
+                                        }
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .help("Reciprocal shows the calibrated Q pixel units; mrad shows the direct scattering angle (θ ≈ λ·q from the accelerating voltage).")
                                 }
+                                Picker("Diffraction", selection: $appState.patternColormap) {
+                                    ForEach(ColormapKind.allCases) { kind in
+                                        Text(kind.displayName).tag(kind)
+                                    }
+                                }
+                                if appState.resultImage != nil {
+                                    Picker("Result", selection: $appState.resultColormap) {
+                                        ForEach(ColormapKind.allCases) { kind in
+                                            Text(kind.displayName).tag(kind)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Text("Display").font(.subheadline.weight(.semibold))
                             }
-                            .pickerStyle(.segmented)
-                            .help("Reciprocal shows the calibrated Q pixel units; mrad shows the direct scattering angle (θ ≈ λ·q from the accelerating voltage).")
-                        }
-                        Picker("Diffraction", selection: $appState.patternColormap) {
-                            ForEach(ColormapKind.allCases) { kind in
-                                Text(kind.displayName).tag(kind)
-                            }
-                        }
-                        if appState.resultImage != nil {
-                            Picker("Result", selection: $appState.resultColormap) {
-                            ForEach(ColormapKind.allCases) { kind in
-                                Text(kind.displayName).tag(kind)
-                            }
-                            }
-                        }
+                            .accessibilityIdentifier("sidebar.displaySection")
                         }
                     }
 
@@ -140,8 +165,7 @@ struct ContentView: View {
                                     Label("Compute Mean / Max", systemImage: "sum")
                                 }
                                 .disabled(appState.isBusy)
-                                Text("One pass over the cube; also computed by origin calibration.")
-                                    .font(.caption2).foregroundStyle(.secondary)
+                                .help("One pass over the cube; also computed by origin calibration.")
                             }
                         }
                     }
@@ -191,10 +215,8 @@ struct ContentView: View {
                                     }
                                 }
 
-                                Text("Drag the detector on the diffraction pane; the real-space image updates live.")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
                             }
+                            .help("Drag the detector on the diffraction pane; the real-space image updates live.")
                         } else {
                             Section("Region → diffraction") {
                                 Picker("Region shape", selection: $appState.realSpaceShape) {
@@ -315,17 +337,19 @@ struct ContentView: View {
                                 }
                             }
                             .accessibilityIdentifier("strain.basis")
-                            Text("The g₁ / g₂ pair every position is indexed against.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            .help("The g₁ / g₂ pair every position is indexed against.")
                             if appState.strainBasisMode == .manual {
+                                // The unit stays *visible* rather than moving
+                                // to hover: these are bare numbers, and a
+                                // basis vector read in the wrong unit is a
+                                // silently wrong strain map.
                                 HStack {
                                     Text("g₁").frame(width: 18, alignment: .leading)
                                     TextField("x", value: $appState.strainG1X,
                                               format: .number.precision(.fractionLength(3)))
                                     TextField("y", value: $appState.strainG1Y,
                                               format: .number.precision(.fractionLength(3)))
+                                    Text("px").font(.caption2).foregroundStyle(.secondary)
                                 }
                                 HStack {
                                     Text("g₂").frame(width: 18, alignment: .leading)
@@ -333,10 +357,9 @@ struct ContentView: View {
                                               format: .number.precision(.fractionLength(3)))
                                     TextField("y", value: $appState.strainG2Y,
                                               format: .number.precision(.fractionLength(3)))
+                                    Text("px").font(.caption2).foregroundStyle(.secondary)
                                 }
-                                Text("Detector x/y offsets in calibrated pixels.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                .help("Detector x/y offsets in calibrated pixels.")
                             }
                             Button {
                                 Task { await appState.runStrainMapping() }
@@ -404,11 +427,6 @@ struct ContentView: View {
 
                     if appState.workspaceArea == .reconstruct && appState.analysisMode == .ptychography {
                         Section("Reconstruction workflow") {
-                            reconstructionProgress
-                            Text("Start with a calibrated preview and alignment. Open single-slice ptychography only when you need iterative object/probe recovery.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-
                             HStack {
                                 Text("Voltage").font(.caption)
                                 Spacer()
@@ -425,217 +443,221 @@ struct ContentView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            DisclosureGroup("Single-slice ptychography") {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Picker("Method", selection: $appState.ptychographyMethod) {
-                                        ForEach(SingleslicePtychographyMethod.allCases) { method in
-                                            Text(method.rawValue).tag(method)
+                            reconstructionStage(1, "Prepare preview") {
+                                Button {
+                                    Task { await appState.prepareParallaxPreview() }
+                                } label: {
+                                    Label("Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle")
+                                }
+                                .disabled(appState.isBusy)
+                            }
+                            reconstructionStage(2, "Align bright-field stack") {
+                                HStack {
+                                    Button {
+                                        Task { await appState.alignParallaxNextLevel() }
+                                    } label: {
+                                        Label("Align Next Level", systemImage: "align.horizontal.center")
+                                    }
+                                    .disabled(
+                                        appState.isBusy
+                                            || appState.parallaxPreprocess == nil
+                                            || appState.parallaxAlignment?.isComplete == true
+                                    )
+                                    .help("Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation.")
+
+                                    if appState.parallaxAlignment != nil {
+                                        Button("Reset Alignment") {
+                                            appState.resetParallaxAlignment()
                                         }
+                                        .disabled(appState.isBusy)
+                                        .help("Discard completed alignment levels and return to the immutable preprocessed preview.")
+                                    }
+                                }
+                            }
+                            reconstructionStage(3, "Fit and correct phase") {
+                                Button {
+                                    appState.fitParallaxAberrations()
+                                } label: {
+                                    Label("Fit Aberrations", systemImage: "waveform.path")
+                                }
+                                .disabled(
+                                    appState.isBusy
+                                        || appState.parallaxAlignment?.isComplete != true
+                                )
+                                .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
+                                if appState.parallaxHigherOrderFit != nil {
+                                    HStack {
+                                        TextField("Low-pass", value: $appState.parallaxQLowpassInvAngstrom,
+                                                  format: .number.precision(.fractionLength(0...4)))
+                                            .textFieldStyle(.roundedBorder)
+                                        TextField("High-pass", value: $appState.parallaxQHighpassInvAngstrom,
+                                                  format: .number.precision(.fractionLength(0...4)))
+                                            .textFieldStyle(.roundedBorder)
+                                        Text("Å⁻¹")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Button {
+                                        Task { await appState.correctParallaxPhase() }
+                                    } label: {
+                                        Label("Correct Phase", systemImage: "wand.and.stars")
+                                    }
+                                    .disabled(appState.isBusy)
+                                    .help("Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter.")
+                                }
+                            }
+                            reconstructionStage(4, "Inspect or reconstruct products") {
+                                if appState.parallaxAlignment?.isComplete == true {
+                                    HStack {
+                                        TextField(
+                                            "Auto factor", value: $appState.parallaxKDEUpsampleFactor,
+                                            format: .number.precision(.fractionLength(0...3))
+                                        )
+                                        .textFieldStyle(.roundedBorder)
+                                        TextField(
+                                            "KDE σ", value: $appState.parallaxKDESigmaPixels,
+                                            format: .number.precision(.fractionLength(0...3))
+                                        )
+                                        .textFieldStyle(.roundedBorder)
                                     }
                                     HStack {
                                         TextField(
-                                            "Iterations", value: $appState.ptychographyIterations,
+                                            "Lanczos (0=off)", value: $appState.parallaxKDELanczosOrder,
                                             format: .number
                                         )
                                         .textFieldStyle(.roundedBorder)
                                         TextField(
-                                            appState.ptychographyMethod == .gradientDescent
-                                                ? "Step" : "DM/AP α",
-                                            value: appState.ptychographyMethod == .gradientDescent
-                                                ? $appState.ptychographyStepSize
-                                                : $appState.ptychographyProjectionParameter,
-                                            format: .number.precision(.fractionLength(0...3))
+                                            "Position iters", value: $appState.parallaxPositionCorrectionIterations,
+                                            format: .number
+                                        )
+                                        .textFieldStyle(.roundedBorder)
+                                    }
+                                    Toggle("Sinc low-pass", isOn: $appState.parallaxKDELowpass)
+                                    if appState.parallaxPositionCorrectionIterations > 0 {
+                                        Toggle(
+                                            "Checkerboard position steps",
+                                            isOn: $appState.parallaxPositionCorrectionCheckerboard
+                                        )
+                                    }
+                                    Button {
+                                        Task { await appState.upsampleParallaxBF() }
+                                    } label: {
+                                        Label("Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right")
+                                    }
+                                    .disabled(appState.isBusy)
+                                    .help("Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels.")
+                                }
+                                if appState.parallaxHigherOrderFit != nil {
+                                    HStack {
+                                        TextField(
+                                            "Depth start Å", value: $appState.parallaxDepthStartAngstrom,
+                                            format: .number.precision(.fractionLength(0...1))
                                         )
                                         .textFieldStyle(.roundedBorder)
                                         TextField(
-                                            "Norm min", value: $appState.ptychographyNormalizationMinimum,
-                                            format: .number.precision(.fractionLength(0...3))
+                                            "Depth end Å", value: $appState.parallaxDepthEndAngstrom,
+                                            format: .number.precision(.fractionLength(0...1))
+                                        )
+                                        .textFieldStyle(.roundedBorder)
+                                        TextField(
+                                            "Planes", value: $appState.parallaxDepthPlaneCount,
+                                            format: .number
                                         )
                                         .textFieldStyle(.roundedBorder)
                                     }
-                                    Toggle("Fix probe", isOn: $appState.ptychographyFixProbe)
-                                    Toggle(
-                                        "Limit object transmission to 1",
-                                        isOn: $appState.ptychographyConstrainObjectAmplitude
-                                    )
-                                    Toggle(
-                                        "Pure-phase object",
-                                        isOn: $appState.ptychographyPurePhaseObject
-                                    )
-                                    .help("Sets reconstructed object amplitude to one after every iteration.")
-                                    if !appState.ptychographyFixProbe {
-                                        Toggle(
-                                            "Recenter probe each iteration",
-                                            isOn: $appState.ptychographyFixProbeCenterOfMass
+                                    HStack {
+                                        TextField(
+                                            "Info limit Å⁻¹", value: $appState.parallaxDepthInformationLimit,
+                                            format: .number.precision(.fractionLength(0...4))
                                         )
-                                        Toggle(
-                                            "Constrain probe support",
-                                            isOn: $appState.ptychographyConstrainProbeAmplitude
+                                        .textFieldStyle(.roundedBorder)
+                                        TextField(
+                                            "Power", value: $appState.parallaxDepthInformationPower,
+                                            format: .number.precision(.fractionLength(0...2))
                                         )
-                                        if appState.ptychographyConstrainProbeAmplitude {
-                                            HStack {
-                                                TextField(
-                                                    "Support radius",
-                                                    value: $appState.ptychographyProbeAmplitudeRadius,
-                                                    format: .number.precision(.fractionLength(0...3))
-                                                )
-                                                .textFieldStyle(.roundedBorder)
-                                                TextField(
-                                                    "Edge width",
-                                                    value: $appState.ptychographyProbeAmplitudeWidth,
-                                                    format: .number.precision(.fractionLength(0...3))
-                                                )
-                                                .textFieldStyle(.roundedBorder)
+                                        .textFieldStyle(.roundedBorder)
+                                    }
+                                    Toggle("Use full fitted CTF", isOn: $appState.parallaxDepthUseFullFit)
+                                    Button {
+                                        Task { await appState.computeParallaxDepthSections() }
+                                    } label: {
+                                        Label("Compute Depth Stack", systemImage: "square.3.layers.3d")
+                                    }
+                                    .disabled(appState.isBusy)
+                                }
+                                DisclosureGroup("Single-slice ptychography") {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Picker("Method", selection: $appState.ptychographyMethod) {
+                                            ForEach(SingleslicePtychographyMethod.allCases) { method in
+                                                Text(method.rawValue).tag(method)
                                             }
                                         }
+                                        HStack {
+                                            TextField(
+                                                "Iterations", value: $appState.ptychographyIterations,
+                                                format: .number
+                                            )
+                                            .textFieldStyle(.roundedBorder)
+                                            TextField(
+                                                appState.ptychographyMethod == .gradientDescent
+                                                    ? "Step" : "DM/AP α",
+                                                value: appState.ptychographyMethod == .gradientDescent
+                                                    ? $appState.ptychographyStepSize
+                                                    : $appState.ptychographyProjectionParameter,
+                                                format: .number.precision(.fractionLength(0...3))
+                                            )
+                                            .textFieldStyle(.roundedBorder)
+                                            TextField(
+                                                "Norm min", value: $appState.ptychographyNormalizationMinimum,
+                                                format: .number.precision(.fractionLength(0...3))
+                                            )
+                                            .textFieldStyle(.roundedBorder)
+                                        }
+                                        Toggle("Fix probe", isOn: $appState.ptychographyFixProbe)
+                                        Toggle(
+                                            "Limit object transmission to 1",
+                                            isOn: $appState.ptychographyConstrainObjectAmplitude
+                                        )
+                                        Toggle(
+                                            "Pure-phase object",
+                                            isOn: $appState.ptychographyPurePhaseObject
+                                        )
+                                        .help("Sets reconstructed object amplitude to one after every iteration.")
+                                        if !appState.ptychographyFixProbe {
+                                            Toggle(
+                                                "Recenter probe each iteration",
+                                                isOn: $appState.ptychographyFixProbeCenterOfMass
+                                            )
+                                            Toggle(
+                                                "Constrain probe support",
+                                                isOn: $appState.ptychographyConstrainProbeAmplitude
+                                            )
+                                            if appState.ptychographyConstrainProbeAmplitude {
+                                                HStack {
+                                                    TextField(
+                                                        "Support radius",
+                                                        value: $appState.ptychographyProbeAmplitudeRadius,
+                                                        format: .number.precision(.fractionLength(0...3))
+                                                    )
+                                                    .textFieldStyle(.roundedBorder)
+                                                    TextField(
+                                                        "Edge width",
+                                                        value: $appState.ptychographyProbeAmplitudeWidth,
+                                                        format: .number.precision(.fractionLength(0...3))
+                                                    )
+                                                    .textFieldStyle(.roundedBorder)
+                                                }
+                                            }
+                                        }
+                                        Button {
+                                            Task { await appState.runSingleslicePtychography() }
+                                        } label: {
+                                            Label("Reconstruct Object", systemImage: "circle.hexagongrid")
+                                        }
+                                        .disabled(appState.isBusy)
+                                        .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
                                     }
-                                    Button {
-                                        Task { await appState.runSingleslicePtychography() }
-                                    } label: {
-                                        Label("Reconstruct Object", systemImage: "circle.hexagongrid")
-                                    }
-                                    .disabled(appState.isBusy)
-                                    .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
                                 }
-                            }
-
-                            if appState.parallaxAlignment?.isComplete == true {
-                                HStack {
-                                    TextField(
-                                        "Auto factor", value: $appState.parallaxKDEUpsampleFactor,
-                                        format: .number.precision(.fractionLength(0...3))
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                    TextField(
-                                        "KDE σ", value: $appState.parallaxKDESigmaPixels,
-                                        format: .number.precision(.fractionLength(0...3))
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                }
-                                HStack {
-                                    TextField(
-                                        "Lanczos (0=off)", value: $appState.parallaxKDELanczosOrder,
-                                        format: .number
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                    TextField(
-                                        "Position iters", value: $appState.parallaxPositionCorrectionIterations,
-                                        format: .number
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                }
-                                Toggle("Sinc low-pass", isOn: $appState.parallaxKDELowpass)
-                                if appState.parallaxPositionCorrectionIterations > 0 {
-                                    Toggle(
-                                        "Checkerboard position steps",
-                                        isOn: $appState.parallaxPositionCorrectionCheckerboard
-                                    )
-                                }
-                                Button {
-                                    Task { await appState.upsampleParallaxBF() }
-                                } label: {
-                                    Label("Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right")
-                                }
-                                .disabled(appState.isBusy)
-                                .help("Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels.")
-                            }
-
-                            Button {
-                                Task { await appState.prepareParallaxPreview() }
-                            } label: {
-                                Label("Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle")
-                            }
-                            .disabled(appState.isBusy)
-
-                            HStack {
-                                Button {
-                                    Task { await appState.alignParallaxNextLevel() }
-                                } label: {
-                                    Label("Align Next Level", systemImage: "align.horizontal.center")
-                                }
-                                .disabled(
-                                    appState.isBusy
-                                        || appState.parallaxPreprocess == nil
-                                        || appState.parallaxAlignment?.isComplete == true
-                                )
-                                .help("Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation.")
-
-                                if appState.parallaxAlignment != nil {
-                                    Button("Reset Alignment") {
-                                        appState.resetParallaxAlignment()
-                                    }
-                                    .disabled(appState.isBusy)
-                                    .help("Discard completed alignment levels and return to the immutable preprocessed preview.")
-                                }
-                            }
-
-                            Button {
-                                appState.fitParallaxAberrations()
-                            } label: {
-                                Label("Fit Aberrations", systemImage: "waveform.path")
-                            }
-                            .disabled(
-                                appState.isBusy
-                                    || appState.parallaxAlignment?.isComplete != true
-                            )
-                            .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
-
-                            if appState.parallaxHigherOrderFit != nil {
-                                HStack {
-                                    TextField("Low-pass", value: $appState.parallaxQLowpassInvAngstrom,
-                                              format: .number.precision(.fractionLength(0...4)))
-                                        .textFieldStyle(.roundedBorder)
-                                    TextField("High-pass", value: $appState.parallaxQHighpassInvAngstrom,
-                                              format: .number.precision(.fractionLength(0...4)))
-                                        .textFieldStyle(.roundedBorder)
-                                    Text("Å⁻¹")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Button {
-                                    Task { await appState.correctParallaxPhase() }
-                                } label: {
-                                    Label("Correct Phase", systemImage: "wand.and.stars")
-                                }
-                                .disabled(appState.isBusy)
-                                .help("Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter.")
-
-                                HStack {
-                                    TextField(
-                                        "Depth start Å", value: $appState.parallaxDepthStartAngstrom,
-                                        format: .number.precision(.fractionLength(0...1))
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                    TextField(
-                                        "Depth end Å", value: $appState.parallaxDepthEndAngstrom,
-                                        format: .number.precision(.fractionLength(0...1))
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                    TextField(
-                                        "Planes", value: $appState.parallaxDepthPlaneCount,
-                                        format: .number
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                }
-                                HStack {
-                                    TextField(
-                                        "Info limit Å⁻¹", value: $appState.parallaxDepthInformationLimit,
-                                        format: .number.precision(.fractionLength(0...4))
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                    TextField(
-                                        "Power", value: $appState.parallaxDepthInformationPower,
-                                        format: .number.precision(.fractionLength(0...2))
-                                    )
-                                    .textFieldStyle(.roundedBorder)
-                                }
-                                Toggle("Use full fitted CTF", isOn: $appState.parallaxDepthUseFullFit)
-                                Button {
-                                    Task { await appState.computeParallaxDepthSections() }
-                                } label: {
-                                    Label("Compute Depth Stack", systemImage: "square.3.layers.3d")
-                                }
-                                .disabled(appState.isBusy)
                             }
 
                             if !appState.availableParallaxProducts.isEmpty {
@@ -872,17 +894,17 @@ struct ContentView: View {
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
-                if appState.hasDataset {
+                if appState.hasDataset && !appState.isLoadingDataset {
                     ProductWorkspaceHeader()
                 }
 
-                if appState.hasDataset && appState.workspaceArea == .results {
+                if appState.hasDataset && !appState.isLoadingDataset && appState.workspaceArea == .results {
                     ResultsWorkspace()
                 } else {
                     HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     Group {
-                        if appState.hasDataset {
+                        if appState.hasDataset && !appState.isLoadingDataset {
                             imagePanes
                                 .focusable()
                                 .focusEffectDisabled()
@@ -896,7 +918,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // Output strip: rolling log of operations below the panes.
-                    if appState.showLogPane && appState.hasDataset {
+                    if appState.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
                         Divider()
                         logPane
                     }
@@ -1258,10 +1280,18 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Text(area.subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    // The subtitle stands down once you are past needing it.
+                    // It described all five areas permanently, which cost 63pt
+                    // of an 871pt column to answer a question asked once. It is
+                    // still on the selected row (where it names where you are),
+                    // on hover via `help`, and in `accessibilityHint` — so the
+                    // fact is demoted, never deleted.
+                    if appState.workspaceArea == area {
+                        Text(area.subtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
                 if area == .results && !appState.sessionInventory.results.isEmpty {
@@ -1277,6 +1307,7 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .foregroundStyle(appState.workspaceArea == area ? Color.accentColor : Color.primary)
         .padding(.vertical, 3)
+        .help(area.subtitle)
         .accessibilityLabel(area.title)
         .accessibilityIdentifier("workspace.\(area.rawValue)")
         .accessibilityHint(area.subtitle)
@@ -1293,10 +1324,15 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(mode.productTitle)
                         .font(.subheadline.weight(appState.analysisMode == mode ? .semibold : .regular))
-                    Text(mode.productSubtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    // Same rule as `workspaceButton`: on the selected row, on
+                    // hover, and in the accessibility hint — not permanently on
+                    // every row. See that comment for the reasoning.
+                    if appState.analysisMode == mode {
+                        Text(mode.productSubtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
                 // Backlog #33. This glyph reports READINESS — whether the
@@ -1320,6 +1356,7 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .foregroundStyle(appState.analysisMode == mode ? Color.accentColor : Color.primary)
         .padding(.vertical, 3)
+        .help(mode.productSubtitle)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
@@ -1341,42 +1378,71 @@ struct ContentView: View {
         return "\(mode.productTitle), \(unmet) requirement\(unmet == 1 ? "" : "s") missing"
     }
 
-    private var reconstructionProgress: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            reconstructionStep(
-                "1", "Prepare preview",
-                complete: appState.parallaxPreprocess != nil
-            )
-            reconstructionStep(
-                "2", "Align virtual bright-field stack",
-                complete: appState.parallaxAlignment?.isComplete == true
-            )
-            reconstructionStep(
-                "3", "Fit and correct phase",
-                complete: appState.parallaxCorrection != nil
-            )
-            reconstructionStep(
-                "4", "Inspect or reconstruct products",
-                complete: appState.singleslicePtychography != nil
-                    || appState.parallaxSubpixel != nil
-            )
+    /// Backlog #39. The Reconstruct sidebar was ~450 lines in a single
+    /// `Section` — roughly 20 `TextField`s, 8 toggles and 6 buttons, essentially
+    /// all on screen at once once `parallaxHigherOrderFit` existed, in a
+    /// 250–340pt column. `reconstructionProgress` already modelled the workflow
+    /// as four stages and `primaryActionTitle` already knew which was next; the
+    /// controls simply were not grouped by it.
+    ///
+    /// Each stage is now a disclosure whose header carries the same ✓/number
+    /// glyph the old progress block drew, with the controls for that stage
+    /// inside it. The stage the workflow is actually on is open; opening
+    /// another closes it.
+    ///
+    /// **Presentation only** — no control changed meaning and none was removed.
+    /// The separate `reconstructionProgress` summary went away because the
+    /// headers now say the same thing *next to the controls they gate*, which
+    /// is #21's "one owner" rule; keeping both would have restated the whole
+    /// checklist immediately above itself.
+    ///
+    /// Two things deliberately stay outside the stages: the accelerating-voltage
+    /// field, because every stage depends on it and `mac4DSTEMUITests` locates
+    /// it structurally by its "Voltage" row label, and the displayed-product
+    /// pickers, because they choose what is on screen right now rather than
+    /// parameterising a step.
+    @ViewBuilder
+    private func reconstructionStage<Content: View>(
+        _ number: Int, _ title: String, @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        let complete = reconstructionStageIsComplete(number)
+        DisclosureGroup(isExpanded: reconstructionStageBinding(number)) {
+            VStack(alignment: .leading, spacing: 6) { content() }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle")
+                    .foregroundStyle(complete ? Color.green : Color.secondary)
+                    .accessibilityHidden(true)
+                Text(title).font(.caption)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(complete ? "Complete" : "Pending")
         }
-        .padding(10)
-        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("reconstruct.stage.\(number)")
     }
 
-    private func reconstructionStep(_ number: String, _ title: String, complete: Bool) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle")
-                .foregroundStyle(complete ? Color.green : Color.secondary)
-                .accessibilityHidden(true)
-            Text(title)
-                .font(.caption)
-            Spacer()
+    private func reconstructionStageIsComplete(_ number: Int) -> Bool {
+        switch number {
+        case 1: appState.parallaxPreprocess != nil
+        case 2: appState.parallaxAlignment?.isComplete == true
+        case 3: appState.parallaxCorrection != nil
+        default:
+            appState.singleslicePtychography != nil || appState.parallaxSubpixel != nil
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(complete ? "Complete" : "Pending")
+    }
+
+    /// The stage the workflow is on — the first one not yet complete.
+    private var currentReconstructionStage: Int {
+        (1...4).first { !reconstructionStageIsComplete($0) } ?? 4
+    }
+
+    /// Follows the workflow until the user opens a stage themselves, after
+    /// which their choice stands. Closing that stage returns to following.
+    private func reconstructionStageBinding(_ number: Int) -> Binding<Bool> {
+        Binding(
+            get: { (openedReconstructionStage ?? currentReconstructionStage) == number },
+            set: { openedReconstructionStage = $0 ? number : nil }
+        )
     }
 
     /// A labelled slider that scrubs one scan axis. `count` is the axis length;

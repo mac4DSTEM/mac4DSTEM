@@ -30,6 +30,24 @@ final class SidebarLayoutTests: XCTestCase {
         return window
     }
 
+    /// `NavigationSplitView` autosaves its divider position, and a machine that
+    /// has run the app can restore a width *below* the 250pt minimum
+    /// `ContentView` declares — 144pt was observed on 2026-08-06. The same
+    /// strings wrap onto more lines there, so an unpinned width silently makes
+    /// every height measurement machine-dependent.
+    private func pinSidebarWidth(_ window: NSWindow, to width: CGFloat = 292) {
+        func splitViews(_ view: NSView) -> [NSSplitView] {
+            var found: [NSSplitView] = []
+            if let s = view as? NSSplitView { found.append(s) }
+            for sub in view.subviews { found += splitViews(sub) }
+            return found
+        }
+        guard let split = splitViews(window.contentView!).first else { return }
+        split.autosaveName = ""
+        split.setPosition(width, ofDividerAt: 0)
+        pump(0.4)
+    }
+
     private func scrollViews(_ view: NSView) -> [NSScrollView] {
         var found: [NSScrollView] = []
         if let s = view as? NSScrollView { found.append(s) }
@@ -111,8 +129,24 @@ final class SidebarLayoutTests: XCTestCase {
 
         // Scrolled down, then switched to a workspace with a shorter sidebar
         // document — AppKit must re-clamp to the inset-aware floor, not to 0.
+        //
+        // The offset is clamped to what the document can *actually* scroll.
+        // This used to force a flat 200pt, which was legal while every
+        // workspace overflowed its column by 200–350pt. Since the 2026-08-06
+        // density pass the calibrated sidebar fits exactly, so a forced 200pt
+        // puts the clip view somewhere no scroll gesture can reach — and with
+        // nothing scrollable, no event ever fires to re-clamp it. That is a
+        // synthetic state, not a regression: asserting on it would be asserting
+        // that AppKit recovers from an offset the user cannot produce. Scrolling
+        // to the real maximum keeps the original guarantee under test wherever
+        // there is still something to scroll, and is a no-op where there is not.
         if let scroll = sidebar(window) {
-            scroll.contentView.scroll(to: NSPoint(x: 0, y: -scroll.contentInsets.top + 200))
+            let document = scroll.documentView?.bounds.height ?? 0
+            let visible = scroll.contentView.bounds.height
+            let scrollable = max(0, document - visible)
+            scroll.contentView.scroll(
+                to: NSPoint(x: 0, y: -scroll.contentInsets.top + min(200, scrollable))
+            )
             scroll.reflectScrolledClipView(scroll.contentView)
             pump(0.3)
         }
@@ -222,6 +256,107 @@ final class SidebarLayoutTests: XCTestCase {
             turned.height / turned.width, upright.width / upright.height,
             accuracy: 0.05,
             "a quarter turn must invert the aspect exactly, not merely change it"
+        )
+    }
+
+    /// Backlog #42 (2026-08-06 polish pass). `testSidebarDocumentRoughlyFitsItsColumn`
+    /// below asserts this for **Reconstruct only**, which is how Prepare came to
+    /// overflow by 332pt without any test noticing. Measured before the pass, in
+    /// a 1470×923 window with the declared 292pt sidebar:
+    ///
+    /// | workspace   | ready  | blocked |
+    /// |-------------|--------|---------|
+    /// | Prepare     | 1081   | **1203**|
+    /// | Map         | 1000   | 968     |
+    /// | Image       | 949    | 917     |
+    /// | Reconstruct | 919    | 887     |
+    /// | Results     | 871    | 871     |
+    ///
+    /// against 871pt of column. The polish pass's contract is that the sidebar
+    /// stops needing to scroll at the app's own default window size, in every
+    /// workspace, blocked or not — which is also what stops the panel changing
+    /// shape as you move between tasks.
+    func testEveryWorkspaceSidebarFitsItsColumn() async throws {
+        for calibrated in [true, false] {
+            let appState = AppState()
+            await appState.openDemoFixture(calibrated: calibrated)
+            let window = makeWindow(appState)
+            defer { window.orderOut(nil) }
+            pinSidebarWidth(window)
+
+            // Once calibration is complete — the state the app spends almost
+            // all of its life in — the column must fit exactly, so moving
+            // between workspaces cannot change the panel's shape at all.
+            //
+            // While calibration is still outstanding, Prepare is a to-do list
+            // of up to five actions, each of which must keep its own button on
+            // screen. It is allowed one row's worth of overflow (measured: 49pt
+            // against an 871pt column). Squeezing that to zero would mean
+            // hiding a calibration action behind a disclosure, which is exactly
+            // the trade the polish pass refused to make.
+            let allowance: CGFloat = calibrated ? 8 : 60
+
+            for area in WorkspaceArea.allCases {
+                appState.selectWorkspace(area)
+                pump(0.5)
+                let scroll = try XCTUnwrap(sidebar(window))
+                let available = scroll.bounds.height - scroll.contentInsets.top
+                let document = try XCTUnwrap(scroll.documentView).bounds.height
+                XCTAssertLessThanOrEqual(
+                    document, available + allowance,
+                    "\(area.title) (calibrated=\(calibrated)) sidebar is \(document)pt "
+                        + "against \(available)pt of column — it still has to scroll, so the "
+                        + "panel still changes shape when you switch to it"
+                )
+            }
+        }
+    }
+
+    /// Backlog #39. Grouping Reconstruct's controls into four collapsible
+    /// stages must not take the accelerating-voltage field with them.
+    ///
+    /// `mac4DSTEMUITests.setAcceleratingVoltage` locates that field
+    /// *structurally*, by looking for a text field in the row labelled
+    /// "Voltage" — it has no identifier in the automation's own lookup path.
+    /// Inside a collapsed disclosure the field would not exist, the QC
+    /// playthrough would call `recordError` and skip parallax entirely, and the
+    /// run would still finish. That is a gate failing quietly, so the field's
+    /// presence is pinned here where it fails loudly instead.
+    func testAcceleratingVoltageStaysOutsideTheReconstructStages() async throws {
+        let appState = AppState()
+        await appState.openDemoFixture()
+        let window = makeWindow(appState)
+        defer { window.orderOut(nil) }
+        pinSidebarWidth(window)
+
+        appState.selectWorkspace(.reconstruct)
+        appState.changeMode(.ptychography)
+        pump(0.8)
+
+        // Asserted by *count*, not by identifier. SwiftUI does not put its
+        // accessibility identifiers on the `NSView` tree, and it builds the
+        // accessibility tree lazily for a real assistive client — measured
+        // 2026-08-06: walking either tree in-process finds 0 identifiers. The
+        // editable text fields it renders as real `NSTextField`s, though, are
+        // countable.
+        //
+        // On arrival at Reconstruct the open stage is 1 ("Prepare preview"),
+        // whose only control is a button. So the sole text field on screen is
+        // the accelerating-voltage field — and if a stage disclosure swallowed
+        // it, this count would be 0.
+        func textFields(_ view: NSView) -> Int {
+            var n = view is NSTextField ? 1 : 0
+            for sub in view.subviews { n += textFields(sub) }
+            return n
+        }
+
+        XCTAssertGreaterThanOrEqual(
+            textFields(window.contentView!), 1,
+            "no editable field is on screen in Reconstruct → Ptychography. The "
+                + "accelerating-voltage field must stay outside #39's stage disclosures: "
+                + "`mac4DSTEMUITests.setAcceleratingVoltage` finds it structurally by its "
+                + "\"Voltage\" row label, and when it cannot, the QC playthrough records an "
+                + "error and skips parallax rather than failing the run."
         )
     }
 

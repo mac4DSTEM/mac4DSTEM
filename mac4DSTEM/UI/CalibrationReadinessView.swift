@@ -42,15 +42,19 @@ struct CalibrationReadinessChecklist: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
                 Spacer()
+                // Provenance ("Measured" / "Imported" / …). Never demoted.
                 Text(item.status.displayName)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
             }
+            // For a satisfied row this is the calibrated **value and its
+            // units** — `0.0123 Å⁻¹/px`. It stays on screen unconditionally:
+            // it is the scientific content of the row, and it is also what
+            // `AXDriver.calibrationPanelText()` scrapes into the QC log, so
+            // hiding it would make a UI change look like a lost calibration in
+            // the acceptance diff.
             Text(item.detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(item.kind.unlockSummary)
-                .font(.caption2)
                 .foregroundStyle(.secondary)
             // Rendered outside the `!isReady` branch below: an imported R scale
             // that disagrees with the filename is *ready*, and that is exactly
@@ -67,7 +71,13 @@ struct CalibrationReadinessChecklist: View {
             }
         }
         .padding(.vertical, 2)
+        // `unlockSummary` says what this calibration *enables*. That is a
+        // motivation, not a status, and it was drawn permanently under all six
+        // rows — 78pt of an 871pt column restating something that never
+        // changes. On hover, and still in the row's accessibility description.
+        .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
         .accessibilityElement(children: .contain)
+        .accessibilityHint(item.kind.unlockSummary)
         .accessibilityIdentifier("calibration.item.\(item.kind.id)")
     }
 
@@ -117,9 +127,10 @@ struct CalibrationReadinessChecklist: View {
                         )
                     }
                 } else {
-                    Text(qScaleUnavailableReason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    // Why the crystal route is unavailable is guidance about a
+                    // path you cannot take yet, not a property of the result.
+                    // On hover and in the field's accessibility hint; the row's
+                    // own "Missing" badge and `detail` still state the status.
                     manualScaleField(
                         value: appState.manualQPixelSize,
                         units: appState.manualQPixelUnits,
@@ -128,16 +139,17 @@ struct CalibrationReadinessChecklist: View {
                         onChange: appState.setManualQPixelSize,
                         onUnitChange: appState.setManualQPixelUnits
                     )
+                    .help(qScaleUnavailableReason)
+                    .accessibilityHint(qScaleUnavailableReason)
                 }
             }
         case .rScale:
             VStack(alignment: .leading, spacing: 6) {
                 // R scale is the one calibration with no measurement path in
                 // the app; saying so prevents a hunt for a "measure" button
-                // that does not exist.
-                Text("R pixel scale cannot be measured from the data — enter it from the acquisition parameters.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // that does not exist. The field is labelled "Manual" and is
+                // the only control offered, which carries the same message
+                // structurally; the sentence itself is on hover.
                 manualScaleField(
                     value: appState.manualRPixelSize,
                     units: appState.manualRPixelUnits,
@@ -146,6 +158,8 @@ struct CalibrationReadinessChecklist: View {
                     onChange: appState.setManualRPixelSize,
                     onUnitChange: appState.setManualRPixelUnits
                 )
+                .help("R pixel scale cannot be measured from the data — enter it from the acquisition parameters.")
+                .accessibilityHint("R pixel scale cannot be measured from the data — enter it from the acquisition parameters.")
             }
         }
     }

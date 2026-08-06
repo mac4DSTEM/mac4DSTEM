@@ -604,7 +604,7 @@ are **not yet joined**:
 | Half | Track | What it produces | Level |
 |------|-------|------------------|-------|
 | Replicate + check deviation | `tools/training-dataset-campaign/` (`run.sh`, `main.swift`, `verify_py4dstem.py`) | mac4DSTEM Core results on each dataset, read back through py4DSTEM for parity/interop | **headless, algorithm-level** |
-| Use it to improve the UI | QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`) | screenshots, per-datacube logs, exported maps; friction → `docs/ui-workflow-backlog.md` | **visible, workflow-level** |
+| Use it to improve the UI | QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`) | screenshots, per-datacube logs, exported maps; friction → `docs/open-items.md` | **visible, workflow-level** |
 
 **The wire that joins them** (added 2026-08-04, ui-implementation-prompts.md
 Prompt A): the campaign now exports, per dataset, the exact arrays the app
@@ -889,10 +889,10 @@ and median reference bases diverge badly. A measured disagreement is strictly
 more information than the previous no-map, but it is a finding to investigate,
 not a tolerance to widen.
 
-**How the loop drives v1.0:** each QC prompt (`docs/qc-playthrough-prompts.md`)
+**How the loop drives v1.0:** each QC prompt (archived — `docs/archive/v1.0/qc-playthrough-prompts.md`)
 advances the UI half; `tools/run-tests.sh scientific` + the campaign advance
 the parity half; a finished v1 is *both halves green* + the
-`docs/ui-workflow-backlog.md` items closed + release-owner signing. Doing real
+`docs/open-items.md` cleared + release-owner signing. Doing real
 science = running the calibrated pipelines (e.g. the physical-scale ACOM in
 §9.1) on your data and trusting the numbers because the parity half backs them.
 

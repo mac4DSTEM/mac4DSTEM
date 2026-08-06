@@ -20,11 +20,31 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 : "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
 export DEVELOPER_DIR
 
+# --no-screenshots: skip every XCUIScreenshot call for this run.
+#
+# `XCUIElement.screenshot()` executes in the ad-hoc-signed test-runner app,
+# which needs its own Screen & System Audio Recording grant — the invoking
+# shell's grant does not cover it. Without it the call unwinds and aborts the
+# test before log.md is written, so a run on an ungranted machine produces
+# nothing at all. This trades the visual evidence for the numeric findings; the
+# log says so loudly at the top, and the run is NOT a valid visual baseline.
+NO_SHOTS_FILE="$ROOT/.ui-qc-no-screenshots"
+rm -f "$NO_SHOTS_FILE"
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--no-screenshots" ]]; then
+    : > "$NO_SHOTS_FILE"
+    echo "Screenshots DISABLED for this run — numeric findings only."
+  else
+    args+=("$arg")
+  fi
+done
+
 # A file, not an env var: xcodebuild's UI-test runner process does not
 # reliably inherit env vars exported by this shell.
 FILTER_FILE="$ROOT/.ui-qc-filter"
-if (( $# > 0 )); then
-  filter="$(IFS=,; echo "$*")"
+if (( ${#args[@]} > 0 )); then
+  filter="$(IFS=,; echo "${args[*]}")"
   echo "$filter" > "$FILTER_FILE"
   echo "Running only datacubes matching: $filter"
 else

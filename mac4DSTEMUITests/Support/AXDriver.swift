@@ -532,7 +532,12 @@ struct AXDriver {
     /// Captures the app's front window, writes it as a loose PNG into
     /// `outputDirectory`, and returns an XCTAttachment for the test's own
     /// result bundle — the two forms of evidence the QC run asks for.
-    func screenshot(name: String, outputDirectory: URL) -> XCTAttachment {
+    /// Returns `nil` when this run is deliberately skipping screenshots — see
+    /// `OutputLayout.screenshotsDisabled` for why that is a decision rather than
+    /// a fallback. Callers must treat `nil` as "record that evidence is
+    /// missing", never as "capture succeeded but was empty".
+    func screenshot(name: String, outputDirectory: URL) -> XCTAttachment? {
+        guard !OutputLayout.screenshotsDisabled else { return nil }
         let capture = app.windows.firstMatch.screenshot()
         let pngURL = outputDirectory.appendingPathComponent("\(name).png")
         try? capture.pngRepresentation.write(to: pngURL)

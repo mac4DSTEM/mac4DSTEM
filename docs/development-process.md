@@ -9,7 +9,7 @@ tiers to your preference; the *disciplines* are the part that must hold.
 Files do not update themselves. Treat doc maintenance as part of "done":
 
 - **When a QC task lands:** tick its box in the Status checklist of
-  `docs/qc-playthrough-prompts.md` and note the run folder. Not optional.
+  `docs/open-items.md` and note the run folder. Not optional.
 - **When the folder structure changes:** update the README structure block
   and the placement table in `CLAUDE.md`.
 - **When a doc is superseded or dated:** move it to `docs/archive/` (with
@@ -55,7 +55,7 @@ real app/`Core/` changes.
 
 - **UI-friendliness** → already covered by Thread B: run the QC playthrough
   (`tools/ui-qc-playthrough/run.sh`) as the acceptance test after a UI change,
-  and file friction in `docs/ui-workflow-backlog.md`. A flow the script
+  and file friction in `docs/open-items.md`. A flow the script
   completes with fewer prerequisite hops is one a user completes more easily.
 - **Feasibility of a big idea (e.g. "is MLX worth it?")** → a *spike* first:
   a Plan subagent + a short `docs/` note weighing cost/benefit. Decide before
@@ -73,7 +73,7 @@ infrastructure:
 - **In place:** hardened + sandboxed Release config, self-contained HDF5,
   `tools/package-test` clean-Release audit, `docs/releasing.md` +
   `docs/distribution.md`.
-- **"Finished" =** close the `docs/ui-workflow-backlog.md` items + remaining
+- **"Finished" =** close the `docs/open-items.md` items + remaining
   `docs/v1-scope.md` gaps → then the release-owner actions (Developer ID
   signing, notarization/stapling, clean-account launch + save/reopen on the
   minimum supported macOS).

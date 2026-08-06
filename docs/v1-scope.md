@@ -61,7 +61,7 @@ review/save/export lifecycle rather than hiding it in an inspector.
   large datasets. Captured with their constraints in
   [`docs/post-v1-ideas.md`](post-v1-ideas.md) — that file is where post-v1
   ideas needing `Core/` changes are parked, since
-  `docs/ui-workflow-backlog.md` is contractually UI/workflow-only.
+  `docs/open-items.md` is contractually UI/workflow-only.
 - **Screen-reader (VoiceOver) usability.** Moved out of the v1 "Mac
   experience" gate on **2026-08-05** by the release owner, on the grounds that
   no current or near-term user of this app needs it, so the verification cost
@@ -74,7 +74,7 @@ review/save/export lifecycle rather than hiding it in an inspector.
   on, and `mac4DSTEMUITests/Support/AXDriver.swift` depends on them. Removing
   them would break the QC playthrough.
   The verification procedure is written and parked at
-  [`docs/voiceover-verification-checklist.md`](voiceover-verification-checklist.md)
+  [`docs/archive/v1.0/voiceover-verification-checklist.md`](archive/v1.0/voiceover-verification-checklist.md)
   so v2.0 starts from a checklist rather than from scratch.
 
 ## Release acceptance gates

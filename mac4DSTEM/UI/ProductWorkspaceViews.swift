@@ -38,21 +38,41 @@ struct WelcomeWorkspace: View {
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
                             .keyboardShortcut(.defaultAction)
+                            .disabled(appState.isBusy)
                         if appState.recoveryRecord != nil {
                             Button("Reopen Last Dataset") { appState.reopenLastDataset() }
                                 .buttonStyle(.bordered)
                                 .controlSize(.large)
+                                .disabled(appState.isBusy)
                         }
                         Button("Try Demo Data") {
                             Task { await appState.openDemoFixture() }
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
+                        .disabled(appState.isBusy)
                         .accessibilityIdentifier("welcome.demoButton")
+                    }
+                    if appState.isLoadingDataset {
+                        loadingStatus
                     }
                     Text("The demo is a small synthetic 4D-STEM dataset — every workspace works, and nothing on disk is touched.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    // Guidance, not a warning: analyses stream the whole cube,
+                    // so a network source costs minutes on every pass. Measured
+                    // at ~3.3 MB/s over a NAS — ~30x below gigabit, and
+                    // latency-dominated rather than bandwidth-limited.
+                    Label(
+                        "Work from a local disk. Datasets opened over a network share stream far more slowly on every whole-cube pass.",
+                        systemImage: "internaldrive"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .labelStyle(.titleAndIcon)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: 560)
+                    .accessibilityIdentifier("welcome.localStorageNotice")
                 }
 
                 if !appState.recentDatasets.isEmpty {
@@ -110,6 +130,45 @@ struct WelcomeWorkspace: View {
                 endRadius: 520
             )
         )
+    }
+
+    private var loadingStatus: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Loading dataset")
+                        .font(.subheadline.weight(.semibold))
+                    // Two lines, because the measured phase reports patterns
+                    // AND bytes and middle-truncating that would cut exactly
+                    // the quantities the line exists to show.
+                    Text(appState.datasetLoadingStatus ?? "Opening dataset…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+            }
+            // A determinate bar only where the denominator is real. Metadata
+            // phases show the spinner above and no bar, rather than a fraction
+            // invented to keep something moving.
+            if let progress = appState.datasetLoadingProgress {
+                ProgressView(value: progress)
+                    .accessibilityValue("\(Int(progress * 100)) percent")
+            } else {
+                ProgressView()
+            }
+        }
+        .padding(14)
+        .frame(width: 420, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.quaternary, lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("welcome.loadingStatus")
     }
 
     @ViewBuilder
@@ -319,7 +378,7 @@ struct ProductWorkspaceHeader: View {
             ProgressView(value: appState.progress)
                 .frame(width: 110)
             VStack(alignment: .leading, spacing: 2) {
-                Text(appState.activeOperation ?? "Working…")
+                Text(appState.activeOperation ?? appState.statusText)
                     .font(.caption.weight(.medium))
                     .lineLimit(1)
                 if let progress = appState.progress {

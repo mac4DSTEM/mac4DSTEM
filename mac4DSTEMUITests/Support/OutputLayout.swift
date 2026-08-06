@@ -40,6 +40,32 @@ enum OutputLayout {
         repoRoot.appendingPathComponent(".ui-qc-filter")
     }
 
+    /// Whether this run must **not** attempt `XCUIScreenshot` at all.
+    ///
+    /// `XCUIElement.screenshot()` is executed by the *test runner* app
+    /// (`com.paullobpreis.mac4DSTEMUITests.xctrunner`, ad-hoc signed), not by
+    /// the invoking shell, and it needs its own Screen & System Audio Recording
+    /// grant. Without it the call does not merely return nothing — it unwinds,
+    /// and the failure path in `QCPlaythroughUITests` then attempts *another*
+    /// screenshot, which unwinds again and aborts the test before `log.md` is
+    /// ever written. Measured 2026-08-06: the run died 0.6 s after the datacube
+    /// loaded and produced an empty run directory.
+    ///
+    /// There is no way to attempt a screenshot "tolerantly" — XCTest records
+    /// the failure either way — so a run without the grant has to skip them by
+    /// decision rather than discover it by crashing. **Defaults to false**, so
+    /// nobody loses visual evidence silently; `run.sh --no-screenshots` opts in
+    /// and the log says so loudly.
+    ///
+    /// Same file-not-env-var mechanism as `filterFileURL`, for the same reason.
+    static var screenshotsDisabled: Bool {
+        FileManager.default.fileExists(atPath: noScreenshotsFileURL.path)
+    }
+
+    static var noScreenshotsFileURL: URL {
+        repoRoot.appendingPathComponent(".ui-qc-no-screenshots")
+    }
+
     static func discoverDatacubes() throws -> [URL] {
         let items = try FileManager.default.contentsOfDirectory(
             at: datasetDirectory, includingPropertiesForKeys: nil

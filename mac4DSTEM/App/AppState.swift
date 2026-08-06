@@ -1096,6 +1096,24 @@ final class AppState {
     /// Fractional progress [0,1] of the running long operation, or nil when
     /// idle / indeterminate. Drives the performance panel's progress bar.
     var progress: Double?
+    /// Dataset opening is deliberately tracked separately from analysis work:
+    /// automatic first-result generation can update `statusText` before loading
+    /// has visibly finished, which made the file-open progress disappear into a
+    /// generic operation indicator.
+    ///
+    /// `datasetLoadingProgress` is **nil during phases whose duration is not
+    /// knowable** (opening the file, parsing metadata, reading a sidecar). Those
+    /// get a named spinner instead of an invented percentage — a bar that steps
+    /// through fabricated waypoints is less honest than one that admits it does
+    /// not know, and the fabricated version was what made the old load look like
+    /// it jumped in blocks and then stalled. See `docs/load-pipeline-plan.md`
+    /// (stage L1, invariant I5).
+    var datasetLoadingProgress: Double?
+    var datasetLoadingStatus: String?
+    /// True for the whole open, including the first whole-cube pass — not
+    /// derived from `datasetLoadingProgress`, which is legitimately nil while an
+    /// unmeasurable phase runs.
+    var isLoadingDataset: Bool = false
     @ObservationIgnored private let operationController = AnalysisOperationController()
     /// Short label and unit budget for the performance panel.
     var activeOperation: String? { operationController.name }
@@ -1138,6 +1156,13 @@ final class AppState {
         guard operationController.isCurrent(token), !token.isCancelled else { return }
         progress = min(1, max(0, fraction))
         statusText = status
+        // While the dataset is still opening, this operation IS the load: mirror
+        // its measured progress into the welcome card rather than leaving that
+        // card parked on its last named stage while work is visibly happening.
+        if isLoadingDataset {
+            datasetLoadingProgress = progress
+            datasetLoadingStatus = status
+        }
     }
 
     func cancelActiveOperation() {
@@ -1330,12 +1355,18 @@ final class AppState {
     /// every workspace works without a file and nothing on disk is touched.
     func openDemoFixture(calibrated: Bool = true) async {
         let source = DemoFourDDataSource(includesCalibration: calibrated)
+        beginDatasetLoading("Opening demo dataset…")
+        defer {
+            if isLoadingDataset { finishDatasetLoading() }
+        }
         do {
+            beginDatasetLoadingStage("Reading file structure of the demo dataset…")
             let descriptor = try await source.discoverPrimaryDataset()
             reader = source
             datasets = [descriptor]
             openURL = nil
             await activate(descriptor: descriptor, reader: source)
+            finishDatasetLoading()
             acomDisplay = .ipfZ
             statusText = "Demo ready — follow Prepare → Image → Map (Bragg, then Strain) → Results; each task lists anything it still needs"
         } catch {
@@ -1486,10 +1517,11 @@ final class AppState {
     }
 
     private func openFileAsync(url: URL) async {
-        isBusy = true
-        statusText = "Opening \(url.lastPathComponent)..."
+        beginDatasetLoading("Opening \(url.lastPathComponent)…")
         errorMessage = nil
-        defer { isBusy = false }
+        defer {
+            if isLoadingDataset { finishDatasetLoading() }
+        }
 
         let previousOpenURL = openURL
         let accessed = url.startAccessingSecurityScopedResource()
@@ -1506,6 +1538,7 @@ final class AppState {
             } else {
                 reader = try H5Reader(path: url.path)
             }
+            beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
             if let previousOpenURL {
                 previousOpenURL.stopAccessingSecurityScopedResource()
@@ -1517,15 +1550,26 @@ final class AppState {
             openURL = accessed ? url : nil
             self.reader = reader
             datasets = [descriptor]
-            await activate(descriptor: descriptor, reader: reader)
+            await activate(descriptor: descriptor, reader: reader, runInitialAnalysis: false)
             rememberOpenedDataset(url)
+            // The first whole-cube pass IS part of opening, from the user's
+            // point of view: the welcome card is still on screen and the
+            // workspace has no image yet. Finishing the load before it ran was
+            // what left the bar parked at its last stage and then vanishing
+            // into a generic operation indicator.
+            await runCurrentAnalysis()
+            finishDatasetLoading()
         } catch {
             if accessed { url.stopAccessingSecurityScopedResource() }
             present(error)
         }
     }
 
-    private func activate(descriptor: DatasetDescriptor, reader: any FourDDataSource) async {
+    private func activate(
+        descriptor: DatasetDescriptor,
+        reader: any FourDDataSource,
+        runInitialAnalysis: Bool = true
+    ) async {
         guard descriptor.is4D else {
             present(H5Error.unsupportedRank(descriptor.shape.count))
             return
@@ -1534,9 +1578,9 @@ final class AppState {
         // Dataset replacement is also a cancellation boundary. The epoch still
         // independently prevents any non-cooperative GPU result from landing.
         operationController.reset()
-        progress = nil
-        isBusy = false
+        if !isBusy { progress = nil }
         datasetEpoch &+= 1
+        beginDatasetLoadingStage("Reading calibration metadata…")
         self.descriptor = descriptor
         fourD = FourDArray(reader: reader, descriptor: descriptor)
         selectedScan = ScanPos(x: 0, y: 0)
@@ -1701,13 +1745,63 @@ final class AppState {
         }
         pendingRecovery = nil
 
+        beginDatasetLoadingStage("Checking for a saved session…")
         let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
+        beginDatasetLoadingStage("Loading first diffraction pattern…")
         await loadCurrentPattern()
-        statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
-        await runCurrentAnalysis()
         if let sessionSnapshot {
             restoreSessionResult(from: sessionSnapshot, for: descriptor)
         }
+        if isLoadingDataset {
+            // statusText is about to be driven by the measured whole-cube pass;
+            // don't flash a finished-looking bar in the performance panel first.
+            beginDatasetLoadingStage("Preparing workspace…")
+        } else {
+            statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
+            progress = 1
+        }
+        if runInitialAnalysis {
+            await runCurrentAnalysis()
+        }
+    }
+
+    private func beginDatasetLoading(_ status: String) {
+        isLoadingDataset = true
+        isBusy = true
+        progress = nil
+        datasetLoadingProgress = nil
+        datasetLoadingStatus = status
+        statusText = status
+    }
+
+    private func finishDatasetLoading() {
+        isLoadingDataset = false
+        isBusy = false
+        progress = nil
+        datasetLoadingProgress = nil
+        datasetLoadingStatus = nil
+    }
+
+    /// A named phase with no knowable denominator: spinner, no percentage.
+    /// Deliberately does **not** fabricate a fraction — see the
+    /// `datasetLoadingProgress` doc comment.
+    private func beginDatasetLoadingStage(_ status: String) {
+        guard isLoadingDataset else { return }
+        datasetLoadingProgress = nil
+        if activeOperation == nil { progress = nil }
+        datasetLoadingStatus = status
+        statusText = status
+    }
+
+    /// A measured phase: `fraction` must come from work actually completed,
+    /// never from an estimate of how far through the open we probably are.
+    private func reportDatasetLoadingProgress(_ fraction: Double, _ status: String) {
+        guard isLoadingDataset else { return }
+        let clipped = min(1, max(0, fraction))
+        datasetLoadingProgress = clipped
+        datasetLoadingStatus = status
+        if activeOperation == nil { progress = clipped }
+        statusText = status
     }
 
     private func loadSessionSnapshot(
@@ -2180,14 +2274,42 @@ final class AppState {
         Task { await runVirtualDetector() }
     }
 
+    /// Status line for a whole-cube pass, in the two quantities a user can
+    /// check against their own file: patterns read, and bytes read.
+    ///
+    /// Bytes are the **float32 working size** — what is actually streamed —
+    /// not the on-disk size, which differs whenever the file's dtype is not
+    /// float32 (a uint16 cube streams at twice its file size). Reporting the
+    /// file size here would be the more flattering number and the wrong one.
+    nonisolated static func scanProgressStatus(
+        _ verb: String, processed: Int, total: Int, descriptor d: DatasetDescriptor
+    ) -> String {
+        let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
+        let patterns = "\(processed.formatted()) / \(total.formatted()) patterns"
+        let bytes = "\(SystemMonitor.byteString(processed * bytesPerPattern))"
+            + " of \(SystemMonitor.byteString(total * bytesPerPattern))"
+        return "\(verb) \(patterns) · \(bytes)"
+    }
+
+    private func virtualDetectorProgressTileRows(for descriptor: DatasetDescriptor) -> Int {
+        let bytesPerScanRow = descriptor.rx * descriptor.qy * descriptor.qx * MemoryLayout<Float>.stride
+        let targetBytes = 16 * 1024 * 1024
+        return max(1, min(descriptor.ry, targetBytes / max(1, bytesPerScanRow)))
+    }
+
     /// Virtual-detector imaging over the whole cube. The annulus uses the
     /// analytic fast path; rectangle/point use the general mask kernel. The
     /// blocking GPU call is pushed off the main actor.
     func runVirtualDetector(quiet: Bool = false) async {
         guard let fourD, let descriptor else { return }
+        let totalPatterns = descriptor.rx * descriptor.ry
+        let scanVerb = isLoadingDataset ? "Scanning patterns" : "Computing virtual detector…"
         let cancellation = quiet ? nil : beginCancellableOperation(
-            "Virtual detector", status: "Computing virtual detector…",
-            totalUnits: descriptor.rx * descriptor.ry
+            "Virtual detector",
+            status: Self.scanProgressStatus(
+                scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor
+            ),
+            totalUnits: totalPatterns
         )
         defer {
             if let cancellation { finishCancellableOperation(cancellation) }
@@ -2196,6 +2318,7 @@ final class AppState {
         let ap = aperture
         let shapeMode = virtualShape
         let d = descriptor
+        let maximumTileRows = virtualDetectorProgressTileRows(for: d)
         do {
             let epoch = datasetEpoch
             if cancellation?.isCancelled == true {
@@ -2207,8 +2330,16 @@ final class AppState {
                 progressUpdate = { @Sendable [weak self] fraction in
                     Task { @MainActor [weak self] in
                         guard let self, self.isCurrentOperation(token) else { return }
-                        self.progress = fraction
-                        self.statusText = "Computing virtual detector… \(Int(fraction * 100)) %"
+                        let clipped = min(1, max(0, fraction))
+                        let processed = min(totalPatterns, max(0, Int((clipped * Double(totalPatterns)).rounded())))
+                        self.updateCancellableOperation(
+                            token,
+                            progress: clipped,
+                            status: Self.scanProgressStatus(
+                                scanVerb, processed: processed,
+                                total: totalPatterns, descriptor: d
+                            )
+                        )
                     }
                 }
             } else {
@@ -2221,10 +2352,12 @@ final class AppState {
                     data: fourD, descriptor: d,
                     shape: .circle(centerX: ap.centerX, centerY: ap.centerY,
                                    radius: ap.outer),
+                    maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             case .annulus:
                 image = try await VirtualDetector.tiledRun(
                     data: fourD, descriptor: d, aperture: ap,
+                    maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             case .rectangle:
                 let half = Int(ap.outer.rounded())
@@ -2235,12 +2368,14 @@ final class AppState {
                         xMax: Int(ap.centerX.rounded()) + half,
                         yMin: Int(ap.centerY.rounded()) - half,
                         yMax: Int(ap.centerY.rounded()) + half),
+                    maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             case .point:
                 image = try await VirtualDetector.tiledImage(
                     data: fourD, descriptor: d,
                     shape: .point(x: Int(ap.centerX.rounded()),
                                   y: Int(ap.centerY.rounded())),
+                    maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             }
             guard epoch == datasetEpoch else { return }

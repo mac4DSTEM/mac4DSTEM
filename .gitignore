@@ -14,3 +14,4 @@
 
 # tools/ui-qc-playthrough dev-scoping handoff (see run.sh)
 /.ui-qc-filter
+/.ui-qc-no-screenshots

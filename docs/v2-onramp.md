@@ -1,14 +1,25 @@
 # v2.0 on-ramp — what a second development phase starts from
 
-**Written 2026-08-05, at the close of the v1.0 development phase.** This is the
-handover document. It says what v1.0 is, what it deliberately left out, what is
+**Written 2026-08-05, at the close of the v1.0 development phase.**
+
+> **Superseded for status by [`docs/open-items.md`](open-items.md)** (2026-08-06),
+> which is the live list, and **for planning by
+> [`docs/load-pipeline-plan.md`](load-pipeline-plan.md)** (2026-08-06), which is
+> the active feature plan — load progress, resident cube, crop/bin on open.
+> **The "v1.0 then v2.0" framing this document assumes no longer holds:** that
+> feature work proceeds independently of the tag. Kept for its scope decisions
+> and its account of the working methods, both still current. Where they
+> disagree, `open-items.md` is right on status and `load-pipeline-plan.md` on
+> plan.
+
+This is the handover document. It says what v1.0 is, what it deliberately left out, what is
 still open and why, and which working methods earned their keep and should be
 repeated. It is *not* a plan — v2.0's scope is a decision the release owner has
 not made yet, and nothing here is committed to.
 
 Read this with [`docs/post-v1-ideas.md`](post-v1-ideas.md) (the parking lot for
 ideas that need `Core/` changes) and
-[`docs/ui-workflow-backlog.md`](ui-workflow-backlog.md) (the item-level record).
+[`docs/archive/v1.0/ui-workflow-backlog.md`](archive/v1.0/ui-workflow-backlog.md) (the item-level record).
 
 ## Where v1.0 ended
 
@@ -38,11 +49,37 @@ comparison since 2026-08-04, across roughly nine landed tasks.
 It was blocked for two different reasons in succession, and only the first is
 gone:
 
+0. **There are TWO permissions, not one** (learned 2026-08-06, across three
+   failed runs — see backlog **#45** for the full account). Accessibility is
+   below; the second is **Screen & System Audio Recording**, and it is granted
+   to a *different process*: the ad-hoc-signed test runner
+   `com.paullobpreis.mac4DSTEMUITests.xctrunner`, **not** the shell. The
+   shell having it is misleading rather than helpful — `screencapture` from
+   the shell succeeds while the runner still fails.
+
+   Its failure mode is the nastier of the two: the app launches, loads the
+   datacube, then unwinds inside `XCUIScreenshot`, and the error path's own
+   screenshot unwinds again and aborts **before `log.md` is written**. You get
+   a run directory containing an empty folder and no explanation.
+
+   `tools/ui-qc-playthrough/run.sh --no-screenshots` exists for exactly this:
+   it skips capture by decision, keeps every numeric finding, and stamps a
+   ⚠️ banner at the top of `log.md`. Such a run proves the numbers but is
+   **not** the acceptance artifact and is not a visual baseline.
+
 1. **Accessibility permission** — granted 2026-08-05, **and it did not stay
    granted.** The grant must go to the process that *spawns the shell*, which is
    the lowercase `claude` entry
    (`~/Library/Application Support/Claude/claude-code/<version>/claude.app`),
    not the `Claude` desktop app. Restart the app after toggling.
+
+   Confirm which process that actually is by measurement, since the version in
+   the path changes with every update:
+
+   ```sh
+   P=$$; for i in 1 2 3 4 5; do L=$(ps -o ppid=,comm= -p $P); echo "$P ${L#* }"; \
+     P=$(echo $L | awk '{print $1}'); [ "$P" = 1 ] && break; done
+   ```
 
    **That path contains the version number, so every Claude Code update needs
    the grant re-doing.** Confirmed the hard way on 2026-08-06: a run from
@@ -62,10 +99,22 @@ gone:
    disks nor ACOM nor strain. The acceptance diff has not been attempted since
    the fix; that run is now unblocked.
 
-What the diff must show: **ACOM numbers should move** (the §10.2 radial-kernel
-and reliability fixes postdate that baseline); **peak counts, Q pixel sizes and
-strain diagnostics should not**. Anything else that moves is a regression from
-the 2026-08-05 UI work.
+~~What the diff must show: **ACOM numbers should move**; **peak counts, Q pixel
+sizes and strain diagnostics should not**.~~
+
+**Run 2026-08-06 — this expectation was wrong, and the run was clean anyway.**
+Peak counts and one Q pixel size *did* move, correctly: `detectorAdapted`
+(f4f0608, **outside** the review range) began scaling `minPeakSpacing` by probe
+radius instead of detector size, which is a documented, measured fix. It
+predicted every observed change — sim_Au unchanged, Si_SiGe's median peaks
+12→24, Particle_1 +69% — and turned Particle_1's strain from failing to
+succeeding. ACOM numbers could *not* be compared: the 2026-08-03 baseline
+recorded no parity line and no full-scan step.
+
+The genuine finding was **#46**: Si_SiGe's Q pixel size is 2.56× too large
+because it is derived from an origin whose fit residual (11.66 px) exceeds the
+probe radius — and is still stamped "Measured in app". See
+[`docs/open-items.md`](open-items.md).
 
 ## Open threads, grouped by what they actually need
 
@@ -88,9 +137,10 @@ the 2026-08-05 UI work.
   **The "do not attempt a seventh in-process reproduction" advice this document
   used to give was wrong** — a hosted test found it in minutes, because a frame
   height is a pure layout property with no interaction in it. Full evidence in
-  the #16 entry of `docs/ui-workflow-backlog.md`.
-  **Outstanding:** one on-screen `tools/ui-qc-playthrough/run.sh sim_Au` to
-  confirm the real app now passes step 3b.
+  the #16 entry of `docs/archive/v1.0/ui-workflow-backlog.md`.
+  **✅ Confirmed on the real app 2026-08-06:** `run.sh sim_Au` passed step 3b and
+  ran through to Results with `Errors: None`. The full four-dataset run followed
+  with 0 failures.
 
 ### Scope decisions, not engineering
 
@@ -113,7 +163,7 @@ the 2026-08-05 UI work.
 - **VoiceOver runtime verification.** Removed from the `docs/v1-scope.md` "Mac
   experience" gate on 2026-08-05 because no current or near-term user needs it.
   The procedure is parked in
-  [`docs/voiceover-verification-checklist.md`](voiceover-verification-checklist.md)
+  [`docs/archive/v1.0/voiceover-verification-checklist.md`](archive/v1.0/voiceover-verification-checklist.md)
   so v2.0 starts from a checklist rather than from scratch.
   **Do not delete the accessibility identifiers** — they are the surface
   XCUITest matches on and `mac4DSTEMUITests/Support/AXDriver.swift` depends on
@@ -219,9 +269,9 @@ disjoint defect sets** — budget for both.
 | What is the app, how do I build it | [`README.md`](../README.md) |
 | Standing priorities + scope rule | [`ROADMAP.md`](../ROADMAP.md) |
 | The frozen v1 release contract | [`docs/v1-scope.md`](v1-scope.md) |
-| Item-level UI/workflow record | [`docs/ui-workflow-backlog.md`](ui-workflow-backlog.md) |
-| The implementation phase's task prompts + status | [`docs/ui-implementation-prompts.md`](ui-implementation-prompts.md) |
-| The finished evaluation phase + how the harness is driven | [`docs/qc-playthrough-prompts.md`](qc-playthrough-prompts.md) |
+| Item-level UI/workflow record | [`docs/archive/v1.0/ui-workflow-backlog.md`](archive/v1.0/ui-workflow-backlog.md) |
+| The implementation phase's task prompts + status | [`docs/archive/v1.0/ui-implementation-prompts.md`](archive/v1.0/ui-implementation-prompts.md) |
+| The finished evaluation phase + how the harness is driven | [`docs/archive/v1.0/qc-playthrough-prompts.md`](archive/v1.0/qc-playthrough-prompts.md) |
 | Pipelines, app-vs-py4DSTEM findings, run findings | [`docs/py4dstem-pipelines.md`](py4dstem-pipelines.md) |
 | Model tiers, review gates, delivery conventions | [`docs/development-process.md`](development-process.md) |
 | Ideas that need `Core/` changes | [`docs/post-v1-ideas.md`](post-v1-ideas.md) |

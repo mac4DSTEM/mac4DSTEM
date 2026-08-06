@@ -221,12 +221,26 @@ struct ACOMControlsView: View {
         LabeledContent("Provenance", value: semantics.provenance.displayName)
             .font(.caption)
 
-        if semantics.provenance.isPhysical {
-            Button("Review Q Calibration in Prepare") {
-                appState.selectWorkspace(.prepare)
-            }
-            .font(.caption)
-        } else {
+        // Backlog #40. **Prepare owns Q calibration.** This panel used to render
+        // its own "Calibrate Q from Selected Material" button beside the same
+        // provenance rows the Prepare checklist shows, both calling
+        // `calibrateQFromCrystal()`. Two owners for one decision invites the two
+        // surfaces to disagree — and #2 deliberately shaped how that choice is
+        // presented in Prepare (prominent button, an explicit manual
+        // alternative, a reason when the crystal route is unavailable), none of
+        // which applied to the copy here.
+        //
+        // What stays is the read-out — interpretation, Q scale, provenance —
+        // because ACOM's results are labelled by it, plus a route to the owner.
+        // The link is now unconditional: when the scale is *not* physical is
+        // exactly when a user most needs to be told where to fix it.
+        Button("Review Q Calibration in Prepare") {
+            appState.selectWorkspace(.prepare)
+        }
+        .font(.caption)
+        .accessibilityIdentifier("acom.reviewQCalibration")
+
+        if !semantics.provenance.isPhysical {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Exploratory scale  \(appState.acomExploratoryScale, specifier: "%.4f") Å⁻¹/px")
                     .font(.caption)
@@ -236,17 +250,6 @@ struct ACOMControlsView: View {
                     .foregroundStyle(.orange)
             }
         }
-
-        Button {
-            Task { await appState.calibrateQFromCrystal() }
-        } label: {
-            Label("Calibrate Q from Selected Material", systemImage: "ruler")
-        }
-        .disabled(
-            appState.isBusy || !appState.hasCurrentBraggVectors
-                || appState.resolvedACOMModel == nil
-        )
-        .help("Uses the median innermost detected Bragg radius and the selected material's first allowed reflection.")
 
         if appState.hasOrientationPlan, let plan = appState.orientationPlan {
             LabeledContent("Cached plan", value: "\(plan.count) templates")
@@ -297,13 +300,12 @@ struct ACOMControlsView: View {
             // and label-based automation queries.
             .accessibilityLabel("ACOM display mode")
             .accessibilityIdentifier("acom.display")
-            if appState.acomDisplay == .ipfZ {
-                if appState.orientationMap?.symmetry == .hexagonal {
-                    HexagonalIPFLegendView()
-                } else {
-                    CubicIPFLegendView()
-                }
-            }
+            // Backlog #40. The IPF colour key is drawn over the image by
+            // `StemImageView`, keyed on the *displayed* result actually being an
+            // IPF-Z map. It used to be drawn here as well, keyed only on this
+            // picker — so the two could be on screen together, and the sidebar
+            // copy could describe a colouring no visible pixel was using. A
+            // legend belongs with the pixels it decodes.
             if let text = appState.selectedEulerText {
                 LabeledContent(
                     "\(appState.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",

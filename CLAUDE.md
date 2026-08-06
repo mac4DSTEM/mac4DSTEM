@@ -5,39 +5,47 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff prompt (copy-paste to start a session)
 
-**The v1.0 development phase is closed.** Which prompt you want depends on what
+**The v1.0 development phase is closed, and feature work has reopened on the
+load pipeline.** The two are independent — the tag does not gate the feature
+and the feature does not gate the tag. Which prompt you want depends on what
 you're doing:
 
-**Finishing v1.0** (review, distribution):
+**Finishing v1.0** (one defect, then distribution):
 ```
-Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-onramp.md § "Where v1.0 ended"
-and § "Open threads". Backlog #16/#22 is FIXED (2026-08-06) and pinned by
-mac4DSTEMTests/SplitViewHeightTests — what remains of it is one on-screen
-tools/ui-qc-playthrough/run.sh to confirm step 3b passes on the real app.
-Then the QC playthrough acceptance diff, and the distribution final mile
-(release-owner credentials).
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/open-items.md — it is the live
+list and it is short. One thing blocks the tag: #46, a Q pixel size derived
+from an origin whose fit residual exceeds the probe radius, still stamped
+"Measured in app". Read its "do not retry" note before proposing anything;
+the obvious fix was tried on 2026-08-06 and refuted.
 
-Everything awaiting review is committed — review range a9e4268..HEAD (the UI
-session, 9c940d1 for the #14 CIF fix, and everything after; d47afb5 hides an
-app-code change behind a "changes to .md" message, so review by range, not by
-commit message). The v1.0 tag goes on after that review, not before. Do not
-commit unless I ask.
+Code review of a9e4268..HEAD is DONE (2026-08-06) with one low-severity
+finding. The QC playthrough is green on all four datasets, numbers-only —
+there is no visual baseline yet. Do not commit or tag unless I ask.
 ```
 
-**Opening a second development phase:**
+**Building the load pipeline** (progress, resident cube, crop/bin on open):
 ```
-Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-onramp.md end to end — it is
-the handover from the v1.0 phase and groups every open thread by what it
-actually needs. Nothing in it is committed to; v2.0 scope is my decision, so
-bring me options rather than starting work.
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/load-pipeline-plan.md — it is the
+active feature plan (load progress, resident cube, crop/bin on open). Read
+§1–§4 for the constraints, then the Status checklist in §5, and take the next
+unchecked stage. docs/open-items.md is the live list for everything else;
+docs/v2-onramp.md has the working methods and its status sections are
+superseded.
+
+This changes app code, so follow docs/development-process.md, and take the
+review gate the stage names. Commit only if I ask.
 ```
 
 Whatever the task: app-code changes follow `docs/development-process.md` —
 Explore subagent (Haiku) to locate code, implement on the default model, and
 take the review gate the work earns. Anything touching `Core/` or the science
 needs an adversarial review *and* a `tools/` fixture. Never let the model that
-wrote a science-affecting change be the only one to approve it — on 2026-08-05
-that review refuted a fix which had already passed all 30 harnesses.
+wrote a science-affecting change be the only one to approve it — this has now
+refuted a fix **twice** (2026-08-05, 2026-08-06), and both times the fix had
+already passed every test written for it, including one verified to fail
+without it. **Review the diagnosis, not just the code.** On 2026-08-06 the
+refuting evidence — an origin fit residual printed in the very log the finding
+came from — had been sitting in plain sight the whole time.
 
 ## What this is
 
@@ -48,94 +56,79 @@ reference implementation and validated against.
 
 ## Two threads (this is the mental model)
 
-The repo holds two related bodies of work. Knowing which one you're in
-removes most of the confusion:
+Two bodies of work, deliberately independent:
 
-- **Thread A — the app itself.** v1 is implemented and in *stabilization*
-  (scientific-contract polish, UI consolidation, distribution readiness).
-  Governed by `ROADMAP.md` (3 standing priorities) and `docs/v1-scope.md`
-  (frozen release contract). This is the long-lived product.
-- **Thread B — the QC-playthrough evaluation → UI improvement.** We drive the
-  real app through the canonical py4DSTEM analysis pipelines (an XCUITest that
-  watches on screen), compare against py4DSTEM, and turn every workflow
-  friction into a UI/workflow improvement. **Thread B feeds Thread A's
-  Priority 2 (product clarity).** It has **two phases**: the *evaluation*
-  phase (finished — eval-only, never modified app logic) and the
-  *implementation* phase (current — it does change app code).
+1. **Closing out v1.0** — #46, then signing/notarization. Governed by
+   `ROADMAP.md` (3 standing priorities) and `docs/v1-scope.md` (the frozen
+   release contract). Status: `docs/open-items.md`.
+2. **The load pipeline** — `docs/load-pipeline-plan.md`. New feature work that
+   *does* touch `Core/`: load progress, a resident in-memory cube with a
+   streaming fallback, and crop/bin-on-open. It is post-v1 by `ROADMAP.md`'s
+   scope rule and is being built anyway, as a recorded decision — see that
+   plan's §1.
 
-## Where v1.0 stands (2026-08-05, close of the v1.0 development phase)
+Neither gates the other.
 
-**The repo is at v1.0 release candidate and the development phase is closed.**
-`tools/run-tests.sh all` is **green — exit 0, 30 harnesses**. The handover
-document for what comes next is **[`docs/v2-onramp.md`](docs/v2-onramp.md)** —
-read that before planning anything new.
+The QC playthrough that used to be a second thread has finished both its
+phases and become **the acceptance test**. It drives the real app through the
+canonical py4DSTEM pipelines on screen and logs every number it reads from the
+app's own controls. Its eval-only rule still stands: never change app code to
+make a QC step pass — that is a finding, not a bug fix.
 
-Three things are outstanding, and they are different in kind:
+## Where v1.0 stands (2026-08-06, close of the v1.0 development phase)
 
-1. **Backlog #16/#22 — ✅ FIXED 2026-08-06.** The cause was a single
-   `.fixedSize(horizontal: false, vertical: true)` in
-   `UI/TaskPrerequisiteChecklist.swift`: an unbounded vertical text demand in
-   the detail column propagated a minimum height *past the window's own*, so
-   both columns were laid out taller than the window and their top rows fell
-   off it. It was never a scroll offset — which is why six attempts that
-   measured the offset all found it correct. Pinned by
-   `mac4DSTEMTests/SplitViewHeightTests` (no screen needed; verified to fail
-   3/3 without the fix). **Outstanding: one on-screen playthrough to confirm
-   the real app now gets past step 3b.**
-2. **The QC playthrough acceptance re-run** — still has not produced a clean
-   diff since 2026-08-04. The two things that blocked it are gone (permission,
-   then #16); note the Accessibility grant is keyed to a *version-scoped* path
-   and lapses on every Claude Code update. See `docs/v2-onramp.md` § "The one
-   thing to do first".
-3. **Distribution final mile** — Developer ID signing, notarization, and a
-   clean-account launch. Release-owner actions, credentials required.
+**Release candidate. `tools/run-tests.sh all` — exit 0, 30 harnesses.**
+What v1.0 *is*: [`CHANGELOG.md`](CHANGELOG.md). What is still live:
+**[`docs/open-items.md`](docs/open-items.md)** — short, and the only status
+document that is maintained. Read it before planning anything.
 
-**Everything awaiting review is committed. Review range: `a9e4268..HEAD`.**
-Three bodies of work inside it:
-- **`a9e4268..901a6ef`** — the 2026-08-05 UI session (25 files, +3075/−246; the
-  only `Core/` file is `Core/Data/BraggVectorEMDWriter.swift`, I/O plumbing).
-- **`9c940d1`** — the backlog #14 CIF fix (`Core/Crystal/CIFImport.swift`,
-  `Core/Crystal/CrystalModel.swift`, `tools/cif-symmetry-test/main.swift`).
-  Already took its adversarial review, which refuted the first version; it
-  needs only the ordinary read.
-- **`d47afb5` onward** — **use `HEAD`, not a pinned hash.** `d47afb5` is titled
-  "changes to .md" but also carries the backlog **#33** fix in
-  `UI/ContentView.swift`. Reviewing the literal range `a9e4268..9c940d1` that
-  this file used to name would have skipped it. If you commit app code, extend
-  the range rather than trusting the message.
+Settled on 2026-08-06:
 
-A dedicated **review/debug session** runs against that range, and **the v1.0
-tag goes on after it** — not before.
+- **#16/#22 — fixed and confirmed on the real app.** A single
+  `.fixedSize(horizontal: false, vertical: true)` in
+  `UI/TaskPrerequisiteChecklist.swift` propagated a minimum height past the
+  window's own. Never a scroll offset, which is why six offset measurements all
+  found it correct. Pinned by `mac4DSTEMTests/SplitViewHeightTests`; the QC
+  playthrough now passes step 3b and runs to Results.
+- **QC playthrough — green on all four datasets, 0 failures.** Numbers only:
+  those runs used `--no-screenshots`, so **there is no visual baseline yet**.
+- **Code review of `a9e4268..HEAD` — done**, one low-severity finding
+  (`CrystalModel.shortestCloseContact` assumes fractional coordinates in
+  `[0,1)`; true for every current source, undocumented).
+- **The acceptance diff found a real defect (#46)** and it blocks the tag.
 
-The last science blocker (backlog **#14**, CIF symmetry expansion → silently
-wrong structure factors for imported CIFs) is **closed**.
+Outstanding: **#46**, then the distribution final mile (Developer ID signing,
+notarization, clean-account launch — release-owner actions, credentials
+required).
 
-## Current initiative (Thread B) — start here for "what do I do next"
+## Where things are written down
 
-- **Next actions + live status — cold-start prompts for a fresh agent:**
-  **`docs/ui-implementation-prompts.md`** (the *current* phase — acts on what
-  the evaluation found; app code changes here, so tests and review gates
-  apply). It carries the authoritative "what's done / what's next" checklist
-  and five self-contained task prompts; hand one to a new session. Read its
-  Status section first — don't restate status here.
-- **The finished evaluation phase:** `docs/qc-playthrough-prompts.md` — all
-  four prompts complete. Still the reference for *how the harness is driven*
-  and for its eval-only rules.
-- **What it is + all pipelines, step by step:** `docs/py4dstem-pipelines.md`
-  (also holds the app-vs-py4DSTEM findings §7, the scope/roadmap §8, and the
-  empirical run findings §9).
-- **The UI backlog these findings produced:** `docs/ui-workflow-backlog.md`
-  — now the repo's general open-items record, not only the QC findings: 43
-  numbered entries, most closed, each tagged with its layer. Items #1–#13 are
-  the original QC-derived, contractually core-untouched set; later ones include
-  hands-on reports (#33–#37), adversarial-review findings (#31, #32) and code
-  review (#38–#40, #43), some of which *do* touch `Core/` and say so.
-- **The harness + how to run it:** `mac4DSTEMUITests/` +
-  `tools/ui-qc-playthrough/run.sh [dataset-substring]`. It is now the
-  **acceptance test** for the implementation phase; baseline to diff against is
-  `References/training_runs/run_2026-08-03_1404/` (§9.3).
+- **[`CHANGELOG.md`](CHANGELOG.md)** — what v1.0 is. Start here for scope.
+- **[`docs/open-items.md`](docs/open-items.md)** — everything still live, and
+  the working methods that earned their keep. **The only maintained status
+  doc.**
+- **[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md)** — **the active
+  feature plan**: honest load progress, a resident in-memory cube with a
+  streaming fallback, and crop/bin-on-open driven from a preview. Six staged
+  prompts (L1–L6), the invariants, why the app is out-of-core, and where
+  py4DSTEM must *not* be copied. Independent of the v1.0 tag in both
+  directions.
+- **`docs/py4dstem-pipelines.md`** — the pipelines step by step, the
+  app-vs-py4DSTEM findings (§7), scope/roadmap (§8), empirical run findings
+  (§9).
+- **`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/run.sh [dataset-substring]`**
+  — the on-screen acceptance playthrough. `--no-screenshots` trades the visual
+  evidence for the numbers when the runner lacks a Screen Recording grant; the
+  log says so loudly. Baseline for diffs:
+  `References/training_runs/run_2026-08-03_1404/`, but read `open-items.md`
+  first — that baseline predates a deliberate disk-detection change, so peak
+  counts legitimately differ.
+- **[`docs/archive/v1.0/`](docs/archive/v1.0/)** — the v1.0 phase's working
+  memory: 46 numbered findings, the design passes, the QC-evaluation prompts.
+  **History, not guidance.** Nothing current points into it; consult it for
+  *why* a decision was made, never for what to do next.
 - Session memory (direction + gotchas):
-  `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/qc-playthrough-pipeline-eval.md`.
+  `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/`.
 
 ## Standing references (Thread A)
 
@@ -152,7 +145,7 @@ wrong structure factors for imported CIFs) is **closed**.
   that earned their keep. Start here when the next phase opens.
 - **`docs/post-v1-ideas.md`** — parking lot for ideas that are out of v1 scope
   *and* would touch `Core/` (cropping, partial/binned loading). Deliberately
-  separate from `docs/ui-workflow-backlog.md`, which is contractually
+  separate from `docs/open-items.md`, which is contractually
   UI/workflow-only and must stay safe to hand out as implementation prompts.
   Nothing here is committed to; entries record the non-obvious constraints so a
   later session doesn't rediscover them.
@@ -188,7 +181,7 @@ and they build.
 - **The QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`) is
   evaluation only** — never modify app logic under `mac4DSTEM/` to make a QC
   step pass. If the app blocks the pipeline, that's a *finding* for
-  `docs/ui-workflow-backlog.md`, not a code change.
+  `docs/open-items.md`, not a code change.
 - **Metal parameter structs in `MetalEngine.swift` must stay byte-for-byte
   identical** to the matching `.metal` structs (all 4-byte fields).
 - **Don't widen scientific-state mutation access** just to reduce line counts
@@ -198,9 +191,11 @@ and they build.
 - **Port deviations from py4DSTEM get an inline `DEVIATION` note** with the
   reason.
 - **Keep docs current as part of "done"** — no file self-updates. When a task
-  lands, tick the status checklist in `docs/qc-playthrough-prompts.md` and
-  update the doc it affects. Full conventions (model/subagent tiers, review
-  gates, where new work goes, delivery): **`docs/development-process.md`**.
+  lands, update **`docs/open-items.md`** (add, amend, or delete the item) and
+  any reference doc it affects. Do **not** edit `docs/archive/v1.0/` — it is a
+  frozen record of the v1.0 phase. Full conventions (model/subagent tiers,
+  review gates, where new work goes, delivery):
+  **`docs/development-process.md`**.
 - Commit/push only when asked; this is a solo-dev repo with linear `main`.
 
 ## Build / test / run

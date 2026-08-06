@@ -15,7 +15,7 @@ struct PerformanceView: View {
                     if let metrics = appState.activeOperationMetrics(at: context.date) {
                         labeled("Elapsed", duration(metrics.elapsed))
                         if let rate = metrics.unitsPerSecond {
-                            labeled("Throughput", String(format: "%.1f positions/s", rate))
+                            labeled("Throughput", String(format: "%.1f %@", rate, throughputUnit))
                         }
                         if let eta = metrics.eta {
                             labeled("ETA", duration(eta))
@@ -31,6 +31,10 @@ struct PerformanceView: View {
             labeled("GPU budget", String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
         }
         .padding(.vertical, 2)
+    }
+
+    private var throughputUnit: String {
+        appState.activeOperation == "Virtual detector" ? "patterns/s" : "positions/s"
     }
 
     private func labeled(_ label: String, _ value: String) -> some View {

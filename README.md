@@ -12,7 +12,7 @@ and the reason.
 - The frozen v1 workflow, feature tiers, and acceptance gates: [`docs/v1-scope.md`](docs/v1-scope.md)
 - Current priorities and scope rules: [`ROADMAP.md`](ROADMAP.md)
 - Canonical py4DSTEM analysis pipelines + UI evaluation: [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md)
-- Ranked UI/workflow backlog: [`docs/ui-workflow-backlog.md`](docs/ui-workflow-backlog.md)
+- Open items: [`docs/open-items.md`](docs/open-items.md) · what v1.0 is: [`CHANGELOG.md`](CHANGELOG.md)
 - Superseded point-in-time notes (reviews, dated evaluations): [`docs/archive/`](docs/archive/)
 - Where historical checkpoint detail lives: [`docs/development-history.md`](docs/development-history.md) (short answer: Git history)
 
