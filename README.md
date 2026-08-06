@@ -18,16 +18,21 @@ and the reason.
 
 ## Status
 
-**v1.0 release candidate.** The frozen v1 workflow is implemented and the v1.0
-development phase closed on 2026-08-05. The only aggregate repository claim is
-a passing `tools/run-tests.sh all` — currently **exit 0 across 30 harnesses**
-(native XCTest suite, standalone scientific/interoperability harnesses, the
-real-data manifest, and the hardened Release packaging audit).
+**v1.0.0 — tagged 2026-08-06.** The frozen v1 workflow is implemented. The only
+aggregate repository claim is a passing `tools/run-tests.sh all` — **exit 0
+across 30 harnesses** (native XCTest suite, standalone
+scientific/interoperability harnesses, the real-data manifest, and the hardened
+Release packaging audit).
 
-Not yet tagged: a code-review pass and the distribution final mile (Developer
-ID signing, notarization, clean-account launch) come first. What a second
-development phase starts from is recorded in
-[`docs/v2-onramp.md`](docs/v2-onramp.md).
+That claim is **numeric**. There is no visual acceptance baseline: the on-screen
+QC playthrough has only ever run with `--no-screenshots`. See
+[`docs/open-items.md`](docs/open-items.md).
+
+Not yet done: the distribution final mile — Developer ID signing, notarization
+and a clean-account launch. Those are release-owner actions against this tag and
+change no source. What is still live, and what comes next, are in
+[`docs/open-items.md`](docs/open-items.md) and
+[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md).
 
 ## What it does
 

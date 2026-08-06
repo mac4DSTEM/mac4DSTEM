@@ -1,12 +1,11 @@
 # Changelog
 
-## v1.0 — release candidate (unreleased)
+## v1.0.0 — 2026-08-06
 
 Native macOS 4D-STEM analysis for Apple Silicon, validated against
 [py4DSTEM](https://github.com/py4dstem/py4DSTEM) 0.14.19.
 
-**Not yet tagged.** See [`docs/open-items.md`](docs/open-items.md) for what
-stands between this and the tag.
+First tagged release.
 
 ### The workflow
 
@@ -55,7 +54,34 @@ in `References/parity_records/`.
 
 A separate on-screen QC playthrough (`tools/ui-qc-playthrough/run.sh`) drives
 the real app through the canonical py4DSTEM pipelines and logs every number it
-reads from the app's own controls.
+reads from the app's own controls. Its last full run was green on all four
+datasets.
+
+**What this release was *not* verified by, stated plainly:** no visual QC
+baseline exists. Every playthrough run to date used `--no-screenshots`, so the
+acceptance evidence for v1.0.0 is numeric only — the numbers the app reports
+through its own controls, not what it draws. Creating that baseline needs
+Screen Recording granted to the ad-hoc-signed test runner; it was deliberately
+deferred rather than faked, and it is the first entry in
+[`docs/open-items.md`](docs/open-items.md).
+
+### Fixed at the close of the phase (2026-08-06)
+
+- **Q calibration could be stamped "Measured in app" from an origin the app had
+  already flagged as unusable.** On one training dataset that produced a Q pixel
+  size 2.56× too large, and the label — not the warning — is what travelled into
+  export, reopen and the QC log. `calibrateQFromCrystal` now refuses on the same
+  predicate the Prepare readiness row uses, so the badge, the app's behaviour
+  and the parity records cannot disagree. The underlying estimator is *not*
+  fixed and is fragile to origin error well below that threshold — recorded in
+  [`docs/post-v1-ideas.md`](docs/post-v1-ideas.md) as a deliberate scope
+  decision, not an oversight.
+- **The Result colormap was unreachable from the Results workspace**, the one
+  screen built for looking at results.
+- **The readiness row called a measured origin "Missing"** directly above a
+  detail line reporting it as measured. It now reads "Not quantitative".
+- **Split-view height regression (#16/#22)** — a single `fixedSize` propagated a
+  minimum height past the window's own, making the sidebar's top rows inert.
 
 ### Distribution
 
