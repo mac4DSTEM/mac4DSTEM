@@ -68,6 +68,13 @@ finding, not a bug fix. It has never been run with screenshots, so v1.0.0 has
 - **[`docs/open-items.md`](docs/open-items.md)** — everything still live, and
   the working methods that earned their keep. **The only maintained status
   doc.**
+- **[`docs/v2-planning-draft.md`](docs/v2-planning-draft.md)** — **DRAFT, not
+  decided.** Proposals for how a second phase should run: version policy,
+  splitting test automation into a numeric track and a human visual track, a
+  two-dataset default, and a per-stage rule for shrinking `AppState`. Written
+  2026-08-06 so a planning session can react rather than start blank. **If that
+  session has happened, its outcomes live in `docs/v2-scope.md` and
+  `docs/development-process.md` and this file should be deleted.**
 - **[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md)** — **the active
   feature plan**: honest load progress, a resident in-memory cube with a
   streaming fallback, and crop/bin-on-open driven from a preview. Six staged

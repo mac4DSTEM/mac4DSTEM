@@ -124,6 +124,63 @@ and it is much cheaper to decide before implementing than after.
 
 ---
 
+## Crystal models: a real WS₂ structure, then a Materials Project lookup
+
+**Raised 2026-08-06.** Two steps, and the first is small enough to do soon.
+
+**Step 1 — ship a 2H-WS₂ CIF as a fixture, and close #11 with it.**
+`CrystalModelLibrary` currently holds seven models, six of them cubic and every
+one a single element; `mg_hcp` is the only hexagonal entry. A WS₂ structure adds
+the two things nothing else covers: **hexagonal symmetry** and a **two-species
+compound** (scattering factors for a mixed basis, symmetry expansion on a
+non-cubic cell). It therefore tests the CIF import path far better than another
+cubic metal would, and it is what `polycrystal_2D_WS2` needs to reach ACOM at
+all.
+
+**Do not invent the lattice.** Use the published 2H-WS₂ structure — P6₃/mmc,
+a ≈ 3.153 Å, c ≈ 12.323 Å. A fabricated cell would still import, still index,
+and still produce an orientation map, which is exactly the #46 failure mode: a
+result that exists, looks plausible, and is wrong. Lattice parameters are
+measured facts; take them from the crystallographic literature and record the
+source in the CIF header.
+
+**Step 2 — Materials Project lookup.** Search the database from inside the app
+and pull the CIF directly, instead of the user finding and downloading one.
+Recorded once before, in `docs/archive/audit-master-prompt-fable5.md`, which is
+frozen history nothing points into — hence this entry. Open questions before
+anyone builds it: it needs an API key (so: where is it stored, and what happens
+offline?), the app is sandboxed and currently makes no network calls at all,
+and an imported structure needs provenance that survives export and reopen
+(ROADMAP P1.1) — "which structure did this orientation map actually use?" must
+have an answer that outlives the session. Step 1 is a prerequisite: get the
+import path and its provenance right on a local file before adding a network.
+
+---
+
+## Analysis pipeline for needle-shaped precipitates
+
+**Raised 2026-08-06; not previously recorded anywhere.** A domain-specific
+workflow for needle/rod-shaped precipitates — the kind of task where the
+generic virtual-detector → disks → strain/ACOM chain is the wrong shape,
+because the object of interest is a morphology with an axis, not a field
+sampled per scan position.
+
+Nothing is designed. What is worth writing down now, before it is:
+
+- It probably wants **segmentation or detection in real space** driving a
+  per-object analysis, which is a different control flow from every existing
+  task (all of which run over the whole scan or a rectangular ROI).
+- A per-object result is **not a map**, so `resultImage` / `resultRGBA` and the
+  session product model may not fit it. That is a product-model question, not
+  an algorithm question, and it is the expensive part to get wrong.
+- This is a plausible first home for **MLX** (see
+  `docs/development-process.md` §5): object detection is where ML earns its
+  keep, far more than reimplementing disk detection.
+
+Likely end of a second phase or later. Recorded so the idea survives the gap.
+
+---
+
 ## Q calibration is fragile to origin error well below the readiness threshold
 
 **Found 2026-08-06 by the adversarial review of the #46 fix.** #46 itself is

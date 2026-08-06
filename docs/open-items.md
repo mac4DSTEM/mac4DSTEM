@@ -14,6 +14,17 @@ Closed items are not here — the full v1.0 record is
 [`docs/archive/v1.0/ui-workflow-backlog.md`](archive/v1.0/ui-workflow-backlog.md),
 kept as history. Cited numbers are prefixed `#` and refer to that file.
 
+## Decisions owed before phase 2 starts
+
+- **[`docs/v2-planning-draft.md`](v2-planning-draft.md)** — proposals awaiting a
+  planning session: version policy, the two-track testing split, the
+  two-dataset default, and the per-stage `AppState` rule. Draft, not decided.
+- **`docs/load-pipeline-plan.md` §7 — is a cropped/binned cube a *view* of the
+  original, or a new dataset?** The plan recommends *view* and is written for
+  it, but it is unconfirmed. **L3 cannot start cleanly without the answer**: it
+  determines session-restore and export behaviour, and reversing it later is
+  expensive.
+
 ## Release-owner actions
 
 Developer ID signing, notarization, and a clean-account launch. Credentials

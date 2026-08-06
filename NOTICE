@@ -1,0 +1,62 @@
+mac4DSTEM
+Copyright (C) 2026 Paul Lobpreis
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
+
+
+================================================================================
+py4DSTEM
+================================================================================
+
+mac4DSTEM implements 4D-STEM analysis algorithms ported from py4DSTEM, which is
+used as the reference implementation and validated against.
+
+    py4DSTEM — https://github.com/py4dstem/py4DSTEM
+    Copyright (C) the py4DSTEM developers
+    Licensed under the GNU General Public License v3.0
+
+Because substantial parts of this work are derived from py4DSTEM, mac4DSTEM is
+licensed under the GPL v3.0 as well. Ported routines carry an inline `DEVIATION`
+note in the source wherever this implementation departs from py4DSTEM, together
+with the reason and a reference to the corresponding py4DSTEM source location.
+
+If you use mac4DSTEM for published work, please cite py4DSTEM as the origin of
+the underlying methods:
+
+    Savitzky, B. H. et al. "py4DSTEM: A Software Package for Four-Dimensional
+    Scanning Transmission Electron Microscopy Data Analysis."
+    Microscopy and Microanalysis 27, 712–743 (2021).
+
+
+================================================================================
+Bundled third-party libraries
+================================================================================
+
+The distributed application bundle embeds the following libraries in
+`Contents/Frameworks/`. They are redistributed unmodified, and their own license
+terms apply to them rather than the GPL terms above.
+
+HDF5
+    https://www.hdfgroup.org/
+    Copyright (C) The HDF Group and the Board of Trustees of the University of
+    Illinois. Distributed under the HDF5 BSD-style license.
+
+libaec (Adaptive Entropy Coding library)
+    https://gitlab.dkrz.de/k202009/libaec
+    Copyright (C) Deutsches Klimarechenzentrum GmbH. BSD 2-Clause license.
+
+libsz (szip compatibility interface, provided by libaec)
+    See libaec above.
+
+The full license text for each is included alongside the library in the
+distributed bundle.
