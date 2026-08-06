@@ -232,17 +232,7 @@ struct CalibrationReadinessReport: Equatable, Sendable {
             $0.isFinite && $0 > 0
         } ?? false
         let originResidual = calibration.origin?.rmsResidual
-        let originFitAcceptable: Bool
-        if let originResidual, let probeRadius = calibration.probeRadius {
-            // A fitted descan field whose RMS error is larger than the direct
-            // beam disk is not a quantitative origin calibration. File/session
-            // maps without raw measured arrays have no residual to judge and
-            // retain their explicit provenance-based readiness.
-            originFitAcceptable = originResidual.isFinite
-                && originResidual <= probeRadius
-        } else {
-            originFitAcceptable = true
-        }
+        let originFitAcceptable = calibration.originFitIsQuantitative
         let originAndProbeReady = originSource != nil && validProbe && originFitAcceptable
         let originProbeSource: CalibrationValueProvenance
         if let originSource, let probeSource = provenance.probe,
@@ -424,6 +414,65 @@ struct Calibration: Sendable {
     var ellipseA: Double?
     var ellipseB: Double?
     var ellipseTheta: Double?
+
+    /// Whether the fitted origin is trustworthy enough to derive a
+    /// *quantitative* number from Bragg vectors re-centred on it.
+    ///
+    /// **This is the single owner of that decision** (backlog #46) — the
+    /// Prepare readiness row, `AppState.calibrateQFromCrystal()`, and
+    /// `tools/training-dataset-campaign` all read it. The badge the user sees,
+    /// the calibration the app is willing to perform, and the parity records
+    /// therefore cannot disagree; the defect was exactly that disagreement,
+    /// with the Origin row saying *"exceeds probe radius; recalibrate before
+    /// quantitative use"* while the Q row, derived from that same origin, said
+    /// *"Measured in app"*. Any new caller belongs here too, not in a fourth
+    /// hand-rolled `residual > probeRadius`.
+    ///
+    /// **Known limit.** This threshold answers "is the origin fit sane?", which
+    /// adversarial review on 2026-08-06 showed is a *looser* question than "may
+    /// I measure a reciprocal scale in this frame?".
+    /// `KnownCrystalQCalibration.estimate` discards peaks inside
+    /// `minimumRadiusPixels` (default 2, never overridden), so a residual above
+    /// roughly 2 px already lets the direct beam masquerade as the innermost
+    /// reflection — well below a typical probe radius. Everything in
+    /// `(2 px, probeRadius]` still passes here. Tightening it belongs with the
+    /// estimator, not with this predicate; see the open item.
+    ///
+    /// A fitted descan field whose RMS error is larger than the direct beam
+    /// disk is not a quantitative origin calibration: `BraggVectors.calibrated`
+    /// re-centres every pattern on the fitted origin, so a residual that size
+    /// displaces the reference by an appreciable fraction of the lattice
+    /// period. File/session maps without raw measured arrays carry no residual
+    /// to judge and are not second-guessed here — they keep their explicit
+    /// provenance-based readiness.
+    var originFitIsQuantitative: Bool {
+        guard let residual = origin?.rmsResidual, let probeRadius else { return true }
+        return residual.isFinite && residual <= probeRadius
+    }
+
+    /// Why a quantitative measurement derived from this origin must be
+    /// refused, with the app's own remedy — or `nil` when there is nothing to
+    /// refuse. Lives beside `originFitIsQuantitative` so the refusal a caller
+    /// shows and the readiness badge Prepare renders are the same judgement
+    /// quoting the same two numbers.
+    ///
+    /// The remedy names **Origin fit** deliberately. The residual is
+    /// RMS(measured − fitted) from `OriginCalibration.tiledRun`, which measures
+    /// per-position origins by masked centre-of-mass and then fits them with
+    /// `OriginFitFunction`; it never consults the disk-detection probe kernel.
+    /// So "build a measured probe kernel" — the obvious-sounding advice, and
+    /// what an earlier draft of this string said — cannot move this number by
+    /// a single pixel. Changing the fit function can.
+    var originFitRefusal: String? {
+        guard !originFitIsQuantitative else { return nil }
+        return String(
+            format: "Origin fit RMS %.4g px exceeds the %.4g px probe radius — Bragg vectors are "
+                + "re-centred on this origin, so a value measured from them would be wrong. "
+                + "Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate "
+                + "Origin, or enter the scale manually.",
+            Double(origin?.rmsResidual ?? .nan), Double(probeRadius ?? .nan)
+        )
+    }
 
     var hasFittedOrigin: Bool { origin != nil }
     var hasRotation: Bool { rotationRad != nil }

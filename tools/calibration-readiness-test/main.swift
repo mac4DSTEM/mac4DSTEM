@@ -139,6 +139,95 @@ struct Harness {
                     "origin fit within the probe radius was rejected")
         print("PASS: origin residual gates quantitative readiness")
 
+        // Backlog #46. The defect was that the Origin row said "exceeds probe
+        // radius; recalibrate before quantitative use" while the Q row,
+        // derived from that same origin, said "Measured in app". The two
+        // surfaces now read one predicate, and this pins them together: for
+        // every origin state, a refusal exists exactly when the readiness row
+        // is blocked by the fit rather than by a missing value.
+        func originStates() -> [(String, Calibration)] {
+            var cases: [(String, Calibration)] = []
+            var none = completeCalibration(origin: .fitted)
+            none.origin = nil
+            cases.append(("no fitted origin", none))
+
+            var clean = completeCalibration(origin: .fitted)
+            clean.probeRadius = 5
+            clean.origin = OriginMaps(
+                width: 2, height: 1, measuredX: [0, 1], measuredY: [0, 0],
+                fittedX: [0, 0], fittedY: [0, 0]
+            )
+            cases.append(("residual under probe radius", clean))
+
+            // downsample_Si_SiGe_exp to scale: RMS 11.66 px, probe 5.03 px.
+            var siSiGe = completeCalibration(origin: .fitted)
+            siSiGe.probeRadius = 5.03
+            siSiGe.origin = OriginMaps(
+                width: 2, height: 1,
+                measuredX: [11.66, -11.66], measuredY: [0, 0],
+                fittedX: [0, 0], fittedY: [0, 0]
+            )
+            cases.append(("Si_SiGe-scale residual", siSiGe))
+
+            // Imported fitted maps carry no measured arrays, so there is no
+            // residual to judge and nothing may be refused on that basis.
+            var imported = completeCalibration(origin: .fileMaps)
+            imported.origin = OriginMaps(
+                width: 2, height: 1, measuredX: nil, measuredY: nil,
+                fittedX: [0, 0], fittedY: [0, 0]
+            )
+            cases.append(("imported maps without measured arrays", imported))
+
+            var nonFinite = completeCalibration(origin: .fitted)
+            nonFinite.probeRadius = 5
+            nonFinite.origin = OriginMaps(
+                width: 2, height: 1,
+                measuredX: [.nan, 0], measuredY: [0, 0],
+                fittedX: [0, 0], fittedY: [0, 0]
+            )
+            cases.append(("non-finite residual", nonFinite))
+
+            return cases
+        }
+
+        for (label, calibration) in originStates() {
+            let report = CalibrationReadinessReport.make(
+                calibration: calibration, provenance: completeProvenance(.measuredInApp)
+            )
+            let originRow = report.items.first { $0.kind == .originProbe }
+            let blockedByFit = !calibration.originFitIsQuantitative
+            try require(originRow?.status.isReady == !blockedByFit,
+                        "\(label): readiness row and origin-fit predicate disagree")
+            try require((calibration.originFitRefusal != nil) == blockedByFit,
+                        "\(label): refusal and origin-fit predicate disagree")
+            if blockedByFit {
+                try require(originRow?.detail.contains("exceeds probe radius") == true,
+                            "\(label): blocked row lost its actionable detail")
+                // The remedy must name **Origin fit**. `OriginCalibration`
+                // never consults the disk-detection probe kernel, so advising
+                // "build a measured probe kernel" — which an earlier draft did
+                // — sends the user to a control that cannot move this number.
+                try require(calibration.originFitRefusal?.contains("Origin fit") == true,
+                            "\(label): refusal did not name the control that changes the fit")
+                try require(calibration.originFitRefusal?.lowercased()
+                                .contains("probe kernel") != true,
+                            "\(label): refusal advises a lever that cannot change the residual")
+            }
+        }
+        try require(originStates().contains { !$0.1.originFitIsQuantitative },
+                    "the origin-fit invariant was checked without a single failing case")
+        print("PASS: origin-fit refusal and readiness row are one judgement")
+
+        // The refusal must quote the two numbers it is judging, so a user (and
+        // the QC log) can see *why* without hunting for another row.
+        let siSiGeRefusal = originStates().first { $0.0 == "Si_SiGe-scale residual" }!
+            .1.originFitRefusal
+        try require(siSiGeRefusal?.contains("11.66") == true,
+                    "refusal did not quote the fit residual: \(siSiGeRefusal ?? "nil")")
+        try require(siSiGeRefusal?.contains("5.03") == true,
+                    "refusal did not quote the probe radius: \(siSiGeRefusal ?? "nil")")
+        print("PASS: origin-fit refusal quotes the residual it is judging")
+
         let manual = CalibrationReadinessReport.make(
             calibration: completeCalibration(origin: .manual),
             provenance: completeProvenance(.manual)

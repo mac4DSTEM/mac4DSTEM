@@ -41,6 +41,24 @@ is what travels into export, reopen and the QC log.
 Developer ID signing, notarization, and a clean-account launch. Credentials
 required; nothing in the repo blocks these.
 
+**These do not block the tag** (decided 2026-08-06). Closing out v1.0 splits in
+two, and only the first half needs anything from the repo:
+
+1. **Repo close-out** — #46 fixed, `run-tests.sh all` green, a QC playthrough
+   run *with* screenshots to create the visual baseline that has never existed,
+   commit, **tag `v1.0.0`**, and reset the docs (see below). Needs no
+   credentials and no Apple Developer account.
+2. **Distribution close-out** — Developer ID signing, notarization, stapling,
+   clean-account launch. Needs paid Apple Developer Program membership. Ships
+   as a later release action against the same tag; it changes no source.
+
+**Docs reset, at the tag:** `CHANGELOG.md` is the record of what v1.0 is; this
+file drops everything closed and keeps only what is live; `docs/archive/v1.0/`
+stays frozen; `docs/load-pipeline-plan.md` becomes the single live plan; and
+`CLAUDE.md` loses the "two threads" framing in favour of pointing at the tag.
+The point is that every later bisect has a real tag to bisect against instead
+of "somewhere in `main`".
+
 ## Verification debt
 
 - **No visual QC baseline.** The 2026-08-06 acceptance runs used

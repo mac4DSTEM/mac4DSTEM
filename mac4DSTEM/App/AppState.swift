@@ -3695,6 +3695,31 @@ final class AppState {
             presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before calibrating reciprocal pixels."))
             return
         }
+        // Backlog #46. `calibratedBraggVectors` below re-centres every pattern
+        // on the fitted origin, so this estimate is only ever as good as that
+        // fit. On `downsample_Si_SiGe_exp` the fit RMS is 11.66 px against a
+        // 5.03 px probe radius and a 14.9 px lattice period, and the Q pixel
+        // size came out 2.56× too large — labelled `.measuredInApp`, which is
+        // the string that travels into export, reopen and the QC log while the
+        // warning stayed behind in the Origin row.
+        //
+        // The gate is `Calibration.originFitRefusal`, built from the same
+        // predicate the readiness row renders, so there is one owner. It is
+        // deliberately *only* the residual test and not the whole `originProbe`
+        // row: an origin that was never fitted has no residual to judge and is
+        // not a known-bad number, which is a different question (#29) and not
+        // this defect. The manual Q field stays rendered either way, so
+        // refusing here is never a dead end.
+        //
+        // It runs *before* the input guards on purpose: the verdict does not
+        // depend on having Bragg vectors, and re-detecting disks against a bad
+        // origin is wasted work, so naming the origin first is the more useful
+        // order. No dataset loaded means an empty `Calibration`, which has no
+        // residual to judge and falls through to the guards below.
+        if let refusal = calibration.originFitRefusal {
+            presentComputeFailure(SimpleError(refusal))
+            return
+        }
         guard let descriptor, let rawBragg = braggVectors else {
             presentComputeFailure(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
             return

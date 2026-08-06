@@ -426,9 +426,11 @@ private func evaluate(
     calibration.originProvenance = .fitted
     provenance.probe = .measuredInApp
     let planeOriginRMS = originFit.origin.rmsResidual
-    let originQualityWarning = planeOriginRMS.map {
-        $0.isFinite && $0 > originFit.probeRadius
-    } ?? false
+    // Backlog #46: one owner for "is this origin fit quantitative?". This was
+    // a third hand-rolled copy of the same comparison, and because the campaign
+    // writes `References/parity_records/`, letting it drift would make the
+    // app's reference numbers disagree with the app by construction.
+    let originQualityWarning = !calibration.originFitIsQuantitative
     if originQualityWarning {
         issues.append("Origin fit RMS exceeds the fitted probe radius; downstream calibration is qualitative")
     }
@@ -731,7 +733,16 @@ private func evaluate(
 
     var parityACOM: ParityACOMExport?
     let phaseModel = metadata.phaseModelID.flatMap(CrystalModelLibrary.model(id:))
+    // Backlog #46: the app refuses to derive Q from an origin whose fit is not
+    // quantitative, and stamps nothing. The campaign writes the parity records
+    // the QC playthrough quotes, so it must refuse on the same condition — an
+    // ungated `.measuredInApp` here would reintroduce the exact defect in the
+    // reference numbers, where it is harder to notice.
+    if let refusal = calibration.originFitRefusal {
+        issues.append("Q calibration skipped — \(refusal)")
+    }
     if let phaseModel,
+       calibration.originFitIsQuantitative,
        phaseModel.isUsable,
        let firstShell = phaseModel.crystal.reflections(kMax: 2.5).first?.gLength,
        let qEstimate = KnownCrystalQCalibration.estimate(

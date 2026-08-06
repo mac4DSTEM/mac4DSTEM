@@ -410,6 +410,24 @@ bit-identical.**
    Two real points on either side of the knee is what the sweep needs. **Copy
    both to the local SSD first** — #30 measured ≈3.3 MB/s over the NAS, which
    would make the sweep measure the link instead of residency.
+
+   **The threshold is a fraction of the machine's own working set, never a
+   fixed byte count.** The app ships to Macs from 8 GB to 128 GB+; the same
+   cube must go resident on a large machine and stream on a small one, from one
+   rule. Hard-coding a size, or tuning `f` to make one particular dataset fit,
+   would be a defect.
+
+   **Testability consequence, and it is not optional:** the development machine
+   as of 2026-08-06 is an **8 GB M3 MacBook Air**, whose working set is roughly
+   5–6 GB — so neither cube above can go resident there, and the resident path
+   **cannot be exercised by opening a real dataset on it**. The harness must
+   therefore be able to force residency independently of the threshold (an
+   explicit `Residency.resident` request, or an injectable headroom value, the
+   same way `maximumTileRows` already lets parity tests force tiny tiles). The
+   demo cube is 12 × 12 × 64 × 64 and goes resident anywhere. **Without that
+   seam the equality harness silently tests the tiled path against itself** —
+   the exact "assertion that passes in the broken state" this repo has been
+   burned by.
 4. **The preload itself reports measured progress**, in the same two quantities
    L1 established — patterns and MB — through `datasetLoadingProgress` and the
    welcome card. This is a **new** determinate phase, not the one L1 wired:

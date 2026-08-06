@@ -196,7 +196,7 @@ private struct QCWorkflow {
 
         if let phaseModel {
             try selectPhaseModel(phaseModel)
-            try calibrateQFromCrystal()
+            try calibrateQFromCrystal(fileName: fileName)
             attachScreenshot(step: "05_calibrated_q")
 
             try runOrientationMap()
@@ -263,6 +263,25 @@ private struct QCWorkflow {
             return "virtual imaging; disks/strain if crystalline (300 kV)"
         }
         return "not listed in §6 — full pipeline attempted, every step self-gating"
+    }
+
+    /// Whether this dataset is *expected* to have its Q calibration refused
+    /// because its origin fit is not quantitative (backlog #46).
+    ///
+    /// This is a per-dataset expectation on purpose. Accepting a refusal from
+    /// any dataset would mean a regression that made the gate over-fire —
+    /// refusing on `sim_Au_data_all_binned`, whose fit RMS is 0.1616 px against
+    /// a 6.1 px probe — produced a green run with a line in the Errors section
+    /// nobody reads. That is the repo's own "never widen a gate that fails
+    /// silently" lesson turned on the acceptance test itself.
+    ///
+    /// `downsample_Si_SiGe_exp` fits the origin at RMS 11.66 px against a
+    /// 5.03 px probe radius, which is why #46 was found there. If #29 ever
+    /// fixes that fit, this entry must come out — and the run failing is the
+    /// intended way to find that out.
+    private static func expectsQCalibrationRefusal(for fileName: String) -> Bool {
+        let lower = fileName.lowercased()
+        return lower.contains("si_sige") || lower.contains("sige")
     }
 
     /// Library phase model (matching the app's ACOM material picker labels)
@@ -379,7 +398,7 @@ private struct QCWorkflow {
     /// selected crystal's structure factors — the canonical py4DSTEM method
     /// (docs/py4dstem-pipelines.md §2.8). Requires disks + a phase model, so
     /// the app only renders `calibration.action.qCrystal` once both exist.
-    private func calibrateQFromCrystal() throws {
+    private func calibrateQFromCrystal(fileName: String) throws {
         log.subsection("5b. Calibrate Q pixel size from crystal (Prepare)")
         try driver.click("workspace.prepare")
         _ = try driver.waitForExistence("calibration.readiness", timeout: 20)
@@ -397,10 +416,71 @@ private struct QCWorkflow {
         }
         try driver.click("calibration.action.qCrystal", timeout: 10)
         log.bullet("Ran \"Calibrate Q from Selected Material\"")
-        // Q row's action controls un-render once the scale is established.
-        try driver.waitForDisappearance(
-            "calibration.action.qManual", timeout: 120, describing: "Q pixel-size calibration"
-        )
+
+        // Two outcomes are now legitimate, and this waits for whichever comes.
+        //
+        // The app refuses to measure Q from an origin whose fit residual
+        // exceeds the probe radius (backlog #46): that origin re-centres every
+        // pattern, and on `downsample_Si_SiGe_exp` it produced a scale 2.56×
+        // too large stamped "Measured in app". A refusal is therefore the
+        // *correct* result on that dataset, not a regression — but it is still
+        // a fact this log must state loudly rather than pass over, so it goes
+        // through `recordError` and a `note`, exactly like the missing-action
+        // path above. Nothing here is an app-behaviour judgement the playthrough
+        // makes on its own: it reports which of the two the app chose.
+        //
+        // The success side keeps its original meaning — the Q row's action
+        // controls un-render once the scale is established.
+        let manualField = driver.element("calibration.action.qManual")
+        let deadline = Date().addingTimeInterval(120)
+        var refusal: String?
+        while manualField.exists {
+            let status = driver.currentStatusText()
+            if status.contains("Origin fit RMS") {
+                refusal = status
+                break
+            }
+            if Date() > deadline {
+                throw QCError(
+                    "Timed out after 120s waiting for Q pixel-size calibration to either "
+                    + "establish a scale or refuse; last status: \(status)"
+                )
+            }
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+
+        let expectedRefusal = Self.expectsQCalibrationRefusal(for: fileName)
+        switch (refusal, expectedRefusal) {
+        case (let refusal?, true):
+            log.recordError(
+                "Q calibration was refused because the origin fit is not quantitative — "
+                + refusal
+            )
+            log.note(
+                "\n**UNCALIBRATED Q (refused, expected)** — the app declined to derive a Q "
+                + "pixel size from an origin it had already flagged, so orientation results "
+                + "ran in the exploratory pixel-scale mode instead of carrying a wrong scale "
+                + "labelled \"Measured in app\" (backlog #46). Virtual DF is unaffected. The "
+                + "remedy is in the refusal: try another Origin fit and re-run Calibrate "
+                + "Origin, or set Q manually.\n"
+            )
+        case (let refusal?, false):
+            // Over-firing is a worse failure than the defect: it withholds a
+            // calibration that was fine. It fails the dataset rather than
+            // leaving a line in a section nobody reads.
+            throw QCError(
+                "Q calibration was refused on a dataset whose origin fit is expected to be "
+                + "usable — the #46 gate is over-firing. Status: \(refusal)"
+            )
+        case (nil, true):
+            throw QCError(
+                "Q calibration succeeded on a dataset whose origin fit is expected to be "
+                + "unusable. Either the origin fit improved (update "
+                + "`expectsQCalibrationRefusal`) or the #46 gate has stopped firing."
+            )
+        case (nil, false):
+            break
+        }
         log.bullet("After Q calibration — calibration panel text:")
         for line in driver.calibrationPanelText() { log.bullet("  \(line)") }
     }
