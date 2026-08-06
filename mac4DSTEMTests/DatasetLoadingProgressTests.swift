@@ -64,6 +64,24 @@ final class DatasetLoadingProgressTests: XCTestCase {
         XCTAssertTrue(status.contains("MB") || status.contains("GB"), status)
     }
 
+    /// The byte string beside the counts is unlocalized (`%.2f GB`), so the
+    /// counts must not use a locale grouping separator: on a German system that
+    /// produced "1.378 / 16.218 patterns · 3.96 GB", where "." meant grouping
+    /// twice and decimal point once, in one line. Observed on the real app
+    /// 2026-08-06.
+    func testPatternCountsGroupIndependentlyOfTheSystemLocale() {
+        XCTAssertEqual(AppState.count(1_378), "1,378")
+        XCTAssertEqual(AppState.count(16_218), "16,218")
+        let status = AppState.scanProgressStatus(
+            "Scanning patterns", processed: 1_378, total: 16_218,
+            descriptor: DemoFourDDataSource.descriptor
+        )
+        XCTAssertFalse(
+            status.contains("1.378"),
+            "A grouping period collides with the byte string's decimal period: \(status)"
+        )
+    }
+
     /// Bytes are the float32 *working* size — what is actually streamed — not
     /// the on-disk size. A uint16 cube streams at twice its file size, and
     /// reporting the file size would be the more flattering number and the

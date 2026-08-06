@@ -2281,11 +2281,21 @@ final class AppState {
     /// not the on-disk size, which differs whenever the file's dtype is not
     /// float32 (a uint16 cube streams at twice its file size). Reporting the
     /// file size here would be the more flattering number and the wrong one.
+    nonisolated static func count(_ value: Int) -> String {
+        value.formatted(.number.locale(Locale(identifier: "en_US")))
+    }
+
     nonisolated static func scanProgressStatus(
         _ verb: String, processed: Int, total: Int, descriptor d: DatasetDescriptor
     ) -> String {
         let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
-        let patterns = "\(processed.formatted()) / \(total.formatted()) patterns"
+        // Fixed grouping rather than the user's locale, because the byte string
+        // beside it is itself unlocalized (`SystemMonitor.byteString` always
+        // formats "3.96 GB" with a period decimal point). Locale grouping put
+        // two meanings of "." in one line — on a German system this read
+        // "1.378 / 16.218 patterns · 3.96 GB", where the first two periods
+        // group and the third is a decimal point. One convention per line.
+        let patterns = "\(Self.count(processed)) / \(Self.count(total)) patterns"
         let bytes = "\(SystemMonitor.byteString(processed * bytesPerPattern))"
             + " of \(SystemMonitor.byteString(total * bytesPerPattern))"
         return "\(verb) \(patterns) · \(bytes)"

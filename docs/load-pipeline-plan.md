@@ -226,8 +226,13 @@ re-reference below.
   (`welcome.localStorageNotice`), at the release owner's request.
   **✅ Confirmed on the real app 2026-08-06** by the release owner, on a 3.96 GB
   cube: `Scanning patterns 1,378 / 16,218 patterns · 344 MB of 3.96 GB` with the
-  bar advancing and the welcome card still up. **Still not run:** the QC
-  playthrough (needs the Screen Recording grant), so there is no automated
+  bar advancing and the welcome card still up. That screenshot also **found a
+  real defect and it is fixed**: the counts used the system locale while
+  `SystemMonitor.byteString` does not, so a German system rendered
+  `1.378 / 16.218 patterns · 3.96 GB` — two meanings of "." in one line. Counts
+  now group with a fixed `en_US` separator; pinned by
+  `testPatternCountsGroupIndependentlyOfTheSystemLocale`. **Still not run:** the
+  QC playthrough (needs the Screen Recording grant), so there is no automated
   visual baseline for it.
 - [ ] **L2 — Resident cube + automatic fallback + exact-equality parity harness**
 - [ ] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing**
@@ -391,11 +396,34 @@ bit-identical.**
    `estimatedWorkingBytes` for both a whole cube and a tile) with a residency
    sweep: repeated virtual images at several `resident / headroom` ratios on a
    real cube, looking for the knee. **Do not pick `f` by reasoning.**
-4. An explicit **"Release cube"** action, and automatic release when a
+
+   **Datasets the release owner has open and working (2026-08-06)**, both
+   256 × 256 detector — read the exact working size from the inspector's
+   *Cube (f32)* row rather than trusting these:
+   - `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` — scan **186 × 153**,
+     28,458 patterns, **≈7.46 GB** as float32. Likely *above* the threshold on
+     most machines, so it is the **fallback** case: it must stream, cleanly and
+     without a stall.
+   - a second cube of **16,218 patterns, ≈4.25 GB** float32 (the one in the L1
+     load screenshot) — the plausible *resident* case.
+
+   Two real points on either side of the knee is what the sweep needs. **Copy
+   both to the local SSD first** — #30 measured ≈3.3 MB/s over the NAS, which
+   would make the sweep measure the link instead of residency.
+4. **The preload itself reports measured progress**, in the same two quantities
+   L1 established — patterns and MB — through `datasetLoadingProgress` and the
+   welcome card. This is a **new** determinate phase, not the one L1 wired:
+   L1 routes the first *analysis* pass, whereas residency introduces a distinct
+   *read into the buffer* that happens before it, and on a multi-gigabyte cube
+   that read is the longest single phase of the whole open. Reuse
+   `AppState.scanProgressStatus`, and honour I5 — the denominator here is the
+   cube, which is known exactly, so this phase must be determinate. **A silent
+   preload would reintroduce the stall L1 just removed**, one layer down.
+5. An explicit **"Release cube"** action, and automatic release when a
    reconstruction declares a `maxWorkingBytes` need that no longer fits —
    ptychography, parallax and depth sectioning already declare theirs and throw
    `.memoryLimit`.
-5. A visible mode indicator: the user must be able to tell at a glance whether
+6. A visible mode indicator: the user must be able to tell at a glance whether
    they are resident or streaming. The Performance panel already shows "App
    memory" and "Cube (f32)".
 
@@ -451,7 +479,11 @@ though it must not change a single number.
    map, ACOM map or Bragg-vector set is indexed against the old extent and
    becomes *ambiguous, not stale*. Invalidate them explicitly, with a message
    that says why.
-4. Assert that `minPeakSpacing` still follows automatically — it derives from
+4. **The reduced cube must reach L2's admission test.** A crop produces a
+   smaller `DatasetDescriptor`, which is exactly what residency reads — so a
+   cube that was too large to hold becomes resident once cropped, with no extra
+   machinery. Do not special-case residency for full cubes; see §8.
+5. Assert that `minPeakSpacing` still follows automatically — it derives from
    the fitted probe radius (backlog #5 / pipelines §10.3), so it should need no
    special handling. **Pin that with a test**, because it is exactly the kind of
    property that quietly stops being true.
@@ -611,3 +643,56 @@ if L3/L4 are already green.
    L4. A `DEVIATION` note is required, since py4DSTEM accepts any integer.
 5. **`docs/v1-scope.md`** — record that the frozen contract is being extended
    deliberately, rather than letting it be widened silently.
+
+---
+
+## 8. Coverage — the release owner's brief, line by line
+
+Audited 2026-08-06 against the original request, so a cold session can see what
+is promised and what is not.
+
+| Asked for | Stage | State |
+|---|---|---|
+| "If it is loading metadata, say that" | L1 | ✅ done — named spinner, no percentage |
+| "how many patterns are done out of the total" | L1 | ✅ done — patterns **and** MB |
+| "move smoothly and honestly, not jump in huge blocks or sit there looking stuck" | L1 | ✅ done — waypoints deleted; the load no longer ends before the first pass |
+| "load the full datacube into memory when the dataset is small enough" | L2 | planned |
+| "optional or automatic only when safe" | L2 | planned — **automatic**, decided §7.3 |
+| "large files should still work with the current tiled streaming approach" | L2, I6 | planned — streaming stays the default and stays tested |
+| "real loading progress during preload, ideally MB loaded and patterns loaded" | L2.4 | planned — a **distinct** phase from L1's; added after this audit found it missing |
+| "use the in-memory cube for virtual imaging when available" | L2 | planned |
+| "tests comparing in-memory and tiled virtual detector results" | L2 | planned — **exact equality**, stronger than asked |
+| "circle, annulus, rectangle, point keep exactly the same pixel-inclusion behavior" | I1, L2 | planned — `makeMask` and both shaders are off-limits |
+| "loading screen … inspects the file … preview of real space and diff space" | L5.1 | planned |
+| "lets you load everything into memory or cropped" | L5.3 + L3 | planned |
+| "draw a rectangle box overlay in the real-space preview … loads only that part" | L5.3 + L3 | planned |
+| "bin the diffraction space by a factor x on load" | L4 | planned — 2/4/8 |
+| "this lives in memory then" | L3/L4 → L2 | planned — **see the composition note below** |
+| "doesn't change the original dataset" | §3 | planned — read-only source, spec applied at read time |
+| "can be stored as the analysis along the original cube" | L6 | planned — spec in the session sidecar and every export |
+
+### The composition that makes the vision work
+
+A cropped or binned load produces a **smaller `DatasetDescriptor`**, which is
+what L2's admission test reads. So crop/bin and residency compose without extra
+machinery: **reduce the cube until it fits, and it becomes resident
+automatically.** That is the release owner's "this lives in memory then", and it
+is the reason L2 must come before L3/L4 — the stages are one feature, not three.
+Any implementation that special-cases residency for full cubes only has broken
+the point.
+
+### What this plan does **not** cover
+
+Named so nobody assumes otherwise:
+
+1. **Cropping a dataset that is already open.** Every crop here happens at load
+   time, from the open screen. Under the view model a mid-session crop is a
+   reopen with a different specification, which is coherent but is *not* a
+   "crop what I am looking at" gesture. If that interaction is wanted it is a
+   separate stage, not a detail of L3.
+2. **Real-space binning or thinning.** Only diffraction binning is planned.
+   py4DSTEM has `bin_data_real` and `thin_data_real`; neither was asked for.
+3. **Writing a cropped/binned cube out as its own file.** §7.1 chose a view, so
+   a reduced cube is a specification, not a new dataset on disk. Exporting one
+   as a standalone file is an additional export feature, not a change to the
+   model — cheap to add later, but not in scope here.
