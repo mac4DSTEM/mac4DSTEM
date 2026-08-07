@@ -4,8 +4,8 @@
 
 **Interactive 4D-STEM analysis, native to Apple Silicon.**
 
-</div>
 ![mac4DSTEM Map workspace showing diffraction fit overlay, strain map, and diagnostics](docs/images/strain-map-workspace.png)
+
 ---
 
 ## Overview
