@@ -1,12 +1,12 @@
-<div align="center">
+<h1 align="center">mac4DSTEM</h1>
 
-# mac4DSTEM
+<p align="center">
+  <strong>Interactive 4D-STEM analysis, native to Apple Silicon.</strong>
+</p>
 
-**Interactive 4D-STEM analysis, native to Apple Silicon.**
-
-![mac4DSTEM Map workspace showing diffraction fit overlay, strain map, and diagnostics](docs/images/strain-map-workspace.png)
-
-</div>
+<p align="center">
+  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM Map workspace showing diffraction fit overlay, strain map, and diagnostics" width="100%">
+</p>
 
 ---
 
@@ -41,13 +41,13 @@ That verification is numerical: the application is tested against known-correct 
 
 macOS 14 or later on Apple Silicon. No external runtime, toolchain, or library installation is required; all dependencies are contained within the application.
 
-## Building From Source
+## Building from source
 
 Open `mac4DSTEM.xcodeproj` in Xcode and build the `mac4DSTEM` scheme.
 
 Architecture, test suites, supported file formats, and known limitations are documented in [`docs/technical-overview.md`](docs/technical-overview.md). Scope and release contracts are in [`docs/v1-scope.md`](docs/v1-scope.md) and [`CHANGELOG.md`](CHANGELOG.md). The analysis pipelines and their correspondence to py4DSTEM are described in [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
 
-## Attribution And Licence
+## Attribution and licence
 
 mac4DSTEM implements algorithms ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and validated against it. Work published using mac4DSTEM should cite py4DSTEM for the underlying methods.
 
