@@ -5,11 +5,7 @@
 **Interactive 4D-STEM analysis, native to Apple Silicon.**
 
 </div>
-
-<!-- TODO: hero screenshot or short screen recording goes here.
-     Suggested: the Map workspace with a strain map beside the live CBED and
-     its fit overlay — diffraction pattern, result, and diagnostics in one frame. -->
-
+![mac4DSTEM Map workspace showing diffraction fit overlay, strain map, and diagnostics](docs/images/strain-map-workspace.png)
 ---
 
 ## Overview
