@@ -43,7 +43,7 @@ enum OutputLayout {
     /// Whether this run must **not** attempt `XCUIScreenshot` at all.
     ///
     /// `XCUIElement.screenshot()` is executed by the *test runner* app
-    /// (`com.paullobpreis.mac4DSTEMUITests.xctrunner`, ad-hoc signed), not by
+    /// (`com.mac4dstem.mac4DSTEMUITests.xctrunner`, ad-hoc signed), not by
     /// the invoking shell, and it needs its own Screen & System Audio Recording
     /// grant. Without it the call does not merely return nothing — it unwinds,
     /// and the failure path in `QCPlaythroughUITests` then attempts *another*

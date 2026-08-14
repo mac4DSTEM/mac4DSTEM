@@ -53,7 +53,7 @@ gone:
    failed runs — see backlog **#45** for the full account). Accessibility is
    below; the second is **Screen & System Audio Recording**, and it is granted
    to a *different process*: the ad-hoc-signed test runner
-   `com.paullobpreis.mac4DSTEMUITests.xctrunner`, **not** the shell. The
+   `com.mac4dstem.mac4DSTEMUITests.xctrunner`, **not** the shell. The
    shell having it is misleading rather than helpful — `screencapture` from
    the shell succeeds while the runner still fails.
 

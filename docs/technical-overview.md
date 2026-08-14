@@ -222,8 +222,11 @@ audit; Developer ID signing and notarization require release-owner credentials
 - **R–Q rotation has an inherent 180° ambiguity** — use **Flip 180°** in
   Calibration if iDPC contrast is inverted.
 - **MIB/EMPAD readers are Preview** until real vendor acquisitions are supplied.
-- Bundle identifier is `com.paullobpreis.mac4DSTEM`; changing it after release
-  would break bookmark/container continuity.
+- Bundle identifier is `com.mac4dstem.mac4DSTEM`. It was `com.paullobpreis.mac4DSTEM`
+  through v1.0.0 and was changed before public distribution, which is the only
+  point at which it is free: the identifier keys the sandbox container and the
+  app-scoped security bookmarks inside it, so changing it after release would
+  break bookmark/container continuity for every existing install.
 
 ## Developer notes
 

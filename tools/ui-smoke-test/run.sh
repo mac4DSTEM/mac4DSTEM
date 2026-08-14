@@ -29,14 +29,14 @@ trap cleanup EXIT
 
 xcodebuild -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
   -configuration Debug -derivedDataPath "$DERIVED" \
-  PRODUCT_BUNDLE_IDENTIFIER=com.paullobpreis.mac4DSTEM.UISmoke \
+  PRODUCT_BUNDLE_IDENTIFIER=com.mac4dstem.mac4DSTEM.UISmoke \
   CODE_SIGNING_ALLOWED=NO build >"$LOG"
 APP="$DERIVED/Build/Products/Debug/mac4DSTEM.app"
 codesign --force --deep --sign - "$APP" 2>/dev/null
 
 # Window frames are persisted by bundle identifier. A smoke run must not inherit
 # a frame on a detached display from an earlier interactive session.
-defaults delete com.paullobpreis.mac4DSTEM.UISmoke \
+defaults delete com.mac4dstem.mac4DSTEM.UISmoke \
   "NSWindow Frame dataset-AppWindow-1" 2>/dev/null || true
 
 launch_demo() {

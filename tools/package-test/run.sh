@@ -26,7 +26,7 @@ EXECUTABLE="$APP/Contents/MacOS/mac4DSTEM"
 INFO="$APP/Contents/Info.plist"
 
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
-  "com.paullobpreis.mac4DSTEM"
+  "com.mac4dstem.mac4DSTEM"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "1.0"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "1"
 test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "14.0"

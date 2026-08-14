@@ -7,7 +7,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 
 ## Release contract
 
-- Bundle identifier: `com.paullobpreis.mac4DSTEM`
+- Bundle identifier: `com.mac4dstem.mac4DSTEM`
 - Version/build: `1.0` / `1`
 - Minimum system: macOS 14
 - Hardened runtime and App Sandbox enabled
