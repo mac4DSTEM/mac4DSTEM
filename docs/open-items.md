@@ -25,11 +25,29 @@ kept as history. Cited numbers are prefixed `#` and refer to that file.
   determines session-restore and export behaviour, and reversing it later is
   expensive.
 
-## Release-owner actions
+## Release-owner actions — **done 2026-08-14/15**
 
-Developer ID signing, notarization, and a clean-account launch. Credentials
-required; **nothing in the repo blocks these**, and they change no source — they
-ship as a later release action against the `v1.0.0` tag.
+Developer ID signing, notarization and a clean-account launch all completed.
+The repository is public at `github.com/mac4DSTEM/mac4DSTEM` under GPL-3.0, and
+`v1.0.0` carries a signed, notarized, stapled `mac4DSTEM.dmg` linked from
+mac4dstem.com.
+
+The pipeline is now in the repo rather than in someone's shell history:
+`tools/release/build-developer-id.sh` → `notarize.sh` (takes an `.app` *or* a
+`.dmg`) → `make-dmg.sh` → `notarize.sh` again. Both the app and the image are
+stapled, because Gatekeeper assesses the file the user actually opened.
+`docs/releasing.md` predates `make-dmg.sh` and does not describe it yet.
+
+Two things learned that are not obvious and cost time:
+
+- **Stapling rewrites the DMG, so it changes the checksum.** `make-dmg.sh`
+  prints a SHA-256 *before* the ticket is attached; publishing that one gives
+  users a hash that does not match the download. Take the hash from the
+  notarize step, or after.
+- **The notary credential is not always readable from a non-interactive
+  process.** `notarytool` failed with *No Keychain password item found* from an
+  automated shell while working fine from Terminal; re-running
+  `store-credentials` interactively fixed it permanently.
 
 ## Verification debt
 
@@ -50,9 +68,62 @@ ship as a later release action against the `v1.0.0` tag.
   gitignored multi-gigabyte datacube. It stays a diagnostic.
 - **The QC harness can read a stale peak count.** On `polycrystal_2D_WS2`,
   step 4 logged 16,384 peaks while the app's own status later read 213,441.
+- **The app has never run on the macOS version it claims to support.**
+  `LSMinimumSystemVersion` is 14.0; every build, test run and manual session to
+  date has been on macOS 27. Nothing between 14 and 26 has been exercised, and
+  `SidebarLayoutTests` below is direct evidence that this app's layout does
+  shift with the OS. Only a real older machine answers this.
+- **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
+  harnesses.** True at the tag, not reproducible now: the unit suite fails on
+  macOS 27 (see `SidebarLayoutTests` below). The scientific harnesses and
+  packaging are green; the aggregate gate is not. A verification claim that a
+  reader cannot reproduce is the kind that costs credibility with exactly the
+  people who check.
+
+### First clean-account acceptance run — 2026-08-14
+
+The v1.0 DMG was downloaded from mac4dstem.com in a fresh macOS account that had
+never run the app, installed by drag, and driven through Prepare → Bragg disks →
+Strain on `downsample_Si_SiGe_exp`. It worked: 248,384 peaks, 100% basis
+consensus, 100% indexed, a quantitative ε_xx map with the expected SiGe layer
+periodicity, and **no Gatekeeper warning at any point**.
+
+That single run — perhaps fifteen minutes of human time — produced three defects
+that no harness in the repo can reach. They are listed under *Known, scoped, not
+blocking* below. This is the second time the Track B pattern in
+`docs/v2-planning-draft.md` §2 has outperformed the automated suite on its own
+terms.
 
 ## Known, scoped, not blocking
 
+- **`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` fails on macOS
+  27.** Uncalibrated Prepare measures 933pt against 871pt of column — 62pt of
+  overflow against a 60pt allowance. **Not a regression:** `git diff v1.0.0..HEAD`
+  over `mac4DSTEM/`, both test targets and `tools/` was empty when this first
+  appeared, so no app code had changed. The test's own comment records the
+  overflow as 49pt when written, giving 11pt of headroom; the OS moved 13pt.
+  The question is not what broke but **whether 60 was ever a threshold or just
+  one machine's measurement rounded up** — it will drift again on macOS 28.
+- **The burned-in caption on exported figures truncates.** Observed on a strain
+  export: `…basis_mode=consensus · reference_mode=whole-scan · displa…`. That
+  caption *is* the provenance record and it is the part that travels into a
+  paper, so cutting it mid-word defeats the reason it is burned in at all.
+- **Colorbar and scale bar collide on tall, narrow maps.** Seen on a 200×50 scan
+  with a display rotation applied: the `-0.04145 0 0.04145` colorbar and the
+  `20 [pix]` scale bar stack into each other at the foot of the pane. Both are
+  bottom-anchored with no awareness of one another.
+- **"Recent-file access could not be remembered."** Logged after a successful
+  open in the clean-account run: the app loaded the file but could not persist a
+  security-scoped bookmark, so Open Recent will not reopen it. **Caveat before
+  anyone chases this:** the test file was a *hard link* staged into
+  `/Users/Shared`, which is unusual enough that it may be the cause. Re-test with
+  a plain copy before treating it as an app defect.
+- **The legacy `.icns` tops out at 256px.** After the move to an Icon Composer
+  `.icon`, the compiled fallback carries only 16, 16@2x, 128 and 128@2x. macOS 26
+  and later render from the `.icon` source and are correct at every size; on the
+  macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
+  Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
+  whether to ship a legacy PNG set alongside.
 - **#17a — aspect-aware pane arrangement.** Built, then reverted on sight
   2026-08-05. Needs a design decision, not an implementation.
 - ~~**#36 — no progress indication while a datacube loads.**~~ **Fixed
@@ -103,7 +174,17 @@ Kept because they changed outcomes, not because they are tidy:
    a colormap control missing from the only workspace that needed it, and a
    readiness row contradicting its own detail line. Neither is exotic; both are
    invisible to a test that never looks at the screen.
-5. **A test written for your own fix proves nothing until it fails without it.**
+5. **A green suite can be green about the wrong thing.** On 2026-08-14 a change
+   to how harnesses resolve their toolchain left 22 of them sourcing a helper by
+   a `$0`-relative path *after* `cd`-ing to their own directory. They were
+   broken. The suite stayed green at 28/28, because `tools/run-tests.sh` invokes
+   each harness with an **absolute** path, so `$0` was absolute and the `cd` was
+   harmless. The failure existed only for the direct invocation — the one
+   `README.md` and `docs/technical-overview.md` tell a reader to use. It
+   surfaced by accident, while running `package-test` by hand for an unrelated
+   reason. Before trusting a suite, ask what calling convention it exercises,
+   and whether that is the one anyone actually uses.
+6. **A test written for your own fix proves nothing until it fails without it.**
    Standard practice here for science changes, and it paid off in the UI layer
    too: the first colormap test failed against the fix *and* against the old
    code, and only became useful once it was made to report what it could
