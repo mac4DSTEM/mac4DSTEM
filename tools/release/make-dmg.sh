@@ -29,6 +29,12 @@ APP="${1:?usage: make-dmg.sh path/to/mac4DSTEM.app [output.dmg]}"
 [ -d "$APP" ] || { echo "No such app bundle: $APP" >&2; exit 1; }
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+# The compiled icon is named after ASSETCATALOG_COMPILER_APPICON_NAME, so read
+# it from Info.plist instead of hardcoding: it changed from AppIcon.icns to
+# mac4DSTEM.icns when the icon moved to an Icon Composer .icon.
+ICON_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$APP/Contents/Info.plist")"
+BADGE="$APP/Contents/Resources/$ICON_NAME.icns"
+[ -f "$BADGE" ] || { echo "No icon at $BADGE — the app did not ship the icon its Info.plist names." >&2; exit 1; }
 OUT="${2:-$ROOT/build/release/mac4DSTEM-$VERSION.dmg}"
 BACKGROUND="$ROOT/tools/release/dmg-background.png"
 [ -f "$BACKGROUND" ] || { echo "Missing background: $BACKGROUND" >&2; exit 1; }
@@ -62,7 +68,7 @@ application = os.path.basename(app)
 
 files = [app]
 symlinks = {"Applications": "/Applications"}
-badge_icon = os.path.join(app, "Contents", "Resources", "AppIcon.icns")
+badge_icon = os.environ["DMG_BADGE_ICON"]
 
 background = os.environ["DMG_BACKGROUND"]
 window_rect = ((200, 120), (600, 400))
@@ -85,7 +91,7 @@ SETTINGS
 mkdir -p "$(dirname "$OUT")"
 rm -f "$OUT"
 
-DMG_APP="$APP" DMG_BACKGROUND="$BACKGROUND" \
+DMG_APP="$APP" DMG_BACKGROUND="$BACKGROUND" DMG_BADGE_ICON="$BADGE" \
   "$DMGBUILD" -s "$WORK/settings.py" "mac4DSTEM $VERSION" "$OUT"
 
 codesign --force --sign "$DEVELOPER_ID_APPLICATION" --timestamp "$OUT"

@@ -32,7 +32,14 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "1.0"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "1"
 test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "14.0"
-test -f "$APP/Contents/Resources/AppIcon.icns"
+# Derived from Info.plist rather than hardcoded: the compiled icon is named
+# after ASSETCATALOG_COMPILER_APPICON_NAME, so it moved from AppIcon.icns to
+# mac4DSTEM.icns when the icon became an Icon Composer .icon. Asserting the
+# literal name checked the build setting, not the thing we care about — that
+# the app ships the icon its own Info.plist claims.
+ICON_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$INFO")"
+test -n "$ICON_NAME"
+test -f "$APP/Contents/Resources/$ICON_NAME.icns"
 
 for library in libhdf5.dylib libsz.2.dylib libaec.0.dylib; do
   test -f "$FRAMEWORKS/$library"
