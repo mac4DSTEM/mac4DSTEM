@@ -1,8 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
-: "${DEVELOPER_DIR:=/Applications/Xcode.app/Contents/Developer}"
+. "$(dirname "$0")/../lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 : "${NOTARY_PROFILE:?Set NOTARY_PROFILE to a notarytool keychain profile name}"
-export DEVELOPER_DIR
 
 APP="${1:?usage: notarize.sh path/to/mac4DSTEM.app [output.zip]}"
 OUT="${2:-${APP:h}/mac4DSTEM-1.0.zip}"

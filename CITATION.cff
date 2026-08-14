@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+message: >-
+  If you use mac4DSTEM in published work, please cite both this software and
+  the py4DSTEM paper, which is the origin of the underlying methods and the
+  reference implementation this port is validated against.
+title: mac4DSTEM
+abstract: >-
+  A native macOS application for interactive four-dimensional scanning
+  transmission electron microscopy (4D-STEM) analysis on Apple Silicon.
+  Covers virtual imaging, calibration, Bragg disk detection, strain mapping,
+  ACOM orientation mapping, and DPC/iDPC/parallax/ptychography phase
+  reconstruction, with every result carrying its model, scale, units and
+  validity through display, export and reopen. Algorithms are ported from
+  py4DSTEM and validated against it on experimental data.
+type: software
+authors:
+  - family-names: Lobpreis
+    given-names: Paul
+version: 1.0.0
+date-released: "2026-08-06"
+license: GPL-3.0-or-later
+repository-code: https://github.com/mac4DSTEM/mac4DSTEM
+url: https://mac4dstem.com
+keywords:
+  - 4D-STEM
+  - scanning transmission electron microscopy
+  - electron diffraction
+  - strain mapping
+  - orientation mapping
+  - ptychography
+  - macOS
+  - Metal
+references:
+  - type: article
+    title: >-
+      py4DSTEM: A Software Package for Four-Dimensional Scanning Transmission
+      Electron Microscopy Data Analysis
+    authors:
+      - family-names: Savitzky
+        given-names: Benjamin H.
+      - name: and the py4DSTEM developers
+    journal: Microscopy and Microanalysis
+    volume: 27
+    year: 2021
+    start: 712
+    end: 743
+    doi: 10.1017/S1431927621000477

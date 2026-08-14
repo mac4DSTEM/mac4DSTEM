@@ -4,8 +4,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
-export DEVELOPER_DIR
+. "$(dirname "$0")/lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 
 unit_tests() (
   # Never let an unsigned test build replace the app that Xcode launches from

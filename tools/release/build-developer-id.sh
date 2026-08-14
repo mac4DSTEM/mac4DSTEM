@@ -1,9 +1,9 @@
 #!/bin/zsh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-: "${DEVELOPER_DIR:=/Applications/Xcode.app/Contents/Developer}"
+. "$(dirname "$0")/../lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 : "${DEVELOPER_ID_APPLICATION:?Set DEVELOPER_ID_APPLICATION to the full Developer ID Application certificate name}"
-export DEVELOPER_DIR
 
 OUT="${1:-$ROOT/build/release}"
 ARCHIVE="$OUT/mac4DSTEM.xcarchive"

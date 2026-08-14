@@ -18,8 +18,8 @@ REPO="$(cd ../.. && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
-export DEVELOPER_DIR
+. "$(dirname "$0")/../lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 
 SRC="$REPO/mac4DSTEM/Core"
 xcrun swiftc -O -parse-as-library -o "$WORK/harness" \

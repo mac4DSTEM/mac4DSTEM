@@ -142,14 +142,16 @@ the Metal compile phase.
 Command-line builds need the full Xcode toolchain:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM \
+xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM \
   -destination 'platform=macOS' build
 ```
 
-Point `DEVELOPER_DIR` at whichever Xcode is installed — `tools/run-tests.sh`
-defaults to `/Applications/Xcode-beta.app/Contents/Developer` and honours the
-variable if it is already set.
+That uses whichever toolchain `xcode-select` points at. Everything under
+`tools/` resolves its own via `tools/lib/developer-dir.sh`: an explicit
+`DEVELOPER_DIR` wins, then the `xcode-select` choice, then any Xcode in
+`/Applications`. The Command Line Tools directory is rejected — it ships no
+`xcodebuild`, so accepting it would only defer the failure. Set
+`DEVELOPER_DIR` explicitly to pin a specific Xcode.
 
 Do not add `CODE_SIGNING_ALLOWED=NO` to an app build you intend to launch;
 use `tools/run-tests.sh unit` for unsigned XCTest work (it builds into

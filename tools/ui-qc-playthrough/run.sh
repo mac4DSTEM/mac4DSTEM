@@ -17,8 +17,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
-export DEVELOPER_DIR
+. "$(dirname "$0")/../lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 
 # --no-screenshots: skip every XCUIScreenshot call for this run.
 #

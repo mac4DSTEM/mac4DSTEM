@@ -19,7 +19,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 Run the complete gate from the repository root:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer tools/run-tests.sh all
+tools/run-tests.sh all
 ```
 
 This includes XCTest, scientific/source-locked harnesses, the checked-in real-data

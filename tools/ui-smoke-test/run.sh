@@ -8,8 +8,8 @@ WORK="$(mktemp -d)"
 DERIVED="$WORK/DerivedData"
 LOG="$WORK/build.log"
 SCREENSHOT="${MAC4DSTEM_UI_SMOKE_SCREENSHOT:-/tmp/mac4dstem-ui-smoke.png}"
-: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
-export DEVELOPER_DIR
+. "$(dirname "$0")/../lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 
 cleanup() {
   local exit_code=$?

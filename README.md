@@ -47,9 +47,17 @@ Open `mac4DSTEM.xcodeproj` in Xcode and build the `mac4DSTEM` scheme.
 
 Architecture, test suites, supported file formats, and known limitations are documented in [`docs/technical-overview.md`](docs/technical-overview.md). Scope and release contracts are in [`docs/v1-scope.md`](docs/v1-scope.md) and [`CHANGELOG.md`](CHANGELOG.md). The analysis pipelines and their correspondence to py4DSTEM are described in [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
 
+## Contributing
+
+Issue reports, and especially parity discrepancies with numbers attached, are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for what makes a scientific bug report actionable and for the conventions that govern changes to the analysis code.
+
+## Citing
+
+If mac4DSTEM contributes to published work, please cite both it and py4DSTEM, which is the origin of the underlying methods and the reference implementation this port is validated against. Citation metadata for both is in [`CITATION.cff`](CITATION.cff).
+
 ## Attribution and licence
 
-mac4DSTEM implements algorithms ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and validated against it. Work published using mac4DSTEM should cite py4DSTEM for the underlying methods.
+mac4DSTEM implements algorithms ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and validated against it.
 
 Released under the **GNU General Public License v3.0**. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 

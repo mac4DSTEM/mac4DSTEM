@@ -3,8 +3,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
-export DEVELOPER_DIR
+. "$(dirname "$0")/../lib/developer-dir.sh"
+resolve_mac4dstem_developer_dir
 
 for lib in libhdf5 libsz.2 libaec.0; do
   cp "$ROOT/$lib.dylib" "$WORK/"

@@ -7,8 +7,7 @@ target embeds `libhdf5.dylib`, `libsz.2.dylib`, and `libaec.0.dylib` in
 Run the credential-free release audit before archiving:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  tools/package-test/run.sh
+tools/package-test/run.sh
 ```
 
 This clean-builds an ad-hoc Release app, verifies the nested code signatures,

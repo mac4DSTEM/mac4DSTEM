@@ -167,9 +167,8 @@ and they build.
 ## Build / test / run
 
 ```sh
-# build (needs full Xcode toolchain)
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
+# build (needs full Xcode toolchain, not just Command Line Tools)
+xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
 
 tools/run-tests.sh unit          # fast XCTest suite (isolated DerivedData)
 tools/run-tests.sh scientific    # py4DSTEM-parity harnesses
