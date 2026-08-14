@@ -8,7 +8,9 @@ REPO="$(cd ../.. && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-. "$(dirname "$0")/../lib/developer-dir.sh"
+# Sourced via $REPO, not $(dirname "$0"): this script cd's to its own directory
+# above, so a $0-relative path would resolve against the wrong directory.
+. "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
 xcodebuild \

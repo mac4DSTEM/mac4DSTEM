@@ -7,7 +7,7 @@ REPO="$(cd ../.. && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-. "$(dirname "$0")/../lib/developer-dir.sh"
+. "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
 xcrun swiftc -o "$WORK/harness" \
