@@ -26,6 +26,17 @@ struct PerformanceView: View {
             }
             if let descriptor = appState.descriptor {
                 labeled("Cube (f32)", SystemMonitor.byteString(descriptor.byteCountAsFloat32))
+                // Which path the analyses are actually taking. Resident and
+                // streaming produce identical numbers, so nothing else on
+                // screen would tell the user which one they are on (L2.6).
+                labeled("Cube memory", appState.residency.summary)
+                if appState.residency.isResident {
+                    Button("Release cube") {
+                        Task { await appState.releaseResidentCube() }
+                    }
+                    .controlSize(.small)
+                    .accessibilityIdentifier("performance.releaseCube")
+                }
             }
             labeled("GPU", SystemMonitor.gpuName)
             labeled("GPU budget", String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))

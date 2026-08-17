@@ -49,11 +49,11 @@ realistically the whole phase. This band gets the sessions.
 
 The claims this repository makes that a reader cannot currently reproduce.
 This band exists because the repo went **public on 2026-08-14**, and a
-verification claim that fails on the current OS costs credibility with exactly
-the people who check it. Live items are in
-[`docs/open-items.md`](open-items.md) under *Verification debt*; the two that
-matter most are the `README.md` / `CHANGELOG.md` "exit 0, 30 harnesses" claim
-(true at the tag, red today on macOS 27) and the absence of any visual
+verification claim a reader cannot reproduce costs credibility with exactly the
+people who check it. Live items are in [`docs/open-items.md`](open-items.md)
+under *Verification debt*; the two that matter most are the `README.md` /
+`CHANGELOG.md` "exit 0, 30 harnesses" claim (measured at the tag, never
+reproduced since, and the count is now 31) and the absence of any visual
 acceptance baseline.
 
 ### C — UI/workflow backlog
@@ -116,7 +116,10 @@ reproduce on a current machine.**
 
 New as of this phase, because the repository is public. If a claim goes stale,
 the fix is to change the claim or fix the gate — not to leave it standing
-because it was true once.
+because it was true once. This cuts both ways: on 2026-08-17 the "unit suite is
+red on macOS 27" claim, written into these docs that morning, was contradicted
+by a run that exited 0 the same afternoon. **A claim about a failure needs the
+same evidence as a claim about a success.**
 
 ---
 
@@ -174,8 +177,16 @@ re-litigated.
    holds it — real separation, view code changes at each extraction. Thin
    forwarding properties were rejected: they preserve the view API but keep the
    property that caused the problem, which is that every piece of code can reach
-   every piece of state. Order and rationale in `docs/development-process.md`
-   §7.
+   every piece of state. Rationale in `docs/development-process.md` §7.
+
+   **Amended the same day.** The extraction *order* proposed in the draft — by
+   MARK-section line count, fit-verification overlays first — was wrong and the
+   code said so within hours: 172 of ~188 stored properties live before the
+   first MARK, and the named first seam owns no state at all, so it cannot be
+   `@Observable`-extracted. The rule now ranks by **state ownership**, and the
+   cheapest true seam is state a stage is *adding*. L2 did that:
+   `App/DatasetResidency.swift`. The decision stands; the table under it did not
+   survive contact with the code, which is what a same-day amendment is for.
 
 5. **Two primary datasets:** `sim_Au_data_all_binned` (simulated, known answer,
    the parity anchor) and `downsample_Si_SiGe_exp` (experimental, where the real

@@ -148,17 +148,30 @@ code changes at each extraction; that is the cost, and it is the point — thin
 forwarding properties would preserve the view API while keeping the property
 that caused the problem.
 
-**Order** (`AppState.swift` was 4,064 lines when this was written; the seams are
-already MARK sections):
+**Do not rank the seams by MARK section.** That was the plan on 2026-08-17
+morning and the code refuted it the same afternoon: **172 of ~188 stored
+properties live *before* the first `MARK`**, in the unmarked facade. The MARK
+sections are where the *behaviour* is. `Fit-verification overlays` — the seam
+this table used to name first, at 115 lines — owns **no state at all**: all six
+members are pure projections of `calibration`, `descriptor`, `selectedScan`,
+`strainMap` and `orientationMap`, so there is nothing for an `@Observable` type
+to hold. `DPC` is the same. Ranking by section length measures method bulk and
+finds seams that cannot be extracted as described.
 
-| Seam | ~Lines | When |
-|---|---|---|
-| Fit-verification overlays | 115 | **First** — presentation only, no scientific state. Proves the pattern where a mistake costs nothing |
-| DPC | 130 | |
-| Strain mapping | 175 | |
-| Disk detection | 215 | |
-| ACOM | 260 | |
-| Calibration | 760 | **Last, and not before L6** — it owns `calibration` + `provenance`, which everything reads |
+**Rank by state ownership instead**, and prefer the cheapest true seam
+available to the stage in hand:
+
+1. **State the stage is *adding* goes into its own type from the start.** This
+   is free — the alternative is adding to the facade and then extracting
+   something unrelated to pay the same debt. **Precedent: L2's
+   `App/DatasetResidency.swift`** (2026-08-17), which owns the residency mode,
+   the resident flag and byte count, and the preload's progress, and which
+   `AppState` holds with **no forwarding properties**.
+2. **Then a cohesive group of facade properties**, moved with the methods that
+   mutate them. Identify candidates by grepping stored properties in
+   `AppState.swift` lines 1–1932, not by MARK.
+3. **Calibration last, and not before L6.** It owns `calibration` +
+   `provenance`, which everything reads.
 
 ---
 

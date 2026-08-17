@@ -236,7 +236,126 @@ re-reference below.
   2026-08-17; L1's on-screen behaviour is now §A of
   [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md), which
   the 2026-08-06 screenshot already satisfies.
-- [ ] **L2 — Resident cube + automatic fallback + exact-equality parity harness**
+- [~] **L2 — Resident cube + automatic fallback + exact-equality parity harness.**
+  **Mechanism landed 2026-08-17; stage NOT complete.**
+  In: `Core/Data/ResidentCube.swift` (the `Residency` model and the admission
+  rule), residency owned by `FourDArray` — which is why no call site changed,
+  every tiled path already takes it — a preload with measured patterns/rows
+  progress, `scanTile` served from the resident buffer, and the single-dispatch
+  fast path at the top of `VirtualDetector.tiled`. Harness
+  `tools/virtual-detector-residency/` asserts exact `==` across circle,
+  annulus, off-centre annulus, rectangle, point, edge point and origin point,
+  plus both aperture paths, the five tile-served reductions, refusal, release,
+  cancellation and the staleness guard. Added to `run-tests.sh scientific`
+  (31 harnesses now, not 30). App builds; `run-tests.sh unit` exit 0.
+  **The harness's first version was wrong and green.** Setting
+  `FourDArray.resident()` to return nil — residency silently never engaging,
+  the exact failure L2.3 warns about — left every equality assertion passing,
+  because a resident array still serves its *tiles* from the buffer, so the
+  tiled fallback produced identical numbers without touching the reader.
+  Equality and read counts prove the buffer holds data; only the dispatch
+  **count** proves the branch ran. It now asserts progress tick shape (1 tick
+  resident vs `ry` tiles streaming) and fails 1/1 on that control.
+  **AppState wiring landed too.** The seam extracted for this stage is
+  `App/DatasetResidency.swift` — the state L2 *adds* (mode, resident flag, byte
+  count, preload progress), in its own `@Observable` type that `AppState` holds
+  with **no forwarding properties**. It publishes what the array holds, never
+  what was requested. The preload runs in `activate` before the first
+  whole-cube pass and reports patterns and MB through L1's
+  `scanProgressStatus`; the Performance panel gained a `Cube memory` row and a
+  `Release cube` button. Pinned by `mac4DSTEMTests/DatasetResidencyTests`
+  (8 tests) — **verified to fail 5/8** when `sync` is rewritten to publish the
+  request instead of the buffer. One of those 8 originally passed under that
+  control despite being named for exactly that property; it now forces a state
+  where the request and the buffer disagree.
+
+  **Adversarial review taken 2026-08-17** (the gate this stage names). It could
+  **not** refute the bit-identity claim — it stress-tested 4 shapes × 6 tilings
+  × 2 kernels with magnitudes chosen to expose reordering, and confirmed neither
+  kernel reads threadgroup shape, SIMD width or thread position beyond the scan
+  index. That claim stands. It found eight other things. Fixed here, each with a
+  negative control:
+  - **CRITICAL — the preload's fill offset was dead code in every test.**
+    `makeResident` had no `maximumRows:` seam, so the ~683 MB default budget
+    swallowed both fixtures whole, every preload was **one tile**, `filled` was
+    always 0, and rewriting `base + filled * …` to `base + 0` left all 22
+    harness assertions **and** the whole unit suite green. The four progress
+    assertions were vacuous too — all trivially true of `[1.0]`. Now forced to a
+    4-tile fill (2+2+2+1 over `ry = 7`); the control fails 1/1.
+  - **Actor reentrancy.** `makeResident` suspends at every read, so a
+    `releaseResident()` or `.streamed` request in that window was silently
+    undone when the preload completed — panel reading "Streaming" with
+    gigabytes held. Fixed with a generation counter checked after every
+    suspension and before publishing. Two concurrent preloads each allocated a
+    full cube; fixed with `preloadInFlight`. Both pinned, both fail without.
+  - `maxBufferLength` is now consulted (it had **zero** references in the repo).
+  - `selectDataset` preloaded with progress reporting disabled — #36's stall one
+    layer down. Bracketed as a load. **UI unverified on screen**; it is a row in
+    `docs/visual-acceptance-checklist.md` §A.
+  - `ResidentCube.matches` is insufficient for L3 and its comment claimed
+    otherwise — see the L3 blocker in `docs/open-items.md`.
+  - The staging-copy overhead and `pattern(ry:rx:)` still streaming are recorded
+    in `docs/open-items.md`, not fixed.
+
+  **The sweep is built and run:** `tools/residency-sweep/` (a diagnostic, not a
+  gate — same standing as `bragg-spacing-probe`). It synthesizes a ratio curve
+  from **one** real file by truncating the scan axis, which is stronger than
+  L2.3's two-cubes-either-side sketch. Measured 2026-08-17 on an Apple M3,
+  5.33 GB working set, `036_STEM_SI…bin_2` (3.96 GB f32) copied to the internal
+  SSD:
+
+  | ratio | cube | cold dispatch | ns/MB | ×floor | run 1 ns/MB |
+  |---|---|---|---|---|---|
+  | 0.10 | 530 MB | 35.9 ms | 67,789 | 1.10 | 52,647 |
+  | 0.20 | 1.06 GB | 66.9 ms | 61,550 | 1.00 | 179,053 |
+  | 0.30 | 1.58 GB | 192.4 ms | 119,043 | 1.93 | 119,264 |
+  | 0.40 | 2.12 GB | 390.3 ms | 179,620 | 2.92 | 141,867 |
+  | 0.50 | 2.67 GB | 475.5 ms | 174,222 | 2.83 | 125,115 |
+  | 0.60 | 3.18 GB | 1406.1 ms | 431,383 | 7.01 | 216,931 |
+  | **0.70** | 3.73 GB | **20,315 ms** | 5,323,697 | **86.5** | 10,359,278 |
+  | 0.74 | 3.96 GB | 54,665 ms | 13,482,580 | 219.1 | 6,892,196 |
+
+  **The last column is a second run of the same sweep on the same file, and it
+  is why nothing here should be read to two significant figures.** Ratio 0.20
+  differs by 2.9× between runs; 0.60 by 2.0×. What is *stable* across both runs
+  is the shape — roughly flat to ≈0.30, a climb through 0.40–0.60, and a wall
+  between 0.60 and 0.70 of one to two orders of magnitude. Read the shape, not
+  the values.
+
+  **`f` stays `nil` by decision** (release owner, 2026-08-17), so `.automatic`
+  streams and shipped behaviour is unchanged. Three reasons, weakest first:
+  0. **One run does not reproduce another** to better than ~3× in the region a
+     threshold would be chosen from.
+  1. **There is no plateau** — cost is already 3.4× the floor at ratio 0.20.
+     A gentle slope and then a wall, so "the last ratio below the cliff" (0.60,
+     itself 4.1× degraded) would be a bad number dressed as a measured one.
+  2. **The denominator is in question.** `recommendedMaxWorkingSetSize` is a GPU
+     budget hint, and on this 8 GB machine it is **65% of physical RAM** — so a
+     buffer at a high fraction of it competes with the OS and with this app's
+     own staging copies. §L2.3's premise is that one working-set fraction
+     transfers from an 8 GB Mac to a 128 GB one; at `f = 0.5` a 128 GB Mac would
+     hold a 48 GB cube with 80 GB of RAM free, which is not the situation
+     measured here. **Set `f` only after a second machine with a different
+     RAM-to-working-set ratio has been swept** — and if the two disagree, the
+     rule needs a second term, not a compromise value.
+
+  **Two measurement defects were found and fixed before any number above was
+  trusted** — both would have produced a confidently wrong `f`:
+  - The knee criterion ranked by `streamed / resident`, which pays disk I/O on
+    one side only. That ratio is monotone in cube size and **cannot** fall below
+    the trigger before the swap cliff, so the tool would have recommended an `f`
+    derived from whatever cube it happened to be handed. Invariant I7.
+  - Its replacement used `min()` as the baseline and fired at 1.5×, which made
+    the 530 MB row — small enough to sit in cache — the floor, so it called the
+    knee at row two and ignored the 707 ms → 39.5 s wall five rows below. Now a
+    running median with an 8× trigger.
+
+  **Still outstanding:**
+  1. Sweep a second machine, per the denominator question above.
+  2. Re-measure **#37** — but note the review's counter-argument: the resident
+     branch checks cancellation either side of one indivisible
+     `waitUntilCompleted`, so residency makes cancellation *coarser*, not finer.
+  3. The L3 blocker on `ResidentCube.matches`.
 - [ ] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing**
 - [ ] **L4 — Bin-on-read**
 - [ ] **L5 — Open-time preview and the load configurator**

@@ -39,6 +39,7 @@ run_harnesses() {
 
 scientific=(
   calibration-test calibration-readiness-test virtual-detector-test
+  virtual-detector-residency
   disk-detection-test disk-correlation-parity peak-overlay-test fit-overlay-test
   acom-orientation-test acom-matching-test parity-metric-test cif-symmetry-test
   idpc-test cancellation-test

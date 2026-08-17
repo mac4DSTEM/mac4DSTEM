@@ -138,6 +138,25 @@ nonisolated enum VirtualDetector {
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> FloatImage {
+        // Resident fast path: one dispatch over the whole cube instead of one
+        // per tile. Exact, not approximate — virtualMaskSum and virtualAperture
+        // run one thread per SCAN position over a mask built from qy/qx only,
+        // and tiles partition the scan axis, so no tile boundary ever splits a
+        // per-output-pixel reduction. The two images are bit-identical and
+        // tools/virtual-detector-residency asserts `==`. See ResidentCube.swift.
+        if let cube = await data.resident(), cube.matches(d) {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let produced: FloatImage
+            switch operation {
+            case .shape(let shape):
+                produced = try image(cube: cube.buffer, descriptor: d, shape: shape)
+            case .aperture(let aperture):
+                produced = try run(cube: cube.buffer, descriptor: d, aperture: aperture)
+            }
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            progress?(1)
+            return produced
+        }
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var output = [Float](repeating: 0, count: d.ry * d.rx)
         let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {

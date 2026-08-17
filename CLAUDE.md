@@ -60,11 +60,13 @@ not a scope freeze. The active work is
 cube with a streaming fallback, and crop/bin-on-open, so an analysis validated
 on a reduced *view* re-runs unchanged on the full dataset.
 
-**Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses.**
-It was true at the tag and is not reproducible now: the unit suite fails on
-macOS 27 (`SidebarLayoutTests`, no app-code change). `README.md` and
-`CHANGELOG.md` still say it; that is verification debt, tracked in
-`docs/open-items.md`, on a public repo.
+**Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses**
+without re-running it. It was measured at the tag and no one has reproduced the
+aggregate since. `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` is
+**intermittent**, not reliably red: it failed on macOS 27 with no app-code
+change, and passed on 2026-08-17 in a full `run-tests.sh unit` that exited 0.
+A layout threshold that drifts with the machine is worse than a stable failure,
+because a green run proves nothing. Tracked in `docs/open-items.md`.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6): Track A
 is `tools/run-tests.sh`, Track B is the human visual pass at
@@ -194,7 +196,7 @@ and they build.
 # build (needs full Xcode toolchain, not just Command Line Tools)
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
 
-tools/run-tests.sh unit          # fast XCTest suite (isolated DerivedData) — RED on macOS 27
+tools/run-tests.sh unit          # fast XCTest suite (isolated DerivedData)
 tools/run-tests.sh scientific    # py4DSTEM-parity harnesses
 tools/run-tests.sh all           # Track A, the aggregate gate
 ```

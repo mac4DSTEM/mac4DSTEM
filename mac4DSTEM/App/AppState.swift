@@ -150,6 +150,11 @@ enum ComparisonSlot: Equatable { case a, b }
 final class AppState {
     private var reader: (any FourDDataSource)?
     private var fourD: FourDArray?
+
+    /// Whether the open cube is held in memory, and the preload's progress.
+    /// Owned by its own type, with no forwarding properties on `AppState` —
+    /// see `DatasetResidency.swift` for why. Views read `residency.…`.
+    let residency = DatasetResidency()
     private var openURL: URL?
     @ObservationIgnored private var pendingRecovery: DatasetRecoveryRecord?
     @ObservationIgnored var scopedSessionSidecarURL: URL?
@@ -1444,7 +1449,18 @@ final class AppState {
 
     func selectDataset(_ descriptor: DatasetDescriptor) {
         guard let reader else { return }
-        Task { await activate(descriptor: descriptor, reader: reader) }
+        Task {
+            // Bracketed as a load, the way openFileAsync does it. `activate`
+            // preloads the resident cube, and the preload's progress callback is
+            // gated on `isLoadingDataset` — so without this bracket, switching
+            // to a multi-gigabyte dataset set statusText to "Loaded …" with the
+            // bar at 1.0 and then read the whole cube in complete silence. That
+            // is #36's stall reintroduced one layer down, in the one path L1's
+            // reordering did not cover. Found by adversarial review 2026-08-17.
+            beginDatasetLoading("Opening \(descriptor.datasetPath)…")
+            await activate(descriptor: descriptor, reader: reader)
+            finishDatasetLoading()
+        }
     }
 
     func openManualPath(_ datasetPath: String) {
@@ -1583,6 +1599,10 @@ final class AppState {
         beginDatasetLoadingStage("Reading calibration metadata…")
         self.descriptor = descriptor
         fourD = FourDArray(reader: reader, descriptor: descriptor)
+        // A new array is a new (absent) buffer; the old cube dies with the old
+        // array. Resetting here keeps the panel from claiming residency that
+        // belonged to the previous dataset.
+        residency.reset()
         selectedScan = ScanPos(x: 0, y: 0)
         displayRangeLo = 0
         displayRangeHi = 1
@@ -1760,9 +1780,47 @@ final class AppState {
             statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
             progress = 1
         }
+        await preloadResidentCube()
         if runInitialAnalysis {
             await runCurrentAnalysis()
         }
+    }
+
+    /// Hold the cube in memory when this machine admits it, before the first
+    /// whole-cube pass so that pass benefits from it.
+    ///
+    /// Reported in the same two quantities L1 established — patterns and MB —
+    /// because on a multi-gigabyte cube this read is the longest single phase
+    /// of the whole open. A silent preload would reintroduce the stall L1 just
+    /// removed, one layer down (invariant I5). It is a *distinct* phase from
+    /// the one L1 wired: L1 routes the first analysis pass, this is the read
+    /// into the buffer that happens before it.
+    ///
+    /// Does nothing visible when the cube is not admitted, which today is
+    /// always — `.automatic` streams until the residency threshold is measured.
+    private func preloadResidentCube() async {
+        guard let fourD, let d = descriptor else { return }
+        let totalPatterns = d.ry * d.rx
+        guard totalPatterns > 0 else { return }
+        await residency.preload(fourD) { [weak self] fraction in
+            guard let self, self.isLoadingDataset else { return }
+            let processed = min(
+                totalPatterns, max(0, Int((fraction * Double(totalPatterns)).rounded()))
+            )
+            self.reportDatasetLoadingProgress(
+                fraction,
+                Self.scanProgressStatus(
+                    "Loading into memory", processed: processed,
+                    total: totalPatterns, descriptor: d
+                )
+            )
+        }
+    }
+
+    /// Give the cube's memory back. Streaming resumes on the next pass, with
+    /// identical numbers — the parity harness asserts exactly that.
+    func releaseResidentCube() async {
+        await residency.release(fourD)
     }
 
     private func beginDatasetLoading(_ status: String) {

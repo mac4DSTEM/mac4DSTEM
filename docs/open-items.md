@@ -24,6 +24,24 @@ accepted, changed, or rejected.
 Settled here and previously blocking: **a cropped/binned cube is a *view* of the
 source file** (`load-pipeline-plan.md` §7.1). **L3 is unblocked.**
 
+### Blocker on L3, created by L2 — fix it before L3 uses residency
+
+**`ResidentCube.matches` cannot tell two crops apart.** It compares `filePath`,
+`datasetPath` and `shape`. `LoadSpecification.detectorCrop` carries *ranges*, so
+two crops of equal extent at different offsets — `y:0..<128, x:0..<128` versus
+`y:128..<256, x:128..<256` on a 256×256 detector — have an identical descriptor
+and **completely disjoint pixels**. `matches` returns `true`, the staleness guard
+passes a stale buffer into the resident fast path, and the app computes a correct
+number about the wrong data.
+
+Harmless today (a dataset swap is the only way to hold a stale cube, and it
+releases). **Fix in L3, where the specification exists:** carry the
+`LoadSpecification`, or an opaque monotonic load-generation id, in `ResidentCube`
+and compare that instead of the shape. The current harness only tests a
+*different shape* and a *different file*, so it will stay green through the bug.
+Found by adversarial review 2026-08-17; the code comment at the call site says
+the same thing.
+
 New work that came out of the session:
 
 - **A free-space preflight in `tools/run-tests.sh`** — fail immediately with
@@ -74,18 +92,29 @@ Two things learned that are not obvious and cost time:
   row calling a measured origin "Missing") and three more in the clean-account
   run.
 - **`tools/bragg-spacing-probe/` gates nothing** and cannot: it needs a
-  gitignored multi-gigabyte datacube. It stays a diagnostic.
+  gitignored multi-gigabyte datacube. It stays a diagnostic. **`tools/residency-sweep/`
+  (added 2026-08-17) has the same standing** for the same reason.
+- **The residency threshold is unmeasured, so residency is dormant.** L2's
+  mechanism ships behind `.automatic`, which streams until
+  `ResidencyAdmission.measuredWorkingSetFraction` is set — and it can only be set
+  from a sweep that reaches past ratio ~0.5. The three checked-in training cubes
+  top out at 0.19 on this machine (1.00 GB against a 5.33 GB working set), where
+  residency still pays 106x, so no knee exists in the data. **Needs a run of
+  `tools/residency-sweep/run.sh` on one of the release owner's large cubes
+  (≈7.46 GB / ≈4.25 GB), copied to local storage first.**
 - **The app has never run on the macOS version it claims to support.**
   `LSMinimumSystemVersion` is 14.0; every build, test run and manual session to
   date has been on macOS 27. Nothing between 14 and 26 has been exercised, and
   `SidebarLayoutTests` below is direct evidence that this app's layout does
   shift with the OS. Only a real older machine answers this.
 - **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
-  harnesses.** True at the tag, not reproducible now: the unit suite fails on
-  macOS 27 (see `SidebarLayoutTests` below). The scientific harnesses and
-  packaging are green; the aggregate gate is not. A verification claim that a
-  reader cannot reproduce is the kind that costs credibility with exactly the
-  people who check.
+  harnesses.** Measured at the tag; **nobody has reproduced the aggregate
+  since**, and the harness count is now 31 (`virtual-detector-residency` landed
+  2026-08-17). The unit suite and the scientific harnesses are green on this
+  machine; `all` additionally runs `real-data-acceptance` and `package-test`,
+  which have not been re-run. A verification claim that a reader cannot
+  reproduce is the kind that costs credibility with exactly the people who
+  check — so either re-run `all` and restate it, or say what was actually run.
 
 ### First clean-account acceptance run — 2026-08-14
 
@@ -103,14 +132,21 @@ has outperformed the automated suite on its own terms.
 
 ## Known, scoped, not blocking
 
-- **`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` fails on macOS
-  27.** Uncalibrated Prepare measures 933pt against 871pt of column — 62pt of
-  overflow against a 60pt allowance. **Not a regression:** `git diff v1.0.0..HEAD`
-  over `mac4DSTEM/`, both test targets and `tools/` was empty when this first
+- **`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` is
+  intermittent.** It failed on macOS 27 — uncalibrated Prepare measuring 933pt
+  against 871pt of column, 62pt of overflow against a 60pt allowance — and
+  **passed on 2026-08-17**, in a `tools/run-tests.sh unit` run that exited 0 on
+  the same OS. **Not a regression either way:** `git diff v1.0.0..HEAD` over
+  `mac4DSTEM/`, both test targets and `tools/` was empty when the failure first
   appeared, so no app code had changed. The test's own comment records the
-  overflow as 49pt when written, giving 11pt of headroom; the OS moved 13pt.
-  The question is not what broke but **whether 60 was ever a threshold or just
-  one machine's measurement rounded up** — it will drift again on macOS 28.
+  overflow as 49pt when written, giving 11pt of headroom.
+  **An intermittent layout threshold is worse than a stable red one**, because a
+  green run stops being evidence — and this test has form: it is a sibling of
+  `testSidebarContentNeverDrawsOverTheTitlebar`, which stayed green for months
+  with #16 visibly on screen. The question is not what broke but **whether 60 was
+  ever a threshold or just one machine's measurement rounded up**, and what the
+  run-to-run variable is (display scale? font? window server state?). Until that
+  is known, do not treat either outcome as information.
 - **The burned-in caption on exported figures truncates.** Observed on a strain
   export: `…basis_mode=consensus · reference_mode=whole-scan · displa…`. That
   caption *is* the provenance record and it is the part that travels into a
@@ -136,11 +172,48 @@ has outperformed the automated suite on its own terms.
 - ~~**#36 — no progress indication while a datacube loads.**~~ **Fixed
   2026-08-06** by `load-pipeline-plan.md` stage L1, and **confirmed on the real
   app** on a 3.96 GB cube (patterns and MB both counting, bar advancing).
-- **#37 — cancelling the virtual detector takes a long time.** *Re-measure
-  after L2 (resident cube) — residency changes this problem entirely.*
+- **#37 — cancelling the virtual detector takes a long time.** *Re-measure now
+  that L2's mechanism is in.* The sweep gives a first indication that it may
+  simply disappear on a resident cube: a whole-cube virtual image that takes
+  996 ms streaming takes **9.4 ms** resident, and cancellation latency was
+  bounded by the tile in flight. Not yet measured, and residency is dormant
+  until the threshold is set, so the item stands.
+- **A resident cube still pays ~0.375 × working set in staging copies.** When
+  resident, `FourDArray.scanTile` copies out of the buffer into a Swift
+  `[Float]`; `TilePrefetcher` holds two of those, and `tiledDPStatistics` /
+  `tiledDiffraction` / `tiledMeasuredOrigins` / `tiledCenterOfMass` then build a
+  third copy as an `MTLBuffer`. Peak ≈ cube + 3 × (working set / 8), reached
+  during `activate` itself. **Any `f` the sweep recommends is measured without
+  this overhead**, because the sweep only times `tiledImage`, which takes the
+  single-dispatch fast path and allocates nothing — so a measured threshold must
+  be discounted for it, or this must be fixed first. The copies are avoidable:
+  `MetalEngine` already takes an `MTLBuffer` for all four, and
+  `setBuffer(_:offset:index:)` could bind the resident buffer at the tile's byte
+  offset with no copy at all. Found by adversarial review 2026-08-17.
+- **`FourDArray.pattern(ry:rx:)` ignores the resident cube** and always reads
+  through the reader, so browsing diffraction patterns stays disk-bound while the
+  panel reads "Resident". The indicator over-promises.
+- **Cancellation is *coarser* when resident, not better.** The resident branch
+  checks cancellation either side of one indivisible `waitUntilCompleted`; the
+  streaming path checks once per tile. Academic at the ~10 ms dispatch measured
+  so far, possibly not on a cube near the residency threshold. Bears on **#37**.
 - **#38 — the image panes' scroll monitor consumes every scroll in the window.**
 - **#43 — the acceptance gate breaks if a session is saved for a training
-  dataset.**
+  dataset. CONFIRMED 2026-08-17 as the reason `run-tests.sh all` cannot pass on
+  this machine**, and it is the likeliest reason the "exit 0, 30 harnesses"
+  claim has not been reproducible since the tag. `real-data-acceptance/run.sh`
+  globs `References/training_dataset/*.h5`, which now matches two saved sidecars
+  — `downsample_Si_SiGe_exp.mac4dstem.h5` and
+  `sim_Au_data_all_binned.mac4dstem.h5`. Those contain `braggvectors_root` and a
+  saved strain result, not a datacube, so `discoverPrimaryDataset` throws
+  `noDatasetFound` and the harness **fatals** (exit 133) rather than skipping.
+  Two real cubes pass first, so the failure looks like a late regression.
+  Two things to fix, and the second matters more:
+  1. The glob should exclude `*.mac4dstem.h5`, or the harness should skip a file
+     with no primary dataset instead of trapping.
+  2. **A missing datacube is a `throw` that reaches `try!`-equivalent top-level
+     code.** An input the tool will genuinely meet should not be a fatal error;
+     it produces a stack trace where a one-line "skipped: no datacube" belongs.
 - **#31 — `validationIssues` is O(n²) and runs in a SwiftUI view body.**
 - **#32 — `isSymmetry`'s bijection check has no fixture coverage**, and its
   stated counterexample does not exercise it.
@@ -191,6 +264,30 @@ Kept because they changed outcomes, not because they are tidy:
    surfaced by accident, while running `package-test` by hand for an unrelated
    reason. Before trusting a suite, ask what calling convention it exercises,
    and whether that is the one anyone actually uses.
+
+   **Second instance, 2026-08-17 — and this one was self-inflicted by a grep.**
+   Adding `Core/Data/ResidentCube.swift` broke every standalone harness that
+   compiles `FourDArray.swift`. Finding them with
+   `grep -l "Core/Data/FourDArray.swift" tools/*/run.sh` returned **3 of 8**,
+   because five runners spell it `"$SRC/Data/FourDArray.swift"` with
+   `SRC="$ROOT/mac4DSTEM/Core"`. `unit` and `scientific` both passed; the four
+   missing runners live in `all` (`real-data-acceptance`) and outside the gate
+   entirely (`bragg-spacing-probe`, `real-acom-benchmark`,
+   `training-dataset-campaign`), so nothing failed until the aggregate ran.
+   **Search these runners by basename, never by path prefix** — the prefix is
+   written three different ways. The check that actually works:
+
+   ```sh
+   for f in tools/*/run.sh; do
+     grep -q "FourDArray\.swift" "$f" && ! grep -q "ResidentCube\.swift" "$f" && echo "$f"
+   done
+   ```
+
+   Related trap from the same afternoon: a backgrounded
+   `tools/run-tests.sh all 2>&1 | tail -12; echo "exit=${pipestatus[1]}"`
+   reports the **echo's** status to the task runner, so a failing gate is
+   announced as "completed (exit code 0)". The real status was in the printed
+   line. Put the exit code where you will read it, not where the harness will.
 6. **A test written for your own fix proves nothing until it fails without it.**
    Standard practice here for science changes, and it paid off in the UI layer
    too: the first colormap test failed against the fix *and* against the old

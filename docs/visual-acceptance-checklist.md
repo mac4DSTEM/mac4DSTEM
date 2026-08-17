@@ -59,6 +59,7 @@ it plausibly touches plus §A.
 | The same, on a **non-English system locale** | Pattern counts group with `.`-vs-`,` consistently against the MB figure | A German system once rendered `1.378 / 16.218 patterns · 3.96 GB` — two meanings of "." in one line. Pinned by a test now, but the class is visual |
 | Dataset inspector | Dimensions, *Cube (f32)*, calibration provenance all populated | — |
 | Open Recent, after a successful open | The file reopens | *"Recent-file access could not be remembered"* was logged in the clean-account run — but on a **hard link** staged into `/Users/Shared`. Re-test with a plain copy before calling it a defect |
+| **Switching datasets** inside a multi-dataset file (the dataset list, not Open) | The loading card and a moving bar appear for the switch, then clear — the same treatment as opening the file | **Unverified on screen, changed 2026-08-17.** `selectDataset` now brackets the switch with `beginDatasetLoading`/`finishDatasetLoading` so the resident preload can report progress; before, it read a multi-gigabyte cube in silence behind "Loaded …" with the bar at 1.0. The bracket is right semantically but nobody has *looked* at what the card does over an already-populated workspace |
 
 ### B. Prepare
 
