@@ -53,10 +53,10 @@ real app/`Core/` changes.
 
 ## 3. Where new work slots into the structure
 
-- **UI-friendliness** → already covered by Thread B: run the QC playthrough
-  (`tools/ui-qc-playthrough/run.sh`) as the acceptance test after a UI change,
-  and file friction in `docs/open-items.md`. A flow the script
-  completes with fewer prerequisite hops is one a user completes more easily.
+- **UI-friendliness** → run the Track B visual pass
+  (`docs/visual-acceptance-checklist.md`) after a UI change and file friction in
+  `docs/open-items.md`. *(Superseded 2026-08-17: this used to point at
+  `tools/ui-qc-playthrough/run.sh` as the acceptance test — see §6.)*
 - **Feasibility of a big idea (e.g. "is MLX worth it?")** → a *spike* first:
   a Plan subagent + a short `docs/` note weighing cost/benefit. Decide before
   building.
@@ -93,3 +93,84 @@ For when you take this on:
 - **Do the §3 feasibility spike first**, and treat it as post-v1 unless it
   closes a v1 gap. ML that can't beat the validated correlation path on your
   data is not a delivery blocker.
+
+---
+
+## 6. Verification runs in two tracks (decided 2026-08-17)
+
+The core finding of the v1.0 endgame: **the numeric suite and the human eye
+catch disjoint classes of defect**, and the repo used to pretend the automation
+covered both. It never did — see `docs/v2-scope.md` §6.2 for the evidence.
+
+### Track A — numeric regression, headless, automated
+
+`tools/run-tests.sh` and nothing else. Exact numbers, py4DSTEM parity, and
+catching a change that moves a value it should not. This is what the automation
+is genuinely good at, and it stays the gate for every `Core/` change.
+
+### Track B — visual acceptance, human, checklist-driven
+
+[`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md). Run it
+for **any change to what the app draws or where a control lives**, before any
+tag, and after any macOS bump. The assistant writes the specific checklist; the
+release owner drives the app once and sends screenshots; findings go to
+`docs/open-items.md`. Ten to fifteen minutes, and it has beaten the full suite
+twice on its own terms.
+
+### The XCUITest QC playthrough is retired
+
+`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/` are **no longer the acceptance
+test** and no longer maintained. It never produced a screenshot, never touched
+a disk-detection control, recorded peak counts without judging them, could read
+a stale count, and needed a Screen Recording grant it never had.
+
+The code stays in the tree for now — deleting it is a separate call, tracked in
+`docs/open-items.md`. **Do not spend a session repairing it.** Its eval-only
+rule carries over to Track B unchanged: never modify app logic to make an
+acceptance step pass; that is a *finding*, not a bug fix.
+
+---
+
+## 7. The `AppState` rule (binding from 2026-08-17)
+
+**Every L-stage that touches `AppState` extracts one seam before it lands, at a
+green test boundary.** Six stages, six extractions, no big-bang refactor. As an
+aspiration this lost to every deadline in v1; as a per-stage cost it ships.
+
+**What counts as an extraction.** A responsibility moved out **with its own
+state**, behind a narrow interface — the shape of `AnalysisOperationController`
+in `Core/Workflow/`. Splitting the file into `extension AppState { }` across
+several files is **not** an extraction: same object, same mutable surface, every
+method still able to touch every property. `ROADMAP.md` P3.2 bans it.
+
+**The extracted type is itself `@Observable` and `AppState` holds it.** View
+code changes at each extraction; that is the cost, and it is the point — thin
+forwarding properties would preserve the view API while keeping the property
+that caused the problem.
+
+**Order** (`AppState.swift` was 4,064 lines when this was written; the seams are
+already MARK sections):
+
+| Seam | ~Lines | When |
+|---|---|---|
+| Fit-verification overlays | 115 | **First** — presentation only, no scientific state. Proves the pattern where a mistake costs nothing |
+| DPC | 130 | |
+| Strain mapping | 175 | |
+| Disk detection | 215 | |
+| ACOM | 260 | |
+| Calibration | 760 | **Last, and not before L6** — it owns `calibration` + `provenance`, which everything reads |
+
+---
+
+## 8. Dataset policy (decided 2026-08-17)
+
+| Dataset | Role |
+|---|---|
+| `sim_Au_data_all_binned` | **Primary** — simulated, known answer, the parity anchor |
+| `downsample_Si_SiGe_exp` | **Primary** — experimental, where the real problems live (#46, #29, #18) |
+| `Particle_1…bin8` | On demand — repeats Si_SiGe's failure mode at a different probe radius (≈10.6 px) |
+| `polycrystal_2D_WS2` | On demand — cannot reach ACOM without a WS₂ model (#11) |
+
+A coverage argument, not a speed one: one clean simulated case and one hard
+experimental case cover the two failure modes that matter. Run the other two
+when a change plausibly touches what makes them different.

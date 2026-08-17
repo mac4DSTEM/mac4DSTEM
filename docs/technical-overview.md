@@ -108,7 +108,8 @@ mac4DSTEM/                       # Xcode project root (git repo)
     UI/                          # ContentView, viewers, controls, inspectors
     Support/                     # export, system monitor, bridging header
   mac4DSTEMTests/                # fast XCTest production/workflow contracts
-  mac4DSTEMUITests/              # visible XCUITest QC playthrough (drives the
+  mac4DSTEMUITests/              # RETIRED 2026-08-17, unmaintained — was the
+                                 #   visible XCUITest QC playthrough (drives the
                                  #   real app through py4DSTEM pipelines);
                                  #   evaluation only, never modifies app logic
   tools/                         # scientific/interoperability harnesses,

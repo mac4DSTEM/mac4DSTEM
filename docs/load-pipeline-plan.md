@@ -231,9 +231,11 @@ re-reference below.
   `SystemMonitor.byteString` does not, so a German system rendered
   `1.378 / 16.218 patterns · 3.96 GB` — two meanings of "." in one line. Counts
   now group with a fixed `en_US` separator; pinned by
-  `testPatternCountsGroupIndependentlyOfTheSystemLocale`. **Still not run:** the
-  QC playthrough (needs the Screen Recording grant), so there is no automated
-  visual baseline for it.
+  `testPatternCountsGroupIndependentlyOfTheSystemLocale`. **Not covered by an
+  automated visual baseline** — none exists. The QC playthrough was retired
+  2026-08-17; L1's on-screen behaviour is now §A of
+  [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md), which
+  the 2026-08-06 screenshot already satisfies.
 - [ ] **L2 — Resident cube + automatic fallback + exact-equality parity harness**
 - [ ] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing**
 - [ ] **L4 — Bin-on-read**
@@ -315,10 +317,17 @@ a short summary. Commit only if I ask.
 
 1. `tools/run-tests.sh unit` — must be exit 0.
 2. `tools/run-tests.sh all` if the stage touched `Core/`.
-3. Tick the stage in §5 with a one-line record of what shipped **and what
+3. **If the stage touched `AppState`, one seam was extracted** — binding since
+   2026-08-17, `docs/development-process.md` §7. Overlays first, calibration
+   last and not before L6.
+4. **If the stage changed what the app draws or where a control lives**, request
+   a Track B pass ([`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md)):
+   write the specific checklist, and say plainly that the stage is unverified
+   on screen until it comes back.
+5. Tick the stage in §5 with a one-line record of what shipped **and what
    deviated**.
-4. Update [`docs/open-items.md`](open-items.md) — add, amend, or delete.
-5. State explicitly what was *not* verified.
+6. Update [`docs/open-items.md`](open-items.md) — add, amend, or delete.
+7. State explicitly what was *not* verified.
 
 ---
 
@@ -614,11 +623,11 @@ implies otherwise the feature will be perceived as broken.
 **Trap to pre-empt in the label:** a strided preview and a real virtual image
 *will* differ, and a user comparing them will file a bug.
 
-**Verify:** QC playthrough extended with a crop/bin open; unit tests on the
-rectangle→`LoadSpecification` mapping (including inverted drags and
-out-of-bounds clamping).
+**Verify:** unit tests on the rectangle→`LoadSpecification` mapping (including
+inverted drags and out-of-bounds clamping), plus the Track B rows for L5 in
+[`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md) §F.
 
-**Review gate:** `/code-review`, plus the QC playthrough as acceptance. UI-only
+**Review gate:** `/code-review`, plus a Track B pass as acceptance. UI-only
 if L3/L4 are already green.
 
 ---
@@ -642,15 +651,20 @@ if L3/L4 are already green.
 
 ## 7. Decisions owed by the release owner
 
-1. **View or new dataset?** — **recommended: view** (§3), and the plan above is
-   written for it. It matches "doesn't change the original dataset and can be
-   stored as the analysis along the original cube", it keeps one source of
-   truth for provenance, and it is strictly better than py4DSTEM's in-place
-   mutation, which saves neither memory nor the full extent. *If you want a
-   cropped cube to be writable as its own file, that is an additional export,
-   not a change to this model.*
-2. **Does L1 ship before the tag, or after?** It touches no `Core/`.
-   Recommended: right after the tag, as v1.0.x.
+1. ~~**View or new dataset?**~~ — **DECIDED 2026-08-17: a view** (§3), which is
+   what the plan above is written for. **L3 is unblocked.** The deciding
+   argument is the release owner's workflow (`docs/v2-scope.md` §1): if the
+   reduced cube were a new dataset, "re-run at full extent" would mean redoing
+   the analysis from scratch — exactly the manual step the app exists to remove.
+   As a view, *removing* the specification **is** the promotion to full extent.
+   It also keeps one source of truth for provenance and is strictly better than
+   py4DSTEM's in-place mutation, which saves neither memory nor the full extent.
+   *If you want a cropped cube writable as its own file, that is an additional
+   export, not a change to this model.*
+2. ~~**Does L1 ship before the tag, or after?**~~ — moot; L1 landed 2026-08-06,
+   after the tag. **L2–L5 ship as `v1.1.0`; the `v2.0.0` question is decided at
+   L6 on whether the sidecar/export format actually breaks** (`ROADMAP.md`,
+   version policy).
 3. ~~**Residency default**~~ — **decided 2026-08-06: automatic.** If the cube
    fits under the measured threshold, load it resident without asking. **No
    remote/local branch** — instead the open screen carries a short standing

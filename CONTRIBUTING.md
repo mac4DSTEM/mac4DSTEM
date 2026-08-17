@@ -76,9 +76,11 @@ files route to the Metal compile phase on their own.
   the pinned py4DSTEM 0.14.19 source those citations refer to.
 - **Metal parameter structs in `MetalEngine.swift` must stay byte-for-byte
   identical** to the matching `.metal` structs — all 4-byte fields.
-- **The QC playthrough (`mac4DSTEMUITests/`, `tools/ui-qc-playthrough/`) is
-  evaluation only.** Never change app code to make a QC step pass. If the app
-  blocks the pipeline, that is a finding, not a bug to paper over.
+- **Acceptance is evaluation only.** Never change app code to make an
+  acceptance step pass. If the app blocks the pipeline, that is a finding, not a
+  bug to paper over. Acceptance means `tools/run-tests.sh` (Track A) plus the
+  human visual pass in `docs/visual-acceptance-checklist.md` (Track B) — the
+  XCUITest QC playthrough was retired 2026-08-17 and is unmaintained.
 - **Never widen a gate that fails silently.** A check that degrades to a
   warning nobody reads is worse than no check.
 

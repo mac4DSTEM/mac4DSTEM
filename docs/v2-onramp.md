@@ -38,9 +38,19 @@ ideas that need `Core/` changes) and
   previously pinned the range at `9c940d1`, which silently excluded it.
 
 **One verification debt crosses the line into v2.0:** the QC playthrough
-acceptance re-run. See "The one thing to do first" below.
+acceptance re-run. **Answered 2026-08-17, and not the way this section assumed
+— see below.**
 
 ## The one thing to do first
+
+> **SUPERSEDED 2026-08-17.** The phase-2 planning session **retired** the QC
+> playthrough rather than repairing it (`docs/v2-scope.md` §6.2): it never
+> produced a screenshot, never touched a disk-detection control, judged no peak
+> count, and could read a stale one. Do not run it, and do not spend a session
+> on the permission trap described below. Visual acceptance is now
+> [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md).
+> The rest of this section is kept because the **two-permission** finding is
+> still the best account of that trap if anyone ever revives an XCUITest target.
 
 **Run `tools/ui-qc-playthrough/run.sh` (no argument) and diff against
 `References/training_runs/run_2026-08-03_1404/`.** It has not produced a clean

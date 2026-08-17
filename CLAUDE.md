@@ -5,16 +5,19 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff prompt (copy-paste to start a session)
 
-**v1.0.0 is tagged (2026-08-06).** The active work is the load pipeline.
+**v1.0.0 is tagged, signed and public. Phase 2 was planned 2026-08-17** — the
+contract is `docs/v2-scope.md`. The active work is the load pipeline.
 
 ```
-Pick up mac4DSTEM. Read CLAUDE.md, then docs/load-pipeline-plan.md — it is the
-active plan (load progress, resident cube, crop/bin on open). Read §1–§4 for the
-constraints, then the Status checklist in §5, and take the next unchecked stage.
-docs/open-items.md is the live list for everything else.
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-scope.md (priority order and the
+refusal rule), then docs/load-pipeline-plan.md — the active plan. Read §1–§4 for
+the constraints, then the Status checklist in §5, and take the next unchecked
+stage. docs/open-items.md is the live list for everything else.
 
-This changes app code, so follow docs/development-process.md, and take the
-review gate the stage names. Commit only if I ask.
+This changes app code, so follow docs/development-process.md and take the review
+gate the stage names. If the stage touches AppState, extract one seam before it
+lands (§7). If it changes what the app draws, ask me for a Track B pass. Commit
+only if I ask.
 ```
 
 Whatever the task: app-code changes follow `docs/development-process.md` —
@@ -29,9 +32,12 @@ passed every test written for it, including one verified to fail without it.
 been sitting in plain sight the whole time.
 
 And **open the app.** On the day of the v1.0.0 tag, with all 30 harnesses green,
-ten minutes of driving it by hand produced two defects the suite could not see.
-There is no visual QC baseline (see `docs/open-items.md`), so nothing but a
-person looking at the screen catches that class of bug.
+ten minutes of driving it by hand produced two defects the suite could not see;
+the first clean-account run on 2026-08-14 produced three more. There is no
+automated visual baseline, so nothing but a person looking at the screen catches
+that class of bug — which is why it is now a written procedure,
+`docs/visual-acceptance-checklist.md` (Track B). You cannot run it yourself;
+write the checklist and ask.
 
 ## What this is
 
@@ -42,24 +48,31 @@ reference implementation and validated against.
 
 ## Where things stand
 
-**v1.0.0 — tagged 2026-08-06.** What it is: [`CHANGELOG.md`](CHANGELOG.md).
-`tools/run-tests.sh all` — exit 0, 30 harnesses.
+**v1.0.0 — tagged 2026-08-06; signed, notarized and public since 2026-08-14.**
+What it is: [`CHANGELOG.md`](CHANGELOG.md). The repo is at
+`github.com/mac4DSTEM/mac4DSTEM` under GPL-3.0, with a stapled DMG linked from
+mac4dstem.com. **Distribution is done.**
 
-Two things outlive the tag and neither blocks anything:
+**Phase 2 was planned 2026-08-17.** The contract is
+[`docs/v2-scope.md`](docs/v2-scope.md) — a priority order and a refusal rule,
+not a scope freeze. The active work is
+[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md): a resident in-memory
+cube with a streaming fallback, and crop/bin-on-open, so an analysis validated
+on a reduced *view* re-runs unchanged on the full dataset.
 
-1. **Distribution** — Developer ID signing, notarization, clean-account launch.
-   Release-owner actions against the existing tag; they change no source.
-2. **The load pipeline** — [`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md),
-   the active plan and the one that *does* touch `Core/`: load progress, a
-   resident in-memory cube with a streaming fallback, and crop/bin-on-open.
+**Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses.**
+It was true at the tag and is not reproducible now: the unit suite fails on
+macOS 27 (`SidebarLayoutTests`, no app-code change). `README.md` and
+`CHANGELOG.md` still say it; that is verification debt, tracked in
+`docs/open-items.md`, on a public repo.
 
-The QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/run.sh`) is
-**the acceptance test**. It drives the real app through the canonical py4DSTEM
-pipelines and logs every number it reads from the app's own controls. Its
-eval-only rule stands: never change app code to make a QC step pass — that is a
-finding, not a bug fix. It has never been run with screenshots, so v1.0.0 has
-**no visual baseline**; that is recorded, deliberate, and the first item in
-`docs/open-items.md`.
+**Verification runs in two tracks** (`docs/development-process.md` §6): Track A
+is `tools/run-tests.sh`, Track B is the human visual pass at
+[`docs/visual-acceptance-checklist.md`](docs/visual-acceptance-checklist.md).
+The XCUITest QC playthrough was **retired 2026-08-17** — it never produced a
+screenshot, never touched a disk-detection control, and could read a stale peak
+count. Its eval-only rule carries over to Track B unchanged: never change app
+code to make an acceptance step pass — that is a finding, not a bug fix.
 
 ## Where things are written down
 
@@ -68,13 +81,16 @@ finding, not a bug fix. It has never been run with screenshots, so v1.0.0 has
 - **[`docs/open-items.md`](docs/open-items.md)** — everything still live, and
   the working methods that earned their keep. **The only maintained status
   doc.**
-- **[`docs/v2-planning-draft.md`](docs/v2-planning-draft.md)** — **DRAFT, not
-  decided.** Proposals for how a second phase should run: version policy,
-  splitting test automation into a numeric track and a human visual track, a
-  two-dataset default, and a per-stage rule for shrinking `AppState`. Written
-  2026-08-06 so a planning session can react rather than start blank. **If that
-  session has happened, its outcomes live in `docs/v2-scope.md` and
-  `docs/development-process.md` and this file should be deleted.**
+- **[`docs/v2-scope.md`](docs/v2-scope.md)** — **the phase-2 contract**, decided
+  2026-08-17. The product claim v2 is aiming at, the priority order (load
+  pipeline → verification debt → UI backlog → deferred), what is deferred and
+  what would open it, the **refusal rule**, the version policy, and the eight
+  decisions with their reasons. Consult it when asking "should this be picked up
+  now?". *(It replaced `docs/v2-planning-draft.md`, which is deleted.)*
+- **[`docs/visual-acceptance-checklist.md`](docs/visual-acceptance-checklist.md)**
+  — **Track B**, the human visual pass, with the standing checklist and the
+  known traps behind each row. The assistant writes the specific list; the
+  release owner drives the app and sends screenshots.
 - **[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md)** — **the active
   feature plan**: honest load progress, a resident in-memory cube with a
   streaming fallback, and crop/bin-on-open driven from a preview. Six staged
@@ -83,28 +99,29 @@ finding, not a bug fix. It has never been run with screenshots, so v1.0.0 has
 - **`docs/py4dstem-pipelines.md`** — the pipelines step by step, the
   app-vs-py4DSTEM findings (§7), scope/roadmap (§8), empirical run findings
   (§9).
-- **`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/run.sh [dataset-substring]`**
-  — the on-screen acceptance playthrough. `--no-screenshots` trades the visual
-  evidence for the numbers when the runner lacks a Screen Recording grant; the
-  log says so loudly. Baseline for diffs:
-  `References/training_runs/run_2026-08-03_1404/`, but read `open-items.md`
-  first — that baseline predates a deliberate disk-detection change, so peak
-  counts legitimately differ.
+- **`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/run.sh`** — **retired
+  2026-08-17, unmaintained, still in the tree.** Do not spend a session
+  repairing it and do not cite its numbers; see `docs/v2-scope.md` §6.2 for why.
+  Whether to delete it is an open item.
 - **[`docs/archive/v1.0/`](docs/archive/v1.0/)** — the v1.0 phase's working
   memory: 46 numbered findings, the design passes, the QC-evaluation prompts.
   **History, not guidance.** Nothing current points into it; consult it for
   *why* a decision was made, never for what to do next.
 - Session memory (direction + gotchas):
-  `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/`.
+  `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/` — note the
+  path predates the `mac4DSTEM_Organization/` move, so a session started from
+  the current checkout gets a *different*, empty memory directory.
 
 ## Standing references
 
 - **`README.md`** — what the app does, build/run, HDF5 notes, developer
   notes, known limitations. The authoritative product overview.
-- **`ROADMAP.md`** — the 3 standing priorities and the scope rule.
-- **`docs/v1-scope.md`** — the frozen v1 release contract. Consult when
-  deciding whether a proposed change is in scope (ROADMAP's scope rule points
-  here); not a "read first" doc.
+- **`ROADMAP.md`** — the 3 standing priorities, the version policy, and the
+  scope rule.
+- **`docs/v1-scope.md`** — the **frozen** v1 release contract, kept as the
+  record of what v1.0.0 promised. Superseded as the live contract by
+  `docs/v2-scope.md`; consult it for what was in v1 and why, not for what to do
+  next.
 - **`docs/v2-onramp.md`** — the handover written for a second development
   phase. Its *status* sections are superseded by `docs/open-items.md`; keep it
   for the grouping of open threads by what each actually needs (scope decision /
@@ -144,10 +161,17 @@ and they build.
 
 - **Views describe UI only.** Loading/parsing/compute live in `Core`.
   `AppState` (`@Observable`) is the single source of truth.
-- **The QC playthrough (`mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`) is
-  evaluation only** — never modify app logic under `mac4DSTEM/` to make a QC
-  step pass. If the app blocks the pipeline, that's a *finding* for
-  `docs/open-items.md`, not a code change.
+- **Acceptance is evaluation only** — never modify app logic under `mac4DSTEM/`
+  to make a Track B step pass. If the app blocks the pipeline, that's a
+  *finding* for `docs/open-items.md`, not a code change. (Inherited from the
+  retired QC playthrough, which the rule originally named.)
+- **A stage that touches `AppState` extracts one seam before it lands**, at a
+  green test boundary, the extracted type itself `@Observable`. Binding since
+  2026-08-17 — `docs/development-process.md` §7. Splitting the file into
+  `extension AppState { }` does not count.
+- **No claim stands that a reader cannot reproduce.** If a number in
+  `README.md`, `CHANGELOG.md` or `docs/` goes stale, change the claim or fix the
+  gate. The repo is public.
 - **Metal parameter structs in `MetalEngine.swift` must stay byte-for-byte
   identical** to the matching `.metal` structs (all 4-byte fields).
 - **Don't widen scientific-state mutation access** just to reduce line counts
@@ -170,11 +194,13 @@ and they build.
 # build (needs full Xcode toolchain, not just Command Line Tools)
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
 
-tools/run-tests.sh unit          # fast XCTest suite (isolated DerivedData)
+tools/run-tests.sh unit          # fast XCTest suite (isolated DerivedData) — RED on macOS 27
 tools/run-tests.sh scientific    # py4DSTEM-parity harnesses
-tools/run-tests.sh all           # aggregate acceptance gate
-tools/ui-qc-playthrough/run.sh [dataset-substring]   # visible QC playthrough (separate; not in run-tests.sh)
+tools/run-tests.sh all           # Track A, the aggregate gate
 ```
+
+Track B (visual acceptance) is not a command — it is a person driving the app
+against `docs/visual-acceptance-checklist.md`.
 
 ## Long-term goals
 
@@ -182,5 +208,6 @@ Three standing priorities (full text in `ROADMAP.md`): **(1) scientific
 interpretation** — every result keeps its model/scale/units/validity through
 display, export, and reopen; **(2) product clarity** — task-scoped controls,
 persistent result labels, visible diagnostics; **(3) incremental architecture**
-— shrink the `AppState` facade only at green test boundaries. Any new feature
-must close a gap in `docs/v1-scope.md`, else it is post-v1.
+— shrink the `AppState` facade, one seam per stage, at green test boundaries.
+Whether a new feature is picked up now is answered by `docs/v2-scope.md`: its
+priority order, and its refusal rule.

@@ -1,8 +1,19 @@
 # mac4DSTEM v1 product scope
 
-This file is the release contract for v1. New work should improve one of these
-workflows or be deferred unless it fixes data loss, scientific correctness,
-security, accessibility, or a release blocker.
+**Frozen. This is the v1 release contract, kept as the record of what v1.0.0
+promised.** The current contract is [`docs/v2-scope.md`](v2-scope.md).
+
+**Deliberately extended, not silently widened (2026-08-17):** real/diffraction-space
+cropping and partial or diffraction-binned loading are listed under *Post-v1*
+below, and phase 2 is building them —
+[`docs/load-pipeline-plan.md`](load-pipeline-plan.md). That is a recorded scope
+decision under the rule at the foot of this file, taken because the reduced-cube
+rehearsal is the product claim v2 is aiming at (`docs/v2-scope.md` §1). The
+*v1* contract itself is unchanged.
+
+This file was the release contract for v1. New v1 work had to improve one of
+these workflows or be deferred unless it fixed data loss, scientific
+correctness, security, accessibility, or a release blocker.
 
 ## Supported workflow
 

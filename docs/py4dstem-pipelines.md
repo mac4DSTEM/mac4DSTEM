@@ -320,9 +320,12 @@ Prepare→Map order is valid; better to *guide within* the existing structure.
 3. **Prototype the highest-value guidance changes** (ACOM prerequisite
    gating; surfacing Q-from-crystal; voltage placement) behind the existing
    workspaces.
-4. **Re-run this QC playthrough as the acceptance check** for each UI change —
-   a workflow that a scripted run can complete without hand-holding is, by
-   construction, one a new user can complete too.
+4. ~~**Re-run this QC playthrough as the acceptance check** for each UI
+   change.~~ **Superseded 2026-08-17:** the playthrough is retired; acceptance
+   for a UI change is the Track B pass in
+   [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md). The
+   *pipelines* below are unaffected — they are still what any acceptance run,
+   scripted or human, should drive the app through.
 
 This QC harness is therefore dual-purpose: an *evaluation* of scientific
 correctness against py4DSTEM **and** a *usability regression test* for the

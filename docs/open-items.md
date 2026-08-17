@@ -14,16 +14,27 @@ Closed items are not here — the full v1.0 record is
 [`docs/archive/v1.0/ui-workflow-backlog.md`](archive/v1.0/ui-workflow-backlog.md),
 kept as history. Cited numbers are prefixed `#` and refer to that file.
 
-## Decisions owed before phase 2 starts
+## Phase 2 was planned — 2026-08-17
 
-- **[`docs/v2-planning-draft.md`](v2-planning-draft.md)** — proposals awaiting a
-  planning session: version policy, the two-track testing split, the
-  two-dataset default, and the per-stage `AppState` rule. Draft, not decided.
-- **`docs/load-pipeline-plan.md` §7 — is a cropped/binned cube a *view* of the
-  original, or a new dataset?** The plan recommends *view* and is written for
-  it, but it is unconfirmed. **L3 cannot start cleanly without the answer**: it
-  determines session-restore and export behaviour, and reversing it later is
-  expensive.
+**No decisions are owed.** The contract is [`docs/v2-scope.md`](v2-scope.md):
+priority order, refusal rule, version policy, and the eight decisions with their
+reasons. `docs/v2-planning-draft.md` is deleted; every proposal in it was
+accepted, changed, or rejected.
+
+Settled here and previously blocking: **a cropped/binned cube is a *view* of the
+source file** (`load-pipeline-plan.md` §7.1). **L3 is unblocked.**
+
+New work that came out of the session:
+
+- **A free-space preflight in `tools/run-tests.sh`** — fail immediately with
+  "need N GB free, have M" rather than letting a full disk produce three
+  different failure sets that look like code regressions. ~15 lines; not yet
+  written.
+- **Delete or keep `mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`?** Retired
+  as the acceptance test and unmaintained, but still in the tree and still
+  building. Deleting it also removes the only consumer of the accessibility
+  identifiers that `docs/v1-scope.md` deliberately kept — check
+  `mac4DSTEMUITests/Support/AXDriver.swift` before pulling the thread.
 
 ## Release-owner actions — **done 2026-08-14/15**
 
@@ -51,23 +62,19 @@ Two things learned that are not obvious and cost time:
 
 ## Verification debt
 
-- **No visual QC baseline — and v1.0.0 shipped without one.** Every playthrough
-  run to date used `--no-screenshots`, so the acceptance evidence for the tag is
-  numeric only: the numbers the app reports through its own controls, never what
-  it draws. Running it with screenshots was considered at the tag on 2026-08-06
-  and **deliberately skipped**; this is a recorded decision, not an oversight,
-  and `CHANGELOG.md` says so in the release entry too. A baseline needs Screen
-  Recording granted to the ad-hoc-signed test runner — see #45 for why the
-  shell's own grant does not cover it, and for the two-permission trap.
-  Until it exists, any claim that a UI change "looks right" rests on someone
-  having looked. Two defects fixed on the day of the tag — the unreachable
-  Result colormap and the readiness row calling a measured origin "Missing" —
-  were both found by hand, on screen, by a person driving the app, while the
-  full 30-harness suite was green.
+- **No automated visual baseline, and there will not be one soon.** Every
+  playthrough run used `--no-screenshots`, so the acceptance evidence for the
+  tag is numeric only: the numbers the app reports through its own controls,
+  never what it draws. **As of 2026-08-17 the answer is Track B, not a
+  screenshot harness** — the XCUITest playthrough is retired and
+  [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md) is the
+  procedure. So any claim that a UI change "looks right" rests on someone having
+  looked; say who, and when. It has earned that standing: two defects on tag day
+  with all 30 harnesses green (the unreachable Result colormap, the readiness
+  row calling a measured origin "Missing") and three more in the clean-account
+  run.
 - **`tools/bragg-spacing-probe/` gates nothing** and cannot: it needs a
   gitignored multi-gigabyte datacube. It stays a diagnostic.
-- **The QC harness can read a stale peak count.** On `polycrystal_2D_WS2`,
-  step 4 logged 16,384 peaks while the app's own status later read 213,441.
 - **The app has never run on the macOS version it claims to support.**
   `LSMinimumSystemVersion` is 14.0; every build, test run and manual session to
   date has been on macOS 27. Nothing between 14 and 26 has been exercised, and
@@ -91,8 +98,8 @@ periodicity, and **no Gatekeeper warning at any point**.
 That single run — perhaps fifteen minutes of human time — produced three defects
 that no harness in the repo can reach. They are listed under *Known, scoped, not
 blocking* below. This is the second time the Track B pattern in
-`docs/v2-planning-draft.md` §2 has outperformed the automated suite on its own
-terms.
+Track B ([`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md))
+has outperformed the automated suite on its own terms.
 
 ## Known, scoped, not blocking
 
