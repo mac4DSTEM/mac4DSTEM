@@ -155,6 +155,14 @@ final class AppState {
     /// Owned by its own type, with no forwarding properties on `AppState` —
     /// see `DatasetResidency.swift` for why. Views read `residency.…`.
     let residency = DatasetResidency()
+
+    /// A strided sample of the open dataset, built during the open so there is
+    /// something real on screen before the first whole-cube pass.
+    ///
+    /// **Not a result** (invariant I4). It is deliberately its own type, which
+    /// no product, export or session path accepts, and every view that draws it
+    /// must show `summary` — which states the stride.
+    private(set) var datasetPreview: DatasetPreview?
     private var openURL: URL?
     @ObservationIgnored private var pendingRecovery: DatasetRecoveryRecord?
     @ObservationIgnored var scopedSessionSidecarURL: URL?
@@ -1603,6 +1611,7 @@ final class AppState {
         // array. Resetting here keeps the panel from claiming residency that
         // belonged to the previous dataset.
         residency.reset()
+        datasetPreview = nil
         selectedScan = ScanPos(x: 0, y: 0)
         displayRangeLo = 0
         displayRangeHi = 1
@@ -1780,10 +1789,41 @@ final class AppState {
             statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
             progress = 1
         }
+        await buildDatasetPreview()
         await preloadResidentCube()
         if runInitialAnalysis {
             await runCurrentAnalysis()
         }
+    }
+
+    /// Sample a cheap preview before the expensive passes, so the open shows
+    /// something real early. Bounded by a byte budget rather than a fixed grid,
+    /// so the wait is roughly the same on a 64² and a 512² detector.
+    ///
+    /// Failure is not fatal and not reported: a preview is a convenience, and an
+    /// error dialog for one would interrupt an open that is otherwise fine. It
+    /// simply stays nil and no preview section appears.
+    private func buildDatasetPreview() async {
+        guard let fourD, let d = descriptor, d.is4D else { return }
+        let epoch = datasetEpoch
+        beginDatasetLoadingStage("Sampling a preview…")
+        let rows = max(1, (d.ry + DatasetPreviewBuilder.stride(for: d).y - 1)
+                          / DatasetPreviewBuilder.stride(for: d).y)
+        let preview = try? await DatasetPreviewBuilder.make(
+            data: fourD, descriptor: d,
+            progress: { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    guard let self, self.datasetEpoch == epoch,
+                          self.isLoadingDataset else { return }
+                    let done = min(rows, max(0, Int((fraction * Double(rows)).rounded())))
+                    self.reportDatasetLoadingProgress(
+                        fraction, "Sampling a preview · row \(done) of \(rows)"
+                    )
+                }
+            }
+        )
+        guard datasetEpoch == epoch else { return }
+        datasetPreview = preview
     }
 
     /// Hold the cube in memory when this machine admits it, before the first

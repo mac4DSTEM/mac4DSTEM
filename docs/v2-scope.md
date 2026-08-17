@@ -85,6 +85,27 @@ fresh investigation.
 | **Real-space binning or thinning** | Never asked for. py4DSTEM has `bin_data_real` / `thin_data_real` if it ever is. |
 | **Writing a reduced cube out as its own file** | An additional *export*, not a change to the view model. Cheap to add once L6 carries the specification. |
 | **Screen-reader (VoiceOver) usability** | Moved out of v1 deliberately on 2026-08-05; the verification procedure is already written at `docs/archive/v1.0/voiceover-verification-checklist.md`. Opens when a real user needs it. |
+| **Batch processing / apply-a-recipe-to-many-datasets** | Needs the recipe to exist first — that is L6 provenance plus the `LoadSpecification`, generalised. Cheap once a single run is reproducible end to end; incoherent before. |
+| **Linked 4D-STEM explorer** (selection in one view highlights everywhere) | A UI/architecture project, not an algorithm one. Wants `AppState` decomposition further along than one seam per stage has taken it. |
+| **Physical virtual-detector designer** (pixels / mrad / Å⁻¹, multiple simultaneous detectors) | Blocked on trustworthy Q calibration — a detector specified in mrad is only as good as the reciprocal scale behind it. See the Q-calibration lead in `docs/open-items.md`. |
+| **Automated data-quality checks** (saturation, dead pixels, drift, implausible origins) | The one nice-to-have that serves the refusal rule rather than competing with it: it turns "plausible but wrong" into "flagged". Worth promoting ahead of features if quantitative claims keep needing caveats. |
+| **Precipitate analysis, EDX correlation, live acquisition, copilot** | Named so nobody mistakes them for plans. Each is its own product. |
+
+### On the external v2 feature vision (2026-08-18)
+
+A separate document proposed a v2 feature set. Two of its "must-haves" are
+**already this phase's work under different names** — *reproducible workflow
+recipes* is L6 provenance plus a re-applicable `LoadSpecification`, and *serious
+large-data workflow (crop, bin, cache, release)* is the load pipeline itself. It
+is useful corroboration that the spine is the right one, not new scope.
+
+Its remaining items are recorded above with entry conditions. **Its stated
+premise — "V2 should build on a scientifically trustworthy v1: coordinate
+conventions, calibration quality, error handling, experimental py4DSTEM
+validation" — is the part worth taking seriously**, because the verified
+findings in `docs/open-items.md` say those four are not all settled. That is an
+argument for band B (verification debt) rising above band C, not for stopping
+band A.
 
 ---
 

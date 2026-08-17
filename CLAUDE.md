@@ -11,13 +11,23 @@ contract is `docs/v2-scope.md`. The active work is the load pipeline.
 ```
 Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-scope.md (priority order and the
 refusal rule), then docs/load-pipeline-plan.md — the active plan. Read §1–§4 for
-the constraints, then the Status checklist in §5, and take the next unchecked
-stage. docs/open-items.md is the live list for everything else.
+the constraints, then the Status checklist in §5.
+
+Three stages are PARTLY done (marked [~]) — read what landed before adding to
+them. The next work is L3's reader threading: §6's L3 prompt opens with a
+correction that reverses the original premise, so read that before touching a
+reader.
+
+Do NOT set ResidencyAdmission.measuredWorkingSetFraction. It is nil by decision,
+not oversight — §5's L2 entry says why.
 
 This changes app code, so follow docs/development-process.md and take the review
 gate the stage names. If the stage touches AppState, extract one seam before it
-lands (§7). If it changes what the app draws, ask me for a Track B pass. Commit
-only if I ask.
+lands (§7). If it changes what the app draws, ask me for a Track B pass —
+several rows are already queued unverified. Commit only if I ask.
+
+Before trusting any test you write: break the code it covers and watch it fail.
+That caught three green-but-worthless suites on 2026-08-17 alone.
 ```
 
 Whatever the task: app-code changes follow `docs/development-process.md` —

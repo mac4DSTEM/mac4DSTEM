@@ -19,6 +19,41 @@ struct DatasetInspector: View {
                     row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
                 }
 
+                if let preview = appState.datasetPreview {
+                    // INVARIANT I4: a sampled preview is not a result. The
+                    // summary states the stride and is drawn FIRST, above the
+                    // images, so nothing here can be read as a virtual image.
+                    // A strided preview and a real virtual image will differ,
+                    // and a user comparing them will file a bug — this label is
+                    // the thing that pre-empts it.
+                    Section("Preview") {
+                        Text(preview.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("preview.summary")
+                        previewImage(
+                            "Real space", pixels: preview.realSpace.normalized(),
+                            width: preview.realSpace.width,
+                            height: preview.realSpace.height, colormap: .gray
+                        )
+                        previewImage(
+                            "Mean pattern", pixels: preview.meanDP.normalized(useLog: true),
+                            width: preview.meanDP.qx, height: preview.meanDP.qy,
+                            colormap: .viridis
+                        )
+                        previewImage(
+                            "Max pattern", pixels: preview.maxDP.normalized(useLog: true),
+                            width: preview.maxDP.qx, height: preview.maxDP.qy,
+                            colormap: .viridis
+                        )
+                        if preview.isSampled {
+                            Text("Not a result — cannot be exported or saved.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+
                 Section("Dimensions") {
                     row("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
                     row("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")
@@ -104,6 +139,27 @@ struct DatasetInspector: View {
                 .font(.caption.monospacedDigit())
                 .frame(width: 36, alignment: .trailing)
         }
+    }
+
+    /// One preview thumbnail. Fixed square frame with the image scaled to fit:
+    /// the sampled real-space grid and the detector have unrelated aspect
+    /// ratios, and the point here is recognisability, not measurement.
+    private func previewImage(
+        _ label: String, pixels: [Float], width: Int, height: Int,
+        colormap: ColormapKind
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            MetalImageView(
+                pixels: pixels, width: width, height: height,
+                contentVersion: pixels.count &+ width &* 31 &+ height,
+                colormap: colormap, zoom: 1, offset: .zero
+            )
+            .frame(height: 120)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
+        }
+        .padding(.vertical, 2)
     }
 
     private func row(_ label: String, _ value: String, mono: Bool = false) -> some View {

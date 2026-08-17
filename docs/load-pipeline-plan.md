@@ -211,6 +211,16 @@ re-reference below.
 
 ## 5. Status
 
+> **Where to start (2026-08-18).** Three stages are partly done and marked
+> `[~]`. **The next work is L3's reader threading** — §6's L3 prompt opens with
+> a correction that reverses this plan's original premise about how crops reach
+> the readers; read it before touching one. Two things that look like
+> unfinished work and are not:
+> **(a)** residency is dormant on purpose — see L2 below, do not set the
+> threshold; **(b)** L5's configurator is blocked on L3/L4, not forgotten.
+> Before L5's configurator, fix **#43** (`docs/open-items.md`), which is also
+> what currently stops `tools/run-tests.sh all` from passing at all.
+
 - [x] **L1 — Honest load progress** (2026-08-06, closes #36). The seven
   hard-coded waypoints are gone; unmeasurable phases are named spinners with
   **no** percentage, and the only determinate phase is the whole-cube pass,
@@ -374,7 +384,27 @@ re-reference below.
   `tools/load-spec-test/`. **Hand this to a fresh session**; the reader work is
   where the stage's risk lives and it deserves a clean context.
 - [ ] **L4 — Bin-on-read**
-- [ ] **L5 — Open-time preview and the load configurator**
+- [~] **L5 — Open-time preview and the load configurator. PREVIEW HALF DONE
+  2026-08-18; configurator not started** (it needs L3/L4).
+  `Core/Analysis/DatasetPreview.swift` builds a real-space image plus mean/max
+  patterns from a **deterministic strided sample**, during the open and before
+  the first whole-cube pass. Shown in `UI/DatasetInspector.swift` under
+  *Preview*, summary line first.
+  **Invariant I4 is enforced by type, not by discipline:** `DatasetPreview` is
+  its own struct that no product, export or session path accepts, so it cannot
+  be promoted; its real-space grid is the *sample's* dimensions, not the scan's,
+  which makes a pixel-for-pixel comparison against a real virtual image
+  impossible rather than merely discouraged; and `summary` always states the
+  stride ("Sampled preview · every 3rd position · 1,024 of 28,458").
+  **The stride comes from a byte budget, not a fixed grid** — a fixed 32×32
+  sample costs 1 MB on a 64² detector and 256 MB on a 512² one, so budgeting
+  bytes is what keeps the wait constant across datasets. One stride for both
+  axes, so the preview's aspect ratio matches the scan's.
+  Pinned by `mac4DSTEMTests/DatasetPreviewTests` (9 tests); removing the stride
+  fails 3/9. **Not seen on screen by anyone** — rows added to
+  `docs/visual-acceptance-checklist.md` §A.
+  **Still to do here:** #43 first, then the rectangle overlays, the size
+  arithmetic, and the bin picker — all of which need L3/L4.
 - [ ] **L6 — Provenance through session restore and export**
 
 **Order and parallelism.** L1 is independent — do it first, it is small and

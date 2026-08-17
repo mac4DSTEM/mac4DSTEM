@@ -121,6 +121,73 @@ blocking* below. This is the second time the Track B pattern in
 Track B ([`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md))
 has outperformed the automated suite on its own terms.
 
+## From an external read-only review — VERIFIED here, 2026-08-18
+
+A second agent reviewed the repo at `839bf49` and produced a findings document.
+**Only what was independently checked against this tree is recorded below**; the
+review also contained several factual errors, listed at the end so nobody
+re-imports them.
+
+These are scientific-presentation defects, not crashes, and they are the exact
+class `docs/v2-scope.md` §4 exists to refuse: **a plausible result that a
+careful user would reasonably misread as a quantitative claim.**
+
+- **Strain is computed and exported in the DIFFRACTION frame, labelled only
+  εxx/εyy/εxy, and displayed over scan coordinates.** Verified:
+  `Core/Analysis/StrainMapping.swift`'s own header says *"Strain is expressed in
+  diffraction-space x/y"*; no rotation is applied anywhere in that file; and
+  the vendored py4DSTEM docstring for `get_strain_from_reference_g1g2`
+  (`References/py4DSTEM-dev/py4DSTEM/process/strain/latticevectors.py:324`)
+  explicitly says the result is *"oriented with respect to the x/y axes of
+  diffraction space — to rotate the coordinate system, use
+  get_rotated_strain_map()"*, which exists at `:409` and which this app does not
+  call. The tensor is not wrong *as an unrotated diffraction-frame tensor*. The
+  defect is that nothing on screen or in the export says so, while the map is
+  drawn over scan axes — and a 90° R–Q rotation swaps the normal components and
+  changes the sign convention of the shear. **Fix: either rotate into the scan
+  frame, or label and export it as diffraction-frame strain together with the
+  R–Q transform.** Until then, no export of this should be described as
+  sample-frame strain.
+- **Physical iDPC does not require the origin fit to be quantitative.**
+  `AppState.idpcPhysicalCalibration` gates on `calibration.hasFittedOrigin &&
+  calibration.hasRotation` only, while `Calibration.swift:254` *does* consult
+  `originFitIsQuantitative` for the readiness report. So Prepare can label a fit
+  "Not quantitative" and physical iDPC still exports in radians. A gate that one
+  workflow honours and another ignores is worse than no gate.
+- **`DPC.integrateIDPC` returns a zero-filled image on invalid input** — bad
+  dimensions, a malformed CoM array, a non-finite parameter — and the caller
+  publishes it like any other result. **A numerical failure becomes a plausible
+  zero-phase specimen.** It must return a typed error.
+- **Disk-detection tile read errors are reported as an FFT failure.**
+  `TiledDiskDetection.swift:42` swallows any tile error with `try?`; the caller
+  presents *"Disk detection failed to initialize its FFT plan."* On a long
+  experimental scan that sends the user hunting in entirely the wrong place.
+
+Credible but **not yet verified here**, so treat as leads rather than findings:
+the Q-calibration estimator differing materially from py4DSTEM's radial-profile
+fit and the file/session mean origin not reaching it; ACOM omitting py4DSTEM's
+default `power_radial=1.0` radial weighting; HDF5 discovery assuming
+`[Ry,Rx,Qy,Qx]` and auto-selecting a `/data` object without checking axis
+metadata; and the strain estimator's weighting deviation being absent from
+exported provenance.
+
+**Errors in that review — do not import.** It states the app uses **MLX**
+(it does not; `grep -rl "import MLX" mac4DSTEM/` is empty — MLX is prior art in
+`References/MigrationSource` only). It assumes an **App Store** release goal and
+raises a "distribution mismatch" on that basis; the plan is Developer ID +
+notarization, and GPL-3.0 is incompatible with the App Store anyway. Its
+resident-cube findings ("untracked", "no AppState preload/release/progress
+wiring") described a mid-L2 working tree and are stale as of `73105fc`. Many of
+its file paths do not exist here (`mac4DSTEM/App/ContentView.swift`,
+`mac4DSTEM/Platform/HDF5/H5Reader.swift`, `mac4DSTEM/Core/Export/ResultExport.swift`),
+so **its line citations cannot be trusted without checking** — which is why the
+list above is only what was re-derived from this tree.
+
+**Framing caveat.** The review repeatedly reasons about "the shortest credible
+path to v1" and recommends narrowing scope before release. **v1.0.0 shipped on
+2026-08-06 and is public.** Read those sections as *what v1.1 should fix before
+the claims are widened*, not as release advice.
+
 ## Known, scoped, not blocking
 
 - **`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` is
