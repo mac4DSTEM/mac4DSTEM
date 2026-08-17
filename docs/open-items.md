@@ -24,23 +24,14 @@ accepted, changed, or rejected.
 Settled here and previously blocking: **a cropped/binned cube is a *view* of the
 source file** (`load-pipeline-plan.md` §7.1). **L3 is unblocked.**
 
-### Blocker on L3, created by L2 — fix it before L3 uses residency
+### ~~Blocker on L3, created by L2~~ — **CLOSED 2026-08-18**
 
-**`ResidentCube.matches` cannot tell two crops apart.** It compares `filePath`,
-`datasetPath` and `shape`. `LoadSpecification.detectorCrop` carries *ranges*, so
-two crops of equal extent at different offsets — `y:0..<128, x:0..<128` versus
-`y:128..<256, x:128..<256` on a 256×256 detector — have an identical descriptor
-and **completely disjoint pixels**. `matches` returns `true`, the staleness guard
-passes a stale buffer into the resident fast path, and the app computes a correct
-number about the wrong data.
-
-Harmless today (a dataset swap is the only way to hold a stale cube, and it
-releases). **Fix in L3, where the specification exists:** carry the
-`LoadSpecification`, or an opaque monotonic load-generation id, in `ResidentCube`
-and compare that instead of the shape. The current harness only tests a
-*different shape* and a *different file*, so it will stay green through the bug.
-Found by adversarial review 2026-08-17; the code comment at the call site says
-the same thing.
+`ResidentCube` now carries its `LoadSpecification` and `matches` compares it, so
+two crops of equal extent at different offsets — which have an identical
+`filePath`, `datasetPath` and `shape` over disjoint pixels — are no longer
+confused for one another. `FourDArray.resident(for:)` is the compute-side
+accessor that applies the check. Pinned in `tools/virtual-detector-residency`;
+reverting `matches` to shape-only fails it 1/1.
 
 New work that came out of the session:
 

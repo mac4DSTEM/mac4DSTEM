@@ -448,28 +448,63 @@ do {
     guard let buffer = MetalEngine.shared.device.makeBuffer(
         length: d.byteCountAsFloat32, options: .storageModeShared
     ) else { fail("could not allocate a buffer for the staleness check") }
-    let held = ResidentCube(buffer: buffer, descriptor: d)
-    guard held.matches(d) else { fail("a cube must match its own descriptor") }
+    let held = ResidentCube(buffer: buffer, descriptor: d, specification: .fullExtent)
+    guard held.matches(d, specification: .fullExtent) else {
+        fail("a cube must match its own descriptor and specification")
+    }
     let cropped = DatasetDescriptor(
         filePath: d.filePath, datasetPath: d.datasetPath,
         shape: [d.ry, d.rx, d.qy, d.qx - 2],
         dtypeDescription: d.dtypeDescription, chunkShape: nil
     )
-    guard !held.matches(cropped) else {
-        fail("""
-             a resident cube matched a differently shaped descriptor. From L3 a \
-             LoadSpecification change reshapes the descriptor, and a buffer that \
-             outlived its specification computes a correct number about the wrong data.
-             """)
+    guard !held.matches(cropped, specification: .fullExtent) else {
+        fail("a resident cube matched a differently shaped descriptor")
     }
     let otherFile = DatasetDescriptor(
         filePath: "/elsewhere.h5", datasetPath: d.datasetPath, shape: d.shape,
         dtypeDescription: d.dtypeDescription, chunkShape: nil
     )
-    guard !held.matches(otherFile) else {
+    guard !held.matches(otherFile, specification: .fullExtent) else {
         fail("a resident cube matched a descriptor for a different file")
     }
-    pass("staleness guard — shape and source must both match")
+
+    // THE CASE THE DESCRIPTOR CANNOT SEE, and the reason `matches` takes a
+    // specification at all. Two detector crops of EQUAL EXTENT at DIFFERENT
+    // OFFSETS have an identical filePath, datasetPath and shape, over
+    // completely disjoint pixels. Shape-only matching returned `true` here and
+    // would hand a stale buffer to the resident fast path — a correct number
+    // about the wrong data. Adversarial review 2026-08-17; closed in L3.
+    let halfDetector = [d.ry, d.rx, d.qy / 2, d.qx / 2]
+    let topLeftShape = DatasetDescriptor(
+        filePath: d.filePath, datasetPath: d.datasetPath, shape: halfDetector,
+        dtypeDescription: d.dtypeDescription, chunkShape: nil
+    )
+    let topLeft = LoadSpecification(detectorCrop: AxisCrop(
+        yOffset: 0, xOffset: 0, height: d.qy / 2, width: d.qx / 2
+    ))
+    let bottomRight = LoadSpecification(detectorCrop: AxisCrop(
+        yOffset: d.qy / 2, xOffset: d.qx / 2, height: d.qy / 2, width: d.qx / 2
+    ))
+    guard topLeftShape.shape == halfDetector else { fail("fixture built wrong") }
+    let heldTopLeft = ResidentCube(
+        buffer: buffer, descriptor: topLeftShape, specification: topLeft
+    )
+    guard heldTopLeft.matches(topLeftShape, specification: topLeft) else {
+        fail("a cube must match its own crop")
+    }
+    guard !heldTopLeft.matches(topLeftShape, specification: bottomRight) else {
+        fail("""
+             a resident cube matched a DIFFERENT crop of the same shape — the \
+             descriptors are identical and the pixels are disjoint, so the \
+             resident fast path would compute a correct number about the wrong data
+             """)
+    }
+    // And a full-extent load is not the same view as a crop that happens to
+    // cover everything by shape alone.
+    guard !heldTopLeft.matches(topLeftShape, specification: .fullExtent) else {
+        fail("a cropped cube matched a full-extent load of the same shape")
+    }
+    pass("staleness guard — source, shape AND load specification must all match")
 }
 
 print("virtual-detector-residency: all passed")

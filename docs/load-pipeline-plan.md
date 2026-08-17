@@ -356,7 +356,23 @@ re-reference below.
      branch checks cancellation either side of one indivisible
      `waitUntilCompleted`, so residency makes cancellation *coarser*, not finer.
   3. The L3 blocker on `ResidentCube.matches`.
-- [ ] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing**
+- [~] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing.**
+  **Started 2026-08-18. Foundation only; no reader crops yet.**
+  In: `Core/Data/LoadSpecification.swift` — `LoadSpecification` (scan crop,
+  detector crop, bin factor) with `AxisCrop` stored as offset+extent so it is
+  `Codable`/`Equatable` for sidecars and identity comparison, plus `LoadPushdown`,
+  the per-reader declaration of whether a crop actually skipped I/O. `FourDArray`
+  carries a `loadSpecification` (`.fullExtent` for now) and exposes
+  `resident(for:)`. **The L2 blocker is closed**: `ResidentCube` carries its
+  specification and `matches` compares it, so two equal-shape crops at different
+  offsets no longer collide — verified to fail 1/1 when reverted to shape-only.
+  App builds; `run-tests.sh unit` and `scientific` exit 0.
+
+  **Next, and it is the bulk of the stage:** thread the specification through
+  the five conformers per the correction in §6's L3 prompt — three of them
+  ignore the descriptor entirely today — then the calibration re-reference, then
+  `tools/load-spec-test/`. **Hand this to a fresh session**; the reader work is
+  where the stage's risk lives and it deserves a clean context.
 - [ ] **L4 — Bin-on-read**
 - [ ] **L5 — Open-time preview and the load configurator**
 - [ ] **L6 — Provenance through session restore and export**
@@ -379,7 +395,7 @@ will trip it constantly.
 |---|---|---|
 | L1 | **1** | Values, not plumbing. Self-contained. |
 | L2 | **1–2** | Compute change is small; the residency threshold must be *measured* (`tools/performance-baseline/` sweep), which is its own pass. |
-| L3 | **2–3** | Four readers (H5 hyperslab, DM4, MIB, EMPAD), the calibration re-reference, a fixture, **and** an adversarial review that must be a separate agent. |
+| L3 | **3–4** | Re-sized 2026-08-18. **Five** conformers, not four (MIB and EMPAD both live in `VendorRawReaders.swift`, plus `DemoFourDDataSource`), each with three read entry points — and three of them ignore the descriptor entirely today, so they need real work rather than an offset tweak. Plus the calibration re-reference, a fixture, and an adversarial review that must be a separate agent. |
 | L4 | **2** | The `bin2`→`bin8` fixture, then the highest-stakes adversarial review in the plan. |
 | L5 | **2** | Preview and configurator are genuinely separate pieces of UI; #43 first. |
 | L6 | **1** | Round-trip, if L3/L4 carried the spec correctly. |
@@ -609,13 +625,51 @@ though it must not change a single number.
 (`OriginProvenance`, `CalibrationValueProvenance`),
 `References/py4DSTEM-dev/py4DSTEM/preprocess/preprocess.py:123,139`.
 
+> **⚠️ CORRECTION, 2026-08-18, before any L3 code was written.** The sizing
+> below said the HDF5 change is "small and local" and that the others are
+> "offset arithmetic rather than a hyperslab". **The premise was wrong.**
+>
+> **Four of the five conformers ignore the descriptor they are handed.**
+> `H5Reader` builds its hyperslab from `descriptor.rx/qy/qx`. `DM4Reader` uses
+> its own stored `rx`/`qy`/`qx`; the MIB and EMPAD readers in
+> `VendorRawReaders.swift` use `scanWidth` / `Self.imageHeight` / `Self.width`.
+> The `descriptor` parameter is accepted and never read:
+>
+> ```swift
+> // DM4Reader.readPattern — `descriptor` unused
+> let patPix = qy * qx
+> let start = dataOffset + (scanY * rx + scanX) * patPix * elementSize
+> ```
+>
+> Harmless today, because the descriptor is built from those same values. It
+> stops being harmless the moment a *cropped* descriptor exists: three readers
+> would return full-extent tiles. `FourDArray.scanTile`'s length check catches
+> that as `allocationFailed`, so it fails loudly rather than fabricating — but
+> "pass a smaller descriptor" is an HDF5-only trick, and this stage is four
+> readers of real work, not one.
+>
+> **And §3's "cropped bytes are never read … in both memory *and* I/O" is only
+> partly deliverable.** It holds for HDF5 on all four axes, and for a *scan*
+> crop on the raw formats (a contiguous seek). A *detector* crop on
+> DM4/MIB/EMPAD cannot skip bytes without many small strided reads, because
+> patterns are contiguous.
+>
+> **Decided 2026-08-18 (release owner): push down where it pays, slice where it
+> does not.** HDF5 pushes all four axes into the hyperslab. Raw formats push the
+> scan crop and read-then-slice the detector crop. **Each reader must declare
+> which it did**, and the app records that in provenance, so the saving is never
+> overstated and no reader silently ignores a specification.
+
 **Do:**
-1. Add `LoadSpecification` (§3) and thread it through `FourDDataSource`. The
-   HDF5 change is small and local: `readScanTile` already builds a hyperslab
-   with per-axis `start`/`count` and passes `0` / full extent on the detector
-   axes. Crop = pass the specification's offsets instead. Do the same for
-   `readPattern` and `readScanRow`, and for DM4 / MIB / EMPAD (offset
-   arithmetic rather than a hyperslab).
+1. Add `LoadSpecification` (§3) and thread it through `FourDDataSource`,
+   together with a per-reader capability declaration (see the correction above).
+   HDF5: `readScanTile` already builds a hyperslab with per-axis `start`/`count`
+   and passes `0` / full extent on the detector axes — crop moves those offsets.
+   DM4 / MIB / EMPAD: scan crop by offset arithmetic; detector crop by slicing
+   after the read, declared as such. **Every reader must consult the descriptor
+   it is given** — the three that ignore it today are the actual work of this
+   step, and a reader that quietly ignores a crop is the defect to design
+   against.
 2. **Re-reference every detector-frame calibration value** against the new
    frame, or invalidate it with a named reason and a provenance downgrade —
    never silently: `Calibration.origin` (fitted *and* measured per-position

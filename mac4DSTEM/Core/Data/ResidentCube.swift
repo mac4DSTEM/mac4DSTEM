@@ -46,33 +46,35 @@ enum Residency: String, Sendable, CaseIterable {
 nonisolated struct ResidentCube: @unchecked Sendable {
     let buffer: MTLBuffer
     let descriptor: DatasetDescriptor
+    /// Which view of the source these bytes are. Compared by `matches`, because
+    /// the descriptor alone cannot tell two equal-sized crops apart.
+    let specification: LoadSpecification
 
     var byteCount: Int { descriptor.byteCountAsFloat32 }
 
     /// Whether this buffer actually holds the cube `other` describes.
     ///
-    /// Checked at every dispatch rather than assumed. Today the only way to hold
-    /// a stale cube is a dataset swap, which releases it, so this is sufficient
-    /// **now**.
+    /// Checked at every dispatch rather than assumed.
     ///
-    /// ⚠️ **IT IS NOT SUFFICIENT FOR L3, AND L3 MUST FIX IT BEFORE USING IT.**
-    /// An earlier version of this comment claimed the opposite — that "a
-    /// `LoadSpecification` change will reshape the descriptor" — which is false
-    /// for the case that matters. `LoadSpecification.detectorCrop` carries
-    /// *ranges*, so two crops of equal extent at different offsets
-    /// (`y:0..<128, x:0..<128` versus `y:128..<256, x:128..<256` on a 256×256
-    /// detector) produce an identical `filePath`, an identical `datasetPath` and
-    /// an identical `shape` — and completely disjoint pixels. This function
-    /// would return `true` and hand a stale buffer to the fast path, computing
-    /// a correct number about the wrong data: exactly what it exists to prevent.
-    /// The fix is to carry the `LoadSpecification` (or an opaque monotonic
-    /// load-generation id) in `ResidentCube` and compare *that*. Recorded in
-    /// `docs/open-items.md` as a blocker on L3; found by adversarial review
-    /// 2026-08-17.
-    func matches(_ other: DatasetDescriptor) -> Bool {
+    /// **The specification is part of the identity, and that is the whole
+    /// point.** Comparing file, dataset path and shape alone is not enough:
+    /// `LoadSpecification` crops carry *offsets*, so two crops of equal extent
+    /// at different positions — `y:0..<128, x:0..<128` versus
+    /// `y:128..<256, x:128..<256` on a 256×256 detector — produce an identical
+    /// `filePath`, an identical `datasetPath` and an identical `shape`, over
+    /// completely disjoint pixels. Shape-only matching would hand a stale buffer
+    /// to the resident fast path and compute a correct number about the wrong
+    /// data — exactly what this guard exists to prevent.
+    ///
+    /// Found by adversarial review 2026-08-17, when an earlier comment here
+    /// claimed the opposite (that a specification change "will reshape the
+    /// descriptor"). Closed in L3 by carrying the specification.
+    func matches(_ other: DatasetDescriptor,
+                 specification otherSpecification: LoadSpecification) -> Bool {
         descriptor.filePath == other.filePath
             && descriptor.datasetPath == other.datasetPath
             && descriptor.shape == other.shape
+            && specification == otherSpecification
     }
 }
 

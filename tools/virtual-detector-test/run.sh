@@ -31,7 +31,7 @@ xcrun swiftc -o "$WORK/harness" \
   "$REPO/mac4DSTEM/Core/Data/FourDDataSource.swift" \
   "$REPO/mac4DSTEM/Core/Data/Calibration.swift" \
   "$REPO/mac4DSTEM/Core/Data/FourDArray.swift" \
-  "$REPO/mac4DSTEM/Core/Data/ResidentCube.swift" \
+  "$REPO/mac4DSTEM/Core/Data/ResidentCube.swift" "$REPO/mac4DSTEM/Core/Data/LoadSpecification.swift" \
   "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
   "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
   "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \

@@ -66,7 +66,8 @@ actor FourDArray {
         // Without this, an open that preloads the cube would then read the whole
         // cube again for its first analysis pass — the longest phase of the open
         // happening twice.
-        if let residentCube, residentCube.matches(descriptor) {
+        if let residentCube,
+           residentCube.matches(descriptor, specification: loadSpecification) {
             return tile(yRange: yRange, from: residentCube)
         }
         let tile = try await reader.readScanTile(descriptor, yRange: yRange)
@@ -85,8 +86,25 @@ actor FourDArray {
     /// measured yet — see `ResidencyAdmission.measuredWorkingSetFraction`.
     private(set) var residencyRequest: Residency = .automatic
 
+    /// Which view of the source this array reads. `.fullExtent` until L3's
+    /// crop-on-read sets it.
+    private(set) var loadSpecification: LoadSpecification = .fullExtent
+
     /// The resident cube, or nil when this array is streaming.
     func resident() -> ResidentCube? { residentCube }
+
+    /// The resident cube **only if it holds exactly what `descriptor` and this
+    /// array's current specification describe**.
+    ///
+    /// Callers on the compute side should use this rather than `resident()`:
+    /// the specification is part of a buffer's identity, and two equal-sized
+    /// crops at different offsets are indistinguishable by descriptor alone.
+    func resident(for descriptor: DatasetDescriptor) -> ResidentCube? {
+        guard let residentCube,
+              residentCube.matches(descriptor, specification: loadSpecification)
+        else { return nil }
+        return residentCube
+    }
 
     var isResident: Bool { residentCube != nil }
 
@@ -148,7 +166,8 @@ actor FourDArray {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> Bool {
-        if let residentCube, residentCube.matches(descriptor) { return true }
+        if let residentCube,
+           residentCube.matches(descriptor, specification: loadSpecification) { return true }
         guard !preloadInFlight else { return false }
         guard ResidencyAdmission.shouldAdmit(
             residencyRequest,
@@ -203,7 +222,10 @@ actor FourDArray {
         // a confident wrong answer, and never resurrecting a cube the caller
         // released while the read was running.
         guard generation == residencyGeneration else { return false }
-        residentCube = ResidentCube(buffer: buffer, descriptor: descriptor)
+        residentCube = ResidentCube(
+            buffer: buffer, descriptor: descriptor,
+            specification: loadSpecification
+        )
         return true
     }
 

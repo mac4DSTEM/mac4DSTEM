@@ -144,7 +144,7 @@ nonisolated enum VirtualDetector {
         // and tiles partition the scan axis, so no tile boundary ever splits a
         // per-output-pixel reduction. The two images are bit-identical and
         // tools/virtual-detector-residency asserts `==`. See ResidentCube.swift.
-        if let cube = await data.resident(), cube.matches(d) {
+        if let cube = await data.resident(for: d) {
             guard cancellation?.isCancelled != true else { throw CancellationError() }
             let produced: FloatImage
             switch operation {
