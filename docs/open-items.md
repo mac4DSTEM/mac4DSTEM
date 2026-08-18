@@ -268,6 +268,71 @@ the claims are widened*, not as release advice.
   macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
   Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
   whether to ship a legacy PNG set alongside.
+- **The configurator's two preview panes draw nothing.** Found 2026-08-18 on
+  `calibrationData_circularProbe.h5` (1.96 GB) and again on
+  `downsample_Si_SiGe_exp.h5`. Everything *around* the images is correct — the
+  stride line (*"Sampled preview · every 6th position · 238 of 8,400"*), both
+  titles and subtitles, the caption, the bin picker, the size table — and the
+  drag rectangle draws and produces a correct crop. **The images themselves are
+  blank** across the full 220pt pane. So `pending.preview` is non-nil (its
+  `summary` renders) and the `ZStack`'s sibling overlay renders, which points at
+  `MetalImageView` (`UI/LoadConfiguratorView.swift`, `cropPane`) not drawing
+  inside a sheet rather than at missing data. **This makes the whole feature
+  miss its point**: the release owner's words were "would be cool to see a
+  preview to choose the ROI from" — choosing a region against an empty rectangle
+  is not choosing. It also silently weakens F1.3c, which was scored on a drag
+  into blank space. Two adjacent things to check while in there: the 720×640
+  sheet **scrolls and clips its own headers** on this display, and the sampling
+  status line is determinate on one open (*"Sampling a preview · row 1 of 36"*)
+  and indeterminate on another (*"Sampling a preview…"*) — L1's rule is that a
+  spinner with no number means genuinely unmeasurable, so one of the two is
+  wrong. **Also requested, and not in any plan:** show a single diffraction
+  pattern beside the mean/max in the configurator, and state the cube's
+  real-space dimensions there, so the ROI choice can be made from something
+  concrete.
+- **The app died on an 8 GB machine, with no crash report.** 2026-08-18 ≈19:55,
+  Apple M3 MacBook Air, 8 GB, during repeated opens of multi-GB cubes (a 17.19 GB
+  `055_STEM SI.dm4` had been cancelled minutes earlier). **No `.ips` crash report
+  for `mac4DSTEM` was written at all**, which is itself the signal — a jetsam
+  (memory) kill often leaves none. Corroborating, from
+  `/Library/Logs/DiagnosticReports/`: `openAndSavePanelService` spun at 19:53
+  and **Finder spun at 19:55:05**, i.e. the whole system was stalling, not just
+  this app; and a `JetsamEvent-2026-08-18-173817.ips` earlier the same day lists
+  `mac4DSTEM` among the processes present (**listed, not proven to be the
+  victim** — jetsam reports enumerate everything running). **Not diagnosed.**
+  What makes it worth chasing rather than filing under "small machine": the app
+  is deliberately out-of-core and streams, so a bare open should *not* be able
+  to exhaust 8 GB — if it can, something is holding more than it declares. The
+  staging-copy overhead already recorded above is the first suspect. Reproduce
+  with `footprint`/`vmmap` sampled across an open of a ≥4 GB cube before
+  theorising further.
+- **A session sidecar that provably opens fine can still fail to restore.**
+  Seen 2026-08-18 opening `downsample_Si_SiGe_exp.h5` from
+  `References/training_dataset/`: `Could not restore
+  downsample_Si_SiGe_exp.mac4dstem.h5: HDF5 export failed while opening the
+  session sidecar` (`AppState.loadSessionSnapshot`, the `.hdf5("opening the
+  session sidecar")` case in `BraggVectorEMDWriter.WriterError`, thrown when
+  `H5Fopen` itself returns negative). The sidecar is not corrupt — `h5ls -r`
+  round-trips its whole tree (calibration, a Bragg-vector result, a strain
+  result) with exit 0, and it is a real 2026-08-07 session, not a stray file.
+  **Leading hypothesis, not yet confirmed by a reproduction:**
+  `H5Reader.HDF5Library` (`Core/Data/H5Reader.swift`) and
+  `BraggVectorEMDWriter.HDF5WriteLibrary` (`Core/Data/BraggVectorEMDWriter.swift`)
+  independently `dlopen` the identical bundled `libhdf5.dylib` and each call
+  `H5open()` on load — so they share one C library instance and its global
+  state. `loadSessionSnapshot` opens the sidecar inside a `Task.detached`,
+  deliberately off whatever actor is driving the open, while `H5Reader` (an
+  `actor`, serialized only against *itself*) is very likely still mid-scan on
+  the source file at that exact moment (preview sampling, calibration read).
+  The stock (non-`--enable-threadsafe`) HDF5 build is not safe for concurrent
+  calls from two threads even against two different files, and a spurious
+  negative return from a healthy file is a textbook symptom of exactly that.
+  **Not confirmed** — needs a fixture that hammers `H5Reader` and
+  `HDF5WriteLibrary` concurrently to reproduce on demand before this is treated
+  as diagnosed rather than suspected. Effect today is silent-ish (the open
+  falls back to a fresh session rather than crashing), but the practical result
+  is a saved calibration/result set disappearing on reopen — worth closing
+  before it is mistaken for data loss during real use.
 ### Track B pass — 2026-08-18, `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` (4.25 GB on disk, 3.96 GB as f32)
 
 Driven by the release owner on the open/load rows of §F1. Two things confirmed,
