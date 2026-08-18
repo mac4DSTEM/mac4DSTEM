@@ -268,28 +268,78 @@ the claims are widened*, not as release advice.
   macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
   Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
   whether to ship a legacy PNG set alongside.
+- **`recordedLoadSpecification` bypasses the security-scoped bookmark and
+  swallows its own failure.** `App/AppState.swift:1416-1431` — the function L6
+  depends on for "reopen with the same crop" — reads the sidecar through the
+  *derived* path only (`:1419`), never through `resolvedSessionSidecarURL`, and
+  `openFileAsync` drops the scoped URL immediately before calling it
+  (`:1801-1804, 1808`). The failure is swallowed by `try?` at `:1421`. **If the
+  sandbox/bookmark hypothesis above is right, F1.3f (crop survives session
+  save/reopen) cannot pass today and will fail silently** — the app reopens at
+  full extent and says nothing. Driving F1.3f is therefore both the L6 acceptance
+  row and a second discriminator for the sidecar question.
+- **Two more `contentVersion` staleness hazards, same class, both latent.**
+  `UI/ProductWorkspaceViews.swift:719` passes a constant `0`, so the comparison
+  panel uploads its texture once and never again — swapping products of the same
+  shape would show stale pixels. And both preview call sites hash dimensions
+  only (see the configurator entry below). Neither bites today; both bite the
+  moment a view shows a *chosen* image rather than a fixed one.
 - **The configurator's two preview panes draw nothing.** Found 2026-08-18 on
   `calibrationData_circularProbe.h5` (1.96 GB) and again on
   `downsample_Si_SiGe_exp.h5`. Everything *around* the images is correct — the
   stride line (*"Sampled preview · every 6th position · 238 of 8,400"*), both
   titles and subtitles, the caption, the bin picker, the size table — and the
   drag rectangle draws and produces a correct crop. **The images themselves are
-  blank** across the full 220pt pane. So `pending.preview` is non-nil (its
-  `summary` renders) and the `ZStack`'s sibling overlay renders, which points at
-  `MetalImageView` (`UI/LoadConfiguratorView.swift`, `cropPane`) not drawing
-  inside a sheet rather than at missing data. **This makes the whole feature
-  miss its point**: the release owner's words were "would be cool to see a
-  preview to choose the ROI from" — choosing a region against an empty rectangle
-  is not choosing. It also silently weakens F1.3c, which was scored on a drag
-  into blank space. Two adjacent things to check while in there: the 720×640
-  sheet **scrolls and clips its own headers** on this display, and the sampling
-  status line is determinate on one open (*"Sampling a preview · row 1 of 36"*)
-  and indeterminate on another (*"Sampling a preview…"*) — L1's rule is that a
-  spinner with no number means genuinely unmeasurable, so one of the two is
-  wrong. **Also requested, and not in any plan:** show a single diffraction
-  pattern beside the mean/max in the configurator, and state the cube's
-  real-space dimensions there, so the ROI choice can be made from something
-  concrete.
+  blank** across the full 220pt pane. **This makes the whole feature miss its
+  point**: the release owner's words were "would be cool to see a preview to
+  choose the ROI from" — choosing a region against an empty rectangle is not
+  choosing. It also silently weakens F1.3c, which was scored on a drag into
+  blank space.
+
+  **Diagnosed 2026-08-18 by a review agent, and the first hypothesis written
+  here — "`MetalImageView` does not draw inside a sheet" — is WRONG.** It is not
+  a hosting problem. The configurator is the **only call site in the app that
+  violates `MetalImageView`'s documented input contract**
+  (`UI/MetalImageView.swift:9-11`: pixels must already be normalized to [0,1]).
+  `LoadConfiguratorView.swift:74` passes `preview.realSpace.pixels` and `:92`
+  passes `preview.maxDP.pixels` — **raw**, where `DatasetInspector.swift:35,40,45`,
+  `StemImageView.swift:468`, `ProductWorkspaceViews.swift:760` and
+  `DiffractionView.swift:98` all pass `.normalized()`. Raw here is not merely
+  "unscaled": `realSpace` holds `total`, the sum of every detector pixel at that
+  scan position (`Core/Analysis/DatasetPreview.swift:136-144`), so 10⁴–10⁸ on any
+  real cube. The shader clamps with `clamp(raw, 0.0, 1.0)`
+  (`Shaders/Colormaps.metal:60`), so every value collapses to the top LUT entry
+  and the pane renders one flat colour — which is what "blank" actually was.
+  What refutes the sheet theory: the crop rectangle is a sibling in the same
+  `ZStack` in the same sheet and draws fine (`LoadConfiguratorView.swift:151-161`),
+  and F1.3c's correct crop proves `geometry.size` was non-zero.
+  **The fix is two lines, but neither is `.normalized()` alone:** the diffraction
+  pane needs `normalized(useLog: true)` as the inspector uses
+  (`DatasetInspector.swift:45`), because a linear-normalized max-DP is the central
+  beam and nothing else — drawing, but useless for choosing a detector crop.
+  **Verify in thirty seconds** by making that change and looking, before anything
+  more elaborate.
+
+  Adjacent, same code, land together: the 720×640 sheet **scrolls and clips its
+  own headers** (`LoadConfiguratorView.swift:44`); and the sampling status line
+  is determinate on one open (*"Sampling a preview · row 1 of 36"*) and
+  indeterminate on another (*"Sampling a preview…"*) because
+  `openFileForConfiguration` omits the `progress:` argument
+  (`AppState.swift:1487-1490`) that the normal path passes
+  (`AppState.swift:2172-2180`) — by L1's rule the configurator path is the wrong
+  one. **Also requested, and not in any plan:** a single real diffraction pattern
+  beside the mean/max, and the cube's real-space dimensions stated in the dialog.
+  **If that single-DP picker lands, `contentVersion` must become value-dependent
+  first** — it is a hash of dimensions only at `LoadConfiguratorView.swift:142`
+  and `DatasetInspector.swift:230`, so swapping to a different DP of the same
+  shape would not re-upload the texture (`MetalImageView.swift:87`) and the
+  picker would appear to do nothing.
+
+  **The previews are also aspect-stretched** — `MetalImageView` maps the image to
+  normalized view UVs (`Shaders/Colormaps.metal:44,49-51`), so a 106×153 scan is
+  drawn into a ~332×220 box. The drag→crop math stays correct, but a user
+  dragging a visually square box gets a non-square crop. Decide once the panes
+  draw.
 - **The app died on an 8 GB machine, with no crash report.** 2026-08-18 ≈19:55,
   Apple M3 MacBook Air, 8 GB, during repeated opens of multi-GB cubes (a 17.19 GB
   `055_STEM SI.dm4` had been cancelled minutes earlier). **No `.ips` crash report
@@ -302,10 +352,40 @@ the claims are widened*, not as release advice.
   victim** — jetsam reports enumerate everything running). **Not diagnosed.**
   What makes it worth chasing rather than filing under "small machine": the app
   is deliberately out-of-core and streams, so a bare open should *not* be able
-  to exhaust 8 GB — if it can, something is holding more than it declares. The
-  staging-copy overhead already recorded above is the first suspect. Reproduce
-  with `footprint`/`vmmap` sampled across an open of a ≥4 GB cube before
-  theorising further.
+  to exhaust 8 GB — if it can, something is holding more than it declares.
+
+  **Measure the right number.** `SystemMonitor.residentMemoryMB()`
+  (`Support/SystemMonitor.swift:12-21`) reports `resident_size`, but **jetsam
+  kills on `phys_footprint`**, which includes compressed pages and IOKit/Metal
+  allocations that `resident_size` misses. So the app's own Performance panel
+  structurally cannot predict the kill it suffered, and any measurement taken
+  from it will look innocent. Use `footprint -p <pid>` and `vmmap --summary`.
+
+  **Predicted streaming ceiling, to tell "small machine" from "holds too much":**
+  `FourDArray.scanTileRows()` (`Core/Data/FourDArray.swift:301-307`) sizes a tile
+  at `recommendedMaxWorkingSetSize / 8` ≈ **683 MB** here, and the tiled pass
+  holds three at peak — current tile, prefetched next tile
+  (`Core/Analysis/VirtualDetector.swift:165,170-172`) and a full
+  `makeBuffer(bytes:)` copy (`:177-181`) — so ≈**2.0 GB transient on a path that
+  legitimately claims to stream**. A peak near 2 GB means the tile budget is
+  mis-scaled; a peak near cube size means something holds the cube. Note the
+  budget derives from a **GPU** hint that is 65% of physical RAM on this machine,
+  and nothing bounds the tile by *free* RAM — while the same number is shown to
+  the user as "GPU budget" beside "This selection (f32)"
+  (`UI/LoadConfiguratorView.swift:255`), which reads as an invitation to load up
+  to a figure that will get them killed.
+
+  **The concrete suspect is not the resident cube — it is `DM4Reader`.**
+  `Core/Data/DM4Reader.swift:56` maps with `.mappedIfSafe`, which is a *request,
+  not a guarantee*: Foundation declines to map on network or removable volumes
+  and **silently falls back to reading the entire file into memory**. The run
+  that preceded the death opened a **17.19 GB `055_STEM SI.dm4` from the NAS** —
+  a 17 GB anonymous allocation on an 8 GB machine, which is exactly the profile
+  of a jetsam kill with no `.ips` and a system-wide stall. It also explains why
+  Cancel left the machine wounded: the allocation happens inside `DM4Reader.init`
+  before any cancellation token is consulted. **Cheapest check, no build needed:**
+  open the same DM4 from a local copy and from the NAS, watching `footprint`. If
+  local stays flat and NAS climbs toward file size, that is the answer.
 - **A session sidecar that provably opens fine can still fail to restore.**
   Seen 2026-08-18 opening `downsample_Si_SiGe_exp.h5` from
   `References/training_dataset/`: `Could not restore
@@ -315,24 +395,56 @@ the claims are widened*, not as release advice.
   `H5Fopen` itself returns negative). The sidecar is not corrupt — `h5ls -r`
   round-trips its whole tree (calibration, a Bragg-vector result, a strain
   result) with exit 0, and it is a real 2026-08-07 session, not a stray file.
-  **Leading hypothesis, not yet confirmed by a reproduction:**
-  `H5Reader.HDF5Library` (`Core/Data/H5Reader.swift`) and
-  `BraggVectorEMDWriter.HDF5WriteLibrary` (`Core/Data/BraggVectorEMDWriter.swift`)
-  independently `dlopen` the identical bundled `libhdf5.dylib` and each call
-  `H5open()` on load — so they share one C library instance and its global
-  state. `loadSessionSnapshot` opens the sidecar inside a `Task.detached`,
-  deliberately off whatever actor is driving the open, while `H5Reader` (an
-  `actor`, serialized only against *itself*) is very likely still mid-scan on
-  the source file at that exact moment (preview sampling, calibration read).
-  The stock (non-`--enable-threadsafe`) HDF5 build is not safe for concurrent
-  calls from two threads even against two different files, and a spurious
-  negative return from a healthy file is a textbook symptom of exactly that.
-  **Not confirmed** — needs a fixture that hammers `H5Reader` and
-  `HDF5WriteLibrary` concurrently to reproduce on demand before this is treated
-  as diagnosed rather than suspected. Effect today is silent-ish (the open
-  falls back to a fresh session rather than crashing), but the practical result
-  is a saved calibration/result set disappearing on reopen — worth closing
-  before it is mistaken for data loss during real use.
+  **The first hypothesis recorded here was a concurrency race. A review agent
+  refuted its causal claim on 2026-08-18** — a third instance of this repo's
+  documented failure mode, and the reason the rule is *review the diagnosis, not
+  just the code*.
+
+  **What survived the review.** The bundled library really is unsafe — its
+  embedded `H5build_settings` reads HDF5 2.1.1, `Threadsafety: OFF` — and the two
+  loaders really do share one instance: both `dlopen` the identical
+  `Bundle.main.privateFrameworksURL/libhdf5.dylib` with `RTLD_LOCAL`
+  (`H5Reader.swift:137,216` and the writer's matching `candidateLibraryPaths()`),
+  so dyld returns one refcounted image with one copy of the globals.
+
+  **What was refuted: the race window does not exist on the path where the
+  failure was seen.** `activate` awaits `loadSessionSnapshot`
+  (`AppState.swift:2134`) *before* `loadCurrentPattern` (`:2135`),
+  `buildDatasetPreview` (`:2149`) and `preloadResidentCube` (`:2150`). Preview
+  sampling runs fifteen lines later, not concurrently; the calibration read has
+  already returned. The `Task.detached` at `AppState.swift:2324` moves the open
+  off the actor but its `.value` is awaited with no second HDF5 call in flight.
+  (A genuine concurrent window does exist elsewhere — a previous dataset's
+  `preloadResidentCube` is not cancelled when a new open starts, and
+  `datasetEpoch` guards state updates rather than in-flight work — but that is a
+  different window and not the reported situation.)
+
+  **The hypothesis that fits every observed fact better: the sandbox, and a
+  stale bookmark.** The app is sandboxed with only
+  `com.apple.security.files.user-selected.read-write`
+  (`mac4DSTEM/mac4DSTEM.entitlements`); `h5ls` succeeds because Terminal is not
+  sandboxed. The *source* file was picked in a panel; the **sidecar is a sibling
+  the user never picked**, reachable only through a security-scoped bookmark
+  keyed on the absolute source path (`Support/ResultExport.swift:136-139`).
+  **This repo moved into `mac4DSTEM_Organization/`, so every bookmark keyed on an
+  old absolute path is now stale.** That predicts the exact observed shape:
+  `FileManager.fileExists` passes (`AppState.swift:2321`,
+  `BraggVectorEMDWriter.swift:475`) because the sandbox grants
+  `file-read-metadata` far more broadly than `file-read-data`, and then `H5Fopen`
+  returns negative on `EACCES` (`BraggVectorEMDWriter.swift:482-485`).
+
+  **A confirmed bug either way, and it is why this was undiagnosable:**
+  `H5Reader.swift:164-166` calls `H5Eset_auto2(H5E_DEFAULT, nil, nil)`, which —
+  because the instance is shared — silences HDF5's error stack **process-wide,
+  including for `BraggVectorEMDWriter`, which never opts in**. The one line that
+  would distinguish "Permission denied" from "unable to lock file" is suppressed.
+  Fix this regardless of which hypothesis wins.
+
+  **The experiment that decides it costs one minute: open the same file three
+  times from a cold launch.** A sandbox denial is deterministic, a race is not.
+  Three failures ⇒ bookmark/sandbox; roughly one in three ⇒ the race is live and
+  *then* build the hammer fixture. **Do not write threading code before running
+  this.**
 ### Track B pass — 2026-08-18, `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` (4.25 GB on disk, 3.96 GB as f32)
 
 Driven by the release owner on the open/load rows of §F1. Two things confirmed,
