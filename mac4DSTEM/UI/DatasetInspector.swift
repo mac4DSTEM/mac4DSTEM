@@ -54,6 +54,60 @@ struct DatasetInspector: View {
                     }
                 }
 
+                // WHAT IS ACTUALLY LOADED, and what that cost the calibration.
+                //
+                // L4's "state them in the UI" and "label the result" (invariant
+                // I3): a cropped or binned cube is a DIFFERENT MEASUREMENT, and
+                // until this section existed the app knew that and never said
+                // it. `LoadedView`'s whole display surface had no reader.
+                //
+                // Absent at full extent, deliberately — a permanent row reading
+                // "no crop" on every dataset is noise, and the section's
+                // presence is itself the signal that something was reduced.
+                if !appState.loadedView.isFullExtent {
+                    Section("Loaded view") {
+                        if let summary = appState.loadedView.summary {
+                            Text(summary)
+                                .font(.callout)
+                                .accessibilityIdentifier("inspector.loadedViewSummary")
+                        }
+                        if let notice = appState.loadedView.binningNotice {
+                            // The intensity consequence, said plainly: binning
+                            // SUMS, so every absolute-intensity threshold moves
+                            // with the factor.
+                            Text(notice)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("inspector.binningNotice")
+                        }
+                        row("Source shape", appState.loadedView.sourceShapeString, mono: true)
+                        row("Loaded shape", descriptor.shapeString, mono: true)
+                        row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
+                    }
+                }
+
+                // Calibration values that could NOT be carried into this view.
+                // Shown separately from the summary above because these are
+                // refusals, not descriptions: something the file provided is now
+                // absent, and the reason is the actionable part.
+                if !appState.loadedView.invalidatedCalibration.isEmpty {
+                    Section("Not carried into this view") {
+                        ForEach(appState.loadedView.invalidatedCalibration) { item in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.field.rawValue)
+                                    .font(.callout.weight(.medium))
+                                Text(item.reason)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                    .accessibilityIdentifier("inspector.invalidatedCalibration")
+                }
+
                 Section("Dimensions") {
                     row("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
                     row("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")

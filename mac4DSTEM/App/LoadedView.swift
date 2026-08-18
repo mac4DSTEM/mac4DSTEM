@@ -69,6 +69,7 @@ final class LoadedView {
         outcome: CalibrationReReference.Outcome
     ) {
         self.specification = view.specification
+        self.sourceShapeString = view.source.shapeString
         self.discardedDetectorRows = view.discardedDetectorRows
         self.discardedDetectorColumns = view.discardedDetectorColumns
         self.pushdown = pushdown
@@ -81,6 +82,7 @@ final class LoadedView {
     /// pattern `DatasetResidency.reset` exists for.
     func reset() {
         specification = .fullExtent
+        sourceShapeString = ""
         discardedDetectorRows = 0
         discardedDetectorColumns = 0
         pushdown = .none
@@ -112,6 +114,10 @@ final class LoadedView {
         }
         return "Loaded view · " + parts.joined(separator: " · ")
     }
+
+    /// The source dataset's own shape, for the "instead of" half of the
+    /// comparison. Empty when nothing has been loaded.
+    private(set) var sourceShapeString = ""
 
     /// What binning did to the numbers, in the user's terms — or nil when the
     /// cube is not binned.
