@@ -11,8 +11,15 @@ makes sure you enter it correctly.
 
 1. Read `CLAUDE.md` (if not already in context), then `docs/v2-release.md`:
    §1 (the claim), §7 (the gates), §8 (the session briefs), §9 (status).
-2. Take the next unstarted session in §9 — unless the user named one
-   ("/pickup S7"), which wins. If its dependencies in §8 aren't met, say so
+2. Take the lowest session in §9 not ticked `[x]` — a partial `[~]`
+   session continues before a fresh one starts. The user naming one
+   ("/pickup S7") wins over both. If the session's next step needs
+   something only the user can provide — an experiment result, a decision,
+   a Track B drive — and it is not already in the conversation, do the
+   parts that don't need it, then stop and state exactly what is needed.
+   Never guess the user's answer to keep an unattended run moving; in that
+   case prefer the next session that can proceed autonomously, and say
+   which gate you routed around. If dependencies in §8 aren't met, say so
    before starting rather than discovering it mid-session.
 3. Before any work, restate in one short block: the session's scope, its
    gate (A, B or D), and any decision the brief says the user makes
