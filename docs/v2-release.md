@@ -307,7 +307,11 @@ only if asked.
   and "these sidecars are full-extent"); both corrected, four further defects it
   surfaced are recorded in `docs/open-items.md`. **The experiment has not run and
   no fix has landed** — `recordedLoadSpecification` is untouched and the AppState
-  seam is unspent. One cold open now settles the last link.
+  seam is unspent. One cold open now settles the last link. **2026-08-19:** a
+  cheaper discriminator (does the first session save after a cold launch raise a
+  save panel?) is pre-registered in `docs/open-items.md` with both branches
+  written before the answer was known; the answer has not yet reached a session,
+  so the fix is deliberately withheld rather than guessed.
 - [ ] S2 · [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
 - [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**

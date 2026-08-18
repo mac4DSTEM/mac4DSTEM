@@ -19,7 +19,11 @@ makes sure you enter it correctly.
    parts that don't need it, then stop and state exactly what is needed.
    Never guess the user's answer to keep an unattended run moving; in that
    case prefer the next session that can proceed autonomously, and say
-   which gate you routed around. If dependencies in §8 aren't met, say so
+   which gate you routed around. **A supplied answer that still carries the
+   prompt's `<placeholder>` brackets is not an answer** — it is the template
+   pasted back, and reading it as one is guessing with extra steps
+   (2026-08-19: an S1 probe arrived as `<panel appeared / saved silently>`).
+   Say which bracket is empty and what each branch would have meant. If dependencies in §8 aren't met, say so
    before starting rather than discovering it mid-session.
 3. Before any work, restate in one short block: the session's scope, its
    gate (A, B or D), and any decision the brief says the user makes

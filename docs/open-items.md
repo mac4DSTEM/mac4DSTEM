@@ -27,7 +27,12 @@ file:
   brief's own ordering — silenced errors made the experiment worthless until
   the failure carried a reason. The cause is identified (the bundle-identifier
   change emptied the sandbox container); **one** cold open is now outstanding,
-  not three, and `recordedLoadSpecification` is still unfixed.
+  not three, and `recordedLoadSpecification` is still unfixed. *2026-08-19,
+  second amendment:* a cheaper discriminator — does the **first** session save
+  after a cold launch raise a save panel? — is pre-registered with both
+  branches below, written before its answer was known. The answer has not yet
+  reached a session, so S1 stays blocked at that gate by choice, not by
+  oversight.
 - The Track B §F1 queue → **TB1** (after S1, S3–S6).
 - Strain frame → **S8**; iDPC gate, iDPC zero-fill, disk-detection error
   attribution and the burned-in caption truncation → **S7**; **#18** → **S8**.
@@ -622,6 +627,29 @@ the claims are widened*, not as release advice.
   the bundled libhdf5, `fileExists` returns true while `H5Fopen` returns -1 — but
   nobody has watched the app be denied. **One cold open now settles it, and its
   value is the reason string, not the count of three.**
+
+  **A cheaper discriminator than the cold open, pre-registered 2026-08-19
+  BEFORE its answer was known.** The release owner was asked to open a dataset
+  and save a session, and to report whether a save panel appeared. The answer
+  did not reach the session (the reply carried the unfilled template), so the
+  branches are written down here first — the point of pre-registration is that
+  neither outcome can be retrofitted into the diagnosis after the fact.
+
+  Why this probe is decisive and costs less than three cold opens:
+  `writableSessionSidecarURL` (`Support/ResultExport.swift:106-108`) shows an
+  `NSSavePanel` **only** when `resolvedSessionSidecarURL` returns nil, and that
+  function returns nil exactly when the cache is cold *and* no bookmark is in
+  `UserDefaults` (`:81-84`). The panel is therefore a direct, user-visible
+  readout of the one predicate C10 asserts.
+
+  | Observation | Reads out | Consequence for C10 |
+  |---|---|---|
+  | **A save panel appeared** | `resolvedSessionSidecarURL` returned nil ⇒ no bookmark under the current identifier | C10 **confirmed** on the save path. The restore failure is the no-bookmark fallback, and S1's fix proceeds as diagnosed. Still not observed: the denial reason string on the fallback read — a cold open is then worth one run for the reason, not the count. |
+  | **It saved silently, no panel** | A bookmark resolved, or the cache was warm within the session | C10's central claim — "`resolvedSessionSidecarURL` returns nil for every dataset at every path" — is **refuted**, and the empty-container reasoning does not by itself explain the restore failure. No fix lands; the diagnosis reopens, and the next question is which store survived the identifier change. **Caveat that must not be skipped:** a *second* save in the same app session is silent either way, because `scopedSessionSidecarURL` is cached in memory (`:80`). Only the **first** save after a cold launch reads out the bookmark store. |
+
+  Neither branch licenses touching `recordedLoadSpecification` yet — under
+  Gate D a fix may land only on a link that survived its own refutation test,
+  and this link has not yet been observed either way.
 
   **Found while reviewing S1, each its own item (none are S1's to fix):**
 
