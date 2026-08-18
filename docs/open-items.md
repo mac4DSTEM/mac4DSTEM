@@ -3,23 +3,59 @@
 Everything still live after **v1.0.0** (tagged 2026-08-06).
 
 > **Active feature work is planned separately** in
-> [`docs/load-pipeline-plan.md`](load-pipeline-plan.md) — load progress, a
-> resident in-memory cube, crop/bin on open. It is kept out of this file on
-> purpose: every item here is UI/workflow-only and touches no `Core/`, which is
-> what makes this list safe to hand out as implementation prompts. Two items
-> below are claimed by that plan and are noted where they appear (**#36** —
-> now fixed by stage L1 — and **#37**).
+> [`docs/v2-release.md`](v2-release.md) — the v2 release contract and session
+> plan, which superseded `docs/load-pipeline-plan.md` on 2026-08-18. Most
+> items below are claimed by a numbered session there; the mapping is in the
+> next section. (The original rule that every item here is UI/workflow-only
+> no longer holds — the 2026-08-18 verified findings touch `Core/` — so do
+> **not** hand this file out as implementation prompts without checking the
+> item's owning session and its gate.)
 
 Closed items are not here — the full v1.0 record is
 [`docs/archive/v1.0/ui-workflow-backlog.md`](archive/v1.0/ui-workflow-backlog.md),
 kept as history. Cited numbers are prefixed `#` and refer to that file.
 
+## The v2 release was planned — 2026-08-18
+
+**No decisions are owed.** The contract, the gates and the numbered sessions
+are [`docs/v2-release.md`](v2-release.md). Sessions claiming items in this
+file:
+
+- Sidecar restore failure + `recordedLoadSpecification`/bookmark defect +
+  `H5Eset_auto2` silencing → **S1** (Gate D — the three-opens experiment
+  runs before any code).
+- The Track B §F1 queue → **TB1** (after S1, S3–S6).
+- Strain frame → **S8**; iDPC gate, iDPC zero-fill, disk-detection error
+  attribution and the burned-in caption truncation → **S7**; **#18** → **S8**.
+- The 8 GB death / DM4 `.mappedIfSafe` suspect → **S9** (Gate D — the
+  local-vs-NAS `footprint` experiment first).
+- The four unverified review leads + the bounds-convention sweep → **S11**.
+- `measureOrigin` frame-dependence and single-refinement → weighed in **S12**;
+  **#29** → **S12** reads the campaign data that settles it.
+- **#11** WS₂ → **S14–S16**.
+- `SidebarLayoutTests` intermittent → **S17** (Gate D).
+- Colorbar/scale-bar collision, **#38**, the scan-extent two-orders question,
+  the comparison-panel `contentVersion`, `pattern(ry:rx:)` ignoring the
+  resident cube, **#37** re-measure → **S18**.
+- The stale `all` claim in README/CHANGELOG → **S19**; the legacy `.icns` →
+  mooted by S19's floor raise to macOS 26; the `docs/releasing.md` gap →
+  **S19**.
+- The free-space preflight → **S0** (outstanding).
+- The resident-cube staging copies and the second-machine sweep → **post-v2**
+  (`.automatic` is dropped in S3, so the threshold no longer blocks anything).
+
+**Unclaimed and staying open:** #17a (design decision), #30 (NAS speed),
+#31, #32, #15/#19/#20, the recents-bookmark hard-link retest, the
+sidebar-divider minimum, the `.fixedSize` audit, and the
+delete-`mac4DSTEMUITests` decision.
+
 ## Phase 2 was planned — 2026-08-17
 
-**No decisions are owed.** The contract is [`docs/v2-scope.md`](v2-scope.md):
-priority order, refusal rule, version policy, and the eight decisions with their
-reasons. `docs/v2-planning-draft.md` is deleted; every proposal in it was
-accepted, changed, or rejected.
+**No decisions are owed.** The contract was [`docs/v2-scope.md`](v2-scope.md)
+— **superseded 2026-08-18 by [`docs/v2-release.md`](v2-release.md)** — where
+the priority order, refusal rule, version policy, and the eight decisions with
+their reasons remain recorded. `docs/v2-planning-draft.md` is deleted; every
+proposal in it was accepted, changed, or rejected.
 
 Settled here and previously blocking: **a cropped/binned cube is a *view* of the
 source file** (`load-pipeline-plan.md` §7.1). **L3 is unblocked.**

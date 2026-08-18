@@ -1,5 +1,15 @@
 # The load pipeline — executable plan
 
+> **SUPERSEDED 2026-08-18 by [`docs/v2-release.md`](v2-release.md).** L1–L6
+> are code-complete; what remained open here migrated into that file's
+> session plan — the Track B queue and sidecar defects (S1, TB1), the
+> two-spec fixture and the `tile(yRange:from:)` gap (S2), the residency
+> follow-ups (#37 → S18; the second-machine sweep is post-v2 and `.automatic`
+> is dropped for the release), and the L4/L5 residual gaps (S2, S4). This
+> file is kept as the record of how L1–L6 were built and reviewed — the §5
+> stage entries remain the authoritative history. **Do not add stages or
+> tick anything here.**
+
 **Opened 2026-08-06.** One feature, built in six stages: the app should tell you
 what it is doing while a dataset opens, let you decide *what* to load (whole,
 cropped, or binned) from a preview of the actual data, hold that in memory when

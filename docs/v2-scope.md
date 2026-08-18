@@ -1,5 +1,12 @@
 # mac4DSTEM v2 — priority, refusal rule, and the decisions behind them
 
+> **SUPERSEDED 2026-08-18 by [`docs/v2-release.md`](v2-release.md)** — the v2
+> *release* contract and session plan, decided with the release owner. The
+> refusal rule (§4) and the deferred table (§3) are folded into that file;
+> the priority order below described the phase before it became a release.
+> This file is kept as the record of the 2026-08-17 decisions and their
+> reasons. **Do not extend it.**
+
 **Decided 2026-08-17** in the phase-2 planning session. Supersedes
 `docs/v2-planning-draft.md`, which was written 2026-08-06 as a set of proposals
 and is now deleted; every proposal in it was accepted, changed, or rejected

@@ -5,26 +5,27 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff prompt (copy-paste to start a session)
 
-**v1.0.0 is tagged, signed and public. Phase 2 was planned 2026-08-17** — the
-contract is `docs/v2-scope.md`. The active work is the load pipeline.
+**v1.0.0 is tagged, signed and public. The v2 RELEASE was planned 2026-08-18**
+— the contract and session plan are `docs/v2-release.md`. The load pipeline
+(L1–L6) is code-complete; the release closes it as a product and adds the
+promote run, the reduced-file export, the trust fixes, Q-calibration
+robustness and WS₂.
 
 ```
-Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-scope.md (priority order and the
-refusal rule), then docs/load-pipeline-plan.md — the active plan. Read §1–§4 for
-the constraints, then the Status checklist in §5.
+Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-release.md — §1 and §7 carry
+the claim and the gate rules, §8 is the session plan. Take the next unstarted
+session in §9's checklist and follow its §8 brief.
 
-Three stages are PARTLY done (marked [~]) — read what landed before adding to
-them. The next work is L3's reader threading: §6's L3 prompt opens with a
-correction that reverses the original premise, so read that before touching a
-reader.
+Do NOT set ResidencyAdmission.measuredWorkingSetFraction. It is nil by
+decision, not oversight — and `.automatic` residency is being DROPPED for this
+release (S3), not tuned.
 
-Do NOT set ResidencyAdmission.measuredWorkingSetFraction. It is nil by decision,
-not oversight — §5's L2 entry says why.
-
-This changes app code, so follow docs/development-process.md and take the review
-gate the stage names. If the stage touches AppState, extract one seam before it
-lands (§7). If it changes what the app draws, ask me for a Track B pass —
-several rows are already queued unverified. Commit only if I ask.
+Follow docs/development-process.md and take the gate the session names (A, B
+or D — §7 of the release plan defines them). Gate D sessions write the
+diagnosis, the refuting observation and the predicted outcome, then run the
+discriminating experiment, BEFORE touching code. If the session touches
+AppState, extract one seam first. If it changes what the app draws, ask me for
+a Track B pass — the F1 queue is live. Commit only if I ask.
 
 Before trusting any test you write: break the code it covers and watch it fail.
 That caught three green-but-worthless suites on 2026-08-17 alone.
@@ -63,12 +64,13 @@ What it is: [`CHANGELOG.md`](CHANGELOG.md). The repo is at
 `github.com/mac4DSTEM/mac4DSTEM` under GPL-3.0, with a stapled DMG linked from
 mac4dstem.com. **Distribution is done.**
 
-**Phase 2 was planned 2026-08-17.** The contract is
-[`docs/v2-scope.md`](docs/v2-scope.md) — a priority order and a refusal rule,
-not a scope freeze. The active work is
-[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md): a resident in-memory
-cube with a streaming fallback, and crop/bin-on-open, so an analysis validated
-on a reduced *view* re-runs unchanged on the full dataset.
+**The v2 release was planned 2026-08-18.** The contract and session plan are
+[`docs/v2-release.md`](docs/v2-release.md) — the single entry point. The load
+pipeline (L1–L6) is **code-complete**; the release closes it as a product
+(the two-spec fixture, the Track B queue), adds the promote run and the
+reduced-file export, fixes the verified science-presentation defects, and
+brings Q-calibration robustness and WS₂ — those last two severable to v2.x by
+the cut line.
 
 **Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses**
 without re-running it. It was measured at the tag and no one has reproduced the
@@ -103,21 +105,24 @@ code to make an acceptance step pass — that is a finding, not a bug fix.
 - **[`docs/open-items.md`](docs/open-items.md)** — everything still live, and
   the working methods that earned their keep. **The only maintained status
   doc.**
-- **[`docs/v2-scope.md`](docs/v2-scope.md)** — **the phase-2 contract**, decided
-  2026-08-17. The product claim v2 is aiming at, the priority order (load
-  pipeline → verification debt → UI backlog → deferred), what is deferred and
-  what would open it, the **refusal rule**, the version policy, and the eight
-  decisions with their reasons. Consult it when asking "should this be picked up
-  now?". *(It replaced `docs/v2-planning-draft.md`, which is deleted.)*
+- **[`docs/v2-release.md`](docs/v2-release.md)** — **the v2 release contract
+  and session plan**, decided 2026-08-18. The claim, the five workstreams, the
+  cut line, the refusal rule, the version evidence, the three gates (A/B/D —
+  D is the structural guard against a confident wrong diagnosis), the numbered
+  sessions S0–S20, and the live status checklist. **The single entry point.**
+  Consult it for "what do I pick up?" and "is this in scope?".
+- **[`docs/v2-scope.md`](docs/v2-scope.md)** — the 2026-08-17 phase-2
+  priorities. **Superseded by `docs/v2-release.md`**; kept for the eight
+  decisions and their reasons. *(It replaced `docs/v2-planning-draft.md`,
+  which is deleted.)*
 - **[`docs/visual-acceptance-checklist.md`](docs/visual-acceptance-checklist.md)**
   — **Track B**, the human visual pass, with the standing checklist and the
   known traps behind each row. The assistant writes the specific list; the
   release owner drives the app and sends screenshots.
-- **[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md)** — **the active
-  feature plan**: honest load progress, a resident in-memory cube with a
-  streaming fallback, and crop/bin-on-open driven from a preview. Six staged
-  prompts (L1–L6), the invariants, why the app is out-of-core, and where
-  py4DSTEM must *not* be copied. **The active plan.**
+- **[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md)** — how L1–L6
+  were built and reviewed, stage by stage, with the invariants and the
+  py4DSTEM deviations. **Superseded 2026-08-18, kept as the authoritative
+  history of that work.** Do not add stages or tick anything there.
 - **`docs/py4dstem-pipelines.md`** — the pipelines step by step, the
   app-vs-py4DSTEM findings (§7), scope/roadmap (§8), empirical run findings
   (§9).
@@ -231,5 +236,5 @@ interpretation** — every result keeps its model/scale/units/validity through
 display, export, and reopen; **(2) product clarity** — task-scoped controls,
 persistent result labels, visible diagnostics; **(3) incremental architecture**
 — shrink the `AppState` facade, one seam per stage, at green test boundaries.
-Whether a new feature is picked up now is answered by `docs/v2-scope.md`: its
-priority order, and its refusal rule.
+Whether a new feature is picked up now is answered by `docs/v2-release.md`:
+its workstreams, its cut line, and its refusal rule.

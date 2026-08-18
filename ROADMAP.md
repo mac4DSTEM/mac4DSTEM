@@ -1,7 +1,7 @@
 # mac4DSTEM stabilization roadmap
 
-The current contract is [`docs/v2-scope.md`](docs/v2-scope.md); the frozen v1
-contract is [`docs/v1-scope.md`](docs/v1-scope.md). This roadmap is
+The current contract is [`docs/v2-release.md`](docs/v2-release.md); the frozen
+v1 contract is [`docs/v1-scope.md`](docs/v1-scope.md). This roadmap is
 intentionally short: completed implementation history belongs in Git, and a passing
 workflow is not automatically a validated scientific claim.
 
@@ -11,23 +11,22 @@ workflow is not automatically a validated scientific claim.
 [`CHANGELOG.md`](CHANGELOG.md). What is still live:
 **[`docs/open-items.md`](docs/open-items.md)**.
 
-**Phase 2 was planned 2026-08-17** — priority order, refusal rule and the eight
-decisions are in **[`docs/v2-scope.md`](docs/v2-scope.md)**. The active plan is
-**[`docs/load-pipeline-plan.md`](docs/load-pipeline-plan.md)**.
+**The v2 release was planned 2026-08-18** — contract, cut line, gates and the
+numbered session plan are in **[`docs/v2-release.md`](docs/v2-release.md)**,
+the single entry point. (`docs/v2-scope.md` and `docs/load-pipeline-plan.md`
+are superseded and kept as records; the load pipeline L1–L6 is code-complete.)
 The three priorities below are standing and outlive v1.0 — they are how work is
 judged, not a task list.
 
-## Version policy (decided 2026-08-17)
+## Version policy (amended 2026-08-18)
 
 Phase name and version number are independent axes: "phase 2" is how much work
-it is, semver is about **compatibility**.
-
-- **`v1.1.0`** — the load pipeline L2–L5 (resident cube, crop/bin on open).
-  Features, backward compatible.
-- **`v2.0.0`** — only if L6's crop/bin provenance changes the session sidecar or
-  export format such that `v1.0.0` cannot read them. **Decided at L6, on the
-  evidence — not in advance.**
-- **`v1.0.x`** — bug fixes, and corrections to claims that have gone stale.
+it is, semver is about **compatibility**. **The release's number is decided at
+the endgame (S20), on the evidence recorded in `docs/v2-release.md` §5** — the
+key finding being that a v1.0.0 build silently *misreads* a crop-carrying
+sidecar (restores results against the full extent) rather than refusing it.
+Interim releases, if any, stay **`v1.0.x`** — bug fixes and corrections to
+claims that have gone stale.
 
 ## Current baseline
 
@@ -103,9 +102,9 @@ and ride-along AppState extractions (C1–C3).
 interoperability, accessibility, or release gap in
 [`docs/v1-scope.md`](docs/v1-scope.md), or it was post-v1.
 
-**v2 (from 2026-08-17):** [`docs/v2-scope.md`](docs/v2-scope.md) replaces the
-freeze with a **priority order plus a refusal rule** — there is no date to
-defend, so a freeze would manufacture a constraint that does not exist. The
-order decides what a session picks up. The refusal rule is what actually says
-no: *nothing ships that can fabricate a scientific result, no gate is widened to
+**v2 (from 2026-08-18):** [`docs/v2-release.md`](docs/v2-release.md) is a
+release contract again — a claim, five workstreams, a **cut line** naming in
+advance which workstreams are severable (so a schedule problem can never argue
+for thinning a review gate instead), and the standing **refusal rule**:
+*nothing ships that can fabricate a scientific result, no gate is widened to
 make something pass, and no claim stands that a reader cannot reproduce.*
