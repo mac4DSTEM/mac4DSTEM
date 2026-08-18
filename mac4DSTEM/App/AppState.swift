@@ -1514,7 +1514,20 @@ final class AppState {
                 if !datasets.contains(where: { $0.datasetPath == descriptor.datasetPath }) {
                     datasets.append(descriptor)
                 }
+                // Bracketed for the same reason as `selectDataset` above: every
+                // stage line, the preview sampling and the resident preload are
+                // gated on `isLoadingDataset`, so without this the whole open
+                // runs in silence while `activate` reports "Loaded …" with the
+                // bar at 1.0 — #36's stall, one layer down.
+                //
+                // **Unreachable today**: nothing calls `openManualPath`. Fixed
+                // anyway, because the trap is laid for whoever wires it to a
+                // control, and at that point the silence would look like a new
+                // defect rather than an old one. Found by `/code-review ultra`,
+                // 2026-08-18.
+                beginDatasetLoading("Opening \(descriptor.datasetPath)…")
                 await activate(descriptor: descriptor, reader: h5)
+                finishDatasetLoading()
             } catch {
                 present(error)
             }

@@ -211,13 +211,13 @@ re-reference below.
 
 ## 5. Status
 
-> **Where to start (2026-08-18, fourth update).** L3 is complete. **L4 is
-> implemented and green but has NOT passed its review gate** — it is `[~]` for
-> that reason alone, and the first thing to do is run the gate (§6 requires
-> Fable 5 or `/code-review ultra`, given the py4DSTEM source and told to
-> refute; both were unavailable on 2026-08-18). Do not tick it first.
-> **After that the next stage is L5's configurator**, which is what finally lets
-> a user *request* a crop or a bin — everything beneath it now applies one.
+> **Where to start (2026-08-18, fifth update).** L1–L4 are complete; L4's gate
+> was taken (two reviews, see its §5 entry). **The next work is L5's
+> configurator** — the overlays, the bin picker, the on-screen size arithmetic,
+> and wiring `LoadedView`'s display surface, which nothing reads yet. Its
+> arithmetic and its Track B rows are already written. It is the stage that
+> finally lets a user *request* a crop or a bin; everything beneath it applies
+> one correctly today.
 > Two things that look like unfinished work and are not:
 > **(a)** residency is dormant on purpose — see L2 below, do not set the
 > threshold; **(b)** L5's configurator is blocked on L3/L4, not forgotten.
@@ -555,8 +555,8 @@ re-reference below.
   translated expectation would be arithmetic proving itself: that the **reader's
   crop and the calibration's shift use the same coordinate convention**. Break
   either one alone and every unit test still passes while the fixture fails.
-- [~] **L4 — Bin-on-read. Implemented and green 2026-08-18; ITS REVIEW GATE HAS
-  NOT BEEN TAKEN, so it is not ticked.** See "the gate that did not run" below.
+- [x] **L4 — Bin-on-read. Complete 2026-08-18, gate taken.** Two reviews ran, and
+  they are not interchangeable — see "the gate" below for what each one was.
 
   Bin factors **2, 4 and 8** are offered (the 2026-08-06 decision; py4DSTEM takes
   any integer, and that `DEVIATION` note is on `LoadSpecification.detectorBin`).
@@ -642,10 +642,12 @@ re-reference below.
   teeth and having none is the thing to fix, and the comment at the call site now
   says the choice is not load-bearing.
 
-  **The gate ran on 2026-08-18, on the default model** — Fable 5 returned
-  *requires usage credits* and `/code-review ultra` cannot be launched from a
-  session, so the specific reviewer §6 names was not used and that is a
-  deviation. It could **not** refute the array math on any composition it
+  **THE GATE. Two reviews, and it matters which did what.**
+
+  **(1) A targeted adversarial review**, given the py4DSTEM source and told to
+  refute, run on the **default model** — Fable 5 returned *requires usage
+  credits*. This is the one that examined the science. It could **not** refute
+  the array math on any composition it
   constructed — crop+bin, scan-crop+bin, both crops with a bin, far-edge crops,
   remainder on one axis and both, bins 2/4/8, rank-3 and rank-4, partial tiles,
   all bit-exact against py4DSTEM — nor the `(x+0.5)/b - 0.5` derivation, nor the
@@ -683,7 +685,27 @@ re-reference below.
     provenance entry (it clears none) and that the file could assume factor 1.
     Both corrected rather than deleted.
 
-  **STILL OWED, and it is why this stage is `[~]` and not `[x]`:**
+  **(2) `/code-review ultra`**, the reviewer §6 names, run by the release owner
+  once the branch was complete — 92 files, 8,499 insertions, so L3, L4, the
+  review fixes, #43, L5's arithmetic and the recents fix all at once. **One
+  finding, severity nit, and nothing at all on the binning.** `openManualPath`
+  called `activate` without the `beginDatasetLoading` bracket its sibling
+  `selectDataset` got in L2, so an open through it would have run silently while
+  reporting "Loaded …" at 100% — #36's stall a third time. Verified here before
+  acting: the bracket is genuinely absent, and `grep` finds **no caller
+  anywhere**, so it was unreachable. Fixed regardless, because the trap was laid
+  for whoever wires it to a control.
+
+  A first `/ultrareview` attempt on the same branch failed outright — all review
+  agents terminated before completing, no output. The retry is the run above.
+
+  **What (2) is and is not.** It is the reviewer the plan names, and it read the
+  whole branch. It is a general bug hunt, not an adversarial audit pointed at
+  `bin_data_diffraction` and told to refute — that was (1). The gate is
+  satisfied by both together, and neither alone would have been the right claim
+  to make.
+
+  **Carried into L5, and not blocking the tick:**
   1. **`LoadedView`'s display surface has no reader.** `summary`,
      `binningNotice`, `discardedDetectorRows/Columns` and
      `invalidatedCalibration` are not referenced from any view — so L4's *Do*
@@ -691,13 +713,10 @@ re-reference below.
      are **not done**, and the claim that the trim is "stated to the user" is
      false today. L3's `summary` has the same gap. It belongs in L5, where the
      configurator makes all of it visible in one Track B pass instead of two.
-  2. **The review ran on the default model, not the one §6 names.** The specific
-     reviewer matters least of the three things above, but it is a deviation and
-     `/code-review ultra` is still available to the release owner.
-  3. `tools/preprocess-crop-bin-test` still has no rank-3-with-bin case, and its
+  2. `tools/preprocess-crop-bin-test` still has no rank-3-with-bin case, and its
      intensity-conservation assertion is skipped whenever a crop is present.
-     Both are gaps the review closed independently and found green; neither is
-     carried in the repo yet.
+     Both are gaps the adversarial review closed independently and found green;
+     neither is carried in the repo yet.
 - [~] **L5 — Open-time preview and the load configurator. Preview half and the
   configurator's ARITHMETIC done 2026-08-18; the configurator UI not started.**
 

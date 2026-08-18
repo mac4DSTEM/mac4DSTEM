@@ -354,9 +354,9 @@ or it spends the one resource Track B is expensive in — a person's attention.
   built (all bit-exact against py4DSTEM) and found one CRITICAL latent defect —
   four detector-frame values derived from the source rather than the view, plus
   a fifth instance in a claim the plan had already made about `minPeakSpacing`.
-  Both fixed. **What is still owed** is in `load-pipeline-plan.md` §5 under
-  "STILL OWED": no view reads `LoadedView`'s display surface, so L4's "state it
-  in the UI" and "label the result" items are not done; and the fixture has no
+  Both fixed. **Carried into L5** (`load-pipeline-plan.md` §5): no view reads
+  `LoadedView`'s display surface, so L4's "state it in the UI" and "label the
+  result" items land with the configurator; and the fixture has no
   rank-3-with-bin case.
 - **A negative control was reported as passing when it cannot fail.** "Bounds-
   checking before the bin instead of after" was listed among L4's controls; the
