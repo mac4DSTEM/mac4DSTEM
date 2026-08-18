@@ -77,37 +77,68 @@ actor EMPADReader: FourDDataSource {
                           dtypeDescription: "float32 little-endian (EMPAD)", chunkShape: nil)
     }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
-        guard ry >= 0, ry < scanHeight, rx >= 0, rx < scanWidth else {
+    /// Frames are contiguous, so a scan crop is a seek and skips bytes; a
+    /// detector crop within a frame is not, so it is sliced after the frame is
+    /// read. One `read` per frame either way — many small strided reads would
+    /// cost more than the bytes they saved.
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
+
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        try view.requireSource(shape: [scanHeight, scanWidth, Self.imageHeight, Self.width])
+        guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw VendorRawError.malformed("EMPAD scan index is out of bounds.")
         }
-        let frame = ry * scanWidth + rx
+        let frame = view.sourceScanY(ry) * scanWidth + view.sourceScanX(rx)
         let data = try Self.read(path: rawPath, offset: frame * Self.frameBytes,
                                  count: Self.imageHeight * Self.width * 4)
+        // Decode only the rows the view keeps: the bytes were read either way,
+        // but the cropped-out pixels are never converted or allocated.
+        let crop = view.specification.detectorCrop
+        let rows = crop.map { $0.yOffset..<($0.yOffset + $0.height) } ?? 0..<Self.imageHeight
+        let columns = crop.map { $0.xOffset..<($0.xOffset + $0.width) } ?? 0..<Self.width
         return data.withUnsafeBytes { bytes in
-            (0..<(Self.imageHeight * Self.width)).map { index in
-                let bits = bytes.loadUnaligned(fromByteOffset: index * 4, as: UInt32.self).littleEndian
-                return Float(bitPattern: bits)
+            var out = [Float]()
+            out.reserveCapacity(rows.count * columns.count)
+            for row in rows {
+                for column in columns {
+                    let index = row * Self.width + column
+                    let bits = bytes.loadUnaligned(fromByteOffset: index * 4, as: UInt32.self).littleEndian
+                    out.append(Float(bitPattern: bits))
+                }
             }
+            return out
         }
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        // Validated here rather than only inside the loop: an empty view would
+        // otherwise return [] for a foreign source without entering the body,
+        // which is a silent answer to a question that should be refused.
+        try view.requireSource(shape: [scanHeight, scanWidth, Self.imageHeight, Self.width])
+        guard ry >= 0, ry < view.descriptor.ry else {
+            throw VendorRawError.malformed("EMPAD scan row is out of bounds.")
+        }
         var result: [Float] = []
-        result.reserveCapacity(scanWidth * Self.imageHeight * Self.width)
-        for rx in 0..<scanWidth { result.append(contentsOf: try readPattern(descriptor, ry: ry, rx: rx)) }
+        result.reserveCapacity(view.descriptor.rx * view.descriptor.qy * view.descriptor.qx)
+        for rx in 0..<view.descriptor.rx {
+            result.append(contentsOf: try readPattern(view, ry: ry, rx: rx))
+        }
         return result
     }
 
-    func readScanTile(_ descriptor: DatasetDescriptor, yRange: Range<Int>) throws -> FourDScanTile {
-        guard yRange.lowerBound >= 0, yRange.upperBound <= scanHeight else {
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+        try view.requireSource(shape: [scanHeight, scanWidth, Self.imageHeight, Self.width])
+        guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry else {
             throw VendorRawError.malformed("EMPAD tile is out of bounds.")
         }
         var pixels: [Float] = []
-        pixels.reserveCapacity(yRange.count * scanWidth * Self.imageHeight * Self.width)
-        for y in yRange { pixels.append(contentsOf: try readScanRow(descriptor, ry: y)) }
-        return FourDScanTile(yRange: yRange, scanWidth: scanWidth,
-                             detectorHeight: Self.imageHeight, detectorWidth: Self.width,
+        pixels.reserveCapacity(
+            yRange.count * view.descriptor.rx * view.descriptor.qy * view.descriptor.qx
+        )
+        for y in yRange { pixels.append(contentsOf: try readScanRow(view, ry: y)) }
+        return FourDScanTile(yRange: yRange, scanWidth: view.descriptor.rx,
+                             detectorHeight: view.descriptor.qy,
+                             detectorWidth: view.descriptor.qx,
                              pixels: pixels)
     }
 
@@ -252,41 +283,67 @@ actor MIBReader: FourDDataSource {
                           dtypeDescription: "\(dtype) big-endian (MIB)", chunkShape: nil)
     }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
-        guard ry >= 0, ry < scanHeight, rx >= 0, rx < scanWidth else {
+    /// Same as EMPAD: per-frame headers make frames contiguous units, so a scan
+    /// crop seeks past whole frames while a detector crop is sliced out of a
+    /// frame that had to be read anyway.
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
+
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        try view.requireSource(shape: [scanHeight, scanWidth, detectorHeight, detectorWidth])
+        guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw VendorRawError.malformed("MIB scan index is out of bounds.")
         }
-        let frame = ry * scanWidth + rx
+        let frame = view.sourceScanY(ry) * scanWidth + view.sourceScanX(rx)
         let count = detectorHeight * detectorWidth
         let data = try EMPADReader.read(path: path, offset: frame * frameBytes + headerBytes,
                                         count: count * bytesPerPixel)
+        let crop = view.specification.detectorCrop
+        let rows = crop.map { $0.yOffset..<($0.yOffset + $0.height) } ?? 0..<detectorHeight
+        let columns = crop.map { $0.xOffset..<($0.xOffset + $0.width) } ?? 0..<detectorWidth
         return data.withUnsafeBytes { bytes in
-            (0..<count).map { index in
-                switch bytesPerPixel {
-                case 1: return Float(bytes.loadUnaligned(fromByteOffset: index, as: UInt8.self))
-                case 2: return Float(bytes.loadUnaligned(fromByteOffset: index * 2, as: UInt16.self).bigEndian)
-                default: return Float(bytes.loadUnaligned(fromByteOffset: index * 4, as: UInt32.self).bigEndian)
+            var out = [Float]()
+            out.reserveCapacity(rows.count * columns.count)
+            for row in rows {
+                for column in columns {
+                    let index = row * detectorWidth + column
+                    switch bytesPerPixel {
+                    case 1: out.append(Float(bytes.loadUnaligned(fromByteOffset: index, as: UInt8.self)))
+                    case 2: out.append(Float(bytes.loadUnaligned(fromByteOffset: index * 2, as: UInt16.self).bigEndian))
+                    default: out.append(Float(bytes.loadUnaligned(fromByteOffset: index * 4, as: UInt32.self).bigEndian))
+                    }
                 }
             }
+            return out
         }
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        // See EMPADReader.readScanRow: validated here, not only inside the loop.
+        try view.requireSource(shape: [scanHeight, scanWidth, detectorHeight, detectorWidth])
+        guard ry >= 0, ry < view.descriptor.ry else {
+            throw VendorRawError.malformed("MIB scan row is out of bounds.")
+        }
         var result: [Float] = []
-        result.reserveCapacity(scanWidth * detectorHeight * detectorWidth)
-        for rx in 0..<scanWidth { result.append(contentsOf: try readPattern(descriptor, ry: ry, rx: rx)) }
+        result.reserveCapacity(view.descriptor.rx * view.descriptor.qy * view.descriptor.qx)
+        for rx in 0..<view.descriptor.rx {
+            result.append(contentsOf: try readPattern(view, ry: ry, rx: rx))
+        }
         return result
     }
 
-    func readScanTile(_ descriptor: DatasetDescriptor, yRange: Range<Int>) throws -> FourDScanTile {
-        guard yRange.lowerBound >= 0, yRange.upperBound <= scanHeight else {
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+        try view.requireSource(shape: [scanHeight, scanWidth, detectorHeight, detectorWidth])
+        guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry else {
             throw VendorRawError.malformed("MIB tile is out of bounds.")
         }
         var pixels: [Float] = []
-        pixels.reserveCapacity(yRange.count * scanWidth * detectorHeight * detectorWidth)
-        for y in yRange { pixels.append(contentsOf: try readScanRow(descriptor, ry: y)) }
-        return FourDScanTile(yRange: yRange, scanWidth: scanWidth,
-                             detectorHeight: detectorHeight, detectorWidth: detectorWidth,
+        pixels.reserveCapacity(
+            yRange.count * view.descriptor.rx * view.descriptor.qy * view.descriptor.qx
+        )
+        for y in yRange { pixels.append(contentsOf: try readScanRow(view, ry: y)) }
+        return FourDScanTile(yRange: yRange, scanWidth: view.descriptor.rx,
+                             detectorHeight: view.descriptor.qy,
+                             detectorWidth: view.descriptor.qx,
                              pixels: pixels)
     }
 

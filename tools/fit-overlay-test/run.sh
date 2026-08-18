@@ -20,6 +20,7 @@ xcrun swiftc -O -o "$WORK/harness" \
   "$ROOT/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$ROOT/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
   "$ROOT/mac4DSTEM/Core/Data/FourDDataSource.swift" \
+  "$ROOT/mac4DSTEM/Core/Data/LoadSpecification.swift" \
   "$ROOT/mac4DSTEM/Core/Data/Calibration.swift" \
   "$ROOT/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
   "$ROOT/mac4DSTEM/Core/Compute/FFT1D.swift" \

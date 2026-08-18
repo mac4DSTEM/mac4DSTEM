@@ -13,13 +13,16 @@ nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
 nonisolated enum PtychographyPreparer {
     static func prepare(
         source: any FourDDataSource,
-        descriptor: DatasetDescriptor,
+        view: LoadView,
         calibration: ParallaxPhysicalCalibration,
         probeRadiusPixels: Float,
         options: PtychographyPreparationOptions = .init(),
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> SingleslicePtychographyInput {
+        // The view's own shape — a crop is what is being processed, not the
+        // file's full extent.
+        let descriptor = view.descriptor
         guard descriptor.is4D, descriptor.ry > 0, descriptor.rx > 0,
               descriptor.qy > 0, descriptor.qx > 0,
               probeRadiusPixels.isFinite, probeRadiusPixels > 0,
@@ -49,7 +52,7 @@ nonisolated enum PtychographyPreparer {
         for scanRow in 0..<descriptor.ry {
             try checkCancellation(cancellation)
             let tile = try await source.readScanTile(
-                descriptor, yRange: scanRow..<(scanRow + 1)
+                view, yRange: scanRow..<(scanRow + 1)
             )
             guard tile.pixels.count == descriptor.rx * detectorCount else {
                 throw SingleslicePtychography.ReconstructionError.invalidInput(

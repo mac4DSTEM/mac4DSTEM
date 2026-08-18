@@ -156,13 +156,13 @@ func testValid(in dir: URL) async throws {
     guard ds.shape == [2, 2, 2, 3] else { fail("valid: shape \(ds.shape)") }
     guard ds.dtypeDescription == "int16" else { fail("valid: dtype \(ds.dtypeDescription)") }
 
-    let pattern = try await reader.readPattern(ds, ry: 1, rx: 0)
+    let pattern = try await reader.readPattern(LoadView(fullExtentOf: ds), ry: 1, rx: 0)
     guard pattern == [12, 13, 14, 15, 16, 17] else { fail("valid: readPattern \(pattern)") }
 
-    let row = try await reader.readScanRow(ds, ry: 0)
+    let row = try await reader.readScanRow(LoadView(fullExtentOf: ds), ry: 0)
     guard row == (0..<12).map(Float.init) else { fail("valid: readScanRow \(row)") }
 
-    let tile = try await reader.readScanTile(ds, yRange: 0..<2)
+    let tile = try await reader.readScanTile(LoadView(fullExtentOf: ds), yRange: 0..<2)
     guard tile.pixels == (0..<24).map(Float.init) else { fail("valid: readScanTile \(tile.pixels)") }
 
     print("PASS: valid tiny 4D cube decodes correct shape and int16 values")
@@ -185,7 +185,7 @@ func testTruncated(in dir: URL) async throws {
         let reader = try await DM4Reader(path: url.path)
         let ds = try await reader.discoverPrimaryDataset()
         do {
-            _ = try await reader.readPattern(ds, ry: 1, rx: 0)
+            _ = try await reader.readPattern(LoadView(fullExtentOf: ds), ry: 1, rx: 0)
             fail("truncated: readPattern silently returned data past EOF")
         } catch {
             // Any thrown error here satisfies "no silent success."

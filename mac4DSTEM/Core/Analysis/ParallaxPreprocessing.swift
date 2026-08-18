@@ -192,12 +192,15 @@ nonisolated enum ParallaxPreprocessor {
 
     static func run(
         source: any FourDDataSource,
-        descriptor: DatasetDescriptor,
+        view: LoadView,
         calibration: ParallaxPhysicalCalibration,
         options: ParallaxPreprocessOptions = ParallaxPreprocessOptions(),
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> ParallaxPreprocessResult {
+        // The view's own shape — a crop is what is being processed, not the
+        // file's full extent.
+        let descriptor = view.descriptor
         guard descriptor.is4D, descriptor.ry > 0, descriptor.rx > 0,
               descriptor.qy > 0, descriptor.qx > 0 else {
             throw PreprocessError.invalidData("the dataset is not a non-empty 4D cube")
@@ -223,7 +226,7 @@ nonisolated enum ParallaxPreprocessor {
         for lower in stride(from: 0, to: descriptor.ry, by: tileRows) {
             try checkCancellation(cancellation)
             let upper = min(descriptor.ry, lower + tileRows)
-            let tile = try await source.readScanTile(descriptor, yRange: lower..<upper)
+            let tile = try await source.readScanTile(view, yRange: lower..<upper)
             try validate(tile: tile, descriptor: descriptor, range: lower..<upper)
             for localY in 0..<tile.rowCount {
                 try checkCancellation(cancellation)
@@ -308,7 +311,7 @@ nonisolated enum ParallaxPreprocessor {
         for lower in stride(from: 0, to: descriptor.ry, by: tileRows) {
             try checkCancellation(cancellation)
             let upper = min(descriptor.ry, lower + tileRows)
-            let tile = try await source.readScanTile(descriptor, yRange: lower..<upper)
+            let tile = try await source.readScanTile(view, yRange: lower..<upper)
             try validate(tile: tile, descriptor: descriptor, range: lower..<upper)
             for localY in 0..<tile.rowCount {
                 try checkCancellation(cancellation)

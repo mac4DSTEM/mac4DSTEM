@@ -69,6 +69,17 @@ nonisolated struct ResidentCube: @unchecked Sendable {
     /// Found by adversarial review 2026-08-17, when an earlier comment here
     /// claimed the opposite (that a specification change "will reshape the
     /// descriptor"). Closed in L3 by carrying the specification.
+    ///
+    /// **What this guard actually runs against, as of L3's reader threading.**
+    /// `FourDArray.view` is a `let`, and the array is the only thing in the app
+    /// that constructs a `ResidentCube` — from its own view — so at every call
+    /// site today the specification is compared against itself and the
+    /// comparison is *tautological*. The live separation is structural: a
+    /// different specification means a reopen, which means a different array
+    /// holding a different buffer. This comparison is defence in depth against a
+    /// future stage that makes the view mutable, and it stays pinned as a unit
+    /// by `tools/virtual-detector-residency`. Saying so rather than letting the
+    /// paragraph above read as a running guard — adversarial review 2026-08-18.
     func matches(_ other: DatasetDescriptor,
                  specification otherSpecification: LoadSpecification) -> Bool {
         descriptor.filePath == other.filePath

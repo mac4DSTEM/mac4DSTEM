@@ -211,15 +211,24 @@ re-reference below.
 
 ## 5. Status
 
-> **Where to start (2026-08-18).** Three stages are partly done and marked
-> `[~]`. **The next work is L3's reader threading** — §6's L3 prompt opens with
-> a correction that reverses this plan's original premise about how crops reach
-> the readers; read it before touching one. Two things that look like
-> unfinished work and are not:
+> **Where to start (2026-08-18, third update).** **L3 is complete** — readers
+> apply a crop and the calibration is re-referenced into it or invalidated with
+> a named reason. **The next stage is L4, bin-on-read**, the scientifically
+> hardest one in this plan: read its prompt in §6 and note that `LoadView`
+> currently *refuses* a bin factor other than 1, so lifting that refusal is
+> where L4 starts. `qPixelSize` is the value that must rescale and the origin is
+> the value py4DSTEM gets wrong. Two things that look like unfinished work and
+> are not:
 > **(a)** residency is dormant on purpose — see L2 below, do not set the
 > threshold; **(b)** L5's configurator is blocked on L3/L4, not forgotten.
-> Before L5's configurator, fix **#43** (`docs/open-items.md`), which is also
-> what currently stops `tools/run-tests.sh all` from passing at all.
+> Before L5's configurator, fix **#43** (`docs/open-items.md`).
+>
+> **Correction, 2026-08-18:** #43 is *not* what stops `tools/run-tests.sh all`
+> — on this machine `all` never reaches a harness. It runs `unit` first, and
+> `set -e` aborts there on the intermittent
+> `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` (exit 65, zero
+> harnesses started). Confirmed pre-existing: the same test fails the same way
+> on a stashed clean tree. `run-tests.sh scientific` is exit 0, 31 harnesses.
 
 - [x] **L1 — Honest load progress** (2026-08-06, closes #36). The seven
   hard-coded waypoints are gone; unmeasurable phases are named spinners with
@@ -257,7 +266,9 @@ re-reference below.
   annulus, off-centre annulus, rectangle, point, edge point and origin point,
   plus both aperture paths, the five tile-served reductions, refusal, release,
   cancellation and the staleness guard. Added to `run-tests.sh scientific`
-  (31 harnesses now, not 30). App builds; `run-tests.sh unit` exit 0.
+  (which made `all` 31, not 30, **as of 2026-08-17** — L3 has since added two
+  more; see the counts in `docs/open-items.md`). App builds; `run-tests.sh unit`
+  exit 0.
   **The harness's first version was wrong and green.** Setting
   `FourDArray.resident()` to return nil — residency silently never engaging,
   the exact failure L2.3 warns about — left every equality assertion passing,
@@ -366,8 +377,11 @@ re-reference below.
      branch checks cancellation either side of one indivisible
      `waitUntilCompleted`, so residency makes cancellation *coarser*, not finer.
   3. The L3 blocker on `ResidentCube.matches`.
-- [~] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing.**
-  **Started 2026-08-18. Foundation only; no reader crops yet.**
+- [x] **L3 — `LoadSpecification` + crop-on-read + calibration re-referencing.**
+  **Complete 2026-08-18** (foundation, reader threading, calibration
+  re-reference). Nothing in the UI can *request* a crop yet — that is L5's
+  configurator — but every layer beneath it now applies one correctly, and the
+  refusal to export from a cropped view is the one deliberate gap left.
   In: `Core/Data/LoadSpecification.swift` — `LoadSpecification` (scan crop,
   detector crop, bin factor) with `AxisCrop` stored as offset+extent so it is
   `Codable`/`Equatable` for sidecars and identity comparison, plus `LoadPushdown`,
@@ -378,11 +392,169 @@ re-reference below.
   offsets no longer collide — verified to fail 1/1 when reverted to shape-only.
   App builds; `run-tests.sh unit` and `scientific` exit 0.
 
-  **Next, and it is the bulk of the stage:** thread the specification through
-  the five conformers per the correction in §6's L3 prompt — three of them
-  ignore the descriptor entirely today — then the calibration re-reference, then
-  `tools/load-spec-test/`. **Hand this to a fresh session**; the reader work is
-  where the stage's risk lives and it deserves a clean context.
+  **Reader threading landed 2026-08-18. The calibration re-reference did not —
+  see below; that is what still holds the stage open.**
+
+  All five conformers now apply a crop at read time, and the mechanism that
+  makes them is `LoadView`: source descriptor, specification, and the descriptor
+  derived from both, built together in one validating initialiser and passed to
+  the reader as a single value. **A separate `specification:` parameter was
+  rejected**, and the reason is the defect class this stage owns: a *cropped*
+  descriptor paired with a `.fullExtent` specification reads the right number of
+  pixels from the wrong place, so every length check downstream still passes and
+  the numbers are simply about different data. Two parameters make that pair
+  expressible at every call site. It is **not** unrepresentable even so —
+  `LoadView(fullExtentOf:)` does not validate — so each reader re-checks against
+  the shape it discovered itself (`requireSource`), which turns the bad pair into
+  a refusal at the first read rather than a wrong number.
+
+  Per reader: HDF5 pushes all four axes into the hyperslab it already built;
+  DM4 seeks the scan crop and decodes only the kept detector rows out of its
+  mapping; EMPAD and MIB read the frame they had to read anyway and decode only
+  the kept rows; `DemoFourDDataSource` generates at **source** coordinates and
+  slices — it is the one reader that could have answered a crop with a
+  re-centred cube rather than a subset, which is a fabrication, not a bug.
+
+  `LoadPushdown` is now resolved **per view**, not per format: HDF5 reads and
+  decompresses whole chunks, so on a chunked dataset — which py4DSTEM EMD files
+  are — a crop inside a chunk skips nothing. Measured 2026-08-18 on a
+  gzip-chunked `(16,16,256,256)` f4 with chunks `(1,16,256,256)`: the full
+  detector 0.137 s, 1/64 of it 0.135 s. The reader declared `.full`
+  unconditionally until that measurement, which is the exact overstatement the
+  type exists to prevent. DM4 stays conservative at `.scanOnly` although its
+  per-row decode does skip excluded rows' pages, because the boolean cannot say
+  "most of it" and rounding *down* is the safe direction.
+
+  Verified by `tools/load-spec-test/` (**new**, in `run-tests.sh scientific`,
+  which is 31 harnesses now): a cropped read equals the corresponding slice of a
+  full read, exactly — `==`, never a tolerance — on every reader, on all three
+  read entry points, on every sub-tile range, plus the refusals and the
+  `FourDArray` resident path. Twelve negative controls, each reverted after:
+  ignoring the detector offset (40 assertions), the scan offset (39), DM4's
+  detector crop (36), the shared scan offset (40), the demo fabrication (626),
+  an out-of-bounds crop (6), a bin factor L4 has not built (6), dropping
+  `requireSource` (6), and the four below.
+
+  **The adversarial review this stage names was taken 2026-08-18 and refuted
+  three of the claims above.** All are fixed here, each with a control:
+  - **The harness's ground truth was the reader's own full-extent read**, so it
+    proved self-consistency rather than correctness. Any transformation that
+    *commutes with cropping* passed — demonstrated by transposing EMPAD's
+    rewritten decode loop, which stayed green on all assertions because both
+    sides transposed together, and is invisible on a square detector. Every
+    fixture is now filled with a known function of its own flat source index and
+    checked against **what the fixture wrote**; the EMPAD and MIB transposes now
+    fail 1/1 each.
+  - **The rank-3 HDF5 scan crop had no coverage at all.** A rank-3 dataset is
+    reshaped to `[1, N, Qy, Qx]`, so `ry == 1` and every scan-crop case was
+    skipped — while `hyperslab()`'s own doc singles that mapping out as the
+    tricky one. Using the scan-*y* offset where scan-*x* belongs (indistinguish-
+    able when y is always 0) passed the whole harness; with the two rank-3 cases
+    added it fails 11/11.
+  - **Every type in `LoadSpecification.swift` was `MainActor`-isolated**, because
+    the target sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` — so the five
+    reader *actors* were making cross-actor calls for plain value types: 35 new
+    warnings, three classes of them "an error in the Swift 6 language mode". Now
+    `nonisolated`, like `FourDScanTile` and `ResidentCube` beside them. **The
+    harness cannot see this class of defect** — it compiles the same file with
+    bare `swiftc`, which defaults to *nonisolated*, so it validates different
+    isolation semantics from the app. Only the app build shows it.
+
+  Also fixed from that review: the calibrated-DataCube export now **refuses** a
+  cropped view (its `transformedCalibration` rescales origin, `qSize` and probe
+  radius by the export bin only and knows nothing about a detector crop — it
+  would have written cropped-frame pixels with a source-frame origin, the very
+  py4DSTEM defect §2 forbids); `EMPADReader`/`MIBReader.readScanRow` validate
+  their own view instead of relying on the loop body; DM4's cropped read decodes
+  into one buffer instead of one array per detector row.
+
+  **Two comment claims were corrected rather than defended**, per the refusal
+  rule's second clause: `LoadView`'s "unrepresentable" (above), and
+  `ResidentCube.matches`, whose specification comparison is **tautological at
+  every call site today** — `FourDArray.view` is a `let` and the array is the
+  only thing that builds a `ResidentCube`, from its own view. The live
+  separation is structural: a different specification means a reopen, which
+  means a different array with a different buffer. The comparison stays as
+  defence in depth against a future mutable view, and now says so.
+
+  **Calibration re-reference landed 2026-08-18** (steps 2, 3 and 5).
+  `Core/Data/CalibrationReReference.swift` is pure and synchronous — it takes a
+  `LoadView`, a `Calibration` and the aperture centre and returns a new one, so
+  the rules are testable without a dataset, an actor or a GPU, and `AppState`
+  applies the result rather than containing the policy.
+
+  **One geometric fact decides every rule in it**, which is why they are not a
+  list of special cases: a crop (no bin — that is L4) is a *pure translation* of
+  the detector frame and a *pure selection* of scan positions. So a **position**
+  moves with the frame (the origin maps, fitted *and* measured, and the aperture
+  centre — which on a file carrying only `qx0`/`qy0` is the app's only origin); a
+  **length, radius or angle** does not (the ellipse fit, the probe radius); a
+  **sampling interval** does not (`qPixelSize`, `rPixelSize` — only binning
+  rescales those); and a **scan-indexed** value is cropped to the sub-rectangle.
+  Anything that fits none of those four is invalidated rather than guessed at.
+
+  **The refusals, which are the point.** An origin that lands outside the
+  diffraction crop is dropped with a named reason and a provenance downgrade —
+  **never clamped**, because clamping puts the beam at a pixel it is not at and
+  every downstream number then looks fine. The aperture centre falls back to the
+  geometric default rather than staying pointed at a detector pixel that is no
+  longer loaded. An origin map whose shape does not describe the source scan is
+  invalidated rather than cropped on a guess.
+
+  **Order is load-bearing:** the scan crop runs *before* the detector crop, so a
+  scan position being dropped cannot veto the calibration — a beam excursion in
+  a corner the user just cropped away must not invalidate a calibration that is
+  in fact good. Pinned by a test that fails if the order is swapped.
+
+  **Step 3 is satisfied structurally, not by a second mechanism.** Changing the
+  specification is a *reopen*, a reopen runs `activate`, and `activate` already
+  clears every scan-indexed product. What the user lacked was the *reason*, which
+  `loadedView.invalidatedCalibration` now carries. **Step 5 needed no code at
+  all** — `minPeakSpacing` derives from the view's detector extent and the probe
+  radius, and the radius survives the re-reference unchanged — and is pinned by
+  a test whose own control caught that the first fixture was too small for the
+  cropped and full-extent values to differ.
+
+  **This stage's `AppState` seam is `App/LoadedView.swift`** (§7, binding):
+  the state L3 *adds* — the specification, the reader's pushdown, the
+  invalidations and the ambiguity flag — in its own `@Observable` type that
+  `AppState` holds, with no forwarding properties. Same precedent as L2's
+  `App/DatasetResidency.swift`, and the same rule: it publishes what was
+  applied, never what was requested.
+
+  Verified by `mac4DSTEMTests/CalibrationReReferenceTests` (13 tests) and
+  `tools/load-spec-calibration/` (**new**, in `run-tests.sh scientific`). Eight
+  unit-level controls fail it — swapped crop axes, clamping instead of
+  invalidating, leaving the measured arrays behind, reversing the crop order,
+  forgetting the aperture centre, rescaling `qPixelSize` as py4DSTEM does for a
+  bin, and dropping the ambiguity report. Five fixture-level controls fail too,
+  including the two that unit tests **cannot** catch: shifting the calibration
+  but not the reader, and shifting the reader but not the calibration.
+
+  **The fixture's first two premises were both wrong, and measuring is what
+  showed it** — worth recording, because it is the same lesson twice:
+  - "Measure the origin again on the cropped data and it must match" is not a
+    clean arbiter. `measureOrigin` is **frame-dependent by construction**: its
+    coarse step takes an argmax over blocks of side `round(probeRadius)` tiled
+    from pixel (0, 0), so a crop offset that is not a multiple of that block
+    slides the grid under the disk. Measured on this fixture (block 4): offset
+    (8, 4) reproduces the full-frame origin *exactly*, (6, 4) differs by
+    **0.68 px** and (8, 5) by **1.13 px**. py4DSTEM's `argmax(gaussian_filter(dp,
+    sigma=r))` is translation-equivariant and would not do this; the
+    binned-block substitution is the deviation already recorded in
+    `Shaders/OriginMeasure.metal`. **This is a pre-existing property of the
+    app's origin estimator, not something this stage introduced** — it is in
+    `docs/open-items.md` now.
+  - "The measured origin is a fixed point of a windowed centre of mass" is also
+    false: the kernel performs a **single** refinement from its coarse centre
+    rather than iterating, so its own output sits ~0.6 px from the converged
+    centre. The arbiter is now anchored on the fixture's **analytically known**
+    disk centre, a number no code under test has seen.
+
+  What the fixture actually proves, since a translation compared against a
+  translated expectation would be arithmetic proving itself: that the **reader's
+  crop and the calibration's shift use the same coordinate convention**. Break
+  either one alone and every unit test still passes while the fixture fails.
 - [ ] **L4 — Bin-on-read**
 - [~] **L5 — Open-time preview and the load configurator. PREVIEW HALF DONE
   2026-08-18; configurator not started** (it needs L3/L4).

@@ -21,9 +21,10 @@ xcrun swiftc -O -parse-as-library -o "$WORK/baseline" \
   "$ROOT/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$ROOT/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
   "$ROOT/mac4DSTEM/Core/Data/FourDDataSource.swift" \
+  "$ROOT/mac4DSTEM/Core/Data/LoadSpecification.swift" \
   "$ROOT/mac4DSTEM/Core/Data/Calibration.swift" \
   "$ROOT/mac4DSTEM/Core/Data/FourDArray.swift" \
-  "$ROOT/mac4DSTEM/Core/Data/ResidentCube.swift" "$ROOT/mac4DSTEM/Core/Data/LoadSpecification.swift" \
+  "$ROOT/mac4DSTEM/Core/Data/ResidentCube.swift" \
   "$ROOT/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
   "$ROOT/mac4DSTEM/Core/Compute/FFT1D.swift" \
   "$ROOT/mac4DSTEM/Core/Compute/FFT2D.swift" \

@@ -26,12 +26,30 @@ source file** (`load-pipeline-plan.md` §7.1). **L3 is unblocked.**
 
 ### ~~Blocker on L3, created by L2~~ — **CLOSED 2026-08-18**
 
-`ResidentCube` now carries its `LoadSpecification` and `matches` compares it, so
-two crops of equal extent at different offsets — which have an identical
-`filePath`, `datasetPath` and `shape` over disjoint pixels — are no longer
-confused for one another. `FourDArray.resident(for:)` is the compute-side
-accessor that applies the check. Pinned in `tools/virtual-detector-residency`;
-reverting `matches` to shape-only fails it 1/1.
+`ResidentCube` carries its `LoadSpecification` and `matches` compares it, so two
+crops of equal extent at different offsets — identical `filePath`, `datasetPath`
+and `shape` over disjoint pixels — cannot be confused for one another. Pinned in
+`tools/virtual-detector-residency`; reverting `matches` to shape-only fails it
+1/1.
+
+**Amended 2026-08-18, after the reader threading landed and an adversarial
+review checked this claim.** The first version of this entry said
+`FourDArray.resident(for:)` "is the compute-side accessor that applies the
+check". It is not, and the difference matters to anyone reading it as a live
+guard: `FourDArray.view` is now a `let`, and the array is the only thing in the
+app that constructs a `ResidentCube` — from its own view — so the specification
+comparison is **tautological at every call site**. It is always comparing a
+value with itself.
+
+What actually closes the blocker is structural, and it is stronger than a
+runtime check: **a different specification means a reopen**, which means a
+different `FourDArray` holding a different buffer, so one array can never hold a
+buffer for a crop other than its own. The live guard inside `resident(for:)` is
+`describesThisView`, which refuses a descriptor that is not this array's view —
+a stale one from a previous dataset, or a synthetic one built for a sub-range.
+The specification comparison stays as defence in depth against a future stage
+that makes the view mutable, and both it and `ResidentCube.matches` now say so
+in the code.
 
 New work that came out of the session:
 
@@ -100,12 +118,23 @@ Two things learned that are not obvious and cost time:
   shift with the OS. Only a real older machine answers this.
 - **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
   harnesses.** Measured at the tag; **nobody has reproduced the aggregate
-  since**, and the harness count is now 31 (`virtual-detector-residency` landed
-  2026-08-17). The unit suite and the scientific harnesses are green on this
-  machine; `all` additionally runs `real-data-acceptance` and `package-test`,
-  which have not been re-run. A verification claim that a reader cannot
-  reproduce is the kind that costs credibility with exactly the people who
-  check — so either re-run `all` and restate it, or say what was actually run.
+  since**, and the count has moved twice — `virtual-detector-residency` landed
+  2026-08-17 and `load-spec-test` and `load-spec-calibration` on 2026-08-18, so `scientific` is
+  now 31 and `all` is 33. A verification claim that a reader cannot reproduce is the kind
+  that costs credibility with exactly the people who check — so either re-run
+  `all` and restate it, or say what was actually run.
+
+  **Measured 2026-08-18, and it is worse than "not re-run":** `run-tests.sh all`
+  cannot currently reach a single harness. It runs `unit` first and `set -e`
+  aborts there on the intermittent
+  `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` — exit 65, zero
+  `==>` lines. So the standing note that **#43** is "what currently stops
+  `run-tests.sh all` from passing at all" (repeated in `CLAUDE.md` and
+  `docs/load-pipeline-plan.md` §5) is wrong on this machine: the sidebar test
+  stops it first and #43 is never reached. Confirmed pre-existing — the same
+  test fails the same way on a stashed clean tree, with no working-tree changes.
+  What *is* reproducible today: `run-tests.sh scientific` → **exit 0, 31
+  harnesses**.
 
 ### First clean-account acceptance run — 2026-08-14
 
@@ -225,6 +254,52 @@ the claims are widened*, not as release advice.
   macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
   Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
   whether to ship a legacy PNG set alongside.
+- **`measureOrigin` is frame-dependent: cropping the detector moves the
+  measured origin by up to ~1 px, and this predates the load pipeline.** Its
+  coarse step takes an argmax over blocks of side `round(probeRadius)` tiled
+  from pixel (0, 0) (`Shaders/OriginMeasure.metal`), so a crop offset that is
+  not a multiple of that block slides the grid under the disk. Measured
+  2026-08-18 on the `tools/load-spec-calibration` fixture (block 4): offset
+  (8, 4) reproduces the full-frame origin **exactly**, (6, 4) differs by
+  **0.68 px**, (8, 5) by **1.13 px**. py4DSTEM's own coarse step,
+  `argmax(gaussian_filter(dp, sigma=r))`, is translation-equivariant and does
+  not have this property — the binned-block substitution is the deliberate
+  deviation recorded in that shader's header, taken for cost.
+  **Consequence to weigh, not a bug to rush:** "re-fit the origin on this view"
+  can legitimately return a slightly different answer from the re-referenced
+  one, so the two are not interchangeable at sub-pixel precision. It also means
+  the same dataset cropped two ways can fit two origins ~1 px apart. Bears on
+  the Q-calibration lead, where `KnownCrystalQCalibration.estimate` already
+  discards peaks inside 2 px. A translation-equivariant coarse step (a real
+  Gaussian, or an argmax refined against a fixed grid) would remove it.
+- **`measureOrigin` performs a single centre-of-mass refinement, not an
+  iteration to convergence**, so its output sits ~0.6 px from the converged
+  windowed centre on the same fixture. Also pre-existing, also a deviation from
+  what "centre of mass origin" implies to a reader. Recorded because a harness
+  that assumes the returned origin is a fixed point of its own CoM will fail for
+  this reason and look like a crop bug — it did, on 2026-08-18, before the
+  arbiter was re-anchored on the fixture's analytic truth.
+- **Two L3 residuals from the 2026-08-18 adversarial review, both unreachable
+  today and both reachable the moment L5's configurator lands.**
+  **(a)** `BraggVectorEMDWriter.transformedCalibration` rescales the origin,
+  `qSize` and the probe radius by the *export* bin only; it knows nothing about
+  `view.specification.detectorCrop`, and its origin-map shape check now compares
+  against the *view* extent, so a source-extent map would fall silently through
+  to an empty array. The export currently **refuses** a cropped view rather than
+  carrying that defect; the refusal is lifted by L3's calibration re-reference,
+  not before. **(b)** `FourDArray.tile(yRange:from:)` — the read offset out of a
+  resident buffer — is only ever exercised at `lowerBound == 0` by
+  `tools/load-spec-test`, so a bug in that offset would not be caught there.
+- **`tools/load-spec-test` compiles `LoadSpecification.swift` with bare
+  `swiftc`, which defaults to *nonisolated*, while the app target sets
+  `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.** So the harness validates
+  different isolation semantics from the app, and cannot see an actor-isolation
+  defect at all — that class showed up only in the app build (35 warnings, three
+  classes of them "an error in the Swift 6 language mode"). Every `tools/`
+  harness that compiles app sources has the same blind spot. Not a bug to fix so
+  much as a limit to know: **the app build is the only gate for isolation**, and
+  a stage that adds Core value types crossing into the reader actors should be
+  built, not just harnessed.
 - **#17a — aspect-aware pane arrangement.** Built, then reverted on sight
   2026-08-05. Needs a design decision, not an implementation.
 - ~~**#36 — no progress indication while a datacube loads.**~~ **Fixed

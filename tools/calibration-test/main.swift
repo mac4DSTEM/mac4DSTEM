@@ -26,10 +26,10 @@ Task {
         let expectedShape = expectsOriginMaps ? [2, 3, 4, 5] : [2, 2, 4, 4]
         check(desc.shape == expectedShape, "shape \(desc.shape)")
         let tileRange = 0..<min(2, desc.ry)
-        let tile = try await reader.readScanTile(desc, yRange: tileRange)
+        let tile = try await reader.readScanTile(LoadView(fullExtentOf: desc), yRange: tileRange)
         var rowPixels: [Float] = []
         for row in tileRange {
-            rowPixels += try await reader.readScanRow(desc, ry: row)
+            rowPixels += try await reader.readScanRow(LoadView(fullExtentOf: desc), ry: row)
         }
         check(tile.yRange == tileRange, "tile range \(tile.yRange)")
         check(tile.pixels == rowPixels, "multi-row tile differs from row reads")

@@ -48,7 +48,7 @@ func fail(_ message: String) -> Never {
             var finite = 0, sampled = 0
             var sampledPatterns: [[Float]] = []
             for (y, x) in positions {
-                let pattern = try await reader.readPattern(descriptor, ry: y, rx: x)
+                let pattern = try await reader.readPattern(LoadView(fullExtentOf: descriptor), ry: y, rx: x)
                 guard pattern.count == descriptor.qy * descriptor.qx else {
                     fail("\(path): short pattern at \(x),\(y)")
                 }

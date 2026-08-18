@@ -151,10 +151,20 @@ final class AppState {
     private var reader: (any FourDDataSource)?
     private var fourD: FourDArray?
 
+    /// The loaded view — the source descriptor, the load specification, and the
+    /// descriptor derived from both. Read-only, and deliberately not the array:
+    /// every consumer that hands a shape to a reader needs the pairing, and
+    /// exposing them separately is what let three readers ignore the descriptor.
+    var loadView: LoadView? { fourD?.view }
+
     /// Whether the open cube is held in memory, and the preload's progress.
     /// Owned by its own type, with no forwarding properties on `AppState` —
     /// see `DatasetResidency.swift` for why. Views read `residency.…`.
     let residency = DatasetResidency()
+
+    /// Which part of the source file is loaded, and what moving the calibration
+    /// into that frame cost. Stage L3's seam — see `App/LoadedView.swift`.
+    let loadedView = LoadedView()
 
     /// A strided sample of the open dataset, built during the open so there is
     /// something real on screen before the first whole-cube pass.
@@ -1605,12 +1615,18 @@ final class AppState {
         if !isBusy { progress = nil }
         datasetEpoch &+= 1
         beginDatasetLoadingStage("Reading calibration metadata…")
-        self.descriptor = descriptor
-        fourD = FourDArray(reader: reader, descriptor: descriptor)
+        // ONE view, built once and shared: the array reads through it, the
+        // calibration is re-referenced into it, and `loadedView` records it. The
+        // specification is `.fullExtent` on every shipped path — L5's
+        // configurator is what will hand a real one in.
+        let view = LoadView(fullExtentOf: descriptor)
+        self.descriptor = view.descriptor
+        fourD = FourDArray(reader: reader, view: view)
         // A new array is a new (absent) buffer; the old cube dies with the old
         // array. Resetting here keeps the panel from claiming residency that
         // belonged to the previous dataset.
         residency.reset()
+        loadedView.reset()
         datasetPreview = nil
         selectedScan = ScanPos(x: 0, y: 0)
         displayRangeLo = 0
@@ -1689,8 +1705,14 @@ final class AppState {
             // Full py4DSTEM origin maps use real-space order [R_Nx, R_Ny],
             // matching app [Ry, Rx]. Detector coordinates still need the one
             // documented swap: py4DSTEM qx -> app y, qy -> app x.
+            // Read at the SOURCE extent — a file's origin map describes the
+            // whole scan, not the loaded crop — and moved into the view's frame
+            // by `CalibrationReReference` below. Sizing this against the *view*
+            // instead would fail the shape check and drop the origin silently,
+            // which is the quiet-failure shape this stage exists to remove.
             if let maps = pc.originMaps,
-               let appMaps = maps.appOriginMaps(width: descriptor.rx, height: descriptor.ry) {
+               let appMaps = maps.appOriginMaps(width: view.source.rx,
+                                                height: view.source.ry) {
                 calibration.origin = appMaps
                 if let origin = calibration.meanOrigin {
                     aperture.centerX = origin.x
@@ -1699,6 +1721,41 @@ final class AppState {
                 calibration.originProvenance = .fileMaps
             }
         }
+
+        // MOVE THE CALIBRATION INTO THE LOADED FRAME, or lose the values that
+        // cannot make the trip — with a named reason for each.
+        //
+        // Everything above read the file at its SOURCE extent, because that is
+        // what the file describes. This is the single point where those values
+        // become values *about the view*. At full extent it is the identity, so
+        // the shipped path is unchanged; it stops being the identity the moment
+        // L5's configurator hands `activate` a real specification.
+        //
+        // The rules are in `CalibrationReReference`, deliberately not here: they
+        // are pure geometry and they are testable without an AppState.
+        let reReferenced = CalibrationReReference.apply(
+            view, to: calibration, provenance: calibrationProvenance,
+            apertureCenter: .init(x: aperture.centerX, y: aperture.centerY)
+        )
+        calibration = reReferenced.calibration
+        calibrationProvenance = reReferenced.provenance
+        if let center = reReferenced.apertureCenter {
+            aperture.centerX = center.x
+            aperture.centerY = center.y
+        } else {
+            // The beam is not inside the diffraction crop. Fall back to the
+            // geometric default rather than leaving the aperture pointed at a
+            // detector pixel that is no longer loaded.
+            aperture.centerX = Float(view.descriptor.qx) / 2
+            aperture.centerY = Float(view.descriptor.qy) / 2
+            calibration.originProvenance = .geometricDefault
+        }
+        loadedView.publish(
+            specification: view.specification,
+            pushdown: await reader.loadPushdown(for: view),
+            outcome: reReferenced
+        )
+
         patternDisplayMode = .current
         meanPattern = nil
         maxPattern = nil
@@ -1720,6 +1777,14 @@ final class AppState {
         braggPeakCount = nil
         currentPeaks = []
         currentDiskDiagnostics = nil
+        // L3 step 3 — "a real-space crop makes existing scan-indexed results
+        // AMBIGUOUS, not stale" — is satisfied here rather than by a second
+        // mechanism, and deliberately so. Changing the load specification is a
+        // *reopen* (docs/v2-scope.md §6.1), a reopen runs `activate`, and
+        // `activate` already clears every scan-indexed product below. What the
+        // user needed and did not have is the *reason*, which
+        // `loadedView.invalidatedCalibration` now carries. Adding a separate
+        // invalidation pass would be a second code path clearing the same state.
         strainMap = nil
         orientationPlan = nil
         orientationMap = nil
@@ -2513,7 +2578,10 @@ final class AppState {
     /// stack and incoherent BF initialization. No iterative reconstruction is
     /// performed or implied by this operation.
     func prepareParallaxPreview() async {
-        guard let source = reader, let descriptor else { return }
+        // The view the array actually reads, not a descriptor assembled beside
+        // it: a crop and the shape it produces must travel together.
+        guard let source = reader, let fourD, let descriptor else { return }
+        let view = fourD.view
         let physical: ParallaxPhysicalCalibration
         do {
             physical = try ParallaxPhysicalCalibration.resolve(
@@ -2543,7 +2611,7 @@ final class AppState {
                 }
             }
             let result = try await ParallaxPreprocessor.run(
-                source: source, descriptor: descriptor, calibration: physical,
+                source: source, view: view, calibration: physical,
                 cancellation: token, progress: progressUpdate
             )
             guard isCurrentOperation(token), datasetEpoch == epoch,
@@ -2828,10 +2896,13 @@ final class AppState {
     }
 
     func runSingleslicePtychography() async {
-        guard let source = reader, let descriptor else {
+        // As in `prepareParallaxPreview`: take the view from the array, so the
+        // reader is told where the shape it is given sits in the file.
+        guard let source = reader, let fourD, let descriptor else {
             presentComputeFailure(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
             return
         }
+        let view = fourD.view
         let physical: ParallaxPhysicalCalibration
         do {
             physical = try ParallaxPhysicalCalibration.resolve(
@@ -2859,7 +2930,7 @@ final class AppState {
                 }
             }
             let input = try await PtychographyPreparer.prepare(
-                source: source, descriptor: descriptor, calibration: physical,
+                source: source, view: view, calibration: physical,
                 probeRadiusPixels: aperture.outer, cancellation: token,
                 progress: prepareProgress
             )

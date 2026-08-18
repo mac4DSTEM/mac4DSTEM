@@ -269,13 +269,36 @@ nonisolated enum BraggVectorEMDWriter {
     /// writes stay bounded by `tileRows`; the final file appears atomically.
     static func writeCalibratedDataCube(
         source: any FourDDataSource,
-        descriptor: DatasetDescriptor,
+        view: LoadView,
         calibration: PixelCalibration,
         options: CalibratedDataCubeExportOptions,
         to destination: URL,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> CalibratedDataCubeExportSummary {
+        // The export crops what is *loaded*, so its bounds are the view's, not
+        // the source file's.
+        //
+        // **A cropped view is refused here, on purpose.** The geometry would
+        // work — `options` indexes the view, the view indexes the file — but
+        // `transformedCalibration` rescales the origin, `qSize` and the probe
+        // radius by the *export* bin only and knows nothing about
+        // `view.specification.detectorCrop`, so a cropped view would write
+        // cropped-frame pixels with a source-frame origin: precisely the
+        // py4DSTEM defect this file's own DEVIATION note forbids. Its origin-map
+        // shape check also compares against the view extent, so a source-extent
+        // map would fall silently through to an empty array.
+        //
+        // Unreachable today (nothing sets a specification until L5), and the
+        // refusal is here so that wiring the configurator up cannot make it
+        // reachable by accident. Lift it in L3's calibration re-reference, not
+        // before. Found by adversarial review 2026-08-18.
+        guard view.isFullExtent else {
+            throw WriterError.invalidDimensions(
+                "exporting from a cropped or binned view needs the calibration re-reference (L3); reopen at full extent to export"
+            )
+        }
+        let descriptor = view.descriptor
         guard options.scanY.lowerBound >= 0,
               options.scanY.upperBound <= descriptor.ry,
               options.scanX.lowerBound >= 0,
@@ -311,7 +334,7 @@ nonisolated enum BraggVectorEMDWriter {
         }
         let h5 = try HDF5WriteLibrary.load()
         try await writeCalibratedDataCubeFile(
-            at: temporary, source: source, descriptor: descriptor,
+            at: temporary, source: source, view: view,
             calibration: transformedCalibration(calibration, descriptor: descriptor,
                                                 options: options),
             options: options, outputShape: summary.shape,
@@ -1008,7 +1031,7 @@ nonisolated enum BraggVectorEMDWriter {
     private static func writeCalibratedDataCubeFile(
         at url: URL,
         source: any FourDDataSource,
-        descriptor: DatasetDescriptor,
+        view: LoadView,
         calibration: PixelCalibration,
         options: CalibratedDataCubeExportOptions,
         outputShape: [Int],
@@ -1016,6 +1039,7 @@ nonisolated enum BraggVectorEMDWriter {
         progress: (@Sendable (Double) -> Void)?,
         hdf5 h5: HDF5WriteLibrary
     ) async throws {
+        let descriptor = view.descriptor
         let fileID = url.path.withCString {
             h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
         }
@@ -1082,7 +1106,7 @@ nonisolated enum BraggVectorEMDWriter {
         while sourceY < options.scanY.upperBound {
             try checkCancellation(cancellation)
             let endY = min(sourceY + options.tileRows, options.scanY.upperBound)
-            let sourceTile = try await source.readScanTile(descriptor, yRange: sourceY..<endY)
+            let sourceTile = try await source.readScanTile(view, yRange: sourceY..<endY)
             try checkCancellation(cancellation)
             var output = [Float](repeating: 0,
                 count: (endY - sourceY) * options.scanX.count * outQY * outQX)

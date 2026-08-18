@@ -15,7 +15,12 @@ extension AppState {
     /// Export a calibrated, optionally cropped/Q-binned py4DSTEM DataCube.
     /// Publication is atomic and the source dataset is never opened for write.
     func exportCalibratedDataCube(options: CalibratedDataCubeExportOptions) {
-        guard let descriptor, let source = currentDataSourceForExport() else {
+        // The export reads through the loaded view, so the reader is never
+        // handed a shape without its position in the file. A cropped view is
+        // refused by the writer until L3's calibration re-reference lands — see
+        // `writeCalibratedDataCube`.
+        guard let descriptor, let view = loadView,
+              let source = currentDataSourceForExport() else {
             present(SimpleError("No 4D dataset is open."))
             return
         }
@@ -49,7 +54,7 @@ extension AppState {
                 }
                 let summary = try await Task.detached(priority: .userInitiated) {
                     try await BraggVectorEMDWriter.writeCalibratedDataCube(
-                        source: source, descriptor: descriptor, calibration: snapshot,
+                        source: source, view: view, calibration: snapshot,
                         options: options, to: url, cancellation: token,
                         progress: progressUpdate
                     )

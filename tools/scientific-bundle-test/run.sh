@@ -16,6 +16,7 @@ xcrun swiftc -parse-as-library -o "$WORK/harness" \
   main.swift \
   "$REPO/mac4DSTEM/Core/Data/HDF5Types.swift" \
   "$REPO/mac4DSTEM/Core/Data/FourDDataSource.swift" \
+  "$REPO/mac4DSTEM/Core/Data/LoadSpecification.swift" \
   "$REPO/mac4DSTEM/Core/Data/Calibration.swift" \
   "$REPO/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \

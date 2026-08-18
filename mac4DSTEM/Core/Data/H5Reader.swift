@@ -334,162 +334,172 @@ actor H5Reader: FourDDataSource {
         )
     }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
-        silenceAutomaticErrors()
-        let datasetID = descriptor.datasetPath.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
-        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
-        defer { _ = hdf5.h5dclose(datasetID) }
+    /// HDF5 pushes every axis of a crop into the hyperslab it already builds —
+    /// **on a contiguous dataset**. On a *chunked* one it reads and decompresses
+    /// whole chunks, so a crop that stays inside a chunk skips no bytes at all,
+    /// and py4DSTEM EMD files are chunked. Measured 2026-08-18, gzip-chunked
+    /// (16,16,256,256) f4 with chunks (1,16,256,256), `purge` between runs:
+    /// the full detector took 0.137 s and 1/64 of it took 0.135 s.
+    ///
+    /// So the declaration is per-axis and conservative: a crop is only claimed
+    /// to skip I/O on an axis whose chunk extent is smaller than the source, the
+    /// case where cropping can exclude entire chunks. Claiming `.full`
+    /// unconditionally — which this reader did until an adversarial review
+    /// measured it — is exactly the overstatement `LoadPushdown` exists to stop.
+    ///
+    /// DEVIATION from py4DSTEM (preprocess.crop_data_diffraction,
+    /// References/py4DSTEM-dev/py4DSTEM/preprocess/preprocess.py:123): py4DSTEM
+    /// slices an already-resident array in place (`datacube.data[:, :, qx0:qx1,
+    /// qy0:qy1]`), which is a NumPy view — the full cube stays alive as `.base`,
+    /// so you lose access to the full extent while still paying for it. Here the
+    /// crop is applied at READ time and the source file is untouched.
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown {
+        let source = view.source
+        guard let chunk = source.chunkShape, chunk.count == 4 else { return .full }
+        return LoadPushdown(
+            scanCropSkipsIO: chunk[0] < source.ry || chunk[1] < source.rx,
+            detectorCropSkipsIO: chunk[2] < source.qy || chunk[3] < source.qx
+        )
+    }
 
-        let filespaceID = hdf5.h5dgetSpace(datasetID)
-        defer { _ = hdf5.h5sclose(filespaceID) }
+    /// Where the requested view starts and how much of it to take, in the
+    /// file's own dataspace, plus the memory shape to read it into.
+    ///
+    /// Rank-3 files were reshaped to `[1, N, Qy, Qx]` in `describe()`; the file
+    /// dataspace is still rank 3, so the scan-row axis is dropped and a scan
+    /// crop's *x* offset indexes the N axis. Getting that mapping wrong would
+    /// read the right number of pixels from the wrong frames, so the bounds
+    /// check below is against the file's real dims rather than the descriptor.
+    private func hyperslab(
+        _ view: LoadView, filespaceID: hid_t, fileRank: Int,
+        scanY: Range<Int>, scanX: Range<Int>
+    ) throws -> (start: [hsize_t], count: [hsize_t], memory: [hsize_t]) {
+        let specification = view.specification
+        let (sourceY, sourceX) = specification.scanOffset
+        let (detectorY, detectorX) = specification.detectorOffset
+        let qy = view.descriptor.qy
+        let qx = view.descriptor.qx
 
-        // Rank-3 files were reshaped to [1, N, Qy, Qx] in describe(); the file
-        // dataspace is still rank 3, so the hyperslab must drop the Ry axis.
-        let fileRank = Int(hdf5.h5sgetSimpleExtentNdims(filespaceID))
-        let start: [hsize_t]
-        let count: [hsize_t]
+        let start: [Int]
+        let count: [Int]
         if fileRank == 3 {
-            start = [hsize_t(rx), 0, 0]
-            count = [1, hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+            guard scanY == 0..<1 else {
+                throw H5Error.readFailed("rank-3 dataset has a single scan row; asked for \(scanY)")
+            }
+            start = [sourceX + scanX.lowerBound, detectorY, detectorX]
+            count = [scanX.count, qy, qx]
         } else {
-            start = [hsize_t(ry), hsize_t(rx), 0, 0]
-            count = [1, 1, hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+            start = [sourceY + scanY.lowerBound, sourceX + scanX.lowerBound,
+                     detectorY, detectorX]
+            count = [scanY.count, scanX.count, qy, qx]
         }
-        let selectionStatus = start.withUnsafeBufferPointer { startBuffer in
-            count.withUnsafeBufferPointer { countBuffer in
-                hdf5.h5sselectHyperslab(
-                    filespaceID,
-                    h5SelectSet,
-                    startBuffer.baseAddress,
-                    nil,
-                    countBuffer.baseAddress,
-                    nil
+
+        // Bounds against the FILE, not against the descriptor we were handed.
+        // A descriptor and a specification that disagree would otherwise select
+        // a valid-looking hyperslab of the wrong region, and every length check
+        // downstream would pass.
+        var dims = [hsize_t](repeating: 0, count: fileRank)
+        let dimsRead = dims.withUnsafeMutableBufferPointer {
+            hdf5.h5sgetSimpleExtentDims(filespaceID, $0.baseAddress, nil)
+        }
+        guard dimsRead >= 0 else { throw H5Error.readFailed("could not read dataspace dims") }
+        // The view must describe THIS dataset. Checked from the dims already in
+        // hand rather than by re-opening the file, so it costs nothing on the
+        // streaming hot path. Rank-3 files carry the same [1, N, Qy, Qx]
+        // reshape `describe()` applied.
+        let sourceShape = fileRank == 3
+            ? [1] + dims.map(Int.init)
+            : dims.map(Int.init)
+        try view.requireSource(shape: sourceShape)
+        for axis in 0..<fileRank {
+            guard start[axis] >= 0, count[axis] > 0,
+                  start[axis] + count[axis] <= Int(dims[axis]) else {
+                throw H5Error.readFailed(
+                    "selection \(start[axis])+\(count[axis]) exceeds axis \(axis) of \(dims[axis])"
                 )
             }
         }
-        guard selectionStatus >= 0 else { throw H5Error.readFailed("pattern hyperslab selection") }
 
-        let memoryDimensions: [hsize_t] = [hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
-        let memorySpaceID = memoryDimensions.withUnsafeBufferPointer {
-            hdf5.h5screateSimple(2, $0.baseAddress, nil)
-        }
-        defer { _ = hdf5.h5sclose(memorySpaceID) }
-
-        var buffer = [Float](repeating: 0, count: descriptor.qy * descriptor.qx)
-        let status = buffer.withUnsafeMutableBytes {
-            hdf5.h5dread(datasetID, hdf5.nativeFloat, memorySpaceID, filespaceID, h5DefaultProperty, $0.baseAddress)
-        }
-        guard status >= 0 else { throw H5Error.readFailed("pattern at ry \(ry), rx \(rx)") }
-        return buffer
-    }
-
-    /// Read an entire scan row: all Rx patterns for a fixed Ry, flattened as
-    /// [Rx * Qy * Qx]. This remains a useful compatibility primitive; bounded
-    /// whole-scan consumers prefer `readScanTile`.
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
-        silenceAutomaticErrors()
-        let datasetID = descriptor.datasetPath.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
-        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
-        defer { _ = hdf5.h5dclose(datasetID) }
-
-        let filespaceID = hdf5.h5dgetSpace(datasetID)
-        defer { _ = hdf5.h5sclose(filespaceID) }
-
-        // Same rank-3 handling as readPattern: the whole rank-3 dataset is one
-        // "scan row" of the reshaped [1, N, Qy, Qx] cube.
-        let fileRank = Int(hdf5.h5sgetSimpleExtentNdims(filespaceID))
-        let start: [hsize_t]
-        let count: [hsize_t]
+        let memory: [Int]
         if fileRank == 3 {
-            start = [0, 0, 0]
-            count = [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+            memory = scanX.count == 1 && scanY.count == 1 ? [qy, qx] : count
         } else {
-            start = [hsize_t(ry), 0, 0, 0]
-            count = [1, hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
+            memory = scanY.count == 1 && scanX.count == 1 ? [qy, qx] : count
         }
-        let selectionStatus = start.withUnsafeBufferPointer { startBuffer in
-            count.withUnsafeBufferPointer { countBuffer in
-                hdf5.h5sselectHyperslab(
-                    filespaceID,
-                    h5SelectSet,
-                    startBuffer.baseAddress,
-                    nil,
-                    countBuffer.baseAddress,
-                    nil
-                )
-            }
-        }
-        guard selectionStatus >= 0 else { throw H5Error.readFailed("scan-row hyperslab selection") }
-
-        let memoryDimensions: [hsize_t] = [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
-        let memorySpaceID = memoryDimensions.withUnsafeBufferPointer {
-            hdf5.h5screateSimple(3, $0.baseAddress, nil)
-        }
-        defer { _ = hdf5.h5sclose(memorySpaceID) }
-
-        var buffer = [Float](repeating: 0, count: descriptor.rx * descriptor.qy * descriptor.qx)
-        let status = buffer.withUnsafeMutableBytes {
-            hdf5.h5dread(datasetID, hdf5.nativeFloat, memorySpaceID, filespaceID, h5DefaultProperty, $0.baseAddress)
-        }
-        guard status >= 0 else { throw H5Error.readFailed("scan row \(ry)") }
-        return buffer
+        return (start.map(hsize_t.init), count.map(hsize_t.init), memory.map(hsize_t.init))
     }
 
-    func readScanTile(_ descriptor: DatasetDescriptor,
-                      yRange: Range<Int>) throws -> FourDScanTile {
+    private func read(
+        _ view: LoadView, scanY: Range<Int>, scanX: Range<Int>, label: String
+    ) throws -> [Float] {
         silenceAutomaticErrors()
-        guard yRange.lowerBound >= 0, yRange.upperBound <= descriptor.ry,
-              !yRange.isEmpty else {
-            throw H5Error.readFailed("invalid scan tile \(yRange)")
-        }
-        let datasetID = descriptor.datasetPath.withCString {
+        let datasetID = view.source.datasetPath.withCString {
             hdf5.h5dopen2(fileID, $0, h5DefaultProperty)
         }
-        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(descriptor.datasetPath) }
+        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(view.source.datasetPath) }
         defer { _ = hdf5.h5dclose(datasetID) }
+
         let filespaceID = hdf5.h5dgetSpace(datasetID)
         defer { _ = hdf5.h5sclose(filespaceID) }
-
         let fileRank = Int(hdf5.h5sgetSimpleExtentNdims(filespaceID))
-        let start: [hsize_t]
-        let count: [hsize_t]
-        if fileRank == 3 {
-            guard yRange == 0..<1 else {
-                throw H5Error.readFailed("rank-3 tile must be the sole scan row")
-            }
-            start = [0, 0, 0]
-            count = [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
-        } else {
-            start = [hsize_t(yRange.lowerBound), 0, 0, 0]
-            count = [hsize_t(yRange.count), hsize_t(descriptor.rx),
-                     hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
-        }
-        let selected = start.withUnsafeBufferPointer { starts in
-            count.withUnsafeBufferPointer { counts in
-                hdf5.h5sselectHyperslab(filespaceID, h5SelectSet,
-                                        starts.baseAddress, nil, counts.baseAddress, nil)
-            }
-        }
-        guard selected >= 0 else { throw H5Error.readFailed("scan-tile hyperslab selection") }
 
-        let memoryDimensions: [hsize_t] = fileRank == 3
-            ? [hsize_t(descriptor.rx), hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
-            : [hsize_t(yRange.count), hsize_t(descriptor.rx),
-               hsize_t(descriptor.qy), hsize_t(descriptor.qx)]
-        let memorySpaceID = memoryDimensions.withUnsafeBufferPointer {
-            hdf5.h5screateSimple(Int32(memoryDimensions.count), $0.baseAddress, nil)
+        let slab = try hyperslab(view, filespaceID: filespaceID, fileRank: fileRank,
+                                 scanY: scanY, scanX: scanX)
+        let selectionStatus = slab.start.withUnsafeBufferPointer { startBuffer in
+            slab.count.withUnsafeBufferPointer { countBuffer in
+                hdf5.h5sselectHyperslab(
+                    filespaceID, h5SelectSet,
+                    startBuffer.baseAddress, nil, countBuffer.baseAddress, nil
+                )
+            }
+        }
+        guard selectionStatus >= 0 else { throw H5Error.readFailed("\(label) hyperslab selection") }
+
+        let memorySpaceID = slab.memory.withUnsafeBufferPointer {
+            hdf5.h5screateSimple(Int32(slab.memory.count), $0.baseAddress, nil)
         }
         defer { _ = hdf5.h5sclose(memorySpaceID) }
-        let pixelCount = yRange.count * descriptor.rx * descriptor.qy * descriptor.qx
-        var pixels = [Float](repeating: 0, count: pixelCount)
-        let status = pixels.withUnsafeMutableBytes {
+
+        let pixelCount = slab.count.reduce(1) { $0 * Int($1) }
+        var buffer = [Float](repeating: 0, count: pixelCount)
+        let status = buffer.withUnsafeMutableBytes {
             hdf5.h5dread(datasetID, hdf5.nativeFloat, memorySpaceID, filespaceID,
                          h5DefaultProperty, $0.baseAddress)
         }
-        guard status >= 0 else { throw H5Error.readFailed("scan tile \(yRange)") }
+        guard status >= 0 else { throw H5Error.readFailed(label) }
+        return buffer
+    }
+
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
+            throw H5Error.readFailed("scan position (\(ry), \(rx)) is outside the loaded view")
+        }
+        return try read(view, scanY: ry..<(ry + 1), scanX: rx..<(rx + 1),
+                        label: "pattern at ry \(ry), rx \(rx)")
+    }
+
+    /// Read an entire view scan row: all view Rx patterns for a fixed view Ry,
+    /// flattened as [Rx * Qy * Qx]. This remains a useful compatibility
+    /// primitive; bounded whole-scan consumers prefer `readScanTile`.
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        guard ry >= 0, ry < view.descriptor.ry else {
+            throw H5Error.readFailed("scan row \(ry) is outside the loaded view")
+        }
+        return try read(view, scanY: ry..<(ry + 1), scanX: 0..<view.descriptor.rx,
+                        label: "scan row \(ry)")
+    }
+
+    func readScanTile(_ view: LoadView,
+                      yRange: Range<Int>) throws -> FourDScanTile {
+        guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry,
+              !yRange.isEmpty else {
+            throw H5Error.readFailed("invalid scan tile \(yRange)")
+        }
+        let pixels = try read(view, scanY: yRange, scanX: 0..<view.descriptor.rx,
+                              label: "scan tile \(yRange)")
         return FourDScanTile(
-            yRange: yRange, scanWidth: descriptor.rx,
-            detectorHeight: descriptor.qy, detectorWidth: descriptor.qx,
+            yRange: yRange, scanWidth: view.descriptor.rx,
+            detectorHeight: view.descriptor.qy, detectorWidth: view.descriptor.qx,
             pixels: pixels
         )
     }

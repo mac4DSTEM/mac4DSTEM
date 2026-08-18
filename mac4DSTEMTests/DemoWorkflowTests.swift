@@ -62,7 +62,8 @@ final class DemoWorkflowTests: XCTestCase {
         let result: ParallaxPreprocessResult
         do {
             result = try await ParallaxPreprocessor.run(
-                source: source, descriptor: descriptor, calibration: physical
+                source: source, view: LoadView(fullExtentOf: descriptor),
+                calibration: physical
             )
         } catch {
             XCTFail("Demo reconstruction preview failed: \(error.localizedDescription)")

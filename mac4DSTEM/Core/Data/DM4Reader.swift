@@ -68,28 +68,120 @@ actor DM4Reader: FourDDataSource {
         return descriptor
     }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry scanY: Int, rx scanX: Int) throws -> [Float] {
-        let patPix = qy * qx
-        let start = dataOffset + (scanY * rx + scanX) * patPix * elementSize
-        return try decode(byteOffset: start, count: patPix)
+    /// A DM4 datacube is one contiguous blob of patterns, so a *scan* crop is a
+    /// seek and genuinely skips bytes.
+    ///
+    /// A *detector* crop is declared as **not** skipping I/O, and that is
+    /// deliberately conservative rather than exact. The file is memory-mapped
+    /// and `pattern(_:sourceY:sourceX:)` decodes only the rows the crop keeps,
+    /// so the pages of *excluded rows* are genuinely never faulted — a real
+    /// saving. But within a kept row the excluded columns share pages with the
+    /// kept ones and are faulted anyway, and `LoadPushdown` is a boolean.
+    /// Understating a saving is safe; overstating one is what this type exists
+    /// to prevent, so the boolean rounds down. (An earlier comment here claimed
+    /// the per-row decode was the thing being avoided, which had it backwards —
+    /// adversarial review, 2026-08-18.)
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
+
+    /// Byte offset of the first pixel of source pattern (`sourceY`, `sourceX`).
+    private func frameOffset(sourceY: Int, sourceX: Int) -> Int {
+        dataOffset + (sourceY * rx + sourceX) * (qy * qx) * elementSize
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry scanY: Int) throws -> [Float] {
-        let rowPix = rx * qy * qx
-        let start = dataOffset + scanY * rowPix * elementSize
-        return try decode(byteOffset: start, count: rowPix)
+    /// One source pattern, detector crop applied. Decoded row by row when
+    /// cropped, so the cropped-out columns are never converted to Float — the
+    /// memory saving is real even though the I/O saving is not.
+    private func pattern(_ view: LoadView, sourceY: Int, sourceX: Int) throws -> [Float] {
+        let base = frameOffset(sourceY: sourceY, sourceX: sourceX)
+        guard let crop = view.specification.detectorCrop else {
+            return try decode(byteOffset: base, count: qy * qx)
+        }
+        // Decoded straight into one buffer rather than one array per row: a
+        // 512-row crop over a 256x256 scan is ~34 million rows, and a fresh
+        // heap allocation each would dominate the read. Found by adversarial
+        // review 2026-08-18, before any caller could reach it.
+        var out = [Float](repeating: 0, count: crop.height * crop.width)
+        for row in 0..<crop.height {
+            let rowStart = base + ((crop.yOffset + row) * qx + crop.xOffset) * elementSize
+            try decode(byteOffset: rowStart, count: crop.width,
+                       into: &out, at: row * crop.width)
+        }
+        return out
     }
 
-    func readScanTile(_ descriptor: DatasetDescriptor,
+    /// True when a whole view scan row is one contiguous run of source bytes:
+    /// no detector crop, and the full source scan width. Then the tile is a
+    /// single decode, which is the shipped streaming path.
+    private func rowsAreContiguous(_ view: LoadView) -> Bool {
+        view.specification.detectorCrop == nil
+            && view.specification.scanOffset.x == 0
+            && view.descriptor.rx == rx
+    }
+
+    func readPattern(_ view: LoadView, ry scanY: Int, rx scanX: Int) throws -> [Float] {
+        try view.requireSource(shape: [ry, rx, qy, qx])
+        guard scanY >= 0, scanY < view.descriptor.ry,
+              scanX >= 0, scanX < view.descriptor.rx else {
+            throw DM4Error.truncated
+        }
+        return try pattern(view, sourceY: view.sourceScanY(scanY),
+                           sourceX: view.sourceScanX(scanX))
+    }
+
+    func readScanRow(_ view: LoadView, ry scanY: Int) throws -> [Float] {
+        try view.requireSource(shape: [ry, rx, qy, qx])
+        guard scanY >= 0, scanY < view.descriptor.ry else { throw DM4Error.truncated }
+        return try scanRow(view, viewY: scanY)
+    }
+
+    private func scanRow(_ view: LoadView, viewY: Int) throws -> [Float] {
+        let sourceY = view.sourceScanY(viewY)
+        if rowsAreContiguous(view) {
+            let rowPix = rx * qy * qx
+            return try decode(byteOffset: dataOffset + sourceY * rowPix * elementSize,
+                              count: rowPix)
+        }
+        if view.specification.detectorCrop == nil {
+            // Still one contiguous run — a sub-range of patterns within the row.
+            let patPix = qy * qx
+            let start = frameOffset(sourceY: sourceY,
+                                    sourceX: view.specification.scanOffset.x)
+            return try decode(byteOffset: start, count: view.descriptor.rx * patPix)
+        }
+        var out = [Float]()
+        out.reserveCapacity(view.descriptor.rx * view.descriptor.qy * view.descriptor.qx)
+        for viewX in 0..<view.descriptor.rx {
+            out.append(contentsOf: try pattern(view, sourceY: sourceY,
+                                               sourceX: view.sourceScanX(viewX)))
+        }
+        return out
+    }
+
+    func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile {
+        try view.requireSource(shape: [ry, rx, qy, qx])
         let lower = max(0, yRange.lowerBound)
-        let upper = min(ry, yRange.upperBound)
+        let upper = min(view.descriptor.ry, yRange.upperBound)
         let range = lower..<max(lower, upper)
-        let rowPix = rx * qy * qx
-        let start = dataOffset + lower * rowPix * elementSize
-        let pixels = try decode(byteOffset: start, count: range.count * rowPix)
+        let pixels: [Float]
+        if rowsAreContiguous(view) {
+            let rowPix = rx * qy * qx
+            let start = dataOffset
+                + view.sourceScanY(lower) * rowPix * elementSize
+            pixels = try decode(byteOffset: start, count: range.count * rowPix)
+        } else {
+            var buffer = [Float]()
+            buffer.reserveCapacity(
+                range.count * view.descriptor.rx * view.descriptor.qy * view.descriptor.qx
+            )
+            for viewY in range {
+                buffer.append(contentsOf: try scanRow(view, viewY: viewY))
+            }
+            pixels = buffer
+        }
         return FourDScanTile(
-            yRange: range, scanWidth: rx, detectorHeight: qy, detectorWidth: qx,
+            yRange: range, scanWidth: view.descriptor.rx,
+            detectorHeight: view.descriptor.qy, detectorWidth: view.descriptor.qx,
             pixels: pixels
         )
     }
@@ -112,26 +204,37 @@ actor DM4Reader: FourDDataSource {
 
     private func decode(byteOffset start: Int, count: Int) throws -> [Float] {
         var out = [Float](repeating: 0, count: count)
+        try decode(byteOffset: start, count: count, into: &out, at: 0)
+        return out
+    }
+
+    /// Decode `count` values into an existing buffer at `destination`, so a
+    /// row-by-row cropped read does not allocate per row.
+    private func decode(byteOffset start: Int, count: Int,
+                        into out: inout [Float], at destination: Int) throws {
         let need = count * elementSize
         // A slice past the mapping means a truncated file; never hand back
         // zero-filled pixels as if they were read.
         guard start >= 0, start + need <= data.count else { throw DM4Error.truncated }
+        guard destination >= 0, destination + count <= out.count else {
+            throw DM4Error.truncated
+        }
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             guard let base = raw.baseAddress else { return }
             let p = base + start
+            let d = destination
             switch imageDataType {
-            case 1:  for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i * 2, as: Int16.self)) }
-            case 10: for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i * 2, as: UInt16.self)) }
-            case 7:  for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i * 4, as: Int32.self)) }
-            case 11: for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i * 4, as: UInt32.self)) }
-            case 6:  for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i, as: UInt8.self)) }
-            case 9:  for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i, as: Int8.self)) }
-            case 2:  for i in 0..<count { out[i] = p.loadUnaligned(fromByteOffset: i * 4, as: Float.self) }
-            case 12: for i in 0..<count { out[i] = Float(p.loadUnaligned(fromByteOffset: i * 8, as: Double.self)) }
+            case 1:  for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i * 2, as: Int16.self)) }
+            case 10: for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i * 2, as: UInt16.self)) }
+            case 7:  for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i * 4, as: Int32.self)) }
+            case 11: for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i * 4, as: UInt32.self)) }
+            case 6:  for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i, as: UInt8.self)) }
+            case 9:  for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i, as: Int8.self)) }
+            case 2:  for i in 0..<count { out[d + i] = p.loadUnaligned(fromByteOffset: i * 4, as: Float.self) }
+            case 12: for i in 0..<count { out[d + i] = Float(p.loadUnaligned(fromByteOffset: i * 8, as: Double.self)) }
             default: break
             }
         }
-        return out
     }
 
     private static func pixelSize(_ dataType: Int) -> Int {

@@ -310,7 +310,7 @@ private func evaluate(
         var values: [Float] = []
         for (y, x) in positions {
             values.append(contentsOf: try await reader.readPattern(
-                descriptor, ry: y, rx: x
+                LoadView(fullExtentOf: descriptor), ry: y, rx: x
             ))
         }
         return values

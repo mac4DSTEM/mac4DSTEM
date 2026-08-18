@@ -14,15 +14,34 @@ enum FourDError: LocalizedError {
 
 actor FourDArray {
     private let reader: any FourDDataSource
+    /// The source, the specification, and the descriptor derived from both.
+    /// Passed to the reader as one value so the three can never disagree.
+    let view: LoadView
+    /// What is being processed — the view's shape, which is the source's shape
+    /// when no specification is set.
     let descriptor: DatasetDescriptor
+    /// What the reader pushed into its own I/O versus applied in memory, for
+    /// *this* view. Carried here so L6 can record it rather than assume it, and
+    /// resolved per view because for HDF5 the answer depends on the dataset's
+    /// chunking, not only on the format.
+    let loadPushdown: LoadPushdown
 
     private var cache: [Int: DiffractionPattern] = [:]
     private var order: [Int] = []
     private let maxCachedPatterns = 96
 
-    init(reader: any FourDDataSource, descriptor: DatasetDescriptor) {
+    init(reader: any FourDDataSource, view: LoadView) {
         self.reader = reader
-        self.descriptor = descriptor
+        self.view = view
+        self.descriptor = view.descriptor
+        self.loadPushdown = reader.loadPushdown(for: view)
+    }
+
+    /// The whole dataset. The shipped path — nothing sets a specification until
+    /// L5's configurator, and a crop must not reach the compute path before the
+    /// calibration re-reference is proven (docs/load-pipeline-plan.md §6, L3).
+    init(reader: any FourDDataSource, descriptor: DatasetDescriptor) {
+        self.init(reader: reader, view: LoadView(fullExtentOf: descriptor))
     }
 
     func pattern(ry: Int, rx: Int) async throws -> DiffractionPattern {
@@ -35,7 +54,7 @@ actor FourDArray {
             return cached
         }
 
-        let pixels = try await reader.readPattern(descriptor, ry: clampedY, rx: clampedX)
+        let pixels = try await reader.readPattern(view, ry: clampedY, rx: clampedX)
         let pattern = DiffractionPattern(qy: descriptor.qy, qx: descriptor.qx, pixels: pixels)
         insert(pattern, for: cacheKey)
         return pattern
@@ -70,7 +89,7 @@ actor FourDArray {
            residentCube.matches(descriptor, specification: loadSpecification) {
             return tile(yRange: yRange, from: residentCube)
         }
-        let tile = try await reader.readScanTile(descriptor, yRange: yRange)
+        let tile = try await reader.readScanTile(view, yRange: yRange)
         let expected = yRange.count * descriptor.rx * descriptor.qy * descriptor.qx
         guard tile.yRange == yRange, tile.pixels.count == expected else {
             throw FourDError.allocationFailed
@@ -86,24 +105,46 @@ actor FourDArray {
     /// measured yet — see `ResidencyAdmission.measuredWorkingSetFraction`.
     private(set) var residencyRequest: Residency = .automatic
 
-    /// Which view of the source this array reads. `.fullExtent` until L3's
-    /// crop-on-read sets it.
-    private(set) var loadSpecification: LoadSpecification = .fullExtent
+    /// Which view of the source this array reads. `.fullExtent` unless this
+    /// array was built from a cropped `LoadView`.
+    var loadSpecification: LoadSpecification { view.specification }
 
     /// The resident cube, or nil when this array is streaming.
     func resident() -> ResidentCube? { residentCube }
 
-    /// The resident cube **only if it holds exactly what `descriptor` and this
-    /// array's current specification describe**.
+    /// The resident cube **only if `descriptor` is what this array is loaded
+    /// as**. Callers on the compute side should use this rather than
+    /// `resident()`.
     ///
-    /// Callers on the compute side should use this rather than `resident()`:
-    /// the specification is part of a buffer's identity, and two equal-sized
-    /// crops at different offsets are indistinguishable by descriptor alone.
+    /// What it catches: a caller asking with a descriptor that is not this
+    /// array's view — a stale one from a previous dataset, or a synthetic one
+    /// built for a sub-range (`VirtualDetector.tiled` builds those).
+    ///
+    /// **What it does not catch, and does not need to:** two different crops of
+    /// the same file at the same shape. A `LoadView` is fixed for an array's
+    /// lifetime — changing the specification *reopens* (docs/v2-scope.md §6.1),
+    /// which builds a new array holding a new buffer — so one array can never
+    /// hold a buffer for a crop other than its own. The specification comparison
+    /// inside `ResidentCube.matches` is therefore defence in depth against a
+    /// future stage that makes the view mutable, not a live guard here; saying
+    /// otherwise would claim a protection that is not running.
     func resident(for descriptor: DatasetDescriptor) -> ResidentCube? {
-        guard let residentCube,
-              residentCube.matches(descriptor, specification: loadSpecification)
+        guard describesThisView(descriptor), let residentCube,
+              residentCube.matches(view.descriptor, specification: view.specification)
         else { return nil }
         return residentCube
+    }
+
+    /// Value equality against this array's view descriptor, **ignoring
+    /// `DatasetDescriptor.id`**: descriptors are re-derived and round-tripped
+    /// through sidecars, so comparing the UUID would refuse the fast path for a
+    /// descriptor that describes exactly this view — a silent fallback to
+    /// streaming, which is the failure mode that shows up as "residency does
+    /// nothing" rather than as an error.
+    private func describesThisView(_ other: DatasetDescriptor) -> Bool {
+        other.filePath == view.descriptor.filePath
+            && other.datasetPath == view.descriptor.datasetPath
+            && other.shape == view.descriptor.shape
     }
 
     var isResident: Bool { residentCube != nil }
@@ -199,7 +240,7 @@ actor FourDArray {
             guard cancellation?.isCancelled != true else { throw CancellationError() }
             let upper = min(descriptor.ry, filled + rowsPerTile)
             let range = filled..<upper
-            let tile = try await reader.readScanTile(descriptor, yRange: range)
+            let tile = try await reader.readScanTile(view, yRange: range)
             // Re-checked after every suspension, not just at the end: a release
             // or a `.streamed` request that arrived while this read was in
             // flight must win, and continuing to fill a buffer nobody wants

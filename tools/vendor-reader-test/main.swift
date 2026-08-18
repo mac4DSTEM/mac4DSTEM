@@ -15,10 +15,10 @@ func fail(_ message: String) -> Never {
         guard ed.shape == [2, 3, 128, 128], ed.dtypeDescription.contains("little-endian") else {
             fail("EMPAD descriptor \(ed.shape) \(ed.dtypeDescription)")
         }
-        let ep = try await empad.readPattern(ed, ry: 1, rx: 2)
+        let ep = try await empad.readPattern(LoadView(fullExtentOf: ed), ry: 1, rx: 2)
         guard ep.count == 128 * 128, ep[0] == 500_000, ep.last == 516_383,
               !ep.contains(-6) else { fail("EMPAD image/footer separation") }
-        let et = try await empad.readScanTile(ed, yRange: 0..<2)
+        let et = try await empad.readScanTile(LoadView(fullExtentOf: ed), yRange: 0..<2)
         guard et.pixels.count == 6 * 128 * 128, et.pixels[128 * 128] == 100_000 else {
             fail("EMPAD scan ordering")
         }
@@ -39,12 +39,12 @@ func fail(_ message: String) -> Never {
         guard md.shape == [1, 2, 256, 256], md.dtypeDescription.contains("U16") else {
             fail("MIB descriptor \(md.shape) \(md.dtypeDescription)")
         }
-        let mp = try await mib.readPattern(md, ry: 0, rx: 1)
+        let mp = try await mib.readPattern(LoadView(fullExtentOf: md), ry: 0, rx: 1)
         guard mp.count == 256 * 256, mp[0] == 1000, mp[1] == 1001,
               mp[65534] == Float((1000 + 65534) % 65535) else {
             fail("MIB repeated-header skip or big-endian decode")
         }
-        let mt = try await mib.readScanTile(md, yRange: 0..<1)
+        let mt = try await mib.readScanTile(LoadView(fullExtentOf: md), yRange: 0..<1)
         guard mt.pixels.count == 2 * 256 * 256, mt.pixels[256 * 256] == 1000 else {
             fail("MIB scan ordering")
         }

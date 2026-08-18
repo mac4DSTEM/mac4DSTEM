@@ -34,34 +34,27 @@ actor FixtureSource: FourDDataSource {
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor { descriptor }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
-        let count = descriptor.qy * descriptor.qx
-        let start = (ry * descriptor.rx + rx) * count
-        return Array(cube[start..<(start + count)])
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        view.pattern(fromFullCube: cube, ry: ry, rx: rx)
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
-        try tile(descriptor, range: ry..<(ry + 1)).pixels
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        try tile(view, range: ry..<(ry + 1)).pixels
     }
 
     func readScanTile(
-        _ descriptor: DatasetDescriptor, yRange: Range<Int>
+        _ view: LoadView, yRange: Range<Int>
     ) throws -> FourDScanTile {
-        try tile(descriptor, range: yRange)
+        try tile(view, range: yRange)
     }
 
     private func tile(
-        _ descriptor: DatasetDescriptor, range: Range<Int>
+        _ view: LoadView, range: Range<Int>
     ) throws -> FourDScanTile {
         largestTileRows = max(largestTileRows, range.count)
-        let rowCount = descriptor.rx * descriptor.qy * descriptor.qx
-        let start = range.lowerBound * rowCount
-        let end = range.upperBound * rowCount
-        return FourDScanTile(
-            yRange: range, scanWidth: descriptor.rx,
-            detectorHeight: descriptor.qy, detectorWidth: descriptor.qx,
-            pixels: Array(cube[start..<end])
-        )
+        return view.scanTile(fromFullCube: cube, yRange: range)
     }
 
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
@@ -130,7 +123,8 @@ struct Harness {
         options.tileRows = 1
         options.maxStackBytes = 64 * 1_024 * 1_024
         let result = try await ParallaxPreprocessor.run(
-            source: source, descriptor: descriptor, calibration: physical,
+            source: source, view: LoadView(fullExtentOf: descriptor),
+                calibration: physical,
             options: options
         )
 
@@ -193,7 +187,8 @@ struct Harness {
         cancelled.cancel()
         do {
             _ = try await ParallaxPreprocessor.run(
-                source: source, descriptor: descriptor, calibration: physical,
+                source: source, view: LoadView(fullExtentOf: descriptor),
+                calibration: physical,
                 options: options, cancellation: cancelled
             )
             try require(false, "cancelled preprocessing returned a result")
@@ -202,7 +197,8 @@ struct Harness {
         let midPassCancellation = AnalysisCancellationToken()
         do {
             _ = try await ParallaxPreprocessor.run(
-                source: source, descriptor: descriptor, calibration: physical,
+                source: source, view: LoadView(fullExtentOf: descriptor),
+                calibration: physical,
                 options: options, cancellation: midPassCancellation
             ) { fraction in
                 if fraction >= 0.2 { midPassCancellation.cancel() }
@@ -214,7 +210,8 @@ struct Harness {
         tinyLimit.maxStackBytes = 1
         do {
             _ = try await ParallaxPreprocessor.run(
-                source: source, descriptor: descriptor, calibration: physical,
+                source: source, view: LoadView(fullExtentOf: descriptor),
+                calibration: physical,
                 options: tinyLimit
             )
             try require(false, "stack memory ceiling was ignored")

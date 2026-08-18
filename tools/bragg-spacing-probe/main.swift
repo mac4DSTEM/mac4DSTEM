@@ -81,7 +81,7 @@ enum SpacingProbe {
 
         var patterns: [[Float]] = []
         for (ry, rx) in positions {
-            if let p = try? await reader.readPattern(primary, ry: ry, rx: rx) {
+            if let p = try? await reader.readPattern(LoadView(fullExtentOf: primary), ry: ry, rx: rx) {
                 patterns.append(p)
             }
         }

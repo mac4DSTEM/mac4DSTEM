@@ -21,28 +21,20 @@ actor SyntheticDataSource: FourDDataSource {
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor { descriptor }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
-        let count = descriptor.qy * descriptor.qx
-        let start = (ry * descriptor.rx + rx) * count
-        return Array(cube[start..<start + count])
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        view.pattern(fromFullCube: cube, ry: ry, rx: rx)
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
-        let count = descriptor.rx * descriptor.qy * descriptor.qx
-        return Array(cube[ry * count..<(ry + 1) * count])
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        view.scanRow(fromFullCube: cube, ry: ry)
     }
 
     func readScanTile(
-        _ descriptor: DatasetDescriptor, yRange: Range<Int>
+        _ view: LoadView, yRange: Range<Int>
     ) throws -> FourDScanTile {
-        let count = descriptor.rx * descriptor.qy * descriptor.qx
-        return FourDScanTile(
-            yRange: yRange,
-            scanWidth: descriptor.rx,
-            detectorHeight: descriptor.qy,
-            detectorWidth: descriptor.qx,
-            pixels: Array(cube[yRange.lowerBound * count..<yRange.upperBound * count])
-        )
+        view.scanTile(fromFullCube: cube, yRange: yRange)
     }
 
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }

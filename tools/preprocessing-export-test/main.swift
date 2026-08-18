@@ -8,34 +8,43 @@ actor SyntheticSource: FourDDataSource {
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor { descriptor }
 
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float] {
-        try readScanRow(descriptor, ry: ry).withUnsafeBufferPointer { row in
-            let count = descriptor.qy * descriptor.qx
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        try readScanRow(view, ry: ry).withUnsafeBufferPointer { row in
+            let count = view.descriptor.qy * view.descriptor.qx
             return Array(row[(rx * count)..<((rx + 1) * count)])
         }
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
-        try makeTile(descriptor, yRange: ry..<(ry + 1)).pixels
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        try makeTile(view, yRange: ry..<(ry + 1)).pixels
     }
 
-    func readScanTile(_ descriptor: DatasetDescriptor,
+    func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile {
-        try makeTile(descriptor, yRange: yRange)
+        try makeTile(view, yRange: yRange)
     }
 
-    private func makeTile(_ descriptor: DatasetDescriptor,
+    /// Values are a function of the SOURCE index, so a crop of this fixture is
+    /// a subset of the same numbers rather than a differently-numbered cube.
+    private func makeTile(_ view: LoadView,
                           yRange: Range<Int>) throws -> FourDScanTile {
+        let descriptor = view.descriptor
         guard yRange.lowerBound >= 0, yRange.upperBound <= descriptor.ry,
               !yRange.isEmpty else { throw NSError(domain: "tile", code: 1) }
         largestTile = max(largestTile, yRange.count)
+        let (detectorY, detectorX) = view.specification.detectorOffset
         var pixels = [Float]()
         pixels.reserveCapacity(yRange.count * descriptor.rx * descriptor.qy * descriptor.qx)
         for y in yRange {
             for x in 0..<descriptor.rx {
                 for qy in 0..<descriptor.qy {
                     for qx in 0..<descriptor.qx {
-                        pixels.append(Float(y * 10_000 + x * 1_000 + qy * 10 + qx))
+                        pixels.append(Float(
+                            view.sourceScanY(y) * 10_000 + view.sourceScanX(x) * 1_000
+                                + (detectorY + qy) * 10 + (detectorX + qx)
+                        ))
                     }
                 }
             }
@@ -113,7 +122,8 @@ struct Harness {
             scanY: 1..<3, scanX: 1..<4, qBin: 2, tileRows: 1
         )
         let summary = try await BraggVectorEMDWriter.writeCalibratedDataCube(
-            source: source, descriptor: descriptor, calibration: calibration,
+            source: source, view: LoadView(fullExtentOf: descriptor),
+            calibration: calibration,
             options: options, to: output
         )
         try require(summary.shape == [2, 3, 2, 3], "wrong output shape")
@@ -127,7 +137,7 @@ struct Harness {
         try require(exported.shape == summary.shape, "native reader shape mismatch")
         try require(exported.chunkShape == [1, 1, 2, 3], "unexpected HDF5 chunks")
         for outY in 0..<2 {
-            let row = try await reader.readScanRow(exported, ry: outY)
+            let row = try await reader.readScanRow(LoadView(fullExtentOf: exported), ry: outY)
             var expected = [Float]()
             for sourceX in 1..<4 {
                 for qy in 0..<2 {
@@ -167,7 +177,8 @@ struct Harness {
         token.cancel()
         do {
             _ = try await BraggVectorEMDWriter.writeCalibratedDataCube(
-                source: source, descriptor: descriptor, calibration: calibration,
+                source: source, view: LoadView(fullExtentOf: descriptor),
+            calibration: calibration,
                 options: options, to: cancelled, cancellation: token
             )
             throw NSError(domain: "cancellation", code: 1)

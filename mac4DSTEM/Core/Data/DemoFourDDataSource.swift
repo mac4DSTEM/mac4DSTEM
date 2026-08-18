@@ -11,7 +11,8 @@ actor DemoFourDDataSource: FourDDataSource {
         chunkShape: [1, 12, 64, 64]
     )
 
-    private var rowCache: [Int: [Float]] = [:]
+    /// Full source patterns by source scan index.
+    private var patternCache: [Int: [Float]] = [:]
     private let includesCalibration: Bool
 
     init(includesCalibration: Bool = true) {
@@ -20,43 +21,67 @@ actor DemoFourDDataSource: FourDDataSource {
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
 
+    /// There is no file, so nothing is skipped on disk — the crop is applied
+    /// entirely in memory. Declared honestly rather than borrowing HDF5's
+    /// `.full`, because this source stands in for a reader in UI automation and
+    /// a false pushdown claim would propagate into provenance.
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+
     func readPattern(
-        _ descriptor: DatasetDescriptor, ry: Int, rx: Int
+        _ view: LoadView, ry: Int, rx: Int
     ) throws -> [Float] {
-        guard ry >= 0, ry < descriptor.ry, rx >= 0, rx < descriptor.rx else {
+        try view.requireSource(shape: Self.descriptor.shape)
+        guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw DemoError.outOfBounds
         }
-        return pattern(scanY: ry, scanX: rx, descriptor: descriptor)
+        // Generated at SOURCE coordinates, then sliced. Generating from the view
+        // descriptor instead would recentre the probe and rescale the lattice —
+        // a cropped demo cube would hold different data rather than a subset of
+        // the same data, and every crop-equals-slice assertion would compare two
+        // fabrications and pass.
+        return view.detectorSlice(
+            of: sourcePattern(scanY: view.sourceScanY(ry), scanX: view.sourceScanX(rx))
+        )
     }
 
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float] {
-        guard ry >= 0, ry < descriptor.ry else { throw DemoError.outOfBounds }
-        if let cached = rowCache[ry] { return cached }
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        try view.requireSource(shape: Self.descriptor.shape)
+        guard ry >= 0, ry < view.descriptor.ry else { throw DemoError.outOfBounds }
         var row: [Float] = []
-        row.reserveCapacity(descriptor.rx * descriptor.qy * descriptor.qx)
-        for x in 0..<descriptor.rx {
-            row.append(contentsOf: pattern(scanY: ry, scanX: x, descriptor: descriptor))
+        row.reserveCapacity(view.descriptor.rx * view.descriptor.qy * view.descriptor.qx)
+        for x in 0..<view.descriptor.rx {
+            row.append(contentsOf: try readPattern(view, ry: ry, rx: x))
         }
-        rowCache[ry] = row
         return row
     }
 
     func readScanTile(
-        _ descriptor: DatasetDescriptor, yRange: Range<Int>
+        _ view: LoadView, yRange: Range<Int>
     ) throws -> FourDScanTile {
-        guard yRange.lowerBound >= 0, yRange.upperBound <= descriptor.ry else {
+        try view.requireSource(shape: Self.descriptor.shape)
+        guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry else {
             throw DemoError.outOfBounds
         }
         var pixels: [Float] = []
         pixels.reserveCapacity(
-            yRange.count * descriptor.rx * descriptor.qy * descriptor.qx
+            yRange.count * view.descriptor.rx * view.descriptor.qy * view.descriptor.qx
         )
-        for y in yRange { pixels.append(contentsOf: try readScanRow(descriptor, ry: y)) }
+        for y in yRange { pixels.append(contentsOf: try readScanRow(view, ry: y)) }
         return FourDScanTile(
-            yRange: yRange, scanWidth: descriptor.rx,
-            detectorHeight: descriptor.qy, detectorWidth: descriptor.qx,
+            yRange: yRange, scanWidth: view.descriptor.rx,
+            detectorHeight: view.descriptor.qy, detectorWidth: view.descriptor.qx,
             pixels: pixels
         )
+    }
+
+    /// One full source pattern, cached by scan position. The cache is keyed on
+    /// SOURCE coordinates so two different views of this source share it.
+    private func sourcePattern(scanY: Int, scanX: Int) -> [Float] {
+        let key = scanY * Self.descriptor.rx + scanX
+        if let cached = patternCache[key] { return cached }
+        let generated = pattern(scanY: scanY, scanX: scanX, descriptor: Self.descriptor)
+        patternCache[key] = generated
+        return generated
     }
 
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {

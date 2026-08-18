@@ -66,15 +66,43 @@ struct PixelCalibration: Sendable {
 }
 
 protocol FourDDataSource: Actor {
-    /// The primary 4D datacube in the file.
+    /// The primary 4D datacube in the file, at **full extent**. A crop is a
+    /// `LoadView` of this, never a different discovery result.
     func discoverPrimaryDataset() throws -> DatasetDescriptor
-    /// One CBED pattern [Qy*Qx] at scan position (ry, rx).
-    func readPattern(_ descriptor: DatasetDescriptor, ry: Int, rx: Int) throws -> [Float]
-    /// One scan row [Rx*Qy*Qx] for a fixed ry (chunk-friendly cube streaming).
-    func readScanRow(_ descriptor: DatasetDescriptor, ry: Int) throws -> [Float]
-    /// Contiguous scan rows `[yRange.count,Rx,Qy,Qx]`. Whole-cube analyses use
-    /// this bounded unit instead of requiring a resident float32 datacube.
-    func readScanTile(_ descriptor: DatasetDescriptor,
+
+    /// What this reader pushes into its own I/O for **this view**, versus
+    /// applies in memory.
+    ///
+    /// **Declared, never assumed** (decided 2026-08-18), and it takes the view
+    /// because the answer is not a property of the format alone: HDF5's
+    /// hyperslab skips cropped-out bytes on a *contiguous* dataset, but a
+    /// chunked one is read and decompressed a whole chunk at a time, so a crop
+    /// inside a chunk skips nothing. Measured 2026-08-18 on a gzip-chunked
+    /// (16,16,256,256) f4 dataset with chunks (1,16,256,256): reading 1/64 of
+    /// the detector pixels took 0.135 s against 0.137 s for all of them. The raw
+    /// formats store patterns contiguously, so a scan crop is a seek but a
+    /// detector crop is a slice after the read.
+    ///
+    /// The app records this in provenance, so the saving is never overstated —
+    /// which is the whole reason the declaration exists rather than being
+    /// inferred from the format name.
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown
+
+    // Every read takes a `LoadView`, not a bare descriptor. All scan and
+    // detector indices below are in **view** coordinates, starting at 0; the
+    // reader adds the view's offsets to reach the source. Passing the view
+    // rather than the descriptor is what stops a reader from being handed a
+    // cropped shape with no idea where that shape sits in the file — the state
+    // three of these conformers were in before 2026-08-18, when the descriptor
+    // was accepted and never read.
+
+    /// One CBED pattern [Qy*Qx] at view scan position (ry, rx).
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float]
+    /// One view scan row [Rx*Qy*Qx] for a fixed ry (chunk-friendly streaming).
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float]
+    /// Contiguous view scan rows `[yRange.count,Rx,Qy,Qx]`. Whole-cube analyses
+    /// use this bounded unit instead of requiring a resident float32 datacube.
+    func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile
     /// A scalar attribute (e.g. accelerating voltage), or nil if absent.
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double?
