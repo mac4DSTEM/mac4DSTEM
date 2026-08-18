@@ -242,10 +242,32 @@ func exercise(
     )
     check((try? LoadView(source: source, specification: detectorOutOfBounds)) == nil,
           "\(label): an out-of-bounds detector crop was accepted")
-    var binned = LoadSpecification.fullExtent
-    binned.detectorBin = 2
-    check((try? LoadView(source: source, specification: binned)) == nil,
-          "\(label): binning was accepted before L4 implemented it")
+    // Bin factors: L4 implemented 2, 4 and 8, so those are accepted here and the
+    // VALUES are checked against py4DSTEM in tools/preprocess-crop-bin-test.
+    // What this harness still owns is the refusal of everything else — py4DSTEM
+    // takes any integer, this app does not, and a factor that slipped through
+    // would silently reshape the detector.
+    for factor in [2, 4, 8] {
+        var binned = LoadSpecification.fullExtent
+        binned.detectorBin = factor
+        let view = try? LoadView(source: source, specification: binned)
+        // A factor larger than the detector legitimately leaves nothing, and
+        // that refusal is correct — the fixtures here run from a 6 x 5 detector
+        // up to 256 x 256, so both outcomes are exercised across the readers.
+        if source.qy >= factor && source.qx >= factor {
+            check(view != nil,
+                  "\(label): bin factor \(factor) was refused on a \(source.qy) x \(source.qx) detector")
+        } else {
+            check(view == nil,
+                  "\(label): bin factor \(factor) was accepted on a \(source.qy) x \(source.qx) detector, which leaves no pixels")
+        }
+    }
+    for factor in [0, -1, 3, 5, 6, 7, 9, 16] {
+        var binned = LoadSpecification.fullExtent
+        binned.detectorBin = factor
+        check((try? LoadView(source: source, specification: binned)) == nil,
+              "\(label): bin factor \(factor) was accepted; only 2, 4 and 8 are offered")
+    }
 
     // 5. A view of a *different* source must be refused, not silently read.
     //    This is the mismatched-pair failure the LoadView type exists to make

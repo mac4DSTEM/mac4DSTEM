@@ -93,8 +93,9 @@ actor DM4Reader: FourDDataSource {
     /// memory saving is real even though the I/O saving is not.
     private func pattern(_ view: LoadView, sourceY: Int, sourceX: Int) throws -> [Float] {
         let base = frameOffset(sourceY: sourceY, sourceX: sourceX)
-        guard let crop = view.specification.detectorCrop else {
-            return try decode(byteOffset: base, count: qy * qx)
+        guard let crop = view.readDetectorCrop else {
+            return view.binned(try decode(byteOffset: base, count: qy * qx),
+                               patternCount: 1)
         }
         // Decoded straight into one buffer rather than one array per row: a
         // 512-row crop over a 256x256 scan is ~34 million rows, and a fresh
@@ -106,14 +107,14 @@ actor DM4Reader: FourDDataSource {
             try decode(byteOffset: rowStart, count: crop.width,
                        into: &out, at: row * crop.width)
         }
-        return out
+        return view.binned(out, patternCount: 1)
     }
 
     /// True when a whole view scan row is one contiguous run of source bytes:
     /// no detector crop, and the full source scan width. Then the tile is a
     /// single decode, which is the shipped streaming path.
     private func rowsAreContiguous(_ view: LoadView) -> Bool {
-        view.specification.detectorCrop == nil
+        view.readDetectorCrop == nil
             && view.specification.scanOffset.x == 0
             && view.descriptor.rx == rx
     }
@@ -138,15 +139,17 @@ actor DM4Reader: FourDDataSource {
         let sourceY = view.sourceScanY(viewY)
         if rowsAreContiguous(view) {
             let rowPix = rx * qy * qx
-            return try decode(byteOffset: dataOffset + sourceY * rowPix * elementSize,
-                              count: rowPix)
+            let raw = try decode(byteOffset: dataOffset + sourceY * rowPix * elementSize,
+                                 count: rowPix)
+            return view.binned(raw, patternCount: rx)
         }
-        if view.specification.detectorCrop == nil {
+        if view.readDetectorCrop == nil {
             // Still one contiguous run — a sub-range of patterns within the row.
             let patPix = qy * qx
             let start = frameOffset(sourceY: sourceY,
                                     sourceX: view.specification.scanOffset.x)
-            return try decode(byteOffset: start, count: view.descriptor.rx * patPix)
+            let raw = try decode(byteOffset: start, count: view.descriptor.rx * patPix)
+            return view.binned(raw, patternCount: view.descriptor.rx)
         }
         var out = [Float]()
         out.reserveCapacity(view.descriptor.rx * view.descriptor.qy * view.descriptor.qx)
@@ -168,7 +171,8 @@ actor DM4Reader: FourDDataSource {
             let rowPix = rx * qy * qx
             let start = dataOffset
                 + view.sourceScanY(lower) * rowPix * elementSize
-            pixels = try decode(byteOffset: start, count: range.count * rowPix)
+            let raw = try decode(byteOffset: start, count: range.count * rowPix)
+            pixels = view.binned(raw, patternCount: range.count * rx)
         } else {
             var buffer = [Float]()
             buffer.reserveCapacity(

@@ -72,8 +72,8 @@ on a reduced *view* re-runs unchanged on the full dataset.
 
 **Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses**
 without re-running it. It was measured at the tag and no one has reproduced the
-aggregate since; the count has also moved (`scientific` is 31 harnesses now,
-`all` is 33). `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
+aggregate since; the count has also moved (`scientific` is 32 harnesses now,
+`all` is 34). `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
 is **intermittent**, not reliably red: it failed on macOS 27 with no app-code
 change, and passed on 2026-08-17 in a full `run-tests.sh unit` that exited 0.
 A layout threshold that drifts with the machine is worse than a stable failure,
@@ -83,7 +83,7 @@ because a green run proves nothing. Tracked in `docs/open-items.md`.
 `run-tests.sh all` runs `unit` first and `set -e` aborts there, so it reaches
 **zero** harnesses (exit 65). The note below that #43 is what stops `all` is
 therefore wrong on this machine — the sidebar test stops it first. What is
-reproducible today is `run-tests.sh scientific` → exit 0, 31 harnesses.
+reproducible today is `run-tests.sh scientific` → exit 0, 32 harnesses.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6): Track A
 is `tools/run-tests.sh`, Track B is the human visual pass at

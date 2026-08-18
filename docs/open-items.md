@@ -120,7 +120,7 @@ Two things learned that are not obvious and cost time:
   harnesses.** Measured at the tag; **nobody has reproduced the aggregate
   since**, and the count has moved twice — `virtual-detector-residency` landed
   2026-08-17 and `load-spec-test` and `load-spec-calibration` on 2026-08-18, so `scientific` is
-  now 31 and `all` is 33. A verification claim that a reader cannot reproduce is the kind
+  now 32 and `all` is 34. A verification claim that a reader cannot reproduce is the kind
   that costs credibility with exactly the people who check — so either re-run
   `all` and restate it, or say what was actually run.
 
@@ -133,7 +133,7 @@ Two things learned that are not obvious and cost time:
   `docs/load-pipeline-plan.md` §5) is wrong on this machine: the sidebar test
   stops it first and #43 is never reached. Confirmed pre-existing — the same
   test fails the same way on a stashed clean tree, with no working-tree changes.
-  What *is* reproducible today: `run-tests.sh scientific` → **exit 0, 31
+  What *is* reproducible today: `run-tests.sh scientific` → **exit 0, 32
   harnesses**.
 
 ### First clean-account acceptance run — 2026-08-14
@@ -254,6 +254,34 @@ the claims are widened*, not as release advice.
   macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
   Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
   whether to ship a legacy PNG set alongside.
+- **L4's review gate has not been taken, and L4 is implemented.** The stage is
+  green — `tools/preprocess-crop-bin-test` matches py4DSTEM exactly on seven
+  cases and twelve negative controls fail it — but `docs/load-pipeline-plan.md`
+  §6 requires an adversarial review "on Fable 5 or `/code-review ultra`", and on
+  2026-08-18 Fable 5 returned *requires usage credits* while a substitute on the
+  default model hit a session limit. `/code-review ultra` is user-triggered and
+  billed, so no session can launch it. **This is the exact state the repo's
+  standing rule names — a science-affecting change approved only by the model
+  that wrote it — and the stage is marked `[~]` rather than `[x]` because of
+  it.** Run the gate before ticking L4.
+- **The plan's named L4 fixture does not exist, and the premise was never
+  checked.** §6 said the training set carries `bin2` and `bin8` files of the same
+  data, offering "real external ground truth". `References/training_dataset/`
+  holds one Particle_1 file whose name carries both tokens for unrelated
+  reasons. Corrected in the plan; recorded here because the same class of error
+  — a fixture asserted in a doc and never checked against the directory — is
+  cheap to repeat. The replacement (py4DSTEM as the arbiter) is better, so
+  nothing is owed except the habit.
+- **A bounds convention was wrong before the load pipeline and binning exposed
+  it.** `CalibrationReReference` tested an origin against `[0, width)`, the
+  convention for *indices*, but an origin is a continuous position and the
+  detector covers `[-0.5, width - 0.5)` in pixel-centre coordinates. Harmless
+  while every operation was a translation; `binnedCoordinate` maps source 0 to a
+  negative value for every factor, so ordinary origins fell in the gap and the
+  whole calibration would have been invalidated — an off-by-half that presents
+  as a principled refusal. Fixed 2026-08-18 with the case pinned. **Worth a
+  sweep:** other detector-bounds tests in the app may use the index convention
+  for continuous positions too; nobody has looked.
 - **`measureOrigin` is frame-dependent: cropping the detector moves the
   measured origin by up to ~1 px, and this predates the load pipeline.** Its
   coarse step takes an argmax over blocks of side `round(probeRadius)` tiled

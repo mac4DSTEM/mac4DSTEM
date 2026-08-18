@@ -39,7 +39,7 @@ actor DemoFourDDataSource: FourDDataSource {
         // a cropped demo cube would hold different data rather than a subset of
         // the same data, and every crop-equals-slice assertion would compare two
         // fabrications and pass.
-        return view.detectorSlice(
+        return view.detectorView(
             of: sourcePattern(scanY: view.sourceScanY(ry), scanX: view.sourceScanX(rx))
         )
     }

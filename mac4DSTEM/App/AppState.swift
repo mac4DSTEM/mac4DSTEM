@@ -1751,7 +1751,7 @@ final class AppState {
             calibration.originProvenance = .geometricDefault
         }
         loadedView.publish(
-            specification: view.specification,
+            view: view,
             pushdown: await reader.loadPushdown(for: view),
             outcome: reReferenced
         )

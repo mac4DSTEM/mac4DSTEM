@@ -15,17 +15,29 @@
 //  at read time and re-references every detector-frame value against the new
 //  frame, or invalidates it explicitly. The source file is never modified.
 //
-//  WHAT A CROP IS, GEOMETRICALLY, AND WHY THAT DECIDES EVERY RULE BELOW.
-//  A crop (no bin — that is L4) is a PURE TRANSLATION of the detector frame and
-//  a PURE SELECTION of scan positions. So:
-//    * a POSITION moves with the frame          -> re-reference by subtracting
-//                                                  the crop offset;
-//    * a LENGTH, a RADIUS or an ANGLE does not  -> carry unchanged;
-//    * a SAMPLING INTERVAL does not             -> carry unchanged (only
-//                                                  binning rescales it, L4);
-//    * a value INDEXED BY SCAN POSITION         -> crop to the sub-rectangle.
-//  Anything that cannot be placed in one of those four boxes is invalidated
-//  rather than guessed at.
+//  WHAT A CROP AND A BIN ARE, GEOMETRICALLY, AND WHY THAT DECIDES EVERY RULE.
+//  A crop is a PURE TRANSLATION of the detector frame and a PURE SELECTION of
+//  scan positions. A bin is a PURE RESCALING of the detector frame. So:
+//    * a POSITION      -> subtract the crop offset, then rescale about the
+//                         pixel grid (see `binnedCoordinate`);
+//    * a LENGTH/RADIUS -> unchanged by a crop, divided by the bin factor;
+//    * an ANGLE        -> unchanged by both;
+//    * a SAMPLING
+//      INTERVAL        -> unchanged by a crop, MULTIPLIED by the bin factor,
+//                         because each stored pixel now spans that many;
+//    * a value INDEXED
+//      BY SCAN POSITION-> crop to the sub-rectangle.
+//  Anything that cannot be placed in one of those boxes is invalidated rather
+//  than guessed at.
+//
+//  THE BIN DEVIATION, and it is the reason this file exists at all.
+//  py4DSTEM's `bin_data_diffraction` (preprocess.py:154) scales `Q_pixel_size`
+//  up by the bin factor and stops. It does NOT rescale the fitted origin, the
+//  probe radius, or the ellipse semi-axes — all of which are in detector pixels
+//  and all of which just changed size. In py4DSTEM that mislabels; here it would
+//  FABRICATE, because the origin is a per-scan-position map feeding disk
+//  detection, strain and ACOM. This app rescales all of them, and the intensity
+//  consequence of summing (below) is stated rather than absorbed.
 //
 //  AXIS CONVENTION, because getting it backwards moves every origin along the
 //  wrong axis and still produces plausible numbers. `OriginMaps.fittedX/fittedY`
@@ -117,6 +129,7 @@ nonisolated enum CalibrationReReference {
         var apertureCenter: DetectorPoint? = apertureCenter
         var invalidated: [CalibrationInvalidation] = []
         let specification = view.specification
+        let bin = specification.detectorBin
 
         guard !specification.isFullExtent else {
             return Outcome(calibration: calibration, apertureCenter: apertureCenter,
@@ -145,21 +158,27 @@ nonisolated enum CalibrationReReference {
             }
         }
 
-        if let detectorCrop = specification.detectorCrop {
-            // A position moves with the frame.
+        if let detectorCrop = view.readDetectorCrop {
+            // A position moves with the frame, then rescales with the grid.
             if let origin = calibration.origin {
-                let shifted = shifted(origin, byX: -detectorCrop.xOffset,
-                                      y: -detectorCrop.yOffset)
+                let shifted = rescaled(
+                    shifted(origin, byX: -detectorCrop.xOffset, y: -detectorCrop.yOffset),
+                    bin: bin
+                )
                 // Judged on the FITTED origins, because those are what every
                 // analysis uses; the measured arrays are a fit-quality record
                 // and are allowed to scatter outside without condemning the fit.
-                if let outside = firstOutside(shifted, width: detectorCrop.width,
-                                              height: detectorCrop.height) {
+                // Bounds are checked in the FINAL frame — after the bin, not
+                // before it. A position 3 px outside a crop is 0.4 px outside
+                // the same crop binned by 8, and which of those is true decides
+                // whether the calibration survives.
+                if let outside = firstOutside(shifted, width: view.descriptor.qx,
+                                              height: view.descriptor.qy) {
                     calibration.origin = nil
                     calibration.originProvenance = .geometricDefault
                     invalidated.append(.init(
                         field: .origin,
-                        reason: "The fitted beam origin at scan position \(outside.position) lands at (\(format(outside.x)), \(format(outside.y))) in the cropped detector, which is outside its \(detectorCrop.width) x \(detectorCrop.height) extent — the direct beam is not inside this diffraction crop. Widen the crop or re-fit the origin on this view."
+                        reason: "The fitted beam origin at scan position \(outside.position) lands at (\(format(outside.x)), \(format(outside.y))) in the loaded detector, which is outside its \(view.descriptor.qx) x \(view.descriptor.qy) extent — the direct beam is not inside this diffraction crop. Widen the crop or re-fit the origin on this view."
                     ))
                 } else {
                     calibration.origin = shifted
@@ -173,11 +192,12 @@ nonisolated enum CalibrationReReference {
             // app has, so forgetting it here would leave the whole app pointed
             // at a detector pixel that is no longer loaded.
             if var center = apertureCenter {
-                center.x -= Float(detectorCrop.xOffset)
-                center.y -= Float(detectorCrop.yOffset)
+                center.x = binnedCoordinate(center.x - Float(detectorCrop.xOffset), bin: bin)
+                center.y = binnedCoordinate(center.y - Float(detectorCrop.yOffset), bin: bin)
+                // Same physical extent as `firstOutside`, for the same reason.
                 let inside = center.x.isFinite && center.y.isFinite
-                    && center.x >= 0 && center.x < Float(detectorCrop.width)
-                    && center.y >= 0 && center.y < Float(detectorCrop.height)
+                    && center.x >= -0.5 && center.x < Float(view.descriptor.qx) - 0.5
+                    && center.y >= -0.5 && center.y < Float(view.descriptor.qy) - 0.5
                 if inside {
                     apertureCenter = center
                 } else {
@@ -185,21 +205,43 @@ nonisolated enum CalibrationReReference {
                     if !invalidated.contains(where: { $0.field == .origin }) {
                         invalidated.append(.init(
                             field: .origin,
-                            reason: "The beam centre lands at (\(format(center.x)), \(format(center.y))) in the cropped detector, outside its \(detectorCrop.width) x \(detectorCrop.height) extent — the direct beam is not inside this diffraction crop. Widen the crop or re-fit the origin on this view."
+                            reason: "The beam centre lands at (\(format(center.x)), \(format(center.y))) in the loaded detector, outside its \(view.descriptor.qx) x \(view.descriptor.qy) extent — the direct beam is not inside this diffraction crop. Widen the crop or re-fit the origin on this view."
                         ))
                     }
                 }
             }
 
-            // A radius and an angle survive a translation unchanged, so the
-            // ellipse fit and the probe radius are carried, not re-referenced
-            // and not invalidated. Stated explicitly because "it needed no
-            // change" and "it was forgotten" look identical in a diff.
+            // A radius and an angle survive a TRANSLATION unchanged, so a crop
+            // alone leaves the ellipse fit and the probe radius untouched.
+            // Stated explicitly because "it needed no change" and "it was
+            // forgotten" look identical in a diff.
             //
             // Whether the cropped detector still CONTAINS the probe disk or the
             // ellipse's reference ring is a data-quality question, not a
             // calibration-frame one; automated quality checks are deferred
             // (docs/v2-scope.md §3).
+        }
+
+        if bin > 1 {
+            // Lengths in detector pixels. The detector pixel just got `bin`
+            // times bigger, so every length measured in them gets that many
+            // times smaller. py4DSTEM rescales NONE of these.
+            calibration.probeRadius = calibration.probeRadius.map { $0 / Float(bin) }
+            // The ellipse semi-axes are lengths too. Rescaling both leaves
+            // `ellipseTransform`'s `e = b / a` — and therefore every corrected
+            // offset — bit-identical, so this changes no computed result; it
+            // changes the stored numbers from source-frame pixels into
+            // view-frame pixels, which is what invariant I3 asks for. `theta` is
+            // an angle and does not move.
+            calibration.ellipseA = calibration.ellipseA.map { $0 / Double(bin) }
+            calibration.ellipseB = calibration.ellipseB.map { $0 / Double(bin) }
+            // A sampling interval goes the other way: one stored pixel now spans
+            // `bin` of the original, so it covers `bin` times as much reciprocal
+            // space. This is the ONE rescaling py4DSTEM does perform
+            // (preprocess.py:208), and the app matches it exactly.
+            calibration.qPixelSize = calibration.qPixelSize.map { $0 * Double(bin) }
+            // `rPixelSize` is real-space sampling and diffraction binning does
+            // not touch it. Real-space binning is not offered (docs/v2-scope.md §3).
         }
 
         // Sampling intervals are unchanged by a crop in either space: cropping
@@ -253,6 +295,40 @@ nonisolated enum CalibrationReReference {
         )
     }
 
+    /// Map one detector coordinate from the cropped frame into the binned one.
+    ///
+    /// **The half-pixel matters, and the naive `x / bin` is wrong.** Binned
+    /// pixel `j` sums source pixels `j*b … j*b + b - 1`, so its CENTRE sits at
+    /// source coordinate `j*b + (b-1)/2`, not at `j*b`. The inverse of that is
+    /// `(x + 0.5) / b - 0.5`, which sends the centre of a bin to the centre of
+    /// the binned pixel and keeps a position at the middle of the detector at
+    /// the middle of the binned detector. `x / b` would displace every origin by
+    /// `(b-1) / 2b` px — approaching half a binned pixel, and biased in one
+    /// direction, so it would look like a small systematic descan error rather
+    /// than like a bug.
+    ///
+    /// This is the same transform `BraggVectorEMDWriter.transformedCalibration`
+    /// already applies on export, and deliberately so: two conventions for the
+    /// same operation in one codebase is how they drift apart.
+    static func binnedCoordinate(_ value: Float, bin: Int) -> Float {
+        bin > 1 ? (value + 0.5) / Float(bin) - 0.5 : value
+    }
+
+    /// Apply `binnedCoordinate` to every position in a map.
+    private static func rescaled(_ origin: OriginMaps, bin: Int) -> OriginMaps {
+        guard bin > 1 else { return origin }
+        func scale(_ values: [Float]) -> [Float] {
+            values.map { binnedCoordinate($0, bin: bin) }
+        }
+        return OriginMaps(
+            width: origin.width, height: origin.height,
+            measuredX: origin.measuredX.map(scale),
+            measuredY: origin.measuredY.map(scale),
+            fittedX: scale(origin.fittedX),
+            fittedY: scale(origin.fittedY)
+        )
+    }
+
     /// Translate detector positions into the cropped frame.
     private static func shifted(_ origin: OriginMaps, byX dx: Int, y dy: Int) -> OriginMaps {
         let x = Float(dx), y = Float(dy)
@@ -267,8 +343,19 @@ nonisolated enum CalibrationReReference {
 
     /// The first fitted origin that is not inside the cropped detector, if any.
     ///
-    /// A half-open test against `[0, width) x [0, height)`, matching how every
-    /// detector index in this app is bounded.
+    /// A half-open test against the detector's PHYSICAL extent in pixel-centre
+    /// coordinates: `[-0.5, width - 0.5) x [-0.5, height - 0.5)`.
+    ///
+    /// **Not `[0, width)`, and the difference is not pedantry.** Pixel *centres*
+    /// run 0 … width-1, so the surface the pixels cover starts half a pixel
+    /// before the first centre. Testing against `[0, width)` treats a continuous
+    /// position as if it were an index, and after binning that is reachable by
+    /// ordinary data: `binnedCoordinate` maps source 0 to `0.5/b - 0.5`, which
+    /// is *negative* for every b > 1. An origin sitting in the first half of the
+    /// first source pixel would then be declared off-detector and the whole
+    /// calibration invalidated — a refusal that looks principled and is simply
+    /// an off-by-half. Found 2026-08-18 by a bin test written to assert
+    /// something else.
     ///
     /// **Written in the positive on purpose.** A NaN origin must never pass a
     /// bounds check by being unorderable, and which way round the test is
@@ -286,7 +373,8 @@ nonisolated enum CalibrationReReference {
             let x = origin.fittedX[index]
             let y = origin.fittedY[index]
             guard x.isFinite, y.isFinite,
-                  x >= 0, x < Float(width), y >= 0, y < Float(height) else {
+                  x >= -0.5, x < Float(width) - 0.5,
+                  y >= -0.5, y < Float(height) - 0.5 else {
                 return (index, x, y)
             }
         }

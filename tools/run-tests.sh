@@ -45,6 +45,7 @@ scientific=(
   idpc-test cancellation-test
   bragg-export-test sidecar-result-test strain-test ellipse-calibration-test
   dm4-robustness-test vendor-reader-test load-spec-test load-spec-calibration
+  preprocess-crop-bin-test
   preprocessing-export-test parallax-preprocessing-test parallax-alignment-test
   parallax-aberration-test parallax-subpixel-test parallax-depth-test
   singleslice-ptychography-test result-presentation-test

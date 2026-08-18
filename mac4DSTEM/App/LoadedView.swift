@@ -40,6 +40,12 @@ final class LoadedView {
     /// ambiguous — the same index now names a different physical position.
     private(set) var scanIndexedResultsWereCleared = false
 
+    /// Detector rows and columns dropped as the binning edge remainder. Stated,
+    /// never silent: the user asked for one extent and got a slightly smaller
+    /// one, and that difference turns up later as an unexplained number.
+    private(set) var discardedDetectorRows = 0
+    private(set) var discardedDetectorColumns = 0
+
     /// Whether anything at all distinguishes this from opening the file whole.
     var isFullExtent: Bool { specification.isFullExtent }
 
@@ -51,11 +57,13 @@ final class LoadedView {
     /// `CalibrationReReference`, which is pure and testable without an
     /// `AppState`, a dataset or a GPU. This type is the record, not the policy.
     func publish(
-        specification: LoadSpecification,
+        view: LoadView,
         pushdown: LoadPushdown,
         outcome: CalibrationReReference.Outcome
     ) {
-        self.specification = specification
+        self.specification = view.specification
+        self.discardedDetectorRows = view.discardedDetectorRows
+        self.discardedDetectorColumns = view.discardedDetectorColumns
         self.pushdown = pushdown
         invalidatedCalibration = outcome.invalidated
         scanIndexedResultsWereCleared = outcome.scanIndexedResultsAreAmbiguous
@@ -66,6 +74,8 @@ final class LoadedView {
     /// pattern `DatasetResidency.reset` exists for.
     func reset() {
         specification = .fullExtent
+        discardedDetectorRows = 0
+        discardedDetectorColumns = 0
         pushdown = .none
         invalidatedCalibration = []
         scanIndexedResultsWereCleared = false
@@ -90,6 +100,33 @@ final class LoadedView {
         if specification.detectorBin > 1 {
             parts.append("binned \(specification.detectorBin)x")
         }
+        if discardedDetectorRows > 0 || discardedDetectorColumns > 0 {
+            parts.append("edge trimmed \(discardedDetectorRows) row(s), \(discardedDetectorColumns) column(s)")
+        }
         return "Loaded view · " + parts.joined(separator: " · ")
+    }
+
+    /// What binning did to the numbers, in the user's terms — or nil when the
+    /// cube is not binned.
+    ///
+    /// **This has to be said, not implied.** Binning SUMS (py4DSTEM's array
+    /// math, reproduced), so every intensity is `bin²` times larger and every
+    /// absolute-intensity threshold moves with it — `minRelative` is relative
+    /// and survives, but an absolute cut-off carried over from an unbinned run
+    /// does not mean the same thing. A binned cube is a different measurement
+    /// (invariant I3) and the app says so rather than leaving the user to
+    /// discover it from a peak count.
+    var binningNotice: String? {
+        let bin = specification.detectorBin
+        guard bin > 1 else { return nil }
+        var notice = "Diffraction binned \(bin)x: intensities are summed, so they are "
+            + "\(bin * bin)x larger than the unbinned data, and the reciprocal pixel "
+            + "size is \(bin)x coarser."
+        if discardedDetectorRows > 0 || discardedDetectorColumns > 0 {
+            notice += " \(discardedDetectorRows) detector row(s) and "
+                + "\(discardedDetectorColumns) column(s) were trimmed from the far edge "
+                + "so the extent divides by \(bin)."
+        }
+        return notice
     }
 }

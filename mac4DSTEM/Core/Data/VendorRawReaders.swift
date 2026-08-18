@@ -92,11 +92,13 @@ actor EMPADReader: FourDDataSource {
         let data = try Self.read(path: rawPath, offset: frame * Self.frameBytes,
                                  count: Self.imageHeight * Self.width * 4)
         // Decode only the rows the view keeps: the bytes were read either way,
-        // but the cropped-out pixels are never converted or allocated.
-        let crop = view.specification.detectorCrop
+        // but the cropped-out pixels are never converted or allocated. The crop
+        // used is the READ crop — trimmed to a whole number of bins — so the
+        // edge remainder is never decoded either.
+        let crop = view.readDetectorCrop
         let rows = crop.map { $0.yOffset..<($0.yOffset + $0.height) } ?? 0..<Self.imageHeight
         let columns = crop.map { $0.xOffset..<($0.xOffset + $0.width) } ?? 0..<Self.width
-        return data.withUnsafeBytes { bytes in
+        let cropped = data.withUnsafeBytes { bytes in
             var out = [Float]()
             out.reserveCapacity(rows.count * columns.count)
             for row in rows {
@@ -108,6 +110,7 @@ actor EMPADReader: FourDDataSource {
             }
             return out
         }
+        return view.binned(cropped, patternCount: 1)
     }
 
     func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
@@ -297,10 +300,10 @@ actor MIBReader: FourDDataSource {
         let count = detectorHeight * detectorWidth
         let data = try EMPADReader.read(path: path, offset: frame * frameBytes + headerBytes,
                                         count: count * bytesPerPixel)
-        let crop = view.specification.detectorCrop
+        let crop = view.readDetectorCrop
         let rows = crop.map { $0.yOffset..<($0.yOffset + $0.height) } ?? 0..<detectorHeight
         let columns = crop.map { $0.xOffset..<($0.xOffset + $0.width) } ?? 0..<detectorWidth
-        return data.withUnsafeBytes { bytes in
+        let cropped = data.withUnsafeBytes { bytes in
             var out = [Float]()
             out.reserveCapacity(rows.count * columns.count)
             for row in rows {
@@ -315,6 +318,7 @@ actor MIBReader: FourDDataSource {
             }
             return out
         }
+        return view.binned(cropped, patternCount: 1)
     }
 
     func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {

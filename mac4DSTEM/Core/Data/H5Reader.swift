@@ -376,9 +376,14 @@ actor H5Reader: FourDDataSource {
     ) throws -> (start: [hsize_t], count: [hsize_t], memory: [hsize_t]) {
         let specification = view.specification
         let (sourceY, sourceX) = specification.scanOffset
-        let (detectorY, detectorX) = specification.detectorOffset
-        let qy = view.descriptor.qy
-        let qx = view.descriptor.qx
+        // The READ crop, not the requested one: it is trimmed to a whole number
+        // of bins, so the edge remainder is never fetched. And the extent here
+        // is the PRE-bin one — the hyperslab selects pixels, `binned` reduces
+        // them; no HDF5 selection can sum.
+        let detectorY = view.readDetectorCrop?.yOffset ?? 0
+        let detectorX = view.readDetectorCrop?.xOffset ?? 0
+        let qy = view.readDetectorCrop?.height ?? view.source.qy
+        let qx = view.readDetectorCrop?.width ?? view.source.qx
 
         let start: [Int]
         let count: [Int]
@@ -467,7 +472,10 @@ actor H5Reader: FourDDataSource {
                          h5DefaultProperty, $0.baseAddress)
         }
         guard status >= 0 else { throw H5Error.readFailed(label) }
-        return buffer
+        let patternCount = pixelCount
+            / max(1, (view.readDetectorCrop?.height ?? view.source.qy)
+                     * (view.readDetectorCrop?.width ?? view.source.qx))
+        return view.binned(buffer, patternCount: patternCount)
     }
 
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {

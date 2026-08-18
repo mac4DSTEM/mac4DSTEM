@@ -243,6 +243,172 @@ final class CalibrationReReferenceTests: XCTestCase {
         XCTAssertFalse(outcome.invalidated.contains { $0.field == .origin })
     }
 
+    // MARK: - Binning (L4)
+
+    func testBinningMapsAPositionToTheCentreOfItsBinNotToBinTimesTheIndex() throws {
+        // THE HALF-PIXEL. Binned pixel j sums source pixels j*b … j*b+b-1, so
+        // its centre is at source coordinate j*b + (b-1)/2 — and the inverse of
+        // that is (x + 0.5)/b - 0.5, NOT x/b. Asserted with exact arithmetic
+        // because the difference is (b-1)/2b px: 0.25 at bin 2, rising to 0.4375
+        // at bin 8. That is under half a binned pixel and biased in one
+        // direction, so in real data it would read as a small systematic descan
+        // error rather than as a bug — no estimator-based test would separate it.
+        var specification = LoadSpecification()
+        specification.detectorBin = 2
+        let outcome = try apply(specification)
+        let origin = try XCTUnwrap(outcome.calibration.origin)
+        // Source x of 4, 5, 6 -> 1.75, 2.25, 2.75. Naive x/2 would give 2, 2.5, 3.
+        XCTAssertEqual(origin.fittedX[0], 1.75)
+        XCTAssertEqual(origin.fittedX[1], 2.25)
+        XCTAssertEqual(origin.fittedX[2], 2.75)
+        // Source y of 5.25 -> (5.25 + 0.5)/2 - 0.5 = 2.375.
+        XCTAssertEqual(origin.fittedY[0], 2.375)
+        // The centre of the detector must stay the centre of the binned one.
+        XCTAssertEqual(CalibrationReReference.binnedCoordinate(4.5, bin: 2), 2.0)
+        XCTAssertEqual(CalibrationReReference.binnedCoordinate(7.5, bin: 8), 0.5)
+    }
+
+    func testTheBinnedOriginConventionMatchesTheExportWriter() throws {
+        // `BraggVectorEMDWriter.transformedCalibration` has applied
+        // ($0 + 0.5)/bin - 0.5 on export since before this stage. Two
+        // conventions for one operation in a single codebase is how they drift
+        // apart, so this pins them together rather than trusting a comment.
+        for bin in [2, 4, 8] {
+            for value in [Float(0), 3.5, 7, 12.25, 63] {
+                let reReference = CalibrationReReference.binnedCoordinate(value, bin: bin)
+                let writer = Float((Double(value) + 0.5) / Double(bin) - 0.5)
+                XCTAssertEqual(reReference, writer, accuracy: 1e-6,
+                               "bin \(bin), value \(value)")
+            }
+        }
+    }
+
+    func testBinningDividesLengthsAndMultipliesTheSamplingInterval() throws {
+        var specification = LoadSpecification()
+        specification.detectorBin = 2
+        let outcome = try apply(specification)
+        // A radius in detector pixels: the pixels got twice as big.
+        XCTAssertEqual(outcome.calibration.probeRadius, 1.25)
+        // Semi-axes are lengths too.
+        XCTAssertEqual(try XCTUnwrap(outcome.calibration.ellipseA), 1.03 / 2, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(outcome.calibration.ellipseB), 0.97 / 2, accuracy: 1e-12)
+        // An angle is not a length.
+        XCTAssertEqual(outcome.calibration.ellipseTheta, 0.4)
+        // A sampling interval goes the OTHER way — this is py4DSTEM's own
+        // rescale and the only one it performs.
+        XCTAssertEqual(try XCTUnwrap(outcome.calibration.qPixelSize), 0.021 * 2, accuracy: 1e-12)
+        // Real-space sampling is untouched by diffraction binning.
+        XCTAssertEqual(outcome.calibration.rPixelSize, 0.5)
+    }
+
+    func testRescalingTheEllipseChangesNoComputedOffset() throws {
+        // Both semi-axes scale together, and `ellipseTransform` uses only their
+        // ratio, so this must change the stored numbers and nothing else. If it
+        // ever changes a result, the rescale has become a different decision.
+        var specification = LoadSpecification()
+        specification.detectorBin = 4
+        let outcome = try apply(specification)
+        XCTAssertEqual(calibration().ellipseCorrectedOffset(dx: 3.5, dy: -2.25).x,
+                       outcome.calibration.ellipseCorrectedOffset(dx: 3.5, dy: -2.25).x)
+        XCTAssertEqual(calibration().ellipseCorrectedOffset(dx: 3.5, dy: -2.25).y,
+                       outcome.calibration.ellipseCorrectedOffset(dx: 3.5, dy: -2.25).y)
+    }
+
+    func testBinningItselfNeverPushesAValidOriginOffTheDetector() throws {
+        // Binning maps a position TOWARD the origin, so compression alone can
+        // never move an on-detector position off it. Bin 2 divides the 10 x 8
+        // detector exactly, so nothing is trimmed and every origin must survive.
+        //
+        // This is the property the bounds check must not get wrong: the first
+        // version tested against [0, width) and rejected every origin here,
+        // because `binnedCoordinate` sends source 0 to a NEGATIVE binned
+        // coordinate. The detector physically covers [-0.5, width - 0.5).
+        var specification = LoadSpecification()
+        specification.detectorBin = 2
+        let outcome = try apply(specification)
+        XCTAssertNotNil(outcome.calibration.origin)
+        XCTAssertTrue(outcome.invalidated.isEmpty)
+    }
+
+    func testTheEdgeRemainderCanInvalidateAnOriginAndThatIsCorrect() throws {
+        // Bin 4 and 8 trim the 10-row detector to 8, dropping rows 8 and 9 —
+        // and the fitted origin sits at y 5.25…8.25, so the last scan row's
+        // beam is in the discarded strip. The origin is genuinely not on the
+        // detector that was loaded, and invalidating it is right.
+        //
+        // Worth its own test because the CAUSE is easy to misattribute: it is
+        // the edge-remainder trim, not the binning, and the two arrive together.
+        // Reading this as "binning broke the calibration" would send someone
+        // looking in the wrong place.
+        for bin in [4, 8] {
+            var specification = LoadSpecification()
+            specification.detectorBin = bin
+            let outcome = try apply(specification)
+            XCTAssertNil(outcome.calibration.origin, "bin \(bin)")
+            XCTAssertTrue(outcome.invalidated.contains { $0.field == .origin }, "bin \(bin)")
+        }
+
+        // The same origin on a detector the factor divides exactly survives —
+        // which is what shows the trim is the cause.
+        let divisible = DatasetDescriptor(
+            filePath: "/tmp/source.h5", datasetPath: "/data",
+            shape: [4, 3, 16, 8], dtypeDescription: "float32", chunkShape: nil
+        )
+        var specification = LoadSpecification()
+        specification.detectorBin = 4
+        let view = try LoadView(source: divisible, specification: specification)
+        XCTAssertEqual(view.discardedDetectorRows, 0)
+        let outcome = CalibrationReReference.apply(
+            view, to: calibration(), provenance: CalibrationProvenance(),
+            apertureCenter: .init(x: 5, y: 6)
+        )
+        XCTAssertNotNil(outcome.calibration.origin)
+    }
+
+    func testAPositionInTheFirstHalfOfPixelZeroIsOnTheDetector() throws {
+        // The exact case the [0, width) test got wrong, asserted directly.
+        var calibration = self.calibration()
+        var origin = maps()
+        origin.fittedX = origin.fittedX.map { _ in 0 }   // source pixel 0
+        origin.fittedY = origin.fittedY.map { _ in 0 }
+        calibration.origin = origin
+        var specification = LoadSpecification()
+        specification.detectorBin = 4
+        let outcome = try apply(specification, calibration: calibration,
+                                apertureCenter: .init(x: 0, y: 0))
+        // (0 + 0.5)/4 - 0.5 = -0.375, which is inside pixel 0 of the binned
+        // detector and must not invalidate anything.
+        XCTAssertEqual(outcome.calibration.origin?.fittedX.first, -0.375)
+        XCTAssertNotNil(outcome.apertureCenter)
+        XCTAssertTrue(outcome.invalidated.isEmpty)
+    }
+
+    func testAnOriginOffTheBinnedDetectorIsStillInvalidated() throws {
+        // The check must stay real after the frame change above: a crop that
+        // excludes the beam still invalidates, in the binned frame.
+        var specification = LoadSpecification()
+        specification.detectorBin = 2
+        specification.detectorCrop = AxisCrop(yOffset: 0, xOffset: 6, height: 10, width: 2)
+        let outcome = try apply(specification)
+        XCTAssertNil(outcome.calibration.origin)
+        XCTAssertTrue(outcome.invalidated.contains { $0.field == .origin })
+    }
+
+    func testTheEdgeRemainderIsRecordedRatherThanSilentlyDropped() throws {
+        // The 10 x 8 detector binned by 4 keeps 8 x 8: two rows go.
+        var specification = LoadSpecification()
+        specification.detectorBin = 4
+        let view = try LoadView(source: source, specification: specification)
+        XCTAssertEqual(view.discardedDetectorRows, 2)
+        XCTAssertEqual(view.discardedDetectorColumns, 0)
+        XCTAssertEqual(view.descriptor.shape, [4, 3, 2, 2])
+        // And the trimmed extent is what a reader is told to read, so the
+        // dropped rows are never fetched.
+        XCTAssertEqual(view.readDetectorCrop?.height, 8)
+        XCTAssertEqual(view.readDetectorCrop?.yOffset, 0,
+                       "py4DSTEM drops the remainder from the END of the axis")
+    }
+
     // MARK: - Step 5: minPeakSpacing must still follow automatically
 
     func testMinPeakSpacingFollowsTheViewWithoutSpecialHandling() throws {

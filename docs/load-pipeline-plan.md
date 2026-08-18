@@ -211,14 +211,14 @@ re-reference below.
 
 ## 5. Status
 
-> **Where to start (2026-08-18, third update).** **L3 is complete** — readers
-> apply a crop and the calibration is re-referenced into it or invalidated with
-> a named reason. **The next stage is L4, bin-on-read**, the scientifically
-> hardest one in this plan: read its prompt in §6 and note that `LoadView`
-> currently *refuses* a bin factor other than 1, so lifting that refusal is
-> where L4 starts. `qPixelSize` is the value that must rescale and the origin is
-> the value py4DSTEM gets wrong. Two things that look like unfinished work and
-> are not:
+> **Where to start (2026-08-18, fourth update).** L3 is complete. **L4 is
+> implemented and green but has NOT passed its review gate** — it is `[~]` for
+> that reason alone, and the first thing to do is run the gate (§6 requires
+> Fable 5 or `/code-review ultra`, given the py4DSTEM source and told to
+> refute; both were unavailable on 2026-08-18). Do not tick it first.
+> **After that the next stage is L5's configurator**, which is what finally lets
+> a user *request* a crop or a bin — everything beneath it now applies one.
+> Two things that look like unfinished work and are not:
 > **(a)** residency is dormant on purpose — see L2 below, do not set the
 > threshold; **(b)** L5's configurator is blocked on L3/L4, not forgotten.
 > Before L5's configurator, fix **#43** (`docs/open-items.md`).
@@ -228,7 +228,7 @@ re-reference below.
 > `set -e` aborts there on the intermittent
 > `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` (exit 65, zero
 > harnesses started). Confirmed pre-existing: the same test fails the same way
-> on a stashed clean tree. `run-tests.sh scientific` is exit 0, 31 harnesses.
+> on a stashed clean tree. `run-tests.sh scientific` is exit 0, 32 harnesses.
 
 - [x] **L1 — Honest load progress** (2026-08-06, closes #36). The seven
   hard-coded waypoints are gone; unmeasurable phases are named spinners with
@@ -426,7 +426,7 @@ re-reference below.
   "most of it" and rounding *down* is the safe direction.
 
   Verified by `tools/load-spec-test/` (**new**, in `run-tests.sh scientific`,
-  which is 31 harnesses now): a cropped read equals the corresponding slice of a
+  which is 32 harnesses now): a cropped read equals the corresponding slice of a
   full read, exactly — `==`, never a tolerance — on every reader, on all three
   read entry points, on every sub-tile range, plus the refusals and the
   `FourDArray` resident path. Twelve negative controls, each reverted after:
@@ -555,7 +555,90 @@ re-reference below.
   translated expectation would be arithmetic proving itself: that the **reader's
   crop and the calibration's shift use the same coordinate convention**. Break
   either one alone and every unit test still passes while the fixture fails.
-- [ ] **L4 — Bin-on-read**
+- [~] **L4 — Bin-on-read. Implemented and green 2026-08-18; ITS REVIEW GATE HAS
+  NOT BEEN TAKEN, so it is not ticked.** See "the gate that did not run" below.
+
+  Bin factors **2, 4 and 8** are offered (the 2026-08-06 decision; py4DSTEM takes
+  any integer, and that `DEVIATION` note is on `LoadSpecification.detectorBin`).
+  Everything else is refused, including a factor larger than the detector, which
+  would leave no pixels.
+
+  **The array math is py4DSTEM's, reproduced rather than reinterpreted.** It
+  **sums** — it does not average — so intensities scale by `bin²`; and it crops
+  the edge remainder off the **end** of each detector axis before reshaping.
+  Both are load-bearing: averaging would silently make binned and unbinned
+  absolute-intensity thresholds look interchangeable when they are not, and
+  taking the remainder off the wrong end shifts every pattern by up to `bin - 1`
+  px while every shape check still passes.
+
+  **The remainder is trimmed before the read, not after.** `LoadView` exposes
+  `readDetectorCrop` — the requested crop reduced to a whole number of bins —
+  and every reader uses that rather than `specification.detectorCrop`. So the
+  trimmed pixels are never fetched, and the trim composes with a crop in the
+  right order (crop selects, then trim). What was dropped is recorded on the
+  view and stated to the user; a detector that quietly came back two rows
+  smaller than requested is the kind of difference that surfaces months later as
+  an unexplained number.
+
+  **The calibration deviations, which are the reason this stage is the hardest
+  one.** py4DSTEM scales `Q_pixel_size` up by the factor and **stops** — it
+  leaves the fitted origin, the probe radius and the ellipse semi-axes in the
+  old detector frame. Here that would not mislabel, it would *fabricate*, since
+  the origin is a per-scan-position map feeding disk detection, strain and ACOM.
+  So: positions rescale by `(x + 0.5) / b - 0.5`, lengths (probe radius, ellipse
+  semi-axes) divide by `b`, the ellipse angle does not move, `Q_pixel_size`
+  multiplies by `b` (py4DSTEM's own rescale, matched exactly), and `rPixelSize`
+  is untouched because diffraction binning is not real-space binning.
+
+  **The half-pixel in that position transform is not cosmetic.** Binned pixel
+  `j` sums source pixels `j·b … j·b+b-1`, so its centre sits at `j·b + (b-1)/2`;
+  the naive `x / b` displaces every origin by `(b-1)/2b` px — 0.25 at bin 2,
+  0.4375 at bin 8 — under half a binned pixel and biased one way, so in real
+  data it reads as a small systematic descan error rather than as a bug. It is
+  the same transform `BraggVectorEMDWriter.transformedCalibration` has always
+  applied on export, and a test now pins the two together rather than trusting
+  a comment.
+
+  **A bounds convention was wrong before this stage and binning exposed it.**
+  The origin bounds check tested `[0, W)` — the convention for *indices* — but
+  an origin is a continuous position and the detector covers `[-0.5, W-0.5)` in
+  pixel-centre coordinates. Harmless while everything was a translation;
+  `binnedCoordinate` maps source 0 to a **negative** value for every factor, so
+  ordinary origins fell into the gap and the whole calibration would have been
+  invalidated. An off-by-half that presents as a principled refusal. Fixed, with
+  the case pinned.
+
+  **The fixture the plan named does not exist.** §6's L4 prompt says "the
+  training set already carries `bin2` and `bin8` files of the same data" and
+  calls that "real external ground truth". Checked 2026-08-18: there is **one**
+  Particle_1 file, whose name carries both tokens because one describes the
+  acquisition and the other a later reduction. `tools/preprocess-crop-bin-test/`
+  therefore takes its ground truth from **py4DSTEM itself**, run from
+  `References/py4DSTEM-dev` — which is stronger, because it pins the remainder
+  rule and sum-not-average against the reference implementation directly instead
+  of transitively through a file someone else produced. Seven cases: divisible,
+  remainder on both axes, on rows only, on columns only, bin 2, bin 8, and
+  crop-then-bin. The comparison is `==` on float32, which is honest only because
+  the fixture uses small integers whose partial sums are exact in float32
+  regardless of accumulation order — on arbitrary float data a bit-identity
+  claim would be false and a tolerance would hide a real disagreement.
+
+  Twelve negative controls fail it, each reverted: averaging instead of summing,
+  the remainder off the start, rounding the remainder up, a transposed
+  reduction, `Q_pixel_size` scaled down, forgetting the probe radius (py4DSTEM's
+  own omission), forgetting the ellipse semi-axes, rescaling the *angle*,
+  accepting any factor, the naive `x/b`, the reverted bounds convention, and
+  bounds-checking before the bin instead of after.
+
+  **THE GATE THAT DID NOT RUN.** §6 requires "adversarial, on Fable 5 or
+  `/code-review ultra` … the reviewer must be given the py4DSTEM source and told
+  to refute". Fable 5 returned *requires usage credits*; a substitute on the
+  default model hit a session limit. `/code-review ultra` is user-triggered and
+  billed and cannot be launched from a session. **So this stage is `[~]`, not
+  `[x]`, and the numbers above are green-without-a-second-opinion — which is
+  precisely the state this repository has twice been burned by.** Whoever picks
+  this up next: run the gate before ticking it, and read the diagnosis, not just
+  the code.
 - [~] **L5 — Open-time preview and the load configurator. PREVIEW HALF DONE
   2026-08-18; configurator not started** (it needs L3/L4).
   `Core/Analysis/DatasetPreview.swift` builds a real-space image plus mean/max
@@ -598,7 +681,7 @@ will trip it constantly.
 | L1 | **1** | Values, not plumbing. Self-contained. |
 | L2 | **1–2** | Compute change is small; the residency threshold must be *measured* (`tools/performance-baseline/` sweep), which is its own pass. |
 | L3 | **3–4** | Re-sized 2026-08-18. **Five** conformers, not four (MIB and EMPAD both live in `VendorRawReaders.swift`, plus `DemoFourDDataSource`), each with three read entry points — and three of them ignore the descriptor entirely today, so they need real work rather than an offset tweak. Plus the calibration re-reference, a fixture, and an adversarial review that must be a separate agent. |
-| L4 | **2** | The `bin2`→`bin8` fixture, then the highest-stakes adversarial review in the plan. |
+| L4 | **2** | ~~The `bin2`→`bin8` fixture~~ — that pair does not exist (2026-08-18); the fixture compares against py4DSTEM itself. Then the highest-stakes adversarial review in the plan. |
 | L5 | **2** | Preview and configurator are genuinely separate pieces of UI; #43 first. |
 | L6 | **1** | Round-trip, if L3/L4 carried the spec correctly. |
 
@@ -933,11 +1016,20 @@ path that is merely rare is worse than a common one.
 3. Label the result. A binned cube is not the same measurement — reuse the
    existing provenance/scale-labelling pattern (I3).
 
-**The fixture, and it is unusually good.** The training set already carries
-`bin2` and `bin8` files of the same data. **Binning `bin2` in-app by 4 must
-agree with the file's own `bin8`.** That is real external ground truth, not a
-self-consistency check. Build `tools/preprocess-crop-bin-test/` around it and
-add it to `tools/run-tests.sh`.
+**The fixture.** ~~The training set already carries `bin2` and `bin8` files of
+the same data; binning `bin2` in-app by 4 must agree with the file's own
+`bin8`.~~ **That pair does not exist — corrected 2026-08-18.**
+`References/training_dataset/` holds **one** Particle_1 file, whose name carries
+both tokens (`…_bin2_cl-600mm_300kV_bin8.h5`) because one describes the
+acquisition and the other a later reduction. The premise was never checked
+against the directory.
+
+**Use py4DSTEM itself as the arbiter instead**, from the vendored
+`References/py4DSTEM-dev`: bin the same array with
+`preprocess.bin_data_diffraction` and compare exactly. That is stronger than the
+imagined file pair — it pins the edge-remainder rule and sum-not-average against
+the reference implementation directly rather than through a file someone else
+produced — and it is what `tools/preprocess-crop-bin-test/` does.
 
 **Also assert:** a virtual image from a binned cube relates to the unbinned one
 by the documented `bin_factor²` intensity scaling and nothing else; the edge

@@ -65,8 +65,20 @@ nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
     var scanCrop: AxisCrop?
     /// Diffraction-space (detector) crop. nil = the whole detector.
     var detectorCrop: AxisCrop?
-    /// Diffraction bin factor. 1 = none. L4 offers 2, 4 and 8 only.
+    /// Diffraction bin factor. 1 = none.
+    ///
+    /// DEVIATION from py4DSTEM (`preprocess.bin_data_diffraction`,
+    /// References/py4DSTEM-dev/py4DSTEM/preprocess/preprocess.py:154): py4DSTEM
+    /// accepts any integer. This app offers **2, 4 and 8 only** (decided
+    /// 2026-08-06). Two reasons, both practical: it keeps a ground-truth
+    /// comparison exact rather than approximate, and it makes the edge-remainder
+    /// path rare on real detectors, since 64/128/256/512 are all divisible by 8.
+    /// The remainder path is still implemented and tested — a 384 px or cropped
+    /// detector reaches it, and a rare untested path is worse than a common one.
     var detectorBin: Int = 1
+
+    /// The factors the app offers. `1` is "no binning", not a choice.
+    static let availableBinFactors = [2, 4, 8]
 
     static let fullExtent = LoadSpecification()
 
@@ -145,6 +157,8 @@ nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
     case scanCropOutOfBounds(AxisCrop, sourceHeight: Int, sourceWidth: Int)
     case detectorCropOutOfBounds(AxisCrop, sourceHeight: Int, sourceWidth: Int)
     case binningNotAvailable(Int)
+    /// Binning would leave no detector pixels at all.
+    case binnedExtentIsEmpty(bin: Int, height: Int, width: Int)
     /// A reader was handed a view of a file it did not open, or of a shape it
     /// did not discover.
     case sourceMismatch(expected: [Int], received: [Int])
@@ -159,8 +173,10 @@ nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
             return "The scan crop (\(crop.height)x\(crop.width) at y \(crop.yOffset), x \(crop.xOffset)) does not fit the \(h)x\(w) scan."
         case .detectorCropOutOfBounds(let crop, let h, let w):
             return "The diffraction crop (\(crop.height)x\(crop.width) at y \(crop.yOffset), x \(crop.xOffset)) does not fit the \(h)x\(w) detector."
+        case .binnedExtentIsEmpty(let bin, let height, let width):
+            return "Binning \(height) x \(width) detector pixels by \(bin) leaves nothing to load."
         case .binningNotAvailable(let factor):
-            return "Diffraction binning (factor \(factor)) is not available yet."
+            return "Diffraction bin factor \(factor) is not offered; use 2, 4 or 8."
         case .sourceMismatch(let expected, let received):
             return "This reader holds a \(expected.map(String.init).joined(separator: " x ")) dataset, but was handed a view of \(received.map(String.init).joined(separator: " x "))."
         case .unsupportedByReader(let detail):
@@ -198,10 +214,27 @@ nonisolated struct LoadView: Sendable {
     let source: DatasetDescriptor
     /// Which part of `source` is loaded.
     let specification: LoadSpecification
-    /// The shape being processed. Identical to `source` — the same value, not a
-    /// copy — when the specification is full extent, so that removing a
-    /// specification restores the original dataset identity exactly.
+    /// The shape being processed, **after** any crop and any binning. Identical
+    /// to `source` — the same value, not a copy — when the specification is full
+    /// extent, so that removing a specification restores the original dataset
+    /// identity exactly.
     let descriptor: DatasetDescriptor
+
+    /// The detector rectangle a reader actually reads: the requested crop
+    /// trimmed down to a whole number of bins.
+    ///
+    /// **Readers must use this, never `specification.detectorCrop`.** The two
+    /// differ by the edge remainder, and reading the untrimmed rectangle would
+    /// hand the bin step a row or column it cannot pair up. `nil` means "the
+    /// whole detector, unbinned".
+    let readDetectorCrop: AxisCrop?
+
+    /// Detector rows and columns dropped as the edge remainder, in source
+    /// pixels. Zero unless binning is on and the extent does not divide.
+    /// Surfaced to the user, per invariant I3 — a binned cube is a different
+    /// measurement and a trimmed one is a different detector.
+    let discardedDetectorRows: Int
+    let discardedDetectorColumns: Int
 
     /// Validate `specification` against `source` and derive the view.
     ///
@@ -212,11 +245,9 @@ nonisolated struct LoadView: Sendable {
         guard source.is4D else {
             throw LoadSpecificationError.notFourDimensional(source.shape)
         }
-        guard specification.detectorBin == 1 else {
-            // L4 lifts this. Until it does, refusing is the only honest answer:
-            // returning unbinned pixels for a binned request would put every
-            // intensity threshold downstream off by bin_factor^2.
-            throw LoadSpecificationError.binningNotAvailable(specification.detectorBin)
+        let bin = specification.detectorBin
+        guard bin == 1 || LoadSpecification.availableBinFactors.contains(bin) else {
+            throw LoadSpecificationError.binningNotAvailable(bin)
         }
         if let scanCrop = specification.scanCrop {
             guard scanCrop.fits(height: source.ry, width: source.rx) else {
@@ -232,6 +263,35 @@ nonisolated struct LoadView: Sendable {
                 )
             }
         }
+        // THE EDGE REMAINDER, and it is py4DSTEM's rule, reproduced.
+        // `bin_data_diffraction` crops the detector to a multiple of the bin
+        // factor before reshaping, and it takes the remainder off the END of
+        // each axis (`data[..., :-(Q_Nx % bin), :-(Q_Ny % bin)]`,
+        // preprocess.py:181). So the extent this app actually READS is the crop
+        // trimmed down to a multiple of the factor — which also means the
+        // trimmed pixels are never fetched, rather than being read and thrown
+        // away. What was dropped is recorded and must be stated in the UI:
+        // silently returning a smaller detector than the user asked for is the
+        // kind of quiet difference that turns up later as an unexplained number.
+        let requestedHeight = specification.detectorCrop?.height ?? source.qy
+        let requestedWidth = specification.detectorCrop?.width ?? source.qx
+        let discardedRows = requestedHeight % bin
+        let discardedColumns = requestedWidth % bin
+        self.discardedDetectorRows = discardedRows
+        self.discardedDetectorColumns = discardedColumns
+        let readHeight = requestedHeight - discardedRows
+        let readWidth = requestedWidth - discardedColumns
+        guard readHeight > 0, readWidth > 0 else {
+            throw LoadSpecificationError.binnedExtentIsEmpty(
+                bin: bin, height: requestedHeight, width: requestedWidth
+            )
+        }
+        let (detectorY, detectorX) = specification.detectorOffset
+        self.readDetectorCrop = (bin == 1 && specification.detectorCrop == nil)
+            ? nil
+            : AxisCrop(yOffset: detectorY, xOffset: detectorX,
+                       height: readHeight, width: readWidth)
+
         self.source = source
         self.specification = specification
         if specification.isFullExtent {
@@ -243,8 +303,8 @@ nonisolated struct LoadView: Sendable {
                 shape: [
                     specification.scanCrop?.height ?? source.ry,
                     specification.scanCrop?.width ?? source.rx,
-                    specification.detectorCrop?.height ?? source.qy,
-                    specification.detectorCrop?.width ?? source.qx,
+                    readHeight / bin,
+                    readWidth / bin,
                 ],
                 dtypeDescription: source.dtypeDescription,
                 // The file's chunking, carried unchanged: it describes how the
@@ -267,6 +327,9 @@ nonisolated struct LoadView: Sendable {
         self.source = source
         self.specification = .fullExtent
         self.descriptor = source
+        self.readDetectorCrop = nil
+        self.discardedDetectorRows = 0
+        self.discardedDetectorColumns = 0
     }
 
     var isFullExtent: Bool { specification.isFullExtent }
@@ -277,20 +340,67 @@ nonisolated struct LoadView: Sendable {
     func sourceScanX(_ viewX: Int) -> Int { specification.scanOffset.x + viewX }
 
     /// Take the detector crop out of one full **source** pattern, laid out
-    /// `[sourceQy * sourceQx]` row-major.
+    /// `[sourceQy * sourceQx]` row-major, and bin it.
     ///
     /// This is the "slice after reading" half of the 2026-08-18 decision: the
     /// raw formats store patterns contiguously, so a detector crop cannot skip
     /// bytes without many small strided reads. It saves memory, not I/O, and
-    /// `LoadPushdown` says so.
-    func detectorSlice(of pattern: [Float]) -> [Float] {
-        guard let crop = specification.detectorCrop else { return pattern }
+    /// `LoadPushdown` says so. Binning is always in memory — no format can sum
+    /// pixels on the way off the disk.
+    ///
+    /// Slice and bin are one call on purpose: a reader that did only the first
+    /// half would return a pattern of the wrong length, and it is better for
+    /// that to be impossible than to be caught.
+    func detectorView(of pattern: [Float]) -> [Float] {
+        guard let crop = readDetectorCrop else { return binned(pattern, patternCount: 1) }
         let sourceQx = source.qx
         var output = [Float]()
         output.reserveCapacity(crop.height * crop.width)
         for row in 0..<crop.height {
             let start = (crop.yOffset + row) * sourceQx + crop.xOffset
             output.append(contentsOf: pattern[start..<(start + crop.width)])
+        }
+        return binned(output, patternCount: 1)
+    }
+
+    /// Bin `patternCount` contiguous patterns that are already at the **read**
+    /// extent (`readDetectorCrop`, so a whole number of bins on both axes).
+    ///
+    /// DEVIATION-free array math — this is py4DSTEM's, deliberately:
+    /// `bin_data_diffraction` reshapes to `(…, Qx/b, b, Qy/b, b)` and calls
+    /// `.sum(axis=(3, 5))` (preprocess.py:193). It **sums, it does not
+    /// average**, so intensities scale by `bin_factor²` and every absolute
+    /// intensity threshold moves with the factor. Averaging here would be a
+    /// silent divergence from the reference implementation that no shape check
+    /// could catch, and it would make binned and unbinned disk-detection
+    /// thresholds look interchangeable when they are not.
+    ///
+    /// Accumulated in `Float` rather than `Double` for the same reason: the
+    /// reference sums in the array's own dtype, and a more accurate sum here
+    /// would be a different answer.
+    func binned(_ pixels: [Float], patternCount: Int) -> [Float] {
+        let bin = specification.detectorBin
+        guard bin > 1 else { return pixels }
+        let readHeight = readDetectorCrop?.height ?? source.qy
+        let readWidth = readDetectorCrop?.width ?? source.qx
+        let outHeight = readHeight / bin
+        let outWidth = readWidth / bin
+        var output = [Float](repeating: 0, count: patternCount * outHeight * outWidth)
+        for pattern in 0..<patternCount {
+            let inBase = pattern * readHeight * readWidth
+            let outBase = pattern * outHeight * outWidth
+            for outY in 0..<outHeight {
+                for outX in 0..<outWidth {
+                    var sum: Float = 0
+                    for dy in 0..<bin {
+                        let rowBase = inBase + (outY * bin + dy) * readWidth + outX * bin
+                        for dx in 0..<bin {
+                            sum += pixels[rowBase + dx]
+                        }
+                    }
+                    output[outBase + outY * outWidth + outX] = sum
+                }
+            }
         }
         return output
     }
@@ -325,7 +435,7 @@ nonisolated extension LoadView {
         let sourcePatternCount = source.qy * source.qx
         let frame = (sourceScanY(ry) * source.rx + sourceScanX(rx)) * sourcePatternCount
         let full = Array(cube[frame..<(frame + sourcePatternCount)])
-        return detectorSlice(of: full)
+        return detectorView(of: full)
     }
 
     func scanRow(fromFullCube cube: [Float], ry: Int) -> [Float] {
