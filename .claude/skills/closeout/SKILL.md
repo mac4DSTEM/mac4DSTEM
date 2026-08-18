@@ -22,6 +22,10 @@ Done means the repo tells the next reader the truth. In order:
    every session, so its length taxes all of them.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
-7. Do not commit unless the user asked. If they did: linear `main`,
+7. One sentence on the skills themselves: did any skill misfire, get
+   ignored, or fail to trigger when its moment came? Skills are repo files —
+   if one needs reshaping, edit it now and it ships with this session's
+   commit. Friction nobody records is friction the next session repeats.
+8. Do not commit unless the user asked. If they did: linear `main`,
    descriptive message, and the docs updated in the same commit as the code
    they describe.
