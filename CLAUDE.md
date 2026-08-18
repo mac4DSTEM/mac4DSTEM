@@ -31,6 +31,13 @@ Before trusting any test you write: break the code it covers and watch it fail.
 That caught three green-but-worthless suites on 2026-08-17 alone.
 ```
 
+In Claude Code, the kickoff is also a project skill: type **`/pickup`** (or
+`/pickup S7` for a specific session) instead of pasting the block above. The
+other standing skills — `/track-b`, `/diagnose`, `/adversarial-review`,
+`/closeout` — each encode one of this repo's disciplines as an invocable
+action; they live in `.claude/skills/` and point at the docs rather than
+restating them.
+
 Whatever the task: app-code changes follow `docs/development-process.md` —
 Explore subagent (Haiku) to locate code, implement on the default model, and
 take the review gate the work earns. Anything touching `Core/` or the science
@@ -149,10 +156,9 @@ code to make an acceptance step pass — that is a finding, not a bug fix.
   record of what v1.0.0 promised. Superseded as the live contract by
   `docs/v2-scope.md`; consult it for what was in v1 and why, not for what to do
   next.
-- **`docs/v2-onramp.md`** — the handover written for a second development
-  phase. Its *status* sections are superseded by `docs/open-items.md`; keep it
-  for the grouping of open threads by what each actually needs (scope decision /
-  harness confidence / small and known).
+- **`docs/archive/v2-onramp.md`** — the phase-2 handover, archived 2026-08-18;
+  everything it tracked is superseded by `docs/open-items.md` and
+  `docs/v2-release.md`.
 - **`docs/post-v1-ideas.md`** — parking lot for ideas that are out of v1 scope
   *and* would touch `Core/` (cropping, partial/binned loading). Deliberately
   separate from `docs/open-items.md`, which is contractually

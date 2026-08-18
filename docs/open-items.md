@@ -48,8 +48,9 @@ file:
 
 **Unclaimed and staying open:** #17a (design decision), #30 (NAS speed),
 #31, #32, #15/#19/#20, the recents-bookmark hard-link retest, the
-sidebar-divider minimum, the `.fixedSize` audit, and the
-delete-`mac4DSTEMUITests` decision.
+sidebar-divider minimum, and the `.fixedSize` audit. *(The
+delete-`mac4DSTEMUITests` question was decided 2026-08-18 — see the entry
+above; the deletion itself rides S18.)*
 
 **One cheap experiment, unclaimed (2026-08-18) — give the agent eyes on the
 Mac app.** Three candidate mechanisms, one time-box, keep whichever earns it:
@@ -115,11 +116,19 @@ New work that came out of the session:
   "need N GB free, have M" rather than letting a full disk produce three
   different failure sets that look like code regressions. ~15 lines; not yet
   written.
-- **Delete or keep `mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`?** Retired
-  as the acceptance test and unmaintained, but still in the tree and still
-  building. Deleting it also removes the only consumer of the accessibility
-  identifiers that `docs/v1-scope.md` deliberately kept — check
-  `mac4DSTEMUITests/Support/AXDriver.swift` before pulling the thread.
+- **DECIDED 2026-08-18: delete `mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`.**
+  The check this entry asked for is done, and it refuted the entry's own
+  premise: `AXDriver` is **not** the only consumer of the accessibility
+  identifiers — all four `tools/ui-smoke-test/*.applescript` drive the same
+  identifiers (`dataset.card`, `workspace.primaryAction`, …), and the ~91
+  `.accessibilityIdentifier(...)` sites live in *app* code that no deletion
+  touches. So the identifiers stay (smoke tools today, VoiceOver/automation
+  later), and nothing else holds the target: the repo carries **no** shared
+  scheme, and `tools/run-tests.sh` deliberately never invokes it (its `:20`
+  comment). What deletion involves: `git rm -r` both directories plus
+  removing the target from `project.pbxproj` (**19 reference sites** — the
+  one delicate part), verified by a build and `run-tests.sh unit` in the same
+  sitting. **Ride v2 S18**, or any session with slack.
 
 ## Release-owner actions — **done 2026-08-14/15**
 

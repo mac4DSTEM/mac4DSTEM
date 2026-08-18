@@ -55,6 +55,16 @@ ultrareview only for the highest-stakes science change or the final
 pre-release pass.** Never let the model that *wrote* a science-affecting
 change be the only one that *approves* it.
 
+**Project skills (`.claude/skills/`, added 2026-08-18).** Five slash
+commands encode this file's disciplines as invocable actions: `/pickup`
+(start the next v2 session), `/diagnose` (Gate D protocol),
+`/adversarial-review` (Gate B mechanics), `/track-b` (prepare or record a
+visual pass), `/closeout` (end-of-session checklist). Each points at the
+docs rather than restating them — the docs stay the single source of truth;
+the skills are the triggers. They also auto-suggest on matching phrasing
+("I drove the app…", "why does the app…"), which is the point: the
+discipline fires even when nobody remembers to ask for it.
+
 **Target review by stakes, not blanket** — evaluation-only work (the QC
 tasks: test target + docs, no `mac4DSTEM/` change) needs no premium review;
 `/code-review` on Sonnet or a self-check is enough. Reserve Opus review for
