@@ -39,6 +39,18 @@ struct WelcomeWorkspace: View {
                             .controlSize(.large)
                             .keyboardShortcut(.defaultAction)
                             .disabled(appState.isBusy)
+                        // The configured open is a SECOND door, not a mode on
+                        // the first: "Open Dataset…" behaves exactly as it
+                        // always has (release owner, 2026-08-18). Crop and bin
+                        // are something you go looking for, not a step in front
+                        // of every open.
+                        Button("Open with Options…") {
+                            appState.requestOpenDatasetWithOptions()
+                        }
+                        .controlSize(.large)
+                        .disabled(appState.isBusy)
+                        .help("Preview the dataset and choose a crop or binning before loading")
+                        .accessibilityIdentifier("welcome.openWithOptions")
                         if appState.recoveryRecord != nil {
                             Button("Reopen Last Dataset") { appState.reopenLastDataset() }
                                 .buttonStyle(.bordered)

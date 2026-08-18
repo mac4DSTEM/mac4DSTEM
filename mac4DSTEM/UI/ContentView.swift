@@ -1070,11 +1070,27 @@ struct ContentView: View {
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    appState.openFile(url: url)
+                    // One importer, two destinations. `configureOnOpen` is set
+                    // by whichever control opened it, so "Open Dataset…" keeps
+                    // loading straight through and only "Open with options…"
+                    // stops to ask (release owner, 2026-08-18).
+                    if appState.configureOnOpen {
+                        appState.openFileForConfiguration(url: url)
+                    } else {
+                        appState.openFile(url: url)
+                    }
                 }
             case .failure(let error):
                 appState.present(error)
             }
+            appState.configureOnOpen = false
+        }
+        .sheet(item: Binding(
+            get: { appState.pendingLoad },
+            set: { if $0 == nil { appState.discardPendingLoad() } }
+        )) { pending in
+            LoadConfiguratorView(pending: pending)
+                .environment(appState)
         }
         .alert(
             "Something went wrong",

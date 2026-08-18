@@ -994,7 +994,18 @@ final class AppState {
     private(set) var openDatasetRequest = 0
     private(set) var preprocessingExportRequest = 0
 
-    func requestOpenDataset() { openDatasetRequest &+= 1 }
+    func requestOpenDataset() {
+        configureOnOpen = false
+        openDatasetRequest &+= 1
+    }
+
+    /// Open the picker, then stop at L5's configurator instead of loading.
+    /// Separate from `requestOpenDataset` rather than a parameter on it, so the
+    /// plain path cannot acquire the configurator by accident.
+    func requestOpenDatasetWithOptions() {
+        configureOnOpen = true
+        openDatasetRequest &+= 1
+    }
     func requestPreprocessingExport() { preprocessingExportRequest &+= 1 }
 
     var calibrationReadiness: CalibrationReadinessReport {
@@ -1391,6 +1402,125 @@ final class AppState {
         Task { await openFileAsync(url: url) }
     }
 
+    // MARK: - Configured open (L5)
+
+    /// The dataset being configured before it is loaded, or nil. L5's seam —
+    /// see `App/PendingLoad.swift`.
+    private(set) var pendingLoad: PendingLoad?
+
+    /// Which destination the next file-importer result goes to. Set by the
+    /// control that opened the panel; there is one importer and two entry
+    /// points, and the direct one must stay exactly as it was.
+    var configureOnOpen = false
+
+    /// Open far enough to look at, then **stop and ask**.
+    ///
+    /// Reached only from "Open with options…" — `openFile` still loads the whole
+    /// file with no interruption, which is the entry point almost every open
+    /// uses. Everything done here is cheap: open the reader, discover the
+    /// descriptor, sample a strided preview. The expensive pass waits for
+    /// `commitPendingLoad`.
+    func openFileForConfiguration(url: URL) {
+        Task {
+            beginDatasetLoading("Opening \(url.lastPathComponent)…")
+            defer { if isLoadingDataset { finishDatasetLoading() } }
+            let accessed = url.startAccessingSecurityScopedResource()
+            do {
+                let reader = try await Self.makeReader(for: url)
+                beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
+                let source = try await reader.discoverPrimaryDataset()
+                guard source.is4D else {
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                    present(H5Error.unsupportedRank(source.shape.count))
+                    return
+                }
+                if datasetLoadWasCancelled {
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                    return
+                }
+                let size = (try? FileManager.default
+                    .attributesOfItem(atPath: url.path)[.size]) as? NSNumber
+                let pending = PendingLoad(
+                    source: source, reader: reader, url: url,
+                    accessedSecurityScope: accessed,
+                    fileByteCount: size?.intValue
+                )
+                // The preview is built against a full-extent view of the source:
+                // it is what the user drags ON, so it must show the whole file
+                // regardless of what they have configured so far.
+                beginDatasetLoadingStage("Sampling a preview…")
+                let array = FourDArray(reader: reader, descriptor: source)
+                pending.preview = try? await DatasetPreviewBuilder.make(
+                    data: array, descriptor: source,
+                    cancellation: datasetLoadCancellation
+                )
+                guard !datasetLoadWasCancelled else {
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                    return
+                }
+                pendingLoad = pending
+                finishDatasetLoading()
+            } catch {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+                present(error)
+            }
+        }
+    }
+
+    /// Load what the configurator was showing.
+    func commitPendingLoad() {
+        guard let pending = pendingLoad, pending.view != nil else { return }
+        pendingLoad = nil
+        Task {
+            beginDatasetLoading("Opening \(pending.source.datasetPath)…")
+            if let openURL { openURL.stopAccessingSecurityScopedResource() }
+            openURL = pending.accessedSecurityScope ? pending.url : nil
+            reader = pending.reader
+            datasets = [pending.source]
+            await activate(
+                descriptor: pending.source, reader: pending.reader,
+                specification: pending.configuration.specification,
+                runInitialAnalysis: false
+            )
+            if datasetLoadWasCancelled || !hasDataset {
+                await discardPartialLoad()
+                finishDatasetLoading()
+                return
+            }
+            await runCurrentAnalysis()
+            if datasetLoadWasCancelled {
+                await discardPartialLoad()
+                finishDatasetLoading()
+                return
+            }
+            rememberOpenedDataset(pending.url)
+            finishDatasetLoading()
+        }
+    }
+
+    /// Walk away without loading. Releases the file access the pending open
+    /// took, so a cancelled configuration leaves nothing held — and, as with a
+    /// cancelled load, is not remembered.
+    func discardPendingLoad() {
+        guard let pending = pendingLoad else { return }
+        pendingLoad = nil
+        if pending.accessedSecurityScope {
+            pending.url.stopAccessingSecurityScopedResource()
+        }
+        statusText = "No file loaded"
+    }
+
+    /// The reader for a URL, by extension. Extracted so the configured open and
+    /// the direct open cannot drift apart on which formats they accept.
+    private static func makeReader(for url: URL) async throws -> any FourDDataSource {
+        switch url.pathExtension.lowercased() {
+        case "dm4", "dm3": return try await DM4Reader(path: url.path)
+        case "mib": return try MIBReader(path: url.path)
+        case "raw", "xml": return try EMPADReader(path: url.path)
+        default: return try H5Reader(path: url.path)
+        }
+    }
+
     /// Reads and parses a local CIF file, adding the result to this run's
     /// imported-phase-model list and selecting it. Reading/parsing is Core's
     /// job even though it is triggered from a picker — `CIFImport` does the
@@ -1622,17 +1752,7 @@ final class AppState {
         let accessed = url.startAccessingSecurityScopedResource()
 
         do {
-            let ext = url.pathExtension.lowercased()
-            let reader: any FourDDataSource
-            if ext == "dm4" || ext == "dm3" {
-                reader = try await DM4Reader(path: url.path)
-            } else if ext == "mib" {
-                reader = try MIBReader(path: url.path)
-            } else if ext == "raw" || ext == "xml" {
-                reader = try EMPADReader(path: url.path)
-            } else {
-                reader = try H5Reader(path: url.path)
-            }
+            let reader = try await Self.makeReader(for: url)
             beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
             if datasetLoadWasCancelled {
@@ -1686,6 +1806,7 @@ final class AppState {
     private func activate(
         descriptor sourceDescriptor: DatasetDescriptor,
         reader: any FourDDataSource,
+        specification: LoadSpecification = .fullExtent,
         runInitialAnalysis: Bool = true
     ) async {
         guard sourceDescriptor.is4D else {
@@ -1703,7 +1824,18 @@ final class AppState {
         // calibration is re-referenced into it, and `loadedView` records it. The
         // specification is `.fullExtent` on every shipped path — L5's
         // configurator is what will hand a real one in.
-        let view = LoadView(fullExtentOf: sourceDescriptor)
+        // The specification is `.fullExtent` on every path except L5's
+        // configurator. A specification that does not fit the source is a
+        // caller error, not a user error — the configurator only offers ones it
+        // has already validated — so falling back to full extent here would
+        // silently load something other than what was asked for.
+        let view: LoadView
+        do {
+            view = try LoadView(source: sourceDescriptor, specification: specification)
+        } catch {
+            present(error)
+            return
+        }
         self.descriptor = view.descriptor
         fourD = FourDArray(reader: reader, view: view)
 
