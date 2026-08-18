@@ -60,6 +60,15 @@ struct LoadConfiguratorView: View {
 
     // MARK: - The two previews
 
+    /// Both panes MUST pass normalized pixels — `MetalImageView`'s contract, and
+    /// the one this view broke until 2026-08-18. `realSpace` holds the *sum* of
+    /// every detector pixel at a scan position (10⁴–10⁸ on a real cube) and the
+    /// fragment shader clamps to [0,1], so raw values collapsed to the top LUT
+    /// entry and both panes rendered one flat colour. It reads as "no image",
+    /// not as "wrong scaling", which is why it survived a Track B pass.
+    /// The diffraction pane needs `useLog: true` as well: linear-normalized, a
+    /// max-DP is the central beam and nothing else — drawing, but useless for
+    /// choosing a detector crop.
     private var previews: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let preview = pending.preview {
@@ -71,7 +80,7 @@ struct LoadConfiguratorView: View {
                     cropPane(
                         title: "Scan — real space",
                         subtitle: "Sets which scan positions load",
-                        pixels: preview.realSpace.pixels,
+                        pixels: preview.realSpace.normalized(),
                         width: preview.realSpace.width,
                         height: preview.realSpace.height,
                         colormap: .gray,
@@ -89,7 +98,7 @@ struct LoadConfiguratorView: View {
                     cropPane(
                         title: "Diffraction — detector",
                         subtitle: "Sets which detector pixels load",
-                        pixels: preview.maxDP.pixels,
+                        pixels: preview.maxDP.normalized(useLog: true),
                         width: preview.maxDP.qx,
                         height: preview.maxDP.qy,
                         colormap: .viridis,
