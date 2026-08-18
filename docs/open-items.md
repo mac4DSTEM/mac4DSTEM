@@ -296,9 +296,28 @@ choosing between them. It also means the 4.25 GB cube was opened over SMB while
 an identical copy sat on a local SSD, which is exactly the case the
 local-storage notice exists for (#30, ~3.3 MB/s).
 
-Fix is in the row, not the identity: show enough of the path to disambiguate
-(volume or parent directory), or mark entries that live on a network volume.
-Not done — it is UI work and belongs in a pass that can be looked at.
+**FIXED 2026-08-18** in the row, not the identity. Each recent now carries a
+location line, shown as *"eXtendedGROUPS"* against *"PL_SSD_2TB"* for the pair
+above. `RecentDatasetLocation.labels(for:)` gives each entry the **shortest**
+label that separates it from the other entries sharing its file name: the volume
+alone where that is enough, extended one directory at a time where it is not,
+and the full path if even that collides — long and correct beats short and
+wrong. Pinned by `mac4DSTEMTests/RecentDatasetLocationTests` (9 tests, built on
+the two real paths); four controls fail it, including one that labels on the
+parent folder instead of the volume, which fails 6 tests **because both copies
+here live in `00_inbox/4DSTEM_Binned_Cubes`** — the obvious fix would have
+looked right and changed nothing.
+
+Two things deliberately not done. It does **not** say "network": that needs a
+real volume query, the volumes are routinely unmounted, and asking the disk about
+an absent NAS while drawing the app's first screen would stall it — the volume
+*name* is shown and the reader draws their own conclusion. And the labels are
+computed in `AppState`, once per change rather than per redraw, because the
+disambiguation is O(n²) in the number of recents and #31 is the standing item
+about exactly that pattern in a view body.
+
+**Unverified on screen** — no one has looked at the new row yet. It is
+`docs/visual-acceptance-checklist.md` §F1.1c.
 
 **PASSED — §F1.2 and §F1.3, both first-time.** The dataset inspector's *Preview*
 section reads *"Sampled preview · every 8th position · 280 of 16,218"* — the

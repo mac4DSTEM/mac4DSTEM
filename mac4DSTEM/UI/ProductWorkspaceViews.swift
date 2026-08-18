@@ -76,6 +76,9 @@ struct WelcomeWorkspace: View {
                 }
 
                 if !appState.recentDatasets.isEmpty {
+                    // Computed once per redraw of this card rather than once per
+                    // row, so the O(n^2) disambiguation does not run five times.
+                    let locations = appState.recentDatasetLocations
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Recent datasets")
                             .font(.headline)
@@ -85,8 +88,23 @@ struct WelcomeWorkspace: View {
                                     HStack {
                                         Image(systemName: "clock.arrow.circlepath")
                                             .foregroundStyle(Color.accentColor)
-                                        Text(recent.displayName)
-                                            .lineLimit(1)
+                                        // NAME AND LOCATION, because the name
+                                        // alone is not an identifier. Two copies
+                                        // of one cube — a NAS share and a local
+                                        // backup — rendered as identical rows on
+                                        // a list whose only job is choosing
+                                        // between them (Track B, 2026-08-18).
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(recent.displayName)
+                                                .lineLimit(1)
+                                            if let location = locations[recent.id] {
+                                                Text(location)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                    .lineLimit(1)
+                                                    .truncationMode(.head)
+                                            }
+                                        }
                                         Spacer()
                                         Image(systemName: "chevron.right")
                                             .font(.caption)
@@ -95,6 +113,10 @@ struct WelcomeWorkspace: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel(
+                                    locations[recent.id].map { "\(recent.displayName), on \($0)" }
+                                        ?? recent.displayName
+                                )
                                 .accessibilityHint("Reopens this dataset and its saved session")
                                 Button { appState.removeRecent(recent) } label: {
                                     Image(systemName: "xmark.circle.fill")

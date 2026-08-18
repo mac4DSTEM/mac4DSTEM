@@ -179,6 +179,20 @@ final class AppState {
 
     var datasets: [DatasetDescriptor] = []
     private(set) var recentDatasets: [RecentDataset] = WorkspaceRecoveryStore.recent()
+
+    /// Where each recent dataset lives, keyed by its path, said only as
+    /// precisely as it takes to tell same-named entries apart.
+    ///
+    /// Computed here rather than in the view body, and recomputed only when the
+    /// list changes: it is O(n²) in the number of recents (each entry compared
+    /// against its same-named siblings), which is nothing at n <= 8 but has no
+    /// business running on every redraw — #31 is the standing item about exactly
+    /// that pattern.
+    var recentDatasetLocations: [String: String] {
+        let paths = recentDatasets.map(\.id)
+        let labels = RecentDatasetLocation.labels(for: paths)
+        return Dictionary(uniqueKeysWithValues: zip(paths, labels))
+    }
     private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
