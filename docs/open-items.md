@@ -313,12 +313,16 @@ the claims are widened*, not as release advice.
   What refutes the sheet theory: the crop rectangle is a sibling in the same
   `ZStack` in the same sheet and draws fine (`LoadConfiguratorView.swift:151-161`),
   and F1.3c's correct crop proves `geometry.size` was non-zero.
-  **The fix is two lines, but neither is `.normalized()` alone:** the diffraction
-  pane needs `normalized(useLog: true)` as the inspector uses
-  (`DatasetInspector.swift:45`), because a linear-normalized max-DP is the central
-  beam and nothing else — drawing, but useless for choosing a detector crop.
-  **Verify in thirty seconds** by making that change and looking, before anything
-  more elaborate.
+  **FIXED 2026-08-18, NOT YET SEEN ON SCREEN.** `LoadConfiguratorView.swift:74`
+  now passes `preview.realSpace.normalized()` and `:92`
+  `preview.maxDP.normalized(useLog: true)` — the log form matters, because a
+  linear-normalized max-DP is the central beam and nothing else: drawing, but
+  useless for choosing a detector crop. The contract and the reason it was
+  broken are now a comment on `previews`, so the next edit cannot reintroduce it
+  silently. App builds. **No test covers this and none can** — the defect is
+  "renders one flat colour", which every unit-level assertion about pixel counts
+  and dimensions passes happily. It is Track B rows F1.3b/F1.3c and nothing
+  else, so neither may be re-scored until someone looks.
 
   Adjacent, same code, land together: the 720×640 sheet **scrolls and clips its
   own headers** (`LoadConfiguratorView.swift:44`); and the sampling status line
