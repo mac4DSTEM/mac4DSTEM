@@ -281,21 +281,44 @@ one defect found, one checklist row withdrawn as unrunnable.
   80 MB of 3.96 GB"*, bar advancing, welcome card still up. Previously confirmed
   2026-08-06; this is a second dataset.
 
-**FINDING — the recents list gained a duplicate row.** Before the open, the list
-held `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` once; after opening
-that file through the panel it appears **twice**. `rememberOpenedDataset`
-de-duplicates on `url.standardizedFileURL.path` and each row displays only
-`url.lastPathComponent`, so exactly one of these is true:
-1. the same file was reached by two different paths (the open came from a share
-   under `Lobpreis$`, and a re-mounted SMB volume gets a different mount point,
-   so a previously-opened copy would not match), or
-2. two genuinely different files share a basename, and the list **cannot show
-   the difference** — which is a defect in its own right regardless of (1).
+**FINDING — two recents rows are indistinguishable on screen. The de-duplication
+is not at fault.** Read out of the stored defaults rather than guessed:
 
-Both are user-visible; (2) is the more serious because it makes the list
-untrustworthy rather than merely untidy. Not fixed: the release owner should say
-where the pre-existing entry pointed, because that distinguishes the two and the
-fixes are different (normalise the identity vs. disambiguate the display).
+    /Volumes/eXtendedGROUPS/.../Lobpreis$/00_inbox/4DSTEM_Binned_Cubes/036_STEM_SI_...h5   (NAS)
+    /Volumes/PL_SSD_2TB/NAS_Backup/00_inbox/4DSTEM_Binned_Cubes/036_STEM_SI_...h5          (local backup)
+
+Two genuinely different paths, so `rememberOpenedDataset`'s
+`removeAll { $0.id == id }` on `standardizedFileURL.path` correctly kept both.
+**The defect is the display:** each row shows only `url.lastPathComponent`, so a
+NAS copy and a local backup of the same file render identically and the user
+cannot tell which one they are about to open — on a list whose entire purpose is
+choosing between them. It also means the 4.25 GB cube was opened over SMB while
+an identical copy sat on a local SSD, which is exactly the case the
+local-storage notice exists for (#30, ~3.3 MB/s).
+
+Fix is in the row, not the identity: show enough of the path to disambiguate
+(volume or parent directory), or mark entries that live on a network volume.
+Not done — it is UI work and belongs in a pass that can be looked at.
+
+**PASSED — §F1.2 and §F1.3, both first-time.** The dataset inspector's *Preview*
+section reads *"Sampled preview · every 8th position · 280 of 16,218"* — the
+stride stated, as invariant I4 requires — above real-space, mean-pattern and
+max-pattern thumbnails, and closes with *"Not a result — cannot be exported or
+saved."* No control offers to export or promote it. L5's preview half is now
+confirmed on a real 3.96 GB cube rather than only in `DatasetPreviewTests`.
+
+Incidental corroboration: the inspector reports **Chunks: contiguous** for this
+file, which is the case where `H5Reader.loadPushdown` correctly claims `.full` —
+the chunked case that made it conditional is a different file class.
+
+**WORTH CONFIRMING — the scan extent is printed in two orders in one window.**
+The sidebar header reads `106 x 153 scan` while *Dimensions* reads
+`Scan (Ry x Rx) 153 x 106` and *Shape* reads `153 x 106 x 256 x 256`. Each is
+defensible alone — an image convention of width x height against array order —
+but the sidebar carries no axis labels, so the two disagree on screen with
+nothing to reconcile them. This is the shape of the defect Track B found on tag
+day (a readiness row contradicting its own detail line). Needs a second look
+before it is called a defect; recorded so it is not lost.
 
 **WITHDRAWN — §F1.1 could not pass on any dataset.** It asked the release owner
 to watch the L2 preload phase; `makeResident` refuses immediately because
@@ -390,6 +413,29 @@ or it spends the one resource Track B is expensive in — a person's attention.
   much as a limit to know: **the app build is the only gate for isolation**, and
   a stage that adds Core value types crossing into the reader actors should be
   built, not just harnessed.
+- **No way to stop a dataset load in progress.** Requested by the release owner
+  2026-08-18, during the Track B pass, on a 4.25 GB cube opened over SMB: pick
+  the wrong file and the only exit is quitting the app. Analysis operations
+  already have a Cancel (the *Origin calibration · Cancel* control is visible in
+  the same screenshot); **the open itself does not**, and it is the longest
+  uninterruptible wait in the product — worst on exactly the slow network source
+  the welcome screen warns about.
+
+  What it needs, and none of it is decided yet:
+  - A cancel affordance on the loading card, next to the progress it is
+    cancelling.
+  - **A definition of what is released.** `AnalysisCancellationToken` already
+    threads through `makeResident` and the tiled readers, and `FourDArray`'s
+    generation counter already refuses to publish a superseded preload — so the
+    machinery exists. What is undefined is the *destination state*: back to the
+    welcome screen with no dataset, and every partial artefact dropped (the
+    array, any staging buffer, the preview task, the half-built calibration).
+  - **The failure mode to design against is a half-loaded dataset that looks
+    loaded.** Cancelling into a state where the inspector shows dimensions for a
+    cube whose pixels were never read would be worse than no cancel at all.
+
+  Sits naturally with L5's configurator — same screen, same moment — but does
+  not depend on it, and is worth doing on its own.
 - **#17a — aspect-aware pane arrangement.** Built, then reverted on sight
   2026-08-05. Needs a design decision, not an implementation.
 - ~~**#36 — no progress indication while a datacube loads.**~~ **Fixed
