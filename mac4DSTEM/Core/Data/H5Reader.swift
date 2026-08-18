@@ -377,7 +377,9 @@ actor H5Reader: FourDDataSource {
         let specification = view.specification
         let (sourceY, sourceX) = specification.scanOffset
         // The READ crop, not the requested one: it is trimmed to a whole number
-        // of bins, so the edge remainder is never fetched. And the extent here
+        // of bins, so the edge remainder is never decoded — and on a CONTIGUOUS
+        // dataset never read either, though on a chunked one HDF5 still inflates
+        // the whole chunk (see `loadPushdown`). And the extent here
         // is the PRE-bin one — the hyperslab selects pixels, `binned` reduces
         // them; no HDF5 selection can sum.
         let detectorY = view.readDetectorCrop?.yOffset ?? 0

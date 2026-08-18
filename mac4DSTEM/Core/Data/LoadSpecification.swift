@@ -268,9 +268,17 @@ nonisolated struct LoadView: Sendable {
         // factor before reshaping, and it takes the remainder off the END of
         // each axis (`data[..., :-(Q_Nx % bin), :-(Q_Ny % bin)]`,
         // preprocess.py:181). So the extent this app actually READS is the crop
-        // trimmed down to a multiple of the factor — which also means the
-        // trimmed pixels are never fetched, rather than being read and thrown
-        // away. What was dropped is recorded and must be stated in the UI:
+        // trimmed down to a multiple of the factor, and the trimmed pixels are
+        // never converted or allocated.
+        //
+        // **Never converted, not necessarily never fetched** — an earlier
+        // version of this comment claimed the stronger thing. Whether the bytes
+        // leave the disk is per reader and per file, which is the whole reason
+        // `LoadPushdown` is declared rather than assumed: the raw readers fetch
+        // a whole frame and decode part of it, and a CHUNKED HDF5 dataset is
+        // read and inflated a whole chunk at a time. Corrected 2026-08-18.
+        //
+        // What was dropped is recorded and must be stated in the UI:
         // silently returning a smaller detector than the user asked for is the
         // kind of quiet difference that turns up later as an unexplained number.
         let requestedHeight = specification.detectorCrop?.height ?? source.qy
@@ -375,9 +383,19 @@ nonisolated struct LoadView: Sendable {
     /// could catch, and it would make binned and unbinned disk-detection
     /// thresholds look interchangeable when they are not.
     ///
-    /// Accumulated in `Float` rather than `Double` for the same reason: the
-    /// reference sums in the array's own dtype, and a more accurate sum here
-    /// would be a different answer.
+    /// Accumulated in `Float` rather than `Double` because the reference sums in
+    /// the array's own dtype, and a more accurate sum here would be a different
+    /// answer.
+    ///
+    /// **That does not make this bit-identical to NumPy on arbitrary data.**
+    /// NumPy's `.sum(axis=(3,5))` accumulates in a different order from this
+    /// nested loop, so on real float32 patterns the two differ at the last few
+    /// ulp — measured 2026-08-18 on a 256x256 diffraction pattern binned by 8:
+    /// 797 of 1024 output pixels differed, by at most 4.7e-7 relative. That is
+    /// scientifically irrelevant and it is not zero, so the exactness claimed in
+    /// `tools/preprocess-crop-bin-test` holds because that fixture uses small
+    /// integers, whose partial sums are exact in float32 in ANY order — not
+    /// because the two implementations agree bit-for-bit in general.
     func binned(_ pixels: [Float], patternCount: Int) -> [Float] {
         let bin = specification.detectorBin
         guard bin > 1 else { return pixels }

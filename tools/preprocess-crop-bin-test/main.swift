@@ -1,9 +1,17 @@
 //
 //  tools/preprocess-crop-bin-test — stage L4 (docs/load-pipeline-plan.md).
 //
-//  THE CLAIM: binning on read reproduces py4DSTEM's `bin_data_diffraction`
-//  EXACTLY — the sum, the edge-remainder crop, and the Q_pixel_size rescale —
-//  and the app's own deviations from it are the ones written down, no others.
+//  THE CLAIM: binning on read reproduces py4DSTEM's `bin_data_diffraction` —
+//  the sum, the edge-remainder crop, and the Q_pixel_size rescale — and the
+//  app's own deviations from it are the ones written down, no others.
+//
+//  "EXACTLY" IS A CLAIM ABOUT THIS FIXTURE, NOT ABOUT ARBITRARY DATA. NumPy
+//  accumulates the reduction in a different order from the app's nested loop,
+//  so on real float32 patterns the two agree only to the last few ulp (measured
+//  2026-08-18: 256x256 binned by 8, 797 of 1024 pixels differing, at most 4.7e-7
+//  relative). The `==` below is honest because the cubes here are small integers
+//  whose partial sums are exact in float32 in any order. Stated here as well as
+//  in reference.py because the header is what a reader sees first.
 //
 //  The arbiter is py4DSTEM itself, running from the vendored source. The plan
 //  named a different fixture: "the training set already carries bin2 and bin8
@@ -14,10 +22,9 @@
 //  remainder rule and sum-not-average against the source of truth instead of
 //  transitively through a file somebody else produced.
 //
-//  `==` and not a tolerance: reference.py fills the cubes with small integers,
-//  so every partial sum is exact in float32 and accumulation order cannot
-//  matter. On arbitrary float data a bit-identity claim would be false, and a
-//  tolerance would hide a real disagreement rather than expose it.
+//  A tolerance is deliberately NOT used in its place: on this fixture the two
+//  implementations must agree bit-for-bit, and a tolerance would hide a real
+//  disagreement rather than expose it.
 //
 
 import Foundation

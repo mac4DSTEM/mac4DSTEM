@@ -52,6 +52,57 @@ func expectedSlice(
     fullCube: [Float], source: DatasetDescriptor,
     specification: LoadSpecification, viewRows: Range<Int>
 ) -> [Float] {
+    let cropped = croppedSlice(fullCube: fullCube, source: source,
+                               specification: specification, viewRows: viewRows)
+    guard specification.detectorBin > 1 else { return cropped }
+    return binnedIndependently(cropped, specification: specification, source: source,
+                               patternCount: viewRows.count * (specification.scanCrop?.width ?? source.rx))
+}
+
+/// py4DSTEM's reduction, written a SECOND time and deliberately not shared with
+/// `LoadSpecification.binned` — sum over each bin block, over an extent already
+/// trimmed to a whole number of bins. The app's version is the code under test;
+/// this one is the expectation, and two independent statements of the same rule
+/// is the only way this file can adjudicate it.
+///
+/// Values here come from fixtures filled with small integers, so the sum is
+/// exact in float32 whatever order either implementation accumulates in.
+func binnedIndependently(
+    _ cropped: [Float], specification: LoadSpecification,
+    source: DatasetDescriptor, patternCount: Int
+) -> [Float] {
+    let bin = specification.detectorBin
+    let croppedHeight = specification.detectorCrop?.height ?? source.qy
+    let croppedWidth = specification.detectorCrop?.width ?? source.qx
+    let readHeight = croppedHeight - croppedHeight % bin
+    let readWidth = croppedWidth - croppedWidth % bin
+    let outHeight = readHeight / bin, outWidth = readWidth / bin
+    var output = [Float]()
+    output.reserveCapacity(patternCount * outHeight * outWidth)
+    for pattern in 0..<patternCount {
+        let base = pattern * croppedHeight * croppedWidth
+        for outY in 0..<outHeight {
+            for outX in 0..<outWidth {
+                var sum: Float = 0
+                for dy in 0..<bin {
+                    for dx in 0..<bin {
+                        // Indexed against the UNTRIMMED cropped row stride, which
+                        // is what makes this an independent statement: if the app
+                        // trimmed from the wrong end, these disagree.
+                        sum += cropped[base + (outY * bin + dy) * croppedWidth + outX * bin + dx]
+                    }
+                }
+                output.append(sum)
+            }
+        }
+    }
+    return output
+}
+
+private func croppedSlice(
+    fullCube: [Float], source: DatasetDescriptor,
+    specification: LoadSpecification, viewRows: Range<Int>
+) -> [Float] {
     // Offsets read straight off the crop rather than through
     // `LoadSpecification.scanOffset`/`detectorOffset`, so this shares no
     // accessor with the readers either.
@@ -113,6 +164,28 @@ func specifications(for source: DatasetDescriptor) -> [(String, LoadSpecificatio
             detectorCrop: AxisCrop(yOffset: 1, xOffset: 2, height: qy - 2, width: qx - 2)
         )))
     }
+    // Binning, on every reader — not only HDF5. `tools/preprocess-crop-bin-test`
+    // pins the VALUES against py4DSTEM but drives `H5Reader` alone, so without
+    // these the other four conformers had no binned coverage anywhere.
+    if qy >= 4, qx >= 4 {
+        cases.append(("bin 2", LoadSpecification(detectorBin: 2)))
+    }
+    if qy >= 8, qx >= 8 {
+        // A scan crop combined with a bin: the two act on different axes and
+        // nothing else in this harness composes them.
+        cases.append(("scan crop and bin 2", LoadSpecification(
+            scanCrop: ry >= 2 && rx >= 2
+                ? AxisCrop(yOffset: 1, xOffset: 1, height: ry - 1, width: rx - 1)
+                : nil,
+            detectorBin: 2
+        )))
+        // A detector crop whose extent does NOT divide, so the edge-remainder
+        // trim runs on top of a crop offset.
+        cases.append(("detector crop and bin 4, with remainder", LoadSpecification(
+            detectorCrop: AxisCrop(yOffset: 1, xOffset: 2, height: qy - 3, width: qx - 3),
+            detectorBin: 4
+        )))
+    }
     if ry >= 2, rx >= 3, qy >= 4, qx >= 4 {
         cases.append(("both crops, different offsets", LoadSpecification(
             scanCrop: AxisCrop(yOffset: 1, xOffset: 2, height: ry - 1, width: rx - 2),
@@ -162,11 +235,16 @@ func exercise(
 
         let viewRy = view.descriptor.ry
         let viewRx = view.descriptor.rx
+        // Computed here rather than read off the view: the trim-then-bin
+        // arithmetic is part of what is under test, so restating it is the point.
+        let bin = specification.detectorBin
+        let croppedHeight = specification.detectorCrop?.height ?? source.qy
+        let croppedWidth = specification.detectorCrop?.width ?? source.qx
         let expectedShape = [
             specification.scanCrop?.height ?? source.ry,
             specification.scanCrop?.width ?? source.rx,
-            specification.detectorCrop?.height ?? source.qy,
-            specification.detectorCrop?.width ?? source.qx,
+            (croppedHeight - croppedHeight % bin) / bin,
+            (croppedWidth - croppedWidth % bin) / bin,
         ]
         check(view.descriptor.shape == expectedShape,
               "\(label)/\(name): view shape \(view.descriptor.shape) != \(expectedShape)")

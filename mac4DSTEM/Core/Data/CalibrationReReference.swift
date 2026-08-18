@@ -168,10 +168,19 @@ nonisolated enum CalibrationReReference {
                 // Judged on the FITTED origins, because those are what every
                 // analysis uses; the measured arrays are a fit-quality record
                 // and are allowed to scatter outside without condemning the fit.
-                // Bounds are checked in the FINAL frame — after the bin, not
-                // before it. A position 3 px outside a crop is 0.4 px outside
-                // the same crop binned by 8, and which of those is true decides
-                // whether the calibration survives.
+                // Bounds are checked in the final, binned frame. **This is a
+                // free choice, not a load-bearing one, and an earlier version of
+                // this comment claimed otherwise.** `binnedCoordinate` is affine
+                // and maps -0.5 to -0.5 and W-0.5 to W/b-0.5, so "inside the
+                // pre-bin rectangle" and "inside the binned rectangle" are the
+                // SAME predicate — checking either side of the bin gives an
+                // identical answer at every position. Adversarial review
+                // 2026-08-18 implemented the pre-bin form and every test stayed
+                // green, which is the correct outcome and not a gap.
+                //
+                // What CAN invalidate an origin is the edge-remainder trim, not
+                // the bin: the trim removes detector rows, and a beam sitting in
+                // them is genuinely no longer loaded.
                 if let outside = firstOutside(shifted, width: view.descriptor.qx,
                                               height: view.descriptor.qy) {
                     calibration.origin = nil
@@ -244,11 +253,10 @@ nonisolated enum CalibrationReReference {
             // not touch it. Real-space binning is not offered (docs/v2-scope.md §3).
         }
 
-        // Sampling intervals are unchanged by a crop in either space: cropping
-        // removes pixels, it does not resize them. `qPixelSize`, `rPixelSize`,
-        // `rotationRad` and `transposeQR` therefore pass through. Only BINNING
-        // rescales `qPixelSize`, and that is L4's problem — `LoadView` refuses a
-        // bin factor until then, so this file can assume factor 1.
+        // Sampling intervals are unchanged by a CROP in either space: cropping
+        // removes pixels, it does not resize them. `rPixelSize`, `rotationRad`
+        // and `transposeQR` therefore pass through untouched, and `qPixelSize`
+        // is rescaled by the bin block above and by nothing else.
 
         // A real-space crop renumbers every scan index, so a strain map, an ACOM
         // map or a Bragg-vector set measured on the full extent is AMBIGUOUS,
@@ -262,11 +270,17 @@ nonisolated enum CalibrationReReference {
             ))
         }
 
-        // `provenance` passes through unchanged, and that is a statement, not an
-        // oversight: every value it covers — probe, ellipse, rotation, qScale,
-        // rScale — is translation-invariant, so none of them lose trust here.
-        // L4's bin is what will first need to clear an entry (`qScale`), which
-        // is why the parameter exists now rather than being added later.
+        // `provenance` passes through unchanged, and that is a decision rather
+        // than an oversight. Every value it covers — probe, ellipse, rotation,
+        // qScale, rScale — is either invariant under these operations or
+        // rescaled exactly, and an exact rescale is not a loss of trust: a
+        // `Q_pixel_size` of `file x bin` is still the file's number, expressed
+        // in this view's pixels, exactly as a translated origin is still the
+        // origin that was fitted.
+        //
+        // An earlier version of this comment predicted that L4 would be the
+        // first thing to clear an entry here. L4 landed and cleared none;
+        // the prediction is recorded as wrong rather than quietly deleted.
         return Outcome(calibration: calibration, apertureCenter: apertureCenter,
                        provenance: provenance,
                        invalidated: invalidated,

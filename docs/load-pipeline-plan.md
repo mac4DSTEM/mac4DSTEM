@@ -623,22 +623,81 @@ re-reference below.
   regardless of accumulation order — on arbitrary float data a bit-identity
   claim would be false and a tolerance would hide a real disagreement.
 
-  Twelve negative controls fail it, each reverted: averaging instead of summing,
-  the remainder off the start, rounding the remainder up, a transposed
+  **Eleven** negative controls fail it, each reverted: averaging instead of
+  summing, the remainder off the start, rounding the remainder up, a transposed
   reduction, `Q_pixel_size` scaled down, forgetting the probe radius (py4DSTEM's
   own omission), forgetting the ellipse semi-axes, rescaling the *angle*,
-  accepting any factor, the naive `x/b`, the reverted bounds convention, and
-  bounds-checking before the bin instead of after.
+  accepting any factor, the naive `x/b`, and the reverted bounds convention.
 
-  **THE GATE THAT DID NOT RUN.** §6 requires "adversarial, on Fable 5 or
-  `/code-review ultra` … the reviewer must be given the py4DSTEM source and told
-  to refute". Fable 5 returned *requires usage credits*; a substitute on the
-  default model hit a session limit. `/code-review ultra` is user-triggered and
-  billed and cannot be launched from a session. **So this stage is `[~]`, not
-  `[x]`, and the numbers above are green-without-a-second-opinion — which is
-  precisely the state this repository has twice been burned by.** Whoever picks
-  this up next: run the gate before ticking it, and read the diagnosis, not just
-  the code.
+  **A twelfth was claimed and does not exist, which is the finding that matters
+  most here.** "Bounds-checking before the bin instead of after" was reported as
+  a passing control; the review implemented it faithfully and every test stayed
+  green. It cannot fail: `binnedCoordinate` is affine and maps `-0.5 ↦ -0.5` and
+  `W-0.5 ↦ W/b-0.5`, so "inside the pre-bin rectangle" and "inside the binned
+  rectangle" are the **same predicate**. The mutation actually run had multiplied
+  the *extent* by the bin factor while leaving the positions binned — a different
+  and meaningless change, which failed for a reason nobody checked. The code is
+  fine and the choice is free; the claim was not. In a repo whose rule is that an
+  assertion passing while broken is worse than none, a control believed to have
+  teeth and having none is the thing to fix, and the comment at the call site now
+  says the choice is not load-bearing.
+
+  **The gate ran on 2026-08-18, on the default model** — Fable 5 returned
+  *requires usage credits* and `/code-review ultra` cannot be launched from a
+  session, so the specific reviewer §6 names was not used and that is a
+  deviation. It could **not** refute the array math on any composition it
+  constructed — crop+bin, scan-crop+bin, both crops with a bin, far-edge crops,
+  remainder on one axis and both, bins 2/4/8, rank-3 and rank-4, partial tiles,
+  all bit-exact against py4DSTEM — nor the `(x+0.5)/b - 0.5` derivation, nor the
+  bounds extent, nor any reader path returning unbinned or double-binned data,
+  and it confirmed every one of `Calibration`'s twelve stored properties is
+  accounted for. What it found:
+  - **CRITICAL, latent:** four detector-frame values in `AppState.activate` —
+    `aperture.inner/outer`, `ellipseFitInnerRadius/OuterRadius` — were derived
+    from the **source** descriptor, not the view. On a 256 px detector binned by
+    4 the "quarter detector" aperture would have come out at 64 px on a 64 px
+    detector, and the ellipse fit radius at 115 px entirely off it: plausible
+    numbers, wrong frame. Unreachable while `activate` only builds full-extent
+    views, and a trap laid for L5. Fixed by rebinding `descriptor` to the view
+    at the top of `activate` and renaming the parameter `sourceDescriptor`, so
+    reaching for the file's own extent is now something you type on purpose.
+  - **A fifth instance of the same defect, in a claim this plan already made.**
+    `minPeakSpacing` is derived at activation from `descriptor.qy/qx` — the
+    source. L3's entry claimed it "follows the view with no crop-specific code",
+    and the test behind that claim called `detectorAdapted` with a view
+    descriptor *directly*, pinning the function rather than the call site. The
+    rebinding fixes it; the claim was wrong as written.
+  - The "trimmed pixels are never fetched" claim is too strong — never
+    *converted or allocated*, but the raw readers fetch a whole frame and a
+    chunked HDF5 dataset inflates a whole chunk. Corrected in three places.
+  - "Reproduces py4DSTEM EXACTLY" holds for this fixture, not in general: NumPy
+    accumulates the reduction in a different order, and on a real 256x256 pattern
+    binned by 8, 797 of 1024 pixels differ by up to 4.7e-7 relative. The `==` is
+    honest only because the fixture uses small integers. Corrected.
+  - `tools/preprocess-crop-bin-test` drives **only** `H5Reader`, so the other
+    four conformers had no binned-value coverage. Closed by adding bin, scan-crop
+    + bin, and crop-with-remainder + bin cases to `tools/load-spec-test`, whose
+    expectation restates the reduction independently; three controls confirm they
+    bite.
+  - Two stale comments in `CalibrationReReference` predicted L4 would clear a
+    provenance entry (it clears none) and that the file could assume factor 1.
+    Both corrected rather than deleted.
+
+  **STILL OWED, and it is why this stage is `[~]` and not `[x]`:**
+  1. **`LoadedView`'s display surface has no reader.** `summary`,
+     `binningNotice`, `discardedDetectorRows/Columns` and
+     `invalidatedCalibration` are not referenced from any view — so L4's *Do*
+     items 1 ("state them in the UI") and 3 ("Label the result", invariant I3)
+     are **not done**, and the claim that the trim is "stated to the user" is
+     false today. L3's `summary` has the same gap. It belongs in L5, where the
+     configurator makes all of it visible in one Track B pass instead of two.
+  2. **The review ran on the default model, not the one §6 names.** The specific
+     reviewer matters least of the three things above, but it is a deviation and
+     `/code-review ultra` is still available to the release owner.
+  3. `tools/preprocess-crop-bin-test` still has no rank-3-with-bin case, and its
+     intensity-conservation assertion is skipped whenever a crop is present.
+     Both are gaps the review closed independently and found green; neither is
+     carried in the repo yet.
 - [~] **L5 — Open-time preview and the load configurator. PREVIEW HALF DONE
   2026-08-18; configurator not started** (it needs L3/L4).
   `Core/Analysis/DatasetPreview.swift` builds a real-space image plus mean/max

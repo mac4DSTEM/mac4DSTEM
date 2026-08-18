@@ -1600,12 +1600,12 @@ final class AppState {
     }
 
     private func activate(
-        descriptor: DatasetDescriptor,
+        descriptor sourceDescriptor: DatasetDescriptor,
         reader: any FourDDataSource,
         runInitialAnalysis: Bool = true
     ) async {
-        guard descriptor.is4D else {
-            present(H5Error.unsupportedRank(descriptor.shape.count))
+        guard sourceDescriptor.is4D else {
+            present(H5Error.unsupportedRank(sourceDescriptor.shape.count))
             return
         }
 
@@ -1619,9 +1619,23 @@ final class AppState {
         // calibration is re-referenced into it, and `loadedView` records it. The
         // specification is `.fullExtent` on every shipped path — L5's
         // configurator is what will hand a real one in.
-        let view = LoadView(fullExtentOf: descriptor)
+        let view = LoadView(fullExtentOf: sourceDescriptor)
         self.descriptor = view.descriptor
         fourD = FourDArray(reader: reader, view: view)
+
+        // EVERYTHING BELOW USES THE VIEW, and the parameter is deliberately
+        // named `sourceDescriptor` so that reaching for the file's own extent is
+        // something you have to type on purpose.
+        //
+        // The two are identical on every shipped path today, which is exactly
+        // why this needed saying: an adversarial review on 2026-08-18 found four
+        // detector-frame defaults still derived from the source, and a fifth —
+        // the `minPeakSpacing` derivation — that this repo had already CLAIMED
+        // followed the view. The unit test behind that claim called
+        // `detectorAdapted` with a view descriptor directly, so it pinned the
+        // function and not the call site. A crop or a bin would have made all
+        // five wrong at once, and every one of them plausible.
+        let descriptor = view.descriptor
         // A new array is a new (absent) buffer; the old cube dies with the old
         // array. Resetting here keeps the panel from claiming residency that
         // belonged to the previous dataset.
@@ -1641,6 +1655,23 @@ final class AppState {
         parallaxAlignment = nil
         singleslicePtychography = nil
         parallaxResultProduct = .preprocess
+        // THE VIEW'S detector, not the source's. These four are lengths and a
+        // position in DETECTOR PIXELS, and a binned or cropped view has fewer
+        // of them.
+        //
+        // They sat on `descriptor` — the source — until an adversarial review
+        // found it on 2026-08-18. Unreachable then, because `activate` only ever
+        // built a full-extent view, and a trap set for L5: on a 256 px detector
+        // binned by 4 the "quarter of the detector" aperture would have come out
+        // at 64 px on a 64 px detector, and `ellipseFitOuterRadius` at 115 px
+        // entirely off it. Both are plausible-looking numbers, which is the
+        // failure mode that matters here.
+        //
+        // `CalibrationReReference` takes the aperture CENTRE as a parameter on
+        // the principle that every detector-frame rule belongs in one file.
+        // These are defaults rather than re-referenced values — there is no
+        // prior value to move — so they belong here, but they must be derived
+        // from the same frame.
         let detectorHalfSize = Double(min(descriptor.qx, descriptor.qy)) / 2
         ellipseFitInnerRadius = max(1, detectorHalfSize * 0.35)
         ellipseFitOuterRadius = max(ellipseFitInnerRadius + 2, detectorHalfSize * 0.9)
@@ -1711,8 +1742,8 @@ final class AppState {
             // instead would fail the shape check and drop the origin silently,
             // which is the quiet-failure shape this stage exists to remove.
             if let maps = pc.originMaps,
-               let appMaps = maps.appOriginMaps(width: view.source.rx,
-                                                height: view.source.ry) {
+               let appMaps = maps.appOriginMaps(width: sourceDescriptor.rx,
+                                                height: sourceDescriptor.ry) {
                 calibration.origin = appMaps
                 if let origin = calibration.meanOrigin {
                     aperture.centerX = origin.x

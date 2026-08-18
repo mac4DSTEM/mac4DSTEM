@@ -254,16 +254,26 @@ the claims are widened*, not as release advice.
   macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
   Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
   whether to ship a legacy PNG set alongside.
-- **L4's review gate has not been taken, and L4 is implemented.** The stage is
-  green — `tools/preprocess-crop-bin-test` matches py4DSTEM exactly on seven
-  cases and twelve negative controls fail it — but `docs/load-pipeline-plan.md`
-  §6 requires an adversarial review "on Fable 5 or `/code-review ultra`", and on
-  2026-08-18 Fable 5 returned *requires usage credits* while a substitute on the
-  default model hit a session limit. `/code-review ultra` is user-triggered and
-  billed, so no session can launch it. **This is the exact state the repo's
-  standing rule names — a science-affecting change approved only by the model
-  that wrote it — and the stage is marked `[~]` rather than `[x]` because of
-  it.** Run the gate before ticking L4.
+- **L4 stays `[~]`: its review ran, but on the default model rather than the
+  Fable 5 / `/code-review ultra` the plan names**, and two of its findings are
+  still open. The review could not refute the array math on any composition it
+  built (all bit-exact against py4DSTEM) and found one CRITICAL latent defect —
+  four detector-frame values derived from the source rather than the view, plus
+  a fifth instance in a claim the plan had already made about `minPeakSpacing`.
+  Both fixed. **What is still owed** is in `load-pipeline-plan.md` §5 under
+  "STILL OWED": no view reads `LoadedView`'s display surface, so L4's "state it
+  in the UI" and "label the result" items are not done; and the fixture has no
+  rank-3-with-bin case.
+- **A negative control was reported as passing when it cannot fail.** "Bounds-
+  checking before the bin instead of after" was listed among L4's controls; the
+  review implemented it faithfully and everything stayed green, because
+  `binnedCoordinate` is affine and the pre-bin and post-bin bounds tests are the
+  same predicate. The mutation actually run had changed the *extent* instead —
+  a different, meaningless edit that failed for an unexamined reason. Nothing in
+  the code is wrong; the claim was. **Recorded because the class matters more
+  than the instance:** a control is only evidence if you know which line it
+  breaks and why the failure follows, and "it went red" is not that. Both the
+  plan and the call-site comment are corrected.
 - **The plan's named L4 fixture does not exist, and the premise was never
   checked.** §6 said the training set carries `bin2` and `bin8` files of the same
   data, offering "real external ground truth". `References/training_dataset/`
