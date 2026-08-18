@@ -125,16 +125,30 @@ Two things learned that are not obvious and cost time:
   `all` and restate it, or say what was actually run.
 
   **Measured 2026-08-18, and it is worse than "not re-run":** `run-tests.sh all`
-  cannot currently reach a single harness. It runs `unit` first and `set -e`
-  aborts there on the intermittent
-  `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` — exit 65, zero
-  `==>` lines. So the standing note that **#43** is "what currently stops
-  `run-tests.sh all` from passing at all" (repeated in `CLAUDE.md` and
-  `docs/load-pipeline-plan.md` §5) is wrong on this machine: the sidebar test
-  stops it first and #43 is never reached. Confirmed pre-existing — the same
-  test fails the same way on a stashed clean tree, with no working-tree changes.
-  What *is* reproducible today: `run-tests.sh scientific` → **exit 0, 32
-  harnesses**.
+  cannot reach a single harness. It runs `unit` first and `set -e` aborts there
+  on the intermittent `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
+  — exit 65, zero `==>` lines. So the standing note that **#43** is "what
+  currently stops `run-tests.sh all` from passing at all" (repeated in
+  `CLAUDE.md` and `docs/load-pipeline-plan.md` §5) was wrong on this machine: the
+  sidebar test stops it first and #43 was never reached. Confirmed pre-existing —
+  the same test fails the same way on a stashed clean tree.
+
+  **Re-measured after #43 was fixed, later the same day: `all` still aborts in
+  the unit stage.** Fixing #43 did not change that and was never going to. But
+  every *other* component of the aggregate has now been run individually and is
+  green on this machine:
+
+  | component of `all` | result, 2026-08-18 |
+  |---|---|
+  | `unit` | **1 failure** — `testEveryWorkspaceSidebarFitsItsColumn`, intermittent, pre-existing |
+  | `scientific` | exit 0, **32 harnesses** |
+  | `real-data-acceptance` | exit 0, 4 cubes golden, 2 sidecars skipped |
+  | `package-test` | exit 0 |
+
+  So the honest claim a reader can reproduce is **"every part of `all` except one
+  intermittent layout test"** — not "exit 0, N harnesses". The single thing
+  between here and an aggregate number is that test, and a layout threshold that
+  drifts with the machine is its own problem, not a gate to widen.
 
 ### First clean-account acceptance run — 2026-08-14
 
@@ -369,22 +383,24 @@ the claims are widened*, not as release advice.
   streaming path checks once per tile. Academic at the ~10 ms dispatch measured
   so far, possibly not on a cube near the residency threshold. Bears on **#37**.
 - **#38 — the image panes' scroll monitor consumes every scroll in the window.**
-- **#43 — the acceptance gate breaks if a session is saved for a training
-  dataset. CONFIRMED 2026-08-17 as the reason `run-tests.sh all` cannot pass on
-  this machine**, and it is the likeliest reason the "exit 0, 30 harnesses"
-  claim has not been reproducible since the tag. `real-data-acceptance/run.sh`
-  globs `References/training_dataset/*.h5`, which now matches two saved sidecars
-  — `downsample_Si_SiGe_exp.mac4dstem.h5` and
-  `sim_Au_data_all_binned.mac4dstem.h5`. Those contain `braggvectors_root` and a
-  saved strain result, not a datacube, so `discoverPrimaryDataset` throws
-  `noDatasetFound` and the harness **fatals** (exit 133) rather than skipping.
-  Two real cubes pass first, so the failure looks like a late regression.
-  Two things to fix, and the second matters more:
-  1. The glob should exclude `*.mac4dstem.h5`, or the harness should skip a file
-     with no primary dataset instead of trapping.
-  2. **A missing datacube is a `throw` that reaches `try!`-equivalent top-level
-     code.** An input the tool will genuinely meet should not be a fatal error;
-     it produces a stack trace where a one-line "skipped: no datacube" belongs.
+- ~~**#43 — the acceptance gate breaks if a session is saved for a training
+  dataset.**~~ **FIXED 2026-08-18.** Reproduced first (exit 133, a page-long
+  stack trace after two real cubes had already printed PASS), then fixed at the
+  half that mattered: `real-data-acceptance` now treats a file with no datacube
+  as an **input**, not an error. It catches `noDatasetFound` only, skips with a
+  one-line `SKIP:`, and continues; anything else — unreadable file, malformed
+  dataset — still throws, because quieting those would be widening a gate.
+
+  **The glob was deliberately left alone.** Excluding `*.mac4dstem.h5` would
+  have worked and would also have made the skip path dead code on this machine;
+  keeping it means every run exercises the skip. Same reasoning the plan applies
+  to L4's edge-remainder path — a rare untested path is worse than a common one.
+
+  Two guards keep the skip from swallowing a real failure, and both were
+  verified by control: a run where **everything** skips fails with "no file
+  produced a report" (forced by globbing only the sidecars), and a run missing a
+  real cube fails `compare.py`'s count check (forced by dropping one from the
+  glob). Result now: **exit 0, four cubes golden, two sidecars skipped.**
 - **#31 — `validationIssues` is O(n²) and runs in a SwiftUI view body.**
 - **#32 — `isSymmetry`'s bijection check has no fixture coverage**, and its
   stated counterexample does not exercise it.

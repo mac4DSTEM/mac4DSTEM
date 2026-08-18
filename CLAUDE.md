@@ -81,9 +81,12 @@ because a green run proves nothing. Tracked in `docs/open-items.md`.
 
 **On 2026-08-18 it was red again, on a clean tree, and it takes `all` with it:**
 `run-tests.sh all` runs `unit` first and `set -e` aborts there, so it reaches
-**zero** harnesses (exit 65). The note below that #43 is what stops `all` is
-therefore wrong on this machine — the sidebar test stops it first. What is
-reproducible today is `run-tests.sh scientific` → exit 0, 32 harnesses.
+**zero** harnesses (exit 65). The note that #43 is what stops `all` is therefore
+wrong on this machine — the sidebar test stops it first, and #43 (now fixed) was
+never reached. Every other component of `all` has been run individually and is
+green: `scientific` exit 0 / 32 harnesses, `real-data-acceptance` exit 0,
+`package-test` exit 0. So the reproducible claim is "all of `all` except one
+intermittent layout test", not an aggregate number.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6): Track A
 is `tools/run-tests.sh`, Track B is the human visual pass at

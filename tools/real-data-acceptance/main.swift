@@ -34,10 +34,37 @@ func fail(_ message: String) -> Never {
     static func main() async throws {
         guard CommandLine.arguments.count > 1 else { fail("usage: harness data.h5 ...") }
         var reports: [AcceptanceReport] = []
+        var skipped: [String] = []
         for path in CommandLine.arguments.dropFirst() {
             let start = Date()
             let reader = try H5Reader(path: path)
-            let descriptor = try await reader.discoverPrimaryDataset()
+
+            // A FILE WITH NO DATACUBE IS AN INPUT, NOT AN ERROR (#43).
+            //
+            // The glob feeds this harness every `*.h5` in the training
+            // directory, and saving a session in the app writes a
+            // `<name>.mac4dstem.h5` sidecar right next to the cube it came from.
+            // Those hold BraggVectors and saved results, not a 4D datacube, so
+            // `discoverPrimaryDataset` throws — and a throw out of `main` is a
+            // Swift runtime trap: exit 133 and a page-long stack trace listing
+            // every HDF5 path it probed, after two real cubes have already
+            // printed PASS. It reads as a late regression in the app; it is a
+            // file the tool was always going to meet.
+            //
+            // Only `noDatasetFound` is skipped. Anything else — an unreadable
+            // file, a malformed dataset — still throws, because those are
+            // genuine failures and quieting them would be widening a gate.
+            let descriptor: DatasetDescriptor
+            do {
+                descriptor = try await reader.discoverPrimaryDataset()
+            } catch H5Error.noDatasetFound {
+                let name = (path as NSString).lastPathComponent
+                skipped.append(name)
+                FileHandle.standardError.write(
+                    Data("SKIP: \(name) has no 4D datacube (session sidecar or results-only file)\n".utf8)
+                )
+                continue
+            }
             guard descriptor.ry > 0, descriptor.rx > 0, descriptor.qy > 0, descriptor.qx > 0 else {
                 fail("\(path): empty discovered dimensions")
             }
@@ -147,6 +174,13 @@ func fail(_ message: String) -> Never {
             FileHandle.standardError.write(Data(
                 "PASS: \(report.file) \(report.shape.map(String.init).joined(separator: "×")) in \(String(format: "%.2f", report.elapsedSeconds)) s\n".utf8
             ))
+        }
+        // A run that measured nothing must not report success. `compare.py`
+        // already fails on a report-count mismatch, which is the stronger check
+        // — this catches the case where there is nothing to compare against at
+        // all, so the harness cannot pass by having skipped everything.
+        guard !reports.isEmpty else {
+            fail("no file produced a report; skipped \(skipped.count): \(skipped.joined(separator: ", "))")
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         FileHandle.standardOutput.write(try encoder.encode(reports))
