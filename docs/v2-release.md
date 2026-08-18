@@ -292,8 +292,23 @@ only if asked.
 
 ## 9. Status
 
-- [~] **S0** — docs written 2026-08-18; free-space preflight outstanding.
-- [ ] S1 · [ ] S2 · [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
+- [x] **S0** — docs written 2026-08-18; free-space preflight landed
+  2026-08-18 (`tools/run-tests.sh` `require_free_space`, 8 GB for
+  xcodebuild modes / 4 GB for harness-only, exit 69 before any build).
+  Deviation: none.
+- [~] **S1** — 2026-08-18/19: the diagnostic instrument landed (HDF5 error
+  stack captured on the sidecar read path, `tools/sidecar-error-detail-test`
+  in `scientific`, negative control verified by breaking it); the misleading
+  "export failed" wording corrected; H4/H5 dead. **Cause identified: the
+  2026-08-14 bundle-identifier change (`1e5727d`) gave the app a new, empty
+  sandbox container, so no session bookmark resolves** — read out of the old
+  container, which still holds both keys at the pre-move paths. Gate D second
+  reader ran 2026-08-19 and refuted two of my claims (the fixture's denial shape,
+  and "these sidecars are full-extent"); both corrected, four further defects it
+  surfaced are recorded in `docs/open-items.md`. **The experiment has not run and
+  no fix has landed** — `recordedLoadSpecification` is untouched and the AppState
+  seam is unspent. One cold open now settles the last link.
+- [ ] S2 · [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
 - [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21

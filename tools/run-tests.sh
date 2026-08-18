@@ -7,6 +7,27 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$(dirname "$0")/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
+# Free-space preflight. On 2026-08-06 three consecutive full-suite runs produced
+# three *different* failure sets, none related to the code, all caused by a full
+# disk, and they were nearly diagnosed as real regressions (docs/v2-scope.md
+# §6.6). Measured per-run cost is small — DerivedData 0.2 GB (2026-08-18), plus
+# the ~300 MB system log archive `xcodebuild test` writes to /var/tmp per run —
+# so the floors below are deliberately margin, not measurement: the failure mode
+# is a near-full disk producing varied spurious failures, not a clean ENOSPC.
+require_free_space() {
+  # NB: `dir`, not `path` — in zsh `path` is tied to $PATH, and declaring it
+  # local blanks PATH inside the function (df/awk vanish; caught 2026-08-18).
+  local need="$1" what="$2" dir have
+  for dir in "$ROOT" "${TMPDIR:-/tmp}"; do
+    have="$(df -Pg "$dir" | awk 'NR==2 {print $4}')"
+    if [[ -z "$have" ]] || (( have < need )); then
+      echo "run-tests.sh: need ${need} GB free for ${what}, have ${have:-?} GB on ${dir}" >&2
+      echo "  Free space and re-run; a near-full disk fakes code regressions." >&2
+      exit 69
+    fi
+  done
+}
+
 unit_tests() (
   # Never let an unsigned test build replace the app that Xcode launches from
   # its normal DerivedData directory. HDF5 is loaded lazily, so overwriting a
@@ -45,7 +66,7 @@ scientific=(
   idpc-test cancellation-test
   bragg-export-test sidecar-result-test strain-test ellipse-calibration-test
   dm4-robustness-test vendor-reader-test load-spec-test load-spec-calibration
-  preprocess-crop-bin-test load-spec-roundtrip
+  preprocess-crop-bin-test load-spec-roundtrip sidecar-error-detail-test
   preprocessing-export-test parallax-preprocessing-test parallax-alignment-test
   parallax-aberration-test parallax-subpixel-test parallax-depth-test
   singleslice-ptychography-test result-presentation-test
@@ -58,10 +79,10 @@ campaign=(
 )
 
 case "${1:-unit}" in
-  unit) unit_tests ;;
-  benchmark) "$ROOT/tools/performance-baseline/run.sh" ;;
-  campaign) unit_tests; run_harnesses "${campaign[@]}" ;;
-  scientific) run_harnesses "${scientific[@]}" ;;
-  all) unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
+  unit) require_free_space 8 "the xcodebuild unit suite"; unit_tests ;;
+  benchmark) require_free_space 4 "the performance baseline"; "$ROOT/tools/performance-baseline/run.sh" ;;
+  campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
+  scientific) require_free_space 4 "the science harnesses"; run_harnesses "${scientific[@]}" ;;
+  all) require_free_space 8 "the full suite"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
   *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all]" >&2; exit 64 ;;
 esac

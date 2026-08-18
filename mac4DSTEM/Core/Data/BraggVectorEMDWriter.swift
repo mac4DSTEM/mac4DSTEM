@@ -176,11 +176,27 @@ nonisolated enum BraggVectorEMDWriter {
             case .symbolMissing(let name):
                 return "The HDF5 library is missing required symbol \(name)."
             case .hdf5(let operation):
-                return "HDF5 export failed while \(operation)."
+                // Not "export failed": the same case is raised on the sidecar
+                // *read* path, where the 2026-08-18 restore failure reported an
+                // export that was never attempted (S1).
+                return "HDF5 failed while \(operation)."
             case .publishFailed(let detail):
                 return "Could not publish the completed sidecar: \(detail)"
             }
         }
+    }
+
+    /// An `.hdf5` error carrying the reason HDF5 recorded, not only the
+    /// operation that failed. Used on the sidecar **read** path, where a bare
+    /// "HDF5 export failed while opening the session sidecar" was the whole
+    /// evidence available for the 2026-08-18 restore failure (S1) — it could
+    /// not distinguish a sandbox denial from a lock, a truncated file or a
+    /// wrong path. Call only immediately after the failing HDF5 call.
+    fileprivate static func hdf5Failure(
+        _ operation: String, _ h5: HDF5WriteLibrary
+    ) -> WriterError {
+        guard let stack = h5.currentErrorStack() else { return .hdf5(operation) }
+        return .hdf5("\(operation) — HDF5 reported: \(stack)")
     }
 
     /// Publish several related scalar fields as sibling EMD RealSlice nodes in
@@ -482,11 +498,11 @@ nonisolated enum BraggVectorEMDWriter {
         let fileID = url.path.withCString {
             h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
         }
-        guard fileID >= 0 else { throw WriterError.hdf5("opening the session sidecar") }
+        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
         defer { _ = h5.h5fclose(fileID) }
 
         let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw WriterError.hdf5("opening the session root") }
+        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
         defer { _ = h5.h5gclose(root) }
 
         let results = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
@@ -541,10 +557,10 @@ nonisolated enum BraggVectorEMDWriter {
         let fileID = url.path.withCString {
             h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
         }
-        guard fileID >= 0 else { throw WriterError.hdf5("opening the session sidecar") }
+        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
         defer { _ = h5.h5fclose(fileID) }
         let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw WriterError.hdf5("opening the session root") }
+        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
         defer { _ = h5.h5gclose(root) }
         let descriptors = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
         guard descriptors.contains(where: {
@@ -561,10 +577,10 @@ nonisolated enum BraggVectorEMDWriter {
         let fileID = url.path.withCString {
             h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
         }
-        guard fileID >= 0 else { throw WriterError.hdf5("opening the session sidecar") }
+        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
         defer { _ = h5.h5fclose(fileID) }
         let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw WriterError.hdf5("opening the session root") }
+        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
         defer { _ = h5.h5gclose(root) }
         let descriptors = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
         guard descriptors.contains(where: { $0.id == id && $0.storage == .rgba8 }) else {
@@ -2043,6 +2059,9 @@ nonisolated private struct H5VariableLength {
 
 nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     typealias H5open = @convention(c) () -> herr_t
+    /// `herr_t H5Eprint2(hid_t estack_id, FILE *stream)`. Optional: a library
+    /// without it simply yields no detail rather than failing to load.
+    typealias H5Eprint2 = @convention(c) (hid_t, UnsafeMutablePointer<FILE>?) -> herr_t
     typealias H5Fcreate = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t, hid_t) -> hid_t
     typealias H5Fopen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
     typealias H5Fclose = @convention(c) (hid_t) -> herr_t
@@ -2087,6 +2106,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
 
     let handle: UnsafeMutableRawPointer
     let h5open: H5open
+    let h5eprint2: H5Eprint2?
     let h5fcreate: H5Fcreate
     let h5fopen: H5Fopen
     let h5fclose: H5Fclose
@@ -2137,6 +2157,65 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     let stringC1: hid_t
     let datasetCreatePropertyClass: hid_t
 
+    /// The thread's current HDF5 error stack, formatted, or nil if empty.
+    ///
+    /// `H5Reader` installs `H5Eset_auto2(H5E_DEFAULT, nil, nil)` process-wide
+    /// (`H5Reader.swift:164-168`) so that the optional-path probing done during
+    /// discovery does not spray native stack traces onto stderr. Turning the
+    /// automatic printer off does **not** clear the stack — HDF5 still records
+    /// why a call failed — so the reason has always been retrievable; nothing
+    /// was reading it. Every `WriterError.hdf5` raised before 2026-08-18
+    /// therefore reported *that* an open failed and never *why*, which is what
+    /// left the 2026-08-18 sidecar-restore failure untriageable (S1).
+    ///
+    /// Must be called immediately after the failing call, with no other HDF5
+    /// activity anywhere in the process in between.
+    ///
+    /// **Not "on the same thread" — the stack is process-GLOBAL.** The bundled
+    /// build is `Threadsafety: OFF` and exports `_H5E_stack_g` as a plain
+    /// `__DATA,__common` global with no thread-local storage, so a failure on
+    /// one thread is visible to a capture on another (verified 2026-08-19 with
+    /// a serialized two-thread probe: thread B, making no HDF5 call of its own,
+    /// read thread A's failure). A successful HDF5 call clears the stack, so a
+    /// stale reason cannot be picked up sequentially — only concurrently. The
+    /// same global is why concurrent HDF5 use crashes rather than racing
+    /// benignly; see the open item on `H5SL_search`.
+    func currentErrorStack() -> String? {
+        guard let h5eprint2 else { return nil }
+        var buffer: UnsafeMutablePointer<CChar>?
+        var size = 0
+        guard let stream = open_memstream(&buffer, &size) else { return nil }
+        // H5E_DEFAULT is 0, the same numeric value as H5P_DEFAULT but a
+        // different constant; spelled out here so the two do not read as one.
+        _ = h5eprint2(0, stream)
+        fclose(stream)
+        defer { if let buffer { free(buffer) } }
+        guard let buffer, size > 0 else { return nil }
+        let lines = String(cString: buffer)
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+
+        // HDF5 prints a frame per layer, outermost first ("unable to open
+        // file"), and only the innermost frame says anything actionable —
+        // `errno = 13 … 'Permission denied'` versus `file signature not found`.
+        // Reporting all eight would put a wall of library internals into a
+        // status line, so keep the innermost frame and its minor code.
+        let innermost = lines.last { $0.hasPrefix("#") }
+            .flatMap { frame -> String? in
+                guard let range = frame.range(of: "): ", options: .backwards) else { return nil }
+                return String(frame[range.upperBound...])
+            }
+        let minor = lines.last { $0.hasPrefix("minor:") }
+            .map { $0.replacingOccurrences(of: "minor:", with: "").trimmingCharacters(in: .whitespaces) }
+
+        switch (innermost, minor) {
+        case let (detail?, code?): return "\(detail) [\(code)]"
+        case let (detail?, nil):   return detail
+        case let (nil, code?):     return code
+        case (nil, nil):           return nil
+        }
+    }
+
     static func load() throws -> HDF5WriteLibrary {
         var failures = [String]()
         var handle: UnsafeMutableRawPointer?
@@ -2167,9 +2246,15 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
         }
         let h5open = try symbol("H5open", as: H5open.self)
         _ = h5open()
+        // Looked up leniently: the error-stack detail is diagnostic, and losing
+        // it must never turn into a failure to open a sidecar at all.
+        let h5eprint2 = dlsym(handle, "H5Eprint2").map {
+            unsafeBitCast($0, to: H5Eprint2.self)
+        }
         return HDF5WriteLibrary(
             handle: handle,
             h5open: h5open,
+            h5eprint2: h5eprint2,
             h5fcreate: try symbol("H5Fcreate", as: H5Fcreate.self),
             h5fopen: try symbol("H5Fopen", as: H5Fopen.self),
             h5fclose: try symbol("H5Fclose", as: H5Fclose.self),

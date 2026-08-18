@@ -11,6 +11,26 @@ twice in a day, both refuted by a second reader of the same code). The
 protocol exists because "obvious" causes here have repeatedly been wrong
 while the refuting evidence sat in plain sight in a log nobody re-read.
 
+**First, read what is already known.** Search `docs/open-items.md` for the
+symptom — the error string, the file, the workspace — and read the whole entry,
+not the first paragraph. Then check `docs/visual-acceptance-checklist.md` for a
+row that names it. These entries carry hypotheses a previous session already
+*refuted*, with dates, and a symptom seen twice is usually recorded once.
+
+Skipping this wastes the expensive half of the protocol. On 2026-08-19 (S1) it
+was entered from the top, and the hypothesis it produced — a generic "the sandbox
+denies the sibling" — was one a prior review agent had already recorded in
+`open-items.md`, sharper, naming a mechanism. That entry also already carried a
+*refuted* race hypothesis and the conclusion that the silencing had to be fixed
+regardless of which hypothesis won. All of it was re-derived from scratch, and
+the entry was found only later, by grepping for the error string while editing
+something else. Nothing was wrong in the end — but every minute spent
+rediscovering a recorded hypothesis is a minute not spent refuting it.
+
+Read it first; then, if it changes your account, say so explicitly rather than
+quietly adopting it — a diagnosis that converged with a recorded one is stronger
+evidence than either alone, and a diagnosis that contradicts one is a finding.
+
 Write down, in this order, before any code changes:
 
 1. **The diagnosis** as currently believed, with its evidence.

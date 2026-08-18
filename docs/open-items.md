@@ -22,8 +22,12 @@ are [`docs/v2-release.md`](v2-release.md). Sessions claiming items in this
 file:
 
 - Sidecar restore failure + `recordedLoadSpecification`/bookmark defect +
-  `H5Eset_auto2` silencing → **S1** (Gate D — the three-opens experiment
-  runs before any code).
+  `H5Eset_auto2` silencing → **S1** (Gate D). *Amended 2026-08-19:* the
+  diagnostic instrument landed **before** the experiment, by the session
+  brief's own ordering — silenced errors made the experiment worthless until
+  the failure carried a reason. The cause is identified (the bundle-identifier
+  change emptied the sandbox container); **one** cold open is now outstanding,
+  not three, and `recordedLoadSpecification` is still unfixed.
 - The Track B §F1 queue → **TB1** (after S1, S3–S6).
 - Strain frame → **S8**; iDPC gate, iDPC zero-fill, disk-detection error
   attribution and the burned-in caption truncation → **S7**; **#18** → **S8**.
@@ -40,7 +44,7 @@ file:
 - The stale `all` claim in README/CHANGELOG → **S19**; the legacy `.icns` →
   mooted by S19's floor raise to macOS 26; the `docs/releasing.md` gap →
   **S19**.
-- The free-space preflight → **S0** (outstanding). CI for `unit` + the
+- The free-space preflight → **S0, done 2026-08-18**. CI for `unit` + the
   synthetic half of `scientific` on the public repo → **S21**.
 - The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
   elimination). The second-machine sweep → **post-v2** (`.automatic` is
@@ -112,10 +116,11 @@ in the code.
 
 New work that came out of the session:
 
-- **A free-space preflight in `tools/run-tests.sh`** — fail immediately with
-  "need N GB free, have M" rather than letting a full disk produce three
-  different failure sets that look like code regressions. ~15 lines; not yet
-  written.
+- **A free-space preflight in `tools/run-tests.sh`** — **DONE 2026-08-18 (S0).**
+  `require_free_space`, 8 GB for the `xcodebuild` modes and 4 GB for the
+  harness-only ones, failing with "need N GB free for X, have M GB" before any
+  build starts. The floors are margin, not measurement; the reasoning and the
+  zsh `local path` trap that broke the first version are in the code comment.
 - **DECIDED 2026-08-18: delete `mac4DSTEMUITests/` + `tools/ui-qc-playthrough/`.**
   The check this entry asked for is done, and it refuted the entry's own
   premise: `AXDriver` is **not** the only consumer of the accessibility
@@ -500,9 +505,9 @@ the claims are widened*, not as release advice.
   **This repo moved into `mac4DSTEM_Organization/`, so every bookmark keyed on an
   old absolute path is now stale.** That predicts the exact observed shape:
   `FileManager.fileExists` passes (`AppState.swift:2321`,
-  `BraggVectorEMDWriter.swift:475`) because the sandbox grants
+  `BraggVectorEMDWriter.swift:491`) because the sandbox grants
   `file-read-metadata` far more broadly than `file-read-data`, and then `H5Fopen`
-  returns negative on `EACCES` (`BraggVectorEMDWriter.swift:482-485`).
+  returns negative on `EACCES` (`BraggVectorEMDWriter.swift:498`).
 
   **A confirmed bug either way, and it is why this was undiagnosable:**
   `H5Reader.swift:164-166` calls `H5Eset_auto2(H5E_DEFAULT, nil, nil)`, which —
@@ -516,6 +521,146 @@ the claims are widened*, not as release advice.
   Three failures ⇒ bookmark/sandbox; roughly one in three ⇒ the race is live and
   *then* build the hammer fixture. **Do not write threading code before running
   this.**
+
+  **S1, 2026-08-18/19 — the instrument is built; the experiment has NOT been
+  run.** Gate D was entered from the top rather than from this entry, and the
+  independent diagnosis converged on the same hypothesis. What changed:
+
+  - **The error now says why.** `HDF5WriteLibrary.currentErrorStack()` reads the
+    error stack with `H5Eprint2` into an `open_memstream` and keeps the innermost
+    frame plus its minor code; `hdf5Failure(_:_:)` attaches it. Turning the
+    automatic printer off never cleared the stack — the reason was always
+    retrievable and simply unread, so **no silencing had to be removed** and
+    discovery-time probing stays as quiet as before. Applied to the six sidecar
+    **read** throw sites only (`loadSession`, `loadResultMap(id:)`,
+    `loadRGBAResultMap(id:)`); the other 62 `WriterError.hdf5` sites are
+    untouched and belong to S7's `try?`/error-honesty sweep.
+  - **The message no longer claims an export.** `.hdf5` rendered as *"HDF5
+    export failed while …"* on a read path — the owner was told an export failed
+    during an open. Now *"HDF5 failed while …"*. **The string quoted in F1.3f and
+    in `docs/load-pipeline-plan.md` is therefore historical**; a current build
+    prints the new wording followed by `— HDF5 reported: …`.
+  - **Fixture: `tools/sidecar-error-detail-test`** (in `scientific`). Runs the
+    format failure against two denial shapes, each in both orders (a stale stack
+    cannot masquerade as a fresh one) and each both before and after installing
+    `H5Eset_auto2(H5E_DEFAULT, nil, nil)` — the app's actual condition and the
+    round that matters. Verified by breaking it: with the capture returning nil,
+    20 assertions go red and every case collapses to the identical pre-S1
+    sentence.
+
+    **The first version of this fixture was wrong in the way this repo keeps
+    getting caught, and the Gate D second reader found it (2026-08-19).** It used
+    a `chmod 000` file as "the direct analogue of the sandbox denial" and
+    asserted `errno = 13 / Permission denied`. **Measured: a sandbox denial is
+    `errno = 1 … 'Operation not permitted'` (EPERM); `chmod 000` is `errno = 13`
+    (EACCES).** The fixture would have gone red on the one case it existed to
+    cover, and the Track B row derived from it told the observer that
+    `Permission denied` meant "sandbox" — which would have made them rule the
+    sandbox OUT on the single run that decides S1. Now the denial case runs under
+    `sandbox-exec` and the POSIX case is kept separately, never as a stand-in.
+    Two further traps found while fixing it, both of which made the case pass or
+    fail for the wrong reason: the denied file must be a **real** HDF5 file (an
+    8-byte signature stub makes HDF5 report `bad byte number in an address`
+    before it reports the refusal), and the profile must name the **resolved**
+    path (`$WORK` is `/var/folders/…`, the kernel matches `/private/var/…`, and a
+    `literal` rule against the unresolved form silently matches nothing).
+  - **A truncated or corrupt sidecar (H4) is dead**, re-confirmed independently:
+    both sidecars in `References/training_dataset/` open cleanly under `h5py`
+    (and `h5ls -r`, `h5dump -n`, `h5stat`), complete trees. Neither carries the
+    `mac4dstem_load_specification` attribute — **but "they are full-extent
+    sessions" does NOT follow, and saying so was wrong.** The attribute was
+    introduced 2026-08-18 in `4e01c24` (L6) and both files were written
+    2026-08-07 and 2026-08-14; the writer that produced them could not emit it,
+    so their specification is **unknown, not full-extent**. The
+    `mac4dstem_session_schema` stamp is `"5"` in both but has been `"5"` since
+    2026-07-16 (`e184404`), so it does not discriminate either. The operational
+    conclusion survives and is stronger: *these two files cannot exercise
+    F1.3f's crop path*, and F1.3f needs a sidecar saved from a cropped view.
+  - **The race (H5) stays refuted**, on the reasoning already recorded above.
+
+  **The next action is a datum, not code, and it is cheaper than the three cold
+  opens.** The stale-bookmark hypothesis is decidable by reading one preferences
+  domain: keys are `session-sidecar-bookmark.` + base64 of the **absolute source
+  path** (`Support/ResultExport.swift:136-139`). If a key exists for the old
+  pre-move path and none for the `mac4DSTEM_Organization/` path, the hypothesis
+  is confirmed without launching anything. The agent's shell cannot read it —
+  TCC protects app containers even with its sandbox disabled — so the release
+  owner runs:
+
+  ```sh
+  defaults read com.mac4dstem.mac4DSTEM | grep -o 'session-sidecar-bookmark\.[A-Za-z0-9+/=]*' \
+    | sed 's/session-sidecar-bookmark\.//' | while read k; do echo "$k" | base64 -d; echo; done
+  ```
+
+  Then, and only then, the three cold opens — now worth running, because the
+  message finally carries `Permission denied` / `file signature not found` /
+  `unable to lock file` instead of the same sentence in every case.
+
+  **C10 — the operative cause, established 2026-08-19 and confirmed by the
+  second reader.** Not the repo move. Commit `1e5727d` (2026-08-14 16:36)
+  changed `PRODUCT_BUNDLE_IDENTIFIER` from `com.paullobpreis.mac4DSTEM` to
+  `com.mac4dstem.mac4DSTEM`. **The identifier keys the sandbox container**, so
+  the app got a new, empty one — and therefore empty `UserDefaults`, so
+  `resolvedSessionSidecarURL` returns nil for every dataset at every path.
+  Read directly out of the old container, which is still on disk:
+
+      ~/Library/Containers/com.paullobpreis.mac4DSTEM/.../com.paullobpreis.mac4DSTEM.plist
+      session-sidecar-bookmark.<base64> -> /Users/paullobpreis/GitHub/mac4DSTEM/References/training_dataset/downsample_Si_SiGe_exp.h5
+      session-sidecar-bookmark.<base64> -> /Users/paullobpreis/GitHub/mac4DSTEM/References/training_dataset/sim_Au_data_all_binned.h5
+
+  Exactly the two affected datasets, keyed by absolute source path, in the OLD
+  container and at the OLD path — over-determined, either alone sufficient.
+  `WorkspaceRecovery` also uses `UserDefaults.standard`, so no bookmark store
+  survives. **The repo-move explanation should be struck, not demoted:** the new
+  container was created 2026-08-15 00:47, after the move, so nothing was ever
+  bookmarked under the new identifier at any path.
+
+  **Still not observed: the denial itself.** With no bookmark the code falls back
+  to the derived sibling path, and that read is *inferred* to be refused. The
+  sandbox asymmetry it depends on is real and measured — `application.sb:508`
+  carries a blanket `(allow file-read-metadata)`, and under `sandbox-exec` with
+  the bundled libhdf5, `fileExists` returns true while `H5Fopen` returns -1 — but
+  nobody has watched the app be denied. **One cold open now settles it, and its
+  value is the reason string, not the count of three.**
+
+  **Found while reviewing S1, each its own item (none are S1's to fix):**
+
+  - **Concurrent HDF5 use crashes the process.** `EXC_BAD_ACCESS` in
+    `libhdf5.dylib`\`H5SL_search`, reproduced under lldb within a few dozen
+    iterations, in the library. The bundled build is `Threadsafety: OFF` with
+    `_H5E_stack_g` a plain global. This independently kills the race hypothesis
+    far more cleanly than the ordering argument — **a race here predicts a crash,
+    not a tidy status line** — and it is a live latent crash: `loadSession` runs
+    on `Task.detached` while an `H5Reader` actor may be working, plus the
+    uncancelled `preloadResidentCube` noted elsewhere in this file.
+  - **Fabricated provenance on any pre-2026-08-18 sidecar.**
+    `AppState.swift:2331` does `sessionLoadSpecification = snapshot.loadSpecification ?? .fullExtent`.
+    Since the attribute post-dates every sidecar written before 2026-08-18, such
+    a sidecar saved from a **cropped** view is now asserted as full-extent rather
+    than unknown — the app stating a specification it does not have. A P1
+    violation; belongs with the trust fixes. Related: `mac4dstem_session_schema`
+    stayed `"5"` across a format addition (`4e01c24`), so the schema stamp no
+    longer identifies the format — which is exactly what S5's minimum-reader
+    marker has to fix.
+  - **`resolvedSessionSidecarURL` ignores its `descriptor` when the cache is
+    warm.** `ResultExport.swift:81` returns `scopedSessionSidecarURL`
+    unconditionally. `openFileAsync` clears it (`AppState.swift:1801-1803`) but
+    `openDemoFixture` (`:1591-1603`) does not — so opening a real dataset and
+    then the demo would restore the previous dataset's calibration and results
+    into the demo. Masked today only because no bookmark resolves; **it arms
+    itself the moment one does**, i.e. the moment S1's fix lands.
+  - **The status line leaks a full filesystem path.** The composed message runs
+    ~330 characters including the absolute path, rendered raw at
+    `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B
+    screenshots go into public docs. Worth truncating the path for display while
+    keeping it in the log.
+
+  **Not fixed, deliberately:** `recordedLoadSpecification` still reads the
+  derived sibling path (`AppState.swift:1419`) while `loadSessionSnapshot` reads
+  the bookmark-resolved one (`:2319-2320`) — two readers of the same sidecar
+  disagreeing about which file to open. Confirmed by reading, but Gate D forbids
+  landing the fix on a diagnosis that has not yet survived its experiment, and
+  the AppState seam is owed by whichever session lands it.
 ### Track B pass — 2026-08-18, `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` (4.25 GB on disk, 3.96 GB as f32)
 
 Driven by the release owner on the open/load rows of §F1. Two things confirmed,
