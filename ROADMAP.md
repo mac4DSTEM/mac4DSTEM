@@ -63,6 +63,11 @@ and ride-along AppState extractions (C1–C3).
    reject that model as unsupported rather than infer it from the dataset.
 4. Treat py4DSTEM parity, numerical self-consistency, operational real-data execution,
    and independent experimental validation as separate levels of evidence.
+5. Direction after v2: propagate uncertainty, not just validity — a
+   quantitative result should carry an error bar derived from the fit
+   residuals that already exist, under the constraints recorded in
+   [`docs/post-v1-ideas.md`](docs/post-v1-ideas.md) (#29 first; a wrongly
+   modelled interval is a precise wrong claim).
 
 ## Priority 2 — product clarity
 

@@ -17,6 +17,22 @@ Files do not update themselves. Treat doc maintenance as part of "done":
 - **One fact, one home.** A status/number lives in exactly one file; every
   other doc links to it. (Status lives in the prompts file; CLAUDE.md points
   to it, never restates it.)
+- **Closed items leave `docs/open-items.md` immediately** — move the
+  narrative to `docs/archive/`, keep one struck line with the date if the
+  context matters. Every *live* item opens with one bold sentence so a
+  session can triage by skimming. The file is loaded by every session; its
+  length is a tax on all of them. *(Adopted 2026-08-18.)*
+- **Tag call sites with their item:** when code is touched because of, or
+  deferred to, an open item, leave `// OPEN-ITEM #nn` (or the session id,
+  e.g. `// v2 S18`) at the site. Grep-able both ways: from the doc to the
+  code and back. Adopt going forward; do not sweep retroactively.
+  *(Adopted 2026-08-18.)*
+- **Harness source lists come from one manifest.** New `tools/` runners
+  include `tools/lib/sources.manifest` (created in v2 S2) instead of
+  hand-listing app sources; existing runners migrate when next touched.
+  Reason: adding one `Core/Data` file silently broke 5 of 8 runners on
+  2026-08-17 because the same list was spelled three ways.
+  *(Adopted 2026-08-18.)*
 
 ## 2. Model & subagent tiers (cheap to scout, high-end to judge)
 

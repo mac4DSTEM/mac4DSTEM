@@ -40,14 +40,25 @@ file:
 - The stale `all` claim in README/CHANGELOG → **S19**; the legacy `.icns` →
   mooted by S19's floor raise to macOS 26; the `docs/releasing.md` gap →
   **S19**.
-- The free-space preflight → **S0** (outstanding).
-- The resident-cube staging copies and the second-machine sweep → **post-v2**
-  (`.automatic` is dropped in S3, so the threshold no longer blocks anything).
+- The free-space preflight → **S0** (outstanding). CI for `unit` + the
+  synthetic half of `scientific` on the public repo → **S21**.
+- The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
+  elimination). The second-machine sweep → **post-v2** (`.automatic` is
+  dropped in S3, so the threshold no longer blocks anything).
 
 **Unclaimed and staying open:** #17a (design decision), #30 (NAS speed),
 #31, #32, #15/#19/#20, the recents-bookmark hard-link retest, the
 sidebar-divider minimum, the `.fixedSize` audit, and the
 delete-`mac4DSTEMUITests` decision.
+
+**One cheap experiment, unclaimed (2026-08-18):** a debug-only tool that
+renders chosen SwiftUI views to PNG via `ImageRenderer`, so an *agent* can
+look at what it just built while building it — the configurator's flat-colour
+previews would have been visible in one render. **Never acceptance**: Track B
+stays human and the eval-only rule is unchanged; this is development feedback
+only. Time-box it — if it fights the framework, drop it and record why (the
+colormap test already found that in-process rendering lies about `Picker`
+menus; expect the same class of limit).
 
 ## Phase 2 was planned — 2026-08-17
 

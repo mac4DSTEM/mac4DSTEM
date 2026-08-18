@@ -70,10 +70,11 @@ shortcuts: literature lattice, two-species basis, symmetry reduction, structure
 factors, expected-orientation fixture, fit-overlay Track B acceptance. Ends
 with `polycrystal_2D_WS2` reaching ACOM for the first time.
 
-**W5 — Verification debt and release mechanics** (S17–S20). The sidebar
+**W5 — Verification debt and release mechanics** (S17–S21). The sidebar
 intermittent diagnosed or honestly quarantined, claims restated to what a
-reader can reproduce, the polish sweep, floor raised to macOS 26, then the
-full release pipeline.
+reader can reproduce, the polish sweep, floor raised to macOS 26, **CI on the
+public repo** (S21 — the badge becomes the aggregate claim), then the full
+release pipeline.
 
 ### The cut line
 
@@ -174,6 +175,8 @@ only).
 12. **The floor is macOS 26** (retires the legacy-`.icns` item as moot).
 13. **Signed, notarized, stapled, clean-account launch, full Track B standing
     pass recorded** — and the version number decided on §5's evidence.
+14. **CI runs `unit` + the synthetic half of `scientific` on every push**, and
+    the README badge is the aggregate claim (S21).
 
 (7–8 move to the v2.x criteria if the cut line is exercised.)
 
@@ -233,13 +236,13 @@ still run one at a time, but either order works and nothing blocks.
 |---|---------|------|-----------|-------|
 | S0 | This plan written; CLAUDE.md repointed; superseded docs bannered. **Outstanding:** the free-space preflight in `tools/run-tests.sh` (~15 lines, decided in v2-scope §6.6) | A | — | Docs half done 2026-08-18 |
 | S1 | **Sidecar under the sandbox.** Un-silence `H5Eset_auto2` *first* (it is the diagnostic instrument), then the three-cold-opens experiment on the restore failure, then fix `recordedLoadSpecification` (`AppState.swift:1416-1431`, `:1801-1808`) and the restore path per the outcome. Seam: sidecar/restore state | **D** | S0 | Unblocks F1.3f. Predicted: deterministic ⇒ bookmark/sandbox; ~1/3 ⇒ race |
-| S2 | **The two-spec analysis fixture** (`tools/` name at build time; goes into `scientific`). Virtual image + disk detection under a reduced spec vs full extent. Ground truth is the **full-extent run on the overlap** — never cropped-vs-cropped. Scan-crop cases compare exactly; detector-crop/bin cases compare through re-referenced coordinates; **each case states which invariance it claims**. Also close the L3 residual: exercise `FourDArray.tile(yRange:from:)` at `lowerBound > 0` | **B** | — | Parallel with S1 |
+| S2 | **The two-spec analysis fixture** (`tools/` name at build time; goes into `scientific`). Virtual image + disk detection under a reduced spec vs full extent. Ground truth is the **full-extent run on the overlap** — never cropped-vs-cropped. Scan-crop cases compare exactly; detector-crop/bin cases compare through re-referenced coordinates; **each case states which invariance it claims**. Also close the L3 residual: exercise `FourDArray.tile(yRange:from:)` at `lowerBound > 0`. **Seed the metamorphic property suite here:** invariances as tests over randomized fixtures — translation equivariance (the `measureOrigin` class of defect), bin intensity conservation, crop/analysis commutation — so this class is caught by machine, not by late manual reasoning. **Create `tools/lib/sources.manifest`** (one shared source list; this and future runners include it — the fix for the 2026-08-17 five-of-eight-runners breakage), and compile the fixture with the app's isolation flags, closing the recorded `swiftc`-defaults blind spot | **B** | — | Parallel with S1 |
 | S3 | **Drop `.automatic`** from model and UI (behaviour is unchanged — it already streams); build the **promote control** ("reopen at full extent", placement decided in-session). Seam | A | S0 | Parallel with S4 |
 | S4 | **Configurator finish.** `contentVersion` value-dependence first (`LoadConfiguratorView.swift:142`, `DatasetInspector.swift:230`), then the single-DP picker + real-space dims (owner requests, 2026-08-18), the sheet clipping (`:44`), the missing `progress:` argument (`AppState.swift:1487-1490`) | A | S0 | Parallel with S3 |
 | S5 | **Promote run I — the replay record.** Which analyses ran, with which parameters, serialized with the session — this is what turns the sidecar into a full recipe, and it is a sidecar format change (§5 evidence; the minimum-reader marker is decided here) | B-lite | S3 | Round-trip fixture extends `tools/load-spec-roundtrip` |
 | S6 | **Promote run II — unattended execution.** Sequential replay at full extent, keep-awake assertion, morning summary. A failed step **halts honestly** — it must never continue silently past a failure | A | S5 | Track B row queued |
 | TB1 | **Owner pass:** F1 queue to empty (F1.3b re-drive first), the promote row, one real rehearse → overnight promote, the colleague-sidecar row (foreign sidecar, clean account), the aspect-stretch decision once previews draw | — | S1, S3–S6 | Agent continues W2 meanwhile |
-| S7 | **Error honesty.** iDPC gate consults `originFitIsQuantitative` (`AppState.swift:3806`); `DPC.integrateIDPC` returns a typed error instead of a zero image; tile-read errors attributed correctly (`TiledDiskDetection.swift:42`); caption truncation fixed | **B** | — | Parallel with TB1 |
+| S7 | **Error honesty.** iDPC gate consults `originFitIsQuantitative` (`AppState.swift:3806`); `DPC.integrateIDPC` returns a typed error instead of a zero image; tile-read errors attributed correctly (`TiledDiskDetection.swift:42`); caption truncation fixed — and the **full provenance record written into the exported image's metadata** beside the burned caption, so the pixels stop being the only carrier. **Bounded `try?` audit of `Core/`**: every hit becomes a typed error or gains a comment saying why swallowing is correct — the zero-fill and tile-error defects are two instances of one class; kill the class. **This session's seam is the readiness/gating type**: one `@Observable` policy owner for every "may I?" question, so a gate can only exist once — the iDPC defect is literally two call sites deriving the same policy differently | **B** | — | Parallel with TB1 |
 | S8 | **Strain frame.** Owner design decision in-session (rotate into scan frame vs label diffraction-frame + export the R–Q transform; parity reference `get_rotated_strain_map`, `latticevectors.py:409`). Resolve or explicitly re-scope **#18** here | **B**, Fable 5 tier | S7 done or parked | Highest-stakes review of the phase |
 | S9 | **The 8 GB death.** Local-vs-NAS `footprint` experiment on the 17 GB DM4 (predicted: local flat, NAS climbs toward file size ⇒ `.mappedIfSafe` fell back to a full read), then fix — refuse or stream, never silently allocate the file. Secondary: bound the tile budget by *free* RAM; re-examine the "GPU budget" label (`LoadConfiguratorView.swift:255`) | **D** | NAS access | |
 | S10 | **Reduced-file export.** Teach `transformedCalibration` the detector crop, lift the refusal, and have the exported file carry the S5 recipe. Fixture: export a cropped view, open it in vendored py4DSTEM, the origin lands on the beam | **B** | S5, S8 | Wrong output here escapes the app — full adversarial pass |
@@ -251,18 +254,19 @@ still run one at a time, but either order works and nothing blocks.
 | S16 | **WS₂ III.** ACOM on `polycrystal_2D_WS2`, adversarial review, fit-overlay Track B row queued | **B** | S15 | |
 | TB2 | **Owner pass:** WS₂ fit overlay + everything queued since TB1 | — | S16 | |
 | S17 | **Sidebar intermittent.** Instrument the run-to-run variable (measured heights, display scale, window-server state across runs), then fix the threshold on a principled number or formally quarantine with the claim adjusted. **Was 60 ever a threshold, or one machine's measurement rounded up?** | **D** | — | Any time; must precede S19 |
-| S18 | **Polish sweep.** Colorbar/scale-bar collision, #38 scroll monitor, the scan-extent two-orders display, comparison-panel `contentVersion` (`ProductWorkspaceViews.swift:719`), `pattern(ry:rx:)` honouring a resident cube, #37 re-measure | A | late | Bounded: this list, nothing more |
-| S19 | **Claims restatement.** README/CHANGELOG to what a reader can reproduce; `docs/releasing.md` gains `make-dmg.sh`; `LSMinimumSystemVersion` → 26 | A | S17, green `all` | |
-| S20 | **Endgame.** Version number decided on §5's evidence; `/code-review ultra` on the release branch (owner triggers); `/security-review`; sign → notarize → staple; clean-account launch; full Track B standing pass A–F; tag | — | everything | |
+| S18 | **Polish sweep.** Colorbar/scale-bar collision, #38 scroll monitor, the scan-extent two-orders display, comparison-panel `contentVersion` (`ProductWorkspaceViews.swift:719`), `pattern(ry:rx:)` honouring a resident cube, #37 re-measure, and the **resident staging-copy elimination** — bind the resident `MTLBuffer` at the tile's byte offset (`setBuffer(_:offset:)`) instead of buffer → `[Float]` → new `MTLBuffer` (~0.375 × working set of pure waste, found by the 2026-08-17 review) | A | late | Bounded: this list, nothing more |
+| S19 | **Claims restatement.** README/CHANGELOG to what a reader can reproduce; `docs/releasing.md` gains `make-dmg.sh`; `LSMinimumSystemVersion` → 26 | A | S17, S21, green `all` | The CI badge from S21 becomes part of the restated claim |
+| S20 | **Endgame.** Version number decided on §5's evidence; `/code-review ultra` on the release branch (owner triggers); `/security-review`; sign → notarize → staple; clean-account launch; full Track B standing pass A–F; **record the `tools/performance-baseline` table for the release** (so performance regressions become visible release-to-release the way parity regressions already are); tag | — | everything | |
+| S21 | **CI on the public repo.** GitHub Actions macOS runner: `unit` + the synthetic-fixture harnesses of `scientific` on every push. The README badge then *is* the aggregate claim, and the refusal rule's second clause becomes mechanical — a stale claim cannot recur unnoticed. **Excluded and said so in the workflow file:** `real-data-acceptance` and every harness needing gitignored multi-GB data. Free for a public repo | A | S2 (manifest); before S19 | Sits in W5; can run any time after S2 |
 
 **Owner-decision moments, so they never ambush:** TB1 and TB2 (driving time),
 the strain-frame choice (S8), the aspect-stretch decision (TB1), the S12
 design review, the WS₂ variant confirmation (S14), the version number (S20).
 Everything else runs on the decisions recorded in this file.
 
-**Sizing, honestly:** ~20 agent sessions plus two owner passes and the
+**Sizing, honestly:** ~21 agent sessions plus two owner passes and the
 endgame. The severable block (S11–S16 + TB2) is 6 sessions + one pass; the
-binding core is ~14.
+binding core is ~15.
 
 ### Session kickoff (copy-paste)
 
@@ -292,7 +296,7 @@ only if asked.
 - [ ] S1 · [ ] S2 · [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
 - [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
-- [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20
+- [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21
 
 Tick a session only with a one-line record of what shipped and what deviated,
 same convention as the load-pipeline plan's §5.

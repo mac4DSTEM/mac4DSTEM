@@ -10,9 +10,13 @@ thinking is fresh. Nothing here is committed to, scheduled, or promised.
 > is reproduced there, with the py4DSTEM source lines that prove it. Keep this
 > file as the origin record; **plan from the plan.**
 >
-> **The third entry has not graduated** — *Q calibration is fragile to origin
-> error well below the readiness threshold* (2026-08-06) belongs to no plan yet
-> and needs a scope decision before anyone implements it.
+> **The third entry graduated 2026-08-18** — *Q calibration is fragile to
+> origin error below the readiness threshold* is claimed by
+> [`docs/v2-release.md`](v2-release.md) sessions S11–S13 (triage → design →
+> implement); the constraints recorded below are the design input. **WS₂
+> step 1 graduated the same day** (S14–S16). Step 2 (Materials Project) and
+> the precipitate pipeline remain unclaimed, as do the two 2026-08-18
+> entries at the end.
 
 ## Why this file exists (and what does *not* belong here)
 
@@ -249,3 +253,51 @@ the same dataset should settle it cheaply.
 spacing — that was tried on 2026-08-06 and refuted (breaks `tools/strain-test`
 on single-peak patterns; Q errors to +176% on superimposed lattices). The full
 refutation is in archived backlog #46.
+
+---
+
+## Align streaming tiles to HDF5 chunk boundaries
+
+**Recorded 2026-08-18, from the release-planning review.** A performance
+idea, not a correctness one, so it waits for a measurement before any design.
+
+The evidence that motivates it already exists: `LoadPushdown` was made
+honest on 2026-08-18 by measuring that a crop *inside* a chunk skips nothing
+— HDF5 reads and decompresses whole chunks (full detector 0.137 s, 1/64 of it
+0.135 s on a gzip-chunked cube). The same fact cuts the other way: a
+streaming **tile whose boundary straddles chunks decompresses the shared
+chunks twice**, once per tile. Reading the chunk layout (`H5Pget_chunk`) and
+snapping `scanTileRows()` boundaries to it would eliminate the double work
+in the one reader where it matters.
+
+Constraints worth knowing before building: the tile size currently derives
+from the GPU working-set budget (`recommendedMaxWorkingSetSize / 8`), so
+snapping must round *down*, never up — a tile grown to a chunk boundary can
+blow the memory budget on exactly the machines that need streaming (see the
+8 GB jetsam item in `docs/open-items.md`). And measure first on a
+py4DSTEM-written chunked EMD, not the contiguous training cubes, where the
+change is a no-op by construction.
+
+---
+
+## Uncertainty propagation — error bars on quantitative results
+
+**Recorded 2026-08-18.** The long-term scientific direction, deliberately
+after v2: results carry model, scale, units and validity labels, but no
+uncertainty. The ingredients already exist unread — the origin fit residual
+(`OriginMaps.rmsResidual`), the per-peak correlation quality, the lattice-fit
+covariance — and today they gate or decorate, but never propagate.
+"ε_xx = 0.0132 ± 0.0008" is worth more to a paper than another analysis
+modality; it is also the natural completion of ROADMAP P1.4's levels of
+evidence (a number without an uncertainty cannot honestly claim the top
+level).
+
+What is non-obvious now, so it isn't rediscovered: the propagation must not
+become a fabrication channel — an error bar computed from a model that does
+not hold (e.g. treating the origin-fit residual as i.i.d. noise when #29's
+question — rigid fit vs noisy measurement — is still open) is a *precise
+wrong claim*, the worst kind under the refusal rule. #29 must be answered
+first (v2 S12 reads the data that answers it), and every propagated interval
+needs the same fixture treatment as the value it decorates: a case where the
+true uncertainty is known analytically, and a negative control that fails
+when the propagation is wrong.
