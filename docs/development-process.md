@@ -67,6 +67,38 @@ real app/`Core/` changes.
 - A doc cannot force which model an agent runs — set the session model / agent
   definitions accordingly.
 
+**Structured build feedback (added 2026-08-18).** One MCP server is
+registered at user scope in `~/.claude.json`: **XcodeBuildMCP** (pinned
+`2.7.0`, npx via Homebrew node, **verified working** — MCP handshake + tools
+list, macOS workflow confirmed served). Apple's **`xcrun mcpbridge` was
+tried and deregistered the same day**: it answered `initialize` as
+`xcode-tools 25245.3` but exposed zero tools to a hand-rolled client *and*
+to the real Claude Code client after a restart, with Xcode running. If
+headless preview rendering is wanted later, probe XcodeBuildMCP's
+`xcode-ide` workflow before re-trying the raw bridge. The server carries
+`DEVELOPER_DIR=/Applications/Xcode-beta.app` in its env, so it does not
+depend on the system `xcode-select` pointer. **Workflows are selected
+per-repo in the checked-in `.xcodebuildmcp/config.yaml`** — `macos`,
+`project-discovery`, `utilities`; the server's default is simulator-only,
+which is dead weight for a macOS app, and every extra workflow adds tools
+that compete for an agent's attention.
+
+When their tools are visible in a session, **prefer them over parsing raw
+`xcodebuild` text**: `build_macos` / `build_run_macos` / `test_macos` instead
+of Bash `xcodebuild` (typed file/line/severity diagnostics — also the
+cheapest way to surface the actor-isolation warning class that only the app
+build can see), and mcpbridge's documentation search over WebSearch for Apple
+APIs. Without a stated preference an agent drifts back to Bash; this
+paragraph is that preference. Known limits and measured facts, recorded so
+they are not re-learned: **no visual judgement** (Track B unchanged); the
+MCP layer builds into **its own workspace**, so the *first* build is full —
+measured 56 s here 2026-08-18 — and later ones are incremental (~3 s), not a
+per-build penalty; that first full build is also what surfaced the standing
+isolation warnings recorded in `docs/open-items.md` (*Code hygiene*), which
+warm incremental builds structurally cannot re-emit; and the `tools/`
+harnesses keep their own runners — their output is already structured, the
+MCP layer is for the app target and the unit suite.
+
 ## 3. Where new work slots into the structure
 
 - **UI-friendliness** → run the Track B visual pass

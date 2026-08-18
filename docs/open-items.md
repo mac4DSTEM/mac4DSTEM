@@ -51,14 +51,25 @@ file:
 sidebar-divider minimum, the `.fixedSize` audit, and the
 delete-`mac4DSTEMUITests` decision.
 
-**One cheap experiment, unclaimed (2026-08-18):** a debug-only tool that
-renders chosen SwiftUI views to PNG via `ImageRenderer`, so an *agent* can
-look at what it just built while building it — the configurator's flat-colour
-previews would have been visible in one render. **Never acceptance**: Track B
-stays human and the eval-only rule is unchanged; this is development feedback
-only. Time-box it — if it fights the framework, drop it and record why (the
-colormap test already found that in-process rendering lies about `Picker`
-menus; expect the same class of limit).
+**One cheap experiment, unclaimed (2026-08-18) — give the agent eyes on the
+Mac app.** Three candidate mechanisms, one time-box, keep whichever earns it:
+**(a)** a debug-only tool rendering chosen SwiftUI views to PNG via
+`ImageRenderer` — in-process and permission-free, but blind to
+lazily-rendered chrome (the colormap test already proved in-process rendering
+lies about `Picker` menus); **(b)** `screencapture -l <windowID>` of the real
+running app — real pixels, needs a one-time Screen Recording grant to the
+Claude Code host (expect the re-grant-after-update behaviour Accessibility
+already shows); **(c)** headless
+SwiftUI preview rendering through the real pipeline (no screen grant) — the
+original candidate, Apple's `mcpbridge` `RenderPreview`, exposed **zero
+tools even to the real client** on 2026-08-18 (see
+`docs/development-process.md` §2), so probe **XcodeBuildMCP's `xcode-ide`
+workflow** for the equivalent first and fall back to the raw bridge only if
+Apple documents it. The configurator's flat-colour previews (F1.3b)
+would have been visible to any of the three in one render. **Never
+acceptance**: Track B stays human and the eval-only rule is unchanged; this
+is development feedback only. If all three fight the framework, drop the
+experiment and record why.
 
 ## Phase 2 was planned — 2026-08-17
 
@@ -752,6 +763,24 @@ or it spends the one resource Track B is expensive in — a person's attention.
 
 ## Code hygiene
 
+- **Eight standing build-warning classes, two of them errors-in-waiting under
+  the Swift 6 language mode — surfaced 2026-08-18 by the first full rebuild
+  in weeks.** The actor-isolation class documented for `LoadSpecification`
+  (fixed in L3) persists at more sites: `ResidencyAdmission.shouldAdmit`
+  called from nonisolated contexts (`Core/Data/FourDArray.swift:213` —
+  flagged *"error in the Swift 6 language mode"* — and
+  `Core/Data/LoadConfiguration.swift:201`), `measuredWorkingSetFraction`
+  referenced nonisolated (`LoadConfiguration.swift:199`), `defaultByteBudget`
+  (`Core/Analysis/DatasetPreview.swift:114`), a MainActor-isolated
+  `Equatable` conformance on `DatasetDescriptor` (also a Swift-6-mode error),
+  a weak/strong capture mismatch (`App/DatasetResidency.swift:127`), and a
+  no-op `await` (`App/AppState.swift:2044`). **Why nobody saw them: warm
+  incremental builds re-emit nothing** — a raw `xcodebuild` run over the same
+  code the same day printed zero warnings, because nothing recompiled. Found
+  by the first `build_macos` through XcodeBuildMCP, which builds into its own
+  fresh workspace. Most sites are the residency-admission surface that **S3
+  touches anyway — take them as an S3 rider**; the `DatasetDescriptor`
+  conformance may be wider, check its call sites there too.
 - **22 `.fixedSize(horizontal: false, vertical: true)` sites remain in `UI/`**,
   including 4 in `TaskPrerequisiteChecklist` — the construct that caused #16.
   Safe today and covered by `SplitViewHeightTests`, but unaudited.
