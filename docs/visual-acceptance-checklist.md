@@ -105,6 +105,32 @@ it plausibly touches plus §A.
 | L5 | The sampled preview is visibly marked as sampled **with its stride stated**, and cannot be exported; the size arithmetic (file bytes / cube f32 / headroom / cost of the current specification) is on screen |
 | L6 | The load specification is shown wherever provenance is shown, and survives reopen |
 
+#### F1. The queued backlog — nothing below has been seen on screen by anyone
+
+**Written 2026-08-18, drafted ahead of the UI it describes.** Rows marked
+**PENDING UI** describe surfaces that exist in the model but that no view reads
+yet; they become runnable when L5's configurator lands. Rows marked **RUNNABLE
+NOW** can be driven today and have been waiting through three stages.
+
+Run this whole sub-section in **one** pass once L5's configurator is in — that
+is the point of holding it, rather than accumulating four separate half-passes.
+
+| # | Status | Check | Expect | Known trap |
+|---|---|---|---|---|
+| F1.1 | RUNNABLE NOW | Open a multi-GB cube and watch the **preload** phase (L2, landed 2026-08-17) | Progress is bracketed as a load: patterns and MB both advancing, welcome card still up | `selectDataset` used to preload with progress reporting **disabled** — #36's stall one layer down. Fixed but never seen |
+| F1.2 | RUNNABLE NOW | The **Preview** section of the dataset inspector (L5 preview half, landed 2026-08-18) | A real-space image and mean/max DP, with a summary line naming the stride: *"Sampled preview · every 3rd position · 1,024 of 28,458"* | The preview grid is the **sample's** dimensions, not the scan's. It will not line up pixel-for-pixel with a virtual image, and that is correct — the label is what stops it being filed as a bug |
+| F1.3 | RUNNABLE NOW | Try to export or promote the preview | There is **no** control that does it | Invariant I4 is enforced by type, so the absence of a control is the check |
+| F1.4 | PENDING UI | `Loaded view · …` summary line when a crop or bin is set | Names the extent in **source** pixels — *"scan rows 128–255"*, not *"128 rows"* | A user deciding whether to re-run at full extent needs to know *where* they were looking, not how much |
+| F1.5 | PENDING UI | Binning notice | States that intensities are **summed**, so they are `bin²` larger, and that the reciprocal pixel size is `bin` × coarser | py4DSTEM sums too, but silently. An absolute-intensity threshold carried over from an unbinned run does not mean the same thing, and only this line says so |
+| F1.6 | PENDING UI | Bin a detector whose size does not divide (e.g. 130 px by 8) | An explicit line: *N* detector rows and *M* columns trimmed from the far edge | Silent trimming is the trap — the user asked for one extent and got a smaller one |
+| F1.7 | PENDING UI | Crop so the direct beam falls **outside** the diffraction crop | The origin is **invalidated with a named reason** and the aperture falls back to the geometric default | It must never be clamped into the crop. A clamped origin puts the beam at a pixel it is not at and every downstream number looks fine |
+| F1.8 | PENDING UI | Set a real-space crop with existing strain / ACOM / Bragg results on screen | Those results are cleared, with a message saying the same index now names a different position | *Ambiguous*, not stale — and the reason has to be visible, or it reads as the app losing work |
+| F1.9 | PENDING UI | Drag a crop rectangle **bottom-right to top-left**, and past the edge of the image | Same rectangle either way; dragging past the edge clamps to the edge | Unit-tested (`LoadConfigurationTests`), but the gesture wiring is not |
+| F1.10 | PENDING UI | Drag a crop on the **real-space** preview at a stride > 1, then check the loaded extent | The loaded region is the one that was circled | The preview is on the sampled grid: a missing stride multiplication puts the crop at a fraction of the intended position. Looks like a UI glitch, is a data defect |
+| F1.11 | PENDING UI | Select the entire image as a crop | The app reports full extent — no crop — rather than a crop that happens to cover everything | `isFullExtent` is what makes "remove the specification to promote to the full dataset" work |
+| F1.12 | PENDING UI | Read the copy on the open screen | Loading into memory does **not** claim to make the load faster | #30 established the cost is the link, not the algorithm. It makes the waiting happen once, at a moment the user chose. Copy implying otherwise will make the feature read as broken |
+| F1.13 | PENDING UI | The local-storage notice | One quiet line of guidance, not a warning, blocking nothing | ≈3.3 MB/s over a NAS, latency-dominated — real advice, but it must not look like an error |
+
 ---
 
 ## Recording a run

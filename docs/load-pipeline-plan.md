@@ -698,8 +698,47 @@ re-reference below.
      intensity-conservation assertion is skipped whenever a crop is present.
      Both are gaps the review closed independently and found green; neither is
      carried in the repo yet.
-- [~] **L5 — Open-time preview and the load configurator. PREVIEW HALF DONE
-  2026-08-18; configurator not started** (it needs L3/L4).
+- [~] **L5 — Open-time preview and the load configurator. Preview half and the
+  configurator's ARITHMETIC done 2026-08-18; the configurator UI not started.**
+
+  `Core/Data/LoadConfiguration.swift` maps a dragged rectangle to a
+  `LoadSpecification` and says what that specification would cost, kept out of
+  the view so it can be tested without a screen. Pinned by
+  `mac4DSTEMTests/LoadConfigurationTests` (15 tests); seven controls fail it.
+
+  **The coordinate trap it exists for:** the real-space preview is drawn on the
+  **sampled** grid — `DatasetPreview.realSpace` has the sample's dimensions, by
+  design, so nobody compares it pixel-for-pixel with a virtual image (I4). A
+  rectangle dragged on it is therefore in units of *sampled positions* and must
+  be multiplied by the stride. Skip that and a selection near the bottom of a
+  stride-6 scan lands near the top: it reads as a UI glitch and is a data defect,
+  because the wrong region is analysed and every number about it is correct.
+  The diffraction preview is full resolution and maps 1:1 — the asymmetry is why
+  these are two functions with two sets of tests, not one with a scale argument.
+
+  Also settled here: a drag covering the whole image returns **no crop** rather
+  than a full-extent one, so `isFullExtent` stays true and "remove the
+  specification to promote to the full dataset" keeps working; and everything
+  the configurator can offer is run through `LoadView`'s validating initialiser,
+  so it cannot offer something the loader would refuse.
+
+  **Two guard findings.** `Swift.min`/`max` silently swallow NaN — every
+  comparison against it is false — so validating the *normalised* corners would
+  have passed while a corrupt coordinate became a 1x1 crop at the origin; and
+  `Int(Double.infinity)` **traps**, so the clamp would have crashed rather than
+  clamped. Both caught by the test that refuses a non-finite drag. A control
+  then showed the two guards were individually redundant, so a third case was
+  added — a *finite* absurd coordinate like `1e300`, where `Int()` still traps
+  and only the magnitude bound catches it. Guards that no control can break are
+  not evidence; that lesson is from L4's phantom control, applied here.
+
+  **Not started, and deliberately held together:** the rectangle overlays, the
+  bin picker, the size arithmetic on screen, and the wiring of `LoadedView`'s
+  display surface (L4's owed item). All four are UI whose gate is
+  `/code-review` **plus a Track B pass**, and the Track B queue already holds
+  three stages of unseen surfaces. Landing them in one pass is the point —
+  §F1 of [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md)
+  is written and waiting, 13 rows, three of them runnable today.
   `Core/Analysis/DatasetPreview.swift` builds a real-space image plus mean/max
   patterns from a **deterministic strided sample**, during the open and before
   the first whole-cube pass. Shown in `UI/DatasetInspector.swift` under
