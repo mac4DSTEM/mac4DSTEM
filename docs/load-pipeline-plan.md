@@ -721,8 +721,9 @@ re-reference below.
      intensity-conservation assertion is skipped whenever a crop is present.
      Both are gaps the adversarial review closed independently and found green;
      neither is carried in the repo yet.
-- [~] **L5 — Open-time preview and the load configurator. Preview half and the
-  configurator's ARITHMETIC done 2026-08-18; the configurator UI not started.**
+- [~] **L5 — Open-time preview and the load configurator. Preview half, the
+  configurator's arithmetic, AND the configurator UI are all done 2026-08-18
+  (a06c624, 2b45fa0) — this entry undersold it; see the correction below.**
 
   `Core/Data/LoadConfiguration.swift` maps a dragged rectangle to a
   `LoadSpecification` and says what that specification would cost, kept out of
@@ -755,13 +756,27 @@ re-reference below.
   and only the magnitude bound catches it. Guards that no control can break are
   not evidence; that lesson is from L4's phantom control, applied here.
 
-  **Not started, and deliberately held together:** the rectangle overlays, the
-  bin picker, the size arithmetic on screen, and the wiring of `LoadedView`'s
-  display surface (L4's owed item). All four are UI whose gate is
-  `/code-review` **plus a Track B pass**, and the Track B queue already holds
-  three stages of unseen surfaces. Landing them in one pass is the point —
+  **Correction, 2026-08-18 evening — this paragraph was stale the moment L6
+  landed and nobody re-read it.** `LoadConfiguratorView.swift` (a06c624) built
+  all four pieces this said were "not started": drag-to-crop rectangles on both
+  previews, the bin picker (None/2x/4x/8x), the live size table (file on disk,
+  whole-cube f32, this selection with its %, loaded shape, GPU budget), and
+  Reset/Cancel/Load. `2b45fa0` wired `LoadedView`'s display into
+  `DatasetInspector` — the `Loaded view · …` line. **The release owner drove it
+  the same evening** (screenshots, 19:08–19:13): opt-in entry via "Open with
+  Options…" leaves plain "Open Dataset…" untouched; a dragged real-space
+  rectangle produced a *Loaded view · scan rows 20–35, columns 28–79 · binned
+  2x* line that then persisted correctly across the Prepare, Map (Bragg disk
+  detection), and Strain workspaces; the two same-named recents rows showed
+  their distinguishing location. That clears F1.3b, F1.3c and F1.4 in
   §F1 of [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md)
-  is written and waiting, 13 rows, three of them runnable today.
+  — updated there. **One thing surfaced in that same run and is not yet
+  triaged:** the console logged `Could not restore
+  downsample_Si_SiGe_exp.mac4dstem.h5: HDF5 export failed while opening the
+  session sidecar` on an open that had no prior session — worth a look before
+  it's assumed benign. Still unverified: F1.3d (bin trim notice on a
+  non-dividing detector), F1.3e (Load with nothing configured = plain open),
+  F1.3f (crop survives session save/reopen), F1.7–F1.11.
   `Core/Analysis/DatasetPreview.swift` builds a real-space image plus mean/max
   patterns from a **deterministic strided sample**, during the open and before
   the first whole-cube pass. Shown in `UI/DatasetInspector.swift` under
