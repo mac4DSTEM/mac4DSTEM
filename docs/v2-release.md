@@ -312,7 +312,19 @@ only if asked.
   save panel?) is pre-registered in `docs/open-items.md` with both branches
   written before the answer was known; the answer has not yet reached a session,
   so the fix is deliberately withheld rather than guessed.
-- [ ] S2 · [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
+- [x] **S2** — 2026-08-19: `tools/two-spec-analysis-test` (214 checks) in
+  `scientific`; `tools/lib/sources.manifest` created with dependency-closed
+  groups and `MAC4DSTEM_ISOLATION_FLAGS`; metamorphic properties P1–P4 seeded;
+  the L3 `tile(yRange:from:)` residual closed. Eight negative controls, each
+  naming the line it breaks. **Deviations:** (1) the L3 residual as recorded was
+  wrong — the offset was already covered at full extent by
+  `tools/virtual-detector-residency`; what S2 adds is coverage under a scan crop.
+  (2) The isolation flags give visibility, not enforcement — the Swift 6 warning
+  they surface does not fail the build. (3) `sources.manifest` does not yet fix
+  the 2026-08-17 breakage: no existing runner is migrated. (4) Gate B refuted
+  four claims before this landed; all four are corrected in place rather than
+  defended, and two new open items came out of it.
+- [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
 - [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21

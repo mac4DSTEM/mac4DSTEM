@@ -16,6 +16,17 @@ it *tried* and failed to break.
    `References/py4DSTEM-dev`; cite file:line) and that its stated claims
    hold. Hand it the diagnosis and the primary evidence, not just the diff
    — review the diagnosis, not only the code.
+1b. **When the change IS the fixture, ask the one question that pays:
+   "what transformation of the app's code leaves every check green while
+   producing wrong science?"** Name it explicitly in the brief and require
+   the reviewer to actually apply and run its candidates. On 2026-08-19 that
+   single question produced the two best findings of the S2 review — a
+   vertical flip of the binned detector output, and a constant bias in the
+   measured origin, both invisible to a harness of 201 checks. "Does the
+   fixture look thorough" produces nothing; "here is the mutation that
+   survives it" produces the missing assertion. Watch in particular for a
+   check that is *vacuous on this fixture* — comparing background to
+   background — and require an anti-vacuity guard rather than a comment.
 2. The fixture lives in `tools/` and joins `run-tests.sh scientific` when
    it should gate. Ground truth is analytic or py4DSTEM itself — never the
    code under test's own output. Self-consistency proves nothing: the L3

@@ -33,6 +33,10 @@ file:
   branches below, written before its answer was known. The answer has not yet
   reached a session, so S1 stays blocked at that gate by choice, not by
   oversight.
+- ~~The two-spec analysis fixture → **S2**.~~ **Landed 2026-08-19** as
+  `tools/two-spec-analysis-test`, in `scientific`. Two new items came out of its
+  Gate B review (the mask-boundary convention and the `Aperture` redeclaration);
+  both are below.
 - The Track B §F1 queue → **TB1** (after S1, S3–S6).
 - Strain frame → **S8**; iDPC gate, iDPC zero-fill, disk-detection error
   attribution and the burned-in caption truncation → **S7**; **#18** → **S8**.
@@ -825,6 +829,27 @@ or it spends the one resource Track B is expensive in — a person's attention.
   the Q-calibration lead, where `KnownCrystalQCalibration.estimate` already
   discards peaks inside 2 px. A translation-equivariant coarse step (a real
   Gaussian, or an argmax refined against a fixed grid) would remove it.
+
+  **S2, 2026-08-19 — the discriminating experiment was run, twice
+  independently, and it settles the cause for S12.** Striding the block scan by
+  1 instead of by `bin` (`OriginMeasure.metal:47,49` — a two-token change) takes
+  the measured translation-equivariance error from **0.6094227 px to
+  9.536743e-07 px**, i.e. float noise. So the coarse grid *is* the cause of the
+  equivariance error, and the un-iterated CoM below is **not** an independent
+  contributor to it: the CoM is exactly equivariant once seeded equivariantly.
+  The same experiment leaves the **absolute** error unchanged at 0.337 px, which
+  is how the two items are told apart — they are separate defects that happen to
+  be the same order of magnitude, and S2's first draft wrongly asserted they were
+  the same number. Both are now pinned by `tools/two-spec-analysis-test`
+  (`P4_KNOWN_BOUND` 0.65 px, `ORIGIN_ABSOLUTE_BOUND` 0.40 px), so S13 gets a
+  before/after gate rather than an argument.
+
+  **Cost, since "taken for cost" is the reason the deviation exists:** the naive
+  stride-1 window is O(qy·qx·bin²) per pattern against O(qy·qx) today, but a
+  separable box filter restores O(qy·qx). The equivariant step is therefore
+  probably cheap, and the shader header's assumption that it is expensive has
+  never been measured. **S12 should weigh this on a measurement, not on the
+  header.**
 - **`measureOrigin` performs a single centre-of-mass refinement, not an
   iteration to convergence**, so its output sits ~0.6 px from the converged
   windowed centre on the same fixture. Also pre-existing, also a deviation from
@@ -840,19 +865,62 @@ or it spends the one resource Track B is expensive in — a person's attention.
   against the *view* extent, so a source-extent map would fall silently through
   to an empty array. The export currently **refuses** a cropped view rather than
   carrying that defect; the refusal is lifted by L3's calibration re-reference,
-  not before. **(b)** `FourDArray.tile(yRange:from:)` — the read offset out of a
+  not before. ~~**(b)** `FourDArray.tile(yRange:from:)` — the read offset out of a
   resident buffer — is only ever exercised at `lowerBound == 0` by
-  `tools/load-spec-test`, so a bug in that offset would not be caught there.
+  `tools/load-spec-test`, so a bug in that offset would not be caught there.~~
+  **CLOSED 2026-08-19 (S2), and the residual as written was wrong.** Deleting
+  the offset (`start: base` instead of `start: base + yRange.lowerBound *
+  floatsPerScanRow`) does leave `tools/load-spec-test` at exit 0 — that half is
+  reproducible — but `tools/virtual-detector-residency` goes **red** on the same
+  breakage (`DP statistics [max]: differs at index 0 — resident 279.5537, tiled
+  1055.2793`), because `tiledDPStatistics(maximumTileRows: 2)` reaches
+  `lowerBound > 0`. So the offset was covered all along, **at full extent only**.
+  What was genuinely missing, and what `tools/two-spec-analysis-test` now adds,
+  is exhaustive `(lower, upper)` coverage **under a scan crop**, where the
+  resident path and the reader's own crop offset compose. Found by Gate B when it
+  refused to accept S2's stated justification for the case.
+- **Nothing pins the virtual-detector mask boundary convention against
+  py4DSTEM, and no harness can currently see a change to it.** Found by Gate B
+  during S2 (2026-08-19). The app's circle mask uses `r2 < rOut2`
+  (`Core/Analysis/VirtualDetector.swift:473`) and py4DSTEM uses strict `<`
+  (`References/py4DSTEM-dev/py4DSTEM/datacube/virtualimage.py:636`), so **the app
+  is correct today** — this is not a live defect. The gap is that flipping it to
+  `<=` leaves both `tools/two-spec-analysis-test` and `tools/virtual-detector-test`
+  at exit 0, because every comparison in both runs the same `makeMask` on each
+  side, and a boundary-pixel change cancels. It is the shared-code limit of any
+  self-comparison, and the fix is one assertion pinning `makeMask`'s output
+  against an analytic mask, not a new harness. Cheap; nobody has done it.
+- **`Aperture` is declared in `App/AppState.swift`, so every scientific harness
+  that compiles `VirtualDetector.swift` redeclares its own copy.**
+  `tools/virtual-detector-test` and `tools/two-spec-analysis-test` each carry
+  one. If the app's `Aperture` gained a field, every copy would still compile and
+  still pass, testing a shape the app no longer has — the `sources.manifest`
+  problem in a different costume. The honest fix is to move `Aperture` into
+  `Core/`, which is an app-layout change and so belongs to a session that is
+  already touching that area, not to a harness session. Raised by S2, 2026-08-19.
 - **`tools/load-spec-test` compiles `LoadSpecification.swift` with bare
   `swiftc`, which defaults to *nonisolated*, while the app target sets
   `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.** So the harness validates
   different isolation semantics from the app, and cannot see an actor-isolation
   defect at all — that class showed up only in the app build (35 warnings, three
-  classes of them "an error in the Swift 6 language mode"). Every `tools/`
-  harness that compiles app sources has the same blind spot. Not a bug to fix so
+  classes of them "an error in the Swift 6 language mode"). Not a bug to fix so
   much as a limit to know: **the app build is the only gate for isolation**, and
   a stage that adds Core value types crossing into the reader actors should be
   built, not just harnessed.
+
+  **Amended 2026-08-19 (S2): "every `tools/` harness has this blind spot" is no
+  longer true, and the narrowing is smaller than it sounds.**
+  `tools/lib/sources.manifest` now carries `MAC4DSTEM_ISOLATION_FLAGS` and
+  `tools/two-spec-analysis-test` builds with them, which surfaces one Swift 6
+  diagnostic (`FourDArray.swift:213`, `ResidencyAdmission.shouldAdmit`) that the
+  same sources compiled bare do not produce at all — measured three ways.
+  **But the warning does not gate:** `swiftc` exits 0 on it, so `set -e` never
+  fires and `scientific` stays green. Making it bite needs `-warnings-as-errors`,
+  which today would fail the build on that very warning. The app build therefore
+  remains the only real gate; the flags buy visibility, not enforcement. Gate B
+  also caught the first version of the flag list carrying three of the five
+  features `SWIFT_APPROACHABLE_CONCURRENCY` enables while claiming to "match the
+  app target"; all five plus `MemberImportVisibility` are there now.
 - ~~**No way to stop a dataset load in progress.**~~ **BUILT 2026-08-18**, the
   same day it was requested during the Track B pass. A Cancel sits on the
   loading card next to the progress it cancels; the open unwinds at its next

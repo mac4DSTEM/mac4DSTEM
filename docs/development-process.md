@@ -32,7 +32,14 @@ Files do not update themselves. Treat doc maintenance as part of "done":
   hand-listing app sources; existing runners migrate when next touched.
   Reason: adding one `Core/Data` file silently broke 5 of 8 runners on
   2026-08-17 because the same list was spelled three ways.
-  *(Adopted 2026-08-18.)*
+  *(Adopted 2026-08-18; the manifest exists as of 2026-08-19, S2.)*
+  **It has fixed nothing yet** — only `tools/two-spec-analysis-test` sources it,
+  so the eight hand-listing runners are exactly as exposed as before. The policy
+  is what closes this, one migration at a time; until then do not cite the
+  manifest as coverage.
+  The manifest also carries `MAC4DSTEM_ISOLATION_FLAGS` (the app's actor
+  isolation), which makes an isolation defect **visible** in a harness build but
+  does not gate it — `swiftc` exits 0 on the warning.
 
 ## 2. Model & subagent tiers (cheap to scout, high-end to judge)
 

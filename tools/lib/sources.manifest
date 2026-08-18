@@ -1,0 +1,193 @@
+#!/bin/zsh
+# tools/lib/sources.manifest — the ONE place a harness's app-source list is
+# written. Created in v2 S2; adopted by docs/development-process.md §1.
+#
+# WHY THIS FILE EXISTS. On 2026-08-17 adding one file (Core/Data/ResidentCube.swift)
+# silently broke 5 of 8 standalone harnesses, and the grep that went looking for
+# them found 3 — because the same list is spelled three different ways across
+# tools/*/run.sh:
+#
+#     "$REPO/mac4DSTEM/Core/Data/FourDArray.swift"     # REPO=<repo root>
+#     "$SRC/Data/FourDArray.swift"                     # SRC=<repo>/mac4DSTEM/Core
+#     "$SRC/FourDArray.swift"                          # SRC=<repo>/mac4DSTEM/Core/Data
+#
+# `unit` and `scientific` both passed; the breakage only surfaced when the
+# aggregate ran, because the affected runners live in `all` or outside the gate
+# entirely. A list that cannot be grepped for is a list that cannot be
+# maintained. See docs/open-items.md, "Second instance, 2026-08-17".
+#
+# USAGE — from a tools/<name>/run.sh (all of which are zsh):
+#
+#     . "$REPO/tools/lib/sources.manifest"
+#     mac4dstem_sources "$REPO" analysis        # fills MAC4DSTEM_SOURCES
+#     xcrun swiftc ... "${MAC4DSTEM_SOURCES[@]}" main.swift
+#
+# The result is delivered as the ARRAY `MAC4DSTEM_SOURCES`, not on stdout, so a
+# checkout whose path contains a space cannot silently split into two
+# nonexistent files. (zsh does field-split unquoted command substitution —
+# verified 2026-08-19 — so `$(mac4dstem_sources ...)` would appear to work right
+# up until someone clones into "~/My Projects".)
+#
+# STATUS, STATED PLAINLY: only tools/two-spec-analysis-test sources this file
+# today. The eight hand-listing runners are exactly as exposed to the 2026-08-17
+# failure as they were before it existed. This file does not fix that breakage
+# until they migrate (docs/development-process.md §1: when next touched), and
+# saying otherwise would be a claim a reader cannot reproduce.
+#
+# GROUPS ARE DEPENDENCY-CLOSED. Asking for `analysis` gets the readers and the
+# cube too, in compile order. That is the property that makes the file worth
+# having: a new Core/Data file is added to ONE group here and every runner that
+# needs it is fixed at once. Adding a file to a group it does not belong in
+# costs a slower harness build; leaving it out costs a silent breakage, so when
+# in doubt, include it.
+#
+# Groups intentionally stop at Core/. Nothing under App/ or UI/ belongs in a
+# standalone harness — those need the app target, and the app build is the only
+# gate for actor isolation (docs/open-items.md).
+
+# Isolation flags matching the app target, for harnesses that want them.
+#
+# The app sets SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor and
+# SWIFT_APPROACHABLE_CONCURRENCY = YES; bare `swiftc` defaults to *nonisolated*,
+# so a harness compiled without these validates DIFFERENT isolation semantics
+# from the app and cannot see an actor-isolation defect at all. Recorded as a
+# blind spot on 2026-08-18 (docs/open-items.md); NARROWED, not closed, here.
+#
+# The five upcoming features are the full set `SWIFT_APPROACHABLE_CONCURRENCY =
+# YES` turns on per Xcode's Swift.xcspec, plus MemberImportVisibility for the
+# app's SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY. **The first version of
+# this list carried three of the five** and still described itself as "matching
+# the app target"; Gate B caught it on 2026-08-19. The two that were missing
+# (DisableOutwardActorInference, InferIsolatedConformances) are inert on today's
+# sources — the diagnostics are identical with and without them, measured — but
+# a list that claims to match the app has to actually match it, or the next
+# reader trusts a coverage that is not there.
+#
+# TWO LIMITS, BOTH MEASURED, NEITHER OF THEM SMALL:
+#
+# 1. THE WARNING DOES NOT GATE. `swiftc` exits 0 on an actor-isolation warning,
+#    so `run.sh`'s `set -e` never fires and `scientific` stays green. These flags
+#    make the defect VISIBLE in the build log; they do not make it fail. Turning
+#    that into a gate means -warnings-as-errors, which today would fail the build
+#    outright on the pre-existing FourDArray.swift:213 warning.
+# 2. IT IS NOT A SUBSTITUTE FOR THE APP BUILD. `-parse-as-library` plus a `@main`
+#    entry differs from an app target in ways these flags do not cover, and only
+#    the app build compiles App/ and UI/. The app build remains the only real
+#    gate for isolation.
+#
+# What it does buy, concretely: building tools/two-spec-analysis-test with these
+# flags surfaces one Swift 6 diagnostic that the same sources compiled bare do
+# not produce at all (FourDArray.swift:213, ResidencyAdmission.shouldAdmit).
+# Verified three ways on 2026-08-19 — bare: 0 warnings; these flags: 1; all five
+# features: the same 1.
+MAC4DSTEM_ISOLATION_FLAGS=(
+  -swift-version 5
+  -default-isolation MainActor
+  -enable-upcoming-feature NonisolatedNonsendingByDefault
+  -enable-upcoming-feature InferSendableFromCaptures
+  -enable-upcoming-feature GlobalActorIsolatedTypesUsability
+  -enable-upcoming-feature DisableOutwardActorInference
+  -enable-upcoming-feature InferIsolatedConformances
+  -enable-upcoming-feature MemberImportVisibility
+)
+
+# mac4dstem_sources <repo-root> <group>...
+#
+# Fills MAC4DSTEM_SOURCES with absolute paths, deduplicated, in dependency
+# order. Unknown group => exit 64, loudly: a typo'd group name that quietly
+# contributed no sources would reproduce the very failure this file prevents.
+mac4dstem_sources() {
+  local repo=$1; shift
+  local core="$repo/mac4DSTEM/Core"
+  local -a want=()
+
+  local group
+  for group in "$@"; do
+    case "$group" in
+      data)
+        want+=(
+          "$core/Data/DatasetDescriptor.swift"
+          "$core/Data/DiffractionPattern.swift"
+          "$core/Data/FourDDataSource.swift"
+          "$core/Data/LoadSpecification.swift"
+        )
+        ;;
+      calibration)
+        mac4dstem_sources "$repo" data
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Data/Calibration.swift"
+          "$core/Data/CalibrationReReference.swift"
+        )
+        ;;
+      readers)
+        mac4dstem_sources "$repo" data
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Data/HDF5Types.swift"
+          "$core/Data/H5Reader.swift"
+          "$core/Data/DM4Reader.swift"
+          "$core/Data/VendorRawReaders.swift"
+          "$core/Data/DemoFourDDataSource.swift"
+        )
+        ;;
+      cube)
+        mac4dstem_sources "$repo" data
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Data/FourDArray.swift"
+          "$core/Data/ResidentCube.swift"
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/MetalEngine.swift"
+        )
+        ;;
+      analysis)
+        mac4dstem_sources "$repo" cube
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Compute/FFT2D.swift"
+          "$core/Compute/MatrixDFTCorrelation.swift"
+          "$core/Analysis/ProbeKernel.swift"
+          "$core/Analysis/DiskDetection.swift"
+          "$core/Analysis/TiledDiskDetection.swift"
+          "$core/Analysis/VirtualDetector.swift"
+        )
+        ;;
+      *)
+        echo "sources.manifest: unknown group '$group'" >&2
+        echo "  known: data calibration readers cube analysis" >&2
+        exit 64
+        ;;
+    esac
+  done
+
+  # Deduplicate: swiftc rejects a repeated input file outright, so composing two
+  # groups that share `data` would fail to build without this. First occurrence
+  # is kept for readable output only — swiftc compiles a module as a unit and
+  # does not care about source order. (An earlier comment here claimed the order
+  # was load-bearing. It is not; Gate B, 2026-08-19.)
+  # An ASSOCIATIVE array, not a membership test on a plain one: under `set -u`
+  # (which every run.sh sets) `${seen[(r)$path]}` on a still-empty array is an
+  # unset-parameter error, not an empty string.
+  local -A seen=()
+  local -a out=()
+  local path
+  for path in "${want[@]}"; do
+    if (( ! ${+seen[$path]} )); then
+      seen[$path]=1
+      out+=("$path")
+    fi
+  done
+
+  # Every path must exist. A renamed or deleted source silently dropping out of
+  # a harness is exactly the 2026-08-17 failure running in the other direction.
+  for path in "${out[@]}"; do
+    if [[ ! -f "$path" ]]; then
+      echo "sources.manifest: no such source '$path'" >&2
+      echo "  A Core/ file was renamed or moved without updating this manifest." >&2
+      exit 66
+    fi
+  done
+
+  MAC4DSTEM_SOURCES=("${out[@]}")
+}
