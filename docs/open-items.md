@@ -268,6 +268,44 @@ the claims are widened*, not as release advice.
   macOS 14 floor this app declares, anything larger than 256px is upscaled — Get
   Info, Quick Look, large Finder icon view. The Dock is unaffected. Undecided
   whether to ship a legacy PNG set alongside.
+### Track B pass — 2026-08-18, `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` (4.25 GB on disk, 3.96 GB as f32)
+
+Driven by the release owner on the open/load rows of §F1. Two things confirmed,
+one defect found, one checklist row withdrawn as unrunnable.
+
+**Confirmed on screen, first time for both:**
+- The **preview sampling phase** reports determinately during the open —
+  *"Sampling a preview · row 9 of 20"*, welcome card still up. L5's preview half
+  works on a real multi-gigabyte cube, not just in a unit test.
+- L1's whole-cube pass again — *"Scanning patterns 318 / 16,218 patterns ·
+  80 MB of 3.96 GB"*, bar advancing, welcome card still up. Previously confirmed
+  2026-08-06; this is a second dataset.
+
+**FINDING — the recents list gained a duplicate row.** Before the open, the list
+held `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` once; after opening
+that file through the panel it appears **twice**. `rememberOpenedDataset`
+de-duplicates on `url.standardizedFileURL.path` and each row displays only
+`url.lastPathComponent`, so exactly one of these is true:
+1. the same file was reached by two different paths (the open came from a share
+   under `Lobpreis$`, and a re-mounted SMB volume gets a different mount point,
+   so a previously-opened copy would not match), or
+2. two genuinely different files share a basename, and the list **cannot show
+   the difference** — which is a defect in its own right regardless of (1).
+
+Both are user-visible; (2) is the more serious because it makes the list
+untrustworthy rather than merely untidy. Not fixed: the release owner should say
+where the pre-existing entry pointed, because that distinguishes the two and the
+fixes are different (normalise the identity vs. disambiguate the display).
+
+**WITHDRAWN — §F1.1 could not pass on any dataset.** It asked the release owner
+to watch the L2 preload phase; `makeResident` refuses immediately because
+`ResidencyAdmission.measuredWorkingSetFraction` is `nil` by decision, so no such
+phase runs. The 4.25 GB cube was more than large enough — the row was wrong. It
+is struck from the checklist with the reason, and reinstated only when the
+threshold is measured. **The lesson is about writing checklists, not about
+residency:** a Track B row must be checked against what the build actually does,
+or it spends the one resource Track B is expensive in — a person's attention.
+
 - **L4 stays `[~]`: its review ran, but on the default model rather than the
   Fable 5 / `/code-review ultra` the plan names**, and two of its findings are
   still open. The review could not refute the array math on any composition it
