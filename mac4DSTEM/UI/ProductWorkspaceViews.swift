@@ -171,6 +171,18 @@ struct WelcomeWorkspace: View {
                         .lineLimit(2)
                         .truncationMode(.middle)
                 }
+                Spacer(minLength: 8)
+                // Next to the progress it cancels, not in a menu. Opening the
+                // wrong multi-gigabyte file used to leave quitting the app as
+                // the only way out, and the open is the longest uninterruptible
+                // wait in the product.
+                if appState.canCancelDatasetLoad {
+                    Button("Cancel") { appState.cancelDatasetLoad() }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("welcome.cancelDatasetLoad")
+                        .accessibilityHint("Stops loading this dataset and returns to the welcome screen")
+                }
             }
             // A determinate bar only where the denominator is real. Metadata
             // phases show the spinner above and no bar, rather than a fraction

@@ -1151,6 +1151,40 @@ final class AppState {
     /// derived from `datasetLoadingProgress`, which is legitimately nil while an
     /// unmeasurable phase runs.
     var isLoadingDataset: Bool = false
+
+    /// Cancels the open in progress. Non-nil exactly while a dataset load is
+    /// running, which is what the Cancel affordance binds its visibility to.
+    ///
+    /// **Why an open needs this at all** (release owner, 2026-08-18): picking
+    /// the wrong file left quitting the app as the only exit, and the open is
+    /// the longest uninterruptible wait in the product — worst on the slow
+    /// network source the welcome screen already warns about. Every analysis
+    /// operation could already be cancelled; the open could not.
+    private(set) var datasetLoadCancellation: AnalysisCancellationToken?
+
+    /// True while a cancellation has been requested but the load has not yet
+    /// unwound. The button uses it to stop offering a second cancel.
+    private(set) var isCancellingDatasetLoad = false
+
+    var canCancelDatasetLoad: Bool {
+        isLoadingDataset && datasetLoadCancellation != nil && !isCancellingDatasetLoad
+    }
+
+    /// Cooperative: it asks, and the load unwinds at its next checkpoint.
+    func cancelDatasetLoad() {
+        guard let token = datasetLoadCancellation, !isCancellingDatasetLoad else { return }
+        isCancellingDatasetLoad = true
+        token.cancel()
+        datasetLoadingProgress = nil
+        datasetLoadingStatus = "Cancelling…"
+        statusText = "Cancelling…"
+    }
+
+    /// True once cancellation has been requested. Checked at every stage
+    /// boundary of the open.
+    private var datasetLoadWasCancelled: Bool {
+        datasetLoadCancellation?.isCancelled == true
+    }
     @ObservationIgnored private let operationController = AnalysisOperationController()
     /// Short label and unit budget for the performance panel.
     var activeOperation: String? { operationController.name }
@@ -1601,6 +1635,12 @@ final class AppState {
             }
             beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
+            if datasetLoadWasCancelled {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+                await discardPartialLoad()
+                finishDatasetLoading()
+                return
+            }
             if let previousOpenURL {
                 previousOpenURL.stopAccessingSecurityScopedResource()
             }
@@ -1612,13 +1652,30 @@ final class AppState {
             self.reader = reader
             datasets = [descriptor]
             await activate(descriptor: descriptor, reader: reader, runInitialAnalysis: false)
-            rememberOpenedDataset(url)
+            if datasetLoadWasCancelled || !hasDataset {
+                // `activate` unwinds itself on cancellation; this catches the
+                // case where it did, and stops the open continuing into an
+                // analysis of a dataset that is no longer there.
+                await discardPartialLoad()
+                finishDatasetLoading()
+                return
+            }
             // The first whole-cube pass IS part of opening, from the user's
             // point of view: the welcome card is still on screen and the
             // workspace has no image yet. Finishing the load before it ran was
             // what left the bar parked at its last stage and then vanishing
             // into a generic operation indicator.
             await runCurrentAnalysis()
+            if datasetLoadWasCancelled {
+                await discardPartialLoad()
+                finishDatasetLoading()
+                return
+            }
+            // REMEMBERED ONLY ONCE THE LOAD HAS ACTUALLY FINISHED. Moved here
+            // from before the whole-cube pass so that a cancel at any point
+            // leaves Recents untouched — a cancelled file is one you did not
+            // want, and putting it at the top of the list is backwards.
+            rememberOpenedDataset(url)
             finishDatasetLoading()
         } catch {
             if accessed { url.stopAccessingSecurityScopedResource() }
@@ -1897,6 +1954,7 @@ final class AppState {
         }
         pendingRecovery = nil
 
+        if datasetLoadWasCancelled { await discardPartialLoad(); return }
         beginDatasetLoadingStage("Checking for a saved session…")
         let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
         beginDatasetLoadingStage("Loading first diffraction pattern…")
@@ -1912,8 +1970,11 @@ final class AppState {
             statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
             progress = 1
         }
+        if datasetLoadWasCancelled { await discardPartialLoad(); return }
         await buildDatasetPreview()
+        if datasetLoadWasCancelled { await discardPartialLoad(); return }
         await preloadResidentCube()
+        if datasetLoadWasCancelled { await discardPartialLoad(); return }
         if runInitialAnalysis {
             await runCurrentAnalysis()
         }
@@ -1932,8 +1993,10 @@ final class AppState {
         beginDatasetLoadingStage("Sampling a preview…")
         let rows = max(1, (d.ry + DatasetPreviewBuilder.stride(for: d).y - 1)
                           / DatasetPreviewBuilder.stride(for: d).y)
+        let loadCancellation = datasetLoadCancellation
         let preview = try? await DatasetPreviewBuilder.make(
             data: fourD, descriptor: d,
+            cancellation: loadCancellation,
             progress: { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self, self.datasetEpoch == epoch,
@@ -1965,7 +2028,7 @@ final class AppState {
         guard let fourD, let d = descriptor else { return }
         let totalPatterns = d.ry * d.rx
         guard totalPatterns > 0 else { return }
-        await residency.preload(fourD) { [weak self] fraction in
+        await residency.preload(fourD, cancellation: datasetLoadCancellation) { [weak self] fraction in
             guard let self, self.isLoadingDataset else { return }
             let processed = min(
                 totalPatterns, max(0, Int((fraction * Double(totalPatterns)).rounded()))
@@ -1986,8 +2049,56 @@ final class AppState {
         await residency.release(fourD)
     }
 
+    /// Unwind a cancelled open back to the welcome screen.
+    ///
+    /// **The failure mode this is written against is a half-loaded dataset that
+    /// LOOKS loaded** — an inspector showing dimensions and a calibration for a
+    /// cube whose pixels were never read. That would be worse than having no
+    /// cancel at all, because every number computed afterwards would be about
+    /// data the app never finished reading.
+    ///
+    /// The invariant that makes it tractable: `hasDataset` is
+    /// `descriptor?.is4D == true`, and every workspace view is gated on the
+    /// descriptor. So clearing the descriptor is what returns the app to the
+    /// welcome screen, and the rest of this is releasing what was already
+    /// allocated rather than hiding it.
+    /// Internal rather than private **so the invariant can be tested**: the
+    /// value of this function is entirely in what it leaves behind, and a test
+    /// that could not call it would be testing the button instead of the
+    /// property.
+    func discardPartialLoad() async {
+        if let fourD { await residency.release(fourD) }
+        residency.reset()
+        loadedView.reset()
+        fourD = nil
+        reader = nil
+        descriptor = nil
+        datasets = []
+        datasetPreview = nil
+        calibration = Calibration()
+        calibrationProvenance = CalibrationProvenance()
+        // A cancelled open must not be remembered — the release owner's call,
+        // 2026-08-18: you cancelled because it was the wrong file, so promoting
+        // it to the top of Recents is precisely backwards. `openFileAsync` also
+        // defers `rememberOpenedDataset` until the load has actually finished,
+        // so on the normal path there is nothing here to undo.
+        if let openURL {
+            openURL.stopAccessingSecurityScopedResource()
+            self.openURL = nil
+        }
+        if let scopedSessionSidecarURL {
+            scopedSessionSidecarURL.stopAccessingSecurityScopedResource()
+            self.scopedSessionSidecarURL = nil
+        }
+        datasetEpoch &+= 1
+        operationController.reset()
+        statusText = "Load cancelled"
+    }
+
     private func beginDatasetLoading(_ status: String) {
         isLoadingDataset = true
+        datasetLoadCancellation = AnalysisCancellationToken()
+        isCancellingDatasetLoad = false
         isBusy = true
         progress = nil
         datasetLoadingProgress = nil
@@ -1997,6 +2108,8 @@ final class AppState {
 
     private func finishDatasetLoading() {
         isLoadingDataset = false
+        datasetLoadCancellation = nil
+        isCancellingDatasetLoad = false
         isBusy = false
         progress = nil
         datasetLoadingProgress = nil

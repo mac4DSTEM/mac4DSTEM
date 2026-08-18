@@ -432,29 +432,37 @@ or it spends the one resource Track B is expensive in — a person's attention.
   much as a limit to know: **the app build is the only gate for isolation**, and
   a stage that adds Core value types crossing into the reader actors should be
   built, not just harnessed.
-- **No way to stop a dataset load in progress.** Requested by the release owner
-  2026-08-18, during the Track B pass, on a 4.25 GB cube opened over SMB: pick
-  the wrong file and the only exit is quitting the app. Analysis operations
-  already have a Cancel (the *Origin calibration · Cancel* control is visible in
-  the same screenshot); **the open itself does not**, and it is the longest
-  uninterruptible wait in the product — worst on exactly the slow network source
-  the welcome screen warns about.
+- ~~**No way to stop a dataset load in progress.**~~ **BUILT 2026-08-18**, the
+  same day it was requested during the Track B pass. A Cancel sits on the
+  loading card next to the progress it cancels; the open unwinds at its next
+  checkpoint and the app returns to the welcome screen.
 
-  What it needs, and none of it is decided yet:
-  - A cancel affordance on the loading card, next to the progress it is
-    cancelling.
-  - **A definition of what is released.** `AnalysisCancellationToken` already
-    threads through `makeResident` and the tiled readers, and `FourDArray`'s
-    generation counter already refuses to publish a superseded preload — so the
-    machinery exists. What is undefined is the *destination state*: back to the
-    welcome screen with no dataset, and every partial artefact dropped (the
-    array, any staging buffer, the preview task, the half-built calibration).
-  - **The failure mode to design against is a half-loaded dataset that looks
-    loaded.** Cancelling into a state where the inspector shows dimensions for a
-    cube whose pixels were never read would be worse than no cancel at all.
+  **A cancelled load is not remembered** (release owner's decision): you
+  cancelled because it was the wrong file, so promoting it to the top of Recents
+  is backwards. `rememberOpenedDataset` therefore moved to *after* the whole-cube
+  pass, so a cancel at any point leaves Recents untouched — rather than writing
+  the entry early and trying to undo it.
 
-  Sits naturally with L5's configurator — same screen, same moment — but does
-  not depend on it, and is worth doing on its own.
+  The invariant the teardown is written against is **a half-loaded dataset that
+  looks loaded**. `hasDataset` is `descriptor?.is4D`, and every workspace view is
+  gated on the descriptor, so clearing it is what returns the app to the welcome
+  screen; the rest is releasing what was allocated. Pinned by
+  `mac4DSTEMTests/DatasetLoadCancellationTests`.
+
+  **Two assertions were removed from that test for being vacuous, and the gap is
+  real.** `residency.isResident`, `residency.byteCount` and
+  `loadedView.isFullExtent` are all already in their post-discard state after a
+  demo open — residency is dormant by decision, a demo load is full extent — so
+  asserting them passed whether or not the teardown touched them. Controls proved
+  it: deleting the residency release and the `loadedView.reset()` left the test
+  green. Both are still released, because a real cancelled open *can* hold a
+  resident buffer and a cropped view. **Pinning that needs a fixture that reaches
+  those states first**, which the demo path cannot — the honest gap, recorded
+  rather than covered by an assertion that looks like coverage.
+
+  **Unverified on screen.** Nobody has cancelled a real load: checklist row
+  F1.1d. The interesting case is a slow network open, which is where the button
+  earns its place.
 - **#17a — aspect-aware pane arrangement.** Built, then reverted on sight
   2026-08-05. Needs a design decision, not an implementation.
 - ~~**#36 — no progress indication while a datacube loads.**~~ **Fixed
