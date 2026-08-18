@@ -1402,10 +1402,44 @@ final class AppState {
         Task { await openFileAsync(url: url) }
     }
 
+    /// The load specification a previous session recorded for this file, if any.
+    ///
+    /// Read BEFORE the load, because it decides what gets read. Reopening a
+    /// session reopens the **source** file and re-applies the specification to
+    /// it — it never re-derives from reduced data, which is the property that
+    /// makes a crop a view rather than a new dataset.
+    ///
+    /// A specification that no longer fits the file — the dataset was replaced,
+    /// or a sidecar was copied next to a different cube — is dropped rather than
+    /// clamped, with the reason said out loud. Loading a *different* region than
+    /// the session recorded, silently, is the failure this guards.
+    private func recordedLoadSpecification(
+        forSourcePath path: String, source: DatasetDescriptor
+    ) async -> LoadSpecification? {
+        let url = BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: path)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let snapshot = try? await Task.detached(priority: .utility) {
+            try BraggVectorEMDWriter.loadSession(from: url)
+        }.value
+        guard let specification = snapshot?.loadSpecification,
+              !specification.isFullExtent else { return nil }
+        guard (try? LoadView(source: source, specification: specification)) != nil else {
+            statusText = "The saved session describes a region this file does not have; loading it whole."
+            return nil
+        }
+        return specification
+    }
+
     // MARK: - Configured open (L5)
 
     /// The dataset being configured before it is loaded, or nil. L5's seam —
     /// see `App/PendingLoad.swift`.
+    /// The load specification recorded by the session sidecar for the open
+    /// dataset, if any. Compared against `loadedView.specification` so a
+    /// restored result computed on a different view can be labelled as such
+    /// rather than read as describing what is on screen (L6 item 3).
+    private(set) var sessionLoadSpecification: LoadSpecification?
+
     private(set) var pendingLoad: PendingLoad?
 
     /// Which destination the next file-importer result goes to. Set by the
@@ -1771,7 +1805,14 @@ final class AppState {
             openURL = accessed ? url : nil
             self.reader = reader
             datasets = [descriptor]
-            await activate(descriptor: descriptor, reader: reader, runInitialAnalysis: false)
+            let recorded = await recordedLoadSpecification(
+                forSourcePath: url.path, source: descriptor
+            )
+            await activate(
+                descriptor: descriptor, reader: reader,
+                specification: recorded ?? .fullExtent,
+                runInitialAnalysis: false
+            )
             if datasetLoadWasCancelled || !hasDataset {
                 // `activate` unwinds itself on cancellation; this catches the
                 // case where it did, and stops the open continuing into an
@@ -1857,6 +1898,7 @@ final class AppState {
         // belonged to the previous dataset.
         residency.reset()
         loadedView.reset()
+        sessionLoadSpecification = nil
         datasetPreview = nil
         selectedScan = ScanPos(x: 0, y: 0)
         displayRangeLo = 0
@@ -2012,6 +2054,7 @@ final class AppState {
         scanNavigationVersion = 0
         restoredResultInfo = nil
         sessionInventory = .empty
+        sessionLoadSpecification = nil
         // Viewer-level inspection state belongs to the product being inspected,
         // not to the app. Left set, it carried a previous dataset's "show me the
         // fit residual instead" into a fresh file.
@@ -2283,6 +2326,7 @@ final class AppState {
             }.value
             guard epoch == datasetEpoch else { return nil }
             sessionInventory = snapshot.inventory
+            sessionLoadSpecification = snapshot.loadSpecification ?? .fullExtent
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(sessionCalibration, for: descriptor)
             }

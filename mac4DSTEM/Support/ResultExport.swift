@@ -902,6 +902,11 @@ extension AppState {
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
         let snapshot = sessionPixelCalibration(descriptor: descriptor)
         let epoch = datasetEpoch
+        // The view these values were calibrated in. A calibration measured on a
+        // binned cube is in that cube's detector pixels, so saving it without
+        // saying which view it came from would make it unreadable later — the
+        // labelling half of invariant I3.
+        let specification = loadedView.specification
         let token = beginCancellableOperation(
             "Session calibration", status: "Saving calibration…"
         )
@@ -912,7 +917,7 @@ extension AppState {
                 try await Task.detached(priority: .userInitiated) {
                     try BraggVectorEMDWriter.mergeCalibration(
                         snapshot, qWidth: descriptor.qx, qHeight: descriptor.qy,
-                        to: url, cancellation: token
+                        to: url, loadSpecification: specification, cancellation: token
                     )
                 }.value
                 guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }

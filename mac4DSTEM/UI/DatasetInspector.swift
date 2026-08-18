@@ -172,6 +172,27 @@ struct DatasetInspector: View {
                     PerformanceView()
                 }
 
+                // PROVENANCE (L6 item 3). A result restored from a session
+                // was computed under some view; if the app is now showing a
+                // different one, the numbers on screen and the numbers in the
+                // sidecar are about different data. Said in the existing
+                // provenance vocabulary rather than a second one (I3).
+                if let recorded = appState.sessionLoadSpecification,
+                   recorded != appState.loadedView.specification {
+                    Section("Session provenance") {
+                        Text("The saved session was computed on a different view of this file.")
+                            .font(.callout)
+                        row("Session view", recorded.provenanceSummary ?? "whole file")
+                        row("Loaded view",
+                            appState.loadedView.specification.provenanceSummary ?? "whole file")
+                        Text("Restored results describe the session's view, not the one loaded now.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
+                }
+
                 Section("Files & products") {
                     ProductsView()
                 }

@@ -107,6 +107,15 @@ nonisolated struct SessionSidecarSnapshot: Sendable {
     let calibration: PixelCalibration?
     let currentResult: ScalarResultMap?
     let currentRGBAResult: RGBAResultMap?
+    /// The view these products were computed under. **Nil means full extent**,
+    /// not "unknown": a sidecar written before L6 recorded no specification
+    /// because there was none to record.
+    ///
+    /// Reopening re-applies this to the SOURCE file. It is never used to
+    /// re-derive from reduced data — the source is what is reopened, and the
+    /// specification is applied to it again, which is the whole reason a crop is
+    /// a view rather than a new dataset (docs/v2-scope.md §6.1).
+    var loadSpecification: LoadSpecification? = nil
 }
 
 /// Bounded preprocessing applied while streaming a source datacube into a
@@ -142,6 +151,10 @@ nonisolated enum BraggVectorEMDWriter {
     private static let schemaAttribute = "mac4dstem_session_schema"
     private static let resultNodesAttribute = "mac4dstem_result_nodes"
     private static let currentResultAttribute = "mac4dstem_current_result"
+    /// The `LoadSpecification` a session's products were computed under, as
+    /// JSON. Absent on a full-extent session — the identity, so a sidecar
+    /// written before L6 reads as "the whole file", which is what it was.
+    private static let loadSpecificationAttribute = "mac4dstem_load_specification"
     private static let sessionSchemaVersion = "5"
 
     enum WriterError: LocalizedError {
@@ -417,6 +430,7 @@ nonisolated enum BraggVectorEMDWriter {
         qWidth: Int,
         qHeight: Int,
         to destination: URL,
+        loadSpecification: LoadSpecification? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -428,6 +442,7 @@ nonisolated enum BraggVectorEMDWriter {
         try publish(vectors: nil, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
+                    loadSpecification: loadSpecification,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -493,6 +508,9 @@ nonisolated enum BraggVectorEMDWriter {
                 : nil
         }
         let calibration = try readCalibration(from: root, hdf5: h5)
+        let specification = (try readStringAttribute(loadSpecificationAttribute,
+                                                     on: root, hdf5: h5))
+            .flatMap(LoadSpecification.decoded(from:))
         let inventory = SessionSidecarInventory(
             hasSidecar: true,
             hasBraggVectors: linkExists("\(rootPath)/braggvectors", in: fileID, hdf5: h5),
@@ -502,7 +520,8 @@ nonisolated enum BraggVectorEMDWriter {
         )
         return SessionSidecarSnapshot(
             inventory: inventory, calibration: calibration,
-            currentResult: currentResult, currentRGBAResult: currentRGBAResult
+            currentResult: currentResult, currentRGBAResult: currentRGBAResult,
+            loadSpecification: specification
         )
     }
 
@@ -914,6 +933,7 @@ nonisolated enum BraggVectorEMDWriter {
         qWidth: Int, qHeight: Int,
         calibration: PixelCalibration, preserving existing: URL?, to destination: URL,
         removingKind: String? = nil,
+        loadSpecification: LoadSpecification? = nil,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) throws {
@@ -932,6 +952,7 @@ nonisolated enum BraggVectorEMDWriter {
             at: temporary, vectors: vectors, map: map, rgbaMap: rgbaMap,
             qWidth: qWidth, qHeight: qHeight,
             calibration: calibration, preserving: existing, removingKind: removingKind,
+            loadSpecification: loadSpecification,
             cancellation: cancellation,
             progress: progress, hdf5: hdf5
         )
@@ -1169,6 +1190,7 @@ nonisolated enum BraggVectorEMDWriter {
         calibration: PixelCalibration,
         preserving existing: URL?,
         removingKind: String?,
+        loadSpecification: LoadSpecification?,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
         hdf5 h5: HDF5WriteLibrary
@@ -1319,6 +1341,15 @@ nonisolated enum BraggVectorEMDWriter {
                 cancellation: cancellation, progress: progress, hdf5: h5
             )
             resultNodeNames.append(nodeName)
+        }
+        if let specification = loadSpecification, !specification.isFullExtent,
+           let json = specification.jsonString {
+            // Written whenever a session is published from a reduced view, even
+            // with no results yet: the specification is what makes a product
+            // traceable to *file + view*, and a calibration saved from a binned
+            // cube is already a product of that view.
+            try writeStringAttribute(loadSpecificationAttribute, value: json,
+                                     on: root, hdf5: h5)
         }
         if !resultNodeNames.isEmpty {
             try writeStringAttribute(schemaAttribute, value: sessionSchemaVersion,

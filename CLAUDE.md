@@ -72,8 +72,8 @@ on a reduced *view* re-runs unchanged on the full dataset.
 
 **Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses**
 without re-running it. It was measured at the tag and no one has reproduced the
-aggregate since; the count has also moved (`scientific` is 32 harnesses now,
-`all` is 34). `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
+aggregate since; the count has also moved (`scientific` is 33 harnesses now,
+`all` is 35). `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
 is **intermittent**, not reliably red: it failed on macOS 27 with no app-code
 change, and passed on 2026-08-17 in a full `run-tests.sh unit` that exited 0.
 A layout threshold that drifts with the machine is worse than a stable failure,
@@ -84,7 +84,7 @@ because a green run proves nothing. Tracked in `docs/open-items.md`.
 **zero** harnesses (exit 65). The note that #43 is what stops `all` is therefore
 wrong on this machine — the sidebar test stops it first, and #43 (now fixed) was
 never reached. Every other component of `all` has been run individually and is
-green: `scientific` exit 0 / 32 harnesses, `real-data-acceptance` exit 0,
+green: `scientific` exit 0 / 33 harnesses, `real-data-acceptance` exit 0,
 `package-test` exit 0. So the reproducible claim is "all of `all` except one
 intermittent layout test", not an aggregate number.
 

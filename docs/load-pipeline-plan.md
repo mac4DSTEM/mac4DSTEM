@@ -211,13 +211,17 @@ re-reference below.
 
 ## 5. Status
 
-> **Where to start (2026-08-18, fifth update).** L1–L4 are complete; L4's gate
-> was taken (two reviews, see its §5 entry). **The next work is L5's
-> configurator** — the overlays, the bin picker, the on-screen size arithmetic,
-> and wiring `LoadedView`'s display surface, which nothing reads yet. Its
-> arithmetic and its Track B rows are already written. It is the stage that
-> finally lets a user *request* a crop or a bin; everything beneath it applies
-> one correctly today.
+> **Where to start (2026-08-18, sixth update).** **L1 through L6 are built.**
+> The code half of this plan is done: honest progress, a resident cube behind a
+> dormant threshold, crop and bin applied at read time with the calibration
+> re-referenced or refused, a configurator to choose them, and the specification
+> carried through the session sidecar.
+>
+> **What is left is not code.** Nothing in L5 or L6 has been seen on screen by
+> anyone, and the Track B queue is now eleven rows deep (§F1 of
+> `docs/visual-acceptance-checklist.md`). Until that pass happens, every claim
+> about what this feature *looks like* rests on nobody having looked. Run it
+> before calling the phase done.
 > Two things that look like unfinished work and are not:
 > **(a)** residency is dormant on purpose — see L2 below, do not set the
 > threshold; **(b)** L5's configurator is blocked on L3/L4, not forgotten.
@@ -228,7 +232,7 @@ re-reference below.
 > `set -e` aborts there on the intermittent
 > `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` (exit 65, zero
 > harnesses started). Confirmed pre-existing: the same test fails the same way
-> on a stashed clean tree. `run-tests.sh scientific` is exit 0, 32 harnesses.
+> on a stashed clean tree. `run-tests.sh scientific` is exit 0, 33 harnesses.
 
 - [x] **L1 — Honest load progress** (2026-08-06, closes #36). The seven
   hard-coded waypoints are gone; unmeasurable phases are named spinners with
@@ -426,7 +430,7 @@ re-reference below.
   "most of it" and rounding *down* is the safe direction.
 
   Verified by `tools/load-spec-test/` (**new**, in `run-tests.sh scientific`,
-  which is 32 harnesses now): a cropped read equals the corresponding slice of a
+  which is 33 harnesses now): a cropped read equals the corresponding slice of a
   full read, exactly — `==`, never a tolerance — on every reader, on all three
   read entry points, on every sub-tile range, plus the refusals and the
   `FourDArray` resident path. Twelve negative controls, each reverted after:
@@ -777,7 +781,45 @@ re-reference below.
   `docs/visual-acceptance-checklist.md` §A.
   **Still to do here:** #43 first, then the rectangle overlays, the size
   arithmetic, and the bin picker — all of which need L3/L4.
-- [ ] **L6 — Provenance through session restore and export**
+- [x] **L6 — Provenance through session restore and export. Complete 2026-08-18.**
+
+  `LoadSpecification` is written into the session sidecar as one JSON attribute
+  (`mac4dstem_load_specification`) and read back into `SessionSidecarSnapshot`.
+  **One field rather than five numeric attributes**, deliberately: a
+  specification is a single value with a growing shape — L4 added the bin factor
+  — and spreading it across `crop_y_offset`, `crop_height`, `bin_factor` … invites
+  a reader that finds three of five and infers the rest. One field either
+  round-trips or it does not. Keys are sorted so identical specifications produce
+  identical bytes; otherwise a sidecar differs when nothing changed.
+
+  **Full extent records nothing, and that is the identity.** A sidecar written
+  at full extent is indistinguishable from one written before L6 existed, so
+  reopening an old session does not look like a specification mismatch.
+
+  **Reopening re-applies to the SOURCE.** The specification is read *before* the
+  load, because it decides what gets read, and handed to `activate`. It is never
+  used to re-derive from reduced data — which is the property that makes a crop
+  a view rather than a new dataset (docs/v2-scope.md §6.1). A specification that
+  no longer fits — a sidecar copied next to a different cube — is **dropped with
+  the reason said out loud**, never clamped into range: loading a different
+  region than the session recorded, silently, is the failure this guards.
+
+  **Provenance display (item 3)** reuses the existing vocabulary rather than
+  inventing a second: when a restored session's view differs from the loaded one,
+  the inspector says so and shows both, because the restored results describe the
+  session's view and not what is on screen.
+
+  Verified by `tools/load-spec-roundtrip/` (**new**, in `run-tests.sh
+  scientific`). **The comparison is on the APPLIED view, not only on the JSON**:
+  two specifications that decode equal prove nothing if the app then applies them
+  differently, so each case is applied to the same source on both sides and the
+  resulting `LoadView` — shape, read crop, discarded edge — must match, along
+  with every re-referenced calibration value. Also asserted: a specification that
+  does not fit the reopened file is refused, and malformed attribute text decodes
+  to *nothing* rather than to a plausible default. Four controls fail it —
+  dropping the bin factor from the encoded form (22 assertions), unstable key
+  order, labelling full extent as a reduction, and decoding garbage to
+  `.fullExtent`.
 
 **Order and parallelism.** L1 is independent — do it first, it is small and
 visible. L2 before L3/L4, because "make it fit in memory" only means something

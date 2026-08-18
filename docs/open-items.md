@@ -120,7 +120,7 @@ Two things learned that are not obvious and cost time:
   harnesses.** Measured at the tag; **nobody has reproduced the aggregate
   since**, and the count has moved twice — `virtual-detector-residency` landed
   2026-08-17 and `load-spec-test` and `load-spec-calibration` on 2026-08-18, so `scientific` is
-  now 32 and `all` is 34. A verification claim that a reader cannot reproduce is the kind
+  now 33 and `all` is 35. A verification claim that a reader cannot reproduce is the kind
   that costs credibility with exactly the people who check — so either re-run
   `all` and restate it, or say what was actually run.
 
@@ -141,7 +141,7 @@ Two things learned that are not obvious and cost time:
   | component of `all` | result, 2026-08-18 |
   |---|---|
   | `unit` | **1 failure** — `testEveryWorkspaceSidebarFitsItsColumn`, intermittent, pre-existing |
-  | `scientific` | exit 0, **32 harnesses** |
+  | `scientific` | exit 0, **33 harnesses** |
   | `real-data-acceptance` | exit 0, 4 cubes golden, 2 sidecars skipped |
   | `package-test` | exit 0 |
 

@@ -480,3 +480,53 @@ nonisolated extension LoadView {
         )
     }
 }
+
+// MARK: - Persistence
+
+nonisolated extension LoadSpecification {
+
+    /// A stable JSON string, for the session sidecar and for exports.
+    ///
+    /// **Why a string and not a set of numeric attributes.** A specification is
+    /// one value with a growing shape — L4 added a bin factor, and a later stage
+    /// may add more — and spreading it across `crop_y_offset`, `crop_height`,
+    /// `bin_factor` … invites a reader that finds three of five and infers the
+    /// rest. One field either round-trips or it does not.
+    ///
+    /// Sorted keys so the same specification always produces the same bytes: a
+    /// sidecar that differs only in field order looks like a changed session to
+    /// anything comparing files.
+    var jsonString: String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(self) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Decode a specification written by `jsonString`.
+    ///
+    /// **Validation is NOT done here**, on purpose: this type does not know
+    /// which dataset it will be applied to. A decoded specification must be
+    /// passed through `LoadView(source:specification:)` before it is trusted —
+    /// which is what refuses a crop that does not fit the file it was reopened
+    /// against, rather than silently loading a different region than the one the
+    /// session recorded.
+    static func decoded(from json: String) -> LoadSpecification? {
+        guard let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(LoadSpecification.self, from: data)
+    }
+
+    /// A short human form for provenance display, or nil at full extent.
+    var provenanceSummary: String? {
+        guard !isFullExtent else { return nil }
+        var parts: [String] = []
+        if let scan = scanCrop {
+            parts.append("scan \(scan.height)x\(scan.width) at (\(scan.yOffset), \(scan.xOffset))")
+        }
+        if let detector = detectorCrop {
+            parts.append("detector \(detector.height)x\(detector.width) at (\(detector.yOffset), \(detector.xOffset))")
+        }
+        if detectorBin > 1 { parts.append("binned \(detectorBin)x") }
+        return parts.joined(separator: ", ")
+    }
+}
