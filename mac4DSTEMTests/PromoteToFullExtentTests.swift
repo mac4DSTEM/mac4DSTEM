@@ -34,11 +34,24 @@ final class PromoteToFullExtentTests: XCTestCase {
         XCTAssertEqual(state.descriptor?.shape, state.datasets.first?.shape,
                        "The promoted view must be the source's own extent")
         XCTAssertTrue(state.hasDataset, "Promotion must end with a usable dataset")
+        // The postconditions the first draft left unpinned (Gate A sweep):
+        // without these, deleting promote's trailing finishDatasetLoading()
+        // (loading card parked forever) or its runCurrentAnalysis() call
+        // (empty result panes) left this suite green.
+        XCTAssertFalse(state.isLoadingDataset,
+                       "A finished promote must dismiss the loading card")
+        XCTAssertNotNil(state.resultImage,
+                        "The whole-cube pass must have run against the promoted view")
     }
 
     func testPromoteOnAFullExtentViewIsANoOp() async {
         let state = AppState()
         await state.openDemoFixture()
+        // `hasDataset` too, not just `isFullExtent`: a fresh LoadedView is
+        // already full-extent, so on an AppState whose demo open silently
+        // failed the isFullExtent precondition still holds and this test
+        // passes without the scenario it names ever existing (Gate A sweep).
+        XCTAssertTrue(state.hasDataset, "precondition: the demo actually opened")
         XCTAssertTrue(state.loadedView.isFullExtent, "precondition")
         state.selectedScan = ScanPos(x: 3, y: 4)
 

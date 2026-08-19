@@ -194,16 +194,20 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// Returns nil when the rule cannot answer, which today is the normal case:
     /// `ResidencyAdmission.measuredWorkingSetFraction` is deliberately nil until
     /// the threshold is measured on a second machine, and the honest answer is
-    /// "not decided" rather than a guess. This is the one caller that still
-    /// consults the measured threshold now that `.automatic` is dropped
-    /// (v2 S3) — the question "would this fit?" is exactly the admission
-    /// question, whoever asks it.
+    /// "not decided" rather than a guess.
+    ///
+    /// **No production caller exists yet** — the open screen never wired this
+    /// L5 hook, and with the constant nil it answers nil everywhere. It is
+    /// kept, not deleted, because it is the answer surface a returning
+    /// `.automatic` (docs/v2-release.md §3) plugs into. The body is only the
+    /// device clamp plus `admits` — `admits` already checks `is4D` and a
+    /// positive byte count, and duplicating `shouldAdmit`'s guards here is
+    /// exactly the drift the harness could not see (Gate A review, 2026-08-19).
     func fitsResident(workingSetSize: UInt64, maximumBufferLength: Int) -> Bool? {
         guard let view, let fraction = ResidencyAdmission.measuredWorkingSetFraction
         else { return nil }
         let descriptor = view.descriptor
-        let bytes = descriptor.byteCountAsFloat32
-        guard descriptor.is4D, bytes > 0, bytes <= maximumBufferLength else { return false }
+        guard descriptor.byteCountAsFloat32 <= maximumBufferLength else { return false }
         return ResidencyAdmission.admits(
             descriptor, workingSetSize: workingSetSize, fraction: fraction
         )

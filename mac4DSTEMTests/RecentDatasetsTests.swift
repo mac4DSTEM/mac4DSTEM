@@ -44,12 +44,17 @@ final class RecentDatasetsTests: XCTestCase {
     }
 
     func testTheListIsCappedAtCapacityDroppingTheOldest() {
-        let (list, _) = makeList((0..<RecentDatasets.capacity).map { entry("/data/\($0).h5") })
+        let (list, recorder) = makeList((0..<RecentDatasets.capacity).map { entry("/data/\($0).h5") })
         list.remember(entry("/data/newest.h5"))
         XCTAssertEqual(list.entries.count, RecentDatasets.capacity)
         XCTAssertEqual(list.entries.first?.id, "/data/newest.h5")
         XCTAssertFalse(list.entries.contains { $0.id == "/data/\(RecentDatasets.capacity - 1).h5" },
                        "The oldest entry is the one that goes")
+        // The PERSISTED list must be capped too — trimming after (or instead
+        // of) the save would show capacity+1 entries on relaunch while the
+        // in-memory assertions above stay green (Gate A sweep).
+        XCTAssertEqual(recorder.last?.count, RecentDatasets.capacity,
+                       "The cap must reach the store, not just the memory copy")
     }
 
     func testRemoveDeletesExactlyThatEntryAndPersists() {
@@ -57,6 +62,10 @@ final class RecentDatasetsTests: XCTestCase {
         list.remove(id: "/data/a.h5")
         XCTAssertEqual(list.entries.map(\.id), ["/data/b.h5"])
         XCTAssertEqual(recorder.last?.map(\.id), ["/data/b.h5"])
+
+        list.remove(id: "/data/never-there.h5")
+        XCTAssertEqual(recorder.saved.count, 1,
+                       "A miss must not persist — same contract as updateBookmark")
     }
 
     func testUpdateBookmarkReplacesInPlaceAndAMissIsANoOp() {

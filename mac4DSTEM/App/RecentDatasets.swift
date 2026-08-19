@@ -63,7 +63,12 @@ final class RecentDatasets {
     }
 
     func remove(id: String) {
+        let before = entries.count
         entries.removeAll { $0.id == id }
+        // A miss is a no-op, same contract as `updateBookmark`: persisting an
+        // unchanged list would still clobber the store with this instance's
+        // snapshot for no reason.
+        guard entries.count != before else { return }
         save()
     }
 
@@ -87,6 +92,12 @@ final class RecentDatasets {
     private func relabel() {
         let paths = entries.map(\.id)
         let labels = RecentDatasetLocation.labels(for: paths)
-        locationLabels = Dictionary(uniqueKeysWithValues: zip(paths, labels))
+        // `uniquingKeysWith`, not `uniqueKeysWithValues`: every in-app writer
+        // dedupes by id, but this now runs at app INIT on whatever the store
+        // decoded — and a corrupted or hand-edited blob with two equal paths
+        // must not make the app unlaunchable. Duplicate paths get identical
+        // labels anyway, so keeping the first is exact, and behaviour for a
+        // duplicate-free list is byte-identical. Gate A review, 2026-08-19.
+        locationLabels = Dictionary(zip(paths, labels), uniquingKeysWith: { first, _ in first })
     }
 }

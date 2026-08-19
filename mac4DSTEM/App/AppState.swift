@@ -1570,21 +1570,25 @@ final class AppState {
         }
     }
 
-    /// The promote control's action: reopen the open dataset at full extent.
-    /// UI entry — the work is `promoteToFullExtent()` below.
-    func promoteToFullExtentControl() {
-        Task { await promoteToFullExtent() }
-    }
-
-    /// Reopen the same source, whole. Promotion is *removing* the load
-    /// specification — `.fullExtent` is the identity — never re-deriving
-    /// anything from the reduced data (docs/v2-release.md §1, commitment 2).
+    /// Reopen the same source, whole — the promote control's action.
+    /// Promotion is *removing* the load specification — `.fullExtent` is the
+    /// identity — never re-deriving anything from the reduced data
+    /// (docs/v2-release.md §1, commitment 2).
     ///
     /// Deliberately NOT `openFileAsync`: that path re-applies the sidecar's
     /// recorded specification, which is exactly the crop being promoted away.
     /// The reader and the security scope are the ones the rehearsal already
     /// holds, so this is `commitPendingLoad`'s shape with the one
     /// specification the configurator never needs to validate.
+    ///
+    /// The source is `loadView`'s own — the descriptor the loaded view
+    /// declares it was cut from — never `datasets.first`. The two are equal on
+    /// every shipped path, but the button's caption prices `loadView`'s
+    /// source, and Gate A found the pairing unpinned: the moment a
+    /// multi-dataset path can carry a specification, `datasets.first` reopens
+    /// the wrong cube while the caption describes the right one. A LoadView
+    /// source is 4D by construction (its init throws otherwise), so no
+    /// separate rank check is needed.
     ///
     /// What the reopened dataset shows is decided by machinery that already
     /// exists: `activate` re-references calibration into the full-extent view,
@@ -1597,7 +1601,15 @@ final class AppState {
     /// lesson: a test that cannot reach the call site pins the pure decision
     /// and not the path the app takes. // v2 S3
     func promoteToFullExtent() async {
-        guard let reader, let source = datasets.first, source.is4D,
+        // `!isLoadingDataset` is the reentrancy gate. Without it the only
+        // protections were the button's `.disabled` (which cannot see a load
+        // that starts after the click renders) and an ordering accident —
+        // `activate` resets `loadedView` before its first suspension, so a
+        // double-fired Task happened to fail the guard below. An accident is
+        // not a contract; a second `beginDatasetLoading` would replace the
+        // shared cancellation token and Cancel would stop only the newer
+        // load. Gate A review, 2026-08-19.
+        guard !isLoadingDataset, let reader, let source = loadView?.source,
               !loadedView.isFullExtent else { return }
         beginDatasetLoading("Reopening \(source.fileName) at full extent…")
         await activate(
@@ -1607,6 +1619,18 @@ final class AppState {
         )
         if datasetLoadWasCancelled || !hasDataset {
             await discardPartialLoad()
+            finishDatasetLoading()
+            return
+        }
+        guard loadedView.isFullExtent else {
+            // `activate` presented its own error and left the rehearsal
+            // loaded (its failure paths return before touching `loadedView`).
+            // Unreachable today — a promotable source already survived a
+            // rehearsal LoadView init, so the full-extent init cannot throw —
+            // but without this bail a future error path in `activate` would
+            // run the whole-cube pass under a "Reopening…" banner for a
+            // reopen that never happened. Do not discard: the rehearsal is
+            // intact and still what the user had.
             finishDatasetLoading()
             return
         }
@@ -1694,6 +1718,17 @@ final class AppState {
             openURL = nil
             await activate(descriptor: descriptor, reader: source,
                            specification: specification)
+            // `activate` fails by presenting and returning, not by throwing —
+            // without this guard a specification that does not fit the demo
+            // cube still printed "Demo ready…" over the error status, with
+            // reader/datasets already swapped and nothing loaded. Both checks
+            // are needed: the specification comparison catches a failed
+            // re-open OVER a previous demo (whose stale spec cannot equal the
+            // failing one — a spec that fits the demo does not fail), and the
+            // file-path comparison catches a previous real dataset that
+            // happened to share the requested spec. Gate A review, 2026-08-19.
+            guard loadView?.specification == specification,
+                  self.descriptor?.filePath == datasets.first?.filePath else { return }
             finishDatasetLoading()
             acomDisplay = .ipfZ
             statusText = "Demo ready — follow Prepare → Image → Map (Bragg, then Strain) → Results; each task lists anything it still needs"

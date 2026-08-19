@@ -110,6 +110,18 @@ final class DatasetResidency {
         cancellation: AnalysisCancellationToken? = nil,
         onProgress: @escaping @MainActor (Double) -> Void
     ) async -> Bool {
+        // This stamp is DESTRUCTIVE under the `.streamed` default: the array
+        // releases its cube when stamped `.streamed`, so a preload pass over
+        // an array someone made resident BEHIND this seam (direct
+        // `setResidencyRequest(.resident)` + `makeResident`, the tools/tests
+        // pattern) drops that buffer — where the old `.automatic` stamp was
+        // inert. Deliberate, not accidental (Gate A review, 2026-08-19): this
+        // type's contract is that preload/release are the only residency
+        // transitions and the published flags never drift from the buffer.
+        // Forcing the array to the seam's own mode keeps both consistent;
+        // preserving a cube this object never granted would reintroduce the
+        // drift it exists to prevent. In-app the stamp is a no-op today —
+        // `preloadResidentCube` only ever follows `activate`'s fresh array.
         await data.setResidencyRequest(mode)
         generation &+= 1
         let generation = self.generation

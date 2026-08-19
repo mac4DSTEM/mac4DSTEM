@@ -37,7 +37,12 @@ import Metal
 /// a second-machine sweep (`tools/residency-sweep`) makes a threshold
 /// defensible — the mechanism it needs, `ResidencyAdmission.admits` and
 /// `measuredWorkingSetFraction`, stays below. // v2 S3
-nonisolated enum Residency: String, Sendable, CaseIterable {
+/// No `String` raw value and no `CaseIterable`, deliberately: nothing
+/// persists, decodes, or iterates this enum anywhere (verified repo-wide,
+/// Gate A review 2026-08-19), and a dead conformance is a claim about
+/// behavior that does not exist — the same logic that removed
+/// `shouldAdmit`'s dead parameters.
+nonisolated enum Residency: Sendable {
     /// Bounded scan-row tiles. Always available, always tested (invariant I6).
     case streamed
     /// One MTLBuffer holding the whole cube as float32.

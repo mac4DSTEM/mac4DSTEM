@@ -95,13 +95,19 @@ struct DatasetInspector: View {
                         // about.
                         VStack(alignment: .leading, spacing: 4) {
                             Button("Reopen at Full Extent") {
-                                appState.promoteToFullExtentControl()
+                                Task { await appState.promoteToFullExtent() }
                             }
                             .disabled(appState.isLoadingDataset)
                             .accessibilityIdentifier("inspector.promoteToFullExtent")
                             if let source = appState.loadView?.source {
+                                // SystemMonitor.byteString, deliberately: the
+                                // configurator prices this same quantity
+                                // ("Whole cube (f32)") through it, and the two
+                                // surfaces a user compares when deciding to
+                                // promote must not render the same cube with
+                                // different precision.
                                 Text("Reloads the whole cube — "
-                                     + byteString(source.byteCountAsFloat32)
+                                     + SystemMonitor.byteString(source.byteCountAsFloat32)
                                      + " as float32. Analyses re-run against the full dataset.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)

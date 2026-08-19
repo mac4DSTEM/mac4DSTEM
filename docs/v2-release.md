@@ -342,7 +342,37 @@ only if asked.
   the 2026-08-17 breakage: no existing runner is migrated. (4) Gate B refuted
   four claims before this landed; all four are corrected in place rather than
   defended, and two new open items came out of it.
-- [ ] S3 · [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
+- [x] **S3** — 2026-08-19. `.automatic` dropped from `Residency` (defaults now
+  `.streamed`; behaviour unchanged — it always streamed; `admits`, the nil
+  `measuredWorkingSetFraction` and `tools/residency-sweep` kept as the return
+  path). Promote control built: `promoteToFullExtent()` reopens the loaded
+  view's **own** source at explicit `.fullExtent` — deliberately not
+  `openFileAsync`, which would re-apply the sidecar's crop — placed in the
+  dataset inspector's *Loaded view* section, which renders exactly when
+  promotion is meaningful. Seam: `App/RecentDatasets.swift` (recents list,
+  cached location labels, persistence, cap; no forwarding properties). Rider:
+  all eight standing build-warning classes cleared — a fresh clean
+  `build_macos` reports **zero warnings**. Nine new tests, each observed
+  failing under a discriminating mutation; the break pass killed one
+  green-but-worthless assertion (a full-extent `LoadView` carries the source
+  descriptor through unchanged, id and all). **Gate A ran as an
+  eight-finder + adversarial-verify + gap-sweep review: 15 findings, 11 fixed
+  in-session** (source-authority, reentrancy guard, demo-fixture failure
+  masking, init-time dictionary trap, remove-on-miss persistence, byte-format
+  precision, `fitsResident` cleanup, dead wrapper + dead enum conformances,
+  three test hardenings — each hardening verified by mutation), 2 recorded to
+  `docs/open-items.md` with owners (open-unwind triplication → S18;
+  recovery-frame mismatch → S5), 1 remedied by contract comment (the preload
+  `.streamed` stamp), 1 owner question queued for TB1 (carry the scan position
+  across a promote?). **Deviations:** (1) "drop from model and UI" — there was
+  no residency UI to drop: no picker ever existed and `request` had no
+  production caller, so the UI half was verifying absence. (2) A successful
+  promote does not update the sidecar — S5's scope, stated on the F1.14 row.
+  **Track A on the final tree, exit codes read directly:** `unit` exit 0
+  (232 cases, sidebar intermittent green), `scientific` exit 0 (35 harnesses).
+  **Not verified:** the promote control on screen (F1.14/F1.15 queued — Track
+  B is the owner's pass), and a real reduced→promote on a multi-GB cube.
+- [ ] S4 · [ ] S5 · [ ] S6 · [ ] **TB1**
 - [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21
