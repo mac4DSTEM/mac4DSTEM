@@ -222,7 +222,7 @@ Two things learned that are not obvious and cost time:
   | component of `all` | result, 2026-08-18 |
   |---|---|
   | `unit` | **1 failure** — `testEveryWorkspaceSidebarFitsItsColumn`, intermittent, pre-existing |
-  | `scientific` | exit 0, **33 harnesses** |
+  | `scientific` | exit 0, **33 harnesses** (35 as of 2026-08-19, S2) |
   | `real-data-acceptance` | exit 0, 4 cubes golden, 2 sidecars skipped |
   | `package-test` | exit 0 |
 
@@ -329,6 +329,23 @@ the claims are widened*, not as release advice.
   ever a threshold or just one machine's measurement rounded up**, and what the
   run-to-run variable is (display scale? font? window server state?). Until that
   is known, do not treat either outcome as information.
+
+  **Observation log, so S17 starts from a series rather than an anecdote**
+  (same OS, macOS 27; app code identical across all of these — verified by
+  `git diff` over `mac4DSTEM/` on each occasion):
+
+  | date | `run-tests.sh unit` | this test |
+  |---|---|---|
+  | 2026-08-17 | exit 0 | passed |
+  | 2026-08-18 | exit 65 | **failed** (933pt vs 871pt, 62pt overflow) |
+  | 2026-08-19 | exit 0, twice in one session | passed, twice |
+
+  Three green against one red, and the red is the only run that produced a
+  number. **S17's instrumentation should therefore record the measured height on
+  every run, green ones included** — the failing run is the only one anybody has
+  a measurement from, which is precisely why "was 60 ever a threshold?" cannot be
+  answered yet. A pass that prints nothing is the reason this has taken three
+  sessions to stay unresolved.
 - **The burned-in caption on exported figures truncates.** Observed on a strain
   export: `…basis_mode=consensus · reference_mode=whole-scan · displa…`. That
   caption *is* the provenance record and it is the part that travels into a

@@ -81,8 +81,9 @@ the cut line.
 
 **Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses**
 without re-running it. It was measured at the tag and no one has reproduced the
-aggregate since; the count has also moved (`scientific` is 33 harnesses now,
-`all` is 35). `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
+aggregate since; the count has also moved (`scientific` is **35** harnesses as
+of 2026-08-19, `all` is **37** — S2 added `two-spec-analysis-test`).
+`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
 is **intermittent**, not reliably red: it failed on macOS 27 with no app-code
 change, and passed on 2026-08-17 in a full `run-tests.sh unit` that exited 0.
 A layout threshold that drifts with the machine is worse than a stable failure,
@@ -96,6 +97,15 @@ never reached. Every other component of `all` has been run individually and is
 green: `scientific` exit 0 / 33 harnesses, `real-data-acceptance` exit 0,
 `package-test` exit 0. So the reproducible claim is "all of `all` except one
 intermittent layout test", not an aggregate number.
+
+**2026-08-19 re-measured, and the intermittent went the other way:**
+`run-tests.sh unit` exited **0** twice in one session — the sidebar test
+*passed* both times — and `run-tests.sh scientific` exited **0 over 35
+harnesses**. That is a third observation of the same test flipping with no
+app-code change (red 2026-08-18, green 2026-08-17 and 2026-08-19), which is
+evidence for S17's question and against reading any single run as the verdict.
+The claim above still stands as written: `all` itself has still not been run
+end to end on this machine.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6): Track A
 is `tools/run-tests.sh`, Track B is the human visual pass at
