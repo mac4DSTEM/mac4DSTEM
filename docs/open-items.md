@@ -672,6 +672,97 @@ the claims are widened*, not as release advice.
   Gate D a fix may land only on a link that survived its own refutation test,
   and this link has not yet been observed either way.
 
+  **ANSWERED 2026-08-19, branch A — and it is weaker evidence than the
+  pre-registration assumed.** The release owner ran it on an Xcode build
+  (`open -a` launches the installed release, not the build under test — a
+  separate lesson, now in the `track-b` skill). The panel appeared: title
+  *"Choose Session Sidecar"*, message *"Choose the companion file mac4DSTEM may
+  update and reopen"*, i.e. `writableSessionSidecarURL`
+  (`Support/ResultExport.swift:106-115`) took its `NSSavePanel` branch, so
+  `resolvedSessionSidecarURL` returned nil. First save of that launch, so the
+  in-memory cache caveat does not apply. Cancelled, so nothing was written
+  (`09:26:50 Session sidecar save cancelled`).
+
+  **Why it discriminates less than intended, said plainly rather than glossed:**
+  the dataset driven was `calibrationData_bullseyeProbe.h5`, and the bookmark key
+  is base64 of the **absolute source path** (`ResultExport.swift:136-139`). That
+  file appears in no bookmark under *either* bundle identifier — the old
+  container held keys for exactly two files, `downsample_Si_SiGe_exp.h5` and
+  `sim_Au_data_all_binned.h5`, both at their pre-move paths. So a panel is what
+  you would see whether C10 is true or false, and this run **confirms the
+  predicate** (`resolvedSessionSidecarURL` returns nil here) **without testing
+  the cause**. The cause still rests entirely on the plist read, which is
+  unchanged and still good evidence. What is new is that the predicate has now
+  been observed in the running app rather than only inferred.
+
+  **And the link S1's fix actually turns on remains unobserved: the denial.**
+  Nobody has yet watched the fallback read of the derived sibling path be
+  refused. That matters because it selects the fix: if the fallback read is
+  refused, the fix is about scoped access; if it would succeed, the restore
+  failure has another cause and `recordedLoadSpecification` reading the derived
+  path is fine as it stands. Gate D does not let a fix land on that.
+
+  **The one experiment that settles it, and it pays twice.** Save the sidecar for
+  the currently loaded *cropped* view — `calibrationData_bullseyeProbe.h5`,
+  scan rows 24–99 / columns 12–59, detector rows 76–120 / columns 37–91 — then
+  quit, relaunch cold, and reopen that file.
+  - Restores correctly ⇒ the whole C10 chain is confirmed end to end, because the
+    only thing that changed is that a bookmark now exists.
+  - Fails ⇒ the message now carries `— HDF5 reported: …` (S1's first half), and
+    that string **is** the denial nobody has seen.
+
+  Either way the saved sidecar is the artefact **F1.3f has been blocked on**: a
+  sidecar written from a cropped view, which neither file in
+  `References/training_dataset/` can provide (both predate the
+  `mac4dstem_load_specification` attribute). Opening one of those two training
+  datasets is the other route to the denial string, since each has a sidecar
+  sibling on disk and no bookmark under the current identifier.
+
+  ---
+
+  ## C10 IS CONFIRMED END TO END — the denial was observed 2026-08-19, 09:34:27
+
+  The release owner took the second route, opening `sim_Au_data_all_binned.h5`
+  (cropped, binned 2x) on an Xcode build. The app logged, verbatim:
+
+      Could not restore sim_Au_data_all_binned.mac4dstem.h5: HDF5 failed while
+      opening the session sidecar — HDF5 reported: unable to open file: name =
+      '/Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/References/
+      training_dataset/sim_Au_data_all_binned.mac4dstem.h5', errno = 1,
+      error message = 'Operation not permitted', flags = 0, o_flags = 0
+
+  **`errno = 1` / `Operation not permitted` is EPERM — the sandbox signature**,
+  and `tools/sidecar-error-detail-test` pins exactly that marker
+  (`let deniedMarker = mode == .posix ? "errno = 13" : "errno = 1,"`). Every link
+  of C10 is now observed rather than inferred:
+
+  1. bundle-identifier change emptied the container — plist read, 2026-08-19;
+  2. no bookmark resolves — the save panel appeared, 09:26;
+  3. the code falls back to the derived sibling path — the error names that exact
+     path, `<source>.mac4dstem.h5` beside the cube;
+  4. **that read is refused by the sandbox** — EPERM, 09:34:27.
+
+  It also confirms the `fileExists` / `H5Fopen` asymmetry the hypothesis rested
+  on: the sidecar was *found* (the code reached `H5Fopen` and named the file) and
+  then *refused*, which is `file-read-metadata` allowed where `file-read-data` is
+  not, precisely as predicted from `application.sb:508`.
+
+  **The Gate B correction to that fixture is what saved this conclusion.** The
+  first version asserted `errno = 13` / `Permission denied` (a `chmod 000`
+  stand-in). Had it shipped, the derived Track B row would have told the observer
+  that "Permission denied" means sandbox — and on seeing *"Operation not
+  permitted"* they would have ruled the sandbox **out**, which is the wrong
+  answer. The refutation on 2026-08-19 changed the outcome of the very experiment
+  the fixture existed to support.
+
+  **S1's fix is therefore unblocked under Gate D**, and the diagnosis it may land
+  on is: `recordedLoadSpecification` (`AppState.swift:1416-1431`) reads the
+  sidecar through the derived path only, never through `resolvedSessionSidecarURL`,
+  so it cannot benefit from a bookmark even when one exists. Note the armed
+  hazard recorded below before touching it — `resolvedSessionSidecarURL` ignores
+  its `descriptor` when the cache is warm (`ResultExport.swift:81`), which
+  "arms itself the moment one does" resolve.
+
   **Found while reviewing S1, each its own item (none are S1's to fix):**
 
   - **Concurrent HDF5 use crashes the process.** `EXC_BAD_ACCESS` in
@@ -896,6 +987,64 @@ or it spends the one resource Track B is expensive in — a person's attention.
   is exhaustive `(lower, upper)` coverage **under a scan crop**, where the
   resident path and the reader's own crop offset compose. Found by Gate B when it
   refused to accept S2's stated justification for the case.
+- **Opening a `.mac4dstem.h5` sidecar directly dumps a 60-line wall of tried
+  paths and never says what the file actually is.** Hit by the release owner on
+  2026-08-19 while looking for the saved session — a completely reasonable thing
+  to try, and the app's answer is *"No 4D or 3D dataset found. Tried paths:"*
+  followed by every probed path in the sidecar
+  (`/braggvectors_root/result_strain_exx_42329a38/metadatabundle/mac4dstem/…`),
+  rendered into both a modal **and** the background welcome screen at once.
+
+  The app has everything it needs to answer properly: the sidecar carries
+  `mac4dstem_session_schema` (`BraggVectorEMDWriter.swift:151`), which nothing on
+  the open path ever checks. Recognising it should produce one sentence —
+  *"This is a mac4DSTEM session sidecar, not a dataset. Open
+  `sim_Au_data_all_binned.h5` beside it and this session loads with it."* — and
+  ideally offer to open that sibling.
+
+  **This is on the critical path for release claim 3, "hand a colleague the
+  recipe."** The sharing unit is two files, the colleague receives both, and the
+  one named after the session is the wrong one to double-click. The failure mode
+  is therefore *expected*, not exotic. **→ S4** with the configurator work, or
+  S7 if it is treated as error honesty; either way it is small, and the
+  path-list wall is worth truncating for every error of this shape, not only
+  this one.
+- **The configurator never says what a detector crop COSTS, and it will let you
+  crop the direct beam off the detector without a word.** Found by the release
+  owner driving the build, 2026-08-19 — his question was "why is cropping in
+  there at all, instead of only 2x/4x binning?", which is the right question to
+  ask of a control that explains neither of its two reductions.
+
+  Both reductions are correct and both mirror py4DSTEM
+  (`crop_data_diffraction` / `bin_data_diffraction`,
+  `References/py4DSTEM-dev/py4DSTEM/preprocess/preprocess.py:139,155`), but they
+  trade against **different** things and the panel presents them as siblings:
+
+  | | reduces | costs | right when |
+  |---|---|---|---|
+  | detector **crop** | angular RANGE (max scattering angle) | any scattering outside the box | the useful disks sit in a sub-region of a much larger detector |
+  | detector **bin** | angular SAMPLING (resolution) | sub-pixel disk-position precision, so strain precision | you need the full angular range but it is oversampled |
+
+  So they are not alternatives: strain mapping wants crop-not-bin (binning
+  directly degrades the disk-position precision the strain basis is fitted
+  from), while a wide-annulus ADF wants bin-not-crop (cropping cuts exactly the
+  high angles the signal lives at). The panel says neither.
+
+  **The safety hole is the sharper half.** `CalibrationReReference.apply` already
+  refuses well when the beam falls outside a crop — it nils the origin and names
+  the reason ("the direct beam is not inside this diffraction crop. Widen the
+  crop or re-fit the origin on this view"), for both the fitted map and the
+  aperture centre. But that is a **re-reference** of an existing calibration. On
+  a **first open there is no calibration to invalidate**, so nothing fires: you
+  drag a detector rectangle that excludes the direct beam, the load succeeds
+  silently, and the geometric-default centre lands wherever the box happens to
+  be. That is the exact configuration the screenshots were taken in.
+
+  **→ S4** (configurator finish). Two things, both small: say what each reduction
+  costs, and check the sampled preview's own brightest region against the
+  detector rectangle at configure time, so cropping the beam out is refused
+  *before* the load rather than discovered after it. The preview is already
+  sampled and already on screen; nothing new has to be computed.
 - **Nothing pins the virtual-detector mask boundary convention against
   py4DSTEM, and no harness can currently see a change to it.** Found by Gate B
   during S2 (2026-08-19). The app's circle mask uses `r2 < rOut2`

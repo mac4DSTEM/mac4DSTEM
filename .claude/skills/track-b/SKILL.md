@@ -10,6 +10,25 @@ Track B is a person driving the app against
 record it. It has beaten the full automated suite repeatedly — which is why
 its bookkeeping deserves the same precision as a fixture.
 
+## Asking the owner to launch it — say WHICH build
+
+**Never tell the owner to run `open -a mac4DSTEM`.** It launches whatever is
+installed in `/Applications` — the signed release — not the build under test, and
+the two silently differ by every commit since the last DMG. Cost the first time
+it happened (2026-08-19): a probe was run against the wrong binary and had to be
+repeated.
+
+Ask for a **Run from Xcode** (⌘R) instead, or name the built product explicitly:
+
+```sh
+open "$(xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM \
+  -destination 'platform=macOS' -showBuildSettings 2>/dev/null \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $2}')/mac4DSTEM.app"
+```
+
+And do not hand the owner an unsigned build to launch — `tools/run-tests.sh unit`
+is the only place `CODE_SIGNING_ALLOWED=NO` belongs (repo hard rule).
+
 ## Recording a pass (the user reports what they saw)
 
 1. Update each driven row: PASSED / FAILED / PARTLY, with the date and the

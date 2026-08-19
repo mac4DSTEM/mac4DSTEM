@@ -238,7 +238,7 @@ still run one at a time, but either order works and nothing blocks.
 | S1 | **Sidecar under the sandbox.** Un-silence `H5Eset_auto2` *first* (it is the diagnostic instrument), then the three-cold-opens experiment on the restore failure, then fix `recordedLoadSpecification` (`AppState.swift:1416-1431`, `:1801-1808`) and the restore path per the outcome. Seam: sidecar/restore state | **D** | S0 | Unblocks F1.3f. Predicted: deterministic ⇒ bookmark/sandbox; ~1/3 ⇒ race |
 | S2 | **The two-spec analysis fixture** (`tools/` name at build time; goes into `scientific`). Virtual image + disk detection under a reduced spec vs full extent. Ground truth is the **full-extent run on the overlap** — never cropped-vs-cropped. Scan-crop cases compare exactly; detector-crop/bin cases compare through re-referenced coordinates; **each case states which invariance it claims**. Also close the L3 residual: exercise `FourDArray.tile(yRange:from:)` at `lowerBound > 0`. **Seed the metamorphic property suite here:** invariances as tests over randomized fixtures — translation equivariance (the `measureOrigin` class of defect), bin intensity conservation, crop/analysis commutation — so this class is caught by machine, not by late manual reasoning. **Create `tools/lib/sources.manifest`** (one shared source list; this and future runners include it — the fix for the 2026-08-17 five-of-eight-runners breakage), and compile the fixture with the app's isolation flags, closing the recorded `swiftc`-defaults blind spot | **B** | — | Parallel with S1 |
 | S3 | **Drop `.automatic`** from model and UI (behaviour is unchanged — it already streams); build the **promote control** ("reopen at full extent", placement decided in-session). Seam | A | S0 | Parallel with S4 |
-| S4 | **Configurator finish.** `contentVersion` value-dependence first (`LoadConfiguratorView.swift:142`, `DatasetInspector.swift:230`), then the single-DP picker + real-space dims (owner requests, 2026-08-18), the sheet clipping (`:44`), the missing `progress:` argument (`AppState.swift:1487-1490`) | A | S0 | Parallel with S3 |
+| S4 | **Configurator finish.** `contentVersion` value-dependence first (`LoadConfiguratorView.swift:142`, `DatasetInspector.swift:230`), then the single-DP picker + real-space dims (owner requests, 2026-08-18), the sheet clipping (`:44`), the missing `progress:` argument (`AppState.swift:1487-1490`); and the two the release owner raised on 2026-08-19 while driving the build — say what a detector **crop** costs versus a **bin** (they trade against different things and the panel presents them as siblings), and refuse a detector crop that excludes the direct beam *at configure time*, since the existing refusal in `CalibrationReReference` only fires when there is already a calibration to re-reference and so is silent on a first open | A | S0 | Parallel with S3 |
 | S5 | **Promote run I — the replay record.** Which analyses ran, with which parameters, serialized with the session — this is what turns the sidecar into a full recipe, and it is a sidecar format change (§5 evidence; the minimum-reader marker is decided here) | B-lite | S3 | Round-trip fixture extends `tools/load-spec-roundtrip` |
 | S6 | **Promote run II — unattended execution.** Sequential replay at full extent, keep-awake assertion, morning summary. A failed step **halts honestly** — it must never continue silently past a failure | A | S5 | Track B row queued |
 | TB1 | **Owner pass:** F1 queue to empty (F1.3b re-drive first), the promote row, one real rehearse → overnight promote, the colleague-sidecar row (foreign sidecar, clean account), the aspect-stretch decision once previews draw | — | S1, S3–S6 | Agent continues W2 meanwhile |
@@ -310,8 +310,15 @@ only if asked.
   seam is unspent. One cold open now settles the last link. **2026-08-19:** a
   cheaper discriminator (does the first session save after a cold launch raise a
   save panel?) is pre-registered in `docs/open-items.md` with both branches
-  written before the answer was known; the answer has not yet reached a session,
-  so the fix is deliberately withheld rather than guessed.
+  written before the answer was known. **Answered 2026-08-19: branch A, the save
+  panel appeared** — so `resolvedSessionSidecarURL` returns nil in the running
+  app, observed rather than inferred for the first time. But the dataset driven
+  was never bookmarked under *either* bundle identifier, so it confirms the
+  predicate without testing the cause; and the denial on the fallback read — the
+  link that selects the fix — is still unobserved. The fix stays withheld under
+  Gate D. One experiment now settles it and simultaneously produces the
+  cropped-view sidecar F1.3f is blocked on; it is written out in
+  `docs/open-items.md`.
 - [x] **S2** — 2026-08-19: `tools/two-spec-analysis-test` (214 checks) in
   `scientific`; `tools/lib/sources.manifest` created with dependency-closed
   groups and `MAC4DSTEM_ISOLATION_FLAGS`; metamorphic properties P1–P4 seeded;
