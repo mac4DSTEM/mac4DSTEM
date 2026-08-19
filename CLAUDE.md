@@ -147,6 +147,11 @@ code to make an acceptance step pass — that is a finding, not a bug fix.
   2026-08-17, unmaintained, still in the tree.** Do not spend a session
   repairing it and do not cite its numbers; see `docs/v2-scope.md` §6.2 for why.
   Whether to delete it is an open item.
+- **[`docs/archive/s1-sidecar-under-the-sandbox.md`](docs/archive/s1-sidecar-under-the-sandbox.md)**
+  — S1's full investigation, archived 2026-08-19. **History, not guidance**, but
+  the *method* is the reusable part: a pre-registration written before its answer
+  was known, and a Gate B correction that stopped one wrong errno sending the
+  diagnosis the other way.
 - **[`docs/archive/v1.0/`](docs/archive/v1.0/)** — the v1.0 phase's working
   memory: 46 numbered findings, the design passes, the QC-evaluation prompts.
   **History, not guidance.** Nothing current points into it; consult it for
