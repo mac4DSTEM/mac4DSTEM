@@ -321,7 +321,15 @@ only if asked.
   uncovered. `tools/run-tests.sh unit` **has now run end to end** (2026-08-19,
   after the release owner freed disk): **220 passed, 1 failed**, the failure being
   the known intermittent sidebar test, excluded from this change by experiment.
-  F1.3g/F1.3h are queued and the change is **unverified on screen**.
+  **F1.3g and F1.3h both PASSED on screen, 2026-08-19**, so the change is
+  verified visually — and F1.3h found a real defect on its first drive before
+  passing on its second: `saveCalibrationToSessionSidecar` wrote the sidecar and
+  never persisted the access grant, so the app's own refusal message named the
+  one path that could not work. Fixed by giving both publish paths a single
+  `rememberSidecarGrant`. No automated test could have caught it — it needs a
+  save panel and a real HDF5 write, and the defect was a missing call rather than
+  wrong logic. **Still untested on screen:** the renamed-sidecar label
+  (`UI/InspectorPanels.swift`), since both drives kept the default name.
 - [x] **S2** — 2026-08-19: `tools/two-spec-analysis-test` (214 checks) in
   `scientific`; `tools/lib/sources.manifest` created with dependency-closed
   groups and `MAC4DSTEM_ISOLATION_FLAGS`; metamorphic properties P1–P4 seeded;
