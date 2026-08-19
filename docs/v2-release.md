@@ -318,9 +318,10 @@ only if asked.
   overwritten 54 s later, so that experiment is **not reproducible** — recorded.
   **Not verified:** `startAccessingSecurityScopedResource` and `release`'s
   matching stop are untestable in an unsandboxed XCTest host and remain
-  uncovered; the app's own `unit` gate could not be run to completion (free-space
-  preflight, exit 69, ~7 GB against an 8 GB floor); F1.3g/F1.3h are queued and
-  the change is **unverified on screen**.
+  uncovered. `tools/run-tests.sh unit` **has now run end to end** (2026-08-19,
+  after the release owner freed disk): **220 passed, 1 failed**, the failure being
+  the known intermittent sidebar test, excluded from this change by experiment.
+  F1.3g/F1.3h are queued and the change is **unverified on screen**.
 - [x] **S2** — 2026-08-19: `tools/two-spec-analysis-test` (214 checks) in
   `scientific`; `tools/lib/sources.manifest` created with dependency-closed
   groups and `MAC4DSTEM_ISOLATION_FLAGS`; metamorphic properties P1–P4 seeded;

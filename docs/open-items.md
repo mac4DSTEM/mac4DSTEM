@@ -340,6 +340,7 @@ the claims are widened*, not as release advice.
   | 2026-08-18 | exit 65 | **failed** (933pt vs 871pt, 62pt overflow) |
   | 2026-08-19 ~09:00–10:00 | exit 0, twice | passed, twice |
   | 2026-08-19 ~11:00 | exit 65 | **failed, three times in a row** |
+  | 2026-08-19, after freeing disk | exit 65, full `run-tests.sh unit` | **failed** (220 passed, 1 failed) |
 
   **It flipped WITHIN A SINGLE DAY on an unchanged tree**, which is the sharpest
   observation yet: green twice in the morning, red three times two hours later,
@@ -355,6 +356,15 @@ the claims are widened*, not as release advice.
   and re-running gave the **same failure**, and the test drives
   `openDemoFixture()` — no file path, so no sidecar, so the new section cannot
   render at all. Not S1's.
+
+  **The disk was not the variable, and that is now measured.** The 11:00 runs
+  happened at ~7 GB free, below the preflight's 8 GB floor, so `run-tests.sh unit`
+  refused (exit 69) and the suite was run directly instead. After freeing space
+  the full gate ran at 10 GB and produced **the identical result** — 220 passed,
+  1 failed, same test. So the direct run was not distorted by the near-full disk,
+  and the preflight's margin is genuinely margin rather than a live constraint on
+  this suite. It also makes the morning-green/afternoon-red split harder to
+  explain away: four consecutive reds now, across two disk states.
 
   **Two concrete inputs for S17, both learned the hard way here:**
   1. A passing run prints nothing, so three of the five observations above carry
