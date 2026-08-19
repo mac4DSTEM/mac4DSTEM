@@ -842,25 +842,48 @@ the claims are widened*, not as release advice.
     stayed `"5"` across a format addition (`4e01c24`), so the schema stamp no
     longer identifies the format — which is exactly what S5's minimum-reader
     marker has to fix.
-  - **`resolvedSessionSidecarURL` ignores its `descriptor` when the cache is
-    warm.** `ResultExport.swift:81` returns `scopedSessionSidecarURL`
-    unconditionally. `openFileAsync` clears it (`AppState.swift:1801-1803`) but
-    `openDemoFixture` (`:1591-1603`) does not — so opening a real dataset and
-    then the demo would restore the previous dataset's calibration and results
-    into the demo. Masked today only because no bookmark resolves; **it arms
-    itself the moment one does**, i.e. the moment S1's fix lands.
+
+    **Both reproducers were destroyed on 2026-08-19 and nobody should go looking
+    for them.** The two pre-2026-08-18 sidecars in `References/training_dataset/`
+    were the only artefacts demonstrating this, and Track B driving overwrote
+    both: `sim_Au_data_all_binned.mac4dstem.h5` at 09:35:21 and
+    `downsample_Si_SiGe_exp.mac4dstem.h5` at 14:25:38 (6.38 MB of BraggVectors
+    and a Strain map replaced by 8.9 kB of calibration). The **defect is
+    unchanged** — `?? .fullExtent` still asserts a specification the file does
+    not carry — but demonstrating it now needs a sidecar synthesised without the
+    attribute, not one of these. Recorded because an item whose evidence has
+    silently evaporated is how a real defect gets dismissed as unreproducible.
+  - ~~**`resolvedSessionSidecarURL` ignores its `descriptor` when the cache is
+    warm.**~~ **FIXED 2026-08-19 in S1.** The cache moved into
+    `App/SessionSidecarLocator.swift` and is keyed by source path, so a warm
+    grant can never be handed to a different dataset; `openDemoFixture`'s missing
+    clear is neutralised by the keying rather than by remembering to call
+    `release()`. Pinned by
+    `SessionSidecarLocatorTests.testAWarmGrantIsNeverHandedToADifferentDataset`,
+    verified by breaking the key check. It had to be fixed in the same change
+    that fixed the bookmark, because S1 is what makes a grant resolve at all —
+    it would have armed itself exactly then.
   - **The status line leaks a full filesystem path.** The composed message runs
     ~330 characters including the absolute path, rendered raw at
     `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B
     screenshots go into public docs. Worth truncating the path for display while
-    keeping it in the log.
+    keeping it in the log. **Recurred visibly on 2026-08-19:** the S1 refusal
+    line renders the full absolute path of the sidecar in the console pane, and
+    it appears in the Track B screenshots taken that day. Still open.
 
-  **Not fixed, deliberately:** `recordedLoadSpecification` still reads the
+  ~~**Not fixed, deliberately:** `recordedLoadSpecification` still reads the
   derived sibling path (`AppState.swift:1419`) while `loadSessionSnapshot` reads
   the bookmark-resolved one (`:2319-2320`) — two readers of the same sidecar
   disagreeing about which file to open. Confirmed by reading, but Gate D forbids
   landing the fix on a diagnosis that has not yet survived its experiment, and
-  the AppState seam is owed by whichever session lands it.
+  the AppState seam is owed by whichever session lands it.~~
+
+  **FIXED 2026-08-19, once the diagnosis did survive its experiment.** The denial
+  was observed at 09:34:27, so Gate D's condition was met; the seam
+  (`App/SessionSidecarLocator.swift`) was extracted and both readers now go
+  through its single derivation. The wording above is kept struck rather than
+  deleted because it records why the fix waited — that restraint is the point of
+  the gate, not an oversight to tidy away.
 ### Track B pass — 2026-08-18, `036_STEM_SI_preprocessed_filtered_bin_2_20240723.h5` (4.25 GB on disk, 3.96 GB as f32)
 
 Driven by the release owner on the open/load rows of §F1. Two things confirmed,
