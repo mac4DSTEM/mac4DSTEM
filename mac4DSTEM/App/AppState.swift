@@ -175,7 +175,11 @@ final class AppState {
     private(set) var datasetPreview: DatasetPreview?
     private var openURL: URL?
     @ObservationIgnored private var pendingRecovery: DatasetRecoveryRecord?
-    @ObservationIgnored var scopedSessionSidecarURL: URL?
+    /// S1's seam (docs/development-process.md §7): the one owner of where this
+    /// dataset's session sidecar is and whether the app may read it. Replaces a
+    /// bare `scopedSessionSidecarURL` that eight call sites derived around in
+    /// two different ways — see `App/SessionSidecarLocator.swift`.
+    let sessionSidecar = SessionSidecarLocator()
 
     var datasets: [DatasetDescriptor] = []
     private(set) var recentDatasets: [RecentDataset] = WorkspaceRecoveryStore.recent()
@@ -1413,16 +1417,60 @@ final class AppState {
     /// or a sidecar was copied next to a different cube — is dropped rather than
     /// clamped, with the reason said out loud. Loading a *different* region than
     /// the session recorded, silently, is the failure this guards.
-    private func recordedLoadSpecification(
+    /// Internal rather than private so `SessionSidecarLocatorTests` can drive the
+    /// WIRING, not just the pure decision. Gate D showed that reverting this
+    /// function's URL derivation to the pre-S1 form — the literal defect S1
+    /// exists to fix — left the whole suite green, because every test addressed
+    /// the locator and none addressed the call site. // v2 S1
+    func recordedLoadSpecification(
         forSourcePath path: String, source: DatasetDescriptor
     ) async -> LoadSpecification? {
-        let url = BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: path)
+        // THROUGH THE SEAM, not around it. This call site used to derive the
+        // sidecar path itself and never consult the security-scoped bookmark, so
+        // a companion the app *had* been granted access to was readable for
+        // results and calibration and unreadable for the crop that produced
+        // them. // v2 S1
+        // Existence is checked AT the url we are about to read, not by a second
+        // independent derivation. Gate D's mutation of this line was invisible
+        // while the guard re-derived the path on its own: the call site could
+        // read one file and test another. // v2 S1
+        let url = sessionSidecar.location(forSourcePath: path)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let snapshot = try? await Task.detached(priority: .utility) {
-            try BraggVectorEMDWriter.loadSession(from: url)
-        }.value
-        guard let specification = snapshot?.loadSpecification,
-              !specification.isFullExtent else { return nil }
+
+        // NOT `try?`. A refused read and "this session recorded no crop" are
+        // different facts, and collapsing them is what made this defect quiet:
+        // the sidecar says the session was a cropped view, the read is refused,
+        // nil comes back, and the dataset opens at FULL EXTENT without a word.
+        // Right numbers, wrong extent. Measured cause is EPERM from the sandbox
+        // (docs/open-items.md, 2026-08-19), which no amount of retrying fixes —
+        // so it is said out loud instead. // v2 S1
+        let read: Result<LoadSpecification?, Error>
+        do {
+            read = .success(try await Task.detached(priority: .utility) {
+                try BraggVectorEMDWriter.loadSession(from: url)
+            }.value.loadSpecification)
+        } catch {
+            read = .failure(error)
+        }
+
+        let specification: LoadSpecification
+        switch SessionSidecarLocator.recordedOutcome(
+            from: read, sidecar: url.lastPathComponent
+        ) {
+        case .noneRecorded:
+            return nil
+        case .unreadable(let message):
+            // The LOCATOR, not `statusText`. Gate D measured that `statusText`
+            // set here is overwritten three lines later by `activate`'s
+            // `beginDatasetLoadingStage`, and again by the preview and whole-cube
+            // passes — so the first version of this reported the refusal into a
+            // channel the user could never read it from. // v2 S1
+            sessionSidecar.noteUnreadable(message)
+            statusText = message
+            return nil
+        case .recorded(let recorded):
+            specification = recorded
+        }
         guard (try? LoadView(source: source, specification: specification)) != nil else {
             statusText = "The saved session describes a region this file does not have; loading it whole."
             return nil
@@ -1798,10 +1846,7 @@ final class AppState {
             if let previousOpenURL {
                 previousOpenURL.stopAccessingSecurityScopedResource()
             }
-            if let scopedSessionSidecarURL {
-                scopedSessionSidecarURL.stopAccessingSecurityScopedResource()
-                self.scopedSessionSidecarURL = nil
-            }
+            sessionSidecar.release()
             openURL = accessed ? url : nil
             self.reader = reader
             datasets = [descriptor]
@@ -2261,10 +2306,7 @@ final class AppState {
             openURL.stopAccessingSecurityScopedResource()
             self.openURL = nil
         }
-        if let scopedSessionSidecarURL {
-            scopedSessionSidecarURL.stopAccessingSecurityScopedResource()
-            self.scopedSessionSidecarURL = nil
-        }
+        sessionSidecar.release()
         datasetEpoch &+= 1
         operationController.reset()
         statusText = "Load cancelled"
@@ -2316,8 +2358,7 @@ final class AppState {
     private func loadSessionSnapshot(
         for descriptor: DatasetDescriptor
     ) async -> SessionSidecarSnapshot? {
-        let url = resolvedSessionSidecarURL(for: descriptor)
-            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetEpoch
         do {
@@ -2394,8 +2435,7 @@ final class AppState {
     private func restoreSessionResult(
         from snapshot: SessionSidecarSnapshot, for descriptor: DatasetDescriptor
     ) {
-        let url = resolvedSessionSidecarURL(for: descriptor)
-            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        let url = sessionSidecar.location(for: descriptor)
         if let map = snapshot.currentResult {
             resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
             resultRGBA = nil

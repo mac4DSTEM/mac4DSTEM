@@ -193,6 +193,30 @@ struct DatasetInspector: View {
                     .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
                 }
 
+                // A SIDECAR THAT IS THERE AND UNREADABLE (v2 S1). Distinct from
+                // the mismatch above, and it has to be: that one compares two
+                // KNOWN views, while this is the case where the recorded view is
+                // unknown because the file could not be opened. The dataset then
+                // loaded at full extent, which looks exactly like a dataset that
+                // never had a session — so without this the user's only signal
+                // is a status line that the load itself overwrites within
+                // milliseconds (measured, Gate D 2026-08-19).
+                if let reason = appState.sessionSidecar.unreadableReason {
+                    Section("Session sidecar") {
+                        Text("A saved session sits beside this dataset and could not be read.")
+                            .font(.callout)
+                        Text(reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("The whole file is loaded. If that session recorded a crop, what is on screen is a different extent from what it saved.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityIdentifier("inspector.sessionSidecarUnreadable")
+                }
+
                 Section("Files & products") {
                     ProductsView()
                 }

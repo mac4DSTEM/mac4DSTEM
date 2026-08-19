@@ -75,37 +75,19 @@ extension AppState {
         }
     }
 
-    /// Resolve a previously user-approved session companion. Security-scoped
-    /// bookmarks let a sandboxed app reopen the same sidecar across launches.
-    func resolvedSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
-        if let scopedSessionSidecarURL { return scopedSessionSidecarURL }
-        guard let data = UserDefaults.standard.data(forKey: sessionBookmarkKey(descriptor)) else {
-            return nil
-        }
-        var stale = false
-        do {
-            let url = try URL(
-                resolvingBookmarkData: data,
-                options: [.withSecurityScope, .withoutUI],
-                relativeTo: nil,
-                bookmarkDataIsStale: &stale
-            )
-            _ = url.startAccessingSecurityScopedResource()
-            scopedSessionSidecarURL = url
-            if stale { try storeSessionBookmark(url, for: descriptor) }
-            return url
-        } catch {
-            UserDefaults.standard.removeObject(forKey: sessionBookmarkKey(descriptor))
-            return nil
-        }
-    }
-
     /// First save uses a standard panel, defaulted beside the source dataset.
-    /// That user action grants sandbox access to create the companion. The
-    /// bookmark must be made only after atomic publication: Foundation cannot
-    /// bookmark the not-yet-existing URL returned by NSSavePanel.
+    /// That user action grants sandbox access to create the companion, and the
+    /// grant is remembered by `AppState.sessionSidecar` (S1's seam) so later
+    /// opens can read it. The bookmark is stored only after atomic publication:
+    /// Foundation cannot bookmark the not-yet-existing URL NSSavePanel returns.
+    ///
+    /// Location and grant logic used to live here, in a `resolvedSessionSidecarURL`
+    /// that consulted its cache BEFORE looking at the descriptor — so once any
+    /// dataset's bookmark resolved, every later dataset was handed that same
+    /// sidecar. Both moved into `App/SessionSidecarLocator.swift`, which keys the
+    /// cache by source path. // v2 S1
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
-        if let resolved = resolvedSessionSidecarURL(for: descriptor) { return resolved }
+        if let granted = sessionSidecar.grant(for: descriptor) { return granted }
         let suggested = BraggVectorEMDWriter.sessionSidecarURL(
             forSourcePath: descriptor.filePath
         )
@@ -120,22 +102,8 @@ extension AppState {
             return nil
         }
         _ = url.startAccessingSecurityScopedResource()
-        scopedSessionSidecarURL = url
+        sessionSidecar.adopt(url, for: descriptor)
         return url
-    }
-
-    private func storeSessionBookmark(_ url: URL, for descriptor: DatasetDescriptor) throws {
-        let data = try url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        UserDefaults.standard.set(data, forKey: sessionBookmarkKey(descriptor))
-    }
-
-    private func sessionBookmarkKey(_ descriptor: DatasetDescriptor) -> String {
-        let encoded = Data(descriptor.filePath.utf8).base64EncodedString()
-        return "session-sidecar-bookmark." + encoded
     }
 
     /// Export the current real-space result (virtual image / DPC / strain /
@@ -628,7 +596,7 @@ extension AppState {
                 do {
                     // The writer atomically published the target, so it now
                     // exists and can safely back a persistent security bookmark.
-                    try self.storeSessionBookmark(url, for: descriptor)
+                    try self.sessionSidecar.remember(url, for: descriptor)
                     self.statusText = "Saved \(metadata.displayName) → \(url.lastPathComponent)"
                 } catch {
                     self.statusText = "Saved \(metadata.displayName); choose the sidecar again after relaunch"
@@ -649,8 +617,7 @@ extension AppState {
     /// item remains the last atomically saved result.
     func selectSavedSessionResult(_ saved: SessionResultDescriptor) async {
         guard let descriptor else { return }
-        let url = resolvedSessionSidecarURL(for: descriptor)
-            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        let url = sessionSidecar.location(for: descriptor)
         let epoch = datasetEpoch
         do {
             switch saved.storage {
@@ -698,8 +665,7 @@ extension AppState {
     /// the active scientific result or rerunning analysis.
     func loadSavedSessionResult(_ saved: SessionResultDescriptor, into slot: ComparisonSlot) async {
         guard let descriptor else { return }
-        let url = resolvedSessionSidecarURL(for: descriptor)
-            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        let url = sessionSidecar.location(for: descriptor)
         let epoch = datasetEpoch
         do {
             let product: DisplayedProduct?
@@ -852,8 +818,7 @@ extension AppState {
 
     func removeSavedSessionResult(_ saved: SessionResultDescriptor) async {
         guard let descriptor else { return }
-        let url = resolvedSessionSidecarURL(for: descriptor)
-            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
+        let url = sessionSidecar.location(for: descriptor)
         let calibration = sessionPixelCalibration(descriptor: descriptor)
         let epoch = datasetEpoch
         let token = beginCancellableOperation(

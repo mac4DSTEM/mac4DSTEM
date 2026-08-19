@@ -296,29 +296,31 @@ only if asked.
   2026-08-18 (`tools/run-tests.sh` `require_free_space`, 8 GB for
   xcodebuild modes / 4 GB for harness-only, exit 69 before any build).
   Deviation: none.
-- [~] **S1** — 2026-08-18/19: the diagnostic instrument landed (HDF5 error
-  stack captured on the sidecar read path, `tools/sidecar-error-detail-test`
-  in `scientific`, negative control verified by breaking it); the misleading
-  "export failed" wording corrected; H4/H5 dead. **Cause identified: the
-  2026-08-14 bundle-identifier change (`1e5727d`) gave the app a new, empty
-  sandbox container, so no session bookmark resolves** — read out of the old
-  container, which still holds both keys at the pre-move paths. Gate D second
-  reader ran 2026-08-19 and refuted two of my claims (the fixture's denial shape,
-  and "these sidecars are full-extent"); both corrected, four further defects it
-  surfaced are recorded in `docs/open-items.md`. **The experiment has not run and
-  no fix has landed** — `recordedLoadSpecification` is untouched and the AppState
-  seam is unspent. One cold open now settles the last link. **2026-08-19:** a
-  cheaper discriminator (does the first session save after a cold launch raise a
-  save panel?) is pre-registered in `docs/open-items.md` with both branches
-  written before the answer was known. **Answered 2026-08-19: branch A, the save
-  panel appeared** — so `resolvedSessionSidecarURL` returns nil in the running
-  app, observed rather than inferred for the first time. But the dataset driven
-  was never bookmarked under *either* bundle identifier, so it confirms the
-  predicate without testing the cause; and the denial on the fallback read — the
-  link that selects the fix — is still unobserved. The fix stays withheld under
-  Gate D. One experiment now settles it and simultaneously produces the
-  cropped-view sidecar F1.3f is blocked on; it is written out in
-  `docs/open-items.md`.
+- [x] **S1** — 2026-08-18/19. First half: the HDF5 error-detail instrument,
+  `tools/sidecar-error-detail-test`, the corrected "export failed" wording.
+  Second half 2026-08-19: **the denial was observed** (EPERM, 09:34:27), closing
+  C10 end to end, and the fix landed — seam `App/SessionSidecarLocator.swift`
+  (`@Observable`, held by AppState, owns sidecar location + bookmark + scoped
+  access, cache keyed by source path), `recordedLoadSpecification` routed through
+  it and no longer swallowing a refused read with `try?`, the warm-cache defect
+  closed, and the refusal surfaced in the dataset inspector.
+  13 unit tests; six negative controls, each verified in isolation.
+  **Deviations, all found by the Gate D second reader and fixed rather than
+  argued with:** (1) the refusal was first reported via `statusText`, which is
+  overwritten by the loading stage three lines later — the user could never read
+  it; it now goes to a durable channel the inspector shows. (2) A **ninth** call
+  site (`UI/InspectorPanels.swift`) still bypassed the seam, and the fix *armed*
+  it — routed. (3) Five mutations initially left the whole suite green, including
+  the literal defect S1 exists to fix; two of my own tests were self-consistent
+  in the way Gate B warns about (same type on both sides of a round-trip). Both
+  closed and re-verified. (4) "EPERM is the sandbox signature" was affirming the
+  consequent; restated as an exclusion argument. (5) The 09:34:27 sidecar was
+  overwritten 54 s later, so that experiment is **not reproducible** — recorded.
+  **Not verified:** `startAccessingSecurityScopedResource` and `release`'s
+  matching stop are untestable in an unsandboxed XCTest host and remain
+  uncovered; the app's own `unit` gate could not be run to completion (free-space
+  preflight, exit 69, ~7 GB against an 8 GB floor); F1.3g/F1.3h are queued and
+  the change is **unverified on screen**.
 - [x] **S2** — 2026-08-19: `tools/two-spec-analysis-test` (214 checks) in
   `scientific`; `tools/lib/sources.manifest` created with dependency-closed
   groups and `MAC4DSTEM_ISOLATION_FLAGS`; metamorphic properties P1–P4 seeded;

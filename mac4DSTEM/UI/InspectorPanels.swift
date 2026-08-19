@@ -99,9 +99,13 @@ struct ProductsView: View {
                 .padding(.top, 6)
 
             if let descriptor = appState.descriptor, appState.sessionInventory.hasSidecar {
-                let sidecar = BraggVectorEMDWriter.sessionSidecarURL(
-                    forSourcePath: descriptor.filePath
-                )
+                // Through the seam. This site derived the path itself, so once
+                // any bookmark resolved to a sidecar the user had RENAMED in the
+                // save panel, the inspector named a file the app was not reading.
+                // Harmless before S1 only because no bookmark ever resolved —
+                // the same "arms itself the moment one does" shape as the
+                // warm-cache defect. Found by Gate D. // v2 S1
+                let sidecar = appState.sessionSidecar.location(for: descriptor)
                 treeRow(icon: "externaldrive", text: sidecar.lastPathComponent, indent: 0)
                 if appState.sessionInventory.hasCalibration {
                     treeRow(icon: "scope", text: "Calibration", indent: 1)

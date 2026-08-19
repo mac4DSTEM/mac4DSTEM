@@ -21,8 +21,8 @@ kept as history. Cited numbers are prefixed `#` and refer to that file.
 are [`docs/v2-release.md`](v2-release.md). Sessions claiming items in this
 file:
 
-- Sidecar restore failure + `recordedLoadSpecification`/bookmark defect +
-  `H5Eset_auto2` silencing → **S1** (Gate D). *Amended 2026-08-19:* the
+- ~~Sidecar restore failure + `recordedLoadSpecification`/bookmark defect +
+  `H5Eset_auto2` silencing → **S1** (Gate D).~~ **CLOSED 2026-08-19.** *Amended 2026-08-19:* the
   diagnostic instrument landed **before** the experiment, by the session
   brief's own ordering — silenced errors made the experiment worthless until
   the failure carried a reason. The cause is identified (the bundle-identifier
@@ -338,14 +338,33 @@ the claims are widened*, not as release advice.
   |---|---|---|
   | 2026-08-17 | exit 0 | passed |
   | 2026-08-18 | exit 65 | **failed** (933pt vs 871pt, 62pt overflow) |
-  | 2026-08-19 | exit 0, twice in one session | passed, twice |
+  | 2026-08-19 ~09:00–10:00 | exit 0, twice | passed, twice |
+  | 2026-08-19 ~11:00 | exit 65 | **failed, three times in a row** |
 
-  Three green against one red, and the red is the only run that produced a
-  number. **S17's instrumentation should therefore record the measured height on
-  every run, green ones included** — the failing run is the only one anybody has
-  a measurement from, which is precisely why "was 60 ever a threshold?" cannot be
-  answered yet. A pass that prints nothing is the reason this has taken three
-  sessions to stay unresolved.
+  **It flipped WITHIN A SINGLE DAY on an unchanged tree**, which is the sharpest
+  observation yet: green twice in the morning, red three times two hours later,
+  same machine, same OS, same commit. That kills "it depends on the checkout" and
+  narrows the run-to-run variable to machine state — display configuration, window
+  server, or something that drifts with uptime and load. Between the two groups
+  the machine had been building continuously and the release owner had been
+  driving the app from Xcode.
+
+  **Excluded by experiment, not assumption:** the red runs happened while S1's
+  UI change (a new inspector section) was in the tree, so it was the obvious
+  suspect. Reverting `DatasetInspector.swift` and `InspectorPanels.swift` to HEAD
+  and re-running gave the **same failure**, and the test drives
+  `openDemoFixture()` — no file path, so no sidecar, so the new section cannot
+  render at all. Not S1's.
+
+  **Two concrete inputs for S17, both learned the hard way here:**
+  1. A passing run prints nothing, so three of the five observations above carry
+     no measurement. Instrument the measured height on **every** run.
+  2. **The failing run's number could not be retrieved either.** Running the test
+     alone under `xcodebuild`, with and without `-quiet`, produced no assertion
+     text at all — only "failed". So the 933pt/871pt figures from 2026-08-18 came
+     from somewhere else (Xcode's UI), and a CI or terminal run yields nothing to
+     diagnose from. **S17's first job is making the number reachable from the
+     command line**, before any question about thresholds can be settled.
 - **The burned-in caption on exported figures truncates.** Observed on a strain
   export: `…basis_mode=consensus · reference_mode=whole-scan · displa…`. That
   caption *is* the provenance record and it is the part that travels into a
@@ -731,8 +750,8 @@ the claims are widened*, not as release advice.
       training_dataset/sim_Au_data_all_binned.mac4dstem.h5', errno = 1,
       error message = 'Operation not permitted', flags = 0, o_flags = 0
 
-  **`errno = 1` / `Operation not permitted` is EPERM — the sandbox signature**,
-  and `tools/sidecar-error-detail-test` pins exactly that marker
+  **`errno = 1` / `Operation not permitted` is EPERM**, and
+  `tools/sidecar-error-detail-test` pins exactly that marker
   (`let deniedMarker = mode == .posix ? "errno = 13" : "errno = 1,"`). Every link
   of C10 is now observed rather than inferred:
 
@@ -741,6 +760,23 @@ the claims are widened*, not as release advice.
   3. the code falls back to the derived sibling path — the error names that exact
      path, `<source>.mac4dstem.h5` beside the cube;
   4. **that read is refused by the sandbox** — EPERM, 09:34:27.
+
+  **The step-4 inference stated correctly, because the first version of it was
+  affirming the consequent** (Gate D, 2026-08-19). The fixture establishes
+  *sandbox denial ⇒ EPERM*, not the converse; calling EPERM "the sandbox
+  signature" claims a biconditional nobody proved. What licenses the conclusion
+  is that EPERM is a kernel MAC-policy refusal and every other MAC policy was
+  excluded **on this path, individually**: no SIP, no TCC location, no ACLs
+  (`ls -le` clean on both sidecars), no `uchg`/`schg` flags, mode 644 owned by
+  the user (which would give EACCES anyway), and not HDF5's lock path — the
+  message is libhdf5's `open(2)` format string with `o_flags = 0`, not `unable to
+  lock file`. Quarantine was the one real confound and is also excluded: both
+  sidecars carry `com.apple.quarantine 0082;…;mac4DSTEM`, but the *source* cube
+  carries `0083;…;Safari` and **was read successfully in the same directory at
+  the same instant** — which also kills every folder-, volume- and mount-level
+  explanation at once. With those gone the sandbox is the only MAC policy left.
+  That is a sound argument; "EPERM means sandbox" is not, and the difference
+  matters the next time someone sees EPERM somewhere else.
 
   It also confirms the `fileExists` / `H5Fopen` asymmetry the hypothesis rested
   on: the sidecar was *found* (the code reached `H5Fopen` and named the file) and
@@ -754,6 +790,20 @@ the claims are widened*, not as release advice.
   permitted"* they would have ruled the sandbox **out**, which is the wrong
   answer. The refutation on 2026-08-19 changed the outcome of the very experiment
   the fixture existed to support.
+
+  **The 09:34:27 sidecar no longer exists, and the record has to say so.**
+  `References/training_dataset/sim_Au_data_all_binned.mac4dstem.h5` now has
+  btime == mtime == **2026-08-19 09:35:21**, 54 seconds after the denial, 2.69 MB
+  — a newly written file, almost certainly the save the pre-registration asked
+  for. Three consequences, none of them optional to record (Gate D, 2026-08-19):
+  (a) the artefact the denial was observed against is gone, so that exact
+  experiment is **not reproducible** — the log line above is now the whole of the
+  evidence; (b) a bookmark for that dataset very likely exists under the current
+  identifier, so C10's link 2 is **false for `sim_Au` going forward** and the
+  only clean un-bookmarked reproducer left is `downsample_Si_SiGe_exp.h5` (its
+  sidecar untouched since 2026-08-07, 6.38 MB); (c) the 2026-08-14 sim_Au session
+  may have been overwritten — one of the two artefacts C10's plist evidence names,
+  and one of the two candidates for the fabricated-provenance question below.
 
   **S1's fix is therefore unblocked under Gate D**, and the diagnosis it may land
   on is: `recordedLoadSpecification` (`AppState.swift:1416-1431`) reads the
