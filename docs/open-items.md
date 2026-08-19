@@ -1069,6 +1069,20 @@ or it spends the one resource Track B is expensive in — a person's attention.
   S7 if it is treated as error honesty; either way it is small, and the
   path-list wall is worth truncating for every error of this shape, not only
   this one.
+
+  **Hit a SECOND time the same day, 2026-08-19 11:2x, and that is the argument
+  for its priority.** The release owner — who designed the format — was
+  deliberately driving Track B row F1.3h, was told in writing to open the cube,
+  and still opened `downsample_Si_SiGe_exp.mac4dstem.h5` instead of
+  `downsample_Si_SiGe_exp.h5`. The open panel offers both because the sidecar is
+  a `.h5`, and the two sort adjacently under near-identical names. If the person
+  who invented the convention picks wrong twice in one afternoon, a colleague
+  receiving the pair will too, and the app's answer is a 30-line path dump. It
+  also cost a Track B attempt, which is the scarcest resource this project has.
+  **Two cheap parts, either of which alone would have prevented both incidents:**
+  recognise `mac4dstem_session_schema` on the open path and say what the file is,
+  and give sidecars a distinguishing extension or exclude them from the open
+  panel's default filter.
 - **The configurator never says what a detector crop COSTS, and it will let you
   crop the direct beam off the detector without a word.** Found by the release
   owner driving the build, 2026-08-19 — his question was "why is cropping in
