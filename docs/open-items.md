@@ -1096,6 +1096,45 @@ or it spends the one resource Track B is expensive in — a person's attention.
   and a real HDF5 write, and the difference was a missing CALL, not wrong logic.
   Track B caught what the suite structurally cannot — worth remembering the next
   time the visual pass looks expensive.
+- **Once a sidecar grant exists there is no way to rename or relocate it — the
+  save panel never appears again.** `writableSessionSidecarURL`
+  (`Support/ResultExport.swift`) returns the granted URL immediately and only
+  falls through to `NSSavePanel` when there is no grant. **The logic is
+  pre-existing and unchanged by S1** — but before S1 no bookmark ever resolved,
+  so the panel appeared on every save. Now grants resolve, so for any dataset
+  whose sidecar has been saved once, it never appears again. **Third instance of
+  the same shape in one session** (with the warm-cache defect and the
+  InspectorPanels label): dormant code that arms itself the moment a grant
+  starts resolving.
+
+  Observed 2026-08-19 14:41, driving Track B F1.3i: three consecutive saves at
+  :27, :31 and :46, each logging *"Saved calibration →
+  downsample_Si_SiGe_exp.mac4dstem.h5"*, no panel, no opportunity to change the
+  name.
+
+  **Consequences, in order of how much they cost:**
+  1. **A misplaced sidecar is permanently misplaced.**
+     `calibrationData_bullseyeProbe.mac4dstem.h5` currently sits on the Desktop
+     rather than beside its cube; there is no longer any way to move it back
+     through the app. That directly undercuts release claim 3 — the sharing unit
+     is *the cube plus the sidecar beside it*, and the app can strand the second
+     half somewhere else with no way home.
+  2. **It blocks Track B row F1.3i by construction** — that row asks the owner to
+     rename the companion, which cannot be done. The row's *substance* was closed
+     by unit test instead
+     (`SessionSidecarLocatorTests.testTheInspectorLabelForARenamedSidecarNamesTheFileTheAppReads`,
+     verified by breaking `location`), leaving only "does the SwiftUI view read
+     that property" unverified — one line, checked by reading.
+  3. Saving a copy elsewhere, or splitting a session into two companions, is
+     impossible.
+
+  **Shape of the fix, for whoever takes it:** a *Save Session Sidecar As…* item
+  beside the two existing save commands, or a **Change…** control next to the
+  sidecar name in the inspector's *Saved session sidecar* row — the place the
+  user is already looking at the filename. Either re-offers the panel and calls
+  `sessionSidecar.adopt` + `remember` with the new URL, which the seam already
+  supports. **→ S4**, with the other two sidecar items; they are one coherent
+  piece of work about the companion file's identity.
 - **Opening a `.mac4dstem.h5` sidecar directly dumps a 60-line wall of tried
   paths and never says what the file actually is.** Hit by the release owner on
   2026-08-19 while looking for the saved session — a completely reasonable thing

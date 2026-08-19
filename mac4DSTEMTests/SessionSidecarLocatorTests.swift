@@ -312,6 +312,39 @@ final class SessionSidecarLocatorTests: XCTestCase {
                      + "to ignore the warning that matters")
     }
 
+    /// **The renamed-sidecar label, closed from the keyboard after Track B
+    /// could not drive it.** Gate D found that `UI/InspectorPanels.swift`
+    /// derived the sidecar path itself, so once a grant resolved to a companion
+    /// the user had renamed, the inspector named a file the app was not reading.
+    /// F1.3i was queued to check it on screen and turned out to be **undrivable**
+    /// — once a grant exists the save panel never appears again, so there is no
+    /// way to rename anything (its own finding, in docs/open-items.md).
+    ///
+    /// So this pins the value the view renders:
+    /// `appState.sessionSidecar.location(for: descriptor).lastPathComponent`,
+    /// which is exactly the expression at `InspectorPanels.swift:107-108`.
+    /// Breaking `location(forSourcePath:)` to ignore the grant fails it.
+    ///
+    /// **The residual, stated rather than glossed:** that the SwiftUI view reads
+    /// this property rather than deriving its own path again is verified by
+    /// reading one line, not by this test. A revert there would pass. That is
+    /// the limit of what the unit target can reach for a view, and it is why the
+    /// row was queued for a human in the first place.
+    func testTheInspectorLabelForARenamedSidecarNamesTheFileTheAppReads() {
+        let state = AppState()
+        let cube = descriptor(path: "/tmp/mac4dstem-tests/downsample_Si_SiGe_exp.h5")
+        let renamed = URL(fileURLWithPath: "/tmp/mac4dstem-tests/crop-test.mac4dstem.h5")
+
+        state.sessionSidecar.adopt(renamed, for: cube)
+
+        XCTAssertEqual(
+            state.sessionSidecar.location(for: cube).lastPathComponent,
+            "crop-test.mac4dstem.h5",
+            "the inspector must name the companion the app actually reads. Naming the "
+            + "derived sibling instead would be a plausible wrong answer, because that "
+            + "file usually still exists on disk carrying an older session")
+    }
+
     func testACorruptSidecarIsNotReportedAsASandboxDenial() {
         let corrupt = "HDF5 failed while opening the session sidecar — HDF5 reported: "
             + "file signature not found"
