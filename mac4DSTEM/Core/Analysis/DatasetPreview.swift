@@ -73,7 +73,10 @@ nonisolated struct DatasetPreview: Sendable {
     }
 }
 
-enum DatasetPreviewBuilder {
+// `nonisolated`: pure sampling math called from detached read contexts; under
+// MainActor default isolation the un-annotated enum isolated its own statics
+// away from its callers. // v2 S3
+nonisolated enum DatasetPreviewBuilder {
 
     /// Roughly how many bytes the preview may read. 64 MB is a fraction of a
     /// second on local storage at the throughputs measured 2026-08-17

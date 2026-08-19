@@ -193,16 +193,19 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     ///
     /// Returns nil when the rule cannot answer, which today is the normal case:
     /// `ResidencyAdmission.measuredWorkingSetFraction` is deliberately nil until
-    /// the threshold is measured on a second machine, so `.automatic` streams
-    /// and the honest answer is "not decided" rather than a guess.
+    /// the threshold is measured on a second machine, and the honest answer is
+    /// "not decided" rather than a guess. This is the one caller that still
+    /// consults the measured threshold now that `.automatic` is dropped
+    /// (v2 S3) — the question "would this fit?" is exactly the admission
+    /// question, whoever asks it.
     func fitsResident(workingSetSize: UInt64, maximumBufferLength: Int) -> Bool? {
         guard let view, let fraction = ResidencyAdmission.measuredWorkingSetFraction
         else { return nil }
-        return ResidencyAdmission.shouldAdmit(
-            .automatic, descriptor: view.descriptor,
-            workingSetSize: workingSetSize,
-            maximumBufferLength: maximumBufferLength,
-            fraction: fraction
+        let descriptor = view.descriptor
+        let bytes = descriptor.byteCountAsFloat32
+        guard descriptor.is4D, bytes > 0, bytes <= maximumBufferLength else { return false }
+        return ResidencyAdmission.admits(
+            descriptor, workingSetSize: workingSetSize, fraction: fraction
         )
     }
 }

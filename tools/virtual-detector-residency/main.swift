@@ -133,35 +133,32 @@ do {
     guard !ResidencyAdmission.admits(huge, workingSetSize: eightGB, fraction: 0.4) else {
         fail("4 GB cube must NOT fit 40% of an 8 GB working set")
     }
-    // The shipped default: .automatic streams while the threshold is unmeasured.
+    // The threshold stays unmeasured, and since `.automatic` was dropped
+    // (v2 S3) nothing resolves against it — but `admits` above is the contract
+    // a returning `.automatic` re-enters, so the constant staying nil is still
+    // the recorded fact this harness pins.
     guard ResidencyAdmission.measuredWorkingSetFraction == nil else {
         fail("""
              measuredWorkingSetFraction is set — if the residency sweep has now \
-             been run, update this harness to assert the measured value and its \
-             boundary instead of asserting that it is unmeasured.
+             been run and `.automatic` is returning (docs/v2-release.md §3), \
+             update this harness to assert the measured value and its boundary \
+             instead of asserting that it is unmeasured.
              """)
     }
-    guard !ResidencyAdmission.shouldAdmit(
-        .automatic, descriptor: d, workingSetSize: eightGB, maximumBufferLength: .max
-    ) else { fail(".automatic must stream while the threshold is unmeasured") }
     guard ResidencyAdmission.shouldAdmit(
-        .resident, descriptor: d, workingSetSize: 1,
-        maximumBufferLength: .max, fraction: nil
+        .resident, descriptor: d, maximumBufferLength: .max
     ) else { fail("an explicit .resident request must be honoured without a threshold") }
     guard !ResidencyAdmission.shouldAdmit(
-        .streamed, descriptor: d, workingSetSize: eightGB,
-        maximumBufferLength: .max, fraction: 0.9
+        .streamed, descriptor: d, maximumBufferLength: .max
     ) else { fail(".streamed must never admit") }
     // .resident bypasses the THRESHOLD but not the device's buffer limit. It
     // used to bypass both, on the grounds that an explicit caller "takes
     // responsibility" — for a limit the repo never consulted anywhere.
     guard !ResidencyAdmission.shouldAdmit(
-        .resident, descriptor: d, workingSetSize: eightGB,
-        maximumBufferLength: d.byteCountAsFloat32 - 1, fraction: nil
+        .resident, descriptor: d, maximumBufferLength: d.byteCountAsFloat32 - 1
     ) else { fail(".resident admitted a cube larger than the device's maxBufferLength") }
     guard ResidencyAdmission.shouldAdmit(
-        .resident, descriptor: d, workingSetSize: eightGB,
-        maximumBufferLength: d.byteCountAsFloat32, fraction: nil
+        .resident, descriptor: d, maximumBufferLength: d.byteCountAsFloat32
     ) else { fail(".resident refused a cube exactly at maxBufferLength") }
     pass("admission rule — working-set fraction, float32 sizing, buffer-length clamp")
 }

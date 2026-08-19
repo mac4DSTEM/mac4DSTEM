@@ -11,11 +11,11 @@ import XCTest
 /// the Performance panel, and — worse — would be believed later when someone
 /// asks why two machines disagree about a number.
 ///
-/// These force `.resident` rather than relying on `.automatic`. The development
-/// machine is an 8 GB M3 MacBook Air whose Metal working set cannot hold either
-/// real cube, and `.automatic` streams anyway while the admission threshold is
-/// unmeasured — so an admission-gated test would assert nothing while appearing
-/// to pass. Same seam, same reason, as `tools/virtual-detector-residency`.
+/// These force `.resident` — the only mode that holds a cube since `.automatic`
+/// was dropped (v2 S3). The development machine is an 8 GB M3 MacBook Air whose
+/// Metal working set cannot hold either real cube, so an admission-gated test
+/// would assert nothing while appearing to pass. Same seam, same reason, as
+/// `tools/virtual-detector-residency`.
 @MainActor
 final class DatasetResidencyTests: XCTestCase {
 
@@ -109,20 +109,24 @@ final class DatasetResidencyTests: XCTestCase {
                       "A refused preload reported progress: \(recorded.values)")
     }
 
-    /// `.automatic` is the shipped default and must stream until the residency
-    /// threshold is measured — `docs/load-pipeline-plan.md` L2.3 forbids
-    /// choosing it by reasoning. If the sweep has since run, this test is the
-    /// one that should be rewritten to assert the measured value.
-    func testAutomaticStreamsWhileTheThresholdIsUnmeasured() async throws {
+    /// `.streamed` is the shipped default and must stay one: holding a cube
+    /// takes an explicit `.resident` request. `.automatic` was dropped for v2
+    /// (owner decision 2026-08-18) because its threshold is unmeasurable on
+    /// one machine — `docs/load-pipeline-plan.md` L2.3 forbids choosing it by
+    /// reasoning. If the second-machine sweep has since run and `.automatic`
+    /// has returned, this is the test to rewrite around the measured value.
+    func testTheShippedDefaultStreamsAndAPreloadUnderItIsRefused() async throws {
         let (data, _) = try await demoArray()
         let residency = DatasetResidency()
 
-        XCTAssertEqual(residency.mode, .automatic, "The shipped default changed")
+        XCTAssertEqual(residency.mode, .streamed, "The shipped default changed")
         XCTAssertNil(ResidencyAdmission.measuredWorkingSetFraction,
-                     "A measured threshold exists now — update this test to assert it")
+                     "A measured threshold exists now — reconsider whether "
+                     + "`.automatic` should return (docs/v2-release.md §3)")
 
         let held = await residency.preload(data) { _ in }
-        XCTAssertFalse(held, ".automatic admitted a cube with no measured threshold")
+        XCTAssertFalse(held, "The default mode admitted a cube; only an "
+                       + "explicit .resident request may do that")
         XCTAssertFalse(residency.isResident)
     }
 
@@ -156,7 +160,8 @@ final class DatasetResidencyTests: XCTestCase {
                        "Residency survived a dataset replacement and would be "
                        + "reported for a cube that is no longer open")
         XCTAssertEqual(residency.byteCount, 0)
-        XCTAssertEqual(residency.mode, .automatic)
+        XCTAssertEqual(residency.mode, .streamed,
+                       "reset() must also forget the previous dataset's request")
     }
 
     // MARK: Reentrancy — a preload suspends, and things happen in the gaps

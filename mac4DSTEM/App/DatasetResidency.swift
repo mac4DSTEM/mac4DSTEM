@@ -27,10 +27,11 @@ import Foundation
 @Observable
 final class DatasetResidency {
 
-    /// What was asked for. `.automatic` is the shipped default and currently
-    /// resolves to streaming, because the admission threshold is not measured
-    /// yet — see `ResidencyAdmission.measuredWorkingSetFraction`.
-    private(set) var mode: Residency = .automatic
+    /// What was asked for. `.streamed` is the shipped default — `.automatic`
+    /// was dropped for v2 (owner decision 2026-08-18; it always streamed, so
+    /// behaviour is unchanged). See the `Residency` enum for the return
+    /// condition. // v2 S3
+    private(set) var mode: Residency = .streamed
 
     /// Whether a cube is actually held. Set only from the array's own answer,
     /// never from what was requested.
@@ -80,7 +81,7 @@ final class DatasetResidency {
     func reset() {
         generation &+= 1
         activePreload = nil
-        mode = .automatic
+        mode = .streamed
         isResident = false
         byteCount = 0
         preloadFraction = nil
@@ -121,9 +122,16 @@ final class DatasetResidency {
             if self.generation == generation { preloadFraction = nil }
         }
         do {
+            // `[weak self]` on BOTH closures — the shape `buildDatasetPreview`
+            // already uses. Weak only on the inner Task left the progress
+            // callback itself holding self strongly (#ImplicitStrongCapture),
+            // and weak only on the outer made the inner read a captured var
+            // from concurrent code (#SendableClosureCaptures, a Swift 6
+            // error). The inner capture list re-takes its own weak box at
+            // Task creation, which satisfies both. // v2 S3
             _ = try await data.makeResident(
                 maximumRows: maximumRows, cancellation: cancellation
-            ) { fraction in
+            ) { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self, self.activePreload == generation else { return }
                     // Clamp monotonic. These arrive through detached tasks whose

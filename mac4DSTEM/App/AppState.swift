@@ -182,21 +182,11 @@ final class AppState {
     let sessionSidecar = SessionSidecarLocator()
 
     var datasets: [DatasetDescriptor] = []
-    private(set) var recentDatasets: [RecentDataset] = WorkspaceRecoveryStore.recent()
 
-    /// Where each recent dataset lives, keyed by its path, said only as
-    /// precisely as it takes to tell same-named entries apart.
-    ///
-    /// Computed here rather than in the view body, and recomputed only when the
-    /// list changes: it is O(n²) in the number of recents (each entry compared
-    /// against its same-named siblings), which is nothing at n <= 8 but has no
-    /// business running on every redraw — #31 is the standing item about exactly
-    /// that pattern.
-    var recentDatasetLocations: [String: String] {
-        let paths = recentDatasets.map(\.id)
-        let labels = RecentDatasetLocation.labels(for: paths)
-        return Dictionary(uniqueKeysWithValues: zip(paths, labels))
-    }
+    /// The recents list and its location labels. S3's seam
+    /// (docs/development-process.md §7) — see `App/RecentDatasets.swift`.
+    /// Views read `recents.…`; no forwarding properties. // v2 S3
+    let recents = RecentDatasets()
     private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
@@ -1580,6 +1570,53 @@ final class AppState {
         }
     }
 
+    /// The promote control's action: reopen the open dataset at full extent.
+    /// UI entry — the work is `promoteToFullExtent()` below.
+    func promoteToFullExtentControl() {
+        Task { await promoteToFullExtent() }
+    }
+
+    /// Reopen the same source, whole. Promotion is *removing* the load
+    /// specification — `.fullExtent` is the identity — never re-deriving
+    /// anything from the reduced data (docs/v2-release.md §1, commitment 2).
+    ///
+    /// Deliberately NOT `openFileAsync`: that path re-applies the sidecar's
+    /// recorded specification, which is exactly the crop being promoted away.
+    /// The reader and the security scope are the ones the rehearsal already
+    /// holds, so this is `commitPendingLoad`'s shape with the one
+    /// specification the configurator never needs to validate.
+    ///
+    /// What the reopened dataset shows is decided by machinery that already
+    /// exists: `activate` re-references calibration into the full-extent view,
+    /// and a session result restored from the sidecar is labelled with the
+    /// view it was computed on when that differs (L6 item 3). Cancelling
+    /// unwinds to the welcome screen like any cancelled open — the rehearsal
+    /// view is a specification, not state worth half-restoring.
+    ///
+    /// Internal rather than private so the WIRING can be tested — the S1
+    /// lesson: a test that cannot reach the call site pins the pure decision
+    /// and not the path the app takes. // v2 S3
+    func promoteToFullExtent() async {
+        guard let reader, let source = datasets.first, source.is4D,
+              !loadedView.isFullExtent else { return }
+        beginDatasetLoading("Reopening \(source.fileName) at full extent…")
+        await activate(
+            descriptor: source, reader: reader,
+            specification: .fullExtent,
+            runInitialAnalysis: false
+        )
+        if datasetLoadWasCancelled || !hasDataset {
+            await discardPartialLoad()
+            finishDatasetLoading()
+            return
+        }
+        await runCurrentAnalysis()
+        if datasetLoadWasCancelled {
+            await discardPartialLoad()
+        }
+        finishDatasetLoading()
+    }
+
     /// Walk away without loading. Releases the file access the pending open
     /// took, so a cancelled configuration leaves nothing held — and, as with a
     /// cancelled load, is not remembered.
@@ -1636,7 +1673,14 @@ final class AppState {
     /// Deterministic in-memory dataset shared by UI automation, repeatable
     /// design walkthroughs, and the welcome screen's Try Demo Data path —
     /// every workspace works without a file and nothing on disk is touched.
-    func openDemoFixture(calibrated: Bool = true) async {
+    ///
+    /// `specification` exists for tests that need a *reduced* view without a
+    /// file on disk (the promote wiring, v2 S3). The app's own callers pass
+    /// nothing and open the demo whole.
+    func openDemoFixture(
+        calibrated: Bool = true,
+        specification: LoadSpecification = .fullExtent
+    ) async {
         let source = DemoFourDDataSource(includesCalibration: calibrated)
         beginDatasetLoading("Opening demo dataset…")
         defer {
@@ -1648,7 +1692,8 @@ final class AppState {
             reader = source
             datasets = [descriptor]
             openURL = nil
-            await activate(descriptor: descriptor, reader: source)
+            await activate(descriptor: descriptor, reader: source,
+                           specification: specification)
             finishDatasetLoading()
             acomDisplay = .ipfZ
             statusText = "Demo ready — follow Prepare → Image → Map (Bragg, then Strain) → Results; each task lists anything it still needs"
@@ -1664,23 +1709,21 @@ final class AppState {
             if resolved.stale { refreshStoredBookmark(for: resolved.url, id: recent.id) }
             openFile(url: resolved.url)
         } catch {
-            recentDatasets.removeAll { $0.id == recent.id }
-            WorkspaceRecoveryStore.saveRecent(recentDatasets)
+            recents.remove(id: recent.id)
             present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
         }
     }
 
     func reopenLastDataset() {
         guard let recoveryRecord,
-              let recent = recentDatasets.first(where: { $0.id == recoveryRecord.datasetID }) else {
+              let recent = recents.entry(withID: recoveryRecord.datasetID) else {
             present(SimpleError("No recoverable dataset is available.")); return
         }
         openRecent(recent)
     }
 
     func removeRecent(_ recent: RecentDataset) {
-        recentDatasets.removeAll { $0.id == recent.id }
-        WorkspaceRecoveryStore.saveRecent(recentDatasets)
+        recents.remove(id: recent.id)
         if recoveryRecord?.datasetID == recent.id {
             recoveryRecord = nil
             WorkspaceRecoveryStore.clearRecovery()
@@ -1691,12 +1734,8 @@ final class AppState {
         do {
             let bookmark = try WorkspaceRecoveryStore.bookmark(for: url)
             let id = url.standardizedFileURL.path
-            let entry = RecentDataset(id: id, displayName: url.lastPathComponent,
-                                      bookmark: bookmark, lastOpened: Date())
-            recentDatasets.removeAll { $0.id == id }
-            recentDatasets.insert(entry, at: 0)
-            if recentDatasets.count > 8 { recentDatasets.removeLast(recentDatasets.count - 8) }
-            WorkspaceRecoveryStore.saveRecent(recentDatasets)
+            recents.remember(RecentDataset(id: id, displayName: url.lastPathComponent,
+                                           bookmark: bookmark, lastOpened: Date()))
             recoveryRecord = DatasetRecoveryRecord(
                 datasetID: id, bookmark: bookmark,
                 selectedX: selectedScan.x, selectedY: selectedScan.y,
@@ -1709,10 +1748,8 @@ final class AppState {
     }
 
     private func refreshStoredBookmark(for url: URL, id: String) {
-        guard let bookmark = try? WorkspaceRecoveryStore.bookmark(for: url),
-              let index = recentDatasets.firstIndex(where: { $0.id == id }) else { return }
-        recentDatasets[index].bookmark = bookmark
-        WorkspaceRecoveryStore.saveRecent(recentDatasets)
+        guard let bookmark = try? WorkspaceRecoveryStore.bookmark(for: url) else { return }
+        recents.updateBookmark(bookmark, forID: id)
     }
 
     private func persistRecoveryPosition() {
@@ -2086,7 +2123,7 @@ final class AppState {
         }
         loadedView.publish(
             view: view,
-            pushdown: await reader.loadPushdown(for: view),
+            pushdown: reader.loadPushdown(for: view),
             outcome: reReferenced
         )
 
@@ -2243,7 +2280,8 @@ final class AppState {
     /// into the buffer that happens before it.
     ///
     /// Does nothing visible when the cube is not admitted, which today is
-    /// always — `.automatic` streams until the residency threshold is measured.
+    /// always — the shipped default request is `.streamed` (`.automatic` was
+    /// dropped, v2 S3), and nothing in the UI requests `.resident` yet.
     private func preloadResidentCube() async {
         guard let fourD, let d = descriptor else { return }
         let totalPatterns = d.ry * d.rx

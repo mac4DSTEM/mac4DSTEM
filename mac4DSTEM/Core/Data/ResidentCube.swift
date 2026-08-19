@@ -27,14 +27,21 @@ import Foundation
 import Metal
 
 /// How the compute layer gets its pixels.
-enum Residency: String, Sendable, CaseIterable {
+///
+/// There is no `.automatic` case any more. It resolved "resident when the cube
+/// fits the *measured* admission budget" — and the budget was never measured,
+/// because the threshold is unmeasurable on one machine (the checked-in cubes
+/// top out at ratio 0.19, where residency still pays 106x, so no knee exists
+/// in the data). It was dropped for v2 (owner decision 2026-08-18) rather than
+/// tuned: behaviour is unchanged, since it always streamed. It can return when
+/// a second-machine sweep (`tools/residency-sweep`) makes a threshold
+/// defensible — the mechanism it needs, `ResidencyAdmission.admits` and
+/// `measuredWorkingSetFraction`, stays below. // v2 S3
+nonisolated enum Residency: String, Sendable, CaseIterable {
     /// Bounded scan-row tiles. Always available, always tested (invariant I6).
     case streamed
     /// One MTLBuffer holding the whole cube as float32.
     case resident
-    /// Resident when the cube fits the *measured* admission budget, else
-    /// streamed. See `ResidencyAdmission.measuredWorkingSetFraction`.
-    case automatic
 }
 
 /// The whole cube as one float32 buffer, with the descriptor it was built from.
@@ -90,12 +97,16 @@ nonisolated struct ResidentCube: @unchecked Sendable {
 }
 
 /// The admission rule: may this cube be held resident on this machine?
-enum ResidencyAdmission {
+nonisolated enum ResidencyAdmission {
 
     /// The fraction of the device's **own** recommended Metal working set that
     /// a resident cube may occupy.
     ///
-    /// **`nil` means not yet measured, and `.automatic` therefore streams.**
+    /// **`nil` means not yet measured.** Nothing consults this while
+    /// `.automatic` is dropped (v2 S3); it stays, with `admits` below, as the
+    /// contract a returning `.automatic` re-enters — and
+    /// `LoadConfiguration.fitsResident` starts answering the open screen's
+    /// "will this fit?" the moment it becomes non-nil.
     ///
     /// This is deliberately not a number anyone reasoned their way to.
     /// Getting it wrong does not throw — Metal pages, and the app becomes
@@ -144,12 +155,15 @@ enum ResidencyAdmission {
     /// anywhere — and a shared-storage allocation past it either fails or, on
     /// Apple Silicon, succeeds virtually and thrashes on first touch. Refusing
     /// is the only honest answer, and the caller degrades to streaming (I6).
+    ///
+    /// The `workingSetSize`/`fraction` parameters left with `.automatic`
+    /// (v2 S3): they fed only its threshold branch, and a dead parameter is a
+    /// claim this function checks something it does not. A returning
+    /// `.automatic` re-adds them and calls `admits`.
     static func shouldAdmit(
         _ requested: Residency,
         descriptor: DatasetDescriptor,
-        workingSetSize: UInt64,
-        maximumBufferLength: Int,
-        fraction: Double? = measuredWorkingSetFraction
+        maximumBufferLength: Int
     ) -> Bool {
         guard descriptor.is4D else { return false }
         let bytes = descriptor.byteCountAsFloat32
@@ -159,9 +173,6 @@ enum ResidencyAdmission {
             return false
         case .resident:
             return true
-        case .automatic:
-            guard let fraction else { return false }
-            return admits(descriptor, workingSetSize: workingSetSize, fraction: fraction)
         }
     }
 }

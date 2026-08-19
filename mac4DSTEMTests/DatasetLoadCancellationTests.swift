@@ -50,10 +50,10 @@ final class DatasetLoadCancellationTests: XCTestCase {
         // demo path does not accidentally write a Recents entry pointing at
         // nothing.
         let state = AppState()
-        let before = state.recentDatasets.count
+        let before = state.recents.entries.count
         await state.openDemoFixture()
         XCTAssertTrue(state.hasDataset)
-        XCTAssertEqual(state.recentDatasets.count, before)
+        XCTAssertEqual(state.recents.entries.count, before)
     }
 
     // MARK: - The property that matters
@@ -69,7 +69,7 @@ final class DatasetLoadCancellationTests: XCTestCase {
         XCTAssertTrue(state.hasDataset, "precondition: something to discard")
         XCTAssertNotNil(state.descriptor)
 
-        let recentsBefore = state.recentDatasets.map(\.id)
+        let recentsBefore = state.recents.entries.map(\.id)
         await state.discardPartialLoad()
 
         // The welcome screen is driven by `hasDataset`, which is
@@ -81,7 +81,7 @@ final class DatasetLoadCancellationTests: XCTestCase {
         XCTAssertNil(state.datasetPreview)
 
         // A discarded load is not remembered — the release owner's call.
-        XCTAssertEqual(state.recentDatasets.map(\.id), recentsBefore)
+        XCTAssertEqual(state.recents.entries.map(\.id), recentsBefore)
 
         // NOT ASSERTED HERE, deliberately: `residency.isResident`,
         // `residency.byteCount` and `loadedView.isFullExtent`. All three are

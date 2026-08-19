@@ -87,14 +87,14 @@ struct WelcomeWorkspace: View {
                     .accessibilityIdentifier("welcome.localStorageNotice")
                 }
 
-                if !appState.recentDatasets.isEmpty {
-                    // Computed once per redraw of this card rather than once per
-                    // row, so the O(n^2) disambiguation does not run five times.
-                    let locations = appState.recentDatasetLocations
+                if !appState.recents.entries.isEmpty {
+                    // Stored on the seam and recomputed only on mutation, so
+                    // the O(n^2) disambiguation never runs during a redraw.
+                    let locations = appState.recents.locationLabels
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Recent datasets")
                             .font(.headline)
-                        ForEach(appState.recentDatasets.prefix(5)) { recent in
+                        ForEach(appState.recents.entries.prefix(5)) { recent in
                             HStack(spacing: 10) {
                                 Button { appState.openRecent(recent) } label: {
                                     HStack {
@@ -138,7 +138,7 @@ struct WelcomeWorkspace: View {
                                 .help("Remove from Recents")
                                 .accessibilityLabel("Remove \(recent.displayName) from Recents")
                             }
-                            if recent.id != appState.recentDatasets.prefix(5).last?.id {
+                            if recent.id != appState.recents.entries.prefix(5).last?.id {
                                 Divider()
                             }
                         }

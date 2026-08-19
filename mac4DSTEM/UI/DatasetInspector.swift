@@ -84,6 +84,30 @@ struct DatasetInspector: View {
                         row("Source shape", appState.loadedView.sourceShapeString, mono: true)
                         row("Loaded shape", descriptor.shapeString, mono: true)
                         row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
+
+                        // THE PROMOTE CONTROL (v2 S3). It lives in this
+                        // section because the section exists exactly when
+                        // promotion is meaningful: a reduced view is loaded.
+                        // Promotion is a reopen of the SOURCE at full extent —
+                        // removing the specification, never re-deriving from
+                        // reduced data — so the cost stated is the whole
+                        // cube's, which is the number the user is deciding
+                        // about.
+                        VStack(alignment: .leading, spacing: 4) {
+                            Button("Reopen at Full Extent") {
+                                appState.promoteToFullExtentControl()
+                            }
+                            .disabled(appState.isLoadingDataset)
+                            .accessibilityIdentifier("inspector.promoteToFullExtent")
+                            if let source = appState.loadView?.source {
+                                Text("Reloads the whole cube — "
+                                     + byteString(source.byteCountAsFloat32)
+                                     + " as float32. Analyses re-run against the full dataset.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
                     }
                 }
 

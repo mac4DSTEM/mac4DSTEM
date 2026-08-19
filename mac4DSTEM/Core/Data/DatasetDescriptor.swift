@@ -1,6 +1,11 @@
 import Foundation
 
-struct DatasetDescriptor: Identifiable, Hashable {
+// `nonisolated` on the TYPE, so the synthesized `Hashable`/`Equatable`
+// conformances are too: the app builds with MainActor default isolation, and
+// an isolated conformance used from the readers' nonisolated contexts is an
+// error in the Swift 6 language mode. The per-member markers predate this and
+// stay — they are what the members mean. // v2 S3
+nonisolated struct DatasetDescriptor: Identifiable, Hashable {
     let id = UUID()
 
     /// Absolute path to the .h5 file on disk.

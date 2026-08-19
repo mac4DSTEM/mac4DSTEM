@@ -107,7 +107,7 @@ private struct DatasetCommands: Commands {
     }
 
     private func recoveryName(_ recovery: DatasetRecoveryRecord) -> String {
-        appState?.recentDatasets.first(where: { $0.id == recovery.datasetID })?.displayName
+        appState?.recents.entry(withID: recovery.datasetID)?.displayName
             ?? "Last Dataset"
     }
 

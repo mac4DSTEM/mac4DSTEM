@@ -7,8 +7,10 @@
 //  WHY THIS EXISTS AT ALL. Getting `f` wrong does not throw. Metal pages, and
 //  the app becomes SLOWER than tiled while appearing to succeed — the worst
 //  regression class this app produces. So `f` is measured, never reasoned:
-//  `ResidencyAdmission.measuredWorkingSetFraction` stays nil, and `.automatic`
-//  streams, until a run of this tool says otherwise.
+//  `ResidencyAdmission.measuredWorkingSetFraction` stays nil until a run of
+//  this tool says otherwise. `.automatic` — the mode that consulted it — was
+//  dropped for v2 (owner decision 2026-08-18); this sweep, run on a second
+//  machine, is what could bring it back (docs/v2-release.md §3).
 //
 //  THE METHOD, and why one file is enough. A ratio is cube bytes ÷ working set,
 //  and the cube's byte count is a function of its scan extent — so truncating

@@ -175,14 +175,19 @@ Two things learned that are not obvious and cost time:
 - **`tools/bragg-spacing-probe/` gates nothing** and cannot: it needs a
   gitignored multi-gigabyte datacube. It stays a diagnostic. **`tools/residency-sweep/`
   (added 2026-08-17) has the same standing** for the same reason.
-- **The residency threshold is unmeasured, so residency is dormant.** L2's
-  mechanism ships behind `.automatic`, which streams until
-  `ResidencyAdmission.measuredWorkingSetFraction` is set — and it can only be set
-  from a sweep that reaches past ratio ~0.5. The three checked-in training cubes
-  top out at 0.19 on this machine (1.00 GB against a 5.33 GB working set), where
-  residency still pays 106x, so no knee exists in the data. **Needs a run of
-  `tools/residency-sweep/run.sh` on one of the release owner's large cubes
-  (≈7.46 GB / ≈4.25 GB), copied to local storage first.**
+- **The residency threshold is unmeasured; `.automatic` is DROPPED (v2 S3,
+  2026-08-19), not dormant.** The mode that consulted the threshold no longer
+  exists — the shipped default request is `.streamed`, holding a cube takes an
+  explicit `.resident` request, and behaviour is unchanged because `.automatic`
+  always streamed. The mechanism a returning `.automatic` needs is kept and
+  pinned: `ResidencyAdmission.admits`, `measuredWorkingSetFraction` (nil, by
+  decision — never set it), and `tools/residency-sweep/`. Why it cannot come
+  back yet: the threshold can only be set from a sweep past ratio ~0.5, and the
+  three checked-in training cubes top out at 0.19 on this machine (1.00 GB
+  against a 5.33 GB working set), where residency still pays 106x — no knee
+  exists in the data. **Post-v2, per the 2026-08-18 owner decision:** a
+  second-machine sweep re-opens `.automatic`; if two machines disagree, the
+  rule needs a second term, not a compromise value.
 - **The app has never run on the macOS version it claims to support.**
   `LSMinimumSystemVersion` is 14.0; every build, test run and manual session to
   date has been on macOS 27. Nothing between 14 and 26 has been exercised, and
@@ -305,6 +310,43 @@ the claims are widened*, not as release advice.
 
 ## Known, scoped, not blocking
 
+- **Carried findings from S3's Gate A review (2026-08-19)** — real, verified
+  against the tree, deliberately not fixed in-session; each names its owner:
+  - **The open unwind choreography exists in three copies** —
+    `openFileAsync`, `commitPendingLoad`, `promoteToFullExtent` each hand-roll
+    `begin → activate → cancelled/!hasDataset → discard+finish →
+    runCurrentAnalysis → cancelled → discard → [remember] → finish`, and the
+    ordering rules are documented in only one copy. Collapse into one shared
+    tail when any of the three is next touched. Includes two shared hazards,
+    both pre-existing shapes: a cancel landing between the last check and
+    `finishDatasetLoading` is silently swallowed (the load completes as a
+    success), and a second initiator's `beginDatasetLoading` (e.g. ⌘O during a
+    running load) replaces the shared `datasetLoadCancellation` token so
+    Cancel only cancels the newer load. S3 guarded promote's own entry
+    (`!isLoadingDataset`); the open-during-load direction remains. → **S18**,
+    or whichever session next edits an open path.
+  - **Promote and the recovery record disagree about frames.** A successful
+    promote never re-stamps `recoveryRecord`; `persistRecoveryPosition` then
+    writes full-extent scan coordinates that a relaunch clamps into the
+    sidecar-restored *crop* — a defensible pixel the user never chose. The fix
+    point is **S5** (promote updating the sidecar/recipe), where "what does
+    the sidecar say after a promote" is decided anyway.
+  - **Owner design question: should promote carry the scan position across?**
+    Today a successful promote lands on Prepare at (0,0) — inherited from the
+    2026-08-05 "reopens land on Prepare" decision. Promote is a continuation
+    gesture, and `specification.scanOffset` makes carrying the position
+    well-defined. Not asserted as a defect; queued for the owner at **TB1**
+    alongside F1.14.
+  - **Multi-window recents can lose updates** (pre-existing, surfaced by the
+    S3 extraction): each window's `AppState` holds its own `RecentDatasets`
+    snapshot over one `UserDefaults` key, so window B's save can clobber an
+    entry window A just persisted. Single-window use — the shipped reality —
+    is unaffected. Fix wants a shared instance or store-level merge; unclaimed.
+  - **`openRecent`'s failure path leaves `recoveryRecord` dangling**
+    (pre-existing asymmetry, faithfully carried by the extraction): a dead
+    recent is removed from the list but the "Reopen" menu item survives and
+    dead-ends in "No recoverable dataset is available." Unclaimed, low.
+
 - **`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` is
   intermittent.** It failed on macOS 27 — uncalibrated Prepare measuring 933pt
   against 871pt of column, 62pt of overflow against a 60pt allowance — and
@@ -332,6 +374,8 @@ the claims are widened*, not as release advice.
   | 2026-08-19 ~09:00–10:00 | exit 0, twice | passed, twice |
   | 2026-08-19 ~11:00 | exit 65 | **failed, three times in a row** |
   | 2026-08-19, after freeing disk | exit 65, full `run-tests.sh unit` | **failed** (220 passed, 1 failed) |
+  | 2026-08-19 ~15:26 (S3 baseline; S1+S2 in tree) | exit 0 | passed (8.66 s) |
+  | 2026-08-19 ~16:00 (S3's changes in tree — new inspector control) | exit 0 | passed |
 
   **It flipped WITHIN A SINGLE DAY on an unchanged tree**, which is the sharpest
   observation yet: green twice in the morning, red three times two hours later,
@@ -632,8 +676,10 @@ before it is called a defect; recorded so it is not lost.
 to watch the L2 preload phase; `makeResident` refuses immediately because
 `ResidencyAdmission.measuredWorkingSetFraction` is `nil` by decision, so no such
 phase runs. The 4.25 GB cube was more than large enough — the row was wrong. It
-is struck from the checklist with the reason, and reinstated only when the
-threshold is measured. **The lesson is about writing checklists, not about
+is struck from the checklist with the reason, and reinstated only if
+`.automatic` returns post-v2 — the case itself was dropped in S3 (2026-08-19),
+so a measured threshold alone no longer re-arms the phase this row watched.
+**The lesson is about writing checklists, not about
 residency:** a Track B row must be checked against what the build actually does,
 or it spends the one resource Track B is expensive in — a person's attention.
 
@@ -998,25 +1044,24 @@ or it spends the one resource Track B is expensive in — a person's attention.
 
 ## Code hygiene
 
-- **Eight standing build-warning classes, two of them errors-in-waiting under
-  the Swift 6 language mode — surfaced 2026-08-18 by the first full rebuild
-  in weeks.** The actor-isolation class documented for `LoadSpecification`
-  (fixed in L3) persists at more sites: `ResidencyAdmission.shouldAdmit`
-  called from nonisolated contexts (`Core/Data/FourDArray.swift:213` —
-  flagged *"error in the Swift 6 language mode"* — and
-  `Core/Data/LoadConfiguration.swift:201`), `measuredWorkingSetFraction`
-  referenced nonisolated (`LoadConfiguration.swift:199`), `defaultByteBudget`
-  (`Core/Analysis/DatasetPreview.swift:114`), a MainActor-isolated
-  `Equatable` conformance on `DatasetDescriptor` (also a Swift-6-mode error),
-  a weak/strong capture mismatch (`App/DatasetResidency.swift:127`), and a
-  no-op `await` (`App/AppState.swift:2044`). **Why nobody saw them: warm
-  incremental builds re-emit nothing** — a raw `xcodebuild` run over the same
-  code the same day printed zero warnings, because nothing recompiled. Found
-  by the first `build_macos` through XcodeBuildMCP, which builds into its own
-  fresh workspace. Most sites are the residency-admission surface that **S3
-  touches anyway — take them as an S3 rider**; the `DatasetDescriptor`
-  conformance may be wider, check its call sites there too.
-- **22 `.fixedSize(horizontal: false, vertical: true)` sites remain in `UI/`**,
+- ~~Eight standing build-warning classes, two of them errors-in-waiting under
+  the Swift 6 language mode (surfaced 2026-08-18 by the first full rebuild in
+  weeks).~~ **All cleared by the S3 rider, 2026-08-19 — a fresh clean
+  `build_macos` now reports zero warnings.** The fixes, for the pattern they
+  set: `Residency`, `ResidencyAdmission`, `DatasetPreviewBuilder` and
+  `DatasetDescriptor` marked `nonisolated` (pure data/math types that MainActor
+  default isolation was isolating away from their nonisolated callers — the
+  `DatasetDescriptor` marker also fixes the synthesized `Equatable`/`Hashable`
+  conformance, the Swift-6-mode error); the no-op `await` removed
+  (`loadPushdown` is sync); and the `DatasetResidency` progress callback now
+  captures `[weak self]` on BOTH closures — weak only inside traded the
+  mismatch warning for a Swift-6-mode captured-var error, so the shape
+  `buildDatasetPreview` already used is the one that satisfies both. The
+  lesson stands: **warm incremental builds re-emit nothing**; only a clean
+  build can verify a warning claim either way.
+- **31 `.fixedSize(horizontal: false, vertical: true)` sites in `UI/`**
+  (measured 2026-08-19 by S3's review; an earlier claim of 22 had already
+  drifted — the count moves with every UI change, the *audit* is the item),
   including 4 in `TaskPrerequisiteChecklist` — the construct that caused #16.
   Safe today and covered by `SplitViewHeightTests`, but unaudited.
 - **A saved sidebar divider can restore below the declared minimum.** Observed

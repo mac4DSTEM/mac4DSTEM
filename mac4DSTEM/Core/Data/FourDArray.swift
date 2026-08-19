@@ -100,10 +100,11 @@ actor FourDArray {
     // MARK: - Residency
 
     private var residentCube: ResidentCube?
-    /// What the caller has asked for. `.automatic` is the shipped default and
-    /// currently resolves to streaming, because the admission threshold is not
-    /// measured yet — see `ResidencyAdmission.measuredWorkingSetFraction`.
-    private(set) var residencyRequest: Residency = .automatic
+    /// What the caller has asked for. `.streamed` is the shipped default —
+    /// `.automatic` was dropped for v2 (owner decision 2026-08-18); see the
+    /// `Residency` enum. Holding a cube takes an explicit `.resident`
+    /// request. // v2 S3
+    private(set) var residencyRequest: Residency = .streamed
 
     /// Which view of the source this array reads. `.fullExtent` unless this
     /// array was built from a cropped `LoadView`.
@@ -213,7 +214,6 @@ actor FourDArray {
         guard ResidencyAdmission.shouldAdmit(
             residencyRequest,
             descriptor: descriptor,
-            workingSetSize: MetalEngine.shared.device.recommendedMaxWorkingSetSize,
             maximumBufferLength: MetalEngine.shared.device.maxBufferLength
         ) else { return false }
 

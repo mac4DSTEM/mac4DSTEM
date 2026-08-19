@@ -514,8 +514,8 @@ func fullCube(
 
             // The same numbers must come back out of a resident buffer.
             //
-            // `.resident` is requested explicitly: `.automatic` streams while
-            // `ResidencyAdmission.measuredWorkingSetFraction` is nil, so leaving
+            // `.resident` is requested explicitly: the default request is
+            // `.streamed` (`.automatic` was dropped, v2 S3), so leaving
             // the default here would silently test the streaming path twice —
             // the exact way L2's first residency harness was green and wrong.
             await cropped.setResidencyRequest(.resident)
