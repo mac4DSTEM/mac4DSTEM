@@ -1047,6 +1047,32 @@ or it spends the one resource Track B is expensive in — a person's attention.
   is exhaustive `(lower, upper)` coverage **under a scan crop**, where the
   resident path and the reader's own crop offset compose. Found by Gate B when it
   refused to accept S2's stated justification for the case.
+- ~~**"Save Calibration to Session Sidecar" wrote the file but never persisted
+  the access grant.**~~ **FOUND BY TRACK B F1.3h AND FIXED, 2026-08-19.** The two
+  publish paths in `Support/ResultExport.swift` were indistinguishable to the
+  user and differed in exactly one thing: `saveCurrentResultToSessionSidecar`
+  called `storeSessionBookmark` after publishing, and
+  `saveCalibrationToSessionSidecar` did not. So saving a calibration granted
+  access for that launch only; on the next launch no bookmark resolved, the app
+  fell back to the derived sibling, and the sandbox refused it — the exact C10
+  failure, re-created by the save path itself.
+
+  **The sting: S1's own refusal message named the broken path as the remedy** —
+  *"Save the session once (File ▸ Save Calibration to Session Sidecar) and choose
+  that file, which grants access for future opens."* The app printed an
+  instruction that could not work, and the release owner followed it.
+
+  Observed cleanly: the sidecar written at 13:48:19 carries
+  `{"scanCrop":{"height":12,"width":32,"xOffset":24,"yOffset":8}}` — the crop
+  recorded correctly — and the reopen 17 seconds later was denied with
+  `errno = 1`. It also explains why 11:26 worked and 13:48 did not: the earlier
+  save went through the *result* path, which stored a bookmark.
+
+  Fixed by giving both paths one `rememberSidecarGrant` helper. **Not caught by
+  any automated test, and could not have been:** driving it needs `NSSavePanel`
+  and a real HDF5 write, and the difference was a missing CALL, not wrong logic.
+  Track B caught what the suite structurally cannot — worth remembering the next
+  time the visual pass looks expensive.
 - **Opening a `.mac4dstem.h5` sidecar directly dumps a 60-line wall of tried
   paths and never says what the file actually is.** Hit by the release owner on
   2026-08-19 while looking for the saved session — a completely reasonable thing

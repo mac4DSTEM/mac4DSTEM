@@ -86,6 +86,33 @@ extension AppState {
     /// dataset's bookmark resolved, every later dataset was handed that same
     /// sidecar. Both moved into `App/SessionSidecarLocator.swift`, which keys the
     /// cache by source path. // v2 S1
+    /// Persist the grant for a sidecar the app has just published.
+    ///
+    /// **Both publish paths must call this, and one of them did not.** Found by
+    /// Track B row F1.3h on 2026-08-19: `saveCalibrationToSessionSidecar` wrote
+    /// the file — crop and all — and never stored a bookmark, so the grant lived
+    /// exactly as long as the launch. Its sibling
+    /// `saveCurrentResultToSessionSidecar` had always stored one. The two paths
+    /// were indistinguishable to the user and differed only in that.
+    ///
+    /// Worse, the refusal S1 added tells the user to *"Save the session once
+    /// (File ▸ Save Calibration to Session Sidecar)… which grants access for
+    /// future opens"* — naming the one path that did not. The app printed a
+    /// remedy that could not work.
+    ///
+    /// Called only AFTER atomic publication: Foundation cannot bookmark a URL
+    /// that does not exist yet, which is why this is a separate step rather than
+    /// part of `writableSessionSidecarURL`. // v2 S1
+    private func rememberSidecarGrant(_ url: URL, for descriptor: DatasetDescriptor, what: String) {
+        do {
+            try sessionSidecar.remember(url, for: descriptor)
+        } catch {
+            statusText = "Saved \(what); choose the sidecar again after relaunch"
+            errorMessage = "\(what) was saved to \(url.lastPathComponent), but mac4DSTEM could not "
+                + "remember access for a future launch: \(error.localizedDescription)"
+        }
+    }
+
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
         if let granted = sessionSidecar.grant(for: descriptor) { return granted }
         let suggested = BraggVectorEMDWriter.sessionSidecarURL(
@@ -593,15 +620,10 @@ extension AppState {
                     guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
                     self.sessionInventory = inventory
                 }
-                do {
-                    // The writer atomically published the target, so it now
-                    // exists and can safely back a persistent security bookmark.
-                    try self.sessionSidecar.remember(url, for: descriptor)
-                    self.statusText = "Saved \(metadata.displayName) → \(url.lastPathComponent)"
-                } catch {
-                    self.statusText = "Saved \(metadata.displayName); choose the sidecar again after relaunch"
-                    self.errorMessage = "The result was saved to \(url.lastPathComponent), but mac4DSTEM could not remember access for a future launch: \(error.localizedDescription)"
-                }
+                // The writer atomically published the target, so it now exists
+                // and can safely back a persistent security bookmark.
+                self.statusText = "Saved \(metadata.displayName) → \(url.lastPathComponent)"
+                self.rememberSidecarGrant(url, for: descriptor, what: metadata.displayName)
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }
                 self.statusText = "Session sidecar save cancelled"
@@ -894,6 +916,7 @@ extension AppState {
                     self.sessionInventory = inventory
                 }
                 self.statusText = "Saved calibration → \(url.lastPathComponent)"
+                self.rememberSidecarGrant(url, for: descriptor, what: "Calibration")
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }
                 self.statusText = "Session calibration save cancelled"
