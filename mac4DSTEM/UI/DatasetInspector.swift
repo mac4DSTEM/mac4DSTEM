@@ -281,7 +281,13 @@ struct DatasetInspector: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
             MetalImageView(
                 pixels: pixels, width: width, height: height,
-                contentVersion: pixels.count &+ width &* 31 &+ height,
+                // `datasetPreview` is written exactly once per open, so the
+                // dataset epoch IS this image's version — it changes precisely
+                // when the preview does, including a same-shape swap (the
+                // defect the old dims-only hash could not see), and it is O(1)
+                // in a sidebar body that re-evaluates on every AppState
+                // change. // v2 S4
+                contentVersion: appState.datasetEpoch,
                 colormap: colormap, zoom: 1, offset: .zero
             )
             .frame(height: 120)

@@ -27,6 +27,13 @@ enum H5Error: LocalizedError {
     case symbolMissing(String)
     case cannotOpenFile(String)
     case noDatasetFound([String])
+    /// The opened file is one of this app's own session sidecars — recognised
+    /// by its root schema attribute, which the open path never used to check.
+    /// The release owner hit the raw path-wall answer twice in one afternoon
+    /// (2026-08-19): the open panel offers both files of the sharing pair and
+    /// they sort adjacently under near-identical names, so this failure mode
+    /// is EXPECTED, not exotic — it deserves a sentence, not a dump. // v2 S4
+    case sessionSidecarOpened(sidecar: String, suggestedSource: String?)
     case datasetOpenFailed(String)
     case readFailed(String)
     case unsupportedRank(Int)
@@ -40,7 +47,27 @@ enum H5Error: LocalizedError {
         case .cannotOpenFile(let path):
             return "Could not open HDF5 file at \(path). Is it a valid .h5 file?"
         case .noDatasetFound(let paths):
-            return "No 4D or 3D dataset found. Tried paths:\n" + paths.joined(separator: "\n")
+            // Capped: the full wall (30+ probed paths on a real sidecar) buries
+            // the one sentence that matters. The first few say what was tried;
+            // the count says the search was thorough.
+            let shown = paths.prefix(8)
+            let remainder = paths.count - shown.count
+            let tail = remainder > 0 ? "\n… and \(remainder) more paths" : ""
+            return "No 4D or 3D dataset found. Tried paths:\n"
+                + shown.joined(separator: "\n") + tail
+        case .sessionSidecarOpened(let sidecar, let suggestedSource):
+            // `suggestedSource` is a STEM, never a filename: the sidecar
+            // naming rule strips any extension from the source, so asserting
+            // ".h5" here would send a .dm4 user hunting for a file that never
+            // existed (caught by Gate A before it shipped).
+            let first = "\(sidecar) is a mac4DSTEM session sidecar — the companion "
+                + "file that stores a session's calibration and results, not a dataset."
+            if let suggestedSource {
+                return first + " Open the dataset named “\(suggestedSource)” beside it "
+                    + "and the saved session loads with it automatically."
+            }
+            return first + " Open the dataset it was saved beside and the "
+                + "saved session loads with it automatically."
         case .datasetOpenFailed(let path):
             return "Failed to open dataset at HDF5 path \(path)."
         case .readFailed(let operation):
@@ -281,6 +308,26 @@ actor H5Reader: FourDDataSource {
             if let descriptor = try? describe(path: path), descriptor.is4D {
                 return descriptor
             }
+        }
+        // Before answering "no dataset", ask whether this is one of the app's
+        // own session sidecars: they contain no datacube BY DESIGN. The writer
+        // stamps the schema attribute on its ROOT GROUP, not the file root —
+        // the first version of this check read "/" and was caught by its own
+        // test; "/" is kept as a fallback so a future writer that stamps the
+        // file root is still recognised. Deliberately checked only AFTER the
+        // full search fails: a file that carries both the attribute and a real
+        // 4D dataset opens as data. The suggestion is the source's STEM, not a
+        // filename — the naming rule strips any extension, so the source may
+        // be .dm4, .emd, anything. // v2 S4
+        let attribute = SessionSidecarFormat.schemaAttribute
+        if readStringAttribute(attribute, onPath: "/" + SessionSidecarFormat.rootGroupName) != nil
+            || readStringAttribute(attribute, onPath: "/") != nil {
+            let name = URL(fileURLWithPath: filePath).lastPathComponent
+            let suffix = SessionSidecarFormat.nameSuffix
+            let suggested: String? = name.hasSuffix(suffix)
+                ? String(name.dropLast(suffix.count))
+                : nil
+            throw H5Error.sessionSidecarOpened(sidecar: name, suggestedSource: suggested)
         }
         throw H5Error.noDatasetFound(Self.candidatePaths + candidates)
     }

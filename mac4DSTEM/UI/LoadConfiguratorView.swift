@@ -41,7 +41,17 @@ struct LoadConfiguratorView: View {
             Divider()
             footer
         }
-        .frame(width: 720, height: 640)
+        // 900×760: sized so the standing content fits WITHOUT scrolling — the
+        // 720×640 sheet scrolled and clipped its own headers (open item,
+        // 2026-08-18). Honest limit: a FIXED height means that on a display
+        // shorter than ~790pt the sheet itself overflows and the footer (with
+        // the Load button and the refusal text) is what gets pushed off — the
+        // inner ScrollView cannot help with that, it only scrolls content
+        // *inside* the frame. Every supported Mac's built-in panel is taller;
+        // scaled external displays may not be. Recorded on Track B row F1.17;
+        // a content-driven sheet height is the real fix if it ever bites.
+        // // v2 S4
+        .frame(width: 900, height: 760)
     }
 
     // MARK: - Header
@@ -71,23 +81,42 @@ struct LoadConfiguratorView: View {
     /// choosing a detector crop.
     private var previews: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let preview = pending.preview {
+            if let preview = pending.preview,
+               let realSpace = pending.realSpaceDisplay,
+               let maxDP = pending.maxDPDisplay {
                 Text(preview.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("configurator.previewSummary")
+                // One closure for BOTH detector panes: they set the same crop,
+                // and two hand-written copies of the drag→crop conversion is
+                // how the two panes end up drawing the same rectangle while
+                // setting different ones.
+                let setDetectorCrop: (DragRectangle) -> Void = { rectangle in
+                    pending.configuration.detectorCrop = LoadConfiguration.detectorCrop(
+                        from: rectangle, source: pending.source
+                    )
+                }
                 HStack(alignment: .top, spacing: 16) {
                     cropPane(
                         title: "Scan — real space",
-                        subtitle: "Sets which scan positions load",
-                        pixels: preview.realSpace.normalized(),
-                        width: preview.realSpace.width,
-                        height: preview.realSpace.height,
+                        subtitle: "Drag to crop · click to pick a pattern",
+                        image: realSpace,
                         colormap: .gray,
                         identifier: "configurator.scanCrop",
                         crop: pending.configuration.scanCrop,
                         cropSpaceWidth: pending.source.rx,
-                        cropSpaceHeight: pending.source.ry
+                        cropSpaceHeight: pending.source.ry,
+                        onTap: { imageX, imageY in
+                            // The preview owns its own stride, so IT does the
+                            // sampled-grid → source conversion — the view
+                            // hand-rolling the multiplication is the F1.10
+                            // defect class.
+                            let position = preview.sourcePosition(
+                                forSampledX: Int(imageX), sampledY: Int(imageY)
+                            )
+                            pending.fetchSingleDP(ry: position.ry, rx: position.rx)
+                        }
                     ) { rectangle in
                         pending.configuration.scanCrop = LoadConfiguration.scanCrop(
                             from: rectangle,
@@ -96,25 +125,55 @@ struct LoadConfiguratorView: View {
                         )
                     }
                     cropPane(
-                        title: "Diffraction — detector",
+                        title: "Diffraction — max",
                         subtitle: "Sets which detector pixels load",
-                        pixels: preview.maxDP.normalized(useLog: true),
-                        width: preview.maxDP.qx,
-                        height: preview.maxDP.qy,
+                        image: maxDP,
                         colormap: .viridis,
                         identifier: "configurator.detectorCrop",
                         crop: pending.configuration.detectorCrop,
                         cropSpaceWidth: pending.source.qx,
-                        cropSpaceHeight: pending.source.qy
-                    ) { rectangle in
-                        pending.configuration.detectorCrop = LoadConfiguration.detectorCrop(
-                            from: rectangle, source: pending.source
+                        cropSpaceHeight: pending.source.qy,
+                        onDrag: setDetectorCrop
+                    )
+                    // One REAL pattern beside the max (owner request,
+                    // 2026-08-18). Same crop binding as the max pane — both
+                    // draw the same detector rectangle, and a drag on either
+                    // sets it.
+                    if let singleDP = pending.singleDPDisplay {
+                        cropPane(
+                            title: "Diffraction — single position",
+                            subtitle: singlePatternCaption,
+                            image: singleDP,
+                            colormap: .viridis,
+                            identifier: "configurator.singleDP",
+                            crop: pending.configuration.detectorCrop,
+                            cropSpaceWidth: pending.source.qx,
+                            cropSpaceHeight: pending.source.qy,
+                            onDrag: setDetectorCrop
                         )
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Diffraction — single position")
+                                .font(.callout.weight(.medium))
+                            Text(singlePatternCaption)
+                                .font(.caption2).foregroundStyle(.secondary)
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(.quaternary)
+                                .frame(height: 220)
+                                .accessibilityIdentifier("configurator.singleDPPlaceholder")
+                        }
                     }
                 }
-                Text("Both images are samples, not results — they will not match a virtual image pixel for pixel.")
+                // Scoped per pane on purpose: the sampling caveat is TRUE for
+                // the strided panes and FALSE for the single-position pane,
+                // which shows the recorded pattern exactly — a blanket "all
+                // images are samples" would teach the user to distrust the one
+                // pane that is exact (invariant I4 works because the label is
+                // accurate, not merely present).
+                Text("Real-space and max are built from the sampled positions only — they will not match a virtual image pixel for pixel. The single-position pane is the recorded pattern at that scan position, exactly.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("No preview available for this dataset. The sizes below are still exact.")
                     .font(.caption)
@@ -123,21 +182,34 @@ struct LoadConfiguratorView: View {
         }
     }
 
+    /// The single-DP pane's caption: names the position the pattern came from,
+    /// because an unlabelled "some pattern" invites comparing it with the wrong
+    /// scan position and filing the difference as a bug.
+    private var singlePatternCaption: String {
+        if let position = pending.singleDPPosition {
+            return "Pattern at scan (\(position.ry), \(position.rx)) — click the scan preview to change"
+        }
+        return "Click the scan preview to pick a position"
+    }
+
     /// One draggable preview. The rectangle is reported in the image's own pixel
     /// coordinates; converting those to a crop is `LoadConfiguration`'s job, and
     /// the two conversions differ — the real-space preview is on the sampled
     /// grid and the diffraction preview is not.
+    ///
+    /// `onTap`, when given, receives a plain click in the same image-pixel
+    /// coordinates. A click below `DragGesture`'s minimum distance never starts
+    /// a drag, so the two gestures do not compete.
     private func cropPane(
         title: String,
         subtitle: String,
-        pixels: [Float],
-        width: Int,
-        height: Int,
+        image: PendingLoad.DisplayImage,
         colormap: ColormapKind,
         identifier: String,
         crop: AxisCrop?,
         cropSpaceWidth: Int,
         cropSpaceHeight: Int,
+        onTap: ((Double, Double) -> Void)? = nil,
         onDrag: @escaping (DragRectangle) -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -147,8 +219,12 @@ struct LoadConfiguratorView: View {
                 let size = geometry.size
                 ZStack(alignment: .topLeading) {
                     MetalImageView(
-                        pixels: pixels, width: width, height: height,
-                        contentVersion: pixels.count &+ width &* 31 &+ height,
+                        pixels: image.pixels, width: image.width, height: image.height,
+                        // The version was computed once, when the pixels were
+                        // produced (`PendingLoad.DisplayImage`) — value- and
+                        // dimension-dependent, and O(1) here, so a drag tick
+                        // costs no per-frame hashing. // v2 S4
+                        contentVersion: image.version,
                         colormap: colormap, zoom: 1, offset: .zero
                     )
                     if let crop {
@@ -172,11 +248,22 @@ struct LoadConfiguratorView: View {
                     }
                 }
                 .contentShape(Rectangle())
+                .onTapGesture { location in
+                    guard let onTap, size.width > 0, size.height > 0 else { return }
+                    onTap(Double(location.x) * Double(image.width) / Double(size.width),
+                          Double(location.y) * Double(image.height) / Double(size.height))
+                }
                 .gesture(
-                    DragGesture(minimumDistance: 2)
+                    // 8pt, not 2: with a tap gesture on the same pane, a click
+                    // whose cursor drifts a few points during the press must
+                    // stay a CLICK — at 2pt it became a drag, silently setting
+                    // a one-preview-pixel crop while the pattern pick appeared
+                    // to do nothing. 8pt is still far below any deliberate
+                    // crop drag. // v2 S4
+                    DragGesture(minimumDistance: 8)
                         .onChanged { value in
                             onDrag(rectangle(from: value, in: size,
-                                             width: width, height: height))
+                                             width: image.width, height: image.height))
                         }
                 )
             }
@@ -212,6 +299,15 @@ struct LoadConfiguratorView: View {
     private var binPicker: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Diffraction binning").font(.callout.weight(.medium))
+            // Crop and bin are siblings on this panel but they trade against
+            // DIFFERENT things (release owner's question, 2026-08-19: "why is
+            // cropping in there at all, instead of only binning?"). Both
+            // mirror py4DSTEM (crop_data_diffraction / bin_data_diffraction);
+            // the panel owes the user the difference. // v2 S4
+            Text("A detector crop and a bin reduce different things. A crop cuts the angular range — scattering outside the box is never loaded, so crop when the disks you need sit in a small part of the detector. Binning keeps the full range but coarsens it, which costs sub-pixel disk-position precision — the quantity strain mapping is fitted from.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             Picker("Diffraction binning", selection: Binding(
                 get: { pending.configuration.detectorBin },
                 set: { pending.configuration.detectorBin = $0 }
@@ -247,6 +343,12 @@ struct LoadConfiguratorView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Size").font(.callout.weight(.medium))
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+                // The cube's dimensions, stated in the dialog (owner request,
+                // 2026-08-18). Axis-labelled in the inspector's own
+                // convention, so this does not become a third ordering variant
+                // of the two-orders display already under S18.
+                sizeRow("Scan (Ry x Rx)", "\(pending.source.ry) x \(pending.source.rx)")
+                sizeRow("Detector (Qy x Qx)", "\(pending.source.qy) x \(pending.source.qx)")
                 if let fileBytes = pending.fileByteCount {
                     sizeRow("File on disk", SystemMonitor.byteString(fileBytes))
                 }
@@ -284,7 +386,13 @@ struct LoadConfiguratorView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        HStack {
+        // One read of each predicate per body pass: the refusal the user sees
+        // and the disabled state of the button must come from the SAME
+        // evaluation, or a future dependency that mutates mid-pass shows a
+        // refusal beside an enabled Load. (`commitPendingLoad` re-checks the
+        // gate model-side regardless.) // v2 S4
+        let beamRefusal = pending.directBeamRefusal
+        return HStack {
             Button("Reset") {
                 pending.configuration.scanCrop = nil
                 pending.configuration.detectorCrop = nil
@@ -292,18 +400,22 @@ struct LoadConfiguratorView: View {
             }
             .disabled(pending.configuration.specification.isFullExtent)
             .accessibilityIdentifier("configurator.reset")
-            if let refusal = pending.refusalReason {
+            if let refusal = pending.refusalReason ?? beamRefusal {
                 Text(refusal)
                     .font(.caption)
                     .foregroundStyle(.orange)
-                    .lineLimit(2)
+                    .lineLimit(3)
+                    .accessibilityIdentifier("configurator.refusal")
             }
             Spacer()
             Button("Cancel") { appState.discardPendingLoad() }
                 .keyboardShortcut(.cancelAction)
             Button("Load") { appState.commitPendingLoad() }
                 .keyboardShortcut(.defaultAction)
-                .disabled(pending.view == nil)
+                // The beam guard REFUSES the load, it does not warn: on a
+                // first open there is no calibration for the re-reference
+                // refusal to fire on, so this is the only gate. // v2 S4
+                .disabled(pending.view == nil || beamRefusal != nil)
                 .accessibilityIdentifier("configurator.load")
         }
         .padding(20)

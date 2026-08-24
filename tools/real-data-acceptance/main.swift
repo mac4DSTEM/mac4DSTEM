@@ -64,6 +64,19 @@ func fail(_ message: String) -> Never {
                     Data("SKIP: \(name) has no 4D datacube (session sidecar or results-only file)\n".utf8)
                 )
                 continue
+            } catch H5Error.sessionSidecarOpened {
+                // v2 S4: the reader now RECOGNISES its own sidecars before
+                // falling through to `noDatasetFound`, so the sidecars this
+                // glob was always going to meet arrive as this case. Same
+                // input-not-error rule as #43 above; without this catch the
+                // throw would trap `main` (exit 133) after real cubes had
+                // already printed PASS — the exact regression #43 fixed.
+                let name = (path as NSString).lastPathComponent
+                skipped.append(name)
+                FileHandle.standardError.write(
+                    Data("SKIP: \(name) is a mac4DSTEM session sidecar\n".utf8)
+                )
+                continue
             }
             guard descriptor.ry > 0, descriptor.rx > 0, descriptor.qy > 0, descriptor.qx > 0 else {
                 fail("\(path): empty discovered dimensions")

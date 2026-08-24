@@ -21,6 +21,26 @@ import MetalKit
 
 struct MetalImageView: NSViewRepresentable {
 
+    /// A version derived from the pixel VALUES *and* the dimensions, for call
+    /// sites whose pixels can change without their shape changing (the old
+    /// dims-only hashes let a same-shape swap keep a stale texture — invisible
+    /// until a view shows a *chosen* image, which the single-DP picker is).
+    /// Dimensions are folded in because `updateContentIfNeeded` short-circuits
+    /// on the version BEFORE it looks at width/height — identical pixels at
+    /// transposed dimensions must still re-upload.
+    ///
+    /// O(n) FNV-1a — call it where the pixels are PRODUCED (once per image,
+    /// e.g. `PendingLoad.DisplayImage`), never per body evaluation. // v2 S4
+    nonisolated static func contentVersion(of pixels: [Float], width: Int, height: Int) -> Int {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        hash = (hash ^ UInt64(truncatingIfNeeded: width)) &* 0x0000_0100_0000_01b3
+        hash = (hash ^ UInt64(truncatingIfNeeded: height)) &* 0x0000_0100_0000_01b3
+        for value in pixels {
+            hash = (hash ^ UInt64(value.bitPattern)) &* 0x0000_0100_0000_01b3
+        }
+        return Int(bitPattern: UInt(truncatingIfNeeded: hash))
+    }
+
     var pixels: [Float]      // normalized [0,1], row-major
     var width: Int
     var height: Int

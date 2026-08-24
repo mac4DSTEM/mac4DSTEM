@@ -106,7 +106,22 @@ struct ProductsView: View {
                 // the same "arms itself the moment one does" shape as the
                 // warm-cache defect. Found by Gate D. // v2 S1
                 let sidecar = appState.sessionSidecar.location(for: descriptor)
-                treeRow(icon: "externaldrive", text: sidecar.lastPathComponent, indent: 0)
+                HStack(spacing: 4) {
+                    treeRow(icon: "externaldrive", text: sidecar.lastPathComponent, indent: 0)
+                    // Rename/relocate, offered where the user is already
+                    // looking at the filename — once a grant exists the save
+                    // panel never reappears on its own (F1.3i). // v2 S4
+                    Button("Change…") { appState.saveSessionSidecarAs() }
+                        .buttonStyle(.borderless)
+                        .font(.caption2)
+                        // Never truncated: `treeRow`'s filename text yields
+                        // (it middle-truncates) — a clipped action label in a
+                        // narrow inspector column reads as debris.
+                        .fixedSize()
+                        .disabled(appState.isBusy)
+                        .help("Choose a new name or location for the session sidecar. Existing saved results are copied across.")
+                        .accessibilityIdentifier("inspector.changeSidecar")
+                }
                 if appState.sessionInventory.hasCalibration {
                     treeRow(icon: "scope", text: "Calibration", indent: 1)
                 }

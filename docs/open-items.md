@@ -26,8 +26,12 @@ file:
   **S2**.~~ **Both closed 2026-08-19** — see `docs/v2-release.md` §9 for what
   shipped, and
   [`docs/archive/s1-sidecar-under-the-sandbox.md`](archive/s1-sidecar-under-the-sandbox.md)
-  for S1's investigation. Four items they turned up are still open and listed
-  below; three of them are sidecar-identity questions headed for **S4**.
+  for S1's investigation. ~~Three sidecar-identity questions headed for
+  **S4**~~ — **closed by S4, 2026-08-24** (rename/relocate, sidecar
+  recognition on the open path; the extension/open-panel-filter half is an
+  owner question queued for TB1). Still open from S1: the concurrent-HDF5
+  crash, the fabricated `?? .fullExtent` provenance, and the status-line
+  path leak, all below.
 - The Track B §F1 queue → **TB1** (after S1, S3–S6).
 - Strain frame → **S8**; iDPC gate, iDPC zero-fill, disk-detection error
   attribution and the burned-in caption truncation → **S7**; **#18** → **S8**.
@@ -440,12 +444,13 @@ the claims are widened*, not as release advice.
   save/reopen) cannot pass today and will fail silently** — the app reopens at
   full extent and says nothing. Driving F1.3f is therefore both the L6 acceptance
   row and a second discriminator for the sidecar question.
-- **Two more `contentVersion` staleness hazards, same class, both latent.**
+- **One remaining `contentVersion` staleness hazard.**
   `UI/ProductWorkspaceViews.swift:719` passes a constant `0`, so the comparison
   panel uploads its texture once and never again — swapping products of the same
-  shape would show stale pixels. And both preview call sites hash dimensions
-  only (see the configurator entry below). Neither bites today; both bite the
-  moment a view shows a *chosen* image rather than a fixed one.
+  shape would show stale pixels. Still latent; owned by **S18**. *(The other two
+  instances of this class — both preview call sites hashing dimensions only —
+  were fixed by S4 on 2026-08-24 with `MetalImageView.contentVersion(of:)`,
+  which S18 can reuse here.)*
 - **The configurator's two preview panes draw nothing.** Found 2026-08-18 on
   `calibrationData_circularProbe.h5` (1.96 GB) and again on
   `downsample_Si_SiGe_exp.h5`. Everything *around* the images is correct — the
@@ -486,20 +491,22 @@ the claims are widened*, not as release advice.
   and dimensions passes happily. It is Track B rows F1.3b/F1.3c and nothing
   else, so neither may be re-scored until someone looks.
 
-  Adjacent, same code, land together: the 720×640 sheet **scrolls and clips its
-  own headers** (`LoadConfiguratorView.swift:44`); and the sampling status line
-  is determinate on one open (*"Sampling a preview · row 1 of 36"*) and
-  indeterminate on another (*"Sampling a preview…"*) because
-  `openFileForConfiguration` omits the `progress:` argument
-  (`AppState.swift:1487-1490`) that the normal path passes
-  (`AppState.swift:2172-2180`) — by L1's rule the configurator path is the wrong
-  one. **Also requested, and not in any plan:** a single real diffraction pattern
-  beside the mean/max, and the cube's real-space dimensions stated in the dialog.
-  **If that single-DP picker lands, `contentVersion` must become value-dependent
-  first** — it is a hash of dimensions only at `LoadConfiguratorView.swift:142`
-  and `DatasetInspector.swift:230`, so swapping to a different DP of the same
-  shape would not re-upload the texture (`MetalImageView.swift:87`) and the
-  picker would appear to do nothing.
+  ~~Adjacent, same code, land together: the sheet clipping, the missing
+  `progress:` argument, the single-DP picker + dims, and the `contentVersion`
+  value-dependence.~~ **ALL FOUR LANDED 2026-08-24 (S4).**
+  `MetalImageView.contentVersion(of:)` (FNV-1a over pixel values) replaced the
+  dimensions-only hashes at both preview call sites *first*, pinned by
+  `mac4DSTEMTests/ImageContentVersionTests` (observed failing under a
+  dims-only mutation); the configurator gained a third **single position**
+  pane fed by a click on the real-space preview (stride-multiplied to source
+  coordinates; caption names the position; default is the brightest sampled
+  position), with the new state held by `PendingLoad`, not `AppState`;
+  `openFileForConfiguration` now passes the same determinate `progress:`
+  handler the plain open uses; the dialog states Scan (Ry x Rx) and
+  Detector (Qy x Qx) in the inspector's axis convention; and the sheet is
+  900×760, sized so the standing content fits without scrolling. **Unverified
+  on screen** — Track B rows **F1.16/F1.17/F1.19**, plus the standing F1.3b
+  re-drive for the panes themselves.
 
   **The previews are also aspect-stretched** — `MetalImageView` maps the image to
   normalized view UVs (`Shaders/Colormaps.metal:44,49-51`), so a 106×153 scan is
@@ -799,86 +806,97 @@ or it spends the one resource Track B is expensive in — a person's attention.
   the defect was a missing call, not wrong logic) — the narrative is in
   [`docs/archive/s1-sidecar-under-the-sandbox.md`](archive/s1-sidecar-under-the-sandbox.md).
 
-- **Once a sidecar grant exists there is no way to rename or relocate it — the
-  save panel never appears again.** `writableSessionSidecarURL`
-  (`Support/ResultExport.swift`) returns the granted URL immediately and only
-  falls through to `NSSavePanel` when there is no grant. **The logic is
-  pre-existing and unchanged by S1** — but before S1 no bookmark ever resolved,
-  so the panel appeared on every save. Now grants resolve, so for any dataset
-  whose sidecar has been saved once, it never appears again. **Third instance of
-  the same shape in one session** (with the warm-cache defect and the
-  InspectorPanels label): dormant code that arms itself the moment a grant
-  starts resolving.
+- ~~**Once a sidecar grant exists there is no way to rename or relocate it.**~~
+  **FIXED 2026-08-24 (S4).** Both affordances the item asked for landed:
+  **File ▸ Save Session Sidecar As…** and a **Change…** button beside the
+  sidecar name in the inspector. The panel opens prefilled with the current
+  location; an existing sidecar is **copied** to the new URL (never moved —
+  the original is deliberately not deleted), the seam is retargeted via
+  `adopt` + `remember`, and a failed copy reports which half happened rather
+  than pretending either way. File half pinned by
+  `mac4DSTEMTests/SidecarRelocationTests` (6 tests, each observed failing
+  under a discriminating mutation). **Gate A caught a destructive defect in
+  the first version:** the same-file guard compared path strings, so a
+  case-only rename on default APFS (or a symlink alias) would have
+  remove-then-copy **deleted the only sidecar**; the guard now compares
+  `fileResourceIdentifier`, pinned by a symlink-alias test that reproduced
+  the deletion against the mutation. Gate A also added the inventory
+  re-read after a retarget (so a failed copy shows an empty section rather
+  than the old file's results under the new name). **Known residual, stated
+  in the status message:** a retarget made before any save exists has no
+  file to bookmark, so it survives only until the next dataset change — the
+  first real save persists it. The stranded
+  `calibrationData_bullseyeProbe.mac4dstem.h5` on the Desktop can now be
+  brought home by the owner through the new menu item. **Unverified on
+  screen:** Track B rows **F1.20** (the affordance) and the resurrected
+  F1.3i check behind it.
+- ~~**Opening a `.mac4dstem.h5` sidecar directly dumps a 60-line wall of tried
+  paths and never says what the file actually is.**~~ **FIXED 2026-08-24 (S4),
+  with two recorded limits and one open owner question.**
+  `H5Reader.discoverPrimaryDataset` now checks `mac4dstem_session_schema`
+  before answering "no dataset" and throws a dedicated
+  `H5Error.sessionSidecarOpened` — one sentence naming the file as a session
+  sidecar and suggesting the sibling (`<stem>.h5`) when the name follows the
+  convention; and `noDatasetFound`'s path wall is capped at 8 + "and N more"
+  for every other file of that shape. Pinned by
+  `mac4DSTEMTests/SidecarRecognitionTests` (fixtures written by the
+  production writer; the recognition test failed against the first, wrong
+  implementation — the attribute lives on `braggvectors_root`, not the file
+  root — and again under a revert of the writer fix below).
+  **Found while fixing it:** the writer only stamped the schema attribute
+  when result nodes existed, so a **calibration-only sidecar carried no
+  identity marker at all** — exactly the 8.9 kB file the owner double-clicked
+  twice. The stamp is now unconditional (nothing reads it to mean "has
+  results"; the inventory reads `mac4dstem_result_nodes`).
+  **Gate A refuted three parts of the first version, all fixed in-session:**
+  (a) the suggested sibling asserted a `.h5` extension the naming rule never
+  guaranteed — a `.dm4` user would have been sent hunting for a file that
+  never existed; the suggestion is now the extensionless stem. (b) the
+  format literals were duplicated reader/writer "because nine harnesses
+  compile the reader without the writer" — true of a new file, not of
+  `Core/Data/HDF5Types.swift`, already on every relevant source list, where
+  `SessionSidecarFormat` now holds them once. (c) the new error case would
+  have **re-broken `real-data-acceptance` exactly the way #43 did** (its
+  catch matched only `noDatasetFound`, and the checked-in training sidecars
+  carry the attribute); the harness now skips the new case under the same
+  input-not-error rule. **Limit:** sidecars written before S4 with
+  calibration only remain unrecognisable — they get the capped list, not
+  the sentence. **Still open, owner decision (TB1):** a distinguishing
+  extension for sidecars, or excluding `*.mac4dstem.h5` from the open
+  panel's default filter — a naming-convention change S4 had no mandate to
+  make. Track B row **F1.21**.
+- ~~**The configurator never says what a detector crop COSTS, and it will let
+  you crop the direct beam off the detector without a word.**~~
+  **FIXED 2026-08-24 (S4).** The panel now carries the crop-vs-bin cost caption
+  (crop cuts angular *range*; bin coarsens angular *sampling*, costing the
+  sub-pixel disk positions strain is fitted from), and a detector crop that
+  excludes the sampled preview's brightest region **disables Load** with a
+  refusal naming the beam's position and the crop's extent —
+  `PendingLoad.directBeamRefusal`, pinned by
+  `mac4DSTEMTests/PendingLoadConfiguratorTests` (gate-inversion,
+  finite-filter and flat-guard mutations each observed failing). **Gate A
+  strengthened it three ways before it landed:** the gate consults
+  `LoadView.readDetectorCrop` — the rectangle actually read, bin trim
+  included — never the requested crop (a beam in the trimmed remainder, or
+  dropped by a bin's edge trim with no crop at all, is now refused; both
+  cases pinned); the gate is enforced in `commitPendingLoad` itself, not
+  only by the Load button's `.disabled`; and a **flat** mean pattern
+  (vacuum/flat-field) counts as no evidence rather than a beam at (0,0),
+  which would have blocked every crop of a calibration cube. **Stated
+  limit, not hidden:** the beam proxy is the mean pattern's brightest
+  pixel, so a beam-stopped or hot-pixel acquisition could still be refused
+  a legitimate crop with no override. **Owner question, queued for TB1:**
+  should such a refusal offer a "load anyway"? (S7's policy-owner seam is
+  also where this gate and `CalibrationReReference`'s should become one
+  policy with two severities.) Track B rows **F1.17/F1.18**; F1.7 is
+  superseded by F1.18 (the invalidation it watched for is now unreachable
+  from the configurator). The original analysis table follows for the
+  reasoning record.
 
-  Observed 2026-08-19 14:41, driving Track B F1.3i: three consecutive saves at
-  :27, :31 and :46, each logging *"Saved calibration →
-  downsample_Si_SiGe_exp.mac4dstem.h5"*, no panel, no opportunity to change the
-  name.
-
-  **Consequences, in order of how much they cost:**
-  1. **A misplaced sidecar is permanently misplaced.**
-     `calibrationData_bullseyeProbe.mac4dstem.h5` currently sits on the Desktop
-     rather than beside its cube; there is no longer any way to move it back
-     through the app. That directly undercuts release claim 3 — the sharing unit
-     is *the cube plus the sidecar beside it*, and the app can strand the second
-     half somewhere else with no way home.
-  2. **It blocks Track B row F1.3i by construction** — that row asks the owner to
-     rename the companion, which cannot be done. The row's *substance* was closed
-     by unit test instead
-     (`SessionSidecarLocatorTests.testTheInspectorLabelForARenamedSidecarNamesTheFileTheAppReads`,
-     verified by breaking `location`), leaving only "does the SwiftUI view read
-     that property" unverified — one line, checked by reading.
-  3. Saving a copy elsewhere, or splitting a session into two companions, is
-     impossible.
-
-  **Shape of the fix, for whoever takes it:** a *Save Session Sidecar As…* item
-  beside the two existing save commands, or a **Change…** control next to the
-  sidecar name in the inspector's *Saved session sidecar* row — the place the
-  user is already looking at the filename. Either re-offers the panel and calls
-  `sessionSidecar.adopt` + `remember` with the new URL, which the seam already
-  supports. **→ S4**, with the other two sidecar items; they are one coherent
-  piece of work about the companion file's identity.
-- **Opening a `.mac4dstem.h5` sidecar directly dumps a 60-line wall of tried
-  paths and never says what the file actually is.** Hit by the release owner on
-  2026-08-19 while looking for the saved session — a completely reasonable thing
-  to try, and the app's answer is *"No 4D or 3D dataset found. Tried paths:"*
-  followed by every probed path in the sidecar
-  (`/braggvectors_root/result_strain_exx_42329a38/metadatabundle/mac4dstem/…`),
-  rendered into both a modal **and** the background welcome screen at once.
-
-  The app has everything it needs to answer properly: the sidecar carries
-  `mac4dstem_session_schema` (`BraggVectorEMDWriter.swift:151`), which nothing on
-  the open path ever checks. Recognising it should produce one sentence —
-  *"This is a mac4DSTEM session sidecar, not a dataset. Open
-  `sim_Au_data_all_binned.h5` beside it and this session loads with it."* — and
-  ideally offer to open that sibling.
-
-  **This is on the critical path for release claim 3, "hand a colleague the
-  recipe."** The sharing unit is two files, the colleague receives both, and the
-  one named after the session is the wrong one to double-click. The failure mode
-  is therefore *expected*, not exotic. **→ S4** with the configurator work, or
-  S7 if it is treated as error honesty; either way it is small, and the
-  path-list wall is worth truncating for every error of this shape, not only
-  this one.
-
-  **Hit a SECOND time the same day, 2026-08-19 11:2x, and that is the argument
-  for its priority.** The release owner — who designed the format — was
-  deliberately driving Track B row F1.3h, was told in writing to open the cube,
-  and still opened `downsample_Si_SiGe_exp.mac4dstem.h5` instead of
-  `downsample_Si_SiGe_exp.h5`. The open panel offers both because the sidecar is
-  a `.h5`, and the two sort adjacently under near-identical names. If the person
-  who invented the convention picks wrong twice in one afternoon, a colleague
-  receiving the pair will too, and the app's answer is a 30-line path dump. It
-  also cost a Track B attempt, which is the scarcest resource this project has.
-  **Two cheap parts, either of which alone would have prevented both incidents:**
-  recognise `mac4dstem_session_schema` on the open path and say what the file is,
-  and give sidecars a distinguishing extension or exclude them from the open
-  panel's default filter.
-- **The configurator never says what a detector crop COSTS, and it will let you
-  crop the direct beam off the detector without a word.** Found by the release
-  owner driving the build, 2026-08-19 — his question was "why is cropping in
-  there at all, instead of only 2x/4x binning?", which is the right question to
-  ask of a control that explains neither of its two reductions.
+  Found by the release owner driving the build, 2026-08-19 — his question was
+  "why is cropping in there at all, instead of only 2x/4x binning?", which is
+  the right question to ask of a control that explains neither of its two
+  reductions.
 
   Both reductions are correct and both mirror py4DSTEM
   (`crop_data_diffraction` / `bin_data_diffraction`,

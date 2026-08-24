@@ -72,6 +72,13 @@ private struct DatasetCommands: Commands {
                 appState?.saveCalibrationToSessionSidecar()
             }
             .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+            // The way to rename or relocate the companion once a grant exists.
+            // Without it the save panel never reappears and a misplaced
+            // sidecar is misplaced forever (Track B F1.3i, 2026-08-19). // v2 S4
+            Button("Save Session Sidecar As…") {
+                appState?.saveSessionSidecarAs()
+            }
+            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
         }
         CommandGroup(replacing: .sidebar) {
             Button(appState?.showToolsPane == true ? "Hide Tools" : "Show Tools") {

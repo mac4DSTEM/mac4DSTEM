@@ -147,8 +147,10 @@ nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
 /// atomic rename of a completed sibling temporary file, so cancellation or an
 /// HDF5 failure cannot leave a partial result at the requested destination.
 nonisolated enum BraggVectorEMDWriter {
-    private static let rootPath = "/braggvectors_root"
-    private static let schemaAttribute = "mac4dstem_session_schema"
+    private static let rootPath = "/" + SessionSidecarFormat.rootGroupName
+    // Shared with H5Reader's sidecar recognition via SessionSidecarFormat
+    // (Core/Data/HDF5Types.swift) — one constant, both sides. // v2 S4
+    private static let schemaAttribute = SessionSidecarFormat.schemaAttribute
     private static let resultNodesAttribute = "mac4dstem_result_nodes"
     private static let currentResultAttribute = "mac4dstem_current_result"
     /// The `LoadSpecification` a session's products were computed under, as
@@ -272,7 +274,7 @@ nonisolated enum BraggVectorEMDWriter {
         let source = URL(fileURLWithPath: path)
         let stem = source.deletingPathExtension().lastPathComponent
         return source.deletingLastPathComponent()
-            .appendingPathComponent(stem + ".mac4dstem.h5", isDirectory: false)
+            .appendingPathComponent(stem + SessionSidecarFormat.nameSuffix, isDirectory: false)
     }
 
     /// `qHeight` is the detector row count and becomes py4DSTEM Qshape[0];
@@ -1237,7 +1239,7 @@ nonisolated enum BraggVectorEMDWriter {
         // Match emdfile's default without silently embedding the Mac account name.
         try writeStringAttribute("authoring_user", value: "", on: fileID, hdf5: h5)
 
-        let root = try createGroup("braggvectors_root", in: fileID, hdf5: h5)
+        let root = try createGroup(SessionSidecarFormat.rootGroupName, in: fileID, hdf5: h5)
         defer { _ = h5.h5gclose(root) }
         try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
 
@@ -1367,9 +1369,17 @@ nonisolated enum BraggVectorEMDWriter {
             try writeStringAttribute(loadSpecificationAttribute, value: json,
                                      on: root, hdf5: h5)
         }
+        // The schema attribute is the file's IDENTITY marker, not a result
+        // manifest, so it is written on every file this writer produces —
+        // a calibration-only sidecar is still a sidecar. It used to ride the
+        // result-nodes condition below, which left exactly the file the
+        // release owner double-clicked twice on 2026-08-19 (8.9 kB,
+        // calibration only) unrecognisable to the open path's sidecar check.
+        // Nothing reads this attribute to mean "has results"; the inventory
+        // reads `resultNodesAttribute`. // v2 S4
+        try writeStringAttribute(schemaAttribute, value: sessionSchemaVersion,
+                                 on: root, hdf5: h5)
         if !resultNodeNames.isEmpty {
-            try writeStringAttribute(schemaAttribute, value: sessionSchemaVersion,
-                                     on: root, hdf5: h5)
             try writeStringAttribute(resultNodesAttribute,
                                      value: resultNodeNames.joined(separator: "\n"),
                                      on: root, hdf5: h5)

@@ -1519,17 +1519,33 @@ final class AppState {
                 )
                 // The preview is built against a full-extent view of the source:
                 // it is what the user drags ON, so it must show the whole file
-                // regardless of what they have configured so far.
+                // regardless of what they have configured so far. It reads
+                // through the pending load's own array, so the single-DP pane's
+                // first fetch hits a warm pattern cache instead of the disk.
+                //
+                // Same determinate progress as `buildDatasetPreview` — L1's
+                // rule: no phase of an open reports indeterminately when the
+                // work is countable. This call site used to omit the
+                // `progress:` argument the normal open path passes, so the
+                // same phase was determinate on one path and a bare spinner
+                // on the other. // v2 S4
                 beginDatasetLoadingStage("Sampling a preview…")
-                let array = FourDArray(reader: reader, descriptor: source)
                 pending.preview = try? await DatasetPreviewBuilder.make(
-                    data: array, descriptor: source,
-                    cancellation: datasetLoadCancellation
+                    data: pending.data, descriptor: source,
+                    cancellation: datasetLoadCancellation,
+                    progress: previewProgressHandler(
+                        rows: DatasetPreviewBuilder.sampledRowCount(for: source),
+                        epoch: datasetEpoch
+                    )
                 )
                 guard !datasetLoadWasCancelled else {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                     return
                 }
+                // Only after the cancellation guard: a cancelled open must not
+                // leave a detached pattern read running against a URL whose
+                // security scope the lines above just released.
+                pending.fetchDefaultSingleDP()
                 pendingLoad = pending
                 finishDatasetLoading()
             } catch {
@@ -1539,10 +1555,43 @@ final class AppState {
         }
     }
 
+    /// The determinate "Sampling a preview · row N of M" reporter, shared by
+    /// BOTH open paths (the plain open's `buildDatasetPreview` and the
+    /// configurator's open) so the wording and the clamp cannot drift apart —
+    /// drift is exactly the determinate-on-one-path defect S4 fixed. Built in
+    /// a method so `[weak self]` is the closure's first capture — inline
+    /// inside the open Task, the weak capture fights the Task's implicit
+    /// strong self (#ImplicitStrongCapture, the warning class the S3 rider
+    /// cleared).
+    ///
+    /// BOTH guards are load-bearing: `datasetEpoch` stops a cancelled open's
+    /// late ticks from writing a stale row counter over the *next* open's
+    /// progress (the next open sets `isLoadingDataset` back to true, so that
+    /// guard alone cannot tell the two apart). // v2 S4
+    private func previewProgressHandler(rows: Int, epoch: Int) -> @Sendable (Double) -> Void {
+        { [weak self] fraction in
+            Task { @MainActor [weak self] in
+                guard let self, self.datasetEpoch == epoch,
+                      self.isLoadingDataset else { return }
+                let done = min(rows, max(0, Int((fraction * Double(rows)).rounded())))
+                self.reportDatasetLoadingProgress(
+                    fraction, "Sampling a preview · row \(done) of \(rows)"
+                )
+            }
+        }
+    }
+
     /// Load what the configurator was showing.
     func commitPendingLoad() {
-        guard let pending = pendingLoad, pending.view != nil else { return }
+        // The beam gate is enforced HERE, not only by the Load button's
+        // `.disabled` — a gate that exists only in a view modifier is not a
+        // gate (the SessionSidecarLocator rule): any second entry point, menu
+        // command or test would commit a beam-excluding crop without it.
+        // // v2 S4
+        guard let pending = pendingLoad, pending.view != nil,
+              pending.directBeamRefusal == nil else { return }
         pendingLoad = nil
+        pending.cancelSingleDPFetch()
         Task {
             beginDatasetLoading("Opening \(pending.source.datasetPath)…")
             if let openURL { openURL.stopAccessingSecurityScopedResource() }
@@ -1647,6 +1696,10 @@ final class AppState {
     func discardPendingLoad() {
         guard let pending = pendingLoad else { return }
         pendingLoad = nil
+        // Before releasing the scope: a dropped PendingLoad must not keep a
+        // detached pattern read running against a URL the app no longer has
+        // scoped access to. // v2 S4
+        pending.cancelSingleDPFetch()
         if pending.accessedSecurityScope {
             pending.url.stopAccessingSecurityScopedResource()
         }
@@ -2283,22 +2336,13 @@ final class AppState {
         guard let fourD, let d = descriptor, d.is4D else { return }
         let epoch = datasetEpoch
         beginDatasetLoadingStage("Sampling a preview…")
-        let rows = max(1, (d.ry + DatasetPreviewBuilder.stride(for: d).y - 1)
-                          / DatasetPreviewBuilder.stride(for: d).y)
-        let loadCancellation = datasetLoadCancellation
         let preview = try? await DatasetPreviewBuilder.make(
             data: fourD, descriptor: d,
-            cancellation: loadCancellation,
-            progress: { [weak self] fraction in
-                Task { @MainActor [weak self] in
-                    guard let self, self.datasetEpoch == epoch,
-                          self.isLoadingDataset else { return }
-                    let done = min(rows, max(0, Int((fraction * Double(rows)).rounded())))
-                    self.reportDatasetLoadingProgress(
-                        fraction, "Sampling a preview · row \(done) of \(rows)"
-                    )
-                }
-            }
+            cancellation: datasetLoadCancellation,
+            progress: previewProgressHandler(
+                rows: DatasetPreviewBuilder.sampledRowCount(for: d),
+                epoch: epoch
+            )
         )
         guard datasetEpoch == epoch else { return }
         datasetPreview = preview

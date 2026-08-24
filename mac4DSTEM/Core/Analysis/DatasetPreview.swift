@@ -63,6 +63,14 @@ nonisolated struct DatasetPreview: Sendable {
             + "\(AppState.count(sampledPositions)) of \(AppState.count(totalPositions))"
     }
 
+    /// A position on the SAMPLED grid, converted to source scan coordinates.
+    /// The stride multiplication lives here with the stride itself — a view
+    /// hand-rolling it is the "missing stride multiplication" defect class
+    /// (F1.10), one conversion drift away. // v2 S4
+    func sourcePosition(forSampledX x: Int, sampledY y: Int) -> (ry: Int, rx: Int) {
+        (ry: y * strideY, rx: x * strideX)
+    }
+
     private func ordinal(_ value: Int) -> String {
         switch value {
         case 1: return "1st"
@@ -104,6 +112,18 @@ nonisolated enum DatasetPreviewBuilder {
         // features and their shape is the information.
         let step = Int(ceil(sqrt(Double(total) / Double(affordable))))
         return (max(1, step), max(1, step))
+    }
+
+    /// How many sampled rows `make` will report progress over — the
+    /// denominator of "Sampling a preview · row N of M". One derivation,
+    /// shared by both open paths: three hand-rolled copies of this ceiling
+    /// division would have to agree with the builder's own loop for the bar
+    /// to end at 100%. // v2 S4
+    static func sampledRowCount(
+        for descriptor: DatasetDescriptor, byteBudget: Int = defaultByteBudget
+    ) -> Int {
+        let step = stride(for: descriptor, byteBudget: byteBudget).y
+        return max(1, (descriptor.ry + step - 1) / step)
     }
 
     /// Build the preview by reading only the sampled patterns.

@@ -118,17 +118,14 @@ extension AppState {
         let suggested = BraggVectorEMDWriter.sessionSidecarURL(
             forSourcePath: descriptor.filePath
         )
-        let panel = NSSavePanel()
-        panel.title = "Choose Session Sidecar"
-        panel.message = "Choose the companion file mac4DSTEM may update and reopen."
-        panel.directoryURL = suggested.deletingLastPathComponent()
-        panel.nameFieldStringValue = suggested.lastPathComponent
-        panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
-        guard panel.runModal() == .OK, let url = panel.url else {
+        guard let url = runSidecarSavePanel(
+            title: "Choose Session Sidecar",
+            message: "Choose the companion file mac4DSTEM may update and reopen.",
+            suggesting: suggested
+        ) else {
             statusText = "Session sidecar save cancelled"
             return nil
         }
-        _ = url.startAccessingSecurityScopedResource()
         sessionSidecar.adopt(url, for: descriptor)
         return url
     }
@@ -876,6 +873,146 @@ extension AppState {
         } catch {
             guard isCurrentOperation(token), epoch == datasetEpoch else { return }
             present(error)
+        }
+    }
+
+    // MARK: - Save Session Sidecar As… (v2 S4)
+
+    /// How moving the sidecar file itself went. `nothingToCopy` is a normal
+    /// outcome (no sidecar has been written yet), not a failure.
+    nonisolated enum SidecarCopyOutcome: Equatable {
+        case copied
+        case nothingToCopy
+        case failed(String)
+    }
+
+    /// Copy the existing sidecar to the newly chosen URL, replacing what the
+    /// user agreed to replace in the save panel. Copy, never move: the
+    /// original stays where it was, because silently deleting the previous
+    /// companion would be the one destructive step in an otherwise reversible
+    /// gesture. Pure file work, separated so the tests can pin it.
+    nonisolated static func copySidecarFile(from current: URL, to url: URL) -> SidecarCopyOutcome {
+        let manager = FileManager.default
+        guard current != url, manager.fileExists(atPath: current.path) else {
+            return .nothingToCopy
+        }
+        // Same-FILE guard by filesystem identity, not by path string: a
+        // case-insensitive APFS volume or a symlink alias spells one file two
+        // ways, and a string comparison here would REMOVE the only sidecar and
+        // then fail to copy it — the user asked for a rename and got a
+        // deletion. Identity is unreadable only when `url` does not exist yet,
+        // which is exactly the case where removing nothing is safe.
+        if let currentIdentity = try? current.resourceValues(
+               forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           let chosenIdentity = try? url.resourceValues(
+               forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           currentIdentity.isEqual(chosenIdentity) {
+            return .nothingToCopy
+        }
+        var replacedDestination = false
+        do {
+            if manager.fileExists(atPath: url.path) {
+                try manager.removeItem(at: url)
+                replacedDestination = true
+            }
+            try manager.copyItem(at: current, to: url)
+            return .copied
+        } catch {
+            // Honest split: if the replace already removed the destination,
+            // the caller's message must not imply the old destination file
+            // still exists.
+            let removal = replacedDestination
+                ? " The file previously at the chosen destination was removed before the copy failed."
+                : ""
+            return .failed(error.localizedDescription + removal)
+        }
+    }
+
+    /// The one sidecar save panel, shared by the first-save path
+    /// (`writableSessionSidecarURL`) and Save As — the S1 lesson in panel
+    /// form: two hand-built copies of the grant sequence is how one of them
+    /// ends up missing a step. Returns the chosen URL with its security scope
+    /// started, or nil on cancel (the caller words its own cancel status).
+    private func runSidecarSavePanel(title: String, message: String, suggesting suggested: URL) -> URL? {
+        let panel = NSSavePanel()
+        panel.title = title
+        panel.message = message
+        panel.directoryURL = suggested.deletingLastPathComponent()
+        panel.nameFieldStringValue = suggested.lastPathComponent
+        panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        _ = url.startAccessingSecurityScopedResource()
+        return url
+    }
+
+    /// Re-offer the save panel that `writableSessionSidecarURL` only shows
+    /// while no grant exists. Before S1 no bookmark ever resolved, so that
+    /// panel appeared on every save; S1 made grants resolve, which armed the
+    /// early return and made a misplaced sidecar PERMANENTLY misplaced —
+    /// observed 2026-08-19 (three saves, no panel), and it withdrew Track B
+    /// row F1.3i by construction. This is the way home.
+    func saveSessionSidecarAs() {
+        guard let descriptor else {
+            present(SimpleError("No dataset is open."))
+            return
+        }
+        let current = sessionSidecar.location(for: descriptor)
+        guard let url = runSidecarSavePanel(
+            title: "Save Session Sidecar As",
+            message: "Choose the companion file mac4DSTEM keeps this dataset's session in. Existing saved results are copied across.",
+            suggesting: current
+        ) else {
+            statusText = "Session sidecar unchanged"
+            return
+        }
+        adoptSessionSidecar(at: url, movingFrom: current, for: descriptor)
+    }
+
+    /// The panel-free half: copy what exists, retarget the seam, persist the
+    /// grant when there is a file to bookmark, and re-read the inventory from
+    /// the file the inspector will now be describing. Internal so the wiring
+    /// is testable — the S1 lesson about tests that cannot reach the call site.
+    func adoptSessionSidecar(at url: URL, movingFrom current: URL, for descriptor: DatasetDescriptor) {
+        let outcome = Self.copySidecarFile(from: current, to: url)
+        if case .nothingToCopy = outcome,
+           url.standardizedFileURL == current.standardizedFileURL {
+            statusText = "Session sidecar unchanged — the same file was chosen"
+            return
+        }
+        sessionSidecar.adopt(url, for: descriptor)
+        switch outcome {
+        case .copied:
+            // Foundation can only bookmark a URL that exists — which it now
+            // does. The `nothingToCopy` branch leaves persistence to the next
+            // real save, exactly as a first-ever save does.
+            rememberSidecarGrant(url, for: descriptor, what: "Session sidecar")
+            statusText = "Session sidecar is now \(url.lastPathComponent) — copied from "
+                + "\(current.lastPathComponent); the previous file was not deleted"
+        case .nothingToCopy:
+            // Known limit, stated in the message: with no file to bookmark,
+            // the retarget lives in memory and survives only until the next
+            // dataset change — the first real save persists it.
+            statusText = "Session sidecar will be \(url.lastPathComponent) from the next save in this session"
+        case .failed(let reason):
+            // Honest split outcome: the retarget stands (that is the user's
+            // stated intent), the copy did not happen, and the message says
+            // which half is which rather than pretending either way.
+            statusText = "Session sidecar is now \(url.lastPathComponent), but the existing file could not be copied"
+            errorMessage = "New session saves go to \(url.lastPathComponent), but the existing "
+                + "sidecar \(current.lastPathComponent) could not be copied across: \(reason)"
+        }
+        // The inspector's tree is drawn from `sessionInventory` under the name
+        // from the seam — re-read it from the NEW location so a failed copy
+        // shows an empty section rather than the old file's results under the
+        // new file's name (a tree describing a file that does not exist).
+        let target = url
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let inventory = try? await Task.detached(priority: .utility) {
+                try BraggVectorEMDWriter.loadInventory(from: target)
+            }.value
+            guard self.descriptor?.filePath == descriptor.filePath else { return }
+            self.sessionInventory = inventory ?? .empty
         }
     }
 
