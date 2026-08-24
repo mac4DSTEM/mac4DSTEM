@@ -592,12 +592,20 @@ extension AppState {
                         )
                     }
                 }
+                // Captured on the MainActor before the detached write: the
+                // view the products belong to, and the session recipe. Every
+                // rewrite restates BOTH — a result save that omitted the
+                // specification silently erased the crop attribute from the
+                // sidecar (found by S5). // v2 S5
+                let specification = loadedView.specification
+                let recipe = replay.recordForSaving
                 try await Task.detached(priority: .userInitiated) {
                     if let scalarMap {
                         try BraggVectorEMDWriter.mergeResultMap(
                             scalarMap, vectors: vectors,
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
+                            loadSpecification: specification, replayRecord: recipe,
                             cancellation: token, progress: progressUpdate
                         )
                     } else if let rgbaMap {
@@ -605,6 +613,7 @@ extension AppState {
                             rgbaMap, vectors: vectors,
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
+                            loadSpecification: specification, replayRecord: recipe,
                             cancellation: token, progress: progressUpdate
                         )
                     }
@@ -845,10 +854,16 @@ extension AppState {
         )
         defer { finishCancellableOperation(token) }
         do {
+            // Removal rebuilds the file too — it restates the view and the
+            // recipe like every other rewrite. // v2 S5
+            let specification = loadedView.specification
+            let recipe = replay.recordForSaving
             try await Task.detached(priority: .userInitiated) {
                 try BraggVectorEMDWriter.removeResult(
                     kind: saved.kind, qWidth: descriptor.qx, qHeight: descriptor.qy,
-                    calibration: calibration, from: url, cancellation: token
+                    calibration: calibration, from: url,
+                    loadSpecification: specification, replayRecord: recipe,
+                    cancellation: token
                 )
             }.value
             guard isCurrentOperation(token), epoch == datasetEpoch else { return }
@@ -1031,6 +1046,9 @@ extension AppState {
         // saying which view it came from would make it unreadable later — the
         // labelling half of invariant I3.
         let specification = loadedView.specification
+        // The recipe travels with every publish, captured on the MainActor
+        // before the detached write. // v2 S5
+        let recipe = replay.recordForSaving
         let token = beginCancellableOperation(
             "Session calibration", status: "Saving calibration…"
         )
@@ -1041,7 +1059,8 @@ extension AppState {
                 try await Task.detached(priority: .userInitiated) {
                     try BraggVectorEMDWriter.mergeCalibration(
                         snapshot, qWidth: descriptor.qx, qHeight: descriptor.qy,
-                        to: url, loadSpecification: specification, cancellation: token
+                        to: url, loadSpecification: specification,
+                        replayRecord: recipe, cancellation: token
                     )
                 }.value
                 guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }

@@ -143,6 +143,15 @@ is one paragraph:
 - S5 adds a replay record to the sidecar — a second format extension. Whether
   new sidecars gain a minimum-reader marker (so this class of question is
   decidable next time) is settled in S5, where the format changes anyway.
+  **Settled 2026-08-24 (S5):** every sidecar now carries
+  `mac4dstem_min_reader_schema` — the oldest schema that interprets the file
+  *without misreading it* ("6" when a reduced specification is recorded,
+  "5" otherwise), the session schema is bumped to "6" and derived from one
+  constant so it can never silently stay put again, and readers AND
+  rewriters refuse whole (both numbers named) when a file demands more than
+  the build supports. The unfixable half is stated where the marker is
+  defined: v1.0.0 checks nothing, so the marker protects the *next* format
+  change, not the last one.
 - Full-extent sidecars without a replay record remain byte-compatible either
   way; an ordinary v1.0.0 user loses nothing.
 
@@ -420,7 +429,60 @@ only if asked.
   re-run after freeing disk; the floor was not touched. **Not verified on
   screen:** everything — Track B rows F1.16–F1.21 queued, F1.7 superseded,
   F1.3i re-armed behind F1.20.
-- [ ] S5 · [ ] S6 · [ ] **TB1**
+- [x] **S5** — 2026-08-24. **The replay record:** `SessionReplayRecord`
+  (Core) + the `SessionReplay` seam (App, S5's §7 extraction — AppState
+  gained one property and a private record helper, no facade state). One
+  step per analysis kind in first-run order, re-runs update in place,
+  re-detection **invalidates** its downstream strain/ACOM steps (a recipe
+  must replay a coherent pipeline or nothing); five recording sites
+  (virtual detector, DPC, full-scan disk detection, strain, ACOM), each at
+  its success publish, suppressed while a load is in flight so merely
+  opening a colleague's file can never overwrite their recipe with
+  defaults. Serialized as a JSON root attribute; restored on open; carried
+  by every save; preserved on nil so a no-analysis save cannot erase it;
+  survives a promote. **The format decision (§5):** schema "6" +
+  `mac4dstem_min_reader_schema`, refusal on read AND rewrite, both numbers
+  named, routed to the durable inspector channel (not the statusText S1
+  measured as unreadable). **Also fixed, found in-session:** result saves
+  and result removal rebuilt the sidecar WITHOUT the load specification —
+  any result save on a cropped session silently erased the crop attribute
+  (the L6 misread setup); every rewrite now restates the view. **And the
+  S3-carried recovery finding:** `DatasetRecoveryRecord` carries the
+  specification its coordinates are expressed in; restore applies a
+  position only in its own scan frame and inside extents — never clamps;
+  promote re-stamps it. **Gate B-lite (one refuter, briefed on 7 claims)
+  produced 17 findings; 14 fixed in-session** — the sharpest: the automatic
+  open pass overwrote adopted recipes (F1), DPC recorded aperture values
+  the computation never uses (F2 — the canonical confident-comment-refuted-
+  by-primary-evidence shape), ACOM recorded the exploratory scale when the
+  calibrated one ran (F3), two direct result readers bypassed the
+  minimum-reader gate (F5), a rewrite could downgrade a future file's
+  marker after mangling it (F6), and every wiring line was deletable with
+  the suite green (F8 — now pinned by `SessionReplayAppStateTests` through
+  a real AppState). **Recorded, not fixed:** a save after a FAILED crop
+  restore still erases the crop and mislabels preserved results — the save-
+  refusal policy belongs to S7's policy-owner seam (`docs/open-items.md`).
+  36 tests + the extended `tools/load-spec-roundtrip` (§8 recipe cases);
+  every guard observed failing under a discriminating mutation (batches
+  D/E/G, 10 mutations). One test itself reproduced the standing
+  concurrent-HDF5 crash by racing the app's post-save inventory read —
+  fixed to wait for the app's reader, evidence noted on that open item.
+  **Track A, exit codes read directly:** MCP `test_macos` **282/0** (UI
+  target excluded), `tools/load-spec-roundtrip` exit 0, zero build
+  warnings; `run-tests.sh unit`/`scientific` not re-run this session (disk
+  unchanged since S4's refusal — owner re-run still owed from S4).
+  **Deviations:** (1) parallax/ptychography steps are NOT recorded — that
+  family publishes through six product stages and already carries its
+  controls in result provenance; folding it in is S6's, which owns replay
+  execution; (2) the recipe records one step per kind — two same-kind runs
+  with different parameters keep the latest, stated in the model header;
+  (3) promote still does not rewrite the sidecar (save-on-demand stands;
+  F1.14's semantics unchanged). **Not verified:** everything on screen
+  (S5 draws nothing new; the refusal message reaches the existing S1
+  inspector section, undrivable until a newer-format file exists), and S6's
+  actual replay execution — the record is a claim about content, not yet
+  about replayability.
+- [ ] S6 · [ ] **TB1**
 - [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21

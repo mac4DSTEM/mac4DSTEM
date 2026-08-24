@@ -329,12 +329,15 @@ the claims are widened*, not as release advice.
     Cancel only cancels the newer load. S3 guarded promote's own entry
     (`!isLoadingDataset`); the open-during-load direction remains. → **S18**,
     or whichever session next edits an open path.
-  - **Promote and the recovery record disagree about frames.** A successful
-    promote never re-stamps `recoveryRecord`; `persistRecoveryPosition` then
-    writes full-extent scan coordinates that a relaunch clamps into the
-    sidecar-restored *crop* — a defensible pixel the user never chose. The fix
-    point is **S5** (promote updating the sidecar/recipe), where "what does
-    the sidecar say after a promote" is decided anyway.
+  - ~~**Promote and the recovery record disagree about frames.**~~
+    **FIXED 2026-08-24 (S5).** `DatasetRecoveryRecord` now carries the load
+    specification its coordinates are expressed in; the restore applies a
+    position only in its own SCAN frame and inside the extents — it **never
+    clamps** (the clamp was the fabrication) — and a successful promote
+    re-stamps the record so the persisted pair describes the promoted view.
+    Pinned by `SessionReplayTests` frame-rule tests, each observed failing
+    under a discriminating mutation; old persisted records without the frame
+    still decode (pinned on the production coder).
   - **Owner design question: should promote carry the scan position across?**
     Today a successful promote lands on Prepare at (0,0) — inherited from the
     2026-08-05 "reopens land on Prepare" decision. Promote is a continuation
@@ -585,10 +588,12 @@ the claims are widened*, not as release advice.
   Since the attribute post-dates every sidecar written before 2026-08-18, such
   a sidecar saved from a **cropped** view is now asserted as full-extent rather
   than unknown — the app stating a specification it does not have. A P1
-  violation; belongs with the trust fixes. Related: `mac4dstem_session_schema`
-  stayed `"5"` across a format addition (`4e01c24`), so the schema stamp no
-  longer identifies the format — which is exactly what S5's minimum-reader
-  marker has to fix.
+  violation; belongs with the trust fixes. *(The related schema-stamp defect —
+  `mac4dstem_session_schema` stayed `"5"` across a format addition, so the
+  stamp identified nothing — was **fixed by S5, 2026-08-24**: schema "6"
+  derived from one constant, plus `mac4dstem_min_reader_schema` with refusal
+  on read and rewrite. The `?? .fullExtent` fabrication itself is UNCHANGED
+  and still owed to the trust fixes.)*
 
   **Both reproducers were destroyed on 2026-08-19 and nobody should go looking
   for them.** The two pre-2026-08-18 sidecars in `References/training_dataset/`
@@ -601,6 +606,20 @@ the claims are widened*, not as release advice.
   attribute, not one of these. Recorded because an item whose evidence has
   silently evaporated is how a real defect gets dismissed as unreproducible.
 
+- **A save after a FAILED crop restore erases the sidecar's crop and
+  mislabels its preserved results.** Found by S5's Gate B-lite refuter
+  (F9, 2026-08-24), deliberately not fixed there. When
+  `recordedLoadSpecification` returns nil on its `.unreadable` or
+  does-not-fit branches, the app loads at full extent; the next save then
+  rewrites the sidecar restating `loadedView.specification` — full extent,
+  no attribute — while PRESERVING the old scan-indexed results, which are
+  now labelled as full-extent: the exact misread L6 exists to prevent,
+  reachable through an honest failure path. The writer contract is correct
+  (nil spec MEANS full extent — it cannot double as "unknown", pinned by
+  `testANilSpecificationRewriteErasesTheCropAndThatIsTheContract`); the fix
+  is a **save-refusal policy** — "may I rewrite a sidecar whose recorded
+  view I failed to restore?" — which is exactly the shape of **S7's**
+  one-policy-owner seam. → **S7**.
 - **The status line leaks a full filesystem path.** The composed message runs
   ~330 characters including the absolute path, rendered raw at
   `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B

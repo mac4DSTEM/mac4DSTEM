@@ -116,6 +116,10 @@ nonisolated struct SessionSidecarSnapshot: Sendable {
     /// specification is applied to it again, which is the whole reason a crop is
     /// a view rather than a new dataset (docs/v2-scope.md §6.1).
     var loadSpecification: LoadSpecification? = nil
+    /// The recorded analysis pipeline, when the sidecar carries one.
+    /// **Nil means "no recipe was recorded"** — absence is absence, never an
+    /// empty-but-asserted record (the `?? .fullExtent` lesson). // v2 S5
+    var replayRecord: SessionReplayRecord? = nil
 }
 
 /// Bounded preprocessing applied while streaming a source datacube into a
@@ -157,7 +161,22 @@ nonisolated enum BraggVectorEMDWriter {
     /// JSON. Absent on a full-extent session — the identity, so a sidecar
     /// written before L6 reads as "the whole file", which is what it was.
     private static let loadSpecificationAttribute = "mac4dstem_load_specification"
-    private static let sessionSchemaVersion = "5"
+    private static let minimumReaderAttribute = SessionSidecarFormat.minimumReaderAttribute
+    private static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
+    /// Derived, never a literal: "5" famously stayed put across a format
+    /// addition (2026-08-18), which is what made the stamp meaningless.
+    /// `SessionSidecarFormat.currentSchema` is the one place the number
+    /// moves. // v2 S5
+    private static let sessionSchemaVersion = String(SessionSidecarFormat.currentSchema)
+
+    /// The OLDEST schema a reader may implement and still interpret a file
+    /// with this specification without misreading it. Additive content (the
+    /// replay record) does not raise it; a reduced specification does —
+    /// ignoring one restores scan-indexed results at wrong positions (the
+    /// docs/v2-release.md §5 evidence for the marker). // v2 S5
+    static func minimumReaderSchema(for specification: LoadSpecification?) -> Int {
+        (specification == nil || specification?.isFullExtent == true) ? 5 : 6
+    }
 
     enum WriterError: LocalizedError {
         case cancelled
@@ -166,6 +185,12 @@ nonisolated enum BraggVectorEMDWriter {
         case symbolMissing(String)
         case hdf5(String)
         case publishFailed(String)
+        /// The file's minimum-reader marker demands a schema newer than this
+        /// build understands. A REFUSAL, never a partial restore: the marker
+        /// exists because a v1.0.0 build silently ignored the specification
+        /// attribute and restored results at wrong positions — worse than
+        /// "cannot read" (docs/v2-release.md §5). // v2 S5
+        case sidecarRequiresNewerReader(minimum: Int, supported: Int)
 
         var errorDescription: String? {
             switch self {
@@ -184,6 +209,11 @@ nonisolated enum BraggVectorEMDWriter {
                 return "HDF5 failed while \(operation)."
             case .publishFailed(let detail):
                 return "Could not publish the completed sidecar: \(detail)"
+            case .sidecarRequiresNewerReader(let minimum, let supported):
+                return "This session sidecar requires mac4DSTEM session schema "
+                    + "\(minimum) or newer to read safely; this build supports "
+                    + "\(supported). It was probably written by a newer mac4DSTEM — "
+                    + "nothing was restored, so nothing can be misread."
             }
         }
     }
@@ -392,6 +422,8 @@ nonisolated enum BraggVectorEMDWriter {
         qHeight: Int,
         calibration: PixelCalibration,
         to destination: URL,
+        loadSpecification: LoadSpecification? = nil,
+        replayRecord: SessionReplayRecord? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -409,9 +441,14 @@ nonisolated enum BraggVectorEMDWriter {
         }
         let existing = FileManager.default.fileExists(atPath: destination.path)
             ? destination : nil
+        // The specification is threaded on EVERY session rewrite, not only the
+        // calibration save: the writer rebuilds the whole file, so a result
+        // save that omitted it silently ERASED the crop attribute — a reopen
+        // then restored results against the full extent (found by S5). // v2 S5
         try publish(vectors: vectors, map: map, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -422,6 +459,8 @@ nonisolated enum BraggVectorEMDWriter {
         qHeight: Int,
         calibration: PixelCalibration,
         to destination: URL,
+        loadSpecification: LoadSpecification? = nil,
+        replayRecord: SessionReplayRecord? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -435,9 +474,11 @@ nonisolated enum BraggVectorEMDWriter {
         }
         let existing = FileManager.default.fileExists(atPath: destination.path)
             ? destination : nil
+        // Same rule as mergeResultMap: every rewrite restates the view. // v2 S5
         try publish(vectors: vectors, map: nil, rgbaMap: map,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -449,6 +490,8 @@ nonisolated enum BraggVectorEMDWriter {
         qHeight: Int,
         to destination: URL,
         loadSpecification: LoadSpecification? = nil,
+        replayRecord: SessionReplayRecord? = nil,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -457,10 +500,14 @@ nonisolated enum BraggVectorEMDWriter {
         }
         let existing = FileManager.default.fileExists(atPath: destination.path)
             ? destination : nil
+        // `supportedSchema` is the same documented test seam as on
+        // `loadSession`: the write-side refusal is only exercisable against a
+        // real file by lowering what the "build" supports. // v2 S5
         try publish(vectors: nil, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
-                    loadSpecification: loadSpecification,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    supportedSchema: supportedSchema,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -472,6 +519,8 @@ nonisolated enum BraggVectorEMDWriter {
         qHeight: Int,
         calibration: PixelCalibration,
         from destination: URL,
+        loadSpecification: LoadSpecification? = nil,
+        replayRecord: SessionReplayRecord? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -479,17 +528,48 @@ nonisolated enum BraggVectorEMDWriter {
               FileManager.default.fileExists(atPath: destination.path) else {
             throw WriterError.invalidDimensions("the session sidecar does not exist")
         }
+        // Removal also rebuilds the file — it restates the view like every
+        // other rewrite, or removing a result would erase the crop. // v2 S5
         try publish(
             vectors: nil, map: nil, rgbaMap: nil,
             qWidth: qWidth, qHeight: qHeight, calibration: calibration,
             preserving: destination, to: destination, removingKind: kind,
+            loadSpecification: loadSpecification, replayRecord: replayRecord,
             cancellation: cancellation, progress: progress
         )
     }
 
     /// Load the complete supported session inventory and the map recorded as
     /// current. Legacy one-slot sidecars are treated as a one-map inventory.
-    static func loadSession(from url: URL) throws -> SessionSidecarSnapshot {
+    /// The one minimum-reader check, shared by EVERY reader that hands back
+    /// session content — `loadSession` and the two direct result readers
+    /// (`loadResultMap(id:)`, `loadRGBAResultMap(id:)`), which used to bypass
+    /// it and restore pixel arrays from a file the gate had refused
+    /// (Gate B-lite F5). Absent marker ⇒ the file predates it ⇒ readable by
+    /// the rules that applied when it was written; an unparseable value is
+    /// treated the same, because refusing on garbage would brick every
+    /// sidecar a bit-flip touches while a newer-format file always writes a
+    /// clean integer. // v2 S5
+    private static func enforceMinimumReader(
+        on root: hid_t, hdf5 h5: HDF5WriteLibrary, supportedSchema: Int
+    ) throws {
+        if let markerText = try readStringAttribute(minimumReaderAttribute, on: root, hdf5: h5),
+           let minimum = Int(markerText),
+           minimum > supportedSchema {
+            throw WriterError.sidecarRequiresNewerReader(
+                minimum: minimum, supported: supportedSchema
+            )
+        }
+    }
+
+    /// `supportedSchema` exists so the minimum-reader refusal is testable
+    /// against a REAL file through the REAL gate: a test reads a genuinely
+    /// cropped sidecar as a schema-5 reader and watches the refusal fire.
+    /// Production callers never pass it — the default is the build's truth.
+    static func loadSession(
+        from url: URL,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema
+    ) throws -> SessionSidecarSnapshot {
         guard FileManager.default.fileExists(atPath: url.path) else {
             return SessionSidecarSnapshot(
                 inventory: .empty, calibration: nil, currentResult: nil,
@@ -506,6 +586,13 @@ nonisolated enum BraggVectorEMDWriter {
         let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
         guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
         defer { _ = h5.h5gclose(root) }
+
+        // THE MINIMUM-READER GATE (v2 S5), checked before anything is
+        // restored. A file demanding a newer reader is refused whole, with
+        // both numbers named — a partial restore is exactly the "right
+        // numbers at wrong positions, no warning" failure the marker exists
+        // to prevent.
+        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
 
         let results = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
         let recordedCurrent = try readStringAttribute(currentResultAttribute, on: root, hdf5: h5)
@@ -529,6 +616,10 @@ nonisolated enum BraggVectorEMDWriter {
         let specification = (try readStringAttribute(loadSpecificationAttribute,
                                                      on: root, hdf5: h5))
             .flatMap(LoadSpecification.decoded(from:))
+        // Absent attribute ⇒ nil record — no recipe was recorded, and the
+        // snapshot says so rather than asserting an empty one. // v2 S5
+        let replay = (try readStringAttribute(replayRecordAttribute, on: root, hdf5: h5))
+            .flatMap(SessionReplayRecord.parse(_:))
         let inventory = SessionSidecarInventory(
             hasSidecar: true,
             hasBraggVectors: linkExists("\(rootPath)/braggvectors", in: fileID, hdf5: h5),
@@ -539,7 +630,8 @@ nonisolated enum BraggVectorEMDWriter {
         return SessionSidecarSnapshot(
             inventory: inventory, calibration: calibration,
             currentResult: currentResult, currentRGBAResult: currentRGBAResult,
-            loadSpecification: specification
+            loadSpecification: specification,
+            replayRecord: replay
         )
     }
 
@@ -551,7 +643,10 @@ nonisolated enum BraggVectorEMDWriter {
         try loadSession(from: url).currentResult
     }
 
-    static func loadResultMap(id: String, from url: URL) throws -> ScalarResultMap? {
+    static func loadResultMap(
+        id: String, from url: URL,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema
+    ) throws -> ScalarResultMap? {
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
@@ -564,6 +659,7 @@ nonisolated enum BraggVectorEMDWriter {
         let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
         guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
         defer { _ = h5.h5gclose(root) }
+        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
         let descriptors = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
         guard descriptors.contains(where: {
             $0.id == id && $0.storage == .scalarFloat32
@@ -571,7 +667,10 @@ nonisolated enum BraggVectorEMDWriter {
         return try readResultMap(nodeName: id, from: root, hdf5: h5)
     }
 
-    static func loadRGBAResultMap(id: String, from url: URL) throws -> RGBAResultMap? {
+    static func loadRGBAResultMap(
+        id: String, from url: URL,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema
+    ) throws -> RGBAResultMap? {
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
@@ -584,6 +683,7 @@ nonisolated enum BraggVectorEMDWriter {
         let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
         guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
         defer { _ = h5.h5gclose(root) }
+        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
         let descriptors = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
         guard descriptors.contains(where: { $0.id == id && $0.storage == .rgba8 }) else {
             return nil
@@ -952,6 +1052,8 @@ nonisolated enum BraggVectorEMDWriter {
         calibration: PixelCalibration, preserving existing: URL?, to destination: URL,
         removingKind: String? = nil,
         loadSpecification: LoadSpecification? = nil,
+        replayRecord: SessionReplayRecord? = nil,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) throws {
@@ -971,6 +1073,8 @@ nonisolated enum BraggVectorEMDWriter {
             qWidth: qWidth, qHeight: qHeight,
             calibration: calibration, preserving: existing, removingKind: removingKind,
             loadSpecification: loadSpecification,
+            replayRecord: replayRecord,
+            supportedSchema: supportedSchema,
             cancellation: cancellation,
             progress: progress, hdf5: hdf5
         )
@@ -1209,6 +1313,8 @@ nonisolated enum BraggVectorEMDWriter {
         preserving existing: URL?,
         removingKind: String?,
         loadSpecification: LoadSpecification?,
+        replayRecord: SessionReplayRecord?,
+        supportedSchema: Int,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
         hdf5 h5: HDF5WriteLibrary
@@ -1251,10 +1357,35 @@ nonisolated enum BraggVectorEMDWriter {
             if existingRoot >= 0 {
                 existingResults = try {
                     defer { _ = h5.h5gclose(existingRoot) }
+                    // A rewrite is a read followed by a write: a file whose
+                    // marker demands a newer reader must be REFUSED here too,
+                    // or a save would silently drop the newer content this
+                    // build cannot see and then stamp the marker back DOWN —
+                    // a mangled file claiming to be safely readable
+                    // (Gate B-lite F6). The publish is atomic, so a refusal
+                    // leaves the original untouched. // v2 S5
+                    try enforceMinimumReader(on: existingRoot, hdf5: h5,
+                                             supportedSchema: supportedSchema)
                     return try readResultDescriptors(
                         from: existingRoot, file: existingID, hdf5: h5
                     )
                 }()
+            }
+        }
+        // Preserve an existing replay record when this save carries none —
+        // same rule as the result nodes above. Without this, a save from a
+        // session that ran no analyses (a colleague adjusting calibration)
+        // would silently ERASE the recipe the sidecar exists to carry. // v2 S5
+        var preservedReplayJSON: String?
+        if replayRecord == nil, let existingID {
+            let existingRoot = rootPath.withCString {
+                h5.h5gopen2(existingID, $0, h5DefaultProperty)
+            }
+            if existingRoot >= 0 {
+                defer { _ = h5.h5gclose(existingRoot) }
+                preservedReplayJSON = try readStringAttribute(
+                    replayRecordAttribute, on: existingRoot, hdf5: h5
+                )
             }
         }
 
@@ -1379,6 +1510,21 @@ nonisolated enum BraggVectorEMDWriter {
         // reads `resultNodesAttribute`. // v2 S4
         try writeStringAttribute(schemaAttribute, value: sessionSchemaVersion,
                                  on: root, hdf5: h5)
+        // The minimum-reader marker, on every file (v2 S5): the oldest schema
+        // that interprets THIS file without misreading it — 6 when a reduced
+        // specification is recorded (dangerous to ignore), 5 otherwise, so a
+        // marker-checking reader never refuses a file it could read safely.
+        try writeStringAttribute(
+            minimumReaderAttribute,
+            value: String(minimumReaderSchema(for: loadSpecification)),
+            on: root, hdf5: h5
+        )
+        // The replay record: the caller's live record wins; failing that, the
+        // record the existing file already carried survives the rewrite.
+        if let json = replayRecord?.jsonString ?? preservedReplayJSON {
+            try writeStringAttribute(replayRecordAttribute, value: json,
+                                     on: root, hdf5: h5)
+        }
         if !resultNodeNames.isEmpty {
             try writeStringAttribute(resultNodesAttribute,
                                      value: resultNodeNames.joined(separator: "\n"),

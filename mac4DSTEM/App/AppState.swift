@@ -187,6 +187,23 @@ final class AppState {
     /// (docs/development-process.md §7) — see `App/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
     let recents = RecentDatasets()
+    /// The session's recipe — which analyses ran, with which parameters. S5's
+    /// seam (docs/development-process.md §7) — see `App/SessionReplay.swift`.
+    /// No forwarding properties. // v2 S5
+    let replay = SessionReplay()
+
+    /// The ONE entry for recipe steps. Recording is suppressed while a
+    /// dataset load is in flight: the automatic re-establishing pass on open
+    /// (and after a promote or reconfigure) runs with whatever parameters the
+    /// fresh session holds — DEFAULTS — and recording it would overwrite an
+    /// adopted colleague's step with them. Merely opening a file must never
+    /// mutate its recipe (Gate B-lite refutation F1, 2026-08-24). // v2 S5
+    private func recordReplayStep(kind: String,
+                                  parameters: [String: String],
+                                  invalidating downstream: [String] = []) {
+        guard !isLoadingDataset else { return }
+        replay.record(kind: kind, parameters: parameters, invalidating: downstream)
+    }
     private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
@@ -1650,6 +1667,12 @@ final class AppState {
     /// lesson: a test that cannot reach the call site pins the pure decision
     /// and not the path the app takes. // v2 S3
     func promoteToFullExtent() async {
+        // The recipe SURVIVES a promote: same session, same dataset — the
+        // promote run is what the recipe exists to feed, and `activate`'s
+        // reset (correct for a dataset change) would otherwise destroy every
+        // unsaved step at exactly the moment they become useful
+        // (Gate B-lite F11). Re-adopted after success below.
+        let recipeBeforePromote = replay.record
         // `!isLoadingDataset` is the reentrancy gate. Without it the only
         // protections were the button's `.disabled` (which cannot see a load
         // that starts after the click renders) and an ordering accident —
@@ -1686,8 +1709,18 @@ final class AppState {
         await runCurrentAnalysis()
         if datasetLoadWasCancelled {
             await discardPartialLoad()
+            finishDatasetLoading()
+            return
         }
+        // Restore the session's recipe (F11) — `adopt` treats nil/absent as
+        // absence, so an empty pre-promote record leaves whatever the sidecar
+        // restore adopted during `activate` in place — and re-stamp the
+        // recovery record so the persisted (frame, position) pair describes
+        // the promoted view now, not whenever the user next moves the cursor
+        // (Gate B-lite F14). // v2 S5
+        replay.adopt(recipeBeforePromote.isEmpty ? nil : recipeBeforePromote)
         finishDatasetLoading()
+        persistRecoveryPosition()
     }
 
     /// Walk away without loading. Releases the file access the pending open
@@ -1827,7 +1860,8 @@ final class AppState {
             recoveryRecord = DatasetRecoveryRecord(
                 datasetID: id, bookmark: bookmark,
                 selectedX: selectedScan.x, selectedY: selectedScan.y,
-                analysisMode: analysisMode.rawValue, updated: Date()
+                analysisMode: analysisMode.rawValue, updated: Date(),
+                loadSpecification: loadedView.specification
             )
             WorkspaceRecoveryStore.saveRecovery(recoveryRecord!)
         } catch {
@@ -1846,6 +1880,10 @@ final class AppState {
         record.selectedY = selectedScan.y
         record.analysisMode = analysisMode.rawValue
         record.updated = Date()
+        // Every stamp restates the frame, so a position persisted after a
+        // promote is knowably full-extent, not silently reinterpreted by the
+        // next crop-restoring relaunch. // v2 S5
+        record.loadSpecification = loadedView.specification
         recoveryRecord = record
         WorkspaceRecoveryStore.saveRecovery(record)
     }
@@ -2225,6 +2263,11 @@ final class AppState {
         restoredResultInfo = nil
         sessionInventory = .empty
         sessionLoadSpecification = nil
+        // The recipe belongs to the session it was built in. A restore of the
+        // NEW dataset's sidecar re-adopts its own record two stages later —
+        // this only guarantees the previous dataset's recipe cannot leak
+        // into it. // v2 S5
+        replay.reset()
         // Viewer-level inspection state belongs to the product being inspected,
         // not to the app. Left set, it carried a previous dataset's "show me the
         // fit residual instead" into a fresh file.
@@ -2282,11 +2325,18 @@ final class AppState {
         )
 
         if let recovery = pendingRecovery,
-           recovery.datasetID == URL(fileURLWithPath: descriptor.filePath).standardizedFileURL.path {
-            selectedScan = ScanPos(
-                x: min(max(0, recovery.selectedX), max(0, descriptor.rx - 1)),
-                y: min(max(0, recovery.selectedY), max(0, descriptor.ry - 1))
-            )
+           recovery.datasetID == URL(fileURLWithPath: descriptor.filePath).standardizedFileURL.path,
+           // The position is applied only when it is honest in THIS view —
+           // same frame, inside the extents. The old clamp forced a
+           // full-extent position (e.g. persisted after a promote) into a
+           // crop-restored view: a defensible pixel the user never chose
+           // (S3's carried finding, fixed v2 S5). No position beats a
+           // manufactured one.
+           let position = recovery.position(
+               inViewWith: loadedView.specification,
+               rx: descriptor.rx, ry: descriptor.ry
+           ) {
+            selectedScan = ScanPos(x: position.x, y: position.y)
             // The remembered task is restored, but the WORKSPACE is not: a
             // reopened dataset always lands on Prepare. Dropping the user back
             // into Map or Reconstruct started them mid-flow, past the step that
@@ -2485,12 +2535,25 @@ final class AppState {
             guard epoch == datasetEpoch else { return nil }
             sessionInventory = snapshot.inventory
             sessionLoadSpecification = snapshot.loadSpecification ?? .fullExtent
+            // A colleague's recipe becomes this session's starting point, so
+            // a later save round-trips it instead of replacing it. Nil (no
+            // recorded recipe) leaves the live record alone. // v2 S5
+            replay.adopt(snapshot.replayRecord)
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(sessionCalibration, for: descriptor)
             }
             return snapshot
         } catch {
             guard epoch == datasetEpoch else { return nil }
+            // The DURABLE channel, not only `statusText` — S1 measured
+            // `statusText` set here being overwritten within the same
+            // `activate` (three times). The minimum-reader refusal in
+            // particular exists to be READ: without this, a too-new sidecar
+            // opens as a dataset with no results and no reason
+            // (Gate B-lite F7). // v2 S5
+            sessionSidecar.noteUnreadable(
+                "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
+            )
             statusText = "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
             return nil
         }
@@ -3070,6 +3133,17 @@ final class AppState {
             if !quiet {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }
+            // The recipe step, recorded at the SUCCESS publish and nowhere
+            // earlier — a cancelled or failed run is not part of the pipeline.
+            // (An earlier comment here claimed the automatic pass on open
+            // "counts too" — refuted: it runs with defaults and would
+            // overwrite an adopted recipe; `recordReplayStep` suppresses it.)
+            // // v2 S5
+            recordReplayStep(kind: "virtual_detector", parameters: [
+                "shape": shapeMode.rawValue,
+                "center_x": String(ap.centerX), "center_y": String(ap.centerY),
+                "inner": String(ap.inner), "outer": String(ap.outer),
+            ])
         } catch {
             if cancellation?.isCancelled == true { statusText = "Virtual detector cancelled" }
             else if !quiet { presentComputeFailure(error) }
@@ -3866,6 +3940,17 @@ final class AppState {
             applyDPCDisplay()
             let ref = calibration.hasFittedOrigin ? "calibrated origins" : "global center"
             statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
+            // Recipe step (v2 S5). ONLY the origin source: `computeCoMField`
+            // takes no aperture at all — its parameterization is which origin
+            // it subtracts (fitted per-position maps / mean origin, or the
+            // geometric fallback), and those come from `calibration` at run
+            // time exactly as they will at replay time. The first version
+            // recorded the aperture here; refuted by the function 45 lines up
+            // (Gate B-lite F2) — recording values the computation never used
+            // is false precision a replay would faithfully reproduce wrongly.
+            recordReplayStep(kind: "dpc", parameters: [
+                "origin_reference": ref,
+            ])
         } catch {
             if cancellation.isCancelled { statusText = "DPC cancelled" }
             else { presentComputeFailure(error) }
@@ -4138,6 +4223,27 @@ final class AppState {
         }
         braggVectors = vectors
         completedDiskParams = params
+        // Recipe step (v2 S5): the canonical example of why the record exists
+        // separately from per-result controls — detection's own product
+        // (BraggVectors) is often never saved as a result, but strain's is,
+        // and replaying strain without these parameters is impossible.
+        // Re-detection INVALIDATES downstream steps: a strain or ACOM step
+        // recorded against the old peaks would otherwise survive next to the
+        // new detection — a recipe that replays neither the saved maps nor a
+        // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
+        recordReplayStep(kind: "disk_detection", parameters: [
+            "corr_power": String(params.corrPower),
+            "sigma_dp": String(params.sigmaDP),
+            "sigma_cc": String(params.sigmaCC),
+            "subpixel": params.subpixel.provenanceID,
+            "upsample_factor": String(params.upsampleFactor),
+            "min_absolute_intensity": String(params.minAbsoluteIntensity),
+            "min_relative_intensity": String(params.minRelativeIntensity),
+            "relative_to_peak": String(params.relativeToPeak),
+            "min_peak_spacing": String(params.minPeakSpacing),
+            "edge_boundary": String(params.edgeBoundary),
+            "max_peaks": String(params.maxNumPeaks),
+        ], invalidating: ["strain", "acom"])
         completedDiskSummary = DiskDetectionScanSummary(
             vectors: vectors, maximumPeaks: params.maxNumPeaks
         )
@@ -4283,6 +4389,20 @@ final class AppState {
             strainG1X = map.refG1.x; strainG1Y = map.refG1.y
             strainG2X = map.refG2.x; strainG2Y = map.refG2.y
         }
+        // Recipe step (v2 S5): the run's modes plus the RESOLVED basis — an
+        // automatic basis re-derived on a different view can legitimately
+        // differ, so the recipe records both; S6 decides which fidelity a
+        // replay wants. Tokens are the RESULT-PROVENANCE vocabulary
+        // ("consensus"/"manual", "selected-region"/"whole-scan"), not Swift
+        // case names — the two carriers share keys and must share values
+        // (Gate B-lite F10).
+        recordReplayStep(kind: "strain", parameters: [
+            "reference_mode": map.diagnostics.referenceMaskApplied
+                ? "selected-region" : "whole-scan",
+            "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
+            "resolved_g1_x": String(map.refG1.x), "resolved_g1_y": String(map.refG1.y),
+            "resolved_g2_x": String(map.refG2.x), "resolved_g2_y": String(map.refG2.y),
+        ])
         resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
         statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
@@ -4577,6 +4697,20 @@ final class AppState {
         }
         orientationMap = map
         hasOrientationMap = true
+        // Recipe step (v2 S5). Everything from the CAPTURED run semantics,
+        // nothing from live state: the first version recorded the exploratory
+        // slider even when the run matched at the calibrated physical scale —
+        // a replay at 0.01 Å⁻¹/px instead of the calibrated value gets every
+        // orientation wrong with no shape check to catch it (Gate B-lite F3).
+        // The material is recorded by ID: a replay that cannot resolve it
+        // must fail by name, never fall back to a different crystal.
+        recordReplayStep(kind: "acom", parameters: [
+            "material": runSemantics.materialModelID,
+            "scale_inv_angstrom_per_pixel": String(scale),
+            "matching_backend": map.matchingBackend.rawValue,
+            "scope": String(describing: scope),
+            "quality": String(describing: quality),
+        ])
         acomLastRunScope = scope
         acomLastRunQuality = quality
         acomLastRunSemantics = runSemantics

@@ -104,6 +104,37 @@ nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
     var selectedY: Int
     var analysisMode: String
     var updated: Date
+    /// The load specification whose FRAME `selectedX/Y` are expressed in.
+    /// A position is only meaningful in the view it was selected in: after a
+    /// promote the coordinates are full-extent, after a sidecar restore the
+    /// view is the rehearsal crop, and clamping one frame's position into the
+    /// other manufactured "a defensible pixel the user never chose" (S3's
+    /// carried finding, fixed v2 S5). Nil = written by an older build, frame
+    /// unknown — the restore applies the position only if it fits, and drops
+    /// it otherwise. Optional so old persisted records still decode.
+    var loadSpecification: LoadSpecification? = nil
+
+    /// The recorded position, applied only when it is honest in the view
+    /// being restored: the same SCAN frame (when the record knows its frame)
+    /// and inside the extents. Nil means "no honest position" — the caller
+    /// keeps its default. NEVER clamp: a position clamped across frames is a
+    /// defensible pixel the user never chose, which reads as their selection
+    /// and is not.
+    ///
+    /// Only `scanCrop` is compared: scan coordinates live in the scan crop's
+    /// frame, and a detector crop or bin moves no scan index — a whole-spec
+    /// comparison dropped honest positions on detector-only changes
+    /// (Gate B-lite F13). Pure, so the tests can pin every branch. // v2 S5
+    nonisolated func position(
+        inViewWith specification: LoadSpecification, rx: Int, ry: Int
+    ) -> (x: Int, y: Int)? {
+        if let frame = loadSpecification, frame.scanCrop != specification.scanCrop {
+            return nil
+        }
+        guard rx > 0, ry > 0,
+              (0..<rx).contains(selectedX), (0..<ry).contains(selectedY) else { return nil }
+        return (selectedX, selectedY)
+    }
 }
 
 /// Small UserDefaults-backed index only. Scientific results and large arrays

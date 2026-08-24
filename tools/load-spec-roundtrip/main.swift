@@ -173,6 +173,40 @@ let cases: [(String, LoadSpecification)] = [
                   "malformed specification text \(text.debugDescription) decoded to something")
         }
 
+        // ---- 8. The replay record (v2 S5) round-trips by the same rules -----
+        // The record extends the sidecar format the same way the specification
+        // did, so it earns the same harness: equal after the trip, byte-stable
+        // on re-encode, ORDER preserved (the pipeline order IS the payload —
+        // a serializer that sorted steps would still compare equal as a set
+        // and replay strain before disk detection), and garbage decodes to
+        // nothing rather than to an empty recipe.
+        var recipe = SessionReplayRecord()
+        recipe.record(kind: "disk_detection", parameters: ["sigma_cc": "2.0"],
+                      at: Date(timeIntervalSince1970: 10))
+        recipe.record(kind: "strain", parameters: ["basis_mode": "automatic"],
+                      at: Date(timeIntervalSince1970: 20))
+        recipe.record(kind: "disk_detection", parameters: ["sigma_cc": "3.5"],
+                      at: Date(timeIntervalSince1970: 30))
+        check(recipe.steps.map(\.kind) == ["disk_detection", "strain"],
+              "a re-run must update its step in place, not append or reorder")
+        check(recipe.steps.first?.parameters["sigma_cc"] == "3.5",
+              "a re-run must carry the parameters the user settled on")
+        if let recipeJSON = recipe.jsonString {
+            let decodedRecipe = SessionReplayRecord.parse(recipeJSON)
+            check(decodedRecipe == recipe,
+                  "the replay record differs after the round trip")
+            check(decodedRecipe?.steps.map(\.kind) == ["disk_detection", "strain"],
+                  "the pipeline ORDER changed across the round trip")
+            check(decodedRecipe?.jsonString == recipeJSON,
+                  "re-encoding the replay record produced different bytes")
+        } else {
+            check(false, "a non-empty replay record failed to encode")
+        }
+        for text in ["", "{", "null", "{\"steps\":\"none\"}"] {
+            check(SessionReplayRecord.parse(text) == nil,
+                  "malformed replay text \(text.debugDescription) decoded to something")
+        }
+
         if failures.isEmpty {
             print("load-spec-roundtrip: all passed")
         } else {

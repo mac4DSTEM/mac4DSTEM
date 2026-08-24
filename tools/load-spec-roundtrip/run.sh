@@ -19,6 +19,7 @@ xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
   "$SRC/DiffractionPattern.swift" \
   "$SRC/FourDDataSource.swift" \
   "$SRC/LoadSpecification.swift" \
+  "$SRC/SessionReplayRecord.swift" \
   "$SRC/Calibration.swift" \
   "$SRC/CalibrationReReference.swift" \
   main.swift
