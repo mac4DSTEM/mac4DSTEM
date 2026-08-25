@@ -231,7 +231,11 @@ extension AppState {
         if let step = product.sampling.column ?? product.sampling.row {
             parts.append(String(format: "%.5g %@/px", step, product.sampling.units ?? "px"))
         }
-        for key in ["source_product", "basis_mode", "matching_backend", "reference_mode"] {
+        // strain_frame and qr_rotation_deg: a strain figure must name the
+        // frame ON ITS FACE — the caption is the one carrier that survives a
+        // screenshot (v2 S8).
+        for key in ["source_product", "basis_mode", "matching_backend", "reference_mode",
+                    "strain_frame", "qr_rotation_deg"] {
             if let value = product.provenance[key] { parts.append("\(key)=\(value)") }
         }
         // Only when it is not the default: a figure that HAS been reoriented
@@ -349,10 +353,32 @@ extension AppState {
     /// Provenance was already per-`ScalarResultMap`, so a mixed bundle needs no
     /// special handling: each field keeps its own `bundle`, run semantics and
     /// `quantitative_status`, which strain and ACOM do not share.
+    /// The presentation-frame provenance keys every strain carrier shares —
+    /// the displayed-result metadata and the scientific bundle — composed in
+    /// ONE place so two exports can never disagree about the frame. // v2 S8
+    var strainFrameProvenance: [String: String] {
+        let frame = strainPresentationFrame
+        var keys: [String: String] = ["strain_frame": frame.provenanceValue]
+        switch frame {
+        case .scan(let rotationRad, let transposed):
+            keys["qr_rotation_rad"] = String(rotationRad)
+            keys["qr_rotation_deg"] = String(format: "%.1f", rotationRad * 180 / .pi)
+            keys["qr_transposed"] = transposed ? "true" : "false"
+        case .detector:
+            keys["strain_frame_reason"] = "qr_rotation_not_calibrated"
+        }
+        return keys
+    }
+
     func scientificBundleMaps() -> [ScalarResultMap]? {
         let sampling = (calibration.rPixelSize, calibration.rPixelUnits)
         var bundle: [ScalarResultMap] = []
-        if let map = strainMap {
+        if let map = strain.map {
+            // The tensor components are exported in the presentation frame —
+            // exactly what the screen shows — with the frame and the applied
+            // rotation named in provenance (v2 S8). Diagnostics (residual,
+            // validity) are frame-free and come from the base map.
+            let presented = map.presented(in: strainPresentationFrame)
             // The bundle stays in scan-index order — a quantitative field must
             // stay addressable by (Rx, Ry) — but it records the orientation the
             // user was viewing, so a figure made from this bundle can be
@@ -364,6 +390,7 @@ extension AppState {
                 "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
                 "display_orientation_applied": "false",
             ]
+            provenance.merge(strainFrameProvenance) { current, _ in current }
             provenance.merge(realSpaceDisplayProvenance) { current, _ in current }
             func field(_ kind: String, _ name: String, _ units: String,
                        _ pixels: [Float]) -> ScalarResultMap {
@@ -378,10 +405,10 @@ extension AppState {
                 values.indices.map { map.mask[$0] ? values[$0] : Float.nan }
             }
             bundle += [
-                field("strain_exx", "Strain ε_xx", "strain", masked(map.exx)),
-                field("strain_eyy", "Strain ε_yy", "strain", masked(map.eyy)),
-                field("strain_exy", "Strain ε_xy", "strain", masked(map.exy)),
-                field("strain_theta", "Lattice rotation θ", "rad", masked(map.theta)),
+                field("strain_exx", "Strain ε_xx", "strain", masked(presented.exx)),
+                field("strain_eyy", "Strain ε_yy", "strain", masked(presented.eyy)),
+                field("strain_exy", "Strain ε_xy", "strain", masked(presented.exy)),
+                field("strain_theta", "Lattice rotation θ", "rad", masked(presented.theta)),
                 field("strain_validity", "Strain validity", "boolean", map.mask.map { $0 ? 1 : 0 }),
                 field("strain_fit_residual", "Local fit residual", "detector_px",
                       masked(map.localResidualPixels)),
@@ -454,7 +481,7 @@ extension AppState {
     func scientificBundleOmissions(in maps: [ScalarResultMap]) -> [String] {
         let included = Set(maps.compactMap { $0.provenance["bundle"] })
         var omitted: [String] = []
-        if strainMap != nil, !included.contains("strain") { omitted.append("strain") }
+        if strain.map != nil, !included.contains("strain") { omitted.append("strain") }
         if orientationMap != nil, acomLastRunSemantics != nil,
            !included.contains("orientation") {
             omitted.append("orientation")
@@ -1237,14 +1264,14 @@ extension AppState {
             }
         case .strain:
             let units: String
-            switch strainComponent {
+            switch strain.component {
             case .theta: units = "rad"
             case .residual: units = "detector_px"
             case .indexed: units = "boolean"
             case .exx, .eyy, .exy: units = "strain"
             }
             let kind: String
-            switch strainComponent {
+            switch strain.component {
             case .exx:   kind = "strain_exx"
             case .eyy:   kind = "strain_eyy"
             case .exy:   kind = "strain_exy"
@@ -1252,7 +1279,7 @@ extension AppState {
             case .residual: kind = "strain_fit_residual"
             case .indexed: kind = "strain_indexed"
             }
-            return (kind, "Strain · \(strainComponent.rawValue)", units)
+            return (kind, "Strain · \(strain.component.rawValue)", units)
         case .acom:
             let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
             let baseKind: String
@@ -1361,33 +1388,40 @@ extension AppState {
                 provenance
             )
         }
-        if analysisMode == .strain, let map = strainMap {
+        if analysisMode == .strain, let map = strain.map {
             let diagnostics = map.diagnostics
+            var provenance: [String: String] = [
+                "analysis_mode": analysisMode.rawValue,
+                "source_product": "strain_\(strain.component.rawValue)",
+                "basis_mode": diagnostics.automaticBasis ? "consensus" : "manual",
+                "basis_support_fraction": String(diagnostics.basisSupportFraction),
+                "basis_support_count": String(diagnostics.basisSupportCount),
+                "basis_observation_count": String(diagnostics.basisObservationCount),
+                "basis_residual_pixels": String(diagnostics.basisResidualPixels),
+                "basis_condition_number": String(diagnostics.basisConditionNumber),
+                "indexing_tolerance_pixels": String(diagnostics.indexingTolerancePixels),
+                "indexed_fraction": String(map.indexedFraction),
+                "local_residual_median_pixels": String(
+                    diagnostics.localResidualMedianPixels
+                ),
+                "reference_mode": diagnostics.referenceMaskApplied
+                    ? "selected-region" : "whole-scan",
+                "reference_inliers": String(map.referencePositionCount),
+                "reference_candidates": String(diagnostics.referenceCandidateCount),
+                "reference_rejected": String(diagnostics.referenceRejectedCount),
+                // Detector-frame measurement primitives regardless of the
+                // presentation frame — they locate g₁/g₂ on the pattern.
+                "reference_g1": "\(map.refG1.x),\(map.refG1.y)",
+                "reference_g2": "\(map.refG2.x),\(map.refG2.y)",
+            ]
+            // The frame the tensor components are expressed in — never
+            // implied (v2 S8). Rad for machine parity with py4DSTEM's
+            // QR_rotation, degrees for the human reading the caption.
+            provenance.merge(strainFrameProvenance) { current, _ in current }
             return (
                 calibration.rPixelSize, calibration.rPixelSize,
                 calibration.rPixelUnits,
-                [
-                    "analysis_mode": analysisMode.rawValue,
-                    "source_product": "strain_\(strainComponent.rawValue)",
-                    "basis_mode": diagnostics.automaticBasis ? "consensus" : "manual",
-                    "basis_support_fraction": String(diagnostics.basisSupportFraction),
-                    "basis_support_count": String(diagnostics.basisSupportCount),
-                    "basis_observation_count": String(diagnostics.basisObservationCount),
-                    "basis_residual_pixels": String(diagnostics.basisResidualPixels),
-                    "basis_condition_number": String(diagnostics.basisConditionNumber),
-                    "indexing_tolerance_pixels": String(diagnostics.indexingTolerancePixels),
-                    "indexed_fraction": String(map.indexedFraction),
-                    "local_residual_median_pixels": String(
-                        diagnostics.localResidualMedianPixels
-                    ),
-                    "reference_mode": diagnostics.referenceMaskApplied
-                        ? "selected-region" : "whole-scan",
-                    "reference_inliers": String(map.referencePositionCount),
-                    "reference_candidates": String(diagnostics.referenceCandidateCount),
-                    "reference_rejected": String(diagnostics.referenceRejectedCount),
-                    "reference_g1": "\(map.refG1.x),\(map.refG1.y)",
-                    "reference_g2": "\(map.refG2.x),\(map.refG2.y)",
-                ]
+                provenance
             )
         }
         if analysisMode == .acom, let map = orientationMap {

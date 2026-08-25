@@ -16,9 +16,12 @@
 //        e_xx = 1 − β₀₀,  e_yy = 1 − β₁₁,
 //        e_xy = −(β₀₁ + β₁₀)/2,  θ = (β₀₁ − β₁₀)/2
 //
-//  Strain is expressed in diffraction-space x/y. Automatic basis selection is
-//  a bounded consensus fit over repeated peak-vector clusters; local fits reject
-//  off-lattice peaks, and the robust reference rejects distorted positions.
+//  Strain is COMPUTED and stored in diffraction-space x/y; presentation
+//  (display/export) re-expresses it in the scan frame when the calibrated
+//  R–Q rotation exists — see StrainFrame.swift (v2 S8). Automatic basis
+//  selection is a bounded consensus fit over repeated peak-vector clusters;
+//  local fits reject off-lattice peaks, and the robust reference rejects
+//  distorted positions.
 //
 
 import Foundation
@@ -33,7 +36,9 @@ enum StrainComponent: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct StrainMap {
+// nonisolated: pure data/math (the S3-rider pattern) — presentation code in
+// StrainFrame.swift derives from it off the default actor.
+nonisolated struct StrainMap {
     let width: Int
     let height: Int
     let exx: [Float]
@@ -411,6 +416,51 @@ nonisolated enum StrainMapping {
                 return $0.radius < $1.radius
             }
             .prefix(24)
+
+        // MAC4DSTEM_STRAIN_DEBUG: the #18 instrumented diff (v2 S8). Print-only
+        // — the search itself is untouched. Dumps the clustering inputs, every
+        // candidate, and the best-supported pairs whether or not they pass the
+        // gates, so a run that returns nil says WHICH gate the nearest miss
+        // died on instead of only "no basis".
+        let debug = ProcessInfo.processInfo.environment["MAC4DSTEM_STRAIN_DEBUG"] != nil
+        func debugPrint(_ line: String) {
+            // stderr, deliberately: the campaign harness pipes stdout into
+            // report.json, and a diagnostic that corrupts the report would be
+            // a gate widened by instrumentation.
+            FileHandle.standardError.write(Data((line + "\n").utf8))
+        }
+        var debugPairs: [(g1: (x: Float, y: Float), g2: (x: Float, y: Float),
+                          condition: Float, support: Int, residual: Float)] = []
+        var debugConditionRejected = 0
+        if debug {
+            debugPrint(String(format: "STRAIN_DEBUG origin=(%.3f, %.3f) minRadius=%.2f", x0, y0, minRadius))
+            debugPrint(String(format: "STRAIN_DEBUG observations=%d occupied=%d "
+                         + "typicalRadius=%.3f clusterTolerance=%.3f clusters=%d "
+                         + "minClusterSupport=%d candidates=%d",
+                         observations.count, occupiedPositions, typicalRadius,
+                         clusterTolerance, clusters.count, minimumClusterSupport,
+                         candidates.count))
+            let radii = observations.map(\.radius).sorted()
+            if !radii.isEmpty {
+                func q(_ f: Double) -> Float { radii[min(radii.count - 1, Int(Double(radii.count) * f))] }
+                debugPrint(String(format: "STRAIN_DEBUG obsRadius q05=%.2f q25=%.2f q50=%.2f q75=%.2f q95=%.2f",
+                             q(0.05), q(0.25), q(0.50), q(0.75), q(0.95)))
+            }
+            let nearest = nearestRadii.sorted()
+            if !nearest.isEmpty {
+                func qn(_ f: Double) -> Float { nearest[min(nearest.count - 1, Int(Double(nearest.count) * f))] }
+                debugPrint(String(format: "STRAIN_DEBUG nearestRadius q05=%.2f q25=%.2f q50=%.2f q75=%.2f q95=%.2f",
+                             qn(0.05), qn(0.25), qn(0.50), qn(0.75), qn(0.95)))
+            }
+            for (i, c) in clusters.sorted(by: { $0.count > $1.count }).prefix(12).enumerated() {
+                debugPrint(String(format: "STRAIN_DEBUG cluster[%d] (%.3f, %.3f) r=%.3f count=%d",
+                             i, c.x, c.y, c.radius, c.count))
+            }
+            for (i, c) in candidates.enumerated() {
+                debugPrint(String(format: "STRAIN_DEBUG candidate[%d] (%.3f, %.3f) r=%.3f count=%d",
+                             i, c.x, c.y, c.radius, c.count))
+            }
+        }
         guard candidates.count >= 2 else { return nil }
 
         var best: BasisEstimate?
@@ -420,6 +470,7 @@ nonisolated enum StrainMapping {
                 let g1 = (x: candidates[first].x, y: candidates[first].y)
                 let g2 = (x: candidates[second].x, y: candidates[second].y)
                 guard let condition = conditionNumber(g1: g1, g2: g2), condition <= 8 else {
+                    debugConditionRejected += 1
                     continue
                 }
                 let tolerance = indexingTolerance(g1: g1, g2: g2)
@@ -427,6 +478,10 @@ nonisolated enum StrainMapping {
                     g1: g1, g2: g2,
                     observations: observations, tolerance: tolerance
                 )
+                if debug {
+                    debugPairs.append((g1: g1, g2: g2, condition: condition,
+                                       support: score.support, residual: score.residual))
+                }
                 guard score.support >= 2,
                       Float(score.support) / Float(observations.count) >= 0.5 else { continue }
                 let estimate = BasisEstimate(
@@ -449,6 +504,26 @@ nonisolated enum StrainMapping {
                                 + hypot(current.g2.x, current.g2.y)) {
                     best = estimate
                 }
+            }
+        }
+        if debug {
+            debugPrint("STRAIN_DEBUG conditionRejectedPairs=\(debugConditionRejected)")
+            let total = Float(max(1, observations.count))
+            for pair in debugPairs.sorted(by: { $0.support > $1.support }).prefix(12) {
+                debugPrint(String(
+                    format: "STRAIN_DEBUG pair g1=(%.3f, %.3f) g2=(%.3f, %.3f) "
+                        + "κ=%.2f support=%d (%.1f%%) rms=%.3f px%@",
+                    pair.g1.x, pair.g1.y, pair.g2.x, pair.g2.y,
+                    pair.condition, pair.support,
+                    Float(pair.support) / total * 100, pair.residual,
+                    Float(pair.support) / total >= 0.5 ? "" : "  [FAILS 50% support gate]"
+                ))
+            }
+            if let best {
+                debugPrint(String(format: "STRAIN_DEBUG chosen g1=(%.3f, %.3f) g2=(%.3f, %.3f) κ=%.2f",
+                             best.g1.x, best.g1.y, best.g2.x, best.g2.y, best.conditionNumber))
+            } else {
+                debugPrint("STRAIN_DEBUG chosen NONE")
             }
         }
         return best

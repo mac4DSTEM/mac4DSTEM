@@ -79,10 +79,10 @@ final class StrainFailureCauseTests: XCTestCase {
     @MainActor
     func testTheFailureCauseIsClearedSoAStaleRemedyIsNeverOffered() {
         let state = AppState()
-        XCTAssertNil(state.strainFailureCause, "nothing has run yet")
+        XCTAssertNil(state.strain.failureCause, "nothing has run yet")
 
         // The remedy panel is driven entirely by this value, so a stale one
         // would tell the user to fix a problem they no longer have.
-        XCTAssertNil(state.strainFailureCause)
+        XCTAssertNil(state.strain.failureCause)
     }
 }

@@ -508,7 +508,7 @@ struct ResultsWorkspace: View {
             }
             .buttonStyle(.bordered)
             .accessibilityIdentifier("result.exportPNG")
-            if appState.strainMap != nil || appState.hasOrientationMap {
+            if appState.strain.map != nil || appState.hasOrientationMap {
                 Button {
                     appState.exportScientificBundle()
                 } label: {

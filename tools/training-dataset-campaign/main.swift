@@ -641,6 +641,13 @@ private func evaluate(
        let spacing = Float(value) { diskParameters.minPeakSpacing = spacing }
     if let value = ProcessInfo.processInfo.environment["MAC4DSTEM_DISK_EDGE"],
        let edge = Int(value) { diskParameters.edgeBoundary = edge }
+    // v2 S8, #18: the fourth knob a hand-tuned session can differ in. The
+    // 2026-08-04 overrides covered spacing/σCC/edge only, so a session whose
+    // minRelative suppressed the near-beam false peaks was NOT reproducible —
+    // and the instrumented diff showed exactly that population dragging the
+    // basis search's clusterTolerance to ~1 px on Si_SiGe.
+    if let value = ProcessInfo.processInfo.environment["MAC4DSTEM_DISK_MIN_RELATIVE"],
+       let minRelative = Float(value) { diskParameters.minRelativeIntensity = minRelative }
 
     let cancelledDiskToken = AnalysisCancellationToken()
     cancelledDiskToken.cancel()

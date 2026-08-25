@@ -257,22 +257,39 @@ These are scientific-presentation defects, not crashes, and they are the exact
 class `docs/v2-scope.md` §4 exists to refuse: **a plausible result that a
 careful user would reasonably misread as a quantitative claim.**
 
-- **Strain is computed and exported in the DIFFRACTION frame, labelled only
-  εxx/εyy/εxy, and displayed over scan coordinates.** Verified:
-  `Core/Analysis/StrainMapping.swift`'s own header says *"Strain is expressed in
-  diffraction-space x/y"*; no rotation is applied anywhere in that file; and
-  the vendored py4DSTEM docstring for `get_strain_from_reference_g1g2`
-  (`References/py4DSTEM-dev/py4DSTEM/process/strain/latticevectors.py:324`)
-  explicitly says the result is *"oriented with respect to the x/y axes of
-  diffraction space — to rotate the coordinate system, use
-  get_rotated_strain_map()"*, which exists at `:409` and which this app does not
-  call. The tensor is not wrong *as an unrotated diffraction-frame tensor*. The
-  defect is that nothing on screen or in the export says so, while the map is
-  drawn over scan axes — and a 90° R–Q rotation swaps the normal components and
-  changes the sign convention of the shear. **Fix: either rotate into the scan
-  frame, or label and export it as diffraction-frame strain together with the
-  R–Q transform.** Until then, no export of this should be described as
-  sample-frame strain.
+- ~~Strain is computed and exported in the DIFFRACTION frame, labelled only
+  εxx/εyy/εxy, and displayed over scan coordinates.~~
+  **Closed by S8, 2026-08-25** (owner decision: scan frame, live-derived).
+  The stored map stays detector-frame; display and export re-express it in
+  the scan frame from the CURRENT calibration (`Core/Analysis/
+  StrainFrame.swift`, the `applyDPCDisplay` pattern — a later rotation
+  calibration updates what is shown, never silently desyncs), matching
+  py4DSTEM's own split: calibrated Bragg vectors are rotated before the fit
+  when `QR_rotation` exists (`braggvectors.py:528–545`), and without it
+  py4DSTEM warns and stays detector-frame. With no measured rotation the app
+  presents detector x/y and SAYS so — controls row, burned caption
+  (`strain_frame=detector`), and provenance (`strain_frame_reason`). Every
+  strain carrier now names the frame from one composition site
+  (`strainFrameProvenance`); the caption additionally carries
+  `qr_rotation_deg`. Pinned by `tools/strain-frame-test` (vendored
+  `get_rotated_strain_map` executed live + refit-from-rotated-vectors ground
+  truth + hand answers; NC1–NC5 negative controls) and 30 unit tests, each
+  observed failing under a discriminating mutation. **DEVIATION recorded in
+  `StrainFrame.swift`:** py4DSTEM's median reference
+  (`get_reference_g1g2`) is not rotation-equivariant on majority-free
+  mixtures, so its calibrated rotate-then-fit path differs there from its
+  own tensor-rotation path (up to ~2×10⁻² strain at 37.2° on the NC5
+  fixture — εxy the largest; and the −64° "sign-opposite reference pair" is
+  basis relabeling PLUS ~0.22 px of median drift superimposed, per the Gate
+  B reviewer's re-measurement);
+  the app's presentation keeps the measurement identity. **Known residual
+  (Gate B finding 5):** a strain result RESTORED from a pre-S8 sidecar
+  carries its saved provenance verbatim, which has no frame keys — its
+  display and re-export are frame-silent (honest-by-omission; the pixels
+  are provably detector-frame since no rotation path existed when they were
+  saved). Synthesizing `strain_frame=detector` at the restore site would be
+  a true claim if anyone wants it closed. On-screen verification: Track B
+  rows **F1.28/F1.29** (queued; nothing seen on screen yet).
 - ~~Physical iDPC does not require the origin fit to be quantitative.~~
   **Closed by S7, 2026-08-25:** both call sites now ask one owner
   (`App/SessionGates.originQuantitativeRefusal`, which IS
@@ -462,6 +479,7 @@ the claims are widened*, not as release advice.
   | 2026-08-25 (S6 STASHED — clean tree, same session) | — | **failed, byte-identical heights** |
   | 2026-08-25 (S6 committed, owner freed disk, gate run ×3) | exit 65 ×3 | **failed all three** (first run also hit the dylib-signature defect below) |
   | 2026-08-25 (S7 session: MCP `test_macos` ×3 + `run-tests.sh unit` ×1) | exit 65 | **failed all four**, heights byte-identical across the day (1029/945/961) — a red day end to end, as 08-19 was a mixed one |
+  | 2026-08-25 later (S8 session: MCP `test_macos` ×2, pre- and post-seam) | — | **failed both**, heights byte-identical to each other (1027/943/963) but **2pt off the S7 numbers from earlier the same day** — the measured heights drift BETWEEN sessions while staying frozen within one, which fits the machine-state hypothesis and rules out anything in S8 (pre-change run identical) |
 
   **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
   stash experiment produced the identical three failures with identical
@@ -1274,7 +1292,38 @@ or it spends the one resource Track B is expensive in — a person's attention.
 - **#11 — no WS₂ crystal model.** Scope question; `polycrystal_2D_WS2` cannot
   reach ACOM without one.
 - **#18 — the campaign cannot reproduce the app's strain result on Si_SiGe.**
-  Test-harness gap.
+  Test-harness gap. **Mechanism localized by S8's instrumented diff
+  (2026-08-25, three campaign runs on the real cube, spacing=10):** the
+  failure is in `estimateLatticeBasis`'s clustering SCALE, before any basis
+  pair is ever tested. At ~every position a bright peak sits 2.85–8.92 px
+  (q05–q95) from the reference origin — the **direct beam, scattered by
+  origin-fit residuals** (this is the #46 dataset: plane-fit RMS ≈ 11.7 px
+  exceeds the ≈ 5 px probe radius) — and survives `minRadius = 2`. The
+  nearest-peak median is therefore 5.82 px while the true shells sit at
+  17–42 px, so `clusterTolerance = 0.18·5.82 ≈ 1.05 px`; every true
+  reflection fragments into ~300-member pieces (three fragments around one
+  physical reflection at (−25, −15.5) in the dump), all under the 8% support
+  floor (800 of 10,000), and `candidates=0` — the recorded "No sufficiently
+  supported, well-conditioned lattice basis" with zero pairs examined.
+  **Hypothesis refuted by pre-registered prediction:** `minRelative` (the one
+  detector knob the 2026-08-04 overrides could not reproduce; override added
+  as `MAC4DSTEM_DISK_MIN_RELATIVE`) — raising it to 0.02 removed 81,820
+  peaks and left the nearestRadius quantiles **byte-identical**, candidates
+  still 0: the near-beam population is intensity-strong, not weak noise.
+  **Still open — why the app's 2026-08-04 session succeeded** on (reportedly)
+  the same inputs. That is now a 5-minute owner probe, not a session: run the
+  app on Si_SiGe from Xcode with env `MAC4DSTEM_STRAIN_DEBUG=1`
+  (`StrainMapping.estimateLatticeBasis` dumps origin, radius quantiles, top
+  clusters and candidate pairs to stderr — S8's instrument, print-only),
+  compute strain, send the STRAIN_DEBUG lines. If the app fails too, the
+  2026-08-04 record's inputs were not what the frame analysis concluded; if
+  it succeeds, its dump names the differing input directly. **Candidate code
+  fix, deliberately NOT made in S8** (science change, own Gate B): the
+  `typicalRadius` estimator should not admit the direct-beam residual cloud —
+  e.g. floor `minRadius` at the probe radius or at a multiple of the
+  origin-fit RMS when the fit is judged non-quantitative (the same
+  `SessionGates` policy iDPC consults). Until then every Si_SiGe strain
+  parity record remains evidence about the campaign, not the app.
 - **#15, #19, #20** — open measurement questions, low priority.
 
 ## Code hygiene

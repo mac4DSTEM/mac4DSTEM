@@ -106,44 +106,6 @@ enum RegionShape: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum StrainReferenceMode: String, CaseIterable, Identifiable {
-    case wholeScan = "Whole-scan mean"
-    case selectedRegion = "Current real-space ROI"
-    var id: String { rawValue }
-}
-
-/// Why the last strain run produced nothing.
-///
-/// Backlog #8: one message used to name two unrelated remedies ("adjust the
-/// thresholds in the Bragg panel **or** the reference/basis selection"), which
-/// left the user guessing which of two different tasks to go back to. These are
-/// genuinely different failures with different fixes, so they are distinguished
-/// and each names exactly one control.
-enum StrainFailureCause: Equatable {
-    /// Too few peaks per position for any lattice to exist. Detection problem.
-    case starvedInput(medianPeaks: Double, emptyPercent: Int)
-    /// A healthy peak population that no single lattice explains. Reference or
-    /// basis problem.
-    case illConditionedBasis
-
-    /// A 2D basis needs the direct beam plus two non-collinear g-vectors, so a
-    /// position with fewer than three peaks cannot be indexed at all. A median
-    /// below four means at least half the scan is at or under that floor, which
-    /// is a detection failure however the reference is chosen. Positions with
-    /// no peaks at all are the same problem stated more starkly.
-    static func classify(medianPeaks: Double, emptyPercent: Int) -> StrainFailureCause {
-        (medianPeaks < 4 || emptyPercent > 25)
-            ? .starvedInput(medianPeaks: medianPeaks, emptyPercent: emptyPercent)
-            : .illConditionedBasis
-    }
-}
-
-enum StrainBasisMode: String, CaseIterable, Identifiable {
-    case automatic = "Automatic"
-    case manual = "Manual g₁ / g₂"
-    var id: String { rawValue }
-}
-
 enum ComparisonSlot: Equatable { case a, b }
 
 /// What one analysis entry point did — returned by the five run functions so
@@ -207,6 +169,12 @@ final class AppState {
 
     init(sessionSidecar: SessionSidecarLocator = SessionSidecarLocator()) {
         self.sessionSidecar = sessionSidecar
+        // The seam signals presentation changes (component switches); the
+        // displayed image is shared display state, so the derivation stays
+        // here. Weak: AppState owns the seam, never the reverse.
+        strain.onPresentationChange = { [weak self] in
+            self?.applyStrainDisplay()
+        }
     }
 
     var datasets: [DatasetDescriptor] = []
@@ -227,6 +195,10 @@ final class AppState {
     /// (docs/development-process.md §7) — see `App/SessionGates.swift`.
     /// Views read `gates.…`; no forwarding properties. // v2 S7
     let gates = SessionGates()
+    /// The strain product and its run controls — S8's seam
+    /// (docs/development-process.md §7) — see `App/StrainProduct.swift`.
+    /// Views read `strain.…`; no forwarding properties. // v2 S8
+    let strain = StrainProduct()
 
     /// The ONE entry for recipe steps. Recording is suppressed while a
     /// dataset load is in flight: the automatic re-establishing pass on open
@@ -456,12 +428,6 @@ final class AppState {
 
     var hasCurrentBraggVectors: Bool {
         braggVectors != nil && !diskDetectionSettingsAreStale
-    }
-
-    // Strain mapping state.
-    private(set) var strainMap: StrainMap?
-    var strainComponent: StrainComponent = .exx {
-        didSet { applyStrainDisplay() }
     }
 
     // ACOM state.
@@ -716,7 +682,7 @@ final class AppState {
         var quality: [ProductQualityField] = []
         var overlays: [ProductOverlayDescriptor] = []
         var validity: [Bool]?
-        if analysisMode == .strain, let map = strainMap,
+        if analysisMode == .strain, let map = strain.map,
            map.width == payload.dimensions.width, map.height == payload.dimensions.height {
             validity = map.mask
             quality = [
@@ -936,10 +902,6 @@ final class AppState {
     /// IPF·Z once without ever overriding a deliberate choice.
     private(set) var acomDisplayIsUserChosen = false
 
-    /// Why the last strain run failed, so the Strain panel can offer the one
-    /// control that fixes it. Cleared on success and on dataset activation.
-    private(set) var strainFailureCause: StrainFailureCause?
-
     /// Presentation-only orientation of the real-space viewer (backlog #17b).
     /// The retained product, its scan indices, and the scientific bundle are
     /// unaffected; see `RealSpaceDisplayOrientation` for why quarter turns only
@@ -1004,12 +966,6 @@ final class AppState {
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
     var virtualDiffractionPattern: DiffractionPattern?
-    var strainReferenceMode: StrainReferenceMode = .wholeScan
-    var strainBasisMode: StrainBasisMode = .automatic
-    var strainG1X: Float = 10
-    var strainG1Y: Float = 0
-    var strainG2X: Float = 0
-    var strainG2Y: Float = 10
     var dpcDisplay: DPCDisplayMode = .magnitude {
         didSet { applyDPCDisplay() }
     }
@@ -1950,15 +1906,15 @@ final class AppState {
             return .ran(await runDiskDetection(replaying: true))
 
         case .strain(let strainPlan):
-            strainReferenceMode = .wholeScan
+            strain.referenceMode = .wholeScan
             if let basis = strainPlan.manualBasis {
-                strainBasisMode = .manual
-                strainG1X = basis.g1x
-                strainG1Y = basis.g1y
-                strainG2X = basis.g2x
-                strainG2Y = basis.g2y
+                strain.basisMode = .manual
+                strain.g1X = basis.g1x
+                strain.g1Y = basis.g1y
+                strain.g2X = basis.g2x
+                strain.g2Y = basis.g2y
             } else {
-                strainBasisMode = .automatic
+                strain.basisMode = .automatic
             }
             return .ran(await runStrainMapping(replaying: true))
 
@@ -2461,6 +2417,15 @@ final class AppState {
         } else {
             acceleratingVoltage = nil
         }
+        // The strain product dies BEFORE the calibration reset, not with the
+        // other scan-indexed products further down: `activate` suspends on
+        // reader awaits between here and those clears, the export menu item is
+        // reachable during a suspension, and `currentResultPersistenceMetadata`
+        // derives the strain frame keys from the LIVE calibration — so an
+        // uncleared map would export the previous dataset's scan-frame pixels
+        // under this reset's "rotation not calibrated" claim (Gate B finding 3,
+        // 2026-08-25).
+        strain.clear()
         calibration = Calibration()
         calibrationProvenance = CalibrationProvenance()
         clearSupersededFittedOrigin()
@@ -2598,7 +2563,9 @@ final class AppState {
         // user needed and did not have is the *reason*, which
         // `loadedView.invalidatedCalibration` now carries. Adding a separate
         // invalidation pass would be a second code path clearing the same state.
-        strainMap = nil
+        // (Strain cleared earlier, before the calibration reset — see the
+        // Gate B finding 3 comment above the `calibration = Calibration()`
+        // line.)
         orientationPlan = nil
         orientationMap = nil
         hasOrientationPlan = false
@@ -2617,7 +2584,6 @@ final class AppState {
         acomDisplayIsUserChosen = false
         realSpaceDisplayOrientation = .identity
         realSpaceDisplayMirrored = false
-        strainFailureCause = nil
         acomRegionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point
@@ -2926,6 +2892,15 @@ final class AppState {
             aperture.centerY = Float(qx0)
             calibration.originProvenance = .sessionMean
         }
+        // No strain-display refresh here, deliberately (Gate B finding 4,
+        // 2026-08-25): this function's only caller chain is
+        // `loadSessionSnapshot` ← `activate`, which always runs after
+        // `strain.clear()` — a refresh would be unconditionally the guarded
+        // no-op. The S4 Change… path never adopts a calibration in-session
+        // (it retargets the file and asks for a reopen). If an in-session
+        // "adopt calibration" path is ever added, it must refresh the strain
+        // display itself — the live sites are `calibrateRotation` and
+        // `flipRotation180`. // v2 S8
     }
 
     private func restoreSessionResult(
@@ -2991,7 +2966,7 @@ final class AppState {
         case .strain:
             // Strain is computed explicitly (needs a disk-detection pass);
             // just re-show it if already computed.
-            if strainMap != nil { applyStrainDisplay() }
+            if strain.map != nil { applyStrainDisplay() }
         case .ptychography:
             if let preview = parallaxAlignment?.previewImage
                 ?? parallaxPreprocess?.previewImage {
@@ -4212,6 +4187,9 @@ final class AppState {
             // re-derivation itself refuses (iDPC), its message must not be
             // overwritten by the ✓ line (Gate B, 2026-08-25). The rotation
             // DID calibrate either way; only the status line changes.
+            // A displayed strain map is derived from the same rotation and
+            // re-derives on the same rule. // v2 S8
+            applyStrainDisplay()
             if applyDPCDisplay() == nil {
                 statusText = String(format: "Rotation ✓  θ = %.1f°%@",
                                     result.rotationRad * 180 / .pi,
@@ -4325,6 +4303,10 @@ final class AppState {
         parallaxAlignment = nil
         // Same rule as `calibrateRotation`: the flip stands either way, but a
         // refused re-derivation keeps its own message on the status bar.
+        // The strain tensor is mathematically invariant under a 180° flip
+        // (ε' = (−I)·ε·(−I)ᵀ = ε), but the displayed frame label shows the
+        // angle, so the display re-derives on the same one rule. // v2 S8
+        applyStrainDisplay()
         if applyDPCDisplay() == nil {
             statusText = String(format: "Rotation flipped → θ = %.1f°", rotation * 180 / .pi)
         }
@@ -4758,11 +4740,9 @@ final class AppState {
 
         let calibrated = calibratedBraggVectors(bragg, descriptor: descriptor)
         let origin = calibrated.origin
-        let referenceMask = strainReferenceMode == .selectedRegion
+        let referenceMask = strain.referenceMode == .selectedRegion
             ? realSpaceRegionMask(descriptor) : nil
-        let initialBasis = strainBasisMode == .manual
-            ? (g1: (x: strainG1X, y: strainG1Y),
-               g2: (x: strainG2X, y: strainG2Y)) : nil
+        let initialBasis = strain.manualInitialBasis
         let epoch = datasetEpoch
         let map = await Task.detached(priority: .userInitiated) {
             StrainMapping.compute(bragg: calibrated.vectors,
@@ -4790,7 +4770,7 @@ final class AppState {
             } else {
                 cause = .illConditionedBasis
             }
-            strainFailureCause = cause
+            strain.recordFailure(cause)
 
             var detail: String
             switch cause {
@@ -4803,13 +4783,13 @@ final class AppState {
                     medianPeaks, emptyPercent
                 )
             case .illConditionedBasis:
-                detail = strainBasisMode == .manual
+                detail = strain.basisMode == .manual
                     ? "The manual basis is ill-conditioned, or too few peaks index to it. "
                         + "Check g₁ and g₂, or switch the basis back to Automatic."
                     : "The peak population is healthy, but no single lattice explains "
                         + "enough of it — which is what happens when the reference "
                         + "averages over regions with different lattices. "
-                        + (strainReferenceMode == .wholeScan
+                        + (strain.referenceMode == .wholeScan
                            ? "Pick an unstrained region as the reference instead."
                            : "Try a different reference region, or set g₁ and g₂ manually.")
                 if let summary = completedDiskSummary, summary.positionCount > 0 {
@@ -4827,12 +4807,7 @@ final class AppState {
             presentComputeFailure(SimpleError("Could not publish strain. \(detail)"))
             return .failed("Could not publish strain. \(detail)")
         }
-        strainFailureCause = nil
-        strainMap = map
-        if strainBasisMode == .automatic {
-            strainG1X = map.refG1.x; strainG1Y = map.refG1.y
-            strainG2X = map.refG2.x; strainG2Y = map.refG2.y
-        }
+        strain.publish(map)
         // Recipe step (v2 S5): the run's modes plus the RESOLVED basis — an
         // automatic basis re-derived on a different view can legitimately
         // differ, so the recipe records both; S6 decides which fidelity a
@@ -4872,13 +4847,13 @@ final class AppState {
         }
     }
 
-    /// Products held in memory right now. `strainMap` and `orientationMap` are
+    /// Products held in memory right now. `strain.map` and `orientationMap` are
     /// retained simultaneously — only the *displayed* one was ever
     /// single-valued, which is why running ACOM and then Strain looked like it
     /// had lost the first result (backlog #28).
     var availableComputedProducts: [ComputedProduct] {
         var products: [ComputedProduct] = []
-        if strainMap != nil { products.append(.strain) }
+        if strain.map != nil { products.append(.strain) }
         if hasOrientationMap { products.append(.orientation) }
         return products
     }
@@ -4900,7 +4875,7 @@ final class AppState {
         inspectQualityField = false
         switch product {
         case .strain:
-            guard strainMap != nil else { return }
+            guard strain.map != nil else { return }
             analysisMode = .strain
             workspaceArea = .map
             applyStrainDisplay()
@@ -4912,15 +4887,26 @@ final class AppState {
         }
     }
 
-    /// Show the selected strain component; masked positions remain NaN and
-    /// render with the explicit no-data color, never as neutral zero strain.
+    /// The frame strain is presented in right now, derived from the CURRENT
+    /// calibration on every read (the `applyDPCDisplay` pattern) — a later
+    /// rotation calibration changes what is shown, never silently desyncs
+    /// from it. // v2 S8
+    var strainPresentationFrame: StrainPresentationFrame {
+        .resolve(rotationRad: calibration.rotationRad,
+                 transposeQR: calibration.transposeQR)
+    }
+
+    /// Show the selected strain component, expressed in the presentation
+    /// frame; masked positions remain NaN and render with the explicit
+    /// no-data color, never as neutral zero strain.
     private func applyStrainDisplay() {
-        guard let map = strainMap, analysisMode == .strain else { return }
+        guard let map = strain.map, analysisMode == .strain else { return }
         restoredResultInfo = nil
         restoredResultDomain = nil
-        resultColormap = (strainComponent == .residual || strainComponent == .indexed)
+        resultColormap = (strain.component == .residual || strain.component == .indexed)
             ? .viridis : .rdbu
-        resultImage = map.component(strainComponent)
+        resultImage = map.presented(in: strainPresentationFrame)
+            .component(strain.component)
         resultRGBA = nil
         resultVersion &+= 1
     }
@@ -5237,7 +5223,7 @@ final class AppState {
     var strainFitOverlay: FitOverlays.StrainOverlay? {
         guard showFitOverlay, analysisMode == .strain,
               patternShowsSelectedPosition,
-              let map = strainMap, let d = descriptor,
+              let map = strain.map, let d = descriptor,
               map.width == d.rx, map.height == d.ry,
               let origin = overlayReferenceOrigin else { return nil }
         return FitOverlays.strainOverlay(
@@ -5315,7 +5301,7 @@ final class AppState {
     var fitOverlayIsAvailable: Bool {
         guard descriptor != nil else { return false }
         switch analysisMode {
-        case .strain: return strainMap != nil
+        case .strain: return strain.map != nil
         case .acom: return hasOrientationMap
         default:
             return workspaceArea == .prepare

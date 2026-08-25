@@ -28,11 +28,12 @@
 # verified 2026-08-19 — so `$(mac4dstem_sources ...)` would appear to work right
 # up until someone clones into "~/My Projects".)
 #
-# STATUS, STATED PLAINLY: only tools/two-spec-analysis-test sources this file
-# today. The eight hand-listing runners are exactly as exposed to the 2026-08-17
-# failure as they were before it existed. This file does not fix that breakage
-# until they migrate (docs/development-process.md §1: when next touched), and
-# saying otherwise would be a claim a reader cannot reproduce.
+# STATUS, STATED PLAINLY: tools/two-spec-analysis-test and
+# tools/strain-frame-test (v2 S8) source this file today. The hand-listing
+# runners are exactly as exposed to the 2026-08-17 failure as they were before
+# it existed. This file does not fix that breakage until they migrate
+# (docs/development-process.md §1: when next touched), and saying otherwise
+# would be a claim a reader cannot reproduce.
 #
 # GROUPS ARE DEPENDENCY-CLOSED. Asking for `analysis` gets the readers and the
 # cube too, in compile order. That is the property that makes the file worth
@@ -153,9 +154,26 @@ mac4dstem_sources() {
           "$core/Analysis/VirtualDetector.swift"
         )
         ;;
+      strain)
+        # Mirrors the proven tools/strain-test list (no Metal engine — the
+        # strain solver is CPU-only) plus the S8 presentation-frame rotation.
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Compute/MatrixDFTCorrelation.swift"
+          "$core/Analysis/ProbeKernel.swift"
+          "$core/Analysis/DiskDetection.swift"
+          "$core/Analysis/DPC.swift"
+          "$core/Analysis/QCalibration.swift"
+          "$core/Analysis/StrainMapping.swift"
+          "$core/Analysis/StrainFrame.swift"
+        )
+        ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis" >&2
+        echo "  known: data calibration readers cube analysis strain" >&2
         exit 64
         ;;
     esac

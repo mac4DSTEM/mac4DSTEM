@@ -64,7 +64,8 @@ scientific=(
   disk-detection-test disk-correlation-parity peak-overlay-test fit-overlay-test
   acom-orientation-test acom-matching-test parity-metric-test cif-symmetry-test
   idpc-test cancellation-test
-  bragg-export-test sidecar-result-test strain-test ellipse-calibration-test
+  bragg-export-test sidecar-result-test strain-test strain-frame-test
+  ellipse-calibration-test
   dm4-robustness-test vendor-reader-test load-spec-test load-spec-calibration
   preprocess-crop-bin-test load-spec-roundtrip sidecar-error-detail-test
   two-spec-analysis-test

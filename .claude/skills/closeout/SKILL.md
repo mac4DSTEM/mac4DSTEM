@@ -9,7 +9,15 @@ Done means the repo tells the next reader the truth. In order:
 
 1. `tools/run-tests.sh unit` — exit 0. If the session touched `Core/`, run
    the relevant `scientific` harnesses too. Put exit codes where you read
-   them — a `| tail` pipe has already swallowed a failing gate here once.
+   them — a `| tail` pipe has already swallowed a failing gate here once
+   (twice: S4's scientific run and S8's first aggregate both lost the
+   harness count the same way — retain the full log, grep it after).
+   Two non-zero exits are RECORDABLE outcomes, not gates to force green:
+   **exit 69** is the S0 free-space preflight refusing (record it, note the
+   owner re-run owed, never touch the floor — the MCP `test_macos` route is
+   the warm fallback for the app suite), and **exit 65 with exactly the S17
+   sidebar intermittent** is the documented flake (add the run to S17's
+   observation log in `docs/open-items.md` with the measured heights).
 2. If `AppState` was touched: confirm one seam was extracted
    (`docs/development-process.md` §7). Splitting into
    `extension AppState { }` does not count.
