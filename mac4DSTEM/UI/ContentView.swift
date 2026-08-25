@@ -337,9 +337,21 @@ struct ContentView: View {
                                     LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
                                         .font(.caption)
                                 } else {
-                                    Text("Qualitative iDPC: fitted origin maps, R–Q rotation, and calibrated real/reciprocal pixel sizes are required. Q in mrad also needs accelerating voltage.")
-                                        .font(.caption2)
-                                        .foregroundStyle(.orange)
+                                    // The true reason, not the requirements
+                                    // list: when every requirement is met and
+                                    // the origin FIT is what the gate refuses,
+                                    // listing requirements that are all
+                                    // satisfied would misdirect the remedy.
+                                    // // v2 S7
+                                    if let refusal = appState.idpcOriginFitRefusal {
+                                        Text("Qualitative iDPC — " + refusal)
+                                            .font(.caption2)
+                                            .foregroundStyle(.orange)
+                                    } else {
+                                        Text("Qualitative iDPC: fitted origin maps, R–Q rotation, and calibrated real/reciprocal pixel sizes are required. Q in mrad also needs accelerating voltage.")
+                                            .font(.caption2)
+                                            .foregroundStyle(.orange)
+                                    }
                                     LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
                                         .font(.caption)
                                 }

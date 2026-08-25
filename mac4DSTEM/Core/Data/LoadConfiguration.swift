@@ -69,6 +69,12 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// Goes through the validating initialiser rather than reimplementing its
     /// rules — the configurator must not be able to offer something the loader
     /// would refuse.
+    ///
+    /// `try?` is correct here (v2 S7 audit): nil means "this in-progress
+    /// configuration is not loadable", which the configurator renders as a
+    /// disabled Load with its own captions — the thrown reasons belong to the
+    /// commit path, which re-runs the validating initialiser and surfaces
+    /// them there.
     var view: LoadView? {
         try? LoadView(source: source, specification: specification)
     }

@@ -203,7 +203,7 @@ diskParams.maxNumPeaks = 8
 guard let residentDisks = DiskDetection.detectAll(
     cube: cubeBuffer, descriptor: d, kernel: diskKernel, params: diskParams
 ) else { fail("resident disk detection failed") }
-guard let tiledDisks = await DiskDetection.detectAll(
+guard let tiledDisks = try await DiskDetection.detectAll(
     data: fieldData, descriptor: d, kernel: diskKernel, params: diskParams,
     maximumTileRows: 1
 ) else { fail("tiled disk detection failed") }

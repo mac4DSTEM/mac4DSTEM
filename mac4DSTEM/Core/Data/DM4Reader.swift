@@ -53,10 +53,18 @@ actor DM4Reader: FourDDataSource {
     // mutates actor state; a synchronous actor init is nonisolated and
     // such a call is an error in Swift 6 language mode.
     init(path: String) async throws {
-        guard let mapped = try? Data(contentsOf: URL(fileURLWithPath: path), options: .mappedIfSafe) else {
-            throw DM4Error.cannotOpen(path)
+        // The underlying error travels with the refusal (v2 S7 audit): the
+        // old `try?` collapsed EPERM, ENOENT and a short read into one
+        // pathless "cannot open". The `.mappedIfSafe` semantics themselves —
+        // and whether a NAS mount makes this a hidden full read — are S9's
+        // Gate D experiment (docs/v2-release.md §8); do not change the
+        // mapping option here.
+        do {
+            self.data = try Data(contentsOf: URL(fileURLWithPath: path),
+                                 options: .mappedIfSafe)
+        } catch {
+            throw DM4Error.cannotOpen("\(path) — \(error.localizedDescription)")
         }
-        self.data = mapped
         self.filePath = path
         try parse()
     }

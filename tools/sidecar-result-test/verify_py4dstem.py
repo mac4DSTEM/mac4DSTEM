@@ -47,7 +47,15 @@ np.testing.assert_allclose(
 # directly in HDF5 as well as validating py4DSTEM's data/metadata promotion.
 with h5py.File(path, "r") as f:
     session_root = f["/braggvectors_root"]
-    assert session_root.attrs["mac4dstem_session_schema"] == "5"
+    # Schema "6" since v2 S5 (2026-08-24): the replay record joined the
+    # format and every sidecar carries the minimum-reader marker. This
+    # sidecar records no reduced specification, so the oldest reader that
+    # interprets it without misreading is still "5". This assertion was
+    # stale at "5" from S5 until 2026-08-25 because the harness had a
+    # compile break over the same period (docs/open-items.md) and the
+    # stale pin was never reached — fixed together in S7.
+    assert session_root.attrs["mac4dstem_session_schema"] == "6"
+    assert session_root.attrs["mac4dstem_min_reader_schema"] == "5"
     nodes = session_root.attrs["mac4dstem_result_nodes"].split("\n")
     assert len(nodes) == 8, nodes
     assert session_root.attrs["mac4dstem_current_result"] == nodes[-1]

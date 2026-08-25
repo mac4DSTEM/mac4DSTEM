@@ -559,7 +559,78 @@ only if asked.
   mapping end-to-end (needs a timed cancel — F1.23's job); the summary does
   not survive an app quit (in-memory by design).
 - [ ] **TB1**
-- [ ] S7 · [ ] S8 · [ ] S9 · [ ] S10
+- [x] **S7** — 2026-08-25 (taken ahead of TB1 per §8's "parallel"; the owner
+  pass needs the owner). **Error honesty:** physical iDPC now takes the SAME
+  origin-fit gate as Q calibration through S7's seam —
+  `App/SessionGates.swift`, the one owner of the session's "may I?"
+  questions (`@Observable`, held by AppState, no forwarding) — a refused fit
+  renders qualitative iDPC with the specific judgement quoted in the DPC
+  controls and recorded in the product's provenance
+  (`qualitative_reason` / `origin_fit_judgement` / `origins_subtracted`).
+  `DPC.integrateIDPC` throws typed `IDPCError`s instead of returning
+  zero images; the tiled `detectAll` returns nil ONLY on cancellation and
+  throws `FullScanError` naming the scan rows and the underlying error —
+  the NAS-read-as-"FFT plan" misattribution is dead, and `tileRead` unwraps
+  into the modal data-source escalation. The S5-F9 save-refusal landed on
+  the seam: a failed crop restore (unreadable OR does-not-fit, the latter
+  previously statusText-only — S1's channel defect in the sibling branch)
+  arms a session-scoped gate that refuses all three sidecar rewrite entry
+  points by name, renders in the inspector, and clears on every
+  dataset-changing path; the unreadable remedy is workable now (same-file
+  Change… re-grants by filesystem identity). Export: the burned caption
+  wraps (figure grows; measured with `.usesFontLeading`) and the FULL
+  provenance record travels as PNG `Description` JSON, round-trip pinned
+  through a real file. **Bounded `try?` audit of Core/: all 28 sites** —
+  3 became typed refusals (tile reads; present-but-undecodable
+  specification/recipe attributes now throw `malformedAttribute` instead
+  of reading as "no crop"/"no recipe" — pinned end-to-end by corrupting a
+  real file in place), 1 carries the underlying error (DM4 open), the rest
+  carry verified correctness comments. **Gate B (separate refuter, Opus)
+  produced 12 findings; 11 fixed in-session** — the sharpest: the iDPC
+  failure was overwritten by "DPC ✓" one line later, recorded a phantom
+  recipe step and returned `.published` (the S1-channel + A6-phantom shapes
+  combined); the restore-failure gate outlived its dataset through
+  `commitPendingLoad`/`openDemoFixture`; the unreadable remedy promised
+  re-granting would fix a damaged file; the wrapped data-source error was
+  invisible to the modal escalation. 1 finding (already-planted defaults
+  key) closed by mechanism + observation, recorded below. **The gate run
+  itself found two pre-existing S5-era breaks** — seven runners hand-listing
+  the writer without `SessionReplayRecord.swift` (the 2026-08-17 breakage
+  recurring exactly as documented) and a stale schema-"5" pin in
+  `sidecar-result-test` — both fixed; `scientific` had not run end to end
+  between S5 and today. **Tests:** `SessionGatesTests` (9),
+  `ExportProvenanceTests` (3), `TiledDiskDetectionErrorTests` (4), plus
+  idpc-test negative controls; **13 discriminating mutations M1–M13, every
+  one observed failing its specific test**, including a harness-level one.
+  Mid-session the suite also caught two of this session's own regressions
+  (a comment edit deleted the recipe date-encoding line; the save tests
+  leaked a demo-path bookmark through the SHARED persisted UserDefaults into
+  parallel test workers — root-caused via worker-order evidence, fixed with
+  `AppState.init(sessionSidecar:)` injection). **Track A, exit codes read
+  directly:** `run-tests.sh scientific` **exit 0, 35 harnesses** on the
+  final tree; MCP `test_macos` **336 passed / 2 failed** (the retired UI
+  target's TCC write + the S17 sidebar intermittent at byte-identical
+  heights 1029/945/961 — excluded by that identity); zero build warnings;
+  `run-tests.sh unit` **335 passed / 1 failed, exit 65** — the 1 is the S17
+  sidebar intermittent (red in every gate run today; the terminal log
+  carries no assertion text, per the recorded S17 fact — the MCP runs are
+  where the heights came from).
+  **Deviations:** (1) the seven runner fixes add the one missing file, NOT
+  the manifest migration — deliberate, recorded in open-items; (2) the
+  direct-beam/`CalibrationReReference` unification named for this seam is
+  NOT done (blocked on TB1's "load anyway" decision; the seam is its stated
+  home); (3) `runDPC`'s withhold-✓-on-display-failure fix is review-pinned,
+  not test-pinned — the failure needs an FFT-refusing grid that no fixture
+  reaches through the public surface, and widening `comField` access for a
+  test is the banned move. **Not verified:** everything on screen
+  (F1.24–F1.27 queued); the modal escalation of a real mid-scan NAS failure
+  (the unwrap is unit-reachable only synthetically); the planted demo
+  bookmark's absence from the app container (TCC blocks the agent — probe:
+  `defaults read com.mac4dstem.mac4DSTEM
+  "session-sidecar-bookmark.L0RlbW8vbWFjNERTVEVNIERlbW8uaDU="`; the
+  locator removes unresolvable keys on lookup, and the post-fix suite
+  passed the pollution-sensitive assertions).
+- [ ] S8 · [ ] S9 · [ ] S10
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21
 

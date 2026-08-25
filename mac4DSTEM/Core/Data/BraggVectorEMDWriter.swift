@@ -191,6 +191,13 @@ nonisolated enum BraggVectorEMDWriter {
         /// attribute and restored results at wrong positions — worse than
         /// "cannot read" (docs/v2-release.md §5). // v2 S5
         case sidecarRequiresNewerReader(minimum: Int, supported: Int)
+        /// An attribute EXISTS on the sidecar and cannot be decoded. A
+        /// refusal, never a silent nil: a mangled specification attribute
+        /// that reads as "no crop recorded" reopens a cropped session at
+        /// full extent without a word — the exact misread the attribute
+        /// exists to prevent — and a mangled recipe reads as "no recipe".
+        /// // v2 S7
+        case malformedAttribute(name: String)
 
         var errorDescription: String? {
             switch self {
@@ -214,6 +221,10 @@ nonisolated enum BraggVectorEMDWriter {
                     + "\(minimum) or newer to read safely; this build supports "
                     + "\(supported). It was probably written by a newer mac4DSTEM — "
                     + "nothing was restored, so nothing can be misread."
+            case .malformedAttribute(let name):
+                return "The session sidecar's \(name) attribute exists but "
+                    + "could not be decoded — the file may be damaged. "
+                    + "Nothing was restored, so nothing can be misread."
             }
         }
     }
@@ -256,6 +267,10 @@ nonisolated enum BraggVectorEMDWriter {
         let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
+            // try? OK (v2 S7 audit): best-effort scratch cleanup on the way
+            // out — on the failure path the primary error is already
+            // in flight, and a leftover .tmp in the system-provided scratch
+            // directory harms nothing the error did not already report.
             if !published { try? fm.removeItem(at: temporary) }
             if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
         }
@@ -390,6 +405,10 @@ nonisolated enum BraggVectorEMDWriter {
         let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
+            // try? OK (v2 S7 audit): best-effort scratch cleanup on the way
+            // out — on the failure path the primary error is already
+            // in flight, and a leftover .tmp in the system-provided scratch
+            // directory harms nothing the error did not already report.
             if !published { try? fm.removeItem(at: temporary) }
             if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
         }
@@ -613,13 +632,33 @@ nonisolated enum BraggVectorEMDWriter {
                 : nil
         }
         let calibration = try readCalibration(from: root, hdf5: h5)
-        let specification = (try readStringAttribute(loadSpecificationAttribute,
-                                                     on: root, hdf5: h5))
-            .flatMap(LoadSpecification.decoded(from:))
+        // Absent attribute ⇒ nil — nothing was recorded. Present-but-
+        // undecodable ⇒ REFUSE by name (v2 S7): `.flatMap(decoded)` used to
+        // collapse the two, so a mangled specification attribute read as "no
+        // crop recorded" and the cropped session reopened silently at full
+        // extent — the misread the attribute exists to prevent.
+        let specification: LoadSpecification?
+        if let json = try readStringAttribute(loadSpecificationAttribute,
+                                              on: root, hdf5: h5) {
+            guard let decoded = LoadSpecification.decoded(from: json) else {
+                throw WriterError.malformedAttribute(name: loadSpecificationAttribute)
+            }
+            specification = decoded
+        } else {
+            specification = nil
+        }
         // Absent attribute ⇒ nil record — no recipe was recorded, and the
         // snapshot says so rather than asserting an empty one. // v2 S5
-        let replay = (try readStringAttribute(replayRecordAttribute, on: root, hdf5: h5))
-            .flatMap(SessionReplayRecord.parse(_:))
+        // Present-but-undecodable refuses, as above. // v2 S7
+        let replay: SessionReplayRecord?
+        if let json = try readStringAttribute(replayRecordAttribute, on: root, hdf5: h5) {
+            guard let parsed = SessionReplayRecord.parse(json) else {
+                throw WriterError.malformedAttribute(name: replayRecordAttribute)
+            }
+            replay = parsed
+        } else {
+            replay = nil
+        }
         let inventory = SessionSidecarInventory(
             hasSidecar: true,
             hasBraggVectors: linkExists("\(rootPath)/braggvectors", in: fileID, hdf5: h5),
@@ -1063,6 +1102,10 @@ nonisolated enum BraggVectorEMDWriter {
         let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
+            // try? OK (v2 S7 audit): best-effort scratch cleanup on the way
+            // out — on the failure path the primary error is already
+            // in flight, and a leftover .tmp in the system-provided scratch
+            // directory harms nothing the error did not already report.
             if !published { try? fm.removeItem(at: temporary) }
             if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
         }
@@ -1976,6 +2019,10 @@ nonisolated enum BraggVectorEMDWriter {
         guard status >= 0 else { throw WriterError.hdf5("writing attribute \(name)") }
     }
 
+    // try? OK (v2 S7 audit): serializing a [String: String] that
+    // `isValidJSONObject` just accepted cannot fail; the guard is belt and
+    // braces around an unreachable branch, and nil means "write no
+    // provenance attribute", which reads back as an absent one.
     private static func encodeProvenance(_ values: [String: String]) -> String? {
         guard !values.isEmpty,
               JSONSerialization.isValidJSONObject(values),
@@ -1985,6 +2032,13 @@ nonisolated enum BraggVectorEMDWriter {
         return String(data: data, encoding: .utf8)
     }
 
+    // try? accepted with a stated limit (v2 S7 audit): a malformed
+    // provenance attribute decodes as EMPTY — visibly absent labels, which a
+    // reader can see and question. This is the opposite shape from the
+    // specification/recipe attributes above, where absent has a load-bearing
+    // meaning ("full extent" / "no recipe") and malformed must therefore
+    // refuse (`WriterError.malformedAttribute`); absent provenance asserts
+    // nothing.
     private static func decodeProvenance(_ value: String?) -> [String: String] {
         guard let value, let data = value.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data),

@@ -193,7 +193,21 @@ final class AppState {
     /// dataset's session sidecar is and whether the app may read it. Replaces a
     /// bare `scopedSessionSidecarURL` that eight call sites derived around in
     /// two different ways — see `App/SessionSidecarLocator.swift`.
-    let sessionSidecar = SessionSidecarLocator()
+    ///
+    /// Injectable for the S1 reason one level up (v2 S7): the locator persists
+    /// bookmarks into `UserDefaults`, and the demo dataset's file path is a
+    /// CONSTANT — so a test that saves a sidecar for the demo through the real
+    /// defaults plants a grant every other demo-opening test (including one in
+    /// a parallel worker PROCESS, which shares the persisted domain) then
+    /// resolves, adopting that test's calibration and recipe as session state.
+    /// Measured 2026-08-25: `.mixed` replay frames and `sessionSidecar`-stamped
+    /// Q scales appearing in unrelated suites. Tests that publish sidecars
+    /// must construct `AppState(sessionSidecar:)` with a suite-private store.
+    let sessionSidecar: SessionSidecarLocator
+
+    init(sessionSidecar: SessionSidecarLocator = SessionSidecarLocator()) {
+        self.sessionSidecar = sessionSidecar
+    }
 
     var datasets: [DatasetDescriptor] = []
 
@@ -209,6 +223,10 @@ final class AppState {
     /// (docs/development-process.md §7) — see `App/ReplayRun.swift`.
     /// Views read `replayRun.…`; no forwarding properties. // v2 S6
     let replayRun = ReplayRun()
+    /// The session's "may I?" policy gates — S7's seam
+    /// (docs/development-process.md §7) — see `App/SessionGates.swift`.
+    /// Views read `gates.…`; no forwarding properties. // v2 S7
+    let gates = SessionGates()
 
     /// The ONE entry for recipe steps. Recording is suppressed while a
     /// dataset load is in flight: the automatic re-establishing pass on open
@@ -1505,13 +1523,24 @@ final class AppState {
             // passes — so the first version of this reported the refusal into a
             // channel the user could never read it from. // v2 S1
             sessionSidecar.noteUnreadable(message)
+            // Loading proceeds at full extent, so from here on a sidecar
+            // rewrite would erase the crop this session never restored and
+            // relabel its results — refused until the dataset is reopened
+            // with the recorded view restored (S5 finding F9). // v2 S7
+            gates.noteSidecarRestoreFailed(.unreadable, message: message)
             statusText = message
             return nil
         case .recorded(let recorded):
             specification = recorded
         }
         guard (try? LoadView(source: source, specification: specification)) != nil else {
-            statusText = "The saved session describes a region this file does not have; loading it whole."
+            let message = "The saved session describes a region this file does not have; loading it whole."
+            // The gate, not only `statusText` — the sibling branch above
+            // learned in S1 that `statusText` set here is overwritten before
+            // anyone can read it, and this branch had kept exactly that
+            // defect. The inspector renders the gate's failure. // v2 S7
+            gates.noteSidecarRestoreFailed(.doesNotFit, message: message)
+            statusText = message
             return nil
         }
         return specification
@@ -1647,6 +1676,14 @@ final class AppState {
             openURL = pending.accessedSecurityScope ? pending.url : nil
             reader = pending.reader
             datasets = [pending.source]
+            // This path changes the open dataset WITHOUT `openFileAsync`, so
+            // it must drop the previous dataset's restore-failure flag itself
+            // — Gate B found the flag surviving a configurator commit and
+            // refusing the NEW dataset's saves with the OLD dataset's message
+            // (2026-08-25). (`sessionSidecar`'s own state has the same
+            // blind spot, recorded in docs/open-items.md — S1's surface, not
+            // changed here.)
+            gates.clearSidecarRestoreFailure()
             await activate(
                 descriptor: pending.source, reader: pending.reader,
                 specification: pending.configuration.specification,
@@ -2031,6 +2068,10 @@ final class AppState {
         specification: LoadSpecification = .fullExtent
     ) async {
         let source = DemoFourDDataSource(includesCalibration: calibrated)
+        // Same rule as `commitPendingLoad`: a dataset change outside
+        // `openFileAsync` drops the previous dataset's restore-failure flag.
+        // // v2 S7
+        gates.clearSidecarRestoreFailure()
         beginDatasetLoading("Opening demo dataset…")
         defer {
             if isLoadingDataset { finishDatasetLoading() }
@@ -2217,6 +2258,13 @@ final class AppState {
     }
 
     private func isDataSourceFailure(_ error: Error) -> Bool {
+        // A tile-read failure WRAPS its data-source error (v2 S7's typed
+        // attribution) — judge the wrapped error, or a mid-scan HDF5 failure
+        // would stay off the modal path precisely because S7 gave it a type
+        // (Gate B, 2026-08-25).
+        if case DiskDetection.FullScanError.tileRead(_, let underlying) = error {
+            return isDataSourceFailure(underlying)
+        }
         if error is H5Error || error is DM4Error || error is VendorRawError
             || error is FourDError {
             return true
@@ -2249,6 +2297,9 @@ final class AppState {
                 previousOpenURL.stopAccessingSecurityScopedResource()
             }
             sessionSidecar.release()
+            // Paired with every `release()`: the restore-failure gate must
+            // never outlive the dataset it describes. // v2 S7
+            gates.clearSidecarRestoreFailure()
             openURL = accessed ? url : nil
             self.reader = reader
             datasets = [descriptor]
@@ -2718,6 +2769,7 @@ final class AppState {
             self.openURL = nil
         }
         sessionSidecar.release()
+        gates.clearSidecarRestoreFailure() // paired with release() // v2 S7
         datasetEpoch &+= 1
         operationController.reset()
         statusText = "Load cancelled"
@@ -4141,10 +4193,15 @@ final class AppState {
             parallaxPreprocess = nil
             parallaxAlignment = nil
             lastRotationResult = result
-            applyDPCDisplay()   // a cached CoM field must not show a stale rotation
-            statusText = String(format: "Rotation ✓  θ = %.1f°%@",
-                                result.rotationRad * 180 / .pi,
-                                result.transpose ? ", detector transposed" : "")
+            // A cached CoM field must not show a stale rotation — and if the
+            // re-derivation itself refuses (iDPC), its message must not be
+            // overwritten by the ✓ line (Gate B, 2026-08-25). The rotation
+            // DID calibrate either way; only the status line changes.
+            if applyDPCDisplay() == nil {
+                statusText = String(format: "Rotation ✓  θ = %.1f°%@",
+                                    result.rotationRad * 180 / .pi,
+                                    result.transpose ? ", detector transposed" : "")
+            }
         } catch {
             if cancellation.isCancelled { statusText = "R–Q rotation cancelled" }
             else { presentComputeFailure(error) }
@@ -4206,7 +4263,16 @@ final class AppState {
                 return .failed("DPC could not run — no data is loaded")
             }
             comField = field
-            applyDPCDisplay()
+            // A failed display derivation (an iDPC integration refusal) must
+            // not be papered over with "DPC ✓", must not become a recipe
+            // step, and must not report `.published` over a blank pane —
+            // Gate B refuted the first version on all three (2026-08-25).
+            // `presentComputeFailure` inside the derivation already put the
+            // reason in the durable log; withholding the ✓ line keeps it on
+            // the status bar too.
+            if let displayFailure = applyDPCDisplay() {
+                return .failed(displayFailure)
+            }
             let ref = calibration.hasFittedOrigin ? "calibrated origins" : "global center"
             statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
             // Recipe step (v2 S5). ONLY the origin source: `computeCoMField`
@@ -4242,15 +4308,27 @@ final class AppState {
         calibrationProvenance.rotation = .manual
         parallaxPreprocess = nil
         parallaxAlignment = nil
-        applyDPCDisplay()
-        statusText = String(format: "Rotation flipped → θ = %.1f°", rotation * 180 / .pi)
+        // Same rule as `calibrateRotation`: the flip stands either way, but a
+        // refused re-derivation keeps its own message on the status bar.
+        if applyDPCDisplay() == nil {
+            statusText = String(format: "Rotation flipped → θ = %.1f°", rotation * 180 / .pi)
+        }
     }
 
     /// Derive the displayed image from the cached CoM field per `dpcDisplay`.
     /// The calibrated R–Q rotation/transpose is applied first so the field is
     /// in the scan frame. Cheap enough (scan-sized) to run on the main actor.
-    private func applyDPCDisplay() {
-        guard var com = comField, let d = descriptor, analysisMode == .dpc else { return }
+    ///
+    /// Returns the failure reason when the derivation could not produce an
+    /// image (today: an iDPC integration refusal), nil on success — so a
+    /// caller that writes its own "✓" status line can withhold it. The first
+    /// S7 version reported the failure only through `presentComputeFailure`
+    /// and `runDPC` then overwrote it with "DPC ✓", recorded a recipe step
+    /// and returned `.published` over a blank pane — the S1 channel defect
+    /// plus the A6 phantom-step defect, both found by Gate B (2026-08-25).
+    @discardableResult
+    private func applyDPCDisplay() -> String? {
+        guard var com = comField, let d = descriptor, analysisMode == .dpc else { return nil }
         restoredResultInfo = nil
         if let rotation = calibration.rotationRad {
             com = DPC.applyRotation(com: com, rotationRad: rotation,
@@ -4282,21 +4360,34 @@ final class AppState {
             resultImage = nil
         case .idpc:
             resultColormap = .rdbu
-            if let physical = idpcPhysicalCalibration {
-                resultImage = DPC.integratePhysicalIDPC(
-                    com: com, width: d.rx, height: d.ry,
-                    calibration: physical,
-                    boundary: .zeroPadded, paddingFactor: 2
-                )
-            } else {
-                resultImage = DPC.integrateIDPC(
-                    com: com, width: d.rx, height: d.ry,
-                    boundary: .zeroPadded, paddingFactor: 2
-                )
+            // `integrateIDPC` now throws instead of returning a zero image
+            // (v2 S7): a failed integration must leave NO image on screen —
+            // neither a fabricated flat map nor the previous display's
+            // pixels under an iDPC label — and must say why.
+            do {
+                if let physical = idpcPhysicalCalibration {
+                    resultImage = try DPC.integratePhysicalIDPC(
+                        com: com, width: d.rx, height: d.ry,
+                        calibration: physical,
+                        boundary: .zeroPadded, paddingFactor: 2
+                    )
+                } else {
+                    resultImage = try DPC.integrateIDPC(
+                        com: com, width: d.rx, height: d.ry,
+                        boundary: .zeroPadded, paddingFactor: 2
+                    )
+                }
+            } catch {
+                resultImage = nil
+                resultRGBA = nil
+                resultVersion &+= 1
+                presentComputeFailure(error)
+                return error.localizedDescription
             }
             resultRGBA = nil
         }
         resultVersion &+= 1
+        return nil
     }
 
     var dpcMilliradiansPerDetectorPixel: Float? {
@@ -4315,11 +4406,41 @@ final class AppState {
         )
     }
 
+    /// Why physical iDPC specifically REFUSES the fitted origin, or nil.
+    ///
+    /// Distinct from "not yet calibrated" (missing origin, rotation or pixel
+    /// sizes — the generic requirements note in the DPC controls): this is
+    /// non-nil only when an origin fit EXISTS and the gate judges it
+    /// non-quantitative, so the controls can say the true reason instead of
+    /// listing requirements that are all met. // v2 S7
+    ///
+    /// Same JUDGEMENT as the gate (non-nil exactly when
+    /// `gates.originQuantitativeRefusal` is), but with iDPC's own remedy:
+    /// the Q-surface's "or enter the scale manually" cannot move this
+    /// residual and so cannot bring physical iDPC back — a remedy that does
+    /// nothing where it is printed (Gate B, 2026-08-25).
+    var idpcOriginFitRefusal: String? {
+        calibration.originFitJudgement.map {
+            $0 + " Try another Origin fit (Constant / Plane / Parabola) and "
+                + "re-run Calibrate Origin."
+        }
+    }
+
     var idpcPhysicalCalibration: IDPCPhysicalCalibration? {
         // A scale alone is insufficient: quantitative integration also needs
         // per-position descan correction and a detector field rotated into the
         // scan frame.
         guard calibration.hasFittedOrigin, calibration.hasRotation else { return nil }
+        // The SAME gate Q calibration takes, asked through the same owner
+        // (`SessionGates`, S7's seam). This call site used to derive the
+        // policy from `hasFittedOrigin` alone, so an origin fit whose RMS
+        // residual exceeded the probe radius — refused for a Q measurement —
+        // was still admitted into "iDPC projected phase (rad)". A fit the
+        // gate refuses renders qualitative iDPC instead, with the refusal
+        // shown by the DPC controls (`idpcOriginFitRefusal`). // v2 S7
+        guard gates.originQuantitativeRefusal(for: calibration) == nil else {
+            return nil
+        }
         return DPC.physicalIDPCCalibration(
             realPixelSize: calibration.rPixelSize,
             realPixelUnits: calibration.rPixelUnits,
@@ -4465,20 +4586,36 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
 
         let d = descriptor
-        // No `do`/`catch` here, unlike the other analyses: `detectAll` reports
-        // failure by returning nil rather than by throwing.
+        // `detectAll` now throws a `FullScanError` naming what failed and
+        // where; nil means cancelled and nothing else. The previous contract
+        // returned nil for everything, and the guard below then attributed a
+        // NAS tile-read failure to "its FFT plan" — the error-attribution
+        // defect this session exists to fix. // v2 S7
         let epoch = datasetEpoch
-        let vectors = await DiskDetection.detectAll(
-            data: fourD, descriptor: d, kernel: kernel,
-            params: params, cancellation: cancellation
-        ) { [weak self] fraction in
-            Task { @MainActor [weak self] in
-                guard let self,
-                      self.isCurrentOperation(cancellation),
-                      !cancellation.isCancelled else { return }
-                self.progress = fraction
-                self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
+        let vectors: BraggVectors?
+        do {
+            vectors = try await DiskDetection.detectAll(
+                data: fourD, descriptor: d, kernel: kernel,
+                params: params, cancellation: cancellation
+            ) { [weak self] fraction in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          self.isCurrentOperation(cancellation),
+                          !cancellation.isCancelled else { return }
+                    self.progress = fraction
+                    self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
+                }
             }
+        } catch {
+            guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
+            if cancellation.isCancelled {
+                statusText = braggVectors == nil
+                    ? "Disk detection cancelled — no peaks were published"
+                    : "Disk detection cancelled; the previous full-scan peaks are still shown"
+                return .cancelled
+            }
+            presentComputeFailure(error)
+            return .failed(error.localizedDescription)
         }
         guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
@@ -4495,8 +4632,11 @@ final class AppState {
             return .cancelled
         }
         guard let vectors else {
-            presentComputeFailure(SimpleError("Disk detection failed to initialize its FFT plan."))
-            return .failed("Disk detection failed to initialize its FFT plan.")
+            // With the throwing contract, nil-and-not-cancelled cannot
+            // happen; if it ever does, say that rather than invent a cause.
+            let reason = "Disk detection returned no result and no reason — this is a defect; please report it."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         braggVectors = vectors
         completedDiskParams = params
@@ -4786,8 +4926,9 @@ final class AppState {
         // the string that travels into export, reopen and the QC log while the
         // warning stayed behind in the Origin row.
         //
-        // The gate is `Calibration.originFitRefusal`, built from the same
-        // predicate the readiness row renders, so there is one owner. It is
+        // The gate is asked through `SessionGates` (S7's seam), which answers
+        // it from `Calibration.originFitRefusal` — the same predicate the
+        // readiness row renders, so there is one owner. It is
         // deliberately *only* the residual test and not the whole `originProbe`
         // row: an origin that was never fitted has no residual to judge and is
         // not a known-bad number, which is a different question (#29) and not
@@ -4799,7 +4940,7 @@ final class AppState {
         // origin is wasted work, so naming the origin first is the more useful
         // order. No dataset loaded means an empty `Calibration`, which has no
         // residual to judge and falls through to the guards below.
-        if let refusal = calibration.originFitRefusal {
+        if let refusal = gates.originQuantitativeRefusal(for: calibration) {
             presentComputeFailure(SimpleError(refusal))
             return
         }

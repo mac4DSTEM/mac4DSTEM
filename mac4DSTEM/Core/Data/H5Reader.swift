@@ -283,6 +283,12 @@ actor H5Reader: FourDDataSource {
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor {
         silenceAutomaticErrors()
+        // `try?` is correct here (v2 S7 audit): each candidate path is a
+        // PROBE — "this file has no dataset at that name" is the expected
+        // answer for most of them, not a failure to surface. A file-level
+        // I/O error would also be swallowed per-candidate, but the file
+        // handle was already opened successfully and the fall-through ends
+        // in a named "no 4D dataset" error, never a silent success.
         for path in Self.candidatePaths {
             if let descriptor = try? describe(path: path), descriptor.is4D {
                 return descriptor
@@ -305,6 +311,7 @@ actor H5Reader: FourDDataSource {
             return lhsDepth == rhsDepth ? $0 < $1 : lhsDepth < rhsDepth
         }
         for path in candidates where !Self.candidatePaths.contains(path) {
+            // Same probe contract as the canonical loop above. // v2 S7
             if let descriptor = try? describe(path: path), descriptor.is4D {
                 return descriptor
             }

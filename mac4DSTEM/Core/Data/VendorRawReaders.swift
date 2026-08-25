@@ -208,6 +208,8 @@ actor EMPADReader: FourDDataSource {
 
     fileprivate static func read(path: String, offset: Int, count: Int) throws -> Data {
         guard let handle = FileHandle(forReadingAtPath: path) else { throw VendorRawError.cannotOpen(path) }
+        // try? OK (v2 S7 audit): best-effort close of a read-only handle on
+        // the way out; the read's own errors already threw above.
         defer { try? handle.close() }
         try handle.seek(toOffset: UInt64(offset))
         let data = try handle.read(upToCount: count) ?? Data()
@@ -259,6 +261,13 @@ actor MIBReader: FourDDataSource {
         frameBytes = try EMPADReader.checkedProduct([detectorHeight, detectorWidth, bytesPerPixel]) + headerBytes
 
         let hdrURL = URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("hdr")
+        // try? accepted with a stated limit (v2 S7 audit): this collapses
+        // "no .hdr" with "an .hdr the sandbox refused" — the .hdr is a
+        // SIBLING of the user-picked file, the same access shape as the S1
+        // session sidecar, so an EPERM here reads as "missing". The guard
+        // still throws a named refusal rather than guessing a scan shape;
+        // distinguishing the two belongs to the deferred MIB-out-of-Preview
+        // work (docs/v2-release.md §3), which owns this reader's contract.
         guard let hdr = try? String(contentsOf: hdrURL, encoding: .utf8) else {
             throw VendorRawError.unsupported("MIB needs a companion .hdr with ScanX and ScanY so scan shape is never guessed.")
         }

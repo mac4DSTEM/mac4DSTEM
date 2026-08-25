@@ -194,6 +194,35 @@ enum DPC {
 
     // MARK: - iDPC (Fourier integration)
 
+    /// Why an iDPC integration could not run. Typed, because the previous
+    /// contract returned a zero-filled image for every failure — and a flat
+    /// map that LOOKS like a computed projected phase is a fabricated result,
+    /// exactly what the refusal rule bans. A caller that cannot integrate
+    /// must say so, not draw zeros. // v2 S7
+    enum IDPCError: Error, Equatable, CustomStringConvertible, LocalizedError {
+        /// An input precondition failed; the reason names which.
+        case invalidInput(String)
+        /// Padding the scan grid would overflow `Int`.
+        case dimensionOverflow(width: Int, height: Int, factor: Int)
+        /// No FFT plan exists for the padded grid size.
+        case fftUnavailable(nx: Int, ny: Int)
+
+        var description: String {
+            switch self {
+            case .invalidInput(let reason):
+                return "iDPC integration refused its input: \(reason)"
+            case .dimensionOverflow(let width, let height, let factor):
+                return "iDPC integration refused: padding a \(width)×\(height) "
+                    + "scan by \(factor)× overflows the addressable grid."
+            case .fftUnavailable(let nx, let ny):
+                return "iDPC integration failed: no FFT plan is available for "
+                    + "a \(nx)×\(ny) padded grid."
+            }
+        }
+
+        var errorDescription: String? { description }
+    }
+
     /// Integrate the CoM vector field into a scalar potential-like map:
     ///     φ̂(q) = (qx·ĈoMx + qy·ĈoMy) / (i·2π·(|q|² + ε·|q|²max))
     /// i.e. the least-squares solution of ∇φ = CoM. The regularization ε damps
@@ -213,17 +242,42 @@ enum DPC {
                               columnSampling: Float = 1,
                               comToGradientScale: Float = 1,
                               boundary: IDPCBoundaryCondition = .zeroPadded,
-                              paddingFactor: Int = 2) -> FloatImage {
+                              paddingFactor: Int = 2) throws -> FloatImage {
+        // Each precondition throws by name — a refusal the caller can act on,
+        // never a zero image that reads as a computed result. // v2 S7
+        guard width > 1, height > 1 else {
+            throw IDPCError.invalidInput(
+                "the scan grid is \(width)×\(height); both axes must exceed 1 px."
+            )
+        }
         let n = width * height
-        guard n > 0, width > 1, height > 1,
-              com.count == n * 2,
-              regularization.isFinite, regularization >= 0,
-              rowSampling.isFinite, rowSampling > 0,
-              columnSampling.isFinite, columnSampling > 0,
-              comToGradientScale.isFinite,
-              paddingFactor > 0 else {
-            return FloatImage(width: width, height: height,
-                              pixels: [Float](repeating: 0, count: n))
+        guard com.count == n * 2 else {
+            throw IDPCError.invalidInput(
+                "the CoM field carries \(com.count) values for a "
+                    + "\(width)×\(height) scan; \(n * 2) are required."
+            )
+        }
+        guard regularization.isFinite, regularization >= 0 else {
+            throw IDPCError.invalidInput(
+                "regularization \(regularization) is not a finite value ≥ 0."
+            )
+        }
+        guard rowSampling.isFinite, rowSampling > 0,
+              columnSampling.isFinite, columnSampling > 0 else {
+            throw IDPCError.invalidInput(
+                "sampling steps (\(rowSampling), \(columnSampling)) must be "
+                    + "finite and > 0."
+            )
+        }
+        guard comToGradientScale.isFinite else {
+            throw IDPCError.invalidInput(
+                "the CoM→gradient scale \(comToGradientScale) is not finite."
+            )
+        }
+        guard paddingFactor > 0 else {
+            throw IDPCError.invalidInput(
+                "padding factor \(paddingFactor) must be > 0."
+            )
         }
 
         // Split + mean-subtract the field.
@@ -239,16 +293,17 @@ enum DPC {
 
         let factor = boundary == .periodic ? 1 : max(1, paddingFactor)
         guard width <= Int.max / factor, height <= Int.max / factor else {
-            return FloatImage(width: width, height: height,
-                              pixels: [Float](repeating: 0, count: n))
+            throw IDPCError.dimensionOverflow(
+                width: width, height: height, factor: factor
+            )
         }
         let nx = width * factor
         let ny = height * factor
         guard let fft = FFT2D(nx: nx, ny: ny) else {
             // Never disguise an integration failure as a scientifically
-            // different magnitude image.
-            return FloatImage(width: width, height: height,
-                              pixels: [Float](repeating: 0, count: n))
+            // different magnitude image — and (v2 S7) never as a zero one
+            // either, which is what this branch used to return.
+            throw IDPCError.fftUnavailable(nx: nx, ny: ny)
         }
 
         let xOffset = (nx - width) / 2
@@ -313,8 +368,8 @@ enum DPC {
         regularization: Float = 1e-4,
         boundary: IDPCBoundaryCondition = .zeroPadded,
         paddingFactor: Int = 2
-    ) -> FloatImage {
-        integrateIDPC(
+    ) throws -> FloatImage {
+        try integrateIDPC(
             com: com, width: width, height: height,
             regularization: regularization,
             rowSampling: calibration.rowSamplingAngstrom,

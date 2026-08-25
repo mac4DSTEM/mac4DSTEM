@@ -33,8 +33,9 @@ file:
   crash, the fabricated `?? .fullExtent` provenance, and the status-line
   path leak, all below.
 - The Track B §F1 queue → **TB1** (after S1, S3–S6).
-- Strain frame → **S8**; iDPC gate, iDPC zero-fill, disk-detection error
-  attribution and the burned-in caption truncation → **S7**; **#18** → **S8**.
+- Strain frame → **S8**; ~~iDPC gate, iDPC zero-fill, disk-detection error
+  attribution and the burned-in caption truncation → **S7**~~ — **all four
+  closed by S7, 2026-08-25** (see `docs/v2-release.md` §9); **#18** → **S8**.
 - The 8 GB death / DM4 `.mappedIfSafe` suspect → **S9** (Gate D — the
   local-vs-NAS `footprint` experiment first).
 - The four unverified review leads + the bounds-convention sweep → **S11**.
@@ -272,20 +273,21 @@ careful user would reasonably misread as a quantitative claim.**
   frame, or label and export it as diffraction-frame strain together with the
   R–Q transform.** Until then, no export of this should be described as
   sample-frame strain.
-- **Physical iDPC does not require the origin fit to be quantitative.**
-  `AppState.idpcPhysicalCalibration` gates on `calibration.hasFittedOrigin &&
-  calibration.hasRotation` only, while `Calibration.swift:254` *does* consult
-  `originFitIsQuantitative` for the readiness report. So Prepare can label a fit
-  "Not quantitative" and physical iDPC still exports in radians. A gate that one
-  workflow honours and another ignores is worse than no gate.
-- **`DPC.integrateIDPC` returns a zero-filled image on invalid input** — bad
-  dimensions, a malformed CoM array, a non-finite parameter — and the caller
-  publishes it like any other result. **A numerical failure becomes a plausible
-  zero-phase specimen.** It must return a typed error.
-- **Disk-detection tile read errors are reported as an FFT failure.**
-  `TiledDiskDetection.swift:42` swallows any tile error with `try?`; the caller
-  presents *"Disk detection failed to initialize its FFT plan."* On a long
-  experimental scan that sends the user hunting in entirely the wrong place.
+- ~~Physical iDPC does not require the origin fit to be quantitative.~~
+  **Closed by S7, 2026-08-25:** both call sites now ask one owner
+  (`App/SessionGates.originQuantitativeRefusal`, which IS
+  `Calibration.originFitRefusal`); a refused fit renders qualitative iDPC and
+  the DPC controls quote the refusal (`AppState.idpcOriginFitRefusal`).
+  Track B row F1.25 drives it on `downsample_Si_SiGe_exp`.
+- ~~`DPC.integrateIDPC` returns a zero-filled image on invalid input.~~
+  **Closed by S7, 2026-08-25:** every failure throws a typed `DPC.IDPCError`
+  naming the precondition; `applyDPCDisplay` clears the image and presents on
+  a throw; `tools/idpc-test` gained the negative controls.
+- ~~Disk-detection tile read errors are reported as an FFT failure.~~
+  **Closed by S7, 2026-08-25:** the tiled `detectAll` returns nil only on
+  cancellation and otherwise throws `DiskDetection.FullScanError` naming the
+  scan rows and the underlying error; `runDiskDetection` reports it verbatim.
+  `TiledDiskDetectionErrorTests` pins the attribution with a failing source.
 
 Credible but **not yet verified here**, so treat as leads rather than findings:
 the Q-calibration estimator differing materially from py4DSTEM's radial-profile
@@ -459,6 +461,7 @@ the claims are widened*, not as release advice.
   | 2026-08-25 (S6 in tree, MCP `test_macos`) | — | **failed** (1029/945/961 pt vs 871+allowance) |
   | 2026-08-25 (S6 STASHED — clean tree, same session) | — | **failed, byte-identical heights** |
   | 2026-08-25 (S6 committed, owner freed disk, gate run ×3) | exit 65 ×3 | **failed all three** (first run also hit the dylib-signature defect below) |
+  | 2026-08-25 (S7 session: MCP `test_macos` ×3 + `run-tests.sh unit` ×1) | exit 65 | **failed all four**, heights byte-identical across the day (1029/945/961) — a red day end to end, as 08-19 was a mixed one |
 
   **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
   stash experiment produced the identical three failures with identical
@@ -502,10 +505,12 @@ the claims are widened*, not as release advice.
      from somewhere else (Xcode's UI), and a CI or terminal run yields nothing to
      diagnose from. **S17's first job is making the number reachable from the
      command line**, before any question about thresholds can be settled.
-- **The burned-in caption on exported figures truncates.** Observed on a strain
-  export: `…basis_mode=consensus · reference_mode=whole-scan · displa…`. That
-  caption *is* the provenance record and it is the part that travels into a
-  paper, so cutting it mid-word defeats the reason it is burned in at all.
+- ~~The burned-in caption on exported figures truncates.~~ **Closed by S7,
+  2026-08-25:** the caption wraps and the figure grows to hold it, and the
+  full provenance record additionally travels as machine-readable PNG
+  metadata (a JSON `Description` chunk beside `Title`/`Software`) —
+  `AppState.exportedImageProvenanceRecord` / `pngProperties`, round-trip
+  pinned through a real file by `ExportProvenanceTests`. Track B row F1.24.
 - **Colorbar and scale bar collide on tall, narrow maps.** Seen on a 200×50 scan
   with a display rotation applied: the `-0.04145 0 0.04145` colorbar and the
   `20 [pix]` scale bar stack into each other at the foot of the pane. Both are
@@ -691,20 +696,18 @@ the claims are widened*, not as release advice.
   attribute, not one of these. Recorded because an item whose evidence has
   silently evaporated is how a real defect gets dismissed as unreproducible.
 
-- **A save after a FAILED crop restore erases the sidecar's crop and
-  mislabels its preserved results.** Found by S5's Gate B-lite refuter
-  (F9, 2026-08-24), deliberately not fixed there. When
-  `recordedLoadSpecification` returns nil on its `.unreadable` or
-  does-not-fit branches, the app loads at full extent; the next save then
-  rewrites the sidecar restating `loadedView.specification` — full extent,
-  no attribute — while PRESERVING the old scan-indexed results, which are
-  now labelled as full-extent: the exact misread L6 exists to prevent,
-  reachable through an honest failure path. The writer contract is correct
-  (nil spec MEANS full extent — it cannot double as "unknown", pinned by
-  `testANilSpecificationRewriteErasesTheCropAndThatIsTheContract`); the fix
-  is a **save-refusal policy** — "may I rewrite a sidecar whose recorded
-  view I failed to restore?" — which is exactly the shape of **S7's**
-  one-policy-owner seam. → **S7**.
+- ~~A save after a FAILED crop restore erases the sidecar's crop and
+  mislabels its preserved results (S5 Gate B-lite F9).~~ **Closed by S7,
+  2026-08-25:** `SessionGates` (S7's seam) records the failed restore on
+  both branches — the does-not-fit branch used to report only into the
+  `statusText` channel S1 measured as unreadable, and now also renders in
+  the dataset inspector — and `sidecarRewriteRefusal()` blocks all three
+  rewrite entry points (calibration save, result save, result removal)
+  with the failure and its remedy named. The unreadable case's remedy
+  works now too: a same-file pick in **Change…** re-grants access instead
+  of being discarded (F1.3h's shape). Track B rows F1.26/F1.27; the flag
+  is session-scoped and clears on reopen, pinned with mutations by
+  `SessionGatesTests`.
 - **The status line leaks a full filesystem path.** The composed message runs
   ~330 characters including the absolute path, rendered raw at
   `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B
@@ -1043,6 +1046,20 @@ or it spends the one resource Track B is expensive in — a person's attention.
   side, and a boundary-pixel change cancels. It is the shared-code limit of any
   self-comparison, and the fix is one assertion pinning `makeMask`'s output
   against an analytic mask, not a new harness. Cheap; nobody has done it.
+- **The 2026-08-17 runner breakage recurred on 2026-08-25, exactly as
+  predicted: SEVEN runners hand-listing `BraggVectorEMDWriter.swift` had
+  never gained `Core/Data/SessionReplayRecord.swift`, which S5 made a
+  dependency of the writer on 2026-08-24 — and `scientific` had not run end
+  to end between S5 landing and S7's gate run, so the break sat invisible
+  for a day.** S7 patched the missing file into all seven
+  (`bragg-export-test`, `bragg-spacing-probe`, `scientific-bundle-test`,
+  `preprocessing-export-test`, `sidecar-error-detail-test`,
+  `training-dataset-campaign`, `sidecar-result-test`) — a minimal fix,
+  **deliberately NOT the manifest migration the 2026-08-18 policy calls
+  for**: migrating seven runners' full source lists mid-session is its own
+  verification job. The policy stands; the count of manifest-sourced
+  runners is still one. Each of the seven is now one file further from its
+  hand list being right by accident.
 - **`Aperture` is declared in `App/AppState.swift`, so every scientific harness
   that compiles `VirtualDetector.swift` redeclares its own copy.**
   `tools/virtual-detector-test` and `tools/two-spec-analysis-test` each carry

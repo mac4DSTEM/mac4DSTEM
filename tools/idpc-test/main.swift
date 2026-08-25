@@ -34,7 +34,7 @@ let calibration = IDPCPhysicalCalibration(
     columnSamplingAngstrom: fixture.columnSamplingAngstrom,
     reciprocalAngstromPerDetectorPixel: fixture.reciprocalAngstromPerDetectorPixel
 )
-let periodic = DPC.integratePhysicalIDPC(
+let periodic = try DPC.integratePhysicalIDPC(
     com: fixture.com, width: fixture.width, height: fixture.height,
     calibration: calibration, regularization: 0,
     boundary: .periodic, paddingFactor: 1
@@ -46,7 +46,7 @@ guard periodicError < 3e-5,
 }
 print("PASS: non-square anisotropic quantitative phase in radians")
 
-let padded = DPC.integratePhysicalIDPC(
+let padded = try DPC.integratePhysicalIDPC(
     com: fixture.com, width: fixture.width, height: fixture.height,
     calibration: calibration, boundary: .zeroPadded, paddingFactor: 2
 )
@@ -62,7 +62,7 @@ guard abs(padded.pixels.reduce(0, +)) < 2e-5 else {
 }
 print("PASS: explicit periodic versus symmetric 2x zero-padded boundary")
 
-let qualitative = DPC.integrateIDPC(
+let qualitative = try DPC.integrateIDPC(
     com: fixture.com, width: fixture.width, height: fixture.height,
     boundary: .zeroPadded, paddingFactor: 2
 )
@@ -110,8 +110,31 @@ DPC.physicalIDPCCalibration(
 ) == nil else { fail("invalid or incomplete calibration was accepted") }
 print("PASS: Å/nm/mrad conversion and qualitative readiness boundary")
 
-let invalid = DPC.integrateIDPC(com: [], width: 3, height: 2)
-guard invalid.pixels == [Float](repeating: 0, count: 6) else {
-    fail("invalid CoM shape did not return a stable empty result")
+// Negative controls for the v2 S7 typed-error contract. Each names the
+// guard it breaks in Core/Analysis/DPC.swift's `integrateIDPC`: the old
+// contract returned a zero-filled image for these inputs — a flat map
+// indistinguishable from a computed phase — and these controls fail if
+// that behavior ever returns.
+do {
+    // Breaks the `com.count == n * 2` guard: 0 values offered, 12 required.
+    let image = try DPC.integrateIDPC(com: [], width: 3, height: 2)
+    fail("an empty CoM field was integrated into a \(image.width)x\(image.height) image instead of refusing")
+} catch let error as DPC.IDPCError {
+    guard case .invalidInput(let reason) = error, reason.contains("12") else {
+        fail("empty CoM refused with the wrong reason: \(error)")
+    }
 }
+do {
+    // Breaks the `width > 1, height > 1` guard: a 1-wide scan has no
+    // gradient to integrate along its second axis.
+    let image = try DPC.integrateIDPC(
+        com: [Float](repeating: 0, count: 2), width: 1, height: 1
+    )
+    fail("a 1x1 scan was integrated into a \(image.width)x\(image.height) image instead of refusing")
+} catch let error as DPC.IDPCError {
+    guard case .invalidInput = error else {
+        fail("1x1 scan refused with the wrong error: \(error)")
+    }
+}
+print("PASS: invalid input throws a typed refusal, never a zero image")
 print("idpc-test: all passed")

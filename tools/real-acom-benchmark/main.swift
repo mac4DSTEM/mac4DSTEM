@@ -75,9 +75,9 @@ struct RealACOMBenchmark {
         parameters.minPeakSpacing = max(4, (qMin / 8).rounded())
         parameters.edgeBoundary = max(2, Int(qMin / 24))
         note("Bragg detection")
-        guard let rawVectors = await DiskDetection.detectAll(
+        guard let rawVectors = try await DiskDetection.detectAll(
             data: data, descriptor: descriptor, kernel: kernel, params: parameters
-        ) else { fail("Bragg detection did not initialize") }
+        ) else { fail("Bragg detection was cancelled — nothing cancels it here") }
         let inputPreparationSeconds = Date().timeIntervalSince(actionStart)
         let acomActionStart = Date()
 

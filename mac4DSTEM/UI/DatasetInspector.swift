@@ -289,6 +289,33 @@ struct DatasetInspector: View {
                     .accessibilityIdentifier("inspector.sessionSidecarUnreadable")
                 }
 
+                // A RECORDED VIEW THIS FILE DOES NOT HAVE (v2 S7). The
+                // unreadable case above already renders through the locator;
+                // this is the sibling failure — the sidecar was READ, and the
+                // region it records does not fit the file (replaced dataset,
+                // or a sidecar copied beside a different cube). Before S7 its
+                // only signal was a status line the load overwrites, the
+                // exact channel defect S1 measured for the branch above.
+                // While either failure stands, sidecar rewrites are refused
+                // (`SessionGates.sidecarRewriteRefusal`).
+                if appState.sessionSidecar.unreadableReason == nil,
+                   let failure = appState.gates.sidecarRestoreFailure,
+                   failure.kind == .doesNotFit {
+                    Section("Session sidecar") {
+                        Text("The saved session beside this dataset describes a region this file does not have.")
+                            .font(.callout)
+                        Text(failure.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityIdentifier("inspector.sessionSidecarDoesNotFit")
+                }
+
                 Section("Files & products") {
                     ProductsView()
                 }

@@ -43,7 +43,15 @@ final class SessionReplayAppStateTests: XCTestCase {
         // ResultExport that threads `replay.recordForSaving` is exactly the
         // kind of defaulted argument whose deletion no writer-level test can
         // see (F8).
-        let state = AppState()
+        //
+        // A suite-private bookmark store (v2 S7): this save persists a grant
+        // keyed by the demo's constant path, and through the shared
+        // `UserDefaults` it leaked the sidecar — recipe and all — into every
+        // concurrently running demo-opening test (`AppState.init`'s note).
+        let suite = "mac4dstem.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+        let state = AppState(sessionSidecar: SessionSidecarLocator(defaults: defaults))
         await state.openDemoFixture()
         await state.runVirtualDetector()
         XCTAssertFalse(state.replay.record.isEmpty)

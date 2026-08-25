@@ -488,15 +488,26 @@ struct Calibration: Sendable {
     /// So "build a measured probe kernel" — the obvious-sounding advice, and
     /// what an earlier draft of this string said — cannot move this number by
     /// a single pixel. Changing the fit function can.
-    var originFitRefusal: String? {
+    /// The judgement alone — the two numbers and what they mean — with no
+    /// remedy attached. Surfaces append their OWN remedy, because remedies
+    /// are surface-specific: "enter the scale manually" un-blocks a Q
+    /// measurement (manual entry bypasses the estimator entirely) but cannot
+    /// move this residual, so appending it to the iDPC refusal printed a
+    /// remedy that provably does nothing there (Gate B, 2026-08-25). // v2 S7
+    var originFitJudgement: String? {
         guard !originFitIsQuantitative else { return nil }
         return String(
             format: "Origin fit RMS %.4g px exceeds the %.4g px probe radius — Bragg vectors are "
-                + "re-centred on this origin, so a value measured from them would be wrong. "
-                + "Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate "
-                + "Origin, or enter the scale manually.",
+                + "re-centred on this origin, so a value measured from them would be wrong.",
             Double(origin?.rmsResidual ?? .nan), Double(probeRadius ?? .nan)
         )
+    }
+
+    var originFitRefusal: String? {
+        originFitJudgement.map {
+            $0 + " Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate "
+                + "Origin, or enter the scale manually."
+        }
     }
 
     var hasFittedOrigin: Bool { origin != nil }

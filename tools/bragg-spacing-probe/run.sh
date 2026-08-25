@@ -53,6 +53,7 @@ xcrun swiftc -O -parse-as-library -o "$WORK/probe" \
   "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" "$SRC/Data/ResidentCube.swift" "$SRC/Data/LoadSpecification.swift" \
   "$SRC/Data/Calibration.swift" "$SRC/Data/DisplayedProduct.swift" \
   "$SRC/Data/BraggVectorEMDWriter.swift" \
+  "$SRC/Data/SessionReplayRecord.swift" \
   "$SRC/Compute/AnalysisCancellationToken.swift" "$SRC/Compute/FFT1D.swift" \
   "$SRC/Compute/FFT2D.swift" "$SRC/Compute/MatrixDFTCorrelation.swift" \
   "$SRC/Compute/MetalEngine.swift" \

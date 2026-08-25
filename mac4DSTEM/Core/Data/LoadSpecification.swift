@@ -499,6 +499,9 @@ nonisolated extension LoadSpecification {
     var jsonString: String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
+        // try? OK (v2 S7 audit): the stored properties are integers and
+        // nothing else; the synthesized encode cannot fail, and nil falls
+        // through to "write no attribute".
         guard let data = try? encoder.encode(self) else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -511,6 +514,10 @@ nonisolated extension LoadSpecification {
     /// which is what refuses a crop that does not fit the file it was reopened
     /// against, rather than silently loading a different region than the one the
     /// session recorded.
+    /// Nil for malformed input. The one production caller
+    /// (`BraggVectorEMDWriter.loadSession`) REFUSES on nil for a present
+    /// attribute (`WriterError.malformedAttribute`) — a mangled crop
+    /// attribute must not read as "no crop recorded". // v2 S7
     static func decoded(from json: String) -> LoadSpecification? {
         guard let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(LoadSpecification.self, from: data)

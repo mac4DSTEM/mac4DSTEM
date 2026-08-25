@@ -524,7 +524,7 @@ private func evaluate(
     let color = DPC.colorWheelRGBA(
         com: rotatedCOM, width: descriptor.rx, height: descriptor.ry
     )
-    let idpc = DPC.integrateIDPC(
+    let idpc = try DPC.integrateIDPC(
         com: rotatedCOM, width: descriptor.rx, height: descriptor.ry,
         boundary: .zeroPadded, paddingFactor: 2
     )
@@ -644,7 +644,7 @@ private func evaluate(
 
     let cancelledDiskToken = AnalysisCancellationToken()
     cancelledDiskToken.cancel()
-    let cancelledDisk = await DiskDetection.detectAll(
+    let cancelledDisk = try await DiskDetection.detectAll(
         data: data, descriptor: descriptor, kernel: kernel,
         params: diskParameters, cancellation: cancelledDiskToken
     )
@@ -653,8 +653,8 @@ private func evaluate(
         detail: "Pre-cancelled detection did not publish Bragg vectors"
     )
 
-    let (rawVectors, braggSeconds) = await elapsed {
-        await DiskDetection.detectAll(
+    let (rawVectors, braggSeconds) = try await elapsed {
+        try await DiskDetection.detectAll(
             data: data, descriptor: descriptor, kernel: kernel,
             params: diskParameters
         )

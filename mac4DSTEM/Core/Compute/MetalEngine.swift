@@ -96,6 +96,14 @@ nonisolated final class MetalEngine {
     let displayRGBAPSO: MTLRenderPipelineState
 
     // Compute pipelines, built lazily on first use (each forces its own shader).
+    //
+    // try? OK (v2 S7 audit): the functions are compiled into the bundled
+    // metallib at build time, so a nil here means the pipeline genuinely
+    // cannot be built on this GPU. nil is the stored contract — all six
+    // PSOs are consumed only inside this file, and every consumer guards
+    // its own and THROWS `MetalError.functionMissing` naming the shader
+    // rather than computing without it; a `try?` here only defers that
+    // named refusal from init time to first use.
     private(set) lazy var virtualAperturePSO: MTLComputePipelineState? = {
         try? makeCompute("virtualAperture")
     }()

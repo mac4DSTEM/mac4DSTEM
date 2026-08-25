@@ -79,12 +79,18 @@ nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .secondsSince1970
+        // try? OK (v2 S7 audit): every stored property is Codable-synthesized
+        // over strings, numbers and dates — there is no encodable state that
+        // can fail to encode, and nil falls through to "write no attribute".
         guard let data = try? encoder.encode(self) else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
     /// Decode a record written by `jsonString`. Nil for malformed input —
     /// the caller decides whether that is "no record" or a named failure.
+    /// The one production caller (`BraggVectorEMDWriter.loadSession`) REFUSES
+    /// on nil for a present attribute (`WriterError.malformedAttribute`) —
+    /// a mangled recipe must not read as "no recipe". // v2 S7
     static func parse(_ json: String) -> SessionReplayRecord? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970

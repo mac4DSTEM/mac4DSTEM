@@ -349,6 +349,14 @@ nonisolated final class MetalACOMMatcher {
     private let batchSize: Int
 
     init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry) {
+        // try? OK (v2 S7 audit): this is a failable init whose nil contract
+        // is "the GPU matcher is unavailable" — the two pipeline-state
+        // creations are just two of the seven ways the guard can refuse.
+        // Verified consumer: `OrientationMatching.matchAll` returns nil on
+        // it, and the ACOM run reports "failed to initialize", which is the
+        // true mechanism here (cancellation is checked separately first).
+        // Converting the init to throwing would rename the same refusal,
+        // not sharpen it.
         let engine = MetalEngine.shared
         let azimuthal = plan.geometry.nAzimuthal
         guard azimuthal > 0, azimuthal & (azimuthal - 1) == 0,

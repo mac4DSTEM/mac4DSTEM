@@ -14,7 +14,7 @@ final class DemoWorkflowTests: XCTestCase {
         let qMin = Float(min(descriptor.qx, descriptor.qy))
         parameters.minPeakSpacing = max(4, (qMin / 8).rounded())
         parameters.edgeBoundary = max(2, Int(qMin / 24))
-        let detected = await DiskDetection.detectAll(
+        let detected = try await DiskDetection.detectAll(
             data: data, descriptor: descriptor, kernel: kernel, params: parameters
         )
         let vectors = try XCTUnwrap(detected)

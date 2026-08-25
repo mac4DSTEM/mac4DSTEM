@@ -177,7 +177,49 @@ extension AppState {
             valueRange: resultDisplayedValueRange,
             valueUnits: currentResultValueUnits, colormap: resultColormap
         )
-        Self.savePNG(final, suggestedName: exportBaseName + "_result.png", state: self)
+        // The FULL provenance record travels in the PNG metadata beside the
+        // burned caption (v2 S7): everything the figure renders, plus the
+        // persistence provenance the caption can only excerpt.
+        Self.savePNG(
+            final, suggestedName: exportBaseName + "_result.png", state: self,
+            properties: Self.pngProperties(
+                title: currentResultDisplayName,
+                record: exportedImageProvenanceRecord()
+            )
+        )
+    }
+
+    /// The machine-readable half of the exported figure's provenance (v2 S7).
+    /// Internal so the tests can pin its content without a save panel.
+    func exportedImageProvenanceRecord() -> [String: Any] {
+        let pixel = currentResultPersistenceMetadata
+        var record: [String: Any] = [
+            "title": currentResultDisplayName,
+            "caption": publicationCaption,
+            "value_units": currentResultValueUnits,
+            "provenance": pixel.provenance,
+            "load_specification":
+                loadedView.specification.provenanceSummary ?? "whole file",
+        ]
+        if let row = pixel.row { record["pixel_size_row"] = row }
+        if let column = pixel.column { record["pixel_size_column"] = column }
+        if let units = pixel.units { record["pixel_units"] = units }
+        if let file = descriptor?.fileName { record["source_file"] = file }
+        // Finite values only: `JSONSerialization` rejects NaN/inf outright,
+        // and one degenerate range value would silently drop the ENTIRE
+        // metadata record from the file (Gate B, 2026-08-25). A missing
+        // range key is honest; a missing record is not.
+        if let range = resultDisplayedValueRange,
+           range.low.isFinite, range.high.isFinite {
+            record["display_range_low"] = range.low
+            record["display_range_high"] = range.high
+        }
+        if !realSpaceDisplayIsDefault {
+            for (key, value) in realSpaceDisplayProvenance {
+                record[key] = value
+            }
+        }
+        return record
     }
 
     private var publicationCaption: String {
@@ -532,6 +574,12 @@ extension AppState {
     /// vectors together with the map in one atomic publication.
     func saveCurrentResultToSessionSidecar() {
         guard let descriptor else { return }
+        // Same rewrite gate as the calibration save — see
+        // `saveCalibrationToSessionSidecar`. // v2 S7
+        if let refusal = gates.sidecarRewriteRefusal() {
+            present(SimpleError(refusal))
+            return
+        }
         let scalarMap: ScalarResultMap?
         let rgbaMap: RGBAResultMap?
         let metadata = restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
@@ -846,6 +894,12 @@ extension AppState {
 
     func removeSavedSessionResult(_ saved: SessionResultDescriptor) async {
         guard let descriptor else { return }
+        // Removal rebuilds the file, so it is a rewrite too — same gate as
+        // the two save paths. // v2 S7
+        if let refusal = gates.sidecarRewriteRefusal() {
+            present(SimpleError(refusal))
+            return
+        }
         let url = sessionSidecar.location(for: descriptor)
         let calibration = sessionPixelCalibration(descriptor: descriptor)
         let epoch = datasetEpoch
@@ -989,9 +1043,37 @@ extension AppState {
     /// is testable — the S1 lesson about tests that cannot reach the call site.
     func adoptSessionSidecar(at url: URL, movingFrom current: URL, for descriptor: DatasetDescriptor) {
         let outcome = Self.copySidecarFile(from: current, to: url)
-        if case .nothingToCopy = outcome,
-           url.standardizedFileURL == current.standardizedFileURL {
-            statusText = "Session sidecar unchanged — the same file was chosen"
+        // Same-file detection by the SAME identity test `copySidecarFile`
+        // uses, not by path string: a symlink or case-differing spelling of
+        // one file would otherwise skip the re-grant below while the copy
+        // correctly did nothing — the grant then never persists and the
+        // remedy silently fails on reopen. One question, one derivation
+        // (Gate B, 2026-08-25).
+        let sameFile: Bool = {
+            if url.standardizedFileURL == current.standardizedFileURL { return true }
+            if let chosen = try? url.resourceValues(
+                   forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+               let existing = try? current.resourceValues(
+                   forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+               chosen.isEqual(existing) { return true }
+            return false
+        }()
+        if case .nothingToCopy = outcome, sameFile {
+            // Choosing the SAME existing file is not a no-op: the panel pick
+            // is a sandbox grant, and re-granting access to a sidecar the app
+            // could not read is the remedy the unreadable-restore refusal
+            // names (`SessionGates.sidecarRewriteRefusal`). Discarding it
+            // here left that remedy printed but unworkable — the F1.3h shape
+            // again, a message naming a path that cannot work. // v2 S7
+            if FileManager.default.fileExists(atPath: url.path) {
+                sessionSidecar.adopt(url, for: descriptor)
+                rememberSidecarGrant(url, for: descriptor, what: "Session sidecar")
+                statusText = "Session sidecar unchanged — access to "
+                    + "\(url.lastPathComponent) re-granted; reopen the dataset "
+                    + "to restore its recorded session"
+            } else {
+                statusText = "Session sidecar unchanged — the same file was chosen"
+            }
             return
         }
         sessionSidecar.adopt(url, for: descriptor)
@@ -1036,6 +1118,14 @@ extension AppState {
     func saveCalibrationToSessionSidecar() {
         guard let descriptor else {
             present(SimpleError("No dataset is open."))
+            return
+        }
+        // Every sidecar rewrite restates the current view, so a rewrite after
+        // a failed crop restore would erase the recorded crop and mislabel
+        // the preserved results (S5 finding F9). One gate, asked at every
+        // rewrite entry point. // v2 S7
+        if let refusal = gates.sidecarRewriteRefusal() {
+            present(SimpleError(refusal))
             return
         }
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
@@ -1243,17 +1333,32 @@ extension AppState {
                     ]
                 )
             }
+            // WHY it is qualitative travels with the product (v2 S7, Gate B):
+            // "quantitative": "false" alone cannot distinguish "the
+            // calibration is incomplete" from "every requirement is met and
+            // the origin fit was judged unreliable — and its origins were
+            // still subtracted from the CoM field". A reader of the exported
+            // file needs that difference to know whether to trust contrast.
+            var provenance: [String: String] = [
+                "analysis_mode": analysisMode.rawValue,
+                "source_product": "idpc_qualitative",
+                "quantitative": "false",
+                "boundary": "symmetric_zero_padded",
+                "padding_factor": "2",
+                "regularization": "0.0001",
+            ]
+            if let judgement = calibration.originFitJudgement {
+                provenance["qualitative_reason"] = "origin_fit_not_quantitative"
+                provenance["origin_fit_judgement"] = judgement
+                provenance["origins_subtracted"] =
+                    calibration.hasFittedOrigin ? "fitted_per_position" : "none"
+            } else {
+                provenance["qualitative_reason"] = "calibration_incomplete"
+            }
             return (
                 calibration.rPixelSize, calibration.rPixelSize,
                 calibration.rPixelUnits,
-                [
-                    "analysis_mode": analysisMode.rawValue,
-                    "source_product": "idpc_qualitative",
-                    "quantitative": "false",
-                    "boundary": "symmetric_zero_padded",
-                    "padding_factor": "2",
-                    "regularization": "0.0001",
-                ]
+                provenance
             )
         }
         if analysisMode == .strain, let map = strainMap {
@@ -1445,16 +1550,44 @@ extension AppState {
 
     // MARK: - Rendering helpers
 
+    /// The height the caption needs at `width`, wrapped, never truncated.
+    /// Split out so the tests can pin "a longer caption gets a taller
+    /// figure" without rendering pixels. // v2 S7
+    static func captionTextHeight(_ caption: String, width: CGFloat) -> CGFloat {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        // `.usesFontLeading` matters: `draw(in:)` lays out WITH per-line
+        // leading and clips to the rect, so measuring without it comes up
+        // short by ~(lines−1)×leading on long captions — the truncation
+        // defect reintroduced at a new height (Gate B, 2026-08-25).
+        let bounds = (caption as NSString).boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 10),
+                .paragraphStyle: paragraph,
+            ]
+        )
+        return max(17, ceil(bounds.height))
+    }
+
     static func publicationFigure(
         image: CGImage, title: String, caption: String,
         valueRange: (low: Double, high: Double)?, valueUnits: String,
         colormap: ColormapKind
     ) -> CGImage {
         let margin: CGFloat = 18
-        let captionHeight: CGFloat = 58
         let colorbarWidth: CGFloat = valueRange == nil ? 0 : 76
+        let width = CGFloat(image.width) + margin * 2 + colorbarWidth
+        // The caption WRAPS; the figure grows to hold it (v2 S7). It used to
+        // truncate at one 17 pt line with `.byTruncatingTail` — and the
+        // burned-in caption is the provenance record of the exported pixels,
+        // so a tail-truncated caption silently dropped exactly the
+        // provenance keys it exists to carry.
+        let captionText = captionTextHeight(caption, width: width - margin * 2)
+        let captionHeight: CGFloat = 41 + captionText
         let size = NSSize(
-            width: CGFloat(image.width) + margin * 2 + colorbarWidth,
+            width: width,
             height: CGFloat(image.height) + margin * 2 + captionHeight
         )
         guard let bitmap = NSBitmapImageRep(
@@ -1476,21 +1609,25 @@ extension AppState {
             width: CGFloat(image.width), height: CGFloat(image.height)
         )
         NSImage(cgImage: image, size: imageRect.size).draw(in: imageRect)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakMode = .byTruncatingTail
+        let titleParagraph = NSMutableParagraphStyle()
+        titleParagraph.lineBreakMode = .byTruncatingTail
         (title as NSString).draw(
-            in: NSRect(x: margin, y: 25, width: size.width - margin * 2, height: 24),
+            in: NSRect(x: margin, y: 8 + captionText,
+                       width: size.width - margin * 2, height: 24),
             withAttributes: [
                 .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
-                .foregroundColor: NSColor.white, .paragraphStyle: paragraph,
+                .foregroundColor: NSColor.white, .paragraphStyle: titleParagraph,
             ]
         )
+        let captionParagraph = NSMutableParagraphStyle()
+        captionParagraph.lineBreakMode = .byWordWrapping
         (caption as NSString).draw(
-            in: NSRect(x: margin, y: 7, width: size.width - margin * 2, height: 17),
+            in: NSRect(x: margin, y: 7, width: size.width - margin * 2,
+                       height: captionText),
             withAttributes: [
                 .font: NSFont.systemFont(ofSize: 10),
                 .foregroundColor: NSColor(calibratedWhite: 0.78, alpha: 1),
-                .paragraphStyle: paragraph,
+                .paragraphStyle: captionParagraph,
             ]
         )
         if let range = valueRange {
@@ -1617,22 +1754,54 @@ extension AppState {
                        shouldInterpolate: false, intent: .defaultIntent)
     }
 
-    private static func savePNG(_ image: CGImage, suggestedName: String, state: AppState) {
+    private static func savePNG(
+        _ image: CGImage, suggestedName: String, state: AppState,
+        properties: [CFString: Any]? = nil
+    ) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.nameFieldStringValue = suggestedName
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let dest = CGImageDestinationCreateWithURL(url as CFURL,
-                                                         UTType.png.identifier as CFString,
-                                                         1, nil) else {
-            state.present(SimpleError("Could not create the PNG file."))
-            return
-        }
-        CGImageDestinationAddImage(dest, image, nil)
-        if CGImageDestinationFinalize(dest) {
+        if writePNG(image, to: url, properties: properties) {
             state.statusText = "Exported \(url.lastPathComponent)"
         } else {
             state.present(SimpleError("Writing the PNG failed."))
         }
+    }
+
+    /// The panel-free write, separated so a test can pin that the metadata
+    /// actually lands in the file — a property dict that ImageIO silently
+    /// drops would otherwise look exactly like one it wrote. // v2 S7
+    nonisolated static func writePNG(
+        _ image: CGImage, to url: URL, properties: [CFString: Any]?
+    ) -> Bool {
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL, UTType.png.identifier as CFString, 1, nil
+        ) else { return false }
+        CGImageDestinationAddImage(dest, image, properties as CFDictionary?)
+        return CGImageDestinationFinalize(dest)
+    }
+
+    /// PNG properties carrying the FULL provenance record beside the burned
+    /// caption (v2 S7): the caption is drawn into the pixels — now unabridged
+    /// — but pixels cannot be parsed back, so the same record travels as
+    /// machine-readable metadata (a JSON `Description` text chunk). The JSON
+    /// is serialized with sorted keys so the record is byte-stable for a
+    /// given result.
+    nonisolated static func pngProperties(
+        title: String, record: [String: Any]
+    ) -> [CFString: Any]? {
+        guard JSONSerialization.isValidJSONObject(record),
+              let data = try? JSONSerialization.data(
+                withJSONObject: record, options: [.sortedKeys]
+              ),
+              let json = String(data: data, encoding: .utf8) else { return nil }
+        return [
+            kCGImagePropertyPNGDictionary: [
+                kCGImagePropertyPNGTitle: title,
+                kCGImagePropertyPNGDescription: json,
+                kCGImagePropertyPNGSoftware: "mac4DSTEM",
+            ] as [CFString: Any],
+        ]
     }
 }
