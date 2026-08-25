@@ -1310,20 +1310,36 @@ or it spends the one resource Track B is expensive in — a person's attention.
   as `MAC4DSTEM_DISK_MIN_RELATIVE`) — raising it to 0.02 removed 81,820
   peaks and left the nearestRadius quantiles **byte-identical**, candidates
   still 0: the near-beam population is intensity-strong, not weak noise.
-  **Still open — why the app's 2026-08-04 session succeeded** on (reportedly)
-  the same inputs. That is now a 5-minute owner probe, not a session: run the
-  app on Si_SiGe from Xcode with env `MAC4DSTEM_STRAIN_DEBUG=1`
-  (`StrainMapping.estimateLatticeBasis` dumps origin, radius quantiles, top
-  clusters and candidate pairs to stderr — S8's instrument, print-only),
-  compute strain, send the STRAIN_DEBUG lines. If the app fails too, the
-  2026-08-04 record's inputs were not what the frame analysis concluded; if
-  it succeeds, its dump names the differing input directly. **Candidate code
-  fix, deliberately NOT made in S8** (science change, own Gate B): the
-  `typicalRadius` estimator should not admit the direct-beam residual cloud —
-  e.g. floor `minRadius` at the probe radius or at a multiple of the
-  origin-fit RMS when the fit is judged non-quantitative (the same
-  `SessionGates` policy iDPC consults). Until then every Si_SiGe strain
-  parity record remains evidence about the campaign, not the app.
+  **RESOLVED at the mechanism level by the owner probe, 2026-08-25 evening
+  (app driven on the real cube with `MAC4DSTEM_STRAIN_DEBUG=1`; strain
+  succeeded — κ 4.84 vs the 2026-08-04 record's 4.80, 100% indexed,
+  RMS 0.99 px).** The single differing input is the **reference origin**:
+  - App dump: `origin=(64.000, 64.000)` — exactly the detector-centre
+    FALLBACK (`calibration.meanOrigin ?? centre`), i.e. `meanOrigin` was nil
+    at strain time even though the inspector said "Origin: Measured in app"
+    (the not-quantitative fit — RMS ≈ 11.7 px, the #46 numbers — evidently
+    does not populate `meanOrigin`). Under that origin the direct beam sits
+    inside `minRadius = 2` at EVERY position and is excluded:
+    observations = 248,384 detected − 10,000 exactly; nearestRadius
+    q05–q95 = 13.97–15.44 (the true first shell); typicalRadius 14.43 →
+    clusterTolerance 2.60; 98 clean clusters, 24 candidates, chosen basis
+    g1=(4.675, −15.080), g2=(21.494, −20.804), κ 4.84, support 99.9%.
+  - Campaign dump: it faithfully references ITS fitted mean origin
+    (71.066, 64.062) — ~7 px off detector centre — so the beam survives at
+    2.85–8.92 px at every position and poisons the clustering scale
+    (typicalRadius 5.82 → tolerance 1.05, candidates=0).
+  **The app succeeded BECAUSE the bad origin fit was gated out and the
+  fallback happened to be the true beam centre; the campaign failed by
+  trusting the measurement the app's own gate rejects.** Two candidate
+  fixes, neither made in S8 (science changes, own Gate B): (1) the
+  `typicalRadius` estimator should not admit a direct-beam residual cloud —
+  floor `minRadius` at the probe radius or scale it with origin-fit quality
+  (the `SessionGates` policy iDPC consults); (2) the campaign should adopt
+  the app's origin gating instead of using a non-quantitative fitted mean —
+  feeds the S12/S13 sane-origin/measure-Q split. Latent app-side risk to
+  note: a genuinely off-centre beam with `meanOrigin` nil would fail in the
+  app exactly as the campaign does. Si_SiGe strain parity records remain
+  campaign-evidence-only until one of the fixes lands.
 - **#15, #19, #20** — open measurement questions, low priority.
 
 ## Code hygiene
