@@ -702,7 +702,12 @@ only if asked.
   strain session end to end (no automated path drives calibrateRotation +
   strain together); the #18 app-side probe (owner); pre-S8 sidecar restore
   frame-silence left as recorded residual.
-- [ ] S9 · [ ] S10
+- [ ] **M1 — tidy session** (maintenance, not release scope; planned
+  2026-08-25, owner-requested — brief in
+  [`docs/tidy-session-plan.md`](tidy-session-plan.md); runs BEFORE S10;
+  archive the brief on completion)
+- [ ] S9 · [ ] S10 — *sequencing decided with M1: S10 → S21 → S17; S9 when
+  NAS + disk allow*
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21
 
