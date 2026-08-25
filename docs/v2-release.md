@@ -543,8 +543,16 @@ only if asked.
   EXCLUDED from S6 by experiment — stash → byte-identical failure heights
   on the clean tree, logged in open-items with a new S17 fact: the failing
   numbers ARE retrievable via the MCP route). Zero build warnings.
-  `run-tests.sh` still owed an owner re-run (disk floor, unchanged since
-  S4). **Not verified:** everything on screen (F1.22–F1.23 queued; TB1's
+  **`run-tests.sh unit` re-measured later the same day** (owner freed disk
+  to 13 GB): the first run exposed a pre-existing environment defect —
+  invalid code signatures on the three vendored HDF5 dylibs, every
+  HDF5-touching test killed by dyld — diagnosed from crash reports and
+  fixed by ad-hoc re-signing (open-items has the record, including the
+  honestly-unexplained half); after the fix, **320 passed / 1 failed**
+  (verbose full-suite run; the 1 is the S17 sidebar intermittent, red in
+  all three gate runs that day), with one unreproduced single flip of the
+  new binned-detector replay test logged as a watch item.
+  **Not verified:** everything on screen (F1.22–F1.23 queued; TB1's
   overnight row now has real behavior behind it); a real multi-GB overnight
   promote; the keep-awake against actual system sleep (tests pin the
   acquire/release balance, not the OS effect); the executor's cancelled-step

@@ -314,6 +314,34 @@ the claims are widened*, not as release advice.
 
 ## Known, scoped, not blocking
 
+- **The vendored HDF5 dylibs carried invalid code signatures — found and
+  fixed 2026-08-25, with one half honestly unexplained.** The first
+  `run-tests.sh unit` after S6 killed every HDF5-touching test at 0.000 s,
+  each in a fresh process. Crash reports (primary evidence, not the test
+  output): `SIGKILL (Code Signature Invalid)`, `CODESIGNING / Invalid
+  Page`, inside `dlopen` — dyld rejecting a library. `codesign -vv` on the
+  repo-root `libhdf5.dylib` / `libaec.0.dylib` / `libsz.2.dylib`: *"code or
+  signature have been modified"* — the committed bytes are self-inconsistent
+  (machine-independent fact). The unsigned gate embeds them verbatim; the
+  signed MCP build re-signs on embed, which is why it never failed. Fixed by
+  ad-hoc re-signing the three source dylibs (`codesign -f -s -`); verified:
+  the gate's HDF5 cluster went fully green on the next run. **Recorded
+  unknown, per Gate D:** the same bytes passed this same gate on 2026-08-19
+  on the same OS build (no update since 08-10, dylibs untouched in git since
+  commit `e7fb809`) — why dyld tolerated them then is not established, and
+  the first diagnosis ("an OS update tightened enforcement") was refuted by
+  `softwareupdate --history` before it could ship. Release builds are
+  unaffected (embedding re-signs with the real identity).
+- **One unreproduced flip of the new binned-detector replay test,
+  2026-08-25.** `ReplayExecutionTests.testARecipeRecordedOnABinnedDetector…`
+  failed once (0.413 s, parallel full-suite gate run, assertion text
+  swallowed by `-quiet` — the S17 observability gap, bitten again) and then
+  passed: twice under MCP, once in isolation under the gate's exact
+  configuration, and once in a verbose full-suite re-run (320/1,
+  sidebar-only). One flip in five runs, no captured assertion. **Watch
+  item:** if it flips again, reproduce with the non-`-quiet` form (full
+  suite, fresh DerivedData, `CODE_SIGNING_ALLOWED=NO`, grep `Test case|
+  XCTAssert`) so the assertion survives; do not chase it on one anecdote.
 - **Carried findings and decisions from S6 (2026-08-25)** — the replay
   executor landed with the honest-refusal rules below; each residual names
   its owner:
@@ -430,6 +458,7 @@ the claims are widened*, not as release advice.
   | 2026-08-19 ~16:00 (S3's changes in tree — new inspector control) | exit 0 | passed |
   | 2026-08-25 (S6 in tree, MCP `test_macos`) | — | **failed** (1029/945/961 pt vs 871+allowance) |
   | 2026-08-25 (S6 STASHED — clean tree, same session) | — | **failed, byte-identical heights** |
+  | 2026-08-25 (S6 committed, owner freed disk, gate run ×3) | exit 65 ×3 | **failed all three** (first run also hit the dylib-signature defect below) |
 
   **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
   stash experiment produced the identical three failures with identical
