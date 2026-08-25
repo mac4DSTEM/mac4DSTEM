@@ -708,6 +708,102 @@ the claims are widened*, not as release advice.
   of being discarded (F1.3h's shape). Track B rows F1.26/F1.27; the flag
   is session-scoped and clears on reopen, pinned with mutations by
   `SessionGatesTests`.
+- **The configurator's real-space and diffraction-max panes render a
+  single flat colour ON SCREEN — the data behind them is verified
+  healthy.** Found on TB1 sitting 1 (2026-08-25, sim_Au, screenshots
+  18:45–18:51); Gate D run the same evening narrowed it hard, and three
+  candidate diagnoses died in order, each on primary evidence:
+  (1) ~~"sampling stalls at row 33 of 34"~~ — the frozen status line is
+  COSMETIC: the final progress tick is dropped when `finishDatasetLoading`
+  clears `isLoadingDataset` before the tick's `@MainActor` hop lands
+  (`previewProgressHandler`'s guard), and `statusText` retains the last
+  line forever after. (2) ~~"the sampler throws and the `try?` at
+  `AppState` swallows it"~~ — refuted by `LoadConfiguratorView.swift:84`:
+  the panes render only when `preview`, `realSpaceDisplay` AND
+  `maxDPDisplay` are all non-nil, and the screenshots show the panes'
+  frames plus the summary line — everything was non-nil. (3) ~~"bad
+  normalization again (the 08-18 mechanism)"~~ — refuted headlessly: the
+  same `openFileForConfiguration` on the same file in the unit host builds
+  both display images with **full 0→1 pixel spread in 0.6 s**
+  (pinned with spread assertions in `TB1StallProbeTests`, 2026-08-25). What remains: the defect is in the
+  **on-screen rendering of those two panes** (Metal-backed image views
+  inside the sheet) — the single-position pane beside them drew, and the
+  inspector thumbnails drew after load. Unreproducible headlessly; next
+  session on this needs either the screenshot pipeline (a Screen Recording
+  grant) or an owner probe. `TB1StallProbeTests` pins the healthy half so
+  a data-side regression cannot masquerade as this. Blocks the
+  aspect-stretch decision and F1.16's full pass.
+- **TB1 sitting 2: an open froze for minutes at "Checking for a saved
+  session…" until cancelled (2026-08-25, ~18:54).** The owner attributed
+  it to a leftover sidecar; Gate D the same evening refuted that and one
+  more account, measured the real block, and landed a fix for the measured
+  half — **the on-screen freeze itself remains unreproduced end to end**:
+  - ~~The staged WS₂ sidecar blocks reads~~ — a fresh process reads it in
+    0.47 s, and the full WS₂-beside-sidecar open completes in ~1 s in the
+    unit host with the S7 rewrite gate correctly armed.
+  - ~~A stale sidecar-bookmark for the opened path~~ — the app's real
+    domain (`com.mac4dstem.mac4DSTEM`, dumped through the shared test
+    host) holds sidecar bookmarks only for sim_Au, Si_SiGe (both local)
+    and one NAS source nobody opened.
+  - **Measured: resolving a stored bookmark whose volume is an unmounted
+    network share blocked 30.03 s** — this machine's own recents entry for
+    `/Volumes/eXtendedGROUPS/…` — and both production resolution sites run
+    synchronously on the main actor. **Fixed the same evening:**
+    `.withoutMounting` added to `WorkspaceRecoveryStore.resolve` and
+    `SessionSidecarLocator.grant` — an unmounted volume now refuses fast
+    instead of freezing the UI per attempt; all six stored bookmarks
+    resolve-or-refuse in 27 ms total, pinned by
+    `BookmarkResolutionLatencyTests` (the pre-fix 30.03 s measurement of
+    the same operation is the observed-failing half of that pair).
+  - **Leading account for the minutes, upgraded by the Gate D second
+    reader and then bounded by a probe.** The label is mechanically exact,
+    not incidental: `beginDatasetLoadingStage("Checking for a saved
+    session…")` is followed with NO suspension by
+    `sessionSidecar.location(for:)` → `grant()` → bookmark resolution on
+    the main actor, and every open starts cold (`release()` runs first) —
+    so a sidecar-grant bookmark pointing at an absent volume blocks under
+    exactly that label. BUT the follow-up probe read every stored sidecar
+    bookmark's EMBEDDED path without resolving: none targets `/Volumes`
+    (sim_Au → its local sibling; Si_SiGe → a since-emptied `~/.Trash`
+    entry; the one NAS-source key → a Desktop file). So on this machine
+    that path could not have produced the freeze, and a competing account
+    the fix does not address remains open: a mount that succeeded SLOWLY
+    followed by a slow SMB read. Which cube sitting 2 opened is not
+    recorded. Confirmation if it recurs: `sample mac4DSTEM 3` in Terminal
+    while it hangs.
+  - **The second reader refuted the fix's first catch blocks, corrected
+    the same evening:** `openRecent` deleted the recents entry — and the
+    only rendering of the NAS path — for a merely-unmounted volume, with a
+    "renew permission" remedy that cannot work; `grant()` likewise deleted
+    a sidecar grant, silently re-arming the silent-full-extent reopen for
+    a sidecar legitimately saved to a NAS. Both now branch on
+    `WorkspaceRecoveryStore.unmountedVolumeName(forBookmark:)` (embedded
+    path, no resolution): unmounted keeps the state and names the volume;
+    only a genuinely dead bookmark is forgotten. Pinned machine-locally by
+    `BookmarkResolutionLatencyTests.testClickingARecentOnAnUnmountedVolume…`
+    (observed failing under the old catch, teardown-protected).
+  - **Recorded residuals:** (1) with the share unplugged, an open whose
+    sidecar lives on the NAS is still SILENT for that one open (grant nil
+    → derived-sibling fallback → "no session recorded") — the loud refusal
+    belongs to the S7 gates seam when someone owns it; (2)
+    `.withoutMounting` does nothing for a MOUNTED-but-hung server — the
+    block then moves into plain file I/O (`fileExists` on the main actor
+    at two open-path sites), S9's territory; (3)
+    `UI/InspectorPanels.swift:108` calls `sessionSidecar.location(for:)`
+    inside a view body — a defaults read + bookmark resolution per body
+    evaluation on a cache miss; (4) a sidecar bookmark FOLLOWS the file
+    into `~/.Trash` (identity-tracking; the Si_SiGe key demonstrated it) —
+    a trashed-but-not-emptied sidecar would keep being read as the live
+    session; policy needed (probably: a grant resolving into the Trash is
+    no grant); (5) `openFileForConfiguration` sets no terminal status
+    line, so the last sampling tick — which can drop its final update in a
+    benign race with `finishDatasetLoading` — stays on screen indefinitely
+    (the frozen "row 33 of 34").
+- **The configurator sheet still clips a text line at its bottom edge.**
+  Same screenshots: the caption below "GPU budget" is cut mid-height at
+  900×760 — the clipping S4's `:44` fix was meant to end. Small, but the
+  row (F1.17) explicitly requires no clipped content, so it is a finding,
+  not a nit. Likely the same fix session as the item above or S18.
 - **The status line leaks a full filesystem path.** The composed message runs
   ~330 characters including the absolute path, rendered raw at
   `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B

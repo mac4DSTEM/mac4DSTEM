@@ -2110,8 +2110,23 @@ final class AppState {
             if resolved.stale { refreshStoredBookmark(for: resolved.url, id: recent.id) }
             openFile(url: resolved.url)
         } catch {
-            recents.remove(id: recent.id)
-            present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
+            // Two different facts, two different fates (Gate D second
+            // reader, 2026-08-25): a volume that is merely NOT MOUNTED keeps
+            // its entry — deleting it would destroy the only place the NAS
+            // path is shown, for a dataset that is fine — while a genuinely
+            // dead bookmark is still removed as before. `.withoutMounting`
+            // (the same day's fix) is what makes the unmounted case reach
+            // this catch fast instead of freezing the UI ~30 s per click.
+            if let volume = WorkspaceRecoveryStore.unmountedVolumeName(
+                forBookmark: recent.bookmark
+            ) {
+                present(SimpleError(
+                    "The volume “\(volume)” is not mounted. Connect it in Finder, then open the dataset again."
+                ))
+            } else {
+                recents.remove(id: recent.id)
+                present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
+            }
         }
     }
 

@@ -158,10 +158,44 @@ nonisolated enum WorkspaceRecoveryStore {
 
     static func resolve(_ bookmark: Data) throws -> (url: URL, stale: Bool) {
         var stale = false
+        // `.withoutMounting` is load-bearing (Gate D, 2026-08-25): resolving
+        // a bookmark whose volume is an unreachable network share otherwise
+        // BLOCKS while the system attempts to mount it — measured at 30.03 s
+        // on this machine's own stored NAS recents entry, 2026-08-25; the
+        // reproducible pin is `BookmarkResolutionLatencyTests`, which drives
+        // every stored bookmark — and every caller of this function runs on
+        // the main actor, so each attempt freezes the whole UI for that
+        // long; queued clicks then serialize into minutes. An unmounted
+        // volume must resolve to a fast failure ("no longer accessible"),
+        // never to a silent mount attempt.
         let url = try URL(resolvingBookmarkData: bookmark,
-                          options: [.withSecurityScope, .withoutUI],
+                          options: [.withSecurityScope, .withoutUI, .withoutMounting],
                           relativeTo: nil, bookmarkDataIsStale: &stale)
         return (url, stale)
+    }
+
+    /// The volume name a failed resolution is waiting on, or nil when the
+    /// bookmark's target is not on an absent `/Volumes/…` mount.
+    ///
+    /// Read from the bookmark's EMBEDDED path — `resourceValues(forKeys:
+    /// fromBookmarkData:)` never touches the filesystem the way resolution
+    /// does, so this is safe to call in a catch block on the main actor.
+    /// Exists so the two resolution catch blocks can tell "the file is gone"
+    /// (forget the bookmark) from "the volume is not mounted right now"
+    /// (KEEP it) — the Gate D second reader caught both catches destroying
+    /// state on a merely-unplugged NAS (2026-08-25): a recents row deleted
+    /// with its volume label, and a chosen sidecar grant silently forgotten,
+    /// which re-arms the silent-full-extent reopen through a new trigger.
+    static func unmountedVolumeName(forBookmark bookmark: Data) -> String? {
+        guard let path = URL.resourceValues(
+                forKeys: [.pathKey], fromBookmarkData: bookmark
+              )?.path,
+              path.hasPrefix("/Volumes/") else { return nil }
+        let components = path.split(separator: "/")
+        guard components.count >= 2 else { return nil }
+        let volume = String(components[1])
+        return FileManager.default.fileExists(atPath: "/Volumes/\(volume)")
+            ? nil : volume
     }
 
     private static func encode<T: Encodable>(_ value: T, key: String) {

@@ -165,9 +165,17 @@ final class SessionSidecarLocator {
         }
         var stale = false
         do {
+            // `.withoutMounting` for the same reason as
+            // `WorkspaceRecoveryStore.resolve` (Gate D, 2026-08-25): this
+            // runs synchronously on the main actor inside every open's
+            // sidecar lookup, and a grant pointing at an unmounted network
+            // volume otherwise blocks the UI ~30 s per attempt while the
+            // system tries to mount it. A sidecar on an absent volume is
+            // unreadable NOW — fast failure is the honest answer, and the
+            // catch below already clears the dead key.
             let url = try URL(
                 resolvingBookmarkData: data,
-                options: [.withSecurityScope, .withoutUI],
+                options: [.withSecurityScope, .withoutUI, .withoutMounting],
                 relativeTo: nil,
                 bookmarkDataIsStale: &stale
             )
@@ -176,7 +184,19 @@ final class SessionSidecarLocator {
             if stale { try remember(url, forSourcePath: path) }
             return url
         } catch {
-            defaults.removeObject(forKey: Self.bookmarkKey(path))
+            // Forget the grant ONLY when the target is genuinely gone. A
+            // sidecar legitimately living on a NAS (Save Session Sidecar
+            // As… places no constraint on the destination) resolves fast-
+            // fail here while the share is unplugged — deleting the key
+            // then would silently re-target this dataset to the derived
+            // local sibling, which does not exist, and the next open would
+            // read as "no session recorded": the exact silent-full-extent
+            // class this type's header exists to prevent, re-armed through
+            // a new trigger (Gate D second reader, 2026-08-25). Unmounted
+            // keeps the key; the grant simply is not available right now.
+            if WorkspaceRecoveryStore.unmountedVolumeName(forBookmark: data) == nil {
+                defaults.removeObject(forKey: Self.bookmarkKey(path))
+            }
             return nil
         }
     }
