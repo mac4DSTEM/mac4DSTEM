@@ -97,7 +97,7 @@ final class SessionReplayTests: XCTestCase {
         let replay = SessionReplay()
         XCTAssertNil(replay.recordForSaving,
                      "An empty record asserts nothing — writing it would replace a recipe with nothing")
-        replay.record(kind: "strain", parameters: [:])
+        replay.record(kind: "strain", parameters: [:], under: .detectorIdentity)
         XCTAssertNotNil(replay.recordForSaving)
         replay.reset()
         XCTAssertNil(replay.recordForSaving)
@@ -106,8 +106,8 @@ final class SessionReplayTests: XCTestCase {
     @MainActor
     func testAdoptingNilLeavesTheLiveRecordAlone() {
         let replay = SessionReplay()
-        replay.record(kind: "dpc", parameters: [:])
-        replay.adopt(nil)
+        replay.record(kind: "dpc", parameters: [:], under: .detectorIdentity)
+        replay.adopt(nil, recordedOn: nil)
         XCTAssertEqual(replay.record.steps.map(\.kind), ["dpc"],
                        "Absence of a recorded recipe is absence — it must not clear this session's")
     }

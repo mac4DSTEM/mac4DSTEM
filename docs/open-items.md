@@ -314,6 +314,51 @@ the claims are widened*, not as release advice.
 
 ## Known, scoped, not blocking
 
+- **Carried findings and decisions from S6 (2026-08-25)** — the replay
+  executor landed with the honest-refusal rules below; each residual names
+  its owner:
+  - **Detector-frame recipe parameters do not replay after a detector-reduced
+    rehearsal → S10.** A recipe recorded on a detector crop or bin carries
+    view-frame apertures, pixel sigmas, g-vectors and Å⁻¹/px scales; mapping
+    them to the full detector is the inverse of `CalibrationReReference.apply`
+    (positions `x_src = (x_view + 0.5)·b − 0.5 + offset`, lengths ×b,
+    per-pixel scales ÷b) — fabrication-shaped math that belongs beside
+    `transformedCalibration` under S10's Gate B, not in a Gate A session.
+    Until it lands, the planner refuses those steps by name and the promote
+    caption says so before the click. **The release claim's "binned view
+    re-runs unchanged" is NOT met for detector-reduced rehearsals until S10
+    delivers this** — S19's claims restatement must check.
+  - **Fitted origin maps do not survive a promote** (pre-existing, surfaced
+    by S6's DPC precondition): per-position maps fitted on a rehearsal are
+    crop-sized, and the full-extent restore's shape check drops them — so a
+    recipe recorded against "calibrated origins" refuses after promote with
+    a calibrate-then-run-by-hand message. Same inverse-mapping family as the
+    S10 item; also means replayed disk/strain/ACOM run against whatever
+    origin basis the promoted session holds (their own scale guard catches
+    the ACOM case). TB1 should expect the DPC refusal, not read it as a bug.
+  - **Parallax/ptychography are NOT in the replay record** — S6's decision,
+    carried from S5's deviation: no recording sites exist, the family is
+    seven inter-dependent product stages, and ptychography is not
+    bit-reproducible. A promoted session re-runs that family by hand.
+    Folding it in is its own post-v2 session; the per-result controls
+    already travel in `SessionControlRehydration`.
+  - **A user-initiated analysis mid-replay steals the Cancel control**
+    (pre-existing operation semantics, newly relevant): a run started while
+    a replayed step executes replaces the current operation token, so Cancel
+    targets the newer run and the hours-long replayed step loses its cancel
+    path. The recipe-side half was fixed in S6 (caller-keyed recording
+    suppression); the operation-collision half is S18-class polish.
+  - **The custom-cubic model id does not encode the lattice constant**
+    (`custom_cubic_<structure>_z<Z>`), so ACOM replay's custom-cubic
+    resolution arm could, in a restored session whose custom fields drifted,
+    resolve the recorded id with a different a₀. Same-session promotes are
+    exact. Fix belongs with the next recipe-vocabulary change: record the
+    lattice constant in the acom step and require it to match.
+  - **Per-kind replay contracts live in three places** (record site, parser,
+    applier) held together by tests, not structure — a plan field parsed but
+    never applied compiles clean. Noted for whichever session next adds a
+    recorded kind: co-locate the three limbs per kind in `ReplayPlan.swift`.
+
 - **Carried findings from S3's Gate A review (2026-08-19)** — real, verified
   against the tree, deliberately not fixed in-session; each names its owner:
   - **The open unwind choreography exists in three copies** —
@@ -383,6 +428,17 @@ the claims are widened*, not as release advice.
   | 2026-08-19, after freeing disk | exit 65, full `run-tests.sh unit` | **failed** (220 passed, 1 failed) |
   | 2026-08-19 ~15:26 (S3 baseline; S1+S2 in tree) | exit 0 | passed (8.66 s) |
   | 2026-08-19 ~16:00 (S3's changes in tree — new inspector control) | exit 0 | passed |
+  | 2026-08-25 (S6 in tree, MCP `test_macos`) | — | **failed** (1029/945/961 pt vs 871+allowance) |
+  | 2026-08-25 (S6 STASHED — clean tree, same session) | — | **failed, byte-identical heights** |
+
+  **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
+  stash experiment produced the identical three failures with identical
+  measured heights on the clean tree, same machine, same hour. Red again
+  after green on 08-19 — the fourth flip on an unchanged-code axis. (2) The
+  failing measurements ARE reachable from the command line **via the MCP
+  `test_macos` route** — the assertion text with both numbers came through
+  intact, which the 2026-08-19 note said `xcodebuild` alone could not
+  produce. S17's "make the number reachable" job has a working path.
 
   **It flipped WITHIN A SINGLE DAY on an unchanged tree**, which is the sharpest
   observation yet: green twice in the morning, red three times two hours later,

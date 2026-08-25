@@ -146,6 +146,20 @@ enum StrainBasisMode: String, CaseIterable, Identifiable {
 
 enum ComparisonSlot: Equatable { case a, b }
 
+/// What one analysis entry point did — returned by the five run functions so
+/// S6's replay executor learns the verdict from a typed value written at the
+/// exit site, never by scraping a UI string that a copy edit could reword
+/// (Gate A findings A1/A2/B6, 2026-08-25). Interactive call sites ignore it.
+enum AnalysisRunOutcome: Equatable {
+    /// The result published — the recipe-recording path, exactly.
+    case published
+    /// The user (or a dataset change) stopped it; deliberately distinct from
+    /// `failed` so an overnight summary never calls a cancel a failure.
+    case cancelled
+    /// Ran and did not publish, with the reason in the app's voice.
+    case failed(String)
+}
+
 @Observable
 final class AppState {
     private var reader: (any FourDDataSource)?
@@ -191,6 +205,10 @@ final class AppState {
     /// seam (docs/development-process.md §7) — see `App/SessionReplay.swift`.
     /// No forwarding properties. // v2 S5
     let replay = SessionReplay()
+    /// The state of the unattended promote run — S6's seam
+    /// (docs/development-process.md §7) — see `App/ReplayRun.swift`.
+    /// Views read `replayRun.…`; no forwarding properties. // v2 S6
+    let replayRun = ReplayRun()
 
     /// The ONE entry for recipe steps. Recording is suppressed while a
     /// dataset load is in flight: the automatic re-establishing pass on open
@@ -198,11 +216,25 @@ final class AppState {
     /// fresh session holds — DEFAULTS — and recording it would overwrite an
     /// adopted colleague's step with them. Merely opening a file must never
     /// mutate its recipe (Gate B-lite refutation F1, 2026-08-24). // v2 S5
+    ///
+    /// Also suppressed when the run was replay-initiated (`replaying`, passed
+    /// down from the executor through the entry point): replaying a recipe
+    /// must not mutate the recipe. Without this, a replayed disk detection's
+    /// `invalidating:` would DELETE the strain and ACOM steps mid-run, so a
+    /// replay that halted between them would have destroyed the very recipe
+    /// it was executing. Keyed on the CALLER, not on `replayRun.isRunning` —
+    /// a user-initiated run that interleaves with the replay is a real
+    /// pipeline edit and suppressing it would silently diverge the recipe
+    /// from the published results (Gate A findings A4/B3, 2026-08-25). The
+    /// recipe keeps its rehearsal values; what actually ran is the results'
+    /// own provenance and the run summary. // v2 S6
     private func recordReplayStep(kind: String,
                                   parameters: [String: String],
-                                  invalidating downstream: [String] = []) {
-        guard !isLoadingDataset else { return }
-        replay.record(kind: kind, parameters: parameters, invalidating: downstream)
+                                  invalidating downstream: [String] = [],
+                                  replaying: Bool) {
+        guard !isLoadingDataset, !replaying else { return }
+        replay.record(kind: kind, parameters: parameters, invalidating: downstream,
+                      under: ReplayParameterFrame.of(loadedView.specification))
     }
     private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
@@ -1666,13 +1698,20 @@ final class AppState {
     /// Internal rather than private so the WIRING can be tested — the S1
     /// lesson: a test that cannot reach the call site pins the pure decision
     /// and not the path the app takes. // v2 S3
-    func promoteToFullExtent() async {
+    /// `runReestablishingAnalysis: false` is the replay path's option (v2 S6):
+    /// when a recorded pipeline is about to replay, the current-mode pass
+    /// would be a redundant whole-cube run — at promote scale, a real cost —
+    /// immediately overwritten by the recipe's own first step.
+    func promoteToFullExtent(runReestablishingAnalysis: Bool = true) async {
         // The recipe SURVIVES a promote: same session, same dataset — the
         // promote run is what the recipe exists to feed, and `activate`'s
         // reset (correct for a dataset change) would otherwise destroy every
         // unsaved step at exactly the moment they become useful
-        // (Gate B-lite F11). Re-adopted after success below.
+        // (Gate B-lite F11). Re-adopted after success below, with the frame
+        // it was recorded under — the sidecar re-adopt during `activate`
+        // would otherwise stand, and its frame tag with it. // v2 S6
         let recipeBeforePromote = replay.record
+        let frameBeforePromote = replay.parameterFrame
         // `!isLoadingDataset` is the reentrancy gate. Without it the only
         // protections were the button's `.disabled` (which cannot see a load
         // that starts after the click renders) and an ordering accident —
@@ -1683,6 +1722,18 @@ final class AppState {
         // load. Gate A review, 2026-08-19.
         guard !isLoadingDataset, let reader, let source = loadView?.source,
               !loadedView.isFullExtent else { return }
+        // The recipe survives EVERY exit, not only success: `activate` resets
+        // it and may re-adopt the sidecar's OLDER copy before a cancel is
+        // noticed, so the pre-S6 success-only re-adopt let a cancelled
+        // promote silently swap an unsaved recipe for the sidecar's stale one
+        // (Gate A finding C5, 2026-08-25). `adopt` treats nil/absent as
+        // absence, so an empty pre-promote record leaves whatever the sidecar
+        // restore adopted in place. Registered after the guard: a refused
+        // promote touched nothing and restates nothing.
+        defer {
+            replay.adopt(recipeBeforePromote.isEmpty ? nil : recipeBeforePromote,
+                         recordedOn: frameBeforePromote)
+        }
         beginDatasetLoading("Reopening \(source.fileName) at full extent…")
         await activate(
             descriptor: source, reader: reader,
@@ -1706,21 +1757,209 @@ final class AppState {
             finishDatasetLoading()
             return
         }
-        await runCurrentAnalysis()
-        if datasetLoadWasCancelled {
-            await discardPartialLoad()
-            finishDatasetLoading()
-            return
+        if runReestablishingAnalysis {
+            await runCurrentAnalysis()
+            if datasetLoadWasCancelled {
+                await discardPartialLoad()
+                finishDatasetLoading()
+                return
+            }
         }
-        // Restore the session's recipe (F11) — `adopt` treats nil/absent as
-        // absence, so an empty pre-promote record leaves whatever the sidecar
-        // restore adopted during `activate` in place — and re-stamp the
+        // The recipe re-adopt (Gate B-lite F11) now happens in the defer
+        // above, covering the cancel and failure exits too. Re-stamp the
         // recovery record so the persisted (frame, position) pair describes
         // the promoted view now, not whenever the user next moves the cursor
         // (Gate B-lite F14). // v2 S5
-        replay.adopt(recipeBeforePromote.isEmpty ? nil : recipeBeforePromote)
         finishDatasetLoading()
         persistRecoveryPosition()
+    }
+
+    /// The promote control's action since v2 S6 — the release claim's
+    /// "one action" (docs/v2-release.md §1, commitment 2): reopen at full
+    /// extent, then replay the recorded pipeline sequentially, unattended,
+    /// with the machine held awake. With an empty recipe this is exactly the
+    /// S3 promote, re-establishing pass included.
+    ///
+    /// The record and its frame are captured BEFORE the reopen: the replay
+    /// executes the recipe the user promoted, not whatever `activate`'s
+    /// sidecar restore re-adopts mid-flight.
+    func promoteAndReplayRecipe() async {
+        let record = replay.record
+        let frame = replay.parameterFrame ?? .unknown
+        guard !record.isEmpty else {
+            await promoteToFullExtent()
+            return
+        }
+        // Replay is the promote's tail only — on an already-full-extent view
+        // there is nothing this button's gesture means.
+        guard !loadedView.isFullExtent, !isLoadingDataset else { return }
+        // The plan is PURE, so every certain refusal is known before the
+        // expensive reopen is paid for. A recipe whose FIRST step already
+        // refuses will replay nothing — run the ordinary re-establishing
+        // pass in that case so the morning is not "hours of reopen, zero
+        // analyses, and a halt" (Gate A findings E1/B2, 2026-08-25).
+        let planned = ReplayPlanner.plan(record, frame: frame)
+        let firstStepRefused: Bool
+        if case .failure = planned[0].result { firstStepRefused = true }
+        else { firstStepRefused = false }
+        // `begin` BEFORE the reopen: the keep-awake assertion must cover the
+        // longest unattended phase (findings B1/C1), and its refusal is the
+        // single-flight gate — a second overlapping call must not write into
+        // this run's step table or release its assertion (finding A5).
+        guard replayRun.begin(titles: planned.map(\.title)) else { return }
+        await promoteToFullExtent(runReestablishingAnalysis: firstStepRefused)
+        // Replay only on the back of a promote that actually happened: a
+        // refused or cancelled promote leaves the rehearsal (or nothing)
+        // loaded, and running the recipe against it would be the promote
+        // run's summary lying about which view the numbers describe.
+        guard hasDataset, loadedView.isFullExtent, !isLoadingDataset else {
+            replayRun.finish(haltReason: "the reopen did not complete, so nothing was replayed — the recipe is unchanged")
+            statusText = "Promote run stopped — the reopen did not complete; nothing was replayed"
+            return
+        }
+        await executeReplay(planned: planned)
+    }
+
+    /// Sequential replay — v2 S6. One step at a time, in recipe order; the
+    /// first refusal, failure or cancellation HALTS the run (never silently
+    /// past a failure, per the S6 brief) and everything after it stays "not
+    /// reached" in the summary. `replayRun.begin` already ran — the caller
+    /// holds the keep-awake assertion from before the reopen.
+    private func executeReplay(planned: [PlannedReplayStep]) async {
+        let epoch = datasetEpoch
+        var haltReason: String?
+        for (index, step) in planned.enumerated() {
+            guard datasetEpoch == epoch, !isLoadingDataset else {
+                haltReason = "the dataset changed while the promote run was executing"
+                break
+            }
+            replayRun.willRun(step: index)
+            switch step.result {
+            case .failure(let refusal):
+                replayRun.conclude(step: index, outcome: .refused(reason: refusal.reason))
+                haltReason = "\(step.title) could not be replayed: \(refusal.reason)"
+            case .success(let plan):
+                let started = Date()
+                switch await executeReplayStep(plan) {
+                case .refused(let reason):
+                    replayRun.conclude(step: index, outcome: .refused(reason: reason))
+                    haltReason = "\(step.title) could not be replayed: \(reason)"
+                case .ran(let outcome):
+                    if datasetEpoch != epoch {
+                        replayRun.conclude(step: index, outcome: .failed(
+                            reason: "the dataset changed while this step was executing"))
+                        haltReason = "the dataset changed while the promote run was executing"
+                        break
+                    }
+                    switch outcome {
+                    case .published:
+                        // `statusText` here is the entry point's own success
+                        // line — counts and fractions — written by the same
+                        // function that just returned `.published`.
+                        replayRun.conclude(step: index, outcome: .succeeded(
+                            detail: statusText, seconds: Date().timeIntervalSince(started)))
+                    case .cancelled:
+                        replayRun.conclude(step: index, outcome: .cancelled)
+                        haltReason = "\(step.title) was cancelled, and the run stopped there"
+                    case .failed(let reason):
+                        replayRun.conclude(step: index, outcome: .failed(reason: reason))
+                        haltReason = "\(step.title) failed — \(reason)"
+                    }
+                }
+            }
+            if haltReason != nil { break }
+        }
+        replayRun.finish(haltReason: haltReason)
+        statusText = haltReason.map { "Promote run halted — \($0)" }
+            ?? "Promote run finished — \(planned.count) \(planned.count == 1 ? "analysis" : "analyses") replayed"
+    }
+
+    private enum ReplayStepExecution {
+        /// The entry point ran and returned its own typed verdict.
+        case ran(AnalysisRunOutcome)
+        /// A recorded precondition this session cannot honour — the step never
+        /// ran. Substituting the session's different value silently would be a
+        /// parameter change no summary states.
+        case refused(String)
+    }
+
+    /// Apply one parsed step's recorded parameters to live state and run the
+    /// SAME entry point the user's click runs — replay must not grow a second
+    /// execution path that can drift from the interactive one.
+    private func executeReplayStep(_ plan: ReplayStepPlan) async -> ReplayStepExecution {
+        switch plan {
+        case .virtualDetector(let shape, let recordedAperture):
+            virtualShape = shape
+            aperture = recordedAperture
+            return .ran(await runVirtualDetector(replaying: true))
+
+        case .dpc(let wantsFittedOrigin):
+            guard calibration.hasFittedOrigin == wantsFittedOrigin else {
+                // The wanted-but-absent direction is the EXPECTED one after a
+                // promote: per-position origin maps are fitted at the
+                // rehearsal's extent and do not carry across the reopen
+                // (the same inverse-mapping family as S10's detector-frame
+                // work — Gate A findings A2/C2, 2026-08-25). The refusal
+                // must say what to do, not just what is missing.
+                if wantsFittedOrigin {
+                    return .refused("the recipe ran DPC against calibrated origins, and the rehearsal's per-position origin fit does not carry across a promote — calibrate the origin on the promoted view, then run DPC by hand")
+                }
+                return .refused("the recipe ran DPC against the global center, but this session holds a fitted origin — running it anyway would silently change the measurement's reference")
+            }
+            return .ran(await runDPC(replaying: true))
+
+        case .diskDetection(let params):
+            diskParams = params
+            return .ran(await runDiskDetection(replaying: true))
+
+        case .strain(let strainPlan):
+            strainReferenceMode = .wholeScan
+            if let basis = strainPlan.manualBasis {
+                strainBasisMode = .manual
+                strainG1X = basis.g1x
+                strainG1Y = basis.g1y
+                strainG2X = basis.g2x
+                strainG2Y = basis.g2y
+            } else {
+                strainBasisMode = .automatic
+            }
+            return .ran(await runStrainMapping(replaying: true))
+
+        case .acom(let acomPlan):
+            // Resolve the material BY ID — a replay that cannot resolve it
+            // fails by name, never falls back to a different crystal (the
+            // rule the recording site states). Library first, then this
+            // session's imports, then the session's own custom-cubic fields
+            // when they produce exactly the recorded id (`activate` reset the
+            // SELECTION but the fields survive — without this arm a rehearsed
+            // custom phase could never replay; Gate A finding C4). Known
+            // residual, recorded in docs/open-items.md: the custom id does
+            // not encode the lattice constant, so a restored session whose
+            // custom fields drifted could resolve the id with a different a₀.
+            if CrystalModelLibrary.model(id: acomPlan.materialID) != nil {
+                acomModelSelection = .library(acomPlan.materialID)
+            } else if importedCrystalModels.contains(where: { $0.id == acomPlan.materialID }) {
+                acomModelSelection = .imported(acomPlan.materialID)
+            } else if CrystalModelLibrary.customCubic(
+                structure: customStructure, latticeA: customLatticeA,
+                atomicNumber: customZ
+            ).id == acomPlan.materialID {
+                acomModelSelection = .customCubic
+            }
+            guard resolvedACOMModel?.id == acomPlan.materialID else {
+                return .refused("the recipe's phase model '\(acomPlan.materialID)' is not available in this session — select or import the phase model it names, then run ACOM by hand")
+            }
+            let sessionScale = acomScaleSemantics.invAngstromPerPixel
+            let recordedScale = acomPlan.scaleInvAngstromPerPixel
+            guard abs(sessionScale - recordedScale) <= max(1e-12, abs(recordedScale) * 1e-6) else {
+                return .refused(String(
+                    format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
+                    recordedScale, sessionScale))
+            }
+            acomScope = acomPlan.scope
+            acomQuality = acomPlan.quality
+            return .ran(await runACOM(replaying: true))
+        }
     }
 
     /// Walk away without loading. Releases the file access the pending open
@@ -2268,6 +2507,11 @@ final class AppState {
         // this only guarantees the previous dataset's recipe cannot leak
         // into it. // v2 S5
         replay.reset()
+        // The previous dataset's promote-run summary would be misread under a
+        // new dataset. No-op while a run executes — the executor sees the
+        // epoch change and halts through `finish`, keeping the keep-awake
+        // release on its one path. // v2 S6
+        replayRun.clearUnlessRunning()
         // Viewer-level inspection state belongs to the product being inspected,
         // not to the app. Left set, it carried a previous dataset's "show me the
         // fit residual instead" into a fresh file.
@@ -2538,7 +2782,12 @@ final class AppState {
             // A colleague's recipe becomes this session's starting point, so
             // a later save round-trips it instead of replacing it. Nil (no
             // recorded recipe) leaves the live record alone. // v2 S5
-            replay.adopt(snapshot.replayRecord)
+            // The recipe's parameters are expressed in the frame of the
+            // sidecar's OWN recorded specification — not the view being
+            // opened, which can legitimately differ after a reconfigure.
+            // // v2 S6
+            replay.adopt(snapshot.replayRecord,
+                         recordedOn: ReplayParameterFrame.of(snapshot.loadSpecification))
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(sessionCalibration, for: descriptor)
             }
@@ -3040,8 +3289,13 @@ final class AppState {
     /// Virtual-detector imaging over the whole cube. The annulus uses the
     /// analytic fast path; rectangle/point use the general mask kernel. The
     /// blocking GPU call is pushed off the main actor.
-    func runVirtualDetector(quiet: Bool = false) async {
-        guard let fourD, let descriptor else { return }
+    /// Returns the typed run verdict — `.published` exactly on the path that
+    /// records the recipe step. `replaying` marks a replay-initiated run,
+    /// whose recording is suppressed. S6's executor is the consumer;
+    /// interactive call sites ignore both. // v2 S6
+    @discardableResult
+    func runVirtualDetector(quiet: Bool = false, replaying: Bool = false) async -> AnalysisRunOutcome {
+        guard let fourD, let descriptor else { return .failed("No dataset is loaded") }
         let totalPatterns = descriptor.rx * descriptor.ry
         let scanVerb = isLoadingDataset ? "Scanning patterns" : "Computing virtual detector…"
         let cancellation = quiet ? nil : beginCancellableOperation(
@@ -3063,7 +3317,7 @@ final class AppState {
             let epoch = datasetEpoch
             if cancellation?.isCancelled == true {
                 statusText = "Virtual detector cancelled"
-                return
+                return .cancelled
             }
             let progressUpdate: (@Sendable (Double) -> Void)?
             if let token = cancellation {
@@ -3118,10 +3372,10 @@ final class AppState {
                     maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             }
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
             if cancellation?.isCancelled == true {
                 statusText = "Virtual detector cancelled"
-                return
+                return .cancelled
             }
             restoredResultInfo = nil
             resultColormap = .viridis
@@ -3143,10 +3397,15 @@ final class AppState {
                 "shape": shapeMode.rawValue,
                 "center_x": String(ap.centerX), "center_y": String(ap.centerY),
                 "inner": String(ap.inner), "outer": String(ap.outer),
-            ])
+            ], replaying: replaying)
+            return .published
         } catch {
-            if cancellation?.isCancelled == true { statusText = "Virtual detector cancelled" }
-            else if !quiet { presentComputeFailure(error) }
+            if cancellation?.isCancelled == true {
+                statusText = "Virtual detector cancelled"
+                return .cancelled
+            }
+            if !quiet { presentComputeFailure(error) }
+            return .failed(error.localizedDescription)
         }
     }
 
@@ -3920,8 +4179,10 @@ final class AppState {
     /// Measure the CoM field (against calibrated origins) and cache it, then
     /// render the selected DPC view. The field is cached so switching between
     /// magnitude / angle / color-wheel / iDPC is instant (no GPU re-run).
-    func runDPC() async {
-        guard let descriptor else { return }
+    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
+    @discardableResult
+    func runDPC(replaying: Bool = false) async -> AnalysisRunOutcome {
+        guard let descriptor else { return .failed("No dataset is loaded") }
         let cancellation = beginCancellableOperation(
             "DPC", status: "Computing DPC (center of mass)…",
             totalUnits: descriptor.rx * descriptor.ry
@@ -3931,10 +4192,18 @@ final class AppState {
         do {
             let epoch = datasetEpoch
             let field = try await computeCoMField(cancellation: cancellation)
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
                 statusText = "DPC cancelled"
-                return
+                return .cancelled
+            }
+            // A nil field here is not a publish: `computeCoMField` bails to
+            // nil when the cube is gone. The first version ran the success
+            // block anyway — "DPC ✓" over nothing, and a phantom recipe step
+            // (Gate A finding A6, 2026-08-25).
+            guard let field else {
+                statusText = "DPC could not run — no data is loaded"
+                return .failed("DPC could not run — no data is loaded")
             }
             comField = field
             applyDPCDisplay()
@@ -3950,10 +4219,15 @@ final class AppState {
             // is false precision a replay would faithfully reproduce wrongly.
             recordReplayStep(kind: "dpc", parameters: [
                 "origin_reference": ref,
-            ])
+            ], replaying: replaying)
+            return .published
         } catch {
-            if cancellation.isCancelled { statusText = "DPC cancelled" }
-            else { presentComputeFailure(error) }
+            if cancellation.isCancelled {
+                statusText = "DPC cancelled"
+                return .cancelled
+            }
+            presentComputeFailure(error)
+            return .failed(error.localizedDescription)
         }
     }
 
@@ -4161,10 +4435,14 @@ final class AppState {
     }
 
     /// Full-scan detection → BraggVectors + Bragg vector map.
-    func runDiskDetection() async {
-        guard let fourD, let descriptor else { return }
+    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
+    @discardableResult
+    func runDiskDetection(replaying: Bool = false) async -> AnalysisRunOutcome {
+        guard let fourD, let descriptor else { return .failed("No dataset is loaded") }
         if probeKernel == nil { await generateProbeKernel() }
-        guard let kernel = probeKernel else { return }
+        guard let kernel = probeKernel else {
+            return .failed("No probe kernel could be generated")
+        }
 
         let params = diskParams
         let context = DiskDetectionContext(
@@ -4174,11 +4452,10 @@ final class AppState {
             $0.severity == .error
         }
         guard errors.isEmpty else {
-            presentComputeFailure(SimpleError(
-                "Disk-detection settings are invalid: "
-                    + errors.map(\.message).joined(separator: " ")
-            ))
-            return
+            let reason = "Disk-detection settings are invalid: "
+                + errors.map(\.message).joined(separator: " ")
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
 
         let cancellation = beginCancellableOperation(
@@ -4203,7 +4480,7 @@ final class AppState {
                 self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
             }
         }
-        guard epoch == datasetEpoch else { return }
+        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
                 // `DiskDetection.detectAll` returns nil on cancellation — never
                 // a partial `BraggVectors` — so nothing here is a half-finished
@@ -4215,11 +4492,11 @@ final class AppState {
             statusText = braggVectors == nil
                 ? "Disk detection cancelled — no peaks were published"
                 : "Disk detection cancelled; the previous full-scan peaks are still shown"
-            return
+            return .cancelled
         }
         guard let vectors else {
             presentComputeFailure(SimpleError("Disk detection failed to initialize its FFT plan."))
-            return
+            return .failed("Disk detection failed to initialize its FFT plan.")
         }
         braggVectors = vectors
         completedDiskParams = params
@@ -4243,7 +4520,14 @@ final class AppState {
             "min_peak_spacing": String(params.minPeakSpacing),
             "edge_boundary": String(params.edgeBoundary),
             "max_peaks": String(params.maxNumPeaks),
-        ], invalidating: ["strain", "acom"])
+            // The kernel class is a detection parameter even though
+            // `DiskDetectionParams` does not carry it: the thresholds above
+            // were tuned against ITS correlation response, and a replay that
+            // regenerated a different class of kernel would silently move
+            // every peak (Gate A finding C3, 2026-08-25). Vocabulary shared
+            // with result provenance ("synthetic" / "measured_roi").
+            "kernel_source": kernel.source.provenanceID,
+        ], invalidating: ["strain", "acom"], replaying: replaying)
         completedDiskSummary = DiskDetectionScanSummary(
             vectors: vectors, maximumPeaks: params.maxNumPeaks
         )
@@ -4257,6 +4541,7 @@ final class AppState {
         } else {
             statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
         }
+        return .published
     }
 
     /// Show the Bragg vector map (log-scaled — the central beam dominates the
@@ -4296,15 +4581,19 @@ final class AppState {
     /// Compute a strain map from the detected Bragg vectors (needs a prior
     /// disk-detection pass). Automatic mode uses repeated-vector consensus;
     /// local fits and the reference population reject outliers independently.
-    func runStrainMapping() async {
-        guard let descriptor else { return }
+    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
+    @discardableResult
+    func runStrainMapping(replaying: Bool = false) async -> AnalysisRunOutcome {
+        guard let descriptor else { return .failed("No dataset is loaded") }
         guard !diskDetectionSettingsAreStale else {
-            presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before computing strain."))
-            return
+            let reason = "Detection settings changed — run Detect All Disks again before computing strain."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         guard let bragg = braggVectors else {
-            presentComputeFailure(SimpleError("Run disk detection first — strain mapping needs detected Bragg peaks."))
-            return
+            let reason = "Run disk detection first — strain mapping needs detected Bragg peaks."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         let cancellation = beginCancellableOperation(
             "Strain mapping", status: "Computing strain map…",
@@ -4327,10 +4616,10 @@ final class AppState {
                                   initialBasis: initialBasis,
                                   cancellation: cancellation)
         }.value
-        guard epoch == datasetEpoch else { return }
+        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
             statusText = "Strain mapping cancelled"
-            return
+            return .cancelled
         }
         guard let map else {
             // Classify before wording: a starved peak population and an
@@ -4381,7 +4670,7 @@ final class AppState {
                 detail += " " + warning
             }
             presentComputeFailure(SimpleError("Could not publish strain. \(detail)"))
-            return
+            return .failed("Could not publish strain. \(detail)")
         }
         strainFailureCause = nil
         strainMap = map
@@ -4402,7 +4691,7 @@ final class AppState {
             "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
             "resolved_g1_x": String(map.refG1.x), "resolved_g1_y": String(map.refG1.y),
             "resolved_g2_x": String(map.refG2.x), "resolved_g2_y": String(map.refG2.y),
-        ])
+        ], replaying: replaying)
         resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
         statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
@@ -4412,6 +4701,7 @@ final class AppState {
                             map.diagnostics.basisConditionNumber,
                             map.referencePositionCount,
                             map.diagnostics.referenceCandidateCount)
+        return .published
     }
 
     /// A whole-scan product computed earlier this session and still retained,
@@ -4608,23 +4898,30 @@ final class AppState {
 
     /// Match the chosen preview, selected region, or full scan against the
     /// plan (needs a prior disk-detection pass; builds the plan first if needed).
-    func runACOM() async {
+    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
+    @discardableResult
+    func runACOM(replaying: Bool = false) async -> AnalysisRunOutcome {
         let actionStarted = Date()
         guard !diskDetectionSettingsAreStale else {
-            presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before ACOM."))
-            return
+            let reason = "Detection settings changed — run Detect All Disks again before ACOM."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         guard let descriptor, let bragg = braggVectors else {
-            presentComputeFailure(SimpleError("Detect Bragg disks first (Disks mode), then run ACOM."))
-            return
+            let reason = "Detect Bragg disks first (Disks mode), then run ACOM."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         guard let model = resolvedACOMModel else {
-            presentComputeFailure(SimpleError(acomModelSelectionIssue
-                ?? "Choose a valid phase model before running ACOM."))
-            return
+            let reason = acomModelSelectionIssue
+                ?? "Choose a valid phase model before running ACOM."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         if orientationPlan == nil { await generateOrientationPlan() }
-        guard let plan = orientationPlan else { return }
+        guard let plan = orientationPlan else {
+            return .failed("No orientation plan could be generated")
+        }
 
         let selection = acomScanSelection
         let scope = acomScope
@@ -4680,20 +4977,20 @@ final class AppState {
                 }
             }
         }.value
-        guard epoch == datasetEpoch else { return }
+        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
             acomLastEndToEndDuration = Date().timeIntervalSince(actionStarted)
             statusText = "ACOM matching cancelled"
-            return
+            return .cancelled
         }
         guard let map else {
             presentComputeFailure(SimpleError("ACOM matching failed to initialize."))
-            return
+            return .failed("ACOM matching failed to initialize.")
         }
         guard resolvedACOMModel?.revisionID == modelRevision,
               acomScaleSemantics == scaleSemantics else {
             statusText = "Discarded ACOM result because its material or Q scale changed"
-            return
+            return .failed("Discarded ACOM result because its material or Q scale changed")
         }
         orientationMap = map
         hasOrientationMap = true
@@ -4710,7 +5007,7 @@ final class AppState {
             "matching_backend": map.matchingBackend.rawValue,
             "scope": String(describing: scope),
             "quality": String(describing: quality),
-        ])
+        ], replaying: replaying)
         acomLastRunScope = scope
         acomLastRunQuality = quality
         acomLastRunSemantics = runSemantics
@@ -4729,6 +5026,7 @@ final class AppState {
             runSemantics.scale.provenance.displayName,
             workCount.formatted(), elapsed
         )
+        return .published
     }
 
     private func applyACOMDisplay() {

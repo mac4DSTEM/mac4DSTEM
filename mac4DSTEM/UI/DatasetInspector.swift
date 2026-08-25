@@ -95,9 +95,13 @@ struct DatasetInspector: View {
                         // about.
                         VStack(alignment: .leading, spacing: 4) {
                             Button("Reopen at Full Extent") {
-                                Task { await appState.promoteToFullExtent() }
+                                // The one-action promote (v2 S6): with a
+                                // recorded recipe this reopens AND replays;
+                                // with none it is the plain S3 reopen.
+                                Task { await appState.promoteAndReplayRecipe() }
                             }
-                            .disabled(appState.isLoadingDataset)
+                            .disabled(appState.isLoadingDataset
+                                      || appState.replayRun.isRunning)
                             .accessibilityIdentifier("inspector.promoteToFullExtent")
                             if let source = appState.loadView?.source {
                                 // SystemMonitor.byteString, deliberately: the
@@ -112,6 +116,44 @@ struct DatasetInspector: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
+                            }
+                            PromoteRunCaption(
+                                record: appState.replay.record,
+                                frame: appState.replay.parameterFrame
+                            )
+                        }
+                    }
+                }
+
+                // THE PROMOTE RUN (v2 S6) — live progress while the recipe
+                // replays, and the morning summary afterwards. Outside the
+                // reduced-view condition above on purpose: a finished promote
+                // IS full extent, and the summary is exactly what the user
+                // reads then. Cleared on dataset change (`clearUnlessRunning`).
+                if appState.replayRun.phase != .idle {
+                    Section("Promote run") {
+                        if let headline = appState.replayRun.summaryHeadline {
+                            Text(headline)
+                                .font(.callout.weight(.medium))
+                                .accessibilityIdentifier("inspector.promoteRunHeadline")
+                        }
+                        if let halt = appState.replayRun.haltReason {
+                            Text("Halted — \(halt)")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("inspector.promoteRunHalt")
+                        }
+                        ForEach(appState.replayRun.steps) { step in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(step.index + 1). \(step.title)  \(symbol(for: step.outcome))")
+                                    .font(.caption.weight(.medium))
+                                if let detail = detail(for: step.outcome) {
+                                    Text(detail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                         }
                     }
@@ -313,6 +355,72 @@ struct DatasetInspector: View {
             return String(format: "%.2f GB", megabytes / 1024)
         }
         return String(format: "%.1f MB", megabytes)
+    }
+
+    // MARK: - Promote run rendering (v2 S6)
+
+    private func symbol(for outcome: ReplayRun.Outcome) -> String {
+        switch outcome {
+        case .notReached: "· not reached"
+        case .running: "… running"
+        case .succeeded: "✓"
+        case .failed: "✕ failed"
+        case .cancelled: "⊘ cancelled"
+        case .refused: "— refused"
+        }
+    }
+
+    private func detail(for outcome: ReplayRun.Outcome) -> String? {
+        switch outcome {
+        case .notReached, .running, .cancelled:
+            nil
+        case .succeeded(let detail, let seconds):
+            seconds >= 1
+                ? "\(detail)  (\(Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .narrow))))"
+                : detail
+        case .failed(let reason), .refused(let reason):
+            reason
+        }
+    }
+}
+
+/// The promote button's replay price tag (v2 S6). Its own view so the plan is
+/// re-derived only when the recipe or its frame changes, not on every
+/// cursor-driven inspector invalidation — and so the caption and the executor
+/// read the SAME pure plan: a promise the run is already known to break is
+/// stated as the halt it will be, before the click (Gate A findings B5/E3,
+/// 2026-08-25).
+private struct PromoteRunCaption: View {
+    let record: SessionReplayRecord
+    let frame: ReplayParameterFrame?
+
+    var body: some View {
+        if !record.steps.isEmpty {
+            let planned = ReplayPlanner.plan(record, frame: frame ?? .unknown)
+            let titles = planned.map(\.title).joined(separator: ", ")
+            let count = planned.count
+            // The keep-awake honesty limit is stated where the decision is
+            // made: an idle-sleep assertion does not survive a closed lid.
+            Text("Then replays this session's \(count) recorded "
+                 + (count == 1 ? "analysis" : "analyses")
+                 + " in order (\(titles)), keeping this Mac awake while it "
+                 + "runs (lid open). A step that fails halts the run.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("inspector.promoteReplayCaption")
+            if let firstRefused = planned.firstIndex(where: {
+                if case .failure = $0.result { true } else { false }
+            }), case .failure(let refusal) = planned[firstRefused].result {
+                Text(firstRefused == 0
+                     ? "This recipe cannot replay here — \(planned[0].title): \(refusal.reason). The button reopens at full extent and re-runs the current analysis instead."
+                     : "The run will halt at step \(firstRefused + 1) (\(planned[firstRefused].title)): \(refusal.reason)")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("inspector.promoteReplayRefusal")
+            }
+        }
     }
 }
 
