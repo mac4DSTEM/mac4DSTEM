@@ -105,6 +105,36 @@ it plausibly touches plus §A.
 | L5 | The sampled preview is visibly marked as sampled **with its stride stated**, and cannot be exported; the size arithmetic (file bytes / cube f32 / headroom / cost of the current specification) is on screen |
 | L6 | The load specification is shown wherever provenance is shown, and survives reopen |
 
+#### The TB1 drive plan (written 2026-08-25, S7)
+
+The 22 open rows below plus four owner decisions collapse into **four
+sittings** ordered so each dataset and setup is reused. Machine-local paths
+and the staged F1.26 fixture live in `References/tb1-drive-kit.md`
+(gitignored on purpose — this public doc carries no local paths). Launch
+rule as always: **⌘R from Xcode**, never the installed copy.
+
+1. **Sitting 1 — the configurator (~20 min, sim_Au):** F1.3b FIRST (the
+   failed-then-fixed previews), then F1.16–F1.19 in the same dialog, the
+   bin-trim pair F1.3d/F1.6 (sim_Au's 125 px detector is the non-dividing
+   case), the crop-gesture trio F1.9–F1.11, F1.3e, F1.8. **Decision:**
+   aspect stretch, while the previews are up.
+2. **Sitting 2 — sidecars and export (~20 min, Si_SiGe + the staged WS₂
+   fixture):** F1.3f, F1.20 (+ the S1 renamed-label residual), F1.21,
+   F1.27, F1.26 (fixture pre-staged), F1.24, F1.25. **Decisions:** beam
+   refusal "load anyway"?, sidecar file extension / open-panel filter.
+   Plus the one-line defaults probe in the kit.
+3. **Sitting 3 — the promote run (~15 min + one overnight, multi-GB/NAS
+   cube):** F1.14 (+ **decision:** carry the scan position across a
+   promote?), F1.22, F1.23, F1.15, F1.1d's open half — then the real
+   thing: rehearse at end of day, promote, lid open, read the morning
+   summary (Done criterion 3).
+4. **Sitting 4 — clean account (~15 min):** the colleague-sidecar row —
+   foreign sidecar + cube restores their view, results and recipe (Done
+   criterion 4).
+
+Findings go to `docs/open-items.md` as always; a blocked row is a finding,
+never an inline fix.
+
 #### F1. The queued backlog — nothing below has been seen on screen by anyone
 
 **Written 2026-08-18, drafted ahead of the UI it describes.** **Correction,
