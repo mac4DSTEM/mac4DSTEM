@@ -68,9 +68,14 @@ file:
   "the compiler is unable to type-check this expression in reasonable time"
   on the runner's Xcode 26.6, while the dev machine's Xcode 27 beta
   type-checks it — a compiler-version-sensitive expression, not a semantics
-  bug. Fix: decompose into named sub-expressions (Gate A, UI file, no
-  behaviour change intended). The 180-min `scientific` timeout can be
-  tightened from the 8m 30s datum when the workflow is next touched.**
+  bug. Fixed same day (`5f98ded`, named sub-expressions; app built locally
+  and on the runner). **Run #2 (`5f98ded`): `scientific` PASSED again
+  (7m 59s); `unit` built and ran all 377 tests — the sole failure is the
+  S17 sidebar intermittent, now reproduced on the runner (see the S17
+  observation log). So the badge is red for exactly the documented reason
+  and CI is functioning as designed; it goes green when S17 settles that
+  test.** The 180-min `scientific` timeout can be tightened from the
+  ~8-min data when the workflow is next touched.
 - The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
   elimination). The second-machine sweep → **post-v2** (`.automatic` is
   dropped in S3, so the threshold no longer blocks anything).
@@ -440,6 +445,7 @@ the claims are widened*, not as release advice.
   | 2026-08-26 (M1's owed T7 re-run; 14 GB free; docs/tools-only tree) | exit 65 | **failed** (360 passed, 1 failed) — no heights: the terminal route carries no assertion text, exactly as recorded above |
   | 2026-08-26 later (S10 session: MCP `test_macos` ×2 + `run-tests.sh unit` ×1) | exit 65 | **failed all three** (376 passed / 1 failed on the final gate); MCP heights **1029/945/961 — byte-identical to S7's numbers from 2026-08-25**, i.e. the between-sessions drift reversed back to an earlier value, which further narrows the variable to reconstructible machine state rather than monotonic drift |
   | 2026-08-26 latest (S21 closeout: `run-tests.sh unit` ×1; CI/docs-only tree, `mac4DSTEM/` untouched) | exit 65 | **failed** (376 passed / 1 failed) — no heights, terminal route as always. Once S21's workflow first runs on the owner's push, every CI run adds a **second-machine** (macos-26) row to this series for free |
+  | 2026-08-26, CI run #2 (`5f98ded`, **the first-ever second-machine observation**: GitHub macos-26 runner, macOS 26.5.2 / 25F84, Xcode 26.6, virtualized display) | exit 65 | **failed** (9.635 s; every other test passed) — no heights, the CI log is the same assertion-text-less terminal route. The failure is NOT specific to the dev Mac, its OS (27 vs 26.5.2), or its display hardware — which kills the "this one machine's state" family of hypotheses in its strongest form and moves the question to what the *test* measures. S17 lever: `test_macos`-style height capture could be added to CI, making every push a measured observation |
 
   **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
   stash experiment produced the identical three failures with identical
