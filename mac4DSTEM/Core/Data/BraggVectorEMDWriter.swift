@@ -146,6 +146,83 @@ nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
     let discardedQColumns: Int
 }
 
+/// How an exported reduced DataCube was derived from its source — the
+/// "traceable to file + specification" half of the release claim, stamped as
+/// a JSON attribute on the exported file (v2 S10). Deliberately NOT a
+/// `LoadSpecification`: that type means "reopen the source this way" and is
+/// bounded by the app's bin vocabulary (2/4/8), while a derivation composes
+/// the view's bin with the export's (their product can be 16+) and means
+/// only "this is where these pixels came from". Offsets are in SOURCE
+/// pixels; extents are the exported file's own shape; `detectorBin` is the
+/// TOTAL source→file factor. The file NAME travels, never the path — a
+/// screenshot-able attribute must not leak the filesystem (the status-line
+/// lesson, docs/open-items.md).
+nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
+    var schema: Int = 1
+    var sourceFile: String?
+    var scanOffsetY: Int
+    var scanOffsetX: Int
+    var scanHeight: Int
+    var scanWidth: Int
+    var detectorOffsetY: Int
+    var detectorOffsetX: Int
+    var detectorBin: Int
+    var detectorHeight: Int
+    var detectorWidth: Int
+
+    enum CodingKeys: String, CodingKey {
+        case schema
+        case sourceFile = "source_file"
+        case scanOffsetY = "scan_offset_y"
+        case scanOffsetX = "scan_offset_x"
+        case scanHeight = "scan_height"
+        case scanWidth = "scan_width"
+        case detectorOffsetY = "detector_offset_y"
+        case detectorOffsetX = "detector_offset_x"
+        case detectorBin = "detector_bin"
+        case detectorHeight = "detector_height"
+        case detectorWidth = "detector_width"
+    }
+
+    /// Compose the view's reduction with the export's. Exact by the floor
+    /// identity `floor(floor(n/a)/b) == floor(n/(a·b))`: the view trims its
+    /// detector to a multiple of its bin off the END of each axis, the export
+    /// trims the view the same way, so the composition is one crop at the
+    /// view's offsets with the total bin — no intermediate state survives.
+    /// Scan composition is pure selection: offsets add.
+    static func compose(view: LoadView,
+                        options: CalibratedDataCubeExportOptions,
+                        outputShape: [Int],
+                        sourceFileName: String?) -> DataCubeDerivation {
+        let specification = view.specification
+        let scanCrop = specification.scanCrop
+        let detectorCrop = view.readDetectorCrop
+        return DataCubeDerivation(
+            sourceFile: sourceFileName,
+            scanOffsetY: (scanCrop?.yOffset ?? 0) + options.scanY.lowerBound,
+            scanOffsetX: (scanCrop?.xOffset ?? 0) + options.scanX.lowerBound,
+            scanHeight: outputShape[0],
+            scanWidth: outputShape[1],
+            detectorOffsetY: detectorCrop?.yOffset ?? 0,
+            detectorOffsetX: detectorCrop?.xOffset ?? 0,
+            detectorBin: specification.detectorBin * options.qBin,
+            detectorHeight: outputShape[2],
+            detectorWidth: outputShape[3]
+        )
+    }
+
+    /// Deterministic JSON, same conventions as the other stamped records.
+    var jsonString: String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        // try? OK (v2 S7 audit): all stored properties are Ints and an
+        // optional String — nothing here can fail to encode, and nil falls
+        // through to "write no attribute".
+        guard let data = try? encoder.encode(self) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+}
+
 /// Writes the detected peak grid as a py4DSTEM 0.14 / EMD 1.0 BraggVectors
 /// sidecar. The source dataset is never opened for writing. Publication is an
 /// atomic rename of a completed sibling temporary file, so cancellation or an
@@ -161,6 +238,12 @@ nonisolated enum BraggVectorEMDWriter {
     /// JSON. Absent on a full-extent session — the identity, so a sidecar
     /// written before L6 reads as "the whole file", which is what it was.
     private static let loadSpecificationAttribute = "mac4dstem_load_specification"
+    /// How an exported reduced DataCube was derived from its source
+    /// (`DataCubeDerivation`, v2 S10). On the exported file's `datacube_root`
+    /// — deliberately NOT `loadSpecificationAttribute`, whose meaning is
+    /// "reopen the SOURCE this way" on a sidecar; this one means "this file's
+    /// pixels came from there" and instructs nothing.
+    private static let derivationAttribute = "mac4dstem_derivation"
     private static let minimumReaderAttribute = SessionSidecarFormat.minimumReaderAttribute
     private static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
     /// Derived, never a literal: "5" famously stayed put across a format
@@ -349,31 +432,30 @@ nonisolated enum BraggVectorEMDWriter {
         calibration: PixelCalibration,
         options: CalibratedDataCubeExportOptions,
         to destination: URL,
+        sourceFileName: String? = nil,
+        replayRecord: SessionReplayRecord? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> CalibratedDataCubeExportSummary {
         // The export crops what is *loaded*, so its bounds are the view's, not
         // the source file's.
         //
-        // **A cropped view is refused here, on purpose.** The geometry would
-        // work — `options` indexes the view, the view indexes the file — but
-        // `transformedCalibration` rescales the origin, `qSize` and the probe
-        // radius by the *export* bin only and knows nothing about
-        // `view.specification.detectorCrop`, so a cropped view would write
-        // cropped-frame pixels with a source-frame origin: precisely the
-        // py4DSTEM defect this file's own DEVIATION note forbids. Its origin-map
-        // shape check also compares against the view extent, so a source-extent
-        // map would fall silently through to an empty array.
-        //
-        // Unreachable today (nothing sets a specification until L5), and the
-        // refusal is here so that wiring the configurator up cannot make it
-        // reachable by accident. Lift it in L3's calibration re-reference, not
-        // before. Found by adversarial review 2026-08-18.
-        guard view.isFullExtent else {
-            throw WriterError.invalidDimensions(
-                "exporting from a cropped or binned view needs the calibration re-reference (L3); reopen at full extent to export"
-            )
-        }
+        // **A reduced view exports since v2 S10.** The blanket refusal that
+        // stood here ("needs the calibration re-reference (L3)") guarded one
+        // invariant: pixels and calibration must be in the SAME frame. That
+        // invariant holds structurally now — every read goes through the view
+        // (`readScanTile` returns view-frame patterns), and the session
+        // calibration handed in is view-frame because L3's
+        // `CalibrationReReference.apply` re-references it at load time — so
+        // `transformedCalibration` only ever composes the EXPORT-time bin on
+        // top, which is the same math for a reduced view as for a full one.
+        // What replaced the refusal is the checks the invariant deserves:
+        // `transformedCalibration` now REFUSES (never silently drops or
+        // passes through) origin maps whose shape is not this view's, and
+        // refuses an origin that lands outside the exported detector — the
+        // frame-mismatch net for a caller that hands a source-frame
+        // calibration with reduced pixels, the py4DSTEM `bin_data_diffraction`
+        // defect this file's own DEVIATION note forbids.
         let descriptor = view.descriptor
         guard options.scanY.lowerBound >= 0,
               options.scanY.upperBound <= descriptor.ry,
@@ -415,9 +497,13 @@ nonisolated enum BraggVectorEMDWriter {
         let h5 = try HDF5WriteLibrary.load()
         try await writeCalibratedDataCubeFile(
             at: temporary, source: source, view: view,
-            calibration: transformedCalibration(calibration, descriptor: descriptor,
-                                                options: options),
+            calibration: try transformedCalibration(calibration, descriptor: descriptor,
+                                                    options: options),
             options: options, outputShape: summary.shape,
+            derivation: DataCubeDerivation.compose(view: view, options: options,
+                                                   outputShape: summary.shape,
+                                                   sourceFileName: sourceFileName),
+            replayRecord: replayRecord,
             cancellation: cancellation, progress: progress, hdf5: h5
         )
         try checkCancellation(cancellation)
@@ -1168,11 +1254,25 @@ nonisolated enum BraggVectorEMDWriter {
         )
     }
 
+    /// Re-express the session calibration in the exported file's own frame.
+    ///
+    /// The input is the VIEW's calibration (L3 re-references it at load time;
+    /// values fitted in-session are natively view-frame), so the only
+    /// transform applied here is the EXPORT-time bin — the same
+    /// `(x + 0.5) / b - 0.5` convention as `CalibrationReReference`, and
+    /// deliberately so (its `binnedCoordinate` doc comment names this site).
+    ///
+    /// **Refuses instead of guessing** (v2 S10; both were silent before):
+    /// origin maps whose shape is not this view's scan have no honest
+    /// sub-rectangle, and an origin outside the exported detector means the
+    /// calibration and the pixels are in different frames — writing either
+    /// would reproduce py4DSTEM's `bin_data_diffraction` defect with this
+    /// writer's own signature on it.
     private static func transformedCalibration(
         _ source: PixelCalibration,
         descriptor: DatasetDescriptor,
         options: CalibratedDataCubeExportOptions
-    ) -> PixelCalibration {
+    ) throws -> PixelCalibration {
         var output = source
         let bin = Double(options.qBin)
         output.qSize = source.qSize.map { $0 * bin }
@@ -1180,12 +1280,29 @@ nonisolated enum BraggVectorEMDWriter {
         output.qx0Mean = source.qx0Mean.map(transformQ)
         output.qy0Mean = source.qy0Mean.map(transformQ)
         output.probeSemiangle = source.probeSemiangle.map { $0 / bin }
+        // The ellipse semi-axes are LENGTHS in detector pixels, exactly like
+        // the probe radius one line up — omitting them left an export-binned
+        // file carrying view-frame axes beside binned-frame everything else
+        // (found by S10's review of this function; theta is an angle and
+        // does not move).
+        output.ellipseA = source.ellipseA.map { $0 / bin }
+        output.ellipseB = source.ellipseB.map { $0 / bin }
 
-        if let maps = source.originMaps,
-           maps.shape == [descriptor.ry, descriptor.rx],
-           maps.fittedQX.count == descriptor.ry * descriptor.rx,
-           maps.fittedQY.count == descriptor.ry * descriptor.rx {
+        if let maps = source.originMaps {
+            guard maps.shape == [descriptor.ry, descriptor.rx],
+                  maps.fittedQX.count == descriptor.ry * descriptor.rx,
+                  maps.fittedQY.count == descriptor.ry * descriptor.rx else {
+                throw WriterError.invalidDimensions(
+                    "the calibration's origin maps describe a \(maps.shape.map(String.init).joined(separator: " × ")) scan but the exported view's scan is \(descriptor.ry) × \(descriptor.rx) — the maps are not in this view's frame, so there is no honest way to export them"
+                )
+            }
             func cropped(_ values: [Double]?) -> [Double]? {
+                // Optional arrays (measured maps) may be absent; a PRESENT
+                // array of the wrong length is the same frame mismatch as a
+                // wrong shape and is refused by the caller's guard above for
+                // the fitted maps — measured maps that disagree are dropped
+                // with the same reasoning `CalibrationReReference` applies
+                // (they are a fit-quality record, not the calibration).
                 guard let values, values.count == descriptor.ry * descriptor.rx else {
                     return nil
                 }
@@ -1198,6 +1315,8 @@ nonisolated enum BraggVectorEMDWriter {
                 }
                 return result
             }
+            // Non-optional by the guard above: the fitted maps have the
+            // exact counts `cropped` requires.
             let fittedQX = cropped(maps.fittedQX) ?? []
             let fittedQY = cropped(maps.fittedQY) ?? []
             output.originMaps = PixelOriginMaps(
@@ -1211,6 +1330,40 @@ nonisolated enum BraggVectorEMDWriter {
             output.qy0Mean = fittedQY.isEmpty
                 ? output.qy0Mean : fittedQY.reduce(0, +) / Double(fittedQY.count)
         }
+
+        // The frame-mismatch net: every exported origin must lie inside the
+        // exported detector, in pixel-centre coordinates `[-0.5, extent-0.5)`
+        // (the same half-open convention as `CalibrationReReference`, written
+        // in the positive so NaN refuses). py4DSTEM's qx is the FIRST Q axis
+        // — this file's dim2, extent qy/bin. A view-frame calibration always
+        // passes (the view contains its beam or L3 already invalidated it);
+        // what this catches is a source-frame calibration handed in beside
+        // reduced pixels — a net, not a proof, and the invariant's real home
+        // is L3.
+        let outQX = Double(descriptor.qy / options.qBin)   // py4DSTEM qx extent
+        let outQY = Double(descriptor.qx / options.qBin)   // py4DSTEM qy extent
+        func inside(_ value: Double, _ extent: Double) -> Bool {
+            value.isFinite && value >= -0.5 && value < extent - 0.5
+        }
+        var outlier: (name: String, x: Double, extent: Double)?
+        if let qx0 = output.qx0Mean, !inside(qx0, outQX) {
+            outlier = ("mean origin qx0", qx0, outQX)
+        } else if let qy0 = output.qy0Mean, !inside(qy0, outQY) {
+            outlier = ("mean origin qy0", qy0, outQY)
+        } else if let maps = output.originMaps {
+            if let index = maps.fittedQX.firstIndex(where: { !inside($0, outQX) }) {
+                outlier = ("fitted origin qx0 at scan position \(index)",
+                           maps.fittedQX[index], outQX)
+            } else if let index = maps.fittedQY.firstIndex(where: { !inside($0, outQY) }) {
+                outlier = ("fitted origin qy0 at scan position \(index)",
+                           maps.fittedQY[index], outQY)
+            }
+        }
+        if let outlier {
+            throw WriterError.invalidDimensions(
+                "the \(outlier.name) lands at \(String(format: "%.2f", outlier.x)) in the exported detector, outside its \(Int(outlier.extent))-pixel extent — the calibration handed to the export is not in this view's frame, and writing it would pair pixels in one frame with an origin in another"
+            )
+        }
         return output
     }
 
@@ -1221,6 +1374,8 @@ nonisolated enum BraggVectorEMDWriter {
         calibration: PixelCalibration,
         options: CalibratedDataCubeExportOptions,
         outputShape: [Int],
+        derivation: DataCubeDerivation?,
+        replayRecord: SessionReplayRecord?,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
         hdf5 h5: HDF5WriteLibrary
@@ -1244,6 +1399,18 @@ nonisolated enum BraggVectorEMDWriter {
         let root = try createGroup("datacube_root", in: fileID, hdf5: h5)
         defer { _ = h5.h5gclose(root) }
         try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
+        // Provenance the reduced file carries about itself (v2 S10): where its
+        // pixels came from, and the recipe of the analyses run on this data —
+        // the recipe already re-expressed in THIS file's frame by the caller
+        // (`ReplayRecordFrameMap`), never the view's, so no reader has to know
+        // a frame this file cannot describe. py4DSTEM ignores both attributes.
+        // Absence is absence: a session with no recipe stamps nothing.
+        if let derivation, let json = derivation.jsonString {
+            try writeStringAttribute(derivationAttribute, value: json, on: root, hdf5: h5)
+        }
+        if let replayRecord, !replayRecord.isEmpty, let json = replayRecord.jsonString {
+            try writeStringAttribute(replayRecordAttribute, value: json, on: root, hdf5: h5)
+        }
         let cube = try createGroup("datacube", in: root, hdf5: h5)
         defer { _ = h5.h5gclose(cube) }
         try writeNodeAttributes(groupType: "array", pythonClass: "DataCube", on: cube, hdf5: h5)

@@ -414,3 +414,46 @@ in the code.
   `buildDatasetPreview` already used is the one that satisfies both. The
   lesson stands: **warm incremental builds re-emit nothing**; only a clean
   build can verify a warning claim either way.
+
+---
+
+## Detector-frame recipe replay after a reduced rehearsal — closed by S10, 2026-08-26
+
+  - **Detector-frame recipe parameters do not replay after a detector-reduced
+    rehearsal → S10.** A recipe recorded on a detector crop or bin carries
+    view-frame apertures, pixel sigmas, g-vectors and Å⁻¹/px scales; mapping
+    them to the full detector is the inverse of `CalibrationReReference.apply`
+    (positions `x_src = (x_view + 0.5)·b − 0.5 + offset`, lengths ×b,
+    per-pixel scales ÷b) — fabrication-shaped math that belongs beside
+    `transformedCalibration` under S10's Gate B, not in a Gate A session.
+    Until it lands, the planner refuses those steps by name and the promote
+    caption says so before the click. **The release claim's "binned view
+    re-runs unchanged" is NOT met for detector-reduced rehearsals until S10
+    delivers this** — S19's claims restatement must check.
+
+---
+
+## Two L3 residuals (export re-reference / tile offset) — closed by S10 / S2
+
+- **Two L3 residuals from the 2026-08-18 adversarial review, both unreachable
+  today and both reachable the moment L5's configurator lands.**
+  **(a)** `BraggVectorEMDWriter.transformedCalibration` rescales the origin,
+  `qSize` and the probe radius by the *export* bin only; it knows nothing about
+  `view.specification.detectorCrop`, and its origin-map shape check now compares
+  against the *view* extent, so a source-extent map would fall silently through
+  to an empty array. The export currently **refuses** a cropped view rather than
+  carrying that defect; the refusal is lifted by L3's calibration re-reference,
+  not before. ~~**(b)** `FourDArray.tile(yRange:from:)` — the read offset out of a
+  resident buffer — is only ever exercised at `lowerBound == 0` by
+  `tools/load-spec-test`, so a bug in that offset would not be caught there.~~
+  **CLOSED 2026-08-19 (S2), and the residual as written was wrong.** Deleting
+  the offset (`start: base` instead of `start: base + yRange.lowerBound *
+  floatsPerScanRow`) does leave `tools/load-spec-test` at exit 0 — that half is
+  reproducible — but `tools/virtual-detector-residency` goes **red** on the same
+  breakage (`DP statistics [max]: differs at index 0 — resident 279.5537, tiled
+  1055.2793`), because `tiledDPStatistics(maximumTileRows: 2)` reaches
+  `lowerBound > 0`. So the offset was covered all along, **at full extent only**.
+  What was genuinely missing, and what `tools/two-spec-analysis-test` now adds,
+  is exhaustive `(lower, upper)` coverage **under a scan crop**, where the
+  resident path and the reader's own crop offset compose. Found by Gate B when it
+  refused to accept S2's stated justification for the case.

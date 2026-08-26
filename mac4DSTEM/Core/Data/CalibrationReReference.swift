@@ -328,6 +328,19 @@ nonisolated enum CalibrationReReference {
         bin > 1 ? (value + 0.5) / Float(bin) - 0.5 : value
     }
 
+    /// The exact inverse of `binnedCoordinate`: map one detector coordinate
+    /// from the binned frame back into the unbinned one. A binned position
+    /// lands at the CENTRE of its b-pixel block — `(x + 0.5) · b - 0.5` — which
+    /// is the only faithful statement of a position that was chosen at binned
+    /// precision. Affine and exact: `sourceCoordinate(binnedCoordinate(x)) == x`
+    /// up to float rounding, with no clamping and no bias. Added for S10's
+    /// recipe re-referencing (view frame → source frame); positions
+    /// additionally add the detector-crop offset at the call site, exactly as
+    /// `apply` subtracts it. // v2 S10
+    static func sourceCoordinate(_ value: Float, bin: Int) -> Float {
+        bin > 1 ? (value + 0.5) * Float(bin) - 0.5 : value
+    }
+
     /// Apply `binnedCoordinate` to every position in a map.
     private static func rescaled(_ origin: OriginMaps, bin: Int) -> OriginMaps {
         guard bin > 1 else { return origin }

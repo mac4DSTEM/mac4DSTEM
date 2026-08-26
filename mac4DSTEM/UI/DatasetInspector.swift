@@ -144,6 +144,13 @@ struct DatasetInspector: View {
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("inspector.promoteRunHalt")
                         }
+                        if let note = appState.replayRun.frameNote {
+                            Text(note)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("inspector.promoteRunFrameNote")
+                        }
                         ForEach(appState.replayRun.steps) { step in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("\(step.index + 1). \(step.title)  \(symbol(for: step.outcome))")
@@ -436,6 +443,23 @@ private struct PromoteRunCaption: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("inspector.promoteReplayCaption")
+            // A re-referenced replay is never a silent substitution: the
+            // numbers the entry points will receive are exact re-expressions
+            // of the rehearsal's, and the caption says so BEFORE the click —
+            // shown only when a step actually carries detector numbers, so a
+            // DPC-only recipe does not claim a mapping it never uses. // v2 S10
+            if let note = frame?.reReferenceDescription,
+               planned.contains(where: {
+                   if case .success(let plan) = $0.result {
+                       plan.usesDetectorFrameParameters
+                   } else { false }
+               }) {
+                Text("Recipe \(note) — the exact inverse of the load-time re-reference.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("inspector.promoteReplayReReference")
+            }
             if let firstRefused = planned.firstIndex(where: {
                 if case .failure = $0.result { true } else { false }
             }), case .failure(let refusal) = planned[firstRefused].result {

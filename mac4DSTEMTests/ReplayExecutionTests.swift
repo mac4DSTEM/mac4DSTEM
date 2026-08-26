@@ -200,7 +200,11 @@ final class ReplayExecutionTests: XCTestCase {
 
     // MARK: - The frame gate
 
-    func testARecipeRecordedOnABinnedDetectorRefusesItsDetectorFrameSteps() async {
+    func testARecipeRecordedOnABinnedDetectorReplaysWithReReferencedParameters() async {
+        // The S6 refusal this test used to pin is lifted by S10: the plan
+        // re-references the binned-frame aperture into source pixels — the
+        // exact inverse of the load-time re-reference — and the run replays
+        // with those values, saying so in the run's frame note.
         var binnedSpec = LoadSpecification()
         binnedSpec.detectorBin = 2
         let state = AppState()
@@ -211,23 +215,30 @@ final class ReplayExecutionTests: XCTestCase {
         await state.runVirtualDetector()
         XCTAssertEqual(state.replay.record.steps.count, 1, "precondition: recorded")
         XCTAssertEqual(state.replay.parameterFrame,
-                       .detectorReduced(bin: 2, cropped: false),
+                       .detectorReduced(bin: 2, crop: nil),
                        "precondition: the live recording tracked its frame")
 
         await state.promoteAndReplayRecipe()
 
-        XCTAssertTrue(state.loadedView.isFullExtent, "The reopen itself still happens")
-        guard case .refused(let reason) = state.replayRun.steps[0].outcome else {
-            return XCTFail("Binned-view aperture pixels replayed on the full detector would fabricate a plausible wrong image")
+        XCTAssertTrue(state.loadedView.isFullExtent, "The reopen happens")
+        guard case .succeeded = state.replayRun.steps[0].outcome else {
+            return XCTFail("A binned rehearsal replays since S10; got \(state.replayRun.steps[0].outcome)")
         }
-        XCTAssertTrue(reason.contains("binned"), "Reason was: \(reason)")
-        XCTAssertNotNil(state.replayRun.haltReason)
-        // The recipe's binned-frame aperture (outer 6) must NOT have been
-        // applied; the re-establishing pass runs instead (Gate A E1/B2), on
-        // the session's own full-detector defaults.
-        XCTAssertNotEqual(state.aperture.outer, 6,
-                          "The misframed parameters must never reach the detector")
-        XCTAssertNotNil(state.resultImage,
-                        "A promote whose replay was refused up front still re-establishes the current analysis")
+        XCTAssertNil(state.replayRun.haltReason)
+        // The aperture the detector actually saw is the RE-REFERENCED one:
+        // center 16 → (16+0.5)·2−0.5 = 32.5, radius 6 → 12 — view pixel
+        // centres land on source block centres, mid-detector stays
+        // mid-detector (the naive 16→32 would shift every position).
+        XCTAssertEqual(state.aperture, Aperture(centerX: 32.5, centerY: 32.5,
+                                                inner: 0, outer: 12),
+                       "The replayed aperture is the rehearsal's, re-expressed in source pixels")
+        XCTAssertNotNil(state.resultImage, "The replayed step published")
+        XCTAssertNotNil(state.replayRun.frameNote,
+                        "The morning summary must say the parameters were re-referenced")
+        // The RECIPE keeps its rehearsal (view-frame) values — replay maps at
+        // plan time, never by mutating the record (the S6 invariant holds).
+        XCTAssertEqual(state.replay.record.steps[0].parameters["center_x"], "16.0",
+                       "Mapping must never write back into the recipe")
+        XCTAssertEqual(state.replay.record.steps[0].parameters["outer"], "6.0")
     }
 }

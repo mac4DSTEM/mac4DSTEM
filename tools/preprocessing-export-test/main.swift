@@ -80,8 +80,13 @@ struct Harness {
         var calibration = PixelCalibration(
             rSize: 2.5, rUnits: "A", qSize: 0.25, qUnits: "A^-1", qrFlip: true
         )
-        let qx = (0..<12).map { Double(8 + $0) }
-        let qy = (0..<12).map { Double(20 + $0) }
+        // Origins must lie INSIDE the 5×7 detector: since v2 S10 the writer
+        // refuses an origin outside the exported extent (the frame-mismatch
+        // net), and this fixture's original values (8+i, 20+i) never fit its
+        // own detector — they passed only because nothing checked. Steps are
+        // binary-exact eighths so the transformed expectations are exact.
+        let qx = (0..<12).map { 1.0 + 0.125 * Double($0) }
+        let qy = (0..<12).map { 2.0 + 0.25 * Double($0) }
         calibration.originMaps = PixelOriginMaps(
             shape: [3, 4], fittedQX: qx, fittedQY: qy,
             measuredQX: qx.map { $0 + 0.25 }, measuredQY: qy.map { $0 - 0.5 }
@@ -162,8 +167,19 @@ struct Harness {
         try require(restored.rSize == 2.5 && restored.qSize == 0.5,
                     "pixel-size transform mismatch")
         try require(restored.probeSemiangle == 3, "probe-radius transform mismatch")
-        try require(restored.ellipseA == 1.1 && restored.ellipseB == 0.9,
-                    "dimensionless ellipse changed")
+        // The semi-axes are LENGTHS in detector pixels (py4DSTEM
+        // fit_ellipse_1D: "the semimajor axis length", ellipse.py:9-10) —
+        // the same class as the probe radius one assertion up. The previous
+        // version of this check called them "dimensionless" and pinned the
+        // export leaving them unscaled: the exact py4DSTEM
+        // bin_data_diffraction defect the writer's own DEVIATION note
+        // refuses to reproduce, and the opposite of what
+        // CalibrationReReference does to the same fields under a view bin.
+        // Corrected v2 S10, when transformedCalibration gained the rescale.
+        // theta IS dimensionless and must not move.
+        try require(restored.ellipseA == 0.55 && restored.ellipseB == 0.45,
+                    "ellipse semi-axes must rescale with the export bin")
+        try require(restored.ellipseTheta == 0.2, "the ellipse angle must not move")
         let selected = [5, 6, 7, 9, 10, 11]
         let expectedQX = selected.map { (qx[$0] + 0.5) / 2 - 0.5 }
         let expectedQY = selected.map { (qy[$0] + 0.5) / 2 - 0.5 }

@@ -16,8 +16,10 @@ extension AppState {
     /// Publication is atomic and the source dataset is never opened for write.
     func exportCalibratedDataCube(options: CalibratedDataCubeExportOptions) {
         // The export reads through the loaded view, so the reader is never
-        // handed a shape without its position in the file. A cropped view is
-        // refused by the writer until L3's calibration re-reference lands — see
+        // handed a shape without its position in the file. A reduced view
+        // exports since v2 S10 — the view's patterns and the session's
+        // (view-frame) calibration are in the same frame by construction, and
+        // the writer refuses the mismatches it can detect; see
         // `writeCalibratedDataCube`.
         guard let descriptor, let view = loadView,
               let source = currentDataSourceForExport() else {
@@ -35,6 +37,33 @@ extension AppState {
         }
 
         let snapshot = sessionPixelCalibration(descriptor: descriptor)
+        // The recipe travels with the exported file, re-expressed in the
+        // exported file's OWN detector frame (v2 S10) — a further export bin
+        // re-references it exactly the way the promote replay does, through
+        // the one shared role table. One unmappable step drops the whole
+        // recipe (a recipe replays a coherent pipeline or nothing — S5), and
+        // the summary says what was left out and why rather than the
+        // attribute going silently missing.
+        //
+        // THE FRAME GUARD FIRST (S10 Gate B finding 1): `mapForExport`
+        // assumes the record is CURRENT-VIEW-frame, and the session record's
+        // frame can legitimately differ — a promoted session keeps its
+        // rehearsal-frame recipe (`promoteToFullExtent`'s re-adopt), and a
+        // sidecar restore adopts the SIDECAR'S frame, which a reconfigure
+        // can put out of step with the opened view. Mapping either through
+        // the current view's bin would stamp positions in a frame the file
+        // is not in — fabricated provenance. Equality against the live
+        // view's frame is exact: a recipe recorded in this session on this
+        // view always matches (recordReplayStep uses the same derivation),
+        // and everything else refuses by name. Composing across three
+        // frames is real math for a session that wants it; recorded in
+        // docs/open-items.md, not improvised here.
+        let (mappedRecipe, recipeOmission) = Self.exportableRecipe(
+            record: replay.recordForSaving,
+            recordedFrame: replay.parameterFrame,
+            currentSpecification: loadedView.specification,
+            exportBin: options.qBin
+        )
         let epoch = datasetEpoch
         let token = beginCancellableOperation(
             "Preprocessing export", status: "Writing calibrated DataCube…",
@@ -55,15 +84,24 @@ extension AppState {
                 let summary = try await Task.detached(priority: .userInitiated) {
                     try await BraggVectorEMDWriter.writeCalibratedDataCube(
                         source: source, view: view, calibration: snapshot,
-                        options: options, to: url, cancellation: token,
+                        options: options, to: url,
+                        sourceFileName: descriptor.fileName,
+                        replayRecord: mappedRecipe,
+                        cancellation: token,
                         progress: progressUpdate
                     )
                 }.value
                 guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
                 let dropped = summary.discardedQRows + summary.discardedQColumns
-                let suffix = dropped == 0
+                var suffix = dropped == 0
                     ? ""
                     : " (trimmed \(summary.discardedQRows) Q row, \(summary.discardedQColumns) Q column)"
+                if let recipeOmission {
+                    // A partial truth stated whole: the file exists and is
+                    // correct; the recipe attribute is absent, and this is
+                    // the one carrier of why.
+                    suffix += " · recipe not carried: \(recipeOmission)"
+                }
                 self.statusText = "Exported \(summary.shape.map(String.init).joined(separator: " × ")) DataCube → \(url.lastPathComponent)\(suffix)"
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }
@@ -1197,6 +1235,29 @@ extension AppState {
                 guard self.isCurrentOperation(token) else { return }
                 self.present(error)
             }
+        }
+    }
+
+    /// The recipe-selection decision for a calibrated-cube export, extracted
+    /// from behind the save panel so it is testable — S10's one confirmed
+    /// Gate B defect lived exactly in this decision while it was inline (the
+    /// S1 wiring lesson). Pure: record + frames + export bin in, the record
+    /// to stamp (already in the exported file's frame) or the omission
+    /// reason out.
+    static func exportableRecipe(
+        record: SessionReplayRecord?,
+        recordedFrame: ReplayParameterFrame?,
+        currentSpecification: LoadSpecification,
+        exportBin: Int
+    ) -> (record: SessionReplayRecord?, omission: String?) {
+        guard let record else { return (nil, nil) }
+        let currentFrame = ReplayParameterFrame.of(currentSpecification)
+        guard (recordedFrame ?? .unknown) == currentFrame else {
+            return (nil, "the recipe's detector-pixel parameters were recorded on a different detector frame than this view (a promoted or restored session) — re-run the analyses on this view to record an exportable recipe")
+        }
+        switch ReplayRecordFrameMap.mapForExport(record, exportBin: exportBin) {
+        case .success(let mapped): return (mapped, nil)
+        case .failure(let refusal): return (nil, refusal.reason)
         }
     }
 

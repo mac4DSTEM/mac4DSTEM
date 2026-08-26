@@ -5,18 +5,18 @@
 //        analysis entry points take, and refuses — with a named reason — every
 //        step it cannot replay faithfully.
 //
-//  THE FRAME RULE, decided v2 S6 (2026-08-25). Recorded parameters are
-//  view-frame numbers: an aperture centre, a smoothing sigma, a g-vector are
-//  all in the detector pixels of the view the analysis ran on. A SCAN crop
-//  never touches the detector frame, so a recipe recorded on a scan-crop-only
-//  rehearsal replays at full extent as-is — this is the flagship rehearse →
-//  promote case. A DETECTOR crop or bin changes what those numbers mean, and
-//  mapping them into the source frame is new coordinate math whose failure
-//  mode is fabrication (a plausible aperture at the wrong pixel, overnight,
-//  unattended). That math belongs with `CalibrationReReference` /
-//  `transformedCalibration` and is owned by S10 under Gate B — until it
-//  lands, a detector-reduced recipe's detector-frame steps are REFUSED by
-//  name, never guessed at (docs/open-items.md).
+//  THE FRAME RULE, decided v2 S6 (2026-08-25), completed v2 S10. Recorded
+//  parameters are view-frame numbers: an aperture centre, a smoothing sigma,
+//  a g-vector are all in the detector pixels of the view the analysis ran on.
+//  A SCAN crop never touches the detector frame, so a recipe recorded on a
+//  scan-crop-only rehearsal replays at full extent as-is — the flagship
+//  rehearse → promote case. A DETECTOR crop or bin changes what those numbers
+//  mean; since S10 the plan RE-REFERENCES them into the source frame — the
+//  exact affine inverse of the load-time re-reference, built on
+//  `CalibrationReReference`'s own coordinate primitives — and any value with
+//  no exact re-expression (an absolute intensity threshold, an unclassified
+//  key) still refuses by name, never rounds, never guesses. `.mixed` and
+//  `.unknown` frames refuse wholesale, unchanged from S6.
 //
 //  REFUSAL OVER SKIPPING. A step this file cannot parse, or whose recorded
 //  precondition the session cannot honour, halts the run at that step —
@@ -43,9 +43,16 @@ enum ReplayParameterFrame: Equatable {
     /// No detector crop, bin 1 — detector-frame parameters are already
     /// source-frame numbers. A scan crop alone stays in this case.
     case detectorIdentity
-    /// Recorded on a reduced detector. Detector-frame parameters cannot be
-    /// replayed at full extent until the S10 mapping exists.
-    case detectorReduced(bin: Int, cropped: Bool)
+    /// Recorded on a reduced detector. Since S10, detector-frame parameters
+    /// are RE-REFERENCED into the source frame at plan time — the exact
+    /// inverse of the load-time re-reference — instead of refusing wholesale;
+    /// individual values that cannot be re-expressed exactly still refuse by
+    /// name. The payload carries the actual crop, never a flag: two same-bin
+    /// crops at DIFFERENT offsets are different frames, and collapsing them
+    /// to one would map every position with the wrong offset. (Latent while
+    /// S6 refused this case wholesale; armed the moment mapping exists —
+    /// which is why the payload widened in the same session.) // v2 S10
+    case detectorReduced(bin: Int, crop: AxisCrop?)
     /// Steps recorded under two different detector frames in one record
     /// (adopt under one specification, re-record under another). Never
     /// un-mixes — conservative on purpose.
@@ -59,12 +66,17 @@ enum ReplayParameterFrame: Equatable {
     /// The frame of a load specification. Nil means the sidecar carried no
     /// specification, which the restore path already reads as full extent —
     /// detector identity, not an unknown.
+    ///
+    /// The REQUESTED crop is what a specification carries; the read crop
+    /// differs from it only by the bin-edge trim, which comes off the END of
+    /// each axis (`LoadView`) — so the OFFSETS, the only part positions
+    /// need, are identical. // v2 S10
     static func of(_ specification: LoadSpecification?) -> ReplayParameterFrame {
         guard let spec = specification,
               spec.detectorCrop != nil || spec.detectorBin > 1 else {
             return .detectorIdentity
         }
-        return .detectorReduced(bin: spec.detectorBin, cropped: spec.detectorCrop != nil)
+        return .detectorReduced(bin: spec.detectorBin, crop: spec.detectorCrop)
     }
 
     func merging(_ other: ReplayParameterFrame) -> ReplayParameterFrame {
@@ -72,23 +84,251 @@ enum ReplayParameterFrame: Equatable {
     }
 
     /// Why detector-frame steps refuse under this frame, in the app's voice.
-    /// Nil for `.detectorIdentity`.
+    /// Nil when they can run as-is (`.detectorIdentity`) or be re-referenced
+    /// (`.detectorReduced` — whose refusals are per-parameter, from the
+    /// mapper, not wholesale). // v2 S10
     var refusalReason: String? {
         switch self {
-        case .detectorIdentity:
+        case .detectorIdentity, .detectorReduced:
             return nil
-        case .detectorReduced(let bin, let cropped):
-            let what = switch (cropped, bin > 1) {
-            case (true, true): "a cropped, ×\(bin)-binned detector"
-            case (true, false): "a cropped detector"
-            default: "a ×\(bin)-binned detector"
-            }
-            return "its detector-pixel parameters were recorded on \(what) and re-referencing them to the full detector is not supported yet — re-run it by hand on the promoted view"
         case .mixed:
             return "the recipe's steps were recorded on two different detector frames, so its detector-pixel parameters have no single meaning — re-run the analyses by hand on the promoted view"
         case .unknown:
             return "the detector frame the recipe was recorded in is unknown, so its detector-pixel parameters cannot be trusted — re-run the analyses by hand on the promoted view"
         }
+    }
+
+    /// The transform that re-expresses this frame's recorded numbers in the
+    /// SOURCE detector frame — nil when none is needed (identity) or none
+    /// exists (`.mixed`/`.unknown`, which refuse instead). // v2 S10
+    var sourceTransform: ReplayFrameTransform? {
+        guard case .detectorReduced(let bin, let crop) = self,
+              bin > 1 || crop != nil else { return nil }
+        return .viewToSource(bin: bin,
+                             xOffset: crop?.xOffset ?? 0,
+                             yOffset: crop?.yOffset ?? 0)
+    }
+
+    /// One sentence for the promote caption and run summary, so a mapped
+    /// replay is never a silent substitution: the numbers the entry points
+    /// receive are exact re-expressions of the rehearsal's, and the carrier
+    /// says so. Nil when nothing was re-referenced. // v2 S10
+    var reReferenceDescription: String? {
+        guard case .detectorReduced(let bin, let crop) = self,
+              bin > 1 || crop != nil else { return nil }
+        let what = switch (crop != nil, bin > 1) {
+        case (true, true): "a cropped, ×\(bin)-binned detector"
+        case (true, false): "a cropped detector"
+        default: "a ×\(bin)-binned detector"
+        }
+        return "recorded on \(what) — detector-pixel parameters re-referenced to the full detector"
+    }
+}
+
+/// The affine re-expression of one detector frame's numbers in another's
+/// pixels. Both directions live in ONE type so the promote replay
+/// (view → source) and the reduced-file export's carried recipe (view → the
+/// exported file's own frame) share one role table — two tables is how they
+/// drift. The coordinate primitives are `CalibrationReReference`'s, so the
+/// forward and inverse maps cannot disagree about the half-pixel. // v2 S10
+enum ReplayFrameTransform: Equatable {
+    /// Undo the load-time reduction. `CalibrationReReference.apply` shifts by
+    /// the crop offset THEN bins, so the inverse un-bins then shifts back.
+    case viewToSource(bin: Int, xOffset: Int, yOffset: Int)
+    /// Apply a further export-time bin. The exported reduced file has no
+    /// further crop, so there is no offset.
+    case viewToExport(bin: Int)
+
+    /// A POSITION moves with the frame: un-bin about the pixel grid, then the
+    /// crop offset comes back (or forward: bin about the grid).
+    func positionX(_ value: Float) -> Float {
+        switch self {
+        case .viewToSource(let bin, let xOffset, _):
+            CalibrationReReference.sourceCoordinate(value, bin: bin) + Float(xOffset)
+        case .viewToExport(let bin):
+            CalibrationReReference.binnedCoordinate(value, bin: bin)
+        }
+    }
+
+    func positionY(_ value: Float) -> Float {
+        switch self {
+        case .viewToSource(let bin, _, let yOffset):
+            CalibrationReReference.sourceCoordinate(value, bin: bin) + Float(yOffset)
+        case .viewToExport(let bin):
+            CalibrationReReference.binnedCoordinate(value, bin: bin)
+        }
+    }
+
+    /// A LENGTH or DISPLACEMENT (a radius, a smoothing sigma, a g-vector
+    /// component) scales with the pixel size and ignores the crop.
+    func length(_ value: Float) -> Float {
+        switch self {
+        case .viewToSource(let bin, _, _): value * Float(bin)
+        case .viewToExport(let bin): value / Float(bin)
+        }
+    }
+
+    /// A PER-PIXEL SAMPLING INTERVAL (Å⁻¹ per detector pixel) goes the other
+    /// way from a length: fewer, bigger pixels each span more.
+    func perPixelScale(_ value: Double) -> Double {
+        switch self {
+        case .viewToSource(let bin, _, _): value / Double(bin)
+        case .viewToExport(let bin): value * Double(bin)
+        }
+    }
+
+    /// An integer length maps only when the result is exact: ×bin always is,
+    /// ÷bin only when divisible. Nil is "no exact value exists", which the
+    /// mapper turns into a named refusal rather than a rounding.
+    func lengthInt(_ value: Int) -> Int? {
+        switch self {
+        case .viewToSource(let bin, _, _): value * bin
+        case .viewToExport(let bin): value.isMultiple(of: bin) ? value / bin : nil
+        }
+    }
+}
+
+/// Re-express a recorded step's parameters in another detector frame, or
+/// refuse with the parameter named. The role table is the frame vocabulary of
+/// the S5 recording sites — like `ReplayPlanner.parse`, it must FOLLOW those
+/// sites, never lead them. A key neither classified here nor written by them
+/// REFUSES rather than passing through: an unclassified number carried across
+/// frames is a fabrication waiting for a reader. // v2 S10
+enum ReplayRecordFrameMap {
+
+    enum Role {
+        case invariant
+        case positionX, positionY
+        case length
+        case lengthInt
+        /// Tuned against the correlation response, whose scale changes with
+        /// pattern intensity — and binning SUMS pixel blocks. The correlation
+        /// is `m·|m|^(p−1)` (DiskDetection), not intensity-normalized, so a
+        /// nonzero absolute threshold has no exact value in another frame.
+        /// Zero is invariant.
+        case absoluteIntensity
+        case perPixelScale
+    }
+
+    /// Every key the S5 recording sites write, by kind. `nil` = unknown key.
+    static func role(kind: String, key: String) -> Role? {
+        switch kind {
+        case "virtual_detector":
+            switch key {
+            case "shape": .invariant
+            case "center_x": .positionX
+            case "center_y": .positionY
+            case "inner", "outer": .length
+            default: nil
+            }
+        case "dpc":
+            key == "origin_reference" ? .invariant : nil
+        case "disk_detection":
+            switch key {
+            case "corr_power", "subpixel", "upsample_factor",
+                 "min_relative_intensity", "relative_to_peak", "max_peaks",
+                 "kernel_source": .invariant
+            case "sigma_dp", "sigma_cc", "min_peak_spacing": .length
+            case "edge_boundary": .lengthInt
+            case "min_absolute_intensity": .absoluteIntensity
+            default: nil
+            }
+        case "strain":
+            switch key {
+            case "reference_mode", "basis_mode": .invariant
+            // g-vectors are DISPLACEMENTS: they scale with the pixel and
+            // never see the crop offset. Mapped even for a consensus-basis
+            // step (where they are informational) so every carried number
+            // stays frame-true.
+            case "resolved_g1_x", "resolved_g1_y",
+                 "resolved_g2_x", "resolved_g2_y": .length
+            default: nil
+            }
+        case "acom":
+            switch key {
+            case "material", "matching_backend", "scope", "quality": .invariant
+            case "scale_inv_angstrom_per_pixel": .perPixelScale
+            default: nil
+            }
+        default:
+            nil
+        }
+    }
+
+    /// Map one step. Total and explicit, like the parser: every value that
+    /// cannot be re-expressed EXACTLY becomes a refusal naming the key.
+    static func map(_ step: SessionReplayRecord.Step,
+                    through transform: ReplayFrameTransform)
+        -> Result<SessionReplayRecord.Step, ReplayRefusal> {
+        var mapped = step.parameters
+        for (key, text) in step.parameters {
+            guard let role = role(kind: step.kind, key: key) else {
+                return .failure(ReplayRefusal(reason: "its recorded parameter '\(key)' is not one this app can re-reference between detector frames — re-run it by hand"))
+            }
+            switch role {
+            case .invariant:
+                continue
+            case .positionX, .positionY, .length:
+                guard let value = Float(text), value.isFinite else {
+                    return .failure(malformed(key: key, value: text))
+                }
+                let result: Float = switch role {
+                case .positionX: transform.positionX(value)
+                case .positionY: transform.positionY(value)
+                default: transform.length(value)
+                }
+                mapped[key] = String(result)
+            case .lengthInt:
+                guard let value = Int(text) else {
+                    return .failure(malformed(key: key, value: text))
+                }
+                guard let result = transform.lengthInt(value) else {
+                    return .failure(ReplayRefusal(reason: "its recorded parameter '\(key)' (\(value) px) does not divide exactly by the export bin, so it has no exact value in the exported frame"))
+                }
+                mapped[key] = String(result)
+            case .absoluteIntensity:
+                guard let value = Float(text), value.isFinite else {
+                    return .failure(malformed(key: key, value: text))
+                }
+                if value != 0 {
+                    return .failure(ReplayRefusal(reason: "its absolute-intensity threshold (min_absolute_intensity = \(text)) was tuned against the rehearsal frame's correlation scale, which does not survive a detector-frame change — re-run detection by hand and re-tune it"))
+                }
+            case .perPixelScale:
+                guard let value = Double(text), value.isFinite else {
+                    return .failure(malformed(key: key, value: text))
+                }
+                mapped[key] = String(transform.perPixelScale(value))
+            }
+        }
+        return .success(SessionReplayRecord.Step(kind: step.kind,
+                                                 parameters: mapped,
+                                                 recorded: step.recorded))
+    }
+
+    /// The whole-record form for the exported reduced file: a recipe replays
+    /// a coherent pipeline or nothing (the S5 rule), so ONE unmappable step
+    /// drops the whole record — with the reason, so the export summary can
+    /// say what was left out and why instead of the recipe silently missing.
+    static func mapForExport(_ record: SessionReplayRecord, exportBin: Int)
+        -> Result<SessionReplayRecord, ReplayRefusal> {
+        guard exportBin > 1 else { return .success(record) }
+        var steps: [SessionReplayRecord.Step] = []
+        for step in record.steps {
+            switch map(step, through: .viewToExport(bin: exportBin)) {
+            case .success(let mapped):
+                steps.append(mapped)
+            case .failure(let refusal):
+                return .failure(ReplayRefusal(reason: "the recorded \(ReplayPlanner.title(forKind: step.kind)) step cannot be re-expressed in the exported file's detector frame: \(refusal.reason)"))
+            }
+        }
+        var mapped = record
+        mapped.steps = steps
+        return .success(mapped)
+    }
+
+    private static func malformed(key: String, value: String?) -> ReplayRefusal {
+        let described = value.map { "'\($0)'" } ?? "missing"
+        return ReplayRefusal(reason: "its recorded parameter '\(key)' is \(described), which this app cannot read")
     }
 }
 
@@ -178,8 +418,28 @@ enum ReplayPlanner {
     /// the same verdict (Gate A findings E1/B5, 2026-08-25).
     static func plan(_ record: SessionReplayRecord,
                      frame: ReplayParameterFrame) -> [PlannedReplayStep] {
+        let transform = frame.sourceTransform
         var sawDiskDetection = false
-        return record.steps.map { step in
+        return record.steps.map { recorded in
+            // Re-reference FIRST, parse second (v2 S10): the parser's numeric
+            // guards then run against the exact numbers the entry points will
+            // receive. A step whose mapping refuses is refused outright —
+            // including one whose only unmappable value is informational,
+            // because a step carrying a number this app cannot re-express is
+            // not a step it can attest to.
+            let step: SessionReplayRecord.Step
+            var mappingRefusal: ReplayRefusal?
+            if let transform {
+                switch ReplayRecordFrameMap.map(recorded, through: transform) {
+                case .success(let mapped):
+                    step = mapped
+                case .failure(let refusal):
+                    step = recorded
+                    mappingRefusal = refusal
+                }
+            } else {
+                step = recorded
+            }
             var parsed: Result<ReplayStepPlan, ReplayRefusal>
             switch step.kind {
             case "strain", "acom":
@@ -192,13 +452,16 @@ enum ReplayPlanner {
             default:
                 parsed = parse(step)
             }
+            if let mappingRefusal {
+                parsed = .failure(mappingRefusal)
+            }
             if case .success(let plan) = parsed,
                plan.usesDetectorFrameParameters,
                let reason = frame.refusalReason {
                 parsed = .failure(ReplayRefusal(reason: reason))
             }
-            return PlannedReplayStep(kind: step.kind,
-                                     title: title(forKind: step.kind),
+            return PlannedReplayStep(kind: recorded.kind,
+                                     title: title(forKind: recorded.kind),
                                      result: parsed)
         }
     }

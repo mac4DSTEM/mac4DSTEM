@@ -76,6 +76,12 @@ final class ReplayRun {
     /// did. A halted run is a completed record of an incomplete replay — the
     /// steps after the halt stay `.notReached` rather than being guessed at.
     private(set) var haltReason: String?
+    /// One sentence when the recipe's detector-pixel parameters were
+    /// re-referenced from the rehearsal frame (v2 S10) — the morning summary
+    /// must say it, not only the pre-click caption: a re-expressed replay is
+    /// exact, but a reader diffing the recipe's numbers against the results'
+    /// provenance needs the one line that explains why they differ.
+    private(set) var frameNote: String?
 
     var isRunning: Bool { phase == .running }
 
@@ -106,12 +112,13 @@ final class ReplayRun {
     /// full-extent reopen, so the assertion covers the longest unattended
     /// phase, not just the analyses (findings B1/C1).
     @discardableResult
-    func begin(titles: [String], at date: Date = Date()) -> Bool {
+    func begin(titles: [String], frameNote: String? = nil, at date: Date = Date()) -> Bool {
         guard phase != .running else { return false }
         steps = titles.enumerated().map { StepReport(index: $0.offset, title: $0.element) }
         startedAt = date
         endedAt = nil
         haltReason = nil
+        self.frameNote = frameNote
         keepAwakeToken = beginKeepAwake()
         return true
     }
@@ -153,6 +160,7 @@ final class ReplayRun {
         startedAt = nil
         endedAt = nil
         haltReason = nil
+        frameNote = nil
     }
 
     // MARK: - Summary presentation

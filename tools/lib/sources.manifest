@@ -171,9 +171,29 @@ mac4dstem_sources() {
           "$core/Analysis/StrainFrame.swift"
         )
         ;;
+      export)
+        # The reduced-file export chain (v2 S10): the EMD writer, the recipe
+        # it stamps, the native reader that verifies the file, and the frame
+        # math the export composes with (CalibrationReReference, via the
+        # `calibration` group). DiskDetection rides along because the writer's
+        # BraggVectors type lives there, and it pulls the FFT/kernel trio.
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Data/HDF5Types.swift"
+          "$core/Data/H5Reader.swift"
+          "$core/Data/SessionReplayRecord.swift"
+          "$core/Data/BraggVectorEMDWriter.swift"
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Compute/MatrixDFTCorrelation.swift"
+          "$core/Analysis/ProbeKernel.swift"
+          "$core/Analysis/DiskDetection.swift"
+        )
+        ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis strain" >&2
+        echo "  known: data calibration readers cube analysis strain export" >&2
         exit 64
         ;;
     esac

@@ -315,17 +315,14 @@ the claims are widened*, not as release advice.
 - **Carried findings and decisions from S6 (2026-08-25)** — the replay
   executor landed with the honest-refusal rules below; each residual names
   its owner:
-  - **Detector-frame recipe parameters do not replay after a detector-reduced
-    rehearsal → S10.** A recipe recorded on a detector crop or bin carries
-    view-frame apertures, pixel sigmas, g-vectors and Å⁻¹/px scales; mapping
-    them to the full detector is the inverse of `CalibrationReReference.apply`
-    (positions `x_src = (x_view + 0.5)·b − 0.5 + offset`, lengths ×b,
-    per-pixel scales ÷b) — fabrication-shaped math that belongs beside
-    `transformedCalibration` under S10's Gate B, not in a Gate A session.
-    Until it lands, the planner refuses those steps by name and the promote
-    caption says so before the click. **The release claim's "binned view
-    re-runs unchanged" is NOT met for detector-reduced rehearsals until S10
-    delivers this** — S19's claims restatement must check.
+  - ~~Detector-frame recipe parameters do not replay after a
+    detector-reduced rehearsal~~ — **CLOSED by S10, 2026-08-26**:
+    `ReplayRecordFrameMap` re-references them at plan time (the exact
+    inverse of the load-time re-reference), both carriers say so, and the
+    S19 note is satisfied — "binned view re-runs unchanged" now holds for
+    detector-reduced rehearsals (a nonzero absolute-intensity threshold
+    still refuses by name); record in
+    [the closed-items archive](archive/closed-items-2026-08.md).
   - **Fitted origin maps do not survive a promote** (pre-existing, surfaced
     by S6's DPC precondition): per-position maps fitted on a rehearsal are
     crop-sized, and the full-extent restore's shape check drops them — so a
@@ -425,6 +422,7 @@ the claims are widened*, not as release advice.
   | 2026-08-25 (S7 session: MCP `test_macos` ×3 + `run-tests.sh unit` ×1) | exit 65 | **failed all four**, heights byte-identical across the day (1029/945/961) — a red day end to end, as 08-19 was a mixed one |
   | 2026-08-25 later (S8 session: MCP `test_macos` ×2, pre- and post-seam) | — | **failed both**, heights byte-identical to each other (1027/943/963) but **2pt off the S7 numbers from earlier the same day** — the measured heights drift BETWEEN sessions while staying frozen within one, which fits the machine-state hypothesis and rules out anything in S8 (pre-change run identical) |
   | 2026-08-26 (M1's owed T7 re-run; 14 GB free; docs/tools-only tree) | exit 65 | **failed** (360 passed, 1 failed) — no heights: the terminal route carries no assertion text, exactly as recorded above |
+  | 2026-08-26 later (S10 session: MCP `test_macos` ×2 + `run-tests.sh unit` ×1) | exit 65 | **failed all three** (376 passed / 1 failed on the final gate); MCP heights **1029/945/961 — byte-identical to S7's numbers from 2026-08-25**, i.e. the between-sessions drift reversed back to an earlier value, which further narrows the variable to reconstructible machine state rather than monotonic drift |
 
   **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
   stash experiment produced the identical three failures with identical
@@ -651,6 +649,37 @@ the claims are widened*, not as release advice.
   not carry — but demonstrating it now needs a sidecar synthesised without the
   attribute, not one of these. Recorded because an item whose evidence has
   silently evaporated is how a real defect gets dismissed as unreproducible.
+
+- **The sidecar-restore path adopts a calibration in the SIDECAR'S frame
+  without checking it against the opened view (S10 Gate B finding 2,
+  2026-08-26).** `applySessionCalibration` (`AppState.swift`) adopts the
+  saved calibration verbatim, and `loadSessionSnapshot` never compares
+  `snapshot.loadSpecification` against the view actually opened — so a
+  sidecar saved at full extent, restored onto a reconfigured
+  (cropped/binned) view, leaves a source-frame calibration beside reduced
+  pixels: the state the pre-S10 export refusal blocked wholesale, now
+  covered only partially by the writer's bounds net (an origin numerically
+  inside the smaller extent slips it — the net says of itself it is a net,
+  not a proof). Pre-existing (S5-era mechanism); S10's lift arms the export
+  half, and S10's `exportableRecipe` frame guard closes the RECIPE half of
+  the same hole. Same family, found in the same review: a post-promote
+  sidecar save stamps `loadedView.specification` (full extent) beside a
+  rehearsal-frame replay record, so a later restore adopts the recipe as
+  `.detectorIdentity` and a replay would run rehearsal numbers unmapped.
+  Fix wants a specification comparison (or a re-reference) at
+  `applySessionCalibration`, and the record's frame carried on save. Owner:
+  unclaimed — trust-fixes family, predates S10.
+- **Cross-frame recipe export refuses rather than composing (S10 decision;
+  the composition is this item).** `AppState.exportableRecipe` carries a
+  recipe only when its recorded frame EQUALS the live view's — a promoted
+  or reconfigure-restored session's recipe is refused with the reason in
+  the export status line. Mapping it honestly is a three-frame composition
+  (recorded → source → exported) needing the source→view forward transform
+  `ReplayFrameTransform` deliberately does not have. Related, same owner:
+  `mac4dstem_replay_record` on an exported cube's `datacube_root` carries
+  no version or frame marker — inert while nothing reads it there,
+  load-bearing the day an "adopt recipe from an exported cube" feature
+  lands. Owner: whichever session builds that feature.
 
 - ~~A save after a FAILED crop restore erases the sidecar's crop and
   mislabels its preserved results~~ — **Closed by S7, 2026-08-25**
@@ -925,28 +954,11 @@ or it spends the one resource Track B is expensive in — a person's attention.
   that assumes the returned origin is a fixed point of its own CoM will fail for
   this reason and look like a crop bug — it did, on 2026-08-18, before the
   arbiter was re-anchored on the fixture's analytic truth.
-- **Two L3 residuals from the 2026-08-18 adversarial review, both unreachable
-  today and both reachable the moment L5's configurator lands.**
-  **(a)** `BraggVectorEMDWriter.transformedCalibration` rescales the origin,
-  `qSize` and the probe radius by the *export* bin only; it knows nothing about
-  `view.specification.detectorCrop`, and its origin-map shape check now compares
-  against the *view* extent, so a source-extent map would fall silently through
-  to an empty array. The export currently **refuses** a cropped view rather than
-  carrying that defect; the refusal is lifted by L3's calibration re-reference,
-  not before. ~~**(b)** `FourDArray.tile(yRange:from:)` — the read offset out of a
-  resident buffer — is only ever exercised at `lowerBound == 0` by
-  `tools/load-spec-test`, so a bug in that offset would not be caught there.~~
-  **CLOSED 2026-08-19 (S2), and the residual as written was wrong.** Deleting
-  the offset (`start: base` instead of `start: base + yRange.lowerBound *
-  floatsPerScanRow`) does leave `tools/load-spec-test` at exit 0 — that half is
-  reproducible — but `tools/virtual-detector-residency` goes **red** on the same
-  breakage (`DP statistics [max]: differs at index 0 — resident 279.5537, tiled
-  1055.2793`), because `tiledDPStatistics(maximumTileRows: 2)` reaches
-  `lowerBound > 0`. So the offset was covered all along, **at full extent only**.
-  What was genuinely missing, and what `tools/two-spec-analysis-test` now adds,
-  is exhaustive `(lower, upper)` coverage **under a scan crop**, where the
-  resident path and the reader's own crop offset compose. Found by Gate B when it
-  refused to accept S2's stated justification for the case.
+- ~~Two L3 residuals from the 2026-08-18 adversarial review~~ — **(a)
+  CLOSED by S10, 2026-08-26**: the cropped-view export refusal is lifted,
+  `transformedCalibration` gained the frame refusals + the ellipse rescale,
+  pinned by `tools/reduced-export-test`; (b) was closed by S2, 2026-08-19;
+  record in [the closed-items archive](archive/closed-items-2026-08.md).
 - ~~"Save Calibration to Session Sidecar" wrote the file but never persisted
   the access grant~~ — **found by Track B F1.3h and FIXED 2026-08-19** (one
   shared `rememberSidecarGrant`); record in [the closed-items archive](archive/closed-items-2026-08.md).

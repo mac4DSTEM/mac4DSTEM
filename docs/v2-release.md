@@ -426,7 +426,21 @@ only if asked.
   location to keep their referents, stated in the archive header.
   `mac4DSTEM/` untouched; archived text otherwise byte-verbatim
   (machine-checked twice, independently by the Gate A reviewers).
-- [ ] S9 · [ ] S10
+- [x] **S10** — 2026-08-26. Reduced-file export: the cropped/binned-view
+  refusal lifted behind real checks (frame refusals + the ellipse rescale
+  the export always owed), derivation + recipe provenance stamped on the
+  exported file, and the S6-carried frame mapping landed — a
+  detector-reduced rehearsal now replays at full extent with re-expressed
+  parameters, said on both carriers. Gate B (fresh refuter, live
+  mutations): 8 findings, 4 fixed in-session — sharpest: the exported
+  recipe mapped from the wrong frame after a promote (fixed by the
+  `exportableRecipe` frame guard); two surviving mutations became tests;
+  4 deviations. Track A: `scientific` exit 0 (**37 harnesses**), `unit`
+  376/1 exit 65 (the S17 intermittent), MCP `test_macos` 378/1, zero
+  warnings. Not verified: on-screen (F1.30/F1.31), a multi-GB round-trip,
+  the recorded restore-path frame hole.
+  Full record: [`docs/archive/v2-session-records/s10.md`](archive/v2-session-records/s10.md).
+- [ ] S9 — when NAS access and disk allow
 - *Resequenced 2026-08-26 (M1/T6): S10's dependencies (S5, S8) are met;
   chosen order **S10 → S21 → S17**; S9 when NAS access and disk allow; TB1
   sittings 2–4 whenever the owner sits.*

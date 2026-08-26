@@ -1799,7 +1799,21 @@ final class AppState {
         // longest unattended phase (findings B1/C1), and its refusal is the
         // single-flight gate — a second overlapping call must not write into
         // this run's step table or release its assertion (finding A5).
-        guard replayRun.begin(titles: planned.map(\.title)) else { return }
+        // The frame note travels into the run so the morning summary states a
+        // re-referenced replay the same way the pre-click caption did — set
+        // only when a planned step actually carries detector numbers. // v2 S10
+        let frameNote: String?
+        if let note = frame.reReferenceDescription,
+           planned.contains(where: {
+               if case .success(let plan) = $0.result {
+                   plan.usesDetectorFrameParameters
+               } else { false }
+           }) {
+            frameNote = "Recipe \(note)."
+        } else {
+            frameNote = nil
+        }
+        guard replayRun.begin(titles: planned.map(\.title), frameNote: frameNote) else { return }
         await promoteToFullExtent(runReestablishingAnalysis: firstStepRefused)
         // Replay only on the back of a promote that actually happened: a
         // refused or cancelled promote leaves the rehearsal (or nothing)
