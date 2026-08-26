@@ -444,8 +444,22 @@ only if asked.
 - *Resequenced 2026-08-26 (M1/T6): S10's dependencies (S5, S8) are met;
   chosen order **S10 → S21 → S17**; S9 when NAS access and disk allow; TB1
   sittings 2–4 whenever the owner sits.*
+- [x] **S21** — 2026-08-26. CI on the public repo, authored:
+  `.github/workflows/ci.yml` (`unit` + the full `scientific` array on
+  `macos-26`, every push/PR, exclusions and red-run caveats stated in the
+  file), `tools/lib/py4dstem-ci-constraints.txt` (the parity env's 20 pins),
+  the README badge, the CLAUDE.md placement row. Gate A (4 finders + 1
+  verifier, all separate agents): 9 findings (7 CONFIRMED / 2 PLAUSIBLE),
+  all 9 fixed in-session — sharpest: Xcode 26's Metal toolchain is a
+  separate download neither job installed. 2 deviations. Track A: `unit`
+  376/1 exit 65 (the S17 intermittent, logged), YAML + constraints + vendored
+  `pip` metadata all parse locally. Not verified: **no workflow run exists**
+  — activation is the owner's push; first run is also the first build off
+  the macOS 27 machine, and the timeouts/Metal/GPU assumptions are margin
+  until it lands.
+  Full record: [`docs/archive/v2-session-records/s21.md`](archive/v2-session-records/s21.md).
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
-- [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21
+- [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20
 
 Tick a session only with a record of what shipped and what deviated. Since
 M1 (2026-08-26): the full record goes **verbatim** to

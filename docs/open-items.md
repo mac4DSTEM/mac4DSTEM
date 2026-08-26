@@ -54,7 +54,11 @@ file:
   mooted by S19's floor raise to macOS 26; the `docs/releasing.md` gap →
   **S19**.
 - The free-space preflight → **S0, done 2026-08-18**. CI for `unit` + the
-  synthetic half of `scientific` on the public repo → **S21**.
+  synthetic half of `scientific` on the public repo → **S21, authored
+  2026-08-26** (`.github/workflows/ci.yml` + the README badge +
+  `tools/lib/py4dstem-ci-constraints.txt`); **unverified until the owner
+  pushes** — no workflow run exists yet, and the first run is also the first
+  build of this app off the macOS 27 dev machine.
 - The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
   elimination). The second-machine sweep → **post-v2** (`.automatic` is
   dropped in S3, so the threshold no longer blocks anything).
@@ -423,6 +427,7 @@ the claims are widened*, not as release advice.
   | 2026-08-25 later (S8 session: MCP `test_macos` ×2, pre- and post-seam) | — | **failed both**, heights byte-identical to each other (1027/943/963) but **2pt off the S7 numbers from earlier the same day** — the measured heights drift BETWEEN sessions while staying frozen within one, which fits the machine-state hypothesis and rules out anything in S8 (pre-change run identical) |
   | 2026-08-26 (M1's owed T7 re-run; 14 GB free; docs/tools-only tree) | exit 65 | **failed** (360 passed, 1 failed) — no heights: the terminal route carries no assertion text, exactly as recorded above |
   | 2026-08-26 later (S10 session: MCP `test_macos` ×2 + `run-tests.sh unit` ×1) | exit 65 | **failed all three** (376 passed / 1 failed on the final gate); MCP heights **1029/945/961 — byte-identical to S7's numbers from 2026-08-25**, i.e. the between-sessions drift reversed back to an earlier value, which further narrows the variable to reconstructible machine state rather than monotonic drift |
+  | 2026-08-26 latest (S21 closeout: `run-tests.sh unit` ×1; CI/docs-only tree, `mac4DSTEM/` untouched) | exit 65 | **failed** (376 passed / 1 failed) — no heights, terminal route as always. Once S21's workflow first runs on the owner's push, every CI run adds a **second-machine** (macos-26) row to this series for free |
 
   **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
   stash experiment produced the identical three failures with identical

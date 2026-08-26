@@ -1,0 +1,120 @@
+# CI — the aggregate claim, made mechanical (v2 S21, docs/v2-release.md §8).
+#
+# WHAT RUNS on every push and pull request: the two Track A gates a public
+# checkout can reproduce —
+#   * `tools/run-tests.sh unit`        — the fast XCTest suite
+#   * `tools/run-tests.sh scientific`  — every harness in that script's
+#     `scientific` array (the array is the roster; no count is stated here so
+#     this comment cannot go stale). Each builds its fixtures synthetically or
+#     reads small committed files and compiles production Core/ sources
+#     standalone; the py4DSTEM-parity harnesses among them compare against the
+#     vendored source lock (References/py4DSTEM-dev, tracked), with the
+#     numerical stack pinned by tools/lib/py4dstem-ci-constraints.txt.
+#
+# WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
+# missing (docs/v2-release.md §3):
+#   * `real-data-acceptance` — needs gitignored multi-GB acquisitions that
+#     exist only on the release owner's machines.
+#   * `package-test` (the rest of `run-tests.sh all`) — outside the
+#     `unit` + `scientific` gate S21 names; the aggregate `all` claim is
+#     restated by S19, not by this file.
+#   * `tools/bragg-spacing-probe`, `tools/residency-sweep`,
+#     `tools/real-acom-benchmark`, `tools/training-dataset-campaign`,
+#     `tools/acom-groundtruth` — diagnostics that gate nothing and need
+#     gitignored data or hand-supplied input.
+#   * `tools/ui-smoke-test` — drives the app on screen via AppleScript and
+#     needs an Accessibility (TCC) grant no hosted runner can give.
+#   * `tools/ui-qc-playthrough` + `mac4DSTEMUITests/` — retired 2026-08-17,
+#     unmaintained (docs/v2-scope.md §6.2).
+#   * `run-tests.sh benchmark` — machine-specific numbers, not pass/fail.
+#   * Track B (docs/visual-acceptance-checklist.md) — a person driving the
+#     app; no runner can stand in for it.
+#
+# KNOWN CAVEATS, stated so a red run is read correctly:
+#   * A `unit` failure in exactly
+#     SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn is the
+#     recorded S17 intermittent (docs/open-items.md): it flips on an
+#     unchanged-code axis on the dev machine. It is NOT skipped here —
+#     quarantining it is S17's decision, and this runner is the second
+#     machine whose behaviour S17 needs on record either way.
+#   * Until this workflow's first run, every build of this app had happened
+#     on one macOS 27 machine (docs/open-items.md). macos-26 runners are the
+#     first exercise of the claimed-supported range below that.
+#   * Xcode 26 ships the Metal compiler as a separate downloadable component;
+#     both jobs install it if the image lacks it (the .metal shader compile in
+#     `unit` and the GPU harnesses' `xcrun metal` need it). At runtime the GPU
+#     harnesses assume the Apple Silicon runner's paravirtualized GPU exposes
+#     a Metal device; MetalEngine fails loudly if it does not.
+#   * The job timeouts are margin, not measurement — nothing has timed this
+#     suite off the dev machine. Tighten them from the per-harness timings the
+#     first green runs echo (`==> name … <== name (N s)` in the log).
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded branch/PR runs cancel; main runs always complete — on main each
+  # commit's finished run IS the record (and an S17-intermittent observation).
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  unit:
+    name: unit (XCTest)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain on record
+        run: |
+          sw_vers
+          xcode-select -p
+          xcodebuild -version
+      - name: Ensure the Metal toolchain component
+        run: |
+          if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
+            sudo xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun -sdk macosx metal --version
+      - name: Run the unit gate
+        run: tools/run-tests.sh unit
+
+  scientific:
+    name: scientific (py4DSTEM parity)
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain on record
+        run: |
+          sw_vers
+          xcode-select -p
+          xcodebuild -version
+      - name: Ensure the Metal toolchain component
+        run: |
+          if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
+            sudo xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun -sdk macosx metal --version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/lib/py4dstem-ci-constraints.txt
+      - name: Install the vendored py4DSTEM lock
+        # Parity must run against the tracked source lock, never a PyPI
+        # py4DSTEM — DEVIATION notes cite it by file and line. The constraints
+        # file pins the numerical stack to the owner's parity environment so
+        # an upstream release cannot shift the gate on an unchanged tree.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c tools/lib/py4dstem-ci-constraints.txt ./References/py4DSTEM-dev
+          python -c "import py4DSTEM; print('py4DSTEM', py4DSTEM.__version__, py4DSTEM.__file__)"
+      - name: Run the scientific gate
+        # PYTHON is tools/lib/python.sh's documented override; vendor-reader
+        # uses bare python3, which setup-python also puts on PATH.
+        run: PYTHON="$(command -v python)" tools/run-tests.sh scientific

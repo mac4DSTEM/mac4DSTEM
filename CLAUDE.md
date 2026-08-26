@@ -178,6 +178,7 @@ and they build.
 | UI automation / visible QC playthrough (whole app, on-screen) | `mac4DSTEMUITests/` |
 | Standalone parity / dev / packaging harnesses | `tools/<name>/` (add to `tools/run-tests.sh` if it should gate) |
 | Human design/scope/process docs | `docs/` (dated or superseded → `docs/archive/`) |
+| CI workflows (the `unit` + `scientific` gates on every push; S21) | `.github/workflows/` |
 | Vendored external material + machine-local data (`References/` is gitignored — **except** the py4DSTEM Python source lock, which is tracked on purpose so `DEVIATION` notes can cite it by file and line; see `.gitignore`) | `References/` |
 
 ## Hard rules

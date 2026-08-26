@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml"><img src="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml/badge.svg" alt="CI: the unit and scientific gates on every push"></a>
+</p>
+
+<p align="center">
   <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM Map workspace showing diffraction fit overlay, strain map, and diagnostics" width="100%">
 </p>
 
