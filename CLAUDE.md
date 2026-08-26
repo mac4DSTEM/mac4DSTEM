@@ -3,59 +3,41 @@
 Single entry point for any agent (or human) opening this repo cold. It does
 not duplicate the docs; it tells you what to read and where things go.
 
-## Session kickoff prompt (copy-paste to start a session)
+## Session kickoff (start here)
 
-**v1.0.0 is tagged, signed and public. The v2 RELEASE was planned 2026-08-18**
-— the contract and session plan are `docs/v2-release.md`. The load pipeline
-(L1–L6) is code-complete; the release closes it as a product and adds the
-promote run, the reduced-file export, the trust fixes, Q-calibration
-robustness and WS₂.
+**v1.0.0 is tagged, signed and public. The v2 release was planned 2026-08-18**
+— the contract and session plan are `docs/v2-release.md`: §1 the claim, §7 the
+gates, §8 the session briefs, §9 the live status checklist. **The one
+canonical kickoff prompt is §8's copy-paste block.** In Claude Code, type
+**`/pickup`** (or `/pickup S7` for a specific session) instead of pasting it.
+The other standing skills — `/track-b`, `/diagnose`, `/adversarial-review`,
+`/closeout` — each encode one of this repo's disciplines; they live in
+`.claude/skills/` and point at the docs rather than restating them.
 
-```
-Pick up mac4DSTEM. Read CLAUDE.md, then docs/v2-release.md — §1 and §7 carry
-the claim and the gate rules, §8 is the session plan. Take the next unstarted
-session in §9's checklist and follow its §8 brief.
+Standing cautions, each of which has burned this repo before:
 
-Do NOT set ResidencyAdmission.measuredWorkingSetFraction. It is nil by
-decision, not oversight — and `.automatic` residency is being DROPPED for this
-release (S3), not tuned.
-
-Follow docs/development-process.md and take the gate the session names (A, B
-or D — §7 of the release plan defines them). Gate D sessions write the
-diagnosis, the refuting observation and the predicted outcome, then run the
-discriminating experiment, BEFORE touching code. If the session touches
-AppState, extract one seam first. If it changes what the app draws, ask me for
-a Track B pass — the F1 queue is live. Commit only if I ask.
-
-Before trusting any test you write: break the code it covers and watch it fail.
-That caught three green-but-worthless suites on 2026-08-17 alone.
-```
-
-In Claude Code, the kickoff is also a project skill: type **`/pickup`** (or
-`/pickup S7` for a specific session) instead of pasting the block above. The
-other standing skills — `/track-b`, `/diagnose`, `/adversarial-review`,
-`/closeout` — each encode one of this repo's disciplines as an invocable
-action; they live in `.claude/skills/` and point at the docs rather than
-restating them.
-
-Whatever the task: app-code changes follow `docs/development-process.md` —
-Explore subagent (Haiku) to locate code, implement on the default model, and
-take the review gate the work earns. Anything touching `Core/` or the science
-needs an adversarial review *and* a `tools/` fixture. Never let the model that
-wrote a science-affecting change be the only one to approve it — this refuted a
-fix **twice** (2026-08-05, 2026-08-06), and both times the fix had already
-passed every test written for it, including one verified to fail without it.
-**Review the diagnosis, not just the code.** On 2026-08-06 the refuting evidence
-— an origin fit residual printed in the very log the finding came from — had
-been sitting in plain sight the whole time.
-
-And **open the app.** On the day of the v1.0.0 tag, with all 30 harnesses green,
-ten minutes of driving it by hand produced two defects the suite could not see;
-the first clean-account run on 2026-08-14 produced three more. There is no
-automated visual baseline, so nothing but a person looking at the screen catches
-that class of bug — which is why it is now a written procedure,
-`docs/visual-acceptance-checklist.md` (Track B). You cannot run it yourself;
-write the checklist and ask.
+- **Do NOT set `ResidencyAdmission.measuredWorkingSetFraction`** — nil by
+  decision, not oversight; `.automatic` residency was DROPPED (S3), not tuned.
+- App-code changes follow `docs/development-process.md` (Explore on Haiku to
+  locate code, implement on the default model) and take the gate the session
+  names — A, B or D, defined in §7 of the release plan. Gate D writes the
+  diagnosis, the refuting observation and the predicted outcome, then runs
+  the experiment, BEFORE touching code.
+- Anything touching `Core/` or the science needs an adversarial review *and*
+  a `tools/` fixture. **Never let the model that wrote a science-affecting
+  change be the only one to approve it; review the diagnosis, not just the
+  code.** Three times (2026-08-05, 2026-08-06, 2026-08-18) a fix passed every
+  test written for it — including one verified to fail without it — and a
+  second reader of the same evidence refuted it.
+- A session touching `AppState` extracts one seam first. A change to what the
+  app draws queues Track B rows and is unverified until the owner drives them.
+- **Break every new test before trusting it** — three green-but-worthless
+  suites were caught that way on 2026-08-17 alone.
+- **Open the app.** Tag day: all 30 harnesses green, and ten minutes of
+  driving by hand found two defects the suite could not see; the
+  clean-account run found three more. Track B
+  (`docs/visual-acceptance-checklist.md`) exists because nothing else catches
+  that class. You cannot run it yourself — write the checklist and ask.
 
 ## What this is
 
@@ -66,54 +48,41 @@ reference implementation and validated against.
 
 ## Where things stand
 
-**v1.0.0 — tagged 2026-08-06; signed, notarized and public since 2026-08-14.**
-What it is: [`CHANGELOG.md`](CHANGELOG.md). The repo is at
-`github.com/mac4DSTEM/mac4DSTEM` under GPL-3.0, with a stapled DMG linked from
-mac4dstem.com. **Distribution is done.**
+**v1.0.0 — tagged 2026-08-06; signed, notarized and public since 2026-08-14**
+at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
+mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
+done.**
 
-**The v2 release was planned 2026-08-18.** The contract and session plan are
-[`docs/v2-release.md`](docs/v2-release.md) — the single entry point. The load
-pipeline (L1–L6) is **code-complete**; the release closes it as a product
-(the two-spec fixture, the Track B queue), adds the promote run and the
-reduced-file export, fixes the verified science-presentation defects, and
-brings Q-calibration robustness and WS₂ — those last two severable to v2.x by
-the cut line.
+**The v2 release is mid-flight: S0–S8 are done** — the load pipeline closed
+as a product, the promote run with unattended recipe replay, the
+error-honesty and strain-frame trust fixes — with the full session records in
+[`docs/archive/v2-session-records/`](docs/archive/v2-session-records/).
+Sequencing (decided 2026-08-26; §9's checklist and resequencing line are the
+authority): TB1 whenever the owner sits; then S10 → S21 → S17; S9 when NAS
+access and disk allow. The cut line and the severable block (S11–S16, TB2)
+are §2 of the release plan.
 
-**Do not repeat the claim `tools/run-tests.sh all` — exit 0, 30 harnesses**
-without re-running it. It was measured at the tag and no one has reproduced the
-aggregate since; the count has also moved (`scientific` is **35** harnesses as
-of 2026-08-19, `all` is **37** — S2 added `two-spec-analysis-test`).
-`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
-is **intermittent**, not reliably red: it failed on macOS 27 with no app-code
-change, and passed on 2026-08-17 in a full `run-tests.sh unit` that exited 0.
-A layout threshold that drifts with the machine is worse than a stable failure,
-because a green run proves nothing. Tracked in `docs/open-items.md`.
+**The honest test claim — each number dated to its own run:**
+`run-tests.sh scientific` — exit 0 over **36 harnesses** (2026-08-25, S8's
+final tree). `run-tests.sh unit` — **360 passed / 1 failed, exit 65**
+(2026-08-26, M1), the 1 being the S17 sidebar intermittent
+(`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`), which flips
+on an unchanged-code axis — red and green days are both on record, and the
+observation log lives in `docs/open-items.md`. MCP `test_macos` — **363
+passed / 2 failed** (2026-08-25, S8; that intermittent + the retired UI
+target's TCC write).
+**`all` has never been run end to end on this machine**: it runs `unit`
+first and `set -e` stops at the sidebar test whenever it is red — so the
+README/CHANGELOG "exit 0, 30 harnesses" claim is unreproduced, and restating
+it is S19's job after S17 settles the intermittent. Do not quote an
+aggregate you did not just run.
 
-**On 2026-08-18 it was red again, on a clean tree, and it takes `all` with it:**
-`run-tests.sh all` runs `unit` first and `set -e` aborts there, so it reaches
-**zero** harnesses (exit 65). The note that #43 is what stops `all` is therefore
-wrong on this machine — the sidebar test stops it first, and #43 (now fixed) was
-never reached. Every other component of `all` has been run individually and is
-green: `scientific` exit 0 / 33 harnesses, `real-data-acceptance` exit 0,
-`package-test` exit 0. So the reproducible claim is "all of `all` except one
-intermittent layout test", not an aggregate number.
-
-**2026-08-19 re-measured, and the intermittent went the other way:**
-`run-tests.sh unit` exited **0** twice in one session — the sidebar test
-*passed* both times — and `run-tests.sh scientific` exited **0 over 35
-harnesses**. That is a third observation of the same test flipping with no
-app-code change (red 2026-08-18, green 2026-08-17 and 2026-08-19), which is
-evidence for S17's question and against reading any single run as the verdict.
-The claim above still stands as written: `all` itself has still not been run
-end to end on this machine.
-
-**Verification runs in two tracks** (`docs/development-process.md` §6): Track A
-is `tools/run-tests.sh`, Track B is the human visual pass at
+**Verification runs in two tracks** (`docs/development-process.md` §6):
+Track A is `tools/run-tests.sh`; Track B is the human visual pass at
 [`docs/visual-acceptance-checklist.md`](docs/visual-acceptance-checklist.md).
-The XCUITest QC playthrough was **retired 2026-08-17** — it never produced a
-screenshot, never touched a disk-detection control, and could read a stale peak
-count. Its eval-only rule carries over to Track B unchanged: never change app
-code to make an acceptance step pass — that is a finding, not a bug fix.
+The XCUITest QC playthrough was retired 2026-08-17; its eval-only rule
+carries over unchanged: never change app code to make an acceptance step
+pass — that is a finding, not a bug fix.
 
 ## Where things are written down
 
@@ -126,7 +95,7 @@ code to make an acceptance step pass — that is a finding, not a bug fix.
   and session plan**, decided 2026-08-18. The claim, the five workstreams, the
   cut line, the refusal rule, the version evidence, the three gates (A/B/D —
   D is the structural guard against a confident wrong diagnosis), the numbered
-  sessions S0–S20, and the live status checklist. **The single entry point.**
+  sessions S0–S21, and the live status checklist. **The single entry point.**
   Consult it for "what do I pick up?" and "is this in scope?".
 - **[`docs/v2-scope.md`](docs/v2-scope.md)** — the 2026-08-17 phase-2
   priorities. **Superseded by `docs/v2-release.md`**; kept for the eight
@@ -152,6 +121,10 @@ code to make an acceptance step pass — that is a finding, not a bug fix.
   the *method* is the reusable part: a pre-registration written before its answer
   was known, and a Gate B correction that stopped one wrong errno sending the
   diagnosis the other way.
+- **[`docs/archive/v2-session-records/`](docs/archive/v2-session-records/)**
+  and **[`docs/archive/closed-items-2026-08.md`](docs/archive/closed-items-2026-08.md)**
+  — the verbatim S1–S8 session records and the closed open-items entries,
+  moved out of the live docs by M1 (2026-08-26). **History, not guidance.**
 - **[`docs/archive/v1.0/`](docs/archive/v1.0/)** — the v1.0 phase's working
   memory: 46 numbered findings, the design passes, the QC-evaluation prompts.
   **History, not guidance.** Nothing current points into it; consult it for
@@ -176,10 +149,10 @@ code to make an acceptance step pass — that is a finding, not a bug fix.
   `docs/v2-release.md`.
 - **`docs/post-v1-ideas.md`** — parking lot for ideas that are out of v1 scope
   *and* would touch `Core/` (cropping, partial/binned loading). Deliberately
-  separate from `docs/open-items.md`, which is contractually
-  UI/workflow-only and must stay safe to hand out as implementation prompts.
-  Nothing here is committed to; entries record the non-obvious constraints so a
-  later session doesn't rediscover them.
+  separate from `docs/open-items.md` — whose original UI/workflow-only rule
+  no longer holds: check an item's owning session and gate before handing it
+  out as a prompt. Nothing here is committed to; entries record the
+  non-obvious constraints so a later session doesn't rediscover them.
 
 ## Where things go (file-placement rules)
 
@@ -245,6 +218,7 @@ xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform
 tools/run-tests.sh unit          # fast XCTest suite (isolated DerivedData)
 tools/run-tests.sh scientific    # py4DSTEM-parity harnesses
 tools/run-tests.sh all           # Track A, the aggregate gate
+tools/free-space.sh              # exit-69 remedy: report build debris; --clear deletes
 ```
 
 Track B (visual acceptance) is not a command — it is a person driving the app

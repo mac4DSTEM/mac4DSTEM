@@ -305,411 +305,138 @@ only if asked.
   2026-08-18 (`tools/run-tests.sh` `require_free_space`, 8 GB for
   xcodebuild modes / 4 GB for harness-only, exit 69 before any build).
   Deviation: none.
-- [x] **S1** — 2026-08-18/19. First half: the HDF5 error-detail instrument,
-  `tools/sidecar-error-detail-test`, the corrected "export failed" wording.
-  Second half 2026-08-19: **the denial was observed** (EPERM, 09:34:27), closing
-  C10 end to end, and the fix landed — seam `App/SessionSidecarLocator.swift`
-  (`@Observable`, held by AppState, owns sidecar location + bookmark + scoped
-  access, cache keyed by source path), `recordedLoadSpecification` routed through
-  it and no longer swallowing a refused read with `try?`, the warm-cache defect
-  closed, and the refusal surfaced in the dataset inspector.
-  13 unit tests; six negative controls, each verified in isolation.
-  **Deviations, all found by the Gate D second reader and fixed rather than
-  argued with:** (1) the refusal was first reported via `statusText`, which is
-  overwritten by the loading stage three lines later — the user could never read
-  it; it now goes to a durable channel the inspector shows. (2) A **ninth** call
-  site (`UI/InspectorPanels.swift`) still bypassed the seam, and the fix *armed*
-  it — routed. (3) Five mutations initially left the whole suite green, including
-  the literal defect S1 exists to fix; two of my own tests were self-consistent
-  in the way Gate B warns about (same type on both sides of a round-trip). Both
-  closed and re-verified. (4) "EPERM is the sandbox signature" was affirming the
-  consequent; restated as an exclusion argument. (5) The 09:34:27 sidecar was
-  overwritten 54 s later, so that experiment is **not reproducible** — recorded.
-  **Not verified:** `startAccessingSecurityScopedResource` and `release`'s
-  matching stop are untestable in an unsandboxed XCTest host and remain
-  uncovered. `tools/run-tests.sh unit` **has now run end to end** (2026-08-19,
-  after the release owner freed disk): **220 passed, 1 failed**, the failure being
-  the known intermittent sidebar test, excluded from this change by experiment.
-  **F1.3g and F1.3h both PASSED on screen, 2026-08-19**, so the change is
-  verified visually — and F1.3h found a real defect on its first drive before
-  passing on its second: `saveCalibrationToSessionSidecar` wrote the sidecar and
-  never persisted the access grant, so the app's own refusal message named the
-  one path that could not work. Fixed by giving both publish paths a single
-  `rememberSidecarGrant`. No automated test could have caught it — it needs a
-  save panel and a real HDF5 write, and the defect was a missing call rather than
-  wrong logic. **Still untested on screen:** the renamed-sidecar label
-  (`UI/InspectorPanels.swift`), since both drives kept the default name.
-- [x] **S2** — 2026-08-19: `tools/two-spec-analysis-test` (214 checks) in
-  `scientific`; `tools/lib/sources.manifest` created with dependency-closed
-  groups and `MAC4DSTEM_ISOLATION_FLAGS`; metamorphic properties P1–P4 seeded;
-  the L3 `tile(yRange:from:)` residual closed. Eight negative controls, each
-  naming the line it breaks. **Deviations:** (1) the L3 residual as recorded was
-  wrong — the offset was already covered at full extent by
-  `tools/virtual-detector-residency`; what S2 adds is coverage under a scan crop.
-  (2) The isolation flags give visibility, not enforcement — the Swift 6 warning
-  they surface does not fail the build. (3) `sources.manifest` does not yet fix
-  the 2026-08-17 breakage: no existing runner is migrated. (4) Gate B refuted
-  four claims before this landed; all four are corrected in place rather than
-  defended, and two new open items came out of it.
-- [x] **S3** — 2026-08-19. `.automatic` dropped from `Residency` (defaults now
-  `.streamed`; behaviour unchanged — it always streamed; `admits`, the nil
-  `measuredWorkingSetFraction` and `tools/residency-sweep` kept as the return
-  path). Promote control built: `promoteToFullExtent()` reopens the loaded
-  view's **own** source at explicit `.fullExtent` — deliberately not
-  `openFileAsync`, which would re-apply the sidecar's crop — placed in the
-  dataset inspector's *Loaded view* section, which renders exactly when
-  promotion is meaningful. Seam: `App/RecentDatasets.swift` (recents list,
-  cached location labels, persistence, cap; no forwarding properties). Rider:
-  all eight standing build-warning classes cleared — a fresh clean
-  `build_macos` reports **zero warnings**. Nine new tests, each observed
-  failing under a discriminating mutation; the break pass killed one
-  green-but-worthless assertion (a full-extent `LoadView` carries the source
-  descriptor through unchanged, id and all). **Gate A ran as an
-  eight-finder + adversarial-verify + gap-sweep review: 15 findings, 11 fixed
-  in-session** (source-authority, reentrancy guard, demo-fixture failure
-  masking, init-time dictionary trap, remove-on-miss persistence, byte-format
-  precision, `fitsResident` cleanup, dead wrapper + dead enum conformances,
-  three test hardenings — each hardening verified by mutation), 2 recorded to
-  `docs/open-items.md` with owners (open-unwind triplication → S18;
-  recovery-frame mismatch → S5), 1 remedied by contract comment (the preload
-  `.streamed` stamp), 1 owner question queued for TB1 (carry the scan position
-  across a promote?). **Deviations:** (1) "drop from model and UI" — there was
-  no residency UI to drop: no picker ever existed and `request` had no
-  production caller, so the UI half was verifying absence. (2) A successful
-  promote does not update the sidecar — S5's scope, stated on the F1.14 row.
-  **Track A on the final tree, exit codes read directly:** `unit` exit 0
-  (232 cases, sidebar intermittent green), `scientific` exit 0 (35 harnesses).
-  **Not verified:** the promote control on screen (F1.14/F1.15 queued — Track
-  B is the owner's pass), and a real reduced→promote on a multi-GB cube.
+- [x] **S1** — 2026-08-18/19. Sidecar under the sandbox: the HDF5
+  error-detail instrument landed, the EPERM denial was observed (C10 closed
+  end to end), and the fix shipped on the new `App/SessionSidecarLocator.swift`
+  seam with the refusal surfaced in the dataset inspector. Gate D — survived;
+  5 deviations, all found by the second reader and fixed rather than argued
+  with. Track A: `unit` 220 passed / 1 failed (the S17 sidebar intermittent).
+  F1.3g/F1.3h PASSED on screen. Not verified: scoped-access start/stop pairing
+  (untestable in an unsandboxed host) and the renamed-sidecar label.
+  Full record: [`docs/archive/v2-session-records/s1.md`](archive/v2-session-records/s1.md).
+- [x] **S2** — 2026-08-19. The two-spec analysis fixture:
+  `tools/two-spec-analysis-test` (214 checks) joined `scientific`, with
+  `tools/lib/sources.manifest` created, metamorphic properties P1–P4 seeded,
+  and the L3 `tile(yRange:from:)` residual closed under a scan crop. Gate B —
+  the refuter refuted four claims, all corrected in place; 4 deviations.
+  Eight negative controls, each naming the line it breaks. Track A: no
+  aggregate suite run recorded this session (the fixture's own 214 checks
+  are the evidence). Not verified: no pre-existing runner migrated to the
+  manifest; the isolation flags observe, not enforce.
+  Full record: [`docs/archive/v2-session-records/s2.md`](archive/v2-session-records/s2.md).
+- [x] **S3** — 2026-08-19. `.automatic` dropped from `Residency` (defaults
+  `.streamed`; behaviour unchanged) and the promote control built —
+  `promoteToFullExtent()` in the inspector's Loaded-view section — on the
+  `App/RecentDatasets.swift` seam; all eight standing build-warning classes
+  cleared. Gate A ran as an eight-finder review: 15 findings, 11 fixed
+  in-session; 2 deviations. Track A: `unit` exit 0 (232 cases), `scientific`
+  exit 0 (35 harnesses). Not verified: the promote control on screen
+  (F1.14/F1.15 queued) and a real reduced→promote on a multi-GB cube.
+  Full record: [`docs/archive/v2-session-records/s3.md`](archive/v2-session-records/s3.md).
 - [x] **S4** — 2026-08-24. Configurator finished: value-dependent
-  `contentVersion` first (`MetalImageView.contentVersion(of:width:height:)`,
-  computed at set time in the new `PendingLoad.DisplayImage` caches, O(1) in
-  view bodies), the `progress:` argument restored via one epoch-guarded
-  handler shared by both open paths, the single-DP pane (click the scan
-  preview; default = brightest sampled position; served from
-  `PendingLoad.data`'s shared pattern cache; 8pt drag threshold so click
-  jitter stays a click), scan/detector dims in the inspector's axis
-  convention, the crop-vs-bin cost caption, the 900×760 sheet, and the
-  **configure-time direct-beam refusal** — checked against
-  `LoadView.readDetectorCrop` (bin trim included), enforced in
-  `commitPendingLoad` not just the button, flat means carry no evidence.
-  Plus the three sidecar-identity items open-items routed here: **Save
-  Session Sidecar As…** + inspector **Change…** (copy-never-move,
-  same-file guard by `fileResourceIdentifier`), sidecar **recognition on
-  the open path** (`H5Error.sessionSidecarOpened`, one sentence + capped
-  path wall; writer now stamps `mac4dstem_session_schema` unconditionally —
-  calibration-only sidecars carried no marker at all), constants unified in
-  `SessionSidecarFormat` (`Core/Data/HDF5Types.swift`). Seam: all new state
-  in `PendingLoad`, zero facade growth. 22 new tests across 4 files, every
-  one observed failing under a discriminating mutation (3 batches).
-  **Gate A (4-finder + verify) refuted or hardened 10 findings before
-  landing**, the sharpest three: the new error case would have re-broken
-  `real-data-acceptance` exactly as #43 (fixed + verified on the real data:
-  exit 0, 4 cubes golden, results sidecar skipped via the new case); the
-  rename's same-file guard compared path strings and would have DELETED the
-  only sidecar on a case-only rename (identity guard + alias test); the
-  `.h5` sibling suggestion was wrong for every non-`.h5` source (now the
-  stem). **Deviations:** (1) the beam-refusal evidence is a heuristic
-  (mean-argmax) with no override — beam-stop/hot-pixel override is a queued
-  TB1 owner question, and unifying this gate with `CalibrationReReference`'s
-  into one policy owner is S7's seam; (2) the sidecar
-  extension/open-panel-filter half is an owner decision, queued for TB1,
-  not implemented; (3) pre-S4 calibration-only sidecars remain
-  unrecognisable (no marker in the file). **Track A on the final tree,
-  exit codes read directly:** MCP `test_macos` **260 passed / 0 failed**
-  (the app suite; the retired UI target excluded — it fails on a TCC write,
-  and `run-tests.sh unit` never invokes it either);
-  `tools/real-data-acceptance/run.sh` **exit 0** (4 cubes golden, the
-  results-bearing sidecar skipped via the NEW case, the pre-S4
-  calibration-only sidecar via the old one — both limits observed live);
-  `run-tests.sh scientific` **exit 0** (the per-harness list went through a
-  tail pipe and was not retained, so no harness count is claimed from this
-  run). Zero build warnings. **`run-tests.sh unit` itself was REFUSED by
-  the S0 preflight (exit 69, ~4 GB free vs 8 GB floor)** and needs an owner
-  re-run after freeing disk; the floor was not touched. **Not verified on
-  screen:** everything — Track B rows F1.16–F1.21 queued, F1.7 superseded,
-  F1.3i re-armed behind F1.20.
-- [x] **S5** — 2026-08-24. **The replay record:** `SessionReplayRecord`
-  (Core) + the `SessionReplay` seam (App, S5's §7 extraction — AppState
-  gained one property and a private record helper, no facade state). One
-  step per analysis kind in first-run order, re-runs update in place,
-  re-detection **invalidates** its downstream strain/ACOM steps (a recipe
-  must replay a coherent pipeline or nothing); five recording sites
-  (virtual detector, DPC, full-scan disk detection, strain, ACOM), each at
-  its success publish, suppressed while a load is in flight so merely
-  opening a colleague's file can never overwrite their recipe with
-  defaults. Serialized as a JSON root attribute; restored on open; carried
-  by every save; preserved on nil so a no-analysis save cannot erase it;
-  survives a promote. **The format decision (§5):** schema "6" +
-  `mac4dstem_min_reader_schema`, refusal on read AND rewrite, both numbers
-  named, routed to the durable inspector channel (not the statusText S1
-  measured as unreadable). **Also fixed, found in-session:** result saves
-  and result removal rebuilt the sidecar WITHOUT the load specification —
-  any result save on a cropped session silently erased the crop attribute
-  (the L6 misread setup); every rewrite now restates the view. **And the
-  S3-carried recovery finding:** `DatasetRecoveryRecord` carries the
-  specification its coordinates are expressed in; restore applies a
-  position only in its own scan frame and inside extents — never clamps;
-  promote re-stamps it. **Gate B-lite (one refuter, briefed on 7 claims)
-  produced 17 findings; 14 fixed in-session** — the sharpest: the automatic
-  open pass overwrote adopted recipes (F1), DPC recorded aperture values
-  the computation never uses (F2 — the canonical confident-comment-refuted-
-  by-primary-evidence shape), ACOM recorded the exploratory scale when the
-  calibrated one ran (F3), two direct result readers bypassed the
-  minimum-reader gate (F5), a rewrite could downgrade a future file's
-  marker after mangling it (F6), and every wiring line was deletable with
-  the suite green (F8 — now pinned by `SessionReplayAppStateTests` through
-  a real AppState). **Recorded, not fixed:** a save after a FAILED crop
-  restore still erases the crop and mislabels preserved results — the save-
-  refusal policy belongs to S7's policy-owner seam (`docs/open-items.md`).
-  36 tests + the extended `tools/load-spec-roundtrip` (§8 recipe cases);
-  every guard observed failing under a discriminating mutation (batches
-  D/E/G, 10 mutations). One test itself reproduced the standing
-  concurrent-HDF5 crash by racing the app's post-save inventory read —
-  fixed to wait for the app's reader, evidence noted on that open item.
-  **Track A, exit codes read directly:** MCP `test_macos` **282/0** (UI
-  target excluded), `tools/load-spec-roundtrip` exit 0, zero build
-  warnings; `run-tests.sh unit`/`scientific` not re-run this session (disk
-  unchanged since S4's refusal — owner re-run still owed from S4).
-  **Deviations:** (1) parallax/ptychography steps are NOT recorded — that
-  family publishes through six product stages and already carries its
-  controls in result provenance; folding it in is S6's, which owns replay
-  execution; (2) the recipe records one step per kind — two same-kind runs
-  with different parameters keep the latest, stated in the model header;
-  (3) promote still does not rewrite the sidecar (save-on-demand stands;
-  F1.14's semantics unchanged). **Not verified:** everything on screen
-  (S5 draws nothing new; the refusal message reaches the existing S1
-  inspector section, undrivable until a newer-format file exists), and S6's
-  actual replay execution — the record is a claim about content, not yet
-  about replayability.
-- [x] **S6** — 2026-08-25. **Unattended execution:** the promote control is
-  now the claim's "one action" — `promoteAndReplayRecipe()` reopens at full
-  extent and replays the recorded pipeline sequentially through the SAME
-  entry points the user's clicks run; the first refusal, failure or
-  cancellation **halts** the run and later steps stay "not reached". Seam:
-  `App/ReplayRun.swift` (@Observable; run phase derived from its own
-  timestamps, per-step outcomes, morning summary, and the ProcessInfo
-  keep-awake assertion whose acquire/release is one type's invariant —
-  taken BEFORE the reopen so the longest unattended phase is covered).
-  Pure planning in `App/ReplayPlan.swift`: `ReplayPlanner.plan(_:frame:)`
-  parses each recorded step back into typed values and refuses — by name —
-  everything it cannot replay faithfully (unknown kinds, malformed values,
-  selected-region modes whose region the recipe never carried, strain/ACOM
-  with no earlier disk step, measured-kernel detections, and every
-  detector-frame step under a reduced or unknown frame). The plan is pure,
-  so certain refusals are priced in the promote caption BEFORE the click,
-  and a recipe whose first step already refuses keeps the ordinary
-  re-establishing pass instead of wasting the reopen. The five entry points
-  return a typed `AnalysisRunOutcome` (published/cancelled/failed) so the
-  summary never calls a deliberate cancel a failure and never scrapes UI
-  strings for reasons. **The frame rule (decided in-session):** recorded
-  parameters are view-frame; scan-crop-only rehearsals replay as-is (a scan
-  crop never touches the detector frame); detector crop/bin rehearsals
-  refuse their detector-frame steps — the inverse mapping is routed to
-  **S10** (open-items). `SessionReplay` tracks the frame live (adopted from
-  the sidecar's own spec, merged on record, `.mixed`/`.unknown` never guess).
-  **Replay never mutates the recipe** (caller-keyed recording suppression),
-  and the recipe now survives a cancelled or failed promote too (restore on
-  every exit). Preconditions the session cannot honour refuse rather than
-  substitute: DPC origin class, ACOM material by id (library, imports, and
-  the session's own custom-cubic fields), ACOM scale within 1e-6 relative.
-  **Gate A ran as a six-finder review (line-scan, removed-behavior,
-  cross-file, reuse/simplification, efficiency/altitude, conventions): 24
-  deduped findings, 10 of them fixed in-session** — the sharpest: the
-  keep-awake assertion missed the reopen entirely, a single-flight race
-  across the await gap could release the assertion mid-run, a cancelled
-  promote destroyed the unsaved recipe, `runDPC` published "DPC ✓" over a
-  nil field and recorded a phantom step, the recipe omitted the probe-kernel
-  class (a measured-kernel rehearsal would silently replay synthetic — the
-  exact substitution class S6 bans), and mid-replay user runs were dropped
-  from the recipe. Remainder recorded to `docs/open-items.md` with owners
-  (S10 frame mapping; origin maps across promote; Cancel-steal → S18;
-  custom-cubic lattice residual; three-place per-kind contracts) or closed
-  as no-change with reasons (parser-primitive reuse would couple opposite
-  refusal policies; recipe-key constants would make the anti-drift tests
-  self-consistent — the mutation runs are the guard). **Deviations:** (1) parallax/ptychography are NOT
-  replayed — no recording sites exist (S5's choice) and the family is seven
-  inter-dependent stages; open item, not silence. (2) Multi-instance steps
-  (S5 left to S6): not extended — one step per kind stands. (3) Replay is
-  the promote's tail only; no standalone "run recipe" control. (4) The
-  disk-step recipe vocabulary gained `kernel_source`, required on read — an
-  S5-era recipe's disk step now refuses by name (zero known files affected;
-  schema 6 shipped 2026-08-24). Tests: `ReplayPlanTests` (24),
-  `ReplayRunTests` (9), `ReplayExecutionTests` (7, through a real AppState
-  on the demo fixture — the F8 lesson); 14 discriminating mutations
-  (M1–M13, M16), every one caught by the specific test written for it.
-  **Track A, exit read directly:** MCP `test_macos` **321 passed / 1
-  failed** (UI target skipped; the 1 is the S17 sidebar intermittent,
-  EXCLUDED from S6 by experiment — stash → byte-identical failure heights
-  on the clean tree, logged in open-items with a new S17 fact: the failing
-  numbers ARE retrievable via the MCP route). Zero build warnings.
-  **`run-tests.sh unit` re-measured later the same day** (owner freed disk
-  to 13 GB): the first run exposed a pre-existing environment defect —
-  invalid code signatures on the three vendored HDF5 dylibs, every
-  HDF5-touching test killed by dyld — diagnosed from crash reports and
-  fixed by ad-hoc re-signing (open-items has the record, including the
-  honestly-unexplained half); after the fix, **320 passed / 1 failed**
-  (verbose full-suite run; the 1 is the S17 sidebar intermittent, red in
-  all three gate runs that day), with one unreproduced single flip of the
-  new binned-detector replay test logged as a watch item.
-  **Not verified:** everything on screen (F1.22–F1.23 queued; TB1's
-  overnight row now has real behavior behind it); a real multi-GB overnight
-  promote; the keep-awake against actual system sleep (tests pin the
-  acquire/release balance, not the OS effect); the executor's cancelled-step
-  mapping end-to-end (needs a timed cancel — F1.23's job); the summary does
-  not survive an app quit (in-memory by design).
+  `contentVersion`, the restored `progress:` handler, the single-DP pane,
+  scan/detector dims, the crop-vs-bin cost caption, the configure-time
+  direct-beam refusal, and the three sidecar-identity items (Save As… /
+  Change…, open-path recognition, `SessionSidecarFormat`). Gate A (4-finder)
+  refuted or hardened 10 findings before landing; 3 deviations. Track A: MCP
+  `test_macos` 260/0, `real-data-acceptance` exit 0, `scientific` exit 0;
+  `unit` REFUSED by the S0 preflight (exit 69, ~4 GB free). Not verified on
+  screen: everything — F1.16–F1.21 queued, F1.3i re-armed behind F1.20.
+  Full record: [`docs/archive/v2-session-records/s4.md`](archive/v2-session-records/s4.md).
+- [x] **S5** — 2026-08-24. The replay record: `SessionReplayRecord` + the
+  `SessionReplay` seam, five recording sites, serialized with the session,
+  restored on open, carried by every save; schema "6" +
+  `mac4dstem_min_reader_schema` with refusal on read AND rewrite (§5's
+  decision); the rewrite-erases-the-crop defect and the S3-carried recovery
+  finding fixed. Gate B-lite: 17 findings, 14 fixed in-session; 3 deviations.
+  Track A: MCP `test_macos` 282/0, `load-spec-roundtrip` exit 0;
+  `unit`/`scientific` not re-run (disk unchanged since S4's refusal). Not
+  verified: everything on screen, and replay execution itself (S6's scope).
+  Full record: [`docs/archive/v2-session-records/s5.md`](archive/v2-session-records/s5.md).
+- [x] **S6** — 2026-08-25. Unattended execution: `promoteAndReplayRecipe()`
+  replays the recorded pipeline through the user's own entry points, halts
+  honestly at the first refusal/failure/cancel, prices certain refusals
+  before the click (`ReplayPlanner`), holds the machine awake, and never
+  mutates the recipe; seam `App/ReplayRun.swift`. Gate A ran as a six-finder
+  review: 24 findings, 10 fixed in-session; 4 deviations. Track A: MCP
+  `test_macos` 321/1; `unit` 320/1 after the vendored-dylib re-sign (both 1s
+  the S17 sidebar intermittent). Not verified: everything on screen
+  (F1.22–F1.23), a real multi-GB overnight, keep-awake vs actual sleep.
+  Full record: [`docs/archive/v2-session-records/s6.md`](archive/v2-session-records/s6.md).
 - [ ] **TB1**
-- [x] **S7** — 2026-08-25 (taken ahead of TB1 per §8's "parallel"; the owner
-  pass needs the owner). **Error honesty:** physical iDPC now takes the SAME
-  origin-fit gate as Q calibration through S7's seam —
-  `App/SessionGates.swift`, the one owner of the session's "may I?"
-  questions (`@Observable`, held by AppState, no forwarding) — a refused fit
-  renders qualitative iDPC with the specific judgement quoted in the DPC
-  controls and recorded in the product's provenance
-  (`qualitative_reason` / `origin_fit_judgement` / `origins_subtracted`).
-  `DPC.integrateIDPC` throws typed `IDPCError`s instead of returning
-  zero images; the tiled `detectAll` returns nil ONLY on cancellation and
-  throws `FullScanError` naming the scan rows and the underlying error —
-  the NAS-read-as-"FFT plan" misattribution is dead, and `tileRead` unwraps
-  into the modal data-source escalation. The S5-F9 save-refusal landed on
-  the seam: a failed crop restore (unreadable OR does-not-fit, the latter
-  previously statusText-only — S1's channel defect in the sibling branch)
-  arms a session-scoped gate that refuses all three sidecar rewrite entry
-  points by name, renders in the inspector, and clears on every
-  dataset-changing path; the unreadable remedy is workable now (same-file
-  Change… re-grants by filesystem identity). Export: the burned caption
-  wraps (figure grows; measured with `.usesFontLeading`) and the FULL
-  provenance record travels as PNG `Description` JSON, round-trip pinned
-  through a real file. **Bounded `try?` audit of Core/: all 28 sites** —
-  3 became typed refusals (tile reads; present-but-undecodable
-  specification/recipe attributes now throw `malformedAttribute` instead
-  of reading as "no crop"/"no recipe" — pinned end-to-end by corrupting a
-  real file in place), 1 carries the underlying error (DM4 open), the rest
-  carry verified correctness comments. **Gate B (separate refuter, Opus)
-  produced 12 findings; 11 fixed in-session** — the sharpest: the iDPC
-  failure was overwritten by "DPC ✓" one line later, recorded a phantom
-  recipe step and returned `.published` (the S1-channel + A6-phantom shapes
-  combined); the restore-failure gate outlived its dataset through
-  `commitPendingLoad`/`openDemoFixture`; the unreadable remedy promised
-  re-granting would fix a damaged file; the wrapped data-source error was
-  invisible to the modal escalation. 1 finding (already-planted defaults
-  key) closed by mechanism + observation, recorded below. **The gate run
-  itself found two pre-existing S5-era breaks** — seven runners hand-listing
-  the writer without `SessionReplayRecord.swift` (the 2026-08-17 breakage
-  recurring exactly as documented) and a stale schema-"5" pin in
-  `sidecar-result-test` — both fixed; `scientific` had not run end to end
-  between S5 and today. **Tests:** `SessionGatesTests` (9),
-  `ExportProvenanceTests` (3), `TiledDiskDetectionErrorTests` (4), plus
-  idpc-test negative controls; **13 discriminating mutations M1–M13, every
-  one observed failing its specific test**, including a harness-level one.
-  Mid-session the suite also caught two of this session's own regressions
-  (a comment edit deleted the recipe date-encoding line; the save tests
-  leaked a demo-path bookmark through the SHARED persisted UserDefaults into
-  parallel test workers — root-caused via worker-order evidence, fixed with
-  `AppState.init(sessionSidecar:)` injection). **Track A, exit codes read
-  directly:** `run-tests.sh scientific` **exit 0, 35 harnesses** on the
-  final tree; MCP `test_macos` **336 passed / 2 failed** (the retired UI
-  target's TCC write + the S17 sidebar intermittent at byte-identical
-  heights 1029/945/961 — excluded by that identity); zero build warnings;
-  `run-tests.sh unit` **335 passed / 1 failed, exit 65** — the 1 is the S17
-  sidebar intermittent (red in every gate run today; the terminal log
-  carries no assertion text, per the recorded S17 fact — the MCP runs are
-  where the heights came from).
-  **Deviations:** (1) the seven runner fixes add the one missing file, NOT
-  the manifest migration — deliberate, recorded in open-items; (2) the
-  direct-beam/`CalibrationReReference` unification named for this seam is
-  NOT done (blocked on TB1's "load anyway" decision; the seam is its stated
-  home); (3) `runDPC`'s withhold-✓-on-display-failure fix is review-pinned,
-  not test-pinned — the failure needs an FFT-refusing grid that no fixture
-  reaches through the public surface, and widening `comField` access for a
-  test is the banned move. **Not verified:** everything on screen
-  (F1.24–F1.27 queued); the modal escalation of a real mid-scan NAS failure
-  (the unwrap is unit-reachable only synthetically); the planted demo
-  bookmark's absence from the app container (TCC blocks the agent — probe:
-  `defaults read com.mac4dstem.mac4DSTEM
-  "session-sidecar-bookmark.L0RlbW8vbWFjNERTVEVNIERlbW8uaDU="`; the
-  locator removes unresolvable keys on lookup, and the post-fix suite
-  passed the pollution-sensitive assertions).
-- [x] **S8** — 2026-08-25 (taken while TB1 awaits the owner; S9 routed
-  around — NAS + a 17 GB local copy against ~9 GB free). **Strain frame:**
-  owner decided **scan frame, live-derived** — the stored map stays
-  detector-frame and display/export re-express it from the CURRENT
-  calibration (`Core/Analysis/StrainFrame.swift`, the `applyDPCDisplay`
-  pattern; py4DSTEM's own split: calibrated vectors rotate before the fit
-  when `QR_rotation` exists, else warn and stay detector-frame). Transpose
-  first (swap εxx/εyy, negate the θ pseudo-scalar), then the tensor
-  rotation; no measured rotation ⇒ detector x/y, SAID everywhere — controls
-  row (one wording authority `StrainPresentationFrame.displayLabel`),
-  burned caption (`strain_frame=` + `qr_rotation_deg=`), and provenance
-  from ONE composition site (`strainFrameProvenance`), on all three
-  carriers (image export, sidecar save, scientific bundle — bundle tensor
-  fields now export presented values). Seam: `App/StrainProduct.swift`
-  (map, component, failure cause, run controls; no forwarding properties).
-  Fixture: `tools/strain-frame-test` in `scientific` — three arbiters
-  (vendored `get_rotated_strain_map` EXECUTED live via golden.json +
-  refit-from-py4DSTEM-transformed-vectors ground truth + hand answers),
-  NC1–NC5 negative controls naming their lines, sources from the manifest's
-  new dependency-closed `strain` group with the isolation flags.
-  **Found in-session (DEVIATION in `StrainFrame.swift`, pinned by NC5):**
-  py4DSTEM's median reference (`get_reference_g1g2`) is NOT
-  rotation-equivariant on majority-free mixtures — its calibrated
-  rotate-then-fit path differs from its own tensor-rotation path by up to
-  ~2×10⁻² strain there; the reviewer isolated the median as the sole driver
-  by a mean-reference rebuild. **#18 (resolve-or-re-scope): mechanism
-  localized by instrumented diff** (3 campaign runs on the real Si_SiGe
-  cube; env-gated `MAC4DSTEM_STRAIN_DEBUG` stderr dump now in
-  `estimateLatticeBasis`, print-only): bright direct-beam detections
-  scattered 3–9 px by this dataset's known-bad origin fit (the #46 numbers)
-  set `clusterTolerance ≈ 1.05 px`, fragmenting every true reflection below
-  the 8% support floor — `candidates=0` before any pair is tested; the
-  `minRelative` hypothesis was REFUTED by pre-registered prediction
-  (byte-identical nearest-radius quantiles after removing 81,820 peaks;
-  override `MAC4DSTEM_DISK_MIN_RELATIVE` added). Re-scoped: a 5-minute
-  owner probe (app + `MAC4DSTEM_STRAIN_DEBUG=1`) replaces further agent
-  guessing; candidate fix recorded, not made. **Gate B (fresh Fable-tier
-  refuter) produced 8 findings; 6 fixed in-session** — the sharpest: BOTH
-  display-wiring tests pinned exactly 90°, where sin·cos = 0 hides a wrong
-  angle SIGN and a dropped transpose — two green-suite wrong-science
-  mutations the author's 15-mutation pass missed (tests re-angled to
-  37.2°/−64° + transposed cases + anti-vacuity guards; all three reviewer
-  mutations then observed failing); the caption was unpinned (now
-  content-asserted); a mid-activation export could stamp fresh frame keys
-  under the previous dataset's rotated pixels (`strain.clear()` moved
-  before the calibration reset); the `applySessionCalibration` refresh was
-  dead code with a wrong-path comment (removed, corrected); the STRAIN_DEBUG
-  pair dump leaked to stdout against its own guard comment (fixed). 2
-  recorded, not fixed: pre-S8 restored results are frame-silent
-  (honest-by-omission, open-items), Mirror cannot see computed forwarders
-  (comment). The reviewer independently confirmed the rotation algebra, the
-  broken self-consistency circle (via its own coherent-direction-flip
-  probe), and DPC/strain direction consistency. **Deviations:** (1) the
-  `calibrateRotation`/`applySessionCalibration` refresh sites are
-  review-pinned only where unreachable by public-surface tests (the flip
-  path IS test-pinned); (2) parity records were restored from backup after
-  the debug campaign runs — `References/parity_records/latest` is
-  byte-identical to 2026-08-04. **Track A, exit codes read directly:**
-  `run-tests.sh scientific` **exit 0, 36 harnesses** (full log retained —
-  not a tail pipe; `strain-frame-test` gating in the aggregate); MCP
-  `test_macos` **363 passed / 2 failed** (the S17 sidebar intermittent at
-  1027/943/963 pt — byte-identical across all three runs today, 2 pt off
-  S7's numbers, logged as new S17 evidence — and the retired UI target);
-  zero build warnings; `run-tests.sh unit` was **REFUSED by the S0
-  preflight (exit 69, 7 GB free vs the 8 GB floor)** — the floor was not
-  touched; the MCP full-suite run above is the warm fallback, and an owner
-  re-run of `unit` after freeing disk remains owed (standing since S4).
-  **Not verified:** everything on screen (F1.28/F1.29 queued — the frame
-  row, the rotated display, the caption tokens); a real rotation-calibrated
-  strain session end to end (no automated path drives calibrateRotation +
-  strain together); the #18 app-side probe (owner); pre-S8 sidecar restore
-  frame-silence left as recorded residual.
-- [ ] **M1 — tidy session** (maintenance, not release scope; planned
-  2026-08-25, owner-requested — brief in
-  [`docs/tidy-session-plan.md`](tidy-session-plan.md); runs BEFORE S10;
-  archive the brief on completion)
-- [ ] S9 · [ ] S10 — *sequencing decided with M1: S10 → S21 → S17; S9 when
-  NAS + disk allow*
+- [x] **S7** — 2026-08-25. Error honesty on the new `App/SessionGates.swift`
+  seam: physical iDPC takes the origin-fit gate, `DPC.integrateIDPC` throws
+  typed errors (no zero images), tile errors attributed (`FullScanError`),
+  the S5-F9 save-refusal gate, the wrapped caption + full provenance in PNG
+  metadata, and the 28-site `try?` audit of Core/. Gate B (separate refuter,
+  Opus): 12 findings, 11 fixed in-session; 3 deviations; the gate run also
+  found and fixed two pre-existing S5-era runner breaks. Track A:
+  `scientific` exit 0 (35 harnesses), MCP `test_macos` 336/2, `unit` 335/1
+  exit 65 (the S17 intermittent; the /2 adds the retired UI target). Not
+  verified: on-screen (F1.24–F1.27), the real NAS modal escalation, the
+  demo-bookmark probe (TCC).
+  Full record: [`docs/archive/v2-session-records/s7.md`](archive/v2-session-records/s7.md).
+- [x] **S8** — 2026-08-25. Strain frame: owner decided scan frame, live-derived
+  — stored map stays detector-frame; display/export re-express it from the
+  CURRENT calibration (`Core/Analysis/StrainFrame.swift`), the frame said on
+  all three carriers; seam `App/StrainProduct.swift`; fixture
+  `tools/strain-frame-test`; #18 localized by instrumented diff, re-scoped
+  to a 5-minute owner probe. Gate B (fresh Fable-tier refuter): 8 findings,
+  6 fixed — two green-suite wrong-science mutations hid at the 90° test
+  constant; 2 deviations. Track A: `scientific` exit 0 (36 harnesses), MCP
+  `test_macos` 363/2, `unit` REFUSED by the preflight (exit 69, 7 GB free).
+  Not verified: on-screen (F1.28/F1.29), a real rotation-calibrated strain
+  session, the #18 owner probe.
+  Full record: [`docs/archive/v2-session-records/s8.md`](archive/v2-session-records/s8.md).
+- [x] **M1 — tidy session** — 2026-08-26 (maintenance, not release scope;
+  brief archived: [`docs/archive/tidy-session-plan.md`](archive/tidy-session-plan.md)).
+  T1 `tools/free-space.sh` (report by default, `--clear` deletes only its
+  named debris behind a structural path guard; freed 5.9 GB → 14 GB free);
+  T2 the S1–S8 records moved verbatim to
+  [`docs/archive/v2-session-records/`](archive/v2-session-records/) with
+  stubs above; T3 18 closed entries (312 lines out of the live file) moved
+  verbatim to
+  [`docs/archive/closed-items-2026-08.md`](archive/closed-items-2026-08.md),
+  tombstones where live items lean; T4 CLAUDE.md rewritten to current truth
+  (one canonical kickoff); T5 the S8 symmetric-constants lesson into
+  `development-process.md` + the adversarial-review skill; T6 the
+  resequencing line below; T7 the owed `unit` re-run — **360 passed /
+  1 failed, exit 65**, exactly the S17 intermittent, no heights retrievable
+  (terminal route, as recorded). Kickoff tax (CLAUDE.md + v2-release.md +
+  open-items.md): **2409 → 1901 lines** (1838 before
+  the Gate A findings were fixed back in; CLAUDE.md alone 261 → 235). **Gate A ran as an 8-finder +
+  verify review: 8 verified findings, 7 fixed in-session** — the sharpest:
+  the script's `du|sort` report died under `set -e` if a target vanished
+  mid-`--clear` (empirically reproduced); `--clear` could delete an
+  IN-FLIGHT run's temp directory against the header's own claim (now
+  age-guarded >1 h + a do-not-run-during-builds caution); two archive links
+  broke at the moved file's depth; a tombstone claimed gate unification
+  "awaits S7's seam" when S7 shipped the seam and the real blocker is TB1's
+  load-anyway decision; a live retarget-before-save residual and the
+  #36/#43 tombstones had been dropped; the S2 stub manufactured a Track A
+  claim its record never made; CLAUDE.md's aggregates are now dated to
+  their own runs. 1 finding recorded to open-items with an owner (the
+  shared temp-prefix/roots constant for producer and reaper). **Deviations,
+  stated:** (1) T7's "only if T1 freed ≥ 8 GB" was read as "the 8 GB
+  preflight floor is cleared" — T1 freed 5.9 GB but left 14 GB free ≥ the
+  floor, and the brief's own expected-outcomes list anticipated the run;
+  (2) T1 also clears workspace `DerivedData` — regenerable debris beyond
+  the brief's parenthetical three (`state/`/`locks/` untouched); (3)
+  relative links inside moved entries were re-based to the archive's
+  location to keep their referents, stated in the archive header.
+  `mac4DSTEM/` untouched; archived text otherwise byte-verbatim
+  (machine-checked twice, independently by the Gate A reviewers).
+- [ ] S9 · [ ] S10
+- *Resequenced 2026-08-26 (M1/T6): S10's dependencies (S5, S8) are met;
+  chosen order **S10 → S21 → S17**; S9 when NAS access and disk allow; TB1
+  sittings 2–4 whenever the owner sits.*
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20 · [ ] S21
 
-Tick a session only with a one-line record of what shipped and what deviated,
-same convention as the load-pipeline plan's §5.
+Tick a session only with a record of what shipped and what deviated. Since
+M1 (2026-08-26): the full record goes **verbatim** to
+`docs/archive/v2-session-records/s<N>.md` and §9 keeps a ≤ ~12-line stub —
+date, ship statement, gate + outcome, deviation count, Track A exit codes,
+"not verified" in one line, archive pointer. Closures leave
+`docs/open-items.md` for the dated closed-items archive, a tombstone staying
+only where something live leans on them.

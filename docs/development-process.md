@@ -84,6 +84,16 @@ real app/`Core/` changes.
 - A doc cannot force which model an agent runs — set the session model / agent
   definitions accordingly.
 
+**Symmetric test constants are a mutation blind spot (S8, 2026-08-25).** A
+suite in which every guard was observed failing under a discriminating
+mutation can still be *collectively* blind: S8's display-wiring tests pinned
+exactly 90°, where sin·cos = 0, so a wrong angle SIGN and a dropped transpose
+each left the entire 15-mutation-verified suite green — three reviewer
+mutations survived it that way. Geometry/rotation tests therefore pin
+sign-discriminating constants (37.2°, not 90°/0°/45°) and carry an in-test
+guard proving the wrong variant actually differs on the fixture; the
+adversarial reviewer checks for this class explicitly.
+
 **Structured build feedback (added 2026-08-18).** One MCP server is
 registered at user scope in `~/.claude.json`: **XcodeBuildMCP** (pinned
 `2.7.0`, npx via Homebrew node, **verified working** — MCP handshake + tools

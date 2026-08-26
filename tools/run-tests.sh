@@ -23,6 +23,7 @@ require_free_space() {
     if [[ -z "$have" ]] || (( have < need )); then
       echo "run-tests.sh: need ${need} GB free for ${what}, have ${have:-?} GB on ${dir}" >&2
       echo "  Free space and re-run; a near-full disk fakes code regressions." >&2
+      echo "  tools/free-space.sh reports the known build debris; --clear deletes it." >&2
       exit 69
     fi
   done

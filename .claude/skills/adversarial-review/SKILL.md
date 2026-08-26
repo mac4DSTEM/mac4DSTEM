@@ -27,6 +27,10 @@ it *tried* and failed to break.
    survives it" produces the missing assertion. Watch in particular for a
    check that is *vacuous on this fixture* — comparing background to
    background — and require an anti-vacuity guard rather than a comment.
+   Mutation-passing suites can also be collectively blind at symmetric test
+   constants — pin sign-discriminating angles (37.2°, not 90°) and prove the
+   wrong variant differs on the fixture (`docs/development-process.md` §2,
+   the S8 lesson).
 2. The fixture lives in `tools/` and joins `run-tests.sh scientific` when
    it should gate. Ground truth is analytic or py4DSTEM itself — never the
    code under test's own output. Self-consistency proves nothing: the L3
