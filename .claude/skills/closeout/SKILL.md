@@ -31,10 +31,17 @@ Done means the repo tells the next reader the truth. In order:
    every session, so its length taxes all of them.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
-7. One sentence on the skills themselves: did any skill misfire, get
+7. Republish the owner's living v2 board (owner request, 2026-08-26):
+   artifact `https://claude.ai/code/artifact/02ef433e-3888-4afc-9292-aba62912e5d9`
+   ("mac4DSTEM v2 Board"). Update the session rail, workstream fractions,
+   the dated test-claim table, and the what's-next queue from
+   `docs/v2-release.md` §9 — same honesty bar as the docs: every number
+   dated to its own run. From a fresh conversation, pass that address as
+   the Artifact tool's `url` (publishing without it forks a new artifact).
+8. One sentence on the skills themselves: did any skill misfire, get
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's
    commit. Friction nobody records is friction the next session repeats.
-8. Do not commit unless the user asked. If they did: linear `main`,
+9. Do not commit unless the user asked. If they did: linear `main`,
    descriptive message, and the docs updated in the same commit as the code
    they describe.

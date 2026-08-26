@@ -16,7 +16,8 @@ thinking is fresh. Nothing here is committed to, scheduled, or promised.
 > implement); the constraints recorded below are the design input. **WS₂
 > step 1 graduated the same day** (S14–S16). Step 2 (Materials Project) and
 > the precipitate pipeline remain unclaimed, as do the two 2026-08-18
-> entries at the end.
+> entries and the 2026-08-26 EDX entry at the end. The precipitate entry
+> gained the density deliverable 2026-08-26, at the owner's request.
 
 ## Why this file exists (and what does *not* belong here)
 
@@ -183,6 +184,26 @@ Nothing is designed. What is worth writing down now, before it is:
 
 Likely end of a second phase or later. Recorded so the idea survives the gap.
 
+**Re-requested by the owner 2026-08-26, with a new deliverable: precipitate
+*densities* (count per area/volume).** What that adds beyond the per-object
+pipeline above, worth writing down before it is designed:
+
+- A density is **counting divided by a calibrated extent**, so it inherits
+  every real-space calibration guarantee v2 hardened — and adds a new one:
+  the *denominator* must come from the scanned area actually analysed (a
+  cropped or partially-driven scan silently shrinks it), or the number is a
+  precise wrong claim under the refusal rule.
+- A count needs a **detection threshold**, and a threshold needs the same
+  honesty treatment as Q calibration got: state what was counted, at what
+  criterion, and refuse a density when the criterion cannot be stated. An
+  areal density from a projection is not a volumetric density — claiming
+  number-per-volume needs foil thickness, which the app does not measure;
+  that gap is exactly the EDX/thickness territory of the entry below.
+- Statistics over many datasets is where this earns its keep, and **v2 S5's
+  replay record is the seed**: "apply this recipe to N cubes and tabulate
+  counts" is the batch-processing deferral in `docs/v2-release.md` §3, not a
+  new mechanism.
+
 ---
 
 ## Q calibration is fragile to origin error well below the readiness threshold
@@ -277,6 +298,44 @@ blow the memory budget on exactly the machines that need streaming (see the
 8 GB jetsam item in `docs/open-items.md`). And measure first on a
 py4DSTEM-written chunked EMD, not the contiguous training cubes, where the
 change is a no-op by construction.
+
+---
+
+## EDX correlation — a second signal per scan position ("5D")
+
+**Requested by the owner 2026-08-26.** Correlate 4D-STEM products with EDX
+maps acquired over the same scan — composition beside strain/orientation,
+per scan position. Named in `docs/v2-release.md` §3 as its own product;
+nothing is designed. The constraints that are non-obvious now:
+
+- **This is a data-model change before it is a feature.** Today the model is
+  one cube + one calibration + products derived from it. A second signal
+  needs: its own reader (vendor EDX formats, or a pre-quantified map), its
+  own axes/units, and a **registration** onto the scan grid — EDX and 4D-STEM
+  acquisitions rarely share exact pixel grids, and resampling is a scientific
+  operation that must be recorded, not silent. The `AppState` seam-per-session
+  work (ROADMAP P3) is what makes this insertable later; if the facade stops
+  shrinking, this feature is what pays the price.
+- **Registration provenance is the refusal-rule surface**: an overlay of two
+  signals implies they are the same place. The claim "this strain pixel is
+  this composition pixel" needs the transform + its source stored with the
+  product, or the correlation can fabricate spatial coincidence. Same class
+  as the scan-frame work S8 shipped — reuse that carrier pattern, don't
+  invent a second one.
+- **Sidecar/EMD schema impact**: a second signal in the session sidecar is a
+  schema version bump (the §5 min-reader machinery from S5 exists for
+  exactly this) and a py4DSTEM interchange question — py4DSTEM's EMD tree
+  can hold sibling arrays, so parity export is plausible, but pick the tree
+  layout against the vendored lock before writing any file.
+- Cheapest honest first step, when the time comes: **import a
+  pre-quantified EDX map as an overlay layer** with a user-confirmed affine
+  registration — no vendor spectral readers, no quantification, correlation
+  scatter (strain vs composition per position) as the first product. Full
+  spectral 5D (energy axis per position) is a much bigger cube and a
+  separate decision.
+- Blocked on real paired acquisitions from the owner's instrument time —
+  like the MIB/EMPAD readers, this cannot be verified on synthetic data
+  alone.
 
 ---
 

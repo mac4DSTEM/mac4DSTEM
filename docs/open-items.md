@@ -56,9 +56,21 @@ file:
 - The free-space preflight → **S0, done 2026-08-18**. CI for `unit` + the
   synthetic half of `scientific` on the public repo → **S21, authored
   2026-08-26** (`.github/workflows/ci.yml` + the README badge +
-  `tools/lib/py4dstem-ci-constraints.txt`); **unverified until the owner
-  pushes** — no workflow run exists yet, and the first run is also the first
-  build of this app off the macOS 27 dev machine.
+  `tools/lib/py4dstem-ci-constraints.txt`). **Run #1 (2026-08-26, `bbfd8b0`,
+  owner push): `scientific` PASSED, exit 0 in 8m 30s — the first pass of the
+  parity gate on any machine but the dev Mac (macos-26 runner, paravirtual
+  Metal, pinned pip env all held). `unit` FAILED, exit 65 in 1m 40s — an
+  early `xcodebuild` abort, far too fast to be the test suite, so NOT the
+  S17 intermittent. Cause read from the log (owner pasted it, same day) and
+  the project-format hypothesis (`objectVersion = 90`) is REFUTED — Xcode
+  26.6 opened the project and compiled the tree fine. Confirmed diagnosis:
+  `ContentView.swift:1728` (`let direction = simd_normalize(...)`) hits
+  "the compiler is unable to type-check this expression in reasonable time"
+  on the runner's Xcode 26.6, while the dev machine's Xcode 27 beta
+  type-checks it — a compiler-version-sensitive expression, not a semantics
+  bug. Fix: decompose into named sub-expressions (Gate A, UI file, no
+  behaviour change intended). The 180-min `scientific` timeout can be
+  tightened from the 8m 30s datum when the workflow is next touched.**
 - The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
   elimination). The second-machine sweep → **post-v2** (`.automatic` is
   dropped in S3, so the threshold no longer blocks anything).

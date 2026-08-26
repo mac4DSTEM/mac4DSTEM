@@ -1719,17 +1719,20 @@ struct CubicIPFLegendView: View {
                 let top = SIMD2<Double>(Double(size.width / 2), 3)
                 let steps = 36
                 let radius = max(1.4, Double(size.width) / Double(steps) * 0.65)
+                // Triangle corners as named constants: the one-expression blend
+                // exceeds Xcode 26.6's type-checker budget (CI run #1) even
+                // though Xcode 27 accepts it.
+                let dir001 = SIMD3<Double>(0, 0, 1)
+                let dir101 = simd_normalize(SIMD3<Double>(1, 0, 1))
+                let dir111 = simd_normalize(SIMD3<Double>(1, 1, 1))
                 for topIndex in 0...steps {
                     for rightIndex in 0...(steps - topIndex) {
                         let wt = Double(topIndex) / Double(steps)
                         let wr = Double(rightIndex) / Double(steps)
                         let wl = 1 - wt - wr
                         let point = left * wl + right * wr + top * wt
-                        let direction = simd_normalize(
-                            SIMD3(0.0, 0.0, 1.0) * wl
-                                + simd_normalize(SIMD3(1.0, 0.0, 1.0)) * wr
-                                + simd_normalize(SIMD3(1.0, 1.0, 1.0)) * wt
-                        )
+                        let blended = dir001 * wl + dir101 * wr + dir111 * wt
+                        let direction = simd_normalize(blended)
                         let rgb = CubicOrientationSymmetry.ipfColor(direction: direction)
                         let rect = CGRect(x: point.x - radius, y: point.y - radius,
                                           width: radius * 2, height: radius * 2)
