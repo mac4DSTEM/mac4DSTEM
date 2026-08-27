@@ -77,10 +77,21 @@ tree). `run-tests.sh unit` — **384 passed / 4 skipped / 0 failed, exit 0**
 one is S17's explicit uncalibrated-Prepare geometry quarantine.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
-own dated run. **`all` has never been run end to end on this machine**: S17
-removed its old unit-stage abort, but nobody has run the aggregate yet — so
-the README/CHANGELOG "exit 0, 30 harnesses" claim is unreproduced, and
-restating it is S19's job. Do not quote an aggregate you did not just run.
+own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-27 —
+the first complete aggregate run on this machine.** 39 harnesses (the 37 in
+`scientific`, plus `real-data-acceptance` and `package-test`), unit stage
+**384 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69
+preflight refusals in the retained log** (checked by grep, not by trusting the
+exit code — a `| tail` has swallowed a failing gate here twice). One `SKIP`:
+`real-data-acceptance` correctly recognised a session sidecar sitting beside a
+training dataset and skipped it rather than reading it as a datacube — backlog
+**#43**, fixed 2026-08-18, exercised live for the first time. Of the 4 unit
+skips, three are the documented environment/quarantine probes and the fourth,
+`TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes()`, skips because
+TB1's staged WS2 sidecar is missing (see `docs/open-items.md`).
+**S19's blocking dependency is therefore met**, and the README/CHANGELOG
+aggregate claim can be restated against this run rather than retired. Do not
+quote an aggregate you did not just run.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6):
 Track A is `tools/run-tests.sh`; Track B is the human visual pass at

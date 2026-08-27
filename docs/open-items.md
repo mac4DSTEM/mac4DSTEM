@@ -1271,6 +1271,23 @@ or it spends the one resource Track B is expensive in — a person's attention.
   the app writes would test the wrong thing. Owner: whoever next picks up
   sitting 2.
 
+- ~~**The dataset inspector's preview thumbnails are aspect-stretched.**~~ —
+  **Fixed 2026-08-27, reported by the release owner from the inspector and
+  verified on screen after the fix.** `DatasetInspector.swift:358` gave
+  `MetalImageView` a height-only frame, and that view maps to normalized view
+  UVs, so each thumbnail was stretched to the sidebar's full width: a
+  **128x128 mean or max pattern was drawn about 300x120 — 2.5x wider than tall,
+  rendering every Bragg disk as a horizontal ellipse** — in the app that has an
+  ellipse-calibration feature for measuring exactly that distortion. The 200x50
+  real-space preview was squashed the other way. Fixed with
+  `.aspectRatio(width/height, contentMode: .fit)` ahead of a `maxHeight` frame;
+  re-driven afterwards, the square patterns now render square with round disks
+  and real space as a correct 4:1 strip. `unit` 384/4/0 exit 0.
+  **This was the third call site of one class in a day** — the configurator
+  panes (letterboxed the same day) and this one; the result and diffraction
+  panes were already correct via `fitted(in:aspect:)`. Worth a sweep: any
+  `MetalImageView` given only one dimension stretches, silently.
+
 - **The launch screen's Prepare / Analyze / Preserve cards are too large.**
   Release owner, 2026-08-27, while driving TB1: three full-width cards stacked
   top-to-bottom spend a lot of vertical space on what is a three-way choice,

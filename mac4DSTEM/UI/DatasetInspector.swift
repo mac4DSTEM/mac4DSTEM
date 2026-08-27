@@ -366,7 +366,21 @@ struct DatasetInspector: View {
                 contentVersion: appState.datasetEpoch,
                 colormap: colormap, zoom: 1, offset: .zero
             )
-            .frame(height: 120)
+            // LETTERBOX. `MetalImageView` maps the image to normalized view
+            // UVs, so a height-only frame stretches it to the sidebar's full
+            // width: a 128x128 mean or max pattern was drawn about 300x120,
+            // i.e. 2.5x wider than tall, and every Bragg disk rendered as a
+            // horizontal ellipse — in the app that has an ellipse-calibration
+            // feature for measuring exactly that distortion. The 200x50 real
+            // space preview was squashed the other way. Reported by the release
+            // owner from the inspector on 2026-08-27, same root cause as the
+            // configurator panes fixed the same day; this is the third call
+            // site of the class, after those and the main window (which was
+            // already correct).
+            .aspectRatio(
+                CGFloat(width) / CGFloat(max(height, 1)), contentMode: .fit
+            )
+            .frame(maxHeight: 120)
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
         }
