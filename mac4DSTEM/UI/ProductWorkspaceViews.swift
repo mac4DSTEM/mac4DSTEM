@@ -806,6 +806,20 @@ private struct ProductComparisonView: View {
                     colormap: rendered.colormap, zoom: 1, offset: .zero,
                     rgba: rendered.rgba, displayLo: 0, displayHi: 1, gamma: 1
                 )
+                // LETTERBOX before zooming. Without this the panel stretched
+                // each product to the pane, so two products being COMPARED were
+                // both distorted — in the view whose entire purpose is
+                // comparing them, and where a difference map is offered beside
+                // them. Found 2026-08-27 by sweeping every `MetalImageView`
+                // call site after the same defect turned up in the configurator
+                // panes and the inspector thumbnails; this was the fourth
+                // instance, and it survived a rewrite of this very function
+                // earlier the same day because the rewrite was looking at
+                // `contentVersion`, not at aspect.
+                .aspectRatio(
+                    CGFloat(product.width) / CGFloat(max(product.height, 1)),
+                    contentMode: .fit
+                )
                 .scaleEffect(max(1, zoom * liveZoom))
                 .frame(width: size.width, height: size.height)
                 .clipped()

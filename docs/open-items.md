@@ -1283,10 +1283,30 @@ or it spends the one resource Track B is expensive in — a person's attention.
   `.aspectRatio(width/height, contentMode: .fit)` ahead of a `maxHeight` frame;
   re-driven afterwards, the square patterns now render square with round disks
   and real space as a correct 4:1 strip. `unit` 384/4/0 exit 0.
-  **This was the third call site of one class in a day** — the configurator
-  panes (letterboxed the same day) and this one; the result and diffraction
-  panes were already correct via `fitted(in:aspect:)`. Worth a sweep: any
-  `MetalImageView` given only one dimension stretches, silently.
+  **The sweep was then actually run, and it found a fourth.** All six
+  `MetalImageView` call sites, audited 2026-08-27:
+
+  | call site | aspect handling |
+  |---|---|
+  | `DiffractionView.swift:98` | correct — `fitted(in:aspect:)` |
+  | `StemImageView.swift:292` | correct — `fitted(in:aspect:)` |
+  | `StemImageView.swift:481` (scan navigator) | correct by construction — `height = 118 * h/w` |
+  | `LoadConfiguratorView.swift:243` | **was stretched**, letterboxed same day |
+  | `DatasetInspector.swift:358` | **was stretched**, letterboxed same day |
+  | `ProductWorkspaceViews.swift:803` | **was stretched — found by this sweep**, fixed |
+
+  The fourth is the **comparison panel**: it framed each product to the full
+  pane, so two products being COMPARED were both distorted, in the view whose
+  only purpose is comparing them and which offers a difference map beside them.
+  It survived a rewrite of that very function earlier the same day, because the
+  rewrite was looking at `contentVersion` and not at aspect — a good argument
+  for auditing the class rather than the instance. Fixed with
+  `.aspectRatio(...)` ahead of the zoom `scaleEffect`, so the letterbox applies
+  before the shared zoom and the outer frame still bounds and clips the pane.
+  `unit` 384/4/0 exit 0. **The class is now closed: no `MetalImageView` in the
+  tree is left without an aspect constraint.** Unverified on screen for the
+  comparison panel — it needs two saved products loaded into slots A and B
+  (Track B row F1.35 covers that state).
 
 - **The launch screen's Prepare / Analyze / Preserve cards are too large.**
   Release owner, 2026-08-27, while driving TB1: three full-width cards stacked
