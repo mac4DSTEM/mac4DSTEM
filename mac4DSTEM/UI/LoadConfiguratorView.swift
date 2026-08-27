@@ -216,7 +216,29 @@ struct LoadConfiguratorView: View {
             Text(title).font(.callout.weight(.medium))
             Text(subtitle).font(.caption2).foregroundStyle(.secondary)
             GeometryReader { geometry in
-                let size = geometry.size
+                // LETTERBOX, do not stretch. `MetalImageView` maps the image to
+                // normalized view UVs (`Shaders/Colormaps.metal:44,49-51`), so
+                // handing it the full pane draws e.g. an 84x100 scan into a
+                // 270x227 box — a circular diffraction disk renders elliptical,
+                // and, worse, a user dragging a visually SQUARE box gets a
+                // non-square crop. Measured on screen 2026-08-27: a 100x98pt
+                // drag on sim_Au produced `63 x 45`, exactly 54% of width by
+                // 63% of height. The crop arithmetic was right; the picture was
+                // lying about what was being selected.
+                //
+                // The main window already letterboxes through the same helper
+                // (`StemImageView.fitted(in:aspect:)`), so the configurator was
+                // the odd one out: the same dataset was drawn stretched while
+                // choosing a crop and aspect-true once loaded. Owner decision,
+                // 2026-08-27, closing #17a for these panes.
+                //
+                // Sizing the ZStack to `box` also fixes the gestures for free —
+                // tap and drag then work in the box's own coordinate space, so
+                // no letterbox offset has to be subtracted anywhere.
+                let size = fitted(
+                    in: geometry.size,
+                    aspect: CGFloat(image.width) / CGFloat(max(image.height, 1))
+                )
                 ZStack(alignment: .topLeading) {
                     MetalImageView(
                         pixels: image.pixels, width: image.width, height: image.height,
@@ -266,6 +288,8 @@ struct LoadConfiguratorView: View {
                                              width: image.width, height: image.height))
                         }
                 )
+                // Centre the letterboxed box in the pane it no longer fills.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(height: 220)
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -278,6 +302,20 @@ struct LoadConfiguratorView: View {
     /// Clamping to the image happens in `LoadConfiguration`, not here — a drag
     /// that leaves the view is a normal gesture and the model already treats
     /// "past the edge" as "to the edge".
+    /// Aspect-preserving fit, identical to the one the result and diffraction
+    /// panes use (`StemImageView.fitted(in:aspect:)`,
+    /// `DiffractionView.fitted(in:aspect:)`). Duplicated rather than shared
+    /// because those two are private to their own views; if a fourth caller
+    /// appears, hoist it.
+    private func fitted(in size: CGSize, aspect: CGFloat) -> CGSize {
+        guard size.width > 0, size.height > 0, aspect > 0 else { return .zero }
+        if size.width / size.height > aspect {
+            return CGSize(width: size.height * aspect, height: size.height)
+        } else {
+            return CGSize(width: size.width, height: size.width / aspect)
+        }
+    }
+
     private func rectangle(
         from value: DragGesture.Value, in size: CGSize, width: Int, height: Int
     ) -> DragRectangle {

@@ -464,9 +464,17 @@ the claims are widened*, not as release advice.
   trailing legends (colour wheel, IPF key, scalar colorbar) moved into that
   row's trailing slot as a `VStack`, structurally — they are mutually exclusive
   by construction, so the stack fixes no overlap between them and an earlier
-  version of this entry wrongly claimed it did (Gate A, same day). **Unverified on screen: Track B row F1.32**, which scores
-  the WIDE case as well — a fix that stacked them always would pass a glance
-  at a narrow pane and waste a third of every normal pane's bottom edge.
+  version of this entry wrongly claimed it did (Gate A, same day). **VERIFIED ON SCREEN 2026-08-27, on the original defect
+  configuration** — `downsample_Si_SiGe_exp.h5` at 200 x 50 with a 90 degrees
+  display rotation applied, the exact scan shape and orientation the collision
+  was reported on. The bar and the legend sit adjacent at the bottom of the
+  letterboxed image box, roughly 37pt apart, no overlap; the box measured
+  ~274pt and the row correctly chose side-by-side (69 + 148 + 40 = 257 < 274),
+  matching the derived arithmetic. The narrow branch was scored separately by
+  squeezing a pane to its 171pt floor. **Track B row F1.32 PASSED**, both
+  branches — which matters, because a fix that stacked them always would pass a
+  glance at a narrow pane and waste a third of every normal pane's bottom
+  edge.
 - **"Recent-file access could not be remembered."** Logged after a successful
   open in the clean-account run: the app loaded the file but could not persist a
   security-scoped bookmark, so Open Recent will not reopen it. **Caveat before
@@ -689,9 +697,66 @@ the claims are widened*, not as release advice.
   mislabels its preserved results~~ — **Closed by S7, 2026-08-25**
   (`SessionGates` blocks all three rewrite entry points by name); record in
   [the closed-items archive](archive/closed-items-2026-08.md). Track B rows F1.26/F1.27.
-- **The configurator's real-space and diffraction-max panes render a
-  single flat colour ON SCREEN — the data behind them is verified
-  healthy.** Found on TB1 sitting 1 (2026-08-25, sim_Au, screenshots
+- **The configurator's preview panes render NOTHING on screen — the data
+  behind them is verified healthy.** **Re-driven and captured 2026-08-27** by
+  the assistant (Screen Recording granted), on
+  `References/training_dataset/sim_Au_data_all_binned.h5` opened through
+  *Open with Options…*, window 2200x1250. **Two refinements to the record
+  below, both from the screenshot:**
+  (1) the panes are **blank white**, not "a single flat colour" — the headers
+  ("Scan — real space", "Diffraction — max", "Diffraction — single position")
+  and their captions render, and the image areas render nothing at all;
+  (2) **all three** panes are affected, including the single-position pane,
+  which the 2026-08-25 record reported as drawing correctly. Everything else on
+  the sheet is right: `Scan (Ry x Rx) 100 x 84`, `Detector (Qy x Qx) 125 x 125`,
+  the binning control, and the Size block. The status line was still frozen at
+  *"Sampling a preview · row 33 of 34"* after 60+ seconds, and the header said
+  *"Sampled preview · every 3rd position · 952 of 8,400"* — consistent with the
+  cosmetic dropped-final-tick diagnosis below, now observed twice. **F1.3b
+  stays FAILED**, and the aspect-stretch decision stays blocked.
+
+  **A discriminating observation, and it narrows the defect.** The release
+  owner proposed that the single-position pane might be blank *by design*
+  until a scan position is picked. Tested directly: clicking the centre of the
+  (blank) real-space pane changed its caption from *"Pattern at scan (90, 21)"*
+  to *"Pattern at scan (33, 21)"*. **The click registered, the selected
+  position updated, the caption re-rendered live — and the pane stayed blank.**
+  The hypothesis is refuted, and more usefully the layers separate: hit-testing,
+  state and text rendering in that same sheet all work, while the Metal-backed
+  image views draw nothing. With `TB1StallProbeTests` already pinning the data
+  healthy headlessly, the defect looked bounded to the image views themselves.
+
+  **That conclusion is REFUTED, same session, by a second dataset — and the
+  refutation is the most useful observation of this drive.** The release owner
+  tried `Open with Options…` on `downsample_Si_SiGe_exp.h5` and reported the
+  single-position pane rendering; reproduced independently by the assistant
+  (2026-08-27, same build, `every 4th position · 650 of 10,000`, scan (0, 136)):
+
+  | pane | built from | renders? |
+  |---|---|---|
+  | Scan — real space | the sampled preview | **no** |
+  | Diffraction — max | the sampled preview | **no** |
+  | Diffraction — single position | a direct read of one pattern | **YES** — clear CBED, disk array, correct colormap |
+
+  The split follows the sheet's own caption exactly: *"Real-space and max are
+  built from the sampled positions only … The single-position pane is the
+  recorded pattern at that scan position, exactly."* **The two panes derived
+  from the sampled preview fail; the one that is not derived from it works —
+  through the same view type.** A generic "the Metal image views are broken"
+  account cannot survive that, and neither can "the sheet cannot draw".
+
+  **Two further specifics for the next Gate D sitting:** (1) on Si_SiGe the two
+  failing panes show **no frame or border at all** while the working pane has a
+  clear one — consistent with those views being absent rather than drawing
+  blank, which would put `realSpaceDisplay` / `maxDPDisplay` nil at
+  `LoadConfiguratorView.swift:84` and contradict the 2026-08-25 reasoning that
+  refuted that branch; (2) on **sim_Au all three panes are blank**,
+  single-position included, so the behaviour is dataset-dependent too — any
+  account must explain both files, not one.
+
+  *Original entry (2026-08-25) follows.* **The configurator's real-space and
+  diffraction-max panes render a single flat colour ON SCREEN — the data behind
+  them is verified healthy.** Found on TB1 sitting 1 (2026-08-25, sim_Au, screenshots
   18:45–18:51); Gate D run the same evening narrowed it hard, and three
   candidate diagnoses died in order, each on primary evidence:
   (1) ~~"sampling stalls at row 33 of 34"~~ — the frozen status line is
@@ -780,7 +845,18 @@ the claims are widened*, not as release advice.
     line, so the last sampling tick — which can drop its final update in a
     benign race with `finishDatasetLoading` — stays on screen indefinitely
     (the frozen "row 33 of 34").
-- **The configurator sheet still clips a text line at its bottom edge.**
+- **The configurator sheet still clips a text line at its bottom edge —
+  RE-OBSERVED 2026-08-27, and it is worse than a caption.** Driven on sim_Au in
+  a 2200x1250 window: at scroll position 0 the Size block was cut mid-row at
+  *"This selection (f32)"*, and **`Loaded shape` and `GPU budget` were entirely
+  below the fold**, along with the closing float32 caption. `Loaded shape` is
+  the row a crop actually changes, so the clipped content is the load-bearing
+  part, not decoration. A scrollbar exists and reaching the rows works
+  (`AXScrollBar` value 0 -> 1), so nothing is unreachable — but S4's intent,
+  recorded at `LoadConfiguratorView.swift:44`, was that the standing content
+  fits **without** scrolling at this sheet size, and it does not. Enlarging the
+  window did not help: the sheet keeps its own size. **F1.17 stays PARTLY
+  PASSED / clipping unresolved.**
   Same screenshots: the caption below "GPU budget" is cut mid-height at
   900×760 — the clipping S4's `:44` fix was meant to end. Small, but the
   row (F1.17) explicitly requires no clipped content, so it is a finding,
@@ -1067,7 +1143,23 @@ or it spends the one resource Track B is expensive in — a person's attention.
   is unpinned — the demo path cannot reach those states, the honest gap in
   `DatasetLoadCancellationTests`.
 - **#17a — aspect-aware pane arrangement.** Built, then reverted on sight
-  2026-08-05. Needs a design decision, not an implementation.
+  2026-08-05. Needs a design decision, not an implementation. **Decided and
+  implemented for the CONFIGURATOR PANES ONLY, 2026-08-27** (owner decision,
+  taken on measured evidence rather than on sight this time): those panes
+  handed `MetalImageView` the full pane, and it maps to normalized view UVs, so
+  an 84x100 scan was drawn into a ~270x227 box. A visually square drag on
+  sim_Au produced `63 x 45` — 54% of width by 63% of height — so the crop
+  arithmetic was right while the picture misrepresented what was being
+  selected, and a circular disk rendered elliptical in an app that has an
+  ellipse-calibration feature. `LoadConfiguratorView` now letterboxes through
+  the same `fitted(in:aspect:)` the result and diffraction panes use, with the
+  ZStack sized to the box so tap and drag work in its coordinate space and no
+  offset arithmetic was needed. `unit` 384/4/0 exit 0 after the change.
+  **Unverified on screen, and it cannot be seen until F1.3b is fixed** — the
+  panes draw nothing. It CAN be measured, and that is the acceptance test: drag
+  a visually square box and confirm `Loaded shape` now comes back square-ish
+  instead of 45x63. The wider #17a question — pane ARRANGEMENT in the main
+  window — is untouched and still open.
 - ~~**#36 — no progress indication while a datacube loads**~~ — **fixed
   2026-08-06 (L1)**, confirmed on a real 3.96 GB cube; record in
   [the closed-items archive](archive/closed-items-2026-08.md).
@@ -1097,6 +1189,35 @@ or it spends the one resource Track B is expensive in — a person's attention.
   0 failed, exit 0**, with `testEveryNonQuarantinedWorkspaceSidebarFitsItsColumn`
   and `testSidebarDocumentRoughlyFitsItsColumn` both still passing — the extra
   line does not tip the column-fit gates.
+
+- **TB1's staged fixtures are GONE, and F1.26 cannot be driven.** Found
+  2026-08-27 while attempting the row: `References/training_dataset/` contains
+  the four `.h5` cubes and **no `.mac4dstem.h5` sidecar at all**. Two files the
+  drive kit asserts are present are missing:
+  (1) `polycrystal_2D_WS2.mac4dstem.h5` — the deliberately foreign sidecar
+  recording a 200x200 scan crop against a 128x128 file, which the kit says was
+  *"already staged"* and *"verified by readback"*; it is the entire fixture for
+  **F1.26**, and without it the row has nothing to observe; and
+  (2) `sim_Au_data_all_binned.mac4dstem.h5`, which the kit describes as a real
+  prior session's sidecar and offers as an option for **F1.3f**.
+  Neither was deleted by this session — the kit's own cleanup block was never
+  run. **F1.26 is BLOCKED on re-staging**, and F1.3f loses one of its two
+  routes. Re-staging is a `tools/` job (the kit says the original was written
+  through `BraggVectorEMDWriter.mergeCalibration`), not something a Track B
+  drive should improvise, because a hand-made fixture that differs from what
+  the app writes would test the wrong thing. Owner: whoever next picks up
+  sitting 2.
+
+- **The launch screen's Prepare / Analyze / Preserve cards are too large.**
+  Release owner, 2026-08-27, while driving TB1: three full-width cards stacked
+  top-to-bottom spend a lot of vertical space on what is a three-way choice,
+  and they push the actual entry points (Open Dataset… / Open with Options… /
+  Reopen / Try Demo) and the recents list far down the window. **Owner's
+  suggestion: lay them out side by side.** A design preference, not a defect —
+  recorded rather than fixed inline because acceptance is evaluation only, and
+  because it changes what the app draws and therefore wants its own Track B
+  row. Cheap and self-contained; a good candidate for the polish successor to
+  S18, or any session with slack.
 
 - **At minimum pane width the pane header degrades badly.** Seen while driving
   F1.32's narrow case (2026-08-27, demo dataset, right pane at its 171pt
