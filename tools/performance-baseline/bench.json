@@ -1,0 +1,422 @@
+{
+  "benchmarks" : {
+    "acom_matching_medium_cpu" : {
+      "backend" : "Accelerate CPU",
+      "checksum" : 200192.20993845194,
+      "estimated_working_bytes" : 19660800,
+      "maximum_ms" : 9.6082909999999995,
+      "median_ms" : 7.6557919999999999,
+      "minimum_ms" : 7.5416249999999998,
+      "resident_bytes_observed_max" : 336117760,
+      "samples_ms" : [
+        7.6557919999999999,
+        9.3097080000000005,
+        7.5852079999999997,
+        9.6082909999999995,
+        7.5416249999999998
+      ],
+      "workload" : {
+        "azimuthal_bins" : 128,
+        "radial_bins" : 32,
+        "scan_height" : 6,
+        "scan_positions" : 48,
+        "scan_width" : 8,
+        "templates" : 400
+      }
+    },
+    "acom_matching_medium_metal" : {
+      "backend" : "Metal GPU",
+      "checksum" : 200191.86436325966,
+      "estimated_working_bytes" : 19660800,
+      "maximum_ms" : 22.763166999999999,
+      "median_ms" : 22.199334,
+      "minimum_ms" : 21.796125,
+      "resident_bytes_observed_max" : 351846400,
+      "samples_ms" : [
+        22.199334,
+        22.763166999999999,
+        21.859583000000001,
+        22.336874999999999,
+        21.796125
+      ],
+      "workload" : {
+        "azimuthal_bins" : 128,
+        "radial_bins" : 32,
+        "scan_height" : 6,
+        "scan_positions" : 48,
+        "scan_width" : 8,
+        "templates" : 400
+      }
+    },
+    "acom_matching_small" : {
+      "backend" : "Accelerate CPU",
+      "checksum" : 13438.525236899372,
+      "estimated_working_bytes" : 19660800,
+      "maximum_ms" : 2.5365000000000002,
+      "median_ms" : 2.077,
+      "minimum_ms" : 1.730917,
+      "resident_bytes_observed_max" : 335986688,
+      "samples_ms" : [
+        2.1036670000000002,
+        2.5365000000000002,
+        1.730917,
+        1.8516250000000001,
+        2.077
+      ],
+      "workload" : {
+        "azimuthal_bins" : 128,
+        "radial_bins" : 32,
+        "scan_height" : 3,
+        "scan_positions" : 12,
+        "scan_width" : 4,
+        "templates" : 400
+      }
+    },
+    "acom_plan_generation" : {
+      "backend" : "Accelerate\/vDSP + CPU template generation",
+      "checksum" : 411.64094434578345,
+      "estimated_working_bytes" : 19660800,
+      "maximum_ms" : 32.165292000000001,
+      "median_ms" : 32.146166999999998,
+      "minimum_ms" : 31.699458,
+      "resident_bytes_observed_max" : 322764800,
+      "samples_ms" : [
+        32.146166999999998,
+        31.699458,
+        32.158791000000001,
+        32.165292000000001,
+        31.989125000000001
+      ],
+      "workload" : {
+        "azimuthal_bins" : 128,
+        "crystal" : "Au FCC",
+        "k_max" : 1.2,
+        "radial_bins" : 32,
+        "templates" : 400
+      }
+    },
+    "disk_correlation" : {
+      "backend" : "Accelerate\/vDSP + CPU maxima",
+      "checksum" : 9144.5775909423828,
+      "estimated_working_bytes" : 2228224,
+      "maximum_ms" : 11.784667000000001,
+      "median_ms" : 11.638209,
+      "minimum_ms" : 11.617125,
+      "resident_bytes_observed_max" : 190562304,
+      "samples_ms" : [
+        11.784667000000001,
+        11.638209,
+        11.778458000000001,
+        11.637665999999999,
+        11.617125
+      ],
+      "workload" : {
+        "patterns" : 24,
+        "qx" : 128,
+        "qy" : 128,
+        "sigma_cc" : 0,
+        "subpixel" : "poly"
+      }
+    },
+    "disk_detection" : {
+      "backend" : "Accelerate\/vDSP + CPU maxima",
+      "checksum" : 9134.7627563476562,
+      "estimated_working_bytes" : 2228224,
+      "maximum_ms" : 14.48775,
+      "median_ms" : 14.449332999999999,
+      "minimum_ms" : 14.325749999999999,
+      "resident_bytes_observed_max" : 190644224,
+      "samples_ms" : [
+        14.449332999999999,
+        14.48775,
+        14.464916000000001,
+        14.38575,
+        14.325749999999999
+      ],
+      "workload" : {
+        "patterns" : 24,
+        "qx" : 128,
+        "qy" : 128,
+        "sigma_cc" : 2,
+        "subpixel" : "poly"
+      }
+    },
+    "fft_exact_shape" : {
+      "backend" : "Accelerate\/vDSP",
+      "checksum" : 8.2324686050415039,
+      "estimated_working_bytes" : 122880,
+      "maximum_ms" : 0.28629100000000002,
+      "median_ms" : 0.27833400000000003,
+      "minimum_ms" : 0.27700000000000002,
+      "resident_bytes_observed_max" : 188334080,
+      "samples_ms" : [
+        0.28629100000000002,
+        0.27833400000000003,
+        0.281667,
+        0.27729100000000001,
+        0.27700000000000002
+      ],
+      "workload" : {
+        "height" : 80,
+        "round_trips" : 5,
+        "width" : 96
+      }
+    },
+    "fft_radix2" : {
+      "backend" : "Accelerate\/vDSP",
+      "checksum" : 8.232508659362793,
+      "estimated_working_bytes" : 1048576,
+      "maximum_ms" : 4.3835420000000003,
+      "median_ms" : 4.217708,
+      "minimum_ms" : 4.1757080000000002,
+      "resident_bytes_observed_max" : 188153856,
+      "samples_ms" : [
+        4.1757080000000002,
+        4.212917,
+        4.3428750000000003,
+        4.3835420000000003,
+        4.217708
+      ],
+      "workload" : {
+        "height" : 256,
+        "round_trips" : 20,
+        "width" : 256
+      }
+    },
+    "ptychography_dm_ap" : {
+      "backend" : "Accelerate\/vDSP + scalar CPU updates",
+      "checksum" : 64820.029299603775,
+      "estimated_working_bytes" : 983040,
+      "maximum_ms" : 10.455208000000001,
+      "median_ms" : 9.954917,
+      "minimum_ms" : 9.6972079999999998,
+      "resident_bytes_observed_max" : 1115111424,
+      "samples_ms" : [
+        9.6972079999999998,
+        9.954917,
+        9.9887920000000001,
+        9.9119580000000003,
+        10.455208000000001
+      ],
+      "workload" : {
+        "detector_height" : 32,
+        "detector_width" : 32,
+        "iterations" : 5,
+        "method" : "difference-map_alternating-projections",
+        "object_height" : 64,
+        "object_width" : 64,
+        "scan_positions" : 64
+      }
+    },
+    "ptychography_dm_ap_medium" : {
+      "backend" : "Accelerate\/vDSP + scalar CPU updates",
+      "checksum" : 79.461774826049805,
+      "estimated_working_bytes" : 4460544,
+      "maximum_ms" : 39.890749999999997,
+      "median_ms" : 39.659833999999996,
+      "minimum_ms" : 39.003833,
+      "resident_bytes_observed_max" : 313556992,
+      "samples_ms" : [
+        39.003833,
+        39.659833999999996,
+        39.503166999999998,
+        39.890749999999997,
+        39.749375000000001
+      ],
+      "workload" : {
+        "detector_height" : 48,
+        "detector_width" : 48,
+        "iterations" : 3,
+        "method" : "difference-map_alternating-projections",
+        "object_height" : 96,
+        "object_width" : 96,
+        "scan_positions" : 144
+      }
+    },
+    "ptychography_gradient_descent" : {
+      "backend" : "Accelerate\/vDSP + scalar CPU updates",
+      "checksum" : 119.24379348754883,
+      "estimated_working_bytes" : 458752,
+      "maximum_ms" : 7.1760840000000004,
+      "median_ms" : 6.7320419999999999,
+      "minimum_ms" : 6.6131250000000001,
+      "resident_bytes_observed_max" : 1115078656,
+      "samples_ms" : [
+        7.1760840000000004,
+        6.6838749999999996,
+        6.7320419999999999,
+        6.9047090000000004,
+        6.6131250000000001
+      ],
+      "workload" : {
+        "detector_height" : 32,
+        "detector_width" : 32,
+        "iterations" : 5,
+        "method" : "gradient-descent",
+        "object_height" : 64,
+        "object_width" : 64,
+        "scan_positions" : 64
+      }
+    },
+    "ptychography_gradient_descent_medium" : {
+      "backend" : "Accelerate\/vDSP + scalar CPU updates",
+      "checksum" : 113.73485946655273,
+      "estimated_working_bytes" : 1806336,
+      "maximum_ms" : 30.777374999999999,
+      "median_ms" : 30.056916999999999,
+      "minimum_ms" : 29.872624999999999,
+      "resident_bytes_observed_max" : 311574528,
+      "samples_ms" : [
+        30.777374999999999,
+        30.179124999999999,
+        29.872624999999999,
+        29.958165999999999,
+        30.056916999999999
+      ],
+      "workload" : {
+        "detector_height" : 48,
+        "detector_width" : 48,
+        "iterations" : 3,
+        "method" : "gradient-descent",
+        "object_height" : 96,
+        "object_width" : 96,
+        "scan_positions" : 144
+      }
+    },
+    "selected_area_diffraction" : {
+      "backend" : "Metal\/Apple M3",
+      "checksum" : 685194.25,
+      "estimated_working_bytes" : 21272832,
+      "maximum_ms" : 1.0608329999999999,
+      "median_ms" : 0.99429100000000004,
+      "minimum_ms" : 0.83662499999999995,
+      "resident_bytes_observed_max" : 218890240,
+      "samples_ms" : [
+        1.0608329999999999,
+        1.014208,
+        0.99429100000000004,
+        0.83662499999999995,
+        0.86862499999999998
+      ],
+      "workload" : {
+        "qx" : 96,
+        "qy" : 96,
+        "rx" : 24,
+        "ry" : 24,
+        "selected_scan_positions" : 144
+      }
+    },
+    "tile_staging" : {
+      "backend" : "FourDArray + Float32 source staging",
+      "checksum" : 108.48162841796875,
+      "estimated_working_bytes" : 24772608,
+      "maximum_ms" : 1.2084159999999999,
+      "median_ms" : 0.97966600000000004,
+      "minimum_ms" : 0.95420899999999997,
+      "resident_bytes_observed_max" : 222494720,
+      "samples_ms" : [
+        0.97966600000000004,
+        0.97754200000000002,
+        0.95420899999999997,
+        1.2084159999999999,
+        0.99933300000000003
+      ],
+      "workload" : {
+        "qx" : 96,
+        "qy" : 96,
+        "rx" : 24,
+        "ry" : 24,
+        "tile_rows" : 4
+      }
+    },
+    "virtual_detector_cancel_bound_resident" : {
+      "backend" : "VirtualDetector.tiledImage — resident cancel bound",
+      "checksum" : 0,
+      "estimated_working_bytes" : 134217728,
+      "maximum_ms" : 22.309916999999999,
+      "median_ms" : 20.309792000000002,
+      "minimum_ms" : 11.804541,
+      "resident_bytes_observed_max" : 1114652672,
+      "samples_ms" : [
+        21.562042000000002,
+        20.309792000000002,
+        22.309916999999999,
+        15.893708,
+        11.804541
+      ],
+      "workload" : {
+        "measures" : "ms of the single uninterruptible whole-cube dispatch — the worst case a cancel must wait out",
+        "note" : "the resident path has no mid-pass progress: its only tick is progress?(1) after the dispatch returns",
+        "qx" : 128,
+        "qy" : 128,
+        "residency" : "resident",
+        "rx" : 32,
+        "ry" : 64
+      }
+    },
+    "virtual_detector_cancel_bound_streaming" : {
+      "backend" : "VirtualDetector.tiledImage — streaming cancel bound (one tile)",
+      "checksum" : 0,
+      "estimated_working_bytes" : 134217728,
+      "maximum_ms" : 6.4544843749999998,
+      "median_ms" : 5.5156849374999997,
+      "minimum_ms" : 4.2195859374999998,
+      "resident_bytes_observed_max" : 226885632,
+      "samples_ms" : [
+        5.5156849374999997,
+        5.6433073125000002,
+        4.2195859374999998,
+        4.4726197499999998,
+        6.4544843749999998
+      ],
+      "workload" : {
+        "measures" : "ms per tile — the worst case a cancel must wait out; expect half of it on a random click",
+        "note" : "synthetic in-memory source: the read half of a real tile is missing. See tile_staging.",
+        "qx" : 128,
+        "qy" : 128,
+        "residency" : "streamed",
+        "rx" : 32,
+        "ry" : 64,
+        "tile_rows" : 4,
+        "tiles" : 16
+      }
+    },
+    "virtual_detector_cancel_streaming" : {
+      "backend" : "VirtualDetector.tiledImage — streaming cancel latency",
+      "checksum" : 0,
+      "estimated_working_bytes" : 134217728,
+      "maximum_ms" : 0.015875,
+      "median_ms" : 0.0076670000000000002,
+      "minimum_ms" : 0.0052919999999999998,
+      "resident_bytes_observed_max" : 226721792,
+      "samples_ms" : [
+        0.010541999999999999,
+        0.0076670000000000002,
+        0.0052919999999999998,
+        0.015875,
+        0.0073749999999999996
+      ],
+      "workload" : {
+        "measures" : "BEST CASE ms from cancel() to throw — cancel issued at a tile boundary, where the next statement is the loop's guard",
+        "note" : "synthetic in-memory source: this is the DISPATCH half of the per-tile bound. The read half is tile_staging.",
+        "qx" : 128,
+        "qy" : 128,
+        "residency" : "streamed",
+        "rx" : 32,
+        "ry" : 64,
+        "tile_rows" : 4,
+        "tiles" : 16
+      }
+    }
+  },
+  "configuration" : {
+    "repeats" : 5,
+    "warmups" : 1
+  },
+  "machine" : "macbookair",
+  "metal_device" : "Apple M3",
+  "os" : "Version 27.0 (Build 26A5388g)",
+  "processor_count" : 8,
+  "recorded_at" : "2026-08-27T16:52:06Z",
+  "schema" : 2
+}

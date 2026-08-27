@@ -1366,6 +1366,14 @@ or it spends the one resource Track B is expensive in — a person's attention.
   | streaming, **bound** (one whole tile) | **5.4 ms** | 4.0 | 6.7 |
   | resident, **bound** (the one indivisible dispatch) | **13.2 ms** | 11.1 | 16.0 |
 
+  **Second run the same day, 5 repeats after 1 warmup, same machine:** streaming
+  best case 0.008 ms, streaming bound **5.5 ms** (stable), resident bound
+  **20.3 ms** — against 13.2 ms in the morning. The streaming bound reproduces
+  tightly; **the resident bound does not**, varying by half again between runs
+  on one machine. Anything quoting it — S20's release table especially — should
+  give a range, not a point. The conclusion is unaffected: streaming's bound is
+  single-digit ms and dispatch-only, so #37's cost is the per-tile read.
+
   **The check granularity is not the problem.** A user clicking Cancel waits
   at worst one tile and on average half of one — single-digit milliseconds
   here, which nobody would describe as "a long time". So the reported cost is
