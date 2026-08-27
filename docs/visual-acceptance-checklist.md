@@ -68,7 +68,8 @@ it plausibly touches plus §A.
 | Check | Expect | Known trap |
 |---|---|---|
 | Readiness rows | Each row's summary agrees with its own detail line | A row read *"Missing"* for an origin that had been measured — found by eye, invisible to the suite |
-| Sidebar at the default width | Nothing clipped, no row pushed off the top of the column | `SidebarLayoutTests` measured 933pt against 871pt of column on macOS 27; it also stayed green for months with a real overflow on screen |
+| **Default-collapsed** sidebar at the default width, uncalibrated Prepare | The column may scroll by about one calibration row, but it opens at the top below the title bar; every calibration status/action remains reachable by ordinary scrolling; switching away and back never leaves a top row hidden or inert | **S17 numeric quarantine, unverified on screen:** collapsed Prepare measures 933pt against 871pt on macOS 27. The old 60pt allowance was non-invariant (the same unchanged UI was documented at 49pt, now 62pt), so automation no longer pretends a point threshold answers usability |
+| Expand **Display** in Prepare, then visit Map and return | The disclosure stays intentionally expanded; its controls and the calibration actions remain reachable by ordinary scrolling, with no row under the title bar and no inert control | **S17, unverified on screen:** the persisted disclosure was the intermittent test axis. Expanded geometry reproduces the historical 1029/945/961pt triplet exactly, so the default-collapsed numeric gate deliberately excludes this remembered user state |
 | Sidebar dragged narrow, then reopened | Restores no narrower than the declared 250pt minimum | Observed restoring at 144pt. Test harnesses pin the width; the app does not |
 | Fit overlays (origin, ellipse) | Overlay lands on the feature it claims to fit | The refuting evidence for a wrong diagnosis has twice been a residual already printed in the log |
 

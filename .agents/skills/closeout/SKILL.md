@@ -38,6 +38,9 @@ Done means the repo tells the next reader the truth. In order:
    `docs/v2-release.md` §9 — same honesty bar as the docs: every number
    dated to its own run. From a fresh conversation, pass that address as
    the Artifact tool's `url` (publishing without it forks a new artifact).
+   **If the Artifact tool is not exposed in the session, do not substitute a
+   browser edit and do not publish without the URL.** Record the republish as
+   owed in the session's "not verified" line and tell the owner at handoff.
 8. One sentence on the skills themselves: did any skill misfire, get
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's

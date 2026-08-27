@@ -38,6 +38,13 @@ unit_tests() (
   work="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-unit-tests.XXXXXX")"
   trap 'rm -rf "$work"' EXIT
 
+  # CI keeps the result bundle long enough to export S17's sidebar-geometry
+  # attachment. Local runs need no bundle and retain the existing behaviour.
+  local -a result_bundle_args=()
+  if [[ -n "${MAC4DSTEM_XCRESULT_BUNDLE_PATH:-}" ]]; then
+    result_bundle_args=(-resultBundlePath "$MAC4DSTEM_XCRESULT_BUNDLE_PATH")
+  fi
+
   # -only-testing scopes this to the fast unit-test target. Without it,
   # adding mac4DSTEMUITests (tools/ui-qc-playthrough) would silently pull a
   # slow, screen-driving UI playthrough into every normal test run.
@@ -46,6 +53,7 @@ unit_tests() (
       -configuration Debug -destination 'platform=macOS' \
       -derivedDataPath "$work/DerivedData" \
       -only-testing:mac4DSTEMTests \
+      "${result_bundle_args[@]}" \
       CODE_SIGNING_ALLOWED=NO -quiet
 )
 

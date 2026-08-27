@@ -441,9 +441,9 @@ only if asked.
   the recorded restore-path frame hole.
   Full record: [`docs/archive/v2-session-records/s10.md`](archive/v2-session-records/s10.md).
 - [ ] S9 — when NAS access and disk allow
-- *Resequenced 2026-08-26 (M1/T6): S10's dependencies (S5, S8) are met;
-  chosen order **S10 → S21 → S17**; S9 when NAS access and disk allow; TB1
-  sittings 2–4 whenever the owner sits.*
+- *Resequenced 2026-08-26 (M1/T6), completed 2026-08-27:
+  **S10 → S21 → S17**. S9 waits for NAS access and disk; TB1 sittings 2–4
+  run whenever the owner sits; S11 follows TB1.*
 - [x] **S21** — 2026-08-26. CI on the public repo, authored:
   `.github/workflows/ci.yml` (`unit` + the full `scientific` array on
   `macos-26`, every push/PR, exclusions and red-run caveats stated in the
@@ -458,12 +458,25 @@ only if asked.
   passes off the dev Mac; run #1 caught a real Xcode-26-only type-checker
   failure (fixed, `5f98ded`); run #2's sole red is the S17 intermittent,
   **reproduced on the runner** — the first second-machine observation
-  (logged in open-items). Badge stays red on exactly that documented test
-  until S17. Not verified: the legend decomposition on screen; measured
-  heights from CI.
+  (logged in open-items). At S21 closeout the badge was red on exactly that
+  documented test; S17's local workflow change has not yet had its first
+  runner observation. Not verified: the legend decomposition on screen;
+  measured heights from CI.
   Full record: [`docs/archive/v2-session-records/s21.md`](archive/v2-session-records/s21.md).
+- [x] **S17** — 2026-08-27. Sidebar intermittent: the persisted Display
+  disclosure reproduced the historical 1029/945/961pt failure triplet
+  exactly; both layout suites now inject private AppStorage and the numeric
+  gate says default-collapsed explicitly. Collapsed uncalibrated Prepare is
+  formally quarantined as one dynamic skip with CI-exported geometry; both
+  disclosure states remain measured and have specific Track B rows. Gate D:
+  the first timing diagnosis was refuted, the separate reviewer refuted the
+  threshold-only account, then confirmed the controlled discriminator; the
+  negative control failed as required. 0 deviations. Track A: `unit` exit 0,
+  **378 passed / 4 skipped / 0 failed**. Not verified: Track B, macos-26 CI,
+  the badge, `all`, living-board republish. Full record:
+  [`docs/archive/v2-session-records/s17.md`](archive/v2-session-records/s17.md).
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
-- [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20
+- [ ] S18 · [ ] S19 · [ ] S20
 
 Tick a session only with a record of what shipped and what deviated. Since
 M1 (2026-08-26): the full record goes **verbatim** to

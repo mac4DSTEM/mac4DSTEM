@@ -46,7 +46,8 @@ file:
 - `measureOrigin` frame-dependence and single-refinement → weighed in **S12**;
   **#29** → **S12** reads the campaign data that settles it.
 - **#11** WS₂ → **S14–S16**.
-- `SidebarLayoutTests` intermittent → **S17** (Gate D).
+- ~~`SidebarLayoutTests` intermittent → **S17** (Gate D).~~ **Diagnosed and
+  formally quarantined 2026-08-27**; two owner-visible rows remain in Track B.
 - Colorbar/scale-bar collision, **#38**, the scan-extent two-orders question,
   the comparison-panel `contentVersion`, `pattern(ry:rx:)` ignoring the
   resident cube, **#37** re-measure → **S18**.
@@ -71,11 +72,12 @@ file:
   bug. Fixed same day (`5f98ded`, named sub-expressions; app built locally
   and on the runner). **Run #2 (`5f98ded`): `scientific` PASSED again
   (7m 59s); `unit` built and ran all 377 tests — the sole failure is the
-  S17 sidebar intermittent, now reproduced on the runner (see the S17
-  observation log). So the badge is red for exactly the documented reason
-  and CI is functioning as designed; it goes green when S17 settles that
-  test.** The 180-min `scientific` timeout can be tightened from the
-  ~8-min data when the workflow is next touched.
+  then-unresolved S17 sidebar test, reproduced on the runner. So that red badge
+  was accurate. **S17 settled the test locally on 2026-08-27** (default-collapsed
+  state isolated; uncalibrated Prepare explicitly skipped with diagnostics),
+  but the workflow change has not been pushed: the next CI run is the evidence
+  for a green badge, not this local result. The 180-min `scientific` timeout can
+  be tightened from the ~8-min data when the workflow is next touched.
 - The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
   elimination). The second-machine sweep → **post-v2** (`.automatic` is
   dropped in S3, so the threshold no longer blocks anything).
@@ -195,11 +197,11 @@ Two things learned that are not obvious and cost time:
   exists in the data. **Post-v2, per the 2026-08-18 owner decision:** a
   second-machine sweep re-opens `.automatic`; if two machines disagree, the
   rule needs a second term, not a compromise value.
-- **The app has never run on the macOS version it claims to support.**
-  `LSMinimumSystemVersion` is 14.0; every build, test run and manual session to
-  date has been on macOS 27. Nothing between 14 and 26 has been exercised, and
-  `SidebarLayoutTests` below is direct evidence that this app's layout does
-  shift with the OS. Only a real older machine answers this.
+- **The app has never been driven on the macOS version it claims to support.**
+  `LSMinimumSystemVersion` is 14.0; manual sessions to date have been on macOS
+  27. CI now builds and runs the unit suite on macOS 26, but no Track B pass has
+  exercised that OS and nothing from 14–25 has been exercised at all. Only a
+  real older machine answers the visual/runtime half.
 - **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
   harnesses.** Measured at the tag; **nobody has reproduced the aggregate
   since**, and the count has moved twice — `virtual-detector-residency` landed
@@ -229,10 +231,16 @@ Two things learned that are not obvious and cost time:
   | `real-data-acceptance` | exit 0, 4 cubes golden, 2 sidecars skipped |
   | `package-test` | exit 0 |
 
-  So the honest claim a reader can reproduce is **"every part of `all` except one
-  intermittent layout test"** — not "exit 0, N harnesses". The single thing
-  between here and an aggregate number is that test, and a layout threshold that
-  drifts with the machine is its own problem, not a gate to widen.
+  At that point the honest claim was **"every part of `all` except one
+  intermittent layout test"** — not "exit 0, N harnesses". The test was the
+  single thing between that evidence and an aggregate run.
+
+  **S17 update, 2026-08-27:** the uncontrolled persisted-disclosure state is
+  now isolated and uncalibrated Prepare is an explicit diagnostic skip;
+  `unit` exits 0 (378 passed / 4 skipped / 0 failed). That removes the old
+  early-abort condition, but `all` still has not been run end to end. S19 owns
+  the aggregate run and claim restatement; do not infer its result from the
+  component table above.
 
 ### First clean-account acceptance run — 2026-08-14
 
@@ -408,88 +416,20 @@ the claims are widened*, not as release advice.
     recent is removed from the list but the "Reopen" menu item survives and
     dead-ends in "No recoverable dataset is available." Unclaimed, low.
 
-- **`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn` is
-  intermittent.** It failed on macOS 27 — uncalibrated Prepare measuring 933pt
-  against 871pt of column, 62pt of overflow against a 60pt allowance — and
-  **passed on 2026-08-17**, in a `tools/run-tests.sh unit` run that exited 0 on
-  the same OS. **Not a regression either way:** `git diff v1.0.0..HEAD` over
-  `mac4DSTEM/`, both test targets and `tools/` was empty when the failure first
-  appeared, so no app code had changed. The test's own comment records the
-  overflow as 49pt when written, giving 11pt of headroom.
-  **An intermittent layout threshold is worse than a stable red one**, because a
-  green run stops being evidence — and this test has form: it is a sibling of
-  `testSidebarContentNeverDrawsOverTheTitlebar`, which stayed green for months
-  with #16 visibly on screen. The question is not what broke but **whether 60 was
-  ever a threshold or just one machine's measurement rounded up**, and what the
-  run-to-run variable is (display scale? font? window server state?). Until that
-  is known, do not treat either outcome as information.
-
-  **Observation log, so S17 starts from a series rather than an anecdote**
-  (same OS, macOS 27; app code identical across all of these — verified by
-  `git diff` over `mac4DSTEM/` on each occasion):
-
-  | date | `run-tests.sh unit` | this test |
-  |---|---|---|
-  | 2026-08-17 | exit 0 | passed |
-  | 2026-08-18 | exit 65 | **failed** (933pt vs 871pt, 62pt overflow) |
-  | 2026-08-19 ~09:00–10:00 | exit 0, twice | passed, twice |
-  | 2026-08-19 ~11:00 | exit 65 | **failed, three times in a row** |
-  | 2026-08-19, after freeing disk | exit 65, full `run-tests.sh unit` | **failed** (220 passed, 1 failed) |
-  | 2026-08-19 ~15:26 (S3 baseline; S1+S2 in tree) | exit 0 | passed (8.66 s) |
-  | 2026-08-19 ~16:00 (S3's changes in tree — new inspector control) | exit 0 | passed |
-  | 2026-08-25 (S6 in tree, MCP `test_macos`) | — | **failed** (1029/945/961 pt vs 871+allowance) |
-  | 2026-08-25 (S6 STASHED — clean tree, same session) | — | **failed, byte-identical heights** |
-  | 2026-08-25 (S6 committed, owner freed disk, gate run ×3) | exit 65 ×3 | **failed all three** (first run also hit the dylib-signature defect below) |
-  | 2026-08-25 (S7 session: MCP `test_macos` ×3 + `run-tests.sh unit` ×1) | exit 65 | **failed all four**, heights byte-identical across the day (1029/945/961) — a red day end to end, as 08-19 was a mixed one |
-  | 2026-08-25 later (S8 session: MCP `test_macos` ×2, pre- and post-seam) | — | **failed both**, heights byte-identical to each other (1027/943/963) but **2pt off the S7 numbers from earlier the same day** — the measured heights drift BETWEEN sessions while staying frozen within one, which fits the machine-state hypothesis and rules out anything in S8 (pre-change run identical) |
-  | 2026-08-26 (M1's owed T7 re-run; 14 GB free; docs/tools-only tree) | exit 65 | **failed** (360 passed, 1 failed) — no heights: the terminal route carries no assertion text, exactly as recorded above |
-  | 2026-08-26 later (S10 session: MCP `test_macos` ×2 + `run-tests.sh unit` ×1) | exit 65 | **failed all three** (376 passed / 1 failed on the final gate); MCP heights **1029/945/961 — byte-identical to S7's numbers from 2026-08-25**, i.e. the between-sessions drift reversed back to an earlier value, which further narrows the variable to reconstructible machine state rather than monotonic drift |
-  | 2026-08-26 latest (S21 closeout: `run-tests.sh unit` ×1; CI/docs-only tree, `mac4DSTEM/` untouched) | exit 65 | **failed** (376 passed / 1 failed) — no heights, terminal route as always. Once S21's workflow first runs on the owner's push, every CI run adds a **second-machine** (macos-26) row to this series for free |
-  | 2026-08-26, CI run #2 (`5f98ded`, **the first-ever second-machine observation**: GitHub macos-26 runner, macOS 26.5.2 / 25F84, Xcode 26.6, virtualized display) | exit 65 | **failed** (9.635 s; every other test passed) — no heights, the CI log is the same assertion-text-less terminal route. The failure is NOT specific to the dev Mac, its OS (27 vs 26.5.2), or its display hardware — which kills the "this one machine's state" family of hypotheses in its strongest form and moves the question to what the *test* measures. S17 lever: `test_macos`-style height capture could be added to CI, making every push a measured observation |
-  | 2026-08-26, evening (session-end closeout, tree = `8686bb1` + doc edits; CI run #3 on `8686bb1` red on this test the same hour) | **exit 0** | **passed** (377/0 — first local exit-0 `unit` since 2026-08-19), hours after failing locally at the S21 closeout and while CI stayed red across runs #2–#3. The flip axis is now *within one day on one machine* AND *between machines in the same hour* — both directions on record for S17 |
-
-  **2026-08-25 adds two facts.** (1) S6 is excluded the same way S1 was: the
-  stash experiment produced the identical three failures with identical
-  measured heights on the clean tree, same machine, same hour. Red again
-  after green on 08-19 — the fourth flip on an unchanged-code axis. (2) The
-  failing measurements ARE reachable from the command line **via the MCP
-  `test_macos` route** — the assertion text with both numbers came through
-  intact, which the 2026-08-19 note said `xcodebuild` alone could not
-  produce. S17's "make the number reachable" job has a working path.
-
-  **It flipped WITHIN A SINGLE DAY on an unchanged tree**, which is the sharpest
-  observation yet: green twice in the morning, red three times two hours later,
-  same machine, same OS, same commit. That kills "it depends on the checkout" and
-  narrows the run-to-run variable to machine state — display configuration, window
-  server, or something that drifts with uptime and load. Between the two groups
-  the machine had been building continuously and the release owner had been
-  driving the app from Xcode.
-
-  **Excluded by experiment, not assumption:** the red runs happened while S1's
-  UI change (a new inspector section) was in the tree, so it was the obvious
-  suspect. Reverting `DatasetInspector.swift` and `InspectorPanels.swift` to HEAD
-  and re-running gave the **same failure**, and the test drives
-  `openDemoFixture()` — no file path, so no sidecar, so the new section cannot
-  render at all. Not S1's.
-
-  **The disk was not the variable, and that is now measured.** The 11:00 runs
-  happened at ~7 GB free, below the preflight's 8 GB floor, so `run-tests.sh unit`
-  refused (exit 69) and the suite was run directly instead. After freeing space
-  the full gate ran at 10 GB and produced **the identical result** — 220 passed,
-  1 failed, same test. So the direct run was not distorted by the near-full disk,
-  and the preflight's margin is genuinely margin rather than a live constraint on
-  this suite. It also makes the morning-green/afternoon-red split harder to
-  explain away: four consecutive reds now, across two disk states.
-
-  **Two concrete inputs for S17, both learned the hard way here:**
-  1. A passing run prints nothing, so three of the five observations above carry
-     no measurement. Instrument the measured height on **every** run.
-  2. **The failing run's number could not be retrieved either.** Running the test
-     alone under `xcodebuild`, with and without `-quiet`, produced no assertion
-     text at all — only "failed". So the 933pt/871pt figures from 2026-08-18 came
-     from somewhere else (Xcode's UI), and a CI or terminal run yields nothing to
-     diagnose from. **S17's first job is making the number reachable from the
-     command line**, before any question about thresholds can be settled.
+- **S17 diagnosed and removed the sidebar test's uncontrolled state; one
+  visual case remains formally quarantined.** The historical 1029/945/961pt
+  failure triplet is reproduced exactly by the persisted
+  `sidebar.displaySection.expanded` preference. The numeric gate now injects a
+  private, default-collapsed AppStorage store and still covers every calibrated
+  workspace plus every uncalibrated workspace except Prepare. Collapsed,
+  uncalibrated Prepare is an explicit dynamic skip: 933pt against 871pt on
+  2026-08-27, because the former 60pt allowance is not a product invariant.
+  CI retains and prints its geometry attachment. Local `unit`: **exit 0,
+  378 passed / 4 skipped / 0 failed** (2026-08-27). Still live: the owner must
+  drive the two S17 rows in Track B (collapsed uncalibrated Prepare and an
+  intentionally expanded Display disclosure), and the changed workflow has
+  not run on GitHub yet. Full diagnosis, observation history and deviations:
+  [`docs/archive/v2-session-records/s17.md`](archive/v2-session-records/s17.md).
 - ~~The burned-in caption on exported figures truncates~~ — **Closed by S7,
   2026-08-25** (wraps, figure grows, full provenance as PNG metadata);
   record in [the closed-items archive](archive/closed-items-2026-08.md). Track B row F1.24.

@@ -53,31 +53,29 @@ at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
 mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
-**The v2 release is mid-flight: S0–S8 and S10 are done** (plus the M1 tidy)
+**The v2 release is mid-flight: S0–S8, S10, S17 and S21 are done**
+(plus the M1 tidy)
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
 records in
 [`docs/archive/v2-session-records/`](docs/archive/v2-session-records/).
-Sequencing (decided 2026-08-26; §9's checklist and resequencing line are the
-authority): TB1 whenever the owner sits; then S21 → S17; S9 when NAS access
-and disk allow. The cut line and the severable block (S11–S16, TB2) are §2
-of the release plan.
+Sequencing (§9's checklist and resequencing line are the authority): the
+S10 → S21 → S17 run is complete; TB1 whenever the owner sits; S11 follows
+TB1; S9 when NAS access and disk allow. The cut line and the severable block
+(S11–S16, TB2) are §2 of the release plan.
 
 **The honest test claim — each number dated to its own run:**
 `run-tests.sh scientific` — exit 0 over **37 harnesses** (2026-08-26, S10's
-final tree). `run-tests.sh unit` — **376 passed / 1 failed, exit 65**
-(2026-08-26, S10), the 1 being the S17 sidebar intermittent
-(`SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`), which flips
-on an unchanged-code axis — red and green days are both on record, and the
-observation log lives in `docs/open-items.md`. MCP `test_macos` — **378
-passed / 1 failed** (2026-08-26, S10; that intermittent — the retired UI
-target skipped).
-**`all` has never been run end to end on this machine**: it runs `unit`
-first and `set -e` stops at the sidebar test whenever it is red — so the
-README/CHANGELOG "exit 0, 30 harnesses" claim is unreproduced, and restating
-it is S19's job after S17 settles the intermittent. Do not quote an
-aggregate you did not just run.
+final tree). `run-tests.sh unit` — **378 passed / 4 skipped / 0 failed,
+exit 0** (2026-08-27, S17); three skips are pre-existing environment/data
+probes and one is S17's explicit uncalibrated-Prepare geometry quarantine.
+MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
+now-diagnosed sidebar test — the retired UI target skipped), retained as its
+own dated run. **`all` has never been run end to end on this machine**: S17
+removed its old unit-stage abort, but nobody has run the aggregate yet — so
+the README/CHANGELOG "exit 0, 30 harnesses" claim is unreproduced, and
+restating it is S19's job. Do not quote an aggregate you did not just run.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6):
 Track A is `tools/run-tests.sh`; Track B is the human visual pass at

@@ -13,6 +13,23 @@ import XCTest
 @MainActor
 final class SidebarDensityMeasurementTests: XCTestCase {
 
+    private static let displaySectionExpandedKey = "sidebar.displaySection.expanded"
+    private var sidebarDefaults: UserDefaults!
+    private var sidebarDefaultsSuiteName = ""
+
+    override func setUp() {
+        super.setUp()
+        sidebarDefaultsSuiteName = "com.mac4dstem.tests.sidebar-density.\(UUID().uuidString)"
+        sidebarDefaults = UserDefaults(suiteName: sidebarDefaultsSuiteName)!
+        sidebarDefaults.set(false, forKey: Self.displaySectionExpandedKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removePersistentDomain(forName: sidebarDefaultsSuiteName)
+        sidebarDefaults = nil
+        super.tearDown()
+    }
+
     /// `xcodebuild` does not forward a hosted test's stdout, and the app target
     /// is sandboxed, so measurements are appended to a file in the app's own
     /// container where the caller can read them back.
@@ -44,7 +61,11 @@ final class SidebarDensityMeasurementTests: XCTestCase {
         )
         window.title = "mac4DSTEM"
         window.toolbarStyle = .unified
-        window.contentView = NSHostingView(rootView: ContentView().environment(appState))
+        window.contentView = NSHostingView(
+            rootView: ContentView()
+                .environment(appState)
+                .defaultAppStorage(sidebarDefaults)
+        )
         window.makeKeyAndOrderFront(nil)
         pump(1.2)
         // `NavigationSplitView` autosaves its divider, and this machine's saved
@@ -151,13 +172,43 @@ final class SidebarDensityMeasurementTests: XCTestCase {
     /// height changes as you move between workspaces, and how much of the
     /// column each one overflows.
     func testMeasureSidebarDocumentHeightPerWorkspace() async throws {
+        try await measureSidebarDocumentHeightPerWorkspace(displayExpanded: false)
+    }
+
+    /// S17 discriminator for the persisted `@AppStorage` disclosure. Kept as a
+    /// measurement, not a gate: a user may intentionally expand Display, and
+    /// Track B owns whether that remembered state remains usable on screen.
+    func testMeasureSidebarDocumentHeightWithDisplayExpanded() async throws {
+        try await measureSidebarDocumentHeightPerWorkspace(displayExpanded: true)
+    }
+
+    private func measureSidebarDocumentHeightPerWorkspace(
+        displayExpanded: Bool
+    ) async throws {
+        sidebarDefaults.set(
+            displayExpanded, forKey: Self.displaySectionExpandedKey
+        )
         for calibrated in [true, false] {
             let appState = AppState()
             await appState.openDemoFixture(calibrated: calibrated)
             let window = makeWindow(appState)
             defer { window.orderOut(nil) }
 
+            let screen = window.screen
+            let session = CGSessionCopyCurrentDictionary() as NSDictionary?
+            let onConsole = session?[kCGSessionOnConsoleKey] as? Bool
+            let loginDone = session?[kCGSessionLoginDoneKey] as? Bool
             report("\n=== sidebar document height · calibrated=\(calibrated) ===")
+            report(
+                "  environment: displayExpanded="
+                    + "\(sidebarDefaults.bool(forKey: Self.displaySectionExpandedKey)) "
+                    + "scale=\(screen?.backingScaleFactor ?? 0) "
+                    + "screen=\(NSStringFromRect(screen?.frame ?? .zero)) "
+                    + "visible=\(window.isVisible) key=\(window.isKeyWindow) "
+                    + "occlusionVisible=\(window.occlusionState.contains(.visible)) "
+                    + "onConsole=\(onConsole.map(String.init) ?? "unknown") "
+                    + "loginDone=\(loginDone.map(String.init) ?? "unknown")"
+            )
             var heights: [String: CGFloat] = [:]
             for area in WorkspaceArea.allCases {
                 appState.selectWorkspace(area)

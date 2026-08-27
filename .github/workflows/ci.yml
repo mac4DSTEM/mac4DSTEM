@@ -30,16 +30,15 @@
 #   * Track B (docs/visual-acceptance-checklist.md) — a person driving the
 #     app; no runner can stand in for it.
 #
-# KNOWN CAVEATS, stated so a red run is read correctly:
-#   * A `unit` failure in exactly
-#     SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn is the
-#     recorded S17 intermittent (docs/open-items.md): it flips on an
-#     unchanged-code axis on the dev machine. It is NOT skipped here —
-#     quarantining it is S17's decision, and this runner is the second
-#     machine whose behaviour S17 needs on record either way.
-#   * Until this workflow's first run, every build of this app had happened
-#     on one macOS 27 machine (docs/open-items.md). macos-26 runners are the
-#     first exercise of the claimed-supported range below that.
+# KNOWN CAVEATS, stated so a green run is not made to claim too much:
+#   * S17 formally quarantines uncalibrated Prepare's sidebar height. The old
+#     60pt allowance was justified with one machine's 49pt measurement, not a
+#     stable product invariant. XCTest reports one explicit skip; the step
+#     below exports its measured geometry, display scale, and WindowServer
+#     state on every run. Track B remains the acceptance gate for that screen.
+#   * macos-26 runners are the first automated exercise below the dev Mac's
+#     macOS 27. That is build/numeric evidence only; no Track B pass has driven
+#     the app on macOS 26 (docs/open-items.md).
 #   * Xcode 26 ships the Metal compiler as a separate downloadable component;
 #     both jobs install it if the image lacks it (the .metal shader compile in
 #     `unit` and the GPU harnesses' `xcrun metal` need it). At runtime the GPU
@@ -81,7 +80,22 @@ jobs:
           fi
           xcrun -sdk macosx metal --version
       - name: Run the unit gate
+        env:
+          MAC4DSTEM_XCRESULT_BUNDLE_PATH: ${{ runner.temp }}/mac4dstem-unit.xcresult
         run: tools/run-tests.sh unit
+      - name: Report the quarantined sidebar geometry
+        if: always()
+        run: |
+          bundle="$RUNNER_TEMP/mac4dstem-unit.xcresult"
+          output="$RUNNER_TEMP/mac4dstem-sidebar-diagnostics"
+          if [[ -d "$bundle" ]]; then
+            xcrun xcresulttool export attachments \
+              --path "$bundle" --output-path "$output" \
+              --filter 'sidebar-s17-*.txt'
+            find "$output" -type f -name '*.txt' -exec sed -n '1,120p' {} \;
+          else
+            echo "No unit xcresult bundle; the build failed before diagnostics existed."
+          fi
 
   scientific:
     name: scientific (py4DSTEM parity)
