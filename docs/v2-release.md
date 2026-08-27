@@ -45,10 +45,36 @@ Four sentences, four commitments:
 **W1 — Close the load pipeline as a product** (S1–S6, TB1). The two-spec
 analysis fixture (the claim's evidence). The sidecar/sandbox defects fixed,
 HDF5 errors un-silenced. `.automatic` residency **dropped** (owner decision
-2026-08-18 — the threshold is unmeasurable on one machine; manual
-load-into-memory stays; the mechanism stays in the code and `.automatic` can
-return when a second-machine sweep makes a threshold defensible). A visible
-promote control. The promote run (replay record + unattended execution). The
+2026-08-18 — the threshold is unmeasurable on one machine; ~~manual
+load-into-memory stays~~ — **see the correction below**; the mechanism stays in
+the code and `.automatic` can return when a second-machine sweep makes a
+threshold defensible). A visible promote control.
+
+> **Correction, 2026-08-27 — "manual load-into-memory stays" describes a
+> capability that was never built.** The decision above is left as recorded; only
+> this clause is wrong, and it is wrong under every option. What stayed is the
+> `.resident` *enum case* and the admission mechanism, exercised by
+> `tools/virtual-detector-residency`, `tools/residency-sweep` and
+> `mac4DSTEMTests/DatasetResidencyTests`. **No shipping control requests it:**
+> `DatasetResidency.mode` is `.streamed` (`App/DatasetResidency.swift:34`), its
+> only mutator `request(_:on:)` has **no caller under `mac4DSTEM/`**, and
+> `AppState.preloadResidentCube()` says so in its own comment
+> (`App/AppState.swift:2701-2703`). The app always streams. Three reviewers
+> independently hunted for a missed route — menus, launch arguments, defaults,
+> environment, replay/recipe/sidecar, the promote run, the configurator,
+> `#if DEBUG`, URL schemes — and closed all of them.
+>
+> This matters because it is the sentence a later session scopes from, and it
+> sits in the *product* paragraph of a workstream titled "close the load
+> pipeline as a product". It has already cost two Track B rows: **F1.1**
+> (withdrawn 2026-08-18) and **F1.36** (withdrawn 2026-08-27), both queued ahead
+> of an affordance that does not exist, plus the stage-table row that generated
+> them (struck the same day).
+>
+> **Whether to ship a control, or to restate residency as harness-only
+> infrastructure, is an open owner decision** — the options and their costs are
+> in the S18 session record. Nothing about it blocks the cut line: §3 already
+> defers `.automatic` and the second-machine sweep to post-v2. The promote run (replay record + unattended execution). The
 configurator finished (single-DP picker, dims, the small defects). The F1
 Track B queue driven to empty.
 
@@ -476,7 +502,39 @@ only if asked.
   the badge, `all`, living-board republish. Full record:
   [`docs/archive/v2-session-records/s17.md`](archive/v2-session-records/s17.md).
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
-- [ ] S18 · [ ] S19 · [ ] S20
+- [x] **S18** — 2026-08-27. Polish sweep, the brief's list complete. Shipped:
+  one shared `PaneBottomOverlay` (wide case unchanged on purpose), #38's scroll
+  monitor scoped by event-time geometry instead of a remembered hover, the
+  sidebar dataset card given axis labels, the comparison pane's literal
+  `contentVersion: 0` replaced by a payload hash that folds RGBA bytes in,
+  `pattern(ry:rx:)` served from the resident cube, and the four tiled reducers
+  bound at the tile's byte offset (`TileGPUSource` + `cubeOffset:`) with the
+  tiling deliberately unchanged so results stay bit-identical. #37 measured
+  (streaming bound 5.4 ms/tile, resident 13.2 ms) — the check granularity is not
+  the cost, so **#37 moved to S9** as an I/O item.
+  **Three reviews ran.** Gate A (14 agents): code passed, 2 findings, both in
+  the session's own documentation — Track B row **F1.36 could not pass on any
+  dataset** (it named a control that does not exist; withdrawn, F1.1 class) and
+  F1.32 quoted its thresholds against the pane rather than the fitted image box.
+  Gate B (24 agents, 30 mutations applied and run): **no mutation produced a
+  wrong number from the code** — 12 red, per-call-site sensitive — but it
+  demonstrated 3 instrumentation blind spots, all now closed and each broken
+  before being trusted. A commissioned residency audit found
+  **§2 W1's "manual load-into-memory stays" is false** (annotated above; the
+  product decision is the owner's) and struck the L2 stage row that generated
+  both withdrawn Track B rows.
+  **Track B, driven by the assistant** (Screen Recording + Accessibility):
+  F1.32 PASSED both halves; **F1.34 FAILED, was fixed, and re-verified on
+  screen** — the axis labels truncated, so `(Qx × Qy)` never rendered, while all
+  384 tests stayed green because they measure height and column fit and
+  truncation changes neither. The first fix did not work; only rebuilding and
+  looking caught that.
+  Track A: `unit` **384 passed / 4 skipped / 0 failed, exit 0**; `scientific`
+  exit 0 (37 harnesses); build zero warnings. 5 deviations.
+  Not verified: F1.33 and F1.35 (owner), the `mac4DSTEMUITests` deletion
+  (environment refused), `all`, #37 against a real reader.
+  Full record: [`docs/archive/v2-session-records/s18.md`](archive/v2-session-records/s18.md).
+- [ ] S19 · [ ] S20
 
 Tick a session only with a record of what shipped and what deviated. Since
 M1 (2026-08-26): the full record goes **verbatim** to

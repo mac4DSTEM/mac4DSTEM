@@ -658,6 +658,80 @@ struct ResultsWorkspace: View {
     }
 }
 
+/// One comparison panel's already-rendered pixels and the version that
+/// identifies them, built ONCE per product rather than per body evaluation.
+///
+/// Two defects lived in the three lines this replaced (v2 S18):
+///
+/// 1. **The texture was frozen.** `MetalImageView` re-uploads only when
+///    `contentVersion` changes, and the comparison panel passed the literal
+///    `0`. The coordinator starts at `Int.min`, so the FIRST image uploaded and
+///    every later one was silently dropped — swapping which saved product sits
+///    in slot A left the pane showing the previous product's pixels under the
+///    new product's name. Exactly the class S4 fixed for the configurator and
+///    the inspector; this call site was missed.
+/// 2. **It re-normalized on every mouse move.** The payload rendering and
+///    `ProductComparison.difference` ran inside `body`, and `body` re-runs on
+///    each `onContinuousHover` cursor update and each zoom frame — three
+///    O(width x height) normalizations plus a full image subtraction per
+///    pointer move.
+///
+/// A type rather than a method on the view so the version rule is reachable
+/// from `ComparisonPanelVersionTests`: a private helper inside a private
+/// `View` can only be checked by looking at it.
+struct ComparisonPanel: Identifiable {
+    let id: String
+    let product: DisplayedProduct
+    let label: String
+    let colormap: ColormapKind
+    let pixels: [Float]
+    let rgba: [UInt8]?
+    let contentVersion: Int
+
+    init(_ product: DisplayedProduct, label: String, colormap: ColormapKind) {
+        self.id = label
+        self.product = product
+        self.label = label
+        self.colormap = colormap
+        switch product.payload {
+        case .scalar(let image):
+            self.pixels = image.normalized(symmetric: colormap.isDiverging)
+            self.rgba = nil
+        case .rgba(let image):
+            self.pixels = [Float](repeating: 0, count: image.width * image.height)
+            self.rgba = image.rgba
+        }
+        self.contentVersion = Self.version(
+            pixels: pixels, rgba: rgba, width: product.width, height: product.height
+        )
+    }
+
+    /// Hash what the pane will actually draw — the payload, not the product's
+    /// name or kind. Two saved products can share a kind, and one product can be
+    /// re-saved with new pixels under the same name; only the values
+    /// distinguish them, which is the argument S4's
+    /// `contentVersion(of:width:height:)` was written for.
+    ///
+    /// **The RGBA bytes are folded in separately, and they have to be.** An
+    /// RGBA payload renders through `rgba` and carries a `pixels` array that is
+    /// all zeros, so hashing `pixels` alone gives every same-sized RGBA product
+    /// the SAME version — an IPF map and a DPC colour wheel of equal dimensions
+    /// would be indistinguishable, and swapping one for the other would leave
+    /// the first one's texture on screen. That is defect 1 again, one payload
+    /// case further in.
+    static func version(pixels: [Float], rgba: [UInt8]?, width: Int, height: Int) -> Int {
+        let base = MetalImageView.contentVersion(of: pixels, width: width, height: height)
+        guard let rgba else { return base }
+        return rgba.withUnsafeBytes { bytes -> Int in
+            var hash = UInt64(bitPattern: Int64(base))
+            for byte in bytes {
+                hash = (hash ^ UInt64(byte)) &* 0x0000_0100_0000_01b3
+            }
+            return Int(bitPattern: UInt(truncatingIfNeeded: hash))
+        }
+    }
+}
+
 private struct ProductComparisonView: View {
     let a: DisplayedProduct
     let b: DisplayedProduct
@@ -665,7 +739,21 @@ private struct ProductComparisonView: View {
     @State private var liveZoom: CGFloat = 1
     @State private var cursor: (x: Int, y: Int)?
 
-    private var difference: DisplayedProduct? { ProductComparison.difference(a, b) }
+    private let panels: [ComparisonPanel]
+
+    init(a: DisplayedProduct, b: DisplayedProduct) {
+        self.a = a
+        self.b = b
+        var built = [
+            ComparisonPanel(a, label: "A", colormap: .viridis),
+            ComparisonPanel(b, label: "B", colormap: .viridis),
+        ]
+        if let difference = ProductComparison.difference(a, b) {
+            built.append(ComparisonPanel(difference, label: "A \u{2212} B", colormap: .rdbu))
+        }
+        self.panels = built
+    }
+
     private var coordinatesCompatible: Bool {
         a.domain == b.domain && a.width == b.width && a.height == b.height
             && a.sampling == b.sampling
@@ -680,9 +768,7 @@ private struct ProductComparisonView: View {
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             HStack(spacing: 8) {
-                panel(a, label: "A", colormap: .viridis)
-                panel(b, label: "B", colormap: .viridis)
-                if let difference { panel(difference, label: "A − B", colormap: .rdbu) }
+                ForEach(panels) { panel($0) }
             }
             switch ProductComparison.compatibility(a, b) {
             case .compatible:
@@ -707,17 +793,17 @@ private struct ProductComparisonView: View {
         .accessibilityIdentifier("result.comparison")
     }
 
-    private func panel(
-        _ product: DisplayedProduct, label: String, colormap: ColormapKind
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(label) · \(product.displayName)").font(.caption.weight(.semibold)).lineLimit(1)
+    private func panel(_ rendered: ComparisonPanel) -> some View {
+        let product = rendered.product
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("\(rendered.label) · \(product.displayName)")
+                .font(.caption.weight(.semibold)).lineLimit(1)
             GeometryReader { geometry in
                 let size = geometry.size
-                let rendered = renderPayload(product, colormap: colormap)
                 MetalImageView(
                     pixels: rendered.pixels, width: product.width, height: product.height,
-                    contentVersion: 0, colormap: colormap, zoom: 1, offset: .zero,
+                    contentVersion: rendered.contentVersion,
+                    colormap: rendered.colormap, zoom: 1, offset: .zero,
                     rgba: rendered.rgba, displayLo: 0, displayHi: 1, gamma: 1
                 )
                 .scaleEffect(max(1, zoom * liveZoom))
@@ -750,16 +836,6 @@ private struct ProductComparisonView: View {
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Comparison \(label), \(product.displayName)")
-    }
-
-    private func renderPayload(_ product: DisplayedProduct, colormap: ColormapKind)
-        -> (pixels: [Float], rgba: [UInt8]?) {
-        switch product.payload {
-        case .scalar(let image):
-            return (image.normalized(symmetric: colormap.isDiverging), nil)
-        case .rgba(let image):
-            return ([Float](repeating: 0, count: image.width * image.height), image.rgba)
-        }
+        .accessibilityLabel("Comparison \(rendered.label), \(product.displayName)")
     }
 }

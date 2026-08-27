@@ -19,8 +19,13 @@
 //  That argument does NOT cover reductions that combine tiles:
 //  `tiledDPStatistics` (weighted mean) and `tiledDiffraction` (running sum) are
 //  float-order dependent. They keep their tiled reduction even when the cube is
-//  resident — `FourDArray.scanTile` simply serves their tiles out of the
-//  resident buffer, so they skip the disk without changing a single number.
+//  resident — same ranges, same partials, same combination order — so they skip
+//  the disk without changing a single number. Since v2 S18 they also skip the
+//  COPY: `TileGPUSource` binds the resident buffer at the tile's byte offset
+//  (`setBuffer(_:offset:)`) instead of routing through `FourDArray.scanTile`,
+//  which materialized each tile as a Swift `[Float]` on the way to a fresh
+//  per-tile MTLBuffer. The bytes the GPU reads are the same bytes; only the
+//  staging is gone.
 //
 
 import Foundation

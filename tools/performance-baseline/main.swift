@@ -70,6 +70,11 @@ struct BenchmarkReport {
     }
 }
 
+func fail(_ message: String) -> Never {
+    FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
+    exit(1)
+}
+
 func residentBytes() -> Int {
     var info = mach_task_basic_info()
     var count = mach_msg_type_number_t(
@@ -288,6 +293,238 @@ func tileStagingBenchmark(
     }
 }
 
+/// **#37 — how long does cancelling a virtual detector actually take?**
+///
+/// The backlog entry has stood unmeasured since it was reported by hand
+/// ("takes a long time, and shows stalled progress"). It is a LATENCY, not a
+/// throughput: what matters is the wall clock between the user clicking Cancel
+/// and the operation giving up, and that is set by the granularity of the
+/// cancellation checks, not by how fast the pass runs.
+///
+/// The two paths are bounded by structurally different things, and the honest
+/// measurement is therefore different for each — same question, two answers:
+///
+/// * **Streaming** (`measureStreamingCancelLatency`) — `VirtualDetector.tiled`
+///   checks the token once per tile, either side of the tile read. Cancel is
+///   issued after the first progress tick, so the pass is genuinely under way,
+///   and the number is the real thing the user feels: cancel → throw.
+/// * **Resident** (`measureResidentCancelBound`) — one dispatch over the whole
+///   cube, with checks either side of an indivisible `waitUntilCompleted`.
+///   There is no mid-pass to cancel INTO: the only progress call is
+///   `progress?(1)` after the dispatch has already finished, which is how this
+///   harness first found the difference (the tick arrived at 21.36 ms of a
+///   21.36 ms pass). A cancel is honoured, but not before the dispatch returns,
+///   so the bound IS the whole dispatch and timing an uncancelled pass measures
+///   it exactly — without racing a fixed delay against a machine-dependent
+///   runtime.
+///
+/// This is the review's 2026-08-17 claim that resident cancellation is COARSER,
+/// not better, now observed rather than argued. It only feels better because
+/// the whole resident dispatch is short.
+func measureStreamingCancelLatency(
+    descriptor: DatasetDescriptor,
+    cube: [Float],
+    tileRows: Int,
+    repeats: Int,
+    warmups: Int
+) async throws -> BenchmarkReport {
+    let shape = cancellationShape(descriptor)
+
+    func once() async throws -> Observation {
+        let source = SyntheticDataSource(descriptor: descriptor, cube: cube)
+        let data = FourDArray(reader: source, descriptor: descriptor)
+        let token = AnalysisCancellationToken()
+        let started = ProgressGate()
+        let work = Task {
+            try await VirtualDetector.tiledImage(
+                data: data, descriptor: descriptor, shape: shape,
+                maximumTileRows: tileRows, cancellation: token,
+                progress: { _ in started.signal() }
+            )
+        }
+        await started.wait()
+        let cancelledAt = DispatchTime.now().uptimeNanoseconds
+        token.cancel()
+        do {
+            _ = try await work.value
+            fail("""
+                 the streaming pass finished before the cancel landed, so there is \
+                 nothing to measure. Give it more tiles or a bigger cube — a \
+                 latency measured against a completed pass is not a latency.
+                 """)
+        } catch {
+            return Observation(
+                milliseconds: Double(DispatchTime.now().uptimeNanoseconds - cancelledAt) / 1_000_000,
+                checksum: 0,
+                residentBytes: residentBytes()
+            )
+        }
+    }
+
+    for _ in 0..<warmups { _ = try await once() }
+    var observations: [Observation] = []
+    for _ in 0..<repeats { observations.append(try await once()) }
+    return BenchmarkReport(
+        backend: "VirtualDetector.tiledImage — streaming cancel latency",
+        workload: [
+            "ry": descriptor.ry, "rx": descriptor.rx,
+            "qy": descriptor.qy, "qx": descriptor.qx,
+            "tile_rows": tileRows,
+            "tiles": (descriptor.ry + tileRows - 1) / tileRows,
+            "residency": "streamed",
+            "measures": "BEST CASE ms from cancel() to throw — cancel issued at a tile boundary, where the next statement is the loop's guard",
+            "note": "synthetic in-memory source: this is the DISPATCH half of the per-tile bound. The read half is tile_staging.",
+        ],
+        estimatedWorkingBytes: descriptor.byteCountAsFloat32,
+        observations: observations
+    )
+}
+
+/// The streaming BOUND, as opposed to the best case above.
+///
+/// `measureStreamingCancelLatency` cancels immediately after a progress tick,
+/// which is the most favourable instant there is: the very next statement is
+/// the loop's `guard`, so it throws in microseconds. A user clicking Cancel
+/// does not get to pick that instant. The worst case is a cancel arriving just
+/// AFTER a guard has passed, which then waits out one whole tile — read,
+/// staging and dispatch — and the expected case for a uniformly random click is
+/// half of that.
+///
+/// That worst case cannot be hit on purpose without racing an unobservable
+/// window, so measure it directly instead: time an uncancelled pass and divide
+/// by the tile count. Same quantity, no race.
+func measureStreamingCancelBound(
+    descriptor: DatasetDescriptor,
+    cube: [Float],
+    tileRows: Int,
+    repeats: Int,
+    warmups: Int
+) async throws -> BenchmarkReport {
+    let shape = cancellationShape(descriptor)
+    let tiles = (descriptor.ry + tileRows - 1) / tileRows
+
+    func once() async throws -> Observation {
+        let source = SyntheticDataSource(descriptor: descriptor, cube: cube)
+        let data = FourDArray(reader: source, descriptor: descriptor)
+        let start = DispatchTime.now().uptimeNanoseconds
+        _ = try await VirtualDetector.tiledImage(
+            data: data, descriptor: descriptor, shape: shape,
+            maximumTileRows: tileRows
+        )
+        let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+        return Observation(
+            milliseconds: elapsed / Double(tiles), checksum: 0, residentBytes: residentBytes()
+        )
+    }
+
+    for _ in 0..<warmups { _ = try await once() }
+    var observations: [Observation] = []
+    for _ in 0..<repeats { observations.append(try await once()) }
+    return BenchmarkReport(
+        backend: "VirtualDetector.tiledImage — streaming cancel bound (one tile)",
+        workload: [
+            "ry": descriptor.ry, "rx": descriptor.rx,
+            "qy": descriptor.qy, "qx": descriptor.qx,
+            "tile_rows": tileRows,
+            "tiles": tiles,
+            "residency": "streamed",
+            "measures": "ms per tile — the worst case a cancel must wait out; expect half of it on a random click",
+            "note": "synthetic in-memory source: the read half of a real tile is missing. See tile_staging.",
+        ],
+        estimatedWorkingBytes: descriptor.byteCountAsFloat32,
+        observations: observations
+    )
+}
+
+func measureResidentCancelBound(
+    descriptor: DatasetDescriptor,
+    cube: [Float],
+    repeats: Int,
+    warmups: Int
+) async throws -> BenchmarkReport {
+    let shape = cancellationShape(descriptor)
+
+    func once() async throws -> Observation {
+        let source = SyntheticDataSource(descriptor: descriptor, cube: cube)
+        let data = FourDArray(reader: source, descriptor: descriptor)
+        await data.setResidencyRequest(.resident)
+        guard try await data.makeResident() else {
+            fail("could not make the benchmark cube resident")
+        }
+        let ticks = ProgressCounter()
+        let start = DispatchTime.now().uptimeNanoseconds
+        _ = try await VirtualDetector.tiledImage(
+            data: data, descriptor: descriptor, shape: shape,
+            progress: { _ in ticks.bump() }
+        )
+        let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+        // If this ever reports more than one tick, the resident path has stopped
+        // being a single dispatch and this benchmark is measuring the wrong
+        // thing — switch it to the streaming form rather than reinterpreting it.
+        guard ticks.count == 1 else {
+            fail("resident pass reported \(ticks.count) progress ticks; it is no longer one dispatch")
+        }
+        return Observation(milliseconds: elapsed, checksum: 0, residentBytes: residentBytes())
+    }
+
+    for _ in 0..<warmups { _ = try await once() }
+    var observations: [Observation] = []
+    for _ in 0..<repeats { observations.append(try await once()) }
+    return BenchmarkReport(
+        backend: "VirtualDetector.tiledImage — resident cancel bound",
+        workload: [
+            "ry": descriptor.ry, "rx": descriptor.rx,
+            "qy": descriptor.qy, "qx": descriptor.qx,
+            "residency": "resident",
+            "measures": "ms of the single uninterruptible whole-cube dispatch — the worst case a cancel must wait out",
+            "note": "the resident path has no mid-pass progress: its only tick is progress?(1) after the dispatch returns",
+        ],
+        estimatedWorkingBytes: descriptor.byteCountAsFloat32,
+        observations: observations
+    )
+}
+
+private func cancellationShape(_ descriptor: DatasetDescriptor) -> DetectorShape {
+    .annulus(
+        centerX: Float(descriptor.qx) / 2, centerY: Float(descriptor.qy) / 2,
+        inner: 4, outer: Float(min(descriptor.qy, descriptor.qx)) / 2 - 2
+    )
+}
+
+final class ProgressCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    func bump() { lock.lock(); value += 1; lock.unlock() }
+    var count: Int { lock.lock(); defer { lock.unlock() }; return value }
+}
+
+/// One-shot "the operation has actually started" signal.
+///
+/// A plain Bool would race: the progress callback runs on whatever task the
+/// pass is on, and the measuring task must not cancel before the first tile is
+/// under way or the measurement describes a no-op.
+///
+/// `wait()` yields rather than blocking a thread on a semaphore. The first
+/// version did block, and the hop out of and back into the cooperative pool
+/// cost enough that the whole pass finished inside the wait. The latency being
+/// measured here is single-digit milliseconds, so the instrument has to be
+/// quicker than that.
+final class ProgressGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var signalled = false
+
+    func signal() { lock.lock(); signalled = true; lock.unlock() }
+
+    var isSignalled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return signalled
+    }
+
+    func wait() async {
+        while !isSignalled { await Task.yield() }
+    }
+}
+
 func ptychographyInput(
     scanHeight: Int = 8,
     scanWidth: Int = 8,
@@ -473,6 +710,17 @@ struct Baseline {
             chunkShape: [4, 24, 96, 96]
         )
         let cube = syntheticCube(descriptor: descriptor)
+        // #37's workload. Deliberately separate from the shared `descriptor`:
+        // cancellation latency is only meaningful on a pass long enough to be
+        // interrupted, and the 24x24x96x96 cube above finishes too fast.
+        let cancellationDescriptor = DatasetDescriptor(
+            filePath: "synthetic-cancellation",
+            datasetPath: "/synthetic",
+            shape: [64, 32, 128, 128],
+            dtypeDescription: "float32",
+            chunkShape: [8, 32, 128, 128]
+        )
+        let cancellationCube = syntheticCube(descriptor: cancellationDescriptor)
         let mediumPtychography = ptychographyInput(
             scanHeight: 12, scanWidth: 12,
             detectorHeight: 48, detectorWidth: 48,
@@ -509,6 +757,21 @@ struct Baseline {
             )),
             ("tile_staging", try await tileStagingBenchmark(
                 descriptor: descriptor, cube: cube, repeats: repeats, warmups: warmups
+            )),
+            // #37. A bigger cube than the shared one above, so the streaming
+            // pass is long enough that a cancel lands mid-pass rather than
+            // after it; `tileRows: 4` over ry = 64 gives sixteen tiles.
+            ("virtual_detector_cancel_streaming", try await measureStreamingCancelLatency(
+                descriptor: cancellationDescriptor, cube: cancellationCube,
+                tileRows: 4, repeats: repeats, warmups: warmups
+            )),
+            ("virtual_detector_cancel_bound_streaming", try await measureStreamingCancelBound(
+                descriptor: cancellationDescriptor, cube: cancellationCube,
+                tileRows: 4, repeats: repeats, warmups: warmups
+            )),
+            ("virtual_detector_cancel_bound_resident", try await measureResidentCancelBound(
+                descriptor: cancellationDescriptor, cube: cancellationCube,
+                repeats: repeats, warmups: warmups
             )),
             ("ptychography_gradient_descent", try ptychographyBenchmark(
                 method: .gradientDescent, repeats: repeats, warmups: warmups

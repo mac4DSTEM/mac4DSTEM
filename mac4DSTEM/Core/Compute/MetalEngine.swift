@@ -206,11 +206,28 @@ nonisolated final class MetalEngine {
         return arrayFromBuffer(out, count: n)
     }
 
+    // MARK: Dispatch — tiled passes over a resident cube
+    //
+    // `cubeOffset` is a BYTE offset into `cube` at which this dispatch's
+    // sub-cube starts, so a tiled caller holding a resident cube can bind the
+    // cube's own bytes in place instead of copying a tile out to `[Float]` and
+    // back into a fresh MTLBuffer (~0.375 x working set of pure staging waste,
+    // found by adversarial review 2026-08-17, eliminated in v2 S18). `dims` /
+    // `params` still describe the SUB-cube, exactly as they described the
+    // per-tile copy — the kernels index from the bound base address, so the
+    // arithmetic is unchanged and the results are bit-identical to the copying
+    // path. Offsets are whole scan rows (`rx * qy * qx * 4` bytes), so the
+    // 4-byte `device`-address-space alignment Metal requires is automatic.
+    //
+    // Only the four reducers below take it. `virtualDetector` / `virtualImage`
+    // do not: their tiled caller already has a whole-cube resident fast path.
+
     // MARK: Dispatch — Virtual (selected-area) diffraction
 
     /// Sum every scan position selected by `scanMask` into one [Qy*Qx] pattern
     /// — the reciprocal of virtualImage. `scanMask` is row-major [Ry*Rx].
-    func virtualDiffraction(cube: MTLBuffer, dims: CubeDims, scanMask: [Float]) throws -> [Float] {
+    func virtualDiffraction(cube: MTLBuffer, cubeOffset: Int = 0,
+                            dims: CubeDims, scanMask: [Float]) throws -> [Float] {
         guard let pso = virtualDiffractionPSO else { throw MetalError.functionMissing("virtualDiffraction") }
         let n = Int(dims.qy) * Int(dims.qx)
         precondition(scanMask.count == Int(dims.ry) * Int(dims.rx), "scanMask must be Ry*Rx")
@@ -222,7 +239,7 @@ nonisolated final class MetalEngine {
         var d = dims
         try run(pso, name: "virtualDiffraction",
                 width: Int(dims.qx), height: Int(dims.qy)) { enc in
-            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(cube, offset: cubeOffset, index: 0)
             enc.setBuffer(maskBuf, offset: 0, index: 1)
             enc.setBuffer(out, offset: 0, index: 2)
             enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
@@ -234,7 +251,8 @@ nonisolated final class MetalEngine {
 
     /// Max and mean over all scan positions, per detector pixel.
     /// Both are [Qy*Qx] row-major (py4DSTEM: get_dp_max / get_dp_mean).
-    func dpStatistics(cube: MTLBuffer, dims: CubeDims) throws -> (maxDP: [Float], meanDP: [Float]) {
+    func dpStatistics(cube: MTLBuffer, cubeOffset: Int = 0,
+                      dims: CubeDims) throws -> (maxDP: [Float], meanDP: [Float]) {
         guard let pso = dpStatisticsPSO else { throw MetalError.functionMissing("dpStatistics") }
         let n = Int(dims.qy) * Int(dims.qx)
         let outMax = try makeOutputBuffer(floats: n, label: "dpStatistics.max")
@@ -242,7 +260,7 @@ nonisolated final class MetalEngine {
         var d = dims
         try run(pso, name: "dpStatistics",
                 width: Int(dims.qx), height: Int(dims.qy)) { enc in
-            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(cube, offset: cubeOffset, index: 0)
             enc.setBuffer(outMax, offset: 0, index: 1)
             enc.setBuffer(outMean, offset: 0, index: 2)
             enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
@@ -255,14 +273,15 @@ nonisolated final class MetalEngine {
     /// Measure the (000)-beam position of every pattern: coarse brightest-blob
     /// search at the probe-radius scale, then windowed CoM refinement
     /// (py4DSTEM get_origin). Returns interleaved [x0, y0] per scan position.
-    func measureOrigins(cube: MTLBuffer, params: OriginParams) throws -> [Float] {
+    func measureOrigins(cube: MTLBuffer, cubeOffset: Int = 0,
+                        params: OriginParams) throws -> [Float] {
         guard let pso = measureOriginPSO else { throw MetalError.functionMissing("measureOrigin") }
         let n = Int(params.ry) * Int(params.rx)
         let out = try makeOutputBuffer(floats: n * 2, label: "measureOrigin")
         var p = params
         try run(pso, name: "measureOrigin",
                 width: Int(params.rx), height: Int(params.ry)) { enc in
-            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(cube, offset: cubeOffset, index: 0)
             enc.setBuffer(out, offset: 0, index: 1)
             enc.setBytes(&p, length: MemoryLayout<OriginParams>.stride, index: 2)
         }
@@ -274,7 +293,8 @@ nonisolated final class MetalEngine {
     /// CoM shift (Qx, Qy) per scan position, relative to per-position
     /// `origins` (interleaved [x,y]) when given, else the global (cx, cy).
     /// Returns interleaved [comx0, comy0, ...] of length 2*Ry*Rx.
-    func centerOfMass(cube: MTLBuffer, params: CoMParams, origins: [Float]? = nil) throws -> [Float] {
+    func centerOfMass(cube: MTLBuffer, cubeOffset: Int = 0,
+                      params: CoMParams, origins: [Float]? = nil) throws -> [Float] {
         guard let pso = centerOfMassPSO else { throw MetalError.functionMissing("centerOfMass") }
         let n = Int(params.ry) * Int(params.rx)
         let out = try makeOutputBuffer(floats: n * 2, label: "centerOfMass")
@@ -295,7 +315,7 @@ nonisolated final class MetalEngine {
 
         try run(pso, name: "centerOfMass",
                 width: Int(params.rx), height: Int(params.ry)) { enc in
-            enc.setBuffer(cube, offset: 0, index: 0)
+            enc.setBuffer(cube, offset: cubeOffset, index: 0)
             enc.setBuffer(out, offset: 0, index: 1)
             enc.setBytes(&p, length: MemoryLayout<CoMParams>.stride, index: 2)
             enc.setBuffer(originsBuf, offset: 0, index: 3)

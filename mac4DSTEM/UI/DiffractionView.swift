@@ -152,41 +152,36 @@ struct DiffractionView: View {
                 .border(Color.white.opacity(0.08))
                 .zoomPan($zp)
 
-                // Calibrated q-space scale bar (px fallback), zoom-aware.
+                // Calibrated q-space scale bar (px fallback), zoom-aware, and
+                // the intensity legend — one bottom row so they cannot collide
+                // on a narrow pane (v2 S18).
                 // mrad mode shows the direct scattering angle, but falls back
                 // to the reciprocal/px behavior automatically if the Q
                 // calibration or voltage needed for it disappears.
                 let qSize = app.calibration.qPixelSize
-                if app.patternScaleUnit == .milliradians,
-                   let mradPerPixel = app.dpcMilliradiansPerDetectorPixel {
-                    ScaleBarView(
-                        unitsPerPoint: Double(mradPerPixel) * Double(qx)
-                            / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
-                        unitLabel: "mrad")
-                        .padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomLeading)
-                } else {
-                    ScaleBarView(
-                        unitsPerPoint: (qSize ?? 1) * Double(qx)
-                            / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
-                        unitLabel: qSize != nil ? (app.calibration.qPixelUnits ?? "1/nm") : "px")
-                        .padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomLeading)
-                }
-
-                if let range = app.patternDisplayedValueRange {
-                    ScalarColorbarView(
-                        colormap: app.patternColormap,
-                        low: range.low,
-                        high: range.high,
-                        unitLabel: logScaleLabel,
-                        gamma: app.patternGamma
-                    )
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomTrailing)
+                PaneBottomOverlay {
+                    if app.patternScaleUnit == .milliradians,
+                       let mradPerPixel = app.dpcMilliradiansPerDetectorPixel {
+                        ScaleBarView(
+                            unitsPerPoint: Double(mradPerPixel) * Double(qx)
+                                / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
+                            unitLabel: "mrad")
+                    } else {
+                        ScaleBarView(
+                            unitsPerPoint: (qSize ?? 1) * Double(qx)
+                                / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
+                            unitLabel: qSize != nil ? (app.calibration.qPixelUnits ?? "1/nm") : "px")
+                    }
+                } trailing: {
+                    if let range = app.patternDisplayedValueRange {
+                        ScalarColorbarView(
+                            colormap: app.patternColormap,
+                            low: range.low,
+                            high: range.high,
+                            unitLabel: logScaleLabel,
+                            gamma: app.patternGamma
+                        )
+                    }
                 }
             }
             .frame(width: box.width, height: box.height)

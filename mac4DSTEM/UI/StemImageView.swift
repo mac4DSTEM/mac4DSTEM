@@ -356,67 +356,6 @@ struct StemImageView: View {
                 // pan at all, so zooming in stranded the user (2026-08-05).
                 .zoomPan($zp)
 
-                // Direction legend for the DPC color wheel. Suppressed while
-                // inspecting a quality field — the viewer is showing a scalar
-                // viridis map, not the color-wheel-encoded result.
-                if qualityField == nil, app.displayedResultKind == "dpc_color" {
-                    colorWheelLegend
-                        .frame(width: 54, height: 54)
-                        .padding(10)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomTrailing)
-                }
-
-                // Substring, not equality: the kind now always carries a scope
-                // (`acom_full_ipf_z`, `acom_preview_ipf_z`). Equality matched
-                // only the un-suffixed full-scan spelling, so preview and
-                // region IPF maps never got their colour key — and it also
-                // keeps kinds saved before that change working on reopen.
-                if qualityField == nil, app.displayedResultKind.contains("ipf_z") {
-                    Group {
-                        if app.orientationMap?.symmetry == .hexagonal {
-                            HexagonalIPFLegendView()
-                        } else {
-                            CubicIPFLegendView()
-                        }
-                    }
-                        .padding(7)
-                        .background(Color.black.opacity(0.48),
-                                    in: RoundedRectangle(cornerRadius: 4))
-                        .padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomTrailing)
-                }
-
-                if let field = qualityField, let range = app.displayedQualityValueRange {
-                    ScalarColorbarView(
-                        colormap: .viridis,
-                        low: range.low,
-                        high: range.high,
-                        unitLabel: field.units,
-                        gamma: 1,
-                        marksZero: false,
-                        showsMasked: false
-                    )
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomTrailing)
-                } else if app.displayedResultImage != nil,
-                   let range = app.resultDisplayedValueRange {
-                    ScalarColorbarView(
-                        colormap: app.displayedResultColormap,
-                        low: range.low,
-                        high: range.high,
-                        unitLabel: app.displayedResultValueUnits,
-                        gamma: app.displayedResultGamma,
-                        marksZero: app.displayedResultColormap.isDiverging,
-                        showsMasked: app.displayedResultHasMaskedPixels()
-                    )
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomTrailing)
-                }
-
                 if app.displayedProduct?.domain != .scan,
                    let navigator = app.scanNavigationImage {
                     scanNavigator(navigator)
@@ -432,17 +371,92 @@ struct StemImageView: View {
                 // non-square scan that is a different R pixel size and a
                 // different pixel count, so a bar that merely re-rendered at
                 // the same length would be wrong (#17b).
+                //
+                // The bar and whichever legend the result calls for share ONE
+                // bottom row (v2 S18): on a tall, narrow map they used to be
+                // independent bottom-leading / bottom-trailing overlays and
+                // drew straight through each other.
                 let pixel = app.displayedResultPixelMetadata
                 let sampling = orientation.swapsAxes
                     ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
                 let pixelsAcross = orientation.swapsAxes ? dims.height : dims.width
-                ScaleBarView(
-                    unitsPerPoint: (sampling ?? 1) * Double(pixelsAcross)
-                        / Double(box.width) / Double(effZoom),
-                    unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomLeading)
+                PaneBottomOverlay {
+                    ScaleBarView(
+                        unitsPerPoint: (sampling ?? 1) * Double(pixelsAcross)
+                            / Double(box.width) / Double(effZoom),
+                        unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
+                } trailing: {
+                    // Order preserved from the separate overlays this
+                    // replaced. **At most one of these three ever renders**, and
+                    // the stack claims no benefit from that: `displayedResultKind`
+                    // is one String, so it cannot equal "dpc_color" AND contain
+                    // "ipf_z" (AppState.swift:620); the quality-field colorbar
+                    // needs `qualityField != nil` where both legends need it nil;
+                    // and the result colorbar needs `displayedResultImage != nil`,
+                    // which an RGBA result rules out because `resultImage` and
+                    // `resultRGBA` are always assigned as an exclusive pair
+                    // (ResultExport.swift:770-783, AppState.swift:2925-2926).
+                    // A VStack rather than a Group only so the trailing slot has
+                    // one child and the order stays readable. (An earlier comment
+                    // here said stacking makes "two that match at once both
+                    // legible" — that state cannot occur, and claiming a benefit
+                    // that never fires is the same defect S3 removed when it
+                    // dropped Residency's dead String conformance. Gate A,
+                    // 2026-08-27.)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        // Direction legend for the DPC color wheel. Suppressed
+                        // while inspecting a quality field — the viewer is
+                        // showing a scalar viridis map, not the
+                        // color-wheel-encoded result.
+                        if qualityField == nil, app.displayedResultKind == "dpc_color" {
+                            colorWheelLegend
+                                .frame(width: 54, height: 54)
+                                .padding(2)
+                        }
+
+                        // Substring, not equality: the kind now always carries
+                        // a scope (`acom_full_ipf_z`, `acom_preview_ipf_z`).
+                        // Equality matched only the un-suffixed full-scan
+                        // spelling, so preview and region IPF maps never got
+                        // their colour key — and it also keeps kinds saved
+                        // before that change working on reopen.
+                        if qualityField == nil, app.displayedResultKind.contains("ipf_z") {
+                            Group {
+                                if app.orientationMap?.symmetry == .hexagonal {
+                                    HexagonalIPFLegendView()
+                                } else {
+                                    CubicIPFLegendView()
+                                }
+                            }
+                            .padding(7)
+                            .background(Color.black.opacity(0.48),
+                                        in: RoundedRectangle(cornerRadius: 4))
+                        }
+
+                        if let field = qualityField, let range = app.displayedQualityValueRange {
+                            ScalarColorbarView(
+                                colormap: .viridis,
+                                low: range.low,
+                                high: range.high,
+                                unitLabel: field.units,
+                                gamma: 1,
+                                marksZero: false,
+                                showsMasked: false
+                            )
+                        } else if app.displayedResultImage != nil,
+                           let range = app.resultDisplayedValueRange {
+                            ScalarColorbarView(
+                                colormap: app.displayedResultColormap,
+                                low: range.low,
+                                high: range.high,
+                                unitLabel: app.displayedResultValueUnits,
+                                gamma: app.displayedResultGamma,
+                                marksZero: app.displayedResultColormap.isDiverging,
+                                showsMasked: app.displayedResultHasMaskedPixels()
+                            )
+                        }
+                    }
+                }
             }
             .frame(width: box.width, height: box.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

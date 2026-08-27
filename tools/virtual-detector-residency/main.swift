@@ -13,12 +13,18 @@
 //  READ THIS BEFORE COPYING THE ASSERTION ELSEWHERE. `tiledDPStatistics`
 //  (weighted mean) and `tiledDiffraction` (running sum) DO reduce across tiles
 //  and are float-order dependent. They are still compared with `==` here — but
-//  only because a resident array serves its tiles out of the resident buffer
-//  with the SAME tiling, so the same partials combine in the same order. If a
-//  future change makes a resident array tile differently from a streaming one,
-//  those two comparisons become tolerance comparisons and this comment is the
-//  reason. Do NOT widen a tolerance to make one of them pass — that is
-//  invariant I7.
+//  only because a resident array walks the SAME tile ranges as a streaming one,
+//  so the same partials combine in the same order. If a future change makes a
+//  resident array tile differently from a streaming one, those two comparisons
+//  become tolerance comparisons and this comment is the reason. Do NOT widen a
+//  tolerance to make one of them pass — that is invariant I7.
+//
+//  v2 S18 changed HOW those tiles reach the GPU, and deliberately not WHICH
+//  tiles they are: the four reducers now bind the resident buffer at the tile's
+//  byte offset instead of copying the tile out to `[Float]` and back into a
+//  fresh MTLBuffer. The equality above is therefore the same claim as before —
+//  and `residentTileCopies` below is the separate claim that the copy is gone,
+//  which no comparison of outputs could make on its own.
 //
 
 import Foundation
@@ -41,6 +47,7 @@ actor CountingDataSource: FourDDataSource {
     let cube: [Float]
     private(set) var tileReads = 0
     private(set) var rowsRead = 0
+    private(set) var patternReads = 0
 
     init(descriptor: DatasetDescriptor, cube: [Float]) {
         self.descriptor = descriptor
@@ -52,7 +59,8 @@ actor CountingDataSource: FourDDataSource {
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
 
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
-        view.pattern(fromFullCube: cube, ry: ry, rx: rx)
+        patternReads += 1
+        return view.pattern(fromFullCube: cube, ry: ry, rx: rx)
     }
 
     func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
@@ -329,9 +337,76 @@ pass("resident dispatches touched the reader zero times after the preload")
 // MARK: - Tiles served from the resident buffer
 
 // These paths still tile (their reductions combine across tiles), but a
-// resident array serves the tiles out of its buffer. Same tiling, same order,
-// so still exactly equal — and this is what catches an offset error in
-// FourDArray.tile(yRange:from:).
+// resident array never leaves memory to get them. Same tiling, same order, so
+// still exactly equal — and with `maximumTileRows: 2` against ry = 7 the ranges
+// are 0..<2, 2..<4, 4..<6, 6..<7, so THREE of the four dispatches bind at a
+// non-zero byte offset. That is what catches an offset error in
+// `TileGPUSource.binding(for:prefetching:label:)`; before v2 S18 the same
+// ranges caught one in `FourDArray.tile(yRange:from:)`.
+
+// MARK: - The instrument itself, before anything trusts its zero (v2 S18, Gate B)
+
+// `residentTileCopies` reads 0 before and 0 after in a healthy run, so
+// `after == before` holds whether the counter WORKS or is dead code. Gate B
+// proved that by combination rather than argument: deleting the sole
+// `residentTileCopies += 1` is green on its own, and it also makes the author's
+// own negative control (#2, forcing the reducers back through `scanTile`) stop
+// failing. An instrument with no positive control is not evidence.
+do {
+    let before = await residentData.residentTileCopies
+    _ = try await residentData.scanTile(yRange: 0..<1)
+    let after = await residentData.residentTileCopies
+    guard after == before + 1 else {
+        fail("""
+             residentTileCopies did not move when a tile WAS copied out of the \
+             resident cube (\(before) -> \(after)). The counter is dead, and \
+             every "zero staging copies" claim below it is vacuous.
+             """)
+    }
+    pass("residentTileCopies is alive — one copied tile moves it by exactly 1")
+}
+
+// MARK: - TileGPUSource returns the cube's OWN buffer, not a copy of it
+
+// The counter above cannot see this. It lives in `FourDArray.tile(yRange:from:)`
+// — the route `TileGPUSource` deliberately no longer takes — so reinstating a
+// staging copy INSIDE `TileGPUSource.binding` leaves it reading 0/0 while every
+// value stays bit-identical (they are the same bytes). Gate B demonstrated
+// exactly that, three different ways (C02, C10, C20), all green here and green
+// across all 37 scientific harnesses.
+//
+// Assert the contract directly instead of inferring it from a counter: while
+// resident, the binding IS the cube's buffer, at the tile's byte offset. A copy
+// of any spelling fails `===`.
+do {
+    guard let cube = await residentData.resident(for: d) else {
+        fail("the resident cube vanished before the binding contract check")
+    }
+    var source = TileGPUSource(data: residentData, descriptor: d, cube: cube)
+    let bytesPerScanRow = d.rx * d.qy * d.qx * MemoryLayout<Float>.stride
+    for range in [0..<2, 2..<4, 4..<6, 6..<7] {
+        let bound = try await source.binding(
+            for: range, prefetching: nil, label: "binding contract"
+        )
+        guard bound.buffer === cube.buffer else {
+            fail("""
+                 TileGPUSource staged a COPY for rows \(range) instead of \
+                 binding the resident cube — this is the ~0.375x working-set \
+                 waste v2 S18 removed, silently reintroduced.
+                 """)
+        }
+        guard bound.offset == range.lowerBound * bytesPerScanRow else {
+            fail("""
+                 binding for rows \(range) is at byte offset \(bound.offset), \
+                 expected \(range.lowerBound * bytesPerScanRow)
+                 """)
+        }
+    }
+    pass("TileGPUSource binds the cube's own buffer at the right offset, no staging")
+}
+
+// Re-baselined AFTER the positive control's deliberate copy.
+let copiesBeforeReducers = await residentData.residentTileCopies
 let residentStatistics = try await VirtualDetector.tiledDPStatistics(
     data: residentData, descriptor: d, maximumTileRows: 2
 )
@@ -366,6 +441,93 @@ let streamCoM = try await VirtualDetector.tiledCenterOfMass(
     data: streamData, descriptor: d, center: (5, 4), maximumTileRows: 2
 )
 expectIdentical(residentCoM, streamCoM, "centre of mass")
+
+// MARK: - The staging copy is GONE, not merely still correct (v2 S18)
+
+// Equality above proves the numbers did not change. It cannot distinguish
+// "bound the cube in place" from "copied every tile out and back again" — a
+// silently reintroduced staging copy passes every comparison in this file.
+// This is the assertion that fails when the copy comes back.
+let copiesAfterReducers = await residentData.residentTileCopies
+guard copiesAfterReducers == copiesBeforeReducers else {
+    fail("""
+         the four tiled reducers copied \(copiesAfterReducers - copiesBeforeReducers) \
+         tile(s) out of the resident cube. They must bind the cube's buffer at \
+         each tile's byte offset instead — that copy is ~0.375 x working set of \
+         pure staging waste and v2 S18 removed it.
+         """)
+}
+pass("resident reducers made zero staging copies (\(copiesBeforeReducers) before, \(copiesAfterReducers) after)")
+
+// MARK: - Browsing patterns comes out of the resident cube too (v2 S18)
+
+// `pattern(ry:rx:)` used to go to the reader unconditionally, so browsing
+// patterns stayed disk-bound even with the whole cube already in memory. Two
+// claims here, and they are different:
+//   1. the bytes are the same ones the reader would have returned, and
+//   2. the reader is not consulted to get them.
+//
+// **Only claim 2 is actually tested here, and the comment that used to sit in
+// this spot was wrong twice over (Gate B, 2026-08-27).** It said "nothing else
+// in this repo asserts that a reader's two entry points agree pattern for
+// pattern". Two harnesses already do, against independent ground truth:
+// `tools/calibration-test:35` ("multi-row tile differs from row reads") and
+// `tools/vendor-reader-test:18-47`, which compares `readPattern` against
+// `readScanTile` for EMPAD and MIB directly.
+//
+// Worse, this loop cannot assert claim 1 at all. `CountingDataSource` answers
+// `readScanTile` through `LoadView.scanTile(fromFullCube:)`, which concatenates
+// `scanRow(fromFullCube:)` out of the same array and the same index arithmetic
+// `pattern(fromFullCube:)` uses — so both sides of the comparison come from one
+// family, and a shared convention error would cancel. That is precisely the L3
+// self-consistency trap this repo has been bitten by before, reproduced inside
+// the check written to guard against it.
+//
+// What this loop DOES prove, and it is worth keeping: the resident slice's
+// offset arithmetic and its declared geometry match the streaming path on a
+// 9x11 detector, and the reader is untouched. Claim 1 against a real reader is
+// covered by the two harnesses named above, not by this one.
+do {
+    await residentData.clearCache()
+    let readsBeforePatterns = await residentSource.patternReads
+    for ry in 0..<d.ry {
+        for rx in 0..<d.rx {
+            let resident = try await residentData.pattern(ry: ry, rx: rx)
+            let streamed = try await streamData.pattern(ry: ry, rx: rx)
+            guard resident.pixels == streamed.pixels else {
+                fail("pattern at (ry \(ry), rx \(rx)) differs between resident and streaming")
+            }
+            // The DECLARED geometry, not just the pixels. Gate B (2026-08-27)
+            // showed this loop was blind without it: returning
+            // `DiffractionPattern(qy: descriptor.qx, qx: descriptor.qy, …)` —
+            // correct pixels, transposed geometry — was GREEN here AND across
+            // all 37 scientific harnesses. `normalized()` builds
+            // `FloatImage(width: qx, height: qy)`, so the CBED viewer, the PNG
+            // export and any probe measured off it would inherit a transposed
+            // shape with entirely plausible intensities. Nothing else in
+            // mac4DSTEMTests/ or tools/ asserts any pattern's qy or qx. The
+            // fixture's 9x11 detector is what makes this discriminating; at a
+            // square detector it would prove nothing.
+            guard resident.qy == streamed.qy, resident.qx == streamed.qx else {
+                fail("""
+                     pattern at (ry \(ry), rx \(rx)) declares \
+                     \(resident.qy)x\(resident.qx), streaming says \
+                     \(streamed.qy)x\(streamed.qx) — the pixels match but the \
+                     geometry does not
+                     """)
+            }
+        }
+    }
+    let readsAfterPatterns = await residentSource.patternReads
+    guard readsAfterPatterns == readsBeforePatterns else {
+        fail("""
+             browsing \(d.ry * d.rx) patterns on a RESIDENT cube read the file \
+             \(readsAfterPatterns - readsBeforePatterns) time(s). A resident cube \
+             already holds every pattern.
+             """)
+    }
+    pass("all \(d.ry * d.rx) patterns served from the resident cube, zero reader reads")
+}
 
 // MARK: - Degrade to streaming (invariant I6)
 

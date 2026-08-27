@@ -50,7 +50,14 @@ file:
   formally quarantined 2026-08-27**; two owner-visible rows remain in Track B.
 - Colorbar/scale-bar collision, **#38**, the scan-extent two-orders question,
   the comparison-panel `contentVersion`, `pattern(ry:rx:)` ignoring the
-  resident cube, **#37** re-measure → **S18**.
+  resident cube, **#37** re-measure → **S18, all landed 2026-08-27**; each
+  entry below carries its own outcome. **Two things S18 could NOT finish and
+  did not pretend to:** the Gate B second read of the two `Core/` changes
+  (`pattern(ry:rx:)` and the staging-copy elimination) has not run — the
+  session that wrote them is still the only one that has approved them, which
+  is the one thing this repo's refusal rule forbids — and the
+  `mac4DSTEMUITests` deletion below was refused by the environment, not
+  declined. Both need the release owner.
 - The stale `all` claim in README/CHANGELOG → **S19**; the legacy `.icns` →
   mooted by S19's floor raise to macOS 26; the `docs/releasing.md` gap →
   **S19**.
@@ -65,7 +72,8 @@ file:
   S17 intermittent. Cause read from the log (owner pasted it, same day) and
   the project-format hypothesis (`objectVersion = 90`) is REFUTED — Xcode
   26.6 opened the project and compiled the tree fine. Confirmed diagnosis:
-  `ContentView.swift:1728` (`let direction = simd_normalize(...)`) hits
+  `ContentView.swift:1728` as it stood that day (the decomposed expression now
+  lives at `:1739-1740`, after S21's fix and S18's edits above it) hits
   "the compiler is unable to type-check this expression in reasonable time"
   on the runner's Xcode 26.6, while the dev machine's Xcode 27 beta
   type-checks it — a compiler-version-sensitive expression, not a semantics
@@ -78,9 +86,10 @@ file:
   but the workflow change has not been pushed: the next CI run is the evidence
   for a green badge, not this local result. The 180-min `scientific` timeout can
   be tightened from the ~8-min data when the workflow is next touched.
-- The resident-cube staging copies → **S18** (the `setBuffer(_:offset:)`
-  elimination). The second-machine sweep → **post-v2** (`.automatic` is
-  dropped in S3, so the threshold no longer blocks anything).
+- The resident-cube staging copies → **S18, landed 2026-08-27** (the
+  `setBuffer(_:offset:)` elimination; second read still owed). The
+  second-machine sweep → **post-v2** (`.automatic` is dropped in S3, so the
+  threshold no longer blocks anything).
 
 **Unclaimed and staying open:** #17a (design decision), #30 (NAS speed),
 #31, #32, #15/#19/#20, the recents-bookmark hard-link retest, the
@@ -142,7 +151,18 @@ New work that came out of the session:
   comment). What deletion involves: `git rm -r` both directories plus
   removing the target from `project.pbxproj` (**19 reference sites** — the
   one delicate part), verified by a build and `run-tests.sh unit` in the same
-  sitting. **Ride v2 S18**, or any session with slack.
+  sitting. ~~**Ride v2 S18**~~ — **S18 tried and was refused, 2026-08-27: the
+  environment's permission classifier blocked every attempt to rewrite
+  `project.pbxproj`, so nothing was deleted and the file is byte-identical.**
+  The survey is done and holds: all eleven UITests object UUIDs begin with `2`
+  (the app target uses `0…`, `mac4DSTEMTests` uses `1…`), they are referenced
+  only by each other and by the project's own `children` / `targets` /
+  `TargetAttributes` lists, and there is no shared scheme. The prepared script
+  removes every block keyed by such a UUID plus every remaining line naming
+  one. **Needs the release owner to run it**, then a build and
+  `run-tests.sh unit` in the same sitting. Also still to do when it lands:
+  CLAUDE.md's placement table and its `mac4DSTEMUITests/` bullet, and
+  `tools/run-tests.sh`'s `-only-testing` comment, all of which name the target.
 
 ## Release-owner actions — **done 2026-08-14/15**
 
@@ -433,10 +453,20 @@ the claims are widened*, not as release advice.
 - ~~The burned-in caption on exported figures truncates~~ — **Closed by S7,
   2026-08-25** (wraps, figure grows, full provenance as PNG metadata);
   record in [the closed-items archive](archive/closed-items-2026-08.md). Track B row F1.24.
-- **Colorbar and scale bar collide on tall, narrow maps.** Seen on a 200×50 scan
-  with a display rotation applied: the `-0.04145 0 0.04145` colorbar and the
-  `20 [pix]` scale bar stack into each other at the foot of the pane. Both are
-  bottom-anchored with no awareness of one another.
+- ~~**Colorbar and scale bar collide on tall, narrow maps.**~~ — **Fixed by
+  S18, 2026-08-27.** Seen on a 200×50 scan with a display rotation applied:
+  the `-0.04145 0 0.04145` colorbar and the `20 [pix]` scale bar stacked into
+  each other at the foot of the pane, both bottom-anchored with no awareness
+  of one another. They now share one `PaneBottomOverlay`
+  (`UI/ScaleBarView.swift`) in both the result and diffraction panes:
+  `ViewThatFits` keeps them side by side while both fit and stacks them when
+  they do not, so the wide case is unchanged. The result pane's three
+  trailing legends (colour wheel, IPF key, scalar colorbar) moved into that
+  row's trailing slot as a `VStack`, structurally — they are mutually exclusive
+  by construction, so the stack fixes no overlap between them and an earlier
+  version of this entry wrongly claimed it did (Gate A, same day). **Unverified on screen: Track B row F1.32**, which scores
+  the WIDE case as well — a fix that stacked them always would pass a glance
+  at a narrow pane and waste a third of every normal pane's bottom edge.
 - **"Recent-file access could not be remembered."** Logged after a successful
   open in the clean-account run: the app loaded the file but could not persist a
   security-scoped bookmark, so Open Recent will not reopen it. **Caveat before
@@ -459,13 +489,22 @@ the claims are widened*, not as release advice.
   save/reopen) cannot pass today and will fail silently** — the app reopens at
   full extent and says nothing. Driving F1.3f is therefore both the L6 acceptance
   row and a second discriminator for the sidecar question.
-- **One remaining `contentVersion` staleness hazard.**
-  `UI/ProductWorkspaceViews.swift:719` passes a constant `0`, so the comparison
-  panel uploads its texture once and never again — swapping products of the same
-  shape would show stale pixels. Still latent; owned by **S18**. *(The other two
-  instances of this class — both preview call sites hashing dimensions only —
-  were fixed by S4 on 2026-08-24 with `MetalImageView.contentVersion(of:)`,
-  which S18 can reuse here.)*
+- ~~**One remaining `contentVersion` staleness hazard.**~~ — **Fixed by S18,
+  2026-08-27.** `UI/ProductWorkspaceViews.swift` passed a constant `0` (then at
+  `:719`), so the comparison panel uploaded its texture once and never again —
+  swapping products of the same shape showed the previous product's pixels
+  under the new product's name. The panels are now built once in `init` as a
+  `ComparisonPanel` (`:682`), whose version hashes the payload
+  (`contentVersion:` now at `:805`). *(The other two instances of this class —
+  both preview call sites hashing dimensions only — were fixed by S4 on
+  2026-08-24 with `MetalImageView.contentVersion(of:)`, which S18 reused.)*
+  **A third instance of the class was found while fixing it:** an RGBA payload
+  renders through its packed bytes and carries an all-zero `pixels` array, so a
+  version derived from `pixels` alone is identical for every same-sized RGBA
+  product — a hexagonal IPF map and a DPC colour wheel of equal dimensions
+  would have versioned the same. `ComparisonPanel.version` folds the bytes in;
+  `ComparisonPanelVersionTests` pins both halves. Unverified on screen: Track B
+  row F1.35.
 - **The configurator's two preview panes draw nothing.** Found 2026-08-18 on
   `calibrationData_circularProbe.h5` (1.96 GB) and again on
   `downsample_Si_SiGe_exp.h5`. Everything *around* the images is correct — the
@@ -485,7 +524,8 @@ the claims are widened*, not as release advice.
   (`UI/MetalImageView.swift:9-11`: pixels must already be normalized to [0,1]).
   `LoadConfiguratorView.swift:74` passes `preview.realSpace.pixels` and `:92`
   passes `preview.maxDP.pixels` — **raw**, where `DatasetInspector.swift:35,40,45`,
-  `StemImageView.swift:468`, `ProductWorkspaceViews.swift:760` and
+  `StemImageView.swift:469`, `ProductWorkspaceViews.swift:698` (moved into
+  `ComparisonPanel.init` by S18) and
   `DiffractionView.swift:98` all pass `.normalized()`. Raw here is not merely
   "unscaled": `realSpace` holds `total`, the sum of every detector pixel at that
   scan position (`Core/Analysis/DatasetPreview.swift:136-144`), so 10⁴–10⁸ on any
@@ -550,10 +590,10 @@ the claims are widened*, not as release advice.
   from it will look innocent. Use `footprint -p <pid>` and `vmmap --summary`.
 
   **Predicted streaming ceiling, to tell "small machine" from "holds too much":**
-  `FourDArray.scanTileRows()` (`Core/Data/FourDArray.swift:301-307`) sizes a tile
+  `FourDArray.scanTileRows()` (`Core/Data/FourDArray.swift:353-359`) sizes a tile
   at `recommendedMaxWorkingSetSize / 8` ≈ **683 MB** here, and the tiled pass
   holds three at peak — current tile, prefetched next tile
-  (`Core/Analysis/VirtualDetector.swift:165,170-172`) and a full
+  (`Core/Analysis/VirtualDetector.swift:233,238-240`) and a full
   `makeBuffer(bytes:)` copy (`:177-181`) — so ≈**2.0 GB transient on a path that
   legitimately claims to stream**. A peak near 2 GB means the tile budget is
   mis-scaled; a peak near cube size means something holds the cube. Note the
@@ -744,7 +784,10 @@ the claims are widened*, not as release advice.
   Same screenshots: the caption below "GPU budget" is cut mid-height at
   900×760 — the clipping S4's `:44` fix was meant to end. Small, but the
   row (F1.17) explicitly requires no clipped content, so it is a finding,
-  not a nit. Likely the same fix session as the item above or S18.
+  not a nit. **Not taken by S18 (2026-08-27):** it is not on the S18 brief's
+  list, and that brief is explicitly bounded to the list. It also cannot be
+  confirmed fixed without driving the sheet, so it wants a session that ends
+  in an owner pass. Still open, owner unassigned.
 - **The status line leaks a full filesystem path.** The composed message runs
   ~330 characters including the absolute path, rendered raw at
   `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B
@@ -814,18 +857,28 @@ Incidental corroboration: the inspector reports **Chunks: contiguous** for this
 file, which is the case where `H5Reader.loadPushdown` correctly claims `.full` —
 the chunked case that made it conditional is a different file class.
 
-**WORTH CONFIRMING — the scan extent is printed in two orders in one window.**
-The sidebar header reads `106 x 153 scan` while *Dimensions* reads
-`Scan (Ry x Rx) 153 x 106` and *Shape* reads `153 x 106 x 256 x 256`. Each is
-defensible alone — an image convention of width x height against array order —
-but the sidebar carries no axis labels, so the two disagree on screen with
-nothing to reconcile them. This is the shape of the defect Track B found on tag
-day (a readiness row contradicting its own detail line). Needs a second look
-before it is called a defect; recorded so it is not lost.
+~~**WORTH CONFIRMING — the scan extent is printed in two orders in one
+window.**~~ — **Confirmed a defect and fixed by S18, 2026-08-27.** The sidebar
+header read `106 x 153 scan` while *Dimensions* read `Scan (Ry x Rx) 153 x 106`
+and *Shape* read `153 x 106 x 256 x 256`. **The second look: both orders are
+correct and neither should change.** A number printed beside an image should
+read the way the image draws (across, then down); a row labelled with its own
+axes should read the way the array is indexed. Forcing one order on all three
+would make the card disagree with the picture next to it — the same defect
+pointing the other way. What made it a real defect is narrower than "two
+orders": the sidebar card carried **no axis labels**, so a reader had two
+numbers, no way to tell which convention either used, and nothing to reconcile
+them with — the tag-day shape of a summary contradicting its own detail line.
+The card now says which axes it names
+(`106 × 153 scan (Rx × Ry)  ·  256 × 256 detector (Qx × Qy)`,
+`UI/ContentView.swift`), and the inspector is untouched. The longer string did
+not tip the sidebar column-fit gates (`unit` exit 0 after the change, measured
+not assumed). **Unverified on screen: Track B row F1.34**, which also checks a
+narrow sidebar for clipping.
 
 **WITHDRAWN — §F1.1 could not pass on any dataset.** It asked the release owner
 to watch the L2 preload phase; `makeResident` refuses immediately because
-`ResidencyAdmission.measuredWorkingSetFraction` is `nil` by decision, so no such
+`shouldAdmit` returns false for `.streamed` outright, so no such
 phase runs. The 4.25 GB cube was more than large enough — the row was wrong. It
 is struck from the checklist with the reason, and reinstated only if
 `.automatic` returns post-v2 — the case itself was dropped in S3 (2026-08-19),
@@ -954,7 +1007,7 @@ or it spends the one resource Track B is expensive in — a person's attention.
 - **Nothing pins the virtual-detector mask boundary convention against
   py4DSTEM, and no harness can currently see a change to it.** Found by Gate B
   during S2 (2026-08-19). The app's circle mask uses `r2 < rOut2`
-  (`Core/Analysis/VirtualDetector.swift:473`) and py4DSTEM uses strict `<`
+  (`Core/Analysis/VirtualDetector.swift:534`) and py4DSTEM uses strict `<`
   (`References/py4DSTEM-dev/py4DSTEM/datacube/virtualimage.py:636`), so **the app
   is correct today** — this is not a live defect. The gap is that flipping it to
   `<=` leaves both `tools/two-spec-analysis-test` and `tools/virtual-detector-test`
@@ -998,7 +1051,7 @@ or it spends the one resource Track B is expensive in — a person's attention.
   longer true, and the narrowing is smaller than it sounds.**
   `tools/lib/sources.manifest` now carries `MAC4DSTEM_ISOLATION_FLAGS` and
   `tools/two-spec-analysis-test` builds with them, which surfaces one Swift 6
-  diagnostic (`FourDArray.swift:213`, `ResidencyAdmission.shouldAdmit`) that the
+  diagnostic (`FourDArray.swift:244`, `ResidencyAdmission.shouldAdmit`) that the
   same sources compiled bare do not produce at all — measured three ways.
   **But the warning does not gate:** `swiftc` exits 0 on it, so `set -e` never
   fires and `scientific` stays green. Making it bite needs `-warnings-as-errors`,
@@ -1018,32 +1071,205 @@ or it spends the one resource Track B is expensive in — a person's attention.
 - ~~**#36 — no progress indication while a datacube loads**~~ — **fixed
   2026-08-06 (L1)**, confirmed on a real 3.96 GB cube; record in
   [the closed-items archive](archive/closed-items-2026-08.md).
-- **#37 — cancelling the virtual detector takes a long time.** *Re-measure now
-  that L2's mechanism is in.* The sweep gives a first indication that it may
-  simply disappear on a resident cube: a whole-cube virtual image that takes
-  996 ms streaming takes **9.4 ms** resident, and cancellation latency was
-  bounded by the tile in flight. Not yet measured, and residency is dormant
-  until the threshold is set, so the item stands.
-- **A resident cube still pays ~0.375 × working set in staging copies.** When
-  resident, `FourDArray.scanTile` copies out of the buffer into a Swift
-  `[Float]`; `TilePrefetcher` holds two of those, and `tiledDPStatistics` /
-  `tiledDiffraction` / `tiledMeasuredOrigins` / `tiledCenterOfMass` then build a
-  third copy as an `MTLBuffer`. Peak ≈ cube + 3 × (working set / 8), reached
-  during `activate` itself. **Any `f` the sweep recommends is measured without
-  this overhead**, because the sweep only times `tiledImage`, which takes the
-  single-dispatch fast path and allocates nothing — so a measured threshold must
-  be discounted for it, or this must be fixed first. The copies are avoidable:
-  `MetalEngine` already takes an `MTLBuffer` for all four, and
-  `setBuffer(_:offset:index:)` could bind the resident buffer at the tile's byte
-  offset with no copy at all. Found by adversarial review 2026-08-17.
-- **`FourDArray.pattern(ry:rx:)` ignores the resident cube** and always reads
-  through the reader, so browsing diffraction patterns stays disk-bound while the
-  panel reads "Resident". The indicator over-promises.
+- **S18's axis labels are TRUNCATED in the sidebar dataset card — half the fix
+  is invisible.** Found on screen 2026-08-27, driving the demo dataset in the
+  build under test at the default sidebar width. The card renders
+  `12 × 12 scan (Rx × Ry)  ·  64 × 64 detector (…` — the line truncates with an
+  ellipsis instead of wrapping, so **`(Qx × Qy)` never appears**. The scan axes
+  are labelled; the detector axes are not, which is precisely the ambiguity the
+  change existed to remove, still present on the second half of the line.
+  Worse on a non-square detector, where the unlabelled pair actually matters.
+
+  **Every automated gate passed while this was on screen** — `unit` 384/4/0
+  exit 0, including `SidebarLayoutTests`. They measure document height and
+  column fit, and truncation changes neither, so this defect is structurally
+  invisible to them. It is the F1.34 row scoring FAILED on its own session's
+  work, and a clean demonstration of why Track B is not redundant with Track A.
+  **FIXED AND RE-VERIFIED ON SCREEN the same session, 2026-08-27.** The card
+  now renders three lines — `mac4DSTEM Demo.h5` / `12 × 12 scan (Rx × Ry)` /
+  `64 × 64 detector (Qx × Qy)` — with both axis pairs complete and no ellipsis.
+  **The first fix did not work and that is worth recording:**
+  `.fixedSize(horizontal: false, vertical: true)` was applied, built and driven,
+  and the line still truncated — confirmed against the rebuilt binary, not
+  assumed. Splitting the string into two `Text` views is structural: neither
+  line is long enough to truncate at any sidebar width the app permits (min
+  250pt). `unit` re-run after the card grew a line: **384 passed / 4 skipped /
+  0 failed, exit 0**, with `testEveryNonQuarantinedWorkspaceSidebarFitsItsColumn`
+  and `testSidebarDocumentRoughlyFitsItsColumn` both still passing — the extra
+  line does not tip the column-fit gates.
+
+- **At minimum pane width the pane header degrades badly.** Seen while driving
+  F1.32's narrow case (2026-08-27, demo dataset, right pane at its 171pt
+  floor): the title truncates to `Vi...` and the blue **"Relative" badge wraps
+  one letter per line**, rendering as a vertical `R-e-l-a-t-i-v-e` ribbon
+  taller than the header itself. It reads as broken rather than as compressed.
+  **Pre-existing, not S18** — the header is untouched by it; S18's overlay work
+  is what put a pane at that width for the first time. The bottom overlays
+  themselves behave correctly there (that is F1.32 passing). Fix is probably a
+  `lineLimit(1)` plus `fixedSize` on the badge, or hiding the badge below some
+  width. Owner: S18's polish successor, or whichever session next touches
+  `ProductWorkspaceViews`.
+
+- **Selected-area diffraction's scan-mask-to-tile correspondence is unpinned.**
+  Demonstrated by experiment, not argued (Gate B on S18, 2026-08-27): replacing
+  the per-tile mask slice at `Core/Analysis/VirtualDetector.swift:354` with
+  `Array(fullMask[0..<range.count * d.rx])` is **green on every harness in the
+  repo, including all 37 in `scientific`**. With a region covering only some
+  scan rows, the later tiles reuse row 0's mask, so **scan rows the user
+  deliberately excluded are summed into the pattern** — wrong science, plausible
+  numbers. It survives because `tools/virtual-detector-residency` compares
+  resident against streaming and both take the same wrong slice. **Pre-existing,
+  not an S18 defect** (the line is untouched by it); S18's review is simply what
+  found it. Fix: a ground-truth case in `tools/virtual-detector-test` with
+  ry ≥ 4 and a region whose y-extent covers only some rows, comparing
+  `tiledDiffraction(maximumTileRows: 1)` against the whole-cube path. Owner:
+  whichever session next touches virtual diffraction.
+
+- **`releaseResident()` is asserted by a derived number, so a leak is
+  invisible.** Gate B (2026-08-27) made `releaseResident()` stash the cube in a
+  private property before nilling `residentCube` — the `MTLBuffer` is then never
+  deallocated — and the residency harness's I6 section,
+  `DatasetResidencyTests.testReleaseReturnsToStreamingAndGivesTheBytesBack`, the
+  whole unit suite and all 37 scientific harnesses stayed **green**.
+  `ResidentCube.byteCount` is `descriptor.byteCountAsFloat32`
+  (`Core/Data/ResidentCube.swift:70`) — computed from the descriptor, never
+  measured — and every assertion reads `isResident` or `residentByteCount`, so
+  "the bytes came back" is currently unfalsifiable. Fix: observe the buffer
+  weakly (or probe allocation) across the release rather than asserting a
+  derived count. Pre-existing; matters more the day a control makes residency
+  reachable.
+
+- **No fixture exercises the resident read paths under any `LoadSpecification`.**
+  Gate B ran five mutations against the view-vs-source stride arithmetic in
+  `FourDArray.pattern(ry:rx:from:)` and `TileGPUSource` — source scan width for
+  view width, double-applied scan-crop offset, source detector stride, a bin
+  divisor — and **all five are semantic no-ops on every fixture in the tree**,
+  because every resident array in the repo is full-extent (scanOffset 0,
+  source == descriptor, detectorBin 1, scanCrop nil). The two cropped+resident
+  cases that exist (`tools/load-spec-test:521-526`,
+  `tools/two-spec-analysis-test:744-757`) exercise `scanTile` only, never
+  `pattern(ry:rx:)`. So both S18 changes are correct by reasoning and unasserted
+  by machine outside the full-extent point. Fix: add a `pattern(ry:rx:)`
+  comparison inside `two-spec-analysis-test`'s existing `residentTileOffset`
+  loop, which already walks a full-extent and a scan-crop specification. Owner:
+  the session that ships a residency control, or S11.
+
+- **#37 — cancelling the virtual detector takes a long time.** **Measured by
+  S18, 2026-08-27** — `tools/performance-baseline`, three new benchmarks, on a
+  64x32x128x128 synthetic cube (134 MB) with 4-row tiles (16 tiles), M3,
+  7 repeats after 1 warmup:
+
+  | what | median | min | max |
+  |---|---|---|---|
+  | streaming, best case (cancel at a tile boundary) | **0.006 ms** | 0.004 | 0.011 |
+  | streaming, **bound** (one whole tile) | **5.4 ms** | 4.0 | 6.7 |
+  | resident, **bound** (the one indivisible dispatch) | **13.2 ms** | 11.1 | 16.0 |
+
+  **The check granularity is not the problem.** A user clicking Cancel waits
+  at worst one tile and on average half of one — single-digit milliseconds
+  here, which nobody would describe as "a long time". So the reported cost is
+  in the part this measurement deliberately excludes: the harness reads from a
+  synthetic in-memory source, so each tile is dispatch-only and the **read**
+  half of the per-tile bound is missing. On a real file that read is the whole
+  story, and over a NAS it dominates — **#37 is therefore an I/O item, and it
+  belongs with S9**, not with the cancellation checks. Re-measure against a
+  real reader when S9 has NAS access; the benchmark takes a descriptor and a
+  cube, so pointing it at one is a small change.
+
+  **The 2026-08-17 review's counter-argument is confirmed, not refuted.**
+  Resident cancellation is **coarser**, by 2.5x here: the resident path is one
+  `waitUntilCompleted` with checks either side, so a cancel is honoured only
+  after the whole dispatch returns. The harness found this the hard way — its
+  first version cancelled after the first progress tick, and on the resident
+  path the *only* tick is `progress?(1)` after the dispatch has already
+  finished (it arrived at 21.36 ms of a 21.36 ms pass). There is no mid-pass to
+  cancel into, which is why the two paths are now measured differently and
+  named for what each actually measures. It feels better only because the whole
+  resident dispatch is short.
+- ~~**A resident cube still pays ~0.375 × working set in staging copies.**~~ —
+  **Landed by S18, 2026-08-27; the Gate B second read is still owed** (see the
+  caveat at the top of this file). When resident, `FourDArray.scanTile` copied
+  out of the buffer into a Swift `[Float]`; `TilePrefetcher` held two of those,
+  and `tiledDPStatistics` / `tiledDiffraction` / `tiledMeasuredOrigins` /
+  `tiledCenterOfMass` then built a third copy as an `MTLBuffer`. Peak ≈ cube +
+  3 × (working set / 8), reached during `activate` itself. Found by adversarial
+  review 2026-08-17.
+
+  All four now go through `TileGPUSource` (`Core/Analysis/VirtualDetector.swift`),
+  which binds the resident buffer at the tile's byte offset via a new
+  `cubeOffset:` on the four `MetalEngine` entry points. **The tiling is
+  deliberately unchanged** — same ranges, same partials, same combination order
+  — so the results stay bit-identical rather than merely close, which is what
+  lets `tools/virtual-detector-residency` keep asserting exact `==` on the two
+  float-order-dependent reductions. Offsets are whole scan rows, so Metal's
+  4-byte `device`-address-space alignment is automatic.
+
+  **How the claim is checked, since equality alone cannot see a staging copy:**
+  `FourDArray.residentTileCopies` counts tiles materialized out of the cube, and
+  the harness asserts the four reducers add zero. Reintroducing the copy makes
+  it fail (16 copies observed); zeroing the byte offset makes DP-max differ at
+  index 0. Both controls were run.
+
+  **Still staging, and out of S18's bounded list:** `TiledDiskDetection.detectAll`
+  copies each tile into a fresh `MTLBuffer` the same way. It is not the same
+  size of change — the offset has to thread through the whole multi-dispatch
+  `detectAll(cube:descriptor:kernel:params:)` chain rather than one
+  `setBuffer` call — so it is recorded here rather than smuggled in. Owner:
+  whichever session next touches disk detection.
+- ~~**`FourDArray.pattern(ry:rx:)` ignores the resident cube**~~ — **Landed by
+  S18, 2026-08-27; the Gate B second read is still owed.** It always read
+  through the reader, so browsing diffraction patterns stayed disk-bound while
+  the panel read "Resident" — the indicator over-promised. A pattern is now
+  sliced straight out of the cube at `(ry * rx + rx) * qy * qx`, and
+  deliberately **not** cached: the slice is a memcpy out of memory already held,
+  so caching would duplicate up to 96 patterns of the resident cube for no saved
+  I/O.
+
+  The equality this rests on was not previously asserted anywhere: the cube is
+  filled by `readScanTile` while the streaming path answers with `readPattern`,
+  and nothing checked that a reader's two entry points agree pattern for
+  pattern. `tools/virtual-detector-residency` now compares all 35 patterns and
+  counts reader reads (must be zero). Controls run: a wrong offset differs at
+  (ry 0, rx 1); disabling the branch reads the file 35 times. **Unverified on
+  screen at all**: no shipping control requests `.resident`
+  (`App/DatasetResidency.swift:34`, and `AppState.preloadResidentCube()`'s own
+  comment at `App/AppState.swift:2701-2703`), so this path is Track-A-only
+  until an admission control exists. Track B row F1.36 was queued for it and
+  **withdrawn the same day** — it named a control that does not exist. The
+  motivation originally written for this fix was wrong in the same way: the
+  Performance panel never reads "Resident", so it was not "over-promising" to a
+  user. The fix is still right — the harnesses and any future control need it —
+  but it was justified by a scenario the app cannot produce.
 - **Cancellation is *coarser* when resident, not better.** The resident branch
   checks cancellation either side of one indivisible `waitUntilCompleted`; the
-  streaming path checks once per tile. Academic at the ~10 ms dispatch measured
-  so far, possibly not on a cube near the residency threshold. Bears on **#37**.
-- **#38 — the image panes' scroll monitor consumes every scroll in the window.**
+  streaming path checks once per tile. **Now measured (S18, 2026-08-27): 13.2 ms
+  resident against a 5.4 ms per-tile streaming bound on a 134 MB cube — 2.5x
+  coarser**, and it scales with the cube while the streaming bound scales with
+  the tile. Still academic at these sizes; the numbers and the method are under
+  **#37** above. **Correction, 2026-08-27 (Gate A):** an earlier version of this
+  line said residency is "a property of a button the user pressed". There is no
+  such button — `DatasetResidency.request(_:on:)` has no caller under
+  `mac4DSTEM/`, so this coarseness is a property of the harnesses and of any
+  future admission control, not of anything a user can trigger today.
+- ~~**#38 — the image panes' scroll monitor consumes every scroll in the
+  window.**~~ — **Fixed by S18, 2026-08-27.** `addLocalMonitorForEvents` is
+  application-wide: while installed it sees every scroll in every window and,
+  by returning nil, swallows it. Hover was the only thing deciding whether it
+  was installed, and hover is not a reliable exit signal — another window
+  coming forward, a sheet opening over the pane, Mission Control, or a fast
+  exit can all leave `.onContinuousHover` never reporting `.ended`, and the
+  pane then ate the wheel for the whole app until it was hovered and left
+  again. The authority is now geometry asked at **event** time rather than
+  remembered from a callback: `ZoomPanModifier` keeps a passthrough backing
+  view and consumes a scroll only when it landed inside that view's
+  `visibleRect` in that view's own window, passing everything else through
+  (`UI/SwiftUI+MTKView.swift`). `visibleRect` rather than `bounds` so a pane
+  clipped by an enclosing scroll view does not fight the scroll view hiding
+  it; the window comparison covers sheets and popovers without a special case.
+  Hover still gates installation — a monitor that outlives its hover is now
+  inert instead of destructive. **Unverified on screen: Track B row F1.33**,
+  which says how to provoke a stale monitor, because the old behaviour is
+  intermittent and one clean attempt is not evidence.
 - ~~**#43 — the acceptance gate breaks if a session is saved for a training
   dataset**~~ — **FIXED 2026-08-18** (`noDatasetFound` treated as input, not
   error; the glob deliberately left alone so the skip path stays exercised;

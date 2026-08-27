@@ -54,6 +54,22 @@ actor FourDArray {
             return cached
         }
 
+        // A resident cube holds every pattern already, so browsing diffraction
+        // patterns has no reason to go back to disk — before v2 S18 it always
+        // did, which made the Performance panel's "Resident" an over-promise:
+        // the indicator said memory while scan navigation stayed disk-bound.
+        //
+        // Not cached: the slice is a ~qy*qx memcpy out of memory we are already
+        // holding, so caching it would duplicate up to `maxCachedPatterns`
+        // patterns of the resident cube for no saved I/O. Patterns cached
+        // BEFORE the cube went resident are still served above — same bytes,
+        // since both come from the same view of the same reader.
+        if let residentCube,
+           residentCube.matches(descriptor, specification: loadSpecification),
+           let pattern = self.pattern(ry: clampedY, rx: clampedX, from: residentCube) {
+            return pattern
+        }
+
         let pixels = try await reader.readPattern(view, ry: clampedY, rx: clampedX)
         let pattern = DiffractionPattern(qy: descriptor.qy, qx: descriptor.qx, pixels: pixels)
         insert(pattern, for: cacheKey)
@@ -152,6 +168,21 @@ actor FourDArray {
 
     /// Bytes currently held resident (0 when streaming).
     var residentByteCount: Int { residentCube?.byteCount ?? 0 }
+
+    /// How many tiles have been COPIED out of the resident cube into a Swift
+    /// `[Float]` by `scanTile`.
+    ///
+    /// Observability, not policy. v2 S18 removed that copy from the four tiled
+    /// GPU reducers — they bind the cube's buffer at the tile's byte offset
+    /// instead (`TileGPUSource`) — and this counter is how
+    /// `tools/virtual-detector-residency` proves the copy is GONE rather than
+    /// merely still correct. Without it the harness can only show that the
+    /// numbers did not change, which is exactly what a silently-reintroduced
+    /// staging copy would also show.
+    ///
+    /// CPU-side consumers (parallax preprocessing, ptychography preparation,
+    /// the EMD writer) legitimately still copy and still increment it.
+    private(set) var residentTileCopies = 0
 
     /// Bumped by anything that invalidates an in-flight preload. A preload
     /// captures it, re-checks after every suspension, and refuses to publish a
@@ -278,7 +309,28 @@ actor FourDArray {
         residencyGeneration &+= 1
     }
 
+    /// One pattern sliced out of the resident cube.
+    ///
+    /// The cube is flat and contiguous in `[ry][rx][qy][qx]` order, so a single
+    /// pattern is one contiguous `qy * qx` run at
+    /// `(ry * rx + rx) * qy * qx`. Returns nil rather than trapping if the
+    /// slice does not fit the buffer — the caller then falls back to the
+    /// reader, which is the honest behaviour for a cube that is not what this
+    /// array thinks it is.
+    private func pattern(ry: Int, rx: Int, from cube: ResidentCube) -> DiffractionPattern? {
+        let patternFloats = descriptor.qy * descriptor.qx
+        let start = (ry * descriptor.rx + rx) * patternFloats
+        let floatCount = cube.byteCount / MemoryLayout<Float>.stride
+        guard patternFloats > 0, start >= 0, start + patternFloats <= floatCount else {
+            return nil
+        }
+        let base = cube.buffer.contents().bindMemory(to: Float.self, capacity: floatCount)
+        let pixels = Array(UnsafeBufferPointer(start: base + start, count: patternFloats))
+        return DiffractionPattern(qy: descriptor.qy, qx: descriptor.qx, pixels: pixels)
+    }
+
     private func tile(yRange: Range<Int>, from cube: ResidentCube) -> FourDScanTile {
+        residentTileCopies += 1
         let floatsPerScanRow = descriptor.rx * descriptor.qy * descriptor.qx
         let floatCount = cube.byteCount / MemoryLayout<Float>.stride
         let base = cube.buffer.contents().bindMemory(to: Float.self, capacity: floatCount)

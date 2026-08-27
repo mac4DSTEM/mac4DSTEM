@@ -1206,7 +1206,40 @@ struct ContentView: View {
                     Text(descriptor.fileName)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
-                    Text("\(descriptor.rx) × \(descriptor.ry) scan  ·  \(descriptor.qx) × \(descriptor.qy) detector")
+                    // Axis-labelled on purpose (v2 S18). This line and the
+                    // dataset inspector print the same two extents in
+                    // OPPOSITE orders — here in display order (across x down),
+                    // there in array order as `Scan (Ry x Rx)` beside a
+                    // `Shape` row of `ry x rx x qy x qx`. Each is right for
+                    // where it sits: the number beside an image should read
+                    // the way the image draws, and a row labelled with its own
+                    // axes should read the way the array is indexed. What made
+                    // it a defect is that this one carried no labels, so the
+                    // two contradicted each other on screen with nothing to
+                    // reconcile them — the same shape as the readiness row
+                    // that disagreed with its own detail line on tag day.
+                    // TWO lines, not one wrapped line. The single-line version
+                    // truncated at the default sidebar width — it rendered
+                    // `12 × 12 scan (Rx × Ry)  ·  64 × 64 detector (…`, so the
+                    // `(Qx × Qy)` half never appeared and the card labelled one
+                    // axis pair while silently dropping the other. That is the
+                    // exact ambiguity this line exists to remove, so a
+                    // truncation here is not cosmetic.
+                    //
+                    // `.fixedSize(horizontal: false, vertical: true)` was tried
+                    // first and did NOT fix it — verified on screen, not
+                    // assumed. Splitting the string is structural: neither line
+                    // is long enough to truncate at any sidebar width the app
+                    // allows (min 250pt, `:970`).
+                    //
+                    // Found by driving the app 2026-08-27. `unit` was green
+                    // throughout, including `SidebarLayoutTests`, because those
+                    // measure document height and column fit and truncation
+                    // changes neither.
+                    Text("\(descriptor.rx) × \(descriptor.ry) scan (Rx × Ry)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Text("\(descriptor.qx) × \(descriptor.qy) detector (Qx × Qy)")
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }

@@ -192,6 +192,13 @@ audit; Developer ID signing and notarization require release-owner credentials
 
 - **Tiles are expanded to float32.** Peak memory is bounded, but native-dtype
   tile kernels (e.g. uint16) would reduce reader bandwidth and staging memory.
+  This is the only staging a *user* can experience, because **the app always
+  streams**: no shipping control requests a resident cube
+  (`App/DatasetResidency.swift:34`, and `request(_:on:)` has no caller under
+  `mac4DSTEM/`). For completeness, the resident path no longer stages at all —
+  the four tiled reducers bind the cube's own buffer at each tile's byte offset
+  (v2 S18, 2026-08-27) where they previously copied buffer → `[Float]` → a fresh
+  `MTLBuffer` per tile — but that path is reachable only from the harnesses.
 - **`AppState` remains a large workflow facade.** Operation lifecycle is
   extracted (`AnalysisOperationController`); file I/O orchestration,
   calibration, analysis dispatch, and result publication still need
@@ -203,7 +210,20 @@ audit; Developer ID signing and notarization require release-owner credentials
   deliberately kept rather than thrown away, and the status line names what was
   retained; if it no longer matches the settings in the panel, the viewer says
   so (backlog #34). Cancelling a long GPU pass can still take a noticeable
-  moment (#37).
+  moment (#37) — **and since 2026-08-27 that has a measured bound rather than an
+  impression.** A streaming pass checks the token once per tile, so a cancel
+  waits out at most one tile; a *resident* pass is a single whole-cube dispatch
+  with checks either side, so a cancel waits out all of it — resident
+  cancellation is structurally coarser, not better. **Only the streaming bound
+  is reachable by a user**; the app never holds a resident cube (no shipping
+  control requests one), so the resident figure describes the harnesses and any
+  future admission control. On a 64×32×128×128 synthetic cube those bounds
+  measured 5.4 ms per tile and 13.2 ms respectively
+  (`tools/run-tests.sh benchmark`, M3). Both numbers are **dispatch-only**: the
+  harness reads from memory, so the per-tile *read* — the half that dominates on
+  a real file and especially over a network share — is not in them. That read is
+  where the noticeable moment actually lives, which is why #37 now sits with the
+  I/O work rather than with the cancellation checks.
 - **Session rehydration is pixel/metadata-level.** Saved maps, calibration, and
   BraggVectors restore; the app does not reconstruct every transient scientific
   array or create EMD plot nodes.
