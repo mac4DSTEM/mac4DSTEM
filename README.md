@@ -43,7 +43,7 @@ That verification is numerical: the application is tested against known-correct 
 
 ## Requirements
 
-macOS 14 or later on Apple Silicon. No external runtime, toolchain, or library installation is required; all dependencies are contained within the application.
+macOS 26 or later on Apple Silicon. No external runtime, toolchain, or library installation is required; all dependencies are contained within the application.
 
 ## Building from source
 

@@ -239,7 +239,7 @@ nonisolated final class MetalEngine {
         var d = dims
         try run(pso, name: "virtualDiffraction",
                 width: Int(dims.qx), height: Int(dims.qy)) { enc in
-            enc.setBuffer(cube, offset: cubeOffset, index: 0)
+            enc.setBuffer(cube, offset: 0, index: 0)
             enc.setBuffer(maskBuf, offset: 0, index: 1)
             enc.setBuffer(out, offset: 0, index: 2)
             enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)

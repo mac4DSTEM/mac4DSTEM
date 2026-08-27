@@ -86,7 +86,7 @@ deferred rather than faked, and it is the first entry in
 ### Distribution
 
 Hardened runtime, sandboxed, self-contained, no Homebrew dylib dependency,
-macOS 14 floor. Developer ID signing, notarization and a clean-account launch
+macOS 14 floor — **declared, never tested below macOS 26** (corrected 2026-08-28; the clean-account launch was on macOS 27 only). The supported floor is now macOS 26, stated in `README.md`. Developer ID signing, notarization and a clean-account launch
 remain release-owner actions.
 
 ### Deliberately out of scope
