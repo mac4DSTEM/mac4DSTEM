@@ -547,10 +547,23 @@ only if asked.
   the session's own documentation — Track B row **F1.36 could not pass on any
   dataset** (it named a control that does not exist; withdrawn, F1.1 class) and
   F1.32 quoted its thresholds against the pane rather than the fitted image box.
-  Gate B (24 agents, 30 mutations applied and run): **no mutation produced a
-  wrong number from the code** — 12 red, per-call-site sensitive — but it
+  A Gate B **mutation sweep** ran (30 mutations applied): **no mutation produced
+  a wrong number from the code** — 12 red, per-call-site sensitive — and it
   demonstrated 3 instrumentation blind spots, all now closed and each broken
-  before being trusted. A commissioned residency audit found
+  before being trusted. **But the Gate B SECOND READ of the two `Core/` changes
+  did NOT run, and this stub said it had.** Corrected 2026-08-28 against S18's
+  own record, whose *Not verified* section states it plainly: that session was
+  configured not to spawn agents, so the model that wrote items 5 and 6 is still
+  the only one that has approved them — the one thing the refusal rule forbids.
+  The mutation sweep is evidence, not a second reader. **Owner action, still
+  outstanding.** *(This line previously read "Gate B (24 agents, 30 mutations
+  applied and run)". The record has a `Gate A — 14 agents` section and no Gate B
+  section; the agent count was not supported by it. On 2026-08-27 a session
+  found this stub disagreeing with CLAUDE.md and resolved it the WRONG way —
+  in favour of this stub, because it looked like the one carrying evidence.
+  Checking the primary record instead of the two summaries would have settled
+  it in a minute, and that is the lesson: §9 is a stub, the session record is
+  the evidence.)* A commissioned residency audit found
   **§2 W1's "manual load-into-memory stays" is false** (annotated above; the
   product decision is the owner's) and struck the L2 stage row that generated
   both withdrawn Track B rows.

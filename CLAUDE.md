@@ -60,13 +60,22 @@ recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
 records in
 [`docs/archive/v2-session-records/`](docs/archive/v2-session-records/).
-**S18 is ticked `[x]`, and this paragraph used to disagree with §9 about
-why.** It claimed S18's Gate B second read "has not run"; §9's stub records
-that it did — 24 agents, 30 mutations applied and run. Both sentences landed in
-the same commit (`7f99186`), and the contradiction stood until 2026-08-27, when
-it was resolved in favour of §9 because §9 carries the evidence. **What is
-genuinely still owed from S18 is only the `mac4DSTEMUITests` deletion**, which
-the environment refused; that needs the owner.
+**S18 is ticked `[x]`, but two things it could not finish are still owed, and
+both need the owner.** (1) **The Gate B second read of its two `Core/` changes
+has not run** — `pattern(ry:rx:)` and the staging-copy elimination — so the
+model that wrote them is still their only approver, which is the one thing the
+refusal rule forbids. A mutation sweep ran and is evidence, but it is not a
+second reader. (2) The `mac4DSTEMUITests` deletion was refused by the
+environment, not declined.
+
+*Read this before trusting either summary again:* on 2026-08-27 a session found
+this paragraph disagreeing with §9's S18 stub and **resolved it the wrong way**,
+rewriting this text to defer to the stub — which claimed a Gate B review that
+S18's own record does not contain. The record's *Not verified* section says the
+second read did not run, and its only review section is `Gate A — 14 agents`.
+Corrected 2026-08-28. **When a stub and this file disagree, neither wins by
+default — open the session record in `docs/archive/v2-session-records/`, which
+is the evidence both are summarising.**
 Sequencing (§9's checklist and resequencing line are the authority): the
 S10 → S21 → S17 run is complete; **TB1 sitting 1 is COMPLETE (2026-08-27)** and
 sittings 2–4 wait on the owner; S11 follows TB1; S9 when NAS access and disk

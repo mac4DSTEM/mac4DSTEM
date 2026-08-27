@@ -12,14 +12,17 @@ makes sure you enter it correctly.
 1. Read `CLAUDE.md` (if not already in context), then `docs/v2-release.md`:
    §1 (the claim), §7 (the gates), §8 (the session briefs), §9 (status).
 2. Take the lowest session in §9 not ticked `[x]` — a partial `[~]`
-   session continues before a fresh one starts. **If CLAUDE.md and §9 disagree
-   about a session's state, §9 wins and you say so out loud** — it is the
-   checklist and it carries the per-session evidence. This is not
-   hypothetical: from 2026-08-18 to 2026-08-27 CLAUDE.md said S18 was `[~]`
-   with its Gate B second read outstanding while §9 ticked it `[x]` and
-   recorded that review running with 24 agents and 30 mutations. Both
-   sentences landed in the same commit. Reconcile it in the session that finds
-   it rather than leaving the next reader to pick. The user naming one
+   session continues before a fresh one starts. **If CLAUDE.md and §9 disagree about a
+   session's state, NEITHER wins by default — open the session record in
+   `docs/archive/v2-session-records/`.** Both files are summaries; the record
+   is the evidence they summarise, and its *Not verified* section is the
+   authority on what did not happen. This is not hypothetical, and the failure
+   mode is not the one you would guess: on 2026-08-27 a session found CLAUDE.md
+   and §9 disagreeing about S18's Gate B second read, reasoned that "§9 carries
+   the evidence", and rewrote CLAUDE.md to match the stub — which claimed a
+   review the record does not contain. It made the docs worse while reporting a
+   fix, and one minute in `s18.md` would have prevented it. Reconcile in the
+   session that finds it, from the record, and say which way it went. The user naming one
    ("/pickup S7") wins over both. If the session's next step needs
    something only the user can provide — an experiment result, a decision,
    a Track B drive — and it is not already in the conversation, do the
