@@ -12,7 +12,14 @@ makes sure you enter it correctly.
 1. Read `CLAUDE.md` (if not already in context), then `docs/v2-release.md`:
    §1 (the claim), §7 (the gates), §8 (the session briefs), §9 (status).
 2. Take the lowest session in §9 not ticked `[x]` — a partial `[~]`
-   session continues before a fresh one starts. The user naming one
+   session continues before a fresh one starts. **If CLAUDE.md and §9 disagree
+   about a session's state, §9 wins and you say so out loud** — it is the
+   checklist and it carries the per-session evidence. This is not
+   hypothetical: from 2026-08-18 to 2026-08-27 CLAUDE.md said S18 was `[~]`
+   with its Gate B second read outstanding while §9 ticked it `[x]` and
+   recorded that review running with 24 agents and 30 mutations. Both
+   sentences landed in the same commit. Reconcile it in the session that finds
+   it rather than leaving the next reader to pick. The user naming one
    ("/pickup S7") wins over both. If the session's next step needs
    something only the user can provide — an experiment result, a decision,
    a Track B drive — and it is not already in the conversation, do the

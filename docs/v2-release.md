@@ -389,7 +389,38 @@ only if asked.
   the S17 sidebar intermittent). Not verified: everything on screen
   (F1.22–F1.23), a real multi-GB overnight, keep-awake vs actual sleep.
   Full record: [`docs/archive/v2-session-records/s6.md`](archive/v2-session-records/s6.md).
-- [ ] **TB1**
+- [~] **TB1** — **sitting 1 COMPLETE 2026-08-27; sittings 2–4 still owed.**
+  The blocker that held sitting 1 open for nine days is gone: **F1.3b
+  diagnosed under Gate D and fixed** — inside SwiftUI's sheet the hosted
+  `MTKView`'s `CAMetalLayer` sits at `contentsScale == 0`, and a layer at
+  scale 0 cannot display a drawable while `drawableSize`, `currentDrawable`
+  and the uploaded texture all read healthy. Fix:
+  `MetalImageView.ScaleAwareMTKView`. 5/5 green cold opens against a 3/3 red
+  matched control; three narrower repairs ablated to red. **A second defect
+  surfaced once the panes drew:** `dccc2f5`'s letterbox was computed and never
+  applied — the code, its comment and its open-items entry all asserted a
+  `.frame` nobody had written, and it could not be checked because F1.3b hid
+  it. Both fixed. **Rows driven and PASSED:** F1.3b, F1.3c (re-run against a
+  drawn pane — the crop half, the last place a silently wrong crop could hide),
+  F1.3d in full, F1.3e, F1.6, F1.16. **F1.17's clipping half FAILS again**
+  (finding, not fixed — eval-only). **Queued:** F1.37 (the letterbox shrank the
+  scan pane's hit target) and F1.38 (the fix touches every image surface; one
+  workspace checked). **Gate D + Gate B:** the pre-registered diagnosis was
+  refuted by its own discriminator before the right one was found, and a
+  separate refuter then supplied the causal leg the evidence lacked (scale 0 is
+  *sufficient* to reproduce the symptom in plain AppKit; a wrong-but-nonzero
+  1.0 renders fine) while refuting three claims — the stated origin of the 0
+  (a detached layer reads 1.0, so what writes the 0 is still **unknown**),
+  "perfect correlation across every run" (one run), and the repair chronology.
+  All corrected in place, in four files. **Track A on the shipped tree:**
+  `unit` **387 passed / 4 skipped / 0 failed, exit 0**; `scientific` exit 0
+  (**37 harnesses**, zero FAIL lines, grepped not tailed); build zero warnings.
+  One `unit` run refused mid-session with **exit 69** (the S0 preflight — my own
+  scratch DerivedData; cleared and re-run green) and one reported a spurious
+  failure because the app was running against the same defaults domain during
+  the gate — both recorded in `docs/open-items.md`. **Not verified:** sittings
+  2–4 (sidecar, promote, multi-GB, clean account), F1.8, F1.37, F1.38, and what
+  writes the 0.
 - [x] **S7** — 2026-08-25. Error honesty on the new `App/SessionGates.swift`
   seam: physical iDPC takes the origin-fit gate, `DPC.integrateIDPC` throws
   typed errors (no zero images), tile errors attributed (`FullScanError`),

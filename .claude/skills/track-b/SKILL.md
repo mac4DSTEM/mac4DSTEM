@@ -74,7 +74,24 @@ is the only place `CODE_SIGNING_ALLOWED=NO` belongs (repo hard rule).
    is the owner noticing what no row anticipated.
    Two frictions, both observed: the Accessibility grant is for the `claude`
    entry (there is no Terminal entry — the shell runs inside the CLI) and it
-   can lapse mid-session; and `click at` cannot drag, so a splitter must be
-   moved by setting its `AXValue`, not by resizing the window.
+   can lapse mid-session; and a splitter is easiest to move by setting its
+   `AXValue`, not by resizing the window.
+   **The input trap that cost an hour on 2026-08-27, and will cost it again.**
+   System Events' `click at` is ELEMENT-based: it resolves an accessibility
+   element at that point and presses it. SwiftUI panes backed by
+   `NSViewRepresentable` — every `MetalImageView` — expose no element, so
+   clicks on them **silently do nothing**, and `click at` returns the enclosing
+   scroll area rather than failing. That looked exactly like a dead
+   click-to-pick-a-pattern affordance and a regression in the session's own
+   work; it was neither. **Before filing any "the control does not respond"
+   finding, confirm the same gesture reaches a real control** (a segmented
+   picker will do), and re-test with a real event before believing it.
+   Real `CGEvent` clicks, drags and scrolls DO work, from a ~25-line Swift CLI
+   built with `xcrun swiftc` (`CGEvent(mouseEventSource:mouseType:
+   mouseCursorPosition:mouseButton:)` → `.post(tap: .cghidEventTap)`; a drag is
+   mouseDown → a loop of mouseDragged → mouseUp). **So drag-dependent rows are
+   NO LONGER owner-only** — that is how F1.3c was finally closed. The line above
+   about the aspect-stretch class of decision still holds; what moved is the
+   mechanics, not the judgement.
 3. State plainly that the change is unverified on screen until the pass
    comes back, and list which rows block that claim.

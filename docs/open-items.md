@@ -697,88 +697,39 @@ the claims are widened*, not as release advice.
   mislabels its preserved results~~ — **Closed by S7, 2026-08-25**
   (`SessionGates` blocks all three rewrite entry points by name); record in
   [the closed-items archive](archive/closed-items-2026-08.md). Track B rows F1.26/F1.27.
-- **The configurator's preview panes render NOTHING on screen — the data
-  behind them is verified healthy.** **Re-driven and captured 2026-08-27** by
-  the assistant (Screen Recording granted), on
-  `References/training_dataset/sim_Au_data_all_binned.h5` opened through
-  *Open with Options…*, window 2200x1250. **Two refinements to the record
-  below, both from the screenshot:**
-  (1) the panes are **blank white**, not "a single flat colour" — the headers
-  ("Scan — real space", "Diffraction — max", "Diffraction — single position")
-  and their captions render, and the image areas render nothing at all;
-  (2) **all three** panes are affected, including the single-position pane,
-  which the 2026-08-25 record reported as drawing correctly. Everything else on
-  the sheet is right: `Scan (Ry x Rx) 100 x 84`, `Detector (Qy x Qx) 125 x 125`,
-  the binning control, and the Size block. The status line was still frozen at
-  *"Sampling a preview · row 33 of 34"* after 60+ seconds, and the header said
-  *"Sampled preview · every 3rd position · 952 of 8,400"* — consistent with the
-  cosmetic dropped-final-tick diagnosis below, now observed twice. **F1.3b
-  stays FAILED**, and the aspect-stretch decision stays blocked.
+- ~~**The configurator's preview panes render NOTHING on screen**~~ —
+  **CLOSED 2026-08-27 (Gate D + Gate B).** Open from 2026-08-18 through three
+  wrong diagnoses. **Cause:** inside SwiftUI's sheet the hosted `MTKView`'s
+  `CAMetalLayer` sits at `contentsScale == 0`, and a layer at scale 0 cannot
+  display a drawable — while `drawableSize`, the render-pass descriptor,
+  `currentDrawable` and the uploaded texture all read healthy, which is why it
+  survived so long. Fixed by `MetalImageView.ScaleAwareMTKView`. Track B row
+  **F1.3b PASSED**. The full record — the refuted diagnoses, the colour-census
+  evidence, the ablation, the Gate B corrections — is in
+  [the closed-items archive](archive/closed-items-2026-08.md).
 
-  **A discriminating observation, and it narrows the defect.** The release
-  owner proposed that the single-position pane might be blank *by design*
-  until a scan position is picked. Tested directly: clicking the centre of the
-  (blank) real-space pane changed its caption from *"Pattern at scan (90, 21)"*
-  to *"Pattern at scan (33, 21)"*. **The click registered, the selected
-  position updated, the caption re-rendered live — and the pane stayed blank.**
-  The hypothesis is refuted, and more usefully the layers separate: hit-testing,
-  state and text rendering in that same sheet all work, while the Metal-backed
-  image views draw nothing. With `TB1StallProbeTests` already pinning the data
-  healthy headlessly, the defect looked bounded to the image views themselves.
+  **Two residuals stay LIVE and are the reason this tombstone is more than a
+  pointer:**
+  1. **What writes the 0 is unknown.** A detached `MTKView` reads
+     `contentsScale == 1.0`, not 0 — measured 2026-08-27, refuting the first
+     write-up's "created outside a window comes up with 0", which had reached
+     four files before the Gate B read caught it. The 0 was only ever observed
+     on a view already in its window, through `AppKitPlatformViewHost`. The fix
+     therefore targets an observed state whose producer is unidentified, and its
+     `!=` guard is coupled to that unknown writer. Owner: whoever next has cause
+     to touch `MetalImageView`, or a session willing to spend an hour in
+     SwiftUI's hosting path.
+  2. **Regression scope is one workspace.** The subclass applies to EVERY image
+     surface in the app; only Prepare (CBED + virtual detector), the inspector
+     thumbnails and the sidebar card were seen on screen. Track B row **F1.38**.
 
-  **That conclusion is REFUTED, same session, by a second dataset — and the
-  refutation is the most useful observation of this drive.** The release owner
-  tried `Open with Options…` on `downsample_Si_SiGe_exp.h5` and reported the
-  single-position pane rendering; reproduced independently by the assistant
-  (2026-08-27, same build, `every 4th position · 650 of 10,000`, scan (0, 136)):
-
-  | pane | built from | renders? |
-  |---|---|---|
-  | Scan — real space | the sampled preview | **no** |
-  | Diffraction — max | the sampled preview | **no** |
-  | Diffraction — single position | a direct read of one pattern | **YES** — clear CBED, disk array, correct colormap |
-
-  The split follows the sheet's own caption exactly: *"Real-space and max are
-  built from the sampled positions only … The single-position pane is the
-  recorded pattern at that scan position, exactly."* **The two panes derived
-  from the sampled preview fail; the one that is not derived from it works —
-  through the same view type.** A generic "the Metal image views are broken"
-  account cannot survive that, and neither can "the sheet cannot draw".
-
-  **Two further specifics for the next Gate D sitting:** (1) on Si_SiGe the two
-  failing panes show **no frame or border at all** while the working pane has a
-  clear one — consistent with those views being absent rather than drawing
-  blank, which would put `realSpaceDisplay` / `maxDPDisplay` nil at
-  `LoadConfiguratorView.swift:84` and contradict the 2026-08-25 reasoning that
-  refuted that branch; (2) on **sim_Au all three panes are blank**,
-  single-position included, so the behaviour is dataset-dependent too — any
-  account must explain both files, not one.
-
-  *Original entry (2026-08-25) follows.* **The configurator's real-space and
-  diffraction-max panes render a single flat colour ON SCREEN — the data behind
-  them is verified healthy.** Found on TB1 sitting 1 (2026-08-25, sim_Au, screenshots
-  18:45–18:51); Gate D run the same evening narrowed it hard, and three
-  candidate diagnoses died in order, each on primary evidence:
-  (1) ~~"sampling stalls at row 33 of 34"~~ — the frozen status line is
-  COSMETIC: the final progress tick is dropped when `finishDatasetLoading`
-  clears `isLoadingDataset` before the tick's `@MainActor` hop lands
-  (`previewProgressHandler`'s guard), and `statusText` retains the last
-  line forever after. (2) ~~"the sampler throws and the `try?` at
-  `AppState` swallows it"~~ — refuted by `LoadConfiguratorView.swift:84`:
-  the panes render only when `preview`, `realSpaceDisplay` AND
-  `maxDPDisplay` are all non-nil, and the screenshots show the panes'
-  frames plus the summary line — everything was non-nil. (3) ~~"bad
-  normalization again (the 08-18 mechanism)"~~ — refuted headlessly: the
-  same `openFileForConfiguration` on the same file in the unit host builds
-  both display images with **full 0→1 pixel spread in 0.6 s**
-  (pinned with spread assertions in `TB1StallProbeTests`, 2026-08-25). What remains: the defect is in the
-  **on-screen rendering of those two panes** (Metal-backed image views
-  inside the sheet) — the single-position pane beside them drew, and the
-  inspector thumbnails drew after load. Unreproducible headlessly; next
-  session on this needs either the screenshot pipeline (a Screen Recording
-  grant) or an owner probe. `TB1StallProbeTests` pins the healthy half so
-  a data-side regression cannot masquerade as this. Blocks the
-  aspect-stretch decision and F1.16's full pass.
+  *(Reusable lesson, and it is the transferable part: **a sibling of a different
+  KIND is not a control.** The 2026-08-18 dismissal — "`MetalImageView` cannot
+  draw inside a sheet" is wrong because the crop rectangle draws in the same
+  ZStack — compared a SwiftUI shape against a hosted `CAMetalLayer`. That is a
+  valid control against "nothing in this region reaches the screen" and says
+  nothing about layer compositing; over-generalising it sent two sessions the
+  wrong way.)*
 - **TB1 sitting 2: an open froze for minutes at "Checking for a saved
   session…" until cancelled (2026-08-25, ~18:54).** The owner attributed
   it to a leftover sidecar; Gate D the same evening refuted that and one
@@ -864,6 +815,51 @@ the claims are widened*, not as release advice.
   list, and that brief is explicitly bounded to the list. It also cannot be
   confirmed fixed without driving the sheet, so it wants a session that ends
   in an owner pass. Still open, owner unassigned.
+
+  **Third observation, 2026-08-27 (late), now with exact geometry rather than
+  screenshots.** Re-driven on `downsample_Si_SiGe_exp.h5` in a 1470x923 window:
+  the sheet's scroll area runs **y 188-809**, and the closing caption below
+  *GPU budget* occupies **y 805-831** - 22 of its 26 points below the visible
+  edge, sliced through mid-height. The defect therefore reproduces on a second
+  dataset AND a second window size, ruling out the "only at 2200x1250" reading
+  the earlier entry could not exclude. Better news too: at scroll position 0 the
+  Size block is now visible down to *GPU budget*, so **`Loaded shape` is no
+  longer below the fold** - only the trailing float32 caption is cut. The
+  load-bearing half of the earlier finding is gone; what remains is the caption.
+  Still a finding under F1.17's wording, and still not fixed here - eval-only:
+  the row must not be made to pass by resizing the sheet.
+- **Unreconciled: the `unit` count is 387, and 384 + this session's 2 new tests
+  is 386.** Measured 2026-08-27 on TB1 sitting 1's tree: **387 passed / 4
+  skipped / 0 failed, exit 0**, and the 387 are 387 DISTINCT case names — the
+  log was checked for retried/duplicated lines, so it is not a counting
+  artefact. The last recorded baseline is 384 / 4 / 0 (S18, and again at
+  `dc2a532` and `53d6449`), and `MetalLayerScaleTests` adds exactly 2. That
+  leaves **one test unaccounted for**, with the skip count unchanged at 4, so it
+  is not a skip that started running. No explanation is offered here because
+  none was established: the honest options are that a baseline commit message
+  under-counted, or that something between S18 and now added a case without
+  saying so. Cheap to settle whenever someone wants to — check out `dc2a532`,
+  run `unit`, and diff the case-name lists. Recorded rather than smoothed over
+  because "384 + 2 = 387" is exactly the kind of arithmetic a reader would
+  otherwise assume nobody checked.
+
+- **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
+  Observed once, 2026-08-27. A gate run made while a build-under-test instance
+  was open for Track B reported
+  `SidebarDensityMeasurementTests.testMeasurePrepareSectionCosts()` **failed at
+  0.000 s** (the test-host crash signature), exit 65. The identical tree, re-run
+  minutes later with no app running, was **387 passed / 4 skipped / 0 failed,
+  exit 0**. So the failure was the environment, not the tree.
+  **The mechanism is plausible but NOT established:** the layout-measurement and
+  sidebar suites inject private `AppStorage` into the app's own defaults domain
+  (S17), and a live instance writing the same domain is the obvious suspect —
+  but that was inferred from one observation, not measured, and nobody has
+  reproduced it deliberately. Recorded because the failure looks exactly like a
+  real regression in the one test class whose history is already a long-running
+  intermittent, and a session that assumed the worst would chase it for an hour.
+  If it recurs, the cheap discriminator is the one used here: re-run with the
+  app closed before diagnosing anything.
+
 - **The status line leaks a full filesystem path.** The composed message runs
   ~330 characters including the absolute path, rendered raw at
   `ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`. Track B
@@ -1152,13 +1148,45 @@ or it spends the one resource Track B is expensive in — a person's attention.
   arithmetic was right while the picture misrepresented what was being
   selected, and a circular disk rendered elliptical in an app that has an
   ellipse-calibration feature. `LoadConfiguratorView` now letterboxes through
-  the same `fitted(in:aspect:)` the result and diffraction panes use, with the
-  ZStack sized to the box so tap and drag work in its coordinate space and no
-  offset arithmetic was needed. `unit` 384/4/0 exit 0 after the change.
-  **Unverified on screen, and it cannot be seen until F1.3b is fixed** — the
-  panes draw nothing. It CAN be measured, and that is the acceptance test: drag
-  a visually square box and confirm `Loaded shape` now comes back square-ish
-  instead of 45x63. The wider #17a question — pane ARRANGEMENT in the main
+  the same `fitted(in:aspect:)` the result and diffraction panes use.
+
+  **CORRECTION, 2026-08-27, same day: that change did not letterbox anything,
+  and this entry's own claim — "with the ZStack sized to the box" — was false.**
+  `size` was computed and then used ONLY for the crop-overlay scaling and the
+  gesture math; nothing sized the `ZStack` to it, and the chain ended at
+  `.frame(maxWidth: .infinity, maxHeight: .infinity)`. `MetalImageView` is
+  flexible, so the `MTKView` still filled the whole 276x220pt pane. The picture
+  stayed stretched **and** the gestures had already moved into a box the image
+  did not occupy, so the two now disagreed — arguably worse than before.
+  Measured on screen once F1.3b stopped hiding it: a 128x128 pattern drew
+  **277x213**. Fixed by adding the `.frame(width:height:)` the comment always
+  described — whose placement relative to `contentShape`/the gestures was then
+  tested BOTH ways and makes no difference (same tap result, same drawn box; an
+  interim claim that taps died in one ordering was an artefact of the
+  element-based test harness, not a property of the code, and was removed from
+  the shipped comment before landing) — and verified on screen 3/3: the 50x13
+  scan preview now draws **276x72pt** (aspect 3.83 against the sampled grid's
+  50/13 = 3.85; note this is the SAMPLED aspect, which differs from the source
+  scan's by the stride's ceiling rounding) and the two 128x128 diffraction panes
+  draw square, with round disks.
+
+  **The crop half is verified too, and it was the last place a silently wrong
+  crop could hide** — the Gate B reader flagged it as the one open
+  data-correctness question. Driven with real `CGEvent` drags on
+  `downsample_Si_SiGe_exp.h5`: a visually square 60 x 60pt drag on the scan
+  strip returns *Loaded shape* **44 x 48** x 128 x 128 — ratio 1.09, against
+  1.40 for the same gesture before the fix — and the drawn crop rectangle
+  measures 69 x 65pt, so the overlay, the picture and the loaded extent all
+  agree. The residual 9% is the preview's stride (4), not a defect: a crop can
+  only quantise to sampled positions, so ±4 source rows on a ~44 extent is the
+  floor. Track B row F1.3c.
+  `unit` 387/4/0 exit 0 after the change.
+
+  The lesson, and it is the reusable part: the commit message, the code comment
+  and this entry all asserted a `.frame` that was never written, and none of the
+  three could be checked because the defect that hid it was still open. A claim
+  whose only witness is a blocked Track B row is not a verified claim.
+  The wider #17a question — pane ARRANGEMENT in the main
   window — is untouched and still open.
 - ~~**#36 — no progress indication while a datacube loads**~~ — **fixed
   2026-08-06 (L1)**, confirmed on a real 3.96 GB cube; record in

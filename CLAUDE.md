@@ -60,25 +60,40 @@ recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
 records in
 [`docs/archive/v2-session-records/`](docs/archive/v2-session-records/).
-**S18's list is complete but it is NOT ticked:** the Gate B second read of its
-two `Core/` changes has not run, so the model that wrote them is still their
-only approver, and the `mac4DSTEMUITests` deletion it was meant to ride was
-refused by the environment. Both need the owner — see §9's stub.
+**S18 is ticked `[x]`, and this paragraph used to disagree with §9 about
+why.** It claimed S18's Gate B second read "has not run"; §9's stub records
+that it did — 24 agents, 30 mutations applied and run. Both sentences landed in
+the same commit (`7f99186`), and the contradiction stood until 2026-08-27, when
+it was resolved in favour of §9 because §9 carries the evidence. **What is
+genuinely still owed from S18 is only the `mac4DSTEMUITests` deletion**, which
+the environment refused; that needs the owner.
 Sequencing (§9's checklist and resequencing line are the authority): the
-S10 → S21 → S17 run is complete; TB1 whenever the owner sits; S11 follows
-TB1; S9 when NAS access and disk allow — **and #37 moved there**, since S18's
+S10 → S21 → S17 run is complete; **TB1 sitting 1 is COMPLETE (2026-08-27)** and
+sittings 2–4 wait on the owner; S11 follows TB1; S9 when NAS access and disk
+allow — **and #37 moved there**, since S18's
 measurement showed the cancellation cost is I/O, not check granularity. The
 cut line and the severable block (S11–S16, TB2) are §2 of the release plan.
 
 **The honest test claim — each number dated to its own run:**
-`run-tests.sh scientific` — exit 0 over **37 harnesses** (2026-08-27, S18's
-tree). `run-tests.sh unit` — **384 passed / 4 skipped / 0 failed, exit 0**
-(2026-08-27, S18); three skips are pre-existing environment/data probes and
-one is S17's explicit uncalibrated-Prepare geometry quarantine.
+`run-tests.sh scientific` — exit 0 over **37 harnesses**, zero FAIL lines
+(2026-08-27, TB1 sitting 1's tree — supersedes S18's run of the same size).
+`run-tests.sh unit` — **387 passed / 4 skipped / 0 failed, exit 0**
+(2026-08-27, TB1 sitting 1 — 387 distinct case names, checked for retries, not
+a raw line count); three skips
+are pre-existing environment/data probes and one is S17's explicit
+uncalibrated-Prepare geometry quarantine. **Two recordable non-green outcomes
+from that sitting, both environmental:** one `unit` run refused with **exit 69**
+(the S0 preflight — scratch DerivedData from repeated app builds; cleared, then
+green) and one reported a single spurious failure in
+`SidebarDensityMeasurementTests` because the app was being driven for Track B
+against the same defaults domain while the gate ran. **Do not drive the app
+during `run-tests.sh unit`** — see `docs/open-items.md`.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
 own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-27 —
-the first complete aggregate run on this machine.** 39 harnesses (the 37 in
+the first complete aggregate run on this machine**, on the tree as it stood
+BEFORE TB1 sitting 1's two UI fixes (not re-run since; `unit` and `scientific`
+were, individually, above). 39 harnesses (the 37 in
 `scientific`, plus `real-data-acceptance` and `package-test`), unit stage
 **384 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69
 preflight refusals in the retained log** (checked by grep, not by trusting the

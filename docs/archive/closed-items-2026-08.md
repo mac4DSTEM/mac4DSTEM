@@ -457,3 +457,254 @@ in the code.
   is exhaustive `(lower, upper)` coverage **under a scan crop**, where the
   resident path and the reader's own crop offset compose. Found by Gate B when it
   refused to accept S2's stated justification for the case.
+
+
+---
+
+## The configurator's preview panes rendered nothing — closed 2026-08-27
+
+Moved here from [`docs/open-items.md`](../open-items.md) on 2026-08-27, at the
+closeout of the TB1 sitting that fixed it, under that file's own rule that
+closed items do not stay there. Verbatim, except that relative links are
+re-based to this file's location. The live file keeps a tombstone: the defect
+is closed, but two residuals it names are still open.
+
+- ~~**The configurator's preview panes render NOTHING on screen.**~~ —
+  **DIAGNOSED AND FIXED 2026-08-27 (Gate D).** Open since 2026-08-18, through
+  three wrong diagnoses. **The cause is one number:** inside SwiftUI's sheet the
+  hosted `MTKView`'s `CAMetalLayer` is left at **`contentsScale == 0`**, and a
+  layer at scale 0 cannot display a drawable — so the pane stays exactly the
+  background colour.
+  Fixed by `MetalImageView.ScaleAwareMTKView`, which sets
+  `layer.contentsScale` from the window's `backingScaleFactor` in
+  `viewDidMoveToWindow` **and** `viewDidChangeBackingProperties` (the second for
+  the display-move case, which was latent for every image surface in the app).
+
+  **Why it survived three rounds of diagnosis: every internal signal reads
+  healthy while it happens.** `MTKView` derives `drawableSize` from the WINDOW's
+  backing scale, not from the layer's `contentsScale`, so the instrument found —
+  on the blank panes — `bounds=(276,220)`, `drawable=(552,440)`,
+  `rpd=true`, `cd=true`, **`tex=true`**, `hidden=false`, `alpha=1.0`,
+  `layerOpacity=1.0`, in the `SheetPresentationWindow`. The app was encoding and
+  presenting correct frames into a layer that could not show them.
+
+  **The measurement that settles it** (`NSLog` probe, 2026-08-27,
+  `trial_m1.log`): `contentsScale = 0.0` on both blank panes against a window
+  `backingScaleFactor` of 2.0, and `2.0` on the pane that rendered. **Stated
+  honestly after the Gate B read: that is ONE instrumented cold open** — the
+  only run in which the value was read at all. The first version of this entry
+  said "perfect correlation across every run", which the retained logs do not
+  support.
+
+  **Two corrections from the Gate B second reader, who was briefed to refute
+  and did.**
+
+  1. **"A layer created outside a window comes up with `contentsScale == 0`" is
+     WRONG, and it was in four places** (this entry, the F1.3b row, the
+     `MetalImageView` doc comment, the test file). Measured on this machine: a
+     detached `MTKView(frame: .zero, device:)` reads **1.0**. The 0 was only
+     ever observed on a view ALREADY in its window, through
+     `AppKitPlatformViewHost`. **What writes the 0 is not identified.** The fix
+     targets an observed state whose producer is unknown — which is exactly why
+     `matchWindowScale`'s `!=` guard matters, since the repair is coupled to
+     that unidentified writer.
+  2. **The causal leg was missing and is now supplied — and it makes the
+     diagnosis stronger than it was.** Everything here was correlation,
+     intervention and reversal; nothing showed that imposing scale 0 on a
+     WORKING layer reproduces the symptom. The reviewer built that positive
+     control outside the app: three plain-AppKit `MTKView`s encoding the same
+     clear pass, one untouched, one pinned to `contentsScale = 0`, one to `1.0`.
+     The untouched and the **wrong-but-nonzero 1.0 both render**; only 0 renders
+     the window background, with `drawableSize` correct in all three. That kills
+     the strongest surviving alternative — "the assignment works because ANY
+     layer mutation forces a recomposite, and 0 is a marker of something else" —
+     because a wrong nonzero scale would then blank too, and it does not.
+
+  **What the pre-registered Gate D diagnosis got wrong, recorded so the next
+  reader does not re-walk it.** The written diagnosis was "the two
+  sampled-preview `MTKView`s never present a frame" — refuted by its own
+  pre-registered discriminator. The colour census was the useful half and it
+  was right: the blank panes sample **exactly the sheet background**
+  (RGB 30,29,29 in dark appearance, one distinct colour across the whole
+  276x220pt box), never the `MTKView` clear colour (15,15,18), which killed
+  "drew but no texture" and "clamped to the top LUT entry" in one measurement.
+
+  **Two recorded "facts" were wrong and both had been reasoned from:**
+  1. *"The single-position pane renders while the two sampled-preview panes do
+     not, through the same view type"* — treated as the central structural
+     discriminator on 2026-08-27, and it is **a race, not a split**. Same build,
+     same dataset, ten minutes apart: one run had pane 3 rendering, the next had
+     **all three blank**. Pane 3 wins when its host happens to be created at a
+     moment AppKit has already propagated backing properties.
+  2. *"The panes are blank WHITE"* — appearance-dependent. The invariant is
+     "identical to the sheet background", which is what the census measures.
+
+  **And the hypothesis dismissed FIRST was the right family.** 2026-08-18
+  recorded "`MetalImageView` does not draw inside a sheet" and struck it as
+  "WRONG — it is not a hosting problem", on the grounds that the crop rectangle
+  is a sibling in the same `ZStack` and draws. **That reasoning does not hold:**
+  the crop rectangle is a SwiftUI `Rectangle`, drawn by SwiftUI's own renderer.
+  It shows the sheet composites SwiftUI content; it says nothing about whether a
+  hosted `MTKView`'s Metal layer is composited. The same non-sequitur then
+  justified 2026-08-27's "the Metal-image-views account is dead". The lesson is
+  narrow and reusable: **a sibling of a different KIND is not a control.**
+
+  **Evidence, five cold opens each, scored by colour census rather than by
+  eye** (`downsample_Si_SiGe_exp.h5`, panes reported as distinct-colour counts):
+
+  | build | pane 1 | pane 2 | pane 3 |
+  |---|---|---|---|
+  | with the fix | 194 | 266 | 205 — **5/5** |
+  | negative control: `layer?.contentsScale = scale` removed, nothing else | **1** | **1** | 205 — **3/3 red** |
+
+  **What that table is worth, and its limits** (Gate B, and they are real). The
+  discriminator is sound: a blank pane is exactly the sheet background
+  `(30,29,29)`, which neither colormap can produce. But **the replicates are not
+  independent** — `trial_f1/f2/f3.png` are byte-identical, as are `n1/n2/n3`, so
+  "5/5" is two distinct images and "3/3" is one. The harness is near-
+  deterministic and does not sample the race; what actually covers the race is
+  the ordering evidence above, not the repeat count. And **the census counts
+  colours, not correctness**: a stretched image scores the same 194/266, and in
+  the `f` runs it WAS stretched — only the letterbox measurement caught that.
+
+  **The ablation** — corrected chronology, 2026-08-27: a COMPOUND repair
+  (`releaseDrawables` + `contentsScale` + a deferred re-arm, all in
+  `viewDidMoveToWindow`) was written first and went green 5/5 against a matched
+  5/5-red control with the whole re-arm removed. Its parts were then removed one
+  at a time, which is what identifies the load-bearing line: `needsDisplay`
+  alone (3/3 red), `releaseDrawables()` + `needsDisplay` (3/3 red, one run with
+  all three panes blank), a deferred `DispatchQueue.main.async` re-arm (4/4
+  red), and `contentsScale` alone (4/4 **green**). It works alone; nothing else
+  does. *(The earlier wording here — "three narrower repairs were tried first" —
+  described the reverse order and was corrected by the Gate B read.)*
+
+  **The best single datum in the set, found by the reviewer and missed by the
+  session that produced it:** `trial_v4d.log` reproduces the `singleDP`-first
+  creation ordering — the ordering behind the ONE pre-fix run where all three
+  panes were blank (`trial_v2c.log`) — **with the fix in, and its census is
+  green.** So the repair was exercised against the worst observed ordering, not
+  only the common one. Across 21 pre-fix runs the creation order predicts the
+  outcome with no exceptions, which is the race in point 1 above, measured.
+
+  **Still NOT established, listed because the Gate B read insisted on it:**
+  (a) what writes the 0 — the producer inside SwiftUI's hosting path is
+  unidentified, and the repair's `!=` guard is coupled to it; ~~(b) WHICH override repairs the sheet~~ —
+  **CLOSED the same evening, and the prediction was wrong.** Each override was
+  removed in turn and driven: **only `viewDidMoveToWindow` → 3/3 green; only
+  `viewDidChangeBackingProperties` → 3/3 green.** Either one suffices. The
+  pre-registered prediction was that B would go RED, on the reasoning that
+  backing properties do not change during a sheet presentation so that hook
+  never fires at the moment that matters. AppKit does deliver it; `MTKView`
+  simply does not use it to update `layer.contentsScale`, deriving
+  `drawableSize` from the window instead — which is the same reason every
+  internal signal read healthy. Two consequences: keeping both overrides is
+  belt-and-braces rather than one repair plus one safeguard, and the retained
+  unit test is worth MORE than claimed, since
+  `testAChangeInBackingPropertiesIsFollowed` drives an override now shown
+  sufficient in the real failure. None of this touches the core diagnosis, which
+  the Gate B positive control established independently; (c) the regression scope beyond one
+  screenshot of one workspace — the change swaps `ScaleAwareMTKView` in for
+  EVERY `MetalImageView` in the app, and the only on-screen evidence outside
+  the sheet is the Prepare workspace (CBED + virtual detector, both correct).
+
+  **Unit coverage, and what it does NOT cover.**
+  `mac4DSTEMTests/MetalLayerScaleTests` pins the repair;
+  `testAChangeInBackingPropertiesIsFollowed` was verified to go red under a
+  mutation of the one assignment. **Three attempts at a `viewDidMoveToWindow`
+  test were written and thrown away because all three stayed GREEN under that
+  mutation** — a plain AppKit window propagates the scale by itself, and
+  assigning either 0 or a stale 1 to a layer-backed view already in a window
+  does not stick. The `contentsScale == 0` state is reachable only through
+  SwiftUI's host. That absence is documented in the test file itself rather
+  than papered over. *(One log needs its own footnote: `unit2.log` shows a
+  FOURTH test, `testEnteringAWindowGivesTheLayerThatWindowsBackingScale`,
+  failing beside the retained one. That run is neither a mutation run nor a
+  green baseline — both window tests CRASHED the test host, because `NSWindow`
+  defaults to `isReleasedWhenClosed`, an over-release under ARC. Setting it
+  false fixed both. Recorded because a reader comparing logs would otherwise
+  read that failure as coverage the tests do not have.)*
+
+  *Original entry (2026-08-27, the drive that produced the discriminators)
+  follows.* **The configurator's preview panes render NOTHING on screen — the
+  data behind them is verified healthy.** **Re-driven and captured 2026-08-27**
+  by
+  the assistant (Screen Recording granted), on
+  `References/training_dataset/sim_Au_data_all_binned.h5` opened through
+  *Open with Options…*, window 2200x1250. **Two refinements to the record
+  below, both from the screenshot:**
+  (1) the panes are **blank white**, not "a single flat colour" — the headers
+  ("Scan — real space", "Diffraction — max", "Diffraction — single position")
+  and their captions render, and the image areas render nothing at all;
+  (2) **all three** panes are affected, including the single-position pane,
+  which the 2026-08-25 record reported as drawing correctly. Everything else on
+  the sheet is right: `Scan (Ry x Rx) 100 x 84`, `Detector (Qy x Qx) 125 x 125`,
+  the binning control, and the Size block. The status line was still frozen at
+  *"Sampling a preview · row 33 of 34"* after 60+ seconds, and the header said
+  *"Sampled preview · every 3rd position · 952 of 8,400"* — consistent with the
+  cosmetic dropped-final-tick diagnosis below, now observed twice. **F1.3b
+  stays FAILED**, and the aspect-stretch decision stays blocked.
+
+  **A discriminating observation, and it narrows the defect.** The release
+  owner proposed that the single-position pane might be blank *by design*
+  until a scan position is picked. Tested directly: clicking the centre of the
+  (blank) real-space pane changed its caption from *"Pattern at scan (90, 21)"*
+  to *"Pattern at scan (33, 21)"*. **The click registered, the selected
+  position updated, the caption re-rendered live — and the pane stayed blank.**
+  The hypothesis is refuted, and more usefully the layers separate: hit-testing,
+  state and text rendering in that same sheet all work, while the Metal-backed
+  image views draw nothing. With `TB1StallProbeTests` already pinning the data
+  healthy headlessly, the defect looked bounded to the image views themselves.
+
+  **That conclusion is REFUTED, same session, by a second dataset — and the
+  refutation is the most useful observation of this drive.** The release owner
+  tried `Open with Options…` on `downsample_Si_SiGe_exp.h5` and reported the
+  single-position pane rendering; reproduced independently by the assistant
+  (2026-08-27, same build, `every 4th position · 650 of 10,000`, scan (0, 136)):
+
+  | pane | built from | renders? |
+  |---|---|---|
+  | Scan — real space | the sampled preview | **no** |
+  | Diffraction — max | the sampled preview | **no** |
+  | Diffraction — single position | a direct read of one pattern | **YES** — clear CBED, disk array, correct colormap |
+
+  The split follows the sheet's own caption exactly: *"Real-space and max are
+  built from the sampled positions only … The single-position pane is the
+  recorded pattern at that scan position, exactly."* **The two panes derived
+  from the sampled preview fail; the one that is not derived from it works —
+  through the same view type.** A generic "the Metal image views are broken"
+  account cannot survive that, and neither can "the sheet cannot draw".
+
+  **Two further specifics for the next Gate D sitting:** (1) on Si_SiGe the two
+  failing panes show **no frame or border at all** while the working pane has a
+  clear one — consistent with those views being absent rather than drawing
+  blank, which would put `realSpaceDisplay` / `maxDPDisplay` nil at
+  `LoadConfiguratorView.swift:84` and contradict the 2026-08-25 reasoning that
+  refuted that branch; (2) on **sim_Au all three panes are blank**,
+  single-position included, so the behaviour is dataset-dependent too — any
+  account must explain both files, not one.
+
+  *Original entry (2026-08-25) follows.* **The configurator's real-space and
+  diffraction-max panes render a single flat colour ON SCREEN — the data behind
+  them is verified healthy.** Found on TB1 sitting 1 (2026-08-25, sim_Au, screenshots
+  18:45–18:51); Gate D run the same evening narrowed it hard, and three
+  candidate diagnoses died in order, each on primary evidence:
+  (1) ~~"sampling stalls at row 33 of 34"~~ — the frozen status line is
+  COSMETIC: the final progress tick is dropped when `finishDatasetLoading`
+  clears `isLoadingDataset` before the tick's `@MainActor` hop lands
+  (`previewProgressHandler`'s guard), and `statusText` retains the last
+  line forever after. (2) ~~"the sampler throws and the `try?` at
+  `AppState` swallows it"~~ — refuted by `LoadConfiguratorView.swift:84`:
+  the panes render only when `preview`, `realSpaceDisplay` AND
+  `maxDPDisplay` are all non-nil, and the screenshots show the panes'
+  frames plus the summary line — everything was non-nil. (3) ~~"bad
+  normalization again (the 08-18 mechanism)"~~ — refuted headlessly: the
+  same `openFileForConfiguration` on the same file in the unit host builds
+  both display images with **full 0→1 pixel spread in 0.6 s**
+  (pinned with spread assertions in `TB1StallProbeTests`, 2026-08-25). What remains: the defect is in the
+  **on-screen rendering of those two panes** (Metal-backed image views
+  inside the sheet) — the single-position pane beside them drew, and the
+  inspector thumbnails drew after load. Unreproducible headlessly; next
+  session on this needs either the screenshot pipeline (a Screen Recording
+  grant) or an owner probe. `TB1StallProbeTests` pins the healthy half so
+  a data-side regression cannot masquerade as this. Blocks the
+  aspect-stretch decision and F1.16's full pass.

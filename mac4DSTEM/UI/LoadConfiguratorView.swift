@@ -288,6 +288,26 @@ struct LoadConfiguratorView: View {
                                              width: image.width, height: image.height))
                         }
                 )
+                // The box the image is actually drawn into. WITHOUT this line the
+                // letterbox above is computed and then thrown away:
+                // `MetalImageView` is flexible, so the ZStack filled the whole
+                // pane, the image stayed stretched, and — worse — the crop
+                // overlay and the gesture arithmetic had already moved into the
+                // fitted box, so the picture and the selection disagreed.
+                // Measured on screen 2026-08-27, once F1.3b stopped hiding it:
+                // a 128x128 pattern drew 277x213, and a visually square drag
+                // returned a 63x45 crop. With the line, the same drag returns
+                // 44x48 — square to within the preview's stride, which is the
+                // most a sampled grid can promise.
+                //
+                // Placement relative to `contentShape`/the gestures was tested
+                // both ways and makes no difference: same tap result, same
+                // drawn box. (An earlier version of this comment claimed taps
+                // died when the frame came last. That was an artefact of the
+                // test harness — System Events' `click at` presses an
+                // accessibility element rather than posting a mouse event, and
+                // these panes expose none — not a property of the code.)
+                .frame(width: size.width, height: size.height)
                 // Centre the letterboxed box in the pane it no longer fills.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }

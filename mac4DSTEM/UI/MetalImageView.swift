@@ -59,8 +59,66 @@ struct MetalImageView: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
+    /// An `MTKView` that keeps its layer's `contentsScale` in step with the
+    /// window it is in.
+    ///
+    /// WHY THIS EXISTS (F1.3b, measured 2026-08-27). Inside SwiftUI's sheet the
+    /// hosted `MTKView`'s `CAMetalLayer` is left at **`contentsScale == 0`**,
+    /// and a layer at scale 0 cannot display a drawable — so the pane stays
+    /// exactly the background colour.
+    ///
+    /// **What writes the 0 is NOT identified, and the obvious guess is wrong.**
+    /// A detached `MTKView(frame: .zero, device:)` created exactly as below
+    /// reads `contentsScale == 1.0`, not 0 — measured on this machine by the
+    /// Gate B second reader, refuting this comment's original "created outside
+    /// a window comes up with 0". The 0 was only ever observed on a view
+    /// ALREADY in its window, hosted by `AppKitPlatformViewHost`. This repair
+    /// therefore targets an observed state whose producer is still unknown,
+    /// which is why the `!=` guard below matters — it must not fight whatever
+    /// does the writing.
+    ///
+    /// That scale 0 is the CAUSE and not a bystander was established
+    /// separately, outside this app: three plain-AppKit `MTKView`s encoding the
+    /// same clear pass render normally at the default and at a deliberately
+    /// WRONG-but-nonzero 1.0, and render exactly the window background at 0.
+    ///
+    /// Every internal signal looks healthy while this is happening, which is
+    /// why it survived three rounds of diagnosis: `drawableSize` is correct
+    /// (`MTKView` derives it from the WINDOW's backing scale, not from the
+    /// layer's `contentsScale`), the render-pass descriptor and
+    /// `currentDrawable` are non-nil, the data texture is uploaded, and the
+    /// frame is encoded and presented. Measured on the configurator sheet
+    /// (in ONE instrumented cold open — the only run in which the value was
+    /// read): the two blank panes' layers read `contentsScale = 0.0` against a
+    /// window `backingScaleFactor` of 2.0, while the pane that rendered
+    /// read 2.0.
+    ///
+    /// It is intermittent by nature: a host created at a moment when AppKit
+    /// happens to have propagated backing properties gets 2.0 and works. That
+    /// is the whole of the "the single-position pane renders while the other
+    /// two do not" split, which is a race, not a structural difference.
+    ///
+    /// `viewDidChangeBackingProperties` is overridden for the same reason it
+    /// exists — moving the window between displays of different scale.
+    final class ScaleAwareMTKView: MTKView {
+        private func matchWindowScale() {
+            guard let scale = window?.backingScaleFactor, scale > 0 else { return }
+            guard layer?.contentsScale != scale else { return }
+            layer?.contentsScale = scale
+            needsDisplay = true
+        }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            matchWindowScale()
+        }
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            matchWindowScale()
+        }
+    }
+
     func makeNSView(context: Context) -> MTKView {
-        let view = MTKView(frame: .zero, device: MetalEngine.shared.device)
+        let view = ScaleAwareMTKView(frame: .zero, device: MetalEngine.shared.device)
         view.colorPixelFormat = .bgra8Unorm           // must match displayPSO
         view.clearColor = MTLClearColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
         view.framebufferOnly = true
