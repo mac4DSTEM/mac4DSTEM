@@ -11,6 +11,23 @@ Everything still live after **v1.0.0** (tagged 2026-08-06).
 > **not** hand this file out as implementation prompts without checking the
 > item's owning session and its gate.)
 
+> **Entry format, standing rule — adopted 2026-08-28 after this file reached
+> 1,683 lines and the three-file kickoff tax hit 2,548.** An entry here is a
+> **finding**, not the story of finding it. Keep: what is wrong (or was), the
+> evidence that pins it, the trap a future reader would fall into, the owning
+> session, and any live residual. Move to the dated archive: refuted
+> hypotheses, superseded observation rounds, and the narrative of how the
+> diagnosis converged — with a one-line pointer left behind, because the
+> `diagnose` skill is right that refuted accounts have value; they just do not
+> need to be read by every session. **Target ≤ 20 lines per entry.** An entry
+> that outgrows it is usually a session record wearing the wrong hat — the
+> record belongs in `docs/archive/v2-session-records/`.
+>
+> The cost this rule exists to stop is real and recurring: every session reads
+> these three files before doing any work, so a line added here is paid by all
+> of them. M1 cut the tax to 1,901 on 2026-08-26; it was back to 2,548 two days
+> later, and the growth was narrative, not findings.
+
 Closed items are not here — the v1.0-era record is
 [`docs/archive/v1.0/ui-workflow-backlog.md`](archive/v1.0/ui-workflow-backlog.md);
 v2-era closures move verbatim to
@@ -453,28 +470,7 @@ the claims are widened*, not as release advice.
 - ~~The burned-in caption on exported figures truncates~~ — **Closed by S7,
   2026-08-25** (wraps, figure grows, full provenance as PNG metadata);
   record in [the closed-items archive](archive/closed-items-2026-08.md). Track B row F1.24.
-- ~~**Colorbar and scale bar collide on tall, narrow maps.**~~ — **Fixed by
-  S18, 2026-08-27.** Seen on a 200×50 scan with a display rotation applied:
-  the `-0.04145 0 0.04145` colorbar and the `20 [pix]` scale bar stacked into
-  each other at the foot of the pane, both bottom-anchored with no awareness
-  of one another. They now share one `PaneBottomOverlay`
-  (`UI/ScaleBarView.swift`) in both the result and diffraction panes:
-  `ViewThatFits` keeps them side by side while both fit and stacks them when
-  they do not, so the wide case is unchanged. The result pane's three
-  trailing legends (colour wheel, IPF key, scalar colorbar) moved into that
-  row's trailing slot as a `VStack`, structurally — they are mutually exclusive
-  by construction, so the stack fixes no overlap between them and an earlier
-  version of this entry wrongly claimed it did (Gate A, same day). **VERIFIED ON SCREEN 2026-08-27, on the original defect
-  configuration** — `downsample_Si_SiGe_exp.h5` at 200 x 50 with a 90 degrees
-  display rotation applied, the exact scan shape and orientation the collision
-  was reported on. The bar and the legend sit adjacent at the bottom of the
-  letterboxed image box, roughly 37pt apart, no overlap; the box measured
-  ~274pt and the row correctly chose side-by-side (69 + 148 + 40 = 257 < 274),
-  matching the derived arithmetic. The narrow branch was scored separately by
-  squeezing a pane to its 171pt floor. **Track B row F1.32 PASSED**, both
-  branches — which matters, because a fix that stacked them always would pass a
-  glance at a narrow pane and waste a third of every normal pane's bottom
-  edge.
+- ~~**Colorbar and scale bar collide on tall, narrow maps.**~~ — **Fixed by S18, 2026-08-27**; Track B row **F1.32 PASSED on the original defect configuration** 2026-08-27. Record in [the closed-items archive](archive/closed-items-2026-08.md).
 - **"Recent-file access could not be remembered."** Logged after a successful
   open in the clean-account run: the app loaded the file but could not persist a
   security-scoped bookmark, so Open Recent will not reopen it. **Caveat before
@@ -497,85 +493,8 @@ the claims are widened*, not as release advice.
   save/reopen) cannot pass today and will fail silently** — the app reopens at
   full extent and says nothing. Driving F1.3f is therefore both the L6 acceptance
   row and a second discriminator for the sidecar question.
-- ~~**One remaining `contentVersion` staleness hazard.**~~ — **Fixed by S18,
-  2026-08-27.** `UI/ProductWorkspaceViews.swift` passed a constant `0` (then at
-  `:719`), so the comparison panel uploaded its texture once and never again —
-  swapping products of the same shape showed the previous product's pixels
-  under the new product's name. The panels are now built once in `init` as a
-  `ComparisonPanel` (`:682`), whose version hashes the payload
-  (`contentVersion:` now at `:805`). *(The other two instances of this class —
-  both preview call sites hashing dimensions only — were fixed by S4 on
-  2026-08-24 with `MetalImageView.contentVersion(of:)`, which S18 reused.)*
-  **A third instance of the class was found while fixing it:** an RGBA payload
-  renders through its packed bytes and carries an all-zero `pixels` array, so a
-  version derived from `pixels` alone is identical for every same-sized RGBA
-  product — a hexagonal IPF map and a DPC colour wheel of equal dimensions
-  would have versioned the same. `ComparisonPanel.version` folds the bytes in;
-  `ComparisonPanelVersionTests` pins both halves. Unverified on screen: Track B
-  row F1.35.
-- **The configurator's two preview panes draw nothing.** Found 2026-08-18 on
-  `calibrationData_circularProbe.h5` (1.96 GB) and again on
-  `downsample_Si_SiGe_exp.h5`. Everything *around* the images is correct — the
-  stride line (*"Sampled preview · every 6th position · 238 of 8,400"*), both
-  titles and subtitles, the caption, the bin picker, the size table — and the
-  drag rectangle draws and produces a correct crop. **The images themselves are
-  blank** across the full 220pt pane. **This makes the whole feature miss its
-  point**: the release owner's words were "would be cool to see a preview to
-  choose the ROI from" — choosing a region against an empty rectangle is not
-  choosing. It also silently weakens F1.3c, which was scored on a drag into
-  blank space.
-
-  **Diagnosed 2026-08-18 by a review agent, and the first hypothesis written
-  here — "`MetalImageView` does not draw inside a sheet" — is WRONG.** It is not
-  a hosting problem. The configurator is the **only call site in the app that
-  violates `MetalImageView`'s documented input contract**
-  (`UI/MetalImageView.swift:9-11`: pixels must already be normalized to [0,1]).
-  `LoadConfiguratorView.swift:74` passes `preview.realSpace.pixels` and `:92`
-  passes `preview.maxDP.pixels` — **raw**, where `DatasetInspector.swift:35,40,45`,
-  `StemImageView.swift:469`, `ProductWorkspaceViews.swift:698` (moved into
-  `ComparisonPanel.init` by S18) and
-  `DiffractionView.swift:98` all pass `.normalized()`. Raw here is not merely
-  "unscaled": `realSpace` holds `total`, the sum of every detector pixel at that
-  scan position (`Core/Analysis/DatasetPreview.swift:136-144`), so 10⁴–10⁸ on any
-  real cube. The shader clamps with `clamp(raw, 0.0, 1.0)`
-  (`Shaders/Colormaps.metal:60`), so every value collapses to the top LUT entry
-  and the pane renders one flat colour — which is what "blank" actually was.
-  What refutes the sheet theory: the crop rectangle is a sibling in the same
-  `ZStack` in the same sheet and draws fine (`LoadConfiguratorView.swift:151-161`),
-  and F1.3c's correct crop proves `geometry.size` was non-zero.
-  **FIXED 2026-08-18, NOT YET SEEN ON SCREEN.** `LoadConfiguratorView.swift:74`
-  now passes `preview.realSpace.normalized()` and `:92`
-  `preview.maxDP.normalized(useLog: true)` — the log form matters, because a
-  linear-normalized max-DP is the central beam and nothing else: drawing, but
-  useless for choosing a detector crop. The contract and the reason it was
-  broken are now a comment on `previews`, so the next edit cannot reintroduce it
-  silently. App builds. **No test covers this and none can** — the defect is
-  "renders one flat colour", which every unit-level assertion about pixel counts
-  and dimensions passes happily. It is Track B rows F1.3b/F1.3c and nothing
-  else, so neither may be re-scored until someone looks.
-
-  ~~Adjacent, same code, land together: the sheet clipping, the missing
-  `progress:` argument, the single-DP picker + dims, and the `contentVersion`
-  value-dependence.~~ **ALL FOUR LANDED 2026-08-24 (S4).**
-  `MetalImageView.contentVersion(of:)` (FNV-1a over pixel values) replaced the
-  dimensions-only hashes at both preview call sites *first*, pinned by
-  `mac4DSTEMTests/ImageContentVersionTests` (observed failing under a
-  dims-only mutation); the configurator gained a third **single position**
-  pane fed by a click on the real-space preview (stride-multiplied to source
-  coordinates; caption names the position; default is the brightest sampled
-  position), with the new state held by `PendingLoad`, not `AppState`;
-  `openFileForConfiguration` now passes the same determinate `progress:`
-  handler the plain open uses; the dialog states Scan (Ry x Rx) and
-  Detector (Qy x Qx) in the inspector's axis convention; and the sheet is
-  900×760, sized so the standing content fits without scrolling. **Unverified
-  on screen** — Track B rows **F1.16/F1.17/F1.19**, plus the standing F1.3b
-  re-drive for the panes themselves.
-
-  **The previews are also aspect-stretched** — `MetalImageView` maps the image to
-  normalized view UVs (`Shaders/Colormaps.metal:44,49-51`), so a 106×153 scan is
-  drawn into a ~332×220 box. The drag→crop math stays correct, but a user
-  dragging a visually square box gets a non-square crop. Decide once the panes
-  draw.
+- ~~**One remaining `contentVersion` staleness hazard.**~~ — **Fixed by S18, 2026-08-27** (the comparison panel is built once in `init` and its version hashes the payload bytes). Record in [the closed-items archive](archive/closed-items-2026-08.md). **Live residual: Track B row F1.35 has never been driven.**
+- ~~**The configurator's two preview panes draw nothing** (the 2026-08-18 entry)~~ — **fully superseded 2026-08-27/28.** Its three threads all closed: the flat-colour normalization defect (fixed 2026-08-18), the panes drawing nothing at all (the `contentsScale == 0` cause, fixed 2026-08-27 — see the tombstone above), and the aspect-stretched previews (#17a decided by the owner on the measurement, letterbox applied and verified on screen). S4's four adjacent items landed 2026-08-24. Record in [the closed-items archive](archive/closed-items-2026-08.md). **Live residual: Track B row F1.19** — the determinate sampling status line on a multi-GB `Open with Options…` — has still never been driven.
 - **The app died on an 8 GB machine, with no crash report.** 2026-08-18 ≈19:55,
   Apple M3 MacBook Air, 8 GB, during repeated opens of multi-GB cubes (a 17.19 GB
   `055_STEM SI.dm4` had been cancelled minutes earlier). **No `.ips` crash report
@@ -731,54 +650,24 @@ the claims are widened*, not as release advice.
   nothing about layer compositing; over-generalising it sent two sessions the
   wrong way.)*
 - **TB1 sitting 2: an open froze for minutes at "Checking for a saved
-  session…" until cancelled (2026-08-25, ~18:54).** The owner attributed
-  it to a leftover sidecar; Gate D the same evening refuted that and one
-  more account, measured the real block, and landed a fix for the measured
-  half — **the on-screen freeze itself remains unreproduced end to end**:
-  - ~~The staged WS₂ sidecar blocks reads~~ — a fresh process reads it in
-    0.47 s, and the full WS₂-beside-sidecar open completes in ~1 s in the
-    unit host with the S7 rewrite gate correctly armed.
-  - ~~A stale sidecar-bookmark for the opened path~~ — the app's real
-    domain (`com.mac4dstem.mac4DSTEM`, dumped through the shared test
-    host) holds sidecar bookmarks only for sim_Au, Si_SiGe (both local)
-    and one NAS source nobody opened.
-  - **Measured: resolving a stored bookmark whose volume is an unmounted
-    network share blocked 30.03 s** — this machine's own recents entry for
-    `/Volumes/eXtendedGROUPS/…` — and both production resolution sites run
-    synchronously on the main actor. **Fixed the same evening:**
-    `.withoutMounting` added to `WorkspaceRecoveryStore.resolve` and
-    `SessionSidecarLocator.grant` — an unmounted volume now refuses fast
-    instead of freezing the UI per attempt; all six stored bookmarks
-    resolve-or-refuse in 27 ms total, pinned by
-    `BookmarkResolutionLatencyTests` (the pre-fix 30.03 s measurement of
-    the same operation is the observed-failing half of that pair).
-  - **Leading account for the minutes, upgraded by the Gate D second
-    reader and then bounded by a probe.** The label is mechanically exact,
-    not incidental: `beginDatasetLoadingStage("Checking for a saved
-    session…")` is followed with NO suspension by
-    `sessionSidecar.location(for:)` → `grant()` → bookmark resolution on
-    the main actor, and every open starts cold (`release()` runs first) —
-    so a sidecar-grant bookmark pointing at an absent volume blocks under
-    exactly that label. BUT the follow-up probe read every stored sidecar
-    bookmark's EMBEDDED path without resolving: none targets `/Volumes`
-    (sim_Au → its local sibling; Si_SiGe → a since-emptied `~/.Trash`
-    entry; the one NAS-source key → a Desktop file). So on this machine
-    that path could not have produced the freeze, and a competing account
-    the fix does not address remains open: a mount that succeeded SLOWLY
-    followed by a slow SMB read. Which cube sitting 2 opened is not
-    recorded. Confirmation if it recurs: `sample mac4DSTEM 3` in Terminal
-    while it hangs.
-  - **The second reader refuted the fix's first catch blocks, corrected
-    the same evening:** `openRecent` deleted the recents entry — and the
-    only rendering of the NAS path — for a merely-unmounted volume, with a
-    "renew permission" remedy that cannot work; `grant()` likewise deleted
-    a sidecar grant, silently re-arming the silent-full-extent reopen for
-    a sidecar legitimately saved to a NAS. Both now branch on
-    `WorkspaceRecoveryStore.unmountedVolumeName(forBookmark:)` (embedded
-    path, no resolution): unmounted keeps the state and names the volume;
-    only a genuinely dead bookmark is forgotten. Pinned machine-locally by
-    `BookmarkResolutionLatencyTests.testClickingARecentOnAnUnmountedVolume…`
-    (observed failing under the old catch, teardown-protected).
+  session…" until cancelled (2026-08-25, ~18:54). The freeze itself is still
+  UNREPRODUCED end to end.** Gate D refuted two accounts (a leftover staged
+  sidecar; a stale bookmark for the opened path), then measured a real one:
+  resolving a stored bookmark whose volume is an unmounted network share
+  blocked **30.03 s** on the main actor. **Fixed** with `.withoutMounting` in
+  `WorkspaceRecoveryStore.resolve` and `SessionSidecarLocator.grant` — all six
+  stored bookmarks now resolve-or-refuse in 27 ms, pinned by
+  `BookmarkResolutionLatencyTests`. A second reader then refuted that fix's
+  first catch blocks (they deleted a recents entry, and a sidecar grant, for a
+  merely-unmounted volume); both now branch on `unmountedVolumeName(forBookmark:)`.
+  **But a probe bounded the account:** no stored sidecar bookmark targets
+  `/Volumes`, so on this machine that path could not have produced the freeze.
+  **A competing account the fix does not address is still open** — a mount that
+  succeeded SLOWLY followed by a slow SMB read. Which cube sitting 2 opened was
+  never recorded. **If it recurs, run `sample mac4DSTEM 3` in Terminal while it
+  hangs** — that is the one observation that would settle it.
+  Refuted hypotheses and the full Gate D narrative:
+  [the closed-items archive](archive/closed-items-2026-08.md).
   - **Recorded residuals:** (1) with the share unplugged, an open whose
     sidecar lives on the NAS is still SILENT for that one open (grant nil
     → derived-sibling fallback → "no session recorded") — the loud refusal
@@ -1138,56 +1027,21 @@ or it spends the one resource Track B is expensive in — a person's attention.
   on screen (F1.1d), and the teardown of a resident buffer / cropped view
   is unpinned — the demo path cannot reach those states, the honest gap in
   `DatasetLoadCancellationTests`.
-- **#17a — aspect-aware pane arrangement.** Built, then reverted on sight
-  2026-08-05. Needs a design decision, not an implementation. **Decided and
-  implemented for the CONFIGURATOR PANES ONLY, 2026-08-27** (owner decision,
-  taken on measured evidence rather than on sight this time): those panes
-  handed `MetalImageView` the full pane, and it maps to normalized view UVs, so
-  an 84x100 scan was drawn into a ~270x227 box. A visually square drag on
-  sim_Au produced `63 x 45` — 54% of width by 63% of height — so the crop
-  arithmetic was right while the picture misrepresented what was being
-  selected, and a circular disk rendered elliptical in an app that has an
-  ellipse-calibration feature. `LoadConfiguratorView` now letterboxes through
-  the same `fitted(in:aspect:)` the result and diffraction panes use.
+- **#17a — aspect-aware pane arrangement. The WIDER question is still open:**
+  pane ARRANGEMENT in the main window. Built, then reverted on sight 2026-08-05;
+  it needs a design decision, not an implementation.
+  **Settled for the CONFIGURATOR PANES ONLY, 2026-08-27/28** — owner decision
+  taken on measured evidence rather than on sight this time, then implemented,
+  corrected once (the first letterbox was computed and never applied), and
+  verified on screen: a 50x13 scan draws 276x72pt, the 128x128 patterns draw
+  square, and a visually square drag returns a 44x48 crop against 63x45 before.
+  Full record in [the closed-items archive](archive/closed-items-2026-08.md).
 
-  **CORRECTION, 2026-08-27, same day: that change did not letterbox anything,
-  and this entry's own claim — "with the ZStack sized to the box" — was false.**
-  `size` was computed and then used ONLY for the crop-overlay scaling and the
-  gesture math; nothing sized the `ZStack` to it, and the chain ended at
-  `.frame(maxWidth: .infinity, maxHeight: .infinity)`. `MetalImageView` is
-  flexible, so the `MTKView` still filled the whole 276x220pt pane. The picture
-  stayed stretched **and** the gestures had already moved into a box the image
-  did not occupy, so the two now disagreed — arguably worse than before.
-  Measured on screen once F1.3b stopped hiding it: a 128x128 pattern drew
-  **277x213**. Fixed by adding the `.frame(width:height:)` the comment always
-  described — whose placement relative to `contentShape`/the gestures was then
-  tested BOTH ways and makes no difference (same tap result, same drawn box; an
-  interim claim that taps died in one ordering was an artefact of the
-  element-based test harness, not a property of the code, and was removed from
-  the shipped comment before landing) — and verified on screen 3/3: the 50x13
-  scan preview now draws **276x72pt** (aspect 3.83 against the sampled grid's
-  50/13 = 3.85; note this is the SAMPLED aspect, which differs from the source
-  scan's by the stride's ceiling rounding) and the two 128x128 diffraction panes
-  draw square, with round disks.
-
-  **The crop half is verified too, and it was the last place a silently wrong
-  crop could hide** — the Gate B reader flagged it as the one open
-  data-correctness question. Driven with real `CGEvent` drags on
-  `downsample_Si_SiGe_exp.h5`: a visually square 60 x 60pt drag on the scan
-  strip returns *Loaded shape* **44 x 48** x 128 x 128 — ratio 1.09, against
-  1.40 for the same gesture before the fix — and the drawn crop rectangle
-  measures 69 x 65pt, so the overlay, the picture and the loaded extent all
-  agree. The residual 9% is the preview's stride (4), not a defect: a crop can
-  only quantise to sampled positions, so ±4 source rows on a ~44 extent is the
-  floor. Track B row F1.3c.
-  `unit` 387/4/0 exit 0 after the change.
-
-  The lesson, and it is the reusable part: the commit message, the code comment
-  and this entry all asserted a `.frame` that was never written, and none of the
-  three could be checked because the defect that hid it was still open. A claim
-  whose only witness is a blocked Track B row is not a verified claim.
-  The wider #17a question — pane ARRANGEMENT in the main
-  window — is untouched and still open.
+  **The lesson is the part worth keeping here.** The commit message, the code
+  comment and this entry all asserted a `.frame` that was never written, and
+  none of the three could be checked because the defect hiding it (F1.3b) was
+  still open. **A claim whose only witness is a blocked Track B row is not a
+  verified claim** — write it in the unverified voice until the row scores.
 - ~~**#36 — no progress indication while a datacube loads**~~ — **fixed
   2026-08-06 (L1)**, confirmed on a real 3.96 GB cube; record in
   [the closed-items archive](archive/closed-items-2026-08.md).
@@ -1299,42 +1153,7 @@ or it spends the one resource Track B is expensive in — a person's attention.
   the app writes would test the wrong thing. Owner: whoever next picks up
   sitting 2.
 
-- ~~**The dataset inspector's preview thumbnails are aspect-stretched.**~~ —
-  **Fixed 2026-08-27, reported by the release owner from the inspector and
-  verified on screen after the fix.** `DatasetInspector.swift:358` gave
-  `MetalImageView` a height-only frame, and that view maps to normalized view
-  UVs, so each thumbnail was stretched to the sidebar's full width: a
-  **128x128 mean or max pattern was drawn about 300x120 — 2.5x wider than tall,
-  rendering every Bragg disk as a horizontal ellipse** — in the app that has an
-  ellipse-calibration feature for measuring exactly that distortion. The 200x50
-  real-space preview was squashed the other way. Fixed with
-  `.aspectRatio(width/height, contentMode: .fit)` ahead of a `maxHeight` frame;
-  re-driven afterwards, the square patterns now render square with round disks
-  and real space as a correct 4:1 strip. `unit` 384/4/0 exit 0.
-  **The sweep was then actually run, and it found a fourth.** All six
-  `MetalImageView` call sites, audited 2026-08-27:
-
-  | call site | aspect handling |
-  |---|---|
-  | `DiffractionView.swift:98` | correct — `fitted(in:aspect:)` |
-  | `StemImageView.swift:292` | correct — `fitted(in:aspect:)` |
-  | `StemImageView.swift:481` (scan navigator) | correct by construction — `height = 118 * h/w` |
-  | `LoadConfiguratorView.swift:243` | **was stretched**, letterboxed same day |
-  | `DatasetInspector.swift:358` | **was stretched**, letterboxed same day |
-  | `ProductWorkspaceViews.swift:803` | **was stretched — found by this sweep**, fixed |
-
-  The fourth is the **comparison panel**: it framed each product to the full
-  pane, so two products being COMPARED were both distorted, in the view whose
-  only purpose is comparing them and which offers a difference map beside them.
-  It survived a rewrite of that very function earlier the same day, because the
-  rewrite was looking at `contentVersion` and not at aspect — a good argument
-  for auditing the class rather than the instance. Fixed with
-  `.aspectRatio(...)` ahead of the zoom `scaleEffect`, so the letterbox applies
-  before the shared zoom and the outer frame still bounds and clips the pane.
-  `unit` 384/4/0 exit 0. **The class is now closed: no `MetalImageView` in the
-  tree is left without an aspect constraint.** Unverified on screen for the
-  comparison panel — it needs two saved products loaded into slots A and B
-  (Track B row F1.35 covers that state).
+- ~~**The dataset inspector's preview thumbnails are aspect-stretched.**~~ — **Fixed 2026-08-27**, reported by the release owner and re-driven on screen after the fix; record in [the closed-items archive](archive/closed-items-2026-08.md). The sweep it triggered found a fourth stretched call site and is the reason no `MetalImageView` is left without an aspect constraint.
 
 - **The launch screen's Prepare / Analyze / Preserve cards are too large.**
   Release owner, 2026-08-27, while driving TB1: three full-width cards stacked
@@ -1508,25 +1327,7 @@ or it spends the one resource Track B is expensive in — a person's attention.
   such button — `DatasetResidency.request(_:on:)` has no caller under
   `mac4DSTEM/`, so this coarseness is a property of the harnesses and of any
   future admission control, not of anything a user can trigger today.
-- ~~**#38 — the image panes' scroll monitor consumes every scroll in the
-  window.**~~ — **Fixed by S18, 2026-08-27.** `addLocalMonitorForEvents` is
-  application-wide: while installed it sees every scroll in every window and,
-  by returning nil, swallows it. Hover was the only thing deciding whether it
-  was installed, and hover is not a reliable exit signal — another window
-  coming forward, a sheet opening over the pane, Mission Control, or a fast
-  exit can all leave `.onContinuousHover` never reporting `.ended`, and the
-  pane then ate the wheel for the whole app until it was hovered and left
-  again. The authority is now geometry asked at **event** time rather than
-  remembered from a callback: `ZoomPanModifier` keeps a passthrough backing
-  view and consumes a scroll only when it landed inside that view's
-  `visibleRect` in that view's own window, passing everything else through
-  (`UI/SwiftUI+MTKView.swift`). `visibleRect` rather than `bounds` so a pane
-  clipped by an enclosing scroll view does not fight the scroll view hiding
-  it; the window comparison covers sheets and popovers without a special case.
-  Hover still gates installation — a monitor that outlives its hover is now
-  inert instead of destructive. **Unverified on screen: Track B row F1.33**,
-  which says how to provoke a stale monitor, because the old behaviour is
-  intermittent and one clean attempt is not evidence.
+- ~~**#38 — the image panes' scroll monitor consumes every scroll in the window.**~~ — **Fixed by S18, 2026-08-27** (scoped by event-time geometry instead of a remembered hover). Record in [the closed-items archive](archive/closed-items-2026-08.md). **Live residual: Track B row F1.33 has never been driven**, so the fix is unverified on screen.
 - ~~**#43 — the acceptance gate breaks if a session is saved for a training
   dataset**~~ — **FIXED 2026-08-18** (`noDatasetFound` treated as input, not
   error; the glob deliberately left alone so the skip path stays exercised;

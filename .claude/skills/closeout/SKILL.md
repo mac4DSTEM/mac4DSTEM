@@ -29,6 +29,14 @@ Done means the repo tells the next reader the truth. In order:
 5. Update `docs/open-items.md` — add, amend, or delete. Closed items move
    to `docs/archive/` immediately (§1 discipline); the file is loaded by
    every session, so its length taxes all of them.
+   **Write findings, not narratives** — the file's own header carries the
+   format rule adopted 2026-08-28: what is wrong, the evidence, the trap, the
+   owner, the live residual; ≤ 20 lines. Refuted hypotheses and the story of
+   how the diagnosis converged go to the dated archive with a pointer. This is
+   the discipline that slipped: M1 cut the three-file kickoff tax to 1,901 and
+   it was 2,548 two days later, all of it narrative. **Check the tax at
+   closeout** — `wc -l CLAUDE.md docs/v2-release.md docs/open-items.md` — and
+   if your session pushed it up, say so in the record and trim something.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
 7. Republish the owner's living v2 board (owner request, 2026-08-26):

@@ -129,8 +129,11 @@ rule as always: **⌘R from Xcode**, never the installed copy.
 3. **Sitting 3 — the promote run (~15 min + one overnight, multi-GB/NAS
    cube):** F1.14 (+ **decision:** carry the scan position across a
    promote?), F1.22, F1.23, F1.15, F1.1d's open half — then the real
-   thing: rehearse at end of day, promote, lid open, read the morning
-   summary (Done criterion 3).
+   thing. **Narrowed 2026-08-28 (owner):** not an overnight — a bounded
+   unattended run on a multi-GB cube, machine held awake, with the summary path
+   read afterwards and one deliberate failure made to halt honestly. State on
+   the row what that does NOT cover: a multi-hour idle, display sleep, a lid
+   close (Done criterion 3, as narrowed).
 4. **Sitting 4 — clean account (~15 min):** the colleague-sidecar row —
    foreign sidecar + cube restores their view, results and recipe (Done
    criterion 4).

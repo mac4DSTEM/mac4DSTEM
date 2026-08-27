@@ -29,7 +29,18 @@ Four sentences, four commitments:
    as a *product*: driven on screen, with the claim's fixture behind it.
 2. **Promote overnight** — one action reopens at full extent and replays the
    validated analyses with the user's parameters, unattended, machine held
-   awake. New scope, decided 2026-08-18: without it, promotion at 60 GB means
+   awake.
+
+   > **Correction, 2026-08-28 — the word "overnight" is now ahead of the
+   > evidence.** Done criterion 3 was narrowed the same day (owner decision) to
+   > a bounded unattended run on a multi-GB cube, because the owner will not be
+   > running overnights. The *capability* is unchanged — sequential replay at
+   > full extent, keep-awake asserted, honest halt on failure — but nothing
+   > will have been verified across a multi-hour idle, a display sleep or a lid
+   > close. **Either the release verifies an overnight before shipping this
+   > sentence, or the sentence says "unattended" instead of "overnight".**
+   > S19 owns the restatement; this note exists so the choice is made
+   > deliberately and not by nobody noticing. New scope, decided 2026-08-18: without it, promotion at 60 GB means
    returning to click each analysis over several nights.
 3. **Hand a colleague the recipe** — the session sidecar is the sharing unit:
    same cube (the group NAS), plus a small sidecar carrying the specification,
@@ -190,8 +201,17 @@ only).
    a reduced specification and at full extent, compared, each case naming the
    invariance it claims. Not a self-consistency check.
 2. **The F1 queue is empty** and the promote control was driven on screen.
-3. **A real rehearse → overnight-promote completed unattended**, driven once
-   by the release owner end to end.
+3. **A real rehearse → promote completed UNATTENDED on a multi-GB cube**, over
+   a bounded window, machine held awake, with the morning-summary path
+   exercised and a failure made to halt honestly.
+   **Narrowed 2026-08-28, owner decision.** This previously read "a real
+   rehearse → *overnight*-promote … driven once by the release owner end to
+   end". The owner will not be running overnights, and the honest response is
+   to narrow the criterion rather than to claim a run nobody made. What this
+   version does NOT establish, and what §1's wording and the README must
+   therefore not imply: behaviour across an actual multi-hour idle, a display
+   sleep, or a lid close. **If the claim says "overnight", that is the sentence
+   to change** — S19 owns restating it.
 4. **The colleague-sidecar row passes on the clean account** — a cube opened
    with someone else's sidecar restores their view, results and recipe.
 5. **The reduced-file export round-trips through vendored py4DSTEM** — origin
@@ -279,7 +299,8 @@ still run one at a time, but either order works and nothing blocks.
 | TB1 | **Owner pass:** F1 queue to empty (F1.3b re-drive first), the promote row, one real rehearse → overnight promote, the colleague-sidecar row (foreign sidecar, clean account), the aspect-stretch decision once previews draw | — | S1, S3–S6 | Agent continues W2 meanwhile |
 | S7 | **Error honesty.** iDPC gate consults `originFitIsQuantitative` (`AppState.swift:3806`); `DPC.integrateIDPC` returns a typed error instead of a zero image; tile-read errors attributed correctly (`TiledDiskDetection.swift:42`); caption truncation fixed — and the **full provenance record written into the exported image's metadata** beside the burned caption, so the pixels stop being the only carrier. **Bounded `try?` audit of `Core/`**: every hit becomes a typed error or gains a comment saying why swallowing is correct — the zero-fill and tile-error defects are two instances of one class; kill the class. **This session's seam is the readiness/gating type**: one `@Observable` policy owner for every "may I?" question, so a gate can only exist once — the iDPC defect is literally two call sites deriving the same policy differently | **B** | — | Parallel with TB1 |
 | S8 | **Strain frame.** Owner design decision in-session (rotate into scan frame vs label diffraction-frame + export the R–Q transform; parity reference `get_rotated_strain_map`, `latticevectors.py:409`). Resolve or explicitly re-scope **#18** here | **B**, Fable 5 tier | S7 done or parked | Highest-stakes review of the phase |
-| S9 | **The 8 GB death.** Local-vs-NAS `footprint` experiment on the 17 GB DM4 (predicted: local flat, NAS climbs toward file size ⇒ `.mappedIfSafe` fell back to a full read), then fix — refuse or stream, never silently allocate the file. Secondary: bound the tile budget by *free* RAM; re-examine the "GPU budget" label (`LoadConfiguratorView.swift:255`) | **D** | NAS access | |
+| S9a | **Never silently allocate, whatever the volume.** Bound the tile budget by *free* RAM, refuse or stream rather than allocate a file-sized buffer, and re-examine the "GPU budget" label (`LoadConfiguratorView.swift:255`). **Split out 2026-08-28** because it needs no NAS and no 17 GB of free disk, and because it is right on every user's hardware regardless of what killed this one machine. **It is NOT the fix for the 8 GB death** — it is a guard that would have prevented it; the diagnosis still owes S9b, and this row must not be written up as closing it | A | — | Runs any time |
+| S9b | **The 8 GB death — the diagnosis.** Local-vs-NAS `footprint` experiment on the 17 GB DM4 (predicted: local flat, NAS climbs toward file size ⇒ `.mappedIfSafe` fell back to a full read). **The "local" arm may be an external SSD** (owner, 2026-08-28) — it is a real filesystem, so `mmap` behaves as it does locally and the contrast with a network share is preserved; reading it in place also removes the disk constraint that has blocked this row. The NAS arm still needs the NAS, and without both arms there is no discriminator | **D** | NAS access | |
 | S10 | **Reduced-file export.** Teach `transformedCalibration` the detector crop, lift the refusal, and have the exported file carry the S5 recipe. Fixture: export a cropped view, open it in vendored py4DSTEM, the origin lands on the beam | **B** | S5, S8 | Wrong output here escapes the app — full adversarial pass |
 | S11 | **Leads triage.** Verify or dismiss, in writing, each of: ACOM omitting `power_radial=1.0`; the Q-cal estimator vs py4DSTEM's radial-profile fit; HDF5 discovery assuming `[Ry,Rx,Qy,Qx]` without axis metadata; the strain weighting deviation absent from provenance. Plus the bounds-convention sweep (index-vs-centre on continuous positions). Confirmed items become open-items entries with owning sessions | B-lite | after TB1 | Findings feed S12 |
 | S12 | **Q-cal design.** Read the campaign's `constant_rms`/`parabola_rms` (settles #29's direction cheaply — the data exists and has never been read). Design the estimator-internal plausibility gate and the sane-origin/measure-Q split. **Weigh the `measureOrigin` coarse step** (translation-equivariant Gaussian vs the binned-block deviation) with evidence, and recommend in-or-out for S13 | Plan | S11 | Owner sees the design |
@@ -497,7 +518,10 @@ only if asked.
   warnings. Not verified: on-screen (F1.30/F1.31), a multi-GB round-trip,
   the recorded restore-path frame hole.
   Full record: [`docs/archive/v2-session-records/s10.md`](archive/v2-session-records/s10.md).
-- [ ] S9 — when NAS access and disk allow
+- [ ] **S9a** — never silently allocate (free-RAM tile budget, refuse-or-stream,
+  the "GPU budget" label). Split out 2026-08-28; needs no NAS and no spare disk,
+  so it can run any time · [ ] **S9b** — the local-vs-NAS diagnosis, still gated
+  on NAS access (the local arm may be an external SSD)
 - *Resequenced 2026-08-26 (M1/T6), completed 2026-08-27:
   **S10 → S21 → S17**. S9 waits for NAS access and disk; TB1 sittings 2–4
   run whenever the owner sits; S11 follows TB1.*
