@@ -1190,6 +1190,59 @@ or it spends the one resource Track B is expensive in — a person's attention.
   and `testSidebarDocumentRoughlyFitsItsColumn` both still passing — the extra
   line does not tip the column-fit gates.
 
+- **A DPC result run on an uncalibrated dataset is badged "Quantitative"
+  while the task banner directly above says it ran in qualitative units.**
+  Found 2026-08-27 driving TB1 on `downsample_Si_SiGe_exp.h5` (origin measured
+  in app and reading **"Not quantitative"**; ellipse, R-Q rotation, Q scale and
+  R scale all Missing). **Both statements are on screen in one frame, about
+  30pt apart:**
+
+  > ⊘ Ready · limited interpretation — *"Runs in **qualitative** units; add
+  > origin, R-Q rotation, Q scale, R scale, voltage for quantitative
+  > DPC/iDPC."*
+  >
+  > **DPC magnitude** `Quantitative`  ← green badge
+
+  **Mechanism, read from the code and not inferred from the symptom:**
+  `AppState.quantitativeStatus(for:units:)` (`App/AppState.swift:735-746`)
+  pattern-matches on the kind and units strings — ACOM prefixes, `dpc_color`,
+  `ipf`, `idpc_qualitative`, and units containing `intensity` / `arbitrary` /
+  `log_` — and **falls through to `.quantitative` for everything else**. DPC
+  magnitude in detector pixels matches none of them, so it is badged
+  Quantitative **by default**. The function never consults the calibration
+  state at all, so it cannot know what the banner two lines above it knows.
+
+  **Why this is a defect and not a wording clash.** The green badge is the
+  app's strongest trust signal, and here it defaults to the reassuring value
+  for any case the function does not recognise — the opposite of a safe
+  default, and the shape the refusal rule names: *a gate whose miss path
+  records an error and continues is not a gate*. It is also the tag-day defect
+  class exactly — a readiness line contradicting its own detail line. S7 wired
+  `originFitIsQuantitative` into the iDPC gate; **this badge does not consult
+  it**, which is why the same session both refuses iDPC and calls the DPC
+  output quantitative.
+
+  **AND IT ESCAPES THE APP — verified by exporting, 2026-08-27.** The result
+  was exported through *File ▸ Export Result Image…* and the PNG read back
+  programmatically. Its XMP `dc:description` carries
+  `"quantitative_status":"quantitative"` alongside `"value_units":"detector_px"`
+  and `"pixel_units":"[pix]"`, and the **burned-in caption on the figure reads
+  `scan space · quantitative · 1 [pix]/px`**. So a colleague who receives only
+  the PNG — which is the entire point of burning the caption in — reads
+  "quantitative" next to uncalibrated pixel units, with no trace of the
+  "limited interpretation" banner that was on screen when it was made. That
+  moves this from a display inconsistency to a **provenance defect in a
+  shareable artifact**, and it is squarely W2 territory.
+
+  A defensible reading exists — `.quantitative` may be intended as "these are
+  real measurements, not exploratory", distinct from "carries physical units" —
+  but a user cannot be asked to hold two meanings of one green word, and the
+  two readings are never distinguished on screen. **Fix is a judgement call and
+  is not attempted here** (acceptance is evaluation only): either the status
+  consults readiness, or the badge says what it means (e.g. "measured, detector
+  px"). Owner: a trust-fixes session; it belongs with W2's error-honesty work
+  rather than with polish.
+
 - **TB1's staged fixtures are GONE, and F1.26 cannot be driven.** Found
   2026-08-27 while attempting the row: `References/training_dataset/` contains
   the four `.h5` cubes and **no `.mac4dstem.h5` sidecar at all**. Two files the
