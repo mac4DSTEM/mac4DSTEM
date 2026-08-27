@@ -1234,6 +1234,16 @@ or it spends the one resource Track B is expensive in — a person's attention.
   moves this from a display inconsistency to a **provenance defect in a
   shareable artifact**, and it is squarely W2 territory.
 
+  **The strain export makes the contradiction internal to one dictionary.**
+  Exporting the ε_xx map (2026-08-27) produced XMP provenance containing, as
+  adjacent keys, `"quantitative_status":"quantitative"` and
+  `"strain_frame_reason":"qr_rotation_not_calibrated"` — the same record both
+  asserts the result is quantitative and states that the rotation calibration
+  it would need is absent. The burned caption likewise reads
+  `scan space · quantitative · 1 [pix]/px · … · strain_frame=detector`. This is
+  no longer two views disagreeing; it is **one artifact disagreeing with
+  itself**, and it is the artifact meant to travel to a colleague.
+
   A defensible reading exists — `.quantitative` may be intended as "these are
   real measurements, not exploratory", distinct from "carries physical units" —
   but a user cannot be asked to hold two meanings of one green word, and the
