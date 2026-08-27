@@ -453,10 +453,14 @@ only if asked.
   all 9 fixed in-session — sharpest: Xcode 26's Metal toolchain is a
   separate download neither job installed. 2 deviations. Track A: `unit`
   376/1 exit 65 (the S17 intermittent, logged), YAML + constraints + vendored
-  `pip` metadata all parse locally. Not verified: **no workflow run exists**
-  — activation is the owner's push; first run is also the first build off
-  the macOS 27 machine, and the timeouts/Metal/GPU assumptions are margin
-  until it lands.
+  `pip` metadata all parse locally. **Activated the same day** (owner
+  pushed; runs #1–#2): `scientific` green twice — the parity gate's first
+  passes off the dev Mac; run #1 caught a real Xcode-26-only type-checker
+  failure (fixed, `5f98ded`); run #2's sole red is the S17 intermittent,
+  **reproduced on the runner** — the first second-machine observation
+  (logged in open-items). Badge stays red on exactly that documented test
+  until S17. Not verified: the legend decomposition on screen; measured
+  heights from CI.
   Full record: [`docs/archive/v2-session-records/s21.md`](archive/v2-session-records/s21.md).
 - [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [ ] S17 · [ ] S18 · [ ] S19 · [ ] S20
