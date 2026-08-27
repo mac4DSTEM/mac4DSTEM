@@ -69,12 +69,10 @@ file:
   the comparison-panel `contentVersion`, `pattern(ry:rx:)` ignoring the
   resident cube, **#37** re-measure → **S18, all landed 2026-08-27**; each
   entry below carries its own outcome. **Two things S18 could NOT finish and
-  did not pretend to:** the Gate B second read of the two `Core/` changes
-  (`pattern(ry:rx:)` and the staging-copy elimination) has not run — the
-  session that wrote them is still the only one that has approved them, which
-  is the one thing this repo's refusal rule forbids — and the
-  `mac4DSTEMUITests` deletion below was refused by the environment, not
-  declined. Both need the release owner.
+  did not pretend to.** (1) ~~The Gate B second read of the two `Core/`
+  changes~~ — **RAN 2026-08-28, and both changes SURVIVED**; outcome recorded
+  below. (2) The `mac4DSTEMUITests` deletion below was refused by the
+  environment, not declined — **still outstanding, needs the release owner.**
 - The stale `all` claim in README/CHANGELOG → **S19**; the legacy `.icns` →
   mooted by S19's floor raise to macOS 26; the `docs/releasing.md` gap →
   **S19**.
@@ -732,6 +730,58 @@ the claims are widened*, not as release advice.
   because "384 + 2 = 387" is exactly the kind of arithmetic a reader would
   otherwise assume nobody checked.
 
+- **Gate B outcome for S18's two `Core/` changes — RAN 2026-08-28, both
+  SURVIVED.** A separate agent briefed to refute attacked
+  `pattern(ry:rx:)` served from the resident cube and the `TileGPUSource`
+  staging-copy elimination. Twelve mutations across both, each producing a red
+  harness with a distinct named failure. **The debt is cleared**; the model that
+  wrote them is no longer their only approver.
+
+  **What it found, and what was done:**
+  - **The sharpest lead — that the resident pattern slice indexes with the
+    SOURCE scan width and would serve the wrong pattern on a cropped view — is
+    REFUTED as a defect**, by demonstration rather than argument: `descriptor`
+    is the loaded VIEW's descriptor, which is exactly the stride `makeResident`
+    fills at. **But the shipped fixture could not see the class at all** —
+    every array it builds is full extent, where the two are equal, so mutating
+    the line stayed green across all 27 of its assertions. **Closed:
+    `tools/resident-cropped-view` is a new gated harness on a scan-cropped,
+    detector-cropped AND binned view (view row stride 144 B against a source row
+    of 2880 B), with ground truth computed from source coordinates rather than
+    through `LoadView`'s own helpers. Verified by breaking it before trusting
+    it:** it goes red at view (1, 0) — got 3813.19, want 2923.57 — on the exact
+    mutation the old harness sleeps through. `scientific` is now 38 harnesses.
+  - **`residentTileCopies` does NOT prove the staging copy is gone**, though its
+    doc comment claimed to. Reinstating a copy *inside* `TileGPUSource.binding`
+    leaves every value bit-identical and the counter reading 0. What catches it
+    is the fixture's `bound.buffer === cube.buffer` identity assertion. Comment
+    corrected in `Core/`.
+  - **"The equality was not previously asserted anywhere" is false** —
+    `tools/load-spec-test` already pins `readScanTile` against `readPattern`
+    across crops, bins and five readers, against independent ground truth. The
+    residency fixture's retraction comment cites two harnesses that do not
+    actually do it.
+  - **The bit-identical claim holds, and its control is load-bearing:** the
+    measured-origins mutation differs by 8.5231 against 8.5035 — a 1% tolerance
+    would swallow it. The "do not widen a tolerance" warning in that file is not
+    decoration.
+  - Two smaller corrections landed in `Core/`: the pattern-slice doc comment's
+    formula disagreed with the code, and `TileGPUSource` now documents that it
+    **pins the resident cube for a whole pass** (before S18, a mid-pass
+    `releaseResident()` freed it and the pass finished from disk).
+
+  **Still NOT established, and these are real:** neither change has ever run
+  against a real reader on a resident cube — `real-data-acceptance` never goes
+  resident; **all coverage of both changes lives in `tools/`**, since
+  `mac4DSTEMTests/DatasetResidencyTests` covers the `DatasetResidency`
+  lifecycle only and mentions neither `pattern`, `TileGPUSource` nor
+  `cubeOffset` — the unit gate contributes zero coverage here; and
+  `tools/residency-sweep` is not in `run-tests.sh` at all and measures the
+  dropped `.automatic` knee, so it must not be cited as a Gate B fixture for
+  these changes. Both changes also remain **unreachable in the shipping app** —
+  nothing requests `.resident` — so they are correct, gated, and exercised only
+  by harnesses.
+
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance
   was open for Track B reported
@@ -1263,8 +1313,8 @@ or it spends the one resource Track B is expensive in — a person's attention.
   named for what each actually measures. It feels better only because the whole
   resident dispatch is short.
 - ~~**A resident cube still pays ~0.375 × working set in staging copies.**~~ —
-  **Landed by S18, 2026-08-27; the Gate B second read is still owed** (see the
-  caveat at the top of this file). When resident, `FourDArray.scanTile` copied
+  **Landed by S18, 2026-08-27; the Gate B second read RAN 2026-08-28 and it
+  SURVIVED** — see the Gate B outcome entry below. When resident, `FourDArray.scanTile` copied
   out of the buffer into a Swift `[Float]`; `TilePrefetcher` held two of those,
   and `tiledDPStatistics` / `tiledDiffraction` / `tiledMeasuredOrigins` /
   `tiledCenterOfMass` then built a third copy as an `MTLBuffer`. Peak ≈ cube +
@@ -1293,7 +1343,7 @@ or it spends the one resource Track B is expensive in — a person's attention.
   `setBuffer` call — so it is recorded here rather than smuggled in. Owner:
   whichever session next touches disk detection.
 - ~~**`FourDArray.pattern(ry:rx:)` ignores the resident cube**~~ — **Landed by
-  S18, 2026-08-27; the Gate B second read is still owed.** It always read
+  S18, 2026-08-27; the Gate B second read RAN 2026-08-28 and it SURVIVED.** It always read
   through the reader, so browsing diffraction patterns stayed disk-bound while
   the panel read "Resident" — the indicator over-promised. A pattern is now
   sliced straight out of the cube at `(ry * rx + rx) * qy * qx`, and

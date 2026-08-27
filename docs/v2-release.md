@@ -579,8 +579,13 @@ only if asked.
   own record, whose *Not verified* section states it plainly: that session was
   configured not to spawn agents, so the model that wrote items 5 and 6 is still
   the only one that has approved them — the one thing the refusal rule forbids.
-  The mutation sweep is evidence, not a second reader. **Owner action, still
-  outstanding.** *(This line previously read "Gate B (24 agents, 30 mutations
+  The mutation sweep is evidence, not a second reader. **RAN 2026-08-28 — and both
+  changes SURVIVED it.** Twelve mutations across the two, each producing a red
+  harness with a distinct named failure; the debt is cleared. It also found that
+  the shipped fixture was blind to cropped views (mutating the pattern slice's
+  stride stayed green across all 27 assertions), which is now closed by the new
+  `tools/resident-cropped-view` harness — `scientific` is 38. Full outcome, and
+  what is still not established, in `docs/open-items.md`. *(This line previously read "Gate B (24 agents, 30 mutations
   applied and run)". The record has a `Gate A — 14 agents` section and no Gate B
   section; the agent count was not supported by it. On 2026-08-27 a session
   found this stub disagreeing with CLAUDE.md and resolved it the WRONG way —

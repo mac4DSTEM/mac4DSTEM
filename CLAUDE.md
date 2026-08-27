@@ -60,13 +60,13 @@ recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
 records in
 [`docs/archive/v2-session-records/`](docs/archive/v2-session-records/).
-**S18 is ticked `[x]`, but two things it could not finish are still owed, and
-both need the owner.** (1) **The Gate B second read of its two `Core/` changes
-has not run** — `pattern(ry:rx:)` and the staging-copy elimination — so the
-model that wrote them is still their only approver, which is the one thing the
-refusal rule forbids. A mutation sweep ran and is evidence, but it is not a
-second reader. (2) The `mac4DSTEMUITests` deletion was refused by the
-environment, not declined.
+**S18 is ticked `[x]`. Its Gate B debt was cleared 2026-08-28** — a separate
+refuter attacked both `Core/` changes (`pattern(ry:rx:)` from the resident cube,
+the staging-copy elimination) and **both survived**, twelve mutations each
+producing a distinct red. It also exposed a fixture blind spot, now closed by
+`tools/resident-cropped-view`. **What is still owed from S18 is only the
+`mac4DSTEMUITests` deletion**, which the environment refused rather than
+declined; that needs the owner.
 
 *Read this before trusting either summary again:* on 2026-08-27 a session found
 this paragraph disagreeing with §9's S18 stub and **resolved it the wrong way**,
@@ -84,8 +84,8 @@ measurement showed the cancellation cost is I/O, not check granularity. The
 cut line and the severable block (S11–S16, TB2) are §2 of the release plan.
 
 **The honest test claim — each number dated to its own run:**
-`run-tests.sh scientific` — exit 0 over **37 harnesses**, zero FAIL lines
-(2026-08-27, TB1 sitting 1's tree — supersedes S18's run of the same size).
+`run-tests.sh scientific` — exit 0 over **38 harnesses**, zero FAIL lines
+(2026-08-28, after `tools/resident-cropped-view` joined the array).
 `run-tests.sh unit` — **387 passed / 4 skipped / 0 failed, exit 0**
 (2026-08-27, TB1 sitting 1 — 387 distinct case names, checked for retries, not
 a raw line count); three skips

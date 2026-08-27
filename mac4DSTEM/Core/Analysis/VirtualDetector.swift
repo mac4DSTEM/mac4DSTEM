@@ -113,6 +113,18 @@ nonisolated struct TilePrefetcher {
 /// the same order — so a resident pass returns bit-identical floats to the
 /// streaming pass it replaces. That equality is what
 /// `tools/virtual-detector-residency` asserts.
+// BEHAVIOUR CHANGE, undocumented until the Gate B second read named it
+// (2026-08-28): this captures the `ResidentCube` ONCE, at construction, and
+// holds it for the whole pass. Before v2 S18, `scanTile` re-checked residency
+// per tile, so a `releaseResident()` mid-pass freed the buffer and the pass
+// finished from disk. Now the pass pins the cube until it completes.
+//
+// Numbers are unaffected — the view is a `let`, so the bytes cannot differ —
+// and mixing resident with streamed tiles inside one pass is now impossible,
+// which is the better guarantee. The cost is that "Release cube" no longer
+// returns the memory promptly while a reduction is running. Unreachable in the
+// shipping app today (nothing requests `.resident`), but this is the kind of
+// property that gets discovered under memory pressure rather than read.
 nonisolated struct TileGPUSource {
     private let cube: ResidentCube?
     private let bytesPerScanRow: Int

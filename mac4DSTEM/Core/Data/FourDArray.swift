@@ -174,11 +174,23 @@ actor FourDArray {
     ///
     /// Observability, not policy. v2 S18 removed that copy from the four tiled
     /// GPU reducers — they bind the cube's buffer at the tile's byte offset
-    /// instead (`TileGPUSource`) — and this counter is how
-    /// `tools/virtual-detector-residency` proves the copy is GONE rather than
-    /// merely still correct. Without it the harness can only show that the
-    /// numbers did not change, which is exactly what a silently-reintroduced
-    /// staging copy would also show.
+    /// instead (`TileGPUSource`).
+    ///
+    /// **This counter does NOT prove the copy is gone, and an earlier version of
+    /// this comment said it did** (corrected 2026-08-28 by the Gate B second
+    /// read, which demonstrated it). Reinstate a staging copy *inside*
+    /// `TileGPUSource.binding` — copy the tile's bytes into a fresh
+    /// `MTLBuffer`, return it at offset 0 — and every value stays bit-identical
+    /// while this counter reads 0 before and 0 after, because that copy never
+    /// routes through `tile(yRange:from:)` where the counter lives. What
+    /// actually catches it is the `bound.buffer === cube.buffer` identity
+    /// assertion in `tools/virtual-detector-residency`, which fires
+    /// "TileGPUSource staged a COPY". This counter catches the narrower case:
+    /// a reducer going back through `tile(yRange:from:)`.
+    ///
+    /// (The counter's own positive control is real — deleting the increment
+    /// below fails the harness with "The counter is dead, and every 'zero
+    /// staging copies' claim below it is vacuous.")
     ///
     /// CPU-side consumers (parallax preprocessing, ptychography preparation,
     /// the EMD writer) legitimately still copy and still increment it.
@@ -313,7 +325,8 @@ actor FourDArray {
     ///
     /// The cube is flat and contiguous in `[ry][rx][qy][qx]` order, so a single
     /// pattern is one contiguous `qy * qx` run at
-    /// `(ry * rx + rx) * qy * qx`. Returns nil rather than trapping if the
+    /// `(ry * descriptor.rx + rx) * qy * qx` — the VIEW's scan width, which is
+    /// the stride `makeResident` fills at, NOT the source's. Returns nil rather than trapping if the
     /// slice does not fit the buffer — the caller then falls back to the
     /// reader, which is the honest behaviour for a cube that is not what this
     /// array thinks it is.
