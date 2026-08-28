@@ -43,3 +43,18 @@ it *tried* and failed to break.
    reason (repo hard rule).
 5. Record what the review could and could not refute. A claim the review
    corrects gets corrected in the docs — not defended.
+6. **Do not commit while a refuter is running, and never with `git add -A`.**
+   A refuter mutates the tree to find out whether controls bite, so at any
+   moment the working tree may contain a deliberate defect. On 2026-08-28 a
+   session ran `git add -A && git commit` during a ~25-second mutation window
+   and shipped `enc.setBuffer(cube, offset: 0)` into `main` under a message
+   that read "Docs only; nothing under `mac4DSTEM/` touched" — the reviewer's
+   later `git checkout --` then faithfully restored the mutation, because it
+   had become HEAD. It cost that reviewer half its session to chase, and the
+   only reason it did not reach the public repo is that nothing had been
+   pushed.
+   Three rules, each of which alone would have stopped it: **stage named paths,
+   never `-A`**; **read the diff you are about to commit**; and **never assert
+   in a message what a change does NOT touch** unless you just looked. If the
+   tree must be committed while a review is in flight, wait — the refuter
+   finishing is worth more than the commit being prompt.
