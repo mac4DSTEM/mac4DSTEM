@@ -624,9 +624,18 @@ citations cannot be trusted without checking.
   vacuum-only pattern and compare with the max-DP figure") on synthetic data,
   where it confirms. It has NOT been run on `SPED_MgO.hdf5`; that is still owed.
   **Also new, and it is a hole in S13's own checks:** a constant *kernel* bias
-  moves the shell ratio by only 1.1%, inside S13's 3% threshold, so nothing in
-  the estimator can see it — the same blind spot §3.1 already admits for a
-  constant *origin* displacement, now present in a second place.
+  moves the shell ratio by only 1.1%, inside the 3% threshold S13 had, so
+  nothing in the estimator could see it — the same blind spot §3.1 already
+  admits for a constant *origin* displacement, in a second place.
+  **CURRENT BEHAVIOUR, after the thresholds were cut: the demo does NOT refuse.**
+  An earlier version of this entry said it did. That was true for the few hours
+  S13 shipped an estimator threshold; Gate B refuted the threshold's derivation
+  and it was removed, so the app calibrates the demo to **0.021 Å⁻¹/px** again —
+  wrong, as it has always been — and the shell-ratio disagreement is now
+  *reported* beside the number ("shell ratio 1.373 vs 1.155 predicted") instead
+  of refusing on it. That is strictly better than before S13 and strictly weaker
+  than a refusal, and it is the honest position until a threshold can be placed
+  on evidence.
   **What S13 got wrong and Gate B corrected, recorded because the corrections
   matter more than the original claim:** the re-identification as "{200}/{220}
   of a cubic [001] zone" (**refuted by the measured spot angles** — inner at
