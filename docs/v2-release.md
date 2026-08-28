@@ -620,7 +620,26 @@ only if asked.
   Not verified: F1.33 and F1.35 (owner), the `mac4DSTEMUITests` deletion
   (environment refused), `all`, #37 against a real reader.
   Full record: [`docs/archive/v2-session-records/s18.md`](archive/v2-session-records/s18.md).
-- [ ] S19 · [ ] S20
+- [x] **S19** — 2026-08-28. Claims restatement. `run-tests.sh all` run end to
+  end on the current tree: **exit 0, 40 harnesses, zero FAIL lines, zero exit-69
+  refusals, unit 387/4/0**, counted by grep over the retained log. `README.md`
+  now states that reproducible figure and says plainly what the numerical gate
+  does NOT cover (what the app draws — pointing at Track B, which exists because
+  the gate stayed green through real on-screen defects). `CHANGELOG.md` keeps
+  v1.0.0's 30-harness numbers as that release's record with a pointer to the
+  current ones. **The macOS floor is closed properly:** `MACOSX_DEPLOYMENT_TARGET`
+  raised 14.0 → 26.0 in all **six** configurations (an earlier note said four —
+  a truncated grep), verified from the BUILT product rather than the setting:
+  the app's `Info.plist` declares `LSMinimumSystemVersion 26.0`. Docs and binary
+  agree again, closing the ROADMAP item that had recorded since August that the
+  app had never run on the floor it declared. `docs/releasing.md` gains the
+  `make-dmg.sh` step, which was missing entirely — the one artefact users
+  actually download had no written procedure — including the order that matters
+  (staple the app, build the DMG, notarize the DMG). Gate A.
+  **Not verified:** the CI badge against this tree (S21's workflow has not run
+  since); no clean-account launch on macOS 26 (S20); and the DMG procedure is
+  documented, not re-executed.
+- [ ] S20
 
 Tick a session only with a record of what shipped and what deviated. Since
 M1 (2026-08-26): the full record goes **verbatim** to

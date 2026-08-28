@@ -237,7 +237,19 @@ Two things learned that are not obvious and cost time:
   27. CI now builds and runs the unit suite on macOS 26, but no Track B pass has
   exercised that OS and nothing from 14–25 has been exercised at all. Only a
   real older machine answers the visual/runtime half.
-- **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
+- ~~**`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
+  harnesses**~~ — **CLOSED by S19, 2026-08-28.** `all` was run end to end on the
+  current tree: **exit 0, 40 harnesses, zero FAIL lines, zero exit-69 refusals,
+  unit stage 387 passed / 4 skipped / 0 failed** — counted by grep over the
+  retained log, not inferred from the exit code. `README.md` now states that
+  reproducible figure and points at the Track B checklist for what the numerical
+  gate does not cover; `CHANGELOG.md` keeps v1.0.0's 30-harness numbers as the
+  record of what THAT release was verified by, with a pointer to the current
+  ones. The single SKIP is `real-data-acceptance` correctly refusing to read a
+  session sidecar as a datacube (#43). Historical detail of the two years this
+  claim was stale follows.
+
+  *Original entry:* **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
   harnesses.** Measured at the tag; **nobody has reproduced the aggregate
   since**, and the count has moved twice — `virtual-detector-residency` landed
   2026-08-17 and `load-spec-test` and `load-spec-calibration` on 2026-08-18, so `scientific` is

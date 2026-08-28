@@ -48,7 +48,10 @@ reopen.
 ### Verification
 
 `tools/run-tests.sh all` — **exit 0, 30 harnesses**: 105 unit tests, 28
-scientific parity harnesses, real-data acceptance, and packaging. Parity is
+scientific parity harnesses, real-data acceptance, and packaging. *(Those are
+v1.0.0's numbers, measured at the tag on 2026-08-06, and they are left as the
+record of what this release was verified by. The gate has grown since; the
+current reproducible figures are in [`README.md`](README.md).)* Parity is
 measured against py4DSTEM 0.14.19 on a four-dataset training set, with records
 in `References/parity_records/`.
 

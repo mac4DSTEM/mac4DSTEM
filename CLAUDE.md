@@ -99,14 +99,7 @@ against the same defaults domain while the gate ran. **Do not drive the app
 during `run-tests.sh unit`** — see `docs/open-items.md`.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
-own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-27 —
-the first complete aggregate run on this machine**, on the tree as it stood
-BEFORE TB1 sitting 1's two UI fixes (not re-run since; `unit` and `scientific`
-were, individually, above). 39 harnesses (the 37 in
-`scientific`, plus `real-data-acceptance` and `package-test`), unit stage
-**384 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69
-preflight refusals in the retained log** (checked by grep, not by trusting the
-exit code — a `| tail` has swallowed a failing gate here twice). One `SKIP`:
+own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-28**, on the tree carrying S9a and the Gate B fixture: **40 harnesses**, unit stage **387 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69 preflight refusals in the retained log** (checked by grep, not by trusting the exit code — a `| tail` has swallowed a failing gate here twice). One `SKIP`:
 `real-data-acceptance` correctly recognised a session sidecar sitting beside a
 training dataset and skipped it rather than reading it as a datacube — backlog
 **#43**, fixed 2026-08-18, exercised live for the first time. Of the 4 unit

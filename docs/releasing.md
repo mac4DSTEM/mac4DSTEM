@@ -51,7 +51,30 @@ tools/release/notarize.sh \
 The script submits with `notarytool --wait`, staples and validates the ticket,
 runs Gatekeeper assessment, and produces `mac4DSTEM-1.0.zip`. Preserve the archive,
 notary submission ID/log, commit hash, and final SHA-256 together as release
-provenance. Test the ZIP on a clean macOS 14+ account before publishing.
+provenance. Test the ZIP on a clean **macOS 26+** account before publishing —
+the floor was raised from 14 on 2026-08-28, because the app had never been run
+below macOS 26 and the declared floor said otherwise.
+
+## The disk image users actually download
+
+`tools/release/make-dmg.sh` was missing from this document until 2026-08-28,
+which meant the one artefact users actually download had no written procedure.
+
+```sh
+tools/release/make-dmg.sh \
+  build/release/mac4DSTEM.xcarchive/Products/Applications/mac4DSTEM.app
+```
+
+**Order matters, and getting it wrong produces a download that fails on first
+launch with no network.** Take a *stapled* app, build the DMG from it, then run
+`notarize.sh` **again on the DMG**: the image is signed by `make-dmg.sh` but not
+notarized there. Stapling the app alone is not enough — Gatekeeper assesses the
+thing the user actually opened, which is the image.
+
+The window layout is written straight into the image's `.DS_Store` by
+`dmgbuild`, deliberately not by driving the Finder with AppleScript: the
+AppleScript recipe is the common one and it does not survive automation, since
+it needs an Automation grant and a live Finder.
 
 Apple’s required process is Developer ID signing with hardened runtime, a secure
 timestamp, notarization, and ticket stapling; `altool` is no longer supported.

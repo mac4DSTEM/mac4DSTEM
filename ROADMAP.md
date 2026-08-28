@@ -97,13 +97,13 @@ and ride-along AppState extractions (C1–C3).
 - ~~Developer ID signing, notarization, and stapling.~~ **Done 2026-08-14/15** —
   pipeline now in `tools/release/`.
 - ~~Clean-account launch~~ **done 2026-08-14**, but **on macOS 27 only**. The
-  app has never run on the macOS 14 floor it declared. **Half closed
-  2026-08-28:** `README.md` now states macOS 26 or later, and `CHANGELOG.md`
-  records that v1.0.0's declared 14 floor was never tested below 26. **The
-  BUILD still says 14** — `MACOSX_DEPLOYMENT_TARGET = 14.0` in four
-  configurations of `mac4DSTEM.xcodeproj` — so the binary will still install on
-  macOS 14 and the documentation and the product now disagree in the safe
-  direction. **S19 raises the deployment target and closes this.**
+  app has never run on the macOS 14 floor it declared. **CLOSED by S19,
+  2026-08-28:** `README.md` states macOS 26 or later, `CHANGELOG.md` records
+  that v1.0.0's declared 14 floor was never tested below 26, and
+  `MACOSX_DEPLOYMENT_TARGET` is now `26.0` in all **six** configurations of
+  `mac4DSTEM.xcodeproj` (an earlier note said four — a truncated grep). Verified
+  from the built product rather than the setting: the app's `Info.plist` now
+  declares `LSMinimumSystemVersion 26.0`. Docs and binary agree again.
 - Real acquisitions from at least two instruments before promoting MIB/EMPAD readers
   from Preview.
 
