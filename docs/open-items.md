@@ -818,6 +818,23 @@ the claims are widened*, not as release advice.
   nothing requests `.resident` — so they are correct, gated, and exercised only
   by harnesses.
 
+- **TB1's WS₂ sidecar fixture is re-staged, and the recipe is now in the repo.**
+  It went missing before sitting 2 (found 2026-08-27), which blocked Track B row
+  **F1.26** and left `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes`
+  skipping indefinitely — a fixture nobody can rebuild is one that will vanish
+  again. `tools/stage-tb1-ws2-fixture/run.sh` rebuilds it: it copies a real
+  app-written sidecar beside `polycrystal_2D_WS2.h5` and writes a
+  `mac4dstem_load_specification` recording a **200x200 scan crop**, plus the
+  minimum-reader marker of 6 that a reduced specification requires. WS₂'s scan
+  is 128x128, so `LoadView(source:specification:)` throws and
+  `gates.sidecarRestoreFailure` arms as `.doesNotFit` — the state F1.26 reads.
+  **Synthesised on purpose:** Si_SiGe is 50x200, sim_Au 100x84, WS₂ 128x128, so
+  nothing in the training set can produce a specification WS₂ cannot fit by
+  being driven. Verified by rebuilding from nothing and re-running the probe,
+  not only by inspecting attributes; `unit` is **388 passed / 3 skipped / 0
+  failed, exit 0**. Not gated — it needs gitignored multi-GB data, so it is
+  deliberately absent from `run-tests.sh`.
+
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance
   was open for Track B reported
