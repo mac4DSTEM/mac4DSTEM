@@ -53,8 +53,8 @@ at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
 mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
-**The v2 release is mid-flight: S0–S8, S10, S17 and S21 are done, and S18 is
-`[~]`** (plus the M1 tidy)
+**The v2 release is mid-flight: S0–S8, S9a, S10, S11, S17, S18, S19 and S21
+are done** (plus the M1 tidy)
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
@@ -78,10 +78,13 @@ default — open the session record in `docs/archive/v2-session-records/`, which
 is the evidence both are summarising.**
 Sequencing (§9's checklist and resequencing line are the authority): the
 S10 → S21 → S17 run is complete; **TB1 sitting 1 is COMPLETE (2026-08-27)** and
-sittings 2–4 wait on the owner; S11 follows TB1; S9 when NAS access and disk
-allow — **and #37 moved there**, since S18's
+sittings 2–4 wait on the owner — sitting 3 needs a multi-GB/NAS cube, sitting 4
+a clean account. **S11 was run ahead of them on 2026-08-28** rather than after,
+because it needs neither; that reordering is stated in its stub. S9 when NAS
+access and disk allow — **and #37 moved there**, since S18's
 measurement showed the cancellation cost is I/O, not check granularity. The
-cut line and the severable block (S11–S16, TB2) are §2 of the release plan.
+cut line and the severable block (now S12–S16, TB2 — S11 landed) are §2 of
+the release plan.
 
 **The honest test claim — each number dated to its own run:**
 `run-tests.sh scientific` — exit 0 over **38 harnesses**, zero FAIL lines

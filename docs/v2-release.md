@@ -116,7 +116,8 @@ release pipeline.
 ### The cut line
 
 **The release is shippable after W1 + W2 + W5.** W3 and W4 (S11–S16, TB2) are
-the severable block: cutting them to a fast v2.x weakens no other workstream
+the severable block — **S11 landed 2026-08-28, so what is actually severable
+now is S12–S16 + TB2**, and S11's `power_radial` finding goes with them: cutting them to a fast v2.x weakens no other workstream
 and nothing downstream needs rework. Cutting is the release owner's explicit
 decision at the time, never a default — this line exists so that a schedule
 problem can never argue for thinning a review gate instead. The promote run
@@ -569,7 +570,29 @@ only if asked.
   **378 passed / 4 skipped / 0 failed**. Not verified: Track B, macos-26 CI,
   the badge, `all`, living-board republish. Full record:
   [`docs/archive/v2-session-records/s17.md`](archive/v2-session-records/s17.md).
-- [ ] S11 · [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
+- [x] **S11** — 2026-08-28. Leads triage, all five items answered in writing
+  against `b15ac0b`; every verdict and its evidence is in `docs/open-items.md`,
+  under the external-review section (the table) and *Known, scoped, not
+  blocking* (the five entries). **3 CONFIRMED, 1 confirmed-but-already-known,
+  1 partly dismissed, and the bounds sweep DISMISSED.** Sharpest, and new:
+  **`.fileMean`/`.sessionMean` leave `calibration.origin` nil, so
+  `calibratedBraggVectors` silently substitutes the detector's geometric
+  middle `(qx/2, qy/2)` for the file's recorded beam centre** — in Q
+  calibration, strain, ACOM and the Bragg map at once, stamped
+  `.measuredInApp`, while the inspector displays the file's origin. Four
+  sibling call sites derive that same fallback three different ways; the S7
+  class, not a slip. Owners assigned: **S13** (origin fallback, strain
+  weighting provenance), **S12** (single-shell Q estimator), **S16**
+  (`power_radial`, which leaves with the severable block if it is cut). Gate:
+  B-lite, **and its second read has NOT run** — see below. Track A: not run,
+  and not owed — nothing under `mac4DSTEM/` was touched. Deviations: 1 — no
+  `docs/archive/v2-session-records/s11.md`, because the open-items entries are
+  the record and copying them would create the second summary this repo keeps
+  getting burned by. **Not verified:** the materiality of `power_radial` (the
+  ground-truth driver behind `docs/py4dstem-pipelines.md` §10.1's table was not
+  retained), and no failing case was *demonstrated* for the origin fallback —
+  it is read from the code path, not from a red test.
+- [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [x] **S18** — 2026-08-27. Polish sweep, the brief's list complete. Shipped:
   one shared `PaneBottomOverlay` (wide case unchanged on purpose), #38's scroll
   monitor scoped by event-time geometry instead of a remembered hover, the

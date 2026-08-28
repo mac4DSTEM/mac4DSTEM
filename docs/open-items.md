@@ -333,32 +333,129 @@ careful user would reasonably misread as a quantitative claim.**
   **Closed by S7, 2026-08-25** (`FullScanError` names the scan rows);
   record in [the closed-items archive](archive/closed-items-2026-08.md).
 
-Credible but **not yet verified here**, so treat as leads rather than findings:
-the Q-calibration estimator differing materially from py4DSTEM's radial-profile
-fit and the file/session mean origin not reaching it; ACOM omitting py4DSTEM's
-default `power_radial=1.0` radial weighting; HDF5 discovery assuming
-`[Ry,Rx,Qy,Qx]` and auto-selecting a `/data` object without checking axis
-metadata; and the strain estimator's weighting deviation being absent from
-exported provenance.
+**The four leads were triaged by S11 on 2026-08-28** — verdicts here, evidence
+in the entries they point to. Read against the tree at `b15ac0b`.
 
-**Errors in that review — do not import.** It states the app uses **MLX**
-(it does not; `grep -rl "import MLX" mac4DSTEM/` is empty — MLX is prior art in
-`References/MigrationSource` only). It assumes an **App Store** release goal and
-raises a "distribution mismatch" on that basis; the plan is Developer ID +
-notarization, and GPL-3.0 is incompatible with the App Store anyway. Its
-resident-cube findings ("untracked", "no AppState preload/release/progress
-wiring") described a mid-L2 working tree and are stale as of `73105fc`. Many of
-its file paths do not exist here (`mac4DSTEM/App/ContentView.swift`,
-`mac4DSTEM/Platform/HDF5/H5Reader.swift`, `mac4DSTEM/Core/Export/ResultExport.swift`),
-so **its line citations cannot be trusted without checking** — which is why the
-list above is only what was re-derived from this tree.
+| Lead | Verdict |
+|---|---|
+| The file/session mean origin not reaching the estimator | **CONFIRMED, and it is the worst of the four** — it silently substitutes the detector's geometric middle for the file's recorded beam centre in Q calibration, strain, ACOM and the Bragg map. Entry below, owner **S13** |
+| The Q estimator differing from py4DSTEM's fit | **CONFIRMED as a structural difference** — one unindexed shell vs a multi-shell indexed least squares. Entry below, owner **S12**, which already owns the design |
+| ACOM omitting `power_radial=1.0` | **CONFIRMED absent**, and it was already recorded as un-ported in `docs/py4dstem-pipelines.md` §10.1. Materiality still untested; the experiment that settles it is named in the entry below. Owner **S16** |
+| HDF5 assuming `[Ry,Rx,Qy,Qx]` / auto-selecting `/data` | **PARTLY DISMISSED** — the assumption is real and unchecked, but the check the lead implies would only catch the case that is already obvious on screen, and the app does name the dataset it chose. Entry below, no owning session |
 
-**Framing caveat.** The review repeatedly reasons about "the shortest credible
-path to v1" and recommends narrowing scope before release. **v1.0.0 shipped on
-2026-08-06 and is public.** Read those sections as *what v1.1 should fix before
-the claims are widened*, not as release advice.
+The fifth S11 item, the **bounds-convention sweep**, is **DISMISSED** — the
+finding is that this repo already did the work. Continuous positions have two
+named owners: `UI/RealSpacePointerPolicy` maps a scan *index* to
+`(i + 0.5)/N` of the box and picks back with a floor, so each pixel owns its
+own area; `UI/PeakOverlayGeometry` maps a *continuous* detector coordinate the
+same way, which is the correct reading of the index-names-the-centre
+convention the mask kernels use (`dx = float(x) - centerX`). Each carries the
+defect that created it (the aperture drawn at the pixel's corner, 2026-08-05). `CalibrationReReference.binnedCoordinate` is
+`(x + 0.5)/b - 0.5`, documented, and matches the actual bin blocking in
+`LoadSpecification.binned` (`[j*b, j*b+b)`, remainder off the end, py4DSTEM's
+rule). The annulus mask's `r² > rIn² && r² < rOut²` is py4DSTEM's predicate
+character-for-character (`datacube/virtualimage.py:649-651`). The one residual
+is `Shaders/OriginMeasure.metal`, which seeds `coarseX = qx * 0.5` at line 44
+but sets the winning block's centre as `0.5*(bx + xEnd - 1)` at line 60 — two
+conventions half a pixel apart in one kernel. The seed is unreachable in
+practice (any block sum beats `-FLT_MAX`) and only seeds a CoM refine, so this
+is a tidy-up, not a defect; S12 is already re-weighing that coarse step.
+
+**That review's own errors and its stale v1 framing** — the MLX claim, the App
+Store assumption, the mid-L2 resident-cube findings, the file paths that do not
+exist here — are recorded verbatim in
+[the closed-items archive](archive/closed-items-2026-08.md#the-external-reviews-own-errors--do-not-import),
+moved there by S11 on 2026-08-28 now that every live lead it raised is triaged.
+**Read them before importing anything else from that document**; its line
+citations cannot be trusted without checking.
 
 ## Known, scoped, not blocking
+
+- **A file's mean origin never reaches the analyses that claim to use it —
+  found by S11, 2026-08-28. Owner: S13 (Gate B); design note to S12.**
+  `.fileMean` and `.sessionMean` write the origin into `aperture.centerX/Y`
+  and leave `calibration.origin` **nil** (`AppState.swift:2482-2484`,
+  `:2903-2907`, the second explicitly). `Calibration.meanOrigin` reads only
+  `origin.fittedX/Y`, so it is nil in exactly those states, and
+  `calibratedBraggVectors` (`:4720-4721`) falls back to `(qx/2, qy/2)` — **the
+  detector's geometric middle, not the file's beam centre**. Every consumer
+  inherits it: Q calibration (`:4972`), strain (`:4755`), ACOM (`:5104`), the
+  Bragg map (`:4701`). Three siblings answer the same question differently —
+  `computeCoMField` (`:4226`) and `generateMeasuredProbeKernel` (`:4497`) fall
+  back to the aperture centre, `calibrateEllipse` (`:4110`) uses it
+  unconditionally — so this is the S7 class (one policy, four derivations),
+  not a slip. **Reachable, not theoretical:** `H5Reader` reads
+  `qx0_mean`/`qy0_mean` unconditionally (`:613-614`) and the `qx0`/`qy0` maps
+  only if present (`:625-637`) — the ordinary shape of a py4DSTEM calibration
+  bundle. `originFitIsQuantitative` returns `true` when `origin` is nil, so
+  the result is stamped `.measuredInApp` while the inspector shows the file's
+  origin. **Blind spot:** every `QCalibrationOriginGateTests` case builds
+  origin *maps*, so the suite only ever runs the non-nil branch.
+
+- **The Q estimator is a single unindexed shell where py4DSTEM fits many —
+  S11, 2026-08-28. Owner: S12, whose brief already covers it.**
+  `KnownCrystalQCalibration.estimate` takes the *innermost* non-central peak
+  at each scan position, medians them, and divides one reference radius by
+  the result (`QCalibration.swift:19-51`). py4DSTEM's
+  `get_dq_from_indexed_peaks` (`process/calibration/qpixelsize.py:28-66`)
+  least-squares-fits `q ≈ c·sqrt(h²+k²+l²)` across **indexed** shells. The
+  reference side is sound — `Crystal.reflections` applies structure-factor
+  extinction and sorts ascending, so `.first` is genuinely the first *allowed*
+  shell (`Crystal.swift:131,139`). The unverified assumption is on the
+  observation side: that the innermost *detected* peak is that same shell. If
+  the first shell is too weak to detect in a given zone, the second is read as
+  the first and the scale is wrong by the shell ratio — √4/√3 = 1.155 for FCC,
+  a 15% error, silently stamped `.measuredInApp`. Multi-shell fitting is
+  self-checking about this; single-shell cannot be. Compounds the known
+  `minimumRadiusPixels = 2` limit already recorded against #46.
+
+- **The strain weighting deviation exists only as a source comment — S11,
+  2026-08-28. Owner: S13, carried as one key + one fixture assertion.**
+  `StrainMapping.fitLattice` minimizes `Σ w·r²`; py4DSTEM's
+  `fit_lattice_vectors` minimizes `Σ w²·r²` (`StrainMapping.swift:585-592`).
+  The note records the magnitude — **~5e-3 median per strain component on
+  sim_Au, against ~2e-4 when the estimators are matched**, i.e. ~25× the
+  agreement floor and comparable to real strain signals. Nothing carries it
+  outward: `strainFrameProvenance` (`ResultExport.swift:397-409`) names the
+  frame, and the bundle adds residual and validity (`:446-451`), but
+  `grep -rn weighting mac4DSTEM/` returns exactly one hit — the comment. A
+  colleague reading an exported strain map cannot tell which estimator
+  produced it. One provenance key fixes it; it must not slip past S20.
+
+- **ACOM omits py4DSTEM's `power_radial` — S11 confirmed absent, 2026-08-28.
+  Owner: S16.** `orientation_plan` declares `power_radial: float = 1.0`
+  (`crystal_ACOM.py:32`) and applies it to the **template** side only
+  (`:810`, `:817`; the experimental-image use at `:1116` is commented out).
+  `OrientationPlan.buildPolar` deposits `weight` with no radial factor, so
+  relative to py4DSTEM the app under-weights outer shells by ~r. It cannot be
+  absorbed into `normalizeUnit`, which is a single global scale. Already
+  recorded as un-ported in `docs/py4dstem-pipelines.md` §10.1; **still
+  untested**, and the apparatus to test it exists — the §10.1/§10.2 sweeps ran
+  through `tools/acom-groundtruth`, so a `power_radial` arm is one more column
+  in that table. What is missing is the Python driver that built those inputs,
+  which was not retained. Note the app also subtracts each ring's mean
+  (`OrientationPlan.swift:241-247`) where py4DSTEM leaves that line commented
+  out (`crystal_ACOM.py:854`) — a second un-ported difference in the same
+  function, and neither carries a `DEVIATION` note, which the hard rule
+  requires. **If S11–S16 are severed at the cut line this goes with them**;
+  say so deliberately rather than losing it.
+
+- **HDF5 axis order is assumed, not checked — S11, 2026-08-28. No owning
+  session: the lead is real but its remedy is weaker than it looks.**
+  `H5Reader.describe` returns the file's dims verbatim and `DatasetDescriptor`
+  reads them as `[ry, rx, qy, qx]` (`DatasetDescriptor.swift:24-27`); rank 3 is
+  padded to `[1, d0, d1, d2]`. The EMD dim-vector fallback hard-codes the same
+  order (`H5Reader.swift:642-651`, "dim1 = R, dim3 = Q"). **Why this is not
+  promoted to a defect:** the units the app already reads could only refute a
+  *scan↔detector* swap, and that case renders as a CBED pane full of scan
+  image — obvious in the first second on screen. The cases that would be
+  silent are Ry↔Rx or Qy↔Qx transpositions, and dim-vector units cannot
+  distinguish those either, because both axes of a pair carry the same units.
+  The app does name the dataset it chose (`DatasetInspector.swift:11`,
+  `InspectorPanels.swift:76`), so "auto-selects without saying" is **wrong**.
+  What remains genuinely unhandled: a file holding several 4D datasets picks
+  one by `/data`-suffix, then depth, then alphabetical order
+  (`H5Reader.swift:305-312`) with no user choice.
 
 - **The vendored HDF5 dylibs carried invalid code signatures — found and
   fixed 2026-08-25, with one half honestly unexplained.** The first

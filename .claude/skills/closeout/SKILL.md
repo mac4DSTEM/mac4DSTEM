@@ -8,7 +8,10 @@ description: Close a mac4DSTEM development session with the repo's end-of-sessio
 Done means the repo tells the next reader the truth. In order:
 
 1. `tools/run-tests.sh unit` — exit 0. If the session touched `Core/`, run
-   the relevant `scientific` harnesses too. Put exit codes where you read
+   the relevant `scientific` harnesses too. **A session that changed nothing
+   under `mac4DSTEM/` owes no gate** — say so and name the last run that
+   covers this tree, with its date and commit; running one for form proves
+   nothing about the session and spends the disk this machine does not have. Put exit codes where you read
    them — a `| tail` pipe has already swallowed a failing gate here once
    (twice: S4's scientific run and S8's first aggregate both lost the
    harness count the same way — retain the full log, grep it after).

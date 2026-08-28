@@ -14,7 +14,11 @@ makes sure you enter it correctly.
 2. Take the lowest session in §9 not ticked `[x]` — a partial `[~]`
    session continues before a fresh one starts. **If CLAUDE.md and §9 disagree about a
    session's state, NEITHER wins by default — open the session record in
-   `docs/archive/v2-session-records/`.** Both files are summaries; the record
+   `docs/archive/v2-session-records/`.** The same applies when one of them
+   disagrees with ITSELF: on 2026-08-28 CLAUDE.md's status line said S18 was
+   `[~]` two lines above a paragraph saying it was `[x]`, and omitted S9a and
+   S19 entirely. A self-contradiction is settled the same way — from the
+   record and the commits, not by picking the sentence you read first. Both files are summaries; the record
    is the evidence they summarise, and its *Not verified* section is the
    authority on what did not happen. This is not hypothetical, and the failure
    mode is not the one you would guess: on 2026-08-27 a session found CLAUDE.md

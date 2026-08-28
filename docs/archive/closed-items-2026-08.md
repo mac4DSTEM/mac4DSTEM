@@ -1023,3 +1023,30 @@ all five recorded residuals; what moved here is the refuted-hypothesis narrative
     line, so the last sampling tick — which can drop its final update in a
     benign race with `finishDatasetLoading` — stays on screen indefinitely
     (the frozen "row 33 of 34").
+
+---
+
+## The external review's own errors — do not import
+
+Moved verbatim from [`docs/open-items.md`](../open-items.md) by S11 on
+2026-08-28, once the four live leads that review raised were triaged. The live
+file keeps a one-line pointer here. **History, and a standing guard**: if that
+document is ever re-read, these are the parts that were checked against this
+tree and found wrong.
+
+**Errors in that review — do not import.** It states the app uses **MLX**
+(it does not; `grep -rl "import MLX" mac4DSTEM/` is empty — MLX is prior art in
+`References/MigrationSource` only). It assumes an **App Store** release goal and
+raises a "distribution mismatch" on that basis; the plan is Developer ID +
+notarization, and GPL-3.0 is incompatible with the App Store anyway. Its
+resident-cube findings ("untracked", "no AppState preload/release/progress
+wiring") described a mid-L2 working tree and are stale as of `73105fc`. Many of
+its file paths do not exist here (`mac4DSTEM/App/ContentView.swift`,
+`mac4DSTEM/Platform/HDF5/H5Reader.swift`, `mac4DSTEM/Core/Export/ResultExport.swift`),
+so **its line citations cannot be trusted without checking** — which is why the
+list in the live file is only what was re-derived from this tree.
+
+**Framing caveat.** The review repeatedly reasons about "the shortest credible
+path to v1" and recommends narrowing scope before release. **v1.0.0 shipped on
+2026-08-06 and is public.** Read those sections as *what v1.1 should fix before
+the claims are widened*, not as release advice.
