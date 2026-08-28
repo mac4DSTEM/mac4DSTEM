@@ -652,6 +652,23 @@ only if asked.
   synthetic patterns and combines it with the campaign's real-data stage time,
   two runs rather than one instrumented run.
 - [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
+
+**Unscheduled work that is NOT in the numbered list — a `/pickup` reading only
+this checklist will miss it** (added 2026-08-28, because two live defects landed
+outside the session plan and the plan is what a fresh agent reads):
+
+- **The DM4 reader fix** — S9b diagnosed the mechanism and landed no fix. On any
+  volume the kernel marks `MNT_REMOVABLE` a `.dm4` is read whole into memory
+  with no upstream guard and no way to cancel. Gate B; the fixture is free (a
+  disk image on the internal disk carries the flag). Entry: the 8 GB death
+  entry in `docs/open-items.md`.
+- **The disk-detection radius on strongly-diffracting data** — owner
+  observation 2026-08-28 on `SPED_MgO.hdf5`, hypothesis and discriminator
+  recorded, **not diagnosed**. Gate D first, then Gate B.
+
+Neither is scheduled. Both are real and live in the shipping app, so whoever
+schedules them should say whether they are v2 scope or v2.x — that is an owner
+call, not a default.
 - [x] **S18** — 2026-08-27. Polish sweep, the brief's list complete. Shipped:
   one shared `PaneBottomOverlay` (wide case unchanged on purpose), #38's scroll
   monitor scoped by event-time geometry instead of a remembered hover, the
