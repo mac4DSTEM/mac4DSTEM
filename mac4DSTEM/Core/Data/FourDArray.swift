@@ -366,7 +366,36 @@ actor FourDArray {
     func scanTileRows(maximumRows: Int? = nil) -> Int {
         let bytesPerRow = descriptor.rx * descriptor.qy * descriptor.qx
             * MemoryLayout<Float>.stride
-        let budget = max(1, Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 8)
+        // TWO bounds, and the host one was missing until v2 S9a.
+        //
+        // The GPU hint is `recommendedMaxWorkingSetSize`, which on Apple
+        // Silicon is ~65% of PHYSICAL RAM — so dividing it by 8 sized a tile
+        // from the GPU's view of the machine and never from the host's. The
+        // tiled pass holds up to three of these at peak (current tile,
+        // prefetched next, and the streaming path's staged copy), which put
+        // ~2.0 GB transient on an 8 GB machine on a path that legitimately
+        // claims to stream. That is the mis-scaling the 8 GB death entry
+        // predicted; it is NOT a diagnosis of that death, which is S9b's.
+        //
+        // The host bound is deliberately PHYSICAL memory, not free memory,
+        // and that is a decision rather than an oversight (owner, 2026-08-28).
+        // Tile size determines how float partials are grouped, and the four
+        // tiled reducers are order-dependent in their low bits — the Gate B
+        // second read measured 8.5231 against 8.5035 on a single grouping
+        // change. Sizing tiles from FREE memory would make those bits depend
+        // on how much RAM happened to be free, so the same data could give
+        // different numbers on two runs. Physical memory is a machine
+        // constant, so results stay reproducible per machine.
+        //
+        // Free memory is therefore consulted only to REFUSE, never to resize.
+        //
+        // physical/24 holds the three-tile peak near 12% of RAM: 341 MB per
+        // tile on 8 GB, 683 MB on 16 GB. It binds below the GPU hint on every
+        // Apple Silicon configuration, which is the point — the hint was never
+        // a statement about what the host can spare.
+        let gpuBudget = max(1, Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 8)
+        let hostBudget = max(1, Int(ProcessInfo.processInfo.physicalMemory) / 24)
+        let budget = min(gpuBudget, hostBudget)
         let budgetRows = max(1, budget / max(1, bytesPerRow))
         return max(1, min(descriptor.ry, maximumRows ?? budgetRows))
     }

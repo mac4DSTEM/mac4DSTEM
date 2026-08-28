@@ -518,9 +518,22 @@ only if asked.
   warnings. Not verified: on-screen (F1.30/F1.31), a multi-GB round-trip,
   the recorded restore-path frame hole.
   Full record: [`docs/archive/v2-session-records/s10.md`](archive/v2-session-records/s10.md).
-- [ ] **S9a** — never silently allocate (free-RAM tile budget, refuse-or-stream,
-  the "GPU budget" label). Split out 2026-08-28; needs no NAS and no spare disk,
-  so it can run any time · [ ] **S9b** — the local-vs-NAS diagnosis, still gated
+- [x] **S9a** — 2026-08-28. The tile budget now takes the lesser of the GPU hint
+  and `physicalMemory / 24`, holding the three-tile peak near 12% of RAM.
+  Measured on the 8 GB M3 the death happened on: per-tile **683 → 341 MB**,
+  three-tile peak **2048 → 1024 MB** — the old figure matching this entry's
+  own ~2.0 GB prediction exactly. **PHYSICAL, not free, memory is the bound**
+  (owner decision): tile size sets float-partial grouping and the tiled reducers
+  are order-dependent in their low bits, so a free-memory bound would make the
+  numbers depend on what else was running; free memory is for refusing only.
+  The misleading "GPU budget" row is now "GPU working-set limit" with a caption
+  saying it is hardware, not an allowance. Gate A. Track A: `scientific` exit 0
+  (38 harnesses), `unit` 387/4/0 exit 0, build zero warnings.
+  **Not verified:** the label on screen (**F1.39**), and the perf cost —
+  `tools/performance-baseline` pins `maximumTileRows` in every tiling benchmark,
+  so it cannot see the default budget at all. **S9a is explicitly NOT the fix
+  for the 8 GB death**; that diagnosis is still S9b's.
+  · [ ] **S9b** — the local-vs-NAS diagnosis, still gated
   on NAS access (the local arm may be an external SSD)
 - *Resequenced 2026-08-26 (M1/T6), completed 2026-08-27:
   **S10 → S21 → S17**. S9 waits for NAS access and disk; TB1 sittings 2–4

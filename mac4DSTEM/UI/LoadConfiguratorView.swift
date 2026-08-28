@@ -421,13 +421,23 @@ struct LoadConfiguratorView: View {
                 if let shape = pending.loadedShapeString {
                     sizeRow("Loaded shape", shape)
                 }
-                sizeRow("GPU budget", String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
+                // NOT a budget for this load, and the old label said it was.
+                // "GPU budget" sat directly under "This selection (f32)" in a
+                // table of load sizes, which reads as "you may load up to this"
+                // — while the figure is `recommendedMaxWorkingSetSize`, a
+                // hardware property (~65% of physical RAM on Apple Silicon)
+                // that says nothing about what this machine can spare. On an
+                // 8 GB Mac it invited a load that would get the user killed.
+                // Renamed and re-framed in v2 S9a; the memory a load actually
+                // uses is bounded in `FourDArray.scanTileRows`. // v2 S9a
+                sizeRow("GPU working-set limit",
+                        String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
             }
             .font(.callout)
             // Reads return float32 whatever the file stores, so a uint16 file
             // costs twice its own size. Said here because the file size is
             // right above it and the difference otherwise looks like an error.
-            Text("Data is read as float32 regardless of how the file stores it, so the cube can be larger than the file. Loading into memory does not make the load faster — it makes the waiting happen once, when you choose.")
+            Text("Data is read as float32 regardless of how the file stores it, so the cube can be larger than the file. Loading into memory does not make the load faster — it makes the waiting happen once, when you choose. The GPU working-set limit is a property of this Mac's hardware, not an amount you may load: analyses stream in bounded tiles whatever the dataset's size.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

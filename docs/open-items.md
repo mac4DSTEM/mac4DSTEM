@@ -528,6 +528,30 @@ the claims are widened*, not as release advice.
   (`UI/LoadConfiguratorView.swift:255`), which reads as an invitation to load up
   to a figure that will get them killed.
 
+  **S9a LANDED 2026-08-28 — the tile budget half, and it is NOT a fix for this
+  death.** The budget now takes the lesser of the GPU hint and a HOST bound of
+  `physicalMemory / 24`, which holds the three-tile peak near 12% of RAM.
+  Measured on this machine, which is the 8 GB M3 the death happened on:
+  GPU working set 5461 MB (66% of physical), old per-tile **683 MB → 2048 MB
+  three-tile peak** — exactly the ~2.0 GB this entry predicted — new per-tile
+  **341 MB → 1024 MB**. Si_SiGe goes 54 → 27 rows per tile, sim_Au 136 → 68.
+  **Physical, not free, memory is the bound, by owner decision (2026-08-28):**
+  tile size sets how float partials are grouped and the tiled reducers are
+  order-dependent in their low bits, so sizing from free memory would make the
+  numbers depend on what else was running. Free memory is for refusing, never
+  for resizing. **The diagnosis is still owed** — this is a guard that would
+  have prevented the death, not an account of it.
+
+  **Perf impact is UNMEASURED, and `tools/performance-baseline` cannot measure
+  it** (found trying, 2026-08-28): every tiling benchmark there passes an
+  explicit `maximumTileRows`, so `tile_rows` reads 4 before and after and the
+  default budget is never exercised. A run against the recorded baseline showed
+  18–77% regressions across benchmarks that do not touch tiling at all
+  (`fft_radix2`, ptychography, ACOM plan generation) — that was 3 repeats
+  against the baseline's 5 on a machine busy building, not a real signal, and
+  the new numbers were deliberately NOT recorded over the baseline. Whoever
+  wants this measured must add a benchmark that uses the default budget.
+
   **The concrete suspect is not the resident cube — it is `DM4Reader`.**
   `Core/Data/DM4Reader.swift:56` maps with `.mappedIfSafe`, which is a *request,
   not a guarantee*: Foundation declines to map on network or removable volumes
