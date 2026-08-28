@@ -582,6 +582,77 @@ citations cannot be trusted without checking.
   colleague reading an exported strain map cannot tell which estimator
   produced it. One provenance key fixes it; it must not slip past S20.
 
+- **`OriginCalibration.probeSize` counts Bragg disks as probe area, and
+  over-measures the probe radius 2.15× on the app's own demo — FOUND by Gate B,
+  2026-08-28. NOT DIAGNOSED. Owner: a Gate D session, and it very likely closes
+  the SPED_MgO observation below.**
+  `probeSize` thresholds the **max** DP at a series of levels and converts the
+  masked area to an equivalent circle. On a strongly-diffracting sample the
+  Bragg disks exceed 50% of the beam maximum, and the max-DP smears them into
+  arcs across whatever lattice rotation the scan contains, so they are counted
+  as probe. **Measured on the shipped demo:** the beam alone gives **4.484 px**
+  (drawn half-max 4.5); one pattern including its rings gives **7.732**; the
+  app's max-DP gives **9.649**.
+  **This is the SPED_MgO entry's own recorded discriminator, run** — "run
+  `probeSize` on the mean DP and on a vacuum/substrate-only pattern and compare
+  with the max-DP figure" — and it confirms, **on synthetic data**. It has NOT
+  been run on `SPED_MgO.hdf5`, and the two must not be written up as one item
+  until it has.
+  **Why it is not cosmetic:** `ProbeKernel.synthetic` follows the radius, so
+  every correlation peak moves outward (≈ +3.3 px on the demo, which does *not*
+  cancel in a ratio — it moves the observed shell ratio by 5%), and the CoM
+  window `rscale · r` widens until the first ring leaks in, dragging the
+  measured origin **1.62 px** off a known-exact beam centre while the fit RMS
+  reads a healthy **0.067 px** — a constant bias RMS cannot see. It is also
+  what makes the demo's Q calibration unfixable by editing the fixture (see
+  below), and **no estimator check can see it**: a constant kernel bias moves
+  the shell ratio by ~1.1%.
+  **Gate D first**, because the mechanism above is a hypothesis with a
+  discriminator, not a diagnosis — and because the obvious fix (threshold the
+  mean DP instead) trades one bias for another on a sample with a strong
+  amorphous background.
+
+- **Which statistic should gate the origin fit is OPEN, and neither candidate is
+  right — S13 + Gate B, 2026-08-28. No owner; it needs a design pass, not a
+  session.** `originFitIsSane` reads the **full-scan** RMS. S13 changed it to the
+  robust (kept-set) residual on S12's argument that a full-scan number describes
+  contamination rather than displacement, and Gate B refuted the swap: RMS over
+  the set that *defined* the fit cannot see bias, and a partially-excluded
+  clustered contamination passes it at 9.94 px while the fit is displaced
+  **15.03 px** (32×32 scan, probe radius 10.624, a 12×12 corner thrown +40 px).
+  It was reverted. **But the original criticism still stands** — on
+  `Particle_1…bin8` the full-scan number is 18.47 px, describing outliers the
+  trimmed fit correctly ignored, and the app refuses a calibration whose fitted
+  origin is good over 73% of the scan. The gate is on the conservative error,
+  not the correct one. What a fix needs and does not have: a statistic that sees
+  displacement rather than contamination, which probably means comparing the
+  trimmed fit against something other than its own residuals.
+
+- **The trimmed origin fit is blind to spatially clustered failure and to
+  contamination at or above 50% — Gate B, 2026-08-28. Recorded, not fixed.**
+  Measured: a contiguous quarter of the scan thrown 40 px gives **100.0% kept**
+  and a fit **20.6 px** off; 40% of rows gives 100% kept and **42.3 px** off;
+  50% scattered gives 0.0% excluded and **30.4 px** off. A third case found
+  while building a control: an **exactly bimodal** residual distribution makes
+  every majority deviation equal, so the MAD is exactly zero and
+  `fitOriginTrimmed`'s zero-MAD guard exits having excluded nothing — that one
+  arrives at 33%. In all of them the trim degrades to ordinary least squares
+  rather than excluding everything, which is the safe direction, and
+  `excludedFraction` reads **0**. The refusal text no longer draws a conclusion
+  from that zero (it used to say the whole scan was failing), but nothing
+  detects the state. **S13's E2 swept five real datasets and never varied the
+  contamination *shape*, so this whole regime is unmeasured on real data.**
+
+- **The ACOM bundle exports no origin provenance — S13 + Gate B, 2026-08-28.
+  Owner: whoever next touches `ACOMRunSemantics`.** The strain bundle carries
+  `origin_reference` and the excluded fraction, snapshotted when the map is
+  computed (`StrainProduct.originProvenance`). ACOM has no equivalent, and
+  reading the live calibration at export time is exactly what Gate B found
+  wrong — it produced keys describing an origin the product was not computed
+  against, and in the reverse case a full set of origin-fit keys on a product
+  computed with no origin at all. An absent key is honest; the fix is one
+  snapshot field on the run semantics.
+
 - **The demo dataset's rings are a simple-cubic zone drawn on a gold lattice
   constant, and the app's probe radius is over-measured 2.15× on it — FOUND by
   S13, 2026-08-28, CORRECTED by Gate B the same day. NOT FIXED, and the obvious
