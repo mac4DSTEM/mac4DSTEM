@@ -163,9 +163,17 @@ pass — that is a finding, not a bug fix.
   **History, not guidance.** Nothing current points into it; consult it for
   *why* a decision was made, never for what to do next.
 - Session memory (direction + gotchas):
-  `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/` — note the
-  path predates the `mac4DSTEM_Organization/` move, so a session started from
-  the current checkout gets a *different*, empty memory directory.
+  **`~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/memory/`**
+  — the directory for THIS checkout, and it is the live one: 14 files as of
+  2026-08-28, `MEMORY.md` being the index a session loads.
+  **Corrected 2026-08-28.** This entry used to name
+  `…-GitHub-mac4DSTEM/memory/` and warn that a session started from the current
+  checkout "gets a *different*, empty memory directory". That was true when the
+  repo moved; it is not true now, and a fresh agent reading it would go looking
+  in the wrong place and conclude it had no memory. Three stale siblings exist
+  from earlier checkout paths — `…-GitHub-mac4DSTEM` (6 files, pre-move),
+  `…-Claude-Projects-mac4DSTEM` (4, older still) and
+  `…-GitHub-mac4DSTEM-Organization` (empty) — all history, none loaded.
 
 ## Standing references
 
