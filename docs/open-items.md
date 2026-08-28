@@ -466,7 +466,11 @@ citations cannot be trusted without checking.
   alone changes nothing.
   Measured by `tools/origin-fit-diagnostics/run.sh residuals`; design and the
   gate split in [`docs/q-calibration-design.md`](q-calibration-design.md)
-  §1–§2. **Blind spot to close with it:** S11 recorded that every
+  §1–§2. **Owner decision, 2026-08-28: ADMIT the trimmed calibration and carry
+  the excluded fraction on the product** — accuracy of the fitted origin
+  outranks coverage of the input measurements, and the fraction is disclosure.
+  A hard ceiling on that fraction is **still open**; S13 measures where one
+  would go rather than inventing it (§6). **Blind spot to close with it:** S11 recorded that every
   `QCalibrationOriginGateTests` case builds origin *maps*, so the nil branch has
   never run; a test that exercises it is part of the fix and must be broken
   before it is trusted.

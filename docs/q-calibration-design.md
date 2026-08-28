@@ -381,12 +381,31 @@ plus a `tools/` fixture whose negative controls name the line they break.
 The brief marks S12 as the design the owner sees. Two decisions are genuinely
 the owner's, not mine:
 
-**(a) Should a robust fit *admit* Particle_1-class data?** My recommendation is
-yes, with the excluded fraction carried on the product ("27% of scan positions
-failed origin measurement and were excluded from the fit"), because the robust
-origin is measurably better — up to 6 px — than the one the app currently
-computes and then refuses. But admitting a calibration derived from 73% of a
-scan is a refusal-rule judgement, and the rule is yours.
+**(a) Should a robust fit *admit* Particle_1-class data?**
+**DECIDED 2026-08-28 by the release owner: ADMIT, and show the fraction.**
+
+> *"I think it is good to admit that only x% of positions are used, that shows
+> that this is something we thought of. I prefer to have the origin measured
+> more accurately over having 100% of the beam positions found considered."*
+
+The reasoning is the binding part, not just the verdict: **accuracy of the
+fitted origin outranks coverage of the input measurements**, and the excluded
+fraction is *disclosure*, not an apology — it is evidence the app knows what it
+did. S13 implements accordingly:
+
+- the robust (trimmed) fit becomes the origin the analyses consume;
+- the excluded fraction is **carried on the product**, not buried in a log — it
+  travels with the result the way the strain frame does, so it survives export
+  and reopen;
+- it must reach the reader who sees the *number*, since that reader is the one
+  who would otherwise over-trust it.
+
+**(b) A hard ceiling on the excluded fraction — STILL OPEN.** Not answered with
+(a), and S13 must not invent one. 27% passes on `Particle_1`; whether 60% should
+still pass when the remaining 40% look tight is unresolved. **S13 measures where
+a ceiling would go rather than picking a round number** (the S17 lesson: a
+threshold that was one machine's measurement rounded up). If the measurement
+does not support a defensible ceiling, ship without one and say so.
 
 **(b) Is there a hard ceiling on the excluded fraction** above which the app
 refuses regardless of how good the trimmed residual looks? 27% passes on
