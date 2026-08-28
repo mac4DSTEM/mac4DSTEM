@@ -53,8 +53,8 @@ at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
 mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
-**The v2 release is mid-flight: S0–S8, S9a, S10, S11, S12, S17, S18, S19 and
-S21 are done** (plus the M1 tidy)
+**The v2 release is mid-flight: S0–S8, S9a, S9b, S10, S11, S12, S17, S18, S19
+and S21 are done** (plus the M1 tidy)
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
@@ -81,8 +81,11 @@ S10 → S21 → S17 run is complete; **TB1 sitting 1 is COMPLETE (2026-08-27)** 
 sittings 2–4 wait on the owner — sitting 3 needs a multi-GB/NAS cube, sitting 4
 a clean account. **S11 was run ahead of them on 2026-08-28** rather than after,
 because it needs neither; that reordering is stated in its stub, and **S12 ran
-ahead of them on 2026-08-28 for the same reason**. S9 when NAS
-access and disk allow — **and #37 moved there**, since S18's
+ahead of them on 2026-08-28 for the same reason**. **S9b ran 2026-08-28** and
+needed no NAS after all — the axis is
+`MNT_LOCAL && !MNT_REMOVABLE`, not local-vs-network. Its mechanism is confirmed
+and scoped to DM4/DM3; the 2026-08-18 death itself is **still unexplained**, and
+the reader fix is owed to a later session. **#37 moved to S9**, since S18's
 measurement showed the cancellation cost is I/O, not check granularity. The
 cut line and the severable block (now **S13–S16, TB2** — S11 and S12 landed)
 are §2 of the release plan. **S12's output is a design the owner reviews

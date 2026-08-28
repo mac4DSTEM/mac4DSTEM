@@ -263,6 +263,17 @@ A coverage argument, not a speed one: one clean simulated case and one hard
 experimental case cover the two failure modes that matter. Run the other two
 when a change plausibly touches what makes them different.
 
+**That folder is the gate's input set, not a data drawer** (added 2026-08-28).
+`tools/real-data-acceptance/run.sh` — which runs inside `run-tests.sh all` —
+and `tools/training-dataset-campaign/run.sh` both glob
+`References/training_dataset/*.h5`, so **every `.h5` dropped there silently
+joins the aggregate gate**, lengthens it, and changes what "green" means. Add
+one only with a role in the table above. Bulk data — anything multi-GB kept for
+manual work, and any `.dm4`, which those globs do not match anyway — lives
+outside the folder; every harness takes explicit file arguments. The boot volume
+also has to stay above the 8 GB preflight floor, so a 17 GB cube in here would
+trade the gate for the dataset.
+
 ## 9. What keeps a session agent-runnable (added 2026-08-28, S12)
 
 **Most blockers here are access, not judgement.** On 2026-08-28 four of the

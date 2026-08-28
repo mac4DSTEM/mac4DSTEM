@@ -708,9 +708,68 @@ citations cannot be trusted without checking.
   a 17 GB anonymous allocation on an 8 GB machine, which is exactly the profile
   of a jetsam kill with no `.ips` and a system-wide stall. It also explains why
   Cancel left the machine wounded: the allocation happens inside `DM4Reader.init`
-  before any cancellation token is consulted. **Cheapest check, no build needed:**
-  open the same DM4 from a local copy and from the NAS, watching `footprint`. If
-  local stays flat and NAS climbs toward file size, that is the answer.
+  before any cancellation token is consulted. **S9b RAN IT, 2026-08-28 (Gate D):**
+
+  **The mechanism is confirmed, and its predicate is `MNT_LOCAL && !MNT_REMOVABLE`
+  — not "local vs NAS", which is how this entry framed it.** Measured by
+  `getmntinfo` over every mount, 6/6 separation, no exceptions: `/` and
+  `/System/Volumes/Data` map; **every externally-attached disk whatever its
+  filesystem, every mounted disk image *including one stored on the internal
+  SSD*, and smbfs all decline** and silently read the whole file into anonymous
+  memory — held for the session, not a transient open spike. Reproducible:
+  `tools/volume-mmap-probe/run.sh --mounts` prints the predicate for every mount
+  in a millisecond, and `run.sh <file>` measures it. Proven both ways on
+  one identical dense 2.44 GB file: `vmmap` shows a real `SM=COW` region and a
+  **2.8 MB** footprint on the internal volume, and **no mapped region at all**
+  with footprint = 100% of file size on the rest. Note `MNT_REMOVABLE` tracks
+  *external attachment*, not removable media (`diskutil` calls that SSD's media
+  "Fixed"), so **reformatting an external SSD to APFS is predicted not to help** —
+  and that is now a one-millisecond `statfs` check on any volume rather than an
+  argument.
+
+  **Three of S9b's own claims were refuted before they landed.** (1) "Internal vs
+  external" is the wrong axis — an APFS image *on the internal disk* declines, so
+  "keep it on the internal disk" is unsafe as stated. (2) The disk-image arm was
+  filed as a confounded control when it was in fact *the* de-confounding one.
+  (3) `URL.volumeIsRemovableKey` returns **false** for that SSD while the kernel
+  flag says removable — the two answer different questions, and believing the
+  Foundation key is what sent the first reading down the wrong road. Anything
+  shipped from this must read `statfs`, never the URL key.
+
+  **Scope is much narrower than this entry implied: DM4/DM3 only.**
+  `.mappedIfSafe` appears exactly once in the app (`DM4Reader.swift:64`).
+  `H5Reader` reads hyperslabs through libhdf5's sec2 driver and
+  `VendorRawReaders` uses `FileHandle` seek/read, so HDF5/EMD, MIB and EMPAD are
+  immune — **a colleague opening an `.h5` from a share is unaffected.** But
+  `DM4Reader`'s own header promises "the data blob is never copied into RAM";
+  on a removable-flagged volume that promise is silently void.
+
+  **The decline is a choice, not an impossibility:** `.alwaysMapped` maps on
+  every volume that refused. So the fix is a reader question, not storage
+  guidance — though not a free swap, since `alwaysMapped` trades a jetsam kill
+  for a SIGBUS if the volume disappears mid-read. Streaming the DM4 as the HDF5
+  path already does is the other candidate. **No fix landed here; owner: a later
+  session, Gate B.** A CI fixture is free and mandatory for it: a disk image
+  created *on the internal disk* carries `MNT_REMOVABLE`, so it reproduces the
+  declining case with no external hardware — without it a guard is tested only
+  on the one volume class where the bug does not occur.
+
+  **STILL NOT EXPLAINED — the 2026-08-18 death itself, and S9b must not be read
+  as closing it.** `docs/visual-acceptance-checklist.md` F1.1d records that the
+  cancelled 17.19 GB open *recovered cleanly* that day ("a different file opened
+  straight afterwards"), the `Data` is released on the cancel branch rather than
+  retained, and the only jetsam report is from 17:38 — over two hours before the
+  ~19:55 death. What allocated at 19:55, and from which files on which volumes,
+  is nowhere recorded. The mechanism above is real, reproducible and worth
+  fixing; it is **not** established as the cause of that incident.
+
+  **No upstream guard exists.** `AppState.makeReader` (`:1990-1996`) does the read
+  inside `DM4Reader.init`, before any cancellation or free-memory check — which
+  is also why Cancel could not interrupt it, and why S9a's tile guards all sit
+  downstream of an allocation that has already completed. Consequence worth
+  saying out loud: `openFileForConfiguration`'s comment that "everything done
+  here is cheap" (`:1524-1527`) is **false for DM4**, so *Open with Options…* is
+  not a safe way to look at a big DM4 first.
 - ~~A session sidecar that provably opens fine can still fail to restore~~ —
   **CLOSED 2026-08-19 (S1)**: the sandbox denial was observed (EPERM), fixed
   by the `App/SessionSidecarLocator.swift` seam. Investigation:

@@ -43,7 +43,10 @@ Four sentences, four commitments:
    > deliberately and not by nobody noticing. New scope, decided 2026-08-18: without it, promotion at 60 GB means
    returning to click each analysis over several nights.
 3. **Hand a colleague the recipe** — the session sidecar is the sharing unit:
-   same cube (the group NAS), plus a small sidecar carrying the specification,
+   same cube (a shared location you both reach — the group NAS is the case this
+   was written for; **S9b, 2026-08-28: that is safe for HDF5/EMD, which stream,
+   but a `.dm4` opened from any share or external disk is read whole into
+   memory**), plus a small sidecar carrying the specification,
    the calibration, the results, and (new) the replay record. A colleague opens
    the cube and is where you were. A standalone reduced *file* export also
    ships, for py4DSTEM handoff and offline work.
@@ -302,7 +305,7 @@ still run one at a time, but either order works and nothing blocks.
 | S7 | **Error honesty.** iDPC gate consults `originFitIsQuantitative` (`AppState.swift:3806`); `DPC.integrateIDPC` returns a typed error instead of a zero image; tile-read errors attributed correctly (`TiledDiskDetection.swift:42`); caption truncation fixed — and the **full provenance record written into the exported image's metadata** beside the burned caption, so the pixels stop being the only carrier. **Bounded `try?` audit of `Core/`**: every hit becomes a typed error or gains a comment saying why swallowing is correct — the zero-fill and tile-error defects are two instances of one class; kill the class. **This session's seam is the readiness/gating type**: one `@Observable` policy owner for every "may I?" question, so a gate can only exist once — the iDPC defect is literally two call sites deriving the same policy differently | **B** | — | Parallel with TB1 |
 | S8 | **Strain frame.** Owner design decision in-session (rotate into scan frame vs label diffraction-frame + export the R–Q transform; parity reference `get_rotated_strain_map`, `latticevectors.py:409`). Resolve or explicitly re-scope **#18** here | **B**, Fable 5 tier | S7 done or parked | Highest-stakes review of the phase |
 | S9a | **Never silently allocate, whatever the volume.** Bound the tile budget by *free* RAM, refuse or stream rather than allocate a file-sized buffer, and re-examine the "GPU budget" label (`LoadConfiguratorView.swift:255`). **Split out 2026-08-28** because it needs no NAS and no 17 GB of free disk, and because it is right on every user's hardware regardless of what killed this one machine. **It is NOT the fix for the 8 GB death** — it is a guard that would have prevented it; the diagnosis still owes S9b, and this row must not be written up as closing it | A | — | Runs any time |
-| S9b | **The 8 GB death — the diagnosis.** Local-vs-NAS `footprint` experiment on the 17 GB DM4 (predicted: local flat, NAS climbs toward file size ⇒ `.mappedIfSafe` fell back to a full read). **The "local" arm may be an external SSD** (owner, 2026-08-28) — it is a real filesystem, so `mmap` behaves as it does locally and the contrast with a network share is preserved; reading it in place also removes the disk constraint that has blocked this row. The NAS arm still needs the NAS, and without both arms there is no discriminator | **D** | NAS access | |
+| S9b | ~~The 8 GB death — the diagnosis.~~ **RAN 2026-08-28.** The premise of this row was wrong in two ways, both found in-session: the axis is not local-vs-NAS but `MNT_LOCAL && !MNT_REMOVABLE`, and no NAS arm was needed — an external SSD and a disk image *on the internal disk* both reproduce the decline. Mechanism confirmed and scoped to DM4/DM3; **the incident itself remains unexplained** and must not be written up as closed. Fix owed to a later session (Gate B, with the free disk-image fixture) | **D** | ~~NAS access~~ — none needed | Done; see §9 |
 | S10 | **Reduced-file export.** Teach `transformedCalibration` the detector crop, lift the refusal, and have the exported file carry the S5 recipe. Fixture: export a cropped view, open it in vendored py4DSTEM, the origin lands on the beam | **B** | S5, S8 | Wrong output here escapes the app — full adversarial pass |
 | S11 | **Leads triage.** Verify or dismiss, in writing, each of: ACOM omitting `power_radial=1.0`; the Q-cal estimator vs py4DSTEM's radial-profile fit; HDF5 discovery assuming `[Ry,Rx,Qy,Qx]` without axis metadata; the strain weighting deviation absent from provenance. Plus the bounds-convention sweep (index-vs-centre on continuous positions). Confirmed items become open-items entries with owning sessions | B-lite | after TB1 | Findings feed S12 |
 | S12 | **Q-cal design.** Read the campaign's `constant_rms`/`parabola_rms` (settles #29's direction cheaply — the data exists and has never been read). Design the estimator-internal plausibility gate and the sane-origin/measure-Q split. **Weigh the `measureOrigin` coarse step** (translation-equivariant Gaussian vs the binned-block deviation) with evidence, and recommend in-or-out for S13 | Plan | S11 | Owner sees the design |
@@ -535,8 +538,24 @@ only if asked.
   `tools/performance-baseline` pins `maximumTileRows` in every tiling benchmark,
   so it cannot see the default budget at all. **S9a is explicitly NOT the fix
   for the 8 GB death**; that diagnosis is still S9b's.
-  · [ ] **S9b** — the local-vs-NAS diagnosis, still gated
-  on NAS access (the local arm may be an external SSD)
+  · [x] **S9b** — 2026-08-28. Gate D, **mechanism confirmed, incident NOT
+  closed.** `.mappedIfSafe` maps only on `MNT_LOCAL && !MNT_REMOVABLE`; every
+  external disk, every mounted disk image (**including one on the internal
+  SSD**) and smbfs decline and read the whole file into anonymous memory held
+  for the session. Proven both ways on one identical 2.44 GB file (`vmmap`
+  `SM=COW` + 2.8 MB footprint vs no mapped region + 100% of file size). **Scope
+  is DM4/DM3 only** — HDF5/EMD, MIB and EMPAD all stream and are immune. The
+  NAS was dropped from scope by the owner mid-session and the two-arm design
+  still settled it; the refuter then ran a 14 MB NAS read at no risk, so smbfs
+  is observed, not inferred. Refuter (4 agents, all *survives-with-corrections*)
+  **refuted three of the session's own claims**: "internal vs external" is the
+  wrong axis, the disk-image arm was misfiled as confounded when it was the
+  de-confounding control, and `URL.volumeIsRemovableKey` disagrees with the
+  kernel flag — which is what misled the first reading. **Not verified / not
+  closed:** the 2026-08-18 death itself — F1.1d records the cancelled open
+  recovered cleanly and the only jetsam report predates it by two hours, so the
+  cause of that incident is still unknown. No fix landed; Arm C (17 GB) was
+  skipped by advance pre-registration. Full outcome in `docs/open-items.md`.
 - *Resequenced 2026-08-26 (M1/T6), completed 2026-08-27:
   **S10 → S21 → S17**. S9 waits for NAS access and disk; TB1 sittings 2–4
   run whenever the owner sits; S11 follows TB1.*
