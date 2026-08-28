@@ -199,6 +199,10 @@ final class AppState {
     /// (docs/development-process.md §7) — see `App/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
+    /// The last reciprocal-pixel calibration attempt — S13's seam
+    /// (docs/development-process.md §7) — see `App/QCalibrationRun.swift`.
+    /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
+    let qCalibration = QCalibrationRun()
 
     /// The ONE entry for recipe steps. Recording is suppressed while a
     /// dataset load is in flight: the automatic re-establishing pass on open
@@ -2440,6 +2444,10 @@ final class AppState {
         // under this reset's "rotation not calibrated" claim (Gate B finding 3,
         // 2026-08-25).
         strain.clear()
+        // Same reasoning as `strain.clear()` above, one layer simpler: a Q
+        // estimate and its self-check verdict describe dataset A's shells and
+        // must not survive into dataset B's panel. // v2 S13
+        qCalibration.clear()
         calibration = Calibration()
         calibrationProvenance = CalibrationProvenance()
         clearSupersededFittedOrigin()
@@ -2481,6 +2489,13 @@ final class AppState {
             if let qx0 = pc.qx0Mean, let qy0 = pc.qy0Mean {
                 aperture.centerX = Float(qy0)
                 aperture.centerY = Float(qx0)
+                // v2 S13: the value gets a HOME, not just a provenance label.
+                // Until now it lived only in the aperture, so it was lost the
+                // moment the user moved the detector and every analysis fell
+                // through to the detector's geometric middle while the
+                // inspector went on displaying the file's origin (S11).
+                calibration.recordedOriginX = Float(qy0)
+                calibration.recordedOriginY = Float(qx0)
                 calibration.originProvenance = .fileMean
             }
             // Full py4DSTEM origin maps use real-space order [R_Nx, R_Ny],
@@ -2754,6 +2769,11 @@ final class AppState {
         datasetPreview = nil
         calibration = Calibration()
         calibrationProvenance = CalibrationProvenance()
+        // Every path that resets the calibration resets the Q run with it: an
+        // estimate outlives the dataset it describes otherwise. The two are
+        // adjacent here on purpose, so a third reset path is hard to add
+        // without noticing. // v2 S13
+        qCalibration.clear()
         // A cancelled open must not be remembered — the release owner's call,
         // 2026-08-18: you cancelled because it was the wrong file, so promoting
         // it to the top of Recents is precisely backwards. `openFileAsync` also
@@ -2904,6 +2924,8 @@ final class AppState {
             calibration.origin = nil
             aperture.centerX = Float(qy0)
             aperture.centerY = Float(qx0)
+            calibration.recordedOriginX = Float(qy0)  // v2 S13, as .fileMean above
+            calibration.recordedOriginY = Float(qx0)
             calibration.originProvenance = .sessionMean
         }
         // No strain-display refresh here, deliberately (Gate B finding 4,
@@ -3083,6 +3105,17 @@ final class AppState {
                 statusText = "Manual aperture center — fitted origin set aside (Restore Fitted Origin in Calibration undoes this)"
             }
             calibration.origin = nil
+            // The file's recorded mean goes with them. Gate B, 2026-08-28: v2
+            // S13 gave that value a home of its own and then did not clear it
+            // here, so `referenceOrigin` returned `.recordedMean` — the FILE's
+            // number — while `originProvenance` read `.manual`, and the CoM
+            // field and the measured probe kernel silently stopped using the
+            // centre the user had just dragged to. Discarding it restores the
+            // pre-S13 semantics exactly (the aperture was the only carrier
+            // then, and moving it destroyed the value); it is not recoverable
+            // through `supersededFittedOrigin`, which holds maps only.
+            calibration.recordedOriginX = nil
+            calibration.recordedOriginY = nil
             calibration.originProvenance = .manual
             parallaxPreprocess = nil
             parallaxAlignment = nil
@@ -4223,7 +4256,10 @@ final class AppState {
         guard cancellation?.isCancelled != true else { return nil }
         guard let fourD, let descriptor else { return nil }
         let origins = calibration.origin?.interleavedFitted
-        let center = calibration.meanOrigin ?? (x: aperture.centerX, y: aperture.centerY)
+        let center = calibration.referenceOrigin(  // v2 S13: one derivation
+            detectorQX: descriptor.qx, detectorQY: descriptor.qy,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+        ).point
         let d = descriptor
         let result = try await VirtualDetector.tiledCenterOfMass(
             data: fourD, descriptor: d, center: center, origins: origins,
@@ -4492,9 +4528,11 @@ final class AppState {
             await calibrateOrigin()
             guard calibration.probeRadius != nil else { return }
         }
-        guard let radius = calibration.probeRadius else { return }
-        let origin = calibration.meanOrigin
-            ?? (x: aperture.centerX, y: aperture.centerY)
+        guard let radius = calibration.probeRadius, let d = descriptor else { return }
+        let origin = calibration.referenceOrigin(  // v2 S13: one derivation
+            detectorQX: d.qx, detectorQY: d.qy,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+        ).point
         guard let kernel = ProbeKernel.measured(
             pattern: pattern, originX: origin.x, originY: origin.y, radius: radius
         ) else {
@@ -4716,12 +4754,23 @@ final class AppState {
         _ vectors: BraggVectors,
         descriptor d: DatasetDescriptor,
         positions: [Int]? = nil
-    ) -> (vectors: BraggVectors, origin: (x: Float, y: Float)) {
-        let origin = calibration.meanOrigin
-            ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
+    ) -> (vectors: BraggVectors, origin: Calibration.ReferenceOrigin) {
+        // v2 S13: ONE derivation, `Calibration.referenceOrigin`. This line used
+        // to read `calibration.meanOrigin ?? (qx/2, qy/2)`, and `meanOrigin` is
+        // nil in exactly the `.fileMean`/`.sessionMean` states — so the file's
+        // recorded beam centre was replaced by the detector's geometric middle
+        // in Q calibration, strain, ACOM and the Bragg map at once, while the
+        // inspector went on displaying the file's origin (S11, 2026-08-28).
+        // Three sibling call sites fell back to the aperture instead; they now
+        // ask the same function, and the KIND travels with the value so a
+        // caller that must not accept a stand-in can refuse on it.
+        let origin = calibration.referenceOrigin(
+            detectorQX: d.qx, detectorQY: d.qy,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+        )
         return (
             vectors.calibrated(
-                with: calibration, referenceOrigin: origin, positions: positions
+                with: calibration, referenceOrigin: origin.point, positions: positions
             ),
             origin
         )
@@ -4753,7 +4802,7 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
 
         let calibrated = calibratedBraggVectors(bragg, descriptor: descriptor)
-        let origin = calibrated.origin
+        let origin = calibrated.origin.point
         let referenceMask = strain.referenceMode == .selectedRegion
             ? realSpaceRegionMask(descriptor) : nil
         let initialBasis = strain.manualInitialBasis
@@ -4821,7 +4870,10 @@ final class AppState {
             presentComputeFailure(SimpleError("Could not publish strain. \(detail)"))
             return .failed("Could not publish strain. \(detail)")
         }
-        strain.publish(map)
+        // Snapshot the origin provenance WITH the map (Gate B, 2026-08-28):
+        // these keys describe the fit this map was computed against, and
+        // reading them at export time let them describe a different one.
+        strain.publish(map, originProvenance: originFitProvenance)
         // Recipe step (v2 S5): the run's modes plus the RESOLVED basis — an
         // automatic basis re-derived on a different view can legitimately
         // differ, so the recipe records both; S6 decides which fidelity a
@@ -4955,12 +5007,23 @@ final class AppState {
         // origin is wasted work, so naming the origin first is the more useful
         // order. No dataset loaded means an empty `Calibration`, which has no
         // residual to judge and falls through to the guards below.
-        if let refusal = gates.originQuantitativeRefusal(for: calibration) {
-            presentComputeFailure(SimpleError(refusal))
-            return
-        }
         guard let descriptor, let rawBragg = braggVectors else {
             presentComputeFailure(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
+            return
+        }
+        // v2 S13: the STRICTER of the two predicates. It still runs before the
+        // model guard for the reason the old comment gives — naming the origin
+        // first is more useful than re-detecting disks against a bad one — but
+        // it now needs the descriptor, so the dataset guard moved above it.
+        // What it adds over `originQuantitativeRefusal` is the second
+        // requirement from the design's §2: the origin must be a MEASURED beam
+        // centre. That is S11's worst finding closed structurally.
+        if let refusal = gates.reciprocalMetrologyRefusal(
+            for: calibration, descriptor: descriptor,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+        ) {
+            qCalibration.record(refusal: refusal)
+            presentComputeFailure(SimpleError(refusal))
             return
         }
         guard let model = resolvedACOMModel else {
@@ -4971,32 +5034,60 @@ final class AppState {
         let modelRevision = model.revisionID
         let calibrated = calibratedBraggVectors(rawBragg, descriptor: descriptor)
         let epoch = datasetEpoch
+        let probeRadiusPixels = calibration.probeRadius.map(Double.init)
         let estimate = await Task.detached(priority: .userInitiated) {
-            guard let firstShell = model.crystal.reflections(kMax: 2.5).first?.gLength else {
-                return nil as QCalibrationEstimate?
+            // DISTINCT shell lengths. `Crystal.reflections` returns every
+            // symmetry equivalent separately, all at the same |g|, so the
+            // "second shell" is the first length that DIFFERS — not
+            // `reflections[1]`, which is another equivalent of the first.
+            // Measured consequence of getting this wrong (S13 E1): the
+            // self-check reads 1.020 on healthy sim_Au against an expected
+            // 1.155 and fires on good data.
+            let lengths = model.crystal.reflections(kMax: 2.5).map(\.gLength)
+            var shells: [Double] = []
+            for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
+                shells.append(length)
             }
+            guard let firstShell = shells.first else { return nil as QCalibrationEstimate? }
             return KnownCrystalQCalibration.estimate(
-                bragg: calibrated.vectors, origin: calibrated.origin,
-                referenceRadiusInvAngstrom: firstShell
+                bragg: calibrated.vectors, origin: calibrated.origin.point,
+                referenceRadiusInvAngstrom: firstShell,
+                secondShellRadiusInvAngstrom: shells.count > 1 ? shells[1] : nil,
+                probeRadiusPixels: probeRadiusPixels
             )
         }.value
         guard epoch == datasetEpoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
         guard let estimate else {
-            presentComputeFailure(SimpleError("Could not identify a non-central first Bragg shell."))
+            let reason = "Could not identify a non-central first Bragg shell."
+            qCalibration.record(refusal: reason)
+            presentComputeFailure(SimpleError(reason))
             return
         }
+        // The estimator MEASURES a shell ratio and refuses nothing. v2 S13
+        // shipped three plausibility thresholds here and Gate B refuted the
+        // derivation of all three the same day (see `KnownCrystalQCalibration`
+        // for what went wrong and what a later session needs). What survived is
+        // the measurement, which `qCalibration.selfCheckSummary` surfaces.
+        qCalibration.record(estimate)
         calibration.qPixelSize = estimate.invAngstromPerPixel
         calibration.qPixelUnits = "Å⁻¹"
         calibrationProvenance.qScale = .measuredInApp
         invalidateACOMResult()
         parallaxPreprocess = nil
         parallaxAlignment = nil
-        statusText = String(
+        var status = String(
             format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %d positions",
             estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
             estimate.sampleCount
         )
+        switch estimate.shellCheck {
+        case .notSelfChecked:
+            status += " · shell ratio NOT self-checked"
+        case .measured(let observed, let expected, _):
+            status += String(format: " · shell ratio %.3f vs %.3f predicted", observed, expected)
+        }
+        statusText = status
     }
 
     /// Build the orientation-plan template library for the selected crystal.

@@ -220,6 +220,47 @@ nonisolated enum CalibrationReReference {
                 }
             }
 
+            // The RECORDED mean origin is a detector position too, and it must
+            // move with the frame exactly as the aperture does.
+            //
+            // **Gate B, 2026-08-28.** v2 S13 introduced
+            // `Calibration.recordedOriginX/Y` as the home for a file's or
+            // session's beam centre and did not transform it here. Measured
+            // consequence on a 256×256 source cropped to 128×128 at offset
+            // (64, 64) with a file beam centre at (130, 126): the aperture
+            // correctly became (66, 62) while the recorded origin stayed at
+            // (130, 126) — **64 px outside the loaded detector** — and because
+            // `.recordedMean` outranks `.apertureCentre` in
+            // `Calibration.referenceOrigin`, the stale value beat the one that
+            // had been moved. `reciprocalMetrologyRefusal` then admitted it as
+            // a measured beam centre, and every Bragg-derived product was
+            // re-centred there. This is the same class as the S5 sidecar
+            // finding: a value that survives a transform nothing applied to it.
+            //
+            // Checked independently of the fitted maps: the two can disagree
+            // about whether the beam is inside the crop, and a stale recorded
+            // origin must not be rescued by maps that happened to survive.
+            if let x = calibration.recordedOriginX, let y = calibration.recordedOriginY {
+                let movedX = binnedCoordinate(x - Float(detectorCrop.xOffset), bin: bin)
+                let movedY = binnedCoordinate(y - Float(detectorCrop.yOffset), bin: bin)
+                let inside = movedX.isFinite && movedY.isFinite
+                    && movedX >= -0.5 && movedX < Float(view.descriptor.qx) - 0.5
+                    && movedY >= -0.5 && movedY < Float(view.descriptor.qy) - 0.5
+                if inside {
+                    calibration.recordedOriginX = movedX
+                    calibration.recordedOriginY = movedY
+                } else {
+                    calibration.recordedOriginX = nil
+                    calibration.recordedOriginY = nil
+                    if !invalidated.contains(where: { $0.field == .origin }) {
+                        invalidated.append(.init(
+                            field: .origin,
+                            reason: "The file's recorded beam centre lands at (\(format(movedX)), \(format(movedY))) in the loaded detector, outside its \(view.descriptor.qx) x \(view.descriptor.qy) extent — the direct beam is not inside this diffraction crop. Widen the crop or re-fit the origin on this view."
+                        ))
+                    }
+                }
+            }
+
             // A radius and an angle survive a TRANSLATION unchanged, so a crop
             // alone leaves the ellipse fit and the probe radius untouched.
             // Stated explicitly because "it needed no change" and "it was

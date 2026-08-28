@@ -72,6 +72,21 @@ final class StrainProduct {
     /// control that fixes it. Cleared on success and on dataset activation.
     private(set) var failureCause: StrainFailureCause?
 
+    /// The origin provenance **as it was when this map was computed**, not as
+    /// it is when someone presses Save.
+    ///
+    /// Gate B, 2026-08-28: v2 S13 wrote `origin_reference`,
+    /// `origin_fit_residual_px` and the excluded fraction into exports by
+    /// reading the LIVE calibration at export time. Compute a strain map
+    /// against fitted maps, drag the aperture — which nulls
+    /// `calibration.origin` while leaving `strain.map` alone — then export, and
+    /// the bundle claimed a residual and an excluded fraction for an origin the
+    /// map never used. The reverse was worse: a product computed with no origin
+    /// at all, exported after a later Calibrate Origin, carried a full set of
+    /// origin-fit keys. Snapshotting at publish is what makes the keys a
+    /// statement about the map rather than about the moment of saving.
+    private(set) var originProvenance: [String: String] = [:]
+
     // Run controls. Deliberately NOT cleared on dataset activation — the
     // pre-seam facade preserved them across activations, and a replayed
     // recipe overwrites them explicitly before running.
@@ -95,9 +110,10 @@ final class StrainProduct {
     /// Publish a computed map. An automatic run adopts its resolved basis into
     /// the manual fields so switching the basis picker to Manual starts from
     /// the lattice that actually fit.
-    func publish(_ newMap: StrainMap) {
+    func publish(_ newMap: StrainMap, originProvenance: [String: String] = [:]) {
         failureCause = nil
         map = newMap
+        self.originProvenance = originProvenance
         if basisMode == .automatic {
             g1X = newMap.refG1.x; g1Y = newMap.refG1.y
             g2X = newMap.refG2.x; g2Y = newMap.refG2.y

@@ -257,6 +257,14 @@ extension AppState {
                 record[key] = value
             }
         }
+        // NO origin-fit keys. This record covers EVERY displayed product,
+        // including ones no origin was involved in, and it is built at export
+        // time — so v2 S13's version stamped a residual and an excluded
+        // fraction onto virtual images and CBED patterns alike, describing
+        // whatever calibration happened to be loaded when Save was pressed
+        // (Gate B, 2026-08-28). The owner's §6a disclosure is carried where it
+        // can be true: on screen, and on the strain bundle, which snapshots it
+        // at compute time.
         return record
     }
 
@@ -273,7 +281,16 @@ extension AppState {
         // frame ON ITS FACE — the caption is the one carrier that survives a
         // screenshot (v2 S8).
         for key in ["source_product", "basis_mode", "matching_backend", "reference_mode",
-                    "strain_frame", "qr_rotation_deg"] {
+                    "strain_frame", "qr_rotation_deg",
+                    // `origin_reference` and `origin_fit_positions_used_fraction`
+                    // were here in v2 S13's version. They come from
+                    // `product.provenance`, so for the strain bundle they are
+                    // now the compute-time snapshot and would be safe — but the
+                    // caption is BURNT INTO THE PIXELS, and it is drawn for
+                    // every product, most of which carry no such snapshot. A
+                    // claim that cannot be corrected afterwards is the last
+                    // place to put one that might be wrong (Gate B, 2026-08-28).
+                    ] {
             if let value = product.provenance[key] { parts.append("\(key)=\(value)") }
         }
         // Only when it is not the default: a figure that HAS been reoriented
@@ -394,6 +411,37 @@ extension AppState {
     /// The presentation-frame provenance keys every strain carrier shares —
     /// the displayed-result metadata and the scientific bundle — composed in
     /// ONE place so two exports can never disagree about the frame. // v2 S8
+    /// The origin-fit keys every product derived from a re-centred Bragg
+    /// vector shares, composed in ONE place — the same shape as
+    /// `strainFrameProvenance` and for the same reason. // v2 S13
+    ///
+    /// The release owner's §6(a) decision, 2026-08-28: a trimmed calibration is
+    /// admitted and **the excluded fraction is carried on the product**, so it
+    /// travels with the result through export and reopen instead of living in a
+    /// log. `origin_reference` is the other half — a number derived against the
+    /// detector's geometric middle and one derived against a measured beam
+    /// centre are not the same claim, and until S13 nothing said which it was.
+    var originFitProvenance: [String: String] {
+        var keys: [String: String] = [:]
+        if let descriptor {
+            let origin = calibration.referenceOrigin(
+                detectorQX: descriptor.qx, detectorQY: descriptor.qy,
+                apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+            )
+            keys["origin_reference"] = origin.kind.rawValue
+            keys["origin_reference_is_measured"] =
+                origin.kind.isMeasuredBeamCentre ? "true" : "false"
+        }
+        if let residual = calibration.judgedOriginResidual, residual.isFinite {
+            keys["origin_fit_residual_px"] = String(residual)
+        }
+        if let excluded = calibration.origin?.excludedFraction, excluded.isFinite {
+            keys["origin_fit_excluded_fraction"] = String(excluded)
+            keys["origin_fit_positions_used_fraction"] = String(1 - excluded)
+        }
+        return keys
+    }
+
     var strainFrameProvenance: [String: String] {
         let frame = strainPresentationFrame
         var keys: [String: String] = ["strain_frame": frame.provenanceValue]
@@ -429,6 +477,19 @@ extension AppState {
                 "display_orientation_applied": "false",
             ]
             provenance.merge(strainFrameProvenance) { current, _ in current }
+            // The snapshot taken when the map was computed, NOT the live
+            // calibration — see `StrainProduct.originProvenance`. // Gate B
+            provenance.merge(strain.originProvenance) { current, _ in current }
+            // The weighting DEVIATION from py4DSTEM, carried outward rather
+            // than living only in a source comment (S11, 2026-08-28).
+            // `StrainMapping.fitLattice` minimizes Σ w·r² where py4DSTEM's
+            // `fit_lattice_vectors` minimizes Σ w²·r²; measured effect on
+            // sim_Au is ~5e-3 median per strain component against a ~2e-4
+            // agreement floor when the estimators are matched — 25× the floor
+            // and comparable to real strain signals, so a reader comparing this
+            // bundle against py4DSTEM numbers has to be told.
+            provenance["strain_weighting"] = "w_r2"
+            provenance["strain_weighting_py4dstem"] = "w2_r2"
             provenance.merge(realSpaceDisplayProvenance) { current, _ in current }
             func field(_ kind: String, _ name: String, _ units: String,
                        _ pixels: [Float]) -> ScalarResultMap {
@@ -468,6 +529,12 @@ extension AppState {
                 // viewer's orientation is recorded rather than applied (#17b).
                 "display_orientation_applied": "false",
             ], uniquingKeysWith: { _, new in new })
+            // NO origin-fit keys here yet, deliberately. `ACOMRunSemantics`
+            // does not carry a compute-time snapshot the way `StrainProduct`
+            // now does, and reading the live calibration would reproduce
+            // exactly the defect Gate B found on 2026-08-28 — keys describing
+            // an origin the map was not computed against. Owed, and recorded in
+            // docs/open-items.md; an absent key is honest, a wrong one is not.
             provenance.merge(realSpaceDisplayProvenance) { current, _ in current }
             func values(_ body: (OrientationResult) -> Float) -> [Float] {
                 map.results.indices.map { valid[$0] ? body(map.results[$0]) : Float.nan }
@@ -1292,6 +1359,12 @@ extension AppState {
         if let mean = calibration.meanOrigin {
             snapshot.qx0Mean = Double(mean.y)
             snapshot.qy0Mean = Double(mean.x)
+        } else if let recorded = calibration.recordedMeanOrigin {
+            // v2 S13: the recorded beam centre now has a home of its own, so a
+            // `.fileMean`/`.sessionMean` session round-trips the ORIGIN rather
+            // than wherever the user last dragged the aperture.
+            snapshot.qx0Mean = Double(recorded.y)
+            snapshot.qy0Mean = Double(recorded.x)
         } else if calibration.originProvenance != .geometricDefault {
             snapshot.qx0Mean = Double(aperture.centerY)
             snapshot.qy0Mean = Double(aperture.centerX)

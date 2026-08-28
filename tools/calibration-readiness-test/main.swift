@@ -218,7 +218,7 @@ struct Harness {
                 calibration: calibration, provenance: completeProvenance(.measuredInApp)
             )
             let originRow = report.items.first { $0.kind == .originProbe }
-            let blockedByFit = !calibration.originFitIsQuantitative
+            let blockedByFit = !calibration.originFitIsSane
             try require(originRow?.status.isReady == !blockedByFit,
                         "\(label): readiness row and origin-fit predicate disagree")
             try require((calibration.originFitRefusal != nil) == blockedByFit,
@@ -237,7 +237,7 @@ struct Harness {
                             "\(label): refusal advises a lever that cannot change the residual")
             }
         }
-        try require(originStates().contains { !$0.1.originFitIsQuantitative },
+        try require(originStates().contains { !$0.1.originFitIsSane },
                     "the origin-fit invariant was checked without a single failing case")
         print("PASS: origin-fit refusal and readiness row are one judgement")
 

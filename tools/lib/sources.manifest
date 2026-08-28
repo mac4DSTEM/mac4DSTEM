@@ -154,6 +154,24 @@ mac4dstem_sources() {
           "$core/Analysis/VirtualDetector.swift"
         )
         ;;
+      qcalibration)
+        # The Q-calibration chain (v2 S13): open a file, fit the origin, detect
+        # disks, and estimate a reciprocal scale against a known crystal. It is
+        # `readers` + `analysis` + the origin/Q estimators + the crystal side
+        # that supplies the reference shell. OrientationPlan/OrientationMatcher
+        # are deliberately absent — nothing here indexes.
+        mac4dstem_sources "$repo" readers analysis calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Compute/FFT1D.swift"
+          "$core/Analysis/OriginCalibration.swift"
+          "$core/Analysis/QCalibration.swift"
+          "$core/Analysis/OrientationResult.swift"
+          "$core/Crystal/ScatteringFactors.swift"
+          "$core/Crystal/Crystal.swift"
+          "$core/Crystal/CrystalModel.swift"
+        )
+        ;;
       strain)
         # Mirrors the proven tools/strain-test list (no Metal engine — the
         # strain solver is CPU-only) plus the S8 presentation-frame rotation.
@@ -193,7 +211,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis strain export" >&2
+        echo "  known: data calibration readers cube analysis qcalibration strain export" >&2
         exit 64
         ;;
     esac

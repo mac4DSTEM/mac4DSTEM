@@ -49,9 +49,37 @@ struct CalibrationDetailsView: View {
                 LabeledContent("Probe radius", value: String(format: "%.1f px", radius))
                     .font(.caption)
             }
-            if let residual = appState.calibration.origin?.rmsResidual {
+            // v2 S13: the residual the GATE judged, which is the robust one
+            // where a robust fit ran. Showing `rmsResidual` here while the
+            // verdict came from `robustResidual` would put two different
+            // numbers for one decision in front of the user.
+            if let residual = appState.calibration.judgedOriginResidual {
                 LabeledContent("Fit residual", value: String(format: "%.3f px RMS", residual))
                     .font(.caption)
+            }
+            // The excluded fraction, carried where the reader who sees the
+            // number sees it (the release owner's decision, 2026-08-28):
+            // "2.19 px over 73% of positions" is a different claim from
+            // "2.19 px over all of them".
+            if let excluded = appState.calibration.origin?.excludedFraction, excluded > 0.005 {
+                LabeledContent(
+                    "Positions used",
+                    value: String(format: "%.0f%% (%.0f%% excluded as outliers)",
+                                  Double(1 - excluded) * 100, Double(excluded) * 100)
+                )
+                .font(.caption)
+                .help("The origin fit is robust: scan positions whose measured origin sits far "
+                    + "from the fitted surface are excluded and the surface refitted. Excluding "
+                    + "nothing means there was no outlier tail to remove, not that every "
+                    + "position measured well.")
+            }
+            if let summary = appState.qCalibration.selfCheckSummary {
+                LabeledContent("Q shell check", value: summary)
+                    .font(.caption)
+                    .help("The reciprocal scale assumes the innermost detected peak is the "
+                        + "innermost allowed reflection. With two shells visible the app checks "
+                        + "that assumption against the crystal; with one it cannot, and says so "
+                        + "rather than passing silently.")
             }
             if let rotation = appState.calibration.rotationRad {
                 let transposed = (appState.calibration.transposeQR ?? false) ? " ⊤" : ""

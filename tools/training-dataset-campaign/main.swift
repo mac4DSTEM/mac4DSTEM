@@ -111,6 +111,18 @@ struct DatasetCampaignReport: Codable {
     let totalSeconds: Double
 }
 
+/// Distinct |g| shells. `Crystal.reflections` returns every symmetry equivalent
+/// separately at the same length, so `[1]` is another equivalent of the FIRST
+/// shell, not the second one. // v2 S13
+private func distinctShellLengths(_ crystal: Crystal) -> [Double] {
+    var shells: [Double] = []
+    for length in crystal.reflections(kMax: 2.5).map(\.gLength)
+    where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
+        shells.append(length)
+    }
+    return shells
+}
+
 private func elapsed<T>(
     _ body: () async throws -> T
 ) async rethrows -> (T, Double) {
@@ -430,7 +442,7 @@ private func evaluate(
     // a third hand-rolled copy of the same comparison, and because the campaign
     // writes `References/parity_records/`, letting it drift would make the
     // app's reference numbers disagree with the app by construction.
-    let originQualityWarning = !calibration.originFitIsQuantitative
+    let originQualityWarning = !calibration.originFitIsSane
     if originQualityWarning {
         issues.append("Origin fit RMS exceeds the fitted probe radius; downstream calibration is qualitative")
     }
@@ -749,12 +761,14 @@ private func evaluate(
         issues.append("Q calibration skipped — \(refusal)")
     }
     if let phaseModel,
-       calibration.originFitIsQuantitative,
+       calibration.originFitIsSane,
        phaseModel.isUsable,
-       let firstShell = phaseModel.crystal.reflections(kMax: 2.5).first?.gLength,
+       let firstShell = distinctShellLengths(phaseModel.crystal).first,
        let qEstimate = KnownCrystalQCalibration.estimate(
             bragg: vectors, origin: meanOrigin,
-            referenceRadiusInvAngstrom: firstShell
+            referenceRadiusInvAngstrom: firstShell,
+            secondShellRadiusInvAngstrom: distinctShellLengths(phaseModel.crystal).dropFirst().first,
+            probeRadiusPixels: Double(originFit.probeRadius)
        ) {
         calibration.qPixelSize = qEstimate.invAngstromPerPixel
         calibration.qPixelUnits = "Å⁻¹"

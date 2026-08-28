@@ -2,8 +2,8 @@
 #
 # origin-fit-diagnostics — S12's evidence, re-runnable.
 #
-# Two diagnostics, neither of which gates. They answer the two measurement
-# questions S12 owed (docs/q-calibration-design.md):
+# Four diagnostics, none of which gates. Two answer the measurement questions
+# S12 owed and two the ones S13 owed (docs/q-calibration-design.md):
 #
 #   residuals <file.h5>...   Per-position origin-fit residual DISTRIBUTION, not
 #                            just its RMS. Answers #29: does a large
@@ -21,9 +21,22 @@
 #                            derived from the SHIPPED shader at run time — there
 #                            is no copy here to drift. Needs no dataset.
 #
-# NOT in tools/run-tests.sh, deliberately: `residuals` needs the gitignored
-# training datasets, and neither has a pass/fail criterion — they measure, they
-# do not assert. Numbers quoted in docs/q-calibration-design.md came from here.
+#   shell-check <f.h5> <id>  S13 E1: the estimator's own MAD/observed statistic
+#                            at DELIBERATELY DISPLACED origins, in two arms
+#                            (constant offset; per-position jitter), so §3.1's
+#                            threshold is measured instead of invented. <id> is
+#                            a CrystalModelLibrary model id.
+#
+#   trim-sweep <file.h5>...  S13 E2: kept fraction, bootstrap SD of the fitted
+#                            origin, and the kept set's spatial support across a
+#                            sweep of trim aggressiveness — the evidence for
+#                            whether a hard ceiling on the excluded fraction
+#                            (design §6b) has anywhere defensible to go.
+#
+# NOT in tools/run-tests.sh, deliberately: three of the four need the gitignored
+# training datasets, and none has a pass/fail criterion — they measure, they do
+# not assert. Numbers quoted in docs/q-calibration-design.md and in
+# docs/archive/v2-session-records/s13.md came from here.
 #
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -32,16 +45,12 @@ MODE="${1:-}"; shift 2>/dev/null || true
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 . "$ROOT/tools/lib/developer-dir.sh"; resolve_mac4dstem_developer_dir
 
-case "$MODE" in
-residuals)
-  if (( $# == 0 )); then
-    # Exclude session sidecars — they sit beside the cubes and are not datacubes.
-    files=("$ROOT"/References/training_dataset/*.h5(N))
-    files=(${files:#*.mac4dstem.h5})
-  else
-    files=("$@")
-  fi
-  if (( ${#files} == 0 )); then echo "SKIP: no datasets"; exit 0; fi
+# Shared build: the HDF5 dylibs, the shipped shaders, and one Swift binary from
+# the source manifest. Migrated off a hand-written source list on 2026-08-28
+# (development-process.md §1: when next touched) — this runner was one of the
+# hand-listing ones the 2026-08-17 breakage was about.
+build_probe() {
+  local entry=$1 out=$2; shift 2
   for lib in libhdf5 libsz.2 libaec.0; do
     cp "$ROOT/$lib.dylib" "$WORK/"; codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null
   done
@@ -49,21 +58,46 @@ residuals)
     xcrun -sdk macosx metal -c "$source" -o "$WORK/${source:t:r}.air"
   done
   xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
-  SRC="$ROOT/mac4DSTEM/Core"
-  xcrun swiftc -O -parse-as-library -o "$WORK/probe" \
-    "$SRC/Data/HDF5Types.swift" "$SRC/Data/H5Reader.swift" "$SRC/Data/DatasetDescriptor.swift" \
-    "$SRC/Data/DiffractionPattern.swift" "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" \
-    "$SRC/Data/ResidentCube.swift" "$SRC/Data/LoadSpecification.swift" \
-    "$SRC/Data/Calibration.swift" "$SRC/Data/DisplayedProduct.swift" \
-    "$SRC/Compute/AnalysisCancellationToken.swift" "$SRC/Compute/FFT1D.swift" "$SRC/Compute/FFT2D.swift" \
-    "$SRC/Compute/MatrixDFTCorrelation.swift" "$SRC/Compute/MetalEngine.swift" \
-    "$SRC/Analysis/ProbeKernel.swift" "$SRC/Analysis/VirtualDetector.swift" \
-    "$SRC/Analysis/OriginCalibration.swift" \
-    "$HERE/residuals.swift" -framework Accelerate -framework Metal -framework MetalKit
-  codesign -f -s - "$WORK/probe" 2>/dev/null
+  . "$ROOT/tools/lib/sources.manifest"
+  mac4dstem_sources "$ROOT" qcalibration
+  xcrun swiftc -O -parse-as-library -o "$WORK/$out" \
+    "${MAC4DSTEM_SOURCES[@]}" "$ROOT/mac4DSTEM/Core/Data/DisplayedProduct.swift" \
+    "$HERE/$entry" -framework Accelerate -framework Metal -framework MetalKit
+  codesign -f -s - "$WORK/$out" 2>/dev/null
+}
+
+# The training cubes, minus the session sidecars that sit beside them and are
+# not datacubes (backlog #43).
+default_files() {
+  files=("$ROOT"/References/training_dataset/*.h5(N))
+  files=(${files:#*.mac4dstem.h5})
+}
+
+case "$MODE" in
+residuals)
+  if (( $# == 0 )); then default_files; else files=("$@"); fi
+  if (( ${#files} == 0 )); then echo "SKIP: no datasets"; exit 0; fi
+  build_probe residuals.swift probe
   absolute=(); for f in "${files[@]}"; do absolute+=("${f:A}"); done
   cd "$WORK"
   MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./probe "${absolute[@]}" 2>&1 | sed '/^\[MetalEngine\]/d'
+  ;;
+shell-check)
+  if (( $# < 2 )); then
+    echo "Usage: run.sh shell-check <file.h5> <crystalModelID>" >&2; exit 64
+  fi
+  target="${1:A}"; model="$2"
+  build_probe shell-check.swift shellcheck
+  cd "$WORK"
+  MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./shellcheck "$target" "$model" 2>&1 | sed '/^\[MetalEngine\]/d'
+  ;;
+trim-sweep)
+  if (( $# == 0 )); then default_files; else files=("$@"); fi
+  if (( ${#files} == 0 )); then echo "SKIP: no datasets"; exit 0; fi
+  build_probe trim-sweep.swift trimsweep
+  absolute=(); for f in "${files[@]}"; do absolute+=("${f:A}"); done
+  cd "$WORK"
+  MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./trimsweep "${absolute[@]}" 2>&1 | sed '/^\[MetalEngine\]/d'
   ;;
 coarse-cost)
   # Derive both kernels from the shipped shader so neither can drift from it.
@@ -90,7 +124,7 @@ coarse-cost)
   cd "$WORK" && ./bench
   ;;
 *)
-  echo "Usage: tools/origin-fit-diagnostics/run.sh [residuals [file.h5...] | coarse-cost]" >&2
+  echo "Usage: tools/origin-fit-diagnostics/run.sh [residuals [file.h5...] | coarse-cost | shell-check <file.h5> <crystalModelID> | trim-sweep [file.h5...]]" >&2
   exit 64
   ;;
 esac

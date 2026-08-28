@@ -151,9 +151,19 @@ let qVectors = BraggVectors(
         [BraggPeak(x: origin.x + radius, y: origin.y, intensity: 1)]
     }
 )
+// nil for both new arguments, explicitly and not by default: this fixture is a
+// synthetic single-shell ring with no probe, so the estimator's plausibility
+// checks cannot run here and the estimate must say `.notSelfChecked` rather
+// than quietly appear to have been checked. // v2 S13
 guard let qEstimate = KnownCrystalQCalibration.estimate(
-    bragg: qVectors, origin: origin, referenceRadiusInvAngstrom: 0.25
+    bragg: qVectors, origin: origin, referenceRadiusInvAngstrom: 0.25,
+    secondShellRadiusInvAngstrom: nil, probeRadiusPixels: nil
 ) else { fail("known-crystal Q calibration failed") }
+guard case .notSelfChecked = qEstimate.shellCheck else {
+    fail("a single synthetic shell must report NOT self-checked, never a pass")
+}
+// The estimator refuses nothing since Gate B cut its thresholds; what it
+// must still do is report the single-shell state rather than imply a check.
 guard abs(qEstimate.observedRadiusPixels - 10) < 1e-6,
       abs(qEstimate.invAngstromPerPixel - 0.025) < 1e-9,
       qEstimate.sampleCount == 5 else {

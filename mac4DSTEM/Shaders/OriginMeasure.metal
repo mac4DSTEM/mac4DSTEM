@@ -41,8 +41,15 @@ kernel void measureOrigin(const device float  *data   [[buffer(0)]],
     // ── Coarse: brightest bin-summed block, bin ≈ probe radius ─────────────
     const uint bin = max(1u, uint(round(p.r)));
     float bestSum = -FLT_MAX;
-    float coarseX = float(p.qx) * 0.5f;
-    float coarseY = float(p.qy) * 0.5f;
+    // Seeded in the PIXEL-CENTRE convention the winner below uses
+    // (0.5f * (first + last)), not the index convention `qx * 0.5f`. The two
+    // differ by half a pixel and the seed is reachable only when no block sum
+    // beats -FLT_MAX — an all-NaN pattern, where the centre of mass produces
+    // garbage regardless — so this is a convention repair, not a defect fix
+    // (S11 found it, S12 confirmed it cosmetic, v2 S13 folded it in while
+    // editing this file's neighbourhood).
+    float coarseX = 0.5f * float(p.qx - 1);
+    float coarseY = 0.5f * float(p.qy - 1);
 
     for (uint by = 0; by < p.qy; by += bin) {
         const uint yEnd = min(by + bin, p.qy);

@@ -86,10 +86,19 @@ struct RealACOMBenchmark {
         guard let origin = calibration.meanOrigin else { fail("missing fitted origin") }
         let vectors = rawVectors.calibrated(with: calibration, referenceOrigin: origin)
         let crystal = Crystal.aluminum
-        guard let firstShell = crystal.reflections(kMax: 2.5).first?.gLength,
+        // Distinct shell lengths — every symmetry equivalent of one |g| is
+        // returned separately, so shells[1] is the second SHELL. // v2 S13
+        let lengths = crystal.reflections(kMax: 2.5).map(\.gLength)
+        var shells: [Double] = []
+        for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
+            shells.append(length)
+        }
+        guard let firstShell = shells.first,
               let qEstimate = KnownCrystalQCalibration.estimate(
                 bragg: vectors, origin: origin,
-                referenceRadiusInvAngstrom: firstShell
+                referenceRadiusInvAngstrom: firstShell,
+                secondShellRadiusInvAngstrom: shells.count > 1 ? shells[1] : nil,
+                probeRadiusPixels: Double(originFit.probeRadius)
               ) else { fail("known-crystal Q calibration failed") }
         guard let plan = OrientationPlan.generate(
             crystal: crystal, kMax: 1.2, zoneAxisCount: templateCount

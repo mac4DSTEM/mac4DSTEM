@@ -4,12 +4,21 @@
 runs experiments and produces a design; it changes no app code. Its output is
 this file, and the release owner reviews it before S13 implements anything.
 
+> **Read with S13's corrections, 2026-08-28.** S12 said plainly that §3's two
+> checks were *"designed, not prototyped — their discriminating power is
+> asserted and S13's pre-registered experiment may refute it."* It did, twice:
+> §3.1's claim to catch the geometric-middle fallback is **false**, and §3.2 as
+> specified **fires on healthy data**. Both are corrected in place below, marked
+> **REFUTED**, with the measurement and the repair. §6(b) is also now answered.
+> The implementation and its evidence are
+> [`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md).
+
 What the brief asked for, and where each answer is:
 
 | S12 owed | Answer |
 |---|---|
 | Read the campaign's `constant_rms`/`parabola_rms` — settle **#29**'s direction | §1 — **answered, and #29's binary framing turns out to be incomplete** |
-| Design the estimator-internal plausibility gate | §3 |
+| Design the estimator-internal plausibility gate | §3 — **and S13's experiment refuted part of it; the corrections are inline, marked REFUTED** |
 | Design the sane-origin / measure-Q split | §2 |
 | Weigh the `measureOrigin` coarse step **on a measurement**, recommend in-or-out for S13 | §4 — **OUT**, with the re-entry condition |
 | What S13 should build, in order | §5 |
@@ -224,8 +233,33 @@ origin error — which varies with scan position by construction.
 
 **Refuse when `medianAbsoluteDeviationPixels / observedRadiusPixels` exceeds a
 threshold.** Dataset-independent, uses only what the estimator already
-computes, and it fires on the geometric-middle fallback too, because a wrong
-centre makes the innermost radius track the true beam's offset.
+computes.
+
+> **REFUTED IN PART BY S13, 2026-08-28.** This paragraph originally continued:
+> *"and it fires on the geometric-middle fallback too, because a wrong centre
+> makes the innermost radius track the true beam's offset."* **It does not.**
+> S13's pre-registered experiment displaced `sim_Au`'s fitted origin by a
+> uniform 5 px and MAD/observed came back at **0.0121 — below its own 0.0156
+> baseline.** A constant offset shifts every position's innermost radius
+> together, which is precisely what a median-absolute-deviation statistic is
+> built to ignore. The claim is left visible rather than deleted because the
+> design's §2 leans on it.
+>
+> What replaced it: a second, physically derived check — **the innermost shell
+> must sit further from the origin than one probe radius**, since a reflection
+> closer than that overlaps the direct beam. Measured on `sim_Au`, every sound
+> case is ≥ 3.35 × the probe radius and every collapsed one ≤ 0.81, with
+> nothing between. Above the probe radius the *origin-fit* gate takes over
+> (residual ≈ δ for a constant displacement, measured), so the two layers meet
+> at the probe radius with no gap.
+>
+> **And the fallback is not covered by either**, which is the part that
+> mattered: measured, the geometric-middle substitution is 1.14 px on `sim_Au`
+> (below the estimator's 2 px floor) and 7.07 px on `downsample_Si_SiGe_exp`
+> (above the radius check's band, with no origin gate above it because a nil
+> origin has no residual to judge). That is why S13 closed it structurally in
+> `Calibration.referenceOrigin` instead of watching for it.
+> Full numbers: [`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md) §1.
 
 **The threshold must be measured, not invented.** sim_Au is the only training
 dataset where Q calibration currently runs, so it gives one point, not a
@@ -249,6 +283,28 @@ median(r₂)/median(r₁) against g₂/g₁ from `Crystal.reflections`** — whi
 applies structure-factor extinction and sorts ascending
 (`Core/Crystal/Crystal.swift:131,139`), so the reference side is sound. A
 mismatch means the assignment is wrong.
+
+> **REFUTED AS SPECIFIED, AND REPAIRED, BY S13, 2026-08-28.** As written this
+> fires on good data. `Crystal.reflections` returns every symmetry equivalent
+> **separately, all at the same |g|**, and several equivalents of the first
+> shell are excited at one scan position — so r₁ and r₂ are usually two peaks of
+> the *same* shell and the check compares a shell against itself. Measured on
+> healthy `sim_Au`: **1.02048** against an expected **1.15470**.
+>
+> The repair is one added condition, and its size is **derived rather than
+> chosen**: r₂ must be the innermost radius at least `(g₂/g₁ − 1) / 2` larger
+> than r₁ — half the gap the crystal itself predicts. At that separation
+> `sim_Au` agrees to **−0.57%** with 99.7% of positions still contributing, and
+> `downsample_Si_SiGe_exp` misses by **+18.2%**, firing on the dataset whose
+> assignment really is wrong.
+>
+> **Stated asymmetry, which follows from the filter and not from the data:**
+> because r₂ is *selected* as separated, a ratio that is too *small* cannot be
+> detected. That is the harmless direction — reading shell 2 as shell 1 makes
+> the ratio too large — but it is a real limit and it is in the code comment.
+> The two innermost DISTINCT lengths must also be grouped by |g| at the call
+> site; `reflections[1]` is another equivalent of the first shell, not the
+> second one.
 
 This is the cheap in-app half of py4DSTEM's `get_dq_from_indexed_peaks`
 (`process/calibration/qpixelsize.py:26-65`), which least-squares-fits
@@ -400,7 +456,20 @@ did. S13 implements accordingly:
 - it must reach the reader who sees the *number*, since that reader is the one
   who would otherwise over-trust it.
 
-**(b) A hard ceiling on the excluded fraction — STILL OPEN.** Not answered with
+**(b) A hard ceiling on the excluded fraction — MEASURED BY S13, 2026-08-28:
+no ceiling is defensible on the available evidence.** At a *forced* 2% kept —
+98% excluded — the fitted origin's own uncertainty is still **0.10 px**, two
+orders of magnitude below the pre-registered 2 px criterion, on five datasets;
+the app's own trim never excludes more than 34% on any of them. **S13's
+recommendation is to ship without a ceiling**, refuse on the robust residual and
+report the fraction, which is the branch this section permits — and it is a
+recommendation the owner can overrule. The stated limit: bootstrap SD measures
+the fit's *precision*, not its *bias*, so a ceiling justified by
+representativeness is neither supported nor refuted.
+[`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md)
+§2 has the sweep. The question as posed:
+
+**Not answered with
 (a), and S13 must not invent one. 27% passes on `Particle_1`; whether 60% should
 still pass when the remaining 40% look tight is unresolved. **S13 measures where
 a ceiling would go rather than picking a round number** (the S17 lesson: a

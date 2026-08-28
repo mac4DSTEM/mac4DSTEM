@@ -135,7 +135,7 @@ struct Probe {
                 let kx = keep.map { mx[$0] }, ky = keep.map { my[$0] }
                 let kfx = keep.map { pfx[$0] }, kfy = keep.map { pfy[$0] }
                 trimmedRMS = rms(kx, ky, kfx, kfy)
-                // The SHIPPED gate (Calibration.originFitIsQuantitative) reads
+                // The SHIPPED gate (Calibration.originFitIsSane) reads
                 // OriginMaps.rmsResidual, which is over ALL scan positions.
                 // RMS(kept) is over the subset trimming selected for having
                 // small residuals, so comparing it to probeRadius would be

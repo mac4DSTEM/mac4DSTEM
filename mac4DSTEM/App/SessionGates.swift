@@ -52,6 +52,71 @@ final class SessionGates {
         calibration.originFitRefusal
     }
 
+    /// May a *reciprocal* measurement be derived in this frame? — the stricter
+    /// question, and v2 S13's half of the split
+    /// (`docs/q-calibration-design.md` §2). Q calibration asks this one;
+    /// everything that needs only a centred frame keeps asking the looser one
+    /// above.
+    ///
+    /// Two predicates, ONE policy owner: the science lives in
+    /// `Calibration.originSupportsReciprocalMetrology`, and what lives here is
+    /// the rule that app code asks the gate. S11 found this same question
+    /// answered four different ways at four call sites on 2026-08-28 — the S7
+    /// class — so the split must not create a fifth, which is why the strict
+    /// predicate is a second function on this type rather than a tighter
+    /// threshold hand-rolled at the Q-calibration call site.
+    ///
+    /// It refuses a **stand-in origin** by kind, not by measuring how wrong it
+    /// is: S13 E1 measured the geometric-middle substitution at 1.14 px on
+    /// `sim_Au` and 7.07 px on `downsample_Si_SiGe_exp`, straddling the band any
+    /// estimator check can see, so "watch for it" was never going to work.
+    func reciprocalMetrologyRefusal(
+        for calibration: Calibration,
+        descriptor: DatasetDescriptor,
+        apertureCentre: (x: Float, y: Float)?
+    ) -> String? {
+        // The predicate is asked of `Calibration`, not re-derived here. The
+        // first version composed `originQuantitativeRefusal` with its own
+        // `origin.kind.isMeasuredBeamCentre` test, which left
+        // `Calibration.originSupportsReciprocalMetrology` with **no production
+        // caller at all** — two derivations of one question, created by the
+        // change whose whole point was to remove exactly that. Gate B found it
+        // by deleting half the unused predicate and watching the fixture stay
+        // green (2026-08-28).
+        guard !calibration.originSupportsReciprocalMetrology(
+            detectorQX: descriptor.qx, detectorQY: descriptor.qy,
+            apertureCentre: apertureCentre
+        ) else { return nil }
+
+        if let refusal = originQuantitativeRefusal(for: calibration) { return refusal }
+        let origin = calibration.referenceOrigin(
+            detectorQX: descriptor.qx, detectorQY: descriptor.qy,
+            apertureCentre: apertureCentre
+        )
+        switch origin.kind {
+        case .apertureCentre:
+            // Deliberately does NOT say "the aperture you placed". Every app
+            // call site passes a non-nil aperture and the aperture starts at
+            // the detector's middle, so this fires for users who have placed
+            // nothing — telling them "where you put it" describes an action
+            // they did not take (Gate B, 2026-08-28).
+            return "Reciprocal calibration needs a measured beam centre. This dataset has none, "
+                + "so Bragg vectors would be re-centred on the detector aperture's current "
+                + "position, which is not a measurement of where the beam is. Run Calibrate "
+                + "Origin, or enter the reciprocal pixel size manually."
+        case .geometricMiddle:
+            return "Reciprocal calibration needs a measured beam centre. This dataset has none, "
+                + "so Bragg vectors would be re-centred on the detector's geometric middle — a "
+                + "guess, not a measurement. Run Calibrate Origin, or enter the reciprocal pixel "
+                + "size manually."
+        case .fittedMaps, .recordedMean:
+            // Reachable: `originSupportsReciprocalMetrology` also fails when
+            // the fit is not sane, and then the refusal above has already
+            // returned. If it did not, say something rather than nothing.
+            return originQuantitativeRefusal(for: calibration)
+        }
+    }
+
     // MARK: - May I rewrite the session sidecar?
 
     /// A recorded load specification this session failed to restore.

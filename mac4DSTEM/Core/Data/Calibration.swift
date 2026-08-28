@@ -250,8 +250,8 @@ struct CalibrationReadinessReport: Equatable, Sendable {
         let validProbe = calibration.probeRadius.map {
             $0.isFinite && $0 > 0
         } ?? false
-        let originResidual = calibration.origin?.rmsResidual
-        let originFitAcceptable = calibration.originFitIsQuantitative
+        let originResidual = calibration.judgedOriginResidual
+        let originFitAcceptable = calibration.originFitIsSane
         let originAndProbeReady = originSource != nil && validProbe && originFitAcceptable
         let originProbeSource: CalibrationValueProvenance
         if let originSource, let probeSource = provenance.probe,
@@ -269,6 +269,18 @@ struct CalibrationReadinessReport: Equatable, Sendable {
         var originDetail = "Origin: \(originSource?.rawValue ?? "Missing") · Probe: \(probeDetail)"
         if let originResidual {
             originDetail += String(format: " · Fit RMS %.4g px", originResidual)
+            // The excluded fraction reaches the reader who sees the NUMBER,
+            // which is the reader who would otherwise over-trust it — the
+            // owner's §6a decision, 2026-08-28. Shown whether the fit passed or
+            // failed: "2.19 px over 73% of positions" is a different claim from
+            // "2.19 px over all of them", and only one of them is being made.
+            if let excluded = calibration.origin?.excludedFraction,
+               excluded > Calibration.excludedFractionDisclosureFloor {
+                originDetail += String(
+                    format: " over %.0f%% of positions (%.0f%% excluded as outliers)",
+                    Double(1 - excluded) * 100, Double(excluded) * 100
+                )
+            }
             if !originFitAcceptable {
                 originDetail += " (exceeds probe radius; recalibrate before quantitative use)"
             }
@@ -388,7 +400,29 @@ struct OriginMaps: Sendable {
     var fittedX: [Float]
     var fittedY: [Float]
 
-    /// RMS of measured minus fitted origins.
+    /// Fraction of scan positions the robust fit EXCLUDED, or nil when the maps
+    /// did not come from one — imported py4DSTEM maps and file/session origins
+    /// carry no trimming history, and inventing 0 for them would claim a
+    /// robustness nobody performed. // v2 S13
+    ///
+    /// The release owner's decision, 2026-08-28: a trimmed calibration is
+    /// ADMITTED and this number is carried *on the product*, because accuracy
+    /// of the fitted origin outranks coverage of the input measurements and the
+    /// fraction is disclosure rather than an apology
+    /// (`docs/q-calibration-design.md` §6a).
+    var excludedFraction: Float?
+
+    /// RMS(measured − fitted) over the positions the robust fit KEPT.
+    ///
+    /// **Not interchangeable with `rmsResidual`**, which is over ALL positions.
+    /// Trimming removes the largest residuals by construction, so this number
+    /// is guaranteed to be the smaller one and comparing *it* to a full-scan
+    /// threshold would be circular. Measured on `Particle_1…bin8`: 2.19 px here
+    /// against 18.47 px full-scan for the same trimmed fit (S12 §1.2). The
+    /// gate reads this one deliberately — see `originFitIsSane`. // v2 S13
+    var robustResidual: Float?
+
+    /// RMS of measured minus fitted origins, over EVERY scan position.
     var rmsResidual: Float? {
         guard let measuredX, let measuredY,
               measuredX.count == fittedX.count,
@@ -422,6 +456,23 @@ struct Calibration: Sendable {
 
     /// Radius of the central bright-field disk in detector pixels.
     var probeRadius: Float?
+
+    /// The beam centre a file or a restored session recorded as a mean, with no
+    /// per-position maps beside it. **v2 S13.** Before this existed the value
+    /// was written into `aperture.centerX/Y` and nowhere else, so it was lost
+    /// the moment the user moved the aperture, and every analysis fell through
+    /// to the detector's geometric middle while the inspector went on showing
+    /// the file's origin (S11, 2026-08-28). Stored as two scalars rather than a
+    /// tuple so `Calibration` stays `Equatable`-friendly for callers that need
+    /// it; read it through `recordedMeanOrigin`.
+    var recordedOriginX: Float?
+    var recordedOriginY: Float?
+
+    nonisolated var recordedMeanOrigin: (x: Float, y: Float)? {
+        guard let recordedOriginX, let recordedOriginY,
+              recordedOriginX.isFinite, recordedOriginY.isFinite else { return nil }
+        return (recordedOriginX, recordedOriginY)
+    }
 
     /// Center and spread of the unscattered beam across the scan.
     var origin: OriginMaps?
@@ -470,14 +521,161 @@ struct Calibration: Sendable {
     /// period. File/session maps without raw measured arrays carry no residual
     /// to judge and are not second-guessed here — they keep their explicit
     /// provenance-based readiness.
-    var originFitIsQuantitative: Bool {
+    /// **v2 S13 renamed this from `originFitIsQuantitative` and split the
+    /// question in two.** The old single predicate answered "is the origin fit
+    /// sane?" and was consulted for "may I measure a reciprocal scale in this
+    /// frame?", which the 2026-08-06 adversarial review had already shown is
+    /// the stricter question. This is the LOOSER half: it drives the readiness
+    /// badge and anything that only needs a centred frame (Bragg map display,
+    /// DPC, virtual detectors). The strict half is
+    /// `originSupportsReciprocalMetrology`.
+    ///
+    /// **It reads the FULL-SCAN residual.** v2 S13 shipped it reading the
+    /// robust (kept-set) residual instead, on S12's argument that a full-scan
+    /// RMS describes contamination rather than displacement — and Gate B
+    /// refuted the swap on the same day, by construction and by measurement:
+    ///
+    /// > 32×32 scan, true origin 100, probe radius 10.624, a 12×12 corner block
+    /// > thrown +40 px. The trim removes 12.6%, the surviving fit is displaced
+    /// > **15.03 px at the clean positions**, and `keptResidual` reads 9.94 —
+    /// > **passing**. The full-scan RMS reads 15.64 and **blocks**.
+    ///
+    /// RMS over the set that *defined* the fit measures that set's internal
+    /// consistency; it cannot see bias, and a partially-excluded clustered
+    /// contamination is exactly a biased fit with a coherent remainder. S13's
+    /// own E2 section says this about the bootstrap and then shipped the
+    /// precision statistic as the gate.
+    ///
+    /// **The robust residual is still computed and still disclosed** — it is
+    /// the honest description of the trimmed fit's quality on the positions it
+    /// used — it is simply not what decides. Which statistic *should* gate is
+    /// an open design question and neither of the two is right: the full-scan
+    /// number is inflated by contamination the fit correctly ignored. See
+    /// `docs/open-items.md`.
+    ///
+    /// A second reason the swap had to come out: `robustResidual` is dropped by
+    /// `CalibrationReReference` and by every save/reopen path, so the verdict
+    /// flipped PASS → BLOCK on a **pure detector crop**, where every residual is
+    /// bit-identical.
+    /// Below this the excluded fraction is not shown, because the trim's own
+    /// false-positive rate on clean data is not zero. **Measured, not picked**
+    /// (Gate B, 2026-08-28): a 3σ cut on Rayleigh-distributed radial residuals
+    /// excludes 0.33%–1.08% of positions across σ = 0.1–2.0 px with no outliers
+    /// planted at all. 2% sits above that whole range. The first version used
+    /// 0.5%, which is *inside* it, so a perfectly clean scan was told "1%
+    /// excluded as outliers".
+    static let excludedFractionDisclosureFloor: Float = 0.02
+
+    var originFitIsSane: Bool {
         guard let residual = origin?.rmsResidual, let probeRadius else { return true }
         return residual.isFinite && residual <= probeRadius
     }
 
+    /// The residual `originFitIsSane` actually judged, so a caller quoting a
+    /// number quotes the same one the verdict came from. Kept as a named
+    /// property rather than inlined: it is the guarantee that the panel, the
+    /// readiness row and the refusal cannot drift onto different numbers, which
+    /// they had done before (`AppState` quoted `rmsResidual` while the panel
+    /// quoted the robust one).
+    var judgedOriginResidual: Float? { origin?.rmsResidual }
+
+    /// Whether a *reciprocal* measurement may be derived in this frame — the
+    /// strict question, consulted by Q calibration only.
+    ///
+    /// Deliberately **not** a tighter threshold on the same number (#29 warns
+    /// against exactly that, and on a contaminated scan the number being
+    /// thresholded is itself contaminated, so no threshold on it is
+    /// meaningful). It requires two things this type can answer, and the
+    /// estimator supplies a third at run time
+    /// (`KnownCrystalQCalibration`'s plausibility checks):
+    ///
+    /// 1. `originFitIsSane`;
+    /// 2. the origin is a **measured beam centre** and not a stand-in. S11's
+    ///    worst confirmed finding, 2026-08-28: `.fileMean`/`.sessionMean` left
+    ///    `calibration.origin` nil, `meanOrigin` was therefore nil, and the
+    ///    consumers substituted the detector's geometric middle — in Q
+    ///    calibration, strain, ACOM and the Bragg map at once, stamped
+    ///    `.measuredInApp`. Measured magnitude of that substitution:
+    ///    **1.14 px on `sim_Au` and 7.07 px on `downsample_Si_SiGe_exp`**
+    ///    (S13 E1). No estimator check can cover it — the 1.14 px case is below
+    ///    the estimator's 2 px floor and the 7.07 px case is above the band
+    ///    where its radius check acts — so this is closed structurally, here,
+    ///    rather than watched for.
+    func originSupportsReciprocalMetrology(
+        detectorQX: Int, detectorQY: Int, apertureCentre: (x: Float, y: Float)?
+    ) -> Bool {
+        guard originFitIsSane else { return false }
+        return referenceOrigin(
+            detectorQX: detectorQX, detectorQY: detectorQY, apertureCentre: apertureCentre
+        ).kind.isMeasuredBeamCentre
+    }
+
+    // MARK: - Which origin does an analysis re-centre on? (v2 S13)
+
+    /// Where the reference origin came from. Carried beside the value so a
+    /// caller can refuse on the *kind* instead of re-deriving the fallback and
+    /// getting a different answer, which is what S11 found four call sites
+    /// doing three different ways.
+    nonisolated enum ReferenceOriginKind: String, Sendable, Equatable {
+        /// Mean of the per-position fitted origin maps.
+        case fittedMaps
+        /// The beam centre a file or a restored session recorded, with no
+        /// per-position maps beside it (py4DSTEM's `qx0_mean`/`qy0_mean` — the
+        /// ordinary shape of a calibration bundle, not a corner case).
+        case recordedMean
+        /// The user's detector placement. A best-effort centre for display; it
+        /// is NOT a statement about where the beam is, because an aperture can
+        /// be moved off the beam deliberately.
+        case apertureCentre
+        /// Nothing is known: the detector's geometric middle.
+        case geometricMiddle
+
+        /// Whether this origin is a *measurement* of the beam centre. Only
+        /// these two may carry a reciprocal measurement.
+        var isMeasuredBeamCentre: Bool { self == .fittedMaps || self == .recordedMean }
+    }
+
+    nonisolated struct ReferenceOrigin: Sendable, Equatable {
+        var x: Float
+        var y: Float
+        var kind: ReferenceOriginKind
+        /// `nonisolated` deliberately: this is pure value arithmetic and it is
+        /// read inside `Task.detached` at the Q-calibration call site. Without
+        /// it the app target's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
+        /// makes it main-actor-isolated and the access is a Swift 6 error.
+        nonisolated var point: (x: Float, y: Float) { (x, y) }
+    }
+
+    /// **The one derivation of "which origin do I re-centre on?"** — v2 S13,
+    /// replacing the four S11 catalogued on 2026-08-28
+    /// (`calibratedBraggVectors` fell through to the geometric middle;
+    /// `computeCoMField` and `generateMeasuredProbeKernel` fell through to the
+    /// aperture centre; `calibrateEllipse` used the aperture unconditionally).
+    /// A new caller belongs here, not in a fifth hand-rolled `?? (qx/2, qy/2)`.
+    ///
+    /// Order: fitted maps → the recorded mean → the aperture the user placed →
+    /// the geometric middle. `apertureCentre` is optional so a caller with no
+    /// aperture (a harness, an export) gets the same order minus that step
+    /// rather than a different function.
+    nonisolated func referenceOrigin(
+        detectorQX: Int, detectorQY: Int, apertureCentre: (x: Float, y: Float)?
+    ) -> ReferenceOrigin {
+        if let mean = meanOrigin {
+            return ReferenceOrigin(x: mean.x, y: mean.y, kind: .fittedMaps)
+        }
+        if let recorded = recordedMeanOrigin {
+            return ReferenceOrigin(x: recorded.x, y: recorded.y, kind: .recordedMean)
+        }
+        if let apertureCentre {
+            return ReferenceOrigin(x: apertureCentre.x, y: apertureCentre.y, kind: .apertureCentre)
+        }
+        return ReferenceOrigin(x: Float(detectorQX) / 2, y: Float(detectorQY) / 2,
+                               kind: .geometricMiddle)
+    }
+
     /// Why a quantitative measurement derived from this origin must be
     /// refused, with the app's own remedy — or `nil` when there is nothing to
-    /// refuse. Lives beside `originFitIsQuantitative` so the refusal a caller
+    /// refuse. Lives beside `originFitIsSane` so the refusal a caller
     /// shows and the readiness badge Prepare renders are the same judgement
     /// quoting the same two numbers.
     ///
@@ -495,19 +693,69 @@ struct Calibration: Sendable {
     /// move this residual, so appending it to the iDPC refusal printed a
     /// remedy that provably does nothing there (Gate B, 2026-08-25). // v2 S7
     var originFitJudgement: String? {
-        guard !originFitIsQuantitative else { return nil }
+        guard !originFitIsSane, let residual = judgedOriginResidual else { return nil }
+        let excluded = origin?.excludedFraction
+        let scope = (excluded ?? 0) > Self.excludedFractionDisclosureFloor
+            ? String(format: " over the %.0f%% of scan positions the robust fit kept",
+                     Double(1 - (excluded ?? 0)) * 100)
+            : ""
         return String(
-            format: "Origin fit RMS %.4g px exceeds the %.4g px probe radius — Bragg vectors are "
+            format: "Origin fit RMS %.4g px%@ exceeds the %.4g px probe radius — Bragg vectors are "
                 + "re-centred on this origin, so a value measured from them would be wrong.",
-            Double(origin?.rmsResidual ?? .nan), Double(probeRadius ?? .nan)
+            Double(residual), scope as NSString, Double(probeRadius ?? .nan)
         )
     }
 
+    /// The judgement plus the remedy that can actually clear it.
+    ///
+    /// **v2 S13 rewrote the remedy, and the reason is measured.** It used to
+    /// read *"Try another Origin fit (Constant / Plane / Parabola) and re-run
+    /// Calibrate Origin, or enter the scale manually."* On **both** training
+    /// datasets where that text is shown, all three fit functions miss the gate
+    /// — `downsample_Si_SiGe_exp` 13.133 / 11.655 / 11.302 px against a 5.026 px
+    /// gate, `Particle_1…bin8` 18.720 / 18.295 / 18.138 against 10.624 — a 3–14%
+    /// span sitting 1.7–2.2× above the threshold. The sentence spent most of its
+    /// words on the one remedy that provably cannot succeed and buried the one
+    /// that works (S12 §1.1). Manual entry bypasses the estimator entirely and
+    /// its field is rendered in both branches of the readiness row, which is why
+    /// `AppState.swift` records that refusing here is never a dead end.
+    ///
+    /// It also now says WHICH failure this is, because the app can finally tell
+    /// them apart: broad measurement failure (no tail to trim — trimming keeps
+    /// ~100% and moves nothing) versus outlier contamination (a heavy tail the
+    /// trim removed, and the residual is still too large).
     var originFitRefusal: String? {
-        originFitJudgement.map {
-            $0 + " Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate "
-                + "Origin, or enter the scale manually."
+        guard let judgement = originFitJudgement else { return nil }
+        // The diagnosis says only what was OBSERVED. The first version drew an
+        // inference from an excluded fraction of zero — "the origin measurement
+        // is failing across the whole scan rather than at a few positions" —
+        // and Gate B refuted it two ways on 2026-08-28. Trimming also excludes
+        // nothing when the failures are **spatially clustered** (a contiguous
+        // quarter of the scan thrown 40 px: 100.0% kept, fit 20.6 px off) and
+        // when contamination reaches the estimator's **50% breakdown point**
+        // (0.0% excluded, fit 30.4 px off). In both cases the sentence was the
+        // exact opposite of the truth, and it steered the user away from the
+        // remedy that would have worked. It also fired for maps that carry no
+        // trim history at all — imported py4DSTEM origins — because `?? 0`
+        // coalesced "never trimmed" into "trimmed and excluded nothing".
+        let diagnosis: String
+        switch origin?.excludedFraction {
+        case .some(let excluded) where excluded > Self.excludedFractionDisclosureFloor:
+            diagnosis = " The robust fit excluded \(Int((excluded * 100).rounded()))% of positions"
+                + " as outliers and the rest still do not agree."
+        case .some:
+            diagnosis = " Trimming outliers changed nothing. That can mean the measurement is"
+                + " failing across the whole scan, or that the bad positions are clustered"
+                + " together or are more than half of them, which this trim cannot separate —"
+                + " look at the origin map before assuming which."
+        case .none:
+            diagnosis = ""
         }
+        return judgement + diagnosis
+            + " Enter the reciprocal pixel size manually to proceed — that bypasses this fit."
+            + " Changing the Origin fit function (Constant / Plane / Parabola) is unlikely to"
+            + " help: the three differ by only a few percent of a residual this far above the"
+            + " probe radius."
     }
 
     var hasFittedOrigin: Bool { origin != nil }
@@ -518,10 +766,25 @@ struct Calibration: Sendable {
     }
 
     /// Mean fitted origin, suitable as a default detector center.
-    var meanOrigin: (x: Float, y: Float)? {
-        guard let origin, !origin.fittedX.isEmpty else { return nil }
+    ///
+    /// **The finiteness check is load-bearing, added by Gate B, 2026-08-28.**
+    /// Without it a NaN fitted map — which a single NaN in `measuredX` produces,
+    /// because `fit2D` accumulates it into the normal equations and every
+    /// fitted value becomes NaN — returned `(nan, nan)` as kind `.fittedMaps`,
+    /// which `isMeasuredBeamCentre` calls a measured beam centre. With no
+    /// `measuredX/Y` beside it there is also no residual to judge, so
+    /// `originFitIsSane` returns true vacuously and the whole gate chain
+    /// admits it: a Q scale computed from a NaN origin, stamped
+    /// `.measuredInApp`. `recordedMeanOrigin` had validated its scalars all
+    /// along; this path did not, 250 lines apart in one file.
+    nonisolated var meanOrigin: (x: Float, y: Float)? {
+        guard let origin, !origin.fittedX.isEmpty,
+              origin.fittedY.count == origin.fittedX.count else { return nil }
         let count = Float(origin.fittedX.count)
-        return (origin.fittedX.reduce(0, +) / count, origin.fittedY.reduce(0, +) / count)
+        let x = origin.fittedX.reduce(0, +) / count
+        let y = origin.fittedY.reduce(0, +) / count
+        guard x.isFinite, y.isFinite else { return nil }
+        return (x, y)
     }
 
     /// py4DSTEM `_transform` ellipse matrix in the native (qx=row, qy=column)

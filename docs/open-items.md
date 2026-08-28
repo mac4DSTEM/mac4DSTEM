@@ -327,7 +327,10 @@ but sets the winning block's centre as `0.5*(bx + xEnd - 1)` at line 60 — two
 conventions half a pixel apart in one kernel. The seed is unreachable in
 practice (any block sum beats `-FLT_MAX`) and only seeds a CoM refine, so this
 is a tidy-up, not a defect; S12 is already re-weighing that coarse step.
-**S12, 2026-08-28: confirmed cosmetic and handed to S13** as a one-line fix,
+**S12, 2026-08-28: confirmed cosmetic and handed to S13** — **DONE 2026-08-28**,
+`coarseX/Y` now seed at `0.5*(qx-1)`, the same pixel-centre convention the
+winner uses, with the reachability stated in the comment. Original note:
+as a one-line fix,
 since S13 is editing that file's neighbourhood anyway. The seed is reachable
 only when no block sum beats `-FLT_MAX` — an all-NaN pattern, where the CoM
 produces garbage regardless — so it is a readability fix and must not be
@@ -379,8 +382,27 @@ citations cannot be trusted without checking.
   estimator that is silently wrong: fix or qualify the automatic path first,
   then add manual entry stamped `.manual`, never `.measuredInApp`.
 
-- **A file's mean origin never reaches the analyses that claim to use it —
-  found by S11, 2026-08-28. Owner: S13 (Gate B); design note to S12.**
+- ~~**A file's mean origin never reaches the analyses that claim to use it**~~
+  — found by S11, **CLOSED by S13, 2026-08-28.** The recorded beam centre now
+  has a home of its own (`Calibration.recordedOriginX/Y`, written at both the
+  `.fileMean` and `.sessionMean` sites and carried into the export snapshot),
+  and there is **one** derivation of which origin an analysis re-centres on:
+  `Calibration.referenceOrigin(detectorQX:detectorQY:apertureCentre:)`, which
+  returns the value *and its kind* (`fittedMaps` / `recordedMean` /
+  `apertureCentre` / `geometricMiddle`). The four divergent call sites S11
+  catalogued all ask it. Q calibration refuses a kind that is not a measured
+  beam centre, through the new `SessionGates.reciprocalMetrologyRefusal`.
+  **Closed structurally rather than watched for, and S13 E1 measured why that
+  was the only option:** the geometric-middle substitution is **1.14 px on
+  `sim_Au`** — below the estimator's 2 px floor, invisible to every check — and
+  **7.07 px on `downsample_Si_SiGe_exp`** — above the band the radius check
+  covers. No plausibility check straddles that range. **S11's blind spot is
+  closed too:** `QCalibrationOriginGateTests` now nulls the origin explicitly to
+  reach the nil branch (the demo's disk detection calibrates one, so the branch
+  had never run), and three mutations were applied to confirm the new cases go
+  red. The original entry follows.
+  **A file's mean origin never reaches the analyses that claim to use it —
+  found by S11, 2026-08-28.**
   `.fileMean` and `.sessionMean` write the origin into `aperture.centerX/Y`
   and leave `calibration.origin` **nil** (`AppState.swift:2482-2484`,
   `:2903-2907`, the second explicitly). `Calibration.meanOrigin` reads only
@@ -400,8 +422,28 @@ citations cannot be trusted without checking.
   origin. **Blind spot:** every `QCalibrationOriginGateTests` case builds
   origin *maps*, so the suite only ever runs the non-nil branch.
 
-- **The Q estimator is a single unindexed shell where py4DSTEM fits many —
-  S11, 2026-08-28. Designed by S12, 2026-08-28; owner for the code is S13.**
+- ~~**The Q estimator is a single unindexed shell where py4DSTEM fits many**~~
+  — S11, designed by S12, **IMPLEMENTED by S13, 2026-08-28, with the design
+  corrected against measurement.** `KnownCrystalQCalibration.estimate` now
+  collects a second shell and compares median(r₂)/median(r₁) against g₂/g₁,
+  reporting `.agreed` / `.disagreed` / `.notSelfChecked` — the third state
+  surfaced rather than folded into a pass. **S12's §3.2 as written was refuted
+  by S13's pre-registered experiment**: `Crystal.reflections` returns every
+  symmetry equivalent separately at the same |g|, so the second-smallest radius
+  at a position is usually another equivalent of the FIRST shell. Measured on
+  healthy `sim_Au`, the design's formulation reads **1.02048** against an
+  expected 1.15470 and would fire on good data. The repair is one added
+  condition whose size is derived rather than chosen — r₂ must exceed r₁ by
+  `(g₂/g₁ − 1)/2` — at which `sim_Au` agrees to **−0.57%** with 99.7% coverage
+  and `Si_SiGe` misses by **+18.2%**. Threshold ±3%, the geometric centre of
+  that gap; **the sound side is one dataset and this is the thinnest of the
+  three thresholds.** Stated asymmetry, in the code: because r₂ is *selected*
+  as separated, a ratio that is too small cannot be detected — only the
+  direction the check exists for. Full numbers:
+  [`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md)
+  §1. The original entry follows.
+  **The Q estimator is a single unindexed shell where py4DSTEM fits many —
+  S11, 2026-08-28. Designed by S12, 2026-08-28.**
   `KnownCrystalQCalibration.estimate` takes the *innermost* non-central peak
   at each scan position, medians them, and divides one reference radius by
   the result (`QCalibration.swift:19-51`). py4DSTEM's
@@ -424,9 +466,19 @@ citations cannot be trusted without checking.
   run and must report *not self-checked*, never silently pass.
   [`docs/q-calibration-design.md`](q-calibration-design.md) §3.2.
 
-- **The origin-fit refusal leads with three remedies that cannot work and
-  buries the one that can — S12, 2026-08-28. Owner: S13 (Gate B), one string
-  plus the judgement behind it.** `Calibration.originFitRefusal`
+- ~~**The origin-fit refusal leads with three remedies that cannot work and
+  buries the one that can**~~ — S12, **FIXED by S13, 2026-08-28.**
+  `Calibration.originFitRefusal` now names which failure it is — broad
+  measurement failure ("trimming outliers changed nothing, so the origin
+  measurement is failing across the whole scan") versus outlier contamination
+  ("the robust fit excluded N% of positions as outliers and the rest still do
+  not agree") — leads with manual entry, and demotes the fit functions with the
+  reason they cannot help. Pinned by `tools/q-calibration-gate-test`, which
+  asserts the *position* of "manually" is before "Constant / Plane / Parabola";
+  the mutation that restores the old order goes red on exactly that assertion.
+  The original entry follows.
+  **The origin-fit refusal leads with three remedies that cannot work and
+  buries the one that can — S12, 2026-08-28.** `Calibration.originFitRefusal`
   (`Core/Data/Calibration.swift:506-511`) appends *"Try another Origin fit
   (Constant / Plane / Parabola) and re-run Calibrate Origin, or enter the scale
   manually."* On **both** training datasets where that text is shown, all three
@@ -443,9 +495,33 @@ citations cannot be trusted without checking.
   the app can now tell apart — and lead with manual entry. Numbers from
   `tools/training-dataset-campaign` (`origin_calibration` stage).
 
-- **The plane origin fit is not robust, so a contaminated scan gets a DISPLACED
-  origin and the residual reports the contamination instead — S12, 2026-08-28.
-  Owner: S13 (Gate B), and it is the largest single win in that session.**
+- ~~**The plane origin fit is not robust, so a contaminated scan gets a
+  DISPLACED origin and the residual reports the contamination instead**~~ —
+  S12, **FIXED by S13, 2026-08-28, and both halves landed together as S12
+  insisted they must.** `OriginCalibration.fitOriginTrimmed` (three rounds at
+  median + 3·1.4826·MAD, the constants S12 measured with) is now what both
+  `tiledRun` and `run` call, marked `DEVIATION` from py4DSTEM's `fit_origin`
+  with its reason; `OriginMaps` carries `excludedFraction` and `robustResidual`;
+  and the gate — renamed `originFitIsSane` — reads the **robust** residual,
+  which is the half without which the fit change would have altered nothing the
+  user sees. The excluded fraction is carried **on the product** per the owner's
+  §6(a) decision: the calibration panel, the readiness detail, the displayed-
+  result metadata record, the publication caption, and the strain and
+  orientation bundles' provenance (`origin_fit_excluded_fraction`,
+  `origin_fit_positions_used_fraction`, `origin_reference`).
+  **§6(b) — the hard ceiling — is ANSWERED and the answer is "none defensible".**
+  S13 E2 measured the fitted origin's own uncertainty across a trim sweep and
+  then across *forced* kept fractions on five datasets: at **2% kept** it is
+  still **0.10 px**, two orders of magnitude below the pre-registered 2 px
+  criterion. Recommendation: ship without a ceiling, refuse on the robust
+  residual, report the fraction — the branch §6(b) permits. **The owner can
+  overrule this**, and the limitation is stated: bootstrap SD measures the
+  fit's precision, not its bias, so a ceiling justified by *representativeness*
+  is neither supported nor refuted. Numbers in
+  [`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md)
+  §2. The original entry follows.
+  **The plane origin fit is not robust, so a contaminated scan gets a DISPLACED
+  origin and the residual reports the contamination instead — S12, 2026-08-28.**
   This is the actionable half of **#29's answer** (below). On
   `Particle_1…bin8` a quarter of scan positions fail origin measurement
   (median/RMS residual ratio **0.183**, p50 3.35 px but p95 47.93 px), and the
@@ -488,8 +564,13 @@ citations cannot be trusted without checking.
   mechanically — no CI job or hook runs `--check`, so it relies on the closeout
   step being followed.
 
-- **The strain weighting deviation exists only as a source comment — S11,
-  2026-08-28. Owner: S13, carried as one key + one fixture assertion.**
+- ~~**The strain weighting deviation exists only as a source comment**~~ —
+  S11, **FIXED by S13, 2026-08-28.** The strain bundle's provenance now carries
+  `strain_weighting = w_r2` and `strain_weighting_py4dstem = w2_r2`
+  (`ResultExport.scientificBundleMaps`), so a colleague reading an exported
+  strain map can tell which estimator produced it. The original entry follows.
+  **The strain weighting deviation exists only as a source comment — S11,
+  2026-08-28.**
   `StrainMapping.fitLattice` minimizes `Σ w·r²`; py4DSTEM's
   `fit_lattice_vectors` minimizes `Σ w²·r²` (`StrainMapping.swift:585-592`).
   The note records the magnitude — **~5e-3 median per strain component on
@@ -500,6 +581,62 @@ citations cannot be trusted without checking.
   `grep -rn weighting mac4DSTEM/` returns exactly one hit — the comment. A
   colleague reading an exported strain map cannot tell which estimator
   produced it. One provenance key fixes it; it must not slip past S20.
+
+- **The demo dataset's rings are a simple-cubic zone drawn on a gold lattice
+  constant, and the app's probe radius is over-measured 2.15× on it — FOUND by
+  S13, 2026-08-28, CORRECTED by Gate B the same day. NOT FIXED, and the obvious
+  remedy is now known to make it WORSE. Owner: an owner call on scope, then
+  Gate D (the probe radius) before Gate B (anything else).**
+  `DemoFourDDataSource.pattern` draws two spot rings. **Measured from the
+  fixture's own pixels:** the inner ring sits at **r = 17.03 px at ±45°/±135°**
+  and the outer at **r = 24.50 px on-axis** — so it is exactly what the source
+  comment says, *"{110} at 45° and {200} on-axis"*, i.e. a **simple-cubic [001]
+  zone**. The comment's only error is the word "FCC". `Crystal.gold.reflections`
+  returns **zero** reflections at any permutation of (110), so an FCC model
+  cannot see the inner ring at all.
+  **The declared 0.02 Å⁻¹/px is honoured**: g₍₂₀₀₎/24.5 px = 0.020017, exact on
+  the outer ring to 0.09%. It is ground truth, not a stale label.
+  **Magnitude, correctly attributed:** paired with `au_fcc` the fixture error
+  alone is **+25%**; the app ships **+13.7%** only because two detector defects
+  partly cancel it — see below. It is stamped `.measuredInApp`.
+  **Not automatic:** `acomModelSelection` defaults to `.none` and `activate`
+  resets it, so nothing under `mac4DSTEM/` selects gold — the user picks a
+  phase, and **no library model matches what the demo draws.**
+  **THE REMEDY THAT LOOKS OBVIOUS IS WRONG.** Gate B built the repaired fixture
+  — gold's {111} at 21.24 px and {200} at 24.52 px at the declared 0.02, every
+  other line copied verbatim — and ran it: `shellCheck` **AGREED** (1.142 vs
+  1.155, 1.1% out), **no refusal**, and the accepted value is **0.018308, −8.5%
+  wrong, stamped `.measuredInApp`.** Repairing the fixture converts a loud
+  refusal into a silent wrong number that passes every check S13 added.
+  **The real defect is upstream, and it is a new one:**
+  `OriginCalibration.probeSize` (`OriginCalibration.swift:33`) counts the Bragg
+  disks as probe area — they exceed 50% of the beam maximum, and the max-DP
+  smears them into arcs across the lattice rotation. **Measured on the demo:
+  beam alone → 4.484 px (drawn half-max 4.5); one pattern with rings → 7.732;
+  the app's max-DP → 9.649.** A 2.15× over-measurement. `ProbeKernel.synthetic`
+  follows it, every correlation peak moves outward by ≈ +3.3 px (which does
+  **not** cancel in a ratio — it moves the observed ratio by 5%), and the CoM
+  window `rscale·r = 11.6 px` is then wide enough for the 45° ring to leak in,
+  dragging the measured origin **1.62 px** off a known-exact beam centre while
+  the fit RMS reads a healthy **0.067 px** — a constant bias RMS cannot see.
+  **This is almost certainly the SPED_MgO item below**, and Gate B ran that
+  item's own recorded discriminator ("run `probeSize` on the mean DP and on a
+  vacuum-only pattern and compare with the max-DP figure") on synthetic data,
+  where it confirms. It has NOT been run on `SPED_MgO.hdf5`; that is still owed.
+  **Also new, and it is a hole in S13's own checks:** a constant *kernel* bias
+  moves the shell ratio by only 1.1%, inside S13's 3% threshold, so nothing in
+  the estimator can see it — the same blind spot §3.1 already admits for a
+  constant *origin* displacement, now present in a second place.
+  **What S13 got wrong and Gate B corrected, recorded because the corrections
+  matter more than the original claim:** the re-identification as "{200}/{220}
+  of a cubic [001] zone" (**refuted by the measured spot angles** — inner at
+  45°, not on-axis); "the declared 0.02 the geometry never honoured"
+  (**refuted**, it is exact on the outer ring); "the demo path pairs the cube
+  with `au_fcc`" (**refuted**, it defaults to `.none`); and the "√2 ratio,
+  outer ring 26.66 px, observed 1.4275" evidence, which was **circular** — it
+  was recovered by assuming √2 and then choosing a √2-sized separation to skip
+  past the inner ring, over 96 of 144 positions. **The app actually reports
+  1.089 against a predicted 1.155, 5.7% out.**
 
 - **ACOM omits py4DSTEM's `power_radial` — S11 confirmed absent, 2026-08-28.
   Owner: S16.** `orientation_plan` declares `power_radial: float = 1.0`
