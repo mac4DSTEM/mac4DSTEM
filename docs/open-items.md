@@ -343,6 +343,42 @@ citations cannot be trusted without checking.
 
 ## Known, scoped, not blocking
 
+- **Disk-detection radius looks ~3x too large on a strongly-diffracting dataset
+  (`SPED_MgO.hdf5`) — owner observation, 2026-08-28, on screen. NOT diagnosed;
+  Gate D owed before any fix.** Reported with a screenshot: the overlay circles
+  dwarf the visible central disk, spurious peaks land on noise, "Calibration
+  incomplete" is showing. **Hypothesis, with a mechanism and an arithmetic
+  check — not a conclusion.** `Calibration.probeRadius` comes from
+  `probeSize(dp: statistics.maxDP)` (`OriginCalibration.swift:225,271`), and
+  `probeSize` returns `sqrt(areaAboveThreshold / pi)` — the radius of a disk of
+  the same TOTAL lit area, not the central disk's radius. The **max**-DP is the
+  pixel-wise maximum over every scan position, so on a multi-grain sample it
+  carries the union of every Bragg disk seen anywhere. Reported 14.1 px implies
+  625 px² lit = 3.0% of the 144x144 detector, i.e. ~12 disk-areas if the true
+  disk is ~4 px — consistent with the screenshot. **SPED sharpens the concern**:
+  precession deliberately equalises central-beam and Bragg-disk intensities, so
+  the "central beam dominates the threshold" assumption `probeSize` inherits
+  from py4DSTEM's `get_probe_size` is weakest exactly here.
+  **A second, separable factor** — do not attribute everything to the radius:
+  acceptance was `Minimum absolute 0 CC` and `Minimum relative 0.5%`, which is
+  permissive enough to admit noise regardless of kernel size.
+  **Also found while reading this:** the kernel label **"Measured ROI · 14.1 px"
+  is misleading** — `ProbeKernel.measured(pattern:originX:originY:radius:)`
+  takes the radius as a PARAMETER from `Calibration.probeRadius`; it is not
+  measured from the ROI the user selected. The label implies a provenance the
+  number does not have.
+  **Cheapest discriminator, before any code:** run `probeSize` on the **mean**
+  DP and on a vacuum/substrate-only pattern and compare with the max-DP figure.
+  If the hypothesis holds, both come back near the visible disk radius. The
+  campaign harness already computes `meanDP` beside `maxDP`, so this needs no
+  new plumbing. **Owner: a later session (Gate D, then Gate B for the fix).**
+  **Open design question from the owner, same day:** should the user be able to
+  set the probe radius by hand, as py4DSTEM effectively allows? Precedent exists
+  — manual Q pixel size bypasses its estimator and is provenance-stamped — but
+  under the refusal rule a manual escape hatch must not substitute for an
+  estimator that is silently wrong: fix or qualify the automatic path first,
+  then add manual entry stamped `.manual`, never `.measuredInApp`.
+
 - **A file's mean origin never reaches the analyses that claim to use it —
   found by S11, 2026-08-28. Owner: S13 (Gate B); design note to S12.**
   `.fileMean` and `.sessionMean` write the origin into `aperture.centerX/Y`
