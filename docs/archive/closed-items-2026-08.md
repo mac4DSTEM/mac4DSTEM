@@ -1050,3 +1050,52 @@ list in the live file is only what was re-derived from this tree.
 path to v1" and recommends narrowing scope before release. **v1.0.0 shipped on
 2026-08-06 and is public.** Read those sections as *what v1.1 should fix before
 the claims are widened*, not as release advice.
+
+---
+
+## The stale `run-tests.sh all` claim — closed 2026-08-28
+
+Moved here by S12 (2026-08-28) under the same rule M1's T3 applied: the entry
+was closed by S19 and what remained live was 41 lines of how the claim came to
+be stale. The closure itself stays in [`docs/open-items.md`](../open-items.md)
+as a two-sentence tombstone. Verbatim below, from `*Original entry:*` onward.
+
+  *Original entry:* **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
+  harnesses.** Measured at the tag; **nobody has reproduced the aggregate
+  since**, and the count has moved twice — `virtual-detector-residency` landed
+  2026-08-17 and `load-spec-test` and `load-spec-calibration` on 2026-08-18, so `scientific` is
+  now 33 and `all` is 35. A verification claim that a reader cannot reproduce is the kind
+  that costs credibility with exactly the people who check — so either re-run
+  `all` and restate it, or say what was actually run.
+
+  **Measured 2026-08-18, and it is worse than "not re-run":** `run-tests.sh all`
+  cannot reach a single harness. It runs `unit` first and `set -e` aborts there
+  on the intermittent `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
+  — exit 65, zero `==>` lines. So the standing note that **#43** is "what
+  currently stops `run-tests.sh all` from passing at all" (repeated in
+  `CLAUDE.md` and `docs/load-pipeline-plan.md` §5) was wrong on this machine: the
+  sidebar test stops it first and #43 was never reached. Confirmed pre-existing —
+  the same test fails the same way on a stashed clean tree.
+
+  **Re-measured after #43 was fixed, later the same day: `all` still aborts in
+  the unit stage.** Fixing #43 did not change that and was never going to. But
+  every *other* component of the aggregate has now been run individually and is
+  green on this machine:
+
+  | component of `all` | result, 2026-08-18 |
+  |---|---|
+  | `unit` | **1 failure** — `testEveryWorkspaceSidebarFitsItsColumn`, intermittent, pre-existing |
+  | `scientific` | exit 0, **33 harnesses** (35 as of 2026-08-19, S2) |
+  | `real-data-acceptance` | exit 0, 4 cubes golden, 2 sidecars skipped |
+  | `package-test` | exit 0 |
+
+  At that point the honest claim was **"every part of `all` except one
+  intermittent layout test"** — not "exit 0, N harnesses". The test was the
+  single thing between that evidence and an aggregate run.
+
+  **S17 update, 2026-08-27:** the uncontrolled persisted-disclosure state is
+  now isolated and uncalibrated Prepare is an explicit diagnostic skip;
+  `unit` exits 0 (378 passed / 4 skipped / 0 failed). That removes the old
+  early-abort condition, but `all` still has not been run end to end. S19 owns
+  the aggregate run and claim restatement; do not infer its result from the
+  component table above.

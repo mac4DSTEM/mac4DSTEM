@@ -262,3 +262,51 @@ available to the stage in hand:
 A coverage argument, not a speed one: one clean simulated case and one hard
 experimental case cover the two failure modes that matter. Run the other two
 when a change plausibly touches what makes them different.
+
+## 9. What keeps a session agent-runnable (added 2026-08-28, S12)
+
+**Most blockers here are access, not judgement.** On 2026-08-28 four of the
+five live rows were owner-gated, and only one of them was gated on a
+*decision* — the rest were waiting on a grant, a mounted disk or a file that
+was not attached. A one-time setup converts a whole class of owner-only work
+into work an agent can run while you do something else, so it is worth
+separating the three kinds of block.
+
+**One-time grants — do once, unblock a class.**
+
+| Grant | What it unblocks | State on 2026-08-28 |
+|---|---|---|
+| **Full Disk Access** for the terminal running the agent | Reading `~/Library/Containers/`. Every sidecar, sandbox and TCC diagnosis is currently handed back to you as a one-line command to run and paste — the agent cannot see the container at all | **Not granted.** TCC blocks it even with the app sandbox off |
+| Screen Recording + Accessibility | Track B rows written, driven *and* scored by the agent (TB1 sitting 1, S18's F1.32/F1.34) | Granted — but **re-grant after every Claude Code update**, it silently stops working |
+
+**Standing data availability — leave it attached, not just for one run.**
+
+| Thing | What it unblocks | State on 2026-08-28 |
+|---|---|---|
+| The NAS mounted | **S9b**'s NAS arm. Without both arms there is no discriminator, so the whole diagnosis waits | Mounted on demand only |
+| The 17 GB DM4 on an attached external SSD | S9b's local arm — a real filesystem, so `mmap` behaves as it does locally — *and* it removes the disk constraint that has blocked this row | Not attached |
+| One multi-GB cube reachable locally | TB1 sitting 3, and any real full-extent promote run | Largest local cube is 1.3 GB |
+| **≥ 20 GB free on the boot disk** | The S0 preflight refuses below 8 GB and has refused in four sessions (S4, S8, TB1 s1, and one M1 near-miss) | 11–12 GB — one build away from refusing |
+
+**Genuinely owner-only — do not route around these.**
+
+- **The clean-account run** (TB1 sitting 4). The agent cannot create a macOS
+  account and cannot drive an app in another user's session. Resetting the
+  container in this account is *not* a substitute: the clean-account run has
+  caught three defects a reset could not.
+- **Signing, notarization, the tag** (S20), and `/code-review ultra` — billed
+  and user-triggered.
+- Every decision the release plan marks as yours (`docs/v2-release.md` §8's
+  owner-decision list).
+
+**Decisions block differently from access.** A decision costs you minutes and
+unblocks one session; a grant costs you one setup and unblocks a class. Both are
+worth clearing, but a decision left sitting is the more expensive of the two,
+because nothing else can be substituted for it. Keep the decision queue short.
+
+**When a session is part-gated, split it — do not wait.** S9's split into
+**S9a** (needs no NAS and no spare disk; ran immediately) and **S9b** (keeps
+the local-vs-NAS diagnosis; still waiting) is the model, and the split is what
+let the guard ship months before the diagnosis it does not replace. State
+plainly which half ran and which is still owed, and never let the half that
+ran be written up as closing the half that did not.

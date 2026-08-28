@@ -40,6 +40,10 @@ Done means the repo tells the next reader the truth. In order:
    it was 2,548 two days later, all of it narrative. **Check the tax at
    closeout** — `wc -l CLAUDE.md docs/v2-release.md docs/open-items.md` — and
    if your session pushed it up, say so in the record and trim something.
+   **If you edited `CLAUDE.md`, run `tools/sync-agents-md.sh`** (or
+   `--check`, which exits 1 when stale). `AGENTS.md` is generated from it since
+   2026-08-28 — hand-maintained before that, it drifted six sessions and ended
+   up calling a claim unreproduced that S19 had reproduced.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
 7. Republish the owner's living v2 board (owner request, 2026-08-26):

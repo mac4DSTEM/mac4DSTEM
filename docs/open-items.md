@@ -60,8 +60,13 @@ file:
 - The 8 GB death / DM4 `.mappedIfSafe` suspect → **S9** (Gate D — the
   local-vs-NAS `footprint` experiment first).
 - The four unverified review leads + the bounds-convention sweep → **S11**.
-- `measureOrigin` frame-dependence and single-refinement → weighed in **S12**;
-  **#29** → **S12** reads the campaign data that settles it.
+- ~~`measureOrigin` frame-dependence and single-refinement → weighed in
+  **S12**; **#29** → **S12** reads the campaign data that settles it.~~
+  **Both done 2026-08-28.** #29 is **answered** and the coarse step is
+  recommended **OUT** of S13 on a measurement — the design, the numbers and
+  what S13 should build are
+  [`docs/q-calibration-design.md`](q-calibration-design.md). Entries below
+  carry the outcomes; S13 inherits the implementation.
 - **#11** WS₂ → **S14–S16**.
 - ~~`SidebarLayoutTests` intermittent → **S17** (Gate D).~~ **Diagnosed and
   formally quarantined 2026-08-27**; two owner-visible rows remain in Track B.
@@ -237,6 +242,7 @@ Two things learned that are not obvious and cost time:
   27. CI now builds and runs the unit suite on macOS 26, but no Track B pass has
   exercised that OS and nothing from 14–25 has been exercised at all. Only a
   real older machine answers the visual/runtime half.
+
 - ~~**`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
   harnesses**~~ — **CLOSED by S19, 2026-08-28.** `all` was run end to end on the
   current tree: **exit 0, 40 harnesses, zero FAIL lines, zero exit-69 refusals,
@@ -246,48 +252,9 @@ Two things learned that are not obvious and cost time:
   gate does not cover; `CHANGELOG.md` keeps v1.0.0's 30-harness numbers as the
   record of what THAT release was verified by, with a pointer to the current
   ones. The single SKIP is `real-data-acceptance` correctly refusing to read a
-  session sidecar as a datacube (#43). Historical detail of the two years this
-  claim was stale follows.
-
-  *Original entry:* **`README.md` and `CHANGELOG.md` claim `tools/run-tests.sh all` — exit 0, 30
-  harnesses.** Measured at the tag; **nobody has reproduced the aggregate
-  since**, and the count has moved twice — `virtual-detector-residency` landed
-  2026-08-17 and `load-spec-test` and `load-spec-calibration` on 2026-08-18, so `scientific` is
-  now 33 and `all` is 35. A verification claim that a reader cannot reproduce is the kind
-  that costs credibility with exactly the people who check — so either re-run
-  `all` and restate it, or say what was actually run.
-
-  **Measured 2026-08-18, and it is worse than "not re-run":** `run-tests.sh all`
-  cannot reach a single harness. It runs `unit` first and `set -e` aborts there
-  on the intermittent `SidebarLayoutTests.testEveryWorkspaceSidebarFitsItsColumn`
-  — exit 65, zero `==>` lines. So the standing note that **#43** is "what
-  currently stops `run-tests.sh all` from passing at all" (repeated in
-  `CLAUDE.md` and `docs/load-pipeline-plan.md` §5) was wrong on this machine: the
-  sidebar test stops it first and #43 was never reached. Confirmed pre-existing —
-  the same test fails the same way on a stashed clean tree.
-
-  **Re-measured after #43 was fixed, later the same day: `all` still aborts in
-  the unit stage.** Fixing #43 did not change that and was never going to. But
-  every *other* component of the aggregate has now been run individually and is
-  green on this machine:
-
-  | component of `all` | result, 2026-08-18 |
-  |---|---|
-  | `unit` | **1 failure** — `testEveryWorkspaceSidebarFitsItsColumn`, intermittent, pre-existing |
-  | `scientific` | exit 0, **33 harnesses** (35 as of 2026-08-19, S2) |
-  | `real-data-acceptance` | exit 0, 4 cubes golden, 2 sidecars skipped |
-  | `package-test` | exit 0 |
-
-  At that point the honest claim was **"every part of `all` except one
-  intermittent layout test"** — not "exit 0, N harnesses". The test was the
-  single thing between that evidence and an aggregate run.
-
-  **S17 update, 2026-08-27:** the uncontrolled persisted-disclosure state is
-  now isolated and uncalibrated Prepare is an explicit diagnostic skip;
-  `unit` exits 0 (378 passed / 4 skipped / 0 failed). That removes the old
-  early-abort condition, but `all` still has not been run end to end. S19 owns
-  the aggregate run and claim restatement; do not infer its result from the
-  component table above.
+  session sidecar as a datacube (#43). The two years of historical detail this entry accumulated — the 2026-08-18
+  measurements, the component table, the S17 update — are **moved verbatim** to
+  [the closed-items archive](archive/closed-items-2026-08.md#the-stale-run-testssh-all-claim--closed-2026-08-28).
 
 ### First clean-account acceptance run — 2026-08-14
 
@@ -360,6 +327,11 @@ but sets the winning block's centre as `0.5*(bx + xEnd - 1)` at line 60 — two
 conventions half a pixel apart in one kernel. The seed is unreachable in
 practice (any block sum beats `-FLT_MAX`) and only seeds a CoM refine, so this
 is a tidy-up, not a defect; S12 is already re-weighing that coarse step.
+**S12, 2026-08-28: confirmed cosmetic and handed to S13** as a one-line fix,
+since S13 is editing that file's neighbourhood anyway. The seed is reachable
+only when no block sum beats `-FLT_MAX` — an all-NaN pattern, where the CoM
+produces garbage regardless — so it is a readability fix and must not be
+written up as a defect.
 
 **That review's own errors and its stale v1 framing** — the MLX claim, the App
 Store assumption, the mid-L2 resident-cube findings, the file paths that do not
@@ -393,11 +365,11 @@ citations cannot be trusted without checking.
   origin *maps*, so the suite only ever runs the non-nil branch.
 
 - **The Q estimator is a single unindexed shell where py4DSTEM fits many —
-  S11, 2026-08-28. Owner: S12, whose brief already covers it.**
+  S11, 2026-08-28. Designed by S12, 2026-08-28; owner for the code is S13.**
   `KnownCrystalQCalibration.estimate` takes the *innermost* non-central peak
   at each scan position, medians them, and divides one reference radius by
   the result (`QCalibration.swift:19-51`). py4DSTEM's
-  `get_dq_from_indexed_peaks` (`process/calibration/qpixelsize.py:28-66`)
+  `get_dq_from_indexed_peaks` (`process/calibration/qpixelsize.py:26-65`)
   least-squares-fits `q ≈ c·sqrt(h²+k²+l²)` across **indexed** shells. The
   reference side is sound — `Crystal.reflections` applies structure-factor
   extinction and sorts ascending, so `.first` is genuinely the first *allowed*
@@ -408,6 +380,73 @@ citations cannot be trusted without checking.
   a 15% error, silently stamped `.measuredInApp`. Multi-shell fitting is
   self-checking about this; single-shell cannot be. Compounds the known
   `minimumRadiusPixels = 2` limit already recorded against #46.
+  S12's answer is a **shell-ratio self-check inside the estimator** — collect the
+  innermost *two* radii per position and compare median(r₂)/median(r₁) against
+  g₂/g₁ from `Crystal.reflections` — rather than porting py4DSTEM's indexed
+  least squares wholesale, which would need indexing the app does not do at this
+  stage. Its stated limit: when only one shell is detectable the check cannot
+  run and must report *not self-checked*, never silently pass.
+  [`docs/q-calibration-design.md`](q-calibration-design.md) §3.2.
+
+- **The origin-fit refusal leads with three remedies that cannot work and
+  buries the one that can — S12, 2026-08-28. Owner: S13 (Gate B), one string
+  plus the judgement behind it.** `Calibration.originFitRefusal`
+  (`Core/Data/Calibration.swift:506-511`) appends *"Try another Origin fit
+  (Constant / Plane / Parabola) and re-run Calibrate Origin, or enter the scale
+  manually."* On **both** training datasets where that text is shown, all three
+  fit functions miss the gate — `downsample_Si_SiGe_exp` 13.133 / 11.655 /
+  11.302 px against a 5.026 px gate (2.2× at best), `Particle_1…bin8` 18.720 /
+  18.295 / 18.138 against 10.624 (1.7× at best). **The fourth remedy DOES
+  work** — manual entry bypasses the estimator and the field is rendered in
+  both branches, which is why `AppState.swift:4951` says refusing "is never a
+  dead end" (a Gate B decision, 2026-08-25). *S12's first draft of this entry
+  said the refusal was a dead end; it quoted the string truncated before the
+  manual-entry clause, and a refuter caught it.* The live defect is that the
+  text spends its words on the three that cannot succeed: it should name what
+  actually failed — broad measurement failure versus excluded outliers, which
+  the app can now tell apart — and lead with manual entry. Numbers from
+  `tools/training-dataset-campaign` (`origin_calibration` stage).
+
+- **The plane origin fit is not robust, so a contaminated scan gets a DISPLACED
+  origin and the residual reports the contamination instead — S12, 2026-08-28.
+  Owner: S13 (Gate B), and it is the largest single win in that session.**
+  This is the actionable half of **#29's answer** (below). On
+  `Particle_1…bin8` a quarter of scan positions fail origin measurement
+  (median/RMS residual ratio **0.183**, p50 3.35 px but p95 47.93 px), and the
+  unweighted least-squares plane is dragged by them: the shipped fit differs
+  from an iteratively-trimmed one by p50 **2.03 px**, p95 4.64 px, **max 6.00
+  px** across the scan. #29's own item 1 puts the Q estimator's breakdown at
+  ≈2 px, so the app today computes an origin up to 6 px wrong **and refuses it
+  on a statistic that describes the contamination rather than the
+  displacement**. **Two changes are needed, not one** — a robust fit alone does
+  NOT clear the shipped gate: `originFitIsQuantitative` thresholds a *full-scan*
+  RMS, and the trimmed fit's full-scan RMS is **18.475 px**, marginally worse
+  than the shipped 18.295, a direction forced by full-scan OLS minimizing
+  exactly that quantity. The 2.19 px figure is over the 72.7% of positions
+  trimming kept, which is not what the gate reads. *S12's first draft claimed
+  the trimmed fit "clears the same gate"; a refuter measured the full-scan
+  number and refuted it.* So the fit must become robust **and** the gate must
+  read a robust residual plus the outlier fraction (§2 of the design); either
+  alone changes nothing.
+  Measured by `tools/origin-fit-diagnostics/run.sh residuals`; design and the
+  gate split in [`docs/q-calibration-design.md`](q-calibration-design.md)
+  §1–§2. **Blind spot to close with it:** S11 recorded that every
+  `QCalibrationOriginGateTests` case builds origin *maps*, so the nil branch has
+  never run; a test that exercises it is part of the fix and must be broken
+  before it is trusted.
+
+- ~~**`AGENTS.md` has been drifting since S17 and now states a claim S19
+  refuted**~~ — **found and CLOSED by S12, 2026-08-28.** It was a tracked
+  near-copy of `CLAUDE.md`, six sessions stale, still saying `run-tests.sh all`
+  "has never been run end to end on this machine" after S19 ran it — and three
+  of its four hand-made substitutions were themselves wrong (a `.Codex/skills/`
+  directory that does not exist; the pre-move memory path `CLAUDE.md` had
+  already corrected). **It is now generated**: `tools/sync-agents-md.sh`
+  rewrites it from `CLAUDE.md` with three anchored substitutions, refuses
+  rather than half-generating if an anchor moves, and `--check` exits 1 when
+  stale. The closeout skill runs it. **Live residual:** nothing enforces it
+  mechanically — no CI job or hook runs `--check`, so it relies on the closeout
+  step being followed.
 
 - **The strain weighting deviation exists only as a source comment — S11,
   2026-08-28. Owner: S13, carried as one key + one fixture assertion.**
@@ -1119,12 +1158,28 @@ or it spends the one resource Track B is expensive in — a person's attention.
   (`P4_KNOWN_BOUND` 0.65 px, `ORIGIN_ABSOLUTE_BOUND` 0.40 px), so S13 gets a
   before/after gate rather than an argument.
 
-  **Cost, since "taken for cost" is the reason the deviation exists:** the naive
-  stride-1 window is O(qy·qx·bin²) per pattern against O(qy·qx) today, but a
-  separable box filter restores O(qy·qx). The equivariant step is therefore
-  probably cheap, and the shader header's assumption that it is expensive has
-  never been measured. **S12 should weigh this on a measurement, not on the
-  header.**
+  **Cost, MEASURED by S12 on 2026-08-28** (`tools/origin-fit-diagnostics/run.sh
+  coarse-cost`; both kernels derived from the shipped shader at run time so
+  neither can drift; median of 15 dispatches **at the app's real tile grid** —
+  `measureOrigin` is dispatched per tile, and an earlier draft of this
+  paragraph timed invented scan shapes and had every ratio wrong): the naive
+  stride-1 window costs **2.5× at bin 2, 14.8× at bin 5, 21.6× at bin 6 and
+  86.3× at bin 11** — 1.3–3.3 µs/pattern shipped against 3.3–224.3 µs. Against
+  a whole `origin_calibration` stage of 60–174 µs/position (the shipped kernel
+  being 1.3–5.5% of it), that is **+17% at *r* = 5 and +261%, i.e. 3.6× the
+  whole stage, at *r* = 10.6**. So this entry's own guess that "the equivariant
+  step is therefore probably cheap" was **wrong**, and the shader header's
+  "prohibitively expensive" is closer to right than this entry assumed —
+  negligible for small probes, more than triple the stage for large ones.
+  **Per-machine caveat:** tile height comes from `scanTileRows`, bounded by
+  physical RAM, so these are an 8 GB machine's ratios. **S12 recommends it OUT of S13**: it buys 0.61 px
+  that is a stated bound rather than a product claim (already pinned by
+  `P4_KNOWN_BOUND` 0.65 px), it leaves the 0.337 px absolute error untouched,
+  and the same datasets are 11.7 px and 18.3 px wrong for an unrelated reason
+  (below). If it is ever wanted, stride-1 is the wrong implementation — a
+  separable box filter restores O(qy·qx) and must itself be measured before it
+  is believed. Re-entry condition and reasoning:
+  [`docs/q-calibration-design.md`](q-calibration-design.md) §4.
 - **`measureOrigin` performs a single centre-of-mass refinement, not an
   iteration to convergence**, so its output sits ~0.6 px from the converged
   windowed centre on the same fixture. Also pre-existing, also a deviation from
@@ -1605,6 +1660,20 @@ or it spends the one resource Track B is expensive in — a person's attention.
   `run.sh` files use bare untagged `mktemp -d`, invisible to any reaper.
   Fix wants one `tools/lib/` constants file sourced by both sides. Owner:
   whichever session next touches `run-tests.sh`, or S18.
+
+  **A second, sharper limit, measured 2026-08-28:** with the boot volume at
+  **10 GB free** — one build from the 8 GB preflight refusal — `free-space.sh`
+  reported **0 B across all six targets**. The docs name it as *the* remedy for
+  an exit-69 refusal; on that day it had nothing to give, because the pressure
+  was entirely outside its two roots: Claude Desktop's VM bundle (10 GiB
+  `rootfs.img`), `~/.cache/codex-runtimes` (3.4 GB) and package-manager caches
+  (~1 GB). Clearing those by hand took the volume to **24 GB**. So the script's
+  scope is narrower than the problem it is cited for, and a session that runs
+  it, sees `0B` and concludes "nothing to reclaim" will be wrong. Either widen
+  it to the agent-tooling roots (they are regenerable, but one held 33 MB of
+  live VM session state that had to be preserved first — so it needs the same
+  structural care the existing guard has, not a bigger glob), or amend the
+  places that call it the remedy. Owner: same as above.
 
 - ~~Eight standing build-warning classes~~ — **all cleared by the S3 rider,
   2026-08-19** (a fresh clean `build_macos` reports zero warnings); record

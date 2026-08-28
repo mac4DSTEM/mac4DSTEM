@@ -116,8 +116,9 @@ release pipeline.
 ### The cut line
 
 **The release is shippable after W1 + W2 + W5.** W3 and W4 (S11–S16, TB2) are
-the severable block — **S11 landed 2026-08-28, so what is actually severable
-now is S12–S16 + TB2**, and S11's `power_radial` finding goes with them: cutting them to a fast v2.x weakens no other workstream
+the severable block — **S11 and S12 both landed 2026-08-28, so what is actually
+severable now is S13–S16 + TB2**, and S11's `power_radial` finding goes with
+them (S12's design survives a cut as a written record either way): cutting them to a fast v2.x weakens no other workstream
 and nothing downstream needs rework. Cutting is the release owner's explicit
 decision at the time, never a default — this line exists so that a schedule
 problem can never argue for thinning a review gate instead. The promote run
@@ -322,8 +323,8 @@ design review, the WS₂ variant confirmation (S14), the version number (S20).
 Everything else runs on the decisions recorded in this file.
 
 **Sizing, honestly:** ~21 agent sessions plus two owner passes and the
-endgame. The severable block (S11–S16 + TB2) is 6 sessions + one pass; the
-binding core is ~15.
+endgame. The severable block (S13–S16 + TB2, after S11 and S12 landed) is
+4 sessions + one pass; the binding core is ~15.
 
 ### Session kickoff (copy-paste)
 
@@ -592,7 +593,46 @@ only if asked.
   ground-truth driver behind `docs/py4dstem-pipelines.md` §10.1's table was not
   retained), and no failing case was *demonstrated* for the origin fallback —
   it is read from the code path, not from a red test.
-- [ ] S12 · [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
+- [x] **S12** — 2026-08-28. Q-cal design, all four asks answered; the design is
+  [`docs/q-calibration-design.md`](q-calibration-design.md) and the owner
+  reviews it before S13. **#29 is ANSWERED and its binary framing was wrong:**
+  both causes occur, on different datasets, and RMS discards what separates
+  them. `Si_SiGe` is broad measurement failure (median/RMS 0.919, 84% of
+  positions beyond the probe radius, trimming removes nothing) — refusing is
+  right; `Particle_1` is outlier contamination (median/RMS 0.183, trimming keeps
+  72.7%) and the contaminated plane is **displaced up to 6.00 px**, past the
+  ≈2 px estimator breakdown. **Two changes are needed, not one:** a robust fit
+  alone does NOT clear the shipped gate, which reads a *full-scan* RMS — the
+  trimmed fit's is 18.475 px, marginally worse than the shipped 18.295, forced
+  by OLS minimizing exactly that quantity. The gate's statistic must change too.
+  **New defect:** the refusal leads with "try Constant / Plane / Parabola",
+  which cannot clear the gate on either dataset (all three within 14% of each
+  other, 1.7–2.2× above it), and buries manual entry — the one remedy that
+  works. Coarse step **measured and recommended OUT** of S13: at the app's real
+  tile grid stride-1 costs 2.5×/14.8×/21.6×/86.3× at bin 2/5/6/11, adding +261%
+  (3.6× the whole stage) at *r* = 10.6, to buy 0.61 px while 12 px sits on the
+  table. Gate: **Plan** (no code, no review owed). New tool:
+  `tools/origin-fit-diagnostics` (does not gate; needs the gitignored training
+  data). Track A: not run, not owed — nothing under `mac4DSTEM/` touched.
+  **A 41-agent adversarial pass ran on the finished change before it was
+  committed: 36 findings, 25 refuted, 11 confirmed and all fixed.** Three were
+  material and are corrected in place with the correction stated rather than
+  quietly absorbed — the refusal "cannot work" (the fourth remedy does), the
+  robust fit "clears the gate" (it does not), and the entire §4 cost table
+  (timed at invented scan shapes instead of the tile grid the app dispatches;
+  every ratio was wrong, all in the direction that strengthens the conclusion).
+  Deviations: 2 — (1) the campaign harness was run *without* run.sh's py4DSTEM
+  parity step, so `References/parity_records/latest` was not overwritten; the
+  `origin_calibration` metrics are identical either way; (2) no
+  `docs/archive/v2-session-records/s12.md`, following S11's precedent — the
+  design doc **is** the record and copying it would create the second summary
+  this repo keeps getting burned by. **Not verified:** §3's two estimator
+  checks are designed, not prototyped — their discriminating power is asserted
+  and S13's pre-registered experiment may refute it; Q calibration has run end
+  to end on exactly one dataset (sim_Au); the cost table times the kernel on
+  synthetic patterns and combines it with the campaign's real-data stage time,
+  two runs rather than one instrumented run.
+- [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 - [x] **S18** — 2026-08-27. Polish sweep, the brief's list complete. Shipped:
   one shared `PaneBottomOverlay` (wide case unchanged on purpose), #38's scroll
   monitor scoped by event-time geometry instead of a remembered hover, the

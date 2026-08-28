@@ -270,6 +270,29 @@ evidence already exists and has never been read:
 `parabola_rms_px` beside the plane fit, so comparing the three fit functions on
 the same dataset should settle it cheaply.
 
+> **ANSWERED by S12, 2026-08-28 — and the question above is a false
+> dichotomy.** Both causes occur, on different real datasets, and the current
+> gate cannot tell them apart because RMS discards exactly the information that
+> separates them. `downsample_Si_SiGe_exp` is broad measurement failure
+> (median/RMS 0.919, 84% of positions beyond the probe radius, iterative
+> trimming removes nothing and moves the fit by 0.000 px) — refusing is right.
+> `Particle_1…bin8` is outlier contamination (median/RMS 0.183; trimming
+> converges at 72.7% kept, RMS 2.19 px against a 10.624 px gate) — and the
+> contaminated plane is itself displaced by up to 6.00 px, past the ≈2 px
+> breakdown item 1 names. The three fit functions span ≤14% on both, so the
+> refusal's "try another fit function" remedy provably cannot work on either.
+> Design, numbers and what S13 implements:
+> [`docs/q-calibration-design.md`](q-calibration-design.md).
+>
+> One correction to the sentence above: the campaign *computes* those two
+> metrics on demand, it does not retain them — there is no file to go read.
+> **`tools/training-dataset-campaign/run.sh` reproduces them** — note that
+> `tools/run-tests.sh campaign` does **not**: that mode's array is the parallax
+> and ptychography harnesses and does not include `training-dataset-campaign`
+> at all (a wrong instruction in this note's first draft, caught in review).
+> S12 ran the campaign's compile-and-harness half without run.sh's py4DSTEM
+> parity step, so `References/parity_records/latest` was left intact.
+
 **Do not** re-derive this by replacing the estimator with nearest-neighbour
 spacing — that was tried on 2026-08-06 and refuted (breaks `tools/strain-test`
 on single-peak patterns; Q errors to +176% on superimposed lattices). The full
@@ -353,10 +376,12 @@ level).
 
 What is non-obvious now, so it isn't rediscovered: the propagation must not
 become a fabrication channel — an error bar computed from a model that does
-not hold (e.g. treating the origin-fit residual as i.i.d. noise when #29's
-question — rigid fit vs noisy measurement — is still open) is a *precise
-wrong claim*, the worst kind under the refusal rule. #29 must be answered
-first (v2 S12 reads the data that answers it), and every propagated interval
+not hold (e.g. treating the origin-fit residual as i.i.d. noise) is a *precise
+wrong claim*, the worst kind under the refusal rule. **#29 is now answered —
+S12, 2026-08-28, above** — and the answer sharpens this warning rather than
+clearing it: the residual is broad scatter on one dataset and a heavy-tailed
+mixture on another, so a propagation that assumes either shape globally is
+wrong on the other. Every propagated interval
 needs the same fixture treatment as the value it decorates: a case where the
 true uncertainty is known analytically, and a negative control that fails
 when the propagation is wrong.

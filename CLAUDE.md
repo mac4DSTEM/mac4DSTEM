@@ -53,8 +53,8 @@ at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
 mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
-**The v2 release is mid-flight: S0–S8, S9a, S10, S11, S17, S18, S19 and S21
-are done** (plus the M1 tidy)
+**The v2 release is mid-flight: S0–S8, S9a, S10, S11, S12, S17, S18, S19 and
+S21 are done** (plus the M1 tidy)
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
@@ -80,11 +80,16 @@ Sequencing (§9's checklist and resequencing line are the authority): the
 S10 → S21 → S17 run is complete; **TB1 sitting 1 is COMPLETE (2026-08-27)** and
 sittings 2–4 wait on the owner — sitting 3 needs a multi-GB/NAS cube, sitting 4
 a clean account. **S11 was run ahead of them on 2026-08-28** rather than after,
-because it needs neither; that reordering is stated in its stub. S9 when NAS
+because it needs neither; that reordering is stated in its stub, and **S12 ran
+ahead of them on 2026-08-28 for the same reason**. S9 when NAS
 access and disk allow — **and #37 moved there**, since S18's
 measurement showed the cancellation cost is I/O, not check granularity. The
-cut line and the severable block (now S12–S16, TB2 — S11 landed) are §2 of
-the release plan.
+cut line and the severable block (now **S13–S16, TB2** — S11 and S12 landed)
+are §2 of the release plan. **S12's output is a design the owner reviews
+before S13 starts**, [`docs/q-calibration-design.md`](docs/q-calibration-design.md):
+#29 answered — the origin-fit residual gate conflates two different failures,
+and fixing the fit without fixing the *statistic* changes nothing — and the
+`measureOrigin` coarse step measured and recommended **out** of S13.
 
 **The honest test claim — each number dated to its own run:**
 `run-tests.sh scientific` — exit 0 over **38 harnesses**, zero FAIL lines
@@ -133,6 +138,12 @@ pass — that is a finding, not a bug fix.
   D is the structural guard against a confident wrong diagnosis), the numbered
   sessions S0–S21, and the live status checklist. **The single entry point.**
   Consult it for "what do I pick up?" and "is this in scope?".
+- **[`docs/q-calibration-design.md`](docs/q-calibration-design.md)** — **S12's
+  design, 2026-08-28**: what the origin-fit residual gate actually measures
+  (#29, answered), the sane-origin / measure-Q split, the estimator-internal
+  plausibility checks, and the coarse-step in-or-out call with its measurement.
+  Read it before touching Q calibration, `OriginCalibration` or
+  `Shaders/OriginMeasure.metal`; S13 implements from it.
 - **[`docs/v2-scope.md`](docs/v2-scope.md)** — the 2026-08-17 phase-2
   priorities. **Superseded by `docs/v2-release.md`**; kept for the eight
   decisions and their reasons. *(It replaced `docs/v2-planning-draft.md`,
@@ -249,8 +260,12 @@ and they build.
 - **Keep docs current as part of "done"** — no file self-updates. When a task
   lands, update **`docs/open-items.md`** (add, amend, or delete the item) and
   any reference doc it affects. Do **not** edit `docs/archive/v1.0/` — it is a
-  frozen record of the v1.0 phase. Full conventions (model/subagent tiers,
-  review gates, where new work goes, delivery):
+  frozen record of the v1.0 phase. **`AGENTS.md` is generated from this file** —
+  if you edit `CLAUDE.md`, run `tools/sync-agents-md.sh` (`--check` exits 1 when
+  stale); it was hand-maintained until 2026-08-28 and drifted six sessions.
+  Full conventions (model/subagent tiers, review gates, where new work goes,
+  delivery, and **§9 what keeps a session agent-runnable** — the grants and
+  attached disks that turn owner-only rows into work an agent can run):
   **`docs/development-process.md`**.
 - Commit/push only when asked; this is a solo-dev repo with linear `main`.
 

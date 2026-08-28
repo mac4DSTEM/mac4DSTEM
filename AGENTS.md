@@ -1,5 +1,10 @@
 # AGENTS.md — start here
 
+> **Generated from `CLAUDE.md` by `tools/sync-agents-md.sh` — do not edit this
+> file.** Edit `CLAUDE.md`; the three passages that differ for a non-Claude-Code
+> agent are substituted by that script and listed in its header. Hand-maintained
+> until 2026-08-28, when it was found six sessions stale.
+
 Single entry point for any agent (or human) opening this repo cold. It does
 not duplicate the docs; it tells you what to read and where things go.
 
@@ -8,11 +13,14 @@ not duplicate the docs; it tells you what to read and where things go.
 **v1.0.0 is tagged, signed and public. The v2 release was planned 2026-08-18**
 — the contract and session plan are `docs/v2-release.md`: §1 the claim, §7 the
 gates, §8 the session briefs, §9 the live status checklist. **The one
-canonical kickoff prompt is §8's copy-paste block.** In Codex, type
-**`/pickup`** (or `/pickup S7` for a specific session) instead of pasting it.
-The other standing skills — `/track-b`, `/diagnose`, `/adversarial-review`,
-`/closeout` — each encode one of this repo's disciplines; they live in
-`.Codex/skills/` and point at the docs rather than restating them.
+canonical kickoff prompt is §8's copy-paste block — paste it.** The repo also
+carries five standing skills in `.claude/skills/` — `pickup`, `track-b`,
+`diagnose`, `adversarial-review`, `closeout` — each encoding one of this
+repo's disciplines. They are **Claude Code skills and cannot be invoked from
+here**, but their `SKILL.md` files are short and are the authority on how each
+discipline runs: read the matching one as a document before you do that kind of
+work. There is no `.Codex/skills/` directory; an earlier hand-written version of
+this file said there was.
 
 Standing cautions, each of which has burned this repo before:
 
@@ -53,29 +61,70 @@ at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
 mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
-**The v2 release is mid-flight: S0–S8, S10, S17 and S21 are done**
-(plus the M1 tidy)
+**The v2 release is mid-flight: S0–S8, S9a, S10, S11, S12, S17, S18, S19 and
+S21 are done** (plus the M1 tidy)
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
 records in
 [`docs/archive/v2-session-records/`](docs/archive/v2-session-records/).
+**S18 is ticked `[x]`. Its Gate B debt was cleared 2026-08-28** — a separate
+refuter attacked both `Core/` changes (`pattern(ry:rx:)` from the resident cube,
+the staging-copy elimination) and **both survived**, twelve mutations each
+producing a distinct red. It also exposed a fixture blind spot, now closed by
+`tools/resident-cropped-view`. **What is still owed from S18 is only the
+`mac4DSTEMUITests` deletion**, which the environment refused rather than
+declined; that needs the owner.
+
+*Read this before trusting either summary again:* on 2026-08-27 a session found
+this paragraph disagreeing with §9's S18 stub and **resolved it the wrong way**,
+rewriting this text to defer to the stub — which claimed a Gate B review that
+S18's own record does not contain. The record's *Not verified* section says the
+second read did not run, and its only review section is `Gate A — 14 agents`.
+Corrected 2026-08-28. **When a stub and this file disagree, neither wins by
+default — open the session record in `docs/archive/v2-session-records/`, which
+is the evidence both are summarising.**
 Sequencing (§9's checklist and resequencing line are the authority): the
-S10 → S21 → S17 run is complete; TB1 whenever the owner sits; S11 follows
-TB1; S9 when NAS access and disk allow. The cut line and the severable block
-(S11–S16, TB2) are §2 of the release plan.
+S10 → S21 → S17 run is complete; **TB1 sitting 1 is COMPLETE (2026-08-27)** and
+sittings 2–4 wait on the owner — sitting 3 needs a multi-GB/NAS cube, sitting 4
+a clean account. **S11 was run ahead of them on 2026-08-28** rather than after,
+because it needs neither; that reordering is stated in its stub, and **S12 ran
+ahead of them on 2026-08-28 for the same reason**. S9 when NAS
+access and disk allow — **and #37 moved there**, since S18's
+measurement showed the cancellation cost is I/O, not check granularity. The
+cut line and the severable block (now **S13–S16, TB2** — S11 and S12 landed)
+are §2 of the release plan. **S12's output is a design the owner reviews
+before S13 starts**, [`docs/q-calibration-design.md`](docs/q-calibration-design.md):
+#29 answered — the origin-fit residual gate conflates two different failures,
+and fixing the fit without fixing the *statistic* changes nothing — and the
+`measureOrigin` coarse step measured and recommended **out** of S13.
 
 **The honest test claim — each number dated to its own run:**
-`run-tests.sh scientific` — exit 0 over **37 harnesses** (2026-08-26, S10's
-final tree). `run-tests.sh unit` — **378 passed / 4 skipped / 0 failed,
-exit 0** (2026-08-27, S17); three skips are pre-existing environment/data
-probes and one is S17's explicit uncalibrated-Prepare geometry quarantine.
+`run-tests.sh scientific` — exit 0 over **38 harnesses**, zero FAIL lines
+(2026-08-28, after `tools/resident-cropped-view` joined the array).
+`run-tests.sh unit` — **387 passed / 4 skipped / 0 failed, exit 0**
+(2026-08-27, TB1 sitting 1 — 387 distinct case names, checked for retries, not
+a raw line count); three skips
+are pre-existing environment/data probes and one is S17's explicit
+uncalibrated-Prepare geometry quarantine. **Two recordable non-green outcomes
+from that sitting, both environmental:** one `unit` run refused with **exit 69**
+(the S0 preflight — scratch DerivedData from repeated app builds; cleared, then
+green) and one reported a single spurious failure in
+`SidebarDensityMeasurementTests` because the app was being driven for Track B
+against the same defaults domain while the gate ran. **Do not drive the app
+during `run-tests.sh unit`** — see `docs/open-items.md`.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
-own dated run. **`all` has never been run end to end on this machine**: S17
-removed its old unit-stage abort, but nobody has run the aggregate yet — so
-the README/CHANGELOG "exit 0, 30 harnesses" claim is unreproduced, and
-restating it is S19's job. Do not quote an aggregate you did not just run.
+own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-28**, on the tree carrying S9a and the Gate B fixture: **40 harnesses**, unit stage **387 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69 preflight refusals in the retained log** (checked by grep, not by trusting the exit code — a `| tail` has swallowed a failing gate here twice). One `SKIP`:
+`real-data-acceptance` correctly recognised a session sidecar sitting beside a
+training dataset and skipped it rather than reading it as a datacube — backlog
+**#43**, fixed 2026-08-18, exercised live for the first time. Of the 4 unit
+skips, three are the documented environment/quarantine probes and the fourth,
+`TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes()`, skips because
+TB1's staged WS2 sidecar is missing (see `docs/open-items.md`).
+**S19's blocking dependency is therefore met**, and the README/CHANGELOG
+aggregate claim can be restated against this run rather than retired. Do not
+quote an aggregate you did not just run.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6):
 Track A is `tools/run-tests.sh`; Track B is the human visual pass at
@@ -97,6 +146,12 @@ pass — that is a finding, not a bug fix.
   D is the structural guard against a confident wrong diagnosis), the numbered
   sessions S0–S21, and the live status checklist. **The single entry point.**
   Consult it for "what do I pick up?" and "is this in scope?".
+- **[`docs/q-calibration-design.md`](docs/q-calibration-design.md)** — **S12's
+  design, 2026-08-28**: what the origin-fit residual gate actually measures
+  (#29, answered), the sane-origin / measure-Q split, the estimator-internal
+  plausibility checks, and the coarse-step in-or-out call with its measurement.
+  Read it before touching Q calibration, `OriginCalibration` or
+  `Shaders/OriginMeasure.metal`; S13 implements from it.
 - **[`docs/v2-scope.md`](docs/v2-scope.md)** — the 2026-08-17 phase-2
   priorities. **Superseded by `docs/v2-release.md`**; kept for the eight
   decisions and their reasons. *(It replaced `docs/v2-planning-draft.md`,
@@ -129,10 +184,13 @@ pass — that is a finding, not a bug fix.
   memory: 46 numbered findings, the design passes, the QC-evaluation prompts.
   **History, not guidance.** Nothing current points into it; consult it for
   *why* a decision was made, never for what to do next.
-- Session memory (direction + gotchas):
-  `~/.Codex/projects/-Users-paullobpreis-GitHub-mac4DSTEM/memory/` — note the
-  path predates the `mac4DSTEM_Organization/` move, so a session started from
-  the current checkout gets a *different*, empty memory directory.
+- Session memory (direction + gotchas) lives in **Claude Code's** per-project
+  memory directory,
+  `~/.claude/projects/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/memory/`
+  (14 files as of 2026-08-28, `MEMORY.md` the index). **A session running from
+  this file does not load it**, so nothing in it is context you have — read it
+  from disk if you need it, and do not assume a fact is remembered. Three stale
+  sibling directories from earlier checkout paths are history, not guidance.
 
 ## Standing references
 
@@ -205,8 +263,12 @@ and they build.
 - **Keep docs current as part of "done"** — no file self-updates. When a task
   lands, update **`docs/open-items.md`** (add, amend, or delete the item) and
   any reference doc it affects. Do **not** edit `docs/archive/v1.0/` — it is a
-  frozen record of the v1.0 phase. Full conventions (model/subagent tiers,
-  review gates, where new work goes, delivery):
+  frozen record of the v1.0 phase. **`AGENTS.md` is generated from this file** —
+  if you edit `CLAUDE.md`, run `tools/sync-agents-md.sh` (`--check` exits 1 when
+  stale); it was hand-maintained until 2026-08-28 and drifted six sessions.
+  Full conventions (model/subagent tiers, review gates, where new work goes,
+  delivery, and **§9 what keeps a session agent-runnable** — the grants and
+  attached disks that turn owner-only rows into work an agent can run):
   **`docs/development-process.md`**.
 - Commit/push only when asked; this is a solo-dev repo with linear `main`.
 
