@@ -651,7 +651,42 @@ only if asked.
   to end on exactly one dataset (sim_Au); the cost table times the kernel on
   synthetic patterns and combines it with the campaign's real-data stage time,
   two runs rather than one instrumented run.
-- [ ] S13 · [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
+- [x] **S13** — 2026-08-28, closed out 2026-08-29; **on branch
+  `s13-q-calibration`, NOT merged to `main`** — the merge is the owner's.
+  Q-cal implement per the design §5, on the owner's §6(a) decision (`728128b`).
+  Shipped: `fitOriginTrimmed` (robust origin fit, `DEVIATION` noted), the
+  recorded-origin fallback with `referenceOrigin` as the one derivation at
+  S11's four call sites, the `originFitIsSane` / `originSupportsReciprocalMetrology`
+  split with `SessionGates.reciprocalMetrologyRefusal`, an estimator self-check
+  that **measures and reports** the shell ratio (derived separation) with the
+  position count, the refusal rewrite leading with manual entry, the strain
+  `w_r2` provenance keys, the half-pixel `OriginMeasure` seed, and the
+  `QCalibrationRun` seam. Coarse step stayed OUT per S12's measurement.
+  **Gate B: four refuters pre-commit, ~46 findings, owner scoped the response
+  in-session** — all three estimator thresholds CUT (derivation refuted:
+  measured against a stale tree, mutually inconsistent, the "physical" 1.0
+  mis-derived), the robust-residual gate swap REVERTED (kept-set RMS cannot
+  see bias — a 15.03 px displaced fit passes at 9.94), ~10 shipped defects
+  fixed, fixture rebuilt 39 → 70 checks after 26 of 32 mutations survived the
+  first version (12 of 13 survivors now red; the 13th recorded as uncoverable,
+  not papered over). The §0 pre-registration was lost by an append and
+  restored from the transcript, stated. New findings with their own open
+  items: the demo draws a simple-cubic zone, and `probeSize` over-measures the
+  probe radius 2.15× (Gate D owed). Track A on the final tree, 2026-08-29:
+  `unit` **390 passed / 2 skipped / 0 failed, exit 0** (390 distinct names,
+  zero FAIL lines by grep; the two former data-probe skips now pass — their
+  staged data is present); `scientific` **exit 0, 39 harnesses**
+  (`q-calibration-gate-test`, 70 checks, joined the array), zero FAIL/SKIP
+  lines. Record: [`s13.md`](archive/v2-session-records/s13.md). Deviations:
+  E1 was never re-run on the shipping tree (its numbers are pre-implementation
+  history); the record's "app reports 1.089" figure was corrected 2026-08-29 —
+  it contradicts the passing gate, which pins the ratio above 1.15× predicted,
+  consistent with the 1.373 in F1.42. Not verified: F1.40–F1.43 on screen
+  (owner); which statistic should gate the origin fit (open, needs a design
+  pass); the trim under clustered / ≥ 50% contamination on real data; ACOM
+  origin provenance (deliberately absent); every "sound side" is still one
+  dataset (`sim_Au`).
+- [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 
 **Unscheduled work that is NOT in the numbered list — a `/pickup` reading only
 this checklist will miss it** (added 2026-08-28, because two live defects landed

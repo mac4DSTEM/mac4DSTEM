@@ -53,8 +53,10 @@ at `github.com/mac4DSTEM/mac4DSTEM` (GPL-3.0, stapled DMG linked from
 mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
-**The v2 release is mid-flight: S0–S8, S9a, S9b, S10, S11, S12, S17, S18, S19
-and S21 are done** (plus the M1 tidy)
+**The v2 release is mid-flight: S0–S8, S9a, S9b, S10, S11, S12, S13, S17, S18,
+S19 and S21 are done** (plus the M1 tidy) — **S13 sits on branch
+`s13-q-calibration`, closed out 2026-08-29 but NOT merged to `main`; the merge
+is the owner's call**
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session
@@ -87,21 +89,27 @@ needed no NAS after all — the axis is
 and scoped to DM4/DM3; the 2026-08-18 death itself is **still unexplained**, and
 the reader fix is owed to a later session. **#37 moved to S9**, since S18's
 measurement showed the cancellation cost is I/O, not check granularity. The
-cut line and the severable block (now **S13–S16, TB2** — S11 and S12 landed)
-are §2 of the release plan. **S12's output is a design the owner reviews
-before S13 starts**, [`docs/q-calibration-design.md`](docs/q-calibration-design.md):
-#29 answered — the origin-fit residual gate conflates two different failures,
-and fixing the fit without fixing the *statistic* changes nothing — and the
-`measureOrigin` coarse step measured and recommended **out** of S13.
+cut line and the severable block (now **S14–S16, TB2** — S11–S13 landed)
+are §2 of the release plan. **S13 implemented
+[`docs/q-calibration-design.md`](docs/q-calibration-design.md) on the owner's
+§6(a) decision (2026-08-28, Gate B with four refuters)** — but the review cut
+all three estimator thresholds (derivation refuted), so the estimator
+**measures and reports** the shell ratio rather than refusing on it, and the
+origin-fit gate stays on the full-scan RMS: **which statistic should gate that
+fit is OPEN** (`docs/open-items.md`). The demo-fixture and probe-radius
+findings (`probeSize` over-measures 2.15×, Gate D owed) came out of the same
+session. F1.40–F1.43 are queued and undriven.
 
 **The honest test claim — each number dated to its own run:**
-`run-tests.sh scientific` — exit 0 over **38 harnesses**, zero FAIL lines
-(2026-08-28, after `tools/resident-cropped-view` joined the array).
-`run-tests.sh unit` — **387 passed / 4 skipped / 0 failed, exit 0**
-(2026-08-27, TB1 sitting 1 — 387 distinct case names, checked for retries, not
-a raw line count); three skips
-are pre-existing environment/data probes and one is S17's explicit
-uncalibrated-Prepare geometry quarantine. **Two recordable non-green outcomes
+`run-tests.sh scientific` — exit 0 over **39 harnesses**, zero FAIL and zero
+SKIP lines (2026-08-29, S13 closeout on `s13-q-calibration`, after
+`tools/q-calibration-gate-test` — 70 checks — joined the array).
+`run-tests.sh unit` — **390 passed / 2 skipped / 0 failed, exit 0**
+(2026-08-29, same tree — 390 distinct case names, checked for retries, not a
+raw line count); the two skips are the unmounted-volume bookmark probe and
+S17's explicit uncalibrated-Prepare geometry quarantine. Two former data-probe
+skips (including `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes`)
+now PASS because their staged data is present. **Two recordable non-green outcomes
 from that sitting, both environmental:** one `unit` run refused with **exit 69**
 (the S0 preflight — scratch DerivedData from repeated app builds; cleared, then
 green) and one reported a single spurious failure in
@@ -113,10 +121,8 @@ now-diagnosed sidebar test — the retired UI target skipped), retained as its
 own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-28**, on the tree carrying S9a and the Gate B fixture: **40 harnesses**, unit stage **387 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69 preflight refusals in the retained log** (checked by grep, not by trusting the exit code — a `| tail` has swallowed a failing gate here twice). One `SKIP`:
 `real-data-acceptance` correctly recognised a session sidecar sitting beside a
 training dataset and skipped it rather than reading it as a datacube — backlog
-**#43**, fixed 2026-08-18, exercised live for the first time. Of the 4 unit
-skips, three are the documented environment/quarantine probes and the fourth,
-`TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes()`, skips because
-TB1's staged WS2 sidecar is missing (see `docs/open-items.md`).
+**#43**, fixed 2026-08-18, exercised live for the first time. (That run's WS2
+sidecar skip has since cleared — see the 2026-08-29 unit run above.)
 **S19's blocking dependency is therefore met**, and the README/CHANGELOG
 aggregate claim can be restated against this run rather than retired. Do not
 quote an aggregate you did not just run.
@@ -146,7 +152,9 @@ pass — that is a finding, not a bug fix.
   (#29, answered), the sane-origin / measure-Q split, the estimator-internal
   plausibility checks, and the coarse-step in-or-out call with its measurement.
   Read it before touching Q calibration, `OriginCalibration` or
-  `Shaders/OriginMeasure.metal`; S13 implements from it.
+  `Shaders/OriginMeasure.metal`; S13 implemented from it (2026-08-28, with
+  Gate B's threshold cut recorded in
+  [`s13.md`](docs/archive/v2-session-records/s13.md)).
 - **[`docs/v2-scope.md`](docs/v2-scope.md)** — the 2026-08-17 phase-2
   priorities. **Superseded by `docs/v2-release.md`**; kept for the eight
   decisions and their reasons. *(It replaced `docs/v2-planning-draft.md`,

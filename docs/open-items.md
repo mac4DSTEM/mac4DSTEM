@@ -679,25 +679,11 @@ citations cannot be trusted without checking.
   1.155, 1.1% out), **no refusal**, and the accepted value is **0.018308, −8.5%
   wrong, stamped `.measuredInApp`.** Repairing the fixture converts a loud
   refusal into a silent wrong number that passes every check S13 added.
-  **The real defect is upstream, and it is a new one:**
-  `OriginCalibration.probeSize` (`OriginCalibration.swift:33`) counts the Bragg
-  disks as probe area — they exceed 50% of the beam maximum, and the max-DP
-  smears them into arcs across the lattice rotation. **Measured on the demo:
-  beam alone → 4.484 px (drawn half-max 4.5); one pattern with rings → 7.732;
-  the app's max-DP → 9.649.** A 2.15× over-measurement. `ProbeKernel.synthetic`
-  follows it, every correlation peak moves outward by ≈ +3.3 px (which does
-  **not** cancel in a ratio — it moves the observed ratio by 5%), and the CoM
-  window `rscale·r = 11.6 px` is then wide enough for the 45° ring to leak in,
-  dragging the measured origin **1.62 px** off a known-exact beam centre while
-  the fit RMS reads a healthy **0.067 px** — a constant bias RMS cannot see.
-  **This is almost certainly the SPED_MgO item below**, and Gate B ran that
-  item's own recorded discriminator ("run `probeSize` on the mean DP and on a
-  vacuum-only pattern and compare with the max-DP figure") on synthetic data,
-  where it confirms. It has NOT been run on `SPED_MgO.hdf5`; that is still owed.
-  **Also new, and it is a hole in S13's own checks:** a constant *kernel* bias
-  moves the shell ratio by only 1.1%, inside the 3% threshold S13 had, so
-  nothing in the estimator could see it — the same blind spot §3.1 already
-  admits for a constant *origin* displacement, in a second place.
+  **The real defect is upstream:** `OriginCalibration.probeSize` over-measures
+  the probe radius 2.15× on this fixture — the `probeSize` entry above carries
+  the mechanism, every measurement, and the Gate D ownership; it, not this
+  entry, is where a fix starts. The bias it causes is invisible to every
+  estimator check (a constant kernel bias moves the shell ratio by ~1.1%).
   **CURRENT BEHAVIOUR, after the thresholds were cut: the demo does NOT refuse.**
   An earlier version of this entry said it did. That was true for the few hours
   S13 shipped an estimator threshold; Gate B refuted the threshold's derivation
@@ -707,16 +693,14 @@ citations cannot be trusted without checking.
   of refusing on it. That is strictly better than before S13 and strictly weaker
   than a refusal, and it is the honest position until a threshold can be placed
   on evidence.
-  **What S13 got wrong and Gate B corrected, recorded because the corrections
-  matter more than the original claim:** the re-identification as "{200}/{220}
-  of a cubic [001] zone" (**refuted by the measured spot angles** — inner at
-  45°, not on-axis); "the declared 0.02 the geometry never honoured"
-  (**refuted**, it is exact on the outer ring); "the demo path pairs the cube
-  with `au_fcc`" (**refuted**, it defaults to `.none`); and the "√2 ratio,
-  outer ring 26.66 px, observed 1.4275" evidence, which was **circular** — it
-  was recovered by assuming √2 and then choosing a √2-sized separation to skip
-  past the inner ring, over 96 of 144 positions. **The app actually reports
-  1.089 against a predicted 1.155, 5.7% out.**
+  The four specifics S13 originally claimed and Gate B refuted are in the
+  session record, §6 (*Corrected rather than defended*). **One figure there is
+  itself stale:** the record says the app reports **1.089** against 1.155, but
+  the shipping tree's passing gate
+  (`testTheDemoShellsDoNotMatchTheGoldModelItIsPairedWith`) pins the observed
+  ratio **above 1.15× the prediction**, which supports the 1.373 quoted above
+  and cannot be reconciled with 1.089. Corrected here and noted in the record,
+  2026-08-29; F1.42's drive is what confirms the on-screen number.
 
 - **ACOM omits py4DSTEM's `power_radial` — S11 confirmed absent, 2026-08-28.
   Owner: S16.** `orientation_plan` declares `power_radial: float = 1.0`
@@ -1217,6 +1201,16 @@ citations cannot be trusted without checking.
   run `unit`, and diff the case-name lists. Recorded rather than smoothed over
   because "384 + 2 = 387" is exactly the kind of arithmetic a reader would
   otherwise assume nobody checked.
+  **Second observation, 2026-08-29 (S13 closeout), and it does not resolve —
+  it flips.** That run: 392 distinct total (390 passed / 2 skipped). The suite
+  diff main → `s13-q-calibration` is exactly +2 cases, in one file, so the
+  expected total was 391 + 2 = 393: now one SHORT, where 2026-08-27 was one
+  over. Both counts were distinct-name counts, so one case that ran on
+  2026-08-27 did not appear on 2026-08-29 while nothing removed it from the
+  suite. That rules out "a baseline commit message under-counted" as the whole
+  story and points at a case whose existence is environment-conditional. The
+  settle-it recipe is unchanged and now needs the two retained logs' case-name
+  lists, not a re-run.
 
 - **Gate B outcome for S18's two `Core/` changes — RAN 2026-08-28, both
   SURVIVED.** A separate agent briefed to refute attacked
