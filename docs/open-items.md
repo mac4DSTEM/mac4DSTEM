@@ -1354,6 +1354,65 @@ citations cannot be trusted without checking.
   message — remains unscored. The reopen evidence is real but belongs beside
   the row as context, not in its identity. Not yet corrected.
 
+- **`real-data-acceptance` FAILS on the current machine — `FAIL: report count 8,
+  expected 4` — and that makes the "40 harnesses, green end to end" claim NOT
+  reproducible right now. Observed 2026-08-31, `run-tests.sh all`, exit 1.**
+  Everything else in that run is green: unit **391 passed / 2 skipped / 0
+  failed** (one more case than 2026-08-29's 390; the two skips are the
+  unmounted-volume bookmark probe and S17's quarantine), and **39 of 40
+  harnesses completed green**. The run aborts at `real-data-acceptance`, so
+  `package-test` never ran at all.
+
+  **This is not a code regression.** The harness's inputs are byte-identical to
+  the S19 tree that was reported green on 2026-08-28: `git diff aeaeacc..HEAD`
+  is empty for all of `tools/real-data-acceptance/` (`run.sh`, `main.swift`,
+  `compare.py`, `expected.json`), `H5Reader.swift`, `DatasetDescriptor.swift`
+  and `HDF5Types.swift`. S13 did change two files the harness compiles
+  (`Calibration.swift`, `OriginCalibration.swift`), but neither can change the
+  *count*: `main.swift` excludes a file from the report only on
+  `H5Error.noDatasetFound` or `H5Error.sessionSidecarOpened` (lines 60–79);
+  every other failure calls `fail()` and aborts loudly rather than silently
+  dropping an entry. So the population changed, not the code.
+
+  **What actually changed is the machine's data directory.**
+  `expected.json` pins exactly four datasets — `Particle_1…`,
+  `downsample_Si_SiGe_exp`, `polycrystal_2D_WS2`, `sim_Au_data_all_binned` —
+  and `References/training_dataset/` now holds **eight** readable cubes: those
+  four plus `036_STEM_SI…` (4.25 GB), `060_STEM SI…` (1.78 GB), `COPL_Ni65Cu35…`
+  (164 MB) and `calibrationData_circularProbe.h5` (2.10 GB).
+
+  **Leading hypothesis, with its discriminator, NOT a conclusion.** Those four
+  extra cubes total ~8.3 GB. This machine is recorded as running ~4 GB free
+  through August; it now has 21 GB free with ~11.5 GB of training data present,
+  and `/Volumes/PL_SSD_2TB` is mounted. The parsimonious account is that the
+  four large cubes were **off the internal disk on 2026-08-28 and have been
+  restored since**, so S19's run was green *for the set of files present then*
+  and the gate broke when the population grew. Their birth times are old
+  (2024-10-21, 2026-07-12, 2024-10-21, 2026-08-05), which is consistent with a
+  move away and back but does not prove it. **Discriminator:** grep S19's
+  retained `all` log for `report count` — it is not in the repo, so only the
+  owner can settle it. The competing hypothesis, which that grep would also
+  settle, is that the 2026-08-28 "zero FAIL lines" claim never covered this
+  harness. Do not write either up as established.
+
+  **The structural defect, which is real either way and is the part worth
+  fixing.** `compare.py` asserts `len(actual) == len(expected)` and then
+  `zip`s the two lists **positionally**. Two consequences: (1) the gate is
+  pinned to an exact directory listing, so adding any dataset to the training
+  folder breaks it — and adding datasets is a normal thing for the owner and
+  for Track B to do; (2) worse, a new file that sorts *before* a pinned one
+  would keep the count equal in some combinations and compare the wrong pairs,
+  producing a confident wrong mismatch — or, in principle, a pass on a wrong
+  pairing. Matching by `file` name instead of by position removes both.
+
+  **Not fixed here, deliberately.** Making the comparator tolerate extra files
+  is exactly the shape of "widen a gate that fails" this repo forbids doing in
+  passing: the count check is also what catches a dataset silently
+  *disappearing*, and replacing it needs a design that keeps that. It needs its
+  own session with the discriminator above run first. Until then, **do not
+  quote `run-tests.sh all` as green** — quote the `unit` and `scientific`
+  stages, which are, and say this harness is red.
+
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance
   was open for Track B reported
