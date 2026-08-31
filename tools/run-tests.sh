@@ -75,6 +75,7 @@ scientific=(
   resident-cropped-view
   disk-detection-test disk-correlation-parity peak-overlay-test fit-overlay-test
   acom-orientation-test acom-matching-test parity-metric-test cif-symmetry-test
+  ws2-crystal-test
   idpc-test cancellation-test
   bragg-export-test sidecar-result-test strain-test strain-frame-test
   ellipse-calibration-test

@@ -255,6 +255,14 @@ nonisolated enum CrystalModelLibrary {
                      crystal: .silicon, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "mg_hcp", displayName: "Magnesium (HCP)",
                      crystal: .magnesium, symmetry: .hexagonal, source: .builtIn),
+        // W4a (2026-08-31). Built-in rather than import-only on purpose: the
+        // replay record stores only a materialModelID, and an .imported model
+        // does not survive into a new session — so an ACOM step recorded
+        // against an imported CIF cannot replay. The library entry is what
+        // makes a WS₂ recipe replayable at all. Lattice citation on the
+        // Crystal definition.
+        CrystalModel(id: "ws2_2h", displayName: "Tungsten disulfide (2H-WS₂)",
+                     crystal: .tungstenDisulfide, symmetry: .hexagonal, source: .builtIn),
     ]
 
     static func model(id: String) -> CrystalModel? {

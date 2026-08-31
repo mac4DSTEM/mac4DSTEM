@@ -659,6 +659,34 @@ Au3 Au -0.5000 0.0000 0.5000 1.0
 Au4 Au 0.0000 -0.5000 -0.5000 1.0
 """
 
+/// 2H-WS₂, the Schutte/de Boer/Jellinek 1987 refinement (J. Solid State Chem.
+/// 70, 207–209; a = 3.1532, c = 12.323, z(S) = 0.6225), written as the six
+/// explicit sites with no symmetry loop — detection has to find the 6₃ screw
+/// in a TWO-SPECIES basis, which no other admitted case exercises: Mg's screw
+/// maps like sites to like, here it must map W→W and S→S at different z.
+private let ws2Schutte = """
+data_ws2_2h
+_cell_length_a 3.1532
+_cell_length_b 3.1532
+_cell_length_c 12.323
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 120.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+W1 W 0.333333 0.666667 0.250000 1.0
+W2 W 0.666667 0.333333 0.750000 1.0
+S1 S 0.333333 0.666667 0.622500 1.0
+S2 S 0.333333 0.666667 0.877500 1.0
+S3 S 0.666667 0.333333 0.377500 1.0
+S4 S 0.666667 0.333333 0.122500 1.0
+"""
+
 private let cases: [Case] = [
     Case(name: "alpha_quartz_P3221", cif: quartz, rejection: .symmetry,
          why: "trigonal (3-fold only) in the hexagonal setting"),
@@ -686,6 +714,9 @@ private let cases: [Case] = [
     Case(name: "magnesium_refined_occupancies", cif: magnesiumRefinedOccupancies,
          expectedSymmetry: .hexagonal, expectedSiteCount: 2,
          why: "equivalent sites differ by 0.005 occupancy — refinement noise"),
+    Case(name: "ws2_2h_schutte1987", cif: ws2Schutte,
+         expectedSymmetry: .hexagonal, expectedSiteCount: 6,
+         why: "hexagonal 6-3 screw over a TWO-species basis (W 2c + S 4f)"),
     // Laue class within the family: one generator is not the group.
     Case(name: "fluorapatite_P63m_laue_6overm", cif: fluorapatite, rejection: .symmetry,
          why: "Laue 6/m — 6-fold along c but no 2-fold along a"),

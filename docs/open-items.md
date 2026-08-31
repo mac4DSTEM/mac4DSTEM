@@ -1419,6 +1419,36 @@ citations cannot be trusted without checking.
   docstring now says so rather than claiming the guard is unconditional. Whether
   the SKIP should consult `expected.json` is open.
 
+- **The Q-calibration reference shell has no l-filter and no visibility filter,
+  and on 2H-WS₂ it selects (0002) — a reflection a [0001]-zone 2D specimen
+  never shows. Predicted mis-scale on this dataset's own geometry: 2.2564×,
+  silent.** Found by the W4 feasibility review (mechanism), MEASURED by
+  `tools/ws2-crystal-test` 2026-08-31 (outcome): `AppState.swift` ~5038-5051
+  takes the first distinct |g| of the full 3D `reflections(kMax: 2.5)` list;
+  for the cited WS₂ cell that is 0.16230 Å⁻¹ ((0002), strongly allowed), while
+  the first in-plane shell is 0.36621 ((10-10)). S13's Gate B cut every
+  threshold that could refuse the resulting scale, so the shell-ratio check
+  would *report* the disagreement and pass the number through. **The trap:**
+  the demo/SPED_MgO probe-radius findings look similar but are a different
+  mechanism — do not merge them. **Evidence:** the REPORT line and check 5 of
+  `tools/ws2-crystal-test` (which pins the CURRENT selection, so whoever fixes
+  the rule must update that check and this item together). **Not fixed, by the
+  owner's 2026-08-31 safe-defaults decision** — the fix touches W3 territory
+  (`QCalibration`/`AppState`), needs its own design (which shells ARE
+  observable given zone axis and precession?), and the right statistic for the
+  origin gate is already an open design question next door. **Owner: W4b or a
+  dedicated W3 follow-up, owner's call.** Until then, known-crystal Q
+  calibration on ws2_2h against [0001]-zone data will be wrong by ~2.26× and
+  labelled calibrated; also note WS₂'s fitted probe radius (1.859 px, S12) sits
+  UNDER the ~2 px breakdown onset the Q-cal fragility entry documents.
+  **Data evidence, added same day:** the Gate B refuter measured the cube's
+  mean pattern — ring ratios 1 : 1.7355 : 2.0130 : 2.6463 : 3.0012, exactly the
+  hk0 set (1, √3, 2, √7, 3), with no interior (00l) ring (inner-annulus mass
+  350× below ring 1). The specimen really is basal, the first observed ring
+  really is (10-10), so the mis-scale would bite exactly as predicted; c is
+  invisible to this dataset, so the mp-224-vs-literature difference that
+  matters for W4b's matching is a (+1.19%), not c.
+
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance
   was open for Track B reported

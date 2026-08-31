@@ -716,7 +716,47 @@ only if asked.
   the `real-data-acceptance` discriminator (owner-only log grep) was never run
   and both hypotheses stay open; the 15 s budget for unpinned datasets and the
   WS₂ `abs_tol` are recorded OWNER DECISIONS, untouched; CI has not run since.
-- [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
+- *Owner decisions, 2026-08-31, recorded so /pickup routes correctly (the
+  M1/T6 resequencing precedent): **(1) W4 RUNS in v2** — not cut; the cut-line
+  option stays available but is no longer undecided. **(2) The lattice is the
+  literature cell** — 2H, P6₃/mmc, a ≈ 3.153 Å, c ≈ 12.323 Å; the session
+  verifies and cites the source publication in the CIF/model header. The four
+  staged `WS2_mp-224_*.cif` are DFT (c = 14.202 Å, +15% — the vdW artifact) and
+  are NOT the matching reference. **(3) S14+S15 merge into one session, "W4a",
+  with TWO refuters** (one on the lattice/import, one on the fixture — the
+  refuter split is the mitigation for the fixture-inherits-the-error risk);
+  **S16 stays separate as "W4b"** because its success depends on the cube
+  (median ~1 peak/pattern). **(4) Mid-session rule: safe defaults** — a
+  confirmed out-of-scope defect (e.g. the suspected (0002) reference-shell
+  pick) is measured, reported and filed, never fixed in passing; detection
+  thresholds are never retuned to make a result appear.*
+- [x] **W4a (S14+S15)** — 2026-08-31, one session on the owner's recorded
+  decision, two refuters instead of a session boundary. Shipped: the
+  `tungstenDisulfide` model (six sites, the Schutte/de Boer/Jellinek 1987
+  refinement, READ FROM THE PAPER — a=3.1532(4), c=12.323(5), z(S)=0.6225(6)),
+  `ws2_2h` in the library (built-in so a WS₂ recipe can replay), the
+  two-species CIF admission case, and `tools/ws2-crystal-test` (gated, joined
+  `scientific`): closed-form metric, screw extinctions, the c/a=3.91
+  shell-order inversion, two intensity anchors, four negative controls.
+  **Break-every-new-test: 7/7 author mutations caught. Gate B: refuter 1
+  (lattice) — the model HELD, verified by recomputing the paper's Table II
+  distances from the shipped sites and by RUNNING the vendored py4DSTEM (638
+  reflections match ≤1e-7; no DEVIATION owed); one comment defect fixed (the
+  ~15% belonged to c, the interlayer gap is +31%). Refuter 2 (fixture) — SIX
+  screw-preserving site errors were green, including the wrong 2H polytype;
+  closed by the intensity anchors + an occupancy control, and all 7 of its
+  mutants re-run RED.** New finding, measured then filed (safe defaults): the
+  Q-cal reference shell selects (0002) on WS₂ — silent 2.2563× mis-scale on
+  basal data; open item with data evidence (the cube is pure hk0). Track A:
+  unit 391/2/0 exit 0; scientific exit 0, **41/41 harnesses, zero FAIL and
+  zero SKIP lines** (grepped). Not verified: F1.44
+  on screen; ACOM on the cube (W4b); the AppState code path itself (the
+  fixture pins a replica). Record:
+  [`w4a.md`](archive/v2-session-records/w4a.md).
+- [ ] **W4b (S16)** · [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
+  postponed by the owner, 2026-08-31; drive kit in the 2026-08-31 session.
+  W4b needs the peak-starvation question answered before ACOM can produce a
+  map — see the reference-shell and disk-radius open items)*
 
 **Unscheduled work that is NOT in the numbered list — a `/pickup` reading only
 this checklist will miss it** (added 2026-08-28, because two live defects landed

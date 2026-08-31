@@ -229,6 +229,43 @@ nonisolated struct Crystal: Sendable {
     static var silicon: Crystal  { diamond(a: 5.4309, z: 14) }
     static var magnesium: Crystal { hcp(a: 3.2094, c: 5.2108, z: 12) }
 
+    /// 2H tungsten disulfide, P6₃/mmc (#194) — the literature refinement:
+    /// W. J. Schutte, J. L. de Boer, F. Jellinek, "Crystal structures of
+    /// tungsten disulfide and diselenide", J. Solid State Chem. 70, 207–209
+    /// (1987), doi:10.1016/0022-4596(87)90057-0. Table I: a = 3.1532(4) Å,
+    /// c = 12.323(5) Å, z(S) = 0.6225(6); the Results text gives W at 2(c)
+    /// ±(⅓,⅔,¼) and S at 4(f) ±(⅓,⅔,z; ⅓,⅔,½−z). Sites below are that
+    /// Wyckoff expansion, in the paper's own setting; the Gate B refuter
+    /// reproduced every Table II interatomic distance from these sites
+    /// (W–S 2.405, S–S ∥c 3.14, interlayer 3.53 Å), which is what pins the
+    /// ± convention.
+    ///
+    /// Deliberately NOT the staged Materials Project mp-224 cell
+    /// (c = 14.2024 Å): DFT-PBE without a vdW correction inflates c ~15% —
+    /// entirely in the inter-layer S-plane gap, which grows ~31% while the
+    /// layer itself is unchanged. Note for matching on basal-textured data
+    /// (the polycrystal_2D_WS2 cube's mean pattern is pure hk0 — no (00l)
+    /// ring): there the operative mp-224 error is a, +1.19%, not c.
+    /// Owner decision 2026-08-31 (docs/v2-release.md §9): the measured cell
+    /// is the matching reference. z(S) = 0.614 (Kalikhman 1983) is the
+    /// earlier powder value this refinement explicitly corrects — do not
+    /// "fix" the coordinate back; tools/ws2-crystal-test pins the difference.
+    static var tungstenDisulfide: Crystal {
+        let zS = 0.6225
+        return Crystal(
+            a: 3.1532, b: 3.1532, c: 12.323,
+            alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
+            sites: [
+                AtomSite(z: 74, fractional: [1.0 / 3.0, 2.0 / 3.0, 0.25]),
+                AtomSite(z: 74, fractional: [2.0 / 3.0, 1.0 / 3.0, 0.75]),
+                AtomSite(z: 16, fractional: [1.0 / 3.0, 2.0 / 3.0, zS]),          // ⅓,⅔,z
+                AtomSite(z: 16, fractional: [1.0 / 3.0, 2.0 / 3.0, 1.5 - zS]),    // ⅓,⅔,½−z  → 0.8775
+                AtomSite(z: 16, fractional: [2.0 / 3.0, 1.0 / 3.0, 1.0 - zS]),    // −(⅓,⅔,z) → 0.3775
+                AtomSite(z: 16, fractional: [2.0 / 3.0, 1.0 / 3.0, zS - 0.5]),    // −(⅓,⅔,½−z) → 0.1225
+            ]
+        )
+    }
+
     // MARK: - Small linear-algebra helpers (row-vector matrices)
 
     private static let identity3: [SIMD3<Double>] =
