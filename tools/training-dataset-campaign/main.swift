@@ -770,6 +770,18 @@ private func evaluate(
             secondShellRadiusInvAngstrom: distinctShellLengths(phaseModel.crystal).dropFirst().first,
             probeRadiusPixels: Double(originFit.probeRadius)
        ) {
+        // DIAGNOSTIC ONLY (W4b, 2026-08-31): run the MATCHING stage at a
+        // supplied Å⁻¹/px instead of the known-crystal estimate, so the
+        // recorded reference-shell defect — the estimate derives from (0002),
+        // which a basal specimen never shows (docs/open-items.md) — can be
+        // measured against a corrected scale on the same detected vectors.
+        // The estimate is still computed and recorded; only the matching
+        // scale changes, the override value is stamped into the export and
+        // metrics so a record made this way is unmistakable. Not a permanent
+        // campaign mode (the MAC4DSTEM_DISK_KERNEL_MEASURED precedent).
+        let matchScale = ProcessInfo.processInfo
+            .environment["MAC4DSTEM_ACOM_SCALE_OVERRIDE"].flatMap(Double.init)
+            ?? qEstimate.invAngstromPerPixel
         calibration.qPixelSize = qEstimate.invAngstromPerPixel
         calibration.qPixelUnits = "Å⁻¹"
         provenance.qScale = .measuredInApp
@@ -787,7 +799,7 @@ private func evaluate(
             OrientationMatching.matchAll(
                 bragg: vectors, plan: $0,
                 originX: meanOrigin.x, originY: meanOrigin.y,
-                invAngstromPerPixel: qEstimate.invAngstromPerPixel,
+                invAngstromPerPixel: matchScale,
                 backend: .cpu, selection: selection
             )
         }
@@ -799,7 +811,7 @@ private func evaluate(
         if let plan, let fullMap = OrientationMatching.matchAll(
             bragg: vectors, plan: plan,
             originX: meanOrigin.x, originY: meanOrigin.y,
-            invAngstromPerPixel: qEstimate.invAngstromPerPixel,
+            invAngstromPerPixel: matchScale,
             backend: .cpu, selection: .full
         ) {
             parityACOM = ParityACOMExport(
@@ -811,7 +823,7 @@ private func evaluate(
                 siteAtomicNumbers: phaseModel.crystal.sites.map(\.z),
                 symmetry: phaseModel.symmetry.rawValue,
                 kMaxInvAngstrom: 1.2, zoneAxisCount: 96,
-                invAngstromPerPixel: qEstimate.invAngstromPerPixel,
+                invAngstromPerPixel: matchScale,
                 templateIndex: fullMap.results.map(\.templateIndex),
                 reliability: fullMap.results.map(\.reliability),
                 score: fullMap.results.map(\.score),
@@ -839,6 +851,7 @@ private func evaluate(
                 detail: "Explicit \(phaseModel.displayName) model · \(valid.count)/\(selectedIndices.count) sampled positions matched · no expected orientation map/simulation parameters supplied",
                 metrics: [
                     "q_inv_angstrom_per_px": qEstimate.invAngstromPerPixel,
+                    "q_match_scale": matchScale,
                     "templates": Double(plan.count),
                     "valid_results": Double(valid.count),
                     "mean_reliability": valid.isEmpty ? 0

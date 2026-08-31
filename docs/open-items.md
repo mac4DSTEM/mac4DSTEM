@@ -1448,6 +1448,20 @@ citations cannot be trusted without checking.
   really is (10-10), so the mis-scale would bite exactly as predicted; c is
   invisible to this dataset, so the mp-224-vs-literature difference that
   matters for W4b's matching is a (+1.19%), not c.
+  **The bite, MEASURED end to end (W4b, 2026-08-31):** on the real cube the
+  estimator returned 0.008789 Å⁻¹/px (data-derived correct: 0.019448 — factor
+  2.213 under, vs 2.256 predicted from geometry alone). Matching the same
+  vectors at both scales: the correlation score HALVES at the defective scale
+  (median 0.214 vs 0.399) and the assigned zone axis is wrong (4.6° off beam
+  vs 0.0°). **Trap discovered in the same experiment: `reliability` is
+  anti-correlated with correctness on basal specimens** (0.115 defective vs
+  0.094 corrected — near-[0001] templates are nearly degenerate at the right
+  scale), so a reliability-ranked comparison would PREFER the wrong scale. Any
+  fix or UI surface for this defect must not lean on reliability alone.
+  Evidence: [`w4b.md`](archive/v2-session-records/w4b.md). A scale-
+  sensitivity control in `tools/acom-matching-test` is OWED, not landed — the
+  session stopped at its usage limit before writing it; spec in the record's
+  handoff section.
 
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance

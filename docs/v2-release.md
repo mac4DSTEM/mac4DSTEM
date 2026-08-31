@@ -753,7 +753,21 @@ only if asked.
   on screen; ACOM on the cube (W4b); the AppState code path itself (the
   fixture pins a replica). Record:
   [`w4a.md`](archive/v2-session-records/w4a.md).
-- [ ] **W4b (S16)** · [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
+- [~] **W4b (S16)** — 2026-08-31, STOPPED AT THE USAGE LIMIT with the record
+  current (the 2026-08-29 lesson, applied). DONE: the Gate-D pre-registration
+  and all four predictions tested on the real cube — starvation is the
+  relative threshold (0.001 recovers median 12 peaks/pattern; 100% of
+  180,815 peaks on two rings, r₂/r₁ = 1.7342 vs √3); the (0002) defect
+  measured live (estimator 0.008789 vs data-true 0.019448); the mis-scale
+  HALVES the match score and picks a wrong zone axis while **reliability
+  prefers the wrong scale** (anti-correlated on basal data — new finding);
+  at the corrected scale the cube produces a REAL orientation map (98% [0001],
+  in-plane grains, 99.1% neighbour coherence). Campaign manifest assigns
+  ws2_2h; `MAC4DSTEM_ACOM_SCALE_OVERRIDE` added (documented diagnostic).
+  **OWED:** the acom-matching-test scale-sensitivity arm, Gate B (two
+  refuters), scientific run, F1.45, the tick. Handoff: §2 of
+  [`w4b.md`](archive/v2-session-records/w4b.md).
+- [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
   postponed by the owner, 2026-08-31; drive kit in the 2026-08-31 session.
   W4b needs the peak-starvation question answered before ACOM can produce a
   map — see the reference-shell and disk-radius open items)*

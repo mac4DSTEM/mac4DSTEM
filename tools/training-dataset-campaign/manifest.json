@@ -11,7 +11,7 @@
   },
   "polycrystal_2D_WS2.h5": {
     "voltageKV": 200,
-    "phaseModelID": null,
+    "phaseModelID": "ws2_2h",
     "alternateDatasetPaths": []
   },
   "sim_Au_data_all_binned.h5": {
