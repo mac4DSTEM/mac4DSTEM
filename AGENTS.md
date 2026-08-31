@@ -62,9 +62,13 @@ mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
 **The v2 release is mid-flight: S0–S8, S9a, S9b, S10, S11, S12, S13, S17, S18,
-S19 and S21 are done** (plus the M1 tidy) — **S13 sits on branch
-`s13-q-calibration`, closed out 2026-08-29 but NOT merged to `main`; the merge
-is the owner's call**
+S19 and S21 are done** (plus the M1 tidy) — **S13 was MERGED to `main` and
+pushed (fast-forward to `bab5e07`); `s13-q-calibration` still exists and points
+at the same commit. Corrected 2026-08-31**: this file and §9 both still said
+"NOT merged to `main`; the merge is the owner's call", which was true when
+written on 2026-08-29 and stopped being true when the owner merged. Neither
+summary noticed. The evidence is `git reflog show main` —
+`main@{0}: merge s13-q-calibration: Fast-forward` — not either doc.
 — the load pipeline closed as a product, the promote run with unattended
 recipe replay, the error-honesty and strain-frame trust fixes, and the
 reduced-file export with the recipe frame mapping — with the full session

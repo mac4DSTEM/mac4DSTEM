@@ -651,8 +651,12 @@ only if asked.
   to end on exactly one dataset (sim_Au); the cost table times the kernel on
   synthetic patterns and combines it with the campaign's real-data stage time,
   two runs rather than one instrumented run.
-- [x] **S13** — 2026-08-28, closed out 2026-08-29; **on branch
-  `s13-q-calibration`, NOT merged to `main`** — the merge is the owner's.
+- [x] **S13** — 2026-08-28, closed out 2026-08-29; **MERGED to `main` and
+  pushed** (fast-forward to `bab5e07`; `s13-q-calibration` survives at the same
+  commit). *This stub and CLAUDE.md both read "NOT merged to `main` — the merge
+  is the owner's" until 2026-08-31, when the merge had already happened. Both
+  summaries were stale in the same direction; `git reflog show main` settled it
+  in one command. Corrected here rather than argued between the two files.*
   Q-cal implement per the design §5, on the owner's §6(a) decision (`728128b`).
   Shipped: `fitOriginTrimmed` (robust origin fit, `DEVIATION` noted), the
   recorded-origin fallback with `referenceOrigin` as the one derivation at

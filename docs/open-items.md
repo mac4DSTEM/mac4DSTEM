@@ -1281,6 +1281,79 @@ citations cannot be trusted without checking.
   failed, exit 0**. Not gated — it needs gitignored multi-GB data, so it is
   deliberately absent from `run-tests.sh`.
 
+  **Owner drive 2026-08-29: F1.26 remains BLOCKED in the sandboxed app, for a
+  different reason than the earlier missing fixture.** The cube loaded at full
+  128×128 extent and drew a virtual-detector result, but the inspector reported
+  that HDF5 could not open `polycrystal_2D_WS2.mac4dstem.h5`: `errno = 1`,
+  `Operation not permitted`. The app therefore never read the staged 200×200
+  specification and never armed `.doesNotFit`; its rewrite-refusal surfaces
+  cannot be scored from this run. The screenshot proves the boundary cleanly:
+  cube access works, sidecar access does not. This is a grant blocker, not a
+  failure of the headless fixture or S7's gate, and no app-code change was made
+  during acceptance.
+
+  **Assistant-driven follow-up 2026-08-29, exact Xcode Debug product: the
+  same-file re-grant reached macOS's Replace confirmation, but the required
+  status line is still not scored.** The release owner explicitly approved the
+  Replace action. An independent refuter checked the implementation first:
+  `NSSavePanel` returns only a URL/grant, and the exact-URL branch of
+  `copySidecarFile` returns `.nothingToCopy` before any remove or copy. The
+  staged sidecar independently remained byte-for-byte and identity unchanged
+  after the click (SHA-256
+  `7d21932fc9b48bde4cd2d6439b8fb64df2a53d4d951bac2aea5a08d0579935e9`,
+  543,856 bytes, inode 317831317, mtime 2026-08-28 11:20:59). However, the
+  Debug app's accessible window disappeared as the modal returned; the process
+  remained alive under Xcode, and the accessibility service timed out instead
+  of exposing the expected long *"access … re-granted"* status. Asking macOS
+  for the app by display name activated the installed `/Applications` release;
+  that window was discarded as evidence and closed.
+
+  **Gate D pre-registration for that window loss (written before relaunch):**
+  current diagnosis is deliberately narrow — the sidecar was not overwritten,
+  and the observed failure is the Debug app losing an accessible window after
+  the save-panel return; there is not yet evidence for crash, deadlock, or an
+  app-state cause. A clean Debug relaunch that produces a responsive window and
+  can reopen WS2 would refute a persistent app/sidecar failure and leave a
+  one-run window-lifecycle or harness interaction. Predicted experiment: stop
+  the still-alive Debug process, relaunch the exact built product, and reopen
+  WS2; the window should return and the persisted grant should let the app read
+  the sidecar far enough to arm `.doesNotFit`. A second no-window outcome, an
+  unresponsive stack, or another `errno = 1` would refute that prediction and
+  split the diagnosis further. No code change is authorised or attempted in
+  this acceptance pass.
+
+  **The experiment RAN and its prediction HELD — but nobody wrote the result
+  down, and that is the finding. Recovered 2026-08-31 from the Codex
+  transcript, NOT from the docs.** The 2026-08-29 session ended (usage limit)
+  moments after the relaunch, with its last statement being: the Debug window
+  returned, the stored grant worked, WS2 reached the intended incompatible
+  session state, and the inspector showed all three required statements
+  including *"describes a region this file does not have"* and *"session saves
+  are disabled"*. It was about to exercise the three refusal surfaces. **None of
+  that reached this file** — the F1.26 row above still reads BLOCKED / NOT
+  SCORED, which was true two steps earlier and is not true now.
+
+  **Treat this as recovered testimony, not as a score.** The evidence is an
+  agent's own report of what it saw; the screenshots were not retained here and
+  no second reader confirmed them, so F1.26 stays UNSCORED until someone
+  re-drives it. What it *does* establish cheaply is that **the sandbox blocker
+  is clearable** — the same-file re-grant plus a relaunch is the path — so a
+  re-drive should reach the gate rather than stopping at `errno = 1`. That
+  saves the next sitting the whole dead end.
+
+  **The process lesson, which is the durable part:** a session that documents
+  *before* each experiment (as Gate D correctly requires) and *after* the run
+  loses the outcome when it is cut off between the two. The pre-registration
+  survived; the result did not. Cheap mitigation: write the predicted outcome
+  and the observed outcome into the same edit, amending it as the experiment
+  proceeds, rather than planning a second write that may never happen.
+
+  **Un-actioned review note from the same session.** The independent refuter
+  flagged that F1.27's ID cell says *"REOPEN RESULT PASSED"* while that row's
+  Status cell is UNVERIFIED and its actual requirement — the same-file re-grant
+  message — remains unscored. The reopen evidence is real but belongs beside
+  the row as context, not in its identity. Not yet corrected.
+
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance
   was open for Track B reported
@@ -1515,6 +1588,17 @@ or it spends the one resource Track B is expensive in — a person's attention.
   before any save exists has no file to bookmark, so it survives only until
   the next dataset change (the first real save persists it; stated in the
   status message).
+- **Repeating Save Session Sidecar As… can prefill and create a doubled
+  `.h5.h5` suffix — Track B finding, owner drive 2026-08-29 on
+  `downsample_Si_SiGe_exp.h5`.** The first drive of F1.20 passed exactly:
+  `crop-test.mac4dstem.h5` was copied, the original remained, and the inspector
+  followed the renamed file. Opening Save As again then showed
+  `crop-test.mac4dstem.h5.h5` in the name field — `crop-test.mac4dstem.h5`
+  selected with a final `.h5` outside the selection — and accepting it created
+  and retargeted the session to that doubled name. The screenshot and the
+  resulting 494,336-byte file independently establish the observation. This
+  is a naming/Save-panel finding only; no cause is claimed and no app fix was
+  attempted during the evaluation pass.
 - ~~Opening a `.mac4dstem.h5` sidecar directly dumps a 60-line wall of tried
   paths~~ — **FIXED 2026-08-24 (S4)** (`H5Error.sessionSidecarOpened`, capped
   path list); record in [the closed-items archive](archive/closed-items-2026-08.md). Still live: pre-S4 calibration-only sidecars
