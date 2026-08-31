@@ -1,6 +1,16 @@
 #!/bin/zsh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# Check the comparator before the app. compare.py is what turns this harness's
+# measurements into a verdict, so a comparator that has quietly stopped checking
+# is indistinguishable from a passing gate. Runs first, before the ~1 min build,
+# so a broken comparator fails in under a second. Needs no data and no toolchain.
+# It is also its own harness in run-tests.sh's `scientific` array, so CI runs it;
+# this call is the fail-fast for the `all` path, which is the only one that
+# reaches this harness at all.
+"$ROOT/tools/comparator-test/run.sh"
+
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 . "$(dirname "$0")/../lib/developer-dir.sh"

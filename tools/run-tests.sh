@@ -68,6 +68,7 @@ run_harnesses() {
 }
 
 scientific=(
+  comparator-test
   calibration-test calibration-readiness-test q-calibration-gate-test
   virtual-detector-test
   virtual-detector-residency

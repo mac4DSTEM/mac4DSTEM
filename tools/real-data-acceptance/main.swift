@@ -188,10 +188,17 @@ func fail(_ message: String) -> Never {
                 "PASS: \(report.file) \(report.shape.map(String.init).joined(separator: "×")) in \(String(format: "%.2f", report.elapsedSeconds)) s\n".utf8
             ))
         }
-        // A run that measured nothing must not report success. `compare.py`
-        // already fails on a report-count mismatch, which is the stronger check
-        // — this catches the case where there is nothing to compare against at
-        // all, so the harness cannot pass by having skipped everything.
+        // A run that measured nothing must not report success, and THIS guard
+        // is what covers it: if every file was skipped, `run.sh` aborts here on
+        // the non-zero exit and `compare.py` never runs at all. Three guards,
+        // each covering a different case, stated because a previous version of
+        // this comment credited compare.py with two it does not provide:
+        //   here                        the harness skipped every file
+        //   compare.py `if not expected` expected.json was emptied — the
+        //                               missing-dataset check is VACUOUS then,
+        //                               because nothing is pinned to be missing
+        //   compare.py `missing`         a pinned cube vanished from a report
+        //                               that still has other entries
         guard !reports.isEmpty else {
             fail("no file produced a report; skipped \(skipped.count): \(skipped.joined(separator: ", "))")
         }

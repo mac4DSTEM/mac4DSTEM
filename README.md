@@ -37,7 +37,7 @@ Every quantity carries its calibration and provenance through display, export, a
 
 ## Status
 
-**v1.0.0** is the first release. The analysis workflow is complete and covered by an automated gate that anyone with the repository can reproduce: `tools/run-tests.sh all` — **exit 0 over 40 harnesses**, with a **387-test** unit stage (4 skipped, 0 failed), last run 2026-08-28. That aggregate is 38 scientific harnesses — including parity measured against py4DSTEM 0.14.19 on experimental datasets — plus real-data acceptance and packaging. The badge above runs the unit and scientific gates on every push.
+**v1.0.0** is the first release. The analysis workflow is complete and covered by an automated gate that anyone with the repository can reproduce: `tools/run-tests.sh all` — **exit 0 over 42 harnesses**, with a **391-test** unit stage (2 skipped, 0 failed), last run 2026-08-31. That aggregate is 40 scientific harnesses — including parity measured against py4DSTEM 0.14.19 on experimental datasets — plus real-data acceptance and packaging. The badge above runs the unit and scientific gates on every push.
 
 That verification is numerical: the application is tested against known-correct values, not against its rendered output. What it does **not** cover is what the app draws — that is checked by a human pass ([`docs/visual-acceptance-checklist.md`](docs/visual-acceptance-checklist.md)), which exists because the numerical gate has stayed green through real on-screen defects. The Merlin MIB and EMPAD RAW readers remain preview-grade pending further vendor data. Current limitations are documented in [`docs/open-items.md`](docs/open-items.md).
 

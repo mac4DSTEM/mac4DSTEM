@@ -690,6 +690,32 @@ only if asked.
   pass); the trim under clustered / ≥ 50% contamination on real data; ACOM
   origin provenance (deliberately absent); every "sound side" is still one
   dataset (`sim_Au`).
+- [x] **M2 — gate repair** — 2026-08-31 (maintenance, not release scope; no
+  numbered session). **Two harnesses were red on `main` and one was hiding the
+  other.** `real-data-acceptance` failed `report count 8, expected 4` — its
+  comparator asserted equal list lengths and `zip`ped positionally, so the gate
+  was pinned to an exact directory listing; it now matches on the `file` key,
+  keeping the disappearance guard the length assert was really buying. Behind
+  it, `package-test` had been red since `aeaeacc` (S19) raised the macOS floor
+  without updating the assertion that pins it — **so S19's "all: exit 0, 40
+  harnesses, zero FAIL lines" cannot describe the tree it committed**, and that
+  claim is no longer evidence for anything. **Gate B, three refuters, ~20
+  findings:** the by-name rewrite's core survived all three, while two false
+  comments this session wrote, an unciteable statistic, a dead assertion and a
+  fixture symmetric in both axis pairs (the S8 lesson, repeated) did not. New
+  gated harness `tools/comparator-test` (46 checks) joins `scientific`, so CI
+  now runs the check on the checker. Track A on the final tree: **`all` exit 0,
+  42 started / 42 completed, unit 391 passed / 2 skipped / 0 failed, zero FAIL
+  lines**, grepped not tailed. README/CLAUDE.md restated against it (the "40
+  harnesses" figure was stale three ways). Kickoff tax +170 lines, narrative
+  archived to
+  [`docs/archive/2026-08-31-comparator-gate-b.md`](archive/2026-08-31-comparator-gate-b.md).
+  Also: S13's merge state corrected in both summaries (it was merged; both said
+  it was not), and the Track B outcome the 2026-08-29 sitting lost was recovered
+  from its transcript and filed as testimony, not as a score. **Not verified:**
+  the `real-data-acceptance` discriminator (owner-only log grep) was never run
+  and both hypotheses stay open; the 15 s budget for unpinned datasets and the
+  WS₂ `abs_tol` are recorded OWNER DECISIONS, untouched; CI has not run since.
 - [ ] S14 · [ ] S15 · [ ] S16 · [ ] **TB2**
 
 **Unscheduled work that is NOT in the numbered list — a `/pickup` reading only

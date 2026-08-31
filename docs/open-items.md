@@ -1322,31 +1322,20 @@ citations cannot be trusted without checking.
   split the diagnosis further. No code change is authorised or attempted in
   this acceptance pass.
 
-  **The experiment RAN and its prediction HELD — but nobody wrote the result
-  down, and that is the finding. Recovered 2026-08-31 from the Codex
-  transcript, NOT from the docs.** The 2026-08-29 session ended (usage limit)
-  moments after the relaunch, with its last statement being: the Debug window
-  returned, the stored grant worked, WS2 reached the intended incompatible
-  session state, and the inspector showed all three required statements
-  including *"describes a region this file does not have"* and *"session saves
-  are disabled"*. It was about to exercise the three refusal surfaces. **None of
-  that reached this file** — the F1.26 row above still reads BLOCKED / NOT
-  SCORED, which was true two steps earlier and is not true now.
+  **The experiment ran, its prediction held, and nobody wrote the result down.
+  Recovered 2026-08-31 from the Codex transcript, NOT from the docs.** The
+  2026-08-29 sitting ended at a usage limit moments after the relaunch; its last
+  statement was that the window returned, the grant worked, and WS2 reached the
+  intended incompatible-session state with all three required inspector
+  statements visible. **Treat it as recovered testimony, not a score** — no
+  second reader saw those screenshots, so F1.26 stays UNSCORED until re-driven.
+  What it does establish cheaply: **the sandbox blocker is clearable**, so a
+  re-drive should reach the gate rather than dying at `errno = 1`.
 
-  **Treat this as recovered testimony, not as a score.** The evidence is an
-  agent's own report of what it saw; the screenshots were not retained here and
-  no second reader confirmed them, so F1.26 stays UNSCORED until someone
-  re-drives it. What it *does* establish cheaply is that **the sandbox blocker
-  is clearable** — the same-file re-grant plus a relaunch is the path — so a
-  re-drive should reach the gate rather than stopping at `errno = 1`. That
-  saves the next sitting the whole dead end.
-
-  **The process lesson, which is the durable part:** a session that documents
-  *before* each experiment (as Gate D correctly requires) and *after* the run
-  loses the outcome when it is cut off between the two. The pre-registration
-  survived; the result did not. Cheap mitigation: write the predicted outcome
-  and the observed outcome into the same edit, amending it as the experiment
-  proceeds, rather than planning a second write that may never happen.
+  **The durable lesson:** Gate D requires writing the prediction before the
+  experiment, and nothing requires writing the outcome into the *same* edit — so
+  a session cut between the two loses the half with the answer in it. Amend one
+  entry as the experiment proceeds.
 
   **Un-actioned review note from the same session.** The independent refuter
   flagged that F1.27's ID cell says *"REOPEN RESULT PASSED"* while that row's
@@ -1354,64 +1343,81 @@ citations cannot be trusted without checking.
   message — remains unscored. The reopen evidence is real but belongs beside
   the row as context, not in its identity. Not yet corrected.
 
-- **`real-data-acceptance` FAILS on the current machine — `FAIL: report count 8,
-  expected 4` — and that makes the "40 harnesses, green end to end" claim NOT
-  reproducible right now. Observed 2026-08-31, `run-tests.sh all`, exit 1.**
-  Everything else in that run is green: unit **391 passed / 2 skipped / 0
-  failed** (one more case than 2026-08-29's 390; the two skips are the
-  unmounted-volume bookmark probe and S17's quarantine), and **39 of 40
-  harnesses completed green**. The run aborts at `real-data-acceptance`, so
-  `package-test` never ran at all.
+- **~~`real-data-acceptance` fails: `report count 8, expected 4`~~ — FIXED
+  2026-08-31 by matching on the `file` key instead of by position.** The old
+  comparator asserted equal list lengths then `zip`ped positionally, pinning the
+  gate to an exact directory listing and able to compare mismatched pairs. Not a
+  code regression: the harness's inputs were unchanged and `main.swift` can only
+  drop a file from the report on `noDatasetFound` or `sessionSidecarOpened`; the
+  data directory had grown to 8 readable cubes against 4 pinned. **Live
+  residual — do not treat the fix as having settled the history:** the named
+  discriminator (grep S19's retained `all` log for `report count`) was never run,
+  and both hypotheses stay open — the cubes were absent that day, or the
+  2026-08-28 claim never covered this harness. The fix was justified on the
+  defect reproducing on the current tree. Owner holds the log. Evidence:
+  [`archive/2026-08-31-comparator-gate-b.md`](archive/2026-08-31-comparator-gate-b.md).
 
-  **This is not a code regression.** The harness's inputs are byte-identical to
-  the S19 tree that was reported green on 2026-08-28: `git diff aeaeacc..HEAD`
-  is empty for all of `tools/real-data-acceptance/` (`run.sh`, `main.swift`,
-  `compare.py`, `expected.json`), `H5Reader.swift`, `DatasetDescriptor.swift`
-  and `HDF5Types.swift`. S13 did change two files the harness compiles
-  (`Calibration.swift`, `OriginCalibration.swift`), but neither can change the
-  *count*: `main.swift` excludes a file from the report only on
-  `H5Error.noDatasetFound` or `H5Error.sessionSidecarOpened` (lines 60–79);
-  every other failure calls `fail()` and aborts loudly rather than silently
-  dropping an entry. So the population changed, not the code.
+- **A gate that aborts at the first failing harness cannot tell you how many are
+  red. Two were.** `run-tests.sh all` stops on the first non-zero harness, so
+  `real-data-acceptance` failing hid `package-test`, which had been red since
+  2026-08-28. Both fixed 2026-08-31; `all` is exit 0 over 42 harnesses. Whether
+  the runner should continue-and-summarise instead is open, and it is the
+  general form of this pair. Owner: unassigned.
 
-  **What actually changed is the machine's data directory.**
-  `expected.json` pins exactly four datasets — `Particle_1…`,
-  `downsample_Si_SiGe_exp`, `polycrystal_2D_WS2`, `sim_Au_data_all_binned` —
-  and `References/training_dataset/` now holds **eight** readable cubes: those
-  four plus `036_STEM_SI…` (4.25 GB), `060_STEM SI…` (1.78 GB), `COPL_Ni65Cu35…`
-  (164 MB) and `calibrationData_circularProbe.h5` (2.10 GB).
+- **`package-test` asserted the pre-S19 macOS floor, so S19's "green end to end"
+  claim cannot be true.** `run.sh:34` pinned `LSMinimumSystemVersion = "14.0"`;
+  `aeaeacc` (S19) is the only commit that raised `MACOSX_DEPLOYMENT_TARGET` to
+  26.0 and it did not touch that file, so after it the harness must fail — and
+  did, silently, `set -euo pipefail` on a bare `test` printing nothing. **Fixed**
+  (assert `26.0`): a stale test, not a widened gate — the floor is the reviewed
+  product decision. **Live residual:** S19's aggregate claim is therefore not
+  evidence for anything, and the `real-data-acceptance` discriminator (grep S19's
+  retained log for `report count`) is still unrun and still owner-only.
+  Evidence: [`archive/2026-08-31-comparator-gate-b.md`](archive/2026-08-31-comparator-gate-b.md).
 
-  **Leading hypothesis, with its discriminator, NOT a conclusion.** Those four
-  extra cubes total ~8.3 GB. This machine is recorded as running ~4 GB free
-  through August; it now has 21 GB free with ~11.5 GB of training data present,
-  and `/Volumes/PL_SSD_2TB` is mounted. The parsimonious account is that the
-  four large cubes were **off the internal disk on 2026-08-28 and have been
-  restored since**, so S19's run was green *for the set of files present then*
-  and the gate broke when the population grew. Their birth times are old
-  (2024-10-21, 2026-07-12, 2024-10-21, 2026-08-05), which is consistent with a
-  move away and back but does not prove it. **Discriminator:** grep S19's
-  retained `all` log for `report count` — it is not in the repo, so only the
-  owner can settle it. The competing hypothesis, which that grep would also
-  settle, is that the 2026-08-28 "zero FAIL lines" claim never covered this
-  harness. Do not write either up as established.
+- **OWNER DECISION: the 15 s acceptance budget no longer applies to unpinned
+  datasets.** `main.swift` records `elapsedSeconds` but never gates on it, so the
+  budget lived only in `compare.py`, which now checks pinned datasets only —
+  4 of 8 cubes, and the four unchecked ones are the large ones. What was lost is
+  a forcing function: a new dataset used to be unable to go green until a human
+  pinned it. Pin-or-refuse, or accept the advisory `UNPINNED` line? Recorded as a
+  dropped property in `compare.py`'s docstring, not silently absorbed.
 
-  **The structural defect, which is real either way and is the part worth
-  fixing.** `compare.py` asserts `len(actual) == len(expected)` and then
-  `zip`s the two lists **positionally**. Two consequences: (1) the gate is
-  pinned to an exact directory listing, so adding any dataset to the training
-  folder breaks it — and adding datasets is a normal thing for the owner and
-  for Track B to do; (2) worse, a new file that sorts *before* a pinned one
-  would keep the count equal in some combinations and compare the wrong pairs,
-  producing a confident wrong mismatch — or, in principle, a pass on a wrong
-  pairing. Matching by `file` name instead of by position removes both.
+- **OWNER DECISION: `abs_tol=1e-3` on the virtual-image fields exceeds the whole
+  dynamic range of the real `polycrystal_2D_WS2` image (5.3e-4).** A regression
+  *halving that image's contrast* passes the gate and also satisfies
+  `main.swift`'s `guard maximum > minimum`. **Pre-existing** — tolerances
+  unchanged — and it matters most for exactly the dataset W4 is about to point
+  ACOM at. The fixture now carries a WS₂-magnitude entry so the boundary is
+  testable; the tolerance is NOT changed, because tightening it could redden
+  legitimate runs. Trap: the comparator suite reports 46/46 over this hole.
 
-  **Not fixed here, deliberately.** Making the comparator tolerate extra files
-  is exactly the shape of "widen a gate that fails" this repo forbids doing in
-  passing: the count check is also what catches a dataset silently
-  *disappearing*, and replacing it needs a design that keeps that. It needs its
-  own session with the discriminator above run first. Until then, **do not
-  quote `run-tests.sh all` as green** — quote the `unit` and `scientific`
-  stages, which are, and say this harness is red.
+- **The comparator matches by name; Gate B (three refuters) took its claims
+  apart and the core survived.** `compare.py` no longer asserts a report count.
+  Corrected in place: two false comments this session wrote, an unciteable "8 of
+  9" statistic, a dead `"file"` assertion, a fixture symmetric in both axis pairs
+  (the S8 lesson, repeated), and both `math.isclose` parameters being
+  individually deletable with the suite green. Suite is now **46 checks** in
+  `tools/comparator-test`, which is in the `scientific` array so **CI runs it** —
+  it was previously reachable only from `all`, which CI never runs. **Residuals,
+  stated in the files:** `rel_tol` on `diskProbeRadiusPixels` is inert below a
+  50 px radius (real radii 1.8-6.2), and `if not actual:` is subsumed and
+  unkillable by any mutation. Full narrative and the refuters' findings:
+  [`archive/2026-08-31-comparator-gate-b.md`](archive/2026-08-31-comparator-gate-b.md).
+
+- **`real-data-acceptance/run.sh` never adopted `tools/lib/sources.manifest`.**
+  It hand-spells 18 source paths plus a `Shaders/*.metal` glob, while e.g.
+  `q-calibration-gate-test/run.sh` sources the manifest — which exists because
+  hand-spelled lists broke five of eight harnesses on 2026-08-17. That is what
+  let a "these inputs are byte-identical" audit miss `OriginMeasure.metal`.
+  Not fixed; own session.
+
+- **`run.sh`'s empty-glob SKIP exits 0, so a machine with zero datasets passes
+  this gate.** Deleting all four pinned cubes leaves it **green** — the
+  missing-dataset guard never runs. Pre-existing and deliberate (the data is
+  gitignored), but it bounds what that guard is worth, and `compare.py`'s
+  docstring now says so rather than claiming the guard is unconditional. Whether
+  the SKIP should consult `expected.json` is open.
 
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance

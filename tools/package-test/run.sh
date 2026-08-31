@@ -31,7 +31,12 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
   "com.mac4dstem.mac4DSTEM"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "1.0"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "1"
-test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "14.0"
+# 26.0, not 14.0: S19 raised MACOSX_DEPLOYMENT_TARGET in all six configurations
+# (aeaeacc, 2026-08-28) and did not update this assertion, so this harness has
+# been red on main ever since — unnoticed because `all` aborted earlier, at
+# real-data-acceptance. The floor is the deliberate product decision; the
+# assertion encoded the superseded contract.
+test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "26.0"
 # Derived from Info.plist rather than hardcoded: the compiled icon is named
 # after ASSETCATALOG_COMPILER_APPICON_NAME, so it moved from AppIcon.icns to
 # mac4DSTEM.icns when the icon became an Icon Composer .icon. Asserting the
@@ -76,6 +81,6 @@ env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
   "$REPO/tools/calibration-test/real_py4dstem.h5"
 
 echo "PASS: hardened sandbox entitlements and nested signatures"
-echo "PASS: v1 identity, version, macOS 14 floor, and app icon"
+echo "PASS: v1 identity, version, macOS 26 floor, and app icon"
 echo "PASS: no Homebrew/local dylib dependency in the Release product"
 echo "package-test: all passed"

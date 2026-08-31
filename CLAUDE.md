@@ -105,13 +105,14 @@ findings (`probeSize` over-measures 2.15×, Gate D owed) came out of the same
 session. F1.40–F1.43 are queued and undriven.
 
 **The honest test claim — each number dated to its own run:**
-`run-tests.sh scientific` — exit 0 over **39 harnesses**, zero FAIL and zero
-SKIP lines (2026-08-29, S13 closeout on `s13-q-calibration`, after
-`tools/q-calibration-gate-test` — 70 checks — joined the array).
-`run-tests.sh unit` — **390 passed / 2 skipped / 0 failed, exit 0**
-(2026-08-29, same tree — 390 distinct case names, checked for retries, not a
-raw line count); the two skips are the unmounted-volume bookmark probe and
-S17's explicit uncalibrated-Prepare geometry quarantine. Two former data-probe
+`run-tests.sh scientific` — **40 harnesses** as of 2026-08-31, when
+`tools/comparator-test` joined; it was 39 at the S13 closeout and the docs said
+38 for three days after that. Do not quote a harness count from memory —
+`run-tests.sh` is the only thing that knows it.
+`run-tests.sh unit` — **391 passed / 2 skipped / 0 failed, exit 0**
+(2026-08-31 — 391 distinct case names, checked for retries, not a raw line
+count); the two skips are the unmounted-volume bookmark probe and S17's
+explicit uncalibrated-Prepare geometry quarantine. Two former data-probe
 skips (including `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes`)
 now PASS because their staged data is present. **Two recordable non-green outcomes
 from that sitting, both environmental:** one `unit` run refused with **exit 69**
@@ -122,11 +123,23 @@ against the same defaults domain while the gate ran. **Do not drive the app
 during `run-tests.sh unit`** — see `docs/open-items.md`.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
-own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-28**, on the tree carrying S9a and the Gate B fixture: **40 harnesses**, unit stage **387 passed / 4 skipped / 0 failed**, **zero FAIL lines and zero exit-69 preflight refusals in the retained log** (checked by grep, not by trusting the exit code — a `| tail` has swallowed a failing gate here twice). One `SKIP`:
-`real-data-acceptance` correctly recognised a session sidecar sitting beside a
-training dataset and skipped it rather than reading it as a datacube — backlog
-**#43**, fixed 2026-08-18, exercised live for the first time. (That run's WS2
-sidecar skip has since cleared — see the 2026-08-29 unit run above.)
+own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-31**:
+**42 harnesses started and 42 completed**, unit stage **391 passed / 2 skipped /
+0 failed**, **zero FAIL lines and zero exit-69 refusals in the retained log**
+(counted by grep over the log, not by trusting an exit code — a `| tail` has
+swallowed a failing gate here twice, and on 2026-08-31 the wrapper's own exit 0
+hid `run-tests.sh`'s exit 1). Four `SKIP`s, all correct: the four
+`.mac4dstem.h5` sidecars beside the training data, recognised as sidecars rather
+than read as datacubes (#43). One `UNPINNED` line names four real cubes that
+`expected.json` does not cover — advisory by design, see `docs/open-items.md`.
+
+**The previous aggregate claim — "exit 0, 40 harnesses, 2026-08-28" — was not
+reproducible, and it took two fixes to make one true again.** `real-data-acceptance`
+failed on a report-count mismatch, and behind it `package-test` had been red
+since S19 raised the macOS floor without updating the assertion that pins it.
+The second was invisible until the first was fixed, because the run aborts at
+the first failing harness. Both are in `docs/open-items.md` with their evidence.
+
 **S19's blocking dependency is therefore met**, and the README/CHANGELOG
 aggregate claim can be restated against this run rather than retired. Do not
 quote an aggregate you did not just run.
