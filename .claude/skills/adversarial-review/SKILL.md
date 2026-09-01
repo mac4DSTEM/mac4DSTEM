@@ -43,6 +43,18 @@ it *tried* and failed to break.
    reason (repo hard rule).
 5. Record what the review could and could not refute. A claim the review
    corrects gets corrected in the docs — not defended.
+5b. **Break the refuter's proposed remedy before trusting it, exactly as you
+   would a new test.** A recommendation is a hypothesis, and a reviewer who
+   found a real defect can still be wrong about the fix. On 2026-08-31 a
+   refuter correctly showed that a projection transpose is invisible to every
+   gated ACOM harness, and proposed a one-line in-plane-angle assertion. It was
+   implemented — and **both mutations still passed**, because the fixture
+   generates its experimental pattern through the same `project()` that builds
+   the templates, so the cancellation preserves the relative angle as well as
+   the score. Re-running the reviewer's own mutations against the fix is what
+   caught it. Had it been taken on authority, the session would have shipped an
+   assertion advertised as closing a severe blind spot that closes nothing —
+   which is worse than the open item, because it stops anyone looking again.
 6. **Do not commit while a refuter is running, and never with `git add -A`.**
    A refuter mutates the tree to find out whether controls bite, so at any
    moment the working tree may contain a deliberate defect. On 2026-08-28 a

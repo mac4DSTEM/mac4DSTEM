@@ -1,0 +1,74 @@
+[
+  {
+    "case": "control",
+    "source": null,
+    "original": null,
+    "replacement": null,
+    "exitCode": 0,
+    "expectedExit": 0,
+    "expectedFailure": "acom-convention-test: all passed",
+    "semanticEvidence": true,
+    "verified": true,
+    "seconds": 16.409528017044067
+  },
+  {
+    "case": "hexagonal-only-projection-mirror",
+    "source": "mac4DSTEM/Core/Crystal/OrientationPlan.swift",
+    "original": "intensityPower: intensityPower)\n            var polar",
+    "replacement": "intensityPower: intensityPower).map { (r: $0.r, azim: symmetry == .hexagonal ? -$0.azim : $0.azim, weight: $0.weight) }\n            var polar",
+    "exitCode": 1,
+    "expectedExit": 1,
+    "expectedFailure": "FAIL: WS2 independent matrix orientation",
+    "semanticEvidence": true,
+    "verified": true,
+    "seconds": 19.78722620010376
+  },
+  {
+    "case": "inplane-report-only-half-turn",
+    "source": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+    "original": "inPlaneAngle: angle,\n        score:",
+    "replacement": "inPlaneAngle: angle + .pi,\n        score:",
+    "exitCode": 1,
+    "expectedExit": 1,
+    "expectedFailure": "FAIL: Au full-angle recovery, not modulo pi",
+    "semanticEvidence": true,
+    "verified": true,
+    "seconds": 17.26551079750061
+  },
+  {
+    "case": "external-lab-frame-identity",
+    "source": "tools/acom-convention-test/main.swift",
+    "original": "let labSwap = simd_double3x3(rows: [SIMD3(0,1,0), SIMD3(1,0,0), SIMD3(0,0,-1)])",
+    "replacement": "let labSwap = matrix_identity_double3x3",
+    "exitCode": 1,
+    "expectedExit": 1,
+    "expectedFailure": "FAIL: frozen external orientation convention",
+    "semanticEvidence": true,
+    "verified": true,
+    "seconds": 27.93304991722107
+  },
+  {
+    "case": "one-empty-frozen-pattern",
+    "source": "tools/acom-convention-test/reference.json",
+    "original": null,
+    "replacement": null,
+    "exitCode": 1,
+    "expectedExit": 1,
+    "expectedFailure": "FAIL: nonempty external pattern",
+    "semanticEvidence": true,
+    "verified": true,
+    "seconds": 20.449766874313354
+  },
+  {
+    "case": "returned-euler-nonfinite",
+    "source": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+    "original": "euler: EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix),",
+    "replacement": "euler: EulerAngles(phi1: .nan, Phi: 0.3, phi2: 0.5),",
+    "exitCode": 1,
+    "expectedExit": 1,
+    "expectedFailure": "FAIL: orientation must be a finite proper rotation",
+    "semanticEvidence": true,
+    "verified": true,
+    "seconds": 17.746573209762573
+  }
+]

@@ -1,0 +1,1 @@
+FAIL: oracle must distinguish a generic wrong orientation

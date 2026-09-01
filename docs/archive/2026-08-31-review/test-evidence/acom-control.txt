@@ -1,0 +1,7 @@
+MEASURE: Au 144 trials; median matrix error 1.249998 deg; in-plane <20 deg 131
+PASS: Au independent projection and returned matrix
+MEASURE: WS2 240 trials; median matrix error 0.779939 deg; in-plane <20 deg 240
+PASS: WS2 independent projection and returned matrix
+MEASURE: py4DSTEM 0.14.17 40 trials; median 2.056160 deg; <5 deg 25
+PASS: external frame mapping and returned matrices; outliers retained
+acom-convention-test: all passed

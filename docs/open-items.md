@@ -256,6 +256,63 @@ Two things learned that are not obvious and cost time:
   measurements, the component table, the S17 update — are **moved verbatim** to
   [the closed-items archive](archive/closed-items-2026-08.md#the-stale-run-testssh-all-claim--closed-2026-08-28).
 
+### Track B playthrough — 2026-09-01 (full record archived)
+
+Two sittings: the interrupted review's recovery, then a joint Track B drive
+(assistant driving, owner steering) across `downsample_Si_SiGe_exp`,
+`Particle_1`, `polycrystal_2D_WS2` and `sim_Au`. **Nothing under `mac4DSTEM/`
+changed — every item below is eval-only.** Full narrative, including the
+hypotheses that were refuted and the two I retracted:
+[`docs/archive/2026-09-01-trackb-playthrough.md`](archive/2026-09-01-trackb-playthrough.md).
+
+**Rows: 31 passed / 7 partly / 14 unverified / 1 blocked.** Moved this session —
+F1.28, F1.33(a), F1.39, F1.40, F1.41, F1.44 passed; F1.38 and F1.45 advanced;
+F1.26 unblocked. **Done criterion 8 met on screen** (`polycrystal_2D_WS2` reached
+ACOM: `ACOM full ✓ … Physical · measured in app · 16.384 positions · 5.6 s`).
+**F1.28 also confirmed S8's live-derivation contract**, unverified since S8.
+
+**Live findings, by owner:**
+
+- **Restored provenance reaches a fresh product's trust badge — `app-appstate-01`
+  REPRODUCED AT RUNTIME.** Controlled A/B, same cube, one variable: with a session
+  restored `Virtual detector · Annulus` badges **Quantitative**; from a fresh path
+  with nothing restored, **Relative** (correct — units are `intensity`,
+  `App/AppState.swift:745-748`). **Group A.** Not established: the export half, and
+  whether any *number* is affected. Gate D part-satisfied.
+- **Readiness rows truncate mid-sentence, cutting the caveat.** `(27% excluded
+  as…` and `File metadata takes precedence — check…` — the actionable half is
+  what is lost, at any sidebar width tried. **Recommend Group A**: it defeats
+  disclosures that are already implemented and correct.
+- **The reference-shell defect is isolated, with a control.** Same code path:
+  Gold FCC `shell ratio 1.148 vs 1.155 predicted` (0.6%, and 2/√3 = 1.1547 is
+  exactly right); WS₂ basal `1.633 vs 2.000` (18.4%). The estimator is sound; the
+  **WS₂ shell selection** is what is wrong. Owner: whoever takes the reference-shell item.
+- **`ui-07` confirmed on screen** — the Performance inspector still reads *"GPU
+  budget 5461 MB"* where the configurator reads *"GPU working-set limit"*
+  (F1.39, same day). One word; the cheap pull-forward in the triage.
+- **S22 leads, observed not inferred:** the empty result pane gives
+  virtual-detector instructions under every pending result kind
+  (`UI/StemImageView.swift:633-645`); the welcome screen's entry points open
+  **below the fold** and ⌘N is the only route back to *Open with Options…*; the
+  sidebar divider restores at a **measured 144.0 pt** against a declared
+  `min: 250`, degrading the Calibration section to *"Ori… Missing"*.
+- **Row defects fixed in the checklist:** F1.42 named a menu item that does not
+  exist; F1.8 described an unreachable state; F1.40 can only pass on
+  `Particle_1`; F1.41 needs Bragg vectors first; **F1.45's "IPF·Z is nearly
+  uniform" expectation is wrong** — the map is strongly grained (owner's eye).
+- **F1.46 written** — Done criterion 4 had no numbered row. Its Gate D **refuted**
+  the fear that the only grant route overwrites the colleague's sidecar: saves are
+  refused while the restore fails (`App/AppState.swift:1490` →
+  `App/SessionGates.swift:179`), and choosing the same file is an identity-matched
+  no-op. What survives: the first remedy the app prints is one it then refuses.
+- **Method trap:** renaming a sidecar does **not** withhold it — the bookmark
+  tracks the inode. Use a different source path. Driving mechanics are now in
+  [`.claude/skills/track-b/DRIVING.md`](../.claude/skills/track-b/DRIVING.md).
+
+**Triage of the 39 confirmed review findings:**
+[`docs/v2-triage-2026-09-01.md`](v2-triage-2026-09-01.md) — Groups A+B (+D) are
+the v2 case, ~5–7 sessions; C/E/F are v2.x. **Owner decision, not scheduled.**
+
 ### First clean-account acceptance run — 2026-08-14
 
 The v1.0 DMG was downloaded from mac4dstem.com in a fresh macOS account that had
@@ -1419,6 +1476,160 @@ citations cannot be trusted without checking.
   docstring now says so rather than claiming the guard is unconditional. Whether
   the SKIP should consult `expected.json` is open.
 
+- **The exported Euler angles are NOT py4DSTEM/orix-comparable, and two source
+  comments say they are. A colleague who compares them to py4DSTEM is off by a
+  median 38.55°.** Found 2026-09-01 by the first-principles Gate B refuter while
+  verifying the ACOM convention (below). **The numbers are right; the label is
+  wrong** — this is a presentation/provenance defect, not a math defect, which
+  is exactly the class §1's fourth commitment exists to prevent.
+  **Evidence.** `Core/Analysis/OrientationResult.swift:12-13` says
+  "py4DSTEM/orix-compatible Bunge Euler angles in radians" and `:88-90` says the
+  columns match py4DSTEM's `Orientation.matrix` convention. But the app's columns
+  are (detector x = COLUMN, detector y = ROW, n = DOWNSTREAM) while py4DSTEM's
+  are (qx = ROW, qy = COLUMN, lab z = UPSTREAM). They differ by `P`, a proper
+  180° rotation about [110]_lab (measured det +1, trace −1, fixed axis (1,1,0)).
+  **The repo already knows this in two other places and contradicts itself
+  here:** `Core/Crystal/OrientationPlan.swift:163-165` states "the two lab frames
+  differ by the x↔y swap plus a z flip", and
+  `tools/training-dataset-campaign/parity_py4dstem.py:415-428` applies `lab_swap`
+  for precisely this reason.
+  **The decomposition itself is fine** — `EulerAngles.init(py4DSTEMOrientationMatrix:)`
+  (`:31-52`) transcribed into numpy and compared against SciPy
+  `R.from_matrix(M.T).as_euler("zxz")` (py4DSTEM's own export at
+  `crystal_ACOM.py:2519`) over 2000 random proper rotations: max discrepancy
+  **1.30e-12°**; `crystalToLabMatrix` round-trips to 2.69e-15. Only the INPUT
+  MATRIX'S FRAME differs.
+  **Why it is not a comment nit:** those angles ship to users.
+  `Support/ResultExport.swift:552-554` exports `orientation_phi1` /
+  `orientation_Phi` / `orientation_phi2`. Over 3000 random orientations the
+  cubic-symmetry-reduced misorientation between `M_py` and `M_app = M_py @ P`
+  for the SAME physical state is median **38.55°** (p10 17.97, p90 55.53, only
+  0.7% under 5°).
+  **The trap:** "fixing" this by changing the matrix would break the app's own
+  internally-consistent frame and every result already exported. The likely
+  right fix is to state the frame in the export metadata and correct the two
+  comments — or to export both frames. **Owner: decision needed (relabel vs
+  convert vs both), then Gate B.** Pairs with the projection-frame item below.
+
+- **A projection-frame defect in `OrientationPlan.project` is invisible to
+  EVERY gated ACOM harness. THE SHIPPING CONVENTION ITSELF IS CORRECT —
+  verified 2026-09-01, three independent ways — so this is a COVERAGE GAP, not
+  a live wrong-science defect.** Read that first: the item was filed before the
+  verification and its original wording ("wrong science") described the
+  mutants, not the app. **The verification** (one investigator, two refuters,
+  all three agreeing): a first-principles derivation of the whole chain; an
+  analytic fixture whose experimental peaks are built in the harness and never
+  call `project()` — cubic FCC Au, 144 trials, median |Δφ| 1.10° against a
+  2.81° azimuthal bin; hexagonal WS₂, 240 trials, 240/240 within 20°, median
+  misorientation 0.79° — and an end-to-end run against **py4DSTEM 0.14.17's own
+  forward model** (40 random orientations through
+  `Crystal.generate_diffraction_pattern`, median symmetry-reduced misorientation
+  2.06°). A refuter then swept **all 24 proper signed-permutation frame maps**:
+  the shipping best map is the expected `lab_swap` at 2.06° with second-best at
+  22.72° — selected by a factor of 11, so the agreement is not an artefact of a
+  hand-picked frame, and neither mutant is rescued by any map (best 20.46°).
+  W4b Gate B, 2026-08-31. Two mutations at
+  `Core/Crystal/OrientationPlan.swift:192-194` — swapping the in-plane basis
+  (`x = g·e2, y = g·e1`) and flipping handedness (`atan2(-y, x)`) — leave
+  `acom-matching-test`, `fit-overlay-test` and `acom-orientation-test`
+  **byte-identical at exit 0**. **Wrong science, not a frame choice:**
+  `ACOMOrientation.matrix` (`Analysis/OrientationResult.swift:99-106`) composes
+  `basis * Rz(angle)`, asserting the template azimuth zero is `e1` and the
+  experimental zero is detector +x (`OrientationMatcher.swift:242`); the
+  transpose breaks that, so every in-plane angle, Euler triple, IPF colour and
+  exported `orientationMatrixRowMajor` is wrong on real data. **The trap:** the
+  cancellation is structural — every gated ACOM fixture builds its experimental
+  pattern with the same `project` that builds the templates, and `normalizeUnit`
+  then forces self-correlation to exactly 1. **An in-plane-angle assertion does
+  NOT close it** — written and measured, both mutations still pass (w4b.md §3).
+  **Measured on the harness that actually gates, 2026-09-01:**
+  `tools/acom-matching-test` — WS₂ scale-sensitivity arm included — runs
+  **completely green, exit 0, every PASS line, against the e1/e2 transpose**,
+  which produces 20–63° orientation errors. Control and mutant are
+  indistinguishable. Root cause: `tools/acom-matching-test/main.swift:55` builds
+  the harness's peaks by calling `OrientationPlan.project` itself, and the WS₂
+  in-plane check at `:321-327` reduces modulo π, so it is blind to a π-flip too.
+  **The score cannot save you:** mean correlation on identical py4DSTEM input
+  was 0.799 shipping vs **0.811 for BOTH mutants** — the wrong answer scores
+  *higher*. Same shape as the reliability blind spot above.
+  **A global mirror survives a shared-convention check:** MUT-C (mirror template
+  AND experimental azimuth together) and MUT-D (drop the negation at
+  `OrientationMatcher.swift:313-314`) both scored **0.799, identical to
+  shipping**, while landing 26.02° and worse from truth.
+  **CORRECTION to this entry, 2026-09-01:** it previously called
+  `tools/acom-groundtruth` "the only py4DSTEM ACOM comparator". **It compares
+  nothing** — a JSON-in/JSON-out CLI wrapping Crystal + OrientationPlan +
+  OrientationMatcher with no reference, no assertions and no pass/fail; it exits
+  0 whenever the plan initialises. Its value is that it takes peaks from JSON,
+  so it is the natural host for a real fixture.
+  **Fix:** experimental peaks not produced by `project` (an analytic [0001] hk0
+  fixture, sign-discriminating angle 37.2° per the S8 lesson), and give
+  `acom-groundtruth` a committed driver plus expectations. **Working probes
+  already exist and are known to discriminate** — landing them as a gated
+  harness is the whole of the remaining work. Suggested thresholds from the
+  measurements: cubic median misorientation < 3° with ≥120/144 trials inside
+  20°; hexagonal median < 2° with 240/240 inside 20°. Both mutants miss those by
+  an order of magnitude. **Owner: Gate B, unscheduled.**
+
+- **The exported ACOM orientation matrix can be decoupled from the reported
+  template index, unnoticed by any gate.** W4b Gate B, 2026-08-31. Building the
+  result from `detectorBases[(bestTemplate + 1) % count]`
+  (`OrientationMatcher.swift:315`) leaves `acom-matching-test` at exit 0 with
+  identical output: the reported `templateIndex` is right, the exported
+  orientation comes from a different zone axis. `acom-orientation-test` pins
+  `ACOMOrientation.matrix` in isolation and never calls `matchAll`, so the
+  wiring between them is untested. **The trap:** the obvious assertion is wrong
+  — rebuilding the matrix from the reported template/angle matches at fixture
+  position 1 (4.5e-8) and disagrees at the other seven by O(1), because `euler`
+  is symmetry-reduced; a correct check compares modulo the symmetry group.
+  **Owner: Gate B, pairs with the projection-frame item above.**
+
+- **Three smaller ACOM blind spots, measured 2026-08-31, none gated.**
+  (a) An **additive** radial offset survives — `+ 1` on
+  `OrientationPlan.swift:221` displaces every ring on both sides and
+  `acom-matching-test` stays green; the WS₂ arm pins a *multiplicative* scale
+  error only. (b) **Reliability is entirely unpinned**: inverting the
+  distinctness test at `OrientationMatcher.swift:297` (`>` → `<`) leaves the
+  harness green, and the gold arm cannot see it because its "scalar reference"
+  calls the production `selectOrientation`. Given that reliability ranked a
+  wrong Q scale above the right one, this is the metric most needing a pin.
+  (c) **`intensityPower = 0.25`** (`OrientationPlan.swift:96`, locked to
+  `crystal_ACOM.py:33`) can be changed to 0.5 with the harness green.
+
+- **`MAC4DSTEM_ACOM_SCALE_OVERRIDE` leaves one run emitting two artifacts that
+  disagree about Å⁻¹/px.** W4b Gate B, 2026-08-31; two of four findings fixed
+  the same day (it now refuses an unparseable or non-positive value instead of
+  falling back silently, and records `.manual` provenance plus an `issues` line
+  rather than claiming `.measuredInApp` for an env-supplied number). **Live
+  residual:** (a) `calibration.qPixelSize` keeps the *estimate* while the
+  orientation map was matched at the *override* — verified on
+  `e4-corrected/polycrystal_2D_WS2_h5.mac4dstem.h5`, `Q_pixel_size` 0.008788661
+  beside a product matched at 0.019448; whether the sidecar should carry the
+  matching scale or refuse to be written under an override is a design call.
+  (b) On a *cubic* dataset an override run would compare apples-to-oranges:
+  `parity_py4dstem.py:compare_acom` never reads `invAngstromPerPixel` and builds
+  its own plan from `bragg.setcal(pixel=True)`. Cannot arise for WS₂ (that
+  comparator returns `"pass": None` for non-cubic).
+
+- **`KnownCrystalQCalibration.estimate` measures the reference ring by the
+  per-pattern MINIMUM radius, biased low by an order statistic — 1.92% on
+  `polycrystal_2D_WS2`, making the Q scale ~1.9% too large.** W4b Gate B,
+  2026-08-31, found while checking why the record's two scales did not divide to
+  the predicted factor. `Analysis/QCalibration.swift:138-157` takes each
+  pattern's innermost non-central radius then the median → **18.46677 px**, and
+  0.162298/18.46677 = 0.008788661 reproduces the shipped value to nine digits;
+  but ring 1 carries **5.26 spots/pattern at σ = 0.2992 px**, so
+  E[min] ≈ mean − 1.28σ ≈ 18.45 against a population mean of **18.8283 px**.
+  **Independent of the (0002) shell defect and survives fixing it:** correcting
+  only the shell and keeping this statistic gives 0.019830 vs the data-derived
+  0.019448, a residual +1.97%. It is also why w4b.md quoted a 2.2564× defect
+  factor when its runs produced 2.2129× — two different radius statistics.
+  **The trap:** the bias grows with spots-per-ring and with peak noise, so it is
+  dataset-dependent and no constant corrects it. **Owner: Gate D first** (mode,
+  trimmed mean, or radial-profile fit?), then Gate B; take it together with the
+  reference-shell item below — same estimator, one fixture can cover both.
+  Evidence: [`w4b.md`](archive/v2-session-records/w4b.md) §1 E3(b).
+
 - **The Q-calibration reference shell has no l-filter and no visibility filter,
   and on 2H-WS₂ it selects (0002) — a reflection a [0001]-zone 2D specimen
   never shows. Predicted mis-scale on this dataset's own geometry: 2.2564×,
@@ -1453,15 +1664,23 @@ citations cannot be trusted without checking.
   2.213 under, vs 2.256 predicted from geometry alone). Matching the same
   vectors at both scales: the correlation score HALVES at the defective scale
   (median 0.214 vs 0.399) and the assigned zone axis is wrong (4.6° off beam
-  vs 0.0°). **Trap discovered in the same experiment: `reliability` is
-  anti-correlated with correctness on basal specimens** (0.115 defective vs
-  0.094 corrected — near-[0001] templates are nearly degenerate at the right
-  scale), so a reliability-ranked comparison would PREFER the wrong scale. Any
-  fix or UI surface for this defect must not lean on reliability alone.
-  Evidence: [`w4b.md`](archive/v2-session-records/w4b.md). A scale-
-  sensitivity control in `tools/acom-matching-test` is OWED, not landed — the
-  session stopped at its usage limit before writing it; spec in the record's
-  handoff section.
+  vs 0.0°). **Trap discovered in the same experiment: median
+  `reliability` was HIGHER at the wrong Q scale than at the right one** (0.115
+  defective vs 0.094 corrected — near-[0001] templates are nearly degenerate at
+  the right scale), so a reliability-ranked comparison BETWEEN CANDIDATE SCALES
+  would prefer the wrong one, and no fix or UI surface for this defect may lean
+  on reliability to choose. **Narrowed by Gate B, 2026-08-31**: this entry
+  previously said reliability is "anti-correlated with correctness on basal
+  specimens", which the session's own data refutes — *within* the corrected run
+  the correct basal template has the higher median reliability (t0 0.0940 vs
+  non-t0 0.0827), Spearman(score, reliability) is +0.011, and mean reliability
+  falls across the sweep as noise enters. One ordered pair between two runs is
+  not a correlation.
+  Evidence: [`w4b.md`](archive/v2-session-records/w4b.md).
+  **The scale-sensitivity control LANDED 2026-08-31** in
+  `tools/acom-matching-test` (gated, in `scientific`): at the true scale the
+  WS₂ fixture recovers 8/8 generating templates, at the mis-scale 0/8, and the
+  median score drops 68.2%.
 
 - **Working method: do NOT drive the app while `run-tests.sh unit` is running.**
   Observed once, 2026-08-27. A gate run made while a build-under-test instance

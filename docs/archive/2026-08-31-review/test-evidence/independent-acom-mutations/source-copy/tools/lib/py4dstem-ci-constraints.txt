@@ -1,0 +1,41 @@
+# tools/lib/py4dstem-ci-constraints.txt — the numerical stack under the
+# vendored py4DSTEM source lock, pinned.
+#
+# The parity harnesses import py4DSTEM from References/py4DSTEM-dev (tracked),
+# so the *source* is locked by git — but its setup.py declares only open lower
+# bounds (numpy >= 1.19, ...), so an unconstrained `pip install` resolves a
+# different numerical stack every time an upstream package releases. A parity
+# number is a claim about py4DSTEM's code AND the stack it computes on; this
+# file pins that stack to the one the repo's parity numbers were actually
+# established on.
+#
+# PROVENANCE: `pip freeze` of the release owner's py4dstem environment
+# (miniconda3/envs/py4dstem, Apple Silicon), captured 2026-08-26 (v2 S21),
+# filtered to the packages named in References/py4DSTEM-dev/setup.py
+# install_requires. Deeper transitive dependencies still float — this pins the
+# direct stack, not a full resolution; say so rather than claim more.
+#
+# TO REGENERATE after deliberately upgrading the local parity env:
+#   ~/miniconda3/envs/py4dstem/bin/python -m pip freeze | grep -E \
+#     '^(numpy|scipy|h5py|hdf5plugin|ncempy|matplotlib|scikit-image|scikit-learn|scikit-optimize|tqdm|dill|gdown|dask|distributed|emdfile|mpire|threadpoolctl|pylops|colorspacious|pymatgen)=='
+# then re-run the scientific gate locally before committing the new pins.
+colorspacious==1.1.2
+dask==2024.8.2
+dill==0.3.8
+distributed==2024.8.2
+emdfile==0.0.15
+gdown==5.2.0
+h5py==3.11.0
+hdf5plugin==5.0.0
+matplotlib==3.11.0
+mpire==2.10.2
+ncempy==1.11.1
+numpy==2.5.0
+pylops==2.3.1
+pymatgen==2025.1.9
+scikit-image==0.24.0
+scikit-learn==1.4.2
+scikit-optimize==0.10.2
+scipy==1.18.0
+threadpoolctl==3.5.0
+tqdm==4.67.1

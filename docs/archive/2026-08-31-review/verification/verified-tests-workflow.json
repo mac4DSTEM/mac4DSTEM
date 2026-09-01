@@ -1,0 +1,242 @@
+{
+  "reviewDate": "2026-08-31",
+  "snapshot": "main 24c13d3 plus pre-existing W4b continuation edits; no app code changed by this reviewer",
+  "method": "Independent source/caller/contract inspection. No builds, no tests, no mutation runs, no live app use. Parent-created ACOM fixture is outside this original-snapshot review.",
+  "areas": [
+    {
+      "area": "app-rest",
+      "findings": [
+        {
+          "originalTitle": "S7's iDPC-remedy regression guard asserts a string that exists nowhere, so it cannot fail",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "iDPC remedy regression assertion does not match the production remedy",
+          "file": "mac4DSTEMTests/SessionGatesTests.swift",
+          "line": 113,
+          "evidence": "The asserted forbidden substring is \"enter the scale manually\". Calibration.swift:755 emits \"Enter the reciprocal pixel size manually\". The preceding assertions only require a nonnil refusal and the shared judgement, both present in originFitRefusal. The local assertion therefore cannot distinguish that Q remedy from the intended iDPC remedy. This does not establish that every test in the suite survives the proposed mutation.",
+          "remainingVerification": "Apply the production-refusal mutation in an isolated checkout and run the affected test and suite before claiming mutation survival; use an assertion tied to the actual remedy or an independent expected iDPC contract."
+        },
+        {
+          "originalTitle": "reciprocalMetrologyRefusal's fittedMaps/recordedMean branch is unreachable and fails OPEN; its comment claims the opposite",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Reciprocal-metrology fallback is dead today and would return nil if reached",
+          "file": "mac4DSTEM/App/SessionGates.swift",
+          "line": 112,
+          "evidence": "Calibration.originSupportsReciprocalMetrology (Calibration.swift:604-610) accepts measured kinds when originFitIsSane is true. When false, origin.rmsResidual and probeRadius exist (569-571), so originFitJudgement (695-706) and originFitRefusal (727-758) exist, and SessionGates:91 already returns. The branch at 112-116 re-asks the same optional already found nil. Thus the misleading \"Reachable\"/\"say something\" comment is real, but there is no reachable current scientific admission failure from this branch. The original NaN scenario changes production rules rather than demonstrating a current state.",
+          "remainingVerification": "No present runtime bug demonstrated. If this defensive branch is hardened, verify every reachable kind and preserve the real admission predicate."
+        },
+        {
+          "originalTitle": "persistRecoveryPosition writes the current dataset's position and frame into the PREVIOUS dataset's recovery record",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Recovery-position writes do not verify the dataset identity",
+          "file": "mac4DSTEM/App/AppState.swift",
+          "line": 2147,
+          "evidence": "persistRecoveryPosition copies the old recoveryRecord and replaces coordinates, analysis mode, and loaded-view specification without matching descriptor.filePath. activate changes descriptor at 2367; rememberOpenedDataset replaces the record only after runCurrentAnalysis at 2316-2326. selectScan at 2215-2220 calls persistence with no loading guard; analysisMode also persists via didSet at 999. The read side correctly checks dataset identity at 2633. The initial report overstates slider reachability: ContentView:76 hides the tools sidebar during loading. Its arrow handler at 1170 has no loading guard, but actual focus/reachability was not driven. A successful open subsequently replaces the record with B, limiting durable harm to interrupted/cancelled/failed openings or other cross-dataset transitions.",
+          "remainingVerification": "Gate D controlled reproduction: keep a recovery record for A, suspend B before rememberOpenedDataset, invoke a reachable selection/mode change, inspect persisted identity/frame, then cancel or terminate. Do not claim user-visible corruption without this."
+        },
+        {
+          "originalTitle": "LoadedView's header claims its display surface has no reader; three of the four things it names are rendered by the inspector",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "LoadedView display-surface comment is stale",
+          "file": "mac4DSTEM/App/LoadedView.swift",
+          "line": 45,
+          "evidence": "The comment says UI reads none of summary/binningNotice/invalidatedCalibration. DatasetInspector.swift:69,74,173-175 renders all three. discardedDetectorRows/Columns also feed the two text projections. This is misleading source documentation, not an app defect.",
+          "remainingVerification": "Comment-only correction; no new test needed."
+        },
+        {
+          "originalTitle": "A single unreadable recents entry silently discards all eight, and the next open persists the loss",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Malformed recents blobs decode to an empty list without reporting the loss",
+          "file": "mac4DSTEM/App/WorkspaceRecovery.swift",
+          "line": 147,
+          "evidence": "WorkspaceRecoveryStore:205-207 uses try? JSONDecoder.decode([RecentDataset].self); one malformed element invalidates the whole array. recent() substitutes []. RecentDatasets.swift:47 adopts it and remember:56-62 persists the next list. This is a robustness gap under corrupt or incompatible persisted input, not evidence current supported writer output is malformed. A future required-field change is hypothetical, and loss of a recents list is not loss of scientific datasets.",
+          "remainingVerification": "Use a private defaults domain to test partial malformed input and migration before choosing salvage policy. Preserve original corrupt bytes if adding diagnostics."
+        },
+        {
+          "originalTitle": "A stale recents bookmark is re-created outside its security scope and the failure is swallowed",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Stale bookmark refresh is attempted before the open activates security scope",
+          "file": "mac4DSTEM/App/AppState.swift",
+          "line": 2142,
+          "evidence": "openRecent:2082-2085 attempts refresh before openFileAsync starts scope at 2273, and refresh swallows errors. Runtime sandbox behaviour remains untested. However the initial scenario of every successful reopen permanently failing to repair the bookmark is contradicted: openFileAsync:2326 calls rememberOpenedDataset, whose :2125-2129 recreates and stores the bookmark while the scope remains active. A later success repairs the entry even if the eager refresh failed.",
+          "remainingVerification": "Sandboxed stale-bookmark reproduction needed for the early refresh; inspect moved-file ID and recovery consistency separately. Do not present the initial never-repaired scenario as confirmed."
+        }
+      ]
+    },
+    {
+      "area": "tests",
+      "findings": [
+        {
+          "originalTitle": "The strain file's declared \"scientific pin\" has no anti-vacuity guard and passes with zero comparisons",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Strain vector/tensor equivalence test permits zero comparable positions",
+          "file": "mac4DSTEMTests/StrainFrameTests.swift",
+          "line": 153,
+          "evidence": "The comparison loop is filtered by raw.mask && refit.mask and has no count/nonempty-mask assertion. XCTUnwrap only checks a map exists; StrainMapping.swift can return a nonnil map with no valid fits. Other tests and tools/strain-frame-test protect related science, so this is a gap in this specific scientific pin, not proof the whole suite is blind.",
+          "remainingVerification": "Mutation-test a rotation-specific all-false mask in an isolated copy; require the expected comparable-position count for each angle/transpose case."
+        },
+        {
+          "originalTitle": "testTheFailureCauseIsClearedSoAStaleRemedyIsNeverOffered asserts the same constant twice and never clears anything",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Stale-strain-remedy test checks initialization twice and never tests clearing",
+          "file": "mac4DSTEMTests/StrainFailureCauseTests.swift",
+          "line": 80,
+          "evidence": "The test constructs AppState and repeats XCTAssertNil without recording a failure or changing datasets. StrainProductTests.swift:57-72 genuinely covers clear() on a nonempty failure cause; the AppState activation call exists at AppState.swift:2446. Thus production clearing is not shown broken, but the named wiring test does not observe it.",
+          "remainingVerification": "Seed failure, activate another dataset through the public flow, assert cleared state, and break the activation clear to prove the new assertion discriminates. A bare initialization assertion can remain if honestly named."
+        },
+        {
+          "originalTitle": "SidebarDensityMeasurementTests: 8 test cases, 403 lines, zero assertions \u2014 inside the gate and inside the \"391 passed\" claim",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Eight sidebar measurement cases run in the unit gate but assert no behaviour",
+          "file": "mac4DSTEMTests/SidebarDensityMeasurementTests.swift",
+          "line": 140,
+          "evidence": "All eight test methods are measurements/screenshots with no XCTest assertion; the file explicitly says so at 6-12. tools/run-tests.sh:52-58 selects the entire unit target, so these cases count among passed cases. A passed XCTest count is still a factual execution count, not a promise of one invariant per test. The report is too strong in calling the suite count false. S17 already isolates these cases with a private defaultAppStorage store; a reported spurious failure does not itself establish this class as the root cause.",
+          "remainingVerification": "Consider an explicit diagnostic mode and report case count separately from behavioural evidence. Assess runtime cost with retained test timings before optimizing."
+        },
+        {
+          "originalTitle": "\"Usable orientation preview\" is asserted as score > 0.001 on an unbounded correlation sum, with no expected zone axis",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Demo orientation test is an operational smoke check, not an orientation-accuracy oracle",
+          "file": "mac4DSTEMTests/DemoWorkflowTests.swift",
+          "line": 35,
+          "evidence": "It checks valid-template coverage and a maximum score >0.001, not an expected zone axis. The original premise that score is an unbounded unnormalized sum is false: OrientationPlan.swift:127 normalizes template polar grids; OrientationMatcher.swift:249 normalizes experimental grids and :131/:204 correct inverse FFT scale. The check is weak for scientific correctness but can legitimately establish nonempty demo operation.",
+          "remainingVerification": "Name/document operational scope; if a scientific demo claim is desired, use independent planted orientation ground truth. Do not invent a reliability threshold."
+        },
+        {
+          "originalTitle": "The test that claims to pin the re-reference and the export writer to one convention never calls the writer",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Binned-origin unit test checks a literal convention, not the export writer",
+          "file": "mac4DSTEMTests/CalibrationReReferenceTests.swift",
+          "line": 271,
+          "evidence": "The expected value at 279 is a locally typed formula; no BraggVectorEMDWriter call occurs, so the claim at 272-275 that it pins both implementations together is false. The literal is a valid independent analytic oracle for CalibrationReReference. tools/reduced-export-test separately covers the writer using a centroid arbiter, so this is misleading local scope rather than missing aggregate export coverage.",
+          "remainingVerification": "Correct scope/name or exercise actual writer. Do not remove the independent literal or replace it with self-comparison."
+        },
+        {
+          "originalTitle": "testPeaksSurviveRadialErrorSmallerThanABin builds its peaks from the template bank it then matches against",
+          "status": "refuted",
+          "severity": "none",
+          "title": "Template-derived fixture is appropriate for this explicitly scoped radial-deposition test",
+          "file": "mac4DSTEMTests/ACOMScanSelectionTests.swift",
+          "line": 110,
+          "evidence": "The surrounding MARK is \"Radial deposition\" and the comment at 105-109 explicitly asks whether a sub-bin radial error still matches its own template. Peaks built from templateSpots are appropriate for that isolated matcher contract. The test never claims to validate the bank or crystal. Its inability to find wrong reflection physics is an expected scope limit, not a defect in this test. Independent model/projection coverage is a separate known concern handled by tools fixtures.",
+          "remainingVerification": "No fix required for the stated radial-deposition contract. An optional scope sentence could help prevent future overinterpretation; parent separately owns independent ACOM fixture work."
+        },
+        {
+          "originalTitle": "The accelerating-voltage test asserts \"at least one NSTextField exists somewhere in the window\"",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Voltage-placement test relies on an unpinned text-field-count assumption",
+          "file": "mac4DSTEMTests/SidebarLayoutTests.swift",
+          "line": 474,
+          "evidence": "The test counts all NSTextField descendants and accepts >=1, relying on the comment that this fresh Reconstruct state has exactly the voltage field. This does not prove the current test is nondiscriminating: no current extra field was demonstrated. Merely changing >=1 to ==1 would detect an extra field but still would not identify the voltage field if one replacement field remained.",
+          "remainingVerification": "Drive or inspect an accessibility-aware semantic location assertion; mutate the voltage placement and run the test. Retired UI-test lookup must not be used as current acceptance authority."
+        },
+        {
+          "originalTitle": "testStrideKeepsThePreviewInsideItsByteBudget permits twice the budget",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Preview-budget test permits twice its named limit and tests only square scans",
+          "file": "mac4DSTEMTests/DatasetPreviewTests.swift",
+          "line": 39,
+          "evidence": "The assertion accepts bytes <= budget*2 without explaining slack. Independent arithmetic of the current production formula (DatasetPreview.swift:100-114) gives <=1x for all four 200x200 cases, so the current tested inputs do not require the factor. The original floor/ceil failure scenario was not run. More useful follow-up: the common-stride sqrt(total/affordable) formula is not a strict byte bound for elongated scans; applying it arithmetically to a 1x10000 scan, 128x128 detector, 16 MiB budget yields stride 7, 1429 patterns, 5.582x budget. This is a Gate D lead derived from the formula, not a measured app latency or a reproduced production invocation.",
+          "remainingVerification": "Run production stride/make on rectangular/degenerate scans with an independent byte-count oracle; define whether budget is strict or approximate and account for a single pattern larger than budget before changing policy."
+        }
+      ]
+    },
+    {
+      "area": "tools-gates",
+      "findings": [
+        {
+          "originalTitle": "Gated parity-metric check is a tautology: it compares an expression against a byte-identical recomputation of itself",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Parity metric round-trip assertion compares a value to itself",
+          "file": "tools/training-dataset-campaign/test_parity_metric.py",
+          "line": 85,
+          "evidence": "Both arguments at 85-86 are the identical B@P expression. It adds no frame-convention discrimination beyond existing identity checks, while the other metric checks do test symmetry and injected rotations. The proposed P\u2192P.T mutation in the initial review is INVALID: the literal P at 27 is symmetric, so transposition changes nothing. Also P is duplicated in this test and comparator: changing test-local P does not itself alter production comparator mapping. No mutation was run during this verification.",
+          "remainingVerification": "Test the production comparator frame transformation against independently constructed app/py4DSTEM matrices, and actually run a nonidentity sign/side/map mutation in isolation."
+        },
+        {
+          "originalTitle": "load-spec-roundtrip's \"real claim\" block is skipped silently when both LoadView constructions throw",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Load-spec applied round-trip can silently skip when both constructions fail",
+          "file": "tools/load-spec-roundtrip/main.swift",
+          "line": 79,
+          "evidence": "The two try? results are compared only for matching nil status at 81-82; the applied view/calibration assertions are all under if-let at 83-135. Both nil therefore skip those assertions without a failure. All four reduced specs are intended valid. Other load-spec harnesses test construction and independent outcomes, so no claim is made that changing LoadView globally leaves the aggregate green.",
+          "remainingVerification": "Require successful construction for each valid fixture, then mutate each path to throw and observe the intended assertion fail."
+        },
+        {
+          "originalTitle": "disk-correlation-parity's README claims the gate guards the concurrent path; the gated invocation never runs it, and the harness's parallel branch does not mirror the production work split",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Disk-correlation README overstates its parallel-path coverage",
+          "file": "tools/disk-correlation-parity/README.md",
+          "line": 19,
+          "evidence": "run-tests.sh invokes this harness with no backend; main.swift:153 defaults cpu, and its manual parallel branch :239 distributes patterns rather than invoking production detectAll row splitting. Therefore this harness does not pin production parallel splitting as claimed. But the initial report is wrong that no gate executes it: virtual-detector-test:203/206 compares production resident/tiled detectAll, and cancellation-test:68/77/92 invokes resident detectAll. An arbitrary row-split mutation has not been shown to survive those. Comparing parallel results to a serial baseline is intended; not requiring baseline.backend equality is not independently a bug.",
+          "remainingVerification": "Correct README scope or add direct production serial/parallel oracle checks with nonempty asymmetric per-row expectations. Run candidate splitting mutations against all affected gates before asserting survivors."
+        },
+        {
+          "originalTitle": "CoMParams is the one Metal parameter struct with no independent arbiter \u2014 its only check compares the kernel against itself",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Center-of-mass kernel lacks an independent expected-value check in located gated exercises",
+          "file": "tools/virtual-detector-test/main.swift",
+          "line": 169,
+          "evidence": "The resident/tiled check at 169-179 shares the kernel and parameter struct. The initial \"only exercise\" claim is false: virtual-detector-residency:437-443 and resident-cropped-view:271-275 also exercise CoM, but likewise compare two paths through the same kernel. Current Swift and Metal CoMParams definitions match. A shared arithmetic/reference-center error can therefore escape these comparisons. The suggested inserted-field mutation could change control flow, out-of-bounds reads, or cause a GPU fault; green survival cannot be inferred without running it.",
+          "remainingVerification": "Add an independent analytic CoM oracle for asymmetric intensities, noncentral global center, per-position origins, negative clamping, and empty intensity; mutate field order/reference calculation in isolated copies."
+        },
+        {
+          "originalTitle": "RotationCalibration \u2014 a py4DSTEM port with its own DEVIATION, feeding iDPC and parallax \u2014 has zero coverage in any gate",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Rotation solver and ptychography preparation lack direct located gated tests",
+          "file": "mac4DSTEM/Core/Analysis/RotationCalibration.swift",
+          "line": 31,
+          "evidence": "No direct RotationCalibration.solve test was found under unit tests or gated tools; only the ungated training campaign compiles/calls it. Its app caller is AppState.swift:4214. Ptychography preparation similarly has no direct located gate, but the initial claim it has NO CALLERS is false: its type is PtychographyPreparer, and AppState.swift:3858 calls prepare. App target compilation covers both, and downstream engines have separate tests, but that does not validate these transformations.",
+          "remainingVerification": "Add independent curl/divergence rotation fixtures and a bounded input-preparation fixture under a future Gate B task; confirm runtime pipeline wiring before claiming every result is affected."
+        },
+        {
+          "originalTitle": "README's public, reproducible harness count went stale when ws2-crystal-test joined the gate",
+          "status": "resolved",
+          "severity": "none",
+          "title": "README aggregate roster count was corrected before recovery",
+          "file": "README.md",
+          "line": 40,
+          "evidence": "Current README says 43 total / 41 scientific. Current run-tests.sh scientific roster contains 41 entries and all adds two. This was Claude's successful edit before interruption, not a new correction by this reviewer. Dated older 42/40 or 38 counts elsewhere are not false merely because the roster grew.",
+          "remainingVerification": "No live count finding. Parent checks retained aggregate execution evidence separately; no aggregate rerun occurred here."
+        },
+        {
+          "originalTitle": "sources.manifest's \"STATUS, STATED PLAINLY\" understates adoption by three times",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Source-manifest adoption comment lists two users where six now exist",
+          "file": "tools/lib/sources.manifest",
+          "line": 31,
+          "evidence": "Direct source references in six run.sh files: origin-fit-diagnostics, q-calibration-gate-test, reduced-export-test, strain-frame-test, two-spec-analysis-test, ws2-crystal-test. The comment names only the latter original two. This is stale documentation; the manifest-driven runners still use the manifest correctly.",
+          "remainingVerification": "Update or remove the hard-coded adoption list; no runtime test needed."
+        },
+        {
+          "originalTitle": "CI's exclusion list promises completeness but omits three ungated harnesses added the day after it was written",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "CI exclusion documentation omits three diagnostic helpers",
+          "file": ".github/workflows/ci.yml",
+          "line": 14,
+          "evidence": "The exclusion header promises explicit reasons, but origin-fit-diagnostics, volume-mmap-probe and stage-tb1-ws2-fixture are absent from both the scientific roster and list. The scripts are respectively diagnostic/data-staging work, not necessarily candidates for CI. The finding concerns an incomplete explicit inventory, not evidence CI silently stopped running a previously gated harness.",
+          "remainingVerification": "State their roles/exclusion or maintain a machine-checkable inventory. Do not expand CI by adding data-dependent diagnostics without an agreed gate role."
+        }
+      ]
+    }
+  ]
+}

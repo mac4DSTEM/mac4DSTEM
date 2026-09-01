@@ -319,10 +319,13 @@ still run one at a time, but either order works and nothing blocks.
 | S19 | **Claims restatement.** README/CHANGELOG to what a reader can reproduce; `docs/releasing.md` gains `make-dmg.sh`; `LSMinimumSystemVersion` → 26 — **and `MACOSX_DEPLOYMENT_TARGET`, which is still `14.0` in FOUR configurations of `mac4DSTEM.xcodeproj`. Partly pre-empted 2026-08-28:** `README.md` now says macOS 26 or later and `CHANGELOG.md` records that v1.0.0's declared 14 floor was never tested below 26, so docs and binary currently disagree in the safe direction. S19 closes the gap by raising the build setting; until then the DMG still installs on macOS 14 | A | S17, S21, green `all` | The CI badge from S21 becomes part of the restated claim |
 | S20 | **Endgame.** Version number decided on §5's evidence; `/code-review ultra` on the release branch (owner triggers); `/security-review`; sign → notarize → staple; clean-account launch; full Track B standing pass A–F; **record the `tools/performance-baseline` table for the release** (so performance regressions become visible release-to-release the way parity regressions already are); tag | — | everything | |
 | S21 | **CI on the public repo.** GitHub Actions macOS runner: `unit` + the synthetic-fixture harnesses of `scientific` on every push. The README badge then *is* the aggregate claim, and the refusal rule's second clause becomes mechanical — a stale claim cannot recur unnoticed. **Excluded and said so in the workflow file:** `real-data-acceptance` and every harness needing gitignored multi-GB data. Free for a public repo | A | S2 (manifest); before S19 | Sits in W5; can run any time after S2 |
+| S22 | **UX pass — the experience, not a defect list.** Owner decision 2026-08-31: v2 ships a *good* product, not only a correct one, and nothing in S0–S21 owned that. **Bounded by evidence, never by taste:** the input is (a) the owner's free-form playthrough findings across the staged datacubes, (b) the UX survey's findings, (c) every UI/UX entry already in `docs/open-items.md`. Anything not traceable to one of those three is out of scope and gets parked, exactly as S18 was bounded to its list. Judge against ROADMAP P2 — task-scoped controls, persistent result labels, visible diagnostics — and against the §1 claim's fourth commitment, *trust what's on screen*. **This session changes what the app draws**, so it queues Track B rows and is unverified until the owner drives them; if it touches `AppState` it extracts one seam first | A | the owner playthrough; UX survey | Must precede the S20 standing pass so its changes are verified in the same drive, not after |
 
 **Owner-decision moments, so they never ambush:** TB1 and TB2 (driving time),
 the strain-frame choice (S8), the aspect-stretch decision (TB1), the S12
-design review, the WS₂ variant confirmation (S14), the version number (S20).
+design review, the WS₂ variant confirmation (S14), the version number (S20),
+and **the playthrough itself (S22's input) — the owner drives, the findings are
+the session's scope**.
 Everything else runs on the decisions recorded in this file.
 
 **Sizing, honestly:** ~21 agent sessions plus two owner passes and the
@@ -753,20 +756,91 @@ only if asked.
   on screen; ACOM on the cube (W4b); the AppState code path itself (the
   fixture pins a replica). Record:
   [`w4a.md`](archive/v2-session-records/w4a.md).
-- [~] **W4b (S16)** — 2026-08-31, STOPPED AT THE USAGE LIMIT with the record
-  current (the 2026-08-29 lesson, applied). DONE: the Gate-D pre-registration
-  and all four predictions tested on the real cube — starvation is the
-  relative threshold (0.001 recovers median 12 peaks/pattern; 100% of
-  180,815 peaks on two rings, r₂/r₁ = 1.7342 vs √3); the (0002) defect
-  measured live (estimator 0.008789 vs data-true 0.019448); the mis-scale
-  HALVES the match score and picks a wrong zone axis while **reliability
-  prefers the wrong scale** (anti-correlated on basal data — new finding);
-  at the corrected scale the cube produces a REAL orientation map (98% [0001],
-  in-plane grains, 99.1% neighbour coherence). Campaign manifest assigns
-  ws2_2h; `MAC4DSTEM_ACOM_SCALE_OVERRIDE` added (documented diagnostic).
-  **OWED:** the acom-matching-test scale-sensitivity arm, Gate B (two
-  refuters), scientific run, F1.45, the tick. Handoff: §2 of
+- [x] **W4b (S16)** — 2026-08-31, in two sittings; the first stopped at the
+  usage limit with the record current (the 2026-08-29 lesson, applied), the
+  second took §2's handoff. **Sitting 1:** the Gate-D pre-registration and all
+  four predictions tested on the real cube — starvation is the relative
+  threshold (0.001 recovers median 12 peaks/pattern); the (0002) defect measured
+  live (estimator 0.008789 vs data-true 0.019448); the mis-scale halves the
+  match score and picks a wrong zone axis; at the corrected scale the cube
+  produces a real orientation map. `MAC4DSTEM_ACOM_SCALE_OVERRIDE` added.
+  **Sitting 2:** the scale-sensitivity arm landed in `tools/acom-matching-test`
+  — **8/8 template recovery at the true scale, 0/8 at the (0002) scale, median
+  score −68.2%** — tightened from the handoff's ≥6/8 because the fixture is
+  deterministic with a 0.0595 margin, and given a recovery-COLLAPSE assertion
+  the handoff had not specified (the mis-scale returns *different orientations*,
+  not merely lower scores). **Break-every-new-test: 7/7 caught, but only after
+  the 7th (median→max) survived the first pass** and was closed with a
+  self-check rather than documented away.
+  **Gate B, two refuters, ~22 findings — and BOTH targets were materially
+  wrong.** Refuter 1 reproduced every E4 number to four decimals and
+  0.008788661 to nine digits, then **refuted four claims**: the reliability
+  anti-correlation (the session's own data shows the correct template has the
+  HIGHER reliability within a run — narrowed to the between-scales statement in
+  `docs/open-items.md`), the 99.1% coherence figure (the run this session calls
+  WRONG scores 95.75% on the identical test), the 2.2564× factor (the runs
+  produced 2.2129×), and the choice of 0.001. It also found a **second,
+  unrecorded calibration bias** — the estimator measures the ring by a
+  per-pattern minimum, 1.92% low — now its own open item. Refuter 2 found
+  **seven mutations that survive the arm**, two of them wrong science with no
+  net anywhere in the gate: a projection transpose or handedness flip is
+  invisible to `acom-matching-test`, `fit-overlay-test` AND
+  `acom-orientation-test`, and the exported orientation matrix can be decoupled
+  from the reported template. **Its proposed one-line fix was implemented and
+  then MEASURED NOT TO WORK** — the fixture generates its experimental pattern
+  through the same `project()` as the templates, so the cancellation preserves
+  the relative angle too; the assertion was kept for the defect it does catch,
+  its comment now says what it does not, and the real fix is filed. Acted on:
+  the true-scale score assertion, three false comments, the `medianScore`
+  wrapper removed, and the campaign override's two honesty defects fixed (it
+  refuses an unparseable value instead of falling back silently, and records
+  `.manual` rather than claiming `.measuredInApp` for an env-supplied number).
+  Track A: **`scientific` exit 0, 41 started / 41 completed, zero FAIL and zero
+  SKIP** (grepped, not tailed). Nothing under `mac4DSTEM/` changed in either
+  sitting, so no unit gate is owed. F1.45 queued. **Not verified:** F1.45 on
+  screen; the projection-frame and matrix-decoupling defects are demonstrated
+  present and UNPINNED (no shipping result is known wrong, but nothing gated
+  would notice if it were); the min-statistic bias is measured on one cube and
+  undiagnosed; the campaign fix compiled, not run on real data. Record:
   [`w4b.md`](archive/v2-session-records/w4b.md).
+- [x] **Review recovery + Track B playthrough** — 2026-08-31/2026-09-01
+  (not a numbered session). **Nothing under `mac4DSTEM/` changed.** Recovered the
+  interrupted whole-codebase review: **75 findings dispositioned** (39 confirmed,
+  34 narrowed, 1 refuted, 1 resolved) and **15 session records audited** over 208
+  claims — [`docs/archive/2026-08-31-review/`](archive/2026-08-31-review/). Added
+  `tools/acom-convention-test` (gated; closes the projection/matrix coverage gap
+  W4b's refuter found) and the v3 process proposal. **Triage of the 39 confirmed:**
+  [`docs/v2-triage-2026-09-01.md`](v2-triage-2026-09-01.md) — Groups A+B(+D) are
+  the v2 case, ~5–7 sessions; C/E/F are v2.x. **Owner decision, not scheduled.**
+  **Track B: 6 rows passed** (F1.28, F1.33a, F1.39, F1.40, F1.41, F1.44), 2
+  advanced, F1.26 unblocked, **F1.46 written** (Done criterion 4 had no row) —
+  **31 passed / 7 partly / 14 unverified / 1 blocked**. **DONE CRITERION 8 MET ON
+  SCREEN**; F1.28 also confirmed S8's live-derivation contract, unverified since S8.
+  **`app-appstate-01` REPRODUCED AT RUNTIME** by a controlled A/B — the first
+  review finding to move from source-inspected to observed. **The reference-shell
+  defect is isolated**: Gold FCC shell ratio 1.148 vs 1.155 predicted (0.6%)
+  against WS₂'s 1.633 vs 2.000 (18.4%), same code path — the estimator is sound,
+  the WS₂ shell *selection* is not. Track A on this tree: **`all` exit 0, 44/44
+  harnesses, unit 390/2/0**, grepped not tailed. Deviations: 2 — (1) the session
+  pushed the three-file kickoff tax to 4237 lines and it was trimmed to 3652 by
+  archiving its own narrative
+  ([`archive/2026-09-01-trackb-playthrough.md`](archive/2026-09-01-trackb-playthrough.md)),
+  still +201 over the pre-session 3451; (2) two owner parameter changes were
+  overwritten mid-drive before turn-taking was agreed. **Not verified:** the export
+  half of `app-appstate-01` and whether any *number* is affected; the ACOM leg of
+  that reproduction (inference, not observation); F1.45's In-plane angle mode;
+  everything owner-only below.
+
+- [ ] **S22 — UX pass.** *Scheduled 2026-08-31 on the owner's decision: "I want a
+  great experience for users of v2." **This is new scope**, added deliberately
+  rather than by drift — nothing in S0–S21 owned the experience as such; S18 was
+  a bounded polish sweep against a fixed defect list, not a pass over how the app
+  feels to use. **Not startable yet**: its scope IS the evidence, and the evidence
+  is the owner's playthrough plus the UX survey. Starting it without that input
+  turns it into unbounded taste-work, which is the one way this session fails.
+  Sequencing: playthrough → S22 → Track B verification of S22's changes, all
+  before S20's standing pass.*
+
 - [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
   postponed by the owner, 2026-08-31; drive kit in the 2026-08-31 session.
   W4b needs the peak-starvation question answered before ACOM can produce a

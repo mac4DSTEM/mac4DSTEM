@@ -1,0 +1,96 @@
+{
+  "sourceSession": "a93b966c-6a1e-4d09-92bf-2223042e44b6",
+  "sourceWorkflow": "wf_e7c1dc98-d8b",
+  "areas": [
+    {
+      "area": "core-data",
+      "findings": 9,
+      "sourceAgent": "a818b25bc3cd66216"
+    },
+    {
+      "area": "core-analysis-detect",
+      "findings": 4,
+      "sourceAgent": "a4b69385b7b3a57a5"
+    },
+    {
+      "area": "core-analysis-physics",
+      "findings": 7,
+      "sourceAgent": "af3b2caf6cb1840b2"
+    },
+    {
+      "area": "core-crystal",
+      "findings": 7,
+      "sourceAgent": "a1921f7090c0a6c70"
+    },
+    {
+      "area": "core-compute-shaders",
+      "findings": 4,
+      "sourceAgent": "a160dcc982d7ef620"
+    },
+    {
+      "area": "app-appstate",
+      "findings": 5,
+      "sourceAgent": "a926736f6820f97bd"
+    },
+    {
+      "area": "app-rest",
+      "findings": 6,
+      "sourceAgent": "ac5b028061549e500"
+    },
+    {
+      "area": "ui",
+      "findings": 9,
+      "sourceAgent": "a04a41dd87a6512ab"
+    },
+    {
+      "area": "support-export",
+      "findings": 8,
+      "sourceAgent": "a19af50d29c3dfd27"
+    },
+    {
+      "area": "tests",
+      "findings": 8,
+      "sourceAgent": "a45f0880a754326cb"
+    },
+    {
+      "area": "tools-gates",
+      "findings": 8,
+      "sourceAgent": "ae62e8bdb09e668c1"
+    }
+  ],
+  "initialEntries": 75,
+  "priorVerificationComplete": [
+    "core-analysis-detect",
+    "app-appstate"
+  ],
+  "pendingVerification": [
+    "core-data",
+    "core-analysis-physics",
+    "core-crystal",
+    "core-compute-shaders",
+    "app-rest",
+    "ui",
+    "support-export",
+    "tests",
+    "tools-gates"
+  ],
+  "pendingAuditBatches": 3,
+  "expectedSessions": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8",
+    "S10",
+    "S13",
+    "S17",
+    "S18",
+    "S21",
+    "W4a",
+    "W4b"
+  ],
+  "baselineCommit": "24c13d3"
+}

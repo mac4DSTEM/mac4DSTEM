@@ -1,0 +1,4 @@
+MEASURE: Au 144 trials; median matrix error 1.249998 deg; in-plane <20 deg 131
+PASS: Au independent projection and returned matrix
+MEASURE: WS2 240 trials; median matrix error 62.036379 deg; in-plane <20 deg 16
+FAIL: WS2 independent matrix orientation

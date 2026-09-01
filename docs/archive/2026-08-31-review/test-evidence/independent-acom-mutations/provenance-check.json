@@ -1,0 +1,21 @@
+{
+  "py4-truth.npy": {
+    "expected": "953106381a0643cced7ccfaf15992d95a758cae1d3d149f1de5668db39f82d5a",
+    "actual": "953106381a0643cced7ccfaf15992d95a758cae1d3d149f1de5668db39f82d5a",
+    "matches": true
+  },
+  "py4-input.json": {
+    "expected": "dbe5eb1be27aa483c7bf0cc431f499a8d5de41a3d6452819974cfd258da3b829",
+    "actual": "dbe5eb1be27aa483c7bf0cc431f499a8d5de41a3d6452819974cfd258da3b829",
+    "matches": true
+  },
+  "py4gen.py": {
+    "expected": "ab76b1b3b2279dacd834faea6c3f278527a80e8822763610dab982d5d2fa2e5c",
+    "actual": "ab76b1b3b2279dacd834faea6c3f278527a80e8822763610dab982d5d2fa2e5c",
+    "matches": true
+  },
+  "truthMatchesExactly": true,
+  "inputMatchesExactly": true,
+  "generatorMatchesExactly": true,
+  "fixtureSHA256": "5a526fc6af486dc57d829b0bb05f4c169364e84901bcd73d05f011462c6a24de"
+}

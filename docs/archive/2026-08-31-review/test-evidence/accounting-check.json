@@ -1,0 +1,38 @@
+{
+  "expected": 75,
+  "actual": 75,
+  "unique_ids": 75,
+  "missing_ids": [],
+  "extra_ids": [],
+  "changed_original_titles": [],
+  "area_counts": {
+    "app-appstate": 5,
+    "app-rest": 6,
+    "core-analysis-detect": 4,
+    "core-analysis-physics": 7,
+    "core-compute-shaders": 4,
+    "core-crystal": 7,
+    "core-data": 9,
+    "support-export": 8,
+    "tests": 8,
+    "tools-gates": 8,
+    "ui": 9
+  },
+  "sessions": 15,
+  "claims": 208,
+  "duplicate_sessions": [],
+  "missing_sessions": [],
+  "assigned_review_integration_mismatches": [],
+  "checker": {
+    "exit": 0,
+    "stdout": "PASS: 75 original findings accounted; 15 session audits present\nAccounting only: dispositions may include unresolved findings; this is not release approval.\n",
+    "stderr": ""
+  },
+  "sha256": {
+    "tools/review-record-check/run.py": "927abf330da6d920d59cc7a8b491349c4a11f048f55983825a7ec9f9ffe9ddde",
+    "docs/archive/2026-08-31-review/recovery-manifest.json": "d92b26fcf324e5f632fea8bda2001294628de52649d622b8541df0885d567e24",
+    "docs/archive/2026-08-31-review/findings.json": "18609ee7ad190f0eb9e964f2d6d5049bc5c878b3111b2f7051b99409808f37f8",
+    "docs/archive/2026-08-31-review/session-audit.json": "a492368d8ff307034ea07a3d490d4989a5bffef4367364f6c19d7b61d14b1730"
+  },
+  "recovered_initial_vs_archived_differences": []
+}

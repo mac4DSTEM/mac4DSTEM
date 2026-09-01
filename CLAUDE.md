@@ -5,6 +5,11 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff (start here)
 
+**Shipping v2? Start at [`docs/v2-ship-plan.md`](docs/v2-ship-plan.md)** (drafted
+2026-09-01) — the sequenced path from here to a tagged release, with the two
+owner decisions it waits on. It supersedes nothing; it orders what §9 already
+lists.
+
 **v1.0.0 is tagged, signed and public. The v2 release was planned 2026-08-18**
 — the contract and session plan are `docs/v2-release.md`: §1 the claim, §7 the
 gates, §8 the session briefs, §9 the live status checklist. **The one
@@ -54,7 +59,17 @@ mac4dstem.com). What it is: [`CHANGELOG.md`](CHANGELOG.md). **Distribution is
 done.**
 
 **The v2 release is mid-flight: S0–S8, S9a, S9b, S10, S11, S12, S13, S17, S18,
-S19, S21 and W4a (S14+S15, merged by owner decision 2026-08-31) are done**
+S19, S21, W4a (S14+S15, merged by owner decision 2026-08-31) and W4b (S16)
+are done**, plus a **review recovery + Track B playthrough (2026-08-31/09-01)**
+that changed **no app code**: the interrupted whole-codebase review was finished
+(**75 findings dispositioned, 15 session records audited** —
+[`docs/archive/2026-08-31-review/`](docs/archive/2026-08-31-review/)), triaged
+into a v2/v2.x recommendation
+([`docs/v2-triage-2026-09-01.md`](docs/v2-triage-2026-09-01.md), **owner decision,
+not scheduled**), and **six Track B rows were driven green** — **Done criterion 8
+is met on screen**, and **`app-appstate-01` is the first review finding reproduced
+at runtime**. Track B now stands at **31 passed / 7 partly / 14 unverified /
+1 blocked**
 (plus the M1 tidy and the M2 gate repair) — **S13 was MERGED to `main` and
 pushed (fast-forward to `bab5e07`); `s13-q-calibration` still exists and points
 at the same commit. Corrected 2026-08-31**: this file and §9 both still said
@@ -106,14 +121,22 @@ findings (`probeSize` over-measures 2.15×, Gate D owed) came out of the same
 session. F1.40–F1.43 are queued and undriven.
 
 **The honest test claim — each number dated to its own run:**
-`run-tests.sh scientific` — **exit 0, 41 harnesses, zero FAIL and zero SKIP
-lines** (2026-08-31, the W4a closeout run — `tools/ws2-crystal-test` joined the
-same day `tools/comparator-test` did; it was 39 at the S13 closeout and the
-docs said 38 for three days after that). Do not quote a harness count from
-memory — `run-tests.sh` is the only thing that knows it.
-`run-tests.sh unit` — **391 passed / 2 skipped / 0 failed, exit 0**
-(2026-08-31 — 391 distinct case names, checked for retries, not a raw line
-count); the two skips are the unmounted-volume bookmark probe and S17's
+`run-tests.sh scientific` — **exit 0, 42 started / 42 completed, zero FAIL and
+zero SKIP lines** (2026-08-31 evening, counted by grep over the retained log
+rather than trusting an exit code). **`tools/acom-convention-test` joined the
+array** in the 2026-08-31 review recovery and passed inside the gate for the
+first time in this run (Au median 1.25°, WS₂ 0.78°); it was 41 at the W4a/W4b
+closeouts, 39 at S13, and the docs said 38 for three days after that. Do not
+quote a harness count from memory — `run-tests.sh` is the only thing that knows
+it.
+`run-tests.sh unit` — **390 passed / 2 skipped / 0 failed, exit 0**
+(2026-08-31 evening, the `all` run's unit stage — 390 distinct case names, raw
+line count identical so no retries). **This is 390 where 2026-08-31's earlier
+runs recorded 391, and the delta is UNEXPLAINED**: nothing under `mac4DSTEM/` or
+`mac4DSTEMTests/` changed between them (the review recovery touched only `docs/`
+and `tools/`). The two skips are unchanged and are the documented pair. Settle it
+with one standalone `unit` run and a diff of the case names before quoting either
+number as stable; the two skips are the unmounted-volume bookmark probe and S17's
 explicit uncalibrated-Prepare geometry quarantine. Two former data-probe
 skips (including `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes`)
 now PASS because their staged data is present. **Two recordable non-green outcomes
@@ -125,10 +148,10 @@ against the same defaults domain while the gate ran. **Do not drive the app
 during `run-tests.sh unit`** — see `docs/open-items.md`.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
-own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-31**
-(the M2 run; it PREDATES W4a, whose tree re-ran `unit` — 391/2/0 — and
-`scientific` — 41/41 — but not the aggregate): **42 harnesses started and 42
-completed**, unit stage **391 passed / 2 skipped /
+own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-31 evening**
+(re-run after `tools/acom-convention-test` joined `scientific`; this supersedes
+the M2 run, which predated W4a and the recovery): **44 harnesses started and 44
+completed**, unit stage **390 passed / 2 skipped /
 0 failed**, **zero FAIL lines and zero exit-69 refusals in the retained log**
 (counted by grep over the log, not by trusting an exit code — a `| tail` has
 swallowed a failing gate here twice, and on 2026-08-31 the wrapper's own exit 0

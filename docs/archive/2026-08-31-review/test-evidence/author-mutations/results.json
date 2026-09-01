@@ -1,0 +1,65 @@
+[
+  {
+    "case": "control",
+    "source": null,
+    "original": null,
+    "replacement": null,
+    "expectedFailure": "acom-convention-test: all passed",
+    "exitCode": 0,
+    "verified": true
+  },
+  {
+    "case": "projection-swap",
+    "source": "mac4DSTEM/Core/Crystal/OrientationPlan.swift",
+    "original": "let x = simd_dot(refl.g, e1)\n            let y = simd_dot(refl.g, e2)",
+    "replacement": "let x = simd_dot(refl.g, e2)\n            let y = simd_dot(refl.g, e1)",
+    "expectedFailure": "FAIL: Au independent matrix orientation",
+    "exitCode": 1,
+    "verified": true
+  },
+  {
+    "case": "projection-mirror",
+    "source": "mac4DSTEM/Core/Crystal/OrientationPlan.swift",
+    "original": "azim: atan2(y, x)",
+    "replacement": "azim: atan2(-y, x)",
+    "expectedFailure": "FAIL: Au independent matrix orientation",
+    "exitCode": 1,
+    "verified": true
+  },
+  {
+    "case": "wrong-template-matrix",
+    "source": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+    "original": "detectorBasis: plan.detectorBases[bestTemplate]",
+    "replacement": "detectorBasis: plan.detectorBases[0]",
+    "expectedFailure": "FAIL: Au independent matrix orientation",
+    "exitCode": 1,
+    "verified": true
+  },
+  {
+    "case": "correlation-sign",
+    "source": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+    "original": "let bin = (azimuthalCount - bestBin) % azimuthalCount",
+    "replacement": "let bin = bestBin",
+    "expectedFailure": "FAIL: Au independent matrix orientation",
+    "exitCode": 1,
+    "verified": true
+  },
+  {
+    "case": "vacuous-oracle",
+    "source": "tools/acom-convention-test/main.swift",
+    "original": "let m = op * a * b.transpose",
+    "replacement": "let m = matrix_identity_double3x3",
+    "expectedFailure": "FAIL: oracle must distinguish a generic wrong orientation",
+    "exitCode": 1,
+    "verified": true
+  },
+  {
+    "case": "all-matches-empty",
+    "source": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+    "original": "guard bestTemplate >= 0 else { return .empty }",
+    "replacement": "guard false else { return .empty }",
+    "expectedFailure": "FAIL: Au no skipped failed match",
+    "exitCode": 1,
+    "verified": true
+  }
+]

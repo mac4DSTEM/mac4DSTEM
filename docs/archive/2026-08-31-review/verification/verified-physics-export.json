@@ -1,0 +1,315 @@
+{
+  "reviewedAt": "2026-08-31",
+  "baseCommit": "24c13d3",
+  "scope": "24 initial findings; source and caller/guard inspection against current tree and open-items. No app run, build or source mutation.",
+  "areas": [
+    {
+      "area": "Core/Analysis — downstream physics (strain, DPC/iDPC, parallax, ptychography, scientific bundle)",
+      "findings": [
+        {
+          "originalTitle": "DPC angle map holds normalized turns in [0,1) but is stored and displayed as \"rad\"",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "DPC angle stores turns while claiming radians",
+          "file": "mac4DSTEM/Core/Analysis/DPC.swift",
+          "line": 141,
+          "evidence": "DPC.swift:132-143 returns atan2/(2*pi); AppState.swift:4400-4403 publishes those pixels directly. ResultExport.swift:1389 labels the same product rad; :729-737 saves image.pixels and metadata.valueUnits unchanged. There is no compensating conversion in the production route. PNG value_units at :237 uses the same metadata. This is distinct from the existing uncalibrated-DPC Quantitative badge item in open-items.md.",
+          "remainingVerification": "Gate D known-answer vector such as (0,1), then real sidecar/PNG export readback; regression must distinguish 0.25 turns from pi/2 radians.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Parallax requires the R–Q transpose, stores it, and then never applies it — `forceTranspose` is hard-coded false and unreachable",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "Parallax fitting discards the calibrated transpose; stored rotation is also unused",
+          "file": "mac4DSTEM/Core/Analysis/ParallaxPreprocessing.swift",
+          "line": 89,
+          "evidence": "ParallaxPreprocessing.swift:47-51 requires finite R-Q rotation and :88-89 stores rotation/transpose; no production parallax consumer reads these stored fields. AppState.swift:3676-3678 calls fitHigherOrder with default options; ParallaxAberrationFitting.swift:14 defaults forceTranspose=false, :116/:146-160 changes shifts, rotation and C12a when true. Vendored parallax.py:2274-2310 has the same conditional. Narrowing: preprocessing requires rotation, NOT presence of transpose (nil defaults false); fitted rotation need not be forced to the prior calibration. The original claim of a particular C12a sign on all reflected datasets is too specific without a fixture; a reflected polar factor is possible, but its coefficient error depends on the shift matrix.",
+          "remainingVerification": "Gate D independent asymmetric analytic shift field with known transpose; verify the app-to-py4DSTEM axis mapping before simply wiring calibration.transpose into forceTranspose. Compare complete coefficients and correction, not only the angle.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Ptychography rolls every diffraction pattern by one global aperture centre; py4DSTEM rolls each by its own fitted CoM",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "Ptychography uses one global aperture origin and ignores fitted per-position origins",
+          "file": "mac4DSTEM/Core/Analysis/PtychographyPreparation.swift",
+          "line": 67,
+          "evidence": "PtychographyPreparation.swift:62-93 samples every pattern with the same calibration.originQX/Y. ParallaxPreprocessing.swift:85-87 gets those from aperture center; fitted origin maps are not passed to prepare. Vendored phase_base_class.py:1442-1457 uses com_fitted_x/y[rx,ry] for each pattern, including the bilinear alternative. No DEVIATION note exists in PtychographyPreparation. Narrowing: the centering difference is certain; the predicted smoothly varying reconstructed phase ramp is an unmeasured consequence, not established for every dataset. Constant-origin data need not differ, and fitted maps must themselves be trustworthy before use.",
+          "remainingVerification": "Independent moving-origin synthetic scan plus production prepare and py4DSTEM reference; establish which origin policy is intended and measure reconstruction impact. Do not blindly subtract the full specimen-dependent measured CoM.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Every non-iDPC DPC product exports with `analysis_mode` as its only provenance key — no rotation, no transpose, no mrad scale",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Non-iDPC DPC exports omit frame, origin and physical-scale derivation",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 1593,
+          "evidence": "ResultExport.swift:1477 gates rich DPC provenance on iDPC; other DPC products reach :1593-1597, whose base provenance contains only analysis_mode. :1703-1709 DOES add display_domain and quantitative_status, so the literal only-one-key claim is false. AppState.swift:4380-4382 rotates/transposes the field; :4440-4453 derives mrad either directly from a mrad Q size or from reciprocal size plus voltage. Those transform and scale inputs are absent from DPC result provenance. PNG adds file/load/display metadata but not the analysis frame. Sidecar container calibration is a partial mitigating carrier, not an immutable per-result snapshot.",
+          "remainingVerification": "Export two DPC products with different frame settings and compare product-level snapshots; define mandatory per-product metadata, including direct-mrad versus wavelength-derived scale.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Parallax corrected phase and depth sections export none of the aberration coefficients that define them",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Parallax correction/depth result provenance omits the aberration fit",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 1624,
+          "evidence": "ResultExport.swift:1620-1645 emits source product, filters/depth/full-fit but no term list, coefficients, fit method or rotation. ParallaxAberrationCorrection.swift:98-133 and ParallaxDepthSectioning.swift:126-148 compute CTFs from that fit. Common metadata adds domain/status but not fit. Narrowing: the original switch-to-global-fit example is not available in the app UI: AppState.swift:3676-3678 passes default recursive options. Re-fitting after different alignment/input conditions still changes omitted coefficients. The specific claim that depth 64 describes a different physical plane needs scientific validation.",
+          "remainingVerification": "Controlled two-fit export comparison with compute-time immutable fit snapshot; validate reference-plane semantics before adding wording.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Higher-order aberration gradient basis is sampled at BF-centroid angles, not py4DSTEM's array-centre angles — and the parity harness re-implements the app's convention so it cannot see the difference",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Higher-order parallax basis uses BF-centroid coordinates while py4DSTEM samples array-center coordinates",
+          "file": "mac4DSTEM/Core/Analysis/ParallaxAberrationFitting.swift",
+          "line": 344,
+          "evidence": "ParallaxPreprocessing.swift:260-274 centers probeAnglesMrad on the selected-mask centroid; ParallaxAberrationFitting.swift:240 and :344-350 uses them for higher-order gradients. Vendored parallax.py:473-480 likewise uses centroid coordinates for low order, but :2444-2463 constructs higher-order FFT gradients and samples xy_inds - roi_shape//2. The optional descan step at :421-459 preserves the mean CoM, so it does not eliminate this difference. tools/parallax-aberration-test/reference.py:140-146 derives gradient u/v from the supplied angles and therefore does not test the choice of center. This proves a reference-convention/coverage gap, not which convention is physically preferable.",
+          "remainingVerification": "Execute the actual vendored higher-order basis on an off-center asymmetric mask and compare coefficients; add a deliberate DEVIATION if retaining the app convention, with independently justified physics.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Strain local fit residual uses a weighted RMS where py4DSTEM uses a weighted mean; the existing DEVIATION note covers only the fit weighting",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Strain residual uses weighted RMS while py4DSTEM reports weighted mean distance",
+          "file": "mac4DSTEM/Core/Analysis/StrainMapping.swift",
+          "line": 628,
+          "evidence": "StrainMapping.swift:612-628 computes sqrt(sum(w*r^2)/sum(w)); vendored latticevectors.py:213-216 computes sum(w*r)/sum(w). Existing DEVIATION at StrainMapping.swift:585-592 discusses W versus W-squared fit objectives only. ResultExport.swift:512-513 and strain residual provenance expose the statistic. For a fixed fitted residual vector RMS >= mean; because fitted vectors can also differ, this does not imply an ordering between arbitrary end-to-end app/py4DSTEM results.",
+          "remainingVerification": "Document the residual statistic explicitly in provenance and inline deviation; independent unequal-residual fixture should separate statistic choice from fit-weighting choice.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        }
+      ]
+    },
+    {
+      "area": "mac4DSTEM/Support/ — ResultExport.swift, SystemMonitor.swift, bridging header",
+      "findings": [
+        {
+          "originalTitle": "restoredResultPixelInfo is never cleared, so exports carry a previous result's pixel size, units and provenance",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "Restored result sampling/provenance survives new publications and dataset changes",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 1699,
+          "evidence": "All references inspected: declaration AppState.swift:263; restore assignments :2950/:2962 and ResultExport.swift:840/:852; reads :723/:959/:1699. There is no clear assignment. AppState clears restoredResultInfo at new-result publication and activation, but the image didSet blocks :239-252 clear navigation metadata/domain only. ResultExport.swift:1699-1701 unconditionally gives restoredResultPixelInfo highest precedence, so new kinds combine with old sampling/provenance. :204-211 feeds the burned bar and :729-737 persists the stale data. Severity narrowed from critical to high because the failure is conditional on restore followed by new publication; it is still a serious scientific-interpretation defect. Duplicate of independently completed AppState review.",
+          "remainingVerification": "Gate D restore a distinct-sampling product, publish a second product, change datasets, and check displayed metadata plus actual saved result. Coordinate with AppState seam requirements.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false,
+          "duplicateOf": "appstate:restoredResultPixelInfo"
+        },
+        {
+          "originalTitle": "Exported figure's colorbar ignores gamma, so colors do not map to the printed endpoints",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "Exported scalar colorbar ignores the gamma used by image pixels",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 1806,
+          "evidence": "ResultExport.swift:179-181 applies resultGamma; :1849-1851 maps fraction by pow(f,1/gamma), while publicationFigure :1801-1814 samples LUT linearly and has no gamma argument (:212-216). UI ScalarColorbarView.swift:119-121 correctly applies gamma. PNG metadata at ResultExport.swift:232-268 omits gamma/colormap. Endpoints remain correct (0 and 1 are fixed points), so the initial title saying colors do not map to endpoints is imprecise; intermediate values inferred from the linear colorbar are wrong for gamma != 1.",
+          "remainingVerification": "Render independent known scalar levels with nonunit gamma, inspect colors at matching data values in both image and bar, and record gamma/colormap for reproducibility.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Exporting while the ACOM region selector is active fuses three different products into one figure",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "ACOM region selection mixes retained-result pixels with navigation caption and range during export",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 215,
+          "evidence": "AppState.swift:602-607 activates the reference; :610-615 and :666-676 use scanNavigationImage/relative synthetic product for display. ResultExport.swift:175-182 still exports retained result pixels, :213 uses currentResultDisplayName, :214 uses publicationCaption (displayedProduct), and :215 uses resultDisplayedValueRange (displayedResultImage). Thus an RGBA IPF can acquire a scalar range from navigation plus a caption from another product. Narrowing: :216 passes resultColormap, NOT displayedResultColormap; the initial guaranteed viridis-bar wording is unsupported. The pixels still belong to the retained result intentionally; the defect is incoherent companion metadata.",
+          "remainingVerification": "Runtime reproduction through region-selection state and export command; choose whether export targets retained result or visible navigation and derive all figure fields from that same product.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "CBED export invents the unit \"1/nm\" when the file supplies a Q scale with no units, and carries no metadata at all",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "CBED export invents reciprocal units for a size with missing units and has no provenance record",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 616,
+          "evidence": "ResultExport.swift:613-617 passes qPixelSize with qPixelUnits ?? \"1/nm\" and calls savePNG without properties. H5Reader.swift:599-602 reads size/units independently; DM4Reader.swift:467-469 turns empty units into nil; Calibration.swift reports unsupported physical units rather than accepting this. Numeric scale with nil units is reachable. Narrowing: if source units are absent we cannot know the true unit is 1/A, so a specific 10x error is illustrative rather than evidence. The certain failure is fabricating a physical-unit claim. Same source policy as ui finding 1.",
+          "remainingVerification": "Unknown-unit HDF5/DM fixture, export PNG and inspect burned scale plus metadata; define a truthful unknown-unit/pixel fallback that changes numeric length consistently.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false,
+          "duplicateOf": "ui:CBED missing units"
+        },
+        {
+          "originalTitle": "Result figure's scale bar is drawn at physical scale but labelled \"px\" when the units string is missing",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Unknown-unit result sampling is used numerically but labeled pixels",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 211,
+          "evidence": "ResultExport.swift:207-211 passes nonnil sampling to burnScaleBar but falls back to \"px\" for nil units; :277-278 repeats the same assumption in the caption. H5Reader/DM4Reader can load numeric R step without units. For sampling 0.5 the bar labeled N px spans 2N pixels. No claim that the missing real unit was actually nm is needed. Same on-screen policy as ui finding 4.",
+          "remainingVerification": "Export a saved result or input calibration with step != 1 and missing units; compare label to pixel span and verify any fallback discards the unknown-unit numeric factor.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false,
+          "duplicateOf": "ui:R missing units"
+        },
+        {
+          "originalTitle": "After a quarter turn the burned caption's pixel size names a different axis than the burned scale bar",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Rotated anisotropic result caption prints unqualified original-column sampling",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 277,
+          "evidence": "ResultExport.swift:207-208 selects row sampling for a quarter turn, but :277-278 always captions column (or row fallback). DPC.physicalIDPCCalibration at DPC.swift:117-118 sets BOTH spacings from the same scalar scanAngstrom, so the initial live iDPC example is refuted. The state is nevertheless supported: restored ScalarResultMap values may have unequal pixelSizeRow/Column (ResultExport.swift:840-842), and live ptychography object sampling differs for rectangular detectors (PtychographyPreparation.swift:107-109). Caption should identify native axes or shown horizontal sampling; native column sampling is not intrinsically wrong if labeled as such.",
+          "remainingVerification": "Restore an anisotropic scan-domain result, rotate 90 degrees, export and inspect bar versus caption; also distinguish native coordinate sampling from display sampling.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Exported strain figures show masked no-fit pixels as gray with no legend, while the app's own screen legend explains them",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Publication strain figure omits a legend for its masked-pixel gray",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 1801,
+          "evidence": "ResultExport.swift:1845-1847 emits masked gray, publicationFigure :1801-1831 draws only scalar ramp/endpoints/units, and caption keys :283-293 omit validity or indexed_fraction. StemImageView/ScalarColorbarView explicitly explain gray on screen. Full PNG metadata does include product provenance, so the initial broad claim of losing all validity must be confined to burned figure content. No claim of a particular reader interpretation is required.",
+          "remainingVerification": "Export a map with nontrivial validity mask, inspect figure, and verify an explicit no-fit gray swatch/legend travels with the pixels.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Bragg-peak CSV exports raw uncalibrated detector coordinates under bare column names",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Bragg CSV contains raw detector positions without calibration/frame provenance",
+          "file": "mac4DSTEM/Support/ResultExport.swift",
+          "line": 629,
+          "evidence": "ResultExport.swift:622-635 writes braggVectors raw x/y under detector_x/detector_y; calibratedBraggVectors at AppState.swift:4753-4777 re-centers and elliptically corrects analysis inputs. CSV has no units/origin/ellipse/source metadata. Raw detector coordinates are a legitimate export contract and detector_x does not itself promise reciprocal coordinates, so this is an interpretation/documentation gap rather than proof the raw values are numerically wrong. The claim every consumer first calibrates is broader than needed and not assumed.",
+          "remainingVerification": "Define/document raw detector-pixel CSV contract or offer a calibrated export; test a displaced-origin example and verify exported frame metadata.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        }
+      ]
+    },
+    {
+      "area": "mac4DSTEM/UI/ — views, viewers, inspectors, controls (22 files, ~7,900 lines)",
+      "findings": [
+        {
+          "originalTitle": "Hexagonal IPF colour key labels two of its three corners with the wrong crystallographic directions",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "Hexagonal IPF corner direction labels are swapped relative to the crystal Cartesian basis",
+          "file": "mac4DSTEM/UI/ContentView.swift",
+          "line": 1828,
+          "evidence": "Crystal.swift:76-78 defines a1=(a,0,0), a2=(b*cos(gamma),b*sin(gamma),0), gamma=120 degrees for hexagonal presets. Thus family <11-20> includes [2,-1,-1,0], parallel to a1, while [1,0,-1,0] is 2*a1+a2, at 30 degrees. OrientationResult.swift:474-479 assigns green at 0 degrees, blue at 30 degrees. ContentView.swift:1811-1813 uses those vertices but :1828/:1830 and accessibility :1836 label green <10-10>/blue <11-20>. Narrowing: the burned publication caption does NOT contain these strings; ResultExport.swift has no hexagonal key export, so the original claim that a burned caption repeats them is refuted. Direction-color arrays themselves are internally consistent.",
+          "remainingVerification": "Independent lattice-to-four-index conversion test for both basal endpoints, then owner visual/accessibility acceptance; do not change color math merely to fit mistaken labels.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "CBED scale bar invents the unit \"1/nm\" when the file supplies a Q pixel size with no units",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "CBED on-screen bar invents 1/nm when size exists without units",
+          "file": "mac4DSTEM/UI/DiffractionView.swift",
+          "line": 173,
+          "evidence": "DiffractionView.swift:161-173 uses numeric qSize and falls back to \"1/nm\" when units are nil. Missing-unit sources are reachable independently of size via H5Reader/DM4Reader. The mrad branch only runs if dpcMilliradiansPerDetectorPixel resolves, so it does not protect this fallback. Calibration readiness correctly refuses that physical calibration. Same defect family as support-export 3.",
+          "remainingVerification": "Missing-unit file plus owner Track B of default/mrad-fallback view; choose one consistent policy shared with export.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false,
+          "duplicateOf": "support-export:CBED missing units"
+        },
+        {
+          "originalTitle": "The square virtual detector drawn on the CBED is not the region the kernel integrates: shifted half a pixel and one column/row larger",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Square virtual-detector outline is offset half a pixel from its half-open mask",
+          "file": "mac4DSTEM/UI/ApertureControl.swift",
+          "line": 105,
+          "evidence": "ApertureControl.swift:27-31 maps pixel-center c to c+0.5 and :107-111 draws width 2r. AppState.swift:3446-3453 constructs half-open [c-r,c+r), and VirtualDetector.swift:521-527 includes 2r rows/columns. Those pixels occupy physical edges [c-r,c+r], whereas outline occupies [c+0.5-r,c+0.5+r]. Definite +0.5-pixel offset. The initial 5x5 versus 4x4 and 56% solid-angle claims count centers exactly on stroked boundaries as included; the actual drawn continuous area is 4x4 in both cases, so those quantitative claims are not justified. Severity corrected high to medium for precise overlay mismatch; kernel follows documented half-open semantics.",
+          "remainingVerification": "Independent pixel-edge/pixel-center specification and owner screenshot at small radius; verify all detector shapes share the intended convention.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "The circular real-space ROI outline is centred on the selected scan position but the summed region is not",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Circular scan ROI is offset from its visible selected-position center",
+          "file": "mac4DSTEM/UI/StemImageView.swift",
+          "line": 599,
+          "evidence": "StemImageView.swift:603-615 draws at selectedScan+0.5 with radius r in display coordinates. AppState.swift:3315-3317 passes selectedScan+0.5 as integer-index-space center and radius r+0.5 to VirtualDetector.fillRadial :540-546. For selected=(0,0), r=1, the strict radius<1.5 test selects integer offsets (0,0),(1,0),(0,1),(1,1), not a symmetric neighborhood. :3326-3329 feeds the same mask to strain reference. Initial phrase four positions user did not select overstates: one is the selected position, three are its positive neighbors. Geometry mismatch is source-confirmed; app screenshots not taken.",
+          "remainingVerification": "Gate D mask fixture with a uniquely labeled scan and independent expected coordinates, then owner visual pass for ROI-SUM and strain reference.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Real-space scale bar labels a physically-calibrated bar \"px\" when the file omits R units",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Real-space view labels unknown-unit numeric sampling as pixel distance",
+          "file": "mac4DSTEM/UI/StemImageView.swift",
+          "line": 387,
+          "evidence": "StemImageView.swift:379-387 uses sampling in unitsPerPoint even if pixel.units is nil, while labeling px. Numeric step != 1 then makes pixel label disagree with actual pixel count. Unknown physical units are not evidence they are nm; the finding needs only the pixel-count contradiction. Same root as support-export 4.",
+          "remainingVerification": "Missing-unit unequal-to-one step in live and restored result; verify same unit fallback policy in view/export.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false,
+          "duplicateOf": "support-export:R missing units"
+        },
+        {
+          "originalTitle": "Comparison-panel cursor readout maps the pointer against the un-letterboxed pane and ignores zoom, so it names the wrong pixel",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Comparison hover samples full-pane coordinates without inverse letterbox or zoom",
+          "file": "mac4DSTEM/UI/ProductWorkspaceViews.swift",
+          "line": 835,
+          "evidence": "ProductWorkspaceViews.swift:819-825 fits aspect and scales image, then frames/clips to full GeometryReader size; outer hover :830-836 divides pointer by full size. No inverse fit offset or zoom exists. coordinatesCompatible gates compatible source grids, not transformed pane geometry. The initial precise row19 example depends on layout dimensions, but any nonmatching pane aspect produces a systematic offset; shared cursor simply makes both panels read the same wrong source coordinate.",
+          "remainingVerification": "Owner Track B and pointer-policy fixture for non-square images, letterbox margins, zoom=1 and >1; reject margin hover or explicitly map it.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "The misleading \"GPU budget\" label S9a removed still ships in the Performance panel",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Performance inspector retains the ambiguous GPU budget label",
+          "file": "mac4DSTEM/UI/InspectorPanels.swift",
+          "line": 42,
+          "evidence": "InspectorPanels.swift:42 still says GPU budget from SystemMonitor.gpuWorkingSetMB, while LoadConfiguratorView uses GPU working-set limit. Existing S9a open item describes the configurator-specific wording; this second call site was not changed. No incorrect numeric value or actual load admission follows automatically from the label. Severity corrected medium to low, avoiding an inferred memory-crash scenario.",
+          "remainingVerification": "Use consistent wording/help and owner visual acceptance; do not reinterpret recommendedMaxWorkingSetSize as a safe cube-size admission bound.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "Dragging the aperture centre handle can place it one pixel outside the detector, silently producing an empty mask",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Aperture handle can round the far-edge center to an out-of-bounds point",
+          "file": "mac4DSTEM/UI/ApertureControl.swift",
+          "line": 157,
+          "evidence": "ApertureControl.swift:151-158 clamps to width/height, then :175-176 rounds. PeakOverlayGeometry.pixel subtracts 0.5 so exact right edge maps width-0.5 and rounding gives width. DiffractionView.swift:115 routes onEdited to updateAperture, whose AppState.swift:3095-3124 accepts the new aperture without further bounds clamp. VirtualDetector.swift:528-529 silently leaves an out-of-range point mask empty. Accessibility slider max width-1 is inconsistent with drag route.",
+          "remainingVerification": "Pointer edge fixture plus owner drag at right/bottom boundaries for point and radial shapes; verify post-round clamping to valid indices.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        },
+        {
+          "originalTitle": "The scan-step filename regex is unanchored, so an ordinary filename can raise a false conflict against a correct imported R calibration",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Filename scan-step parser matches ss embedded in ordinary words",
+          "file": "mac4DSTEM/UI/CalibrationReadinessView.swift",
+          "line": 207,
+          "evidence": "CalibrationReadinessView.swift:206-208 unanchored regex matches ss30nm inside thickness30nm_scan.h5; :188-192 uses it as a filename-vs-imported-scale conflict. The lastPathComponent rule protects parent directories but not word interiors. CalibrationReadinessFilenameTests only checks names without ss, unsupported units, and known ss tokens, so it does not refute this counterexample. No calibration is mutated; the defect is a spurious warning.",
+          "remainingVerification": "Parser regression with thickness30nm/mass30nm/loss30nm plus real delimiter-separated ss30nm names; define valid filename token boundaries.",
+          "verificationLevel": "source-confirmed",
+          "runtimeReproduced": false
+        }
+      ]
+    }
+  ]
+}

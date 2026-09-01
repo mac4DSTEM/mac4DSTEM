@@ -1,0 +1,86 @@
+{
+  "area": "mac4DSTEMTests/ \u2014 is the unit suite actually testing anything?",
+  "summary": "This is, with a small number of exceptions, an unusually honest suite \u2014 the best I have reviewed in this repo's style. What it does WELL, and should not be traded away: (1) anti-vacuity guards are routine and explicit \u2014 `StrainFrameTests.swift:183-201` and `:241-250` assert that the fixture actually distinguishes the frames and the rotation SIGN before trusting the comparison, and the S8 lesson (pin 37.2\u00b0, not 90\u00b0) is applied literally at `StrainFrameTests.swift:174` and again independently at the export site with \u221264\u00b0 + transpose; (2) fixtures are deliberately asymmetric so transposes cannot hide \u2014 `CalibrationReReferenceTests.swift:22-25` (4\u00d73 scan on a 10\u00d78 detector, non-square in BOTH spaces), `LoadConfigurationTests.swift:19-22`, `ResultOrientationTests.swift:19-25` (every pixel uniquely valued); (3) many tests name the exact production line whose breakage makes them red, and say it was verified by breaking it (`SessionSidecarLocatorTests.swift:41-45,:65-72,:200-244`); (4) self-consistency traps are called out and closed \u2014 `SessionSidecarLocatorTests.swift:234-244` spells the defaults key out in the test rather than asking the code, precisely because a same-type round trip agrees with any consistent key; (5) stated LIMITS instead of fake coverage \u2014 `DatasetLoadCancellationTests.swift:88-101` refuses to assert three post-conditions that would pass either way and records why, `DatasetResidencyTests.swift:81-90`, `StrainProductTests.swift:130-133`, `SplitViewHeightTests.swift:159-166` (\"passes 3/3 with the fix reverted... documented as non-discriminating\"); (6) `UserDefaults` isolation via per-test suites (`SessionGatesTests.swift:29-36`) after a measured cross-test leak; (7) file fixtures written by the PRODUCTION writer and read by the PRODUCTION reader but asserted on VALUES, not identity (`SessionReplayTests.swift:8-11`). The defects below are real but few: one vacuous test, one genuinely unguarded loop in the file's own \"scientific pin\", one 403-line assertion-free class inside the gate, and two tests whose stated claim is stronger than their assertion.",
+  "findings": [
+    {
+      "title": "The strain file's declared \"scientific pin\" has no anti-vacuity guard and passes with zero comparisons",
+      "file": "mac4DSTEMTests/StrainFrameTests.swift",
+      "line": 153,
+      "severity": "high",
+      "category": "test-blindness",
+      "why": "`testRotatingInputVectorsEqualsRotatingTheOutputTensor` is the one test that grounds the app's presentation-time tensor rotation against py4DSTEM's vector-space rotation (References/py4DSTEM-dev/py4DSTEM/braggvectors/braggvectors.py:528-545, which the fixture at StrainFrameTests.swift:307-317 correctly mirrors: flip swaps y/x first, then R). Its entire assertion body sits inside `for i in 0..<raw.exx.count where raw.mask[i] && refit.mask[i]`. `XCTUnwrap` at :146 only proves the refit returned non-nil \u2014 and `StrainMapping.compute` returns a fully-formed StrainMap with `mask = [Bool](repeating: false, ...)` (mac4DSTEM/Core/Analysis/StrainMapping.swift:163) whenever every position hits the `peaks.count < minNumPeaks` continue at :172 or fails its local fit. So an all-false mask yields zero XCTAssertEqual calls and a green test. Every OTHER mask-filtered loop in this same file is protected (`framesDiffer` at :190-196, `signsDiffer` at :199-205, `transposeMatters` at :248-256, and the export pair at :332-337 all fail if the mask is empty); this one, the scientific one, is not.",
+      "failureScenario": "A change to the indexing tolerance or the basis-condition guard in `StrainMapping` that is not rotation-invariant (e.g. `indexingTolerance` derived from a component rather than a norm) makes the rotated-input refit reject every one of the 6 positions. `refit.mask` is all false, the loop body never executes, and the suite reports the tensor-rotation-vs-vector-rotation equivalence as verified at 30\u00b0, 90\u00b0, \u221237.2\u00b0 and both transposed angles when in fact nothing was compared. The app then presents strain in a scan frame that has never been checked against py4DSTEM's convention.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "testTheFailureCauseIsClearedSoAStaleRemedyIsNeverOffered asserts the same constant twice and never clears anything",
+      "file": "mac4DSTEMTests/StrainFailureCauseTests.swift",
+      "line": 80,
+      "severity": "high",
+      "category": "test-blindness",
+      "why": "The whole body is: construct a fresh `AppState`, `XCTAssertNil(state.strain.failureCause)` (line 82), then `XCTAssertNil(state.strain.failureCause)` again (line 86). Nothing is ever set, no analysis runs, no dataset is activated, no clear is invoked. The property is nil at construction, so both assertions are structurally incapable of failing. The name and the comment at :84-85 (\"The remedy panel is driven entirely by this value, so a stale one would tell the user to fix a problem they no longer have\") claim to cover the clearing behaviour, and a reader counting coverage will believe the stale-remedy path is pinned. `StrainProductTests.swift:57-72` covers `StrainProduct.clear()` on the seam, but nothing covers the AppState-level clearing this test is named for.",
+      "failureScenario": "Delete the `strain.clear()` (or the failureCause reset) from AppState's dataset-activation path. `polycrystal_2D_WS2` fails strain with `.starvedInput(medianPeaks: 1.0, ...)`; the user opens `downsample_Si_SiGe_exp` next and the Strain panel still shows the WS2 remedy \u2014 advising them to fix a detection problem the new dataset does not have. This test stays green, and so does the rest of the suite.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "SidebarDensityMeasurementTests: 8 test cases, 403 lines, zero assertions \u2014 inside the gate and inside the \"391 passed\" claim",
+      "file": "mac4DSTEMTests/SidebarDensityMeasurementTests.swift",
+      "line": 140,
+      "severity": "medium",
+      "category": "test-blindness",
+      "why": "All eight methods (`testCaptureEveryWorkspace` :140, `testMeasureSidebarDocumentHeightPerWorkspace` :174, `testMeasureSidebarDocumentHeightWithDisplayExpanded` :181, `testMeasurePrepareSectionCosts` :236, `testMeasureTitlebarTripwireQuantities` :261, `testMeasurePermanentCaptionCostPerRow` :313, `testMeasureStandaloneCaptionBlocks` :363, `testRecordExistingOnDemandChannels` :394) contain no XCTAssert/XCTFail/XCTUnwrap of any kind. The file's own header (:5-11) is honest \u2014 \"Measurement harness, not a gate... Every test here prints and asserts nothing meaningful. Once a direction is chosen, the surviving invariants move into SidebarLayoutTests\" \u2014 but that migration has not happened and the class still runs in `run-tests.sh unit`. Each case builds a real 1470\u00d7923 NSWindow, pumps the run loop 1.2s+, iterates 5 workspaces \u00d7 2 calibration states, and writes PNGs. They can only fail by crashing. This is also the class docs/open-items.md:1555-1567 records as producing a spurious 0.000 s failure. The `unit` headline in CLAUDE.md (\"391 passed / 2 skipped\") counts these eight as verifications.",
+      "failureScenario": "A reader of README/CLAUDE.md takes \"391 passed\" as 391 behaviours verified. Eight of those cases assert nothing; a sidebar regression that doubles every measured height is dutifully written to /tmp and reported as PASS. Separately, the slowest, most window-dependent, most environment-fragile cases in the suite gate every push while contributing no verification.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "\"Usable orientation preview\" is asserted as score > 0.001 on an unbounded correlation sum, with no expected zone axis",
+      "file": "mac4DSTEMTests/DemoWorkflowTests.swift",
+      "line": 40,
+      "severity": "medium",
+      "category": "misleading-result",
+      "why": "`testDemoFixturePublishesAUsableOrientationPreview` runs the real ACOM path on the demo cube and then asserts only two things: `valid.count > map.results.count * 9 / 10` (:35), where `valid` is `results.filter { $0.templateIndex >= 0 }` \u2014 i.e. the argmax returned an index at all \u2014 and `maximumScore > 0.001` (:40-43). The score is a raw correlation sum clamped at zero (mac4DSTEM/Core/Crystal/OrientationMatcher.swift:324, `score: max(bestScore, 0)`), not a normalized 0\u20131 quantity, so 0.001 is indistinguishable from \"not exactly zero\". No expected `templateIndex`, no expected zone axis, no reliability floor. The test's name asserts usability; its body asserts only non-emptiness. Contrast the same file's `testDemoFixturePublishesAReconstructionPreview`, which at least pins dimensions and finiteness.",
+      "failureScenario": "An azimuthal sign flip in the radial/angular deposition, or a Q-scale factor error (the fixture hard-codes `invAngstromPerPixel: 0.02` at :31 while QCalibrationOriginGateTests.swift:160 measures the demo's true app-derived scale as 0.021), sends every position to the wrong zone axis. `templateIndex` is still \u2265 0 for >90% of positions and the max correlation is still well above 0.001, so this test passes while the orientation map is entirely wrong. Ground truth exists only in tools/acom-matching-test and tools/acom-orientation-test, so the unit gate alone would ship it.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "The test that claims to pin the re-reference and the export writer to one convention never calls the writer",
+      "file": "mac4DSTEMTests/CalibrationReReferenceTests.swift",
+      "line": 270,
+      "severity": "medium",
+      "category": "repo-rule",
+      "why": "`testTheBinnedOriginConventionMatchesTheExportWriter` states at :271-274: \"Two conventions for one operation in a single codebase is how they drift apart, so this pins them together rather than trusting a comment.\" It then does exactly what it says it is avoiding \u2014 line 279 computes `let writer = Float((Double(value) + 0.5) / Double(bin) - 0.5)`, a formula re-typed inside the test, and compares `CalibrationReReference.binnedCoordinate` against that literal. `BraggVectorEMDWriter.transformedCalibration`'s actual transform lives at mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift:1279 (`let transformQ: (Double) -> Double = { ($0 + 0.5) / bin - 0.5 }`) and is never invoked. The two implementations are coupled only by a comment (BraggVectorEMDWriter.swift:1260-1263) \u2014 the exact situation the test's docstring says it exists to prevent. This is a claim in a comment the code does not support (repo failure mode 3).",
+      "failureScenario": "Change `transformQ` at BraggVectorEMDWriter.swift:1279 to the naive `{ $0 / bin }`. Every export-binned origin is biased by (b\u22121)/2b px (0.25 px at bin 2), and this test \u2014 the one named for catching exactly that divergence \u2014 stays green, as does the whole `unit` gate. The defect is caught only by tools/reduced-export-test's centroid arbiter (its NC2 note), which is in `scientific`, not `unit`, so a `unit`-only run reports the convention as pinned.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "testPeaksSurviveRadialErrorSmallerThanABin builds its peaks from the template bank it then matches against",
+      "file": "mac4DSTEMTests/ACOMScanSelectionTests.swift",
+      "line": 120,
+      "severity": "medium",
+      "category": "test-blindness",
+      "why": "The fixture at :120-129 synthesises BraggPeaks directly from `plan.templateSpots[templateIndex]` \u2014 radius `spot.r / invAngstromPerPixel`, azimuth `spot.azim`, intensity `pow(spot.weight, 1/plan.intensityPower)` \u2014 and then asserts at :135 that the matcher returns that same `templateIndex`. Input and expected output are both derived from `OrientationPlan.generate`, so the test is a self-match: it can only see defects in the deposition/correlation step, never in the bank itself. That is a legitimate scope for a radial-binning test, but the file states no such limit, and this is the only ACOM correctness assertion in the whole unit target. It sits next to `testRunnerUpSkipsTemplatesTooCloseToBeADifferentOrientation` etc., which use hand-written zone axes and scores and are genuinely independent \u2014 so a reader will not notice which of the two kinds this is.",
+      "failureScenario": "`Crystal.reflections` returns a wrong allowed-reflection set (e.g. an extinction-rule error), or `templateSpots` applies the wrong structure-factor weighting, or the azimuth convention flips sign. Every generated peak is wrong in exactly the same way as every template, so the argmax still lands on `templateIndex` at both radial-scale errors and both assertions pass. The unit suite reports ACOM template matching as covered while the template bank is wrong.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "The accelerating-voltage test asserts \"at least one NSTextField exists somewhere in the window\"",
+      "file": "mac4DSTEMTests/SidebarLayoutTests.swift",
+      "line": 474,
+      "severity": "low",
+      "category": "test-blindness",
+      "why": "`testAcceleratingVoltageStaysOutsideTheReconstructStages` recurses the entire `window.contentView` counting `view is NSTextField` and asserts `>= 1` (:474-475). Its meaning rests entirely on the unasserted assumption stated in the comment at :464-467 \u2014 \"On arrival at Reconstruct the open stage is 1 ('Prepare preview'), whose only control is a button. So the sole text field on screen is the accelerating-voltage field.\" That assumption is a 2026-08-06 observation about the app's default state, not an invariant, and nothing in the test checks it. The honest form is `XCTAssertEqual(textFields(...), 1)`, which would fail loudly the day the assumption drifts instead of going permanently green. Today the sibling TextFields at mac4DSTEM/UI/ContentView.swift:567-572 and :589-598 are gated on parallax state and do not render on a fresh demo open, so the test probably still discriminates \u2014 but nothing holds that in place.",
+      "failureScenario": "Any change that puts a second editable field in the Reconstruct window by default (a stage that opens expanded, an inspector field, a search field) makes the assertion unconditionally true. A later change then moves the voltage field inside `reconstructionStage(1)`'s disclosure; the field vanishes from screen, `mac4DSTEMUITests.setAcceleratingVoltage`'s structural lookup fails, and this test \u2014 the only thing guarding that placement \u2014 stays green.",
+      "confidence": "PLAUSIBLE"
+    },
+    {
+      "title": "testStrideKeepsThePreviewInsideItsByteBudget permits twice the budget",
+      "file": "mac4DSTEMTests/DatasetPreviewTests.swift",
+      "line": 39,
+      "severity": "low",
+      "category": "misleading-result",
+      "why": "The test is named for keeping the preview inside its byte budget and its failure message says \"the stride is not controlling cost\", but the assertion at :38-42 is `XCTAssertLessThanOrEqual(bytes, budget * 2)` \u2014 a 100% allowance on the one quantity it exists to bound. The stated purpose (:29-32) is that budgeting bytes \"keeps the wait roughly constant, which is the property the user experiences\"; a 2\u00d7 admission means the wait can double across detector sizes and the test still calls it constant. Integer-stride quantisation justifies some slack, but not 2\u00d7, and no comment explains the factor.",
+      "failureScenario": "A stride derivation that rounds the wrong way (floor instead of ceil on the divisor) reads up to 32 MB against a 16 MB budget on a 512\u00d7512 detector. The configurator preview takes twice as long to appear on exactly the large files where that matters most, and this test \u2014 the only one bounding preview cost \u2014 passes.",
+      "confidence": "CONFIRMED"
+    }
+  ]
+}

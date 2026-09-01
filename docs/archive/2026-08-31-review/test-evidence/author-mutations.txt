@@ -1,0 +1,7 @@
+PASS: control; exit 0; expected evidence acom-convention-test: all passed
+PASS: projection-swap; exit 1; expected evidence FAIL: Au independent matrix orientation
+PASS: projection-mirror; exit 1; expected evidence FAIL: Au independent matrix orientation
+PASS: wrong-template-matrix; exit 1; expected evidence FAIL: Au independent matrix orientation
+PASS: correlation-sign; exit 1; expected evidence FAIL: Au independent matrix orientation
+PASS: vacuous-oracle; exit 1; expected evidence FAIL: oracle must distinguish a generic wrong orientation
+PASS: all-matches-empty; exit 1; expected evidence FAIL: Au no skipped failed match

@@ -1,0 +1,324 @@
+{
+  "reviewer": "independent continuation /root/review_data_crystal",
+  "date": "2026-08-31",
+  "methodology": "All 20 original findings retained. Read actual implementations, production callers and guards, source-locked py4DSTEM and related current debt. No app build, test harness, GUI or shared-tree mutation. Small independent arithmetic probes only, not production runtime reproductions. Severity reflects demonstrated scope; source-derived scenarios are not claimed as observed user incidents.",
+  "areas": [
+    {
+      "area": "Core/Data — readers (HDF5/DM4/EMPAD/MIB), calibration model, LoadSpecification, EMD/Bragg writer and sidecar round trip",
+      "findings": [
+        {
+          "id": "core-data-1",
+          "originalTitle": "The sidecar reader reads every HDF5 string as variable-length, so a fixed-length string attribute overruns an 8-byte stack slot and then frees a wild pointer",
+          "originalSeverity": "high",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "Sidecar HDF5 string reads assume scalar variable-length storage without checking the file type or extent",
+          "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+          "line": 2393,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "BraggVectorEMDWriter.swift:2399-2410 passes the file attribute datatype to H5Aread with only a pointer-sized destination; :959-971 does the equivalent for datasets. No type-class, variable-string, or scalar-dataspace guard precedes it. Fixed strings longer than a pointer overwrite the destination; shorter nonempty fixed strings can already be dereferenced as invalid pointers. H5Reader.swift:786-803 has a fixed/variable branch, but it is not called by the sidecar reader. The original scenario incorrectly placed the first overrun at the result manifest: a fixed one-byte min-reader value can fail earlier.",
+          "remainingVerification": "Run an isolated subprocess/ASan fixture through loadSession with fixed-length string attributes/datasets, plus nonscalar variable-string inputs; retain crash/refusal evidence before any fix. Do not run in the live app or touch user sidecars.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-data-2",
+          "originalTitle": "A saved scalar session result is restored with no shape check, while the RGBA branch three lines below refuses on exactly that mismatch",
+          "originalSeverity": "high",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "Scalar session restoration lacks a scan-domain shape check",
+          "file": "mac4DSTEM/App/AppState.swift",
+          "line": 2946,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "AppState.swift:2946-2953 publishes scalar pixels and their provenance unconditionally; :2955-2958 guards RGBA shape. loadSessionSnapshot (:2848 onward) adopts the saved specification but does not compare it with the active view before restoreSessionResult (:2663). Writer validation checks map dimensions against its own pixel count, not the active scan. Reconstruction scalars can legitimately differ from scan extent; a blanket scalar shape guard would be wrong. Even matching shapes do not establish equal crop frames.",
+          "remainingVerification": "Reproduce mismatched scan-domain scalar restore and same-size offset crop restore, with reconstruction-domain control. The transient Restored status is later overwritten during activation, so do not claim that exact message remains visible.",
+          "duplicateRelations": [
+            "core-data-3",
+            "existing sidecar calibration/frame debt, docs/open-items.md:1054"
+          ]
+        },
+        {
+          "id": "core-data-3",
+          "originalTitle": "A full-extent rewrite erases the load-specification attribute while copying the previous view's result nodes forward verbatim, and stamps the file back down to min-reader 5",
+          "originalSeverity": "high",
+          "status": "narrowed",
+          "severity": "high",
+          "title": "Successful view changes can preserve old result nodes while restamping the root view and minimum-reader metadata",
+          "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+          "line": 1704,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "BraggVectorEMDWriter.swift:1672-1689 copies old result nodes independent of frame; :1704-1712 omits the load-spec attribute for full extent; :1727-1731 writes min-reader 5 in that case. ResultExport.swift:1259 checks SessionGates.sidecarRewriteRefusal, but that gate (:179) only represents a failed restore; it does not reject an intentional successful promote. :1273-1287 captures the live specification for mergeCalibration. The writer behaviour is intentional and explicitly characterized by SessionReplayTests.swift:273, but there is no preserved-product frame reconciliation. Old products may carry some per-result provenance; do not claim all provenance is erased. Existing docs already record the adjacent post-promote recipe frame mismatch.",
+          "remainingVerification": "Run a scratch cropped-sidecar → successful full-extent calibration-save round trip and inspect preserved scalar/Bragg nodes, per-result provenance, root specification and reader marker. Separate successful-promote debt from the FAILED-restore defect S7 closed.",
+          "duplicateRelations": [
+            "core-data-2",
+            "docs/open-items.md:1054-1072 sidecar calibration/recipe frame debt",
+            "S5 failed-restore finding, CLOSED by S7; different trigger"
+          ]
+        },
+        {
+          "id": "core-data-4",
+          "originalTitle": "CalibrationReReference silently drops `excludedFraction`, so a crop or bin converts a trimmed origin fit into one that reports no trim history",
+          "originalSeverity": "medium",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "CalibrationReReference reconstruction drops trim metadata, but the claimed live crop scenario is not established",
+          "file": "mac4DSTEM/Core/Data/CalibrationReReference.swift",
+          "line": 344,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "CalibrationReReference.swift:344-350,391-409 creates OriginMaps without excludedFraction or robustResidual. However the sole app call at AppState.swift:2532 runs after calibration was reset (:2450) and repopulated from PixelCalibration file maps (:2513), which already carry no trim history; session calibration is adopted later. A current in-app robust fit is not passed unchanged into this crop function on reopen. Thus the helper-level omission is real, but claiming this is the demonstrated cause of the live inspector disclosure loss is unsupported. Save/reopen also omits trim metadata independently (ResultExport.swift:1347-1358).",
+          "remainingVerification": "Direct-helper fixture must distinguish translation/bin/scan-crop semantics; a scan crop cannot honestly preserve a scalar exclusion fraction without the original mask. Establish a production caller carrying excludedFraction before calling this a current UI regression.",
+          "duplicateRelations": [
+            "existing robustResidual persistence limitation in Calibration.swift:556",
+            "possible overlap with detection/calibration review"
+          ]
+        },
+        {
+          "id": "core-data-5",
+          "originalTitle": "The inspector's excluded-fraction row uses 0.005, the threshold Gate B measured as inside the trim's own false-positive range and replaced with 0.02",
+          "originalSeverity": "medium",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Inspector uses retired 0.5% outlier disclosure threshold instead of the shared 2% policy",
+          "file": "mac4DSTEM/UI/CalibrationDetailsView.swift",
+          "line": 64,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "CalibrationDetailsView.swift:64 tests excluded > 0.005. Calibration.swift:567 owns excludedFractionDisclosureFloor=0.02, used by readiness (:277) and refusal (:742). This is a source-level policy mismatch. Calling every excluded pixel a physical outlier is not justified by a clean-data false-positive experiment; that is why the constant exists.",
+          "remainingVerification": "After a targeted fix, verify inspector/readiness at fractions below, between and above 0.005/0.02. Owner visual acceptance remains separate from source evidence.",
+          "duplicateRelations": [
+            "possible overlap with detection/calibration review"
+          ]
+        },
+        {
+          "id": "core-data-6",
+          "originalTitle": "The DM4 parser traps on `Int(UInt64)` for corrupt SPECIAL fields — the guard written for that case sits after the trapping conversion, and the robustness harness's 'no Int trap' claim does not reach it",
+          "originalSeverity": "medium",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Malformed DM4 counts can trap before their validation guards",
+          "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+          "line": 319,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "DM4Reader.swift:298,319 converts UInt64 SPECIAL values with Int before range checks; :325,336,340,349,352,358 contain further Int conversions and :359 unchecked multiplication. :452 and :459 convert arbitrary decoded Double metadata to Int. The byte-reader bounds mechanism does not make numeric conversions safe. The original review overstates the fixture accusation: dm4-robustness-test/main.swift:198-215 explicitly tests multiplication overflow from four representable 2^20 dimensions; its no-Int-trap print describes that case, not all corrupt conversion classes.",
+          "remainingVerification": "Use isolated subprocesses for high-bit SPECIAL, NaN/Inf dimension/scan metadata and array byte overflow; distinguish controlled DM4Error refusal from a process trap.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-data-7",
+          "originalTitle": "DM4 scan shape and voltage are picked from an unordered Dictionary, so a multi-image DM file can reshape a 3D cube differently on different runs",
+          "originalSeverity": "medium",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "DM4 scan-shape and voltage selection is global and dictionary-order dependent",
+          "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+          "line": 458,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "DM4Reader.swift:458-460 returns the first global substring match for Scan shape X/Y, and :475-477 does so for voltage. In contrast dimensions and pixel scales use the selected array objectPrefix (:393,:465-474). Rank-3 shape construction consumes the global values (:406-409). The byte-count guard may reject mixed/wrong X/Y combinations, so the original story that a survey necessarily yields a silent transposition is too strong. Equally sized alternate factorizations can pass, while voltage needs no shape coincidence.",
+          "remainingVerification": "Synthesize multi-image DM4 metadata with competing same-product scan shapes and distinct voltages; inspect repeated isolated processes and selected-object association. Determine actual vendor tag placement before proposing prefix-only lookup.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-data-8",
+          "originalTitle": "The sidecar writer silently drops per-position origin maps it considers inconsistent, where the export path refuses on the same condition",
+          "originalSeverity": "medium",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Sidecar calibration serialization silently omits inconsistent origin arrays; no reachable production failure established",
+          "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+          "line": 1809,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "BraggVectorEMDWriter.swift:1809-1815 returns nil on self-inconsistent origin-map rank/count, leaving mean-only data when supplied. It does NOT compare map extent against qWidth/qHeight or active scan. ResultExport.swift:1347-1358 separately drops maps that do not match the live scan, but normal source/session adoption checks shape first. The original comparison with transformedCalibration conflates internal array consistency and source-frame compatibility. Source confirms defensive omission, not an observed normal save losing valid maps.",
+          "remainingVerification": "Find a reachable app state or malformed input surviving adoption guards; otherwise classify as defensive API hardening. A direct-writer malformed-map fixture alone does not prove the claimed normal workflow.",
+          "duplicateRelations": [
+            "core-data-3 adjacent frame/persistence family"
+          ]
+        },
+        {
+          "id": "core-data-9",
+          "originalTitle": "In log display, non-finite CBED pixels are mapped to 0 and then colormapped as valid data, contradicting the masked-value contract stated 45 lines above",
+          "originalSeverity": "low",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Log diffraction display converts nonfinite pixels into valid zero-valued data",
+          "file": "mac4DSTEM/Core/Data/DiffractionPattern.swift",
+          "line": 74,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "DiffractionPattern.swift:74 maps nonfinite input to 0 before FloatImage.normalized can emit invalidDisplayValue (:23-46). Linear mode preserves nonfinite values. Production callers include PendingLoad.swift:129,145, AppState.swift:1290 and ResultExport.swift:604, so the path is live in previews/display/PNG export.",
+          "remainingVerification": "Use a small diffraction pattern with finite positive values plus NaN/Inf and compare log/linear normalized mask output and visible/export colour. No production rendering reproduced here.",
+          "duplicateRelations": []
+        }
+      ]
+    },
+    {
+      "area": "mac4DSTEM/Core/Crystal — crystal models, CIF import, scattering factors, ACOM plan/matcher (+ their consumers in OrientationResult, AppState, ResultExport, ContentView)",
+      "findings": [
+        {
+          "id": "core-crystal-1",
+          "originalTitle": "Hexagonal IPF legend labels two corners with each other's indices, and the stated green/blue key is the reverse of what the code computes",
+          "originalSeverity": "high",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "Hexagonal IPF legend and documented indices disagree with the production colour mapping",
+          "file": "mac4DSTEM/UI/ContentView.swift",
+          "line": 1828,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "Crystal.swift:75-79 defines a1=(a,0), a2=(-a/2,sqrt(3)a/2), hence a3=-a1-a2. [11-20] is 3(a1+a2), at 60°, reduced to 0°; [10-10] is 2a1+a2, at 30°. OrientationResult.swift:471-480 makes 0° green and 30° blue. ContentView.swift:1810-1813 gives the right vertex 0° and top vertex 30°, but :1828-1831 labels top 11-20/right 10-10 and :1836 calls 10-10 green. Independent arithmetic is retained in data-crystal-math-experiments.json. This proves the index/colour inconsistency, not a required universal external IPF palette.",
+          "remainingVerification": "Pin crystallographic directions transformed through the actual lattice, and separately check the legend labels/colour convention. Owner must drive the changed key; no screenshot or runtime rendering was produced here.",
+          "duplicateRelations": [
+            "core-crystal-6"
+          ]
+        },
+        {
+          "id": "core-crystal-2",
+          "originalTitle": "CIF import silently assumes P1 when a file has no symmetry-operation loop, and never reads the space-group tag that contradicts it",
+          "originalSeverity": "critical",
+          "status": "confirmed",
+          "severity": "high",
+          "title": "CIF without symmetry operations can accept an asymmetric unit as the complete cell despite a non-P1 space-group declaration",
+          "file": "mac4DSTEM/Core/Crystal/CIFImport.swift",
+          "line": 300,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "CIFImport.swift:216-224 only consumes operation loops; other tags enter cellValues (:231) but space-group names/numbers are never used. :300-308 wraps listed sites as full P1 contents. verifyFamily (:753 onward) tests rotations of those sites, so a single atom at the origin passes cubic rotation checks; CrystalModel validation also admits it. A properly completed cubic Au CIF with all six cell parameters, F m -3 m declaration and only Au at origin reaches the wrong simple-cubic structure. Critical is reduced to high: wrong-science risk is clear, but no measured user incidence or runtime result exists.",
+          "remainingVerification": "Compile/import a scratch CIF containing all required cell tags and a single Au site with a non-P1 space group; compare forbidden (100)/(110) reflections with built-in FCC, plus full-cell P1 and explicit-operation controls. No importer execution was run by this reviewer.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-crystal-3",
+          "originalTitle": "Without an accelerating voltage the ACOM templates are exactly π-periodic, so in-plane angle and Euler angles are only determined mod 180° — and nothing says so",
+          "originalSeverity": "high",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "ACOM lacks a user/export disclosure of the flat-Ewald in-plane ambiguity when voltage is absent",
+          "file": "mac4DSTEM/App/AppState.swift",
+          "line": 5121,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "AppState.swift:5117-5123 passes nil wavelength without voltage; OrientationPlan.swift:153-160 documents the flat-Ewald pi ambiguity, and :184-192 applies it. ACOMRunSemantics.productStatus (:119-126) only considers Q provenance; export bundle at ResultExport.swift:519-531 gives Euler/symmetry conventions but no wavelength/excitation-model or ambiguity field. No voltage/wavelength fields occur in ResultExport or ACOMWorkflow. Paired ±g give the mathematical degeneracy, but finite binning/float arithmetic need not give bit-identical templates. The original half-pixels-random and up-to-180° misorientation claim is not established: some rotations are crystallographically symmetry-equivalent, and a deterministic argmax chooses ties.",
+          "remainingVerification": "Run a generic nonsymmetry-axis fixture with/without wavelength, compare physically inequivalent solutions after crystal-symmetry reduction, and define disclosure semantics. Check missing and invalid voltage; do not blanket-label all Euler values wrong.",
+          "duplicateRelations": [
+            "existing ACOM convention investigation; distinct from stale-voltage plan invalidation"
+          ]
+        },
+        {
+          "id": "core-crystal-4",
+          "originalTitle": "A CIF loop whose value count is not a multiple of its tag count silently drops the trailing partial row instead of refusing",
+          "originalSeverity": "medium",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "CIF parser silently truncates an incomplete trailing loop row",
+          "file": "mac4DSTEM/Core/Crystal/CIFImport.swift",
+          "line": 203,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "CIFImport.swift:203 integer-divides values.count by loopTags.count, with no remainder refusal before assembling rows (:206-212). A valid complete first atom row and partial final row can retain a valid model while dropping the final atom. The review example must include an atom label/type symbol; an all-numeric atom-site loop without either is already rejected at :282-285. For the last partial row it is dropped wholesale, not occupancy being consumed as U_iso in a row that survives.",
+          "remainingVerification": "Use complete required cell fields, a valid first atom, atom label/type column, and truncated last row; ensure retained atoms pass family checks. Also test unknown/non-atom loop behaviour and avoid equating every malformed loop with a silent wrong structure.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-crystal-5",
+          "originalTitle": "`radialKernelInvAngstrom` is attributed to py4DSTEM's `corr_kernel_size`, but only half that parameter is ported, with a different truncation and an unrelated fixed azimuthal blur — no DEVIATION note",
+          "originalSeverity": "medium",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "ACOM radial-kernel comments claim py4DSTEM semantics the simplified native polar builder does not implement",
+          "file": "mac4DSTEM/Core/Crystal/OrientationPlan.swift",
+          "line": 69,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "OrientationPlan.swift:69-72,205-210 calls radialKernelInvAngstrom py4DSTEM corr_kernel_size; :218-239 spreads both template and experiment on a uniform radial grid with about ±3σ, and :240 applies radius-independent angular blur. OrientationMatcher.swift:245-248 calls the same function. Source-locked crystal_ACOM.py:778,807-818 uses shell-index template deposition and :1055-1082 uses experimental Δr<kernel plus radius-scaled angular Gaussian. The file header already calls this a simplified self-consistent route, which narrows the accusation of whole-algorithm parity, but does not explain these concrete parameter deviations. No parameter-tuning defect is numerically measured here.",
+          "remainingVerification": "First document/decide intended approximation; compare analytic distinct-ring and experimental patterns against source-locked reference before changing the kernel. A comment correction alone must not be advertised as scientific equivalence.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-crystal-6",
+          "originalTitle": "The gated hexagonal IPF test pins raw Cartesian vectors and never names a crystallographic direction, so it cannot catch the legend/colour swap",
+          "originalSeverity": "medium",
+          "status": "narrowed",
+          "severity": "medium",
+          "title": "Hexagonal IPF fixture does not independently pin the crystallographic labels shown by the legend",
+          "file": "tools/acom-orientation-test/main.swift",
+          "line": 209,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "acom-orientation-test/main.swift:209-224 pins Cartesian vertex vectors to RGB and symmetry invariance, but never maps [uvtw] through Crystal.latReal or inspects ContentView legend text. Changing the legend labels alone therefore does not affect those assertions. The proposed mutation changing BOTH production colours and expected test colours is not a valid demonstration of test blindness: changing the oracle can bless any bug. Keep the narrower, real missing contract check.",
+          "remainingVerification": "Add an independently derived crystallographic-direction assertion and verify a production-only label or mapping mutation fails the relevant test. This reviewer did not perform mutation runs.",
+          "duplicateRelations": [
+            "core-crystal-1 same defect; coverage subfinding, not another user-visible bug"
+          ]
+        },
+        {
+          "id": "core-crystal-7",
+          "originalTitle": "Two doc comments still assert the app is cubic-only, after hexagonal symmetry and the WS₂ model shipped",
+          "originalSeverity": "low",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "ACOM comments still describe only cubic crystals after hexagonal support landed",
+          "file": "mac4DSTEM/Core/Analysis/OrientationResult.swift",
+          "line": 487,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "OrientationPlan.swift:16-17 says current crystals are cubic; OrientationResult.swift:487-489 says presets/editor are cubic and noncubic support is future. The enum immediately includes hexagonal, its implementation occupies :371-484, and CrystalModel.swift:256-265 ships Mg/WS2 hexagonal presets. Pure stale documentation, no evidence of scientific malfunction from these comments.",
+          "remainingVerification": "Update comments when app-code changes are authorized for a separate fix; no runtime test needed for the prose correction.",
+          "duplicateRelations": []
+        }
+      ]
+    },
+    {
+      "area": "Core/Compute + Shaders (Metal, FFT, cancellation)",
+      "findings": [
+        {
+          "id": "core-compute-shaders-1",
+          "originalTitle": "DFT-upsample kernel uses the wrong Fourier frequency for one bin when width or height is odd",
+          "originalSeverity": "medium",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "Matrix DFT upsampling wraps one Fourier frequency incorrectly on each odd axis",
+          "file": "mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift",
+          "line": 144,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "MatrixDFTCorrelation.swift:143-146 and :168-171 use k<n/2, yielding [0,1,2,-4,-3,-2,-1] at n=7. Source-locked multicorr.py:186,195 uses ifftshift(arange(n))-floor(n/2), yielding [0,1,2,3,-3,-2,-1]; FFT2D.fftfreq (:465) agrees with the latter. FFT2D init (:94 onward) supports odd dimensions, so callers are not even-only. DiskDetection.swift:736 uses refine; ParallaxAlignment.swift:483 uses refinedPeak. Independent arithmetic shows different fractional-pixel kernel phase for the affected bin; it does not establish a universal systematic bias in every dataset.",
+          "remainingVerification": "Run odd-by-even and odd-by-odd production parity fixtures with energy in the disputed bins, and even-size controls; observe a discriminating wrong-frequency mutation. Quantify peak/shift effects before claiming all per-plane shifts are biased.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-compute-shaders-2",
+          "originalTitle": "CoM kernels clamp negative pixels to zero — an unnoted py4DSTEM deviation",
+          "originalSeverity": "medium",
+          "status": "confirmed",
+          "severity": "medium",
+          "title": "DPC and origin CoM clamp negative intensities without documenting the py4DSTEM deviation",
+          "file": "mac4DSTEM/Shaders/CenterOfMass.metal",
+          "line": 53,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "CenterOfMass.metal:53 and OriginMeasure.metal:85 apply max(I,0); source-locked utils.py:184-186 sums raw values, and calibration/origin.py:214-215 passes raw masked dp to get_CoM. OriginMeasure header documents a coarse-search deviation but calls refinement identical. Independent arithmetic on [-1,3,0] yields raw centroid 1.5 and clamped 1.0. This demonstrates a mathematical difference, not measured real-data strain bias or proof clipping is always scientifically wrong.",
+          "remainingVerification": "Use negative-valued detector data in a GPU parity fixture and decide/publish the clipping policy. Check caller preprocessing and intended noise model before prescribing raw sums as the fix.",
+          "duplicateRelations": []
+        },
+        {
+          "id": "core-compute-shaders-3",
+          "originalTitle": "Origin CoM window includes its boundary ring; py4DSTEM's is strictly inside",
+          "originalSeverity": "low",
+          "status": "confirmed",
+          "severity": "low",
+          "title": "Origin refinement includes exact-radius pixels excluded by the py4DSTEM window",
+          "file": "mac4DSTEM/Shaders/OriginMeasure.metal",
+          "line": 84,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "OriginMeasure.metal:80,84 skips only squared distance > win2; calibration/origin.py:214 (also :290,:318) uses strict hypot < radius. Integer centres and radius 6 make equality reachable. The coarse-search deviation does not document this boundary difference. Existing open-items mask-boundary blind-spot note is related, but not a resolution or a production parity test for this particular window.",
+          "remainingVerification": "Run a boundary-sensitive analytic GPU fixture whose asymmetric boundary intensity affects CoM; characterize equality with actual float parameters rather than assuming every nominal r*rscale hits it.",
+          "duplicateRelations": [
+            "existing general mask-boundary fixture blind spot"
+          ]
+        },
+        {
+          "id": "core-compute-shaders-4",
+          "originalTitle": "A zero-intensity pattern silently reports an exactly zero DPC shift",
+          "originalSeverity": "low",
+          "status": "narrowed",
+          "severity": "low",
+          "title": "Zero-sum DPC patterns are represented as valid zero shift without a validity channel",
+          "file": "mac4DSTEM/Shaders/CenterOfMass.metal",
+          "line": 60,
+          "evidenceLevel": "source-inspected; no production runtime reproduction",
+          "evidence": "CenterOfMass.metal:60-64 substitutes the reference centre when sumI<=0 then subtracts the reference, producing (0,0). AppState.computeCoMField (:4253-4275) returns an unmasked [Float], consumed by RotationCalibration.solve (:4214) and DPC. Unlike raw division in utils.py, it loses the distinction between no signal and a centred beam. The original direction-of-bias assertion is not demonstrated: zero vectors do not necessarily pull an angular solution toward zero, and Fourier integration is global, so a dropout need not become a flat local patch.",
+          "remainingVerification": "Use synthetic blanked rows alongside a known nonzero field; inspect validity disclosure, rotation and iDPC effects. Decide a mask/refusal strategy with an independent reference; do not simply introduce NaNs into FFT consumers.",
+          "duplicateRelations": []
+        }
+      ]
+    }
+  ]
+}

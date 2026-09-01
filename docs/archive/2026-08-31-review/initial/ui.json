@@ -1,0 +1,96 @@
+{
+  "area": "mac4DSTEM/UI/ \u2014 views, viewers, inspectors, controls (22 files, ~7,900 lines)",
+  "summary": "This area is unusually disciplined and I found NO violation of the \"views describe UI only\" rule \u2014 every file delegates loading/parsing/compute to AppState or Core, and the two continuous-coordinate maps (RealSpacePointerPolicy, PeakOverlayGeometry) each own both directions so a drawn mark and its drag cannot drift. Presentation honesty is a genuine strength: the ROI-SUM badge (DiffractionView.swift:45-56), the persistent quantitative-status and \"Earlier settings\" badges (StemImageView.swift:131-162), the display-only wording on view orientation and the quality-field toggle, the letterbox sweep across all four MetalImageView call sites, the log-space back-transform in patternDisplayedValueRange, and the symmetric colorbar endpoints for diverging maps are all correct and carefully argued in comments. What is weak is the seam where a UI overlay or label restates a Core convention by hand: three of the four highest findings below are a drawn shape or a hard-coded label that disagrees with the Core code it claims to describe, and none of them is covered by a test. Two known open items recur here and I did NOT re-report them: the \"Measured ROI \u00b7 N px\" probe-radius label (DiskDetectionControls.swift:39-47, CalibrationDetailsView.swift:48-51) and the sessionSidecar.location(for:) call inside a view body (InspectorPanels.swift:108); InspectorPanels.swift:24's \"App memory\" is also the already-recorded resident_size-vs-phys_footprint item.",
+  "findings": [
+    {
+      "title": "Hexagonal IPF colour key labels two of its three corners with the wrong crystallographic directions",
+      "file": "mac4DSTEM/UI/ContentView.swift",
+      "line": 1828,
+      "severity": "high",
+      "category": "misleading-result",
+      "why": "HexagonalIPFLegendView builds its triangle from three explicit vertices: left = SIMD3(0,0,1) (ContentView.swift:1811), right = SIMD3(1,0,0) (:1812), apex = SIMD3(cos30\u00b0, sin30\u00b0, 0) (:1813). The app's own hexagonal lattice is a1 = (a,0,0) with gamma = 120\u00b0 (Crystal.swift:76-78, applied by Crystal.hcp at :184-190 and Crystal.tungstenDisulfide at :253-259), so in that cartesian frame +x IS the a-axis, i.e. a <11-20> direction ([2-1-10] -> 3-index [300] || x), and (cos30\u00b0, sin30\u00b0, 0) is <10-10> ([10-10] -> 3-index [210] = 2a1 + a2 = (1.5a, 0.866a, 0), which is 30\u00b0 from x). The tick row hard-codes the opposite: leading \"0001\" (:1826, correct), centre \"11-20\" under the APEX (:1828), trailing \"10-10\" at the RIGHT vertex (:1830). The accessibility label repeats it (:1836: \"0001 red, 10-10 green, 11-20 blue\"), and so does the Core doc comment the labels were copied from (Core/Analysis/OrientationResult.swift:468-470). The colouring itself is self-consistent \u2014 HexagonalOrientationSymmetry.ipfColor gives green at azimuth 0 and blue at azimuth pi/6 (OrientationResult.swift:476-481) \u2014 so this is purely a labelling defect, and it is invisible to the suite: tools/acom-orientation-test/main.swift:138-155 pins only CubicOrientationSymmetry.ipfColor; grep finds no test touching HexagonalOrientationSymmetry.ipfColor at all. Note py4DSTEM does not hard-code these strings \u2014 it derives each corner label from the vector via cartesian_to_lattice + lattice_to_hexagonal (References/py4DSTEM-dev/py4DSTEM/process/diffraction/crystal_viz.py:641-659) \u2014 which is exactly the structural difference that lets mac4DSTEM's labels drift from its own geometry.",
+      "failureScenario": "Run ACOM on the 2H-WS2 model added by W4a (Crystal.swift:253) over polycrystal_2D_WS2 and display IPF\u00b7Z. StemImageView.swift:423-434 draws HexagonalIPFLegendView beside the map. A grain whose beam direction is along the a-axis renders GREEN; the on-screen key tells the reader that green means <10-10>, when the code coloured it for <11-20>. The reader assigns every green grain the wrong in-plane direction family \u2014 a 30\u00b0 error in reported texture \u2014 and the burned-in export caption and VoiceOver readout carry the same claim.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "CBED scale bar invents the unit \"1/nm\" when the file supplies a Q pixel size with no units",
+      "file": "mac4DSTEM/UI/DiffractionView.swift",
+      "line": 173,
+      "severity": "high",
+      "category": "misleading-result",
+      "why": "The bar renders whenever qPixelSize is non-nil and labels it `app.calibration.qPixelUnits ?? \"1/nm\"` \u2014 a fabricated physical unit for a scale whose units the file never stated. Size and units are read independently and either can be nil: H5Reader.pixelCalibration sets out.qSize = scalar(\"Q_pixel_size\") and out.qUnits = string(\"Q_pixel_units\") separately (H5Reader.swift:599-600), and the generic EMD dim-vector fallback takes units from an optional attribute (H5Reader.swift:651). DM4Reader is worse: it deliberately maps an EMPTY Units string to nil (DM4Reader.swift:467-469), and an uncalibrated DM dimension normally carries Scale = 1.0 with Units = \"\", producing exactly qPixelSize = 1.0, qPixelUnits = nil. Core already knows this state is not a physical calibration and says so \u2014 Calibration.swift:315-329 renders it as \"Reciprocal scale lacks supported physical units (no units)\" and validQ is false \u2014 so the calibration panel and the pane overlay contradict each other on the same screen. Nothing normalises units on load (AppState.swift:2466 assigns pc.qUnits verbatim).",
+      "failureScenario": "Open a DM4 whose detector dimension has Scale 1.0 and an empty Units string. The Prepare checklist correctly says the reciprocal scale has no supported physical units, while the CBED pane draws a scale bar reading \"20 1/nm\" that in fact spans 20 raw detector pixels. A screenshot of that pane \u2014 the standard way results leave this app \u2014 asserts a reciprocal calibration the app explicitly refused to make.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "The square virtual detector drawn on the CBED is not the region the kernel integrates: shifted half a pixel and one column/row larger",
+      "file": "mac4DSTEM/UI/ApertureControl.swift",
+      "line": 105,
+      "severity": "high",
+      "category": "science-correctness",
+      "why": "ApertureControl draws the rectangle centred on the aperture pixel's CENTRE with half-width `outer` (ApertureControl.swift:107-111, centre from PeakOverlayGeometry.center at :27-31), i.e. continuous extent [cX + 0.5 \u2212 outer, cX + 0.5 + outer]. AppState builds the mask as .rectangle(xMin: cX \u2212 half, xMax: cX + half) (AppState.swift:3446-3452), and DetectorShape.rectangle is documented half-open [xMin, xMax) (VirtualDetector.swift:28-29, honoured at :521-527) \u2014 so the summed set is pixels cX\u2212half \u2026 cX+half\u22121: 2\u00b7half pixels, asymmetric about cX, continuous extent [cX \u2212 half, cX + half]. The two differ by a constant +0.5 px shift, and by pixel-centres-inside the drawn box implies 2\u00b7half+1 columns against 2\u00b7half summed. This is the odd one out in the same file: the ROI rectangle uses the symmetric odd convention `xMax: x + r + 1` (AppState.swift:3312-3313) and ACOM's square uses inclusive x0\u2026x1 (OrientationMatcher.swift:53-62). The circle and annulus paths ARE consistent (AppState.swift:3436 passes a raw index and fillRadial computes dx = Float(x) \u2212 cx, VirtualDetector.swift:540-543), which is why the mismatch is confined to .rectangle. ApertureControl's own header claims the opposite: \"The shape matches the selected VirtualShapeMode so what you see is what the kernel integrates\" (:5-6).",
+      "failureScenario": "Set Detector shape = Rectangle with centre (64,64) and outer = 2 on a 128\u00d7128 detector. The yellow box visibly encloses the 5\u00d75 block of pixel centres 62\u202666; the kernel sums the 4\u00d74 block 62\u202665. The user believes they are measuring a 25-pixel collection area centred on the beam; the virtual image is a 16-pixel area offset up-left \u2014 a 56% overstatement of collection solid angle and an off-centre detector, both silent.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "The circular real-space ROI outline is centred on the selected scan position but the summed region is not",
+      "file": "mac4DSTEM/UI/StemImageView.swift",
+      "line": 599,
+      "severity": "medium",
+      "category": "science-correctness",
+      "why": "regionOverlay draws the circle at ((scan.x + 0.5)\u00b7scaleX, (scan.y + 0.5)\u00b7scaleY) with radius realSpaceRadius\u00b7radiusScale (StemImageView.swift:603-605, 608-614) \u2014 i.e. centred on the selected pixel's centre, radius r. AppState builds the mask as .circle(centerX: Float(selectedScan.x) + 0.5, centerY: Float(selectedScan.y) + 0.5, radius: realSpaceRadius + 0.5) (AppState.swift:3315-3317), but VirtualDetector.fillRadial measures dx = Float(x) \u2212 cx over integer pixel INDICES (VirtualDetector.swift:540-543) \u2014 index space, the convention the app documents elsewhere and which the aperture path obeys by passing a raw index (AppState.swift:3436). Adding 0.5 to the centre therefore displaces the summed circle half a pixel in index space, making it asymmetric about the selected position: at r = 6 the mask keeps x \u2208 scan.x\u22125 \u2026 scan.x+6 (12 columns, 5 left / 6 right) where a centre of Float(scan.x) with the same radius+0.5 would give the symmetric 13. The same shape feeds realSpaceRegionMask (AppState.swift:3325-3329), which is the strain \"unstrained reference\" region, so this is not display-only.",
+      "failureScenario": "Set Region shape = Circle and drag the radius to its minimum of 1 (ContentView.swift:151-152 allows 1; StemImageView.swift:627 clamps to max(1,\u2026)). The orange circle is drawn centred on the crosshair. The mask, |x \u2212 scan.x \u2212 0.5| and |y \u2212 scan.y \u2212 0.5| against 1.5, admits exactly the 2\u00d72 block whose TOP-LEFT corner is the crosshair. The ROI-SUM pattern shown in the CBED pane \u2014 which drives the measured probe kernel and the current-pattern peak count \u2014 is summed over four positions the user did not select, and the picture says otherwise.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "Real-space scale bar labels a physically-calibrated bar \"px\" when the file omits R units",
+      "file": "mac4DSTEM/UI/StemImageView.swift",
+      "line": 387,
+      "severity": "medium",
+      "category": "misleading-result",
+      "why": "`unitLabel: sampling != nil ? (pixel.units ?? \"px\") : \"px\"` \u2014 but the bar's LENGTH is computed from `sampling` regardless (StemImageView.swift:385-386). When rPixelSize is present and rPixelUnits is nil the bar is drawn in physical units and labelled as pixels. The state is reachable by the same routes as the CBED case: H5Reader.swift:601-602 reads size and units independently, H5Reader.swift:650 takes the EMD dim1 units from an optional attribute, and DM4Reader.swift:467-469 turns an empty Units string into nil. currentScalarPersistenceMetadata passes calibration.rPixelUnits straight through for every analysis mode (ResultExport.swift:1519-1522, 1554-1558, 1576-1580, 1591-1594). This is the same missing-units condition as the CBED bar and the two panes guess in OPPOSITE directions \u2014 one fabricates a physical unit, one fabricates pixels \u2014 so neither can be right as a policy.",
+      "failureScenario": "Open an EMD whose dim1 vector gives a 0.5 nm scan step but carries no `units` attribute. The real-space pane draws a bar labelled \"20 px\" that actually spans 20 nm = 40 scan pixels. A reader measuring a feature against that bar is out by the R pixel size \u2014 here 2\u00d7, silently.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "Comparison-panel cursor readout maps the pointer against the un-letterboxed pane and ignores zoom, so it names the wrong pixel",
+      "file": "mac4DSTEM/UI/ProductWorkspaceViews.swift",
+      "line": 835,
+      "severity": "medium",
+      "category": "misleading-result",
+      "why": "The image is letterboxed by `.aspectRatio(w/h, contentMode: .fit)` (ProductWorkspaceViews.swift:819-822) and then magnified by `.scaleEffect(max(1, zoom * liveZoom))` (:823), but the hover handler divides by `size` \u2014 the full GeometryReader pane read at :802 \u2014 and applies no inverse of the zoom (:835-836). The readout it feeds is `sample.accessibilityText`, a value with units for a named pixel (:844-845), in the one view whose purpose is comparing A and B at the same coordinate. StemImageView gets this right by contrast: its hover is attached to the container already framed to the letterboxed `imageBox` and divides by that same box, before the rotation/mirror/zoom effects (StemImageView.swift:329-343), so the letterbox comment added here on 2026-08-27 (:809-818) fixed the picture without updating the arithmetic beside it.",
+      "failureScenario": "Load two 200\u00d750 scan-domain products into comparison A and B. Each panel is roughly 108pt wide by 120pt tall, so the fitted image is 108\u00d727 with ~46pt of empty letterbox above and below. Hovering the image's top row (y \u2248 47pt) reports row 47/120 \u00d7 50 = 19. The strip under the panel prints the strain value at scan row 19 while the cursor is on row 0, and A and B are compared at a row neither pointer is over. Zooming in multiplies the error again.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "The misleading \"GPU budget\" label S9a removed still ships in the Performance panel",
+      "file": "mac4DSTEM/UI/InspectorPanels.swift",
+      "line": 42,
+      "severity": "medium",
+      "category": "misleading-result",
+      "why": "S9a renamed this row because \"GPU budget\" sitting in a table of load sizes reads as a ceiling the user may load up to, while the figure is recommendedMaxWorkingSetSize \u2014 measured at 5461 MB (66% of physical RAM) on the 8 GB machine the app died on. The rename landed at exactly one call site: LoadConfiguratorView.swift:433 now says \"GPU working-set limit\" with the explanatory caption at :440, and the reasoning is written out at :425-432. InspectorPanels.swift:42 still reads `labeled(\"GPU budget\", ...)` from the same SystemMonitor.gpuWorkingSetMB, and it sits directly beneath \"Cube (f32)\" (:28) and \"Cube memory\" (:32) \u2014 the same size-table context the rename exists to defuse. Nothing catches it: docs/v2-release.md:307 scoped the task to `LoadConfiguratorView.swift:255`, Track B row F1.39 (docs/visual-acceptance-checklist.md:259) only inspects the configurator, and docs/open-items.md:916 cites only the configurator line.",
+      "failureScenario": "A user on an 8 GB Mac opens the inspector's Performance section, reads \"Cube (f32) 3.96 GB\" beside \"GPU budget 5461 MB\", concludes the machine can hold this cube, and makes it resident \u2014 the exact reasoning path S9a's caption was written to break, reached through the panel the rename never touched.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "Dragging the aperture centre handle can place it one pixel outside the detector, silently producing an empty mask",
+      "file": "mac4DSTEM/UI/ApertureControl.swift",
+      "line": 157,
+      "severity": "low",
+      "category": "silent-failure",
+      "why": "The centre-handle drag clamps to `Float(patternWidth)` / `Float(patternHeight)` (ApertureControl.swift:157-158) where the last valid index is patternWidth \u2212 1 \u2014 and the accessibility sliders in the same file use the correct `0...Float(max(0, patternWidth - 1))` (:52-54), so the two input routes disagree about the valid range. It is reachable: PeakOverlayGeometry.pixel returns patternWidth \u2212 0.5 at the box's right edge (PeakOverlayGeometry.swift:35) and emit() rounds it up to patternWidth (ApertureControl.swift:175-176). VirtualDetector.makeMask's .point case is guarded by `(0..<qx).contains(x)` and simply leaves the mask all zeros (VirtualDetector.swift:528-529); nothing reports the out-of-range centre.",
+      "failureScenario": "In Virtual Detector mode with shape = Point, drag the white centre handle to the far right edge of the CBED pane. centerX becomes qx. The real-space image goes uniformly black with no status line and no refusal, and the inspector's \"Center x\" row (DatasetInspector.swift:208) shows a coordinate the detector does not have.",
+      "confidence": "CONFIRMED"
+    },
+    {
+      "title": "The scan-step filename regex is unanchored, so an ordinary filename can raise a false conflict against a correct imported R calibration",
+      "file": "mac4DSTEM/UI/CalibrationReadinessView.swift",
+      "line": 207,
+      "severity": "low",
+      "category": "misleading-result",
+      "why": "scanStepAngstromPerPixel matches `ss(\\d+(?:[.,]\\d+)?)(nm|pm|um|\u00b5m|a|\u00e5)` anywhere in the last path component (CalibrationReadinessView.swift:206-209), with no word boundary before `ss`. Any filename in which a word ending in \"ss\" is immediately followed by a number and a unit matches. The function's own doc comment states the invariant this breaks: \"a false positive here would contradict a correct imported calibration\" (:200-201), and the named tests are described as pinning only the no-token and wrong-unit cases (:199-201) \u2014 not the unanchored-prefix case.",
+      "failureScenario": "Open `thickness30nm_scan.h5` (or `mass30nm\u2026`, `loss30nm\u2026`) whose file metadata correctly gives 4.95 nm/px. The regex extracts \"30nm\" from \"thickness30nm\", the 5% tolerance at :188-190 is far exceeded, and the R-scale readiness row displays an orange warning telling the user their filename and their calibration disagree and to check which is right \u2014 against a calibration that is correct and a token that is not a scan step.",
+      "confidence": "PLAUSIBLE"
+    }
+  ]
+}

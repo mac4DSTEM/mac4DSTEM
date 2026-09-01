@@ -1,0 +1,80 @@
+[
+  {
+    "case": "baseline",
+    "exit": 0,
+    "stdout": "PASS: 1 original findings accounted; 1 session audits present\nAccounting only: dispositions may include unresolved findings; this is not release approval.\n",
+    "stderr": ""
+  },
+  {
+    "case": "omit_finding",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: missing verification: probe-01\n"
+  },
+  {
+    "case": "duplicate_finding",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: duplicate finding: probe-01\n"
+  },
+  {
+    "case": "omit_session",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: missing session audit: S1\n"
+  },
+  {
+    "case": "invented_disposition",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: missing/invalid disposition: probe-01\n"
+  },
+  {
+    "case": "whitespace_evidence",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: missing evidence: probe-01\n"
+  },
+  {
+    "case": "boolean_evidence",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: missing evidence: probe-01\n"
+  },
+  {
+    "case": "object_method",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: missing verificationMethod: probe-01\n"
+  },
+  {
+    "case": "failed_claim_status",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: invalid audit disposition in S1\n"
+  },
+  {
+    "case": "duplicate_session_roster",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: incomplete or malformed review evidence: duplicate session roster\n"
+  },
+  {
+    "case": "duplicate_area_roster",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: incomplete or malformed review evidence: duplicate area roster\n"
+  },
+  {
+    "case": "removed_session_roster",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: incomplete or malformed review evidence: nonempty session roster required\n"
+  },
+  {
+    "case": "empty_roster",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "FAIL: incomplete or malformed review evidence: nonempty area roster required\n"
+  }
+]

@@ -776,15 +776,41 @@ private func evaluate(
         // which a basal specimen never shows (docs/open-items.md) — can be
         // measured against a corrected scale on the same detected vectors.
         // The estimate is still computed and recorded; only the matching
-        // scale changes, the override value is stamped into the export and
-        // metrics so a record made this way is unmistakable. Not a permanent
-        // campaign mode (the MAC4DSTEM_DISK_KERNEL_MEASURED precedent).
-        let matchScale = ProcessInfo.processInfo
-            .environment["MAC4DSTEM_ACOM_SCALE_OVERRIDE"].flatMap(Double.init)
-            ?? qEstimate.invAngstromPerPixel
+        // scale changes, and the override value is stamped into the export, the
+        // metrics AND `issues` so a record made this way is reconstructible from
+        // the report alone. Not a permanent campaign mode (the
+        // MAC4DSTEM_DISK_KERNEL_MEASURED precedent).
+        //
+        // Gate B, 2026-08-31, three corrections to the original block: a
+        // present-but-unparseable value used to fall back SILENTLY to the
+        // defective estimate — in the one tool whose purpose is to tell those two
+        // scales apart — so it now refuses; a non-finite or non-positive value is
+        // refused for the same reason; and the provenance no longer claims
+        // `.measuredInApp` for a number that came from the environment.
+        let overrideText = ProcessInfo.processInfo
+            .environment["MAC4DSTEM_ACOM_SCALE_OVERRIDE"]
+        var overrideScale: Double?
+        if let overrideText {
+            guard let parsed = Double(overrideText), parsed.isFinite, parsed > 0 else {
+                fatalError("""
+                    MAC4DSTEM_ACOM_SCALE_OVERRIDE is set to "\(overrideText)", which is                     not a positive finite number. Refusing rather than silently                     matching at the un-overridden estimate.
+                    """)
+            }
+            overrideScale = parsed
+        }
+        let matchScale = overrideScale ?? qEstimate.invAngstromPerPixel
         calibration.qPixelSize = qEstimate.invAngstromPerPixel
         calibration.qPixelUnits = "Å⁻¹"
-        provenance.qScale = .measuredInApp
+        // `.manual` is the honest case when the matching scale was supplied from
+        // outside: `.qScale` is the field a downstream reader consults to judge
+        // trust, and under an override no in-app measurement produced it.
+        provenance.qScale = overrideScale == nil ? .measuredInApp : .manual
+        if let overrideScale {
+            issues.append(
+                "ACOM matched at MAC4DSTEM_ACOM_SCALE_OVERRIDE=\(overrideScale) Å⁻¹/px, "
+                + "not the in-app estimate \(qEstimate.invAngstromPerPixel) — diagnostic run"
+            )
+        }
         let acomStart = Date()
         // The wavelength is what makes the templates asymmetric under g → −g;
         // without it the in-plane angle is only determined modulo 180°

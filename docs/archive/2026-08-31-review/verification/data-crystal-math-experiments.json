@@ -1,0 +1,99 @@
+{
+  "frequency_7": {
+    "app": [
+      0,
+      1,
+      2,
+      -4,
+      -3,
+      -2,
+      -1
+    ],
+    "reference": [
+      0,
+      1,
+      2,
+      3,
+      -3,
+      -2,
+      -1
+    ],
+    "different_bins": [
+      3
+    ]
+  },
+  "frequency_8": {
+    "app": [
+      0,
+      1,
+      2,
+      3,
+      -4,
+      -3,
+      -2,
+      -1
+    ],
+    "reference": [
+      0,
+      1,
+      2,
+      3,
+      -4,
+      -3,
+      -2,
+      -1
+    ],
+    "different_bins": []
+  },
+  "odd_bin_quarter_pixel_phase": {
+    "app": [
+      0.6234898018587336,
+      0.7818314824680298
+    ],
+    "reference": [
+      0.7818314824680298,
+      -0.6234898018587335
+    ]
+  },
+  "11-20": {
+    "cartesian": [
+      1.5,
+      2.598076211353316
+    ],
+    "angle_degrees": 60.00000000000001,
+    "reduced_angle_degrees": 1.2722218725854067e-14,
+    "production_formula_rgb": [
+      0.0,
+      1.0,
+      2.059305605121467e-08
+    ]
+  },
+  "10-10": {
+    "cartesian": [
+      1.5,
+      0.8660254037844386
+    ],
+    "angle_degrees": 29.999999999999996,
+    "reduced_angle_degrees": 29.999999999999996,
+    "production_formula_rgb": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
+  "negative_intensity_com": {
+    "pixels": [
+      -1,
+      3,
+      0
+    ],
+    "raw": 1.5,
+    "clamped": 1.0
+  },
+  "origin_window_boundary": {
+    "radius": 6,
+    "distance": 6,
+    "app_includes": true,
+    "reference_includes": false
+  }
+}

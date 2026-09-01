@@ -29,6 +29,20 @@ open "$(xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM \
 And do not hand the owner an unsigned build to launch — `tools/run-tests.sh unit`
 is the only place `CODE_SIGNING_ALLOWED=NO` belongs (repo hard rule).
 
+## Driving the app yourself
+
+If you are going to drive rather than write rows, read
+[`DRIVING.md`](DRIVING.md) first. It carries the input mechanics (two click
+mechanisms, chosen by target type), the frontmost assertion, the coordinate
+conversion, and the layout traps — all of it paid for in wasted time on
+2026-09-01. Three rules from it are worth repeating here because they each
+prevented or caused a false finding:
+
+- **Scroll every scrollable surface to its end before reporting an absence.**
+- **Check the source condition before believing the screen** — rows do not state
+  their preconditions.
+- **Run a control** before filing a hit-target defect.
+
 ## Recording a pass (the user reports what they saw)
 
 1. Update each driven row: PASSED / FAILED / PARTLY, with the date and the

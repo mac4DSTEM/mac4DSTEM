@@ -26,12 +26,29 @@ for model in catalog {
 }
 print("PASS: \(catalog.count) explicit crystal models validate and generate symmetry-consistent plans")
 
+/// The template a fixture position is generated from. Extracted so the
+/// generator below and the WS₂ arm's recovery assertion read the SAME formula
+/// — an assertion that recomputed it independently would keep passing if the
+/// generator's stride ever changed, which is a green-but-worthless test.
+func generatingTemplate(index: Int, width: Int, templateCount: Int) -> Int {
+    (index * 17 + index / width) % templateCount
+}
+
+/// The in-plane rotation a fixture position is generated with. Extracted for
+/// the same reason as `generatingTemplate` — the WS₂ arm asserts against it, and
+/// a second copy of the formula would drift silently. It lands exactly on an
+/// azimuthal bin (angle/(2π)·128 = (index*7) % 64, an integer), so the
+/// assertion can be exact rather than tolerant.
+func generatingInPlaneAngle(index: Int) -> Double {
+    Double((index * 7) % 64) / 64 * Double.pi
+}
+
 func vectors(plan: OrientationPlan, crystal: Crystal, width: Int, height: Int) -> BraggVectors {
     let reflections = crystal.reflections(kMax: 1.2)
     let scale = 0.01
     let peaks = (0..<(width * height)).map { index -> [BraggPeak] in
-        let template = (index * 17 + index / width) % plan.count
-        let angle = Double((index * 7) % 64) / 64 * Double.pi
+        let template = generatingTemplate(index: index, width: width, templateCount: plan.count)
+        let angle = generatingInPlaneAngle(index: index)
         // intensityPower: 1 keeps the fixture's peak intensities physical —
         // the matcher applies the plan's power to them, so generating them
         // already compressed would apply it twice.
@@ -182,4 +199,157 @@ guard hexMap.results.allSatisfy({ $0.templateIndex >= 0 && $0.score.isFinite }) 
     fail("hexagonal magnesium match produced invalid results")
 }
 print("PASS: non-cubic magnesium plan, matching, and symmetry provenance")
+
+// MARK: - WS₂ scale sensitivity (W4b, 2026-08-31)
+//
+// W4b measured the (0002) reference-shell defect live on polycrystal_2D_WS2:
+// `KnownCrystalQCalibration.estimate` returned 0.008789 Å⁻¹/px where the
+// data-true scale is 0.019448 — a silent 2.2564× under-scale on basal data.
+// On the real cube that HALVED the median correlation score and picked a wrong
+// zone axis. This arm pins the property that makes the open item matter: the
+// matcher breaks at THIS mis-scale, so a mis-scaled Q calibration is not
+// cosmetic. Scoped deliberately: Gate B swept the factor and both assertions
+// stay green up to a ~5% scale error (and the recovery one is non-monotone —
+// it goes green again at 1.75×), so this pins "the 2.26× defect bites", not
+// the stronger "the matcher is scale-sensitive in general".
+//
+// Scope: the fixture is generated FROM the same crystal it is matched against,
+// so it pins the MATCHING path only. `tools/ws2-crystal-test` pins the model.
+func median(_ values: [Double]) -> Double {
+    let sorted = values.sorted()
+    guard !sorted.isEmpty else { fail("median over an empty sample") }
+    let middle = sorted.count / 2
+    return sorted.count % 2 == 1
+        ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+}
+// The statistic gets its own check because the score-drop assertion below
+// cannot supply one: at the defect scale EVERY order statistic collapses, so
+// swapping the median for the max or the min leaves that assertion green. It is
+// called directly at both use sites rather than through a `medianScore(_:)`
+// wrapper — Gate B showed a wrapper is a second place to swap the statistic
+// that this guard does not reach.
+guard median([3, 1, 2]) == 2, median([4, 1, 3, 2]) == 2.5 else {
+    fail("median helper is not the median")
+}
+
+let ws2TrueScale = 0.01
+// The ANALYTIC shell ratio |g(10-10)|/|g(0002)| = (2/(a√3))/(2/c) = 2.25634 for
+// the cited 2H cell — i.e. the mis-scale the (0002) reference-shell defect
+// produces from geometry alone. It is deliberately NOT the ratio of the two
+// scales W4b recorded on the cube (0.019448/0.008789 = 2.2129): those differ
+// because the estimator measures the ring by a per-pattern MINIMUM, which is
+// biased ~1.9% low — a second, independent defect with its own open item.
+// `tools/ws2-crystal-test` prints the same constant as 2.2563.
+let ws2DefectFactor = 2.2564
+guard let ws2Model = CrystalModelLibrary.model(id: "ws2_2h") else {
+    fail("crystal-model library does not carry ws2_2h")
+}
+guard let ws2Plan = OrientationPlan.generate(
+    crystal: ws2Model.crystal, kMax: 1.2, zoneAxisCount: 48,
+    symmetry: ws2Model.symmetry
+) else { fail("WS₂ plan generation") }
+guard ws2Plan.symmetry == .hexagonal, ws2Plan.count == 48 else {
+    fail("WS₂ plan was symmetry=\(ws2Plan.symmetry.rawValue), templates=\(ws2Plan.count)")
+}
+let ws2Width = 4, ws2Height = 2
+let ws2Fixture = vectors(plan: ws2Plan, crystal: ws2Model.crystal,
+                         width: ws2Width, height: ws2Height)
+guard let ws2True = OrientationMatching.matchAll(
+    bragg: ws2Fixture, plan: ws2Plan, originX: 64, originY: 64,
+    invAngstromPerPixel: ws2TrueScale, backend: .cpu
+) else { fail("WS₂ match at the true scale") }
+guard ws2True.symmetry == .hexagonal, ws2True.templateCount == ws2Plan.count,
+      ws2True.matchingBackend == .cpu else {
+    fail("WS₂ provenance was symmetry=\(ws2True.symmetry.rawValue), templates=\(ws2True.templateCount), backend=\(ws2True.matchingBackend.rawValue)")
+}
+func recoveredTemplates(_ map: OrientationMap) -> Int {
+    map.results.indices.filter { index in
+        map.results[index].templateIndex
+            == generatingTemplate(index: index, width: ws2Width, templateCount: ws2Plan.count)
+    }.count
+}
+// Full recovery, not a majority: the fixture is deterministic (fixed crystal,
+// fixed plan, fixed stride, CPU backend, no RNG), and the narrowest margin over
+// ALL competing templates is 0.0595 (t0 vs t24, a symmetric pair 7.74° apart)
+// against a measured CPU-vs-Metal score spread of 6e-7 — five orders of
+// magnitude of headroom, so 8/8 is not brittle across machines. The handoff
+// spec'd ≥6/8; 8/8 is what the tree measures, and slack the data does not need
+// would let two positions regress silently.
+//   The 0.101 this comment first quoted was `reliability[0]`, the gap to the
+//   *distinct* runner-up — and `selectOrientation` filters out everything
+//   within distinctOrientationRad (10°), which is exactly the set that could
+//   steal the win. Right conclusion, wrong statistic (Gate B).
+let ws2Recovered = recoveredTemplates(ws2True)
+guard ws2Recovered == ws2True.results.count else {
+    fail("WS₂ at the true scale recovered only \(ws2Recovered)/\(ws2True.results.count) generating templates")
+}
+
+// F5 (Gate B): the recovery assertion above cannot fail through any defect
+// applied symmetrically to BOTH the templates and the fixture, because
+// normalizeUnit makes the self-correlation exactly 1 by Cauchy–Schwarz. Pinning
+// the score itself is free and pins the pixel→polar round-trip directly.
+let ws2TrueMedian = median(ws2True.results.map { Double($0.score) })
+guard ws2TrueMedian > 0.999 else {
+    fail("WS₂ self-correlation at the true scale should be ~1, measured median \(ws2TrueMedian)")
+}
+
+// Pins that the matcher REPORTS the rotation it was given. Verified to have
+// teeth: dropping the in-plane negation at `OrientationMatcher.swift:314`
+// fails here at index 1, unaided, with the gold scalar arm disabled. (Index 0
+// is generated at angle 0, where a sign error is invisible — this loop covers
+// every position for that reason.)
+//
+// **What it does NOT close, measured, not assumed.** Gate B's most severe
+// finding is that a transpose or handedness flip inside
+// `OrientationPlan.project` is invisible to EVERY gated ACOM harness. The
+// review proposed exactly this assertion as the one-line fix. It is not:
+// the fixture builds its experimental pattern with the same `project` that
+// builds the templates, so a defect applied to both sides preserves the
+// RELATIVE angle as well as the score. Both mutations were re-run against this
+// assertion and both still pass (exit 0, output byte-identical). Closing that
+// needs experimental peaks whose positions do not come from `project` at all —
+// filed as its own open item, with the sign-discriminating-angle requirement.
+//
+// Compared modulo π on purpose: with `wavelengthAngstrom: nil` the templates are
+// exactly π-periodic by construction, so the matcher may legitimately return
+// either branch (measured: generating + π at every position but index 0). That
+// also means this arm is structurally blind to a 180° defect — pinning that
+// needs a plan built with a wavelength, which this fixture does not have.
+// Tolerance: one azimuthal bin is 2π/128 = 0.049 rad and the residual is ~5e-8,
+// so 1e-4 sits two orders of magnitude clear of both.
+for index in ws2True.results.indices {
+    let expected = generatingInPlaneAngle(index: index)
+    let observed = Double(ws2True.results[index].inPlaneAngle)
+    var residual = (observed - expected).truncatingRemainder(dividingBy: .pi)
+    if residual > .pi / 2 { residual -= .pi }
+    if residual < -.pi / 2 { residual += .pi }
+    guard abs(residual) < 1e-4 else {
+        fail("WS₂ in-plane angle at \(index): observed \(observed), generating \(expected), residual modulo π \(residual)")
+    }
+}
+
+guard let ws2Defective = OrientationMatching.matchAll(
+    bragg: ws2Fixture, plan: ws2Plan, originX: 64, originY: 64,
+    invAngstromPerPixel: ws2TrueScale / ws2DefectFactor, backend: .cpu
+) else { fail("WS₂ match at the (0002)-defect scale") }
+// The sharper of the two consequences, and the one that matches what the real
+// cube did: the mis-scale does not merely lower a score, it returns DIFFERENT
+// orientations. Measured 0/8 recovered. The threshold allows one because a
+// single coincidental hit among 48 templates is not evidence of
+// scale-insensitivity (expected coincidences ≈ 8/48 ≈ 0.17), whereas a
+// genuinely scale-blind matcher would recover all 8 exactly as it does above.
+let ws2DefectiveRecovered = recoveredTemplates(ws2Defective)
+guard ws2DefectiveRecovered <= 1 else {
+    fail("WS₂ matching is scale-INSENSITIVE: at 1/\(ws2DefectFactor) of the true scale it still recovered \(ws2DefectiveRecovered)/\(ws2Defective.results.count) generating templates")
+}
+// ...and the quantitative link to the real cube, where the same defect took the
+// median score 0.3994 → 0.2140 (a 46% drop; the handoff quoted the same
+// measurement the other way round, as the +87% regained by correcting it).
+let ws2DefectiveMedian = median(ws2Defective.results.map { Double($0.score) })
+let ws2Drop = (ws2TrueMedian - ws2DefectiveMedian) / ws2TrueMedian
+guard ws2Drop >= 0.25 else {
+    fail("WS₂ (0002) mis-scale did not degrade matching: median \(ws2TrueMedian) at the true scale vs \(ws2DefectiveMedian) at 1/\(ws2DefectFactor), drop \(ws2Drop)")
+}
+print("PASS: WS₂ recovers \(ws2Recovered)/\(ws2True.results.count) templates at the true scale, \(ws2DefectiveRecovered)/\(ws2Defective.results.count) at the (0002)-defect scale; median score drops \(String(format: "%.1f", ws2Drop * 100))% (\(String(format: "%.4f", ws2TrueMedian)) → \(String(format: "%.4f", ws2DefectiveMedian)))")
+
 print("acom-matching-test: all passed")

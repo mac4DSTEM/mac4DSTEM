@@ -1,0 +1,1453 @@
+{
+  "auditDate": "2026-08-31",
+  "scope": "208 explicit/grouped claims across all 15 available records; source/history corroboration is distinguished from unavailable execution evidence.",
+  "sessions": [
+    {
+      "session": "S1",
+      "record": "docs/archive/v2-session-records/s1.md",
+      "claims": [
+        {
+          "id": "S1-01",
+          "claim": "The first half added HDF5 error detail, tools/sidecar-error-detail-test and corrected export-failed wording.",
+          "status": "confirmed",
+          "evidence": "Commit 3bb54f4; BraggVectorEMDWriter.swift:317-325 hdf5Failure and :688,692,782,785,806,809 six instrumented sidecar read sites; H5Eprint2 capture :2539 onward; tools/sidecar-error-detail-test/main.swift and run.sh exist.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-02",
+          "claim": "The denial was observed as EPERM at 09:34:27 on 2026-08-19, completing C10.",
+          "status": "unverified",
+          "evidence": "Commit 4849ff8 and docs/archive/s1-sidecar-under-the-sandbox.md:252-288 retain the reported observation and exclusion argument. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-03",
+          "claim": "SessionSidecarLocator is an Observable seam owning location, bookmarks, scoped access and source-keyed cache.",
+          "status": "confirmed",
+          "evidence": "mac4DSTEM/App/SessionSidecarLocator.swift:39 onward has @Observable, scoped(sourcePath,url), location/grant/adopt/remember/release; AppState holds it. Commit a36f6e5 adds the type and migrates callers.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-04",
+          "claim": "recordedLoadSpecification asks the locator, preserves read failure and no longer silently try?-coalesces it to absence.",
+          "status": "confirmed",
+          "evidence": "AppState.recordedLoadSpecification and SessionSidecarLocator.recordedOutcome switch distinguish unreadable/noneRecorded/recorded; SessionSidecarLocatorTests.swift:267 pins the real call path. Later S7 adds the durable failed-restore gate without removing this distinction.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-05",
+          "claim": "Warm cache cannot return one dataset\u2019s grant for another dataset.",
+          "status": "confirmed",
+          "evidence": "SessionSidecarLocator.grant(forSourcePath:) checks scoped.sourcePath == path before returning the cache; SessionSidecarLocatorTests.swift:73 constructs different source paths. No security-scoped runtime run was performed.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-06",
+          "claim": "The refusal is surfaced in the dataset inspector rather than only transient statusText.",
+          "status": "confirmed",
+          "evidence": "SessionSidecarLocator.unreadableReason is state; DatasetInspector renders the session sidecar warning and AppState records failures. The statusText overwrite remains clear in activate\u2019s loading stages.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-07",
+          "claim": "The initial S1 change added 13 unit tests.",
+          "status": "confirmed",
+          "evidence": "Counted 13 added func test methods in git show a36f6e5 -- mac4DSTEMTests/SessionSidecarLocatorTests.swift. The later renamed-label follow-up raises that file to 14 by 540afc7; this does not falsify the initial 13.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-08",
+          "claim": "Six negative controls were each verified in isolation.",
+          "status": "unverified",
+          "evidence": "Tests and contemporaneous review narrative name the controls, but the individual retained mutation-run outputs were not inspected. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-09",
+          "claim": "The second reader found statusText overwritten three lines later and the refusal moved to a durable channel.",
+          "status": "confirmed",
+          "evidence": "The correction is present in a36f6e5\u2019s AppState/SessionSidecarLocator/DatasetInspector diff. Current activate drives statusText through multiple stages. Attribution to a particular reader is historical narrative, not independently reconstructed agent execution.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-10",
+          "claim": "A ninth caller in UI/InspectorPanels bypassed the seam and was routed.",
+          "status": "confirmed",
+          "evidence": "git show a36f6e5 -- mac4DSTEM/UI/InspectorPanels.swift replaces derived sidecar identity with the locator. Current inspector asks sessionSidecar.location. The exact count nine is the contemporary inventory, not a new exhaustive caller count.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-11",
+          "claim": "Five mutations initially stayed green, including the original defect, and two self-consistent tests were hardened and reverified.",
+          "status": "unverified",
+          "evidence": "SessionSidecarLocatorTests carries tests of real AppState wiring and renamed labels, consistent with the reported corrections; exact failed/passing mutation history is not reconstructable from final tests. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-12",
+          "claim": "EPERM alone is not proof of sandbox denial; the diagnosis was restated as exclusion of other MAC policies.",
+          "status": "confirmed",
+          "evidence": "SessionSidecarLocator.swift header explicitly states sandbox-denial implies EPERM, not converse; docs/archive/s1-sidecar-under-the-sandbox.md:276-288 retains exclusions. The logical correction is sound; the exclusions\u2019 original observations were not repeated.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-13",
+          "claim": "The 09:34:27 sidecar was overwritten 54 seconds later, making that original experiment nonreproducible.",
+          "status": "unverified",
+          "evidence": "Archive :304-306 records 09:35:21 replacement and docs/open-items.md:1043 onward records destroyed reproducers. 09:35:21\u221209:34:27=54 s, but the original inode/file evidence is unavailable here.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-14",
+          "claim": "Security-scoped start/stop pairing is not verified by unsandboxed XCTest.",
+          "status": "known",
+          "evidence": "Locator calls startAccessingSecurityScopedResource and stopAccessingSecurityScopedResource, while test host does not reproduce production sandbox grants. No claim of coverage or successful access is added by this audit.",
+          "originalStatus": "known"
+        },
+        {
+          "id": "S1-15",
+          "claim": "run-tests.sh unit ran end to end with 220 passed and 1 intermittent sidebar failure on 2026-08-19 after disk was freed.",
+          "status": "unverified",
+          "evidence": "Commit 5f26180 records that dated run. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run. A later higher case count is not contradictory.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-16",
+          "claim": "The sidebar failure was excluded from S1 by experiment.",
+          "status": "unverified",
+          "evidence": "The record and later S17 diagnosis are consistent, but this audit did not recover the original discriminating run. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-17",
+          "claim": "F1.3g and F1.3h passed on screen on 2026-08-19, with F1.3h failing first.",
+          "status": "unverified",
+          "evidence": "Commits 7854365,54516d7,3306e6c,cdeaa4f and visual-acceptance-checklist.md:211-222 retain the sequence and final owner acceptance. No new visual judgement or overwrite of historical score is warranted; original screenshots were not inspected.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S1-18",
+          "claim": "F1.3h found saveCalibrationToSessionSidecar failed to persist its access grant; both publish paths now call rememberSidecarGrant.",
+          "status": "confirmed",
+          "evidence": "Commit 3306e6c records the fix; ResultExport.swift:144 owns helper, :812 result save and :1297 calibration save call it after publication. No sandbox save/reopen was run in this audit.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S1-19",
+          "claim": "No automated test could have caught the missing rememberSidecarGrant call.",
+          "status": "narrowed",
+          "evidence": "The historical unsandboxed unit suite could not prove the full sandbox/panel round trip, which is a valid limitation. The absolute impossibility claim is too strong: injected orchestration or a source/wiring test can detect an omitted call, though neither substitutes for real sandbox acceptance.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "id": "S1-20",
+          "claim": "Renamed-sidecar inspector label remained untested on screen because both drives kept the default name.",
+          "status": "known",
+          "evidence": "visual-acceptance-checklist.md F1.3i records the later attempted drive as impossible until a rename affordance existed, with unit-only substance checked and UI wiring read. F1.20 later requeues it; this is a dated explicit limit, not missing completion evidence to invent.",
+          "originalStatus": "known"
+        }
+      ],
+      "summary": "Implementation and the stated limits are corroborated by source and dated commits. Original first-wave 13-test count is correct; 14 methods existed after the renamed-label follow-up. Historical runtime/mutation/visual claims remain reported rather than independently re-executed; no contrary evidence found."
+    },
+    {
+      "session": "S2",
+      "record": "docs/archive/v2-session-records/s2.md",
+      "claims": [
+        {
+          "id": "S2-01",
+          "claim": "tools/two-spec-analysis-test was created on 2026-08-19 and joined scientific.",
+          "status": "confirmed",
+          "evidence": "Commit aa4fdba introduces the harness; tools/run-tests.sh:84 includes it. The historical run date is carried in the commit/session record.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-02",
+          "claim": "The S2 final run comprised 214 checks.",
+          "status": "unverified",
+          "evidence": "main.swift:259 retains a contemporaneous 214 baseline comment and dynamic checksRun count. No original output was recovered or harness executed here. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S2-03",
+          "claim": "tools/lib/sources.manifest was created with dependency-closed groups.",
+          "status": "confirmed",
+          "evidence": "Commit aa4fdba adds the manifest and tools/two-spec-analysis-test/run.sh consumes it; function mac4dstem_sources resolves named dependencies and deduplicates. This audit inspected source, not every compilation combination.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-04",
+          "claim": "MAC4DSTEM_ISOLATION_FLAGS were added to match app isolation semantics.",
+          "status": "confirmed",
+          "evidence": "tools/lib/sources.manifest:84 onward defines Swift version, MainActor default isolation and upcoming features; two-spec-analysis-test/run.sh uses the flags. App/UI build semantics are expressly not fully reproduced.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-05",
+          "claim": "Metamorphic properties P1\u2013P4 were seeded.",
+          "status": "confirmed",
+          "evidence": "tools/two-spec-analysis-test/main.swift:793 commutation, :808 conservation, :833 detector translation, :927 onward P4 origin translation characterization. P4 explicitly characterizes a known defect with a bound, not a proven exact invariance.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-06",
+          "claim": "The L3 tile(yRange:from:) residual was closed under a scan crop.",
+          "status": "confirmed",
+          "evidence": "two-spec fixture exercises cropped resident indexing; source/header explains full-run restricted-overlap expectations. The record correctly limits the added coverage to cropped views.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-07",
+          "claim": "Eight negative controls each named the broken line and were verified.",
+          "status": "unverified",
+          "evidence": "The contemporaneous S2 narrative documents eight; the resulting fixture contains hardened layout/origin assertions. Individual mutation outputs were not recovered. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S2-08",
+          "claim": "The earlier claim that the offset was uncovered entirely was wrong: virtual-detector-residency already covered full extent.",
+          "status": "confirmed",
+          "evidence": "tools/virtual-detector-residency/main.swift exercises resident tiles/offsets at full extent; S2 adds reduced scan selection. Source corroborates the distinction, without retroactively claiming the old run was rerun.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-09",
+          "claim": "Isolation flags expose warnings but do not fail the build.",
+          "status": "confirmed",
+          "evidence": "Manifest :65-82 explicitly documents this and contains no -warnings-as-errors; run.sh set -e responds to compiler exit, not warning text.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-10",
+          "claim": "No existing runner was migrated to sources.manifest during S2.",
+          "status": "confirmed",
+          "evidence": "git grep -l sources.manifest aa4fdba -- tools/*/run.sh returns only the newly added two-spec-analysis-test/run.sh. Later adoption does not falsify the dated statement.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-11",
+          "claim": "The manifest therefore did not yet fix the older 2026-08-17 source-list breakage.",
+          "status": "confirmed",
+          "evidence": "At aa4fdba all preexisting runners retained independent source lists, so adding a manifest alone could not repair their maintenance path. Current manifest comments retain scope limits.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S2-12",
+          "claim": "Gate B refuted four claims, all corrected, and produced two open items.",
+          "status": "unverified",
+          "evidence": "S2 source carries the exactness argument split, shared-mask boundary limitation, and duplicated Aperture seam limitation; these substantiate some documented corrections. Exact review count/attribution and all four historical initial claims require the reviewer logs; final code alone is insufficient.",
+          "originalStatus": "unverified"
+        }
+      ],
+      "summary": "The harness, manifests, metamorphic cases and narrowed scope exist. Source agrees with the recorded correction that crop coverage was new, not full-extent offset coverage. Historical 214-check and mutation outcomes were not rerun; no contradiction from later harness counts."
+    },
+    {
+      "session": "S3",
+      "record": "docs/archive/v2-session-records/s3.md",
+      "claims": [
+        {
+          "id": "S3-01",
+          "claim": "S3 ran on 2026-08-19 and dropped automatic residency, retaining streamed behaviour.",
+          "status": "confirmed",
+          "evidence": "Commits 36ca6e3 and 408abd2; ResidentCube.swift:36-52 has no automatic enum case and DatasetResidency.swift:34 defaults streamed. Previously nil threshold prevented automatic admission; source/history support unchanged default residency policy.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-02",
+          "claim": "admits, nil measuredWorkingSetFraction and tools/residency-sweep were kept as the return path.",
+          "status": "confirmed",
+          "evidence": "ResidentCube.swift:133 keeps nil and :141 keeps admits; tools/residency-sweep remains. This audit made no changes to the threshold.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-03",
+          "claim": "Promote reopens the loaded view\u2019s own source at explicit fullExtent, bypassing openFileAsync sidecar crop restore.",
+          "status": "confirmed",
+          "evidence": "AppState.swift:1710-1745 uses loadView?.source then activate(specification:.fullExtent); it does not call openFileAsync. PromoteToFullExtentTests.swift:23 covers source/extent behaviour.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-04",
+          "claim": "Promote control lives in dataset inspector Loaded view section, shown when promotion is meaningful.",
+          "status": "confirmed",
+          "evidence": "DatasetInspector\u2019s Loaded view section and Reopen at Full Extent action are wired to loadedView and promoteToFullExtent. The final rendering/visibility was not driven here.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-05",
+          "claim": "RecentDatasets was extracted with state, cached labels, persistence and cap, without forwarding properties.",
+          "status": "confirmed",
+          "evidence": "RecentDatasets.swift has @Observable/@MainActor, entries/locationLabels/capacity=8, remember/remove/updateBookmark and persist closure. AppState holds recents and views consume recents directly. Commits 36ca6e3/408abd2 show extraction.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-06",
+          "claim": "All eight standing build-warning classes were cleared; a fresh clean build_macos reported zero warnings.",
+          "status": "unverified",
+          "evidence": "S3 commits change affected warning sites, but a source diff cannot establish a warning-free clean build or number of warning classes. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S3-07",
+          "claim": "S3 added nine tests.",
+          "status": "confirmed",
+          "evidence": "36ca6e3 adds seven RecentDatasets tests and two PromoteToFullExtent tests. The tenth added func test line is the renamed preexisting DatasetResidency automatic-mode test; subtracting its deleted predecessor gives nine net new tests.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-08",
+          "claim": "Every new test failed under a discriminating mutation, and one identity assertion was removed as worthless.",
+          "status": "unverified",
+          "evidence": "408abd2 hardens promote source identity and recents cases; final tests alone do not prove observed reds. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S3-09",
+          "claim": "Gate A used eight finders plus adversarial verification and gap sweep and produced 15 findings.",
+          "status": "unverified",
+          "evidence": "The historical session record says so; source commits cannot reconstruct agent completions or exact finding inventory. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S3-10",
+          "claim": "Eleven findings were fixed: source authority, reentrancy, demo failure masking, init dictionary trap, remove-on-miss persistence, byte precision, fitsResident cleanup, dead wrapper/conformances and three test hardenings.",
+          "status": "confirmed",
+          "evidence": "408abd2 modifies AppState, DatasetResidency, RecentDatasets, LoadConfiguration, ResidentCube, DatasetInspector and two test files corresponding to the enumerated fixes. Current promote guards !isLoadingDataset; recents uses uniquingKeysWith and no-op miss. The list is source-corroborated; historical count/category grouping and mutation execution remain reported.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-11",
+          "claim": "Two findings were assigned: open-unwind triplication to S18 and recovery-frame mismatch to S5.",
+          "status": "confirmed",
+          "evidence": "S3-era docs and subsequent S5 recovery implementation/S18 load lifecycle records retain those assignments. These are historical allocation claims, not assertions they remain open today.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-12",
+          "claim": "One finding was remedied by documenting the destructive streamed preload stamp.",
+          "status": "confirmed",
+          "evidence": "DatasetResidency.swift:113 onward explains why preload must check request before stamp to avoid releasing a held cube; 408abd2 contains the contract comment.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-13",
+          "claim": "Whether promote should carry scan position was queued for owner decision TB1.",
+          "status": "known",
+          "evidence": "visual-acceptance-checklist.md F1.14 retains the question and default Prepare/(0,0) behaviour. No owner decision was inferred in this audit.",
+          "originalStatus": "known"
+        },
+        {
+          "id": "S3-14",
+          "claim": "There was no residency picker or production request caller to remove; the UI half was absence verification.",
+          "status": "confirmed",
+          "evidence": "36ca6e3/408abd2 change the model default and descriptive UI, not a residency picker. Current production path defaults streamed; request is available for explicit test use. This supports the scope correction.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-15",
+          "claim": "Successful promote does not itself update the sidecar; F1.14 states save-on-demand semantics.",
+          "status": "confirmed",
+          "evidence": "promoteToFullExtent contains no sidecar write. F1.14 explicitly distinguishes reopen from a later sidecar restore. Related preserved-result frame issues are separate findings, not proof this historical description was wrong.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S3-16",
+          "claim": "Final unit run exited 0 with 232 cases and sidebar green; scientific exited 0 with 35 harnesses.",
+          "status": "unverified",
+          "evidence": "Those are dated S3 claims; no retained execution output was checked here. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run. Later test/harness additions cannot falsify them.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S3-17",
+          "claim": "Promote UI F1.14/F1.15 and a multi-GB reduced\u2192promote run remained unverified.",
+          "status": "known",
+          "evidence": "visual-acceptance-checklist.md:236-237 still carries explicit unverified rows and multi-GB conditions. No runtime action in this audit changes that state.",
+          "originalStatus": "known"
+        }
+      ],
+      "summary": "The promote/residency/recents implementation is corroborated. Nine net-new tests is correct: a tenth added function in the diff renames an existing residency test. Review totals, warning-free build and dated test execution are not independently recovered; no change to the explicit visual/multi-GB limits."
+    },
+    {
+      "session": "S4",
+      "record": "docs/archive/v2-session-records/s4.md",
+      "claims": [
+        {
+          "id": "S4-01",
+          "claim": "S4 implemented value-dependent contentVersion first, cached at image set time so view bodies do O(1) lookup.",
+          "status": "confirmed",
+          "evidence": "PendingLoad.DisplayImage at :32-49 stores pixels/version; MetalImageView.contentVersion hashes dimensions/values; LoadConfiguratorView.swift:245-249 reads image.version. Commit 34fc329 adds ImageContentVersionTests.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-02",
+          "claim": "Preview progress was restored through one epoch-guarded handler shared by both open paths.",
+          "status": "confirmed",
+          "evidence": "AppState.swift:1609-1620 checks datasetEpoch and isLoadingDataset; :1574 and :2697 both supply previewProgressHandler.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-03",
+          "claim": "Single-DP pane picks the brightest sampled scan position by default and shares PendingLoad.data pattern cache.",
+          "status": "confirmed",
+          "evidence": "PendingLoad caches display images and fetches through its shared FourDArray; DatasetPreview/PendingLoad setup selects brightest sampled position. This source establishes the mechanism, not actual displayed content.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-04",
+          "claim": "An 8-point drag threshold keeps small click jitter from starting a crop.",
+          "status": "confirmed",
+          "evidence": "LoadConfiguratorView.swift:285 uses DragGesture(minimumDistance:8), with separate click handling. Actual human interaction was not driven.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-05",
+          "claim": "Scan/detector labels use inspector Ry\u00d7Rx/Qy\u00d7Qx convention, with crop/bin cost caption and 900\u00d7760 sheet.",
+          "status": "confirmed",
+          "evidence": "LoadConfiguratorView.swift:54 fixes the size; dimension labels and :365 caption state crop cuts angular range while bin coarsens it. Later Track B documents clipping; S4 explicitly did not claim screen acceptance.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-06",
+          "claim": "Configure-time direct-beam refusal uses LoadView.readDetectorCrop including bin trim, is enforced in commitPendingLoad, and flat means carry no evidence.",
+          "status": "confirmed",
+          "evidence": "PendingLoad.swift:270 onward derives gate from effective view crop and brightest finite nonflat mean; AppState.swift:1623-1630 refuses outside button. PendingLoadConfiguratorTests.swift:54-159 covers flat/nonfinite/bounds/bin-trim cases in source.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-07",
+          "claim": "Save Session Sidecar As and inspector Change were added with copy-never-move semantics.",
+          "status": "confirmed",
+          "evidence": "mac4DSTEMApp menu wiring, DatasetInspector action, ResultExport relocation flow and SidecarRelocationTests.swift:33 specify old source remains. No file relocation was performed here.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-08",
+          "claim": "The same-file guard uses fileResourceIdentifier to protect aliases/case-only names.",
+          "status": "confirmed",
+          "evidence": "ResultExport.swift:1107-1111 compares resource identity before deleting a destination; :1184 onward repeats identity interpretation for no-op relocation. SidecarRelocationTests.swift:67 exercises alias shape; source not runtime tested here.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-09",
+          "claim": "The open path recognises marked sidecars and gives one sentence with capped path listing.",
+          "status": "confirmed",
+          "evidence": "H5Reader.swift:53 caps no-dataset paths at eight, :318-337 checks marker after full datacube search and throws sessionSidecarOpened. Files with a real 4D dataset still open as data by design.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-10",
+          "claim": "Writer now stamps session identity unconditionally, including calibration-only sidecars.",
+          "status": "confirmed",
+          "evidence": "BraggVectorEMDWriter.swift:1713-1722 unconditionally writes schemaAttribute outside result-node condition; shared names live in HDF5Types SessionSidecarFormat.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-11",
+          "claim": "All new state lives in PendingLoad; no facade state growth.",
+          "status": "confirmed",
+          "evidence": "34fc329 adds image/selection/beam state under PendingLoad; AppState adds orchestration methods, not corresponding stored UI state. Existing pendingLoad property is reused.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-12",
+          "claim": "22 new tests across four files.",
+          "status": "contradicted",
+          "evidence": "git show 34fc329 --unified=0 -- mac4DSTEMTests adds 28 test methods: ImageContentVersionTests 5, PendingLoadConfiguratorTests 13, SidecarRecognitionTests 4, SidecarRelocationTests 6. The first three sum to 22, so the six relocation tests appear omitted from the prose count. These are all new files in that commit; no test renames complicate this count. The recorded unit total 232\u2192260 is consistent with 28.",
+          "originalStatus": "contradicted"
+        },
+        {
+          "id": "S4-13",
+          "claim": "Every new test was observed failing under a discriminating mutation in three batches.",
+          "status": "unverified",
+          "evidence": "No individual batch logs were recovered; the incorrect 22 count also leaves the precise set covered ambiguous. Source contains nonvacuous-looking assertions but is not proof each was broken. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-14",
+          "claim": "Gate A four-finder+verify refuted or hardened ten findings before landing.",
+          "status": "unverified",
+          "evidence": "The code and record list corrections, but exact agent completions and ten-item outcomes require original review outputs. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-15",
+          "claim": "The new sidecar error initially re-broke real-data acceptance and was corrected and rerun with four golden cubes plus skipped result sidecar.",
+          "status": "unverified",
+          "evidence": "34fc329 updates tools/real-data-acceptance/main.swift to catch sessionSidecarOpened, corroborating the correction. The four golden outputs/exit0 are historical execution, not rerun here.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-16",
+          "claim": "Path-string same-file comparison could delete the only sidecar on a case-only rename; identity guard and alias test replaced it.",
+          "status": "confirmed",
+          "evidence": "34fc329 ResultExport diff plus current identity-before-delete ordering supports the mechanism and correction. A real case-insensitive filesystem deletion experiment was not performed here.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-17",
+          "claim": "Sibling suggestion originally assumed .h5 and was corrected to source stem for all extensions.",
+          "status": "confirmed",
+          "evidence": "H5Reader.swift:325-337 and HDF5Types.swift:23-26 describe stem-only suggestion; SidecarRecognition tests include naming boundaries. Runtime UI text not driven.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-18",
+          "claim": "Direct-beam mean-argmax gate is a heuristic without override; beam-stop/hot-pixel override is an owner decision, unification deferred to S7.",
+          "status": "known",
+          "evidence": "PendingLoad directBeamRefusal remains a heuristic; SessionGates header explicitly says unification is queued behind the owner override decision. S7 was not silently treated as having completed that deferred design.",
+          "originalStatus": "known"
+        },
+        {
+          "id": "S4-19",
+          "claim": "Sidecar extension/open-panel filter policy was queued to owner, not implemented.",
+          "status": "known",
+          "evidence": "S4 changes identity recognition and relocation, not extension policy. The dated owner decision queue is not converted into approval here.",
+          "originalStatus": "known"
+        },
+        {
+          "id": "S4-20",
+          "claim": "Pre-S4 calibration-only sidecars without a marker remain unrecognisable as sidecars.",
+          "status": "confirmed",
+          "evidence": "H5Reader recognition depends on schema marker after no-cube search. No marker means no evidence to identify an arbitrary calibration-only HDF5 file; no inference based solely on extension closes that gap.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S4-21",
+          "claim": "MCP test_macos reported 260 passed/0 failed, excluding retired UI target; UI target failed on TCC and run-tests unit excludes it.",
+          "status": "unverified",
+          "evidence": "Unit runner exclusion is source-corroborated, but 260/0 and the UI target TCC failure are historical run observations. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-22",
+          "claim": "real-data-acceptance exited 0 with four cubes golden and two sidecars skipped through new and old cases.",
+          "status": "unverified",
+          "evidence": "Source supports both catch paths and the training inputs, but original per-file output was not inspected. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-23",
+          "claim": "scientific exited 0, but per-harness list was piped through tail and not retained, so no harness count was claimed.",
+          "status": "unverified",
+          "evidence": "The historical record explicitly limits the claim; absence of list is not a basis to invent a count or call a later count a contradiction. Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-24",
+          "claim": "Build reported zero warnings.",
+          "status": "unverified",
+          "evidence": "Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-25",
+          "claim": "run-tests unit was refused by S0 with exit69 at about4GB free vs8GB floor, with floor unchanged.",
+          "status": "unverified",
+          "evidence": "tools/free-space.sh and run-tests preflight enforce the floor; the exact historical disk level/exit were not recovered. The record properly distinguishes MCP tests from a refused wrapper run.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S4-26",
+          "claim": "Everything on screen remained unverified; F1.16\u2013F1.21 queued, F1.7 superseded, F1.3i rearmed behind F1.20.",
+          "status": "known",
+          "evidence": "visual-acceptance-checklist records those rows and later drives separately. Later blank-render/clipping findings do not falsify an S4 visual pass, because S4 never claimed one.",
+          "originalStatus": "known"
+        }
+      ],
+      "summary": "Most implementation claims are corroborated and the original visual and preflight caveats were honest. One definite bookkeeping error: the landing commit adds 28 tests across four files, not 22. Historical review/mutation/build/run outcomes were not recovered or rerun."
+    },
+    {
+      "session": "S5",
+      "record": "docs/archive/v2-session-records/s5.md",
+      "claims": [
+        {
+          "id": "S5-01",
+          "claim": "S5 introduced Core SessionReplayRecord and Observable App SessionReplay seam, with one AppState property and recording helper.",
+          "status": "confirmed",
+          "evidence": "Commit 0af2e66 creates both files. SessionReplayRecord owns Codable content; SessionReplay owns live state; AppState.swift:225 has recording helper. Later parameterFrame additions are S6, not retroactively attributed to S5.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-02",
+          "claim": "The recipe has one step per analysis kind in first-run order; reruns update in place.",
+          "status": "confirmed",
+          "evidence": "SessionReplayRecord.swift:60-72 removes invalidated downstream kinds, updates existing index or appends. Header explicitly states last-run parameters, not a keystroke log; SessionReplayTests.swift:45 pins ordering.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-03",
+          "claim": "Re-detection invalidates downstream strain/ACOM steps.",
+          "status": "confirmed",
+          "evidence": "recordReplayStep at AppState.swift:4700 passes downstream invalidation and SessionReplayRecord.record removes those kinds. SessionReplayTests.swift:56 covers the record operation. This does not guarantee every possible UI edit creates a coherent recipe.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-04",
+          "claim": "Five success-publish recording sites exist: virtual detector, DPC, full-scan detection, strain and ACOM.",
+          "status": "confirmed",
+          "evidence": "AppState.swift:3485,4329,4700,4884,5251 contain those five recordReplayStep calls after their success paths. Original S5 diff shows the same five families.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-05",
+          "claim": "Recording is suppressed while loading so merely opening a colleague file does not replace the recipe with defaults.",
+          "status": "confirmed",
+          "evidence": "AppState.recordReplayStep has !isLoadingDataset guard; SessionReplayAppStateTests.swift:15 drives automatic pass. Later replaying suppression is an additional guard, not evidence that S5 lacked its load guard.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-06",
+          "claim": "Record serializes as JSON root attribute, restores on open, travels with every sidecar save and preserves existing recipe when nil.",
+          "status": "confirmed",
+          "evidence": "HDF5Types.swift:50 names attribute; writer :740 decodes with refusal on present malformed JSON; :1589-1600 preserves existing JSON when caller nil; :1734 writes live or preserved record. ResultExport save/result/remove paths pass replay.recordForSaving. No actual HDF5 round trip was run here.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-07",
+          "claim": "Recipe survives promote.",
+          "status": "confirmed",
+          "evidence": "AppState.swift:1710 captures recipe and frame; defer re-adopts it after activation. S5 added successful preservation, S6 later broadened to cancel/failure exits. This source shows current behaviour; historical S5 cancellation claims were not made in its short record.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-08",
+          "claim": "Schema6 and mac4dstem_min_reader_schema refuse incompatible readers on both read and rewrite, quoting minimum and supported numbers.",
+          "status": "confirmed",
+          "evidence": "HDF5Types.currentSchema=6; BraggVectorEMDWriter.minimumReaderSchema is 5 or6 by load specification; enforceMinimumReader invoked at :700,:787,:811,:1577 and error string :302 names both. This is a compatibility check, not proof arbitrary malformed HDF5 memory safety; see separate string finding.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-09",
+          "claim": "Format refusal routes to durable inspector rather than transient statusText.",
+          "status": "confirmed",
+          "evidence": "recordedLoadSpecification/SessionSidecarLocator preserves unreadable reason and S7 gates state is rendered in inspector. S1\u2019s durable channel is reused, not a new UI feature claimed for S5.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-10",
+          "claim": "Result saves and removal were fixed to pass the load specification on every rewrite.",
+          "status": "confirmed",
+          "evidence": "ResultExport.swift:788,796,1051,1284 pass captured specification; 0af2e66 adds missing calls. Writer intentionally omits full-extent attribute. This fixes accidental missing arguments; it does not establish frame compatibility of every preserved result.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-11",
+          "claim": "Recovery record carries coordinate frame, only restores in same scan frame and in bounds, never clamps; promote restamps it.",
+          "status": "confirmed",
+          "evidence": "WorkspaceRecovery.swift:110-136 stores optional loadSpecification and compares scanCrop before bounds; AppState activation :2630 uses position(inViewWith:), promote tail persists recovery. Detector-only changes intentionally do not invalidate scan coordinates; old nil-frame records only use bounds.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-12",
+          "claim": "Gate B-lite had one refuter, seven claims,17 findings,14 fixed in-session.",
+          "status": "unverified",
+          "evidence": "Contemporaneous record gives those totals, but the original full independent review inventory and execution logs were not recovered. Final code cannot establish that all14 outcomes were verified.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S5-13",
+          "claim": "F1 automatic open overwriting recipes was fixed.",
+          "status": "confirmed",
+          "evidence": "Load guard at recordReplayStep and SessionReplayAppStateTests.testTheAutomaticPassOnOpenRecordsNothing show the correction; historical red/green run not recovered.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-14",
+          "claim": "F2 DPC recipe included aperture parameters unused by its computation and was corrected.",
+          "status": "narrowed",
+          "evidence": "At landing commit 0af2e66, computeCoMField explicitly used calibration.meanOrigin ?? (x: aperture.centerX, y: aperture.centerY), while DPC recorded only origin_reference. Current AppState.swift:4253-4275 still supplies apertureCentre to referenceOrigin, and :4321-4328 still claims no aperture at all. Shape/inner/outer radius do not constrain DPC, but fallback centre does. The initial pre-refutation recorder is not in the committed diff, so this audit cannot establish which removed fields were actually unused. Do not endorse the blanket claim that aperture values never affect DPC or infer that removing all centre provenance was proven correct.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "id": "S5-15",
+          "claim": "F3 ACOM recorded exploratory scale when calibrated scale actually ran and was corrected.",
+          "status": "confirmed",
+          "evidence": "Current ACOM recording uses captured runSemantics scale after matching (AppState.swift:5251 onward); 0af2e66 diff corrects q_inv_angstrom_per_pixel derivation. Does not close all later metadata lifetime issues.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-16",
+          "claim": "F5 two direct result readers bypassed minimum-reader gate and were fixed.",
+          "status": "confirmed",
+          "evidence": "Writer direct scalar/RGBA result loads now call enforceMinimumReader (:787,:811); SessionReplayTests.swift:219 covers both in source.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-17",
+          "claim": "F6 rewriting a future sidecar could downgrade its marker after losing unknown content and was fixed.",
+          "status": "confirmed",
+          "evidence": "Writer :1577 refuses unsupported existing min-reader before copying; atomic merge publishes only after successful temp write. SessionReplayTests.swift:245 asserts original survives refused rewrite. No HDF5 execution in this audit.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-18",
+          "claim": "F8 every recording wiring line could be deleted with suite green; AppState-level tests were added and verified.",
+          "status": "narrowed",
+          "evidence": "0af2e66 adds SessionReplayAppStateTests with automatic-open, explicit-run and calibration-save cases. It corroborates addition of real wiring checks, but not the universal historical every-line mutation assertion or all verification outcomes without mutation logs.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "id": "S5-19",
+          "claim": "A failed crop restore still erased crop and mislabeled preserved results; it was recorded for S7 rather than fixed in S5.",
+          "status": "resolved",
+          "evidence": "S5 limitation was real and explicitly deferred; SessionGates.swift:179 and ResultExport.swift:711,1031,1259 now block all three rewrite entry points. Current docs/open-items.md:1085 marks closed by S7. A successful promote has a separate unclosed frame issue in review core-data-3.",
+          "originalStatus": "resolved"
+        },
+        {
+          "id": "S5-20",
+          "claim": "S5 had36 tests.",
+          "status": "unverified",
+          "evidence": "0af2e66 adds22 methods:19 SessionReplayTests +3 SessionReplayAppStateTests, matching MCP suite growth260\u2192282. SessionSidecarLocatorTests already had14;22+14=36 could be the targeted suite. The sentence does not say36 new tests, so it is ambiguous rather than disproven. Recover exact invocation/log before restating it as a new-test count.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S5-21",
+          "claim": "tools/load-spec-roundtrip was extended with \u00a78 recipe cases.",
+          "status": "confirmed",
+          "evidence": "tools/load-spec-roundtrip/main.swift:176-207 checks order, rerun update, Codable content, deterministic re-encoding and malformed JSON; run.sh adds SessionReplayRecord source in 0af2e66.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-22",
+          "claim": "Every guard was broken under discriminating mutation, in batchesD/E/G totalling10 mutations.",
+          "status": "unverified",
+          "evidence": "Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run. Existing test bodies are not evidence that every guard was individually killed.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S5-23",
+          "claim": "One test reproduced a concurrent-HDF5 crash by racing post-save inventory, then waited for the app reader.",
+          "status": "unverified",
+          "evidence": "SessionReplayAppStateTests save test waits for async completion and docs/open-items.md:1022 preserves the concurrent-HDF5 finding; original crash stack and timing experiment were not recovered in this audit.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S5-24",
+          "claim": "MCP test_macos reported282/0, load-spec-roundtrip exit0 and zero build warnings.",
+          "status": "unverified",
+          "evidence": "Historical execution evidence was not independently recovered for this audit; the contemporaneous narrative is evidence that it was reported, not a fresh confirmation of execution. Current source/tests cannot prove the historical run. Source additions support case-growth arithmetic but not execution outcomes.",
+          "originalStatus": "unverified"
+        },
+        {
+          "id": "S5-25",
+          "claim": "run-tests unit/scientific were not rerun because disk still blocked since S4; owner rerun remained owed.",
+          "status": "known",
+          "evidence": "The S5 record expressly distinguishes MCP/targeted runs from wrapper gates; no aggregate claim exists to reject. This audit performed no build or tests.",
+          "originalStatus": "known"
+        },
+        {
+          "id": "S5-26",
+          "claim": "Parallax/ptychography recording was omitted because those six product stages were deferred to S6.",
+          "status": "confirmed",
+          "evidence": "0af2e66 introduces only the five recordReplayStep families and describes the deferred reconstruction family. Later S6 scope is a separate record; absence from S5 is stated, not hidden.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-27",
+          "claim": "Two same-kind runs retain latest parameters, a documented model limitation.",
+          "status": "known",
+          "evidence": "SessionReplayRecord.swift header and record implementation explicitly define this. No multi-instance pipeline support is claimed.",
+          "originalStatus": "known"
+        },
+        {
+          "id": "S5-28",
+          "claim": "Promote does not rewrite the sidecar; save-on-demand remains, with live replay and recovery restamping.",
+          "status": "confirmed",
+          "evidence": "AppState.promoteToFullExtent contains activation, replay preservation, recovery update, no writer call. F1.14 retains those semantics. It does not imply later save is frame-safe for all old nodes.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "id": "S5-29",
+          "claim": "Everything on screen remained unverified, S5 drew nothing new, and actual replay execution was S6 work rather than proved by a record.",
+          "status": "known",
+          "evidence": "S5 diff reuses durable warning presentation and adds persistence/model logic; short record explicitly makes no replay-execution or visual claim. Current execution machinery comes from later sessions, not proof a historical S5 execution occurred.",
+          "originalStatus": "known"
+        }
+      ],
+      "summary": "Replay/schema/recovery implementation and fixture additions are corroborated, with declared limits preserved. 22 methods were added in S5; the phrase 36 tests could describe a targeted suite including 14 locator tests and is ambiguous without logs. Current frame preservation debt remains distinct from the failed-restore rewrite bug later closed by S7. The DPC no-aperture rationale needs narrowing: both landing and current code use aperture centre when no measured centre exists."
+    },
+    {
+      "session": "S6",
+      "claims": [
+        {
+          "claim": "Promote performs full-extent reopen then sequential replay through the same five analysis entry points; first refusal/failure/cancel halts and later steps remain not reached.",
+          "status": "confirmed",
+          "evidence": "d5d8f47 adds promoteAndReplayRecipe/executeReplay/executeReplayStep; current AppState.swift:1783-1986 retains typed dispatch and breaks on haltReason. ReplayRun.Outcome defaults to notReached.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "ReplayRun is @Observable, owns timestamps/outcomes/summary and ProcessInfo keep-awake, acquired before reopen and single-flight guarded.",
+          "status": "confirmed",
+          "evidence": "ReplayRun.swift:24-155 owns beginActivity/endActivity and phase derived from startedAt/endedAt. AppState.swift:1820 calls begin before promoteToFullExtent. d5d8f47 introduces this seam. OS sleep prevention remains explicitly unverified.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Pure planner refuses unknown/malformed/selected-region/missing-earlier-disks/measured-kernel recipes and reduced/unknown detector frames; pre-click caption uses plan.",
+          "status": "confirmed",
+          "evidence": "git show d5d8f47:mac4DSTEM/App/ReplayPlan.swift has the parser and frame refusals; d5d8f47 adds 24 ReplayPlanTests. Current planner retains all except reduced-frame refusal, intentionally superseded by S10. One-step-per-kind means earlier disk ordering is a documented recipe constraint.",
+          "originalStatus": "source-confirmed-at-session"
+        },
+        {
+          "claim": "Recipe parameter frame is view-frame; scan-only crop identity; mixed/unknown do not guess.",
+          "status": "confirmed",
+          "evidence": "SessionReplay.swift parameterFrame/adopt/record and ReplayParameterFrame.of/merging in d5d8f47. S10 later widened detectorReduced crop payload to retain actual offsets.",
+          "originalStatus": "source-confirmed-at-session"
+        },
+        {
+          "claim": "Replay never records its own actions; recipe is restored on every promote exit including failure/cancel.",
+          "status": "confirmed",
+          "evidence": "AppState recordReplayStep accepts caller-specific replaying flag; executeReplayStep passes true to all five entry points. promoteToFullExtent captures record/frame and uses defer to re-adopt. No general suppression of unrelated user runs is assumed.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "DPC origin class, ACOM material id and relative Q scale are checked before replay.",
+          "status": "confirmed",
+          "evidence": "AppState.swift executeReplayStep checks calibration.hasFittedOrigin, resolves library/import/custom material by id, compares scales with max(1e-12,abs(recordedScale)*1e-6). Custom material id not including lattice is explicitly a residual.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Parallax/ptychography omitted; no recording sites; multi-instance not extended; replay exists only as promote tail; kernel_source required and missing S5-era key refuses.",
+          "status": "confirmed",
+          "evidence": "SessionReplayRecord keyed-by-kind update policy and ReplayPlanner five cases; kernel_source synthetic/measured_roi/missing switch; promoteAndReplayRecipe returns on already-fullExtent. No claim of a standalone replay control.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Gate A used six finders, 24 deduplicated findings, 10 fixed; list of named defects and residual decisions.",
+          "status": "unverified",
+          "evidence": "d5d8f47 commit records these totals and includes the corresponding keep-awake/single-flight/defer/typed-outcome/kernel_source changes. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "ReplayPlanTests 24, ReplayRunTests 9, ReplayExecutionTests 7.",
+          "status": "confirmed",
+          "evidence": "Counted actual func test methods in git show d5d8f47 for each named suite: 24,9,7. This is source count, not a claim all executed.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "14 discriminating mutations M1-M13/M16 each caught by its intended test.",
+          "status": "unverified",
+          "evidence": "No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "MCP 321 passed/1 failed; clean stash identical sidebar heights; no warnings.",
+          "status": "unverified",
+          "evidence": "d5d8f47 commit records 321/1 and stash exclusion, but logs/xcresult not available to this audit. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "Later unit run encountered invalid HDF5 signatures, then 320 passed/1 failed; one unexplained binned replay flip.",
+          "status": "unverified",
+          "evidence": "7d72774 (2026-08-25) is specifically the HDF5 ad-hoc re-sign commit and corroborates remedy chronology. Failure diagnostics, gate totals and one-off flip remain historical observations. They are not contradicted by later green suites.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "Unverified: F1.22/F1.23, real overnight multi-GB promote, OS sleep, cancellation end-to-end; summary in memory only.",
+          "status": "confirmed",
+          "evidence": "ReplayRun has no persistence interface, and the record explicitly excludes these claims. Later visual drives do not retroactively make the session-time unverified statement false.",
+          "originalStatus": "source-confirmed-scope"
+        }
+      ],
+      "summary": "Implementation contracts are supported by landing commit d5d8f47 and source. Three named suite counts match 24/9/7. Historical review/mutation/test-run totals and environmental observations remain unreproduced, not disproved. S10 later replaces reduced-detector refusal; that does not refute S6 as dated."
+    },
+    {
+      "session": "S7",
+      "claims": [
+        {
+          "claim": "SessionGates @Observable is the AppState seam and shares origin-fit judgement for physical iDPC and Q.",
+          "status": "confirmed",
+          "evidence": "d1e2d18 creates SessionGates and routes both callers to originQuantitativeRefusal; current S13 stricter reciprocalMetrologyRefusal is a later deliberate split, not a refutation of dated S7. Core Calibration.originFitRefusal remains the judgement authority.",
+          "originalStatus": "source-confirmed-at-session"
+        },
+        {
+          "claim": "Refused iDPC fit produces qualitative output with specific reason/provenance.",
+          "status": "confirmed",
+          "evidence": "AppState.idpcPhysicalCalibration asks gate; ResultExport.swift:1497-1517 records qualitative_reason, origin_fit_judgement, origins_subtracted; ContentView routes judgement to controls.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "DPC.integrateIDPC throws typed IDPCError, tiled detection returns nil only cancellation and throws FullScanError with row/underlying cause; tileRead unwraps to data-source escalation.",
+          "status": "confirmed",
+          "evidence": "d1e2d18 DPC.swift/TiledDiskDetection.swift/AppState.swift diff contains typed throws, error wrapper and unwrap. TiledDiskDetectionErrorTests has four tests; runDPC withholds success and recording on display failure (current AppState.swift:4302-4315). Runtime NAS escalation remains unverified as stated.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Failed crop restore arms save refusal on unreadable and does-not-fit; all three rewrite paths refuse; gate clears on dataset-changing paths; same-file Change re-grants identity.",
+          "status": "confirmed",
+          "evidence": "SessionGates.sidecarRewriteRefusal; ResultExport saveCalibration/saveCurrentResult/removeSavedResult checks; AppState recordedLoadSpecification and clear calls in openFile/discard/commitPending/openDemo. d1e2d18 tests exercise these routes. Access versus malformed-file remedy distinguishes causes.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Caption wraps with usesFontLeading; publication PNG has full provenance Description JSON and real-file roundtrip test.",
+          "status": "confirmed",
+          "evidence": "ResultExport.captionTextHeight/publicationFigure/pngProperties and ExportProvenanceTests in d1e2d18. Full means the existing metadata dictionary, not that every scientific dependency was captured; current review separately finds gaps in DPC/parallax metadata and gamma legend.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Bounded Core try? audit covered all 28 pre-change sites; three typed refusals, one underlying-error case, others commented.",
+          "status": "narrowed",
+          "evidence": "Counted non-comment source lines with try? in Core at d1e2d18^:28; after d1e2d18:26. Diff includes TiledDiskDetection typed read and present-but-undecodable load-spec/recipe malformedAttribute guards (those previously used decoding helpers), plus DM4 underlying error. Comments are present; correctness of every fallback is not independently runtime-tested by this audit.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "Gate B 12 findings, 11 fixed; one default-key issue closed; 13 mutations all fail; own date-encoding/defaults regressions found and fixed.",
+          "status": "unverified",
+          "evidence": "Corresponding injection AppState.init(sessionSidecar:) and suite-private UserDefaults are present at d1e2d18. Exact review/mutation totals, observed worker ordering and defaults absence are narrative. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "Seven hand-listing runners gained SessionReplayRecord.swift; sidecar-result schema pin corrected; scientific had not completed since S5.",
+          "status": "narrowed",
+          "evidence": "d1e2d18 changes seven tools/*/run.sh source lists and sidecar-result verify script schema pin. The assertion that no successful scientific run occurred between S5 and S7 cannot be independently proven from git. Manifest migration was explicitly not claimed.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "SessionGatesTests (9), ExportProvenanceTests (3), TiledDiskDetectionErrorTests (4).",
+          "status": "contradicted",
+          "evidence": "At landing commit d1e2d18 actual func test counts are 8,3,4. SessionGates combines result-save and removal in one test method; the record appears to count them separately. Commit prose also says 16 new tests, while the three named suites contain 15. This is a source-count discrepancy, independent of run logs.",
+          "originalStatus": "contradicted"
+        },
+        {
+          "claim": "Scientific exit0/35; MCP336/2; unit335/1 exit65; sidebar identical1029/945/961; zero warnings.",
+          "status": "unverified",
+          "evidence": "Registered scientific array at d1e2d18 has 35 names, matching scope. Execution totals, exact heights, skips, warnings and exit results need dated logs. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "No direct-beam/CalibrationReReference policy unification; runDPC display-failure wiring review-pinned only; UI and real NAS escalation and planted bookmark absence unverified.",
+          "status": "confirmed",
+          "evidence": "Record explicitly distinguishes deferred work, source review and owner/TCC observations. SessionGates docs retain direct-beam future-home note; no claims of automatic visual completion made.",
+          "originalStatus": "source-confirmed-scope"
+        }
+      ],
+      "summary": "Core error/gate/export implementation is supported. One concrete record error: SessionGatesTests has 8 methods at landing, not 9. The 28-site pre-change audit count is reproducible; 35 scientific registrations match, but dated run/mutation totals lack retained proof."
+    },
+    {
+      "session": "S8",
+      "claims": [
+        {
+          "claim": "Stored strain detector frame; scan-frame presentation/export derived live from current R-Q calibration; transpose before rotation and theta negated.",
+          "status": "confirmed",
+          "evidence": "StrainFrame.swift:17-29 and :130 onward perform similarity transform; resolve requires finite rotation. AppState.presentedStrainMap uses current calibration. Vendored latticevectors.py get_rotated_strain_map and braggvectors.py flip-then-rotate source agree for tensor-level convention.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "No rotation means detector x/y, visible labels and caption/provenance share strainFrameProvenance across image/sidecar/bundle.",
+          "status": "confirmed",
+          "evidence": "StrainPresentationFrame.displayLabel/provenanceValue; ResultExport.swift:445-457 composes frame keys and :283-294 captions them; bundle uses presented tensors. New review stale restored metadata defect is a separate conditional carrier bug; it does not refute tensor math.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "StrainProduct @Observable seam owns map/component/failure/run controls with no forwarding state.",
+          "status": "confirmed",
+          "evidence": "e9574ac adds App/StrainProduct.swift and moves fields/callers; current class owns private map and publish/reset plus run controls. Pure view adapters do not reintroduce owned state.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "strain-frame-test uses executed vendored tensor transform, independent similarity check, refit and hand answers; manifest strain group and isolation flags.",
+          "status": "confirmed",
+          "evidence": "reference.py imports/calls vendored get_rotated_strain_map and independently checks E-prime; main.swift matches golden data and refit cases and hand values; run.sh uses manifest strain group plus MAC4DSTEM_ISOLATION_FLAGS. Source assures intended runtime calls, not that the historical run happened.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "NC1-NC5 negative controls name wrong sign/order/theta/isotropy/median-reference transformations.",
+          "status": "confirmed",
+          "evidence": "tools/strain-frame-test/main.swift:217-334 constructs named wrong alternatives and differences. Runtime discriminating behavior is not rerun under parent no-build constraint.",
+          "originalStatus": "source-confirmed-design"
+        },
+        {
+          "claim": "Median-reference DEVIATION: majority-free mixtures break rotate-then-fit equivalence up to roughly0.02; independent mean-reference rebuild isolated median.",
+          "status": "narrowed",
+          "evidence": "StrainFrame.swift:30-45 explicitly documents the deviation; fixture NC5 uses a mixture and checks disagreement, and vendored get_reference_g1g2 uses component medians. Exact reviewer values0.0201/0.0159 and mean-reference experiment require original outputs; no raw run supplied.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "#18 diagnosed with three real Si_SiGe campaign runs: direct-beam peaks3-9px, tolerance1.05, candidates0; minRelative refuted after81820 peaks removed and byte-identical quantiles.",
+          "status": "unverified",
+          "evidence": "Current StrainMapping has MAC4DSTEM_STRAIN_DEBUG guarded stderr instrumentation and campaign min-relative override; no archived raw three-run output supplied. This audit does not reverse the dated diagnosis merely because later code/data differ. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "Gate B8 findings/6 fixed;15 author mutations missed three reviewer cases; re-angle37.2/-64 plus transpose/anti-vacuity makes reviewer cases red.",
+          "status": "narrowed",
+          "evidence": "StrainFrameTests.swift:168-214 and :315-349 have named sign/transpose discriminating angles and anti-vacuity guards, plus actual caption assertions. Source corroborates remedy; exact mutation counts/red outcomes and reviewer independence need retained logs.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "strain.clear before calibration reset; dead applySessionCalibration refresh removed; debug stdout leak fixed.",
+          "status": "confirmed",
+          "evidence": "e9574ac AppState/StrainMapping diffs show ordering change, dead branch removal and guarded stderr output. This is dated wiring evidence; no new runtime assertion is made.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Pre-S8 restores remain frame-silent; Mirror cannot observe computed forwarders; refresh sites review-only where public tests cannot reach.",
+          "status": "confirmed",
+          "evidence": "Record explicitly retains these limits; old file metadata is not retroactively populated by later code. Mirror limitation does not turn comments into actual enforcement tests.",
+          "originalStatus": "source-confirmed-scope"
+        },
+        {
+          "claim": "References/parity_records/latest restored byte-identically to2026-08-04 after campaign.",
+          "status": "unverified",
+          "evidence": "Gitignored machine data and backup-byte comparison are not preserved by tracked source; absent dated hash manifest/log this cannot be checked. Not evidence of falsity.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "Scientific exit0/36; MCP363/2 heights1027/943/963; unit refused exit69 with7GB versus8GB floor; zero warnings.",
+          "status": "unverified",
+          "evidence": "scientific array at e9574ac contains36 names and run-tests.sh enforces8GB unit floor. Actual outcomes/free-space/warnings require original logs. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "F1.28/F1.29 and whole end-to-end rotation+strain unverified, owner #18 probe owed.",
+          "status": "known",
+          "evidence": "Later commits1139445 and28e99ac record the owner observations after e9574ac on the same date. They supersede status; they do not make this session-time limitation false.",
+          "originalStatus": "correct-dated-limitation"
+        }
+      ],
+      "summary": "Strain-frame algorithm, exported frame metadata, independent-reference fixture structure, re-angled tests and seam are supported. Review/mutation counts, campaign quantities and historic gate outcomes remain unverified here. Later Track B passes do not invalidate dated unverified statements."
+    },
+    {
+      "session": "S10",
+      "claims": [
+        {
+          "claim": "Reduced view blanket export refusal removed, with view-frame calibration/data invariant plus origin shape/bounds net and ellipse-length rescale.",
+          "status": "confirmed",
+          "evidence": "12249c1 writer diff removes reduced-spec prohibition; current BraggVectorEMDWriter.transformedCalibration:1271-1368 checks fitted-map shape/count and finite in-bounds origins; :1288-1289 scales ellipse axes by export bin. The bounds check is correctly described as a net, not proof that every possible frame mismatch is caught.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Ellipse semi-axes are lengths; pre-S10 fixture incorrectly called them dimensionless; origins were outside5x7 fixture.",
+          "status": "confirmed",
+          "evidence": "12249c1 changes preprocessing-export-test source and verify script with explicit length reasoning and in-bounds origins. Vendored fit_ellipse_1D/polar consumers use semiaxes as lengths; ratio-only Bragg correction does not make all uses dimensionless.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "datacube_root exports mac4dstem_derivation with basename, composed offsets/bin/extents and mapped replay attribute; absent recipe stays absent.",
+          "status": "confirmed",
+          "evidence": "BraggVectorEMDWriter derivationAttribute + replayAttribute and DataCubeDerivation.compose; S10 writer stores these on datacube_root. Source basename construction omits source directories. Nested floor identity is exact for positive integer bins; source-to-view offsets must be carried in their defined coordinates.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "ReplayFrameTransform inverse uses half-pixel affine; role table maps positions/lengths/scales, refuses nonzero absolute intensity/inexact integer division/unclassified keys.",
+          "status": "confirmed",
+          "evidence": "ReplayPlan.swift:140-186 transforms; role table :213 onwards; :294 absolute-threshold refusal. CalibrationReReference.sourceCoordinate inverses binnedCoordinate. ReplayPlanTests explicitly checks32.5, role mappings and refuses unknown keys.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Reduced detector recipes now map then replay; mixed/unknown still refuse; same-bin/different-offset crops merge to mixed; both caption and run-summary frameNote disclose mapping.",
+          "status": "confirmed",
+          "evidence": "12249c1 extends ReplayParameterFrame payload and planner, ReplayRun.frameNote, UI caption. Current ReplayExecutionTests:203-239 asserts promoted center32.5/radius12 and unchanged record. This proves parameter mapping by design, not identical scientific output after changing acquisition sampling.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Release claim binned-view reruns unchanged is met.",
+          "status": "narrowed",
+          "evidence": "Supported meaning is same recorded parameter intent after explicit frame re-expression for admitted recipes. Source deliberately refuses measured kernels, nonzero absolute thresholds, selected-region and other unrepresentable states; no general claim of numerically identical binned/full outputs follows. This interpretation is necessary to reconcile the broad sentence with its own explicit refusal list.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "exportableRecipe refuses recorded/live frame mismatch and surfaces omission reason; equal frames map to exported frame.",
+          "status": "confirmed",
+          "evidence": "ResultExport.swift:1314-1330 enforces frame equality and returns record-or-omission; export caller :61 consumes both. Tests extract this policy behind save panel. Three-frame composition remains deferred as recorded.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Gate B8 findings/4 fixed; two surviving mutations for viewToExport position and symmetric scan offsets then caught; NC2 reproduced.",
+          "status": "narrowed",
+          "evidence": "ReplayPlanTests testMapForExportBinsPositionsWithTheHalfPixel and reduced-export fixture asymmetric composed offsets(3,2) are in12249c1. Original reviewer run results and before/after mutation outputs were not supplied; exact totals remain historical-unverified.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "reduced-export fixture has five cases, independent centroid-vs-calibration arbiter0.02px, two refusal probes, NC1-NC7; all square detectors with sibling5x7 bound-axis guard; manifest-sourced export group; stderr open.",
+          "status": "confirmed",
+          "evidence": "tools/reduced-export-test main/run/verify scripts name five cases/R1/R2/NC1-NC7; Python reads file pixels/calibration independently; run.sh uses export manifest and does not discard harness stderr. Sibling preprocessing fixture is rectangular. Live historical mutation outcomes not re-run.",
+          "originalStatus": "source-confirmed-design"
+        },
+        {
+          "claim": "Fixture was the second manifest-sourced runner.",
+          "status": "contradicted",
+          "evidence": "At12249c1, tools/two-spec-analysis-test/run.sh already sources manifest from S2, and tools/strain-frame-test/run.sh already sources it from e9574ac S8. reduced-export-test is at least the third, not second. Reproducible by git grep sources.manifest12249c1 --tools/*/run.sh.",
+          "originalStatus": "contradicted"
+        },
+        {
+          "claim": "ReplayPlan gained13 tests;15 discriminating mutationsM1-M9 plus reviewer batches caught.",
+          "status": "contradicted",
+          "evidence": "At12249c1^ ReplayPlanTests has24 actual test methods; at12249c1 it has40, a gain of16, not13. The record appears to retain the pre-review addition count while omitting three reviewer-added tests. Execution test is updated rather than blindly added. Exact15 mutation outcomes lack retained logs; no historical gate was rerun.",
+          "originalStatus": "partially-contradicted"
+        },
+        {
+          "claim": "Scientific exit0/37; unit376/1 exit65; MCP378/1; sidebar heights1029/945/961; zero warnings.",
+          "status": "unverified",
+          "evidence": "scientific manifest at12249c1 contains37 names. Logs/xcresult absent; existing sidebar narrative repeats results but cannot replace run proof. No retained original run/mutation log was supplied or located in this bounded audit. A commit message repeating a result is corroborating narrative, not independent run evidence; no historical gate was re-run.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "No AppState seam extracted because no facade state added/session brief names none.",
+          "status": "known",
+          "evidence": "12249c1 changes AppState.swift(+16/-), but creates no new @Observable App seam; uses ReplayRun. The record discloses this deviation. It conflicts with an unconditional reading of current AGENTS requirement; do not silently count it as a fulfilled seam requirement or retroactively invent permission.",
+          "originalStatus": "recorded-process-exception"
+        },
+        {
+          "claim": "Save-panel wiring, large-file roundtrip, sidecar frame hole, promote-export end-to-end and F1.30/F1.31 unverified; schema/min-reader not required for standalone datacube.",
+          "status": "confirmed",
+          "evidence": "Record separates pure decision tests from UI wiring and keeps cross-frame risks open. Current writer standalone attributes are not sidecar schema identity; no new claim that older readers recover replay attributes is inferred.",
+          "originalStatus": "source-confirmed-scope"
+        }
+      ],
+      "summary": "Reduced export, recipe affine mapping/refusals, provenance and fixture structure are supported. S10 explicitly waived AppState seam despite touching AppState; this is a recorded process exception, not silently compliant. Dated runs/mutation results remain historical-unverified."
+    },
+    {
+      "session": "S13",
+      "claims": [
+        {
+          "claim": "Owner chose \u00a76(a), recorded2026-08-28 at728128b; pre-registration was lost/restored and ordering now rests on transcript.",
+          "status": "narrowed",
+          "evidence": "728128b commit exists and records owner decision; s13.md banner admits loss. Git cannot prove the original ordering of an untracked/later-truncated file; transcript proof was not supplied, so pre-registration timing remains historical-unverified rather than presumed false.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "E1 two datasets and all tabulated displacement/MAD/radius/Q-error/RMS/gate results represent pre-implementation code; E1 never rerun shipping tree.",
+          "status": "unverified",
+          "evidence": "tools/origin-fit-diagnostics/shell-check.swift exists with controlled constant/jitter arms and documented input dependence. No raw output hashes at the measured old tree are retained in this audit; \u00a71 banner and \u00a77 explicitly limit the numbers to pre-change code. Rerunning current tree would not validate or falsify those dated values.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "Prediction1 rises steeply and monotonically with jitter; \u00a71 scores it CONFIRMED using19.8x atdelta3.",
+          "status": "contradicted",
+          "evidence": "The record own table has MAD/obs0.0222 atdelta1,0.4826 atdelta2,0.3084 atdelta3,0.3280 atdelta5. Thus monotonicity is refuted by its own evidence;0.3084/0.0156=19.77 does satisfy the separate >=3x prediction. Should be scored partly confirmed, not wholly confirmed.",
+          "originalStatus": "partially-contradicted"
+        },
+        {
+          "claim": "Prediction2 constantdelta5 ratio below2x baseline; prediction3 radius collapses near delta at3/5; prediction4 separates supplied good/collapsed cases.",
+          "status": "unverified",
+          "evidence": "Table0.0121<2*0.0156; constant radii2.890/4.890 approximate3/5; jitter3.647/4.860 within50%; listed good obs/probe>=3.35 and collapsed<=0.81. Arithmetic supports limited table comparisons, not a general statistical classifier. Actual measurements remain historical-unverified.",
+          "originalStatus": "internally-consistent-not-rerun"
+        },
+        {
+          "claim": "1.0 radius/probe threshold is physically derived because overlapping disks unresolved.",
+          "status": "resolved",
+          "evidence": "\u00a71 explicitly retracts the derivation: equal-radius disks overlap for distance<2r, notr. Shipping QCalibration.swift does not enforce this threshold. Preserve the retraction, not the original proud wording.",
+          "originalStatus": "corrected-historical-error"
+        },
+        {
+          "claim": "Second-shell separation and four reported shell ratios expose same-shell selection; upward mismatches only; reading shell2 as1 necessarily givesg3/g2>g2/g1.",
+          "status": "narrowed",
+          "evidence": "QCalibration.swift implements model-derived minimum separation and reports ratio. Separation bias can prevent some downward mismatches, but it does not establish the general inequalityg3/g2>g2/g1 for all crystals; that inequality is not generally true (FCC first radii sqrt3,2,sqrt8 happen to satisfy, other shell sequences need not). Exact reported ratios need raw E1 output. For example simple-cubic first shell radii1,sqrt(2),sqrt(3) giveg3/g2=sqrt(3/2)<sqrt(2)=g2/g1.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "All three estimator thresholds cut after Gate B; no refusal on those checks, QCalibrationShellCheck measured/notSelfChecked only.",
+          "status": "confirmed",
+          "evidence": "185d9bb final source and current QCalibration.swift:34-35, comments:70ff. Estimator still has normal invalid/insufficient-input guards, so refuses nothing means no plausibility-threshold refusal, not unconditional return for arbitrary invalid input.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Threshold derivation refuted by changed measured tree, inconsistent sound case, noninvariant geometric centering; old/new numbers35%,4.07%,1.2%,3%/28.9%.",
+          "status": "unverified",
+          "evidence": "Removal and reasons are recorded in185d9bb; exact rerun measurements unavailable. Mathematical noninvariance of geometric midpoint under shifting parameter origin is real; the source cannot independently establish those dataset-specific numbers.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "E2 methods200 half-subsamples, k4/3/2/1.5/1, five dataset table, forced kept fractions60/20/5/2%; no precision-based ceiling.",
+          "status": "narrowed",
+          "evidence": "trim-sweep.swift has inclusion-mask subsampling and forced-fraction paths. Source supports the stated method; table values and200-draw actual execution need original output. \u00a72 correctly distinguishes precision from bias and explicitly does not claim representativeness.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "At2% kept fit uncertainty still two orders of magnitude below2px criterion.",
+          "status": "contradicted",
+          "evidence": "Own table gives Particle_1 SD0.100px, only20x below2px (~1.3 orders); sim_Au0.004px is500x below. The blanket two-orders sentence overstates Particle_1, though the narrower conclusion below2px remains true in the table.",
+          "originalStatus": "contradicted"
+        },
+        {
+          "claim": "\u00a73 what shipped describes robust residual gate/three checks/general export origins.",
+          "status": "known",
+          "evidence": "Section heading and banner explicitly call this pre-Gate-B intent; \u00a76 corrects the robust gate, thresholds and export-time metadata. Do not flag these properly labeled historical intentions as undisclosed current code defects.",
+          "originalStatus": "superseded-not-a-shipping-claim"
+        },
+        {
+          "claim": "Trimmed fit in tiledRun/run, inclusion-mask fallback, final refit matches kept set, empty/mismatched inputs coherent;3 rounds/3*1.4826MAD.",
+          "status": "confirmed",
+          "evidence": "OriginCalibration.swift:214-309 implements max(rounds,1) loop, median/MAD cutoff, convergence/zero-MAD exits and final refit; both run/tiledRun call it at:467/:515. Three rounds is a maximum, not guaranteed iterations. Guards return paired empty arrays for count mismatch; fit2D honors included mask.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Recorded origin gets independent state, crop transforms it, manual aperture clears it, four divergent references replaced; NaN maps rejected by meanOrigin.",
+          "status": "confirmed",
+          "evidence": "185d9bb adds recordedOriginX/Y/referenceOrigin and modifies CalibrationReReference; AppState.updateAperture:3095-3124 clears maps/recorded mean on manual center change. Calibration.meanOrigin validates finite maps; source confirms fixes without requiring old mutant outputs.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Sane-origin/metrology split asks one Calibration predicate via SessionGates; gate remains full-scan RMS after robust-residual refutation.",
+          "status": "confirmed",
+          "evidence": "Calibration.swift:569-580 uses origin.rmsResidual; originSupportsReciprocalMetrology plus SessionGates.reciprocalMetrologyRefusal:72ff compose the strict policy without re-deriving it. Scope remains open for better fit-validity statistic.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Disclosure floor2%, fit residual/excluded provenance snapshots at strain compute, generic export/caption keys removed, ACOM origin snapshot still absent.",
+          "status": "confirmed",
+          "evidence": "Calibration.excludedFractionDisclosureFloor=0.02; StrainProduct.originProvenance:78-116 stores publish snapshot; ResultExport:482 merges it into bundle. Generic exportedImageProvenanceRecord explicitly omits live origin keys and caption whitelist omits them. ACOM path has no equivalent snapshot.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "QCalibrationRun @Observable seam; manual-entry refusal wording; strain weighting provenance; OriginMeasure half-pixel seed; origin diagnostics migrated to manifest qcalibration group.",
+          "status": "confirmed",
+          "evidence": "185d9bb creates App/QCalibrationRun.swift and updates OriginMeasure.metal, ResultExport strain_weighting, diagnostics/run.sh and sources.manifest. These are concrete file/diff claims, not assertions that every runtime path is covered.",
+          "originalStatus": "source-confirmed"
+        },
+        {
+          "claim": "Original39 checks;13 chosen controls;32-mutation sweep26 survive; rebuilt70 checks12/13survivors now fail; constant in-loop path uncovered.",
+          "status": "unverified",
+          "evidence": "Fixture source includes extended constant/parabola/NaN/precedence sections and explicitly records uncovered constant in-loop mutation; check counter exists. Exact run counts/mutant behavior require logs and were not replayed. Header still speaks in present tense about39-check initial fixture, despite later70-check code, so its current wording is stale.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "\u00a75 demo is paired withau_fcc, rings can be reinterpreted{200}/{220}, Q declared0.02 dishonored and current demo refuses; \u00a76 says all four specifics fixed there.",
+          "status": "contradicted",
+          "evidence": "\u00a75 still contains those claims verbatim; \u00a76 explicitly refutes them and says now fixed there. Source defaults acomModelSelection=.none, Demo pattern labels{110}@45+{200}on-axis, and final estimator has no shell refusal. The archive needs explicit superseded banner/correction linkage for\u00a75; current \u00a76 assertion that it was corrected in-place is itself false.",
+          "originalStatus": "contradicted"
+        },
+        {
+          "claim": "\u00a76 app ratio1.089 correctedAug29 because passing gate needs>1.15*expected, consistent with1.373.",
+          "status": "confirmed",
+          "evidence": "bab5e07 adds correction; QCalibrationOriginGateTests contains the stricter inequality and six methods. Exact observed1.373 requires retained run data; test source alone proves an expected condition, not runtime result.",
+          "originalStatus": "source-confirmed-correction"
+        },
+        {
+          "claim": "ProbeSize overmeasures2.15x demo, clustered failure15.03px/9.94/15.64, unguarded shape/50% and Particle6px deviations.",
+          "status": "unverified",
+          "evidence": "Source comments and \u00a77 identify these as measured findings requiring Gate D or gitignored data. No independent numeric rerun in this audit; do not collapse them into proven code regressions or deny them because later W4 work changes inputs.",
+          "originalStatus": "historical-unverified"
+        },
+        {
+          "claim": "S13 final unit390/2/0 exit0, six Q tests; scientific39 noFAIL/SKIP;70checks; no screens verified.",
+          "status": "narrowed",
+          "evidence": "bab5e07 source has six QCalibrationOriginGateTests and39 scientific registrations; dated observed counts/logs not supplied. F1.40-F1.43 being undriven at closeout is dated scope, not current owner status.",
+          "originalStatus": "partially-source-confirmed"
+        },
+        {
+          "claim": "q-calibration-gate-test ran in gating array for the first time duringAug29 closeout.",
+          "status": "contradicted",
+          "evidence": "It is already in scientific array at185d9bb(Aug28), whose commit message states scientific exit0 over39 and includes70-check fixture. Git proves prior registration, not actual earlier execution; the two dated narrative claims cannot both establish first execution. Narrow to first closeout rerun unless original logs settle it.",
+          "originalStatus": "chronology-conflict"
+        },
+        {
+          "claim": "Branch not merged atAug29 closeout;3 prior commits without closeout; doc-tax+230/-16/+35 and three-file3143 vs1901.",
+          "status": "narrowed",
+          "evidence": "History185d9bb->1f23509->aac70ea->bab5e07 supports three S13 commits before closeout record. Later main fast-forward does not refute dated not-merged statement. Skill invocation absence and exact doc-tax aggregation are transcript/measurement claims not independently checked here; not used as scientific evidence.",
+          "originalStatus": "partially-source-confirmed"
+        }
+      ],
+      "summary": "Landing science-policy changes and trimmed-fit safeguards are supported. Several concrete prose defects survive within the archival record: monotonic prediction scored confirmed despite its own table, two-orders uncertainty exaggeration, \u00a75 stale demo claims said corrected in \u00a76, and first-gating-run chronology. Earlier-intent sections are explicitly superseded and must not be treated as shipping-code promises."
+    },
+    {
+      "session": "S17",
+      "claims": [
+        {
+          "claim": "The sidebar gate now controls Display disclosure through private per-test AppStorage.",
+          "status": "confirmed",
+          "evidence": "SidebarLayoutTests.swift:15-25 creates a unique defaults suite and pins false; :49 injects defaultAppStorage. SidebarDensityMeasurementTests.swift:16-25 uses its own unique suite, and :181-189 explicitly selects expanded state for that measurement. Source supports isolation of this preference, not all possible runtime state.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "Uncalibrated Prepare is explicitly quarantined, with diagnostic attachment, while other named workspaces remain gated.",
+          "status": "confirmed",
+          "evidence": "SidebarLayoutTests.swift:303 excludes only the named uncalibrated Prepare case; :339-386 emits sidebar-s17-geometry.txt and XCTSkip. .github/workflows/ci.yml exports those attachments. This confirms implementation and scope, not a new visual acceptance pass.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "No app source changed in S17 and no numeric tolerance was widened.",
+          "status": "confirmed",
+          "evidence": "git show --stat 2532d35 lists tests, workflow, tools and docs only; no mac4DSTEM/ path. Current quarantine is explicit; the retained 60pt allowance in the separate Reconstruct-only test is not an S17 widening.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "The 1029/945/961 geometry experiment, negative control exit 65, and 378 passed / 4 skipped dated unit run occurred as recorded.",
+          "status": "unverified",
+          "evidence": "The session record describes exact experiments and outcomes, but their original raw logs/xcresult were not located in this bounded audit and no UI/test rerun was performed. Source supports a discriminator, not those historical outcomes. Later counts do not disprove this dated count.",
+          "originalStatus": "unverified"
+        },
+        {
+          "claim": "All current owner interaction is excluded from the test environment.",
+          "status": "narrowed",
+          "evidence": "Only the explicitly injected AppStorage domain is isolated by this change. It does not isolate GPU, WindowServer, process-wide defaults used by other AppState properties, or disk. The narrower session wording about this disclosure is defensible; do not generalize it into complete runtime independence.",
+          "originalStatus": "narrowed"
+        }
+      ],
+      "summary": "The implementation matches the narrowed S17 contract. Historical measured outcomes remain attributed to the record unless raw logs are recovered. Keep the explicit skip and its diagnostics distinct from a pass."
+    },
+    {
+      "session": "S18",
+      "claims": [
+        {
+          "claim": "The polish sweep introduced bottom-overlay layout, geometry-scoped scrolling, axis labels, and comparison content versions.",
+          "status": "confirmed",
+          "evidence": "git show --name-only 7f99186 identifies the implementation paths. ScaleBarView.swift:32-37 uses PaneBottomOverlay/ViewThatFits; SwiftUI+MTKView.swift:133-136 checks event window and visibleRect; ProductWorkspaceViews.swift:704,723,805 derives/passes payload contentVersion. This is source corroboration only; F1.33 and F1.35 remain undriven in the visual checklist.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "Both resident optimizations shipped but are not user-reachable through a residency request control.",
+          "status": "confirmed",
+          "evidence": "FourDArray.swift:328-335 slices resident patterns using the view descriptor, and VirtualDetector uses TileGPUSource. DatasetResidency remains streamed with no production request(.resident) caller located. Visual checklist withdraws F1.36. S18 itself corrects its earlier claim that a Resident indicator currently overpromises.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "The residentTileCopies counter proves that all staging copies are gone.",
+          "status": "known",
+          "evidence": "The original record overclaims this in its fixture discussion. docs/open-items.md:1236-1241 and commit 8eab0e4 already correct it: a copy made inside binding bypasses the counter; buffer identity assertions in virtual-detector-residency:391 and resident-cropped-view:228 close that class. Do not reopen as unrecorded.",
+          "originalStatus": "known"
+        },
+        {
+          "claim": "Reader readPattern/readScanTile equality had never previously been asserted.",
+          "status": "known",
+          "evidence": "S18 record says this, but docs/open-items.md:1242-1246 explicitly retracts it and identifies load-spec-test coverage across crops/bins/readers. The later correction must travel with citations to the old record.",
+          "originalStatus": "known"
+        },
+        {
+          "claim": "The missing independent Gate B review was subsequently completed with twelve mutations across the two changes.",
+          "status": "narrowed",
+          "evidence": "Commit 8eab0e4 and docs/open-items.md:1215-1234 document completion and a cropped-view blind spot; source includes the new gated cropped-view oracle and buffer-identity checks. The original s18.md Not verified section is historical and was not amended, so it must not override the dated completion record. Raw mutation logs were not retrieved; this audit corroborates artifact presence, not all twelve observed outcomes.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "S18 scientific 37 and unit 384/4/0 are current counts.",
+          "status": "narrowed",
+          "evidence": "Those are explicitly dated S18 runs, not current roster claims. The commit state and additions later explain count growth; no contradiction follows from today having more harnesses. Original S18 logs were not located here, so exact run outcomes remain historical claims rather than independently re-counted results.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "The comparison-panel initialization runs only when products change.",
+          "status": "narrowed",
+          "evidence": "ProductWorkspaceViews.swift:738-754 constructs panels in the view init, while cursor is @State. This moves work out of the child body driven by cursor updates, but SwiftUI may recreate the view when its parent recomputes for other reasons. The record's absolute \"only when the parent hands over different products\" is stronger than source establishes; no performance measurement was run.",
+          "originalStatus": "narrowed"
+        }
+      ],
+      "summary": "The resident changes and later review artifacts are present. Several S18 overclaims were already corrected in later records; annotate supersession rather than treating the oldest record or current stub as automatically authoritative. Remaining Track B rows and real-reader resident coverage stay separate."
+    },
+    {
+      "session": "S21",
+      "claims": [
+        {
+          "claim": "The workflow runs unit and scientific jobs on push/PR/manual dispatch, and preserves in-flight main runs.",
+          "status": "confirmed",
+          "evidence": "Current .github/workflows/ci.yml:54-65 defines all three triggers and cancel-in-progress only off main; unit/scientific jobs invoke the respective tools/run-tests.sh modes. These core features are present in bbfd8b0; later S17 adds attachment extraction.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "Both CI jobs can install missing Metal toolchain; parity uses vendored source and pinned direct dependencies.",
+          "status": "confirmed",
+          "evidence": "ci.yml:79-84 and :114-119 guard Metal installation; :121-136 selects Python and installs ./References/py4DSTEM-dev with constraints. tools/lib/py4dstem-ci-constraints.txt records pinned direct stack, not a full transitive lock. This source inspection does not reverify current hosted-runner availability.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "The first scientific CI runs passed and Xcode 26 initially rejected the IPF expression; decomposition fixed compilation.",
+          "status": "narrowed",
+          "evidence": "S21 postscript and docs/open-items retain owner-pasted outcomes. Commit 5f98ded includes the named ContentView decomposition, supporting the shipped remedy. No GitHub run logs were fetched in this bounded audit, so 8m30s/7m59s, exit codes, and exact test counts were not independently verified.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "S21 was authored-only / no workflow run exists.",
+          "status": "known",
+          "evidence": "The record's own dated Postscript explicitly supersedes its earlier NOT verified section: owner pushed that evening and two runs are recorded. The artifact was created and committed; today it must not be reported as awaiting its first push.",
+          "originalStatus": "known"
+        },
+        {
+          "claim": "The exclusion list is complete.",
+          "status": "narrowed",
+          "evidence": "It matches the historical S21 intent, but current origin-fit-diagnostics, volume-mmap-probe, and stage-tb1-ws2-fixture are missing. This is the tools-gates finding, not three new code bugs. A roster without hardcoded counts resisted count drift; a hand-maintained exclusions inventory still drifted.",
+          "originalStatus": "narrowed"
+        }
+      ],
+      "summary": "Workflow configuration is corroborated; historical remote outcomes are attributed, not independently fetched. Preserve the postscript and distinguish implementation, local validation, hosted execution, and Track B acceptance."
+    },
+    {
+      "session": "W4a",
+      "claims": [
+        {
+          "claim": "The shipped model and catalogue entry use the cited 2H-WS2 cell and six explicit sites.",
+          "status": "confirmed",
+          "evidence": "Crystal.swift:233-272 documents a=3.1532, c=12.323, zS=0.6225 and six W/S positions; CrystalModel.swift:264-265 registers ws2_2h as builtIn/hexagonal. This audit verifies agreement of source with the session record, not the primary paper itself.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "The new fixture independently checks metric and absolute intensities, plus controls, and joins scientific.",
+          "status": "confirmed",
+          "evidence": "tools/ws2-crystal-test/main.swift:41-46 uses a closed-form metric; :188 onward has explicit site variants and absolute intensity anchors/controls. tools/cif-symmetry-test:667-717 adds six-site input. Commit 81893fb adds ws2-crystal-test to run-tests.sh. The fixture header accurately distinguishes model and implementation checks.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "The first-shell rule selects (0002), with a geometry-only factor about 2.2564.",
+          "status": "narrowed",
+          "evidence": "The source fixture :132-153 explicitly documents its replicated selection rule and computes the ratio. The analytic ratio from the cited cell is consistent with the record. This fixture cannot validate the AppState selection wiring; W4a Not verified correctly states that limit. W4b's different measured factor does not refute the geometry-only prediction.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "Seven author mutations and seven refuter survivors were caught after fixture hardening; 638 reflections matched py4DSTEM to 1e-7.",
+          "status": "unverified",
+          "evidence": "Commit 81893fb and the session record report these outcomes and the landed assertions support their mechanisms, but the original mutation/638-reflection parity logs were not inspected. No independent execution or fresh literature check occurred in this audit.",
+          "originalStatus": "unverified"
+        },
+        {
+          "claim": "W4a final unit 391/2/0 and scientific 41/41 are the covering dated runs.",
+          "status": "unverified",
+          "evidence": "These counts are recorded in commit 81893fb and the session. No original W4a unit/raw scientific log was recovered here. The retained next-session W4b scientific log independently shows 41/41, but it is a different run and cannot substitute for W4a execution.",
+          "originalStatus": "unverified"
+        },
+        {
+          "claim": "F1.44 validates on-screen model selection.",
+          "status": "narrowed",
+          "evidence": "The row exists at visual-acceptance-checklist.md:265 and is explicitly UNVERIFIED. Its presence is not a pass; current model registration supports its preparation.",
+          "originalStatus": "narrowed"
+        }
+      ],
+      "summary": "Source, catalogue, fixture registration, and honestly bounded oracle scope agree with W4a. Do not turn recorded literature/parity/mutation outcomes into new independently verified claims without their primary evidence."
+    },
+    {
+      "session": "W4b",
+      "claims": [
+        {
+          "claim": "Continuation added the WS2 matching arm and hardened override honesty without changing app source.",
+          "status": "confirmed",
+          "evidence": "tools/acom-matching-test/main.swift:235-353 contains true-scale recovery, defect-scale recovery-collapse, score-drop, median self-check and angle assertions. training-dataset-campaign/main.swift:790-810 rejects invalid override and records manual provenance. git diff 81893fb -- mac4DSTEM/ was empty at audit time; source remains W4a. Continuation changes were uncommitted on main 24c13d3 at start.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "Continuation scientific gate completed 41/41, zero FAIL/SKIP and exit 0.",
+          "status": "confirmed",
+          "evidence": "Independently counted retained scratchpad/scientific.log for source session a93b966c-6a1e-4d09-92bf-2223042e44b6: 41 lines starting ==>; 41 <==; zero FAIL and zero SKIP occurrences; final EXIT=0. This is the pre-recovery run, not a result for the parent's new ACOM harness.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "The review corrected factor, reliability and coherence arguments and records fixture blind spots.",
+          "status": "confirmed",
+          "evidence": "w4b.md amendment blocks distinguish geometric 2.2564 from measured 2.2129, narrow reliability comparison to the two scales, and withdraw coherence as an indexing discriminator. The matching fixture's scope/angle comments acknowledge shared project() ground truth. Raw real-data statistics were not recomputed by this reviewer.",
+          "originalStatus": "confirmed"
+        },
+        {
+          "claim": "All seven author mutations and the independent projection mutations produced the reported outcomes.",
+          "status": "unverified",
+          "evidence": "Mutation scripts and retained source copies exist in the session scratchpad, and the session describes distinct reds and survivors. This audit did not execute them or parse every original mutation log. The parent owns new independent ACOM fixture verification, which must be kept separate from this historical claim.",
+          "originalStatus": "unverified"
+        },
+        {
+          "claim": "No unit rerun was owed because app code is unchanged from W4a.",
+          "status": "narrowed",
+          "evidence": "The source comparison supports unchanged mac4DSTEM/. This makes the reused W4a unit evidence relevant, but its original raw log was not re-counted here. Tools/science changes still need their own scientific run, which is retained above.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "F1.45 is a ready-to-drive check of the basal recovered map.",
+          "status": "narrowed",
+          "evidence": "Initial row at visual-acceptance-checklist.md:266 says raise Min relative intensity to 0.001; default DiskDetection.swift:238 is 0.005, so this is a lowering. It expects ~98% basal/IPF uniformity without instructing the corrected manual Q scale used for that measured result, while acknowledging defective default calibration. Source supports splitting an operational overlay check at the defective scale from expected basal behaviour at an explicitly set diagnostic scale. Parent notified and owns row correction.",
+          "originalStatus": "narrowed"
+        },
+        {
+          "claim": "The whole-repository review and past-session audit completed before the usage limit.",
+          "status": "refuted",
+          "evidence": "Recovered manifest lists 11 initial reviews/75 entries, only app-appstate and core-analysis-detect completed verification, and three pending audit batches. The overall completion notification did not establish completed child outcomes; missing/failed verification must remain visible rather than silently dropping initial findings.",
+          "originalStatus": "refuted"
+        }
+      ],
+      "summary": "Continuation source and one retained scientific run are corroborated. The interruption left documentation/investigation closeout and independent review incomplete, not an implemented-app fix queue. New recovery work and historical evidence must remain separately dated."
+    }
+  ]
+}
