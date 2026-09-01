@@ -56,6 +56,17 @@ struct CalibrationReadinessChecklist: View {
             Text(item.detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                // S22d: wrap, never truncate — this row's tail is the caveat
+                // ("… (27% excluded as outliers)"), and cutting it was the
+                // owner-reported Group A finding: the actionable half of an
+                // already-correct disclosure was what got lost. The sidebar
+                // List scrolls, so unbounded vertical demand is safe here
+                // (the #16 trap is detail-column-only).
+                //
+                // `.sidebarWrapped()`, not bare fixedSize — verified live
+                // 2026-09-01: fixedSize alone still truncated in this List
+                // (see SidebarTextWidth.swift for the mechanism).
+                .sidebarWrapped()
             // Rendered outside the `!isReady` branch below: an imported R scale
             // that disagrees with the filename is *ready*, and that is exactly
             // the case worth warning about.
@@ -63,7 +74,7 @@ struct CalibrationReadinessChecklist: View {
                 Label(conflict, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2)
                     .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .sidebarWrapped()
                     .accessibilityIdentifier("calibration.rScale.filenameConflict")
             }
             if !item.status.isReady {
@@ -203,8 +214,11 @@ struct CalibrationReadinessChecklist: View {
         inFilename path: String
     ) -> (angstromPerPixel: Double, text: String)? {
         let name = (path as NSString).lastPathComponent
+        // ui-09 (S22e): the token must not start mid-word — unanchored, this
+        // matched `ss30nm` inside `thickness30nm` and flagged a correct
+        // imported calibration as conflicting with its own filename.
         guard let match = name.range(
-            of: #"ss(\d+(?:[.,]\d+)?)(nm|pm|um|µm|a|å)"#,
+            of: #"(?<![A-Za-z0-9])ss(\d+(?:[.,]\d+)?)(nm|pm|um|µm|a|å)"#,
             options: [.regularExpression, .caseInsensitive]
         ) else { return nil }
 

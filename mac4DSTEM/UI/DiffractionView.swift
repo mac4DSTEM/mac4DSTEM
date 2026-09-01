@@ -42,7 +42,8 @@ struct DiffractionView: View {
             // A summed pattern must never look like a single-position one:
             // the ROI sum silently drives the probe kernel and the current-CBED
             // peak count (#24).
-            if app.realSpaceShape != .point, app.virtualDiffractionPattern != nil {
+            if app.patternDisplayMode == .current,
+               app.realSpaceShape != .point, app.virtualDiffractionPattern != nil {
                 Text("ROI SUM")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
@@ -107,7 +108,7 @@ struct DiffractionView: View {
                         .background(Color.black)
 
                     // Interactive annular aperture (Virtual Detector mode only).
-                    if app.analysisMode == .virtualDetector {
+                    if app.navigation.analysisMode == .virtualDetector {
                         ApertureControl(
                             aperture: app.aperture,
                             shape: app.virtualShape,
@@ -118,7 +119,7 @@ struct DiffractionView: View {
                     }
 
                     // Detected Bragg disks for the current pattern (Disks mode).
-                    if app.analysisMode == .disks, !app.currentPeaks.isEmpty {
+                    if app.navigation.analysisMode == .disks, !app.currentPeaks.isEmpty {
                         peakOverlay(box: box, qx: qx, qy: qy)
                             .allowsHitTesting(false)
                     }
@@ -174,13 +175,16 @@ struct DiffractionView: View {
                     }
                 } trailing: {
                     if let range = app.patternDisplayedValueRange {
-                        ScalarColorbarView(
-                            colormap: app.patternColormap,
-                            low: range.low,
-                            high: range.high,
-                            unitLabel: logScaleLabel,
-                            gamma: app.patternGamma
-                        )
+                        // D3: the chip IS the colormap control — click it.
+                        ColormapChipMenu(pane: .diffraction) {
+                            ScalarColorbarView(
+                                colormap: app.patternColormap,
+                                low: range.low,
+                                high: range.high,
+                                unitLabel: logScaleLabel,
+                                gamma: app.patternGamma
+                            )
+                        }
                     }
                 }
             }

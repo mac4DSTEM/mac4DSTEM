@@ -172,10 +172,15 @@ extension AppState {
     /// ACOM map) as a PNG, rendered as displayed, with the scale bar burned in.
     func exportResultImage() {
         let source: (bytes: [UInt8], width: Int, height: Int)
+        // support-export-07 (S22e): masked pixels normalize to the negative
+        // invalid-display sentinel; when any exist the burned figure carries
+        // a "no data" legend beside its colorbar.
+        var masksNoData = false
         if let rgba = resultRGBA {
             source = (rgba.rgba, rgba.width, rgba.height)
         } else if let image = resultImage {
             let norm = image.normalized(symmetric: resultColormap.isDiverging)
+            masksNoData = norm.contains { $0 < 0 }
             let bytes = Self.applyColormap(norm, colormap: resultColormap,
                                            lo: displayRangeLo, hi: displayRangeHi,
                                            gamma: resultGamma)
@@ -213,7 +218,8 @@ extension AppState {
             image: withScale, title: currentResultDisplayName,
             caption: publicationCaption,
             valueRange: resultDisplayedValueRange,
-            valueUnits: currentResultValueUnits, colormap: resultColormap
+            valueUnits: currentResultValueUnits, colormap: resultColormap,
+            masksNoData: masksNoData
         )
         // The FULL provenance record travels in the PNG metadata beside the
         // burned caption (v2 S7): everything the figure renders, plus the
@@ -1382,7 +1388,7 @@ extension AppState {
 
     private var currentScalarResultMetadata:
         (kind: String, displayName: String, valueUnits: String) {
-        switch analysisMode {
+        switch navigation.analysisMode {
         case .virtualDetector:
             return ("virtual_\(virtualShape.rawValue.lowercased())",
                     "Virtual detector · \(virtualShape.rawValue)", "intensity")
@@ -1482,14 +1488,14 @@ extension AppState {
 
     private var currentScalarPersistenceMetadata:
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
-        if analysisMode == .dpc, dpcDisplay == .idpc {
+        if navigation.analysisMode == .dpc, dpcDisplay == .idpc {
             if let physical = idpcPhysicalCalibration {
                 return (
                     Double(physical.rowSamplingAngstrom),
                     Double(physical.columnSamplingAngstrom),
                     "A",
                     [
-                        "analysis_mode": analysisMode.rawValue,
+                        "analysis_mode": navigation.analysisMode.rawValue,
                         "source_product": "idpc_phase",
                         "quantitative": "true",
                         "boundary": "symmetric_zero_padded",
@@ -1509,7 +1515,7 @@ extension AppState {
             // still subtracted from the CoM field". A reader of the exported
             // file needs that difference to know whether to trust contrast.
             var provenance: [String: String] = [
-                "analysis_mode": analysisMode.rawValue,
+                "analysis_mode": navigation.analysisMode.rawValue,
                 "source_product": "idpc_qualitative",
                 "quantitative": "false",
                 "boundary": "symmetric_zero_padded",
@@ -1530,10 +1536,10 @@ extension AppState {
                 provenance
             )
         }
-        if analysisMode == .strain, let map = strain.map {
+        if navigation.analysisMode == .strain, let map = strain.map {
             let diagnostics = map.diagnostics
             var provenance: [String: String] = [
-                "analysis_mode": analysisMode.rawValue,
+                "analysis_mode": navigation.analysisMode.rawValue,
                 "source_product": "strain_\(strain.component.rawValue)",
                 "basis_mode": diagnostics.automaticBasis ? "consensus" : "manual",
                 "basis_support_fraction": String(diagnostics.basisSupportFraction),
@@ -1566,10 +1572,10 @@ extension AppState {
                 provenance
             )
         }
-        if analysisMode == .acom, let map = orientationMap {
+        if navigation.analysisMode == .acom, let map = orientationMap {
             var provenance = acomLastRunSemantics?.provenance ?? [:]
             provenance.merge([
-                "analysis_mode": analysisMode.rawValue,
+                "analysis_mode": navigation.analysisMode.rawValue,
                 "source_product": "acom_\(acomDisplay.rawValue)",
                 "crystal_symmetry": map.symmetry.rawValue,
                 "matching_backend": map.matchingBackend.rawValue,
@@ -1587,21 +1593,21 @@ extension AppState {
                 provenance
             )
         }
-        if analysisMode == .disks {
+        if navigation.analysisMode == .disks {
             return (
                 calibration.qPixelSize, calibration.qPixelSize,
                 calibration.qPixelUnits,
                 [
-                    "analysis_mode": analysisMode.rawValue,
+                    "analysis_mode": navigation.analysisMode.rawValue,
                     "source_product": "bragg_vector_map",
                     "coordinate_space": "reciprocal",
                 ]
             )
         }
-        guard analysisMode == .ptychography else {
+        guard navigation.analysisMode == .ptychography else {
             return (
                 calibration.rPixelSize, calibration.rPixelSize,
-                calibration.rPixelUnits, ["analysis_mode": analysisMode.rawValue]
+                calibration.rPixelUnits, ["analysis_mode": navigation.analysisMode.rawValue]
             )
         }
         switch parallaxResultProduct {
@@ -1717,7 +1723,7 @@ extension AppState {
             ).rawValue
         }
         if restoredResultInfo == nil, navigationResultInfo == nil,
-           analysisMode == .dpc, dpcDisplay == .angle,
+           navigation.analysisMode == .dpc, dpcDisplay == .angle,
            currentResultKind == "dpc_angle", currentResultValueUnits == "rad",
            provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
             provenance[ScalarResultMap.dpcAngleEncodingKey] =
@@ -1757,7 +1763,7 @@ extension AppState {
     static func publicationFigure(
         image: CGImage, title: String, caption: String,
         valueRange: (low: Double, high: Double)?, valueUnits: String,
-        colormap: ColormapKind
+        colormap: ColormapKind, masksNoData: Bool = false
     ) -> CGImage {
         let margin: CGFloat = 18
         let colorbarWidth: CGFloat = valueRange == nil ? 0 : 76
@@ -1843,6 +1849,19 @@ extension AppState {
                 in: NSRect(x: barX, y: barY - 17, width: 65, height: 14),
                 withAttributes: attributes
             )
+            // support-export-07 (S22e): the on-screen views explain the gray
+            // no-data pixels; the burned figure travels without the app, so
+            // it must carry the same legend — the swatch is the exact masked
+            // gray `applyColormap` renders (82,82,87).
+            if masksNoData {
+                NSColor(calibratedRed: 82 / 255, green: 82 / 255,
+                        blue: 87 / 255, alpha: 1).setFill()
+                NSRect(x: barX, y: barY + barHeight + 5, width: 10, height: 10).fill()
+                ("no data" as NSString).draw(
+                    at: NSPoint(x: barX + 14, y: barY + barHeight + 3),
+                    withAttributes: attributes
+                )
+            }
         }
         return bitmap.cgImage ?? image
     }

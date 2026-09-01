@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import simd
 
-/// Which display controls the sidebar's "Display" disclosure offers, per
+/// Which display controls the sidebar's "Display" section offers, per
 /// workspace.
 ///
 /// Extracted so it can be tested. The rendered alternative cannot be: SwiftUI
@@ -12,44 +12,10 @@ import simd
 /// `selectedItem` and `numberOfItems == 0` (measured 2026-08-06, the same wall
 /// `SidebarLayoutTests` hit for accessibility identifiers). Counting anonymous
 /// pop-up buttons would pass just as happily on the wrong one.
-enum SidebarDisplaySection {
-
-    /// The pattern controls — `Log diffraction`, `Q-scale units`, and the
-    /// diffraction colormap — need a CBED pane to act on. Results reviews and
-    /// exports finished products and shows none, so they are omitted there.
-    static func showsPatternControls(in workspace: WorkspaceArea) -> Bool {
-        workspace != .results
-    }
-
-    /// Whether the section appears at all.
-    ///
-    /// The regression this guards: the section used to be hidden wholesale
-    /// whenever `workspace == .results`, while the Result colormap picker was
-    /// gated on a result existing. That put the control which recolours a
-    /// result in every workspace *except* the one built for looking at
-    /// results — you had to leave the image to change how it was drawn.
-    /// Scope the *contents* per workspace, never the section.
-    static func isPresented(in workspace: WorkspaceArea, hasResult: Bool) -> Bool {
-        showsPatternControls(in: workspace) || hasResult
-    }
-}
-
-
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
     @State private var showPreprocessingExport = false
-
-    /// Sidebar disclosure state, persisted so the choice survives relaunch.
-    /// Collapsed by default: these are display and diagnostic controls rather
-    /// than the task's own controls, and leaving them open was a large part of
-    /// why the column overflowed in every workspace (2026-08-06 polish pass).
-    @AppStorage("sidebar.displaySection.expanded")
-    private var displaySectionExpanded = false
-
-    private var showsPatternDisplayControls: Bool {
-        SidebarDisplaySection.showsPatternControls(in: appState.workspaceArea)
-    }
 
     /// Which Reconstruct stage the user has opened by hand. `nil` means "follow
     /// the workflow" — see `reconstructionStageBinding`.
@@ -73,10 +39,14 @@ struct ContentView: View {
         @Bindable var strain = appState.strain
         return NavigationSplitView(columnVisibility: Binding(
             get: {
-                appState.showToolsPane && !appState.isLoadingDataset ? .all : .detailOnly
+                appState.navigation.showToolsPane && !appState.isLoadingDataset ? .all : .detailOnly
             },
-            set: { appState.showToolsPane = $0 != .detailOnly }
+            set: { appState.navigation.showToolsPane = $0 != .detailOnly }
         )) {
+            // S22d: publish the column's real width so long sidebar texts can
+            // wrap — this List never offers rows a width on its own (see
+            // SidebarTextWidth.swift). The 34pt covers the row insets.
+            GeometryReader { sidebarGeo in
             List {
                 if let descriptor = appState.descriptor, descriptor.is4D {
                     Section {
@@ -88,22 +58,22 @@ struct ContentView: View {
                             workspaceButton(area)
                         }
                         if let hint = ProductWorkflow.nextStepHint(
-                            for: appState.workspaceArea,
+                            for: appState.navigation.workspaceArea,
                             readiness: appState.productWorkflowReadiness,
                             calibrationReady: appState.calibrationReadiness.isReady
                         ) {
                             Text(hint)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                                .sidebarWrapped()
                                 .accessibilityIdentifier("workspace.nextStepHint")
                         }
                     }
 
-                    if !appState.workspaceArea.analysisModes.isEmpty {
+                    if !appState.navigation.workspaceArea.analysisModes.isEmpty {
                         Section("Task") {
-                            let groups = appState.workspaceArea.taskFamilyGroups
-                            let showsLabels = appState.workspaceArea.showsTaskFamilyLabels
+                            let groups = appState.navigation.workspaceArea.taskFamilyGroups
+                            let showsLabels = appState.navigation.workspaceArea.showsTaskFamilyLabels
                             ForEach(groups) { group in
                                 if showsLabels {
                                     Text(group.family.groupLabel)
@@ -131,84 +101,30 @@ struct ContentView: View {
                 }
 
                 if let descriptor = appState.descriptor, descriptor.is4D {
-                    if appState.workspaceArea == .prepare || appState.workspaceArea == .image {
-                        Section("Scan position") {
-                        scanSlider(label: "X", value: appState.selectedScan.x,
-                                   count: descriptor.rx) { x in
-                            appState.selectScan(x: x, y: appState.selectedScan.y)
-                        }
-                        scanSlider(label: "Y", value: appState.selectedScan.y,
-                                   count: descriptor.ry) { y in
-                            appState.selectScan(x: appState.selectedScan.x, y: y)
-                        }
-                        }
-                    }
-
-                    // Display settings are not what any workspace is *for*
-                    // — they are how the same data is drawn. Kept as a
-                    // disclosure so a task-scoped column stays about the
-                    // task, with the state remembered across launches so a
-                    // user who wants them open pays the gesture once.
-                    // `Q-scale units` is a units control, so it is one
-                    // obvious gesture away, never hidden.
-                    //
-                    // The *contents* are scoped per workspace, not the section
-                    // itself. Results has no diffraction pane, so the pattern
-                    // controls would act on nothing there — but it is the one
-                    // workspace built for looking at a result, and hiding the
-                    // whole section put the Result colormap in every workspace
-                    // *except* the one showing the image it recolours. You had
-                    // to leave Results to change how the thing you were looking
-                    // at was drawn.
-                    if SidebarDisplaySection.isPresented(
-                        in: appState.workspaceArea, hasResult: appState.resultImage != nil
-                    ) {
-                        Section {
-                            DisclosureGroup(isExpanded: $displaySectionExpanded) {
-                                if showsPatternDisplayControls {
-                                    Toggle("Log diffraction", isOn: $appState.logScale)
-                                    if appState.patternScaleMradAvailable {
-                                        Picker("Q-scale units", selection: $appState.patternScaleUnit) {
-                                            ForEach(PatternScaleUnit.allCases) { unit in
-                                                Text(unit.rawValue).tag(unit)
-                                            }
-                                        }
-                                        .pickerStyle(.segmented)
-                                        .help("Reciprocal shows the calibrated Q pixel units; mrad shows the direct scattering angle (θ ≈ λ·q from the accelerating voltage).")
-                                    }
-                                    Picker("Diffraction", selection: $appState.patternColormap) {
-                                        ForEach(ColormapKind.allCases) { kind in
-                                            Text(kind.displayName).tag(kind)
-                                        }
-                                    }
-                                }
-                                if appState.resultImage != nil {
-                                    Picker("Result", selection: $appState.resultColormap) {
-                                        ForEach(ColormapKind.allCases) { kind in
-                                            Text(kind.displayName).tag(kind)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Text("Display").font(.subheadline.weight(.semibold))
-                            }
-                            .accessibilityIdentifier("sidebar.displaySection")
-                        }
-                    }
+                    // D3 (owner decision, 2026-09-01): the colormap and
+                    // display options moved ONTO the colorbar chips in the
+                    // panes (`ColormapChipMenu`). That dissolves the old
+                    // Results-scoping problem this sidebar section spent a
+                    // long comment justifying: the chip exists wherever its
+                    // image exists, so the control can never be stranded in a
+                    // workspace without it.
 
                     // CBED pattern source (current / mean / max) lives here when
                     // the diffraction pane is the active (blue) one.
-                    if (appState.workspaceArea == .prepare || appState.workspaceArea == .image)
+                    // Prepare, Imaging, and DPC (which S22c moved to Phase but
+                    // still works from the live CBED) all use the mean/max
+                    // pattern controls.
+                    if (appState.navigation.workspaceArea == .prepare || appState.navigation.workspaceArea == .image
+                        || (appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .dpc))
                         && appState.activePane == .diffraction {
-                        Section("Pattern") {
-                            if appState.meanPattern != nil {
-                                Picker("Show", selection: $appState.patternDisplayMode) {
-                                    ForEach(PatternDisplayMode.allCases) { m in
-                                        Text(m.rawValue).tag(m)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
-                            } else {
+                        // S22 feedback R6 (2026-09-01): once mean/max exist,
+                        // the pane header's Current|Mean|Max toggle is the
+                        // ONLY switcher — the sidebar's duplicate "Show" row
+                        // was noise ("people will get what current, mean and
+                        // max mean"). The section now exists solely to offer
+                        // the compute before the statistics exist.
+                        if appState.meanPattern == nil {
+                            Section("Pattern") {
                                 Button {
                                     Task { await appState.computeDPStatistics() }
                                 } label: {
@@ -220,14 +136,34 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.workspaceArea == .prepare {
+                    if appState.navigation.workspaceArea == .prepare {
                         Section("Calibration") {
                             CalibrationReadinessChecklist()
+                            // S22c (pipelines §7.4): the accelerating voltage
+                            // is calibration — DPC, parallax and ptychography
+                            // all consume it — so it lives with the other
+                            // physical scales, not inside one consumer's
+                            // workflow. Identifier unchanged on purpose.
+                            HStack {
+                                Text("Voltage").font(.caption)
+                                Spacer()
+                                TextField("0", value: Binding(
+                                    get: { appState.acceleratingVoltage ?? 0 },
+                                    set: appState.setManualAcceleratingVoltage
+                                ), format: .number.precision(.fractionLength(0...2)))
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 90)
+                                    .accessibilityLabel("Accelerating voltage (kV)")
+                                    .accessibilityIdentifier("calibration.acceleratingVoltage")
+                                Text("kV")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                             CalibrationDetailsView()
                         }
                     }
 
-                    if appState.workspaceArea == .image && appState.analysisMode == .virtualDetector {
+                    if appState.navigation.workspaceArea == .image && appState.navigation.analysisMode == .virtualDetector {
                         if appState.activePane == .diffraction {
                             Section("Detector → real space") {
                                 // The shape picker gets the row's full width —
@@ -301,8 +237,55 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.workspaceArea == .image && appState.analysisMode == .dpc {
-                        Section("DPC") {
+                    if appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .dpc {
+                        Section("DPC & iDPC") {
+                            // S22b (O2): status first — what "Run DPC" will
+                            // produce NOW — then the display choice, then the
+                            // per-mode detail. The pane previously opened with
+                            // a picker and buried its readiness in orange
+                            // paragraphs inside one display branch ("just
+                            // useless" — owner, 2026-09-01). The primary
+                            // action stays single-homed in the workspace
+                            // header, so the two cannot drift.
+                            if appState.idpcPhysicalCalibration != nil {
+                                Label("Physical iDPC ready — projected phase in rad",
+                                      systemImage: "checkmark.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                // The true reason, not the requirements
+                                // list: when every requirement is met and
+                                // the origin FIT is what the gate refuses,
+                                // listing requirements that are all
+                                // satisfied would misdirect the remedy.
+                                // // v2 S7
+                                if let refusal = appState.idpcOriginFitRefusal {
+                                    Text("Qualitative iDPC — " + refusal)
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                        .sidebarWrapped()
+                                } else {
+                                    // Status, not a requirements list — the
+                                    // readiness panel above the images is the
+                                    // single owner of the full enumeration
+                                    // (#21); restating it here is the drift
+                                    // the ownership rule exists to prevent.
+                                    Text("Qualitative iDPC — relative units. The readiness note above the images lists what quantitative iDPC needs.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                        .sidebarWrapped()
+                                }
+                                // The remedy lives in Prepare; take the user
+                                // there instead of describing the journey.
+                                Button("Open Prepare to Calibrate") {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        appState.selectWorkspace(.prepare)
+                                    }
+                                }
+                                .controlSize(.small)
+                                .accessibilityIdentifier("dpc.openPrepare")
+                            }
+
                             Picker("Display", selection: $appState.dpcDisplay) {
                                 ForEach(DPCDisplayMode.allCases) { mode in
                                     Text(mode.rawValue).tag(mode)
@@ -338,42 +321,30 @@ struct ContentView: View {
                                     LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
                                         .font(.caption)
                                 } else {
-                                    // The true reason, not the requirements
-                                    // list: when every requirement is met and
-                                    // the origin FIT is what the gate refuses,
-                                    // listing requirements that are all
-                                    // satisfied would misdirect the remedy.
-                                    // // v2 S7
-                                    if let refusal = appState.idpcOriginFitRefusal {
-                                        Text("Qualitative iDPC — " + refusal)
-                                            .font(.caption2)
-                                            .foregroundStyle(.orange)
-                                    } else {
-                                        Text("Qualitative iDPC: fitted origin maps, R–Q rotation, and calibrated real/reciprocal pixel sizes are required. Q in mrad also needs accelerating voltage.")
-                                            .font(.caption2)
-                                            .foregroundStyle(.orange)
-                                    }
+                                    // The qualitative/physical status and its
+                                    // reason now lead the section (S22b) —
+                                    // only the boundary fact remains per-mode.
                                     LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
                                         .font(.caption)
                                 }
                             }
                             if !appState.calibration.hasFittedOrigin {
                                 Text("Tip: calibrate the origin first — DPC shifts are measured against the fitted beam position.")
-                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .font(.caption2).foregroundStyle(.secondary).sidebarWrapped()
                             } else if !appState.calibration.hasRotation {
                                 Text("Tip: calibrate the rotation for meaningful iDPC and vector direction.")
-                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .font(.caption2).foregroundStyle(.secondary).sidebarWrapped()
                             }
                         }
                     }
 
-                    if appState.workspaceArea == .map && appState.analysisMode == .disks {
+                    if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .disks {
                         Section("Disk detection") {
                             DiskDetectionControls()
                         }
                     }
 
-                    if appState.workspaceArea == .map && appState.analysisMode == .strain {
+                    if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .strain {
                         Section("Strain") {
                             strainFailureRemedy
 
@@ -502,24 +473,8 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.workspaceArea == .reconstruct && appState.analysisMode == .ptychography {
+                    if appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .ptychography {
                         Section("Reconstruction workflow") {
-                            HStack {
-                                Text("Voltage").font(.caption)
-                                Spacer()
-                                TextField("0", value: Binding(
-                                    get: { appState.acceleratingVoltage ?? 0 },
-                                    set: appState.setManualAcceleratingVoltage
-                                ), format: .number.precision(.fractionLength(0...2)))
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 90)
-                                    .accessibilityLabel("Accelerating voltage (kV)")
-                                    .accessibilityIdentifier("calibration.acceleratingVoltage")
-                                Text("kV")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-
                             reconstructionStage(1, "Prepare preview") {
                                 Button {
                                     Task { await appState.prepareParallaxPreview() }
@@ -944,19 +899,44 @@ struct ContentView: View {
                                     }
                                 }
                             } else {
-                                Text("Requires a calibrated origin, R–Q rotation, Q/R pixel sizes, and accelerating voltage. Missing values are rejected rather than guessed.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.orange)
+                                // R27 (owner, 2026-09-01): stateful and
+                                // SPECIFIC. The generic orange sentence sat
+                                // right under a green "Core calibrated"
+                                // badge and read as a false alarm — while
+                                // the actual gap (ptychography also needs
+                                // the R scale and voltage, beyond "core")
+                                // stayed invisible. Name what is missing;
+                                // go quiet gray when nothing is.
+                                let missingForPtycho = ProductWorkflow.prerequisites(
+                                    for: .ptychography,
+                                    readiness: appState.productWorkflowReadiness
+                                )
+                                if missingForPtycho.isEmpty {
+                                    Text("All reconstruction requirements are met.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .sidebarWrapped()
+                                } else {
+                                    Text("Still needed: "
+                                         + missingForPtycho.joined(separator: " · ")
+                                         + ". Missing values are rejected rather than guessed.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                        .sidebarWrapped()
+                                }
                             }
                         }
                     }
 
-                    if appState.workspaceArea == .map && appState.analysisMode == .acom {
+                    if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .acom {
                         ACOMControlsView()
                     }
                 }
             }
             .listStyle(.sidebar)
+            .environment(
+                \.sidebarTextWidth, max(sidebarGeo.size.width - 34, 216)
+            )
             // Backlog #16. The symptom (sidebar rows drawn across the traffic
             // lights, top rows inert because the titlebar hit-tests above them)
             // is the sidebar scroll view sitting at clip origin 0 instead of
@@ -966,8 +946,22 @@ struct ContentView: View {
             // is the remaining candidate for how it gets there, so bouncing is
             // limited to the case where there is genuinely something to scroll.
             .scrollBounceBehavior(.basedOnSize)
+            }
+            // These sit on the COLUMN'S ROOT VIEW (the GeometryReader), not on
+            // the List inside it — attached inside the wrapper, the width
+            // declaration stopped reaching NavigationSplitView and the owner
+            // dragged the sidebar to ~750pt and ~175pt on 2026-09-01 (S22
+            // feedback R1/R2). AppKit-side enforcement is in
+            // SplitViewWidthClamp, because the declaration alone has already
+            // failed twice (the 144pt restore; the 625pt drag on the PRE-S22
+            // build in the owner's original screenshots).
             .navigationTitle("mac4DSTEM")
             .navigationSplitViewColumnWidth(min: 250, ideal: 292, max: 340)
+            // Belt for the min: the declaration alone still allowed a hard
+            // drag to ~139pt (observed live 2026-09-01 even with the max
+            // holding). A hard floor on the column root is the constraint
+            // AppKit cannot drag through.
+            .frame(minWidth: 250)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
@@ -975,84 +969,69 @@ struct ContentView: View {
                     ProductWorkspaceHeader()
                 }
 
-                if appState.hasDataset && !appState.isLoadingDataset && appState.workspaceArea == .results {
+                if appState.hasDataset && !appState.isLoadingDataset && appState.navigation.workspaceArea == .results {
                     ResultsWorkspace()
                 } else {
-                    HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    Group {
-                        if appState.hasDataset && !appState.isLoadingDataset {
-                            imagePanes
-                                .focusable()
-                                .focusEffectDisabled()
-                                .onKeyPress(phases: .down) { press in
-                                    handleArrowKey(press)
-                                }
-                        } else {
-                            WelcomeWorkspace()
+                    VStack(spacing: 0) {
+                        Group {
+                            if appState.hasDataset && !appState.isLoadingDataset {
+                                imagePanes
+                                    .focusable()
+                                    .focusEffectDisabled()
+                                    .onKeyPress(phases: .down) { press in
+                                        handleArrowKey(press)
+                                    }
+                            } else {
+                                WelcomeWorkspace()
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        // Output strip: rolling log of operations below the panes.
+                        if appState.navigation.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
+                            Divider()
+                            logPane
                         }
                     }
+                    // Soft floor so the sidebar and inspector cannot crush the
+                    // image panes into distorted slivers — the 2026-08-05
+                    // clipped-edges class, finally captured on screen
+                    // 2026-09-01 (open-items, owner playthrough item 4).
+                    .frame(minWidth: 360)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    // Output strip: rolling log of operations below the panes.
-                    if appState.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
-                        Divider()
-                        logPane
+                    // A REAL system inspector column (S22a): draggable to
+                    // 560pt, collapsible, system-animated. The previous
+                    // hand-rolled HStack member (fixed 220–340pt frame, no
+                    // drag handle) was the direct cause of "the right panel
+                    // cannot be resized" and half of the clipped-edges layout
+                    // regime above.
+                    .inspector(isPresented: Bindable(appState.navigation).showInspectorPane) {
+                        DatasetInspector()
+                            .inspectorColumnWidth(min: 260, ideal: 320, max: 560)
                     }
                 }
-                // Floor so dragging the sidebar/inspector can't crush the image
-                // panes into distorted slivers — but a SOFT one.
-                //
-                // At 480, with a fixed 300pt inspector beside it, the detail
-                // column could not yield below 780pt. Against the window's own
-                // 1080pt minimum that leaves only 300pt for the tools pane,
-                // which is less than its own 250–340 range plus dividers — so
-                // the layout had almost no slack in exactly the configuration
-                // the release owner reported breaking (2026-08-05: tools +
-                // inspector both open, content clipped off both edges).
-                //
-                // NOT a confirmed fix for that report — it could not be
-                // reproduced headlessly (see docs/ui-design-pass-2026-08-05.md
-                // §1.7). It is slack the layout should have had anyway.
-                .frame(minWidth: 360)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // Inspector as an explicit, independent panel so it coexists
-                // with the tools sidebar (both can be open at once).
-                if appState.showInspectorPane {
-                    Divider()
-                    // Compressible rather than a fixed 300: a rigid panel here
-                    // was half of why widening the tools pane pushed content
-                    // off the window instead of just making things narrower.
-                    DatasetInspector()
-                        .frame(minWidth: 220, idealWidth: 300, maxWidth: 340)
-                        .background(.background)
-                }
-                    }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                Text(appState.statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("status.bar")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                // D2 (owner decision, 2026-09-01): the permanent status
+                // footer — status line, live operation progress with Cancel,
+                // and the standing memory/cube facts. A STACKED element, not
+                // a floating inset (R18/R19): the inset version drew over the
+                // log strip's tail and over Results' own export/save row —
+                // stacked, nothing can ever render behind it.
+                Divider()
+                StatusFooterView()
             }
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        withAnimation { appState.showToolsPane.toggle() }
+                        withAnimation { appState.navigation.showToolsPane.toggle() }
                     } label: {
                         Label("Toggle tools", systemImage: "sidebar.leading")
                     }
                     .help("Show or hide the tools panel")
                 }
-                if appState.workspaceArea != .results {
+                if appState.navigation.workspaceArea != .results {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            appState.showLogPane.toggle()
+                            appState.navigation.showLogPane.toggle()
                         } label: {
                             Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
                         }
@@ -1060,12 +1039,23 @@ struct ContentView: View {
                     }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            appState.showInspectorPane.toggle()
+                            appState.navigation.showInspectorPane.toggle()
                         } label: {
                             Label("Toggle inspector", systemImage: "sidebar.trailing")
                         }
                         .help("Show or hide the inspector panel")
                     }
+                }
+            }
+        }
+        .onAppear {
+            // S22d: after AppKit state restoration, clamp a sidebar restored
+            // below its declared 250pt minimum (the standing 144pt-restore
+            // Track B finding). Deferred one runloop turn so restoration has
+            // finished laying out.
+            DispatchQueue.main.async {
+                for window in NSApp.windows where window.isVisible {
+                    SplitViewWidthClamp.enforceSidebarMinimum(in: window)
                 }
             }
         }
@@ -1246,6 +1236,11 @@ struct ContentView: View {
                 Spacer(minLength: 0)
                 Menu {
                     Button("Open Another…") { appState.requestOpenDataset() }
+                    // S22e: with a dataset loaded, ⌘N used to be the ONLY
+                    // route back to the configured open (Track B drive
+                    // finding, 2026-09-01) — the second door now also exists
+                    // where the other dataset actions live.
+                    Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
                     Button("Preprocess & Export…") { showPreprocessingExport = true }
                         .disabled(appState.isBusy)
                     Divider()
@@ -1398,13 +1393,12 @@ struct ContentView: View {
                     HStack(spacing: 5) {
                         Text(area.title)
                             .font(.subheadline.weight(
-                                appState.workspaceArea == area ? .semibold : .regular
+                                appState.navigation.workspaceArea == area ? .semibold : .regular
                             ))
-                        if area.isAdvanced {
-                            Text("ADV")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.secondary)
-                        }
+                        // S22c: the ADV marker moved from the workspace to
+                        // the one task that earns it (ptychography) — with
+                        // DPC in Phase, a workspace-level badge would mark
+                        // an everyday analysis as advanced.
                     }
                     // The subtitle stands down once you are past needing it.
                     // It described all five areas permanently, which cost 63pt
@@ -1412,7 +1406,7 @@ struct ContentView: View {
                     // still on the selected row (where it names where you are),
                     // on hover via `help`, and in `accessibilityHint` — so the
                     // fact is demoted, never deleted.
-                    if appState.workspaceArea == area {
+                    if appState.navigation.workspaceArea == area {
                         Text(area.subtitle)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -1431,13 +1425,13 @@ struct ContentView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(appState.workspaceArea == area ? Color.accentColor : Color.primary)
+        .foregroundStyle(appState.navigation.workspaceArea == area ? Color.accentColor : Color.primary)
         .padding(.vertical, 3)
         .help(area.subtitle)
         .accessibilityLabel(area.title)
         .accessibilityIdentifier("workspace.\(area.rawValue)")
         .accessibilityHint(area.subtitle)
-        .accessibilityAddTraits(appState.workspaceArea == area ? .isSelected : [])
+        .accessibilityAddTraits(appState.navigation.workspaceArea == area ? .isSelected : [])
     }
 
     private func taskButton(_ mode: AnalysisMode) -> some View {
@@ -1448,12 +1442,19 @@ struct ContentView: View {
                 Image(systemName: mode.systemImage)
                     .frame(width: 20)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(mode.productTitle)
-                        .font(.subheadline.weight(appState.analysisMode == mode ? .semibold : .regular))
+                    HStack(spacing: 5) {
+                        Text(mode.productTitle)
+                            .font(.subheadline.weight(appState.navigation.analysisMode == mode ? .semibold : .regular))
+                        if mode.isAdvanced {
+                            Text("ADV")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     // Same rule as `workspaceButton`: on the selected row, on
                     // hover, and in the accessibility hint — not permanently on
                     // every row. See that comment for the reasoning.
-                    if appState.analysisMode == mode {
+                    if appState.navigation.analysisMode == mode {
                         Text(mode.productSubtitle)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -1461,32 +1462,35 @@ struct ContentView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                // Backlog #33. This glyph reports READINESS — whether the
-                // task's prerequisites are met — not whether it has produced
-                // anything. It used to draw a green `checkmark.circle.fill`
-                // for "ready", which is the same symbol the inspector's
-                // "Computed this session" list uses for *done*, on screen at
-                // the same time. Reading "you may run this" as "you already
-                // ran this" was the obvious inference, and users made it.
-                //
-                // An empty circle instead, matching that list's own glyph for
-                // a product that does not exist yet. Blocked keeps the orange
-                // warning, which never had the ambiguity.
+                // Backlog #33 + R15 (2026-09-01). Three states, matching the
+                // inspector's "Computed this session" glyphs exactly:
+                // orange ! = blocked; empty circle = ready but nothing
+                // produced; green check = this task HAS produced its product
+                // this session. #33 removed the green check for merely-READY
+                // because ready≠done was misread; done-as-check is that
+                // list's own meaning, so the ambiguity does not return. The
+                // owner hit the missing third state on 2026-09-01: 83,929
+                // peaks landed and the circle stayed empty.
                 let unmet = taskUnmetCount(mode)
-                Image(systemName: unmet == 0 ? "circle" : "exclamationmark.circle.fill")
+                let produced = taskHasProduct(mode)
+                Image(systemName: produced
+                        ? "checkmark.circle.fill"
+                        : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
                     .font(.caption)
-                    .foregroundStyle(unmet == 0 ? Color.secondary : Color.orange)
+                    .foregroundStyle(produced
+                        ? Color.green
+                        : (unmet == 0 ? Color.secondary : Color.orange))
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(appState.analysisMode == mode ? Color.accentColor : Color.primary)
+        .foregroundStyle(appState.navigation.analysisMode == mode ? Color.accentColor : Color.primary)
         .padding(.vertical, 3)
         .help(mode.productSubtitle)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
-        .accessibilityAddTraits(appState.analysisMode == mode ? .isSelected : [])
+        .accessibilityAddTraits(appState.navigation.analysisMode == mode ? .isSelected : [])
     }
 
     private func taskUnmetCount(_ mode: AnalysisMode) -> Int {
@@ -1495,10 +1499,32 @@ struct ContentView: View {
         ).count
     }
 
+    /// R15: whether this task has produced its product in this session —
+    /// only for the tasks with an unambiguous retained product. Staleness is
+    /// deliberately not folded in here; the result pane's own badge carries
+    /// it (backlog #34).
+    private func taskHasProduct(_ mode: AnalysisMode) -> Bool {
+        switch mode {
+        case .disks: appState.hasCurrentBraggVectors
+        case .strain: appState.strain.map != nil
+        case .acom: appState.hasOrientationMap
+        // R25 (owner, 2026-09-01): virtual imaging and DPC share the single
+        // scalar result slot, so "has produced" is read from the recipe
+        // record — it survives the slot being replaced and resets with the
+        // dataset.
+        case .virtualDetector:
+            appState.replay.record.steps.contains { $0.kind == "virtual_detector" }
+        case .dpc:
+            appState.replay.record.steps.contains { $0.kind == "dpc" }
+        case .ptychography: false
+        }
+    }
+
     /// Readiness is folded into the button's own label rather than left on the
     /// glyph: the button sets `accessibilityLabel`, which replaces its
     /// children's, so a label on the image alone would never be announced.
     private func taskAccessibilityLabel(_ mode: AnalysisMode) -> String {
+        if taskHasProduct(mode) { return "\(mode.productTitle), computed" }
         let unmet = taskUnmetCount(mode)
         if unmet == 0 { return "\(mode.productTitle), ready" }
         return "\(mode.productTitle), \(unmet) requirement\(unmet == 1 ? "" : "s") missing"
@@ -1522,27 +1548,37 @@ struct ContentView: View {
     /// is #21's "one owner" rule; keeping both would have restated the whole
     /// checklist immediately above itself.
     ///
-    /// Two things deliberately stay outside the stages: the accelerating-voltage
-    /// field, because every stage depends on it and `mac4DSTEMUITests` locates
-    /// it structurally by its "Voltage" row label, and the displayed-product
-    /// pickers, because they choose what is on screen right now rather than
-    /// parameterising a step.
+    /// The displayed-product pickers deliberately stay outside the stages,
+    /// because they choose what is on screen right now rather than
+    /// parameterising a step. (The accelerating-voltage field, which also
+    /// lived outside them, moved to Prepare's Calibration section — S22c.)
     @ViewBuilder
     private func reconstructionStage<Content: View>(
         _ number: Int, _ title: String, @ViewBuilder content: @escaping () -> Content
     ) -> some View {
+        // R21 (owner, 2026-09-01): flat rows, no user-managed disclosures —
+        // "the weird flapouts … could just be buttons with indication or
+        // some mechanism telling the user in which order". Every stage is a
+        // visible row with its state; only the ACTIVE stage (the first
+        // incomplete one) shows its controls, automatically, so the order
+        // explains itself and there is nothing to open or close.
         let complete = reconstructionStageIsComplete(number)
-        DisclosureGroup(isExpanded: reconstructionStageBinding(number)) {
-            VStack(alignment: .leading, spacing: 6) { content() }
-        } label: {
+        let active = number == currentReconstructionStage
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle")
-                    .foregroundStyle(complete ? Color.green : Color.secondary)
+                    .foregroundStyle(complete ? Color.green
+                                     : (active ? Color.accentColor : Color.secondary))
                     .accessibilityHidden(true)
-                Text(title).font(.caption)
+                Text(title)
+                    .font(.caption.weight(active ? .semibold : .regular))
             }
             .accessibilityElement(children: .combine)
-            .accessibilityValue(complete ? "Complete" : "Pending")
+            .accessibilityValue(complete ? "Complete" : (active ? "Current step" : "Pending"))
+            if active {
+                VStack(alignment: .leading, spacing: 6) { content() }
+                    .padding(.leading, 22)
+            }
         }
         .accessibilityIdentifier("reconstruct.stage.\(number)")
     }
@@ -1562,8 +1598,8 @@ struct ContentView: View {
         (1...4).first { !reconstructionStageIsComplete($0) } ?? 4
     }
 
-    /// Follows the workflow until the user opens a stage themselves, after
-    /// which their choice stands. Closing that stage returns to following.
+    /// R21 retired the user-managed stage disclosures; the active stage's
+    /// content shows automatically. Kept only until nothing references it.
     private func reconstructionStageBinding(_ number: Int) -> Binding<Bool> {
         Binding(
             get: { (openedReconstructionStage ?? currentReconstructionStage) == number },
@@ -1571,26 +1607,6 @@ struct ContentView: View {
         )
     }
 
-    /// A labelled slider that scrubs one scan axis. `count` is the axis length;
-    /// the callback receives the clamped integer index.
-    private func scanSlider(label: String, value: Int, count: Int,
-                            onChange: @escaping (Int) -> Void) -> some View {
-        HStack {
-            Text("\(label) \(value)")
-                .font(.caption.monospaced())
-                .frame(width: 44, alignment: .leading)
-            Slider(
-                value: Binding(
-                    get: { Double(value) },
-                    set: { onChange(Int($0.rounded())) }
-                ),
-                in: 0...Double(max(count - 1, 1)),
-                step: 1
-            )
-            .accessibilityLabel("Scan \(label) position")
-            .accessibilityValue("\(value) of \(max(0, count - 1))")
-        }
-    }
 }
 
 /// Guided front end for the bounded canonical DataCube writer. Defaults are

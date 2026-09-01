@@ -172,8 +172,14 @@ struct ApertureControl: View {
     /// handle you happened to have touched last.
     private func emit(_ a: Aperture) {
         var s = a
-        s.centerX = s.centerX.rounded()
-        s.centerY = s.centerY.rounded()
+        // ui-08 (S22e): clamp AFTER rounding. The drag path clamped the raw
+        // point to `width`, and rounding the exact right edge (width − 0.5)
+        // then published `width` — one past the last pixel, which
+        // `VirtualDetector` silently answers with an empty mask. The
+        // accessibility sliders already stop at width − 1; now every route
+        // through this chokepoint agrees with them.
+        s.centerX = min(max(0, s.centerX.rounded()), Float(patternWidth - 1))
+        s.centerY = min(max(0, s.centerY.rounded()), Float(patternHeight - 1))
         s.inner = s.inner.rounded()
         s.outer = s.outer.rounded()
         onEdited(s)

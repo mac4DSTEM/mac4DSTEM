@@ -149,7 +149,7 @@ struct StemImageView: View {
     /// being correct in a panel the user is not looking at does not count.
     @ViewBuilder
     private var staleBadge: some View {
-        if app.analysisMode == .disks, app.diskDetectionSettingsAreStale,
+        if app.navigation.analysisMode == .disks, app.diskDetectionSettingsAreStale,
            app.displayedResultKind == "bragg_vector_map" {
             statusCapsule(text: "Earlier settings", color: .orange)
                 .help("This map was produced by the previous detection settings. "
@@ -213,7 +213,15 @@ struct StemImageView: View {
     private var orientationControl: some View {
         if app.displayedProduct?.domain == .scan {
             Menu {
-                Picker("View orientation", selection: Bindable(app).realSpaceDisplayOrientation) {
+                // S22b (O4): the picker's own label carries the display-only
+                // claim, and the former full-sentence menu item is gone — a
+                // long single-line Text inside a Menu set the whole flyout's
+                // width, covering a quarter of the window for five items
+                // (owner screenshot, 2026-09-01). The full sentence lives in
+                // `.help` below; the wording still says "orientation …
+                // display only" rather than "rotate" so it cannot be read as
+                // the measured R–Q rotation.
+                Picker("View orientation — display only", selection: Bindable(app).realSpaceDisplayOrientation) {
                     ForEach(RealSpaceDisplayOrientation.allCases) { orientation in
                         Text(orientation.displayName).tag(orientation)
                     }
@@ -221,9 +229,6 @@ struct StemImageView: View {
                 .pickerStyle(.inline)
                 Divider()
                 Toggle("Mirror horizontally", isOn: Bindable(app).realSpaceDisplayMirrored)
-                Divider()
-                Text("Display only — scan indices, saved products and the "
-                     + "scientific bundle are unchanged.")
             } label: {
                 Image(systemName: isOrientationDefault
                       ? "rotate.right" : "rotate.right.fill")
@@ -445,15 +450,20 @@ struct StemImageView: View {
                             )
                         } else if app.displayedResultImage != nil,
                            let range = app.resultDisplayedValueRange {
-                            ScalarColorbarView(
-                                colormap: app.displayedResultColormap,
-                                low: range.low,
-                                high: range.high,
-                                unitLabel: app.displayedResultValueUnits,
-                                gamma: app.displayedResultGamma,
-                                marksZero: app.displayedResultColormap.isDiverging,
-                                showsMasked: app.displayedResultHasMaskedPixels()
-                            )
+                            // D3: the chip IS the colormap control — click it.
+                            // (The quality-field chip above stays plain: its
+                            // map is fixed by design.)
+                            ColormapChipMenu(pane: .result) {
+                                ScalarColorbarView(
+                                    colormap: app.displayedResultColormap,
+                                    low: range.low,
+                                    high: range.high,
+                                    unitLabel: app.displayedResultValueUnits,
+                                    gamma: app.displayedResultGamma,
+                                    marksZero: app.displayedResultColormap.isDiverging,
+                                    showsMasked: app.displayedResultHasMaskedPixels()
+                                )
+                            }
                         }
                     }
                 }
@@ -588,9 +598,33 @@ struct StemImageView: View {
             including: isZoomed ? .all : .none
         )
         .allowsHitTesting(isZoomed)
-        .accessibilityHidden(!isZoomed)
         .accessibilityLabel("Scan position marker")
-        .accessibilityHint("Drag to move the selected scan position")
+        .accessibilityValue("X \(app.selectedScan.x), Y \(app.selectedScan.y)")
+        .accessibilityHint(
+            "Adjust to move horizontally, or use the named actions to move in any direction"
+        )
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                app.scrubTo(x: app.selectedScan.x + 1, y: app.selectedScan.y)
+            case .decrement:
+                app.scrubTo(x: app.selectedScan.x - 1, y: app.selectedScan.y)
+            @unknown default:
+                break
+            }
+        }
+        .accessibilityAction(named: "Move scan left") {
+            app.scrubTo(x: app.selectedScan.x - 1, y: app.selectedScan.y)
+        }
+        .accessibilityAction(named: "Move scan right") {
+            app.scrubTo(x: app.selectedScan.x + 1, y: app.selectedScan.y)
+        }
+        .accessibilityAction(named: "Move scan up") {
+            app.scrubTo(x: app.selectedScan.x, y: app.selectedScan.y - 1)
+        }
+        .accessibilityAction(named: "Move scan down") {
+            app.scrubTo(x: app.selectedScan.x, y: app.selectedScan.y + 1)
+        }
         .accessibilityIdentifier("result.scanMarkerHandle")
     }
 
@@ -635,13 +669,32 @@ struct StemImageView: View {
             Image(systemName: "square.grid.3x3")
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
-            Text(app.hasDataset
-                 ? "Adjust the aperture or pick a detector preset to generate an image"
-                 : "Open a 4DSTEM .h5 file to begin")
+            Text(app.hasDataset ? pendingInstruction : "Open a 4DSTEM .h5 file to begin")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// S22e: the empty pane names the action that produces ITS result — the
+    /// old single string told a pane titled "Bragg vector map" to "adjust the
+    /// aperture", which cannot produce one (2026-09-01 drive finding,
+    /// confirmed in source).
+    private var pendingInstruction: String {
+        switch app.navigation.analysisMode {
+        case .virtualDetector:
+            "Adjust the aperture or pick a detector preset to generate an image"
+        case .dpc:
+            "Run DPC to map beam deflection across the scan"
+        case .disks:
+            "Run Detect All Disks to produce the Bragg vector map"
+        case .strain:
+            "Compute Strain after detecting Bragg disks"
+        case .acom:
+            "Run ACOM after detecting Bragg disks and choosing a material"
+        case .ptychography:
+            "Prepare the parallax preview to begin reconstruction"
+        }
     }
 
     private func fitted(in size: CGSize, aspect: CGFloat) -> CGSize {

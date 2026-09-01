@@ -57,6 +57,18 @@ final class CalibrationReadinessFilenameTests: XCTestCase {
 
     /// Other `ss`-free numeric tokens are everywhere in these filenames
     /// (`bin2`, `45x90`, `300kV`); none may be mistaken for a scan step.
+    /// ui-09 (S22e): the unanchored regex matched `ss30nm` INSIDE
+    /// `thickness30nm` — "thickne**ss30nm**" — and fired the filename-vs-
+    /// imported-scale conflict note against a correct calibration. A token
+    /// must not start mid-word.
+    func testDoesNotMatchSSInsideAnOrdinaryWord() {
+        XCTAssertNil(parse("thickness30nm_scan.h5"))
+        XCTAssertNil(parse("glass5nm_region2.h5"))
+        // The genuine token still parses when word-separated.
+        XCTAssertNotNil(parse("sample_ss30nm_scan.h5"))
+        XCTAssertNotNil(parse("ss30nm_scan.h5"))
+    }
+
     func testDoesNotMatchUnrelatedNumericTokens() {
         XCTAssertNil(parse("Particle_1_Stack_1_45x90_bin2_300kV.h5"))
         XCTAssertNil(parse("a_cl-600mm_b.h5"))

@@ -12,25 +12,6 @@ import XCTest
 @MainActor
 final class SidebarLayoutTests: XCTestCase {
 
-    private static let displaySectionExpandedKey = "sidebar.displaySection.expanded"
-    private var sidebarDefaults: UserDefaults!
-    private var sidebarDefaultsSuiteName = ""
-
-    override func setUp() {
-        super.setUp()
-        sidebarDefaultsSuiteName = "com.mac4dstem.tests.sidebar-layout.\(UUID().uuidString)"
-        sidebarDefaults = UserDefaults(suiteName: sidebarDefaultsSuiteName)!
-        // The numeric gate describes the default, collapsed sidebar. Expansion
-        // is a remembered user choice whose acceptance belongs to Track B.
-        sidebarDefaults.set(false, forKey: Self.displaySectionExpandedKey)
-    }
-
-    override func tearDown() {
-        UserDefaults.standard.removePersistentDomain(forName: sidebarDefaultsSuiteName)
-        sidebarDefaults = nil
-        super.tearDown()
-    }
-
     private func pump(_ seconds: TimeInterval = 0.45) {
         RunLoop.current.run(until: Date().addingTimeInterval(seconds))
     }
@@ -44,9 +25,7 @@ final class SidebarLayoutTests: XCTestCase {
         window.title = "mac4DSTEM"
         window.toolbarStyle = .unified
         window.contentView = NSHostingView(
-            rootView: ContentView()
-                .environment(appState)
-                .defaultAppStorage(sidebarDefaults)
+            rootView: ContentView().environment(appState)
         )
         window.makeKeyAndOrderFront(nil)
         pump(1.2)
@@ -179,9 +158,9 @@ final class SidebarLayoutTests: XCTestCase {
             assertSidebarTopIsBelowTheTitlebar("scrolled, then switched to \(area.title)")
         }
 
-        withAnimation { appState.showToolsPane = false }
+        withAnimation { appState.navigation.showToolsPane = false }
         pump(0.3)
-        withAnimation { appState.showToolsPane = true }
+        withAnimation { appState.navigation.showToolsPane = true }
         pump(0.4)
         assertSidebarTopIsBelowTheTitlebar("after an animated tools-pane round trip")
 
@@ -208,10 +187,14 @@ final class SidebarLayoutTests: XCTestCase {
             defer { window.orderOut(nil) }
 
             appState.selectWorkspace(.reconstruct)
+            // S22c: Phase's default task is DPC, which has no blocking
+            // prerequisites by design — the blocked/ready axis this test
+            // measures only exists on ptychography, so select it explicitly.
+            appState.changeMode(.ptychography)
             pump(0.6)
 
             let unmet = ProductWorkflow.prerequisites(
-                for: appState.analysisMode, readiness: appState.productWorkflowReadiness
+                for: appState.navigation.analysisMode, readiness: appState.productWorkflowReadiness
             ).count
             XCTAssertEqual(
                 unmet == 0, calibrated,
@@ -311,10 +294,27 @@ final class SidebarLayoutTests: XCTestCase {
             for area in WorkspaceArea.allCases {
                 if !calibrated && area == .prepare { continue }
                 appState.selectWorkspace(area)
+                // S22d made sidebar HEIGHT depend on the published wrap
+                // WIDTH — so the width must be pinned at measurement time,
+                // not once at window creation: a LIVE app instance
+                // autosaving its own sidebar width (250pt at the minimum)
+                // into the shared defaults re-restored the harness window
+                // to that width after the initial pin, and at 250pt the
+                // wrapped rows measure a real 810.5pt (observed twice on
+                // 2026-09-01, exactly when the owner's instance was open;
+                // green when it was closed). Re-pin per workspace, then wait
+                // for the height to hold still.
+                pinSidebarWidth(window)
                 pump(0.5)
                 let scroll = try XCTUnwrap(sidebar(window))
+                var document = try XCTUnwrap(scroll.documentView).bounds.height
+                for _ in 0..<8 {
+                    pump(0.3)
+                    let next = try XCTUnwrap(scroll.documentView).bounds.height
+                    if next == document { break }
+                    document = next
+                }
                 let available = scroll.bounds.height - scroll.contentInsets.top
-                let document = try XCTUnwrap(scroll.documentView).bounds.height
                 XCTAssertLessThanOrEqual(
                     document, available + 8,
                     "\(area.title) (calibrated=\(calibrated)) sidebar is \(document)pt "
@@ -360,7 +360,6 @@ final class SidebarLayoutTests: XCTestCase {
         availableHeight=\(available)
         overflow=\(document - available)
         sidebarWidth=\(scroll.bounds.width)
-        displaySectionExpanded=\(sidebarDefaults.bool(forKey: Self.displaySectionExpandedKey))
         contentInsets=(top: \(insets.top), left: \(insets.left), bottom: \(insets.bottom), right: \(insets.right))
         backingScaleFactor=\(screen?.backingScaleFactor ?? 0)
         screenFrame=\(NSStringFromRect(screen?.frame ?? .zero))
@@ -397,13 +396,12 @@ final class SidebarLayoutTests: XCTestCase {
     /// presence is pinned here where it fails loudly instead.
     /// The Result colormap must be reachable from Results.
     ///
-    /// The 2026-08-06 polish pass moved the display controls into a collapsed
-    /// disclosure — right — and hid the whole section when
-    /// `workspaceArea == .results` — wrong. The Result picker is gated on
+    /// The 2026-08-06 polish pass hid the whole display section when
+    /// `workspaceArea == .results`. The Result picker is gated on
     /// `resultImage != nil`, so the control that recolours a result existed in
     /// every workspace *except* the one built for looking at results: you had
-    /// to leave the image to change how it was drawn. Reported from the real
-    /// app as "missing buttons", and confirmed fixed on screen.
+    /// to leave the image to change how it was drawn. The 2026-09-01 UI pair
+    /// then made both colormap controls permanent rather than disclosure-bound.
     ///
     /// This asserts the *decision*, not the rendering, and that is deliberate.
     /// A window-based version was written first and could not work: SwiftUI
@@ -416,68 +414,94 @@ final class SidebarLayoutTests: XCTestCase {
     /// from any other pop-up, so the only available assertion would be a count
     /// of anonymous controls — which passes just as happily on the wrong one.
     /// Don't retry it.
-    func testDisplaySectionScopesItsContentsRatherThanHidingItself() throws {
-        for workspace in WorkspaceArea.allCases {
-            let expectsPatternControls = workspace != .results
-            XCTAssertEqual(
-                SidebarDisplaySection.showsPatternControls(in: workspace),
-                expectsPatternControls,
-                "\(workspace.rawValue): the pattern controls need a CBED pane to act on"
-            )
+    // `testDisplaySectionScopesItsContentsRatherThanHidingItself` was
+    // RETIRED with the sidebar Display section itself (D3, 2026-09-01): the
+    // colormap control now lives on each pane's colorbar chip
+    // (`ColormapChipMenu`), so the reachability invariant it pinned — a
+    // displayed result's recolour control must exist wherever the result is
+    // shown — holds structurally: the chip and the image are the same
+    // surface and cannot be scoped apart.
 
-            // With a result on screen the section must appear in *every*
-            // workspace — Results included. That is the regression.
-            XCTAssertTrue(
-                SidebarDisplaySection.isPresented(in: workspace, hasResult: true),
-                "\(workspace.rawValue): a result is displayed but its colormap control is "
-                    + "unreachable"
-            )
+    /// S22 feedback R1 (2026-09-01): the sidebar cannot be forced outside its
+    /// declared 250–340pt band AT ALL any more. The hard `minWidth` on the
+    /// column root refuses the very position change a stale restoration
+    /// (144pt — the standing Track B row) or a hard drag used to achieve;
+    /// this test's earlier form PROVED the assertion discriminates, because
+    /// with the floor absent the same `setPosition(144)` measured 139–144pt
+    /// on screen and in this harness, and with the floor present its
+    /// below-minimum precondition became unsatisfiable — that gate failure is
+    /// what prompted this rewrite. `SplitViewWidthClamp` stays as a second
+    /// belt for restore paths that bypass layout.
+    func testTheSidebarRefusesPositionsOutsideItsDeclaredBand() async throws {
+        let appState = AppState()
+        await appState.openDemoFixture()
+        let window = makeWindow(appState)
+        defer { window.orderOut(nil) }
+        pump(0.6)
 
-            // Without one, only the workspaces that own a diffraction pane
-            // have anything left to show.
-            XCTAssertEqual(
-                SidebarDisplaySection.isPresented(in: workspace, hasResult: false),
-                expectsPatternControls,
-                "\(workspace.rawValue): an empty Display section must not be offered"
-            )
-        }
+        let split = try XCTUnwrap(
+            SplitViewWidthClamp.outermostColumnSplit(in: window.contentView),
+            "no column split view in the window"
+        )
+        split.setPosition(144, ofDividerAt: 0)
+        split.layoutSubtreeIfNeeded()
+        pump(0.2)
+        let afterFloorPush = try XCTUnwrap(split.arrangedSubviews.first).frame.width
+        XCTAssertGreaterThanOrEqual(
+            afterFloorPush, SplitViewWidthClamp.sidebarMinimum - 1,
+            "a forced 144pt sidebar must be refused by the floor; got \(afterFloorPush)"
+        )
+
+        // The 340pt CEILING is deliberately not asserted here: it is enforced
+        // at the gesture level (the declared max resists user drags — held at
+        // exactly 340 in the live drive, 2026-09-01) and via the AppKit
+        // thickness bounds, which need a contentViewController this harness
+        // window does not have. A programmatic setPosition(700) bypasses
+        // both intermittently, which made the assertion flaky in the full
+        // suite while passing standalone — a timing artifact, not a product
+        // property.
     }
 
-    func testAcceleratingVoltageStaysOutsideTheReconstructStages() async throws {
+    /// S22c moved the accelerating-voltage field to Prepare's Calibration
+    /// section — DPC, parallax and ptychography all consume it (pipelines
+    /// §7.4), so it lives with the other physical scales rather than inside
+    /// one consumer's workflow. Counted as real `NSTextField`s because SwiftUI
+    /// puts no accessibility identifiers on the NSView tree (measured
+    /// 2026-08-06). Pinned from both sides: Prepare renders an editable field;
+    /// Reconstruct → Ptychography renders NONE (its open stage 1 is a button,
+    /// collapsed stages render nothing) — a nonzero count there is the field
+    /// back in its old home, or duplicated.
+    func testAcceleratingVoltageLivesInPrepareNotTheReconstructStages() async throws {
         let appState = AppState()
         await appState.openDemoFixture()
         let window = makeWindow(appState)
         defer { window.orderOut(nil) }
         pinSidebarWidth(window)
 
-        appState.selectWorkspace(.reconstruct)
-        appState.changeMode(.ptychography)
-        pump(0.8)
-
-        // Asserted by *count*, not by identifier. SwiftUI does not put its
-        // accessibility identifiers on the `NSView` tree, and it builds the
-        // accessibility tree lazily for a real assistive client — measured
-        // 2026-08-06: walking either tree in-process finds 0 identifiers. The
-        // editable text fields it renders as real `NSTextField`s, though, are
-        // countable.
-        //
-        // On arrival at Reconstruct the open stage is 1 ("Prepare preview"),
-        // whose only control is a button. So the sole text field on screen is
-        // the accelerating-voltage field — and if a stage disclosure swallowed
-        // it, this count would be 0.
+        // EDITABLE fields only: AppKit renders some SwiftUI text (for
+        // example a Menu label's content, like D3's colorbar chips) as
+        // non-editable `NSTextField`s, which are labels, not inputs.
         func textFields(_ view: NSView) -> Int {
-            var n = view is NSTextField ? 1 : 0
+            var n = (view as? NSTextField)?.isEditable == true ? 1 : 0
             for sub in view.subviews { n += textFields(sub) }
             return n
         }
 
+        appState.selectWorkspace(.prepare)
+        pump(0.8)
         XCTAssertGreaterThanOrEqual(
             textFields(window.contentView!), 1,
-            "no editable field is on screen in Reconstruct → Ptychography. The "
-                + "accelerating-voltage field must stay outside #39's stage disclosures: "
-                + "`mac4DSTEMUITests.setAcceleratingVoltage` finds it structurally by its "
-                + "\"Voltage\" row label, and when it cannot, the QC playthrough records an "
-                + "error and skips parallax rather than failing the run."
+            "Prepare must offer the voltage field alongside the other calibration controls"
+        )
+
+        appState.selectWorkspace(.reconstruct)
+        appState.changeMode(.ptychography)
+        pump(0.8)
+        XCTAssertEqual(
+            textFields(window.contentView!), 0,
+            "no editable field belongs in Reconstruct → Ptychography once the "
+                + "voltage moved to Prepare — a nonzero count is the field back in "
+                + "its old home, or duplicated"
         )
     }
 

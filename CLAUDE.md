@@ -72,8 +72,10 @@ migrates legacy sidecars, and a separate Gate B refuter cleared it after five
 corrections ([record](docs/archive/v2-session-records/dpc-angle-units.md)).
 Also, **six Track B rows were driven green** — **Done criterion 8
 is met on screen**, and **`app-appstate-01` is the first review finding reproduced
-at runtime**. Track B now stands at **31 passed / 7 partly / 17 unverified /
-1 blocked** (F1.48 + F1.49 queued by the 2026-09-01 repair sessions)
+at runtime**. Track B now stands at **31 passed / 9 partly / 19 unverified /
+1 blocked** (F1.47–F1.50 queued by the 2026-09-01 repair/UI sessions; F1.51
+scored PARTLY by the owner's evening drive; F1.52 scored PARTLY by the S22
+consolidated drive; **F1.53 is the owner's single final-playthrough row**)
 (plus the M1 tidy and the M2 gate repair) — **S13 was MERGED to `main` and
 pushed (fast-forward to `bab5e07`); `s13-q-calibration` still exists and points
 at the same commit. Corrected 2026-08-31**: this file and §9 both still said
@@ -139,10 +141,66 @@ meanDP) are **DONE, each through Gate D reproduction and an independent
 Gate B refuter that materially corrected its author** (records:
 [`cif-pair.md`](docs/archive/v2-session-records/cif-pair.md),
 [`probe-radius.md`](docs/archive/v2-session-records/probe-radius.md)).
-**Track B rows F1.48 and F1.49 are queued** (CIF refusal dialogs; the
-honest radius + stricter origin gate) alongside F1.47. **Next in the agreed
-sequence: the UI pair** (demote scan sliders, colormaps always visible),
-then the provenance leak, then the remaining Group A items.
+**Track B rows F1.47–F1.50 are queued** (DPC angle units, CIF refusal dialogs,
+the honest radius + stricter origin gate, scan navigation without the redundant
+sliders); **F1.51 (permanent colormaps) was scored PARTLY the same evening** —
+visible and working, refused on the redundant colormap submenu. **The UI pair
+is DONE 2026-09-01 but HELD uncommitted** (owner decision — he will not finish
+Track B in the current UI state), and his evening playthrough opened S22's
+evidence with a "not a good v2" verdict (seven findings, one of them science:
+bullseye disk detection, Gate D owed). **Decided the same evening: S22 moves
+ahead of the remaining fix queue.** The design ran, the owner approved it
+("go as deep as needed"), and **all five slices S22a–e are DONE the same
+night** — system inspector column, menu/task-pane idioms, the spine re-cut
+to **Prepare / Imaging / Strain & ACOM / Phase / Results** (the third step
+renamed from "Bragg" by owner decision D1; `WorkspaceNavigation` seam
+extracted first), sidebar wrapping + the 144pt-restore clamp, and six
+of eight backlog-polish items (`ui-04` and `core-data-09` deferred with
+reasons). A consolidated assistant drive verified the changes on screen and
+caught two more defects the green gates could not (the stale demo greeting;
+sidebar wrapping needing `lineLimit(nil)` against the list style's inherited
+one-line limit). **[`docs/s22-ux-design.md`](docs/s22-ux-design.md) is the
+single S22 thread** — evidence, design, per-slice records, gate counts.
+**The owner's real playthrough that night rejected the state — and the
+whole feedback queue was then closed the same night** (16 findings R1–R16,
+all in `docs/s22-ux-design.md` §5.5): the width-bounds regression, welcome
+cards, overprint, duplicate Show row, produced-state task glyphs, pan
+clamping. **P1 (frozen Detect All Disks) closed by full Gate D** — owner
+reproduced, agent sampled mid-hang, refuter confirmed with corrections: the
+main thread was conscripted by `concurrentPerform`, the mechanism predates
+v1, and the true slowness is the 250-px detector falling to
+`FFT2D.executeDFT`'s O(n²) fallback (its speedup is a queued gated
+session). Fix = detached execution; **owner verified live: progress
+painted, Cancel worked.** **P2 (stale-frame sidecar calibration) closed by
+full Gate D** — session calibration now goes through
+`SessionCalibrationFramePolicy` (identity / re-reference / refuse) and the
+engine; the refuter corrected the fix twice (double-application avoided;
+identity-restore map sizing pinned red-first). **D1–D4 landed**: the third
+workspace is **Strain & ACOM**; `StatusFooterView` is the permanent
+status/progress/facts footer; colormaps moved onto each pane's colorbar
+chip (`ColormapChipMenu`, sidebar Display row retired); "Reopen Without
+This Session"/"Ignore…" skip a sidecar one-shot, file untouched. **Feedback rounds 3–4 landed the same night** — the colorbar chip rebuilt
+as a popover (the owner caught the Menu-label build losing its gradient),
+the footer stacked so it can cover nothing, region sums scoped to Current
+mode, flat auto-advancing reconstruction stages, ACOM preview advancing to
+the full run, produced-state circles for virtual/DPC, linear-default
+histograms, and a stateful Phase requirements line. **27 owner findings
+R1–R27 total, 24 fixed and gated** (`docs/s22-ux-design.md` §5.5 is the
+ledger; its HANDOFF block in §6 is the open queue, and **§6.1 carries the
+owner-requested copy-paste kickoff prompts for the FFT speedup session and
+the colormap-chip fix** — R23's popover rebuild is **CONFIRMED still broken
+on the owner's screen after a rebuild**, and with the sidebar Display row
+retired that means NO working colormap control exists until it is fixed:
+the top item for the next agent). Last full suite:
+**417 passed / 0 failed / 2 skipped** (warm MCP runs — the fresh gate
+refuses exit-69 at the ~6 GB disk floor; the layout gate re-pins the
+sidebar width per measurement because a live app instance's width autosave
+otherwise leaks into the harness). The recorded lesson stands:
+verification drives must use real data, both divider extremes, a full
+compute, and a sidecar dataset. A
+standing **token-conservation directive** landed with it: lower-tier models
+when possible and safe, terse docs, heavy gates reserved for science
+(`docs/open-items.md` §Owner decisions 7–8).
 
 **The honest test claim — each number dated to its own run:**
 `run-tests.sh scientific` — **exit 0, 42 started / 42 completed, zero FAIL and
@@ -153,10 +211,14 @@ first time in this run (Au median 1.25°, WS₂ 0.78°); it was 41 at the W4a/W4
 closeouts, 39 at S13, and the docs said 38 for three days after that. Do not
 quote a harness count from memory — `run-tests.sh` is the only thing that knows
 it.
-`run-tests.sh unit` — **402 passed / 2 skipped / 0 failed, exit 0**
-(2026-09-01 probe-radius closeout, the Gate B refuter's run on the final
-tree: the DPC closeout's 393 + 5 CIF tests + 4 ProbeSizeTests; that 393 is
-what settled 2026-08-31's unexplained 390-vs-391 discrepancy).
+`run-tests.sh unit` — **409 passed / 2 skipped / 0 failed, exit 0**
+(2026-09-01 S22 final closeout, counted from the retained log; parallel runs
+garble about one `Test case` line per run, so grep undercounts by one and the
+exit code is authoritative for failures). The S22 slices ran SEVEN full gates
+that evening (a/b/c1/c2-caught-one-red/c3/d/e/final), each counted from its
+own retained log; the earlier closeouts' 401 and 393 stand as their own dated
+runs, and 393 is what settled 2026-08-31's unexplained 390-vs-391
+discrepancy.
 `run-tests.sh scientific` also re-ran green on the probe-radius tree the
 same day — **42 started / 42 completed, zero FAIL, exit 0**, counted from
 the retained log. The two skips are unchanged: the

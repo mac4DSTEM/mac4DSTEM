@@ -59,14 +59,14 @@ struct TaskPrerequisiteChecklist: View {
 
     private var items: [TaskPrerequisite] {
         ProductWorkflow.prerequisiteItems(
-            for: appState.analysisMode,
+            for: appState.navigation.analysisMode,
             readiness: appState.productWorkflowReadiness
         )
     }
 
     private var guidance: [String] {
         ProductWorkflow.guidance(
-            for: appState.analysisMode,
+            for: appState.navigation.analysisMode,
             readiness: appState.productWorkflowReadiness
         )
     }
@@ -94,13 +94,13 @@ struct TaskPrerequisiteChecklist: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workspace.prerequisites")
-        .onChange(of: appState.analysisMode) { isExpanded = false }
+        .onChange(of: appState.navigation.analysisMode) { isExpanded = false }
     }
 
     private func summaryRow(total: Int, unmet: [TaskPrerequisite]) -> some View {
         HStack(spacing: 10) {
             Label(
-                "Needed before \(appState.analysisMode.productTitle) can run",
+                "Needed before \(appState.navigation.analysisMode.productTitle) can run",
                 systemImage: "exclamationmark.circle.fill"
             )
             .font(.caption.weight(.semibold))

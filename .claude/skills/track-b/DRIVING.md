@@ -43,8 +43,9 @@ is a claim about a whole surface, not the visible part of it.*
 ## Check the source condition before believing the screen
 
 Two false findings avoided this way:
-- **F1.40's** outlier line renders only when `excludedFraction > 0.005`. Its
-  absence on Si_SiGe is correct, not a failure.
+- **F1.40's** outlier line renders only when `excludedFraction` exceeds the
+  shared 2% policy floor (0.005 before S22a). Its absence on Si_SiGe is
+  correct, not a failure.
 - **F1.41's** Q-shell line needs `qCalibration.selfCheckSummary`, i.e. a
   Calibrate-Q-from-crystal run; and its button needs `hasCurrentBraggVectors`.
 

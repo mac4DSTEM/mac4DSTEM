@@ -7,6 +7,14 @@ import SwiftUI
 struct CalibrationDetailsView: View {
     @Environment(AppState.self) private var appState
 
+    /// core-data-05 (S22a ride-along): the excluded-fraction disclosure obeys
+    /// the shared policy floor, not the retired 0.5% — readiness (:277) and
+    /// the refusal path (:742) already use `excludedFractionDisclosureFloor`,
+    /// and Gate B measured 0.5% as inside the trim's own false-positive range.
+    static func disclosesExcludedFraction(_ excluded: Float) -> Bool {
+        excluded > Calibration.excludedFractionDisclosureFloor
+    }
+
     var body: some View {
         @Bindable var appState = appState
         DisclosureGroup("Fit diagnostics & advanced correction") {
@@ -61,7 +69,8 @@ struct CalibrationDetailsView: View {
             // number sees it (the release owner's decision, 2026-08-28):
             // "2.19 px over 73% of positions" is a different claim from
             // "2.19 px over all of them".
-            if let excluded = appState.calibration.origin?.excludedFraction, excluded > 0.005 {
+            if let excluded = appState.calibration.origin?.excludedFraction,
+               Self.disclosesExcludedFraction(excluded) {
                 LabeledContent(
                     "Positions used",
                     value: String(format: "%.0f%% (%.0f%% excluded as outliers)",

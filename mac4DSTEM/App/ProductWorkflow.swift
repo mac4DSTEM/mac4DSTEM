@@ -12,12 +12,19 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    // S22c: the five steps are re-cut along the physics
+    // (docs/s22-ux-design.md §4.2). Case names and raw values deliberately
+    // keep their v1 identities — `image`/`map`/`reconstruct` — so persisted
+    // recovery records and any stored selection survive the re-cut; only the
+    // presented names and the task assignment change.
     var title: String {
         switch self {
         case .prepare: "Prepare"
-        case .image: "Image"
-        case .map: "Map"
-        case .reconstruct: "Reconstruct"
+        case .image: "Imaging"
+        // D1 (owner, 2026-09-01): named by its OUTCOMES — "Bragg" put the
+        // method's name four times in one sidebar column.
+        case .map: "Strain & ACOM"
+        case .reconstruct: "Phase"
         case .results: "Results"
         }
     }
@@ -25,9 +32,9 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var subtitle: String {
         switch self {
         case .prepare: "Inspect and calibrate the dataset"
-        case .image: "Create virtual and phase-contrast images"
-        case .map: "Measure disks, strain, and orientation"
-        case .reconstruct: "Recover phase and depth"
+        case .image: "Form BF, ADF, or custom virtual images"
+        case .map: "Detect Bragg disks, then strain and orientation"
+        case .reconstruct: "DPC, parallax, and ptychography"
         case .results: "Review, save, and export products"
         }
     }
@@ -45,14 +52,17 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var analysisModes: [AnalysisMode] {
         switch self {
         case .prepare, .results: []
-        case .image: [.virtualDetector, .dpc]
+        case .image: [.virtualDetector]
+        // The Bragg path in its pipeline order: disks produce the vectors
+        // the other two consume.
         case .map: [.disks, .strain, .acom]
-        case .reconstruct: [.ptychography]
+        // The phase-contrast family, together — every member needs only
+        // voltage and geometry, none needs Bragg vectors (§3.3 grammar).
+        case .reconstruct: [.dpc, .ptychography]
         }
     }
 
     var defaultAnalysisMode: AnalysisMode? { analysisModes.first }
-    var isAdvanced: Bool { self == .reconstruct }
 
     /// This workspace's tasks, grouped into their prerequisite families in
     /// `TaskPrerequisiteFamily.allCases` order. Empty families are dropped, so
@@ -120,8 +130,8 @@ struct TaskFamilyGroup: Identifiable, Sendable {
 /// Two families of analysis have very different prerequisites: the Bragg path
 /// (disks → strain/ACOM) needs disk detection and crystal calibration, while
 /// the phase-contrast path (DPC, parallax, ptychography) needs only energy and
-/// geometry. The task lists interleave them across Image / Map / Reconstruct,
-/// which leaves the shared "you need Bragg vectors first" dependency invisible.
+/// geometry. S22c aligned the workspaces with these families (Bragg and Phase
+/// are now workspaces); the per-task grouping remains for any future task mix.
 ///
 /// Deliberately three cases, not two: `.disks` *produces* the vectors that
 /// `.strain` and `.acom` consume, so a single "requires Bragg vectors" label
@@ -163,9 +173,12 @@ extension AnalysisMode {
 
     var workspaceArea: WorkspaceArea {
         switch self {
-        case .virtualDetector, .dpc: .image
+        case .virtualDetector: .image
         case .disks, .strain, .acom: .map
-        case .ptychography: .reconstruct
+        // DPC sits with its prerequisite family (S22c): it shares the
+        // voltage-only contract with parallax/ptychography, not the
+        // zero-prerequisite contract of virtual imaging.
+        case .dpc, .ptychography: .reconstruct
         }
     }
 
@@ -269,10 +282,10 @@ enum ProductWorkflow {
                 ),
                 TaskPrerequisite(
                     id: "voltage", title: "Set the accelerating voltage",
-                    isSatisfied: readiness.hasVoltage,
-                    resolution: .taskPanel(
-                        "Enter the voltage in the Reconstruction workflow settings in the tools panel."
-                    )
+                    // S22c: the field moved to Prepare's Calibration section,
+                    // so the checklist can navigate there like every other
+                    // calibration prerequisite instead of describing a panel.
+                    isSatisfied: readiness.hasVoltage, resolution: .prepare
                 )
             ]
         case .strain:
@@ -361,12 +374,12 @@ enum ProductWorkflow {
         switch area {
         case .prepare:
             return calibrationReady
-                ? "Next: create an image, or detect Bragg disks in Map to unlock strain and orientation."
+                ? "Next: create an image, or detect Bragg disks in Strain & ACOM."
                 : nil
         case .image:
             return readiness.hasBraggVectors
                 ? nil
-                : "Next: detect Bragg disks in Map to unlock strain and orientation."
+                : "Next: detect Bragg disks in Strain & ACOM to unlock its maps."
         case .map:
             return readiness.hasBraggVectors
                 ? "Next: review and export in Results."

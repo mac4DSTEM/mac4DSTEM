@@ -93,7 +93,7 @@ final class RealSpaceROIVisibilityTests: XCTestCase {
         let state = AppState()
 
         for mode in AnalysisMode.allCases {
-            state.analysisMode = mode
+            state.navigation.analysisMode = mode
 
             state.realSpaceShape = .point
             XCTAssertFalse(

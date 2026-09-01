@@ -81,16 +81,16 @@ private struct DatasetCommands: Commands {
             .disabled(appState?.hasDataset != true || appState?.isBusy == true)
         }
         CommandGroup(replacing: .sidebar) {
-            Button(appState?.showToolsPane == true ? "Hide Tools" : "Show Tools") {
-                appState?.showToolsPane.toggle()
+            Button(appState?.navigation.showToolsPane == true ? "Hide Tools" : "Show Tools") {
+                appState?.navigation.showToolsPane.toggle()
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
-            Button(appState?.showInspectorPane == true ? "Hide Inspector" : "Show Inspector") {
-                appState?.showInspectorPane.toggle()
+            Button(appState?.navigation.showInspectorPane == true ? "Hide Inspector" : "Show Inspector") {
+                appState?.navigation.showInspectorPane.toggle()
             }
             .keyboardShortcut("i", modifiers: [.command, .control])
-            Button(appState?.showLogPane == true ? "Hide Output" : "Show Output") {
-                appState?.showLogPane.toggle()
+            Button(appState?.navigation.showLogPane == true ? "Hide Output" : "Show Output") {
+                appState?.navigation.showLogPane.toggle()
             }
                 .keyboardShortcut("l", modifiers: [.command, .control])
         }

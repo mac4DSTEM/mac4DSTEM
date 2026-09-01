@@ -43,8 +43,10 @@ Taken in conversation with the release owner; they resolve
 
 1. **All five remaining Group A items ship FIXED** (WS₂ shell selection, the
    provenance leak `app-appstate-01`+`support-export-01`, the hexagonal IPF
-   legend, the invented/mislabelled units, the readiness-row truncation),
-   plus the ride-alongs (ui-07, Group D's five green-but-worthless tests).
+   legend, the invented/mislabelled units, ~~the readiness-row truncation~~ —
+   **truncation CLOSED by S22d, 2026-09-01**, on-screen wrap verified; see
+   `docs/s22-ux-design.md` §6), plus the ride-alongs (~~ui-07~~ — **closed by
+   S22b** — and Group D's five green-but-worthless tests).
 2. **The §1 claims "hand a colleague the recipe" and "promote overnight" are
    DISCARDED from v2** — S19 restates them. The clean-account run stays
    (owner, local second account); the colleague/second-machine test dies
@@ -63,24 +65,50 @@ Taken in conversation with the release owner; they resolve
    recorded mean-DP/vacuum discriminator — then Gate B; covers the SPED_MgO
    observation and the 2.15× demo over-measurement). Manual radius entry
    only AFTER the estimator is fixed or qualified, stamped `.manual`.
-5. **Two owner-promoted UI changes ride v2** (each queues a Track B row):
-   remove or demote the scan-position X/Y sliders
-   (`UI/ContentView.swift:136`; click-to-pick on the image is the used
-   path), and make the colormap pickers permanently visible instead of
-   inside the Display flap-out.
+5. ~~**Two owner-promoted UI changes ride v2**~~ — **DONE 2026-09-01; F1.50
+   and F1.51 queued.** The redundant scan-position X/Y sliders are removed;
+   click/drag, marker-handle and keyboard navigation remain, with exact X/Y in
+   the inspector; the marker also restores native accessibility adjustment and
+   named four-direction actions. DP and Result colormaps now occupy one
+   permanent adaptive row; the first three-row version made Map overflow
+   (caught by the existing layout gate), so log scale and Q units moved into
+   its options menu. Gate A then caught a 513pt intrinsic-width first pass; the
+   final minimum-width DP/Result/options fallback measures 193pt in ~218pt of
+   row content.
 6. **Working split, standing:** the assistant plans and implements;
    Haiku/Sonnet subagents do exploration and mechanical fan-out; every
    Gate B/D review gets an independent subagent refuter, requested from the
    owner explicitly each time.
+7. **S22 pulled forward — decided 2026-09-01 evening, overturning the ship
+   plan's "No S22".** The owner's playthrough verdict ("this is not a good
+   v2") blocks his own testing: **the UI-pair work is HELD uncommitted and
+   the owner's Track B sittings are PAUSED until S22's fixes land** — he
+   will do one final playthrough + report after. **The design phase RAN the
+   same evening** — [`docs/s22-ux-design.md`](s22-ux-design.md) is the
+   single S22 thread (evidence, design, slice plan, status; owner approval
+   pending, blocks all S22 code) — then S22 implementation slices, then the
+   provenance leak and remaining Group A. Bullseye disk detection stays a SEPARATE Gate D
+   science session, not S22.
+8. **Token conservation, standing directive:** route work to lower-tier
+   models when possible and safe — Haiku for exploration/mechanical
+   fan-out, Sonnet for bounded well-specified implementation, the default
+   model only where judgement or science is at stake. Keep doc updates
+   terse (the ≤20-line findings rule); no further whole-codebase
+   meta-passes; design on paper before SwiftUI rework. The science gates
+   stay — they caught three wrong fixes — but their heavy form is reserved
+   for science-affecting changes; UI slices take light Gate A. The
+   structural rethink for the future is
+   [`docs/v3-development-process.md`](v3-development-process.md).
 
 Sequence agreed: docs tidy (ran 2026-09-01) → CIF pair (**DONE 2026-09-01 —
 Gate B ran, verdict stand-with-corrections, all four corrections applied;
 [record](archive/v2-session-records/cif-pair.md)**) → probe-radius
 (**DONE 2026-09-01 — Gate D confirmed, fixed, Gate B stand-with-corrections
 all applied** — [record](archive/v2-session-records/probe-radius.md)) →
-UI pair →
-provenance leak → remaining Group A → owner runs (clean account, bounded
-promote) → Track B finish → S20. The 036 view-vs-full
+UI pair (**DONE 2026-09-01, held uncommitted — decision 7**) →
+**S22 design phase (NEXT)** → S22 implementation slices → provenance leak →
+remaining Group A → owner runs (clean account, bounded promote) → the owner's
+final playthrough (Track B finish) → S20. The 036 view-vs-full
 performance A/B stays queued as its own sitting (parameter matrix if the
 owner's exact load spec stays unknown).
 
@@ -149,8 +177,8 @@ file:
   and on the runner). **Run #2 (`5f98ded`): `scientific` PASSED again
   (7m 59s); `unit` built and ran all 377 tests — the sole failure is the
   then-unresolved S17 sidebar test, reproduced on the runner. So that red badge
-  was accurate. **S17 settled the test locally on 2026-08-27** (default-collapsed
-  state isolated; uncalibrated Prepare explicitly skipped with diagnostics),
+  was accurate. **S17 settled the test locally on 2026-08-27** (the persisted
+  disclosure state isolated; uncalibrated Prepare explicitly skipped with diagnostics),
   but the workflow change has not been pushed: the next CI run is the evidence
   for a green badge, not this local result. The 180-min `scientific` timeout can
   be tightened from the ~8-min data when the workflow is next touched.
@@ -303,6 +331,78 @@ Two things learned that are not obvious and cost time:
   session sidecar as a datacube (#43). The two years of historical detail this entry accumulated — the 2026-08-18
   measurements, the component table, the S17 update — are **moved verbatim** to
   [the closed-items archive](archive/closed-items-2026-08.md#the-stale-run-testssh-all-claim--closed-2026-08-28).
+
+### Owner playthrough — 2026-09-01 second sitting (S22's evidence starts arriving)
+
+The owner drove the current Xcode build (the uncommitted UI-pair tree)
+~15:56–16:10 across `calibrationData_bullseyeProbe.h5`, `NP_data.h5`,
+`twisted_bilayer_graphene.hdf5` and `COPL_Ni65Cu35_…bin_4_20240912.h5`, and
+sent seven screenshots. Nothing under `mac4DSTEM/` changed — eval-only. The
+overall verdict, in the owner's words: **"this is not a good v2"** — the
+workflow reads worse than v1's, and UI polish is harder than presumed. That
+judgement is the exact input S22's stub says it cannot start without.
+Findings:
+
+1. **Bullseye disc detection judged unacceptable — SCIENCE, Gate D owed, own
+   session.** Map ▸ Bragg disks on `calibrationData_bullseyeProbe.h5`
+   (100×84 scan, 250×250 detector), synthetic kernel r = 6.8 px, correlation
+   power 1.00, parabolic subpixel, funnel `absolute 187 · relative 72 ·
+   spacing 68`: accepted circles sit across noise regions far from any disk.
+   Two recorded neighbours are NOT this item: the permissive acceptance
+   thresholds (F1.49's trap) and owner decision #4's estimator repair. The
+   bullseye-specific question — what kernel a ringed probe needs, and what
+   py4DSTEM does for the same data — is for the Gate D session to establish,
+   not this note (review the diagnosis, not the code).
+2. **The DPC & iDPC task pane offers no task** — S22. What selecting the task
+   shows (`mac4DSTEM/UI/ContentView.swift:267-330`) is one Display picker plus
+   read-only rows, refusal text and tips; on an uncalibrated cube that is
+   orange text with nothing actionable. Owner: "just useless."
+3. **A colormap change takes three interactions through a redundant submenu.**
+   `colormapMenu` wraps its Picker in a Menu
+   (`mac4DSTEM/UI/ContentView.swift:1185-1190`), which macOS renders as a
+   single "DP colormap ▸" parent item duplicating the button's own label —
+   confirmed by the owner's screenshots. The flat idiom is already in-tree:
+   the orientation control's `.pickerStyle(.inline)`
+   (`mac4DSTEM/UI/StemImageView.swift:221`). Scored into F1.51 (PARTLY).
+   Candidate ride-along for the first S22 slice.
+4. **Sidebar text truncates, and the workaround clips the sidebar itself.**
+   To read calibration/readiness detail the owner must drag the sidebar far
+   right; on `COPL…` in Prepare the wide sidebar then clips its own labels off
+   the LEFT window edge while the detail column crushes — the first captured
+   reproduction of the 2026-08-05 "content clipped off both edges" report,
+   which could never be reproduced headlessly
+   (`docs/archive/v1.0/ui-design-pass-2026-08-05.md` §1.7; the soft floor at
+   `mac4DSTEM/UI/ContentView.swift:966-980` was slack, not a fix, and says so).
+   The truncation half re-confirms the first sitting's Group A readiness-row
+   finding. Owner asks for wrapping instead of width.
+5. **The View-orientation flyout is disproportionate** — five items rendered
+   into a panel covering roughly a quarter of the window
+   (`mac4DSTEM/UI/StemImageView.swift:213-235`; the single-line footer Text at
+   `:225` is the plausible width-setter, unconfirmed). Seen on `COPL…`'s ACOM
+   full-scan pane.
+6. **The inspector cannot be resized and its preview is fixed-small** — S22,
+   structural. The right panel is not a split column: `DatasetInspector` is an
+   HStack member with `.frame(minWidth: 220, idealWidth: 300, maxWidth: 340)`
+   and no draggable divider (`mac4DSTEM/UI/ContentView.swift:985-991`);
+   preview thumbnails (`mac4DSTEM/UI/DatasetInspector.swift:34-48`) scale with
+   nothing. The owner wants the right panel resizable like the left, the
+   preview following it, and the histograms adapting. The system-standard
+   shape — macOS 14's `.inspector`/`inspectorColumnWidth`, or a real split
+   column — is S22's first design question.
+7. **iOS-port question, answered 2026-09-01:** the owner asked whether porting
+   to iOS would let the assistant iterate in the iOS simulator. Refused as a
+   polish route: the motivating loop — the assistant building, launching,
+   driving and screenshotting the UI — already works on macOS (F1.32/F1.34
+   found real defects that way; F1.3c closed by CGEvent drags), and a port
+   forks the windowing/file/NAS/Metal surface v2 depends on. The real question
+   inside it — are there standard macOS patterns being ignored — is answered
+   YES and folded into S22's design doc (item 6, plus Form/`LabeledContent`
+   wrapping versus the hand-rolled HStacks behind items 4 and 5).
+
+**Sequencing DECIDED the same evening — owner decisions 7 and 8 above:**
+S22's design phase runs next, the UI-pair work is held uncommitted, and the
+owner's Track B sittings pause until S22's fixes land; one final owner
+playthrough after. A standing token-conservation directive landed with it.
 
 ### Track B playthrough — 2026-09-01 (full record archived)
 
@@ -925,17 +1025,17 @@ citations cannot be trusted without checking.
 
 - **S17 diagnosed and removed the sidebar test's uncontrolled state; one
   visual case remains formally quarantined.** The historical 1029/945/961pt
-  failure triplet is reproduced exactly by the persisted
-  `sidebar.displaySection.expanded` preference. The numeric gate now injects a
-  private, default-collapsed AppStorage store and still covers every calibrated
-  workspace plus every uncalibrated workspace except Prepare. Collapsed,
-  uncalibrated Prepare is an explicit dynamic skip: 933pt against 871pt on
-  2026-08-27, because the former 60pt allowance is not a product invariant.
-  CI retains and prints its geometry attachment. Local `unit`: **exit 0,
-  378 passed / 4 skipped / 0 failed** (2026-08-27). Still live: the owner must
-  drive the two S17 rows in Track B (collapsed uncalibrated Prepare and an
-  intentionally expanded Display disclosure), and the changed workflow has
-  not run on GitHub yet. Full diagnosis, observation history and deviations:
+  failure triplet was reproduced exactly by the persisted Display-disclosure
+  preference. The 2026-09-01 owner-promoted UI pair removed that disclosure,
+  its AppStorage state and the measurement that could now only pass vacuously;
+  the colormaps are permanent in a one-row Display control instead. The numeric
+  gate still covers every calibrated workspace plus every uncalibrated
+  workspace except Prepare. Uncalibrated Prepare is an explicit dynamic skip:
+  933pt against 871pt on 2026-08-27, because the former 60pt allowance is not a
+  product invariant. CI retains and prints its geometry attachment. The old
+  expanded-Display Track B row is retired; still live is the default-width
+  uncalibrated Prepare row, plus UI-pair rows F1.50/F1.51. The changed workflow
+  has not run on GitHub yet. Full diagnosis, observation history and deviations:
   [`docs/archive/v2-session-records/s17.md`](archive/v2-session-records/s17.md).
 - ~~The burned-in caption on exported figures truncates~~ — **Closed by S7,
   2026-08-25** (wraps, figure grows, full provenance as PNG metadata);

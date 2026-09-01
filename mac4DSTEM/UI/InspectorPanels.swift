@@ -39,7 +39,9 @@ struct PerformanceView: View {
                 }
             }
             labeled("GPU", SystemMonitor.gpuName)
-            labeled("GPU budget", String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
+            // ui-07: the configurator's row was renamed by S9a; the two
+            // surfaces a user compares must use one name.
+            labeled("GPU working-set limit", String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
         }
         .padding(.vertical, 2)
     }
@@ -111,6 +113,9 @@ struct ProductsView: View {
                     // Rename/relocate, offered where the user is already
                     // looking at the filename — once a grant exists the save
                     // panel never reappears on its own (F1.3i). // v2 S4
+                    Button("Ignore…") { appState.reopenIgnoringSessionSidecar() }
+                        .help("Reopen this dataset without restoring the saved session; the sidecar file stays on disk")
+                        .accessibilityIdentifier("products.reopenWithoutSession")
                     Button("Change…") { appState.saveSessionSidecarAs() }
                         .buttonStyle(.borderless)
                         .font(.caption2)

@@ -26,12 +26,10 @@ struct WelcomeWorkspace: View {
                         .frame(maxWidth: 660)
                 }
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { welcomeCards }
-                    VStack(spacing: 12) { welcomeCards }
-                }
-                .frame(maxWidth: 780)
-
+                // S22e: the entry points come BEFORE the feature cards — they
+                // used to sit below them and opened below the fold, so the
+                // first screen of the app showed marketing and hid the doors
+                // (Track B drive finding, 2026-09-01).
                 VStack(spacing: 8) {
                     HStack(spacing: 12) {
                         Button("Open Dataset…") { appState.requestOpenDataset() }
@@ -86,6 +84,12 @@ struct WelcomeWorkspace: View {
                     .frame(maxWidth: 560)
                     .accessibilityIdentifier("welcome.localStorageNotice")
                 }
+
+                // S22 feedback R2 (2026-09-01): three compact cards SIDE BY
+                // SIDE, always — the ViewThatFits fallback stacked them as
+                // "large empty boxes" filling the first screen.
+                HStack(alignment: .top, spacing: 12) { welcomeCards }
+                    .frame(maxWidth: 780)
 
                 if !appState.recents.entries.isEmpty {
                     // Stored on the seam and recomputed only on mutation, so
@@ -245,7 +249,9 @@ struct WelcomeWorkspace: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+        // Sized by content (S22 feedback R2): the old 112pt floor was mostly
+        // empty box.
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(14)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .overlay {
@@ -260,20 +266,20 @@ struct ProductWorkspaceHeader: View {
 
     private var missingPrerequisites: [String] {
         ProductWorkflow.prerequisites(
-            for: appState.analysisMode,
+            for: appState.navigation.analysisMode,
             readiness: appState.productWorkflowReadiness
         )
     }
 
     private var qualityGuidance: [String] {
         ProductWorkflow.guidance(
-            for: appState.analysisMode,
+            for: appState.navigation.analysisMode,
             readiness: appState.productWorkflowReadiness
         )
     }
 
     private var isTaskWorkspace: Bool {
-        appState.workspaceArea != .prepare && appState.workspaceArea != .results
+        appState.navigation.workspaceArea != .prepare && appState.navigation.workspaceArea != .results
     }
 
     var body: some View {
@@ -304,7 +310,8 @@ struct ProductWorkspaceHeader: View {
                 HStack(spacing: 8) {
                     Text(headerTitle)
                         .font(.title3.weight(.semibold))
-                    if appState.workspaceArea.isAdvanced {
+                    if appState.navigation.workspaceArea == .reconstruct
+                        && appState.navigation.analysisMode.isAdvanced {
                         Text("ADVANCED")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.secondary)
@@ -341,44 +348,45 @@ struct ProductWorkspaceHeader: View {
     }
 
     private var headerTitle: String {
-        switch appState.workspaceArea {
-        case .prepare, .results: appState.workspaceArea.title
-        case .image, .map, .reconstruct: appState.analysisMode.productTitle
+        switch appState.navigation.workspaceArea {
+        case .prepare, .results: appState.navigation.workspaceArea.title
+        case .image, .map, .reconstruct: appState.navigation.analysisMode.productTitle
         }
     }
 
     private var headerSubtitle: String {
-        switch appState.workspaceArea {
+        switch appState.navigation.workspaceArea {
         case .prepare: "Confirm the dataset, center the probe, and establish physical scales."
         case .results: "Review, preserve, and export the products from this dataset."
-        case .image, .map, .reconstruct: appState.analysisMode.productSubtitle
+        case .image, .map, .reconstruct: appState.navigation.analysisMode.productSubtitle
         }
     }
 
     private var headerIcon: String {
-        switch appState.workspaceArea {
-        case .prepare, .results: appState.workspaceArea.systemImage
-        case .image, .map, .reconstruct: appState.analysisMode.systemImage
+        switch appState.navigation.workspaceArea {
+        case .prepare, .results: appState.navigation.workspaceArea.systemImage
+        case .image, .map, .reconstruct: appState.navigation.analysisMode.systemImage
         }
     }
 
     private var primaryActionTitle: String? {
-        switch appState.workspaceArea {
+        switch appState.navigation.workspaceArea {
         case .prepare:
             if !appState.calibration.hasFittedOrigin { "Calibrate Origin" }
             else if !appState.calibration.hasRotation { "Calibrate Rotation" }
             else { nil }
         case .image:
-            appState.analysisMode == .dpc ? "Run DPC" : "Update Image"
+            "Update Image"
         case .map:
-            switch appState.analysisMode {
+            switch appState.navigation.analysisMode {
             case .disks: "Detect All Disks"
             case .strain: "Compute Strain"
             case .acom: appState.acomPrimaryActionTitle
             default: nil
             }
         case .reconstruct:
-            if appState.parallaxPreprocess == nil { "Prepare Preview" }
+            if appState.navigation.analysisMode == .dpc { "Run DPC" }
+            else if appState.parallaxPreprocess == nil { "Prepare Preview" }
             else if appState.parallaxAlignment?.isComplete != true { "Align Next Level" }
             else if appState.parallaxHigherOrderFit == nil { "Fit Aberrations" }
             else if appState.parallaxCorrection == nil { "Correct Phase" }
@@ -390,30 +398,36 @@ struct ProductWorkspaceHeader: View {
     }
 
     private var primaryActionHint: String {
-        switch appState.workspaceArea {
+        switch appState.navigation.workspaceArea {
         case .prepare:
             appState.calibration.hasFittedOrigin
                 ? "Solves scan-to-detector rotation for quantitative vector output."
                 : "Fits the unscattered-beam origin across the scan."
         case .image: "Runs the selected imaging task with the current settings."
         case .map:
-            appState.analysisMode == .acom
+            appState.navigation.analysisMode == .acom
                 ? "Runs the selected orientation area and quality shown in the tools panel."
                 : "Runs the selected whole-scan mapping task."
-        case .reconstruct: "Runs the next incomplete reconstruction stage."
+        case .reconstruct:
+            appState.navigation.analysisMode == .dpc
+                ? "Maps beam deflection across the scan and integrates projected phase."
+                : "Runs the next incomplete reconstruction stage."
         case .results: "Adds the visible result to the reusable dataset session."
         }
     }
 
     private var primaryActionEnabled: Bool {
         guard appState.hasDataset, !appState.isBusy else { return false }
-        if appState.workspaceArea != .prepare && appState.workspaceArea != .results {
+        if appState.navigation.workspaceArea != .prepare && appState.navigation.workspaceArea != .results {
             guard ProductWorkflow.prerequisites(
-                for: appState.analysisMode,
+                for: appState.navigation.analysisMode,
                 readiness: appState.productWorkflowReadiness
             ).isEmpty else { return false }
         }
-        if appState.workspaceArea == .reconstruct {
+        if appState.navigation.workspaceArea == .reconstruct,
+           appState.navigation.analysisMode == .ptychography {
+            // Parallax staging gates only its own chain — DPC (S22c: now in
+            // Phase) is a plain run and must not inherit this.
             return appState.parallaxCorrection == nil || appState.parallaxSubpixel == nil
         }
         return true
@@ -831,9 +845,15 @@ private struct ProductComparisonView: View {
                     switch phase {
                     case .active(let point):
                         if coordinatesCompatible {
-                            cursor = (
-                                min(product.width - 1, max(0, Int(point.x / max(size.width, 1) * CGFloat(product.width)))),
-                                min(product.height - 1, max(0, Int(point.y / max(size.height, 1) * CGFloat(product.height))))
+                            // ui-06 (S22e): invert the letterbox + zoom the
+                            // pane actually draws with; over letterbox the
+                            // readout goes quiet instead of clamping to a
+                            // wrong edge pixel.
+                            cursor = ComparisonHoverMapping.sourcePixel(
+                                pointer: point, paneSize: size,
+                                imageWidth: product.width,
+                                imageHeight: product.height,
+                                zoom: zoom * liveZoom
                             )
                         }
                     case .ended: cursor = nil

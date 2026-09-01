@@ -893,6 +893,26 @@ only if asked.
   board republish owed because the Artifact tool was unavailable. Record:
   [`dpc-angle-units.md`](archive/v2-session-records/dpc-angle-units.md).
 
+- [x] **Owner-promoted UI pair** — 2026-09-01 (unnumbered Gate A ride-along).
+  Removed the redundant scan-position X/Y sidebar sliders while retaining the
+  on-image click/drag, marker-handle, keyboard and inspector-coordinate paths.
+  DP and Result colormaps now stay visible in one compact Display row; log scale
+  and Q units remain in its options menu. The first vertical implementation
+  made calibrated and uncalibrated Map measure 933pt against 871pt of column;
+  the existing layout gate failed twice. Gate A then caught two more defects:
+  the nominal one-row version measured 513pt intrinsic, and slider removal had
+  dropped native assistive adjustment. The final adaptive row's minimum-width
+  fallback measures 193pt in ~218pt of content, while the always-accessible
+  marker exposes adjustment plus four named directions. The dead persisted-
+  disclosure measurement was removed rather than left green and worthless.
+  Track A: retained xcresult **401 passed / 2 skipped / 0 failed,
+  exit 0**; no `Core/` or `AppState` change, so scientific and seam gates are
+  not owed. **Track B: F1.50/F1.51 queued; current board 31 passed / 7 partly /
+  19 unverified / 1 blocked. Not verified:** the live Xcode build's labels,
+  menu actions and scan navigation on screen; living-board republish (Artifact
+  tool unavailable). Owner-only F1.47–F1.49, clean-account, bounded-promote and
+  036 A/B work remain parked. **Next: the provenance leak.**
+
 - [ ] **S22 — UX pass.** *Scheduled 2026-08-31 on the owner's decision: "I want a
   great experience for users of v2." **This is new scope**, added deliberately
   rather than by drift — nothing in S0–S21 owned the experience as such; S18 was
@@ -901,7 +921,20 @@ only if asked.
   is the owner's playthrough plus the UX survey. Starting it without that input
   turns it into unbounded taste-work, which is the one way this session fails.
   Sequencing: playthrough → S22 → Track B verification of S22's changes, all
-  before S20's standing pass.*
+  before S20's standing pass.* **Update 2026-09-01 evening: the playthrough
+  input began arriving** — seven screenshots, seven findings, owner verdict
+  "this is not a good v2", recorded in `docs/open-items.md` §Owner playthrough
+  — 2026-09-01 second sitting. The iOS-port question is answered (no — the
+  assistant already builds, drives and screenshots macOS builds directly), and
+  the first design question is written: the system `.inspector` column versus
+  the hand-rolled fixed-width right panel. The owner DECIDED the same
+  evening (open-items decisions 7–8): S22 moves ahead of the remaining fix
+  queue — design phase next (assistant-only, no app code), the UI-pair work
+  held uncommitted, the owner's Track B sittings paused until S22's fixes
+  land, one final owner playthrough + report after. **The design ran that
+  evening: [`docs/s22-ux-design.md`](s22-ux-design.md) is the single S22
+  thread — evidence, design, slice plan, status. No S22 material grows
+  anywhere else.**
 
 - [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
   postponed by the owner, 2026-08-31; drive kit in the 2026-08-31 session.

@@ -189,7 +189,7 @@ final class SessionGatesTests: XCTestCase {
         let sidecar = directory.appendingPathComponent("demo.mac4dstem.h5")
         state.sessionSidecar.adopt(sidecar, for: descriptor)
 
-        state.analysisMode = .virtualDetector
+        state.navigation.analysisMode = .virtualDetector
         await state.runVirtualDetector()
         XCTAssertNotNil(state.resultImage, "The virtual image is the result being saved")
 

@@ -42,7 +42,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
     private func stateReadyToCalibrateQ() async throws -> AppState {
         let state = AppState()
         await state.openDemoFixture(calibrated: false)
-        state.analysisMode = .disks
+        state.navigation.analysisMode = .disks
         await state.runDiskDetection()
 
         let vectors = try XCTUnwrap(state.braggVectors,

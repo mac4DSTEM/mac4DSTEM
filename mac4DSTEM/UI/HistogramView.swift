@@ -22,7 +22,9 @@ struct HistogramView: View {
     private static let binCount = 96
     private static let barHeight: CGFloat = 100
 
-    @State private var useLog = true
+    // R26 (owner, 2026-09-01): linear counts by default — "log counts on
+    // startup is unusual"; log stays one toggle away.
+    @State private var useLog = false
     @State private var bins: [Int] = []
     @State private var stats: (min: Float, max: Float, mean: Float)?
 

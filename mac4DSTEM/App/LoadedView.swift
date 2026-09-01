@@ -36,6 +36,13 @@ final class LoadedView {
     /// nothing needed moving.
     private(set) var invalidatedCalibration: [CalibrationInvalidation] = []
 
+    /// P2 (2026-09-01): session-restore outcomes join the same surface as
+    /// load-time invalidations — the inspector's "Not carried into this view"
+    /// section is the one place a dropped calibration is explained.
+    func appendInvalidated(_ items: [CalibrationInvalidation]) {
+        invalidatedCalibration.append(contentsOf: items)
+    }
+
     /// True when a real-space crop made results measured on the full scan
     /// ambiguous — the same index now names a different physical position.
     private(set) var scanIndexedResultsWereCleared = false

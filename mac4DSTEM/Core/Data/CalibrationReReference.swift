@@ -63,6 +63,11 @@ nonisolated struct CalibrationInvalidation: Equatable, Sendable, Identifiable {
         case ellipse = "Ellipse distortion"
         case probeRadius = "Probe radius"
         case scanIndexedResults = "Scan-indexed results"
+        // P2 (2026-09-01): a session sidecar's whole calibration, refused
+        // because it was recorded on a different reduced view than the one
+        // loaded. Label only — the refusal policy lives in
+        // `SessionCalibrationFramePolicy` (App/).
+        case sessionCalibration = "Session calibration"
     }
 
     let field: Field

@@ -25,6 +25,24 @@ struct ZoomPanState: Equatable {
     }
 
     mutating func reset() { self = ZoomPanState() }
+
+    /// R16 (owner, 2026-09-01): panning must never push the image out of the
+    /// pane. The display shader samples a 1/zoom-wide UV window centred at
+    /// 0.5 + offset/viewSize (`Colormaps.metal:33`), so the window stays
+    /// inside the image exactly while |offset| ≤ size·(1 − 1/zoom)/2 per
+    /// axis — 0 at 1× and below (the image fits; a plain click scrubs there
+    /// anyway, backlog #35), edge-to-edge but not beyond when zoomed in.
+    /// Pure, so the rule itself is unit-pinned.
+    static func clampedOffset(
+        _ proposed: CGSize, zoom: CGFloat, in size: CGSize
+    ) -> CGSize {
+        guard zoom > 1, size.width > 0, size.height > 0 else { return .zero }
+        let fraction = (1 - 1 / zoom) / 2
+        let maxX = size.width * fraction
+        let maxY = size.height * fraction
+        return CGSize(width: min(max(proposed.width, -maxX), maxX),
+                      height: min(max(proposed.height, -maxY), maxY))
+    }
 }
 
 /// Attaches magnify-to-zoom, drag-to-pan, scroll-to-zoom/pan and
@@ -79,12 +97,30 @@ struct ZoomPanModifier: ViewModifier {
                         .onEnded {
                             state.zoom = clamp(state.zoom * $0)
                             state.liveZoom = 1
+                            // Zooming OUT while panned must pull the image
+                            // back inside the pane (R16).
+                            state.offset = clampPan(state.offset, zoom: state.zoom)
                         },
                     DragGesture()
-                        .onChanged { state.liveOffset = $0.translation }
+                        .onChanged {
+                            // Live clamp, so the drag stops at the edge
+                            // instead of rubber-banding past it (R16).
+                            let proposed = CGSize(
+                                width: state.offset.width + $0.translation.width,
+                                height: state.offset.height + $0.translation.height
+                            )
+                            let allowed = clampPan(proposed, zoom: state.effectiveZoom)
+                            state.liveOffset = CGSize(
+                                width: allowed.width - state.offset.width,
+                                height: allowed.height - state.offset.height
+                            )
+                        }
                         .onEnded {
-                            state.offset.width += $0.translation.width
-                            state.offset.height += $0.translation.height
+                            let proposed = CGSize(
+                                width: state.offset.width + $0.translation.width,
+                                height: state.offset.height + $0.translation.height
+                            )
+                            state.offset = clampPan(proposed, zoom: state.zoom)
                             state.liveOffset = .zero
                         }
                 )
@@ -107,17 +143,29 @@ struct ZoomPanModifier: ViewModifier {
         min(Self.maximumZoom, max(Self.minimumZoom, zoom))
     }
 
+    /// R16: the pane's own bounds are the drawn image's frame (the MTKView is
+    /// aspect-fitted before this modifier attaches), so the pure rule applies
+    /// directly. Before geometry exists, leave the offset alone.
+    private func clampPan(_ proposed: CGSize, zoom: CGFloat) -> CGSize {
+        guard let size = pane.view?.bounds.size else { return proposed }
+        return ZoomPanState.clampedOffset(proposed, zoom: zoom, in: size)
+    }
+
     private func installScrollMonitor() {
         guard scrollMonitor == nil else { return }
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
             guard scrollLanded(on: event) else { return event }
             if event.hasPreciseScrollingDeltas {
-                state.offset.width += event.scrollingDeltaX
-                state.offset.height += event.scrollingDeltaY
+                state.offset = clampPan(
+                    CGSize(width: state.offset.width + event.scrollingDeltaX,
+                           height: state.offset.height + event.scrollingDeltaY),
+                    zoom: state.zoom
+                )
             } else {
                 // A wheel notch is ~1 line; keep it gentle and multiplicative
                 // so zooming feels the same at every magnification.
                 state.zoom = clamp(state.zoom * (1 + event.scrollingDeltaY * 0.05))
+                state.offset = clampPan(state.offset, zoom: state.zoom)
             }
             return nil   // consumed — don't let it scroll the sidebar behind
         }

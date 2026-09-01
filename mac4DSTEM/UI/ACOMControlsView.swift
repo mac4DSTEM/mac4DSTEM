@@ -91,6 +91,8 @@ struct ACOMControlsView: View {
             Text(appState.acomQuality.detail)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                // S22d: wrap, never truncate (see SidebarTextWidth.swift).
+                .sidebarWrapped()
 
             scopeControls(appState: appState)
 

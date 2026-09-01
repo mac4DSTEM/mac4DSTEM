@@ -109,7 +109,7 @@ final class ExportProvenanceTests: XCTestCase {
             detectorCrop: nil, detectorBin: 1
         )
         await state.openDemoFixture(calibrated: true, specification: cropped)
-        state.analysisMode = .virtualDetector
+        state.navigation.analysisMode = .virtualDetector
         await state.runVirtualDetector()
         XCTAssertNotNil(state.resultImage)
 

@@ -175,6 +175,12 @@ final class AppState {
         strain.onPresentationChange = { [weak self] in
             self?.applyStrainDisplay()
         }
+        // Same ownership direction as the strain seam: AppState owns
+        // navigation, never the reverse. This closure is the recovery
+        // persist the old stored `navigation.analysisMode`'s didSet performed.
+        navigation.onModeChange = { [weak self] in
+            self?.persistRecoveryPosition()
+        }
     }
 
     var datasets: [DatasetDescriptor] = []
@@ -600,8 +606,8 @@ final class AppState {
     /// region is being positioned. Results still reads the retained scientific
     /// result, so the Bragg-vector map is never discarded or relabelled.
     var showsACOMRegionReference: Bool {
-        workspaceArea == .map
-            && analysisMode == .acom
+        navigation.workspaceArea == .map
+            && navigation.analysisMode == .acom
             && acomScope == .selectedRegion
             && acomRegionSelectionActive
             && scanNavigationImage != nil
@@ -686,7 +692,7 @@ final class AppState {
         var quality: [ProductQualityField] = []
         var overlays: [ProductOverlayDescriptor] = []
         var validity: [Bool]?
-        if analysisMode == .strain, let map = strain.map,
+        if navigation.analysisMode == .strain, let map = strain.map,
            map.width == payload.dimensions.width, map.height == payload.dimensions.height {
             validity = map.mask
             quality = [
@@ -704,7 +710,7 @@ final class AppState {
             overlays.append(ProductOverlayDescriptor(
                 kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit"
             ))
-        } else if analysisMode == .acom, let map = orientationMap,
+        } else if navigation.analysisMode == .acom, let map = orientationMap,
                   map.width == payload.dimensions.width, map.height == payload.dimensions.height {
             validity = map.results.map { $0.templateIndex >= 0 }
             quality = [
@@ -729,7 +735,7 @@ final class AppState {
     }
 
     var activeResultDomain: ProductDomain {
-        switch analysisMode {
+        switch navigation.analysisMode {
         case .disks: .detector
         case .ptychography: .reconstruction
         case .virtualDetector, .dpc, .strain, .acom: .scan
@@ -783,7 +789,7 @@ final class AppState {
         acomLastRunQuality = nil
         acomLastRunSemantics = nil
         acomLastMatchedPositionCount = nil
-        if analysisMode == .acom {
+        if navigation.analysisMode == .acom {
             resultImage = nil
             resultRGBA = nil
             restoredResultInfo = nil
@@ -995,10 +1001,10 @@ final class AppState {
     var patternDisplayRangeLo: Float = 0
     var patternDisplayRangeHi: Float = 1
     var patternGamma: Float = 1
-    var analysisMode: AnalysisMode = .virtualDetector {
-        didSet { if analysisMode != oldValue { persistRecoveryPosition() } }
-    }
-    var workspaceArea: WorkspaceArea = .prepare
+    /// Navigation/selection seam (S22c): workspace, task and pane visibility
+    /// live on `navigation`; the recovery persist that the old `navigation.analysisMode`
+    /// didSet performed is wired through `navigation.onModeChange` in `init`.
+    let navigation = WorkspaceNavigation()
 
     var isBusy = false
     var statusText = "No file loaded" {
@@ -1009,9 +1015,6 @@ final class AppState {
     /// Rolling log of meaningful status events, shown in the output strip
     /// below the image panes. Progress spam ("… 42 %") is filtered out.
     private(set) var logMessages: [String] = []
-    var showLogPane = false
-    var showToolsPane = true
-    var showInspectorPane = false
     private(set) var openDatasetRequest = 0
     private(set) var preprocessingExportRequest = 0
 
@@ -1334,8 +1337,13 @@ final class AppState {
     }
 
     var displayedPattern: DiffractionPattern? {
-        // A real-space region ROI drives the CBED with the summed pattern.
-        if realSpaceShape != .point, let vd = virtualDiffractionPattern { return vd }
+        // A real-space region ROI drives the CBED with the summed pattern —
+        // but only in Current mode (R20, owner 2026-09-01): Mean and Max are
+        // whole-scan statistics, and a region sum silently replacing them
+        // while their tab stayed selected was wrong. Point already behaved
+        // this way; Rectangle/Circle now match it.
+        if patternDisplayMode == .current,
+           realSpaceShape != .point, let vd = virtualDiffractionPattern { return vd }
         switch patternDisplayMode {
         case .current: return currentPattern
         case .mean: return meanPattern ?? currentPattern
@@ -1353,7 +1361,7 @@ final class AppState {
     func currentDataSourceForExport() -> (any FourDDataSource)? { reader }
 
     func changeMode(_ mode: AnalysisMode) {
-        if mode != analysisMode,
+        if mode != navigation.analysisMode,
            resultImage != nil || resultRGBA != nil,
            restoredResultInfo == nil,
            navigationResultInfo == nil {
@@ -1363,8 +1371,8 @@ final class AppState {
             navigationResultPixelInfo = currentResultPersistenceMetadata
             navigationResultDomain = activeResultDomain
         }
-        analysisMode = mode
-        workspaceArea = mode.workspaceArea
+        navigation.analysisMode = mode
+        navigation.workspaceArea = mode.workspaceArea
         if mode == .acom, acomScope == .selectedRegion {
             acomRegionSelectionActive = true
             Task { await ensureScanNavigator() }
@@ -1375,9 +1383,9 @@ final class AppState {
     /// scan operations are always launched from an explicit action in their
     /// task panel, so moving around the app is immediate and side-effect free.
     func selectWorkspace(_ area: WorkspaceArea) {
-        workspaceArea = area
+        navigation.workspaceArea = area
         if let preferred = area.defaultAnalysisMode,
-           !area.analysisModes.contains(analysisMode) {
+           !area.analysisModes.contains(navigation.analysisMode) {
             changeMode(preferred)
         }
     }
@@ -1386,7 +1394,7 @@ final class AppState {
     /// intentionally separate from `runCurrentAnalysis`, whose legacy contract
     /// only refreshes lightweight/cached views for some modes.
     func runPrimaryWorkspaceTask() async {
-        switch workspaceArea {
+        switch navigation.workspaceArea {
         case .prepare:
             if !calibration.hasFittedOrigin {
                 await calibrateOrigin()
@@ -1396,14 +1404,16 @@ final class AppState {
         case .image:
             await runCurrentAnalysis()
         case .map:
-            switch analysisMode {
+            switch navigation.analysisMode {
             case .disks: await runDiskDetection()
             case .strain: await runStrainMapping()
             case .acom: await runACOM()
             default: break
             }
         case .reconstruct:
-            if parallaxPreprocess == nil {
+            if navigation.analysisMode == .dpc {
+                await runCurrentAnalysis()
+            } else if parallaxPreprocess == nil {
                 await prepareParallaxPreview()
             } else if parallaxAlignment?.isComplete != true {
                 await alignParallaxNextLevel()
@@ -2071,7 +2081,10 @@ final class AppState {
                   self.descriptor?.filePath == datasets.first?.filePath else { return }
             finishDatasetLoading()
             acomDisplay = .ipfZ
-            statusText = "Demo ready — follow Prepare → Image → Map (Bragg, then Strain) → Results; each task lists anything it still needs"
+            // S22c wording: the steps are Prepare / Imaging / Bragg / Phase /
+            // Results — caught on screen by the consolidated drive after the
+            // re-cut renamed them everywhere else.
+            statusText = "Demo ready — follow Prepare → Imaging → Strain & ACOM (Bragg disks first) → Results; each task lists anything it still needs"
         } catch {
             present(error)
         }
@@ -2104,6 +2117,25 @@ final class AppState {
         }
     }
 
+    /// D4 (owner decision, 2026-09-01: "i can't even remove it"): ignoring a
+    /// session is a REOPEN with the sidecar skipped for that one open — not
+    /// in-session state surgery, the same shape as Change… (which "never
+    /// adopts a calibration in-session; it retargets the file and asks for a
+    /// reopen", Gate B 2026-08-25). The sidecar FILE is untouched; the skip
+    /// is stamped with the dataset's identity so an open that fails part-way
+    /// can never leak the skip onto an unrelated dataset.
+    private var ignoreSessionForDatasetID: String?
+
+    func reopenIgnoringSessionSidecar() {
+        guard let recoveryRecord,
+              let recent = recents.entry(withID: recoveryRecord.datasetID) else {
+            present(SimpleError("The current dataset has no recorded reopen path."))
+            return
+        }
+        ignoreSessionForDatasetID = recent.id
+        openRecent(recent)
+    }
+
     func reopenLastDataset() {
         guard let recoveryRecord,
               let recent = recents.entry(withID: recoveryRecord.datasetID) else {
@@ -2129,7 +2161,7 @@ final class AppState {
             recoveryRecord = DatasetRecoveryRecord(
                 datasetID: id, bookmark: bookmark,
                 selectedX: selectedScan.x, selectedY: selectedScan.y,
-                analysisMode: analysisMode.rawValue, updated: Date(),
+                analysisMode: navigation.analysisMode.rawValue, updated: Date(),
                 loadSpecification: loadedView.specification
             )
             WorkspaceRecoveryStore.saveRecovery(recoveryRecord!)
@@ -2147,7 +2179,7 @@ final class AppState {
         guard descriptor != nil, var record = recoveryRecord else { return }
         record.selectedX = selectedScan.x
         record.selectedY = selectedScan.y
-        record.analysisMode = analysisMode.rawValue
+        record.analysisMode = navigation.analysisMode.rawValue
         record.updated = Date()
         // Every stamp restates the frame, so a position persisted after a
         // promote is knowably full-extent, not silently reinterpreted by the
@@ -2213,7 +2245,7 @@ final class AppState {
     }
 
     func selectScan(x: Int, y: Int) {
-        if analysisMode == .acom, acomScope == .selectedRegion {
+        if navigation.analysisMode == .acom, acomScope == .selectedRegion {
             acomRegionSelectionActive = true
         }
         selectedScan = ScanPos(x: x, y: y)
@@ -2618,7 +2650,7 @@ final class AppState {
         realSpaceShape = .point
         virtualDiffractionPattern = nil
         realSpaceRadius = Float(max(3, min(descriptor.rx, descriptor.ry) / 12))
-        workspaceArea = .prepare
+        navigation.workspaceArea = .prepare
 
         // Seeded with the probe radius when the file already carried one (an
         // imported py4DSTEM/EMD calibration), so an import that never runs
@@ -2649,7 +2681,7 @@ final class AppState {
             // and calibration is per-session state that the recovery record
             // does not carry. Reported by the release owner 2026-08-05.
             if let mode = AnalysisMode(rawValue: recovery.analysisMode) {
-                analysisMode = mode
+                navigation.analysisMode = mode
             }
         }
         pendingRecovery = nil
@@ -2836,6 +2868,16 @@ final class AppState {
     private func loadSessionSnapshot(
         for descriptor: DatasetDescriptor
     ) async -> SessionSidecarSnapshot? {
+        // D4: a one-shot, identity-stamped skip. Consumed unconditionally so
+        // it cannot linger past this open; honored only when it names the
+        // dataset actually being opened.
+        if let ignored = ignoreSessionForDatasetID {
+            ignoreSessionForDatasetID = nil
+            if ignored == URL(fileURLWithPath: descriptor.filePath).standardizedFileURL.path {
+                statusText = "Opened without the saved session — the sidecar file is untouched"
+                return nil
+            }
+        }
         let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetEpoch
@@ -2856,7 +2898,11 @@ final class AppState {
             replay.adopt(snapshot.replayRecord,
                          recordedOn: ReplayParameterFrame.of(snapshot.loadSpecification))
             if let sessionCalibration = snapshot.calibration {
-                applySessionCalibration(sessionCalibration, for: descriptor)
+                applySessionCalibration(
+                    sessionCalibration,
+                    recordedOn: snapshot.loadSpecification ?? .fullExtent,
+                    for: descriptor
+                )
             }
             return snapshot
         } catch {
@@ -2876,57 +2922,103 @@ final class AppState {
     }
 
     private func applySessionCalibration(
-        _ saved: PixelCalibration, for descriptor: DatasetDescriptor
+        _ saved: PixelCalibration, recordedOn sessionSpecification: LoadSpecification,
+        for descriptor: DatasetDescriptor
     ) {
+        // P2 (Gate D, 2026-09-01): the sidecar's values are in ITS view's
+        // frame, and this function used to adopt them raw regardless of what
+        // is loaded now — a full-extent session restored onto a 2× binned
+        // open put the aperture centre a whole frame off (the corner BF) and
+        // fed strain a doubled-frame Q scale. Policy first; geometry, when
+        // owed, through the same engine the file path uses (below).
+        let framePolicy = SessionCalibrationFramePolicy.decide(
+            session: sessionSpecification, loaded: loadedView.specification
+        )
+        if case .refuse(let reason) = framePolicy {
+            loadedView.appendInvalidated([
+                CalibrationInvalidation(field: .sessionCalibration, reason: reason)
+            ])
+            statusText = "Session calibration not adopted — it was recorded on a different view"
+            return
+        }
+        // PHASES 1–2 (P2): pure translation — the sidecar's values into
+        // their own frame, then through the engine when the policy says so.
+        // Extracted to `SessionCalibrationTranslation` because the unit gate
+        // stayed green across a known-flawed intermediate of this very code:
+        // the wiring needs its own pins. Running the engine over the MERGED
+        // live state instead would re-reference file-carried fields a second
+        // time — the double-application caught in this fix's own review.
+        guard let translated = SessionCalibrationTranslation.translate(
+            saved: saved, policy: framePolicy, view: loadView, descriptor: descriptor
+        ) else {
+            // Unreachable by construction: a non-identity policy implies a
+            // reduced loaded view, which only exists with a live LoadView.
+            assertionFailure("reReference policy with no active LoadView")
+            return
+        }
+        let mapped = translated.calibration
+        let mappedCenter = translated.center
+        let restoredMaps = translated.restoredMaps
+        let sessionInvalidated = translated.invalidated
+        if !sessionInvalidated.isEmpty {
+            loadedView.appendInvalidated(sessionInvalidated)
+        }
+
+        // PHASE 3: merge — only the fields the sidecar actually carried, from
+        // the mapped snapshot. Validity checks stay on the SAVED values
+        // (finiteness and sign are frame-invariant under crop and bin).
         if let value = saved.rSize {
-            calibration.rPixelSize = value
+            calibration.rPixelSize = mapped.rPixelSize
             calibrationProvenance.rScale = value.isFinite && value > 0 ? .sessionSidecar : nil
         }
-        if let value = saved.rUnits { calibration.rPixelUnits = value }
+        if saved.rUnits != nil { calibration.rPixelUnits = mapped.rPixelUnits }
         if let value = saved.qSize {
-            calibration.qPixelSize = value
+            calibration.qPixelSize = mapped.qPixelSize
             calibrationProvenance.qScale = value.isFinite && value > 0 ? .sessionSidecar : nil
         }
-        if let value = saved.qUnits { calibration.qPixelUnits = value }
-        if let value = saved.qrFlip { calibration.transposeQR = value }
+        if saved.qUnits != nil { calibration.qPixelUnits = mapped.qPixelUnits }
+        if saved.qrFlip != nil { calibration.transposeQR = mapped.transposeQR }
         if let value = saved.qrRotationRad {
-            calibration.rotationRad = Float(value)
+            calibration.rotationRad = mapped.rotationRad
             calibrationProvenance.rotation = value.isFinite ? .sessionSidecar : nil
         }
-        if let value = saved.probeSemiangle {
-            calibration.probeRadius = Float(value)
+        if let value = saved.probeSemiangle,
+           !sessionInvalidated.contains(where: { $0.field == .probeRadius }) {
+            calibration.probeRadius = mapped.probeRadius
             calibrationProvenance.probe = value.isFinite && value > 0 ? .sessionSidecar : nil
             refreshDiskDefaultsForMeasuredProbe()
         }
         let savedEllipseCount = [saved.ellipseA, saved.ellipseB, saved.ellipseTheta]
             .compactMap { $0 }.count
-        if let value = saved.ellipseA { calibration.ellipseA = value }
-        if let value = saved.ellipseB { calibration.ellipseB = value }
-        if let value = saved.ellipseTheta { calibration.ellipseTheta = value }
-        if savedEllipseCount > 0 {
+        if savedEllipseCount > 0,
+           !sessionInvalidated.contains(where: { $0.field == .ellipse }) {
+            if saved.ellipseA != nil { calibration.ellipseA = mapped.ellipseA }
+            if saved.ellipseB != nil { calibration.ellipseB = mapped.ellipseB }
+            if saved.ellipseTheta != nil { calibration.ellipseTheta = mapped.ellipseTheta }
             calibrationProvenance.ellipse = calibration.hasEllipse
                 ? (savedEllipseCount == 3 ? .sessionSidecar : .mixed)
                 : nil
         }
-
-        var restoredMaps = false
-        if let maps = saved.originMaps,
-           let appMaps = maps.appOriginMaps(width: descriptor.rx, height: descriptor.ry) {
-            calibration.origin = appMaps
-            if let origin = calibration.meanOrigin {
-                aperture.centerX = origin.x
-                aperture.centerY = origin.y
-            }
+        if restoredMaps, mapped.origin != nil {
+            calibration.origin = mapped.origin
             calibration.originProvenance = .sessionMaps
-            restoredMaps = true
+            if let center = mappedCenter {
+                aperture.centerX = center.x
+                aperture.centerY = center.y
+            }
         }
-        if !restoredMaps, let qx0 = saved.qx0Mean, let qy0 = saved.qy0Mean {
+        // Engine-invalidated maps are already surfaced through
+        // `appendInvalidated` above; the live origin is left untouched then.
+        if !restoredMaps, saved.qx0Mean != nil, saved.qy0Mean != nil,
+           !sessionInvalidated.contains(where: { $0.field == .origin }) {
             calibration.origin = nil
-            aperture.centerX = Float(qy0)
-            aperture.centerY = Float(qx0)
-            calibration.recordedOriginX = Float(qy0)  // v2 S13, as .fileMean above
-            calibration.recordedOriginY = Float(qx0)
+            calibration.recordedOriginX = mapped.recordedOriginX
+            calibration.recordedOriginY = mapped.recordedOriginY
             calibration.originProvenance = .sessionMean
+            if let center = mappedCenter {
+                aperture.centerX = center.x
+                aperture.centerY = center.y
+            }
         }
         // No strain-display refresh here, deliberately (Gate B finding 4,
         // 2026-08-25): this function's only caller chain is
@@ -2991,7 +3083,7 @@ final class AppState {
     /// Run the lightweight/default action for the current mode. Expensive
     /// whole-scan workflows remain explicit buttons in their tool sections.
     func runCurrentAnalysis() async {
-        switch analysisMode {
+        switch navigation.analysisMode {
         case .virtualDetector: await runVirtualDetector()
         case .dpc:             await runDPC()
         case .disks:
@@ -3218,7 +3310,7 @@ final class AppState {
     }
 
     private func scheduleLiveVirtualDetector() {
-        guard analysisMode == .virtualDetector else { return }
+        guard navigation.analysisMode == .virtualDetector else { return }
         if vdInFlight { vdPending = true; return }
         vdInFlight = true
         Task {
@@ -3229,7 +3321,7 @@ final class AppState {
     }
 
     func commitApertureChange() {
-        guard analysisMode == .virtualDetector else { return }
+        guard navigation.analysisMode == .virtualDetector else { return }
         Task { await runVirtualDetector() }   // final pass, with status
     }
 
@@ -3238,7 +3330,7 @@ final class AppState {
     func scrubTo(x: Int, y: Int) {
         guard let d = descriptor else { return }
         activePane = .realSpace
-        if analysisMode == .acom, acomScope == .selectedRegion {
+        if navigation.analysisMode == .acom, acomScope == .selectedRegion {
             acomRegionSelectionActive = true
         }
         let clamped = ScanPos(x: min(max(0, x), d.rx - 1), y: min(max(0, y), d.ry - 1))
@@ -3338,7 +3430,7 @@ final class AppState {
             aperture.outer = radii.outer
             virtualShape = preset == .brightField ? .circle : .annulus
         }
-        if analysisMode != .virtualDetector { analysisMode = .virtualDetector }
+        if navigation.analysisMode != .virtualDetector { navigation.analysisMode = .virtualDetector }
         Task { await runVirtualDetector() }
     }
 
@@ -4105,7 +4197,7 @@ final class AppState {
         guard let descriptor else { return }
         let detectorPattern: DiffractionPattern
         let sourceName: String
-        if analysisMode == .disks, let vectors = braggVectors {
+        if navigation.analysisMode == .disks, let vectors = braggVectors {
             // The displayed Bragg map is log-scaled for display and already
             // carries any active ellipse correction. The intensity-weighted
             // fit needs the measured evidence instead: raw peak intensities,
@@ -4171,7 +4263,7 @@ final class AppState {
             // A displayed Bragg map can be reprojected immediately because
             // raw peak storage remains unchanged. Strain/ACOM are deliberately
             // not relabeled; users rerun those quantitative analyses.
-            if analysisMode == .disks, let vectors = braggVectors {
+            if navigation.analysisMode == .disks, let vectors = braggVectors {
                 showBraggMap(vectors, descriptor: descriptor)
             }
             statusText = String(
@@ -4375,7 +4467,7 @@ final class AppState {
     /// plus the A6 phantom-step defect, both found by Gate B (2026-08-25).
     @discardableResult
     private func applyDPCDisplay() -> String? {
-        guard var com = comField, let d = descriptor, analysisMode == .dpc else { return nil }
+        guard var com = comField, let d = descriptor, navigation.analysisMode == .dpc else { return nil }
         restoredResultInfo = nil
         if let rotation = calibration.rotationRad {
             com = DPC.applyRotation(com: com, rotationRad: rotation,
@@ -4572,7 +4664,7 @@ final class AppState {
     private func performLiveDetection() async {
         liveDetectionRequest &+= 1
         let request = liveDetectionRequest
-        guard analysisMode == .disks, let kernel = probeKernel,
+        guard navigation.analysisMode == .disks, let kernel = probeKernel,
               let pattern = displayedPattern else {
             if !currentPeaks.isEmpty { currentPeaks = [] }
             currentDiskDiagnostics = nil
@@ -4599,7 +4691,7 @@ final class AppState {
         }.value
         guard epoch == datasetEpoch,
               request == liveDetectionRequest,
-              analysisMode == .disks else { return }
+              navigation.analysisMode == .disks else { return }
         currentPeaks = result?.peaks ?? []
         currentDiskDiagnostics = result?.diagnostics
     }
@@ -4643,10 +4735,18 @@ final class AppState {
         let epoch = datasetEpoch
         let vectors: BraggVectors?
         do {
-            vectors = try await DiskDetection.detectAll(
-                data: fourD, descriptor: d, kernel: kernel,
-                params: params, cancellation: cancellation
-            ) { [weak self] fraction in
+            // P1 (Gate D, 2026-09-01): run the full-scan detection OFF the
+            // main actor. `detectAll` is nonisolated async and ran on the
+            // caller's executor here, and its `concurrentPerform` then
+            // conscripted the MAIN thread as a dispatch_apply worker for each
+            // tile's entire CPU-FFT workload — sampled live during the
+            // owner's frozen run: 2518/2519 main-thread samples inside
+            // FFT2D.transform, AX ping 7 s, progress unpaintable, Cancel
+            // dead. The detached task keeps the worker pool saturated while
+            // the runloop stays free. The progress closure already hopped to
+            // the main actor explicitly, so it is unchanged.
+            let data = fourD
+            let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
                           self.isCurrentOperation(cancellation),
@@ -4655,6 +4755,13 @@ final class AppState {
                     self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
                 }
             }
+            vectors = try await Task.detached(priority: .userInitiated) {
+                try await DiskDetection.detectAll(
+                    data: data, descriptor: d, kernel: kernel,
+                    params: params, cancellation: cancellation,
+                    progress: progress
+                )
+            }.value
         } catch {
             guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
@@ -4942,13 +5049,13 @@ final class AppState {
         switch product {
         case .strain:
             guard strain.map != nil else { return }
-            analysisMode = .strain
-            workspaceArea = .map
+            navigation.analysisMode = .strain
+            navigation.workspaceArea = .map
             applyStrainDisplay()
         case .orientation:
             guard hasOrientationMap else { return }
-            analysisMode = .acom
-            workspaceArea = .map
+            navigation.analysisMode = .acom
+            navigation.workspaceArea = .map
             applyACOMDisplay()
         }
     }
@@ -4966,7 +5073,7 @@ final class AppState {
     /// frame; masked positions remain NaN and render with the explicit
     /// no-data color, never as neutral zero strain.
     private func applyStrainDisplay() {
-        guard let map = strain.map, analysisMode == .strain else { return }
+        guard let map = strain.map, navigation.analysisMode == .strain else { return }
         restoredResultInfo = nil
         restoredResultDomain = nil
         resultColormap = (strain.component == .residual || strain.component == .indexed)
@@ -5273,11 +5380,16 @@ final class AppState {
             runSemantics.scale.provenance.displayName,
             workCount.formatted(), elapsed
         )
+        // R17 (owner, 2026-09-01): a landed preview's natural next step is
+        // the full map, so the scope — and with it the header's primary
+        // action — advances to it. The segmented control shows the change,
+        // and the user can step back to Preview at any time.
+        if scope == .preview { acomScope = .fullScan }
         return .published
     }
 
     private func applyACOMDisplay() {
-        guard let map = orientationMap, analysisMode == .acom else { return }
+        guard let map = orientationMap, navigation.analysisMode == .acom else { return }
         restoredResultInfo = nil
         resultColormap = .viridis
         switch acomDisplay {
@@ -5326,7 +5438,7 @@ final class AppState {
     /// Local fitted lattice vs reference lattice at the selected position,
     /// mapped back onto the raw pattern.
     var strainFitOverlay: FitOverlays.StrainOverlay? {
-        guard showFitOverlay, analysisMode == .strain,
+        guard showFitOverlay, navigation.analysisMode == .strain,
               patternShowsSelectedPosition,
               let map = strain.map, let d = descriptor,
               map.width == d.rx, map.height == d.ry,
@@ -5341,7 +5453,7 @@ final class AppState {
 
     /// The matched template's predicted reflections at the selected position.
     var acomFitOverlay: FitOverlays.TemplateOverlay? {
-        guard showFitOverlay, analysisMode == .acom,
+        guard showFitOverlay, navigation.analysisMode == .acom,
               patternShowsSelectedPosition,
               let plan = orientationPlan, let map = orientationMap,
               let d = descriptor, map.width == d.rx, map.height == d.ry,
@@ -5364,7 +5476,7 @@ final class AppState {
     /// per-position fitted origin for the current pattern, mean origin for
     /// the mean/max pattern.
     var originFitOverlayPoint: (x: Float, y: Float)? {
-        guard showFitOverlay, workspaceArea == .prepare,
+        guard showFitOverlay, navigation.workspaceArea == .prepare,
               calibration.hasFittedOrigin, let d = descriptor,
               realSpaceShape == .point else { return nil }
         switch patternDisplayMode {
@@ -5384,7 +5496,7 @@ final class AppState {
     /// (which carries its own center); a session/file ellipse without a center
     /// is drawn around the mean origin.
     var ellipseFitOverlayPolyline: [FitOverlays.Marker] {
-        guard showFitOverlay, workspaceArea == .prepare,
+        guard showFitOverlay, navigation.workspaceArea == .prepare,
               descriptor != nil else { return [] }
         if let fit = lastEllipseFit {
             return FitOverlays.ellipsePolyline(
@@ -5405,11 +5517,11 @@ final class AppState {
     /// toggle only appears where it has an effect.
     var fitOverlayIsAvailable: Bool {
         guard descriptor != nil else { return false }
-        switch analysisMode {
+        switch navigation.analysisMode {
         case .strain: return strain.map != nil
         case .acom: return hasOrientationMap
         default:
-            return workspaceArea == .prepare
+            return navigation.workspaceArea == .prepare
                 && (calibration.hasFittedOrigin || calibration.hasEllipse)
         }
     }

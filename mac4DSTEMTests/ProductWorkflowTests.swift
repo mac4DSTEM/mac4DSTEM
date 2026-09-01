@@ -89,13 +89,18 @@ final class ProductWorkflowTests: XCTestCase {
     }
 
     func testPrimaryNavigationUsesUserOutcomes() {
+        // S22c re-cut: the five steps follow the physics families — Imaging
+        // (no prerequisites), Bragg (disks → strain/orientation), Phase
+        // (voltage-only: DPC first, ptychography behind it).
         XCTAssertEqual(
             WorkspaceArea.allCases.map(\.title),
-            ["Prepare", "Image", "Map", "Reconstruct", "Results"]
+            ["Prepare", "Imaging", "Strain & ACOM", "Phase", "Results"]
         )
         XCTAssertEqual(WorkspaceArea.image.defaultAnalysisMode, .virtualDetector)
         XCTAssertEqual(WorkspaceArea.map.defaultAnalysisMode, .disks)
-        XCTAssertEqual(WorkspaceArea.reconstruct.defaultAnalysisMode, .ptychography)
+        XCTAssertEqual(WorkspaceArea.reconstruct.defaultAnalysisMode, .dpc)
+        XCTAssertEqual(AnalysisMode.dpc.workspaceArea, .reconstruct,
+                       "DPC belongs to the Phase family workspace")
         XCTAssertNil(WorkspaceArea.prepare.defaultAnalysisMode)
         XCTAssertNil(WorkspaceArea.results.defaultAnalysisMode)
     }
@@ -358,7 +363,7 @@ final class ProductWorkflowTests: XCTestCase {
 
     func testDPCScalarAnglePublishesRadianEncodingProvenance() {
         let state = AppState()
-        state.analysisMode = .dpc
+        state.navigation.analysisMode = .dpc
         state.dpcDisplay = .angle
         state.resultImage = FloatImage(width: 1, height: 1, pixels: [.pi / 2])
 
@@ -410,8 +415,8 @@ final class ProductWorkflowTests: XCTestCase {
         state.calibration.rPixelUnits = "nm"
         state.calibration.qPixelSize = 0.01
         state.calibration.qPixelUnits = "Å⁻¹"
-        state.analysisMode = .disks
-        state.workspaceArea = .map
+        state.navigation.analysisMode = .disks
+        state.navigation.workspaceArea = .map
         state.resultImage = FloatImage(
             width: 256, height: 256,
             pixels: [Float](repeating: 1, count: 256 * 256)

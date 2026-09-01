@@ -1,329 +1,19 @@
 import SwiftUI
 
+/// S22a: the sixteen stacked sections this view had accreted are regrouped
+/// into the four approved by `docs/s22-ux-design.md` §4.3 — Dataset, Live,
+/// Diagnostics, Products — and the view now lives in a system inspector
+/// column, so everything here sizes to the column width the user drags.
 struct DatasetInspector: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         List {
             if let descriptor = appState.descriptor {
-                Section("Dataset") {
-                    row("File", descriptor.fileName)
-                    row("Path", descriptor.datasetPath, mono: true)
-                    row("Shape", descriptor.shapeString, mono: true)
-                    row("dtype", descriptor.dtypeDescription, mono: true)
-                    row(
-                        "Chunks",
-                        descriptor.chunkShape.map { $0.map(String.init).joined(separator: " x ") } ?? "contiguous",
-                        mono: true
-                    )
-                    row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
-                }
-
-                if let preview = appState.datasetPreview {
-                    // INVARIANT I4: a sampled preview is not a result. The
-                    // summary states the stride and is drawn FIRST, above the
-                    // images, so nothing here can be read as a virtual image.
-                    // A strided preview and a real virtual image will differ,
-                    // and a user comparing them will file a bug — this label is
-                    // the thing that pre-empts it.
-                    Section("Preview") {
-                        Text(preview.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("preview.summary")
-                        previewImage(
-                            "Real space", pixels: preview.realSpace.normalized(),
-                            width: preview.realSpace.width,
-                            height: preview.realSpace.height, colormap: .gray
-                        )
-                        previewImage(
-                            "Mean pattern", pixels: preview.meanDP.normalized(useLog: true),
-                            width: preview.meanDP.qx, height: preview.meanDP.qy,
-                            colormap: .viridis
-                        )
-                        previewImage(
-                            "Max pattern", pixels: preview.maxDP.normalized(useLog: true),
-                            width: preview.maxDP.qx, height: preview.maxDP.qy,
-                            colormap: .viridis
-                        )
-                        if preview.isSampled {
-                            Text("Not a result — cannot be exported or saved.")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-
-                // WHAT IS ACTUALLY LOADED, and what that cost the calibration.
-                //
-                // L4's "state them in the UI" and "label the result" (invariant
-                // I3): a cropped or binned cube is a DIFFERENT MEASUREMENT, and
-                // until this section existed the app knew that and never said
-                // it. `LoadedView`'s whole display surface had no reader.
-                //
-                // Absent at full extent, deliberately — a permanent row reading
-                // "no crop" on every dataset is noise, and the section's
-                // presence is itself the signal that something was reduced.
-                if !appState.loadedView.isFullExtent {
-                    Section("Loaded view") {
-                        if let summary = appState.loadedView.summary {
-                            Text(summary)
-                                .font(.callout)
-                                .accessibilityIdentifier("inspector.loadedViewSummary")
-                        }
-                        if let notice = appState.loadedView.binningNotice {
-                            // The intensity consequence, said plainly: binning
-                            // SUMS, so every absolute-intensity threshold moves
-                            // with the factor.
-                            Text(notice)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .accessibilityIdentifier("inspector.binningNotice")
-                        }
-                        row("Source shape", appState.loadedView.sourceShapeString, mono: true)
-                        row("Loaded shape", descriptor.shapeString, mono: true)
-                        row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
-
-                        // THE PROMOTE CONTROL (v2 S3). It lives in this
-                        // section because the section exists exactly when
-                        // promotion is meaningful: a reduced view is loaded.
-                        // Promotion is a reopen of the SOURCE at full extent —
-                        // removing the specification, never re-deriving from
-                        // reduced data — so the cost stated is the whole
-                        // cube's, which is the number the user is deciding
-                        // about.
-                        VStack(alignment: .leading, spacing: 4) {
-                            Button("Reopen at Full Extent") {
-                                // The one-action promote (v2 S6): with a
-                                // recorded recipe this reopens AND replays;
-                                // with none it is the plain S3 reopen.
-                                Task { await appState.promoteAndReplayRecipe() }
-                            }
-                            .disabled(appState.isLoadingDataset
-                                      || appState.replayRun.isRunning)
-                            .accessibilityIdentifier("inspector.promoteToFullExtent")
-                            if let source = appState.loadView?.source {
-                                // SystemMonitor.byteString, deliberately: the
-                                // configurator prices this same quantity
-                                // ("Whole cube (f32)") through it, and the two
-                                // surfaces a user compares when deciding to
-                                // promote must not render the same cube with
-                                // different precision.
-                                Text("Reloads the whole cube — "
-                                     + SystemMonitor.byteString(source.byteCountAsFloat32)
-                                     + " as float32. Analyses re-run against the full dataset.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            PromoteRunCaption(
-                                record: appState.replay.record,
-                                frame: appState.replay.parameterFrame
-                            )
-                        }
-                    }
-                }
-
-                // THE PROMOTE RUN (v2 S6) — live progress while the recipe
-                // replays, and the morning summary afterwards. Outside the
-                // reduced-view condition above on purpose: a finished promote
-                // IS full extent, and the summary is exactly what the user
-                // reads then. Cleared on dataset change (`clearUnlessRunning`).
-                if appState.replayRun.phase != .idle {
-                    Section("Promote run") {
-                        if let headline = appState.replayRun.summaryHeadline {
-                            Text(headline)
-                                .font(.callout.weight(.medium))
-                                .accessibilityIdentifier("inspector.promoteRunHeadline")
-                        }
-                        if let halt = appState.replayRun.haltReason {
-                            Text("Halted — \(halt)")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .accessibilityIdentifier("inspector.promoteRunHalt")
-                        }
-                        if let note = appState.replayRun.frameNote {
-                            Text(note)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .accessibilityIdentifier("inspector.promoteRunFrameNote")
-                        }
-                        ForEach(appState.replayRun.steps) { step in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(step.index + 1). \(step.title)  \(symbol(for: step.outcome))")
-                                    .font(.caption.weight(.medium))
-                                if let detail = detail(for: step.outcome) {
-                                    Text(detail)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Calibration values that could NOT be carried into this view.
-                // Shown separately from the summary above because these are
-                // refusals, not descriptions: something the file provided is now
-                // absent, and the reason is the actionable part.
-                if !appState.loadedView.invalidatedCalibration.isEmpty {
-                    Section("Not carried into this view") {
-                        ForEach(appState.loadedView.invalidatedCalibration) { item in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.field.rawValue)
-                                    .font(.callout.weight(.medium))
-                                Text(item.reason)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .accessibilityIdentifier("inspector.invalidatedCalibration")
-                }
-
-                Section("Dimensions") {
-                    row("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
-                    row("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")
-                    if let acceleratingVoltage = appState.acceleratingVoltage {
-                        row("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
-                    }
-                }
-
-                Section("Current scan position") {
-                    row("x (Rx)", "\(appState.selectedScan.x)")
-                    row("y (Ry)", "\(appState.selectedScan.y)")
-                    if let (lowerBound, upperBound) = appState.patternMinMax {
-                        row("Pattern min", String(format: "%.3g", lowerBound))
-                        row("Pattern max", String(format: "%.3g", upperBound))
-                    }
-                }
-
-                Section("Aperture (detector px)") {
-                    row("Center x", String(format: "%.1f", appState.aperture.centerX))
-                    row("Center y", String(format: "%.1f", appState.aperture.centerY))
-                    row("Inner r", String(format: "%.1f", appState.aperture.inner))
-                    row("Outer r", String(format: "%.1f", appState.aperture.outer))
-                }
-
-                if let image = appState.resultImage {
-                    Section("Histogram (real space)") {
-                        HistogramView(pixels: image.pixels, version: appState.resultVersion,
-                                      rangeLo: Bindable(appState).displayRangeLo,
-                                      rangeHi: Bindable(appState).displayRangeHi)
-                        Text("Drag the handles to clip which intensities map into the image.")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        gammaControl("Gamma", value: Bindable(appState).resultGamma)
-                    }
-                }
-
-                if let pattern = appState.displayedPattern {
-                    Section("Histogram (diffraction)") {
-                        HistogramView(
-                            pixels: pattern.contrastPixels(useLog: appState.logScale),
-                            version: appState.patternVersion,
-                            rangeLo: Bindable(appState).patternDisplayRangeLo,
-                            rangeHi: Bindable(appState).patternDisplayRangeHi
-                        )
-                        Text(appState.logScale
-                             ? "Contrast is selected on the log10(1 + intensity) axis."
-                             : "Drag the handles to set the CBED intensity window.")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        gammaControl("Gamma", value: Bindable(appState).patternGamma)
-                    }
-                }
-
-                if let rotation = appState.lastRotationResult {
-                    Section("Rotation diagnostics") {
-                        RotationCurveView(result: rotation)
-                            .frame(height: 90)
-                        Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-
-                Section("Performance") {
-                    PerformanceView()
-                }
-
-                // PROVENANCE (L6 item 3). A result restored from a session
-                // was computed under some view; if the app is now showing a
-                // different one, the numbers on screen and the numbers in the
-                // sidecar are about different data. Said in the existing
-                // provenance vocabulary rather than a second one (I3).
-                if let recorded = appState.sessionLoadSpecification,
-                   recorded != appState.loadedView.specification {
-                    Section("Session provenance") {
-                        Text("The saved session was computed on a different view of this file.")
-                            .font(.callout)
-                        row("Session view", recorded.provenanceSummary ?? "whole file")
-                        row("Loaded view",
-                            appState.loadedView.specification.provenanceSummary ?? "whole file")
-                        Text("Restored results describe the session's view, not the one loaded now.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
-                }
-
-                // A SIDECAR THAT IS THERE AND UNREADABLE (v2 S1). Distinct from
-                // the mismatch above, and it has to be: that one compares two
-                // KNOWN views, while this is the case where the recorded view is
-                // unknown because the file could not be opened. The dataset then
-                // loaded at full extent, which looks exactly like a dataset that
-                // never had a session — so without this the user's only signal
-                // is a status line that the load itself overwrites within
-                // milliseconds (measured, Gate D 2026-08-19).
-                if let reason = appState.sessionSidecar.unreadableReason {
-                    Section("Session sidecar") {
-                        Text("A saved session sits beside this dataset and could not be read.")
-                            .font(.callout)
-                        Text(reason)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("The whole file is loaded. If that session recorded a crop, what is on screen is a different extent from what it saved.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityIdentifier("inspector.sessionSidecarUnreadable")
-                }
-
-                // A RECORDED VIEW THIS FILE DOES NOT HAVE (v2 S7). The
-                // unreadable case above already renders through the locator;
-                // this is the sibling failure — the sidecar was READ, and the
-                // region it records does not fit the file (replaced dataset,
-                // or a sidecar copied beside a different cube). Before S7 its
-                // only signal was a status line the load overwrites, the
-                // exact channel defect S1 measured for the branch above.
-                // While either failure stands, sidecar rewrites are refused
-                // (`SessionGates.sidecarRewriteRefusal`).
-                if appState.sessionSidecar.unreadableReason == nil,
-                   let failure = appState.gates.sidecarRestoreFailure,
-                   failure.kind == .doesNotFit {
-                    Section("Session sidecar") {
-                        Text("The saved session beside this dataset describes a region this file does not have.")
-                            .font(.callout)
-                        Text(failure.message)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .accessibilityIdentifier("inspector.sessionSidecarDoesNotFit")
-                }
-
-                Section("Files & products") {
+                datasetGroup(descriptor)
+                liveGroup
+                diagnosticsGroup
+                Section("Products") {
                     ProductsView()
                 }
             } else {
@@ -331,7 +21,365 @@ struct DatasetInspector: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(minWidth: 240)
+    }
+
+    // MARK: - Dataset (file, dimensions, preview, loaded view)
+
+    @ViewBuilder
+    private func datasetGroup(_ descriptor: DatasetDescriptor) -> some View {
+        Section("Dataset") {
+            row("File", descriptor.fileName)
+            row("Path", descriptor.datasetPath, mono: true)
+            row("Shape", descriptor.shapeString, mono: true)
+            row("dtype", descriptor.dtypeDescription, mono: true)
+            row(
+                "Chunks",
+                descriptor.chunkShape.map { $0.map(String.init).joined(separator: " x ") } ?? "contiguous",
+                mono: true
+            )
+            row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
+
+            subheader("Dimensions")
+            row("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
+            row("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")
+            if let acceleratingVoltage = appState.acceleratingVoltage {
+                row("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
+            }
+
+            if let preview = appState.datasetPreview {
+                // INVARIANT I4: a sampled preview is not a result. The
+                // summary states the stride and is drawn FIRST, above the
+                // images, so nothing here can be read as a virtual image.
+                // A strided preview and a real virtual image will differ,
+                // and a user comparing them will file a bug — this label is
+                // the thing that pre-empts it.
+                subheader("Preview")
+                Text(preview.summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("preview.summary")
+                previewImage(
+                    "Real space", pixels: preview.realSpace.normalized(),
+                    width: preview.realSpace.width,
+                    height: preview.realSpace.height, colormap: .gray
+                )
+                previewImage(
+                    "Mean pattern", pixels: preview.meanDP.normalized(useLog: true),
+                    width: preview.meanDP.qx, height: preview.meanDP.qy,
+                    colormap: .viridis
+                )
+                previewImage(
+                    "Max pattern", pixels: preview.maxDP.normalized(useLog: true),
+                    width: preview.maxDP.qx, height: preview.maxDP.qy,
+                    colormap: .viridis
+                )
+                if preview.isSampled {
+                    Text("Not a result — cannot be exported or saved.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            // WHAT IS ACTUALLY LOADED, and what that cost the calibration.
+            //
+            // L4's "state them in the UI" and "label the result" (invariant
+            // I3): a cropped or binned cube is a DIFFERENT MEASUREMENT, and
+            // until this section existed the app knew that and never said
+            // it. `LoadedView`'s whole display surface had no reader.
+            //
+            // Absent at full extent, deliberately — a permanent row reading
+            // "no crop" on every dataset is noise, and the block's
+            // presence is itself the signal that something was reduced.
+            if !appState.loadedView.isFullExtent {
+                subheader("Loaded view")
+                if let summary = appState.loadedView.summary {
+                    Text(summary)
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("inspector.loadedViewSummary")
+                }
+                if let notice = appState.loadedView.binningNotice {
+                    // The intensity consequence, said plainly: binning
+                    // SUMS, so every absolute-intensity threshold moves
+                    // with the factor.
+                    Text(notice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("inspector.binningNotice")
+                }
+                row("Source shape", appState.loadedView.sourceShapeString, mono: true)
+                row("Loaded shape", descriptor.shapeString, mono: true)
+                row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
+
+                // THE PROMOTE CONTROL (v2 S3). It lives in this
+                // block because the block exists exactly when
+                // promotion is meaningful: a reduced view is loaded.
+                // Promotion is a reopen of the SOURCE at full extent —
+                // removing the specification, never re-deriving from
+                // reduced data — so the cost stated is the whole
+                // cube's, which is the number the user is deciding
+                // about.
+                VStack(alignment: .leading, spacing: 4) {
+                    Button("Reopen at Full Extent") {
+                        // The one-action promote (v2 S6): with a
+                        // recorded recipe this reopens AND replays;
+                        // with none it is the plain S3 reopen.
+                        Task { await appState.promoteAndReplayRecipe() }
+                    }
+                    .disabled(appState.isLoadingDataset
+                              || appState.replayRun.isRunning)
+                    .accessibilityIdentifier("inspector.promoteToFullExtent")
+                    if let source = appState.loadView?.source {
+                        // SystemMonitor.byteString, deliberately: the
+                        // configurator prices this same quantity
+                        // ("Whole cube (f32)") through it, and the two
+                        // surfaces a user compares when deciding to
+                        // promote must not render the same cube with
+                        // different precision.
+                        Text("Reloads the whole cube — "
+                             + SystemMonitor.byteString(source.byteCountAsFloat32)
+                             + " as float32. Analyses re-run against the full dataset.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    PromoteRunCaption(
+                        record: appState.replay.record,
+                        frame: appState.replay.parameterFrame
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Live (scan position, aperture, histograms)
+
+    @ViewBuilder
+    private var liveGroup: some View {
+        Section("Live") {
+            subheader("Current scan position")
+            row("x (Rx)", "\(appState.selectedScan.x)")
+            row("y (Ry)", "\(appState.selectedScan.y)")
+            if let (lowerBound, upperBound) = appState.patternMinMax {
+                row("Pattern min", String(format: "%.3g", lowerBound))
+                row("Pattern max", String(format: "%.3g", upperBound))
+            }
+
+            subheader("Aperture (detector px)")
+            row("Center x", String(format: "%.1f", appState.aperture.centerX))
+            row("Center y", String(format: "%.1f", appState.aperture.centerY))
+            row("Inner r", String(format: "%.1f", appState.aperture.inner))
+            row("Outer r", String(format: "%.1f", appState.aperture.outer))
+
+            if let image = appState.resultImage {
+                subheader("Histogram (real space)")
+                HistogramView(pixels: image.pixels, version: appState.resultVersion,
+                              rangeLo: Bindable(appState).displayRangeLo,
+                              rangeHi: Bindable(appState).displayRangeHi)
+                Text("Drag the handles to clip which intensities map into the image.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                gammaControl("Gamma", value: Bindable(appState).resultGamma)
+            }
+
+            if let pattern = appState.displayedPattern {
+                subheader("Histogram (diffraction)")
+                HistogramView(
+                    pixels: pattern.contrastPixels(useLog: appState.logScale),
+                    version: appState.patternVersion,
+                    rangeLo: Bindable(appState).patternDisplayRangeLo,
+                    rangeHi: Bindable(appState).patternDisplayRangeHi
+                )
+                Text(appState.logScale
+                     ? "Contrast is selected on the log10(1 + intensity) axis."
+                     : "Drag the handles to set the CBED intensity window.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                gammaControl("Gamma", value: Bindable(appState).patternGamma)
+            }
+        }
+    }
+
+    // MARK: - Diagnostics (rotation, performance, promote run, provenance)
+
+    @ViewBuilder
+    private var diagnosticsGroup: some View {
+        Section("Diagnostics") {
+            // THE PROMOTE RUN (v2 S6) — live progress while the recipe
+            // replays, and the morning summary afterwards. Outside the
+            // reduced-view condition above on purpose: a finished promote
+            // IS full extent, and the summary is exactly what the user
+            // reads then. Cleared on dataset change (`clearUnlessRunning`).
+            if appState.replayRun.phase != .idle {
+                subheader("Promote run")
+                if let headline = appState.replayRun.summaryHeadline {
+                    Text(headline)
+                        .font(.callout.weight(.medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("inspector.promoteRunHeadline")
+                }
+                if let halt = appState.replayRun.haltReason {
+                    Text("Halted — \(halt)")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("inspector.promoteRunHalt")
+                }
+                if let note = appState.replayRun.frameNote {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("inspector.promoteRunFrameNote")
+                }
+                ForEach(appState.replayRun.steps) { step in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(step.index + 1). \(step.title)  \(symbol(for: step.outcome))")
+                            .font(.caption.weight(.medium))
+                        if let detail = detail(for: step.outcome) {
+                            Text(detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+
+            // Calibration values that could NOT be carried into this view.
+            // Shown separately from the loaded-view summary because these are
+            // refusals, not descriptions: something the file provided is now
+            // absent, and the reason is the actionable part.
+            if !appState.loadedView.invalidatedCalibration.isEmpty {
+                Group {
+                    subheader("Not carried into this view")
+                    ForEach(appState.loadedView.invalidatedCalibration) { item in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.field.rawValue)
+                                .font(.callout.weight(.medium))
+                            Text(item.reason)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                .accessibilityIdentifier("inspector.invalidatedCalibration")
+            }
+
+            if let rotation = appState.lastRotationResult {
+                subheader("Rotation diagnostics")
+                RotationCurveView(result: rotation)
+                    .frame(height: 90)
+                Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+
+            subheader("Performance")
+            PerformanceView()
+
+            // PROVENANCE (L6 item 3). A result restored from a session
+            // was computed under some view; if the app is now showing a
+            // different one, the numbers on screen and the numbers in the
+            // sidecar are about different data. Said in the existing
+            // provenance vocabulary rather than a second one (I3).
+            if let recorded = appState.sessionLoadSpecification,
+               recorded != appState.loadedView.specification {
+                Group {
+                    subheader("Session provenance")
+                    Text("The saved session was computed on a different view of this file.")
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    row("Session view", recorded.provenanceSummary ?? "whole file")
+                    row("Loaded view",
+                        appState.loadedView.specification.provenanceSummary ?? "whole file")
+                    Text("Restored results describe the session's view, not the one loaded now.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // D4: the way OUT — a clean reopen with the session
+                    // skipped. The sidecar file is untouched.
+                    Button("Reopen Without This Session") {
+                        appState.reopenIgnoringSessionSidecar()
+                    }
+                    .controlSize(.small)
+                    .help("Reopens this dataset without restoring the saved session. "
+                          + "The sidecar file stays on disk; results you save afterwards "
+                          + "still go to the same sidecar.")
+                    .accessibilityIdentifier("inspector.reopenWithoutSession")
+                }
+                .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
+            }
+
+            // A SIDECAR THAT IS THERE AND UNREADABLE (v2 S1). Distinct from
+            // the mismatch above, and it has to be: that one compares two
+            // KNOWN views, while this is the case where the recorded view is
+            // unknown because the file could not be opened. The dataset then
+            // loaded at full extent, which looks exactly like a dataset that
+            // never had a session — so without this the user's only signal
+            // is a status line that the load itself overwrites within
+            // milliseconds (measured, Gate D 2026-08-19).
+            if let reason = appState.sessionSidecar.unreadableReason {
+                Group {
+                    subheader("Session sidecar")
+                    Text("A saved session sits beside this dataset and could not be read.")
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("The whole file is loaded. If that session recorded a crop, what is on screen is a different extent from what it saved.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityIdentifier("inspector.sessionSidecarUnreadable")
+            }
+
+            // A RECORDED VIEW THIS FILE DOES NOT HAVE (v2 S7). The
+            // unreadable case above already renders through the locator;
+            // this is the sibling failure — the sidecar was READ, and the
+            // region it records does not fit the file (replaced dataset,
+            // or a sidecar copied beside a different cube). Before S7 its
+            // only signal was a status line the load overwrites, the
+            // exact channel defect S1 measured for the branch above.
+            // While either failure stands, sidecar rewrites are refused
+            // (`SessionGates.sidecarRewriteRefusal`).
+            if appState.sessionSidecar.unreadableReason == nil,
+               let failure = appState.gates.sidecarRestoreFailure,
+               failure.kind == .doesNotFit {
+                Group {
+                    subheader("Session sidecar")
+                    Text("The saved session beside this dataset describes a region this file does not have.")
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(failure.message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityIdentifier("inspector.sessionSidecarDoesNotFit")
+            }
+        }
+    }
+
+    // MARK: - Shared row/label helpers
+
+    /// A labelled block boundary inside one of the four groups. Sub-blocks
+    /// were previously sixteen top-level `Section`s; the caps style keeps
+    /// them scannable without sixteen headers' worth of chrome.
+    private func subheader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.top, 8)
     }
 
     private func gammaControl(_ label: String, value: Binding<Float>) -> some View {
@@ -346,9 +394,10 @@ struct DatasetInspector: View {
         }
     }
 
-    /// One preview thumbnail. Fixed square frame with the image scaled to fit:
-    /// the sampled real-space grid and the detector have unrelated aspect
-    /// ratios, and the point here is recognisability, not measurement.
+    /// One preview thumbnail, filling the inspector column's width (S22a):
+    /// dragging the inspector wider is how the preview grows — the fixed
+    /// 120pt cap this replaces is what made the preview permanently tiny
+    /// (owner playthrough 2026-09-01, finding O5).
     private func previewImage(
         _ label: String, pixels: [Float], width: Int, height: Int,
         colormap: ColormapKind
@@ -380,7 +429,7 @@ struct DatasetInspector: View {
             .aspectRatio(
                 CGFloat(width) / CGFloat(max(height, 1)), contentMode: .fit
             )
-            .frame(maxHeight: 120)
+            .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
         }
@@ -394,6 +443,10 @@ struct DatasetInspector: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
+                // Wrap, never truncate (S22a) — the inspector's fixed rows
+                // were part of the read-blocking truncation the owner
+                // reported; a long path or provenance string grows the row.
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

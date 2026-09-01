@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum ColormapKind: String, CaseIterable, Identifiable {
@@ -14,6 +15,14 @@ enum ColormapKind: String, CaseIterable, Identifiable {
         case .inferno: return "Inferno"
         case .gray: return "Gray"
         case .rdbu: return "RdBu (diverging)"
+        }
+    }
+
+    /// Compact menu label used when both pane palettes share the sidebar row.
+    var shortDisplayName: String {
+        switch self {
+        case .rdbu: return "RdBu"
+        default: return displayName
         }
     }
 
@@ -104,5 +113,32 @@ enum Colormaps {
 private extension Double {
     func clamped(_ lowerBound: Double, _ upperBound: Double) -> Double {
         Swift.min(Swift.max(self, lowerBound), upperBound)
+    }
+}
+
+extension Colormaps {
+    /// D3 (owner decision, 2026-09-01): small gradient swatches for the
+    /// colorbar-chip menu, built once per colormap from the same LUT the
+    /// renderer uses — the menu shows the actual mapping, not a name.
+    @MainActor private static var swatchCache: [ColormapKind: NSImage] = [:]
+
+    @MainActor static func swatch(_ kind: ColormapKind) -> NSImage {
+        if let cached = swatchCache[kind] { return cached }
+        let width = 44, height = 12
+        let lut = lutRGBA(kind, count: width)
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        for x in 0..<width {
+            let offset = x * 4
+            NSColor(
+                calibratedRed: CGFloat(lut[offset]) / 255,
+                green: CGFloat(lut[offset + 1]) / 255,
+                blue: CGFloat(lut[offset + 2]) / 255, alpha: 1
+            ).setFill()
+            NSRect(x: x, y: 0, width: 1, height: height).fill()
+        }
+        image.unlockFocus()
+        swatchCache[kind] = image
+        return image
     }
 }

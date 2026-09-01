@@ -38,10 +38,11 @@ finding and refuted two others before they reached the docs.
 
 **Ride along, same sessions, near-free:** `ui-07` (Performance inspector still
 says "GPU budget" — one word) and Group D's five green-but-worthless tests,
-which are what would catch a regression in the above. **Plus two
-owner-promoted UI changes (2026-09-01, each queues a Track B row):** remove or
-demote the scan-position X/Y sliders, and make the colormap pickers
-permanently visible instead of inside the Display flap-out.
+which are what would catch a regression in the above. **The two
+owner-promoted UI changes are DONE 2026-09-01 (F1.50 queued; F1.51 scored
+PARTLY — the colormap-submenu finding):** the
+scan-position X/Y sliders are removed, and the DP/Result colormap pickers are
+permanently visible in one compact Display row.
 
 **Defer to v2.x:** Groups C, E, F, and Group B's non-CIF trio (documented
 limitations — owner decision 2026-09-01). Cutting them shortens nothing —
@@ -68,9 +69,9 @@ deliberate failure halt honestly**. Closes **F1.14, F1.15, F1.19, F1.22, F1.23**
 
 ## Step 4 — finish Track B (~1 session, mostly assistant-drivable)
 
-Currently **31 passed / 7 partly / 17 unverified / 1 blocked** (F1.47–F1.49
-queued by the 2026-09-01 sessions; F1.47 was added
-for the DPC angle-unit repair). Assistant can
+Currently **31 passed / 9 partly / 19 unverified / 1 blocked** (F1.47–F1.50
+queued by the 2026-09-01 sessions; F1.51 and F1.52 PARTLY; **F1.53 is the
+owner's consolidated S22 final-playthrough row**). Assistant can
 drive **F1.35, F1.38's last gap, F1.8, F1.21, F1.27, F1.30, F1.31, F1.43,
 F1.45's In-plane mode**. Owner keeps the judgement rows (**F1.37, F1.40's
 wording, F1.42**) and the standing pass **§A–§F**, which Done criterion 13 names
@@ -89,8 +90,12 @@ reproduce**, including whichever §1 sentences step 0 narrowed.
 - **No fresh whole-codebase review.** One ran 2026-08-31 at `24c13d3`, which
   includes W4a and W4b, and **no app code has changed since**. Re-running it
   re-derives the same 75 findings.
-- **No S22.** The UX pass now has real evidence, but it is polish; it belongs
-  after users exist, not before.
+- ~~**No S22.**~~ **OVERTURNED by the owner, 2026-09-01 evening.** His
+  playthrough verdict ("this is not a good v2") blocks his own Track B
+  testing, so S22 moved ahead of the remaining fix queue — design phase first
+  (assistant-only), then bounded slices; the UI-pair work is held uncommitted
+  and the owner's sittings pause until S22 lands. Decision 7 in
+  [`docs/open-items.md`](open-items.md) §Owner decisions.
 - **No Groups C/E/F.** v2.x.
 
 ## Standing repo-hygiene debt
