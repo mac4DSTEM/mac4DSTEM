@@ -3,7 +3,7 @@
 //  Role: The origin-calibration workflow (py4DSTEM: get_probe_size,
 //        get_origin, fit_origin). GPU kernels do the per-pattern work
 //        (DPStatistics.metal, OriginMeasure.metal); this file holds the
-//        small CPU-side pieces — probe-size estimation on the max pattern
+//        small CPU-side pieces — probe-size estimation on the mean pattern
 //        and the smooth 2D fit of the measured origin maps — plus the
 //        orchestration that ties them into a `Calibration`.
 //
@@ -447,7 +447,20 @@ nonisolated enum OriginCalibration {
             cancellation: cancellation, progress: statsProgress
         )
         guard cancellation?.isCancelled != true else { return nil }
-        let (radius, _, _) = probeSize(dp: statistics.maxDP, qy: d.qy, qx: d.qx)
+        // DEVIATION from py4DSTEM's origin path (process/calibration/origin.py:268
+        // feeds get_probe_size the MAX pattern): the mean is fed instead, which is
+        // what py4DSTEM's own get_probe_size docstring recommends ("a position
+        // averaged ... DP works best"). Measured 2026-09-01 on real data
+        // (tools/origin-fit-diagnostics probe-size): the max-union counts every
+        // Bragg disk seen anywhere in the scan as probe area — SPED_MgO reads
+        // 14.1 px from the max against 5.4 from the mean and ~3 from
+        // substrate-only patterns, and the SAME specimen over a 4x larger scan
+        // reads 19.1, which a per-pattern property cannot do. The mean's own
+        // failure mode is bounded (descan blur + amorphous background, recorded
+        // in docs/open-items.md); the max's grows with scan area and
+        // diffraction strength. A single low-sum pattern is NOT a safe input:
+        // Particle_1's minimum-sum position returns 31.8 px.
+        let (radius, _, _) = probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx)
         let originProgress: (@Sendable (Double) -> Void) = { fraction in
             progress?(0.35 + 0.55 * fraction)
         }
@@ -481,9 +494,13 @@ nonisolated enum OriginCalibration {
     }
 
     /// Full origin calibration on a resident cube:
-    /// max DP → probe size → per-pattern measurement → smooth fit.
+    /// mean DP → probe size → per-pattern measurement → smooth fit.
     /// Returns the calibration pieces plus the max/mean patterns (useful as
-    /// display modes, and the max DP documents what the fit was based on).
+    /// display modes, and the mean DP documents what the fit was based on).
+    /// NOTE (Gate B, 2026-09-01): this variant has no callers in the repo —
+    /// `ProbeSizeTests` pins its mean-pattern measurement anyway, so a future
+    /// caller resurrects the honest statistic rather than whatever the dead
+    /// code happened to feed. Deleting it instead is an owner option.
     nonisolated static func run(cube: MTLBuffer, descriptor d: DatasetDescriptor,
                     fitFunction: OriginFitFunction = .plane,
                     rscale: Float = 1.2,
@@ -495,7 +512,9 @@ nonisolated enum OriginCalibration {
 
         let (maxDP, meanDP) = try engine.dpStatistics(cube: cube, dims: dims)
         guard cancellation?.isCancelled != true else { return nil }
-        let (r, _, _) = probeSize(dp: maxDP, qy: d.qy, qx: d.qx)
+        // Same DEVIATION as tiledRun above: the mean, not the max — see the
+        // measurement note there.
+        let (r, _, _) = probeSize(dp: meanDP, qy: d.qy, qx: d.qx)
 
         let measured = try engine.measureOrigins(
             cube: cube,

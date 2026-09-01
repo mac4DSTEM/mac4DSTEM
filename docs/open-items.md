@@ -76,8 +76,11 @@ Taken in conversation with the release owner; they resolve
 Sequence agreed: docs tidy (ran 2026-09-01) → CIF pair (**DONE 2026-09-01 —
 Gate B ran, verdict stand-with-corrections, all four corrections applied;
 [record](archive/v2-session-records/cif-pair.md)**) → probe-radius
-Gate D → UI pair → provenance leak → remaining Group A → owner runs (clean
-account, bounded promote) → Track B finish → S20. The 036 view-vs-full
+(**DONE 2026-09-01 — Gate D confirmed, fixed, Gate B stand-with-corrections
+all applied** — [record](archive/v2-session-records/probe-radius.md)) →
+UI pair →
+provenance leak → remaining Group A → owner runs (clean account, bounded
+promote) → Track B finish → S20. The 036 view-vs-full
 performance A/B stays queued as its own sitting (parameter matrix if the
 owner's exact load spec stays unknown).
 
@@ -463,41 +466,27 @@ citations cannot be trusted without checking.
   missing/identity-only case is guarded and gated
   ([record](archive/v2-session-records/cif-pair.md)).
 
-- **Disk-detection radius looks ~3x too large on a strongly-diffracting dataset
-  (`SPED_MgO.hdf5`) — owner observation, 2026-08-28, on screen. NOT diagnosed;
-  Gate D owed before any fix.** Reported with a screenshot: the overlay circles
-  dwarf the visible central disk, spurious peaks land on noise, "Calibration
-  incomplete" is showing. **Hypothesis, with a mechanism and an arithmetic
-  check — not a conclusion.** `Calibration.probeRadius` comes from
-  `probeSize(dp: statistics.maxDP)` (`OriginCalibration.swift:225,271`), and
-  `probeSize` returns `sqrt(areaAboveThreshold / pi)` — the radius of a disk of
-  the same TOTAL lit area, not the central disk's radius. The **max**-DP is the
-  pixel-wise maximum over every scan position, so on a multi-grain sample it
-  carries the union of every Bragg disk seen anywhere. Reported 14.1 px implies
-  625 px² lit = 3.0% of the 144x144 detector, i.e. ~12 disk-areas if the true
-  disk is ~4 px — consistent with the screenshot. **SPED sharpens the concern**:
-  precession deliberately equalises central-beam and Bragg-disk intensities, so
-  the "central beam dominates the threshold" assumption `probeSize` inherits
-  from py4DSTEM's `get_probe_size` is weakest exactly here.
-  **A second, separable factor** — do not attribute everything to the radius:
-  acceptance was `Minimum absolute 0 CC` and `Minimum relative 0.5%`, which is
-  permissive enough to admit noise regardless of kernel size.
-  **Also found while reading this:** the kernel label **"Measured ROI · 14.1 px"
-  is misleading** — `ProbeKernel.measured(pattern:originX:originY:radius:)`
-  takes the radius as a PARAMETER from `Calibration.probeRadius`; it is not
-  measured from the ROI the user selected. The label implies a provenance the
-  number does not have.
-  **Cheapest discriminator, before any code:** run `probeSize` on the **mean**
-  DP and on a vacuum/substrate-only pattern and compare with the max-DP figure.
-  If the hypothesis holds, both come back near the visible disk radius. The
-  campaign harness already computes `meanDP` beside `maxDP`, so this needs no
-  new plumbing. **Owner: a later session (Gate D, then Gate B for the fix).**
-  **Open design question from the owner, same day:** should the user be able to
-  set the probe radius by hand, as py4DSTEM effectively allows? Precedent exists
-  — manual Q pixel size bypasses its estimator and is provenance-stamped — but
-  under the refusal rule a manual escape hatch must not substitute for an
-  estimator that is silently wrong: fix or qualify the automatic path first,
-  then add manual entry stamped `.manual`, never `.measuredInApp`.
+- ~~**Disk-detection radius looks ~3x too large on a strongly-diffracting
+  dataset (`SPED_MgO.hdf5`)**~~ — owner observation 2026-08-28; **DIAGNOSED
+  AND FIXED 2026-09-01**
+  ([record](archive/v2-session-records/probe-radius.md)). Gate D on the real
+  cube confirmed the recorded hypothesis exactly: the shipped 14.1 px IS
+  `probeSize(maxDP)` (reproduced to the digit), the mean gives 5.4,
+  substrate-only patterns ~3 — and within one file, nested sub-scans read
+  16.07 → 16.50 → 19.07 px as the scan grows, the max-union's causal
+  signature (a per-pattern property cannot grow with scan area; Gate B's
+  like-for-like version, replacing the dtype-confounded cross-file pair).
+  Both `OriginCalibration` call sites now feed
+  **meanDP** (DEVIATION noted: py4DSTEM's own origin path feeds the max,
+  against its own docstring). **Still live from the original observation:**
+  (1) the permissive acceptance thresholds (`Minimum absolute 0 CC`,
+  `relative 0.5%`) admit noise peaks regardless of kernel size — separate
+  factor, untouched by this fix; (2) the kernel label **"Measured ROI ·
+  N px" implies a provenance the number does not have**
+  (`ProbeKernel.measured` takes the radius as a parameter); (3) manual
+  radius entry stamped `.manual` is unblocked by the owner's fix-first
+  ruling, not yet built. Track B row queued for the on-screen radius
+  surfaces.
 
 - ~~**A file's mean origin never reaches the analyses that claim to use it**~~
   — found by S11, **CLOSED by S13, 2026-08-28.** The recorded beam centre now
@@ -680,35 +669,24 @@ citations cannot be trusted without checking.
   colleague reading an exported strain map cannot tell which estimator
   produced it. One provenance key fixes it; it must not slip past S20.
 
-- **`OriginCalibration.probeSize` counts Bragg disks as probe area, and
-  over-measures the probe radius 2.15× on the app's own demo — FOUND by Gate B,
-  2026-08-28. NOT DIAGNOSED. Owner: a Gate D session, and it very likely closes
-  the SPED_MgO observation below.**
-  `probeSize` thresholds the **max** DP at a series of levels and converts the
-  masked area to an equivalent circle. On a strongly-diffracting sample the
-  Bragg disks exceed 50% of the beam maximum, and the max-DP smears them into
-  arcs across whatever lattice rotation the scan contains, so they are counted
-  as probe. **Measured on the shipped demo:** the beam alone gives **4.484 px**
-  (drawn half-max 4.5); one pattern including its rings gives **7.732**; the
-  app's max-DP gives **9.649**.
-  **This is the SPED_MgO entry's own recorded discriminator, run** — "run
-  `probeSize` on the mean DP and on a vacuum/substrate-only pattern and compare
-  with the max-DP figure" — and it confirms, **on synthetic data**. It has NOT
-  been run on `SPED_MgO.hdf5`, and the two must not be written up as one item
-  until it has.
-  **Why it is not cosmetic:** `ProbeKernel.synthetic` follows the radius, so
-  every correlation peak moves outward (≈ +3.3 px on the demo, which does *not*
-  cancel in a ratio — it moves the observed shell ratio by 5%), and the CoM
-  window `rscale · r` widens until the first ring leaks in, dragging the
-  measured origin **1.62 px** off a known-exact beam centre while the fit RMS
-  reads a healthy **0.067 px** — a constant bias RMS cannot see. It is also
-  what makes the demo's Q calibration unfixable by editing the fixture (see
-  below), and **no estimator check can see it**: a constant kernel bias moves
-  the shell ratio by ~1.1%.
-  **Gate D first**, because the mechanism above is a hypothesis with a
-  discriminator, not a diagnosis — and because the obvious fix (threshold the
-  mean DP instead) trades one bias for another on a sample with a strong
-  amorphous background.
+- ~~**`OriginCalibration.probeSize` counts Bragg disks as probe area, and
+  over-measures the probe radius 2.15× on the app's own demo**~~ — found by
+  Gate B 2026-08-28; **DIAGNOSED AND FIXED 2026-09-01** together with the
+  SPED_MgO observation above, by feeding **meanDP** instead of maxDP at both
+  call sites ([record](archive/v2-session-records/probe-radius.md) — the
+  full measurement table, the scan-size causal signature, and the
+  pre-refuted alternatives: a single low-sum pattern returns a pathological
+  31.8 px on Particle_1, so it is NOT a safe input). `probeSize` itself is
+  unchanged — the 2.15× was the input, not the formula — and now has its
+  first unit coverage (`mac4DSTEMTests/ProbeSizeTests`, incl. the pin that
+  `tiledRun` reads the mean); `tools/origin-fit-diagnostics/run.sh
+  probe-size` is the standing real-data instrument. **Live residuals:**
+  meanDP's own failure modes stay recorded — descan blur (measured: 3.74 px
+  vs ~2.4 substrate on Si_SiGe, bounded by real beam wander) and a strong
+  amorphous background (unmeasured; no such cube in the corpus). The
+  demo-fixture entry below carries downstream numbers (9.649 px, +3.3 px
+  kernel shift, 1.62 px origin drag) that predate the fix and shift with the
+  honest radius.
 
 - **Which statistic should gate the origin fit is OPEN, and neither candidate is
   right — S13 + Gate B, 2026-08-28. No owner; it needs a design pass, not a
@@ -790,7 +768,14 @@ citations cannot be trusted without checking.
   *reported* beside the number ("shell ratio 1.373 vs 1.155 predicted") instead
   of refusing on it. That is strictly better than before S13 and strictly weaker
   than a refusal, and it is the honest position until a threshold can be placed
-  on evidence.
+  on evidence. **Amended 2026-09-01 (probe-radius repair):** with the kernel at
+  the kernel at 6.93 px (down from 9.649; still above the drawn 4.5 —
+  the demo's rings are in every pattern, so the mean keeps them at reduced
+  strength) the demo calibrates to **0.024472 Å⁻¹/px**, first shell
+  17.36 px against the fixture's true 17.03 (the +3.3 px kernel-following
+  shift collapsed as predicted), shell ratio **1.433 vs 1.155** — the
+  disagreement is now larger and more honestly visible. The 9.649 px /
+  1.62 px figures earlier in this entry are pre-repair history.
   The four specifics S13 originally claimed and Gate B refuted are in the
   session record, §6 (*Corrected rather than defended*). **One figure there is
   itself stale:** the record says the app reports **1.089** against 1.155, but

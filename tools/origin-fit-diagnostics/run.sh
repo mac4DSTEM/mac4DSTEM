@@ -91,6 +91,16 @@ shell-check)
   cd "$WORK"
   MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./shellcheck "$target" "$model" 2>&1 | sed '/^\[MetalEngine\]/d'
   ;;
+probe-size)
+  # The probeSize discriminator on real data — maxDP vs meanDP vs the two
+  # lowest-sum single patterns, all through the real pipeline. 2026-09-01.
+  if (( $# == 0 )); then default_files; else files=("$@"); fi
+  if (( ${#files} == 0 )); then echo "SKIP: no datasets"; exit 0; fi
+  build_probe probe-size.swift probesize
+  absolute=(); for f in "${files[@]}"; do absolute+=("${f:A}"); done
+  cd "$WORK"
+  MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./probesize "${absolute[@]}" 2>&1 | sed '/^\[MetalEngine\]/d'
+  ;;
 trim-sweep)
   if (( $# == 0 )); then default_files; else files=("$@"); fi
   if (( ${#files} == 0 )); then echo "SKIP: no datasets"; exit 0; fi

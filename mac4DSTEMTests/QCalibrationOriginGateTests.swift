@@ -155,9 +155,21 @@ final class QCalibrationOriginGateTests: XCTestCase {
         // The value, pinned tightly. It is NOT the demo's declared 0.02 — it is
         // what the app produces from a simple-cubic ring read as gold's {111},
         // and pinning it is how a later session notices if the fixture or the
-        // estimator changes. If this starts failing because the number moved
-        // toward 0.02, that is progress: check why, then rewrite this.
-        XCTAssertEqual(scale, 0.021, accuracy: 0.0006,
+        // estimator changes. If it moves, check why first, then rewrite this.
+        //
+        // Moved once already, deliberately: 0.021 → 0.024472 on 2026-09-01,
+        // when the probe-radius repair (meanDP instead of maxDP) took the
+        // demo's kernel from the over-measured 9.649 px to 6.93 px — still
+        // above the drawn 4.5, because the demo's rings are in EVERY pattern
+        // and the mean keeps them at reduced strength; the scan-union share
+        // is gone, the every-pattern share is not (Gate B measurement,
+        // 2026-09-01) — and the measured first shell from ~20.4 px to 17.36
+        // against the fixture's true 17.03, the kernel-following shift
+        // collapsing as the 2026-08-28 entry predicted. The demo stays
+        // wrong-by-construction, and MORE visibly so (shell ratio 1.433 vs
+        // 1.155, previously 1.373) — see
+        // docs/archive/v2-session-records/probe-radius.md.
+        XCTAssertEqual(scale, 0.024472, accuracy: 0.0006,
                        "the known-wrong demo scale moved: \(state.statusText)")
 
         // And the disagreement must reach the user. This is what survived of
@@ -180,9 +192,12 @@ final class QCalibrationOriginGateTests: XCTestCase {
     /// **Gate B measured that the obvious repair makes things worse**: drawing
     /// gold's {111} and {200} at the declared 0.02 produces a shell ratio that
     /// AGREES to 1.1% and a scale that is silently **−8.5%** wrong, because the
-    /// probe radius is over-measured 2.15× on this fixture and a constant
-    /// kernel bias moves the ratio by almost nothing. See `docs/open-items.md`;
-    /// the probe-radius defect is owed a Gate D session of its own.
+    /// probe radius was over-measured 2.15× on this fixture and a constant
+    /// kernel bias moves the ratio by almost nothing. The radius half was
+    /// fixed 2026-09-01 (meanDP; demo kernel now 6.93 px — see
+    /// docs/archive/v2-session-records/probe-radius.md); whether the −8.5%
+    /// figure still holds for a repaired fixture is unmeasured, so the
+    /// fixture stays as-is and this pin stays load-bearing.
     func testTheDemoShellsDoNotMatchTheGoldModelItIsPairedWith() async throws {
         let state = try await stateReadyToCalibrateQ()
         install(residual: Self.probeRadius * 0.2, on: state)

@@ -853,6 +853,26 @@ only if asked.
   fixtures staged beside `WS2.cif`); E2 (partial ops list still imports a
   wrong crystal — recorded, structurally out of scope).
   [Record](archive/v2-session-records/cif-pair.md).
+- [x] **Probe radius** — 2026-09-01 (Step 1 item 7; not a numbered session).
+  **Gate D on real data confirmed the recorded max-union hypothesis on every
+  prediction**: the shipped 14.1/19.1 px ARE `probeSize(maxDP)` to the digit,
+  mean ≈5.4, substrate ≈3; the causal proof is within-file nested sub-scans
+  (16.07 → 16.50 → 19.07 px as the scan grows — Gate B's like-for-like
+  correction of the dtype-confounded cross-file pair). **Fix:** both
+  `OriginCalibration` call sites feed meanDP (DEVIATION: py4DSTEM's own
+  origin path feeds the max against its own docstring; the failure modes the
+  mean keeps are recorded and were quantified by the refuter — never worse
+  than the max in 8 adversarial synthetics). First-ever unit coverage for
+  the estimator (`ProbeSizeTests`, 4 tests incl. the refuter's pin on the
+  caller-less resident variant), all broken before trusted;
+  `tools/origin-fit-diagnostics probe-size` is the standing instrument.
+  **Gate B: stand-with-corrections, all applied** — incl. refuting this
+  session's own "demo kernel to the drawn 4.5 px" claim (it is 6.93 px).
+  Gates: scientific 42/42 exit 0; unit **402/2/0 exit 0** (refuter's run on
+  the final tree); one demo pin moved deliberately per its own rewrite
+  instruction (0.021 → 0.024472). **Not verified:** F1.49 on screen; the
+  origin gate got stricter (honest direction — datasets may flip to refused).
+  [Record](archive/v2-session-records/probe-radius.md).
 
 - [x] **DPC angle units (`core-analysis-physics-01`)** — 2026-09-01 (unnumbered
   Group A repair). Gate D reproduced the exact defect: production returned

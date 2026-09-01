@@ -33,7 +33,7 @@ finding and refuted two others before they reached the docs.
 | 4 | `core-crystal-01` — **hexagonal IPF legend disagrees with its own colour map** | The legend explains the map wrongly; W4a just made WS₂ reachable. |
 | 5 | `ui-02` + `ui-05` + `support-export-05` — **invented and mislabelled units** | Reproduce first: the honest branch was observed working. |
 | 6 | **Readiness-row truncation** (found 2026-09-01) | Cuts the *actionable* half of caveats that are already implemented and correct. Cheap. |
-| 7 | **Probe radius over-measured** (`probeSize`: 2.15× on the demo, ~3× on SPED_MgO) — added by owner decision 2026-09-01 | The owner keeps hitting it; the Gate D discriminator is already designed (mean-DP vs vacuum vs max-DP, `open-items.md`). Manual radius entry only after the estimator is fixed, stamped `.manual`. |
+| 7 | ~~**Probe radius over-measured**~~ — **DONE 2026-09-01: Gate D confirmed, fixed, Gate B ran (stand-with-corrections, all applied)** ([record](archive/v2-session-records/probe-radius.md)) | The recorded discriminator on real data at last: the shipped 14.1/19.1 px ARE `probeSize(maxDP)` to the digit; the causal proof is within-file nested sub-scans (16.07→16.50→19.07 px as the scan grows). Both call sites feed meanDP (DEVIATION; py4DSTEM's own origin path has the same weakness). Demo kernel 9.649 → 6.93 px (the refuter corrected this record's "drawn 4.5" claim). Scientific 42/42; unit 402/2/0 with the refuter's added pin on the caller-less resident variant. F1.49 queued; manual `.manual` entry unblocked, not built. |
 | 8 | ~~**CIF pair** `core-crystal-02` + `core-crystal-04`~~ — **DONE 2026-09-01**: implemented + reproduced, **Gate B ran** (stand-with-corrections, all four applied — hardened 45-case harness, two more declaration tags, E2 residual recorded) ([record](archive/v2-session-records/cif-pair.md)) | Both reproduced at runtime first (MgO imported as CsCl; a truncated WS2 lost its sulfur silently). Fix: refuse non-P1-declared files without expanding operations, refuse loops cut mid-row. The refuter's sharpest find: a cut two-column symmetry loop floor-divided a centering op away and the wrong crystal passed `verifyFamily` — now gated. |
 
 **Ride along, same sessions, near-free:** `ui-07` (Performance inspector still
@@ -99,10 +99,10 @@ reproduce**, including whichever §1 sentences step 0 narrowed.
 [`docs/archive/2026-08-18-trackb-036-and-followups.md`](archive/2026-08-18-trackb-036-and-followups.md),
 its live residuals compacted to ~150 lines (two stale entries corrected in
 passing: the WS₂ foreign sidecar was re-staged 2026-08-28, and #11 was closed
-by W4a), and the S13 origin tombstone trimmed. The tax is now **3342 lines**
-(`CLAUDE.md` 349 + `open-items.md` 2009 + `v2-release.md` 984, measured at
-the CIF-pair closeout — the tidy's 3307 plus that session's own decisions
-block, §9 entry and E2 residual). Rule that
+by W4a), and the S13 origin tombstone trimmed. The tax is now **3347 lines**
+(`CLAUDE.md` 349 + `open-items.md` 1994 + `v2-release.md` 1004, measured at
+the probe-radius closeout — each session's §9 entry costs what its
+open-items compressions save). Rule that
 keeps it from returning: **findings ≤20 lines, narrative to a dated archive,
 `wc -l` checked at every closeout.** The structural fix stays the one-time v3
 migration ([`docs/v3-development-process.md`](v3-development-process.md)),
