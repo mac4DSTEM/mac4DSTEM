@@ -5,7 +5,7 @@
 //        this file turns that field into every DPC view the app offers:
 //
 //    • magnitude image   = |CoM|                       (scalar, any colormap)
-//    • angle image       = atan2(cy, cx) → [0,1]       (scalar)
+//    • angle image       = atan2(cy, cx) → [0,2π) rad  (scalar)
 //    • color wheel       = HSV (hue = angle, value = magnitude) → RGBA
 //    • iDPC              = Fourier integration of the vector field (scalar)
 //
@@ -128,7 +128,7 @@ enum DPC {
         return FloatImage(width: width, height: height, pixels: pixels)
     }
 
-    /// Direction of the CoM shift, in radians mapped to [0, 1] for display.
+    /// Direction of the CoM shift in radians, wrapped to [0, 2π).
     nonisolated static func angleImage(com: [Float], width: Int, height: Int) -> FloatImage {
         let n = width * height
         var out = [Float](repeating: 0, count: n)
@@ -138,7 +138,8 @@ enum DPC {
             let cy = com[2 * i + 1]
             var a = atan2(cy, cx)            // [-π, π]
             if a < 0 { a += twoPi }          // [0, 2π)
-            out[i] = a / twoPi               // [0, 1)
+            if a == 0 { a = 0 }              // Canonical +0 for atan2(-0, +x).
+            out[i] = a                        // [0, 2π) radians
         }
         return FloatImage(width: width, height: height, pixels: out)
     }

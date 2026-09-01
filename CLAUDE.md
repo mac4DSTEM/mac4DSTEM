@@ -66,9 +66,13 @@ that changed **no app code**: the interrupted whole-codebase review was finished
 [`docs/archive/2026-08-31-review/`](docs/archive/2026-08-31-review/)), triaged
 into a v2/v2.x recommendation
 ([`docs/v2-triage-2026-09-01.md`](docs/v2-triage-2026-09-01.md), **owner decision,
-not scheduled**), and **six Track B rows were driven green** — **Done criterion 8
+not scheduled**). Its first Group A item, **`core-analysis-physics-01`, is now
+resolved**: Gate D confirmed the DPC angle's exact 2π unit error, the repair
+migrates legacy sidecars, and a separate Gate B refuter cleared it after five
+corrections ([record](docs/archive/v2-session-records/dpc-angle-units.md)).
+Also, **six Track B rows were driven green** — **Done criterion 8
 is met on screen**, and **`app-appstate-01` is the first review finding reproduced
-at runtime**. Track B now stands at **31 passed / 7 partly / 14 unverified /
+at runtime**. Track B now stands at **31 passed / 7 partly / 15 unverified /
 1 blocked**
 (plus the M1 tidy and the M2 gate repair) — **S13 was MERGED to `main` and
 pushed (fast-forward to `bab5e07`); `s13-q-calibration` still exists and points
@@ -118,26 +122,24 @@ all three estimator thresholds (derivation refuted), so the estimator
 origin-fit gate stays on the full-scan RMS: **which statistic should gate that
 fit is OPEN** (`docs/open-items.md`). The demo-fixture and probe-radius
 findings (`probeSize` over-measures 2.15×, Gate D owed) came out of the same
-session. F1.40–F1.43 are queued and undriven.
+session. F1.40 and F1.41 passed on 2026-09-01; F1.42–F1.43 remain queued.
 
 **The honest test claim — each number dated to its own run:**
 `run-tests.sh scientific` — **exit 0, 42 started / 42 completed, zero FAIL and
-zero SKIP lines** (2026-08-31 evening, counted by grep over the retained log
+zero SKIP lines** (inside the 2026-09-01 aggregate run, observed to completion
 rather than trusting an exit code). **`tools/acom-convention-test` joined the
 array** in the 2026-08-31 review recovery and passed inside the gate for the
 first time in this run (Au median 1.25°, WS₂ 0.78°); it was 41 at the W4a/W4b
 closeouts, 39 at S13, and the docs said 38 for three days after that. Do not
 quote a harness count from memory — `run-tests.sh` is the only thing that knows
 it.
-`run-tests.sh unit` — **390 passed / 2 skipped / 0 failed, exit 0**
-(2026-08-31 evening, the `all` run's unit stage — 390 distinct case names, raw
-line count identical so no retries). **This is 390 where 2026-08-31's earlier
-runs recorded 391, and the delta is UNEXPLAINED**: nothing under `mac4DSTEM/` or
-`mac4DSTEMTests/` changed between them (the review recovery touched only `docs/`
-and `tools/`). The two skips are unchanged and are the documented pair. Settle it
-with one standalone `unit` run and a diff of the case names before quoting either
-number as stable; the two skips are the unmounted-volume bookmark probe and S17's
-explicit uncalibrated-Prepare geometry quarantine. Two former data-probe
+`run-tests.sh unit` — **393 passed / 2 skipped / 0 failed, exit 0**
+(standalone 2026-09-01 closeout run, counted from the retained xcresult bundle;
+the aggregate run immediately before it was also green). This settles the
+current count after 2026-08-31's unexplained 390-vs-391 discrepancy; this session
+added two named DPC persistence tests. The two skips are unchanged: the
+unmounted-volume bookmark probe and S17's explicit uncalibrated-Prepare geometry
+quarantine. Two former data-probe
 skips (including `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes`)
 now PASS because their staged data is present. **Two recordable non-green outcomes
 from that sitting, both environmental:** one `unit` run refused with **exit 69**
@@ -148,14 +150,11 @@ against the same defaults domain while the gate ran. **Do not drive the app
 during `run-tests.sh unit`** — see `docs/open-items.md`.
 MCP `test_macos` — **378 passed / 1 failed** (2026-08-26, S10; the
 now-diagnosed sidebar test — the retired UI target skipped), retained as its
-own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-08-31 evening**
-(re-run after `tools/acom-convention-test` joined `scientific`; this supersedes
-the M2 run, which predated W4a and the recovery): **44 harnesses started and 44
-completed**, unit stage **390 passed / 2 skipped /
-0 failed**, **zero FAIL lines and zero exit-69 refusals in the retained log**
-(counted by grep over the log, not by trusting an exit code — a `| tail` has
-swallowed a failing gate here twice, and on 2026-08-31 the wrapper's own exit 0
-hid `run-tests.sh`'s exit 1). Four `SKIP`s, all correct: the four
+own dated run. **`run-tests.sh all` — GREEN END TO END, exit 0, 2026-09-01**
+(DPC angle-unit closeout): **44 harnesses started and 44 completed**, unit stage
+**393 passed / 2 skipped / 0 failed** (the unit count is from the standalone
+retained xcresult), with **zero failing harnesses and no exit-69 refusal** in
+the direct, unpiped aggregate run. Four scientific `SKIP`s, all correct: the four
 `.mac4dstem.h5` sidecars beside the training data, recognised as sidecars rather
 than read as datacubes (#43). One `UNPINNED` line names four real cubes that
 `expected.json` does not cover — advisory by design, see `docs/open-items.md`.

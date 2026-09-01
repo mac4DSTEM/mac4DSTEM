@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Source-locked non-square quantitative iDPC fixture."""
+"""Source-locked DPC-angle and non-square quantitative iDPC fixture."""
 
 from __future__ import annotations
 
+import colorsys
 import json
 from pathlib import Path
 
@@ -129,6 +130,34 @@ def main() -> None:
         regularization=1e-4,
         padding_factor=2,
     )
+    # The first two cases pin both signed-zero forms to canonical +0. The
+    # remaining sign-discriminating directions avoid only symmetric axes, and
+    # the final case forces the production wrap into [0, 2π). NumPy's arctan2
+    # is the independent radian reference. A normalized-turn implementation
+    # differs from every nonzero expected value below by much more than tolerance.
+    angle_com = np.asarray(
+        [[1, 0.0], [1, -0.0], [0, 1], [-1, 1], [1, -1]], dtype=np.float32
+    )
+    expected_angle_radians = np.mod(
+        np.arctan2(angle_com[:, 1], angle_com[:, 0]), 2 * np.pi
+    ).astype(np.float32)
+    expected_angle_radians[expected_angle_radians == 0] = 0.0
+
+    # A separate, non-cardinal vector field pins the display-only hue path.
+    # `colorsys` is an independent HSV implementation; the expected hue stays
+    # in normalized turns even though the scalar angle product is now radians.
+    color_com = np.asarray(
+        [[1.0, 0.25], [-0.4, 0.7], [0.3, -0.9], [-0.8, -0.2]],
+        dtype=np.float32,
+    )
+    magnitudes = np.linalg.norm(color_com, axis=1)
+    p99 = np.sort(magnitudes)[int((len(magnitudes) - 1) * 0.99)]
+    values = np.minimum(magnitudes / p99, 1.0)
+    expected_color_rgba: list[int] = []
+    for vector, value in zip(color_com, values):
+        hue = (np.arctan2(vector[1], vector[0]) / (2 * np.pi) + 0.5) % 1.0
+        rgb = colorsys.hsv_to_rgb(float(hue), 1.0, float(value))
+        expected_color_rgba.extend([*(int(channel * 255) for channel in rgb), 255])
 
     print(
         json.dumps(
@@ -143,6 +172,10 @@ def main() -> None:
                 "periodic": periodic.ravel().tolist(),
                 "zeroPadded": padded.ravel().tolist(),
                 "qualitative": qualitative.ravel().tolist(),
+                "angleCOM": angle_com.ravel().tolist(),
+                "expectedAngleRadians": expected_angle_radians.tolist(),
+                "colorCOM": color_com.ravel().tolist(),
+                "expectedColorRGBA": expected_color_rgba,
             },
             indent=2,
         )

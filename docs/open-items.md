@@ -265,7 +265,7 @@ changed — every item below is eval-only.** Full narrative, including the
 hypotheses that were refuted and the two I retracted:
 [`docs/archive/2026-09-01-trackb-playthrough.md`](archive/2026-09-01-trackb-playthrough.md).
 
-**Rows: 31 passed / 7 partly / 14 unverified / 1 blocked.** Moved this session —
+**Rows: 31 passed / 7 partly / 15 unverified / 1 blocked.** Moved this session —
 F1.28, F1.33(a), F1.39, F1.40, F1.41, F1.44 passed; F1.38 and F1.45 advanced;
 F1.26 unblocked. **Done criterion 8 met on screen** (`polycrystal_2D_WS2` reached
 ACOM: `ACOM full ✓ … Physical · measured in app · 16.384 positions · 5.6 s`).
@@ -305,6 +305,10 @@ ACOM: `ACOM full ✓ … Physical · measured in app · 16.384 positions · 5.6 
   refused while the restore fails (`App/AppState.swift:1490` →
   `App/SessionGates.swift:179`), and choosing the same file is an identity-matched
   no-op. What survives: the first remedy the app prints is one it then refuses.
+- **F1.47 queued 2026-09-01** — the DPC angle repair changes the scalar
+  colourbar/export numbers from normalized turns to radians while normalized
+  colours may remain identical. Owner drive still owes the current-build
+  on-screen and PNG carrier check; the numerical contract is pinned by Track A.
 - **Method trap:** renaming a sidecar does **not** withhold it — the bookmark
   tracks the inode. Use a different source path. Driving mechanics are now in
   [`.claude/skills/track-b/DRIVING.md`](../.claude/skills/track-b/DRIVING.md).

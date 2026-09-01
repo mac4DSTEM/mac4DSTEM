@@ -700,6 +700,32 @@ extension AppState {
         }
     }
 
+    /// Panel-free construction seam: export tests exercise the exact scalar
+    /// payload handed to the sidecar writer, including its units and encoding.
+    func currentScalarResultMapForPersistence() -> ScalarResultMap? {
+        guard let image = resultImage else { return nil }
+        let metadata = restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
+        let persistence: (
+            row: Double?, column: Double?, units: String?, provenance: [String: String]
+        )
+        if restoredResultInfo != nil {
+            persistence = restoredResultPixelInfo ?? (nil, nil, nil, [:])
+        } else if navigationResultInfo != nil {
+            persistence = navigationResultPixelInfo ?? (nil, nil, nil, [:])
+        } else {
+            persistence = currentResultPersistenceMetadata
+        }
+        return ScalarResultMap(
+            width: image.width, height: image.height, pixels: image.pixels,
+            kind: metadata.kind, displayName: metadata.displayName,
+            valueUnits: metadata.valueUnits,
+            pixelSizeRow: persistence.row,
+            pixelSizeColumn: persistence.column,
+            pixelUnits: persistence.units,
+            provenance: persistence.provenance
+        )
+    }
+
     /// Save the current scalar or scan-shaped scientific RGBA result to the stable companion
     /// `<source>.mac4dstem.h5`. Existing BraggVectors are preserved when the
     /// current session has none, and a current detection replaces the saved
@@ -715,26 +741,8 @@ extension AppState {
         let scalarMap: ScalarResultMap?
         let rgbaMap: RGBAResultMap?
         let metadata = restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
-        if let image = resultImage {
-            let persistence: (
-                row: Double?, column: Double?, units: String?, provenance: [String: String]
-            )
-            if restoredResultInfo != nil {
-                persistence = restoredResultPixelInfo ?? (nil, nil, nil, [:])
-            } else if navigationResultInfo != nil {
-                persistence = navigationResultPixelInfo ?? (nil, nil, nil, [:])
-            } else {
-                persistence = currentResultPersistenceMetadata
-            }
-            scalarMap = ScalarResultMap(
-                width: image.width, height: image.height, pixels: image.pixels,
-                kind: metadata.kind, displayName: metadata.displayName,
-                valueUnits: metadata.valueUnits,
-                pixelSizeRow: persistence.row,
-                pixelSizeColumn: persistence.column,
-                pixelUnits: persistence.units,
-                provenance: persistence.provenance
-            )
+        if let map = currentScalarResultMapForPersistence() {
+            scalarMap = map
             rgbaMap = nil
         } else if let image = resultRGBA,
                   image.width == descriptor.rx, image.height == descriptor.ry {
@@ -1707,6 +1715,13 @@ extension AppState {
             provenance["quantitative_status"] = quantitativeStatus(
                 for: currentResultKind, units: currentResultValueUnits
             ).rawValue
+        }
+        if restoredResultInfo == nil, navigationResultInfo == nil,
+           analysisMode == .dpc, dpcDisplay == .angle,
+           currentResultKind == "dpc_angle", currentResultValueUnits == "rad",
+           provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
+            provenance[ScalarResultMap.dpcAngleEncodingKey] =
+                ScalarResultMap.dpcAngleRadiansEncoding
         }
         return (base.row, base.column, base.units, provenance)
     }

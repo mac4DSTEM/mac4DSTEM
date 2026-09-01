@@ -9,16 +9,11 @@ trap 'rm -rf "$WORK"' EXIT
 resolve_mac4dstem_developer_dir
 . "$ROOT/tools/lib/python.sh"
 resolve_mac4dstem_python "$ROOT"
+. "$ROOT/tools/lib/sources.manifest"
+mac4dstem_sources "$ROOT" dpc
 
 "$PYTHON_BIN" "$ROOT/tools/idpc-test/reference.py" > "$WORK/fixture.json"
-xcrun swiftc -O -o "$WORK/idpc-test" \
-  "$ROOT/tools/idpc-test/main.swift" \
-  "$ROOT/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
-  "$ROOT/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
-  "$ROOT/mac4DSTEM/Core/Data/FourDDataSource.swift" \
-  "$ROOT/mac4DSTEM/Core/Data/LoadSpecification.swift" \
-  "$ROOT/mac4DSTEM/Core/Data/Calibration.swift" \
-  "$ROOT/mac4DSTEM/Core/Compute/FFT2D.swift" \
-  "$ROOT/mac4DSTEM/Core/Analysis/DPC.swift" \
+xcrun swiftc -module-cache-path "$WORK/module-cache" -O -o "$WORK/idpc-test" \
+  "$ROOT/tools/idpc-test/main.swift" "${MAC4DSTEM_SOURCES[@]}" \
   -framework Accelerate
 "$WORK/idpc-test" "$WORK/fixture.json"

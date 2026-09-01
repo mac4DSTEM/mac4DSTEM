@@ -356,6 +356,49 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.displayedProduct?.domain, .detector)
     }
 
+    func testDPCScalarAnglePublishesRadianEncodingProvenance() {
+        let state = AppState()
+        state.analysisMode = .dpc
+        state.dpcDisplay = .angle
+        state.resultImage = FloatImage(width: 1, height: 1, pixels: [.pi / 2])
+
+        XCTAssertEqual(state.currentResultKind, "dpc_angle")
+        XCTAssertEqual(state.currentResultValueUnits, "rad")
+        XCTAssertEqual(
+            state.currentResultPersistenceMetadata.provenance[
+                ScalarResultMap.dpcAngleEncodingKey
+            ],
+            ScalarResultMap.dpcAngleRadiansEncoding
+        )
+        XCTAssertEqual(
+            state.exportedImageProvenanceRecord()["value_units"] as? String,
+            "rad"
+        )
+        let sidecarMap = state.currentScalarResultMapForPersistence()
+        XCTAssertEqual(sidecarMap?.pixels, [.pi / 2])
+        XCTAssertEqual(sidecarMap?.valueUnits, "rad")
+        XCTAssertEqual(
+            sidecarMap?.provenance[ScalarResultMap.dpcAngleEncodingKey],
+            ScalarResultMap.dpcAngleRadiansEncoding
+        )
+    }
+
+    func testRestoredForeignDPCAngleEncodingIsNotRelabeled() {
+        let state = AppState()
+        state.resultImage = FloatImage(width: 1, height: 1, pixels: [90])
+        state.restoredResultInfo = ("dpc_angle", "Imported DPC angle", "degrees")
+        state.restoredResultPixelInfo = (
+            nil, nil, nil, [ScalarResultMap.dpcAngleEncodingKey: "degrees"]
+        )
+
+        let map = state.currentScalarResultMapForPersistence()
+        XCTAssertEqual(map?.pixels, [90])
+        XCTAssertEqual(map?.valueUnits, "degrees")
+        XCTAssertEqual(
+            map?.provenance[ScalarResultMap.dpcAngleEncodingKey], "degrees"
+        )
+    }
+
     func testACOMRegionUsesScanReferenceWithoutReplacingBraggResult() {
         let state = AppState()
         state.descriptor = DatasetDescriptor(

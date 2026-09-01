@@ -11,6 +11,10 @@ struct Fixture: Decodable {
     let periodic: [Float]
     let zeroPadded: [Float]
     let qualitative: [Float]
+    let angleCOM: [Float]
+    let expectedAngleRadians: [Float]
+    let colorCOM: [Float]
+    let expectedColorRGBA: [UInt8]
 }
 
 func fail(_ message: String) -> Never {
@@ -28,6 +32,39 @@ let fixture = try JSONDecoder().decode(
     Fixture.self,
     from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
 )
+
+let angle = DPC.angleImage(
+    com: fixture.angleCOM, width: fixture.expectedAngleRadians.count, height: 1
+)
+let angleError = maximumError(angle.pixels, fixture.expectedAngleRadians)
+guard angleError < 1e-6 else {
+    fail("DPC angle is not radians: max error \(angleError); a quarter turn must be π/2, not 0.25")
+}
+guard angle.pixels.allSatisfy({ $0 >= 0 && $0 < 2 * .pi }) else {
+    fail("DPC angle escaped the promised [0, 2π) range: \(angle.pixels)")
+}
+guard angle.pixels.prefix(2).allSatisfy({ $0 == 0 && $0.sign == .plus }) else {
+    fail("+x direction did not canonicalize both signed-zero inputs to +0")
+}
+let normalizedTurns = fixture.expectedAngleRadians.map { $0 / (2 * .pi) }
+guard maximumError(fixture.expectedAngleRadians, normalizedTurns) > 1 else {
+    fail("angle fixture cannot distinguish radians from normalized turns")
+}
+print("PASS: wrapped DPC direction is stored in radians, not normalized turns")
+
+let colorWheel = DPC.colorWheelRGBA(
+    com: fixture.colorCOM, width: fixture.colorCOM.count / 2, height: 1
+)
+guard colorWheel.rgba.count == fixture.expectedColorRGBA.count else {
+    fail("DPC color-wheel fixture shape changed")
+}
+let colorError = zip(colorWheel.rgba, fixture.expectedColorRGBA).reduce(0) {
+    max($0, abs(Int($1.0) - Int($1.1)))
+}
+guard colorError <= 1 else {
+    fail("DPC color-wheel hue stopped using normalized turns: max channel error \(colorError)")
+}
+print("PASS: display color-wheel hue remains independently normalized")
 
 let calibration = IDPCPhysicalCalibration(
     rowSamplingAngstrom: fixture.rowSamplingAngstrom,

@@ -57,7 +57,7 @@ with h5py.File(path, "r") as f:
     assert session_root.attrs["mac4dstem_session_schema"] == "6"
     assert session_root.attrs["mac4dstem_min_reader_schema"] == "5"
     nodes = session_root.attrs["mac4dstem_result_nodes"].split("\n")
-    assert len(nodes) == 8, nodes
+    assert len(nodes) == 9, nodes
     assert session_root.attrs["mac4dstem_current_result"] == nodes[-1]
     assert "result_map" not in session_root
     assert "external_analysis" in session_root
@@ -89,6 +89,7 @@ with h5py.File(path, "r") as f:
         "virtual_image", "strain_exx", "acom_ipf_z",
         "parallax_subpixel_bf", "parallax_corrected_phase", "parallax_depth",
         "ptychography_object_phase", "ptychography_object_amplitude",
+        "dpc_angle",
     ]
     for group in groups[:2]:
         np.testing.assert_allclose(group["dim0"][:], [0, 1.75])
@@ -119,6 +120,17 @@ with h5py.File(path, "r") as f:
         provenance = json.loads(group.attrs["mac4dstem_provenance"])
         assert provenance
 
+    dpc_group = groups[-1]
+    assert dpc_group.attrs["mac4dstem_value_units"] == "rad"
+    np.testing.assert_allclose(
+        dpc_group["data"][:],
+        [[np.pi / 2, 3 * np.pi / 4, 7 * np.pi / 4]],
+        rtol=0, atol=1e-6,
+    )
+    dpc_provenance = json.loads(dpc_group.attrs["mac4dstem_provenance"])
+    assert dpc_provenance["dpc_angle_encoding"] == "radians"
+    assert "dpc_angle_migration" not in dpc_provenance
+
 for node, expected, name in (
     (nodes[0], np.array([[1.5, np.nan, -2.25], [4, 5.5, 6.75]], dtype=np.float32),
      "Virtual BF"),
@@ -146,6 +158,13 @@ for node, shape in zip(nodes[3:], [(4, 5), (2, 3), (2, 3), (3, 4), (3, 4)]):
     result = py4DSTEM.read(path, datapath=f"/braggvectors_root/{node}")
     assert isinstance(result, RealSlice), type(result)
     assert result.data.shape == shape
+
+dpc = py4DSTEM.read(path, datapath=f"/braggvectors_root/{nodes[-1]}")
+assert isinstance(dpc, RealSlice), type(dpc)
+np.testing.assert_allclose(
+    dpc.data, [[np.pi / 2, 3 * np.pi / 4, 7 * np.pi / 4]], rtol=0, atol=1e-6
+)
+assert dpc.metadata["mac4dstem"]["value_units"] == "rad"
 
 print("PASS: py4dstem_stabilized_realslices_rgba_and_preserved_braggvectors")
 print("sidecar-result-test: all passed")

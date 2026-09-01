@@ -318,6 +318,105 @@ guard stabilizedSnapshot.inventory.results.count == 8,
 }
 print("PASS: parallax_and_ptychography_shapes_sampling_provenance_roundtrip")
 
+// DPC-angle compatibility: builds before the 2026-09-01 unit repair wrote
+// normalized turns while declaring radians. Absence of the encoding marker is
+// the legacy signature. A current map carries the marker and must not be
+// multiplied a second time.
+let legacyDPC = ScalarResultMap(
+    width: 3, height: 1, pixels: [0.25, 0.375, 0.875],
+    kind: "dpc_angle", displayName: "DPC angle", valueUnits: "rad"
+)
+try BraggVectorEMDWriter.mergeResultMap(
+    legacyDPC, vectors: nil, qWidth: 7, qHeight: 5,
+    calibration: updatedCalibration, to: sidecar
+)
+let dpcID = BraggVectorEMDWriter.resultNodeName(forKind: legacyDPC.kind)
+guard let migratedDPC = try BraggVectorEMDWriter.loadResultMap(id: dpcID, from: sidecar),
+      zip(migratedDPC.pixels, [Float.pi / 2, 3 * .pi / 4, 7 * .pi / 4])
+        .allSatisfy({ abs($0.0 - $0.1) < 1e-6 }),
+      migratedDPC.provenance[ScalarResultMap.dpcAngleEncodingKey]
+        == ScalarResultMap.dpcAngleRadiansEncoding,
+      migratedDPC.provenance["dpc_angle_migration"]
+        == "normalized_turns_to_radians" else {
+    fail("legacy DPC normalized turns were not migrated to radians")
+}
+let migratedSession = try BraggVectorEMDWriter.loadSession(from: sidecar)
+guard migratedSession.currentResult?.pixels == migratedDPC.pixels,
+      migratedSession.currentResult?.provenance[
+        ScalarResultMap.dpcAngleEncodingKey
+      ] == ScalarResultMap.dpcAngleRadiansEncoding,
+      migratedSession.inventory.results.first(where: { $0.id == dpcID })?
+        .provenance[ScalarResultMap.dpcAngleEncodingKey]
+        == ScalarResultMap.dpcAngleRadiansEncoding,
+      migratedSession.inventory.results.first(where: { $0.id == dpcID })?
+        .provenance["dpc_angle_migration"]
+        == "normalized_turns_to_radians" else {
+    fail("full-session restore did not consistently expose migrated DPC radians")
+}
+let explicitTurnsDPC = ScalarResultMap(
+    width: legacyDPC.width, height: legacyDPC.height, pixels: legacyDPC.pixels,
+    kind: legacyDPC.kind, displayName: legacyDPC.displayName,
+    valueUnits: legacyDPC.valueUnits,
+    provenance: [
+        ScalarResultMap.dpcAngleEncodingKey: ScalarResultMap.dpcAngleTurnsEncoding
+    ]
+)
+try BraggVectorEMDWriter.mergeResultMap(
+    explicitTurnsDPC, vectors: nil, qWidth: 7, qHeight: 5,
+    calibration: updatedCalibration, to: sidecar
+)
+guard let migratedExplicitTurns = try BraggVectorEMDWriter.loadResultMap(
+    id: dpcID, from: sidecar
+), migratedExplicitTurns.pixels == migratedDPC.pixels else {
+    fail("explicit normalized-turn DPC encoding was not migrated to radians")
+}
+let unknownEncodingDPC = ScalarResultMap(
+    width: legacyDPC.width, height: legacyDPC.height, pixels: legacyDPC.pixels,
+    kind: legacyDPC.kind, displayName: legacyDPC.displayName,
+    valueUnits: legacyDPC.valueUnits,
+    provenance: [ScalarResultMap.dpcAngleEncodingKey: "degrees"]
+)
+let unknownSidecar = sidecar.deletingLastPathComponent()
+    .appendingPathComponent("unknown-dpc-encoding.h5")
+try FileManager.default.copyItem(at: sidecar, to: unknownSidecar)
+try BraggVectorEMDWriter.mergeResultMap(
+    unknownEncodingDPC, vectors: nil, qWidth: 7, qHeight: 5,
+    calibration: updatedCalibration, to: unknownSidecar
+)
+do {
+    _ = try BraggVectorEMDWriter.loadResultMap(id: dpcID, from: unknownSidecar)
+    fail("unknown DPC angle encoding was accepted")
+} catch BraggVectorEMDWriter.WriterError.malformedAttribute(let name) {
+    guard name.contains(ScalarResultMap.dpcAngleEncodingKey) else {
+        fail("unknown DPC angle encoding refused under the wrong attribute: \(name)")
+    }
+}
+do {
+    _ = try BraggVectorEMDWriter.loadSession(from: unknownSidecar)
+    fail("full-session restore accepted an unknown DPC angle encoding")
+} catch BraggVectorEMDWriter.WriterError.malformedAttribute(let name) {
+    guard name.contains(ScalarResultMap.dpcAngleEncodingKey) else {
+        fail("full-session restore refused the wrong DPC attribute: \(name)")
+    }
+}
+let currentDPC = ScalarResultMap(
+    width: 3, height: 1, pixels: migratedDPC.pixels,
+    kind: "dpc_angle", displayName: "DPC angle", valueUnits: "rad",
+    provenance: [
+        ScalarResultMap.dpcAngleEncodingKey: ScalarResultMap.dpcAngleRadiansEncoding
+    ]
+)
+try BraggVectorEMDWriter.mergeResultMap(
+    currentDPC, vectors: nil, qWidth: 7, qHeight: 5,
+    calibration: updatedCalibration, to: sidecar
+)
+guard let roundTrippedDPC = try BraggVectorEMDWriter.loadResultMap(id: dpcID, from: sidecar),
+      roundTrippedDPC.pixels == currentDPC.pixels,
+      roundTrippedDPC.provenance == currentDPC.provenance else {
+    fail("current radian DPC map was changed during sidecar round-trip")
+}
+print("PASS: legacy_dpc_turns_migrate_once_and_current_radians_roundtrip")
+
 let beforeCancellation = try Data(contentsOf: sidecar)
 let token = AnalysisCancellationToken()
 do {

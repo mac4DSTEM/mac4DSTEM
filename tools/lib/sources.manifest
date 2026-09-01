@@ -154,6 +154,16 @@ mac4dstem_sources() {
           "$core/Analysis/VirtualDetector.swift"
         )
         ;;
+      dpc)
+        # DPC scalar/vector displays and iDPC integration. Kept separate from
+        # `analysis` because that group owns the Metal-backed detector chain.
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Compute/FFT2D.swift"
+          "$core/Analysis/DPC.swift"
+        )
+        ;;
       acom)
         # Production Bragg types and ACOM; no harness-side type replicas.
         mac4dstem_sources "$repo" calibration
@@ -230,7 +240,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis acom qcalibration strain export" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration strain export" >&2
         exit 64
         ;;
     esac

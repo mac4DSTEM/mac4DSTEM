@@ -6,6 +6,12 @@ import Foundation
 /// py4DSTEM's real-space `[R_Nx,R_Ny]` convention established by H5Reader.
 nonisolated struct ScalarResultMap: Sendable {
     static let legacyEMDName = "result_map"
+    /// v2 DPC-angle unit repair: old sidecars stored normalized turns while
+    /// claiming `rad`. New maps name their encoding so the reader can migrate
+    /// only the legacy absence, without guessing about future representations.
+    static let dpcAngleEncodingKey = "dpc_angle_encoding"
+    static let dpcAngleRadiansEncoding = "radians"
+    static let dpcAngleTurnsEncoding = "normalized_turns"
 
     let width: Int
     let height: Int
@@ -1010,16 +1016,25 @@ nonisolated enum BraggVectorEMDWriter {
         ) else {
             return nil
         }
+        let kind = try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
+            ?? "unknown"
+        let valueUnits = try readStringAttribute(
+            "mac4dstem_value_units", on: group, hdf5: h5
+        ) ?? "intensity"
+        let provenance = try dpcAngleReadState(
+            kind: kind,
+            valueUnits: valueUnits,
+            provenance: decodeProvenance(try readStringAttribute(
+                "mac4dstem_provenance", on: group, hdf5: h5
+            ))
+        ).provenance
         return SessionResultDescriptor(
             id: nodeName,
-            kind: try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
-                ?? "unknown",
+            kind: kind,
             displayName: try readStringAttribute(
                 "mac4dstem_display_name", on: group, hdf5: h5
             ) ?? "Saved result",
-            valueUnits: try readStringAttribute(
-                "mac4dstem_value_units", on: group, hdf5: h5
-            ) ?? "intensity",
+            valueUnits: valueUnits,
             width: width,
             height: height,
             storage: storage,
@@ -1032,10 +1047,33 @@ nonisolated enum BraggVectorEMDWriter {
             pixelUnits: try readStringAttribute(
                 "mac4dstem_pixel_units", on: group, hdf5: h5
             ),
-            provenance: decodeProvenance(try readStringAttribute(
-                "mac4dstem_provenance", on: group, hdf5: h5
-            ))
+            provenance: provenance
         )
+    }
+
+    /// Normalizes the read-time contract for the one historical DPC encoding
+    /// error. Both descriptors and decoded pixels must report the same state;
+    /// the sidecar itself remains untouched until the user next saves it.
+    private static func dpcAngleReadState(
+        kind: String, valueUnits: String, provenance: [String: String]
+    ) throws -> (provenance: [String: String], needsTurnToRadianScale: Bool) {
+        guard kind == "dpc_angle", valueUnits == "rad" else {
+            return (provenance, false)
+        }
+        var normalized = provenance
+        switch normalized[ScalarResultMap.dpcAngleEncodingKey] {
+        case nil, ScalarResultMap.dpcAngleTurnsEncoding:
+            normalized[ScalarResultMap.dpcAngleEncodingKey] =
+                ScalarResultMap.dpcAngleRadiansEncoding
+            normalized["dpc_angle_migration"] = "normalized_turns_to_radians"
+            return (normalized, true)
+        case ScalarResultMap.dpcAngleRadiansEncoding:
+            return (normalized, false)
+        case .some:
+            throw WriterError.malformedAttribute(
+                name: "mac4dstem_provenance.\(ScalarResultMap.dpcAngleEncodingKey)"
+            )
+        }
     }
 
     private static func readResultMap(
@@ -1057,18 +1095,30 @@ nonisolated enum BraggVectorEMDWriter {
             h5.h5dread(dataset, h5.nativeFloat, h5EntireDataspace, h5EntireDataspace,
                        h5DefaultProperty, $0.baseAddress)
         }) >= 0 else { throw WriterError.hdf5("reading the scalar result pixels") }
+        let kind = try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
+            ?? "unknown"
+        let valueUnits = try readStringAttribute(
+            "mac4dstem_value_units", on: group, hdf5: h5
+        ) ?? "intensity"
+        let readState = try dpcAngleReadState(
+            kind: kind,
+            valueUnits: valueUnits,
+            provenance: decodeProvenance(try readStringAttribute(
+                "mac4dstem_provenance", on: group, hdf5: h5
+            ))
+        )
+        if readState.needsTurnToRadianScale {
+            pixels = pixels.map { $0 * (2 * .pi) }
+        }
         return ScalarResultMap(
             width: width,
             height: height,
             pixels: pixels,
-            kind: try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
-                ?? "unknown",
+            kind: kind,
             displayName: try readStringAttribute(
                 "mac4dstem_display_name", on: group, hdf5: h5
             ) ?? "Restored result",
-            valueUnits: try readStringAttribute(
-                "mac4dstem_value_units", on: group, hdf5: h5
-            ) ?? "intensity",
+            valueUnits: valueUnits,
             pixelSizeRow: try readStringAttribute(
                 "mac4dstem_pixel_size_row", on: group, hdf5: h5
             ).flatMap(Double.init),
@@ -1078,9 +1128,7 @@ nonisolated enum BraggVectorEMDWriter {
             pixelUnits: try readStringAttribute(
                 "mac4dstem_pixel_units", on: group, hdf5: h5
             ),
-            provenance: decodeProvenance(try readStringAttribute(
-                "mac4dstem_provenance", on: group, hdf5: h5
-            ))
+            provenance: readState.provenance
         )
     }
 

@@ -814,7 +814,8 @@ only if asked.
   the v2 case, ~5–7 sessions; C/E/F are v2.x. **Owner decision, not scheduled.**
   **Track B: 6 rows passed** (F1.28, F1.33a, F1.39, F1.40, F1.41, F1.44), 2
   advanced, F1.26 unblocked, **F1.46 written** (Done criterion 4 had no row) —
-  **31 passed / 7 partly / 14 unverified / 1 blocked**. **DONE CRITERION 8 MET ON
+  **31 passed / 7 partly / 15 unverified / 1 blocked** (F1.47 added by the DPC
+  angle-unit repair). **DONE CRITERION 8 MET ON
   SCREEN**; F1.28 also confirmed S8's live-derivation contract, unverified since S8.
   **`app-appstate-01` REPRODUCED AT RUNTIME** by a controlled A/B — the first
   review finding to move from source-inspected to observed. **The reference-shell
@@ -830,6 +831,25 @@ only if asked.
   half of `app-appstate-01` and whether any *number* is affected; the ACOM leg of
   that reproduction (inference, not observation); F1.45's In-plane angle mode;
   everything owner-only below.
+
+- [x] **DPC angle units (`core-analysis-physics-01`)** — 2026-09-01 (unnumbered
+  Group A repair). Gate D reproduced the exact defect: production returned
+  `0.25`, `0.375`, `0.875` turns for directions whose declared-radian values
+  are `π/2`, `3π/4`, `7π/4`. DPC angle pixels now store wrapped radians;
+  fresh PNG/sidecar carriers name `dpc_angle_encoding=radians`; app-authored
+  markerless legacy sidecars migrate once on read, and explicit unknown
+  encodings refuse. The sidecar save uses a panel-free construction seam.
+  **Gate B SURVIVED after a separate refuter found and closed five gaps** in
+  descriptor consistency, signed zero, colour-wheel independence, save-path
+  composition and restored foreign metadata. Every resulting fixture was
+  broken against a real mutation before being trusted. Track A: **`all` exit 0,
+  44/44 harnesses**; standalone unit **393 passed / 2 skipped / 0 failed**.
+  Deviation: py4DSTEM exposes CoM components but no standalone wrapped-angle
+  display contract, so NumPy `atan2`/mod is the independent mathematical
+  oracle, not a claimed direct port. **Not verified:** F1.47 on screen and in a
+  manually exported DPC PNG; DPC NaN/Inf semantics remain unspecified. Living
+  board republish owed because the Artifact tool was unavailable. Record:
+  [`dpc-angle-units.md`](archive/v2-session-records/dpc-angle-units.md).
 
 - [ ] **S22 — UX pass.** *Scheduled 2026-08-31 on the owner's decision: "I want a
   great experience for users of v2." **This is new scope**, added deliberately

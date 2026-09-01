@@ -15,7 +15,7 @@ silently wrong number. Sequenced so `/pickup` can continue straight from here.
    change** — S19 already owns restating them. Narrowing a claim is honest;
    leaving it unverified is not.
 
-## Step 1 — Group A, the ones a real user will actually hit (~3 sessions)
+## Step 1 — Group A, the ones a real user will actually hit (~2–3 sessions remain)
 
 Ordered by how badly each misleads. Each takes **Gate D first** (a controlled
 reproduction), then Gate B — the discipline that on 2026-09-01 reproduced one
@@ -23,7 +23,7 @@ finding and refuted two others before they reached the docs.
 
 | # | Item | Why first |
 |---|---|---|
-| 1 | `core-analysis-physics-01` — **DPC angle stores turns, claims radians** | A 2π factor in a reported physical quantity. Worst thing on the list. |
+| 1 | ~~`core-analysis-physics-01` — **DPC angle stores turns, claims radians**~~ **RESOLVED 2026-09-01** | Gate D confirmed the 2π error; the radian fix, legacy migration, independent fixture and separate Gate B review all passed. [Record](archive/v2-session-records/dpc-angle-units.md). |
 | 2 | **WS₂ reference-shell selection** (open item, not in the 39) | Silent ~2.26× mis-scale on basal specimens. **Already isolated**: Gold FCC agrees to 0.6% on the same code path, WS₂ is 18.4% off — the estimator is sound, the shell pick is not. |
 | 3 | `app-appstate-01` + `support-export-01` — **restored provenance leaks onto fresh products** | **Reproduced at runtime.** Fix the on-screen half and check the export half in the same session. |
 | 4 | `core-crystal-01` — **hexagonal IPF legend disagrees with its own colour map** | The legend explains the map wrongly; W4a just made WS₂ reachable. |
@@ -58,7 +58,8 @@ deliberate failure halt honestly**. Closes **F1.14, F1.15, F1.19, F1.22, F1.23**
 
 ## Step 4 — finish Track B (~1 session, mostly assistant-drivable)
 
-Currently **31 passed / 7 partly / 14 unverified / 1 blocked**. Assistant can
+Currently **31 passed / 7 partly / 15 unverified / 1 blocked** (F1.47 was added
+for the DPC angle-unit repair). Assistant can
 drive **F1.35, F1.38's last gap, F1.8, F1.21, F1.27, F1.30, F1.31, F1.43,
 F1.45's In-plane mode**. Owner keeps the judgement rows (**F1.37, F1.40's
 wording, F1.42**) and the standing pass **§A–§F**, which Done criterion 13 names
