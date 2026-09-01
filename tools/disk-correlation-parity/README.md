@@ -34,6 +34,61 @@ Timing is deliberately **not** recorded in `baseline.json` — it is machine- an
 thermal-dependent. Compare a before/after on the same machine and power mode,
 as `tools/performance-baseline` does.
 
+## The 250-px case (FFT speedup session, 2026-09-01)
+
+`run.sh` now runs a second, fixed case: **250×250, 32 patterns, pinned in
+`baseline-250.json`.** 250 = 2·5³ is no supported `vDSP_DFT` length and no
+exact radix-3/5 plan, so it is the path `calibrationData_circularProbe.h5`
+takes — until this session an O(N²) scalar loop with a per-element `sin`/`cos`
+(**256 ms per pattern, single thread, `-O`**; the whole story behind the
+14-minute Detect All Disks in `docs/s22-ux-design.md` §5.5 P1). It is now an
+exact Bluestein (chirp-z) transform in `FFT2D`.
+
+**How the baseline was pinned, so the parity claim is auditable.** The 250
+baseline was FIRST recorded on the retired scalar path, then the Bluestein
+path was run against it: **peak counts identical (288 / 288, every pattern),
+position checksum within 3.9e-7**, but `intensityChecksum` and
+`correlationMaximumChecksum` moved by **7.3e-6 and 4.7e-6 relative** — over
+the 1e-6 tolerance. That shift is the OLD reference's error, not the new
+path's: the scalar loop computed its angle as `Float(j·k)/N`, which reaches
+~1560 rad at N = 250 and carries ~1e-4 rad of Float rounding. Measured against
+a Double-precision direct DFT (`mac4DSTEMTests/FFT2DArbitraryLengthTests`,
+plus a standalone `-O` run):
+
+| Path | relative max error vs Double DFT |
+|------|---------------------------------:|
+| Retired scalar Float loop, 250-line | 2.1e-5 |
+| **Bluestein, 250-line / 250×250** | **7.4e-8 / 8.5e-8** |
+| vDSP native radix-2, 128×128 (for scale) | 4.6e-8 |
+| Exact radix-5 plan, 125×125 (for scale) | 9.8e-8 |
+
+`baseline-250.json` was therefore **re-pinned on the Bluestein path** — the
+one that is closer to the exact DFT — and the scalar-path checksums are kept
+here as the record of what moved: `positionChecksum 144000.26418318113`,
+`intensityChecksum 22.0708162561059`, `correlationMaximumChecksum
+8.754893481731415` (scalar) vs `144000.3197709527`, `22.070654947310686`,
+`8.75485235452652` (Bluestein). No py4DSTEM deviation: both are the exact
+N-point DFT and the data grid is never padded; the padding is internal to
+Bluestein's convolution.
+
+**What this baseline does and does not prove (Gate B, 2026-09-02).** It is a
+*correlation* regression pin, not an FFT correctness pin. The refuter applied
+20 mutations to `FFT2D`; the parity checksums went red for the chirp-sign,
+scale, wrap and conjugation errors, but stayed **bit-identical** for a per-axis
+re/im swap (a ky-axis flip of the forward transform), because any bug that
+commutes with `FFT⁻¹(P · conj(K))` cancels in cross-correlation. Correctness of
+the transform itself rests on `mac4DSTEMTests/FFT2DArbitraryLengthTests`
+(which that mutation turns red) and the numpy `fft.fft2` comparison recorded
+in `docs/s22-ux-design.md` §6 — not on this file.
+
+**Measured cost at 250×250 (Apple M3, `-O`):**
+
+| Path | ms/pattern | Projected, 8,400-position scan |
+|------|-----------:|-------------------------------:|
+| Scalar loop, serial (retired) | 255.8 | 2,149 s |
+| Bluestein, serial | 3.2 | 27 s |
+| **Bluestein, `--backend cpu-parallel`** | **0.68** | **5.7 s** |
+
 ## What is pinned
 
 Checksums are chosen to be sensitive rather than merely present:

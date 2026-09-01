@@ -2092,3 +2092,12 @@ Kept because they changed outcomes, not because they are tidy:
    a real assistive client, so in-process every pop-up is blank. The test now
    asserts the *decision* instead of the rendering, and says why at the call
    site so the dead end is not rediscovered.
+
+### FFT speedup + R23 — DONE 2026-09-02, uncommitted
+
+Bluestein replaces `FFT2D`'s O(N²) fallback: Gate B passed (20 mutations; one
+real finding, a NaN-blind error metric, fixed and re-broken), unit 429/0/2,
+scientific 42/42, Detect All Disks 14 m 09 s → <15 s Release, same 83929
+peaks. R23: `ScalarColorbarView`'s `allowsHitTesting(false)` made the chip
+button unclickable; verified on screen. Record: `docs/s22-ux-design.md` §6.
+Residual: the owner's F1.53 drive and the commit decision on the held tree.

@@ -934,7 +934,12 @@ only if asked.
   land, one final owner playthrough + report after. **The design ran that
   evening: [`docs/s22-ux-design.md`](s22-ux-design.md) is the single S22
   thread — evidence, design, slice plan, status. No S22 material grows
-  anywhere else.**
+  anywhere else.** **2026-09-02: the two items S22 handed on are DONE** —
+  the Bluestein FFT (Gate B passed, unit 429/0/2, scientific 42/42, Detect
+  All Disks 14 m 09 s → <15 s Release, same peaks) and R23 (chip
+  unclickable through `allowsHitTesting(false)`, verified on screen).
+  Deviation: neither pad-to-256 nor a vDSP plan — an exact transform, no
+  DEVIATION note needed. Still uncommitted; F1.53 remains the owner's row.
 
 - [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
   postponed by the owner, 2026-08-31; drive kit in the 2026-08-31 session.

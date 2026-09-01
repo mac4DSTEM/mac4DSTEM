@@ -8,6 +8,21 @@
 import Foundation
 import Metal
 
+/// Lock-guarded permille gate for progress callbacks: admits a fraction only
+/// when its 0.1 % bucket differs from the last admitted one.
+nonisolated private final class ProgressCoalescer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastBucket = -1
+    func admits(_ fraction: Double) -> Bool {
+        let bucket = Int((fraction * 1000).rounded(.down))
+        return lock.withLock {
+            guard bucket != lastBucket else { return false }
+            lastBucket = bucket
+            return true
+        }
+    }
+}
+
 extension DiskDetection {
 
     /// Why a full-scan detection over a streamed cube failed. Typed and
@@ -80,6 +95,16 @@ extension DiskDetection {
             $0..<min(d.ry, $0 + rowsPerTile)
         }
         var prefetcher = TilePrefetcher(data: data)
+        // The resident detector rate-limits its ticks per TILE (one per 0.1 %
+        // of the tile); across many tiles that would multiply. Coalesce again
+        // on the GLOBAL fraction so a full-scan run makes at most ~1,000
+        // callbacks however it is tiled (FFT session ride-along, 2026-09-01).
+        let coalescer = ProgressCoalescer()
+        let coalesced: (@Sendable (Double) -> Void)? = progress.map { progress in
+            { @Sendable fraction in
+                if coalescer.admits(fraction) { progress(fraction) }
+            }
+        }
         for (index, range) in ranges.enumerated() {
             guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
             let lower = range.lowerBound
@@ -120,7 +145,7 @@ extension DiskDetection {
                 cube: buffer, descriptor: tileDescriptor, kernel: kernel,
                 params: params, cancellation: cancellation,
                 progress: { fraction in
-                    progress?(
+                    coalesced?(
                         (Double(lower) + fraction * Double(range.count)) / Double(d.ry)
                     )
                 }

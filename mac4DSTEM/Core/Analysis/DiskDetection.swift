@@ -852,6 +852,15 @@ enum DiskDetection {
         var results = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
         let rowsDone = NSLock()
         var doneCount = 0
+        // Progress counts PATTERNS, not scan rows (FFT session ride-along,
+        // 2026-09-01): a tile of a few rows on a wide scan used to move the bar
+        // in ~8 % steps. One lock take per pattern costs nothing next to a
+        // correlation. The CALLBACK is rate-limited to one per 0.1 % of the
+        // scan (at most ~1,000 per run), because the app's progress closure
+        // hops to the main actor per call and a tick per pattern at ~3,000
+        // patterns/s would flood exactly the runloop P1 just freed.
+        let patternCount = d.ry * d.rx
+        var lastBucket = -1
 
         let ok = results.withUnsafeMutableBufferPointer { buf -> Bool in
             let slots = Slots(ptr: buf.baseAddress!, cubeBase: base)
@@ -871,15 +880,18 @@ enum DiskDetection {
                         if cancellation?.isCancelled == true { break }
                         let pat = slots.cubeBase + ry * rowPix + rx * patPix
                         slots.ptr[ry * d.rx + rx] = det.detect(pattern: pat, params: params)
+                        if let progress {
+                            rowsDone.lock()
+                            doneCount += 1
+                            let bucket = doneCount * 1000 / patternCount
+                            let tick = bucket != lastBucket
+                            if tick { lastBucket = bucket }
+                            let f = Double(doneCount) / Double(patternCount)
+                            rowsDone.unlock()
+                            if tick { progress(f) }
+                        }
                     }
                     if cancellation?.isCancelled == true { break }
-                    if let progress {
-                        rowsDone.lock()
-                        doneCount += 1
-                        let f = Double(doneCount) / Double(d.ry)
-                        rowsDone.unlock()
-                        progress(f)
-                    }
                 }
             }
             rowsDone.lock(); let bad = failed; rowsDone.unlock()

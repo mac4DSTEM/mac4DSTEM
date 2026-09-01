@@ -152,4 +152,36 @@ final class TiledDiskDetectionErrorTests: XCTestCase {
         XCTAssertEqual(unwrapped.peaks.count, descriptor.rx * descriptor.ry,
                        "One (possibly empty) peak list per scan position")
     }
+
+    /// Progress ticks per PATTERN (FFT session ride-along, 2026-09-01). The
+    /// 8×4 scan over 2-row tiles is 32 patterns in 4 tiles: the bar must move
+    /// at the FIRST pattern (1/32), not the first row (1/8), and touch at
+    /// least 32 distinct values before the final 1. Callbacks arrive from
+    /// worker threads, so the assertion is on the SET of values, not their
+    /// order. Under the per-row code this sees 8 distinct values and a first
+    /// tick of 0.125.
+    func testProgressTicksPerPatternNotPerRow() async throws {
+        let (data, descriptor, kernel) = try await makeData(failFromRow: 8)
+        nonisolated final class Ticks: @unchecked Sendable {
+            private let lock = NSLock()
+            private var seen: [Double] = []
+            func record(_ f: Double) { lock.withLock { seen.append(f) } }
+            var values: [Double] { lock.withLock { seen } }
+        }
+        let ticks = Ticks()
+        let result = try await DiskDetection.detectAll(
+            data: data, descriptor: descriptor, kernel: kernel,
+            params: validParams, maximumTileRows: 2,
+            progress: { ticks.record($0) }
+        )
+        XCTAssertNotNil(result)
+        let values = ticks.values
+        let distinct = Set(values.map { ($0 * 1e6).rounded() }).sorted()
+        XCTAssertGreaterThanOrEqual(distinct.count, 32,
+                                    "expected one tick per pattern, saw \(distinct.count) distinct values")
+        XCTAssertEqual(values.min() ?? -1, 1.0 / 32, accuracy: 1e-9,
+                       "the first tick must be one PATTERN in, not one row")
+        XCTAssertEqual(values.max() ?? -1, 1, accuracy: 1e-9)
+        XCTAssertTrue(values.allSatisfy { $0 > 0 && $0 <= 1 })
+    }
 }

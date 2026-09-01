@@ -36,4 +36,13 @@ xcrun swiftc -O -o "$WORK/harness" \
   "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
   -framework Accelerate -framework Metal
 
+# Two detector sizes, both against their own pinned baseline:
+#   128 — the historical fixture (a vDSP radix-2 length);
+#   250 — the FFT-session case (2·5³, no vDSP_DFT setup exists for it), pinned
+#         on the scalar exact-DFT path BEFORE the arbitrary-length FFT landed,
+#         so the fast path is judged against the slow-but-exact one it replaced
+#         (docs/s22-ux-design.md §6, FFT speedup session). Fewer patterns
+#         because the pre-change path ran ~100 ms/pattern.
 "$WORK/harness" --baseline "$PWD/baseline.json" "$@"
+echo
+"$WORK/harness" --detector 250 --patterns 32 --baseline "$PWD/baseline-250.json" "$@"

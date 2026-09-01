@@ -6,9 +6,15 @@
 //
 //  Power-of-two grids use vDSP's fast native 2D FFT. Other grids use separable
 //  transforms at their exact dimensions: native radix-2 FFTs or cached exact
-//  radix-3/5 plans when possible, otherwise a vDSP complex DFT (with a
-//  correctness fallback for unsupported lengths). This preserves NumPy/
-//  py4DSTEM circular-correlation semantics without zero-padding.
+//  radix-3/5 plans when possible, a vDSP complex DFT where vDSP supports the
+//  length (f·2ⁿ, f ∈ {1,3,5,15}), and otherwise an exact Bluestein (chirp-z)
+//  transform that evaluates the length-N DFT through radix-2 FFTs of length
+//  M ≥ 2N−1. Every path is the EXACT N-point DFT: the data grid is never
+//  zero-padded, so NumPy/py4DSTEM circular-correlation semantics hold for any
+//  detector size. (Until 2026-09-01 the last case was an O(N²) scalar loop
+//  with per-element sin/cos — 256 ms per 250×250 pattern in a Release build,
+//  the whole story behind the 14-minute Detect All Disks on
+//  calibrationData_circularProbe.h5; docs/s22-ux-design.md §5.5 P1.)
 //
 //  THREADING: an FFTSetup is immutable after creation and Apple documents it
 //  as shareable across threads, so one FFT2D instance can serve concurrent
@@ -74,6 +80,156 @@ nonisolated private struct ExactRadixPlan: Sendable {
     }
 }
 
+/// Bluestein / chirp-z plan for one axis of arbitrary length N.
+///
+/// Identity: nk = (n² + k² − (k−n)²)/2, so
+///   X_k = w_k · Σ_n (x_n · w_n) · conj(w_{k−n}),  w_m = exp(−iπ m²/N),
+/// a linear convolution of the chirped input with conj(w), which a length-M
+/// circular convolution (M ≥ 2N−1, power of two) computes exactly through
+/// vDSP's radix-2 FFT. The inverse transform uses conj(w) throughout and is
+/// left unnormalized, matching vDSP's convention that `FFT2D.transform`
+/// already relies on. The padding is internal to evaluating the exact
+/// N-point DFT — the data itself is never padded.
+///
+/// The chirp phase is built from n² reduced modulo 2N, so its accuracy does
+/// not degrade with N (a Float angle of 2π·n·k/N, as the old scalar loop
+/// used, loses ~1e-4 rad by n·k ≈ 60 000). The reduction is what matters:
+/// Gate B (2026-09-02) measured a Float chirp with the same reduction at the
+/// same accuracy; the Double is belt-and-braces.
+///
+/// Immutable after construction (an FFTSetup is documented shareable across
+/// threads), so one plan serves every concurrent detection worker.
+nonisolated private final class BluesteinPlan: @unchecked Sendable {
+    let length: Int
+    let paddedLength: Int
+    let paddedLog2: vDSP_Length
+    let setup: FFTSetup
+    /// w_n = exp(−iπ n²/N) for n < N (the FORWARD chirp; inverse = conj).
+    let chirpRe: [Float]
+    let chirpIm: [Float]
+    /// FFT_M of the symmetric conj-chirp filter, one per direction.
+    let filterForwardRe: [Float]
+    let filterForwardIm: [Float]
+    let filterInverseRe: [Float]
+    let filterInverseIm: [Float]
+
+    init?(length: Int) {
+        guard length > 0 else { return nil }
+        let padded = FFT2D.nextPow2(2 * length - 1)
+        let log2Padded = vDSP_Length(log2(Double(padded)))
+        guard let setup = vDSP_create_fftsetup(log2Padded, FFTRadix(kFFTRadix2)) else {
+            return nil
+        }
+        self.length = length
+        self.paddedLength = padded
+        self.paddedLog2 = log2Padded
+        self.setup = setup
+
+        var wRe = [Float](repeating: 0, count: length)
+        var wIm = [Float](repeating: 0, count: length)
+        for n in 0..<length {
+            // exp(−iπ n²/N) has period 2N in n², so reduce first — exact in
+            // integer arithmetic, and it keeps the Double angle small.
+            let reduced = (n * n) % (2 * length)
+            let angle = -Double.pi * Double(reduced) / Double(length)
+            wRe[n] = Float(cos(angle))
+            wIm[n] = Float(sin(angle))
+        }
+        chirpRe = wRe
+        chirpIm = wIm
+
+        // Filter for a direction whose chirp is c: b_m = conj(c_m) for
+        // |m| < N, placed at index m (m ≥ 0) and M + m (m < 0); symmetric in
+        // m because m² is. Forward: c = w → b = conj(w). Inverse: c = conj(w)
+        // → b = w.
+        func filter(conjugateChirp: Bool) -> ([Float], [Float]) {
+            var bRe = [Float](repeating: 0, count: padded)
+            var bIm = [Float](repeating: 0, count: padded)
+            let sign: Float = conjugateChirp ? -1 : 1
+            for m in 0..<length {
+                bRe[m] = wRe[m]
+                bIm[m] = sign * wIm[m]
+                if m > 0 {
+                    bRe[padded - m] = wRe[m]
+                    bIm[padded - m] = sign * wIm[m]
+                }
+            }
+            bRe.withUnsafeMutableBufferPointer { rp in
+                bIm.withUnsafeMutableBufferPointer { ip in
+                    var split = DSPSplitComplex(realp: rp.baseAddress!, imagp: ip.baseAddress!)
+                    vDSP_fft_zip(setup, &split, 1, log2Padded,
+                                 FFTDirection(kFFTDirection_Forward))
+                }
+            }
+            return (bRe, bIm)
+        }
+        (filterForwardRe, filterForwardIm) = filter(conjugateChirp: true)
+        (filterInverseRe, filterInverseIm) = filter(conjugateChirp: false)
+    }
+
+    deinit {
+        vDSP_destroy_fftsetup(setup)
+    }
+
+    /// Exact length-N DFT of one line. `scratchRe/Im` must hold
+    /// `paddedLength` floats each; they are caller-owned so concurrent
+    /// workers never share them.
+    func execute(
+        forward: Bool,
+        _ inputRe: UnsafePointer<Float>, _ inputIm: UnsafePointer<Float>,
+        _ outputRe: UnsafeMutablePointer<Float>, _ outputIm: UnsafeMutablePointer<Float>,
+        scratchRe: UnsafeMutablePointer<Float>, scratchIm: UnsafeMutablePointer<Float>
+    ) {
+        let n = vDSP_Length(length)
+        let m = vDSP_Length(paddedLength)
+        // vDSP_zvmul's conjugate flag applies to its FIRST operand: 1 = plain
+        // product, −1 = conj(A)·B. The forward chirp is w, the inverse conj(w).
+        let conjugate: Int32 = forward ? 1 : -1
+        chirpRe.withUnsafeBufferPointer { cr in
+            chirpIm.withUnsafeBufferPointer { ci in
+                var chirp = DSPSplitComplex(
+                    realp: UnsafeMutablePointer(mutating: cr.baseAddress!),
+                    imagp: UnsafeMutablePointer(mutating: ci.baseAddress!)
+                )
+                var input = DSPSplitComplex(
+                    realp: UnsafeMutablePointer(mutating: inputRe),
+                    imagp: UnsafeMutablePointer(mutating: inputIm)
+                )
+                var work = DSPSplitComplex(realp: scratchRe, imagp: scratchIm)
+
+                // 1. a_n = x_n · c_n, zero-padded to M.
+                vDSP_zvmul(&chirp, 1, &input, 1, &work, 1, n, conjugate)
+                if paddedLength > length {
+                    (scratchRe + length).update(repeating: 0, count: paddedLength - length)
+                    (scratchIm + length).update(repeating: 0, count: paddedLength - length)
+                }
+                // 2. A = FFT_M(a).
+                vDSP_fft_zip(setup, &work, 1, paddedLog2, FFTDirection(kFFTDirection_Forward))
+                // 3. A ·= B (the direction's precomputed filter spectrum).
+                let filterRe = forward ? filterForwardRe : filterInverseRe
+                let filterIm = forward ? filterForwardIm : filterInverseIm
+                filterRe.withUnsafeBufferPointer { fr in
+                    filterIm.withUnsafeBufferPointer { fi in
+                        var filter = DSPSplitComplex(
+                            realp: UnsafeMutablePointer(mutating: fr.baseAddress!),
+                            imagp: UnsafeMutablePointer(mutating: fi.baseAddress!)
+                        )
+                        vDSP_zvmul(&work, 1, &filter, 1, &work, 1, m, 1)
+                    }
+                }
+                // 4. a = IFFT_M(A) / M (vDSP's inverse is unnormalized).
+                vDSP_fft_zip(setup, &work, 1, paddedLog2, FFTDirection(kFFTDirection_Inverse))
+                var scale = 1 / Float(paddedLength)
+                vDSP_vsmul(scratchRe, 1, &scale, scratchRe, 1, m)
+                vDSP_vsmul(scratchIm, 1, &scale, scratchIm, 1, m)
+                // 5. X_k = c_k · a_k for k < N.
+                var output = DSPSplitComplex(realp: outputRe, imagp: outputIm)
+                vDSP_zvmul(&chirp, 1, &work, 1, &output, 1, n, conjugate)
+            }
+        }
+    }
+}
+
 nonisolated final class FFT2D: @unchecked Sendable {
 
     let nx: Int
@@ -91,6 +247,11 @@ nonisolated final class FFT2D: @unchecked Sendable {
     private let inverseX: vDSP_DFT_Setup?
     private let forwardY: vDSP_DFT_Setup?
     private let inverseY: vDSP_DFT_Setup?
+    /// Exact arbitrary-length plans, built only for an axis vDSP cannot
+    /// serve natively (no radix-2 setup, no exact radix-3/5 plan, no DFT
+    /// setup) — e.g. 250, 254, 300.
+    private let bluesteinX: BluesteinPlan?
+    private let bluesteinY: BluesteinPlan?
 
     /// Fails only when a required Accelerate FFT setup cannot be allocated.
     init?(nx: Int, ny: Int) {
@@ -108,6 +269,7 @@ nonisolated final class FFT2D: @unchecked Sendable {
             axisXSetup = nil; axisXLog = 0; axisXPlan = nil
             axisYSetup = nil; axisYLog = 0; axisYPlan = nil
             forwardX = nil; inverseX = nil; forwardY = nil; inverseY = nil
+            bluesteinX = nil; bluesteinY = nil
         } else {
             radix2Setup = nil
             let xRadix2Log = Self.exactPowerExponent(nx, radix: 2)
@@ -150,6 +312,21 @@ nonisolated final class FFT2D: @unchecked Sendable {
             let iy = yRadix2Log == nil && yPlan == nil
                 ? vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(ny), .INVERSE) : nil
             forwardX = fx; inverseX = ix; forwardY = fy; inverseY = iy
+            let needsBluesteinX = xRadix2Log == nil && xPlan == nil && fx == nil
+            let needsBluesteinY = yRadix2Log == nil && yPlan == nil && fy == nil
+            let bx = needsBluesteinX ? BluesteinPlan(length: nx) : nil
+            let by = needsBluesteinY ? BluesteinPlan(length: ny) : nil
+            if (needsBluesteinX && bx == nil) || (needsBluesteinY && by == nil) {
+                if let axisXSetup { vDSP_destroy_fftsetup(axisXSetup) }
+                if let axisYSetup { vDSP_destroy_fftsetup(axisYSetup) }
+                if let fx { vDSP_DFT_DestroySetup(fx) }
+                if let ix { vDSP_DFT_DestroySetup(ix) }
+                if let fy { vDSP_DFT_DestroySetup(fy) }
+                if let iy { vDSP_DFT_DestroySetup(iy) }
+                return nil
+            }
+            bluesteinX = bx
+            bluesteinY = by
         }
     }
 
@@ -181,8 +358,18 @@ nonisolated final class FFT2D: @unchecked Sendable {
         } else {
             let xSetup = forward ? forwardX : inverseX
             let ySetup = forward ? forwardY : inverseY
+            // Per-call Bluestein scratch (padded length of the larger axis):
+            // caller-owned like the data, so concurrent workers sharing this
+            // plan never share a buffer.
+            let scratchCount = max(bluesteinX?.paddedLength ?? 0,
+                                   bluesteinY?.paddedLength ?? 0)
+            var scratchRe = [Float](repeating: 0, count: scratchCount)
+            var scratchIm = [Float](repeating: 0, count: scratchCount)
             var horizontalRe = [Float](repeating: 0, count: nx * ny)
             var horizontalIm = [Float](repeating: 0, count: nx * ny)
+            scratchRe.withUnsafeMutableBufferPointer { sr in
+            scratchIm.withUnsafeMutableBufferPointer { si in
+            let scratch = (sr.baseAddress, si.baseAddress)
             re.withUnsafeBufferPointer { inputRe in
                 im.withUnsafeBufferPointer { inputIm in
                     horizontalRe.withUnsafeMutableBufferPointer { outputRe in
@@ -191,11 +378,13 @@ nonisolated final class FFT2D: @unchecked Sendable {
                                 executeAxis(
                                     fftSetup: axisXSetup, fftLog: axisXLog,
                                     exactPlan: axisXPlan,
-                                    dftSetup: xSetup, length: nx, forward: forward,
+                                    dftSetup: xSetup, bluestein: bluesteinX,
+                                    length: nx, forward: forward,
                                     inputRe.baseAddress! + y * nx,
                                     inputIm.baseAddress! + y * nx,
                                     outputRe.baseAddress! + y * nx,
-                                    outputIm.baseAddress! + y * nx
+                                    outputIm.baseAddress! + y * nx,
+                                    scratch: scratch
                                 )
                             }
                         }
@@ -218,9 +407,11 @@ nonisolated final class FFT2D: @unchecked Sendable {
                                 executeAxis(
                                     fftSetup: axisYSetup, fftLog: axisYLog,
                                     exactPlan: axisYPlan,
-                                    dftSetup: ySetup, length: ny, forward: forward,
+                                    dftSetup: ySetup, bluestein: bluesteinY,
+                                    length: ny, forward: forward,
                                     inputRe.baseAddress!, inputIm.baseAddress!,
-                                    outputRe.baseAddress!, outputIm.baseAddress!
+                                    outputRe.baseAddress!, outputIm.baseAddress!,
+                                    scratch: scratch
                                 )
                             }
                         }
@@ -230,6 +421,8 @@ nonisolated final class FFT2D: @unchecked Sendable {
                     re[y * nx + x] = columnOutRe[y]
                     im[y * nx + x] = columnOutIm[y]
                 }
+            }
+            }
             }
         }
         if !forward && scaleInverse {
@@ -242,9 +435,11 @@ nonisolated final class FFT2D: @unchecked Sendable {
     private func executeAxis(
         fftSetup: FFTSetup?, fftLog: vDSP_Length,
         exactPlan: ExactRadixPlan?,
-        dftSetup: vDSP_DFT_Setup?, length: Int, forward: Bool,
+        dftSetup: vDSP_DFT_Setup?, bluestein: BluesteinPlan?,
+        length: Int, forward: Bool,
         _ inputRe: UnsafePointer<Float>, _ inputIm: UnsafePointer<Float>,
-        _ outputRe: UnsafeMutablePointer<Float>, _ outputIm: UnsafeMutablePointer<Float>
+        _ outputRe: UnsafeMutablePointer<Float>, _ outputIm: UnsafeMutablePointer<Float>,
+        scratch: (UnsafeMutablePointer<Float>?, UnsafeMutablePointer<Float>?)
     ) {
         if let fftSetup {
             outputRe.update(from: inputRe, count: length)
@@ -263,9 +458,18 @@ nonisolated final class FFT2D: @unchecked Sendable {
             )
             return
         }
-        executeDFT(
-            setup: dftSetup, length: length, forward: forward,
-            inputRe, inputIm, outputRe, outputIm
+        if let dftSetup {
+            vDSP_DFT_Execute(dftSetup, inputRe, inputIm, outputRe, outputIm)
+            return
+        }
+        // `init` guarantees a plan exists for every axis no other path
+        // serves, so this is unreachable rather than a silent fallback.
+        guard let bluestein, let scratchRe = scratch.0, let scratchIm = scratch.1 else {
+            preconditionFailure("FFT2D: no transform plan for length \(length)")
+        }
+        bluestein.execute(
+            forward: forward, inputRe, inputIm, outputRe, outputIm,
+            scratchRe: scratchRe, scratchIm: scratchIm
         )
     }
 
@@ -402,33 +606,6 @@ nonisolated final class FFT2D: @unchecked Sendable {
         imaginary[index2] = base2i + u2r
         real[index3] = base2r + u2i
         imaginary[index3] = base2i - u2r
-    }
-
-    /// vDSP deliberately omits some exact DFT lengths (notably small primes).
-    /// The scalar fallback keeps those shapes scientifically correct; common
-    /// microscope sizes of `f·2ⁿ` continue through the accelerated setup.
-    private func executeDFT(
-        setup: vDSP_DFT_Setup?, length: Int, forward: Bool,
-        _ inputRe: UnsafePointer<Float>, _ inputIm: UnsafePointer<Float>,
-        _ outputRe: UnsafeMutablePointer<Float>, _ outputIm: UnsafeMutablePointer<Float>
-    ) {
-        if let setup {
-            vDSP_DFT_Execute(setup, inputRe, inputIm, outputRe, outputIm)
-            return
-        }
-        let sign: Float = forward ? -1 : 1
-        for k in 0..<length {
-            var sumRe: Float = 0
-            var sumIm: Float = 0
-            for j in 0..<length {
-                let angle = sign * 2 * .pi * Float(j * k) / Float(length)
-                let cosine = cos(angle), sine = sin(angle)
-                sumRe += inputRe[j] * cosine - inputIm[j] * sine
-                sumIm += inputRe[j] * sine + inputIm[j] * cosine
-            }
-            outputRe[k] = sumRe
-            outputIm[k] = sumIm
-        }
     }
 
     private static func exactRadixPlan(length: Int) -> ExactRadixPlan? {

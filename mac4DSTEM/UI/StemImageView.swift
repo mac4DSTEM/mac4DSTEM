@@ -448,6 +448,7 @@ struct StemImageView: View {
                                 marksZero: false,
                                 showsMasked: false
                             )
+                            .allowsHitTesting(false)   // plain chip: no control behind it (R23)
                         } else if app.displayedResultImage != nil,
                            let range = app.resultDisplayedValueRange {
                             // D3: the chip IS the colormap control — click it.

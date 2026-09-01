@@ -177,8 +177,10 @@ clamping. **P1 (frozen Detect All Disks) closed by full Gate D** — owner
 reproduced, agent sampled mid-hang, refuter confirmed with corrections: the
 main thread was conscripted by `concurrentPerform`, the mechanism predates
 v1, and the true slowness is the 250-px detector falling to
-`FFT2D.executeDFT`'s O(n²) fallback (its speedup is a queued gated
-session). Fix = detached execution; **owner verified live: progress
+`FFT2D.executeDFT`'s O(n²) fallback — **replaced 2026-09-02 by an exact
+Bluestein transform, Gate B passed, Detect All Disks on the 250-px cube
+14 m 09 s → under 15 s in Release with the same 83929 peaks**
+(`docs/s22-ux-design.md` §6, 2026-09-02 entry). Fix = detached execution; **owner verified live: progress
 painted, Cancel worked.** **P2 (stale-frame sidecar calibration) closed by
 full Gate D** — session calibration now goes through
 `SessionCalibrationFramePolicy` (identity / re-reference / refuse) and the
@@ -196,11 +198,11 @@ histograms, and a stateful Phase requirements line. **27 owner findings
 R1–R27 total, 24 fixed and gated** (`docs/s22-ux-design.md` §5.5 is the
 ledger; its HANDOFF block in §6 is the open queue, and **§6.1 carries the
 owner-requested copy-paste kickoff prompts for the FFT speedup session and
-the colormap-chip fix** — R23's popover rebuild is **CONFIRMED still broken
-on the owner's screen after a rebuild**, and with the sidebar Display row
-retired that means NO working colormap control exists until it is fixed:
-the top item for the next agent). Last full suite:
-**417 passed / 0 failed / 2 skipped** (warm MCP runs — the fresh gate
+the colormap-chip fix** — R23 is **FIXED AND VERIFIED ON SCREEN 2026-09-02** — the popover rebuild
+was right; `ScalarColorbarView`'s `allowsHitTesting(false)` made the chip
+button unclickable, moved to its one plain use site; both colormaps change). Last full suite:
+**429 passed / 0 failed / 2 skipped, 2026-09-02** on the FFT tree (the S22
+final was 417; warm MCP runs — the fresh gate
 refuses exit-69 at the ~6 GB disk floor; the layout gate re-pins the
 sidebar width per measurement because a live app instance's width autosave
 otherwise leaks into the harness). The recorded lesson stands:

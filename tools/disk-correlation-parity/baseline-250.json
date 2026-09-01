@@ -1,0 +1,50 @@
+{
+  "backend" : "cpu",
+  "detector" : [
+    250,
+    250
+  ],
+  "measurement" : {
+    "correlationMaximumChecksum" : 8.75485235452652,
+    "intensityChecksum" : 22.070654947310686,
+    "patternCount" : 32,
+    "peakCountTotal" : 288,
+    "perPatternPeakCounts" : [
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9
+    ],
+    "positionChecksum" : 144000.3197709527
+  },
+  "patternCount" : 32,
+  "probeRadius" : 6.1
+}

@@ -287,7 +287,7 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
 | R20 | Imaging: with Rectangle/Circle regions, scrubbing replaces the diffraction pattern even when Mean or Max is selected; Point correctly only affects Current | The ROI-summed pattern substitution ignored the display-mode selection | Pre-existing defect | **FIXED this round**: region sums substitute the displayed pattern only in Current mode, like Point |
 | R21 | Parallax/ptycho "weird flapouts for the steps — they could just be buttons with indication … telling the user in which order" | The numbered stage DisclosureGroups | Design, accepted | **FIXED this round**: stages are flat rows — number, title, ✓/current state — and only the ACTIVE stage shows its controls, automatically; no user-managed disclosures |
 | R22 | "can we do something about the speed? does metal help?" | Answered in the closing report: the 250-px fallback is the whole story; options are pad-to-256 on the existing Metal FFT path, or a supported-length vDSP plan — both `Core/` + parity-fixture work, queued as the gated FFT session | Science, queued | The gated `executeDFT`/Metal session |
-| R23 | "where are the colormaps? did you now include them?" — the colorbar chips render as a bare number, no gradient (21:33 screenshots); owner later: "still not in place" | **D3 regression caught by the owner**: a SwiftUI `Canvas` inside a Menu's AppKit-hosted label does not render | **D3 regression** | Rebuilt as plain button + SwiftUI `.popover` (`UI/ColormapChipMenu.swift`), gated green — and **CONFIRMED STILL BROKEN ON SCREEN by the owner after a rebuild (22:20)**. Note the severity: with the sidebar Display row retired, a broken chip means **no working colormap control exists in the app right now**. **Open — §6.1's brief owns it: diagnose the popover build live, and fall back to a visible swatch strip beside the chip if needed** |
+| R23 | "where are the colormaps? did you now include them?" — the colorbar chips render as a bare number, no gradient (21:33 screenshots); owner later: "still not in place" | **D3 regression caught by the owner**: a SwiftUI `Canvas` inside a Menu's AppKit-hosted label does not render | **D3 regression** | Rebuilt as plain button + SwiftUI `.popover` (`UI/ColormapChipMenu.swift`), gated green — and **CONFIRMED STILL BROKEN ON SCREEN by the owner after a rebuild (22:20)**. Note the severity: with the sidebar Display row retired, a broken chip means **no working colormap control exists in the app right now**. **FIXED AND VERIFIED ON SCREEN 2026-09-02** (§6 entry): the popover was never the fault — `ScalarColorbarView` carried `.allowsHitTesting(false)`, and as the button's label it made the whole chip transparent to real clicks (AXPress opened the popover; a click inside the button's own frame did not). Modifier moved to the one plain use site; both chips now open on click and both colormaps change the pane |
 | R24 | *(assistant-observed in shot 4)* "Requires a calibrated origin, R–Q rotatio…" truncates in the Phase sidebar | A pre-S22d orange caption without the wrap recipe | Missed site | **FIXED this round** (`sidebarWrapped()`) |
 | R26 | "for the histograms make them not log per default … log counts on startup is unusual" | `HistogramView.useLog` defaulted true | Preference, accepted | **FIXED**: linear by default, log one toggle away |
 | R27 | The Phase requires-line doesn't wrap (pre-rebuild build; R24 already fixes the wrap) and stays ORANGE "which is wrong as all are fulfilled" | The real story: "Core calibrated" is true while ptychography ADDITIONALLY needs the R scale and voltage — the generic orange sentence read as a false alarm and hid the actual gap | Wording/semantics, accepted | **FIXED**: the line is stateful and specific — orange "Still needed: R pixel scale · accelerating voltage…" when something is missing, quiet gray "All reconstruction requirements are met." when nothing is |
@@ -604,16 +604,146 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
   actual gaps and goes gray when met). Rounds 1–4 total: **27 owner findings
   R1–R27, all dispositioned; 24 fixed and gated, 3 routed** (R7→D3 done,
   R22→the FFT session, R11→P2 done + the provenance-leak share).
+- 2026-09-01 late — **FFT speedup session, IMPLEMENTED AND SELF-GATED** (Gate B
+  and the suites landed the next sitting — see the 2026-09-02 entry below).
+  Tree still uncommitted (owner decision). What landed, each with its evidence:
+  - **`Core/Compute/FFT2D.swift`: the O(N²) scalar `executeDFT` fallback is
+    GONE; an exact Bluestein (chirp-z) plan takes every axis length vDSP
+    cannot serve** (no radix-2 setup, no radix-3/5 plan, no `vDSP_DFT`
+    setup — 250 = 2·5³ is the case). Exact N-point DFT through radix-2 FFTs
+    of M ≥ 2N−1; chirp built in Double from n² mod 2N; per-call scratch so
+    one shared plan serves concurrent workers; NO data padding, so **no
+    py4DSTEM DEVIATION** (numpy's pocketfft is exact too).
+  - **Parity fixture: `tools/disk-correlation-parity` now runs a second
+    fixed case, 250×250 / 32 patterns, pinned in `baseline-250.json`**
+    (`--detector` flag added; `run.sh` runs both). Pinned FIRST on the
+    scalar path, then compared: peak counts identical (288), positions
+    within 3.9e-7, intensity/corr-max moved 7.3e-6 / 4.7e-6 — the OLD
+    reference's Float-angle error (measured vs a Double direct DFT: scalar
+    2.1e-5, Bluestein 8.5e-8, vDSP native 128² 4.6e-8). Re-pinned on
+    Bluestein; the scalar checksums are recorded in the harness README.
+    **Both baselines green, serial and `cpu-parallel`.**
+    `tools/disk-detection-test` green.
+  - **Release (`-O`) timing, correlation harness, 250×250: 255.8 → 3.2
+    ms/pattern serial (80×); 0.68 ms/pattern parallel → 5.7 s projected for
+    the 8,400-position scan** (was a 2,149 s projection; the owner saw
+    14 min on Debug). **The on-cube app timing is NOT done** — see queue.
+  - **`mac4DSTEMTests/FFT2DArbitraryLengthTests.swift` (7 tests)**: 250×250,
+    250×128 mixed, small unsupported lengths incl. 65×129 (where a
+    convolution length one short would alias), round-trip, unnormalized
+    inverse, 8-thread shared-plan determinism, and the scalar-vs-Bluestein
+    evidence test. **Broken by mutation:** flipped chirp sign → 4 tests red
+    (errors 1e-2). Not sensitive to the sign flip by design: round-trip and
+    concurrency tests.
+  - **Ride-along 1 — per-pattern progress**: `DiskDetection.detectAll`
+    counts patterns, not rows; callbacks rate-limited to one per 0.1 % of
+    the tile, and `TiledDiskDetection` coalesces again on the GLOBAL
+    permille (`ProgressCoalescer`) so a run makes ≤ ~1,000 main-actor hops
+    however it is tiled. Pinned by
+    `TiledDiskDetectionErrorTests.testProgressTicksPerPatternNotPerRow`
+    (32-pattern scan: ≥ 32 distinct values, first tick 1/32). **Broken by
+    mutation:** per-row ticks → red (8 distinct, first 0.125).
+  - **Ride-along 2 — `CalibrationReReference` recordedOriginX/Y** (the P2
+    refuter residual): 4 tests in `CalibrationReReferenceTests` — crop
+    offset, crop-then-bin half-pixel (5.5 → 1.5, 6 → 1.25), outside-crop →
+    nil + named reason (not clamped), full-extent identity. **Broken by
+    mutation:** naive `x / bin` → red.
+  - Targeted unit runs green (warm MCP `test_macos`): 44/44 across the four
+    touched classes; **the FULL unit suite and `run-tests.sh scientific`
+    have NOT been re-run on this tree.**
+- 2026-09-02 ~01:00 — **FFT SESSION CLOSED: Gate B passed, both suites
+  green, on-cube Release timing 14 m 09 s → under 15 s.**
+  - **Gate B (independent refuter, 20 mutations actually applied and run,
+    tree restored from `cp` copies and `cmp`-verified identical, no git
+    restore commands).** The chirp-z math SURVIVED against numpy
+    `fft.fft2` on identical bytes: 250×250 forward 2.6e-7, unnormalized
+    inverse vs `N·ifft2` 2.7e-7, 65×129 / 250×1 / 1000×3 / 7×7 all ≤2.2e-7;
+    the conjugate and inverse alternatives are O(1) off, so the sign match
+    is not a symmetry accident. The re-pin of `baseline-250.json` is
+    CONFIRMED: the refuter's own reconstruction of the retired scalar loop
+    (from `git show HEAD:`) measured 2.15e-5 / 2.39e-5 / 2.27e-5 over three
+    seeds vs Bluestein 7.3e-8 / 6.7e-8 / 7.2e-8, numpy agreeing to three
+    digits. Thread safety SURVIVED (all-`let` plan, per-call scratch, one
+    detector per worker anyway; 8-thread run bit-identical under
+    `-sanitize=thread`). Coalescer SURVIVED (bucket decided under the lock;
+    100 % always ticks; one pre-existing note: a 0.999 tick can be
+    *delivered* after 1.0 because the callback fires outside the lock —
+    harmless, completion tears the bar down). Mutation table: 16 of 20
+    went red in both the unit tests and the parity harness (wrong-operand
+    conj, either-direction filter sign, 1/N scale, unreduced Float chirp
+    at 3.3e-6, wrap off-by-one, dropped chirp multiplies, re-only scale).
+    **Three survived and none is wrong science:** M = 2N−2 (the only
+    aliased filter offsets are ±(N−1), equal because the chirp is even —
+    the test comment claiming 65/129 pins this was FALSE; the first wrong
+    length is 2N−3); a Float chirp with the same mod-2N reduction (equal
+    accuracy — the reduction, not the Double, is what matters); writing
+    the never-read b[M−N] slot.
+  - **The one finding that mattered: `relativeMaxError` scored an all-NaN
+    transform as "error 0.0"** (Swift's `max(0.0, .nan)` is 0.0), so the
+    no-zero-pad mutation passed four of seven tests. **Corrected**: the
+    error function returns `.infinity` on any non-finite output and the two
+    round-trip tests assert finiteness; re-broken by the same mutation →
+    6 of 7 red (was 2). The 65/129 comment was corrected and **66×130
+    added** — re-broken with `nextPow2(2N−4)` → 66×130 red at 6.9e-3 while
+    65×129 stays green, exactly as the refuter predicted. Parity README
+    gained a "what this baseline does and does not prove" paragraph: a
+    per-axis re/im swap (a ky flip) leaves every parity checksum
+    bit-identical because it commutes with `FFT⁻¹(P·conj(K))` — the
+    baseline is a correlation regression pin, transform correctness rests
+    on the unit tests. FFT2D's doc comment no longer credits the Double.
+  - **Suites on the corrected tree:** unit (warm MCP `test_macos`) **429
+    passed / 0 failed / 2 skipped**; `run-tests.sh scientific` **42
+    started / 42 completed, zero FAIL and zero SKIP lines, exit 0**
+    (log retained in the session scratchpad).
+  - **On-cube Release timing, this agent driving per DRIVING.md** (owner
+    idle ≥ 90 s at every click, frontmost asserted each time; the
+    2026-09-01 blind-click mistake not repeated): Release build of this
+    tree, `calibrationData_circularProbe.h5` (84×100 × 250×250, 2.1 GB,
+    streaming), Generate Probe Kernel (r = 10.3 px) → Detect All Disks.
+    Footer crops every ~1 s: **0 % at 0.4 s, 16 % at 2.7 s, 32 % at 4.8 s,
+    49 % at 6.7 s, 62 % at 8.8 s, 84 % at 11.9 s, "Disks ✓ 83929 peaks" by
+    15.0 s** — the SAME peak count as the owner's 14 m 09 s Debug run, so
+    the science did not move. Progress painted continuously with Cancel
+    visible; accessibility pings answered in 0.2–2.1 s during the run
+    (7 s under the old freeze). **≈57× on the whole operation, and the
+    remaining ~13 s is the 2 GB streamed read** (#37's prediction — the
+    correlation itself projects to 5.7 s in the harness).
+    *Build note:* a scratch `-configuration Release` build has the hardened
+    runtime on with an ad-hoc signature, and dyld then refuses the ad-hoc
+    `libhdf5.dylib` ("different Team IDs") — the app opens to a wall of
+    error text. Timing was taken with `ENABLE_HARDENED_RUNTIME=NO` on the
+    scratch build only; the shipped DMG signs both with the real identity
+    (`tools/package-test` covers it). Not an app defect.
 - **HANDOFF — the exact open queue, for the next agent:**
-  (1) **The gated `executeDFT`/Metal FFT session** — the R22 speed answer:
-  the 250-px detector falls to an O(n²) scalar-sincos fallback
-  (`FFT2D.swift:425`) because 250 is no supported `vDSP_DFT` length;
-  options are pad-to-256 through the existing Metal FFT path or a
-  supported-length vDSP plan; BOTH change correlation inputs → Gate B +
-  parity fixtures (`tools/disk-correlation-parity`) mandatory; ride-alongs:
-  finer per-pattern progress ticks, the engine recordedOriginX/Y unit test
-  (P2 refuter residual). (2) **Release-build timing pass** before any speed
-  claim (all of tonight ran Debug under Xcode with Metal validation).
+  (0) ~~FFT session Gate B~~ **DONE 2026-09-02** (entry above).
+  (1) ~~The gated `executeDFT`/Metal FFT session~~ **DONE** — the answer
+  was neither pad-to-256 nor a vDSP plan but an exact Bluestein transform,
+  so no correlation input changed and no DEVIATION was needed.
+  (2) ~~Release-build timing pass~~ **DONE** (above).
+- 2026-09-02 ~01:30 — **R23 CLOSED: colormap chips fixed and verified on
+  screen by this agent** (Gate A + live diagnosis, the §6.1 brief).
+  Live first, on the same scratch Release build: both chips RENDER (gradient,
+  min/max, units) — the owner's "bare number" was build 1, gone. A real
+  CGEvent click inside the diffraction chip only focused the pane; an
+  accessibility `AXPress` on the same `AXButton` (frame 711,746 146×51 pt —
+  the click was inside it) opened the popover with the four swatches and the
+  Log toggle. So the popover rebuild was right and the mechanism is
+  hit-testing: `ScalarColorbarView.body` ends in `.allowsHitTesting(false)`
+  (from the pre-D3 era, when it was decoration over a pane), and
+  `ColormapChipMenu` uses that view as its `Button` label — a label that
+  refuses hits leaves a plain-style button with no clickable area. **Fix:**
+  the modifier moved off the colorbar view onto its one non-button use, the
+  quality-field chip in `StemImageView`; `ColormapChipMenu.swift` unchanged.
+  **Verified:** rebuilt, relaunched (sim_Au this time — the Recents order had
+  shifted), real clicks open both popovers; Inferno recolored the diffraction
+  pane and Gray the result pane, chips re-drawn with the new gradients; both
+  reset to Viridis afterwards so the owner's defaults are untouched. The
+  Q-units picker did not appear because that dataset has no mrad scale
+  (`patternScaleMradAvailable` guard) — correct, not a gap. Unit suite on the
+  fixed tree: 429 / 0 / 2. **F1.53 checks (3) and (15) are now driveable.**
+  Two DRIVING.md lessons recorded: a synthetic click resets `HIDIdleTime`, so
+  an idle guard placed after your own click trips on you; and Recents
+  re-order on open, so a row index from a previous screenshot is stale.
   (3) **The scheduled provenance-leak session** (`app-appstate-01` +
   `support-export-01`) — restored session PRODUCTS still land raw
   (session-frame Bragg vectors feeding strain on a different view is its
@@ -622,8 +752,8 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
   (5) **The owner's F1.53 sweep** — now checks 1–22 — then the commit
   decision on the whole held tree. (6) Density observation, ungated:
   at the 250pt sidebar minimum, Strain & ACOM needs ~25pt of scroll.
-  (7) **R23 colormap chips — fixed-but-unverified**: the popover rebuild
-  has never been seen on screen; the verification brief below owns it.
+  (7) ~~R23 colormap chips~~ **DONE 2026-09-02** — hit-testing, not the
+  popover; verified on screen (entry above).
   Everything uncommitted on the held UI-pair tree by owner decision.
 
 ### 6.1 Kickoff prompts for the next agents (owner-requested, 2026-09-01)
@@ -660,7 +790,41 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
 > decision); `tools/run-tests.sh` may refuse exit-69 at this Mac's disk
 > floor — the warm `test_macos` MCP run is the recorded fallback.
 
-**Colormap-chip verification/fix — copy-paste into a fresh agent:**
+**FFT session — FINISH Gate B and close (copy-paste into a fresh agent):**
+
+> Finish the FFT speedup session: read `docs/s22-ux-design.md` §6 (the
+> 2026-09-01 "FFT speedup session, IMPLEMENTED AND SELF-GATED" entry) and
+> §5.5 P1. The tree is UNCOMMITTED by owner decision; `git diff --stat`
+> shows the eight touched files plus two new ones
+> (`mac4DSTEMTests/FFT2DArbitraryLengthTests.swift`,
+> `tools/disk-correlation-parity/baseline-250.json`). Do NOT re-implement:
+> the Bluestein path in `Core/Compute/FFT2D.swift` is done and self-gated.
+> Owed, in order: (1) **Gate B** — spawn an independent refuter per
+> `.claude/skills/adversarial-review`; make pristine `cp` copies of every
+> file it may mutate FIRST and forbid `git checkout/restore/stash`. Brief it
+> to refute: the chirp-z math (sign/conjugate/filter symmetry/M ≥ 2N−1/
+> unnormalized inverse) against numpy `fft.fft2` on the SAME input (python
+> with numpy resolves via `tools/lib/python.sh`); the re-pin justification
+> for `baseline-250.json` (is the scalar path really the less accurate
+> one?); thread safety of the shared plan; the progress coalescer; and the
+> one question that pays — "what transformation of FFT2D leaves every check
+> green while producing wrong science?" — with its candidates ACTUALLY run
+> (e.g. padded length 2N−2, conj on the wrong operand of `vDSP_zvmul`, the
+> filter's `sign` flipped for one direction only, scaling by 1/N instead of
+> 1/M). Verify at handback that files are `cmp`-identical to the copies.
+> (2) Full unit suite (warm `test_macos` MCP run — `run-tests.sh unit`
+> refuses exit-69 at this Mac's ~7 GB disk floor) and
+> `tools/run-tests.sh scientific`. (3) **On-cube Release timing**: build
+> Release, open `References/training_dataset/calibrationData_circularProbe.h5`,
+> Bragg → Generate Probe Kernel → Detect All Disks, record wall-clock and
+> that progress paints continuously; the pre-fix number is 14 m 09 s
+> (Debug). DRIVING.md is binding — assert frontmost before every click,
+> never while the owner is using the machine (check `ioreg` HIDIdleTime).
+> (4) Record the closeout in §6 and re-run `tools/sync-agents-md.sh` if
+> CLAUDE.md changes. Break any new test before trusting it.
+
+**Colormap-chip verification/fix — DONE 2026-09-02 (kept for the record;
+do not re-run):**
 
 > Fix the pane colormap control — R23 in `docs/s22-ux-design.md` §5.5,
 > **CONFIRMED BROKEN on screen by the owner after a rebuild (2026-09-01

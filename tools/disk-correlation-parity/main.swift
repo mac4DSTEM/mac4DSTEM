@@ -155,6 +155,7 @@ var patternCount = 64
 var repeats = 5
 var tolerance = 1e-6
 var baselinePath = "baseline.json"
+var detectorSize = 128
 
 var args = Array(CommandLine.arguments.dropFirst())
 while let arg = args.first {
@@ -176,6 +177,14 @@ while let arg = args.first {
     case "--baseline":
         if args.isEmpty { fail("--baseline needs a path") }
         baselinePath = args.removeFirst()
+    case "--detector":
+        // Square detector edge. 128 is the historical fixture (a vDSP
+        // radix-2 length); 250 is the FFT-session case — NOT a supported
+        // vDSP_DFT length (250 = 2·5³), so it exercises FFT2D's
+        // arbitrary-length path, the one Detect All Disks fell into on
+        // calibrationData_circularProbe.h5 (docs/s22-ux-design.md §5.5 P1).
+        guard let v = Int(args.first ?? ""), v > 0 else { fail("--detector needs a positive integer") }
+        detectorSize = v; args.removeFirst()
     default: fail("unknown argument \(arg)")
     }
 }
@@ -185,7 +194,7 @@ guard ["cpu", "cpu-parallel"].contains(backend) else {
 }
 // MARK: - Setup
 
-let qy = 128, qx = 128
+let qy = detectorSize, qx = detectorSize
 let probeRadius: Float = 6.1     // matches the measured sim_Au probe (§9.1)
 
 guard let kernel = ProbeKernel.synthetic(radius: probeRadius, qy: qy, qx: qx) else {

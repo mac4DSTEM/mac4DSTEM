@@ -452,4 +452,73 @@ final class CalibrationReReferenceTests: XCTestCase {
             "if the cropped and full-extent values agreed, this test would prove nothing"
         )
     }
+
+    // MARK: - The recorded beam centre (P2 refuter residual, 2026-09-01)
+
+    // `Calibration.recordedOriginX/Y` is re-referenced by the same crop-then-
+    // bin rule as the aperture centre — and since P2 routed SESSION
+    // calibration through this engine, that rule is load-bearing for every
+    // sidecar reopened on a reduced view. It had no direct unit test; these
+    // pin it with values the aperture path cannot mask (the recorded centre is
+    // deliberately NOT the aperture centre, and x ≠ y everywhere).
+
+    func testTheRecordedOriginSubtractsTheCropOffsetLikeTheAperture() throws {
+        var calibration = calibration()
+        calibration.recordedOriginX = 5.5
+        calibration.recordedOriginY = 6
+        let outcome = try apply(LoadSpecification(
+            detectorCrop: AxisCrop(yOffset: 3, xOffset: 2, height: 6, width: 6)
+        ), calibration: calibration)
+        XCTAssertEqual(outcome.calibration.recordedOriginX, 3.5)
+        XCTAssertEqual(outcome.calibration.recordedOriginY, 3)
+        XCTAssertTrue(outcome.invalidated.isEmpty)
+    }
+
+    func testTheRecordedOriginBinsToTheBinCentreNotToValueOverBin() throws {
+        // Crop (x 2, y 3) THEN bin 2: (5.5 − 2 + 0.5)/2 − 0.5 = 1.5 and
+        // (6 − 3 + 0.5)/2 − 0.5 = 1.25. Naive division would give 1.75 / 1.5;
+        // binning before cropping would give (2.5 − 1) = 1.5 in y — every
+        // wrong order or convention lands on a different number.
+        var calibration = calibration()
+        calibration.recordedOriginX = 5.5
+        calibration.recordedOriginY = 6
+        var specification = LoadSpecification(
+            detectorCrop: AxisCrop(yOffset: 3, xOffset: 2, height: 6, width: 6)
+        )
+        specification.detectorBin = 2
+        let outcome = try apply(specification, calibration: calibration)
+        XCTAssertEqual(outcome.calibration.recordedOriginX, 1.5)
+        XCTAssertEqual(outcome.calibration.recordedOriginY, 1.25)
+        // And it agrees with the shared convention the maps and the writer use.
+        XCTAssertEqual(outcome.calibration.recordedOriginX,
+                       CalibrationReReference.binnedCoordinate(5.5 - 2, bin: 2))
+    }
+
+    func testARecordedOriginOutsideTheCropIsDroppedAndNamedNotClamped() throws {
+        // Recorded (1, 1) with the crop starting at x = 2: it lands at x = −1,
+        // off the loaded detector. Refusal-honesty: nil plus a named reason,
+        // never a clamp to the edge (the ui-08 corner-BF failure mode, R11).
+        var calibration = calibration()
+        calibration.recordedOriginX = 1
+        calibration.recordedOriginY = 1
+        // The fitted maps (x 4–6) survive this crop, so the origin field is
+        // invalidated by the RECORDED value alone — the check is independent.
+        let outcome = try apply(LoadSpecification(
+            detectorCrop: AxisCrop(yOffset: 0, xOffset: 2, height: 10, width: 6)
+        ), calibration: calibration)
+        XCTAssertNil(outcome.calibration.recordedOriginX)
+        XCTAssertNil(outcome.calibration.recordedOriginY)
+        XCTAssertNotNil(outcome.calibration.origin, "the fitted maps were inside the crop")
+        let reason = try XCTUnwrap(outcome.invalidated.first { $0.field == .origin })
+        XCTAssertTrue(reason.reason.contains("recorded beam centre"), reason.reason)
+    }
+
+    func testAFullExtentViewLeavesTheRecordedOriginUntouched() throws {
+        var calibration = calibration()
+        calibration.recordedOriginX = 5.5
+        calibration.recordedOriginY = 6
+        let outcome = try apply(LoadSpecification(), calibration: calibration)
+        XCTAssertEqual(outcome.calibration.recordedOriginX, 5.5)
+        XCTAssertEqual(outcome.calibration.recordedOriginY, 6)
+    }
 }

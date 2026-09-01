@@ -171,7 +171,11 @@ struct ScalarColorbarView: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 5)
         .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
-        .allowsHitTesting(false)
+        // R23 (2026-09-02, diagnosed live): this view is the LABEL of
+        // `ColormapChipMenu`'s button. `.allowsHitTesting(false)` here made the
+        // button's whole area transparent to real clicks — AXPress opened the
+        // popover, a click inside the button's own 146×51 pt frame did not.
+        // Plain (non-button) uses opt out at their call site instead.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)"
                             + (showsMasked ? ", gray marks masked pixels with no fit" : ""))

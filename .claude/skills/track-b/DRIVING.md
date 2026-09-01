@@ -33,6 +33,22 @@ With two windows open, both near-fullscreen, **you will lose track of which is
 frontmost** — a ⌘O intended for one window landed in the other. Check the
 sidebar's dataset card before trusting any reading.
 
+## Your own synthetic click resets the idle counter
+
+`HIDIdleTime` counts CGEvents you post as user activity. An "owner idle?"
+guard placed *after* your own click trips on you (2026-09-02: `OWNER ACTIVE 2`
+one second after the agent's click). Check idle once before a drive sequence,
+then assert frontmost before each click — frontmost changing is the signal
+that the owner has taken over. A Mission Control / Spaces overview in a
+screenshot means the same thing: stop.
+
+## Recents re-order on open
+
+The welcome screen's Recent datasets list moves the dataset you just opened
+to the top, so a row index from an earlier screenshot opens a different file
+(2026-09-02: expected `circularProbe`, got `sim_Au`). Re-read the list, or
+verify the sidebar's dataset card before trusting anything measured.
+
 ## Scroll every scrollable surface to its END before reporting an absence
 
 The costliest error of 2026-09-01. A 50×200 result on a 128×128 cube looked like
