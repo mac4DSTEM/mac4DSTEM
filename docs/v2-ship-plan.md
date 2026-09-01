@@ -4,16 +4,20 @@
 silently wrong number. Sequenced so `/pickup` can continue straight from here.
 **This is a recommendation; the scope calls in step 0 are the owner's.**
 
-## Step 0 — two decisions, five minutes, and everything else depends on them
+## Step 0 — DECIDED by the owner, 2026-09-01 (full record: `open-items.md` §Owner decisions)
 
-1. **Group A scope.** [`docs/v2-triage-2026-09-01.md`](v2-triage-2026-09-01.md):
-   do all nine Group A items ship *fixed*, or do some ship as **documented
-   limitations** in the README? Fixing all nine is ~4–5 sessions; documenting
-   the presentation-only ones is ~1.
-2. **The claim.** §1 promises "Hand a colleague the recipe" and "Promote
-   overnight". If steps 2–3 below are not run, **those two sentences must
-   change** — S19 already owns restating them. Narrowing a claim is honest;
-   leaving it unverified is not.
+1. **Group A scope: all five remaining items ship FIXED**, plus the
+   ride-alongs — and the **probe-radius defect joins as item 7** below.
+2. **The claim: "hand a colleague the recipe" and "promote overnight" are
+   DISCARDED from v2** — S19 restates §1. The clean-account run stays
+   (owner, local second account); the colleague/second-machine test dies
+   with the claim; the **bounded ~30-min promote run stays** (the replay
+   feature ships regardless and the run closes its five Track B rows).
+3. **Group B splits** (it was in neither of this plan's lists — surfaced
+   2026-09-01): the **CIF pair joins v2** (`core-crystal-02`,
+   `core-crystal-04`; one session, one fixture, seeded by
+   `References/training_dataset/WS2.cif`); the sidecar/restore/DM4 trio
+   goes to v2.x as documented limitations.
 
 ## Step 1 — Group A, the ones a real user will actually hit (~2–3 sessions remain)
 
@@ -29,13 +33,19 @@ finding and refuted two others before they reached the docs.
 | 4 | `core-crystal-01` — **hexagonal IPF legend disagrees with its own colour map** | The legend explains the map wrongly; W4a just made WS₂ reachable. |
 | 5 | `ui-02` + `ui-05` + `support-export-05` — **invented and mislabelled units** | Reproduce first: the honest branch was observed working. |
 | 6 | **Readiness-row truncation** (found 2026-09-01) | Cuts the *actionable* half of caveats that are already implemented and correct. Cheap. |
+| 7 | **Probe radius over-measured** (`probeSize`: 2.15× on the demo, ~3× on SPED_MgO) — added by owner decision 2026-09-01 | The owner keeps hitting it; the Gate D discriminator is already designed (mean-DP vs vacuum vs max-DP, `open-items.md`). Manual radius entry only after the estimator is fixed, stamped `.manual`. |
+| 8 | **CIF pair** `core-crystal-02` + `core-crystal-04` — added by owner decision 2026-09-01 | The owner is actively importing downloaded CIFs; a no-ops CIF with a non-P1 space group builds a wrong crystal silently. Fixture seeded by `WS2.cif`; negative control = same file, ops loop stripped, must refuse. |
 
 **Ride along, same sessions, near-free:** `ui-07` (Performance inspector still
 says "GPU budget" — one word) and Group D's five green-but-worthless tests,
-which are what would catch a regression in the above.
+which are what would catch a regression in the above. **Plus two
+owner-promoted UI changes (2026-09-01, each queues a Track B row):** remove or
+demote the scan-position X/Y sliders, and make the colormap pickers
+permanently visible instead of inside the Display flap-out.
 
-**Defer to v2.x:** Groups C, E, F. Cutting them shortens nothing — they were
-never the blocking set.
+**Defer to v2.x:** Groups C, E, F, and Group B's non-CIF trio (documented
+limitations — owner decision 2026-09-01). Cutting them shortens nothing —
+they were never the blocking set.
 
 ## Step 2 — the clean account, ~20 minutes (Done criterion 4)
 
@@ -84,8 +94,14 @@ reproduce**, including whichever §1 sentences step 0 narrowed.
 
 ## Standing repo-hygiene debt
 
-The three-file kickoff tax is **3689 lines** (M1 got it to 1901). The single
-biggest win left is the **661-line Track B pass of 2026-08-18** still in the live
-`open-items.md`, threaded with live residuals — a focused ~30-minute untangle
-that would cut ~20%. Rule that keeps it from returning: **findings ≤20 lines,
-narrative to a dated archive, `wc -l` checked at every closeout.**
+~~The three-file kickoff tax is **3689 lines**~~ — **the untangle ran
+2026-09-01**: the 661-line Track B thread moved verbatim to
+[`docs/archive/2026-08-18-trackb-036-and-followups.md`](archive/2026-08-18-trackb-036-and-followups.md),
+its live residuals compacted to ~150 lines (two stale entries corrected in
+passing: the WS₂ foreign sidecar was re-staged 2026-08-28, and #11 was closed
+by W4a), and the S13 origin tombstone trimmed. The tax is now **3307 lines**
+(`CLAUDE.md` 349 + `open-items.md` 1996 + `v2-release.md` 962). Rule that
+keeps it from returning: **findings ≤20 lines, narrative to a dated archive,
+`wc -l` checked at every closeout.** The structural fix stays the one-time v3
+migration ([`docs/v3-development-process.md`](v3-development-process.md)),
+not a perpetual tidy.

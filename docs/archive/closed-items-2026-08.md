@@ -1099,3 +1099,29 @@ as a two-sentence tombstone. Verbatim below, from `*Original entry:*` onward.
   early-abort condition, but `all` still has not been run end to end. S19 owns
   the aggregate run and claim restatement; do not infer its result from the
   component table above.
+
+## A file's mean origin never reaches the analyses that claim to use it — CLOSED by S13, 2026-08-28
+
+Moved verbatim from `docs/open-items.md` on 2026-09-01 (docs tidy); the
+closure summary remains there. The original S11 entry:
+
+**A file's mean origin never reaches the analyses that claim to use it —
+found by S11, 2026-08-28.**
+`.fileMean` and `.sessionMean` write the origin into `aperture.centerX/Y`
+and leave `calibration.origin` **nil** (`AppState.swift:2482-2484`,
+`:2903-2907`, the second explicitly). `Calibration.meanOrigin` reads only
+`origin.fittedX/Y`, so it is nil in exactly those states, and
+`calibratedBraggVectors` (`:4720-4721`) falls back to `(qx/2, qy/2)` — **the
+detector's geometric middle, not the file's beam centre**. Every consumer
+inherits it: Q calibration (`:4972`), strain (`:4755`), ACOM (`:5104`), the
+Bragg map (`:4701`). Three siblings answer the same question differently —
+`computeCoMField` (`:4226`) and `generateMeasuredProbeKernel` (`:4497`) fall
+back to the aperture centre, `calibrateEllipse` (`:4110`) uses it
+unconditionally — so this is the S7 class (one policy, four derivations),
+not a slip. **Reachable, not theoretical:** `H5Reader` reads
+`qx0_mean`/`qy0_mean` unconditionally (`:613-614`) and the `qx0`/`qy0` maps
+only if present (`:625-637`) — the ordinary shape of a py4DSTEM calibration
+bundle. `originFitIsQuantitative` returns `true` when `origin` is nil, so
+the result is stamped `.measuredInApp` while the inspector shows the file's
+origin. **Blind spot:** every `QCalibrationOriginGateTests` case builds
+origin *maps*, so the suite only ever runs the non-nil branch.
