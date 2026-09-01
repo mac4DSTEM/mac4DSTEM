@@ -68,7 +68,8 @@ deliberate failure halt honestly**. Closes **F1.14, F1.15, F1.19, F1.22, F1.23**
 
 ## Step 4 — finish Track B (~1 session, mostly assistant-drivable)
 
-Currently **31 passed / 7 partly / 15 unverified / 1 blocked** (F1.47 was added
+Currently **31 passed / 7 partly / 17 unverified / 1 blocked** (F1.47–F1.49
+queued by the 2026-09-01 sessions; F1.47 was added
 for the DPC angle-unit repair). Assistant can
 drive **F1.35, F1.38's last gap, F1.8, F1.21, F1.27, F1.30, F1.31, F1.43,
 F1.45's In-plane mode**. Owner keeps the judgement rows (**F1.37, F1.40's

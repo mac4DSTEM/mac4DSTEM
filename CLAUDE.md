@@ -72,8 +72,8 @@ migrates legacy sidecars, and a separate Gate B refuter cleared it after five
 corrections ([record](docs/archive/v2-session-records/dpc-angle-units.md)).
 Also, **six Track B rows were driven green** — **Done criterion 8
 is met on screen**, and **`app-appstate-01` is the first review finding reproduced
-at runtime**. Track B now stands at **31 passed / 7 partly / 15 unverified /
-1 blocked**
+at runtime**. Track B now stands at **31 passed / 7 partly / 17 unverified /
+1 blocked** (F1.48 + F1.49 queued by the 2026-09-01 repair sessions)
 (plus the M1 tidy and the M2 gate repair) — **S13 was MERGED to `main` and
 pushed (fast-forward to `bab5e07`); `s13-q-calibration` still exists and points
 at the same commit. Corrected 2026-08-31**: this file and §9 both still said
@@ -124,6 +124,26 @@ fit is OPEN** (`docs/open-items.md`). The demo-fixture and probe-radius
 findings (`probeSize` over-measures 2.15×, Gate D owed) came out of the same
 session. F1.40 and F1.41 passed on 2026-09-01; F1.42–F1.43 remain queued.
 
+**Later on 2026-09-01, three more sittings landed** (all in §9 and sequenced
+by the ship plan): **Step 0 is DECIDED by the owner** — all five remaining
+Group A items ship fixed, the probe radius and the CIF pair joined Step 1,
+the "hand a colleague"/"promote overnight" claims are DISCARDED (S19
+restates §1; the clean-account and bounded promote runs stay), two
+owner-promoted UI changes ride, and the working split is
+assistant-implements / cheap-subagents-explore / independent refuter per
+gate (full record: `open-items.md` §Owner decisions). The **docs tidy**
+archived the 661-line Track B thread (tax 3689 → 3307). The **CIF pair**
+(`core-crystal-02`/`04`) and the **probe radius** (max-union over-measure —
+14.1/19.1 px were `probeSize(maxDP)` to the digit; both call sites now feed
+meanDP) are **DONE, each through Gate D reproduction and an independent
+Gate B refuter that materially corrected its author** (records:
+[`cif-pair.md`](docs/archive/v2-session-records/cif-pair.md),
+[`probe-radius.md`](docs/archive/v2-session-records/probe-radius.md)).
+**Track B rows F1.48 and F1.49 are queued** (CIF refusal dialogs; the
+honest radius + stricter origin gate) alongside F1.47. **Next in the agreed
+sequence: the UI pair** (demote scan sliders, colormaps always visible),
+then the provenance leak, then the remaining Group A items.
+
 **The honest test claim — each number dated to its own run:**
 `run-tests.sh scientific` — **exit 0, 42 started / 42 completed, zero FAIL and
 zero SKIP lines** (inside the 2026-09-01 aggregate run, observed to completion
@@ -133,11 +153,13 @@ first time in this run (Au median 1.25°, WS₂ 0.78°); it was 41 at the W4a/W4
 closeouts, 39 at S13, and the docs said 38 for three days after that. Do not
 quote a harness count from memory — `run-tests.sh` is the only thing that knows
 it.
-`run-tests.sh unit` — **393 passed / 2 skipped / 0 failed, exit 0**
-(standalone 2026-09-01 closeout run, counted from the retained xcresult bundle;
-the aggregate run immediately before it was also green). This settles the
-current count after 2026-08-31's unexplained 390-vs-391 discrepancy; this session
-added two named DPC persistence tests. The two skips are unchanged: the
+`run-tests.sh unit` — **402 passed / 2 skipped / 0 failed, exit 0**
+(2026-09-01 probe-radius closeout, the Gate B refuter's run on the final
+tree: the DPC closeout's 393 + 5 CIF tests + 4 ProbeSizeTests; that 393 is
+what settled 2026-08-31's unexplained 390-vs-391 discrepancy).
+`run-tests.sh scientific` also re-ran green on the probe-radius tree the
+same day — **42 started / 42 completed, zero FAIL, exit 0**, counted from
+the retained log. The two skips are unchanged: the
 unmounted-volume bookmark probe and S17's explicit uncalibrated-Prepare geometry
 quarantine. Two former data-probe
 skips (including `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes`)
@@ -168,7 +190,10 @@ the first failing harness. Both are in `docs/open-items.md` with their evidence.
 
 **S19's blocking dependency is therefore met**, and the README/CHANGELOG
 aggregate claim can be restated against this run rather than retired. Do not
-quote an aggregate you did not just run.
+quote an aggregate you did not just run — **and note the aggregate has NOT
+been re-run since that DPC-closeout tree**: three commits landed after it
+(`87e6c45` docs tidy, `4b99971` CIF pair, `349a2c8` probe radius); unit and
+scientific both re-ran green on the newest tree, `all` itself has not.
 
 **Verification runs in two tracks** (`docs/development-process.md` §6):
 Track A is `tools/run-tests.sh`; Track B is the human visual pass at
