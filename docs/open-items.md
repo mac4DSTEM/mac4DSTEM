@@ -73,7 +73,9 @@ Taken in conversation with the release owner; they resolve
    Gate B/D review gets an independent subagent refuter, requested from the
    owner explicitly each time.
 
-Sequence agreed: docs tidy (ran 2026-09-01) → CIF pair → probe-radius
+Sequence agreed: docs tidy (ran 2026-09-01) → CIF pair (**DONE 2026-09-01 —
+Gate B ran, verdict stand-with-corrections, all four corrections applied;
+[record](archive/v2-session-records/cif-pair.md)**) → probe-radius
 Gate D → UI pair → provenance leak → remaining Group A → owner runs (clean
 account, bounded promote) → Track B finish → S20. The 036 view-vs-full
 performance A/B stays queued as its own sitting (parameter matrix if the
@@ -449,6 +451,17 @@ moved there by S11 on 2026-08-28 now that every live lead it raised is triaged.
 citations cannot be trusted without checking.
 
 ## Known, scoped, not blocking
+
+- **CIF import: a non-P1 declaration with a PARTIAL ops list still imports a
+  wrong crystal silently** — Gate B refuter escape E2, 2026-09-01, recorded
+  not fixed. E.g. Fm-3m declared with only identity + inversion imports the
+  2-site CsCl-shaped cell; `verifyFamily` can pass it. Detecting an
+  incomplete list needs the declared group's order — space-group tables the
+  importer deliberately lacks (see the DEVIATION in
+  `Core/Crystal/CIFImport.swift`). Cheap partial mitigation if ever wanted:
+  an IT-number → group-order table (230 integers), new scope. The
+  missing/identity-only case is guarded and gated
+  ([record](archive/v2-session-records/cif-pair.md)).
 
 - **Disk-detection radius looks ~3x too large on a strongly-diffracting dataset
   (`SPED_MgO.hdf5`) — owner observation, 2026-08-28, on screen. NOT diagnosed;

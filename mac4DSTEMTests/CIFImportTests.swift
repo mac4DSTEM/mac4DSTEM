@@ -419,4 +419,89 @@ final class CIFImportTests: XCTestCase {
         let model = try CIFImport.crystalModel(from: cif, fileBaseName: "magnesium")
         XCTAssertEqual(model.symmetry, .hexagonal)
     }
+
+    // MARK: - Missing symmetry operations (core-crystal-02) and truncated
+    // loops (core-crystal-04), both reproduced at runtime 2026-09-01.
+
+    /// Rock-salt MgO's two-site asymmetric unit declaring Fm-3m with no
+    /// operator loop. Both sites are invariant under both cubic generators,
+    /// so the family verifier cannot catch this shape — before the guard it
+    /// imported silently as the CsCl structure.
+    private let mgoNoOpsCIF = """
+    data_MgO
+    _symmetry_space_group_name_H-M 'F m -3 m'
+    _space_group_IT_number 225
+    _cell_length_a 4.212
+    _cell_length_b 4.212
+    _cell_length_c 4.212
+    _cell_angle_alpha 90
+    _cell_angle_beta 90
+    _cell_angle_gamma 90
+    loop_
+    _atom_site_label
+    _atom_site_fract_x
+    _atom_site_fract_y
+    _atom_site_fract_z
+    Mg 0.0 0.0 0.0
+    O 0.5 0.5 0.5
+    """
+
+    func testNonP1DeclarationWithoutOperationsIsRefusedNamingTheGroup() {
+        assertThrows(
+            mgoNoOpsCIF,
+            expected: .missingSymmetryOperations(spaceGroup: "F m -3 m")
+        )
+    }
+
+    func testP1DeclarationWithoutOperationsIsStillAdmitted() throws {
+        let declaredP1 = "data_gold\n_symmetry_space_group_name_H-M 'P 1'\n_space_group_IT_number 1\n"
+            + goldP1CIF.split(separator: "\n").dropFirst().joined(separator: "\n")
+        let model = try CIFImport.crystalModel(from: declaredP1, fileBaseName: "gold")
+        XCTAssertEqual(model.crystal.sites.count, 4)
+    }
+
+    /// `?` and `.` are CIF null placeholders — a nulled-out space-group tag
+    /// is an absent declaration, not a non-P1 one.
+    func testNullSpaceGroupPlaceholderDoesNotRefuse() throws {
+        let nulled = "data_gold\n_symmetry_space_group_name_H-M ?\n"
+            + goldP1CIF.split(separator: "\n").dropFirst().joined(separator: "\n")
+        let model = try CIFImport.crystalModel(from: nulled, fileBaseName: "gold")
+        XCTAssertEqual(model.crystal.sites.count, 4)
+    }
+
+    /// An operator loop holding only the identity expands nothing — the same
+    /// trap as no loop; with only an IT number, the refusal names the number.
+    func testIdentityOnlyOperatorLoopWithNonP1NumberIsRefused() {
+        let cif = """
+        data_au
+        _space_group_IT_number 225
+        _cell_length_a 4.0782
+        _cell_length_b 4.0782
+        _cell_length_c 4.0782
+        _cell_angle_alpha 90
+        _cell_angle_beta 90
+        _cell_angle_gamma 90
+        loop_
+        _space_group_symop_operation_xyz
+        'x, y, z'
+        loop_
+        _atom_site_label
+        _atom_site_fract_x
+        _atom_site_fract_y
+        _atom_site_fract_z
+        Au1 0.0 0.0 0.0
+        """
+        assertThrows(cif, expected: .missingSymmetryOperations(spaceGroup: "No. 225"))
+    }
+
+    /// A loop whose value count is not a whole number of rows was previously
+    /// floor-divided, silently deleting the partial trailing row — an atom,
+    /// in the loop that matters. It must refuse, naming the loop.
+    func testTruncatedAtomLoopIsRefusedNotFloorDivided() {
+        let truncated = String(goldP1CIF.dropLast(" 0.5".count))
+        assertThrows(
+            truncated,
+            expected: .truncatedLoop(firstTag: "_atom_site_label", columns: 5, values: 19)
+        )
+    }
 }

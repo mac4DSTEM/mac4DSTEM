@@ -48,6 +48,13 @@ private enum Rejection {
     /// Admitted by the symmetry checks, then refused by the model contract.
     /// `code` is the `CrystalModelValidationIssue` code that must appear.
     case invalidModel(code: String)
+    /// Refused before any symmetry check: a non-P1 declaration with no
+    /// expanding operations (core-crystal-02). `names` must appear in the
+    /// message — a refusal that stops naming the group it read has regressed.
+    case missingOperations(names: String)
+    /// Refused at the loop level: values cut mid-row (core-crystal-04).
+    /// `tag` is the loop's first tag and must appear in the message.
+    case truncatedLoop(tag: String)
 }
 
 private struct Case {
@@ -687,6 +694,316 @@ S3 S 0.666667 0.333333 0.377500 1.0
 S4 S 0.666667 0.333333 0.122500 1.0
 """
 
+/// Rock salt MgO reduced to its two-site asymmetric unit, declaring Fm-3m and
+/// carrying no operator loop — the shape a minimal COD/journal CIF takes.
+/// Before 2026-09-01 this imported silently as a 2-atom cubic cell: the CsCl
+/// structure, not rock salt — face-centering gone, systematic absences wrong,
+/// every ACOM template built from the wrong |F|² (core-crystal-02, runtime
+/// reproduction that day). Both sites are invariant under both cubic
+/// generators, so `verifyFamily` structurally CANNOT catch this shape; only
+/// the declaration can.
+private let mgoAsymmetricUnitNoOps = """
+data_MgO_rocksalt
+_symmetry_space_group_name_H-M 'F m -3 m'
+_space_group_IT_number 225
+_cell_length_a 4.212
+_cell_length_b 4.212
+_cell_length_c 4.212
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Mg1 Mg 0.00000 0.00000 0.00000
+O1 O 0.50000 0.50000 0.50000
+"""
+
+/// 2H-WS2 reduced to its two-site asymmetric unit with the group declared and
+/// no operator loop — the published COD file (5910003) minus its loop. Unlike
+/// MgO above, `verifyFamily` happened to reject this shape before the guard —
+/// but blamed "no 2-fold along a", a false statement about a structure that
+/// has one (the atoms just aren't all listed). The refusal must name the real
+/// cause, which is what separates this case from `.symmetry`.
+private let ws2AsymmetricUnitNoOps = """
+data_WS2
+_symmetry_space_group_name_H-M 'P 63/m m c'
+_space_group_IT_number 194
+_cell_length_a 3.1532
+_cell_length_b 3.1532
+_cell_length_c 12.323
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 120.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+W1 W 0.333333 0.666667 0.250000
+S1 S 0.333333 0.666667 0.622500
+"""
+
+/// An operator loop containing ONLY the identity, with the group declared by
+/// IT number alone. Expands nothing — the same trap as no loop at all — and
+/// with no H-M symbol present the refusal has to name the number instead.
+private let identityOnlySymopLoop = """
+data_identity_only
+_space_group_IT_number 225
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_space_group_symop_operation_xyz
+x,y,z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+"""
+
+/// The counter-case the guard must NOT catch: a declared P1 with the full
+/// four-site FCC cell listed and no operator loop. Declaring P1 is the file
+/// saying the list IS complete; refusing it would remove the one honest way
+/// to supply a cell without operators.
+private let goldP1Declared = """
+data_gold_p1_declared
+_symmetry_space_group_name_H-M 'P 1'
+_space_group_IT_number 1
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+Au2 Au 0.50000 0.50000 0.00000
+Au3 Au 0.50000 0.00000 0.50000
+Au4 Au 0.00000 0.50000 0.50000
+"""
+
+/// `goldP1Declared` cut one token short mid-row — the shape of an interrupted
+/// download. Floor division dropped the fourth atom silently, importing a
+/// 3-site "FCC" (core-crystal-04; reproduced 2026-09-01 on the COD WS2 file,
+/// whose sulfur row vanished the same way). Must refuse, naming the loop.
+private let atomLoopCutMidRow = """
+data_gold_truncated
+_symmetry_space_group_name_H-M 'P 1'
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+Au2 Au 0.50000 0.50000 0.00000
+Au3 Au 0.50000 0.00000 0.50000
+Au4 Au 0.00000 0.50000
+"""
+
+// Gate B refuter additions (2026-09-01): each of these killed one mutation of
+// the missing-operations / truncation guards that the original five cases let
+// through — see the refuter report. Every declaration route the guard checks
+// needs its own case, or dropping that route from the checked-tag list is
+// invisible.
+
+/// Group declared by the Hall symbol ALONE (kills: dropping the Hall tags
+/// from `declaredNonP1SpaceGroup` — the guard then imports CsCl again).
+private let hallOnlyDeclaredNoOps = """
+data_MgO_hall_only
+_space_group_name_Hall '-F 4 2 3'
+_cell_length_a 4.212
+_cell_length_b 4.212
+_cell_length_c 4.212
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Mg1 Mg 0.00000 0.00000 0.00000
+O1 O 0.50000 0.50000 0.50000
+"""
+
+/// Group declared by the modern `_space_group_name_H-M_alt` ALONE — the
+/// primary tag of the current core dictionary, common in new IUCr files
+/// (kills: dropping the alt tag from the checked list).
+private let hmAltOnlyDeclaredNoOps = """
+data_MgO_hm_alt_only
+_space_group_name_H-M_alt 'F m -3 m'
+_cell_length_a 4.212
+_cell_length_b 4.212
+_cell_length_c 4.212
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Mg1 Mg 0.00000 0.00000 0.00000
+O1 O 0.50000 0.50000 0.50000
+"""
+
+/// P-1 (No. 2, which has inversion) declared on a metrically cubic cell —
+/// whitespace-stripping must NOT conflate it with P1 (kills: accepting
+/// "p-1" as P1, which admits half a pseudo-cubic triclinic cell).
+private let pMinus1DeclaredNoOps = """
+data_pseudocubic_P-1
+_symmetry_space_group_name_H-M 'P -1'
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.25000 0.25000 0.25000
+"""
+
+/// A declaration that exists but cannot be read. Guessing P1 from it is the
+/// silent assumption the guard exists to remove, so it must refuse quoting
+/// the raw value (kills: `continue` on an unreadable IT number).
+private let corruptITNumberNoOps = """
+data_corrupt_number
+_space_group_IT_number 225a
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+"""
+
+/// An ops loop of PURE TRANSLATIONS (F-centering) with no declaration: these
+/// are expanding operations and must expand — 1 base Au becomes the 4-site
+/// FCC cell (kills: `isIdentity` ignoring the translation, which silently
+/// imports an F-centered lattice as primitive).
+private let translationOnlySymopLoop = """
+data_gold_centering_ops
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_symmetry_equiv_pos_as_xyz
+'x, y, z'
+'x, y+1/2, z+1/2'
+'x+1/2, y, z+1/2'
+'x+1/2, y+1/2, z'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+"""
+
+/// The very common COD shape: a TWO-column symmetry loop (row id + operation).
+/// Intact, it must import with the full expansion — pins that the loop parser
+/// genuinely handles multi-column symmetry loops.
+private let twoColumnSymopLoop = """
+data_gold_two_column_ops
+_symmetry_space_group_name_H-M 'F m -3 m'
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_symmetry_equiv_pos_site_id
+_symmetry_equiv_pos_as_xyz
+1 'x, y, z'
+2 'x, y+1/2, z+1/2'
+3 'x+1/2, y, z+1/2'
+4 'x+1/2, y+1/2, z'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+"""
+
+/// The same two-column loop cut mid-row: floor division drops the 4th
+/// centering op and the PRE-FIX importer admitted the 3-site wrong crystal
+/// as .cubic — `verifyFamily` did not catch it (measured 2026-09-01). The
+/// truncation refusal is the only guard on this shape (kills: exempting
+/// non-atom loops from the truncation check).
+private let twoColumnSymopLoopCutMidRow = """
+data_gold_two_column_ops_cut
+_symmetry_space_group_name_H-M 'F m -3 m'
+_cell_length_a 4.0782
+_cell_length_b 4.0782
+_cell_length_c 4.0782
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+loop_
+_symmetry_equiv_pos_site_id
+_symmetry_equiv_pos_as_xyz
+1 'x, y, z'
+2 'x, y+1/2, z+1/2'
+3 'x+1/2, y, z+1/2'
+4
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Au1 Au 0.00000 0.00000 0.00000
+"""
+
+/// A cut leaving a remainder of exactly ONE token — the label of a fifth
+/// atom the download lost (kills: tolerating remainder <= 1, which floors
+/// the stub away and admits the 4-site cell as if nothing were missing).
+private let atomLoopCutLeavingOneStray = goldP1Declared + "\nAu5"
+
 private let cases: [Case] = [
     Case(name: "alpha_quartz_P3221", cif: quartz, rejection: .symmetry,
          why: "trigonal (3-fold only) in the hexagonal setting"),
@@ -778,6 +1095,61 @@ private let cases: [Case] = [
     Case(name: "coordinates_outside_unit_cell", cif: outOfRangeCoordinates,
          expectedSymmetry: .cubic, expectedSiteCount: 4,
          why: "legal CIF spelling outside [0,1); must be wrapped, not left raw"),
+    // core-crystal-02 + core-crystal-04 (both reproduced at runtime
+    // 2026-09-01): refusals that fire before any symmetry check, and the P1
+    // control that must keep importing.
+    Case(name: "mgo_asymmetric_unit_no_ops", cif: mgoAsymmetricUnitNoOps,
+         rejection: .missingOperations(names: "F m -3 m"),
+         why: "Fm-3m declared, no operator loop — 2-site rock salt imported as CsCl before the guard"),
+    Case(name: "ws2_asymmetric_unit_no_ops", cif: ws2AsymmetricUnitNoOps,
+         rejection: .missingOperations(names: "P 63/m m c"),
+         why: "the COD WS2 file minus its loop — must name the real cause, not a fake symmetry break"),
+    Case(name: "identity_only_symop_loop", cif: identityOnlySymopLoop,
+         rejection: .missingOperations(names: "No. 225"),
+         why: "an identity-only loop expands nothing — same trap as no loop, named by IT number"),
+    Case(name: "gold_p1_declared_full_cell", cif: goldP1Declared,
+         expectedSymmetry: .cubic, expectedSiteCount: 4,
+         why: "declared P1 with the full cell listed — the declaration alone must not refuse"),
+    Case(name: "atom_loop_cut_mid_row", cif: atomLoopCutMidRow,
+         rejection: .truncatedLoop(tag: "_atom_site_label"),
+         why: "one token short — refuse, never floor-divide an atom away"),
+    // Gate B refuter additions (2026-09-01): one case per surviving mutation.
+    Case(name: "hall_only_declared_no_ops", cif: hallOnlyDeclaredNoOps,
+         rejection: .missingOperations(names: "-F 4 2 3"),
+         why: "group declared by Hall symbol alone — dropping the Hall tags reopens core-crystal-02"),
+    Case(name: "hm_alt_only_declared_no_ops", cif: hmAltOnlyDeclaredNoOps,
+         rejection: .missingOperations(names: "F m -3 m"),
+         why: "group declared by the modern _space_group_name_H-M_alt alone — the current dictionary's primary tag"),
+    Case(name: "p_minus_1_declared_no_ops", cif: pMinus1DeclaredNoOps,
+         rejection: .missingOperations(names: "P -1"),
+         why: "P-1 is No. 2, not P1 — normalization must not conflate them"),
+    Case(name: "corrupt_it_number_no_ops", cif: corruptITNumberNoOps,
+         rejection: .missingOperations(names: "_space_group_it_number = 225a"),
+         why: "unreadable declaration — refusing beats silently guessing P1"),
+    Case(name: "translation_only_symop_loop", cif: translationOnlySymopLoop,
+         expectedSymmetry: .cubic, expectedSiteCount: 4,
+         why: "pure centering translations ARE expanding operations — 1 Au must become the 4-site FCC cell"),
+    Case(name: "two_column_symop_loop", cif: twoColumnSymopLoop,
+         expectedSymmetry: .cubic, expectedSiteCount: 4,
+         why: "the common COD id+operation two-column symmetry loop must parse and expand"),
+    Case(name: "two_column_symop_loop_cut_mid_row", cif: twoColumnSymopLoopCutMidRow,
+         rejection: .truncatedLoop(tag: "_symmetry_equiv_pos_site_id"),
+         why: "a cut SYMMETRY loop floor-divided an op away and the wrong 3-site crystal passed verifyFamily — the truncation refusal is the only guard"),
+    Case(name: "atom_loop_cut_leaving_one_stray", cif: atomLoopCutLeavingOneStray,
+         rejection: .truncatedLoop(tag: "_atom_site_label"),
+         why: "remainder of exactly one token — still a cut file, still refuse"),
+    // Refuter finding E1 (2026-09-01): the same defect through an unchecked
+    // tag spelling. One case per newly checked route, same rule as above.
+    Case(name: "hm_full_only_declared_no_ops",
+         cif: hmAltOnlyDeclaredNoOps.replacingOccurrences(
+             of: "_space_group_name_H-M_alt", with: "_space_group_name_H-M_full"),
+         rejection: .missingOperations(names: "F m -3 m"),
+         why: "group declared by _space_group_name_H-M_full alone — E1's unchecked spelling"),
+    Case(name: "hm_ref_only_declared_no_ops",
+         cif: hmAltOnlyDeclaredNoOps.replacingOccurrences(
+             of: "_space_group_name_H-M_alt", with: "_space_group_name_H-M_ref"),
+         rejection: .missingOperations(names: "F m -3 m"),
+         why: "group declared by _space_group_name_H-M_ref alone — the other dictionary alias"),
 ]
 
 // MARK: - Runner
@@ -819,6 +1191,24 @@ enum CIFSymmetryTest {
                         continue
                     }
                     print("PASS: rejected \(testCase.name) by the model contract — \(testCase.why)")
+                case (.missingOperations(let names), CIFImportError.missingSymmetryOperations):
+                    guard described.contains(names) else {
+                        failures.append(
+                            "\(testCase.name): refused for missing operations, but the "
+                            + "message does not name \(names) — \(described)"
+                        )
+                        continue
+                    }
+                    print("PASS: rejected \(testCase.name) for missing operations — \(testCase.why)")
+                case (.truncatedLoop(let tag), CIFImportError.truncatedLoop):
+                    guard described.contains(tag) else {
+                        failures.append(
+                            "\(testCase.name): refused as truncated, but the message "
+                            + "does not name \(tag) — \(described)"
+                        )
+                        continue
+                    }
+                    print("PASS: rejected \(testCase.name) as truncated — \(testCase.why)")
                 default:
                     failures.append(
                         "\(testCase.name): rejected, but for the wrong reason — \(described)"

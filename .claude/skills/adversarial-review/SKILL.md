@@ -70,3 +70,10 @@ it *tried* and failed to break.
    in a message what a change does NOT touch** unless you just looked. If the
    tree must be committed while a review is in flight, wait — the refuter
    finishing is worth more than the commit being prompt.
+   **When the change under review is UNCOMMITTED, the refuter must not use
+   `git checkout`/`restore`/`stash` at all** — those "restore" commands would
+   destroy the very work being reviewed. Give it pristine byte copies of every
+   file it may mutate (made before it starts) and have it restore from those,
+   then verify at handback that the files are `cmp`-identical to the copies
+   and `git diff --stat` matches the pre-review list. Worked 2026-09-01 (CIF
+   pair review: 12 mutations applied and unwound this way, zero tree damage).

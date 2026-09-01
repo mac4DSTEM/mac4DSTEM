@@ -35,6 +35,16 @@ nonisolated enum CIFImportError: LocalizedError, Equatable {
     /// A `_symmetry_equiv_pos_as_xyz` / `_space_group_symop_operation_xyz`
     /// entry could not be parsed as an affine x,y,z expression.
     case unsupportedSymmetryOperation(String)
+    /// The file declares a space group other than P1 but carries no symmetry
+    /// operations to expand the asymmetric unit with (or only the identity).
+    /// Importing the listed sites as the complete cell would silently build a
+    /// wrong crystal — rock salt read this way becomes the CsCl structure,
+    /// with different systematic absences and different ACOM templates.
+    case missingSymmetryOperations(spaceGroup: String)
+    /// A `loop_`'s value count is not a whole multiple of its tag count —
+    /// the file is truncated or malformed, and continuing would silently
+    /// drop the partial trailing row (an atom, in the loop that matters).
+    case truncatedLoop(firstTag: String, columns: Int, values: Int)
     /// The element resolved, but has no electron scattering-factor
     /// parameters (`ScatteringFactors` table), so kinematic structure
     /// factors cannot be computed for it.
@@ -72,6 +82,10 @@ nonisolated enum CIFImportError: LocalizedError, Equatable {
             return "Atom site \"\(label)\" has an unrecognized element symbol \"\(symbol)\"."
         case .unsupportedSymmetryOperation(let op):
             return "Could not parse symmetry operation \"\(op)\" as an x,y,z expression."
+        case .missingSymmetryOperations(let group):
+            return "CIF declares space group \(group) but lists no symmetry operations beyond the identity, so its atom sites are only the asymmetric unit. Importing them as the complete cell would build a wrong crystal, so the file is refused. Re-export it with its symmetry-operation loop (_symmetry_equiv_pos_as_xyz or _space_group_symop_operation_xyz — VESTA and pymatgen both write one), or supply a P1 file that lists every atom in the cell."
+        case .truncatedLoop(let firstTag, let columns, let values):
+            return "The loop starting at \(firstTag) has \(columns) column(s) but \(values) value(s) — not a whole number of rows, so the file is truncated or malformed. mac4DSTEM refuses it rather than silently dropping the partial trailing row."
         case .unsupportedElement(let symbol, let z):
             return "Element \(symbol) (Z=\(z)) has no electron scattering-factor parameters; ACOM cannot use it."
         case .unsupportedPointGroup(let detail):
@@ -200,6 +214,17 @@ nonisolated enum CIFImport {
                     values.append(tokens[index])
                     index += 1
                 }
+                // A well-formed loop is always a whole number of rows: every
+                // value is one token (quoted strings and semicolon text fields
+                // collapse in the tokenizer, and `?`/`.` placeholders are
+                // tokens too). A remainder means the file was cut mid-row —
+                // flooring it here silently deleted the last atom of a
+                // truncated download (core-crystal-04, reproduced 2026-09-01).
+                guard values.count % loopTags.count == 0 else {
+                    throw CIFImportError.truncatedLoop(
+                        firstTag: loopTags[0], columns: loopTags.count, values: values.count
+                    )
+                }
                 let rowCount = values.count / loopTags.count
                 var rows: [[String: String]] = []
                 rows.reserveCapacity(rowCount)
@@ -289,8 +314,8 @@ nonisolated enum CIFImport {
         }
 
         let sites: [AtomSite]
-        if haveSymmetryLoop, !symmetryOps.isEmpty {
-            let ops = try symmetryOps.map { try parseSymmetryOperation($0) }
+        let ops = try symmetryOps.map { try parseSymmetryOperation($0) }
+        if haveSymmetryLoop, ops.contains(where: { !isIdentity($0) }) {
             // Duplicate detection is a real-space question, so it needs the
             // cell metric. The site list is irrelevant to `latReal`.
             let lattice = Crystal(
@@ -298,8 +323,25 @@ nonisolated enum CIFImport {
             ).latReal
             sites = expand(baseSites, using: ops, latReal: lattice)
         } else {
-            // No symmetry loop: the listed sites are already the complete
-            // cell contents (P1). Wrap anyway — coordinates outside [0,1) are
+            // No expanding operations. Taking the listed sites as the complete
+            // cell is legitimate only when the file itself says they are —
+            // P1, or no space-group declaration at all. A file that declares
+            // a non-P1 group and omits its operations is an asymmetric unit
+            // with no way to expand it; importing it as-is built rock salt as
+            // the CsCl structure (core-crystal-02, reproduced 2026-09-01).
+            //
+            // DEVIATION from py4DSTEM (Crystal.from_CIF,
+            // References/py4DSTEM-dev/py4DSTEM/process/diffraction/crystal.py:335):
+            // py4DSTEM hands CIF parsing to pymatgen, which can DERIVE the
+            // operator list from the declared space-group symbol when the
+            // file omits it. This importer carries no space-group tables, so
+            // deriving is not an option; the honest alternatives are refusing
+            // (chosen) or silently importing an asymmetric unit as a whole
+            // cell (the defect this guard removes).
+            if let declared = declaredNonP1SpaceGroup(cellValues) {
+                throw CIFImportError.missingSymmetryOperations(spaceGroup: declared)
+            }
+            // P1 (or undeclared): wrap anyway — coordinates outside [0,1) are
             // legal CIF, structure factors are periodic so it changes no
             // physics, and leaving them raw would hide a close contact from a
             // detector that only searches the neighbouring cells.
@@ -566,6 +608,52 @@ nonisolated enum CIFImport {
             return numerator / denominator
         }
         throw CIFImportError.unsupportedSymmetryOperation(raw)
+    }
+
+    /// True for `x,y,z` (and lattice-translated spellings like `x+1,y,z`):
+    /// an operation that maps every site to itself modulo the cell, so it
+    /// expands nothing. A loop containing ONLY these is equivalent to no
+    /// loop at all, which is why the missing-operations refusal treats the
+    /// two the same.
+    private static func isIdentity(_ op: SymOp) -> Bool {
+        func wholeNumber(_ v: Double) -> Bool { abs(v - v.rounded()) <= 1e-9 }
+        return op.rowX == SIMD3(1, 0, 0) && op.rowY == SIMD3(0, 1, 0)
+            && op.rowZ == SIMD3(0, 0, 1)
+            && wholeNumber(op.translation.x) && wholeNumber(op.translation.y)
+            && wholeNumber(op.translation.z)
+    }
+
+    /// The space group the file itself declares, when that declaration is
+    /// anything other than P1 — the case where a missing operator loop means
+    /// the atom list is an asymmetric unit that cannot be expanded. Returns a
+    /// display name for the refusal, or nil when the file declares P1 or
+    /// declares nothing. CIF null placeholders (`?`, `.`) count as absent.
+    ///
+    /// P1's Hermann-Mauguin symbol is "P 1" and its Hall symbol is "P 1";
+    /// whitespace-stripped comparison keeps "P1" and "P 1" together while
+    /// still separating "P-1" (No. 2, which has inversion) and Hall "-P 1".
+    /// A declaration that exists but cannot be read (a non-integer IT
+    /// number) is returned too: guessing P1 from an unreadable tag would be
+    /// the same silent assumption this guard exists to remove.
+    private static func declaredNonP1SpaceGroup(_ cellValues: [String: String]) -> String? {
+        func nonNull(_ tag: String) -> String? {
+            guard let raw = cellValues[tag]?.trimmingCharacters(in: .whitespaces),
+                  !raw.isEmpty, raw != "?", raw != "." else { return nil }
+            return raw
+        }
+        for tag in ["_symmetry_space_group_name_h-m", "_space_group_name_h-m_alt",
+                    "_space_group_name_h-m_full", "_space_group_name_h-m_ref",
+                    "_space_group_name_hall", "_symmetry_space_group_name_hall"] {
+            guard let raw = nonNull(tag) else { continue }
+            let normalized = raw.lowercased().filter { !$0.isWhitespace }
+            if normalized != "p1" { return raw }
+        }
+        for tag in ["_space_group_it_number", "_symmetry_int_tables_number"] {
+            guard let raw = nonNull(tag) else { continue }
+            guard let number = Int(raw) else { return "\(tag) = \(raw)" }
+            if number != 1 { return "No. \(number)" }
+        }
+        return nil
     }
 
     /// Applies every symmetry operation to every asymmetric-unit site,

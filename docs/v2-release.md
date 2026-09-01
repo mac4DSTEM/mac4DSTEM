@@ -831,6 +831,28 @@ only if asked.
   half of `app-appstate-01` and whether any *number* is affected; the ACOM leg of
   that reproduction (inference, not observation); F1.45's In-plane angle mode;
   everything owner-only below.
+- [x] **Owner decisions + docs tidy + CIF pair** — 2026-09-01 (not a numbered
+  session; sequenced by [`v2-ship-plan.md`](v2-ship-plan.md)). **Step 0
+  DECIDED by the owner** (all five Group A items fixed + probe radius + CIF
+  pair; the colleague/overnight §1 claims DISCARDED — S19 restates; the
+  bounded promote run stays; two owner-promoted UI changes ride; full record
+  in `open-items.md` §Owner decisions). **Tidy:** the 661-line Track B thread
+  archived verbatim, kickoff tax 3689 → 3307 (commit `87e6c45`). **CIF pair
+  DONE with Gate B:** both findings reproduced at runtime first (MgO
+  declaring Fm-3m with no ops loop imported as the CsCl structure; a
+  truncated WS2 lost its sulfur silently), fixed by two refusals in
+  `Core/Crystal/CIFImport.swift` (missing-operations, truncated-loop;
+  DEVIATION noted — pymatgen derives operators, this importer refuses).
+  Refuter verdict **stand-with-corrections, all four applied**: hardened
+  45-case harness (its sharpest find — a cut two-column symmetry loop
+  floor-divided a centering op away and the wrong 3-site crystal PASSED
+  `verifyFamily`; now gated), two more declaration tags (+2 cases,
+  mutation-verified), the E2 partial-ops escape recorded as an open item,
+  the record's case count corrected. `cif-symmetry-test` 45/45 green.
+  **Not verified:** the new refusal messages on screen (**F1.48 queued**,
+  fixtures staged beside `WS2.cif`); E2 (partial ops list still imports a
+  wrong crystal — recorded, structurally out of scope).
+  [Record](archive/v2-session-records/cif-pair.md).
 
 - [x] **DPC angle units (`core-analysis-physics-01`)** — 2026-09-01 (unnumbered
   Group A repair). Gate D reproduced the exact defect: production returned
