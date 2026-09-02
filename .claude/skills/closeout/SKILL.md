@@ -53,7 +53,7 @@ Done means the repo tells the next reader the truth. In order:
    artifact `https://claude.ai/code/artifact/02ef433e-3888-4afc-9292-aba62912e5d9`
    ("mac4DSTEM v2 Board"). Update the session rail, workstream fractions,
    the dated test-claim table, and the what's-next queue from
-   `docs/v2-release.md` §9 — same honesty bar as the docs: every number
+   `docs/status.md` (its table, gate table and handoff) — same honesty bar as the docs: every number
    dated to its own run. From a fresh conversation, pass that address as
    the Artifact tool's `url` (publishing without it forks a new artifact).
 8. One sentence on the skills themselves: did any skill misfire, get
