@@ -98,7 +98,7 @@ struct ProductsView: View {
             // Clickable when retained: these are held in memory simultaneously,
             // so bringing one back needs no recompute (backlog #28).
             showableProduct(.strain, done: appState.strain.map != nil)
-            showableProduct(.orientation, done: appState.hasOrientationMap)
+            showableProduct(.orientation, done: appState.acomSession.hasOrientationMap)
 
             Text("Saved session sidecar")
                 .font(.caption2).foregroundStyle(.tertiary)

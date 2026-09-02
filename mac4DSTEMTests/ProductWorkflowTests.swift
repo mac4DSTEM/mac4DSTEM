@@ -238,17 +238,17 @@ final class ProductWorkflowTests: XCTestCase {
     /// stopped being set, a completed map would overrule a deliberate choice.
     func testChoosingAnACOMDisplayIsRecordedSoItIsNotLaterOverridden() {
         let state = AppState()
-        XCTAssertEqual(state.acomDisplay, .reliability)
-        XCTAssertFalse(state.acomDisplayIsUserChosen)
+        XCTAssertEqual(state.acomSession.display, .reliability)
+        XCTAssertFalse(state.acomSession.displayIsUserChosen)
 
         state.selectACOMDisplay(.score)
-        XCTAssertEqual(state.acomDisplay, .score)
-        XCTAssertTrue(state.acomDisplayIsUserChosen)
+        XCTAssertEqual(state.acomSession.display, .score)
+        XCTAssertTrue(state.acomSession.displayIsUserChosen)
 
         // Re-selecting the default is still a choice, not a reset.
         state.selectACOMDisplay(.reliability)
-        XCTAssertEqual(state.acomDisplay, .reliability)
-        XCTAssertTrue(state.acomDisplayIsUserChosen)
+        XCTAssertEqual(state.acomSession.display, .reliability)
+        XCTAssertTrue(state.acomSession.displayIsUserChosen)
     }
 
     /// The hint is a forward pointer, so what it *doesn't* say matters as much
@@ -436,7 +436,7 @@ final class ProductWorkflowTests: XCTestCase {
         )
 
         state.changeMode(.acom)
-        state.acomScope = .selectedRegion
+        state.acomSession.scope = .selectedRegion
 
         XCTAssertTrue(state.showsACOMRegionReference)
         XCTAssertEqual(state.displayedResultImage?.width, 106)
@@ -494,20 +494,20 @@ final class ProductWorkflowTests: XCTestCase {
 
     func testACOMRequiresExplicitMaterialAndPreservesScaleMeaning() {
         let state = AppState()
-        XCTAssertEqual(state.acomModelSelection, .none)
+        XCTAssertEqual(state.acomSession.modelSelection, .none)
         XCTAssertEqual(state.acomScaleSemantics.provenance, .exploratory)
         XCTAssertEqual(state.acomScale, 0.01, accuracy: 1e-12)
         XCTAssertFalse(state.productWorkflowReadiness.hasACOMMaterial)
 
-        state.acomModelSelection = .library("not_a_model")
+        state.acomSession.modelSelection = .library("not_a_model")
         XCTAssertTrue(state.productWorkflowReadiness.hasACOMMaterial)
         XCTAssertFalse(state.productWorkflowReadiness.hasSupportedACOMMaterial)
         XCTAssertNotNil(state.acomModelSelectionIssue)
 
-        state.acomModelSelection = .library("au_fcc")
+        state.acomSession.modelSelection = .library("au_fcc")
         XCTAssertTrue(state.productWorkflowReadiness.hasSupportedACOMMaterial)
         XCTAssertEqual(state.resolvedACOMModel?.displayName, "Gold (FCC)")
-        state.acomExploratoryScale = 0.02
+        state.acomSession.exploratoryScale = 0.02
         XCTAssertEqual(state.acomScale, 0.02, accuracy: 1e-12)
         XCTAssertEqual(state.acomScaleSemantics.provenance, .exploratory)
 

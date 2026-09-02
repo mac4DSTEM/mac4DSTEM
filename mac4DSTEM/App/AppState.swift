@@ -164,6 +164,31 @@ final class AppState {
         // Same ownership direction as the strain seam: AppState owns
         // navigation, never the reverse. This closure is the recovery
         // persist the old stored `navigation.analysisMode`'s didSet performed.
+        // 7c 4b: the ACOM effects that need the window. The scope drives the
+        // region selection on the real-space pane; display writes republish
+        // the map; an invalidated map clears the published product.
+        acomSession.onScopeChange = { [weak self] scope in
+            guard let self else { return }
+            if scope == .selectedRegion {
+                acomSession.regionSelectionActive = true
+                realSpaceShape = .rectangle
+                realSpaceRadius = Float(acomSession.regionRadius)
+                Task { await self.ensureScanNavigator() }
+            } else {
+                acomSession.regionSelectionActive = false
+            }
+        }
+        acomSession.onRegionRadiusChange = { [weak self] radius in
+            guard let self, acomSession.scope == .selectedRegion else { return }
+            acomSession.regionSelectionActive = true
+            realSpaceRadius = Float(radius)
+        }
+        acomSession.onDisplayChange = { [weak self] in self?.applyACOMDisplay() }
+        acomSession.onResultInvalidated = { [weak self] in
+            guard let self, navigation.analysisMode == .acom else { return }
+            publishedProduct = nil
+            resultVersion &+= 1
+        }
         navigation.onModeChange = { [weak self] in
             self?.persistRecoveryPosition()
         }
@@ -453,99 +478,11 @@ final class AppState {
         braggVectors != nil && !diskDetectionSettingsAreStale
     }
 
-    // ACOM state.
-    @ObservationIgnored private(set) var orientationPlan: OrientationPlan?
-    @ObservationIgnored private(set) var orientationMap: OrientationMap?
-    var hasOrientationPlan = false
-    var hasOrientationMap = false
-    /// v2.5 step 6a: ACOM state lives in `ACOMSession`; these forwarders keep
-    /// the readers compiling and the old `didSet` effects in their setters.
+    /// ACOM state, plan and map live in `ACOMSession` (v2.5 step 6a); the
+    /// forwarders went in 7c 4b. The run functions stay here by owner
+    /// decision (2026-09-03) and read the session directly; the session's
+    /// hooks below carry the effects that need the window.
     let acomSession = ACOMSession()
-    var acomModelSelection: CrystalModelSelection {
-        get { acomSession.modelSelection }
-        set {
-            let changed = newValue != acomSession.modelSelection
-            acomSession.modelSelection = newValue
-            if changed { invalidateACOMPlan() }
-        }
-    }
-    /// CIF files imported this run via `importCrystalModel(from:)`. Session-
-    /// local only (never written to disk or `UserDefaults`) — the same as
-    /// every other `acomModelSelection` option, which `activate(descriptor:
-    /// reader:)` always resets to `.none` on (re)open, so no phase model
-    /// (built-in, custom, or imported) ever silently carries over from a
-    /// previous session. See `acomModelSelectionIssue`'s `.imported` case for
-    /// what happens if a selection outlives its model within one run.
-    private(set) var importedCrystalModels: [CrystalModel] {
-        get { acomSession.importedCrystalModels }
-        set { acomSession.importedCrystalModels = newValue }
-    }
-    var acomExploratoryScale: Double {
-        get { acomSession.exploratoryScale }
-        set {
-            let changed = newValue != acomSession.exploratoryScale
-            acomSession.exploratoryScale = newValue
-            if changed { invalidateACOMResult() }
-        }
-    }
-    var acomBackend: ACOMMatchingBackend {
-        get { acomSession.backend }
-        set { acomSession.backend = newValue }
-    }
-    var acomQuality: ACOMQualityPreset {
-        get { acomSession.quality }
-        set {
-            let changed = newValue != acomSession.quality
-            acomSession.quality = newValue
-            if changed { invalidateACOMPlan() }
-        }
-    }
-    var acomScope: ACOMRunScope {
-        get { acomSession.scope }
-        set {
-            acomSession.scope = newValue
-            if newValue == .selectedRegion {
-                acomRegionSelectionActive = true
-                realSpaceShape = .rectangle
-                realSpaceRadius = Float(acomRegionRadius)
-                Task { await ensureScanNavigator() }
-            } else {
-                acomRegionSelectionActive = false
-            }
-        }
-    }
-    var acomRegionRadius: Int {
-        get { acomSession.regionRadius }
-        set {
-            acomSession.regionRadius = newValue
-            if acomScope == .selectedRegion {
-                acomRegionSelectionActive = true
-                realSpaceRadius = Float(newValue)
-            }
-        }
-    }
-    private(set) var acomRegionSelectionActive: Bool {
-        get { acomSession.regionSelectionActive }
-        set { acomSession.regionSelectionActive = newValue }
-    }
-    private(set) var acomLastRunScope: ACOMRunScope? {
-        get { acomSession.lastRunScope } set { acomSession.lastRunScope = newValue }
-    }
-    private(set) var acomLastRunQuality: ACOMQualityPreset? {
-        get { acomSession.lastRunQuality } set { acomSession.lastRunQuality = newValue }
-    }
-    private(set) var acomLastRunSemantics: ACOMRunSemantics? {
-        get { acomSession.lastRunSemantics } set { acomSession.lastRunSemantics = newValue }
-    }
-    private(set) var acomLastMatchedPositionCount: Int? {
-        get { acomSession.lastMatchedPositionCount } set { acomSession.lastMatchedPositionCount = newValue }
-    }
-    private(set) var acomLastPositionsPerSecond: Double? {
-        get { acomSession.lastPositionsPerSecond } set { acomSession.lastPositionsPerSecond = newValue }
-    }
-    private(set) var acomLastEndToEndDuration: TimeInterval? {
-        get { acomSession.lastEndToEndDuration } set { acomSession.lastEndToEndDuration = newValue }
-    }
     @ObservationIgnored private var acomLastMeasuredTemplateCount: Int?
     @ObservationIgnored private var acomLastMeasuredBackend: ACOMMatchingBackend?
 
@@ -553,23 +490,23 @@ final class AppState {
     /// the GPU is active. Real-data benchmarking may revise this policy, but
     /// the UI always names the backend that will actually execute.
     var effectiveACOMBackend: ACOMMatchingBackend {
-        acomBackend == .automatic ? .cpu : acomBackend
+        acomSession.backend == .automatic ? .cpu : acomSession.backend
     }
 
     var acomBackendSummary: String {
-        acomBackend == .automatic
+        acomSession.backend == .automatic
             ? "Automatic · \(effectiveACOMBackend.rawValue)"
             : effectiveACOMBackend.rawValue
     }
 
     private var acomScanSelection: ACOMScanSelection {
-        switch acomScope {
+        switch acomSession.scope {
         case .preview:
             return .preview(maxDimension: 32)
         case .selectedRegion:
             return .square(
                 centerX: selectedScan.x, centerY: selectedScan.y,
-                radius: acomRegionRadius
+                radius: acomSession.regionRadius
             )
         case .fullScan:
             return .full
@@ -582,7 +519,7 @@ final class AppState {
     }
 
     var acomWorkSummary: String {
-        "\(acomWorkPositionCount.formatted()) positions × \(acomQuality.templateCount) templates"
+        "\(acomWorkPositionCount.formatted()) positions × \(acomSession.quality.templateCount) templates"
     }
 
     var acomEstimatedDuration: TimeInterval? {
@@ -602,9 +539,9 @@ final class AppState {
     }
 
     private func acomEstimatedDuration(forPositions positions: Int) -> TimeInterval? {
-        let templates = Double(acomQuality.templateCount)
+        let templates = Double(acomSession.quality.templateCount)
         let throughput: Double
-        if let measured = acomLastPositionsPerSecond,
+        if let measured = acomSession.lastPositionsPerSecond,
            let measuredTemplates = acomLastMeasuredTemplateCount,
            acomLastMeasuredBackend == effectiveACOMBackend {
             throughput = measured * Double(measuredTemplates) / templates
@@ -628,7 +565,7 @@ final class AppState {
     /// Only offered from `.preview` — a user who deliberately chose a region
     /// is not second-guessed.
     var acomFullScanSuggestion: String? {
-        guard acomScope == .preview,
+        guard acomSession.scope == .preview,
               let seconds = acomFullScanEstimatedDuration,
               seconds <= 5
         else { return nil }
@@ -649,7 +586,7 @@ final class AppState {
     }
 
     var acomPrimaryActionTitle: String {
-        switch acomScope {
+        switch acomSession.scope {
         case .preview: "Preview Orientation"
         case .selectedRegion: "Map Selected Region"
         case .fullScan: "Run Full Orientation Map"
@@ -662,8 +599,8 @@ final class AppState {
     var showsACOMRegionReference: Bool {
         navigation.workspaceArea == .map
             && navigation.analysisMode == .acom
-            && acomScope == .selectedRegion
-            && acomRegionSelectionActive
+            && acomSession.scope == .selectedRegion
+            && acomSession.regionSelectionActive
             && scanNavigationImage != nil
     }
 
@@ -767,7 +704,7 @@ final class AppState {
             overlays.append(ProductOverlayDescriptor(
                 kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit"
             ))
-        } else if navigation.analysisMode == .acom, let map = orientationMap,
+        } else if navigation.analysisMode == .acom, let map = acomSession.orientationMap,
                   map.width == payload.dimensions.width, map.height == payload.dimensions.height {
             validity = map.results.map { $0.templateIndex >= 0 }
             quality = [
@@ -802,7 +739,7 @@ final class AppState {
     func quantitativeStatus(for kind: String, units: String)
         -> ProductQuantitativeStatus {
         if kind.hasPrefix("acom_") {
-            return acomLastRunSemantics?.productStatus(for: kind) ?? .exploratory
+            return acomSession.lastRunSemantics?.productStatus(for: kind) ?? .exploratory
         }
         if kind == "dpc_color" || kind.contains("ipf") { return .categorical }
         if kind == "idpc_qualitative" || units.contains("intensity")
@@ -832,41 +769,8 @@ final class AppState {
         return displayedProduct?.qualityFields.first
     }
 
-    // Custom (user-defined) cubic crystal for ACOM.
-    var customZ: Int {
-        get { acomSession.customZ }
-        set { let changed = newValue != acomSession.customZ; acomSession.customZ = newValue; if changed { invalidateACOMPlan() } }
-    }
-    var customStructure: Crystal.CubicStructure {
-        get { acomSession.customStructure }
-        set { let changed = newValue != acomSession.customStructure; acomSession.customStructure = newValue; if changed { invalidateACOMPlan() } }
-    }
-    var customLatticeA: Double {
-        get { acomSession.customLatticeA }
-        set { let changed = newValue != acomSession.customLatticeA; acomSession.customLatticeA = newValue; if changed { invalidateACOMPlan() } }
-    }
-
-    private func invalidateACOMPlan() {
-        orientationPlan = nil
-        hasOrientationPlan = false
-        invalidateACOMResult()
-    }
-
-    private func invalidateACOMResult() {
-        orientationMap = nil
-        hasOrientationMap = false
-        acomLastRunScope = nil
-        acomLastRunQuality = nil
-        acomLastRunSemantics = nil
-        acomLastMatchedPositionCount = nil
-        if navigation.analysisMode == .acom {
-            publishedProduct = nil
-            resultVersion &+= 1
-        }
-    }
-
     var selectedEulerText: String? {
-        guard let map = orientationMap,
+        guard let map = acomSession.orientationMap,
               selectedScan.x >= 0, selectedScan.x < map.width,
               selectedScan.y >= 0, selectedScan.y < map.height else { return nil }
         let result = map[selectedScan.x, selectedScan.y]
@@ -896,26 +800,26 @@ final class AppState {
     /// dataset-derived fallback.
     var resolvedACOMModel: CrystalModel? {
         let model: CrystalModel?
-        switch acomModelSelection {
+        switch acomSession.modelSelection {
         case .none:
             model = nil
         case .library(let id):
             model = CrystalModelLibrary.model(id: id)
         case .customCubic:
             model = CrystalModelLibrary.customCubic(
-                structure: customStructure,
-                latticeA: customLatticeA,
-                atomicNumber: customZ
+                structure: acomSession.customStructure,
+                latticeA: acomSession.customLatticeA,
+                atomicNumber: acomSession.customZ
             )
         case .imported(let id):
-            model = importedCrystalModels.first { $0.id == id }
+            model = acomSession.importedCrystalModels.first { $0.id == id }
         }
         guard let model, model.isUsable else { return nil }
         return model
     }
 
     var acomModelSelectionIssue: String? {
-        switch acomModelSelection {
+        switch acomSession.modelSelection {
         case .none:
             return "Choose the phase model used to generate orientation templates."
         case .library(let id):
@@ -925,13 +829,13 @@ final class AppState {
             return model.validationIssues.first?.message
         case .customCubic:
             let model = CrystalModelLibrary.customCubic(
-                structure: customStructure,
-                latticeA: customLatticeA,
-                atomicNumber: customZ
+                structure: acomSession.customStructure,
+                latticeA: acomSession.customLatticeA,
+                atomicNumber: acomSession.customZ
             )
             return model.validationIssues.first?.message
         case .imported(let id):
-            guard let model = importedCrystalModels.first(where: { $0.id == id }) else {
+            guard let model = acomSession.importedCrystalModels.first(where: { $0.id == id }) else {
                 // Reached only if a selection ever outlives its model within
                 // one run (e.g. a future "clear imports" action) — reopening
                 // the app never hits this, since `acomModelSelection` itself
@@ -958,7 +862,7 @@ final class AppState {
             }
         }
         return ACOMScaleSemantics(
-            invAngstromPerPixel: acomExploratoryScale,
+            invAngstromPerPixel: acomSession.exploratoryScale,
             provenance: .exploratory
         )
     }
@@ -974,28 +878,8 @@ final class AppState {
     /// v2.5 step 6: the IPF map's confidence gate. Nil = automatic, the 10th
     /// percentile of matched reliabilities; a number overrides it (the
     /// colorbar chip's slider, when it lands). Positions below it draw grey.
-    var acomReliabilityThreshold: Float? {
-        get { acomSession.reliabilityThreshold }
-        set {
-            let changed = newValue != acomSession.reliabilityThreshold
-            acomSession.reliabilityThreshold = newValue
-            if changed { applyACOMDisplay() }
-        }
-    }
     var acomEffectiveReliabilityThreshold: Float? {
-        acomReliabilityThreshold ?? orientationMap?.reliabilityThreshold(percentile: 0.1)
-    }
-
-    var acomDisplay: ACOMDisplayMode {
-        get { acomSession.display }
-        set { acomSession.display = newValue; applyACOMDisplay() }
-    }
-
-    /// Whether the user has picked a display themselves. Set only by
-    /// `selectACOMDisplay(_:)` from the picker, so a completed map may promote
-    /// IPF·Z once without ever overriding a deliberate choice.
-    private(set) var acomDisplayIsUserChosen: Bool {
-        get { acomSession.displayIsUserChosen } set { acomSession.displayIsUserChosen = newValue }
+        acomSession.reliabilityThreshold ?? acomSession.orientationMap?.reliabilityThreshold(percentile: 0.1)
     }
 
     /// Presentation-only orientation of the real-space viewer (backlog #17b).
@@ -1037,8 +921,8 @@ final class AppState {
     /// The picker's setter. Distinguishes a human choice from the programmatic
     /// default below, which `didSet` alone cannot.
     func selectACOMDisplay(_ mode: ACOMDisplayMode) {
-        acomDisplayIsUserChosen = true
-        acomDisplay = mode
+        acomSession.displayIsUserChosen = true
+        acomSession.display = mode
     }
 
     /// py4DSTEM's `plot_orientation_maps` leads with the IPF coloring, and it
@@ -1047,11 +931,11 @@ final class AppState {
     /// has a symmetry to color by — `.identity` has no fundamental zone, so an
     /// IPF key there would be a fabricated legend.
     private func promoteIPFZDisplayIfDefault(for map: OrientationMap) {
-        guard !acomDisplayIsUserChosen,
-              acomDisplay == .reliability,
+        guard !acomSession.displayIsUserChosen,
+              acomSession.display == .reliability,
               map.symmetry != .identity
         else { return }
-        acomDisplay = .ipfZ
+        acomSession.display = .ipfZ
     }
 
     var aperture = Aperture()
@@ -1133,7 +1017,7 @@ final class AppState {
             hasVoltage: calibrationSession.hasUsableVoltage,
             hasValidDiskDetectionSettings: diskDetectionConfigurationIsValid,
             hasBraggVectors: hasCurrentBraggVectors,
-            hasACOMMaterial: acomModelSelection != .none,
+            hasACOMMaterial: acomSession.modelSelection != .none,
             hasSupportedACOMMaterial: resolvedACOMModel != nil,
             hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical
         )
@@ -1444,8 +1328,8 @@ final class AppState {
         // own; the navigation relabel cache that used to live here is gone.
         navigation.analysisMode = mode
         navigation.workspaceArea = mode.workspaceArea
-        if mode == .acom, acomScope == .selectedRegion {
-            acomRegionSelectionActive = true
+        if mode == .acom, acomSession.scope == .selectedRegion {
+            acomSession.regionSelectionActive = true
             Task { await ensureScanNavigator() }
         }
     }
@@ -2042,12 +1926,12 @@ final class AppState {
             // (Gate A finding C4), and it now also requires the rehearsed
             // lattice constant (Gate D 2026-09-02).
             switch acomPlan.resolveMaterial(in: .init(
-                importedIDs: Set(importedCrystalModels.map(\.id)),
-                customStructure: customStructure, customLatticeA: customLatticeA,
-                customZ: customZ)) {
-            case .library(let id): acomModelSelection = .library(id)
-            case .imported(let id): acomModelSelection = .imported(id)
-            case .customCubic: acomModelSelection = .customCubic
+                importedIDs: Set(acomSession.importedCrystalModels.map(\.id)),
+                customStructure: acomSession.customStructure, customLatticeA: acomSession.customLatticeA,
+                customZ: acomSession.customZ)) {
+            case .library(let id): acomSession.modelSelection = .library(id)
+            case .imported(let id): acomSession.modelSelection = .imported(id)
+            case .customCubic: acomSession.modelSelection = .customCubic
             case .unavailable(let reason): return .refused(reason)
             }
             guard resolvedACOMModel?.id == acomPlan.materialID else {
@@ -2060,8 +1944,8 @@ final class AppState {
                     format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
                     recordedScale, sessionScale))
             }
-            acomScope = acomPlan.scope
-            acomQuality = acomPlan.quality
+            acomSession.scope = acomPlan.scope
+            acomSession.quality = acomPlan.quality
             if let reason = replayRefusal(for: .acom) { return .refused(reason) }
             return .ran(await runACOM(replaying: true))
         }
@@ -2112,12 +1996,12 @@ final class AppState {
             let text = try String(contentsOf: url, encoding: .utf8)
             let baseName = url.deletingPathExtension().lastPathComponent
             let model = try CIFImport.crystalModel(from: text, fileBaseName: baseName)
-            if let index = importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
-                importedCrystalModels[index] = model
+            if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
+                acomSession.importedCrystalModels[index] = model
             } else {
-                importedCrystalModels.append(model)
+                acomSession.importedCrystalModels.append(model)
             }
-            acomModelSelection = .imported(model.id)
+            acomSession.modelSelection = .imported(model.id)
             statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
         } catch {
             present(error)
@@ -2164,7 +2048,7 @@ final class AppState {
             guard loadView?.specification == specification,
                   self.descriptor?.filePath == datasets.first?.filePath else { return }
             finishDatasetLoading()
-            acomDisplay = .ipfZ
+            acomSession.display = .ipfZ
             // S22c wording: the steps are Prepare / Imaging / Bragg / Phase /
             // Results — caught on screen by the consolidated drive after the
             // re-cut renamed them everywhere else.
@@ -2329,8 +2213,8 @@ final class AppState {
     }
 
     func selectScan(x: Int, y: Int) {
-        if navigation.analysisMode == .acom, acomScope == .selectedRegion {
-            acomRegionSelectionActive = true
+        if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
+            acomSession.regionSelectionActive = true
         }
         selectedScan = ScanPos(x: x, y: y)
         persistRecoveryPosition()
@@ -2709,25 +2593,25 @@ final class AppState {
         // (Strain cleared earlier, before the calibration reset — see the
         // Gate B finding 3 comment above the `calibration = Calibration()`
         // line.)
-        orientationPlan = nil
-        orientationMap = nil
-        hasOrientationPlan = false
-        hasOrientationMap = false
-        acomModelSelection = .none
-        acomLastRunScope = nil
-        acomLastRunQuality = nil
-        acomLastRunSemantics = nil
-        acomLastMatchedPositionCount = nil
-        acomLastPositionsPerSecond = nil
-        acomLastEndToEndDuration = nil
+        acomSession.orientationPlan = nil
+        acomSession.orientationMap = nil
+        acomSession.hasOrientationPlan = false
+        acomSession.hasOrientationMap = false
+        acomSession.modelSelection = .none
+        acomSession.lastRunScope = nil
+        acomSession.lastRunQuality = nil
+        acomSession.lastRunSemantics = nil
+        acomSession.lastMatchedPositionCount = nil
+        acomSession.lastPositionsPerSecond = nil
+        acomSession.lastEndToEndDuration = nil
         acomLastMeasuredTemplateCount = nil
         acomLastMeasuredBackend = nil
-        acomRegionSelectionActive = false
-        acomScope = .preview
-        acomDisplayIsUserChosen = false
+        acomSession.regionSelectionActive = false
+        acomSession.scope = .preview
+        acomSession.displayIsUserChosen = false
         realSpaceDisplayOrientation = .identity
         realSpaceDisplayMirrored = false
-        acomRegionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
+        acomSession.regionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point
         virtualDiffractionPattern = nil
@@ -3179,7 +3063,7 @@ final class AppState {
         case .singleslicePtychography:
             if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
-            if orientationMap != nil { applyACOMDisplay() }
+            if acomSession.orientationMap != nil { applyACOMDisplay() }
         }
     }
 
@@ -3330,11 +3214,11 @@ final class AppState {
             // the picker's visible default instead of retaining pixels/px.
             calibrationSession.calibration.qPixelUnits = manualQPixelUnits
             calibrationSession.provenance.qScale = .manual
-            invalidateACOMResult()
+            acomSession.invalidateResult()
         } else {
             calibrationSession.calibration.qPixelSize = nil
             calibrationSession.provenance.qScale = nil
-            invalidateACOMResult()
+            acomSession.invalidateResult()
         }
     }
 
@@ -3348,7 +3232,7 @@ final class AppState {
         if calibrationSession.calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
             calibrationSession.provenance.qScale = .manual
         }
-        invalidateACOMResult()
+        acomSession.invalidateResult()
     }
 
     func setManualRPixelSize(_ value: Double) {
@@ -3380,7 +3264,7 @@ final class AppState {
         parallaxAlignment = nil
         calibrationSession.acceleratingVoltage = value.isFinite && value > 0 ? value : nil
         if CalibrationUnitConversion.normalized(calibrationSession.calibration.qPixelUnits) == "mrad" {
-            invalidateACOMResult()
+            acomSession.invalidateResult()
         }
     }
 
@@ -3405,8 +3289,8 @@ final class AppState {
     func scrubTo(x: Int, y: Int) {
         guard let d = descriptor else { return }
         activePane = .realSpace
-        if navigation.analysisMode == .acom, acomScope == .selectedRegion {
-            acomRegionSelectionActive = true
+        if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
+            acomSession.regionSelectionActive = true
         }
         let clamped = ScanPos(x: min(max(0, x), d.rx - 1), y: min(max(0, y), d.ry - 1))
         if clamped != selectedScan { selectedScan = clamped }
@@ -5117,7 +5001,7 @@ final class AppState {
     var availableComputedProducts: [ComputedProduct] {
         var products: [ComputedProduct] = []
         if strain.map != nil { products.append(.strain) }
-        if hasOrientationMap { products.append(.orientation) }
+        if acomSession.hasOrientationMap { products.append(.orientation) }
         return products
     }
 
@@ -5138,7 +5022,7 @@ final class AppState {
             navigation.workspaceArea = .map
             applyStrainDisplay()
         case .orientation:
-            guard hasOrientationMap else { return }
+            guard acomSession.hasOrientationMap else { return }
             navigation.analysisMode = .acom
             navigation.workspaceArea = .map
             applyACOMDisplay()
@@ -5283,7 +5167,7 @@ final class AppState {
         calibrationSession.calibration.qPixelSize = estimate.invAngstromPerPixel
         calibrationSession.calibration.qPixelUnits = "Å⁻¹"
         calibrationSession.provenance.qScale = .measuredInApp
-        invalidateACOMResult()
+        acomSession.invalidateResult()
         parallaxPreprocess = nil
         parallaxAlignment = nil
         var status = String(
@@ -5303,7 +5187,7 @@ final class AppState {
     /// Build the orientation-plan template library for the selected crystal.
     func generateOrientationPlan() async {
         guard descriptor != nil else { return }
-        let templateCount = acomQuality.templateCount
+        let templateCount = acomSession.quality.templateCount
         let cancellation = beginCancellableOperation(
             "Orientation plan", status: "Generating orientation plan…",
             totalUnits: templateCount
@@ -5348,8 +5232,8 @@ final class AppState {
             presentComputeFailure(SimpleError("Could not generate an orientation plan."))
             return
         }
-        orientationPlan = plan
-        hasOrientationPlan = true
+        acomSession.orientationPlan = plan
+        acomSession.hasOrientationPlan = true
         statusText = "Orientation plan ✓  \(plan.count) templates (\(model.displayName))"
     }
 
@@ -5375,14 +5259,14 @@ final class AppState {
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
         }
-        if orientationPlan == nil { await generateOrientationPlan() }
-        guard let plan = orientationPlan else {
+        if acomSession.orientationPlan == nil { await generateOrientationPlan() }
+        guard let plan = acomSession.orientationPlan else {
             return .failed("No orientation plan could be generated")
         }
 
         let selection = acomScanSelection
-        let scope = acomScope
-        let quality = acomQuality
+        let scope = acomSession.scope
+        let quality = acomSession.quality
         let workCount = selection.positionCount(
             width: descriptor.rx, height: descriptor.ry
         )
@@ -5436,7 +5320,7 @@ final class AppState {
         }.value
         guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
-            acomLastEndToEndDuration = Date().timeIntervalSince(actionStarted)
+            acomSession.lastEndToEndDuration = Date().timeIntervalSince(actionStarted)
             statusText = "ACOM matching cancelled"
             return .cancelled
         }
@@ -5449,8 +5333,8 @@ final class AppState {
             statusText = "Discarded ACOM result because its material or Q scale changed"
             return .failed("Discarded ACOM result because its material or Q scale changed")
         }
-        orientationMap = map
-        hasOrientationMap = true
+        acomSession.orientationMap = map
+        acomSession.hasOrientationMap = true
         // Recipe step (v2 S5). Everything from the CAPTURED run semantics,
         // nothing from live state: the first version recorded the exploratory
         // slider even when the run matched at the calibrated physical scale —
@@ -5465,16 +5349,16 @@ final class AppState {
                              model: model, scale: scale, backend: map.matchingBackend.rawValue,
                              scope: scope, quality: quality),
                          replaying: replaying)
-        acomLastRunScope = scope
-        acomLastRunQuality = quality
-        acomLastRunSemantics = runSemantics
-        acomLastMatchedPositionCount = workCount
+        acomSession.lastRunScope = scope
+        acomSession.lastRunQuality = quality
+        acomSession.lastRunSemantics = runSemantics
+        acomSession.lastMatchedPositionCount = workCount
         let elapsed = max(Date().timeIntervalSince(actionStarted), 0.001)
-        acomLastEndToEndDuration = elapsed
-        acomLastPositionsPerSecond = Double(workCount) / elapsed
+        acomSession.lastEndToEndDuration = elapsed
+        acomSession.lastPositionsPerSecond = Double(workCount) / elapsed
         acomLastMeasuredTemplateCount = plan.count
         acomLastMeasuredBackend = map.matchingBackend
-        acomRegionSelectionActive = false
+        acomSession.regionSelectionActive = false
         promoteIPFZDisplayIfDefault(for: map)
         applyACOMDisplay()
         statusText = String(
@@ -5487,18 +5371,18 @@ final class AppState {
         // the full map, so the scope — and with it the header's primary
         // action — advances to it. The segmented control shows the change,
         // and the user can step back to Preview at any time.
-        if scope == .preview { acomScope = .fullScan }
+        if scope == .preview { acomSession.scope = .fullScan }
         return .published
     }
 
     /// The one publish site for every ACOM display mode: pixels, label,
     /// validity and quality fields chosen together (v2.5 step 3e, condition 2).
     private func applyACOMDisplay() {
-        guard let map = orientationMap, navigation.analysisMode == .acom else { return }
+        guard let map = acomSession.orientationMap, navigation.analysisMode == .acom else { return }
         resultColormap = .viridis
         let payload: ProductPayload
         let baseKind: String
-        switch acomDisplay {
+        switch acomSession.display {
         case .ipfZ:           payload = .rgba(map.ipfZImage(maskingReliabilityBelow: acomEffectiveReliabilityThreshold)); baseKind = "acom_ipf_z"
         case .reliability:    payload = .scalar(map.reliabilityImage);            baseKind = "acom_reliability"
         case .disorientation: payload = .scalar(map.symmetryDisorientationImage); baseKind = "acom_\(map.symmetry.rawValue)_fz_angle"
@@ -5510,7 +5394,7 @@ final class AppState {
         }
         // All three scopes are named, including full scan: a product whose
         // label said least about how it was made was the most complete one.
-        let scope = acomLastRunScope ?? .fullScan
+        let scope = acomSession.lastRunScope ?? .fullScan
         let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
         // The gate travels with the product: threshold and the fraction it keeps.
         var gateProvenance: [String: String] = [:]
@@ -5521,8 +5405,8 @@ final class AppState {
         }
         publishProduct(
             kind: "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))",
-            displayName: "ACOM \(scope.rawValue.lowercased()) · \(acomDisplay.rawValue)",
-            valueUnits: angular.contains(acomDisplay) ? "rad" : "dimensionless",
+            displayName: "ACOM \(scope.rawValue.lowercased()) · \(acomSession.display.rawValue)",
+            valueUnits: angular.contains(acomSession.display) ? "rad" : "dimensionless",
             payload: payload,
             validityMask: map.results.map { $0.templateIndex >= 0 },
             qualityFields: [
@@ -5587,7 +5471,7 @@ final class AppState {
     var acomFitOverlay: FitOverlays.TemplateOverlay? {
         guard showFitOverlay, navigation.analysisMode == .acom,
               patternShowsSelectedPosition,
-              let plan = orientationPlan, let map = orientationMap,
+              let plan = acomSession.orientationPlan, let map = acomSession.orientationMap,
               let d = descriptor, map.width == d.rx, map.height == d.ry,
               selectedScan.x >= 0, selectedScan.x < map.width,
               selectedScan.y >= 0, selectedScan.y < map.height,
@@ -5651,7 +5535,7 @@ final class AppState {
         guard descriptor != nil else { return false }
         switch navigation.analysisMode {
         case .strain: return strain.map != nil
-        case .acom: return hasOrientationMap
+        case .acom: return acomSession.hasOrientationMap
         default:
             return navigation.workspaceArea == .prepare
                 && (calibrationSession.calibration.hasFittedOrigin || calibrationSession.calibration.hasEllipse)

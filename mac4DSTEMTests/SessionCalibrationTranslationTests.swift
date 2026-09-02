@@ -219,14 +219,14 @@ final class ReliabilityGateTests: XCTestCase {
 final class ACOMSessionForwardingTests: XCTestCase {
     func testForwardersReadAndWriteTheSession() {
         let state = AppState()
-        state.acomQuality = .fast
-        state.customZ = 6
-        state.acomReliabilityThreshold = 0.25
+        state.acomSession.quality = .fast
+        state.acomSession.customZ = 6
+        state.acomSession.reliabilityThreshold = 0.25
         XCTAssertEqual(state.acomSession.quality, .fast)
         XCTAssertEqual(state.acomSession.customZ, 6)
         XCTAssertEqual(state.acomSession.reliabilityThreshold, 0.25)
         state.acomSession.scope = .fullScan
-        XCTAssertEqual(state.acomScope, .fullScan)
+        XCTAssertEqual(state.acomSession.scope, .fullScan)
     }
 }
 

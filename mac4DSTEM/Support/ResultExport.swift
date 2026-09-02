@@ -529,7 +529,7 @@ extension AppState {
                       masked(map.localResidualPixels)),
             ]
         }
-        if let map = orientationMap, let semantics = acomLastRunSemantics {
+        if let map = acomSession.orientationMap, let semantics = acomSession.lastRunSemantics {
             let valid = map.results.map { $0.templateIndex >= 0 }
             var provenance = semantics.provenance
             provenance.merge([
@@ -603,7 +603,7 @@ extension AppState {
         let included = Set(maps.compactMap { $0.provenance["bundle"] })
         var omitted: [String] = []
         if strain.map != nil, !included.contains("strain") { omitted.append("strain") }
-        if orientationMap != nil, acomLastRunSemantics != nil,
+        if acomSession.orientationMap != nil, acomSession.lastRunSemantics != nil,
            !included.contains("orientation") {
             omitted.append("orientation")
         }
@@ -1442,11 +1442,11 @@ extension AppState {
         case .acom:
             let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
             let baseKind: String
-            switch acomDisplay {
+            switch acomSession.display {
             case .ipfZ:        baseKind = "acom_ipf_z"
             case .reliability: baseKind = "acom_reliability"
             case .disorientation:
-                baseKind = "acom_\(orientationMap?.symmetry.rawValue ?? "symmetry")_fz_angle"
+                baseKind = "acom_\(acomSession.orientationMap?.symmetry.rawValue ?? "symmetry")_fz_angle"
             case .inPlane:     baseKind = "acom_in_plane"
             case .phi1:        baseKind = "acom_phi1"
             case .Phi:         baseKind = "acom_Phi"
@@ -1459,10 +1459,10 @@ extension AppState {
             // and preview vs full-scan results were told apart by the *absence*
             // of a word — which silently matched a stale preview in the QC
             // harness and is unresolvable for a user comparing exported PNGs.
-            let scope = acomLastRunScope ?? .fullScan
+            let scope = acomSession.lastRunScope ?? .fullScan
             let kind = "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))"
-            return (kind, "ACOM \(scope.rawValue.lowercased()) · \(acomDisplay.rawValue)",
-                    angular.contains(acomDisplay) ? "rad" : "dimensionless")
+            return (kind, "ACOM \(scope.rawValue.lowercased()) · \(acomSession.display.rawValue)",
+                    angular.contains(acomSession.display) ? "rad" : "dimensionless")
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
         case .ptychography, .singleslicePtychography:
@@ -1583,18 +1583,18 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .acom, let map = orientationMap {
-            var provenance = acomLastRunSemantics?.provenance ?? [:]
+        if navigation.analysisMode == .acom, let map = acomSession.orientationMap {
+            var provenance = acomSession.lastRunSemantics?.provenance ?? [:]
             provenance.merge([
                 "analysis_mode": navigation.analysisMode.rawValue,
-                "source_product": "acom_\(acomDisplay.rawValue)",
+                "source_product": "acom_\(acomSession.display.rawValue)",
                 "crystal_symmetry": map.symmetry.rawValue,
                 "matching_backend": map.matchingBackend.rawValue,
                 "template_count": String(map.templateCount),
-                "quality": (acomLastRunQuality ?? acomQuality).rawValue,
-                "run_scope": (acomLastRunScope ?? .fullScan).resultQualifier,
+                "quality": (acomSession.lastRunQuality ?? acomSession.quality).rawValue,
+                "run_scope": (acomSession.lastRunScope ?? .fullScan).resultQualifier,
                 "matched_position_count": String(
-                    acomLastMatchedPositionCount ?? map.width * map.height
+                    acomSession.lastMatchedPositionCount ?? map.width * map.height
                 ),
                 "friedel_angle_period_degrees": "180",
             ], uniquingKeysWith: { _, new in new })

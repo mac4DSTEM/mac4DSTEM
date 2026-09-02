@@ -431,7 +431,7 @@ struct StemImageView: View {
                         // before that change working on reopen.
                         if qualityField == nil, app.displayedResultKind.contains("ipf_z") {
                             Group {
-                                if app.orientationMap?.symmetry == .hexagonal {
+                                if app.acomSession.orientationMap?.symmetry == .hexagonal {
                                     HexagonalIPFLegendView()
                                 } else {
                                     CubicIPFLegendView()

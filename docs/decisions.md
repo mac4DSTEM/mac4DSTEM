@@ -91,6 +91,16 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
+`applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
+outside their own state; a session that ran them would need that surface
+injected as a host protocol, which moves the coupling rather than removing
+it. So `ACOMSession` owns the state, the plan and map, and their
+invalidation, and hands the effects that need the window to `AppState`
+through hooks (`StrainProduct`'s seam); the runs stay where the operation
+center, replay recording and product publishing are. Revisit as one run
+layer for every family, not per family — unscheduled.
+
 **2026-09-02 — Results is three columns (7c slice 1).** The saved-product
 chooser moved from a third column inside the Results detail pane to
 `ResultsSidebar`; the pane shows the product and the A/B comparison, and

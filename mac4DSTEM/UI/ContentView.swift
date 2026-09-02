@@ -646,7 +646,7 @@ struct ContentView: View {
         switch mode {
         case .disks: appState.hasCurrentBraggVectors
         case .strain: appState.strain.map != nil
-        case .acom: appState.hasOrientationMap
+        case .acom: appState.acomSession.hasOrientationMap
         // R25 (owner, 2026-09-01): virtual imaging and DPC share the single
         // scalar result slot, so "has produced" is read from the recipe
         // record — it survives the slot being replaced and resets with the

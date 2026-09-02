@@ -68,11 +68,11 @@ final class CIFImportAppStateTests: XCTestCase {
         state.importCrystalModel(from: url)
 
         XCTAssertNil(state.errorMessage, "a valid CIF must not raise the modal error")
-        XCTAssertEqual(state.importedCrystalModels.count, 1)
-        let imported = try XCTUnwrap(state.importedCrystalModels.first)
+        XCTAssertEqual(state.acomSession.importedCrystalModels.count, 1)
+        let imported = try XCTUnwrap(state.acomSession.importedCrystalModels.first)
         XCTAssertEqual(imported.source, .imported)
         XCTAssertEqual(imported.symmetry, .cubic)
-        XCTAssertEqual(state.acomModelSelection, .imported(imported.id),
+        XCTAssertEqual(state.acomSession.modelSelection, .imported(imported.id),
                         "a successful import must select the model, not just add it")
 
         let resolved = try XCTUnwrap(state.resolvedACOMModel)
@@ -88,11 +88,11 @@ final class CIFImportAppStateTests: XCTestCase {
         let state = AppState()
         let firstURL = try writeTempCIF(goldCIF, named: "gold")
         state.importCrystalModel(from: firstURL)
-        XCTAssertEqual(state.importedCrystalModels.count, 1)
+        XCTAssertEqual(state.acomSession.importedCrystalModels.count, 1)
 
         let secondURL = try writeTempCIF(goldCIF, named: "gold")
         state.importCrystalModel(from: secondURL)
-        XCTAssertEqual(state.importedCrystalModels.count, 1,
+        XCTAssertEqual(state.acomSession.importedCrystalModels.count, 1,
                         "importing the same file base name again must replace, not duplicate")
     }
 
@@ -104,9 +104,9 @@ final class CIFImportAppStateTests: XCTestCase {
 
         state.importCrystalModel(from: url)
 
-        XCTAssertTrue(state.importedCrystalModels.isEmpty,
+        XCTAssertTrue(state.acomSession.importedCrystalModels.isEmpty,
                        "a rejected import must not be added to the picker")
-        XCTAssertEqual(state.acomModelSelection, .none,
+        XCTAssertEqual(state.acomSession.modelSelection, .none,
                         "a failed import must not change the current selection")
         let message = try XCTUnwrap(state.errorMessage,
             "a bad CIF is a file-open failure, which uses the modal path (present), not the status-bar-only compute-failure path")
@@ -123,7 +123,7 @@ final class CIFImportAppStateTests: XCTestCase {
         state.importCrystalModel(from: missing)
 
         XCTAssertNotNil(state.errorMessage)
-        XCTAssertTrue(state.importedCrystalModels.isEmpty)
+        XCTAssertTrue(state.acomSession.importedCrystalModels.isEmpty)
     }
 
     // MARK: - Reopen behaviour: never a silent fallback to a different model
@@ -139,14 +139,14 @@ final class CIFImportAppStateTests: XCTestCase {
         let state = AppState()
         let url = try writeTempCIF(goldCIF, named: "gold")
         state.importCrystalModel(from: url)
-        XCTAssertNotEqual(state.acomModelSelection, .none)
+        XCTAssertNotEqual(state.acomSession.modelSelection, .none)
 
         // Simulate a reopen: activating a (demo) dataset is the same code
         // path `openFile`/`openRecent` use for both a first open and a
         // recovery-driven reopen after relaunch.
         await state.openDemoFixture()
 
-        XCTAssertEqual(state.acomModelSelection, .none,
+        XCTAssertEqual(state.acomSession.modelSelection, .none,
                         "reopening must never silently keep computing with a stale imported model")
         XCTAssertNil(state.resolvedACOMModel)
     }
@@ -158,7 +158,7 @@ final class CIFImportAppStateTests: XCTestCase {
     /// different phase model.
     func testSelectionReferencingAMissingImportedModelExplicitlyReportsRatherThanFallingBackSilently() {
         let state = AppState()
-        state.acomModelSelection = .imported("imported_does_not_exist")
+        state.acomSession.modelSelection = .imported("imported_does_not_exist")
 
         XCTAssertNil(state.resolvedACOMModel)
         let issue = state.acomModelSelectionIssue

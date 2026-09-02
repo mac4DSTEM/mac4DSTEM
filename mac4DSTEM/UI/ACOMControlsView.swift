@@ -24,17 +24,17 @@ struct ACOMControlsView: View {
     }
 
     var body: some View {
-        @Bindable var appState = appState
+        @Bindable var session = appState.acomSession
         Section("ACOM (orientation)") {
-            Picker("Phase model", selection: $appState.acomModelSelection) {
+            Picker("Phase model", selection: $session.modelSelection) {
                 Text("Choose phase…").tag(CrystalModelSelection.none)
                 ForEach(CrystalModelLibrary.models) { model in
                     Text(model.displayName).tag(CrystalModelSelection.library(model.id))
                 }
                 Text("Custom cubic…").tag(CrystalModelSelection.customCubic)
-                if !appState.importedCrystalModels.isEmpty {
+                if !appState.acomSession.importedCrystalModels.isEmpty {
                     Divider()
-                    ForEach(appState.importedCrystalModels) { model in
+                    ForEach(appState.acomSession.importedCrystalModels) { model in
                         // "Imported" prefix visually distinguishes a
                         // user-supplied CIF from the vetted built-in library.
                         Text("Imported: \(model.displayName)")
@@ -83,16 +83,16 @@ struct ACOMControlsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if appState.acomModelSelection == .customCubic {
+            if appState.acomSession.modelSelection == .customCubic {
                 customCrystalEditor(appState: appState)
             }
 
-            Picker("Quality", selection: $appState.acomQuality) {
+            Picker("Quality", selection: $session.quality) {
                 ForEach(ACOMQualityPreset.allCases) { quality in
                     Text(quality.rawValue).tag(quality)
                 }
             }
-            Text(appState.acomQuality.detail)
+            Text(appState.acomSession.quality.detail)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 // S22d: wrap, never truncate (see SidebarTextWidth.swift).
@@ -108,7 +108,7 @@ struct ACOMControlsView: View {
                 .accessibilityIdentifier("acom.expected")
             if let suggestion = appState.acomFullScanSuggestion {
                 Button(suggestion) {
-                    appState.acomScope = .fullScan
+                    appState.acomSession.scope = .fullScan
                 }
                 .font(.caption)
                 .disabled(appState.isBusy)
@@ -127,13 +127,13 @@ struct ACOMControlsView: View {
 
     @ViewBuilder
     private func customCrystalEditor(appState: AppState) -> some View {
-        @Bindable var appState = appState
-        Picker("Element", selection: $appState.customZ) {
+        @Bindable var session = appState.acomSession
+        Picker("Element", selection: $session.customZ) {
             ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
                 Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
             }
         }
-        Picker("Structure", selection: $appState.customStructure) {
+        Picker("Structure", selection: $session.customStructure) {
             ForEach(Crystal.CubicStructure.allCases) { structure in
                 Text(structure.rawValue).tag(structure)
             }
@@ -141,7 +141,7 @@ struct ACOMControlsView: View {
         HStack {
             Text("a (Å)").font(.caption)
             TextField(
-                "a", value: $appState.customLatticeA,
+                "a", value: $session.customLatticeA,
                 format: .number.precision(.fractionLength(0...4))
             )
             .textFieldStyle(.roundedBorder)
@@ -154,8 +154,8 @@ struct ACOMControlsView: View {
 
     @ViewBuilder
     private func scopeControls(appState: AppState) -> some View {
-        @Bindable var appState = appState
-        Picker("Area", selection: $appState.acomScope) {
+        @Bindable var session = appState.acomSession
+        Picker("Area", selection: $session.scope) {
             ForEach(ACOMRunScope.allCases) { scope in
                 Text(scope.rawValue).tag(scope)
             }
@@ -163,7 +163,7 @@ struct ACOMControlsView: View {
         .pickerStyle(.segmented)
         .accessibilityIdentifier("acom.scope")
 
-        if appState.acomScope == .selectedRegion, let descriptor = appState.descriptor {
+        if appState.acomSession.scope == .selectedRegion, let descriptor = appState.descriptor {
             Stepper(
                 "Center X  \(appState.selectedScan.x)",
                 value: Binding(
@@ -181,14 +181,14 @@ struct ACOMControlsView: View {
                 in: 0...max(0, descriptor.ry - 1)
             )
             Stepper(
-                "Half-size  \(appState.acomRegionRadius) px",
-                value: $appState.acomRegionRadius,
+                "Half-size  \(appState.acomSession.regionRadius) px",
+                value: $session.regionRadius,
                 in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
             )
             Text("The orange square is matched at full spatial resolution.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-        } else if appState.acomScope == .preview {
+        } else if appState.acomSession.scope == .preview {
             Text("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -197,15 +197,15 @@ struct ACOMControlsView: View {
 
     @ViewBuilder
     private func engineControls(appState: AppState) -> some View {
-        @Bindable var appState = appState
-        Picker("Engine", selection: $appState.acomBackend) {
+        @Bindable var session = appState.acomSession
+        Picker("Engine", selection: $session.backend) {
             ForEach(ACOMMatchingBackend.allCases) { backend in
                 Text(backend.rawValue).tag(backend)
             }
         }
         LabeledContent("Will use", value: appState.effectiveACOMBackend.rawValue)
             .font(.caption)
-        if appState.acomBackend == .automatic {
+        if appState.acomSession.backend == .automatic {
             Text("Automatic currently uses the real-data-verified Accelerate CPU backend.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -214,7 +214,7 @@ struct ACOMControlsView: View {
 
     @ViewBuilder
     private func qScaleControls(appState: AppState) -> some View {
-        @Bindable var appState = appState
+        @Bindable var session = appState.acomSession
         let semantics = appState.acomScaleSemantics
         LabeledContent("Interpretation", value: appState.acomInterpretationLabel)
             .font(.caption.weight(.medium))
@@ -248,16 +248,16 @@ struct ACOMControlsView: View {
 
         if !semantics.provenance.isPhysical {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Exploratory scale  \(appState.acomExploratoryScale, specifier: "%.4f") Å⁻¹/px")
+                Text("Exploratory scale  \(appState.acomSession.exploratoryScale, specifier: "%.4f") Å⁻¹/px")
                     .font(.caption)
-                Slider(value: $appState.acomExploratoryScale, in: 0.001...0.05)
+                Slider(value: $session.exploratoryScale, in: 0.001...0.05)
                 Text("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }
         }
 
-        if appState.hasOrientationPlan, let plan = appState.orientationPlan {
+        if appState.acomSession.hasOrientationPlan, let plan = appState.acomSession.orientationPlan {
             LabeledContent("Cached plan", value: "\(plan.count) templates")
                 .font(.caption)
         }
@@ -276,9 +276,8 @@ struct ACOMControlsView: View {
 
     @ViewBuilder
     private func resultControls(appState: AppState) -> some View {
-        @Bindable var appState = appState
-        if appState.hasOrientationMap {
-            if let semantics = appState.acomLastRunSemantics {
+        if appState.acomSession.hasOrientationMap {
+            if let semantics = appState.acomSession.lastRunSemantics {
                 Label(
                     semantics.scale.provenance.isPhysical
                         ? "Physical ACOM result" : "Exploratory ACOM result",
@@ -294,7 +293,7 @@ struct ACOMControlsView: View {
             // an explicit choice here is recorded and a later completed map
             // never silently promotes IPF·Z over it.
             Picker("Display", selection: Binding(
-                get: { appState.acomDisplay },
+                get: { appState.acomSession.display },
                 set: { appState.selectACOMDisplay($0) }
             )) {
                 ForEach(ACOMDisplayMode.allCases) { mode in
@@ -314,7 +313,7 @@ struct ACOMControlsView: View {
             // legend belongs with the pixels it decodes.
             if let text = appState.selectedEulerText {
                 LabeledContent(
-                    "\(appState.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
+                    "\(appState.acomSession.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
                     value: text
                 )
                 .font(.caption.monospacedDigit())

@@ -74,12 +74,12 @@ struct ColormapChipMenu<Chip: View>: View {
                 )
             }
             if pane == .result, appState.navigation.analysisMode == .acom,
-               appState.acomDisplay == .ipfZ, appState.orientationMap != nil {
+               appState.acomSession.display == .ipfZ, appState.acomSession.orientationMap != nil {
                 // v2.5 step 7 (plan §3 item 2): the IPF map's confidence gate
                 // lives with the map's colours. Nil = automatic (10th percentile).
                 Divider()
                 let effective = appState.acomEffectiveReliabilityThreshold ?? 0
-                let kept = appState.orientationMap?
+                let kept = appState.acomSession.orientationMap?
                     .fractionOfMatchedPositions(withReliabilityAtLeast: effective)
                 HStack {
                     Text("Confidence gate").font(.caption.weight(.semibold))
@@ -89,7 +89,7 @@ struct ColormapChipMenu<Chip: View>: View {
                 Slider(
                     value: Binding(
                         get: { Double(effective) },
-                        set: { appState.acomReliabilityThreshold = Float($0) }),
+                        set: { appState.acomSession.reliabilityThreshold = Float($0) }),
                     in: 0...1)
                     .accessibilityLabel("Reliability threshold")
                     .accessibilityIdentifier("pane.acom.reliabilityThreshold")
@@ -99,8 +99,8 @@ struct ColormapChipMenu<Chip: View>: View {
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    if appState.acomReliabilityThreshold != nil {
-                        Button("Automatic") { appState.acomReliabilityThreshold = nil }
+                    if appState.acomSession.reliabilityThreshold != nil {
+                        Button("Automatic") { appState.acomSession.reliabilityThreshold = nil }
                             .font(.caption2)
                     }
                 }

@@ -53,7 +53,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
         XCTAssertNil(state.calibrationSession.calibration.qPixelSize,
                      "The uncalibrated demo must not arrive with a Q pixel size")
 
-        state.acomModelSelection = .library("au_fcc")
+        state.acomSession.modelSelection = .library("au_fcc")
         XCTAssertNotNil(state.resolvedACOMModel, "Gold phase model did not resolve")
         return state
     }
