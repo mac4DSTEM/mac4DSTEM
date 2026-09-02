@@ -149,8 +149,7 @@ Gate B refuter that materially corrected its author** (records:
 the honest radius + stricter origin gate, scan navigation without the redundant
 sliders); **F1.51 (permanent colormaps) was scored PARTLY the same evening** —
 visible and working, refused on the redundant colormap submenu. **The UI pair
-is DONE 2026-09-01 but HELD uncommitted** (owner decision — he will not finish
-Track B in the current UI state), and his evening playthrough opened S22's
+landed 2026-09-01** (committed with S22 as `975de2e`), and his evening playthrough opened S22's
 evidence with a "not a good v2" verdict (seven findings, one of them science:
 bullseye disk detection, Gate D owed). **Decided the same evening: S22 moves
 ahead of the remaining fix queue.** The design ran, the owner approved it
@@ -192,9 +191,7 @@ mode, flat auto-advancing reconstruction stages, ACOM preview advancing to
 the full run, produced-state circles for virtual/DPC, linear-default
 histograms, and a stateful Phase requirements line. **27 owner findings
 R1–R27 total, 24 fixed and gated** (`docs/s22-ux-design.md` §5.5 is the
-ledger; its HANDOFF block in §6 is the open queue, and **§6.1 carries the
-owner-requested copy-paste kickoff prompts for the FFT speedup session and
-the colormap-chip fix** — R23 is **FIXED AND VERIFIED ON SCREEN 2026-09-02** — the popover rebuild
+ledger; its HANDOFF block in §6 is the open queue — R23 is **FIXED AND VERIFIED ON SCREEN 2026-09-02** — the popover rebuild
 was right; `ScalarColorbarView`'s `allowsHitTesting(false)` made the chip
 button unclickable, moved to its one plain use site; both colormaps change). Last full suite:
 **429 passed / 0 failed / 2 skipped, 2026-09-02** on the FFT tree (the S22

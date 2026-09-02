@@ -930,8 +930,8 @@ only if asked.
   the hand-rolled fixed-width right panel. The owner DECIDED the same
   evening (open-items decisions 7–8): S22 moves ahead of the remaining fix
   queue — design phase next (assistant-only, no app code), the UI-pair work
-  held uncommitted, the owner's Track B sittings paused until S22's fixes
-  land, one final owner playthrough + report after. **The design ran that
+  held until S22 landed (both in `975de2e`), one final owner playthrough +
+  report after. **The design ran that
   evening: [`docs/s22-ux-design.md`](s22-ux-design.md) is the single S22
   thread — evidence, design, slice plan, status. No S22 material grows
   anywhere else.** **2026-09-02: the two items S22 handed on are DONE** —
@@ -939,7 +939,7 @@ only if asked.
   All Disks 14 m 09 s → <15 s Release, same peaks) and R23 (chip
   unclickable through `allowsHitTesting(false)`, verified on screen).
   Deviation: neither pad-to-256 nor a vDSP plan — an exact transform, no
-  DEVIATION note needed. Still uncommitted; F1.53 remains the owner's row.
+  DEVIATION note needed. Committed as `21f3990` and pushed; F1.53 remains the owner's row.
 
 - [ ] **TB2** *(TB1 sittings 2–4 remain owed and are
   postponed by the owner, 2026-08-31; drive kit in the 2026-08-31 session.

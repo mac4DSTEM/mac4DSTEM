@@ -9,9 +9,9 @@ losing the thread, we need to do better and not clutter this repo.")
 **Mandate (owner, 2026-09-01):** go as deep as needed, the workflow spine
 included. Look at what py4DSTEM and abTEM do — there is a known pattern users
 should find in this app — but don't copy: find our own flavor. Keep the
-mission: a good user experience AND a good scientific backbone. The UI-pair
-work is held uncommitted and the owner's Track B sittings are paused until
-S22's fixes land; one final owner playthrough after.
+mission: a good user experience AND a good scientific backbone. S22 and the
+UI pair are committed (`975de2e`; FFT + R23 in `21f3990`); one final owner
+playthrough (F1.53) remains.
 
 **Method:** design on paper first, owner approves before SwiftUI is rewritten.
 Evidence gathered by low-tier subagents (v1 tag archaeology, v2 inventory,
@@ -361,7 +361,7 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
   refuted** (pure CPU, no allocator/memory stalls). **The S22-regression
   claim is refuted too:** `git diff HEAD` shows `DiskDetection.swift`,
   `TiledDiskDetection.swift` and `FFT2D.swift` untouched by the entire
-  uncommitted tree — the mechanism predates S22; a 250×250 detector just
+  then-uncommitted tree — the mechanism predates S22; a 250×250 detector just
   makes it ~4× heavier than the small cubes where it passed unnoticed.
   **Second finding, recorded for its own gated session:** the CPU-FFT hot
   path is dominated by per-element `sin`/`cos` — a large speedup is
@@ -606,7 +606,7 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
   R22→the FFT session, R11→P2 done + the provenance-leak share).
 - 2026-09-01 late — **FFT speedup session, IMPLEMENTED AND SELF-GATED** (Gate B
   and the suites landed the next sitting — see the 2026-09-02 entry below).
-  Tree still uncommitted (owner decision). What landed, each with its evidence:
+  Tree was still uncommitted at the time (owner decision). What landed, each with its evidence:
   - **`Core/Compute/FFT2D.swift`: the O(N²) scalar `executeDFT` fallback is
     GONE; an exact Bluestein (chirp-z) plan takes every axis length vDSP
     cannot serve** (no radix-2 setup, no radix-3/5 plan, no `vDSP_DFT`
@@ -754,93 +754,5 @@ Every item below is mapped to its screenshot, classified, and dispositioned.
   at the 250pt sidebar minimum, Strain & ACOM needs ~25pt of scroll.
   (7) ~~R23 colormap chips~~ **DONE 2026-09-02** — hit-testing, not the
   popover; verified on screen (entry above).
-  Everything uncommitted on the held UI-pair tree by owner decision.
+  Everything was uncommitted on the held UI-pair tree at the time, by owner decision.
 
-### 6.1 Kickoff prompts for the next agents (owner-requested, 2026-09-01)
-
-**FFT speedup session — copy-paste into a fresh agent:**
-
-> Take the gated FFT speedup session from `docs/s22-ux-design.md` §6
-> HANDOFF item 1 (read that file's §5.5 P1 block first — it is the Gate D
-> record). Context: profiling Detect All Disks on
-> `References/training_dataset/calibrationData_circularProbe.h5` (250×250
-> detector) showed the CPU path in `FFT2D.swift`'s `executeDFT` O(n²)
-> fallback with per-element `__sincosf_stret`, because 250 is not a
-> supported `vDSP_DFT` length (refuter-verified; `FFT2D.swift:425`, hot
-> call sites :191/:218). Wall clock was ~14 min / 8,400 patterns on a
-> Debug build. The threading half is already fixed (detection runs
-> detached; progress and Cancel are live) — this session is ONLY speed.
-> Scope: make full-scan detection fast for arbitrary detector lengths.
-> Recorded options: (a) zero-pad each axis to a supported length (e.g.
-> 256) through the existing Metal FFT path in `MetalEngine`; (b) a
-> supported-length `vDSP_DFT` plan with padding; (c) cached-twiddle radix
-> FFT on CPU. Padding CHANGES CORRELATION INPUTS — this is science:
-> **Gate B adversarial review is mandatory,
-> `tools/disk-correlation-parity` and `tools/disk-detection-test` must
-> stay green, and if the parity fixture has no non-supported-length case,
-> add a 250-px one.** Any numeric deviation from py4DSTEM gets an inline
-> `DEVIATION` note plus fixture evidence — never trade peak positions for
-> speed silently. Ride-alongs in the same files: per-PATTERN progress
-> ticks in `TiledDiskDetection` (currently per-tile, so the bar steps
-> ~8 % at a time), and the P2 refuter residual — a unit test pinning
-> `CalibrationReReference`'s recordedOriginX/Y crop/bin mapping.
-> Afterwards: one Release-build before/after timing on the same cube,
-> recorded in §6. House rules: break every new test before trusting it;
-> independent refuter before landing; the tree stays UNCOMMITTED (owner
-> decision); `tools/run-tests.sh` may refuse exit-69 at this Mac's disk
-> floor — the warm `test_macos` MCP run is the recorded fallback.
-
-**FFT session — FINISH Gate B and close (copy-paste into a fresh agent):**
-
-> Finish the FFT speedup session: read `docs/s22-ux-design.md` §6 (the
-> 2026-09-01 "FFT speedup session, IMPLEMENTED AND SELF-GATED" entry) and
-> §5.5 P1. The tree is UNCOMMITTED by owner decision; `git diff --stat`
-> shows the eight touched files plus two new ones
-> (`mac4DSTEMTests/FFT2DArbitraryLengthTests.swift`,
-> `tools/disk-correlation-parity/baseline-250.json`). Do NOT re-implement:
-> the Bluestein path in `Core/Compute/FFT2D.swift` is done and self-gated.
-> Owed, in order: (1) **Gate B** — spawn an independent refuter per
-> `.claude/skills/adversarial-review`; make pristine `cp` copies of every
-> file it may mutate FIRST and forbid `git checkout/restore/stash`. Brief it
-> to refute: the chirp-z math (sign/conjugate/filter symmetry/M ≥ 2N−1/
-> unnormalized inverse) against numpy `fft.fft2` on the SAME input (python
-> with numpy resolves via `tools/lib/python.sh`); the re-pin justification
-> for `baseline-250.json` (is the scalar path really the less accurate
-> one?); thread safety of the shared plan; the progress coalescer; and the
-> one question that pays — "what transformation of FFT2D leaves every check
-> green while producing wrong science?" — with its candidates ACTUALLY run
-> (e.g. padded length 2N−2, conj on the wrong operand of `vDSP_zvmul`, the
-> filter's `sign` flipped for one direction only, scaling by 1/N instead of
-> 1/M). Verify at handback that files are `cmp`-identical to the copies.
-> (2) Full unit suite (warm `test_macos` MCP run — `run-tests.sh unit`
-> refuses exit-69 at this Mac's ~7 GB disk floor) and
-> `tools/run-tests.sh scientific`. (3) **On-cube Release timing**: build
-> Release, open `References/training_dataset/calibrationData_circularProbe.h5`,
-> Bragg → Generate Probe Kernel → Detect All Disks, record wall-clock and
-> that progress paints continuously; the pre-fix number is 14 m 09 s
-> (Debug). DRIVING.md is binding — assert frontmost before every click,
-> never while the owner is using the machine (check `ioreg` HIDIdleTime).
-> (4) Record the closeout in §6 and re-run `tools/sync-agents-md.sh` if
-> CLAUDE.md changes. Break any new test before trusting it.
-
-**Colormap-chip verification/fix — DONE 2026-09-02 (kept for the record;
-do not re-run):**
-
-> Fix the pane colormap control — R23 in `docs/s22-ux-design.md` §5.5,
-> **CONFIRMED BROKEN on screen by the owner after a rebuild (2026-09-01
-> 22:20), and severity is high: the sidebar Display row was retired with
-> D3, so NO working colormap control exists in the app until this is
-> fixed.** History: build 1 used the colorbar chip as a `Menu` label and
-> AppKit dropped the `Canvas` gradient; build 2
-> (`UI/ColormapChipMenu.swift`, plain Button + SwiftUI `.popover`) gated
-> green but the owner reports the chips still not working after ⌘R —
-> diagnose LIVE first (build, launch, screenshot both panes: does the
-> chip render its gradient/min/max/units at all? does clicking open the
-> popover?), and get the exact failure before choosing the fix. The
-> recorded fallback design is a visible swatch strip beside the chip;
-> whatever ships must let the user change BOTH colormaps (diffraction +
-> result) plus the diffraction Log display and Q-units, and F1.53 checks
-> (3) and (15) score it. Rules: Gate A with screenshots;
-> `.claude/skills/track-b/DRIVING.md` is binding — assert frontmost
-> before every synthetic click and NEVER drive while the owner is using
-> the machine (that mistake is on record).

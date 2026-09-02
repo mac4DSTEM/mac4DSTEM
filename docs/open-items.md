@@ -85,9 +85,8 @@ Taken in conversation with the release owner; they resolve
    owner explicitly each time.
 7. **S22 pulled forward — decided 2026-09-01 evening, overturning the ship
    plan's "No S22".** The owner's playthrough verdict ("this is not a good
-   v2") blocks his own testing: **the UI-pair work is HELD uncommitted and
-   the owner's Track B sittings are PAUSED until S22's fixes land** — he
-   will do one final playthrough + report after. **The design phase RAN the
+   v2") blocks his own testing: the UI-pair work and S22 landed together (`975de2e`); the owner's
+   Track B sittings resume with one final playthrough + report (F1.53). **The design phase RAN the
    same evening** — [`docs/s22-ux-design.md`](s22-ux-design.md) is the
    single S22 thread (evidence, design, slice plan, status; owner approval
    pending, blocks all S22 code) — then S22 implementation slices, then the
@@ -109,7 +108,7 @@ Gate B ran, verdict stand-with-corrections, all four corrections applied;
 [record](archive/v2-session-records/cif-pair.md)**) → probe-radius
 (**DONE 2026-09-01 — Gate D confirmed, fixed, Gate B stand-with-corrections
 all applied** — [record](archive/v2-session-records/probe-radius.md)) →
-UI pair (**DONE 2026-09-01, held uncommitted — decision 7**) →
+UI pair (**DONE 2026-09-01, committed `975de2e`**) →
 **S22 design phase (NEXT)** → S22 implementation slices → provenance leak →
 remaining Group A → owner runs (clean account, bounded promote) → the owner's
 final playthrough (Track B finish) → S20. The 036 view-vs-full
@@ -338,7 +337,7 @@ Two things learned that are not obvious and cost time:
 
 ### Owner playthrough — 2026-09-01 second sitting (S22's evidence starts arriving)
 
-The owner drove the current Xcode build (the uncommitted UI-pair tree)
+The owner drove the current Xcode build (the UI-pair tree, since committed as `975de2e`)
 ~15:56–16:10 across `calibrationData_bullseyeProbe.h5`, `NP_data.h5`,
 `twisted_bilayer_graphene.hdf5` and `COPL_Ni65Cu35_…bin_4_20240912.h5`, and
 sent seven screenshots. Nothing under `mac4DSTEM/` changed — eval-only. The
@@ -404,9 +403,8 @@ Findings:
    wrapping versus the hand-rolled HStacks behind items 4 and 5).
 
 **Sequencing DECIDED the same evening — owner decisions 7 and 8 above:**
-S22's design phase runs next, the UI-pair work is held uncommitted, and the
-owner's Track B sittings pause until S22's fixes land; one final owner
-playthrough after. A standing token-conservation directive landed with it.
+S22's design phase ran next; the UI-pair work and S22 landed together
+(`975de2e`); one final owner playthrough (F1.53) remains. A standing token-conservation directive landed with it.
 
 ### Track B playthrough — 2026-09-01 (full record archived)
 
@@ -2097,7 +2095,7 @@ Kept because they changed outcomes, not because they are tidy:
    asserts the *decision* instead of the rendering, and says why at the call
    site so the dead end is not rediscovered.
 
-### FFT speedup + R23 — DONE 2026-09-02, uncommitted
+### FFT speedup + R23 — DONE 2026-09-02, committed `21f3990`
 
 Bluestein replaces `FFT2D`'s O(N²) fallback: Gate B passed (20 mutations; one
 real finding, a NaN-blind error metric, fixed and re-broken), unit 429/0/2,

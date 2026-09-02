@@ -93,8 +93,8 @@ reproduce**, including whichever §1 sentences step 0 narrowed.
 - ~~**No S22.**~~ **OVERTURNED by the owner, 2026-09-01 evening.** His
   playthrough verdict ("this is not a good v2") blocks his own Track B
   testing, so S22 moved ahead of the remaining fix queue — design phase first
-  (assistant-only), then bounded slices; the UI-pair work is held uncommitted
-  and the owner's sittings pause until S22 lands. Decision 7 in
+  (assistant-only), then bounded slices; the UI-pair work and S22 landed
+  together (`975de2e`); the owner's sittings resume with F1.53. Decision 7 in
   [`docs/open-items.md`](open-items.md) §Owner decisions.
 - **No Groups C/E/F.** v2.x.
 
