@@ -180,18 +180,24 @@ extension AppState {
         // invalid-display sentinel; when any exist the burned figure carries
         // a "no data" legend beside its colorbar.
         var masksNoData = false
-        if let rgba = resultRGBA {
+        // v2.5 step 3 (adapter step 3, plan §9d): the pixels come from the same
+        // product the caption below describes — `displayedProduct` — never from
+        // the raw fields, so the two halves of one export cannot disagree
+        // (they could under the ACOM region reference before this).
+        guard let product = displayedProduct else {
+            present(SimpleError("No result image to export yet."))
+            return
+        }
+        switch product.payload {
+        case .rgba(let rgba):
             source = (rgba.rgba, rgba.width, rgba.height)
-        } else if let image = resultImage {
+        case .scalar(let image):
             let norm = image.normalized(symmetric: resultColormap.isDiverging)
             masksNoData = norm.contains { $0 < 0 }
             let bytes = Self.applyColormap(norm, colormap: resultColormap,
                                            lo: displayRangeLo, hi: displayRangeHi,
                                            gamma: resultGamma)
             source = (bytes, image.width, image.height)
-        } else {
-            present(SimpleError("No result image to export yet."))
-            return
         }
         // The publication figure is "as displayed", so it applies the display
         // orientation (#17b) — and records it in the caption below, because an
