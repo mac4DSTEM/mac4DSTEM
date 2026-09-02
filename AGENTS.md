@@ -13,7 +13,8 @@ consolidation train. Rules only here; status and history live elsewhere.
 ## Read, in this order (the whole set is under 500 lines)
 
 1. `docs/status.md` — what is live now, one table. Every session starts here.
-2. `docs/v2.5-plan.md` — the consolidation plan: sequence, rules, decisions owed.
+2. `docs/v3-plan.md` — the feature plan (draft): the themes, the 2026-08-28
+   decisions, how a feature is pre-registered and built.
 3. `docs/open-items.md` — live defects and debts only, ≤ 12 lines each.
 4. `docs/development-process.md` — how work is done, gated and recorded.
 5. `docs/architecture.md` — layering, ownership, where files go.

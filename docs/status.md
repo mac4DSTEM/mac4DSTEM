@@ -13,7 +13,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
 | v2.5.0 | **next**: `main` after the owner's driving pass; project version 2.5 / build 3 | `docs/releasing.md` |
 
-## v2.5 consolidation train (`docs/v2.5-plan.md` §5)
+## v2.5 consolidation train (`docs/archive/v2/v2.5-plan.md` §5) — done
 
 | Step | State | What it left behind |
 |---|---|---|
@@ -43,9 +43,9 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 - **Start here — the train is done; what is next is the owner's call:** the
   owed science in `open-items.md` (each its own Gate D or B session, no
   release number), bugs the owner reports from driving (each through
-  `/diagnose`), the v2.5.0 build, or a run layer (`AnalysisRunner` with an
-  injected host) as the next consolidation item. `/pickup` with a named
-  target. Nothing since 7c slice 1 has been seen on screen.
+  `/diagnose`), the v2.5.0 build, a v3 feature from `docs/v3-plan.md`
+  (pre-registered first), or the run layer named there. `/pickup` with a
+  named target. Nothing since 7c slice 1 has been seen on screen.
 
 ## Owed to the owner
 

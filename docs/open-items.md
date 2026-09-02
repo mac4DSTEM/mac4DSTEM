@@ -9,7 +9,7 @@ live residual. No narrative. Closed and historical material is the verbatim
 pre-cull file,
 [`docs/archive/v2/open-items-2026-09-02.md`](archive/v2/open-items-2026-09-02.md),
 plus [`docs/archive/closed-items-2026-08.md`](archive/closed-items-2026-08.md).
-**[`docs/v2.5-plan.md`](v2.5-plan.md)** is the consolidation plan — its §3 is
+**[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md)** is the finished consolidation plan — its §3 is
 the merged UI-findings list; point there, do not duplicate. Owner decisions
 and standing directives now live in `docs/decisions.md`.
 
@@ -188,7 +188,7 @@ Investigation owed.
 **UI findings** — the merged, trust-ordered list (provenance
 inference, ACOM confidence gating, calibration-state vocabularies, unit
 labels, Phase linearity, inspector layout) lives in
-[`docs/v2.5-plan.md`](v2.5-plan.md) §3. Do not duplicate it here and do
+[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3. Do not duplicate it here and do
 not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
 
@@ -301,7 +301,7 @@ deliberate non-unification, `App/SessionGates.swift`).
 falls through to `.quantitative` for anything unrecognised, never
 consulting calibration readiness — verified escaping into exported PNG
 XMP and a self-contradicting strain-export dictionary. Same architectural
-family as v2.5-plan.md §3 item 1 (provenance is inferred, not typed);
+family as the archived v2.5 plan's §3 item 1 (provenance is inferred, not typed);
 fix is a judgement call (status consults readiness, or the badge changes
 wording). Owner: the trust-fixes/error-honesty session.
 

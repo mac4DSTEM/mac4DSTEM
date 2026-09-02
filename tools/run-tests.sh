@@ -93,7 +93,7 @@ campaign=(
   sidecar-result-test result-presentation-test
 )
 
-# Inventory — the repo's own review, run at every closeout (docs/v2.5-plan.md
+# Inventory — the repo's own review, run at every closeout (docs/v3-plan.md
 # §2 numbers). Every tools/ directory must be in exactly one list below; the
 # gated ones are `scientific` plus the two `all` extras. Diagnostic runners
 # never gate: they need machine-local data. Exits 1 on an unclassified or
@@ -129,7 +129,7 @@ inventory() {
   printf "  %-36s %7s\n" "tools/ Swift lines" "$(swift_lines "$ROOT/tools")"
   printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md)"
   printf "  %-36s %7s\n" "archive markdown lines" "$(find "$ROOT/docs/archive" -name '*.md' -exec cat {} + | wc -l | tr -d ' ')"
-  printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+plan+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/docs/v2.5-plan.md "$ROOT"/docs/open-items.md)"
+  printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+plan+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/docs/v3-plan.md "$ROOT"/docs/open-items.md)"
   echo "== app files over 800 lines"
   find "$ROOT/mac4DSTEM" -name '*.swift' -exec wc -l {} + | awk -v r="$ROOT/" '$1 > 800 && $2 != "total" { sub(r, "", $2); printf "  %6d %s\n", $1, $2 }' | sort -rn
   # Candidates only — a build is the proof. 2026-09-02: a reviewer's "no

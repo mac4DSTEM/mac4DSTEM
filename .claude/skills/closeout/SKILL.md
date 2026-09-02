@@ -42,7 +42,7 @@ Done means the repo tells the next reader the truth. In order:
    live doc claiming uncommitted work). Compare its numbers with the previous
    closeout: the cold-start set and live-markdown lines must not go up; if
    your session raised them, trim before landing. A session that adds a file
-   says why one existing home would not do (`docs/v2.5-plan.md` §7).
+   says why one existing home would not do (`CLAUDE.md` hard rules).
    **If you edited `CLAUDE.md`, run `tools/sync-agents-md.sh`** (or
    `--check`, which exits 1 when stale). `AGENTS.md` is generated from it since
    2026-08-28 — hand-maintained before that, it drifted six sessions and ended

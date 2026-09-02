@@ -3,7 +3,7 @@
 What the app is made of, how the layers depend on each other, where a new
 file goes, and where the consolidation is taking the ownership model. Product
 scope is `README.md` and `CHANGELOG.md`; live status is `status.md`; the
-sequence of the consolidation is `v2.5-plan.md`.
+sequence of the consolidation is `archive/v2/v2.5-plan.md`; the feature plan is `v3-plan.md`.
 
 ## Layers and the dependency rule
 
@@ -127,7 +127,7 @@ recovery; `ContentView` reconstructs workflow rules from it. Extracted seams
 already exist (`DatasetResidency`, `SessionGates`, `WorkspaceNavigation`,
 `StrainProduct`, `ReplayRun`, `QCalibrationRun`, `SessionCalibrationFramePolicy`).
 
-The target (`v2.5-plan.md` §4): three local packages — `DSTEMCore` (Data,
+The target (`archive/v2/v2.5-plan.md` §4): three local packages — `DSTEMCore` (Data,
 Compute, Analysis, Crystal, Shaders), `DSTEMSession` (calibration, products,
 recipes and replay, operation lifecycle) and the app; `ScientificProduct` as
 an immutable value owning pixels, axes, units, frame, calibration snapshot,

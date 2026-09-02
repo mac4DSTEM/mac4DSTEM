@@ -1,6 +1,6 @@
 # mac4DSTEM stabilization roadmap
 
-The current contract is [`docs/v2.5-plan.md`](docs/v2.5-plan.md); live status is
+The feature plan is [`docs/v3-plan.md`](docs/v3-plan.md); live status is
 [`docs/status.md`](docs/status.md); the v1 and v2 contracts are archived under
 `docs/archive/v2/`. This roadmap is
 intentionally short: completed implementation history belongs in Git, and a passing
@@ -10,7 +10,7 @@ workflow is not automatically a validated scientific claim.
 
 **v2.0.0 is tagged** (`CHANGELOG.md`); the DMG is built from the tag. Live
 status is [`docs/status.md`](docs/status.md); the consolidation train is
-[`docs/v2.5-plan.md`](docs/v2.5-plan.md). The three priorities below are
+[`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md), done 2026-09-03. The three priorities below are
 standing — they are how work is judged, not a task list.
 
 ## Version policy
@@ -94,8 +94,11 @@ Earlier whole-codebase reviews are in `docs/archive/` (2026-07-19,
 interoperability, accessibility, or release gap in
 [`docs/v1-scope.md`](docs/archive/v2/v1-scope.md), or it was post-v1.
 
-**v2.5 (from 2026-09-02):** [`docs/v2.5-plan.md`](docs/v2.5-plan.md) — no new
+**v2.5 (2026-09-02/03):** [`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md) — no new
 science until the ownership seams land; every session nets negative markdown.
+
+**v3:** [`docs/v3-plan.md`](docs/v3-plan.md) — a dependency-ordered feature sequence,
+draft; the first feature to land bumps the version to v3.0.
 
 **v2 (2026-08-18 → v2.0.0):** [`docs/v2-release.md`](docs/archive/v2/v2-release.md) was a
 release contract again — a claim, five workstreams, a **cut line** naming in
