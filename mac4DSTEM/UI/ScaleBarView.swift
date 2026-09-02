@@ -7,8 +7,10 @@
 //
 
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// The bottom overlay row of an image pane: the scale bar at the leading edge,
 /// the colour legend at the trailing edge.

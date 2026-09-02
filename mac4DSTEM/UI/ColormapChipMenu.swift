@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// D3 (owner decision, 2026-09-01: "colorbar click"): colormap choice lives
 /// ON the colorbar chip in each pane — click the gradient you are already

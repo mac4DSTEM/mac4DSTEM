@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 import UniformTypeIdentifiers
 
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,

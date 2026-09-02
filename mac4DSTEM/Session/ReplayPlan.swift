@@ -34,7 +34,9 @@
 //
 
 import Foundation
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+#endif
 
 // Moved here from App/AppState.swift 2026-09-03 (v2.5 step 2c): the recipe
 // vocabulary lives with the recipe.

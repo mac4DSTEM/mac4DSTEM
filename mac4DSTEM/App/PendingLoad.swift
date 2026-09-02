@@ -25,8 +25,10 @@
 //
 
 import Foundation
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 @Observable
 final class PendingLoad: Identifiable {

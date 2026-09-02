@@ -16,8 +16,10 @@
 //
 
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 struct PatternFitOverlayView: View {
     let strain: FitOverlays.StrainOverlay?

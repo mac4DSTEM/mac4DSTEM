@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// The navigation/selection seam (S22c; `docs/development-process.md` §7 —
 /// one seam per stage, extracted at a green boundary). Owns which workspace

@@ -17,8 +17,10 @@
 //
 
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 import MetalKit
 
 struct MetalImageView: NSViewRepresentable {

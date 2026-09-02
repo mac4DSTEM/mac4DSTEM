@@ -11,8 +11,10 @@
 //
 
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 struct DiffractionView: View {
     @Environment(AppState.self) private var app

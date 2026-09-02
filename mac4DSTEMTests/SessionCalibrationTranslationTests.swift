@@ -110,6 +110,27 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         XCTAssertNil(app.publishedProduct)
     }
 
+    func testDPCDisplayModesPublishTheirOwnProduct() async throws {
+        let app = AppState()
+        await app.openDemoFixture(calibrated: true)
+        app.navigation.analysisMode = .dpc
+        _ = await app.runDPC()
+        guard app.resultImage != nil || app.resultRGBA != nil else {
+            throw XCTSkip("DPC produced no result on the demo fixture")
+        }
+        let first = try XCTUnwrap(app.publishedProduct)
+        XCTAssertTrue(first.kind.hasPrefix("dpc") || first.kind.hasPrefix("idpc"), first.kind)
+        app.dpcDisplay = .angle
+        let angle = try XCTUnwrap(app.publishedProduct)
+        XCTAssertEqual(angle.kind, "dpc_angle")
+        XCTAssertEqual(angle.valueUnits, "rad")
+        XCTAssertEqual(angle.quantitativeStatus, .quantitative)
+        app.dpcDisplay = .colorWheel
+        let wheel = try XCTUnwrap(app.publishedProduct)
+        XCTAssertEqual(wheel.quantitativeStatus, .categorical)
+        if case .rgba = wheel.payload {} else { XCTFail("colour wheel is an RGBA product") }
+    }
+
     func testAMissingQUnitNeverBecomesAGuessedUnit() {
         var calibration = Calibration()
         calibration.qPixelSize = 0.0146

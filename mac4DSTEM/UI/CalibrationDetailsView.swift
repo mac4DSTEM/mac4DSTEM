@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// Diagnostic and fitting controls that supplement the single readiness path.
 /// Physical Q/R values are intentionally edited only in the readiness rows,

@@ -1,6 +1,8 @@
 import AppKit
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 import Foundation
 
 enum ColormapKind: String, CaseIterable, Identifiable {

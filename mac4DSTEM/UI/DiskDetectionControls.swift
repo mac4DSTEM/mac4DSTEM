@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// Source-faithful controls for py4DSTEM-style Bragg-disk detection. The
 /// compact defaults stay visible; less commonly changed signal/filter

@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// D2 (owner decision, 2026-09-01): the permanent status footer. The owner's
 /// words — the strip "shows the progress of a process, useful, but … there

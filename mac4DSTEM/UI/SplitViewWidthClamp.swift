@@ -1,6 +1,8 @@
 import AppKit
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// S22d: `NavigationSplitView` restores a persisted sidebar width even when
 /// it is narrower than the declared 250pt minimum — the standing Track B row

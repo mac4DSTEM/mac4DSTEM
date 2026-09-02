@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// Live performance readout. The workspace header is the single progress and
 /// cancellation surface; the inspector only provides supporting metrics.

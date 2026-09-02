@@ -1,6 +1,8 @@
 import CoreGraphics
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// Pure detector-pixel → view geometry for the Bragg-peak overlay.
 /// Detector coordinates name pixel centers, so integer peaks receive a

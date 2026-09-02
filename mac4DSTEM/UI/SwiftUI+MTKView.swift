@@ -7,8 +7,10 @@
 //
 
 import AppKit
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 import SwiftUI
 
 /// Bundles the live zoom/pan state for an image viewer.

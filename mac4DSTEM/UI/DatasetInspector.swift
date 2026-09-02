@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// S22a: the sixteen stacked sections this view had accreted are regrouped
 /// into the four approved by `docs/s22-ux-design.md` §4.3 — Dataset, Live,

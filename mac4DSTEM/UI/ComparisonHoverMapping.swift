@@ -1,6 +1,8 @@
 import CoreGraphics
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// ui-06 (S22e): the comparison panes draw aspect-fit (letterboxed) and then
 /// centre-zoomed, but the hover readout divided the raw pointer by the full

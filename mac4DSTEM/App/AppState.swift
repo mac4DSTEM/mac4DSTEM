@@ -1,6 +1,8 @@
 import Foundation
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 struct SimpleError: LocalizedError {
     let message: String
@@ -240,6 +242,33 @@ final class AppState {
     /// `resultImage`/`restoredResultInfo`/`navigationResult*` fields go when
     /// the last one has (docs/v2.5-plan.md §9d, deletion condition 1).
     var publishedProduct: DisplayedProduct?
+
+    /// v2.5 step 3b-2: publish the result the legacy fields currently hold as
+    /// the product value, with kind/name/units from the compute site's own
+    /// metadata switch and the status decided here. The display-mode
+    /// publishers (DPC, strain) call it right after they set the pixels;
+    /// it goes when each of them constructs its `DisplayedProduct` directly.
+    private func publishProductFromLegacyFields(
+        validityMask: [Bool]? = nil,
+        qualityFields: [ProductQualityField] = [],
+        overlays: [ProductOverlayDescriptor] = []
+    ) {
+        guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
+                ?? resultRGBA.map(ProductPayload.rgba) else { publishedProduct = nil; return }
+        let meta = currentScalarResultMetadata
+        let persisted = currentResultPersistenceMetadata
+        let status = persisted.provenance["quantitative_status"]
+            .flatMap(ProductQuantitativeStatus.init)
+            ?? quantitativeStatus(for: meta.kind, units: meta.valueUnits)
+        publishedProduct = DisplayedProduct(
+            kind: meta.kind, displayName: meta.displayName, payload: payload,
+            domain: activeResultDomain, validityMask: validityMask,
+            qualityFields: qualityFields,
+            sampling: ProductSampling(row: persisted.row, column: persisted.column,
+                                      units: persisted.units),
+            valueUnits: meta.valueUnits, quantitativeStatus: status,
+            provenance: persisted.provenance, overlays: overlays)
+    }
     var resultRGBA: RGBAImage? {
         didSet {
             navigationResultInfo = nil
@@ -4535,6 +4564,7 @@ final class AppState {
             resultRGBA = nil
         }
         resultVersion &+= 1
+        publishProductFromLegacyFields()   // v2.5 step 3b-2
         return nil
     }
 
@@ -5091,6 +5121,22 @@ final class AppState {
             .component(strain.component)
         resultRGBA = nil
         resultVersion &+= 1
+        // v2.5 step 3b-2: the strain product carries its fit-quality fields and
+        // validity mask from the map itself (moved here from `displayedProduct`).
+        publishProductFromLegacyFields(
+            validityMask: map.mask,
+            qualityFields: [
+                ProductQualityField(
+                    name: "fit residual", units: "detector_px",
+                    image: FloatImage(width: map.width, height: map.height,
+                                      pixels: map.localResidualPixels)),
+                ProductQualityField(
+                    name: "indexed", units: "boolean",
+                    image: FloatImage(width: map.width, height: map.height,
+                                      pixels: map.mask.map { $0 ? 1 : 0 })),
+            ],
+            overlays: [ProductOverlayDescriptor(
+                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")])
     }
 
     // MARK: - ACOM (orientation mapping)

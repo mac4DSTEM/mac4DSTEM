@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// S22d, verified live: the sidebar's `.sidebar`-style `List` does not offer
 /// its rows a width, so `fixedSize(horizontal: false, vertical: true)` never

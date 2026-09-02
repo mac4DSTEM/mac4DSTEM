@@ -1,6 +1,8 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// Interactive detector overlay on the CBED view. Renders and lets you drag the
 /// active virtual-detector geometry: an annulus (inner/outer radius), a square

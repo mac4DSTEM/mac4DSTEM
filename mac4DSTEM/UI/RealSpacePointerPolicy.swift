@@ -1,6 +1,8 @@
 import CoreGraphics
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 
 /// Who owns a plain drag in the real-space pane (backlog #35).
 ///

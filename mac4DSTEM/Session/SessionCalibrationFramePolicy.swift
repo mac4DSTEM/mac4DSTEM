@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+#endif
 
 /// P2 (Gate D, 2026-09-01): which frame treatment a session sidecar's
 /// calibration gets on restore.

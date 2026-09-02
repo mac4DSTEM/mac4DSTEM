@@ -7,8 +7,10 @@
 //
 
 import AppKit
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+#endif
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -1388,7 +1390,10 @@ extension AppState {
         return snapshot
     }
 
-    private var currentScalarResultMetadata:
+    // Internal, not private, since v2.5 step 3b-2: the display-mode publishers
+    // in AppState.swift build their product value from it until each site
+    // carries its own kind/name/units (deletion condition 2, plan §9d).
+    var currentScalarResultMetadata:
         (kind: String, displayName: String, valueUnits: String) {
         switch navigation.analysisMode {
         case .virtualDetector:
