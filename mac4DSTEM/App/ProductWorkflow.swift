@@ -1,4 +1,5 @@
 import Foundation
+import DSTEMCore
 
 /// The product-level information architecture. Scientific algorithms remain
 /// represented by `AnalysisMode`; these areas describe the outcome a user is

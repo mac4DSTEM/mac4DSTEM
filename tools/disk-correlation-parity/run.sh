@@ -22,7 +22,7 @@ resolve_mac4dstem_developer_dir
 
 # -O so the timing reflects a release build. Without it the CPU baseline is
 # unrepresentatively slow and any GPU comparison is flattering by default.
-xcrun swiftc -O -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" \
   main.swift \
   "$REPO/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \

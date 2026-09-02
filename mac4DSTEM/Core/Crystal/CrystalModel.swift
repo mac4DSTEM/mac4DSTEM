@@ -2,29 +2,35 @@ import Foundation
 
 /// Origin of a phase definition. This describes the model, not the dataset;
 /// no phase is inferred from a filename or diffraction-pattern appearance.
-nonisolated enum CrystalModelSource: String, Sendable {
+package nonisolated enum CrystalModelSource: String, Sendable {
     case builtIn = "built_in"
     case custom = "custom"
     case imported = "imported"
 }
 
-nonisolated struct CrystalModelValidationIssue: Sendable, Equatable {
-    let code: String
-    let message: String
+package nonisolated struct CrystalModelValidationIssue: Sendable, Equatable {
+    package let code: String
+    package let message: String
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(code: String, message: String) {
+        self.code = code
+        self.message = message
+    }
 }
 
 /// A complete phase model accepted by ACOM. `Crystal` supplies lattice,
 /// atomic basis, and structure factors; `symmetry` supplies orientation
 /// sampling, reduction, and IPF interpretation. Keeping them together avoids
 /// silently applying cubic presentation to an arbitrary lattice.
-nonisolated struct CrystalModel: Identifiable, Sendable {
-    let id: String
-    let displayName: String
-    let crystal: Crystal
-    let symmetry: ACOMCrystalSymmetry
-    let source: CrystalModelSource
+package nonisolated struct CrystalModel: Identifiable, Sendable {
+    package let id: String
+    package let displayName: String
+    package let crystal: Crystal
+    package let symmetry: ACOMCrystalSymmetry
+    package let source: CrystalModelSource
 
-    var validationIssues: [CrystalModelValidationIssue] {
+    package var validationIssues: [CrystalModelValidationIssue] {
         var issues: [CrystalModelValidationIssue] = []
         func add(_ code: String, _ message: String) {
             issues.append(.init(code: code, message: message))
@@ -124,9 +130,9 @@ nonisolated struct CrystalModel: Identifiable, Sendable {
     /// almost every pair in three comparisons.
     /// Below the shortest interatomic contact known in any crystal (H–H in
     /// solid hydrogen, 0.74 Å), so no real structure trips it.
-    static let closeContactLimit = 0.5
+    package static let closeContactLimit = 0.5
 
-    var shortestCloseContact: Double? {
+    package var shortestCloseContact: Double? {
         let sites = crystal.sites
         guard sites.count > 1 else { return nil }
         let lattice = crystal.latReal
@@ -185,11 +191,11 @@ nonisolated struct CrystalModel: Identifiable, Sendable {
         return closest < limit ? closest : nil
     }
 
-    var isUsable: Bool { validationIssues.isEmpty }
+    package var isUsable: Bool { validationIssues.isEmpty }
 
     /// In-memory identity used to reject a completion when editable model
     /// values changed while a plan was being generated.
-    var revisionID: String {
+    package var revisionID: String {
         let sites = crystal.sites.map {
             "\($0.z):\($0.fractional.x),\($0.fractional.y),\($0.fractional.z):\($0.occupancy)"
         }.joined(separator: ";")
@@ -197,7 +203,7 @@ nonisolated struct CrystalModel: Identifiable, Sendable {
     }
 
     /// Immutable description attached to completed orientation products.
-    var provenance: [String: String] {
+    package var provenance: [String: String] {
         let atomicBasis = crystal.sites.map {
             "Z\($0.z)@(\($0.fractional.x),\($0.fractional.y),\($0.fractional.z));occ=\($0.occupancy)"
         }.joined(separator: "|")
@@ -217,19 +223,28 @@ nonisolated struct CrystalModel: Identifiable, Sendable {
             "atomic_basis": atomicBasis,
         ]
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(id: String, displayName: String, crystal: Crystal, symmetry: ACOMCrystalSymmetry, source: CrystalModelSource) {
+        self.id = id
+        self.displayName = displayName
+        self.crystal = crystal
+        self.symmetry = symmetry
+        self.source = source
+    }
 }
 
 /// A scalable selection token: adding a library model does not require a new
 /// UI enum case. Imported models use the same stable identifier route as
 /// library models — `.imported(id)` resolves against `AppState`'s
 /// session-local imported-model list rather than `CrystalModelLibrary`.
-nonisolated enum CrystalModelSelection: Hashable, Sendable, Identifiable {
+package nonisolated enum CrystalModelSelection: Hashable, Sendable, Identifiable {
     case none
     case library(String)
     case customCubic
     case imported(String)
 
-    var id: String {
+    package var id: String {
         switch self {
         case .none: "none"
         case .library(let id): "library:\(id)"
@@ -239,8 +254,8 @@ nonisolated enum CrystalModelSelection: Hashable, Sendable, Identifiable {
     }
 }
 
-nonisolated enum CrystalModelLibrary {
-    static let models: [CrystalModel] = [
+package nonisolated enum CrystalModelLibrary {
+    package static let models: [CrystalModel] = [
         CrystalModel(id: "au_fcc", displayName: "Gold (FCC)",
                      crystal: .gold, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "al_fcc", displayName: "Aluminium (FCC)",
@@ -265,11 +280,11 @@ nonisolated enum CrystalModelLibrary {
                      crystal: .tungstenDisulfide, symmetry: .hexagonal, source: .builtIn),
     ]
 
-    static func model(id: String) -> CrystalModel? {
+    package static func model(id: String) -> CrystalModel? {
         models.first { $0.id == id }
     }
 
-    static func customCubic(
+    package static func customCubic(
         structure: Crystal.CubicStructure, latticeA: Double, atomicNumber: Int
     ) -> CrystalModel {
         let symbol = ScatteringFactors.symbols[atomicNumber] ?? "Z\(atomicNumber)"

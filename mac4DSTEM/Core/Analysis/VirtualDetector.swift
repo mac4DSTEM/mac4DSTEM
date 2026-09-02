@@ -21,13 +21,13 @@ import Metal
 // Moved here from App/AppState.swift 2026-09-02 (v2.5 step 2): Core consumed
 // it, so it belongs to Core.
 /// The virtual-detector aperture in detector pixels.
-struct Aperture: Equatable {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
+package struct Aperture: Equatable {
+    package var centerX: Float
+    package var centerY: Float
+    package var inner: Float
+    package var outer: Float
 
-    init(centerX: Float = 0, centerY: Float = 0, inner: Float = 0, outer: Float = 20) {
+    package init(centerX: Float = 0, centerY: Float = 0, inner: Float = 0, outer: Float = 20) {
         self.centerX = centerX
         self.centerY = centerY
         self.inner = inner
@@ -40,7 +40,7 @@ struct Aperture: Equatable {
 
 /// A detector geometry in detector-pixel coordinates
 /// (X = column / qx index, Y = row / qy index).
-enum DetectorShape: Equatable {
+package enum DetectorShape: Equatable {
     case circle(centerX: Float, centerY: Float, radius: Float)
     case annulus(centerX: Float, centerY: Float, inner: Float, outer: Float)
     /// Half-open pixel-index bounds, [xMin, xMax) × [yMin, yMax).
@@ -53,17 +53,17 @@ enum DetectorShape: Equatable {
 
 /// Standard virtual-detector geometries. Radii are expressed as fractions of
 /// the maximum usable detector radius so they scale to any pattern size.
-enum DetectorPreset: String, CaseIterable, Identifiable {
+package enum DetectorPreset: String, CaseIterable, Identifiable {
     case brightField = "Bright Field"
     case adf         = "ADF"
     case haadf       = "HAADF"
     case custom      = "Custom"
 
-    var id: String { rawValue }
+    package var id: String { rawValue }
 
     /// Inner/outer radii in *pixels* given the largest radius that fits.
     /// (Custom returns nil — the UI's draggable aperture drives it instead.)
-    func radii(maxRadius r: Float) -> (inner: Float, outer: Float)? {
+    package func radii(maxRadius r: Float) -> (inner: Float, outer: Float)? {
         switch self {
         case .brightField: return (0,        0.20 * r)   // central disk
         case .adf:         return (0.25 * r, 0.55 * r)   // mid annulus
@@ -79,15 +79,15 @@ enum DetectorPreset: String, CaseIterable, Identifiable {
 /// At most two tiles are resident (one processing, one arriving); with the
 /// halved per-tile row budget in FourDArray.scanTileRows, total staging
 /// memory stays within the prior single-tile bound.
-nonisolated struct TilePrefetcher {
+package nonisolated struct TilePrefetcher {
     private let data: FourDArray
     private var pending: Task<FourDScanTile, Error>?
 
-    init(data: FourDArray) { self.data = data }
+    package init(data: FourDArray) { self.data = data }
 
     /// Return the tile for `range` (from the prefetch when one is pending),
     /// then begin reading `nextRange` in the background.
-    mutating func tile(
+    package mutating func tile(
         for range: Range<Int>, prefetching nextRange: Range<Int>?
     ) async throws -> FourDScanTile {
         let current: FourDScanTile
@@ -107,7 +107,7 @@ nonisolated struct TilePrefetcher {
     /// Abandon a pending read (it completes in the background and is
     /// discarded — bounded at one tile, same spirit as uninterruptible GPU
     /// commands).
-    func cancel() { pending?.cancel() }
+    package func cancel() { pending?.cancel() }
 }
 
 // MARK: - Tile bytes on the GPU (resident: bound in place; streaming: staged)
@@ -143,23 +143,23 @@ nonisolated struct TilePrefetcher {
 // returns the memory promptly while a reduction is running. Unreachable in the
 // shipping app today (nothing requests `.resident`), but this is the kind of
 // property that gets discovered under memory pressure rather than read.
-nonisolated struct TileGPUSource {
+package nonisolated struct TileGPUSource {
     private let cube: ResidentCube?
     private let bytesPerScanRow: Int
     private var prefetcher: TilePrefetcher
 
     /// - Parameter cube: the array's resident cube when it holds one *for this
     ///   descriptor* (`FourDArray.resident(for:)`), else nil.
-    init(data: FourDArray, descriptor d: DatasetDescriptor, cube: ResidentCube?) {
+    package init(data: FourDArray, descriptor d: DatasetDescriptor, cube: ResidentCube?) {
         self.cube = cube
         self.bytesPerScanRow = d.rx * d.qy * d.qx * MemoryLayout<Float>.stride
         self.prefetcher = TilePrefetcher(data: data)
     }
 
-    var isResident: Bool { cube != nil }
+    package var isResident: Bool { cube != nil }
 
     /// The buffer and byte offset holding `range`'s floats.
-    mutating func binding(
+    package mutating func binding(
         for range: Range<Int>, prefetching nextRange: Range<Int>?, label: @autoclosure () -> String
     ) async throws -> (buffer: MTLBuffer, offset: Int) {
         if let cube {
@@ -187,12 +187,12 @@ nonisolated struct TileGPUSource {
         return (buffer, 0)
     }
 
-    func cancel() { prefetcher.cancel() }
+    package func cancel() { prefetcher.cancel() }
 }
 
 // MARK: - VirtualDetector
 
-nonisolated enum VirtualDetector {
+package nonisolated enum VirtualDetector {
 
     private enum TileOperation {
         case shape(DetectorShape)
@@ -202,7 +202,7 @@ nonisolated enum VirtualDetector {
     /// Bounded-memory virtual imaging. Scan rows are read as contiguous tiles;
     /// each tile uses the existing production Metal kernels and is copied into
     /// its stable output rows only after the dispatch completes.
-    static func tiledImage(
+    package static func tiledImage(
         data: FourDArray,
         descriptor: DatasetDescriptor,
         shape: DetectorShape,
@@ -215,7 +215,7 @@ nonisolated enum VirtualDetector {
                         cancellation: cancellation, progress: progress)
     }
 
-    static func tiledRun(
+    package static func tiledRun(
         data: FourDArray,
         descriptor: DatasetDescriptor,
         aperture: Aperture,
@@ -302,7 +302,7 @@ nonisolated enum VirtualDetector {
 
     /// Tiled max/mean diffraction patterns. Per-tile statistics stay on Metal;
     /// a weighted reduction combines them without retaining any prior tile.
-    static func tiledDPStatistics(
+    package static func tiledDPStatistics(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         maximumTileRows: Int? = nil,
@@ -352,7 +352,7 @@ nonisolated enum VirtualDetector {
 
     /// Bounded selected-area diffraction. Each tile contributes one partial
     /// detector sum; only that Q-sized accumulator survives between tiles.
-    static func tiledDiffraction(
+    package static func tiledDiffraction(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         region: DetectorShape,
@@ -392,7 +392,7 @@ nonisolated enum VirtualDetector {
     }
 
     /// Bounded origin measurement after a probe radius has been established.
-    static func tiledMeasuredOrigins(
+    package static func tiledMeasuredOrigins(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         probeRadius: Float,
@@ -433,7 +433,7 @@ nonisolated enum VirtualDetector {
     }
 
     /// Bounded center-of-mass measurement with optional per-position origins.
-    static func tiledCenterOfMass(
+    package static func tiledCenterOfMass(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         center: (x: Float, y: Float),
@@ -482,7 +482,7 @@ nonisolated enum VirtualDetector {
 
     /// Dispatch the annular-sum kernel over the whole cube.
     /// - Returns: a real-space `FloatImage` of shape [Rx × Ry].
-    nonisolated static func run(cube: MTLBuffer,
+    package nonisolated static func run(cube: MTLBuffer,
                     descriptor d: DatasetDescriptor,
                     aperture a: Aperture) throws -> FloatImage {
         let params = ApertureParams(
@@ -498,7 +498,7 @@ nonisolated enum VirtualDetector {
     // MARK: General path — arbitrary detector mask
 
     /// Virtual image for any detector geometry, via the mask kernel.
-    nonisolated static func image(cube: MTLBuffer,
+    package nonisolated static func image(cube: MTLBuffer,
                       descriptor d: DatasetDescriptor,
                       shape: DetectorShape) throws -> FloatImage {
         let mask = makeMask(shape: shape, qy: d.qy, qx: d.qx)
@@ -512,7 +512,7 @@ nonisolated enum VirtualDetector {
 
     /// Sum the diffraction patterns of the scan positions selected by `region`
     /// (in scan coordinates) into a single pattern — selected-area diffraction.
-    nonisolated static func diffraction(cube: MTLBuffer,
+    package nonisolated static func diffraction(cube: MTLBuffer,
                                         descriptor d: DatasetDescriptor,
                                         region: DetectorShape) throws -> DiffractionPattern {
         // The region is a mask over the SCAN grid (Ry × Rx), so reuse makeMask
@@ -527,7 +527,7 @@ nonisolated enum VirtualDetector {
     /// Build the binary detector-space mask for a geometry, [Qy*Qx] row-major.
     /// Radial shapes match py4DSTEM's `make_detector` predicates exactly:
     /// circle r² < rOut²; annulus rIn² < r² < rOut².
-    nonisolated static func makeMask(shape: DetectorShape, qy: Int, qx: Int) -> [Float] {
+    package nonisolated static func makeMask(shape: DetectorShape, qy: Int, qx: Int) -> [Float] {
         var mask = [Float](repeating: 0, count: qy * qx)
         switch shape {
         case .circle(let cx, let cy, let radius):

@@ -36,31 +36,39 @@ import Foundation
 /// dragged on. Corners in any order — a drag up-and-left is as valid as one
 /// down-and-right, and normalising that is this type's job rather than every
 /// call site's.
-nonisolated struct DragRectangle: Equatable, Sendable {
-    var startX: Double
-    var startY: Double
-    var endX: Double
-    var endY: Double
+package nonisolated struct DragRectangle: Equatable, Sendable {
+    package var startX: Double
+    package var startY: Double
+    package var endX: Double
+    package var endY: Double
 
-    var minX: Double { min(startX, endX) }
-    var maxX: Double { max(startX, endX) }
-    var minY: Double { min(startY, endY) }
-    var maxY: Double { max(startY, endY) }
+    package var minX: Double { min(startX, endX) }
+    package var maxX: Double { max(startX, endX) }
+    package var minY: Double { min(startY, endY) }
+    package var maxY: Double { max(startY, endY) }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(startX: Double, startY: Double, endX: Double, endY: Double) {
+        self.startX = startX
+        self.startY = startY
+        self.endX = endX
+        self.endY = endY
+    }
 }
 
 /// What the user has configured for a load that has not happened yet.
-nonisolated struct LoadConfiguration: Equatable, Sendable {
+package nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// The dataset as stored, at full extent.
-    var source: DatasetDescriptor
+    package var source: DatasetDescriptor
 
     /// The scan crop, already in SOURCE scan coordinates.
-    var scanCrop: AxisCrop?
+    package var scanCrop: AxisCrop?
     /// The diffraction crop, already in SOURCE detector coordinates.
-    var detectorCrop: AxisCrop?
+    package var detectorCrop: AxisCrop?
     /// 1 = no binning.
-    var detectorBin: Int = 1
+    package var detectorBin: Int = 1
 
-    var specification: LoadSpecification {
+    package var specification: LoadSpecification {
         LoadSpecification(scanCrop: scanCrop, detectorCrop: detectorCrop,
                           detectorBin: detectorBin)
     }
@@ -75,7 +83,7 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// disabled Load with its own captions — the thrown reasons belong to the
     /// commit path, which re-runs the validating initialiser and surfaces
     /// them there.
-    var view: LoadView? {
+    package var view: LoadView? {
         try? LoadView(source: source, specification: specification)
     }
 
@@ -90,7 +98,7 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// sampled pixel, not just the position that was sampled. Taking
     /// `b * stride` instead would drop up to `stride - 1` scan rows off the
     /// bottom and right of every selection.
-    static func scanCrop(
+    package static func scanCrop(
         from rectangle: DragRectangle, strideY: Int, strideX: Int,
         source: DatasetDescriptor
     ) -> AxisCrop? {
@@ -103,7 +111,7 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
 
     /// Map a rectangle dragged on the **diffraction preview** to a detector
     /// crop. The DP preview is full detector resolution, so this is 1:1.
-    static func detectorCrop(
+    package static func detectorCrop(
         from rectangle: DragRectangle, source: DatasetDescriptor
     ) -> AxisCrop? {
         crop(from: rectangle, scaleY: 1, scaleX: 1,
@@ -178,13 +186,13 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// so a uint16 file costs twice its file size here. That is the number that
     /// decides whether a cube can be held, and the flattering one would be the
     /// file size.
-    var byteCount: Int? { view?.descriptor.byteCountAsFloat32 }
+    package var byteCount: Int? { view?.descriptor.byteCountAsFloat32 }
 
     /// Bytes at full extent, for the "instead of" half of the comparison.
-    var fullExtentByteCount: Int { source.byteCountAsFloat32 }
+    package var fullExtentByteCount: Int { source.byteCountAsFloat32 }
 
     /// The fraction of the full cube this configuration would load, 0...1.
-    var fractionOfFullExtent: Double? {
+    package var fractionOfFullExtent: Double? {
         guard let byteCount, fullExtentByteCount > 0 else { return nil }
         return Double(byteCount) / Double(fullExtentByteCount)
     }
@@ -209,7 +217,7 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
     /// device clamp plus `admits` — `admits` already checks `is4D` and a
     /// positive byte count, and duplicating `shouldAdmit`'s guards here is
     /// exactly the drift the harness could not see (Gate A review, 2026-08-19).
-    func fitsResident(workingSetSize: UInt64, maximumBufferLength: Int) -> Bool? {
+    package func fitsResident(workingSetSize: UInt64, maximumBufferLength: Int) -> Bool? {
         guard let view, let fraction = ResidencyAdmission.measuredWorkingSetFraction
         else { return nil }
         let descriptor = view.descriptor
@@ -217,5 +225,13 @@ nonisolated struct LoadConfiguration: Equatable, Sendable {
         return ResidencyAdmission.admits(
             descriptor, workingSetSize: workingSetSize, fraction: fraction
         )
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(source: DatasetDescriptor, scanCrop: AxisCrop? = nil, detectorCrop: AxisCrop? = nil, detectorBin: Int = 1) {
+        self.source = source
+        self.scanCrop = scanCrop
+        self.detectorCrop = detectorCrop
+        self.detectorBin = detectorBin
     }
 }

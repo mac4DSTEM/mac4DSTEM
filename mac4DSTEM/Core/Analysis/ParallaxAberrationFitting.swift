@@ -5,71 +5,113 @@
 
 import Foundation
 
-nonisolated struct ParallaxPhysicalShift: Equatable, Sendable {
-    let rowAngstrom: Double
-    let columnAngstrom: Double
+package nonisolated struct ParallaxPhysicalShift: Equatable, Sendable {
+    package let rowAngstrom: Double
+    package let columnAngstrom: Double
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(rowAngstrom: Double, columnAngstrom: Double) {
+        self.rowAngstrom = rowAngstrom
+        self.columnAngstrom = columnAngstrom
+    }
 }
 
-nonisolated struct ParallaxLowOrderAberrationOptions: Equatable, Sendable {
-    var forceTranspose = false
-    var forceRotationAngleDegrees: Double? = nil
+package nonisolated struct ParallaxLowOrderAberrationOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
+    package var forceTranspose = false
+    package var forceRotationAngleDegrees: Double? = nil
 }
 
-nonisolated struct ParallaxAberrationFitResult: Equatable, Sendable {
-    let measuredShifts: [ParallaxPhysicalShift]
-    let fittedShifts: [ParallaxPhysicalShift]
+package nonisolated struct ParallaxAberrationFitResult: Equatable, Sendable {
+    package let measuredShifts: [ParallaxPhysicalShift]
+    package let fittedShifts: [ParallaxPhysicalShift]
     /// py4DSTEM's fitted Q-to-R rotation convention.
-    let rotationRad: Double
+    package let rotationRad: Double
     /// Defocus and two-fold astigmatism coefficients, in Å.
-    let c1Angstrom: Double
-    let c12aAngstrom: Double
-    let c12bAngstrom: Double
-    let rmsResidualAngstrom: Double
-    let forceTranspose: Bool
-    let forcedRotationAngleDegrees: Double?
+    package let c1Angstrom: Double
+    package let c12aAngstrom: Double
+    package let c12bAngstrom: Double
+    package let rmsResidualAngstrom: Double
+    package let forceTranspose: Bool
+    package let forcedRotationAngleDegrees: Double?
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(measuredShifts: [ParallaxPhysicalShift], fittedShifts: [ParallaxPhysicalShift], rotationRad: Double, c1Angstrom: Double, c12aAngstrom: Double, c12bAngstrom: Double, rmsResidualAngstrom: Double, forceTranspose: Bool, forcedRotationAngleDegrees: Double?) {
+        self.measuredShifts = measuredShifts
+        self.fittedShifts = fittedShifts
+        self.rotationRad = rotationRad
+        self.c1Angstrom = c1Angstrom
+        self.c12aAngstrom = c12aAngstrom
+        self.c12bAngstrom = c12bAngstrom
+        self.rmsResidualAngstrom = rmsResidualAngstrom
+        self.forceTranspose = forceTranspose
+        self.forcedRotationAngleDegrees = forcedRotationAngleDegrees
+    }
 }
 
-nonisolated struct ParallaxAberrationTerm: Equatable, Hashable, Sendable {
-    let radialOrder: Int
-    let angularOrder: Int
+package nonisolated struct ParallaxAberrationTerm: Equatable, Hashable, Sendable {
+    package let radialOrder: Int
+    package let angularOrder: Int
     /// 0 is the cosine/radial component; 1 is the sine component.
-    let component: Int
+    package let component: Int
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(radialOrder: Int, angularOrder: Int, component: Int) {
+        self.radialOrder = radialOrder
+        self.angularOrder = angularOrder
+        self.component = component
+    }
 }
 
-nonisolated enum ParallaxAberrationFitMethod: String, CaseIterable, Sendable {
+package nonisolated enum ParallaxAberrationFitMethod: String, CaseIterable, Sendable {
     case recursive
     case recursiveExclusive
     case global
 }
 
-nonisolated struct ParallaxHigherOrderAberrationOptions: Equatable, Sendable {
-    var maxRadialOrder = 3
-    var maxAngularOrder = 4
-    var minRadialOrder = 2
-    var minAngularOrder = 0
-    var fitMethod: ParallaxAberrationFitMethod = .recursive
-    var initializeWithLowOrder = true
-    var lowOrder = ParallaxLowOrderAberrationOptions()
+package nonisolated struct ParallaxHigherOrderAberrationOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
+    package var maxRadialOrder = 3
+    package var maxAngularOrder = 4
+    package var minRadialOrder = 2
+    package var minAngularOrder = 0
+    package var fitMethod: ParallaxAberrationFitMethod = .recursive
+    package var initializeWithLowOrder = true
+    package var lowOrder = ParallaxLowOrderAberrationOptions()
 }
 
-nonisolated struct ParallaxHigherOrderAberrationFitResult: Equatable, Sendable {
-    let lowOrder: ParallaxAberrationFitResult
-    let terms: [ParallaxAberrationTerm]
+package nonisolated struct ParallaxHigherOrderAberrationFitResult: Equatable, Sendable {
+    package let lowOrder: ParallaxAberrationFitResult
+    package let terms: [ParallaxAberrationTerm]
     /// Cartesian coefficient for each term, in Å.
-    let coefficientsAngstrom: [Double]
-    let fittedShifts: [ParallaxPhysicalShift]
-    let rmsResidualAngstrom: Double
-    let fitMethod: ParallaxAberrationFitMethod
+    package let coefficientsAngstrom: [Double]
+    package let fittedShifts: [ParallaxPhysicalShift]
+    package let rmsResidualAngstrom: Double
+    package let fitMethod: ParallaxAberrationFitMethod
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(lowOrder: ParallaxAberrationFitResult, terms: [ParallaxAberrationTerm], coefficientsAngstrom: [Double], fittedShifts: [ParallaxPhysicalShift], rmsResidualAngstrom: Double, fitMethod: ParallaxAberrationFitMethod) {
+        self.lowOrder = lowOrder
+        self.terms = terms
+        self.coefficientsAngstrom = coefficientsAngstrom
+        self.fittedShifts = fittedShifts
+        self.rmsResidualAngstrom = rmsResidualAngstrom
+        self.fitMethod = fitMethod
+    }
 }
 
-nonisolated enum ParallaxAberrationFitter {
-    enum FitError: LocalizedError, Equatable {
+package nonisolated enum ParallaxAberrationFitter {
+    package enum FitError: LocalizedError, Equatable {
         case alignmentIncomplete
         case invalidInput(String)
         case singularAngleGeometry
         case singularPolarDecomposition
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .alignmentIncomplete:
                 return "Complete every parallax alignment-bin level before fitting aberrations."
@@ -84,7 +126,7 @@ nonisolated enum ParallaxAberrationFitter {
     }
 
     /// Port of py4DSTEM `_aberration_fit_polar_decomposition`.
-    static func fitLowOrder(
+    package static func fitLowOrder(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
         options: ParallaxLowOrderAberrationOptions = .init()
@@ -188,7 +230,7 @@ nonisolated enum ParallaxAberrationFitter {
         )
     }
 
-    static func defaultTerms(
+    package static func defaultTerms(
         maxRadialOrder: Int = 3,
         maxAngularOrder: Int = 4,
         minRadialOrder: Int = 2,
@@ -220,7 +262,7 @@ nonisolated enum ParallaxAberrationFitter {
     }
 
     /// Default recursive higher-order fit from py4DSTEM `aberration_fit`.
-    static func fitHigherOrder(
+    package static func fitHigherOrder(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
         options: ParallaxHigherOrderAberrationOptions = .init()
@@ -330,7 +372,7 @@ nonisolated enum ParallaxAberrationFitter {
 
     /// Row-major `[sample, term]` pairs of (dχ/du, dχ/dv). The derivatives
     /// intentionally omit the phase-only global scale, matching py4DSTEM.
-    static func gradientSamples(
+    package static func gradientSamples(
         probeAnglesMrad: [ParallaxVector],
         rotationRad: Double,
         terms: [ParallaxAberrationTerm]
@@ -461,25 +503,25 @@ nonisolated enum ParallaxAberrationFitter {
     }
 
     private struct Matrix2 {
-        let m00: Double
-        let m01: Double
-        let m10: Double
-        let m11: Double
+        package let m00: Double
+        package let m01: Double
+        package let m10: Double
+        package let m11: Double
 
-        var determinant: Double { m00 * m11 - m01 * m10 }
+        package var determinant: Double { m00 * m11 - m01 * m10 }
 
-        var transposed: Matrix2 {
+        package var transposed: Matrix2 {
             Matrix2(m00: m00, m01: m10, m10: m01, m11: m11)
         }
 
-        func scaled(by scale: Double) -> Matrix2 {
+        package func scaled(by scale: Double) -> Matrix2 {
             Matrix2(
                 m00: m00 * scale, m01: m01 * scale,
                 m10: m10 * scale, m11: m11 * scale
             )
         }
 
-        static func * (lhs: Matrix2, rhs: Matrix2) -> Matrix2 {
+        package static func * (lhs: Matrix2, rhs: Matrix2) -> Matrix2 {
             Matrix2(
                 m00: lhs.m00 * rhs.m00 + lhs.m01 * rhs.m10,
                 m01: lhs.m00 * rhs.m01 + lhs.m01 * rhs.m11,

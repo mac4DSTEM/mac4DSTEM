@@ -26,7 +26,7 @@ import Foundation
 /// samples are exactly the case where the first shell goes missing and the
 /// second is read as the first — so the state is reported rather than folded
 /// into "fine" (`docs/q-calibration-design.md` §3.2).
-nonisolated enum QCalibrationShellCheck: Sendable, Equatable {
+package nonisolated enum QCalibrationShellCheck: Sendable, Equatable {
     /// The two innermost distinct shells, as measured, beside what the crystal
     /// predicts. `positions` is how many scan positions contributed an r₂ —
     /// carried because a median over 3 positions and one over 100 000 are not
@@ -36,34 +36,45 @@ nonisolated enum QCalibrationShellCheck: Sendable, Equatable {
 
     /// Relative disagreement with the crystal, or nil when nothing was checked.
     /// **No threshold is applied to this anywhere** — see the type's note.
-    var mismatch: Double? {
+    package var mismatch: Double? {
         guard case .measured(let observed, let expected, _) = self,
               expected != 0 else { return nil }
         return abs(observed / expected - 1)
     }
 }
 
-nonisolated struct QCalibrationEstimate: Sendable {
-    let invAngstromPerPixel: Double
-    let observedRadiusPixels: Double
-    let referenceRadiusInvAngstrom: Double
-    let medianAbsoluteDeviationPixels: Double
-    let sampleCount: Int
+package nonisolated struct QCalibrationEstimate: Sendable {
+    package let invAngstromPerPixel: Double
+    package let observedRadiusPixels: Double
+    package let referenceRadiusInvAngstrom: Double
+    package let medianAbsoluteDeviationPixels: Double
+    package let sampleCount: Int
 
     /// Median radius of the innermost peak that is separated far enough from
     /// the first to belong to a different shell, when one exists.
-    let secondShellRadiusPixels: Double?
-    let shellCheck: QCalibrationShellCheck
+    package let secondShellRadiusPixels: Double?
+    package let shellCheck: QCalibrationShellCheck
 
     /// `medianAbsoluteDeviationPixels / observedRadiusPixels`. Computed and
     /// exposed because it is free and a later design pass will need it; **no
     /// threshold is applied to it** — see the note on `KnownCrystalQCalibration`.
-    var shellConsistency: Double {
+    package var shellConsistency: Double {
         observedRadiusPixels > 0 ? medianAbsoluteDeviationPixels / observedRadiusPixels : .infinity
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck) {
+        self.invAngstromPerPixel = invAngstromPerPixel
+        self.observedRadiusPixels = observedRadiusPixels
+        self.referenceRadiusInvAngstrom = referenceRadiusInvAngstrom
+        self.medianAbsoluteDeviationPixels = medianAbsoluteDeviationPixels
+        self.sampleCount = sampleCount
+        self.secondShellRadiusPixels = secondShellRadiusPixels
+        self.shellCheck = shellCheck
     }
 }
 
-nonisolated enum KnownCrystalQCalibration {
+package nonisolated enum KnownCrystalQCalibration {
 
     // MARK: - Why there are no thresholds here (v2 S13, after Gate B)
     //
@@ -111,7 +122,7 @@ nonisolated enum KnownCrystalQCalibration {
     ///
     /// **This function refuses nothing.** It reports what it measured; see
     /// `QCalibrationShellCheck`.
-    static func estimate(
+    package static func estimate(
         bragg: BraggVectors,
         origin: (x: Float, y: Float),
         referenceRadiusInvAngstrom: Double,

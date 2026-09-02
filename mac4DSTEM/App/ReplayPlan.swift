@@ -34,6 +34,7 @@
 //
 
 import Foundation
+import DSTEMCore
 
 /// Which detector frame a recipe's parameters are expressed in. Tracked live
 /// on `SessionReplay` (session state, never serialized): set when a recipe is

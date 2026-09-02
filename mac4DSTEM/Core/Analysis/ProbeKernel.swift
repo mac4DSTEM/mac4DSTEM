@@ -19,11 +19,11 @@
 
 import Foundation
 
-nonisolated enum ProbeKernelSource: String, Sendable {
+package nonisolated enum ProbeKernelSource: String, Sendable {
     case synthetic = "Synthetic"
     case measured = "Measured ROI"
 
-    var provenanceID: String {
+    package var provenanceID: String {
         switch self {
         case .synthetic: "synthetic"
         case .measured: "measured_roi"
@@ -33,23 +33,23 @@ nonisolated enum ProbeKernelSource: String, Sendable {
 
 /// A ready-to-use detection kernel: real-space form (for inspection) plus its
 /// precomputed conjugated Fourier transform on the native detector grid.
-nonisolated struct ProbeKernel: Sendable {
+package nonisolated struct ProbeKernel: Sendable {
     /// Exact detector grid dimensions the kernel lives on.
-    let px: Int
-    let py: Int
+    package let px: Int
+    package let py: Int
     /// Detector dimensions the kernel was built for.
-    let qx: Int
-    let qy: Int
+    package let qx: Int
+    package let qy: Int
     /// The probe radius (px) and sigmoid trench radii used to build it.
-    let probeRadius: Float
-    let trenchRadii: (inner: Float, outer: Float)
-    let source: ProbeKernelSource
+    package let probeRadius: Float
+    package let trenchRadii: (inner: Float, outer: Float)
+    package let source: ProbeKernelSource
 
     /// Corner-centered, zero-sum kernel on the native grid [py * px].
-    let kernel: [Float]
+    package let kernel: [Float]
     /// conj(FFT2(kernel)) — the term every pattern's FFT is multiplied with.
-    let ftRe: [Float]
-    let ftIm: [Float]
+    package let ftRe: [Float]
+    package let ftIm: [Float]
 
     // MARK: Construction
 
@@ -60,7 +60,7 @@ nonisolated struct ProbeKernel: Sendable {
     ///     typically use ~1–2 px for sharp disks.
     ///   - trenchRadii: sigmoid trench inner/outer radii; nil → (r, 2r),
     ///     the standard choice.
-    nonisolated static func synthetic(radius: Float, width: Float = 2,
+    package nonisolated static func synthetic(radius: Float, width: Float = 2,
                           qy: Int, qx: Int,
                           trenchRadii: (Float, Float)? = nil) -> ProbeKernel? {
         let px = qx
@@ -116,7 +116,7 @@ nonisolated struct ProbeKernel: Sendable {
     /// Vacuum-probe kernel following py4DSTEM's measured-probe sigmoid route:
     /// mask outside the bright probe, bilinearly shift its supplied center to
     /// the correlation origin, normalize, then subtract the sine² trench.
-    nonisolated static func measured(
+    package nonisolated static func measured(
         pattern: DiffractionPattern,
         originX: Float,
         originY: Float,
@@ -185,5 +185,19 @@ nonisolated struct ProbeKernel: Sendable {
             probeRadius: radius, trenchRadii: (ri, ro), source: .measured,
             kernel: kernel, ftRe: re, ftIm: im
         )
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(px: Int, py: Int, qx: Int, qy: Int, probeRadius: Float, trenchRadii: (inner: Float, outer: Float), source: ProbeKernelSource, kernel: [Float], ftRe: [Float], ftIm: [Float]) {
+        self.px = px
+        self.py = py
+        self.qx = qx
+        self.qy = qy
+        self.probeRadius = probeRadius
+        self.trenchRadii = trenchRadii
+        self.source = source
+        self.kernel = kernel
+        self.ftRe = ftRe
+        self.ftIm = ftIm
     }
 }

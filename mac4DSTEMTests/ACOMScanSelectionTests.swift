@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 import simd
 @testable import mac4DSTEM
 

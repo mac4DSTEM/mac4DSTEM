@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Pins `DatasetResidency` — the state L2 adds, extracted into its own type

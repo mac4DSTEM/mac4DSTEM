@@ -6,29 +6,41 @@
 
 import Foundation
 
-nonisolated struct ParallaxDetectorIndex: Equatable, Sendable {
+package nonisolated struct ParallaxDetectorIndex: Equatable, Sendable {
     /// py4DSTEM qx: first / detector-row axis (app y).
-    let qx: Int
+    package let qx: Int
     /// py4DSTEM qy: second / detector-column axis (app x).
-    let qy: Int
+    package let qy: Int
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(qx: Int, qy: Int) {
+        self.qx = qx
+        self.qy = qy
+    }
 }
 
-nonisolated struct ParallaxVector: Equatable, Sendable {
-    let qx: Float
-    let qy: Float
+package nonisolated struct ParallaxVector: Equatable, Sendable {
+    package let qx: Float
+    package let qy: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(qx: Float, qy: Float) {
+        self.qx = qx
+        self.qy = qy
+    }
 }
 
-nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
-    let scanSamplingAngstrom: Double
-    let reciprocalSamplingInvAngstrom: Double
-    let energyEV: Double
-    let wavelengthAngstrom: Double
-    let originQX: Double
-    let originQY: Double
-    let rotationRad: Double
-    let transpose: Bool
+package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
+    package let scanSamplingAngstrom: Double
+    package let reciprocalSamplingInvAngstrom: Double
+    package let energyEV: Double
+    package let wavelengthAngstrom: Double
+    package let originQX: Double
+    package let originQY: Double
+    package let rotationRad: Double
+    package let transpose: Bool
 
-    static func resolve(
+    package static func resolve(
         calibration: Calibration,
         apertureCenterX: Float,
         apertureCenterY: Float,
@@ -90,56 +102,78 @@ nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         )
     }
 
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(scanSamplingAngstrom: Double, reciprocalSamplingInvAngstrom: Double, energyEV: Double, wavelengthAngstrom: Double, originQX: Double, originQY: Double, rotationRad: Double, transpose: Bool) {
+        self.scanSamplingAngstrom = scanSamplingAngstrom
+        self.reciprocalSamplingInvAngstrom = reciprocalSamplingInvAngstrom
+        self.energyEV = energyEV
+        self.wavelengthAngstrom = wavelengthAngstrom
+        self.originQX = originQX
+        self.originQY = originQY
+        self.rotationRad = rotationRad
+        self.transpose = transpose
+    }
 }
 
-nonisolated struct ParallaxPreprocessOptions: Equatable, Sendable {
-    var thresholdIntensity: Float = 0.8
-    var edgeBlend: Float = 16
+package nonisolated struct ParallaxPreprocessOptions: Equatable, Sendable {
+    package var thresholdIntensity: Float = 0.8
+    package var edgeBlend: Float = 16
     /// Total padding added to the two scan axes, matching py4DSTEM's default.
-    var paddingY: Int = 32
-    var paddingX: Int = 32
+    package var paddingY: Int = 32
+    package var paddingX: Int = 32
     /// Nil chooses scan-row tiles bounded to roughly 64 MiB.
-    var tileRows: Int? = nil
-    var maxStackBytes: Int = 1_073_741_824
+    package var tileRows: Int? = nil
+    package var maxStackBytes: Int = 1_073_741_824
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(thresholdIntensity: Float = 0.8, edgeBlend: Float = 16, paddingY: Int = 32, paddingX: Int = 32, tileRows: Int? = nil, maxStackBytes: Int = 1_073_741_824) {
+        self.thresholdIntensity = thresholdIntensity
+        self.edgeBlend = edgeBlend
+        self.paddingY = paddingY
+        self.paddingX = paddingX
+        self.tileRows = tileRows
+        self.maxStackBytes = maxStackBytes
+    }
 }
 
-nonisolated struct ParallaxPreprocessResult: Sendable {
-    let scanHeight: Int
-    let scanWidth: Int
-    let detectorHeight: Int
-    let detectorWidth: Int
-    let stackHeight: Int
-    let stackWidth: Int
-    let calibration: ParallaxPhysicalCalibration
-    let thresholdIntensity: Float
-    let detectorMask: [Bool]
-    let detectorIndices: [ParallaxDetectorIndex]
-    let reciprocalVectors: [ParallaxVector]
-    let probeAnglesMrad: [ParallaxVector]
-    let edgeWindow: [Float]
+package nonisolated struct ParallaxPreprocessResult: Sendable {
+    package let scanHeight: Int
+    package let scanWidth: Int
+    package let detectorHeight: Int
+    package let detectorWidth: Int
+    package let stackHeight: Int
+    package let stackWidth: Int
+    package let calibration: ParallaxPhysicalCalibration
+    package let thresholdIntensity: Float
+    package let detectorMask: [Bool]
+    package let detectorIndices: [ParallaxDetectorIndex]
+    package let reciprocalVectors: [ParallaxVector]
+    package let probeAnglesMrad: [ParallaxVector]
+    package let edgeWindow: [Float]
     /// py4DSTEM layout: [bright-field detector pixel, scan row, scan column].
-    let normalizedStack: [Float]
+    package let normalizedStack: [Float]
     /// py4DSTEM `_stack_BF_unshifted`: intensity-normalized virtual-BF
     /// images before the edge window is blended in. Subpixel KDE must use
     /// this lossless product because the blended stack has zero-weight edges.
-    let unshiftedStack: [Float]
+    package let unshiftedStack: [Float]
     /// Padded incoherent BF initialization (`Parallax.recon_BF`).
-    let incoherentBF: [Float]
-    let initialError: Float
+    package let incoherentBF: [Float]
+    package let initialError: Float
 
-    var brightFieldPixelCount: Int { detectorIndices.count }
-    var stackByteCount: Int { normalizedStack.count * MemoryLayout<Float>.stride }
-    var residentStackByteCount: Int {
+    package var brightFieldPixelCount: Int { detectorIndices.count }
+    package var stackByteCount: Int { normalizedStack.count * MemoryLayout<Float>.stride }
+    package var residentStackByteCount: Int {
         (normalizedStack.count + unshiftedStack.count) * MemoryLayout<Float>.stride
     }
 
-    var maximumProbeAngleMrad: Float {
+    package var maximumProbeAngleMrad: Float {
         probeAnglesMrad.reduce(0) { partial, vector in
             max(partial, hypot(vector.qx, vector.qy))
         }
     }
 
-    var previewImage: FloatImage {
+    package var previewImage: FloatImage {
         let top = (stackHeight - scanHeight) / 2
         let left = (stackWidth - scanWidth) / 2
         var pixels = [Float](repeating: 0, count: scanHeight * scanWidth)
@@ -152,17 +186,38 @@ nonisolated struct ParallaxPreprocessResult: Sendable {
         }
         return FloatImage(width: scanWidth, height: scanHeight, pixels: pixels)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, stackHeight: Int, stackWidth: Int, calibration: ParallaxPhysicalCalibration, thresholdIntensity: Float, detectorMask: [Bool], detectorIndices: [ParallaxDetectorIndex], reciprocalVectors: [ParallaxVector], probeAnglesMrad: [ParallaxVector], edgeWindow: [Float], normalizedStack: [Float], unshiftedStack: [Float], incoherentBF: [Float], initialError: Float) {
+        self.scanHeight = scanHeight
+        self.scanWidth = scanWidth
+        self.detectorHeight = detectorHeight
+        self.detectorWidth = detectorWidth
+        self.stackHeight = stackHeight
+        self.stackWidth = stackWidth
+        self.calibration = calibration
+        self.thresholdIntensity = thresholdIntensity
+        self.detectorMask = detectorMask
+        self.detectorIndices = detectorIndices
+        self.reciprocalVectors = reciprocalVectors
+        self.probeAnglesMrad = probeAnglesMrad
+        self.edgeWindow = edgeWindow
+        self.normalizedStack = normalizedStack
+        self.unshiftedStack = unshiftedStack
+        self.incoherentBF = incoherentBF
+        self.initialError = initialError
+    }
 }
 
-nonisolated enum ParallaxPreprocessor {
-    enum PreprocessError: LocalizedError, Equatable {
+package nonisolated enum ParallaxPreprocessor {
+    package enum PreprocessError: LocalizedError, Equatable {
         case missingCalibration(String)
         case invalidOptions(String)
         case invalidData(String)
         case stackTooLarge(bytes: Int, limit: Int)
         case cancelled
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .missingCalibration(let detail):
                 return "Parallax preprocessing needs physical calibration. \(detail)"
@@ -178,7 +233,7 @@ nonisolated enum ParallaxPreprocessor {
         }
     }
 
-    static func electronWavelengthAngstrom(energyEV: Double) -> Double {
+    package static func electronWavelengthAngstrom(energyEV: Double) -> Double {
         // Exact constants/form used by py4DSTEM electron_wavelength_angstrom.
         let mass = 9.109383e-31
         let charge = 1.602177e-19
@@ -190,7 +245,7 @@ nonisolated enum ParallaxPreprocessor {
             * 1e10
     }
 
-    static func run(
+    package static func run(
         source: any FourDDataSource,
         view: LoadView,
         calibration: ParallaxPhysicalCalibration,

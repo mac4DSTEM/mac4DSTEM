@@ -6,38 +6,66 @@
 
 import Foundation
 
-nonisolated struct PtychographyPosition: Equatable, Sendable {
-    let row: Float
-    let column: Float
+package nonisolated struct PtychographyPosition: Equatable, Sendable {
+    package let row: Float
+    package let column: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(row: Float, column: Float) {
+        self.row = row
+        self.column = column
+    }
 }
 
-nonisolated struct PtychographyComplexArray: Sendable {
-    let width: Int
-    let height: Int
-    let real: [Float]
-    let imaginary: [Float]
+package nonisolated struct PtychographyComplexArray: Sendable {
+    package let width: Int
+    package let height: Int
+    package let real: [Float]
+    package let imaginary: [Float]
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(width: Int, height: Int, real: [Float], imaginary: [Float]) {
+        self.width = width
+        self.height = height
+        self.real = real
+        self.imaginary = imaginary
+    }
 }
 
-nonisolated struct SingleslicePtychographyInput: Sendable {
-    let scanHeight: Int
-    let scanWidth: Int
-    let detectorHeight: Int
-    let detectorWidth: Int
+package nonisolated struct SingleslicePtychographyInput: Sendable {
+    package let scanHeight: Int
+    package let scanWidth: Int
+    package let detectorHeight: Int
+    package let detectorWidth: Int
     /// Corner-centered measured amplitudes `[position,row,column]`.
-    let amplitudes: [Float]
-    let positions: [PtychographyPosition]
-    let objectSamplingRowAngstrom: Double
-    let objectSamplingColumnAngstrom: Double
-    let initialObject: PtychographyComplexArray
-    let initialProbe: PtychographyComplexArray
+    package let amplitudes: [Float]
+    package let positions: [PtychographyPosition]
+    package let objectSamplingRowAngstrom: Double
+    package let objectSamplingColumnAngstrom: Double
+    package let initialObject: PtychographyComplexArray
+    package let initialProbe: PtychographyComplexArray
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray) {
+        self.scanHeight = scanHeight
+        self.scanWidth = scanWidth
+        self.detectorHeight = detectorHeight
+        self.detectorWidth = detectorWidth
+        self.amplitudes = amplitudes
+        self.positions = positions
+        self.objectSamplingRowAngstrom = objectSamplingRowAngstrom
+        self.objectSamplingColumnAngstrom = objectSamplingColumnAngstrom
+        self.initialObject = initialObject
+        self.initialProbe = initialProbe
+    }
 }
 
-nonisolated enum SingleslicePtychographyMethod: String, CaseIterable, Identifiable, Sendable {
+package nonisolated enum SingleslicePtychographyMethod: String, CaseIterable, Identifiable, Sendable {
     case gradientDescent = "Gradient descent"
     case differenceMapAlternatingProjections = "DM / AP"
 
-    var id: String { rawValue }
-    var provenanceName: String {
+    package var id: String { rawValue }
+    package var provenanceName: String {
         switch self {
         case .gradientDescent: "gradient-descent"
         case .differenceMapAlternatingProjections:
@@ -46,44 +74,47 @@ nonisolated enum SingleslicePtychographyMethod: String, CaseIterable, Identifiab
     }
 }
 
-nonisolated struct SingleslicePtychographyOptions: Equatable, Sendable {
-    var method: SingleslicePtychographyMethod = .gradientDescent
-    var iterations = 8
-    var stepSize: Float = 0.5
-    var projectionParameter: Float = 1
-    var normalizationMinimum: Float = 1
-    var fixProbe = false
-    var constrainObjectAmplitude = false
-    var purePhaseObject = false
-    var fixProbeCenterOfMass = false
-    var constrainProbeAmplitude = false
-    var probeAmplitudeRelativeRadius: Float = 0.5
-    var probeAmplitudeRelativeWidth: Float = 0.05
-    var maxWorkingBytes = 1_073_741_824
+package nonisolated struct SingleslicePtychographyOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
+    package var method: SingleslicePtychographyMethod = .gradientDescent
+    package var iterations = 8
+    package var stepSize: Float = 0.5
+    package var projectionParameter: Float = 1
+    package var normalizationMinimum: Float = 1
+    package var fixProbe = false
+    package var constrainObjectAmplitude = false
+    package var purePhaseObject = false
+    package var fixProbeCenterOfMass = false
+    package var constrainProbeAmplitude = false
+    package var probeAmplitudeRelativeRadius: Float = 0.5
+    package var probeAmplitudeRelativeWidth: Float = 0.05
+    package var maxWorkingBytes = 1_073_741_824
 }
 
-nonisolated struct SingleslicePtychographyResult: Sendable {
-    let object: PtychographyComplexArray
-    let probe: PtychographyComplexArray
-    let positions: [PtychographyPosition]
-    let errorHistory: [Float]
-    let objectSamplingRowAngstrom: Double
-    let objectSamplingColumnAngstrom: Double
-    let options: SingleslicePtychographyOptions
+package nonisolated struct SingleslicePtychographyResult: Sendable {
+    package let object: PtychographyComplexArray
+    package let probe: PtychographyComplexArray
+    package let positions: [PtychographyPosition]
+    package let errorHistory: [Float]
+    package let objectSamplingRowAngstrom: Double
+    package let objectSamplingColumnAngstrom: Double
+    package let options: SingleslicePtychographyOptions
 
-    func objectPhase(cropped: Bool = true) -> FloatImage {
+    package func objectPhase(cropped: Bool = true) -> FloatImage {
         objectImage(cropped: cropped) { atan2($1, $0) }
     }
 
-    func objectAmplitude(cropped: Bool = true) -> FloatImage {
+    package func objectAmplitude(cropped: Bool = true) -> FloatImage {
         objectImage(cropped: cropped) { hypot($0, $1) }
     }
 
-    func probePhase(centered: Bool = true) -> FloatImage {
+    package func probePhase(centered: Bool = true) -> FloatImage {
         probeImage(centered: centered) { atan2($1, $0) }
     }
 
-    func probeAmplitude(centered: Bool = true) -> FloatImage {
+    package func probeAmplitude(centered: Bool = true) -> FloatImage {
         probeImage(centered: centered) { hypot($0, $1) }
     }
 
@@ -138,17 +169,28 @@ nonisolated struct SingleslicePtychographyResult: Sendable {
         let column1 = max(column0 + 1, min(object.width, Int(ceil(maxColumn))))
         return (row0, row1, column0, column1)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions) {
+        self.object = object
+        self.probe = probe
+        self.positions = positions
+        self.errorHistory = errorHistory
+        self.objectSamplingRowAngstrom = objectSamplingRowAngstrom
+        self.objectSamplingColumnAngstrom = objectSamplingColumnAngstrom
+        self.options = options
+    }
 }
 
-nonisolated enum SingleslicePtychography {
-    enum ReconstructionError: LocalizedError, Equatable {
+package nonisolated enum SingleslicePtychography {
+    package enum ReconstructionError: LocalizedError, Equatable {
         case invalidInput(String)
         case invalidOptions(String)
         case memoryLimit(bytes: Int, limit: Int)
         case fftUnavailable
         case cancelled
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .invalidInput(let detail):
                 return "Cannot run single-slice ptychography: \(detail)."
@@ -168,14 +210,14 @@ nonisolated enum SingleslicePtychography {
     /// shift is separable in row/column frequency, so cache compact complex
     /// ramps once instead of evaluating sin/cos for every pixel and iteration.
     private struct FractionalShiftPlan {
-        let rowReal: [Float]
-        let rowImaginary: [Float]
-        let columnReal: [Float]
-        let columnImaginary: [Float]
-        let height: Int
-        let width: Int
+        package let rowReal: [Float]
+        package let rowImaginary: [Float]
+        package let columnReal: [Float]
+        package let columnImaginary: [Float]
+        package let height: Int
+        package let width: Int
 
-        init(input: SingleslicePtychographyInput) {
+        package init(input: SingleslicePtychographyInput) {
             height = input.detectorHeight
             width = input.detectorWidth
             let patternCount = input.scanHeight * input.scanWidth
@@ -208,7 +250,7 @@ nonisolated enum SingleslicePtychography {
             self.columnImaginary = columnImaginary
         }
 
-        func factor(pattern: Int, row: Int, column: Int) -> (real: Float, imaginary: Float) {
+        package func factor(pattern: Int, row: Int, column: Int) -> (real: Float, imaginary: Float) {
             let rowIndex = pattern * height + row
             let columnIndex = pattern * width + column
             let rr = rowReal[rowIndex], ri = rowImaginary[rowIndex]
@@ -217,7 +259,7 @@ nonisolated enum SingleslicePtychography {
         }
     }
 
-    static func reconstruct(
+    package static func reconstruct(
         input: SingleslicePtychographyInput,
         options: SingleslicePtychographyOptions = .init(),
         cancellation: AnalysisCancellationToken? = nil,

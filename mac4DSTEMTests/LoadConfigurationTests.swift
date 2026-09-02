@@ -9,6 +9,7 @@
 //
 
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 final class LoadConfigurationTests: XCTestCase {

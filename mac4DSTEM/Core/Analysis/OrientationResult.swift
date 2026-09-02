@@ -1,35 +1,35 @@
 import Foundation
 import simd
 
-nonisolated enum ACOMMatchingBackend: String, Sendable, Equatable, CaseIterable, Identifiable {
+package nonisolated enum ACOMMatchingBackend: String, Sendable, Equatable, CaseIterable, Identifiable {
     case automatic = "Automatic"
     case cpu = "Accelerate CPU"
     case metal = "Metal GPU"
 
-    var id: String { rawValue }
+    package var id: String { rawValue }
 }
 
 /// py4DSTEM/orix-compatible Bunge Euler angles in radians. py4DSTEM stores an
 /// orientation matrix whose columns are lab x/y/z in crystal coordinates,
 /// then exports `matrix.T` through SciPy's extrinsic `zxz` decomposition.
-nonisolated struct EulerAngles: Equatable, Hashable {
-    var phi1: Float
-    var Phi: Float
-    var phi2: Float
+package nonisolated struct EulerAngles: Equatable, Hashable {
+    package var phi1: Float
+    package var Phi: Float
+    package var phi2: Float
 
-    init(phi1: Float, Phi: Float, phi2: Float) {
+    package init(phi1: Float, Phi: Float, phi2: Float) {
         self.phi1 = phi1
         self.Phi = Phi
         self.phi2 = phi2
     }
 
-    static let zero = EulerAngles(phi1: 0, Phi: 0, phi2: 0)
+    package static let zero = EulerAngles(phi1: 0, Phi: 0, phi2: 0)
 
     /// Decompose py4DSTEM's orientation-matrix convention exactly: transpose
     /// crystal-coordinate lab axes to crystal→lab, then extrinsic zxz. At
     /// gimbal lock, match SciPy by folding the observable rotation into phi1
     /// and setting phi2 to zero.
-    init(py4DSTEMOrientationMatrix matrix: simd_double3x3) {
+    package init(py4DSTEMOrientationMatrix matrix: simd_double3x3) {
         let r = simd_transpose(matrix)
         let r22 = min(1.0, max(-1.0, r.columns.2.z))
         let middle = acos(r22)
@@ -52,7 +52,7 @@ nonisolated struct EulerAngles: Equatable, Hashable {
     }
 
     /// Crystal→lab rotation matrix corresponding to SciPy `from_euler("zxz")`.
-    var crystalToLabMatrix: simd_double3x3 {
+    package var crystalToLabMatrix: simd_double3x3 {
         let a = Double(phi1), b = Double(Phi), c = Double(phi2)
         let ca = cos(a), sa = sin(a), cb = cos(b), sb = sin(b)
         let cc = cos(c), sc = sin(c)
@@ -67,7 +67,7 @@ nonisolated struct EulerAngles: Equatable, Hashable {
         ))
     }
 
-    var py4DSTEMOrientationMatrix: simd_double3x3 {
+    package var py4DSTEMOrientationMatrix: simd_double3x3 {
         simd_transpose(crystalToLabMatrix)
     }
 
@@ -78,7 +78,7 @@ nonisolated struct EulerAngles: Equatable, Hashable {
         return abs(angle) < 1e-12 ? 0 : angle
     }
 
-    var degrees: (Float, Float, Float) {
+    package var degrees: (Float, Float, Float) {
         let scale = Float(180.0 / Double.pi)
         return (phi1 * scale, Phi * scale, phi2 * scale)
     }
@@ -87,8 +87,8 @@ nonisolated struct EulerAngles: Equatable, Hashable {
 /// Orientation-matrix construction shared by the plan, matcher, and harness.
 /// Columns are detector x, detector y, and beam z expressed in crystal axes,
 /// matching py4DSTEM's `Orientation.matrix` convention.
-nonisolated enum ACOMOrientation {
-    static func detectorBasis(zoneAxis n: SIMD3<Double>) -> simd_double3x3 {
+package nonisolated enum ACOMOrientation {
+    package static func detectorBasis(zoneAxis n: SIMD3<Double>) -> simd_double3x3 {
         let reference: SIMD3<Double> = abs(n.x) < 0.9 ? [1, 0, 0] : [0, 1, 0]
         let e1 = simd_normalize(simd_cross(n, reference))
         let e2 = simd_cross(n, e1)
@@ -96,7 +96,7 @@ nonisolated enum ACOMOrientation {
     }
 
     /// py4DSTEM applies this in-plane matrix on the right of the zone basis.
-    static func matrix(detectorBasis basis: simd_double3x3,
+    package static func matrix(detectorBasis basis: simd_double3x3,
                        inPlaneAngle angle: Float) -> simd_double3x3 {
         let c = cos(Double(angle)), s = sin(Double(angle))
         let inPlane = simd_double3x3(columns: (
@@ -109,9 +109,9 @@ nonisolated enum ACOMOrientation {
 /// Cubic crystal-symmetry operations and the m-3m inverse-pole-figure color
 /// key used for ACOM results. py4DSTEM stores lab axes in the columns of the
 /// orientation matrix, so an equivalent cubic orientation is `S * matrix`.
-nonisolated enum CubicOrientationSymmetry {
+package nonisolated enum CubicOrientationSymmetry {
     /// The 24 proper signed-permutation matrices of the cubic rotation group.
-    static let operators: [simd_double3x3] = {
+    package static let operators: [simd_double3x3] = {
         let permutations = [
             [0, 1, 2], [0, 2, 1], [1, 0, 2],
             [1, 2, 0], [2, 0, 1], [2, 1, 0],
@@ -136,7 +136,7 @@ nonisolated enum CubicOrientationSymmetry {
     /// Select one deterministic representative from the 24 equivalent
     /// orientations. The chosen representative has the smallest rotation from
     /// identity; canonical quaternion components break exact ties.
-    static func reduce(_ matrix: simd_double3x3) ->
+    package static func reduce(_ matrix: simd_double3x3) ->
         (matrix: simd_double3x3, disorientationRad: Float) {
         var bestMatrix = matrix
         var bestKey: [Double]?
@@ -155,7 +155,7 @@ nonisolated enum CubicOrientationSymmetry {
     }
 
     /// Fold a direction into the cubic m-3m IPF sector z ≥ x ≥ y ≥ 0.
-    static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
+    package static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
         let length = simd_length(direction)
         guard length.isFinite, length > 1e-15 else { return [0, 0, 1] }
         let values = [abs(direction.x), abs(direction.y), abs(direction.z)].sorted()
@@ -166,7 +166,7 @@ nonisolated enum CubicOrientationSymmetry {
     /// direction fundamental zone [001]-[101]-[111]. A dense Fibonacci sphere
     /// is folded by symmetry, then spherical farthest-point selection avoids
     /// spending templates on symmetry-equivalent beam directions.
-    static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
+    package static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
         guard count > 0 else { return [] }
         let vertices = [
             SIMD3<Double>(0, 0, 1),
@@ -210,7 +210,7 @@ nonisolated enum CubicOrientationSymmetry {
 
     /// EDAX/TSL-style cubic IPF color, numerically aligned with orix's m-3m
     /// direction color key. Pure red/green/blue denote [001]/[101]/[111].
-    static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
+    package static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
         let v = reduceDirection(direction)
         let azimuth = correctedAzimuth(rawAzimuth(v))
 
@@ -368,8 +368,8 @@ nonisolated enum CubicOrientationSymmetry {
 /// rotations about c plus six twofold rotations about basal-plane axes. The
 /// diffraction/Friedel direction key folds the resulting sector to
 /// `[0001]-[10-10]-[11-20]`.
-nonisolated enum HexagonalOrientationSymmetry {
-    static let operators: [simd_double3x3] = {
+package nonisolated enum HexagonalOrientationSymmetry {
+    package static let operators: [simd_double3x3] = {
         var result: [simd_double3x3] = []
         for index in 0..<6 {
             let angle = Double(index) * .pi / 3
@@ -390,7 +390,7 @@ nonisolated enum HexagonalOrientationSymmetry {
         return result
     }()
 
-    static func reduce(_ matrix: simd_double3x3) ->
+    package static func reduce(_ matrix: simd_double3x3) ->
         (matrix: simd_double3x3, disorientationRad: Float) {
         var bestMatrix = matrix
         var bestKey: [Double]?
@@ -412,7 +412,7 @@ nonisolated enum HexagonalOrientationSymmetry {
         return (bestMatrix, Float(bestAngle))
     }
 
-    static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
+    package static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
         let length = simd_length(direction)
         guard length.isFinite, length > 1e-15 else { return [0, 0, 1] }
         var value = direction / length
@@ -426,7 +426,7 @@ nonisolated enum HexagonalOrientationSymmetry {
         ))
     }
 
-    static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
+    package static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
         guard count > 0 else { return [] }
         let vertices = [
             SIMD3<Double>(0, 0, 1),
@@ -468,7 +468,7 @@ nonisolated enum HexagonalOrientationSymmetry {
     /// Explicit native 6/mmm IPF key: [0001] red, [10-10] green, [11-20]
     /// blue. Square-root intensity and max normalization match conventional
     /// IPF saturation while keeping the policy deterministic and dependency-free.
-    static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
+    package static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
         let value = reduceDirection(direction)
         let tilt = min(1, max(0, acos(min(1, max(0, value.z))) / (.pi / 2)))
         let azimuth = min(.pi / 6, max(0, atan2(value.y, value.x)))
@@ -487,12 +487,12 @@ nonisolated enum HexagonalOrientationSymmetry {
 /// Explicit symmetry policy for orientation reporting. The current crystal
 /// presets and custom editor are cubic; `.identity` is the safe fallback for
 /// future non-cubic structures until their point groups are implemented.
-nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
+package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
     case cubic
     case hexagonal
     case identity
 
-    var displayName: String {
+    package var displayName: String {
         switch self {
         case .cubic: return "Cubic m-3m"
         case .hexagonal: return "Hexagonal 6/mmm"
@@ -500,7 +500,7 @@ nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
         }
     }
 
-    func reduce(_ matrix: simd_double3x3) ->
+    package func reduce(_ matrix: simd_double3x3) ->
         (matrix: simd_double3x3, disorientationRad: Float) {
         switch self {
         case .cubic:
@@ -515,7 +515,7 @@ nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
     }
 
 
-    func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
+    package func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
         switch self {
         case .cubic: return CubicOrientationSymmetry.sampleFundamentalZone(count: count)
         case .hexagonal: return HexagonalOrientationSymmetry.sampleFundamentalZone(count: count)
@@ -531,7 +531,7 @@ nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
         }
     }
 
-    func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
+    package func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
         switch self {
         case .cubic: return CubicOrientationSymmetry.ipfColor(direction: direction)
         case .hexagonal: return HexagonalOrientationSymmetry.ipfColor(direction: direction)
@@ -543,7 +543,7 @@ nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
 }
 
 private extension simd_double3x3 {
-    nonisolated init(rows: [[Double]]) {
+    package nonisolated init(rows: [[Double]]) {
         self.init(columns: (
             SIMD3(rows[0][0], rows[1][0], rows[2][0]),
             SIMD3(rows[0][1], rows[1][1], rows[2][1]),
@@ -552,29 +552,29 @@ private extension simd_double3x3 {
     }
 }
 
-nonisolated struct OrientationResult: Equatable {
+package nonisolated struct OrientationResult: Equatable {
     /// Index into the template library (zone axis) for the best match.
-    var templateIndex: Int
-    var euler: EulerAngles
+    package var templateIndex: Int
+    package var euler: EulerAngles
     /// Best in-plane rotation angle (radians), from azimuthal correlation.
-    var inPlaneAngle: Float = 0
+    package var inPlaneAngle: Float = 0
     /// Best normalized cross-correlation score.
-    var score: Float
+    package var score: Float
     /// Second-best score, used for reliability.
-    var secondScore: Float
-    var phaseID: Int
+    package var secondScore: Float
+    package var phaseID: Int
     /// Rotation angle of the deterministic cubic fundamental-zone
     /// representative, useful as a scalar orientation diagnostic.
-    var symmetryDisorientationRad: Float = 0
+    package var symmetryDisorientationRad: Float = 0
 
     /// EBSD-style reliability. Higher values indicate a clearer best match.
-    var reliability: Float {
+    package var reliability: Float {
         guard score > 0 else { return 0 }
         let value = 1 - (secondScore / score)
         return max(0, min(1, value))
     }
 
-    static let empty = OrientationResult(
+    package static let empty = OrientationResult(
         templateIndex: -1,
         euler: .zero,
         inPlaneAngle: 0,
@@ -582,17 +582,28 @@ nonisolated struct OrientationResult: Equatable {
         secondScore: 0,
         phaseID: -1
     )
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0) {
+        self.templateIndex = templateIndex
+        self.euler = euler
+        self.inPlaneAngle = inPlaneAngle
+        self.score = score
+        self.secondScore = secondScore
+        self.phaseID = phaseID
+        self.symmetryDisorientationRad = symmetryDisorientationRad
+    }
 }
 
-nonisolated struct OrientationMap {
-    let width: Int
-    let height: Int
-    let matchingBackend: ACOMMatchingBackend
-    let symmetry: ACOMCrystalSymmetry
-    let templateCount: Int
-    var results: [OrientationResult]
+package nonisolated struct OrientationMap {
+    package let width: Int
+    package let height: Int
+    package let matchingBackend: ACOMMatchingBackend
+    package let symmetry: ACOMCrystalSymmetry
+    package let templateCount: Int
+    package var results: [OrientationResult]
 
-    init(width: Int, height: Int, matchingBackend: ACOMMatchingBackend = .cpu,
+    package init(width: Int, height: Int, matchingBackend: ACOMMatchingBackend = .cpu,
          symmetry: ACOMCrystalSymmetry = .cubic, templateCount: Int = 0) {
         self.width = width
         self.height = height
@@ -602,43 +613,43 @@ nonisolated struct OrientationMap {
         self.results = Array(repeating: .empty, count: width * height)
     }
 
-    subscript(x: Int, y: Int) -> OrientationResult {
+    package subscript(x: Int, y: Int) -> OrientationResult {
         get { results[y * width + x] }
         set { results[y * width + x] = newValue }
     }
 
-    var reliabilityImage: FloatImage {
+    package var reliabilityImage: FloatImage {
         FloatImage(width: width, height: height, pixels: results.map { $0.reliability })
     }
 
-    var scoreImage: FloatImage {
+    package var scoreImage: FloatImage {
         FloatImage(width: width, height: height, pixels: results.map { $0.score })
     }
 
     /// In-plane rotation angle at each position, in [0, 1) (radians / 2π) —
     /// suitable for a cyclic colormap.
-    var inPlaneAngleImage: FloatImage {
+    package var inPlaneAngleImage: FloatImage {
         let twoPi = Float(2 * Double.pi)
         return FloatImage(width: width, height: height,
                           pixels: results.map { $0.inPlaneAngle / twoPi })
     }
 
     /// Cyclic φ₁ and φ₂ are wrapped to [0,1); middle Φ spans [0,π].
-    var phi1Image: FloatImage { cyclicEulerImage { $0.euler.phi1 } }
-    var phi2Image: FloatImage { cyclicEulerImage { $0.euler.phi2 } }
-    var PhiImage: FloatImage {
+    package var phi1Image: FloatImage { cyclicEulerImage { $0.euler.phi1 } }
+    package var phi2Image: FloatImage { cyclicEulerImage { $0.euler.phi2 } }
+    package var PhiImage: FloatImage {
         let pi = Float.pi
         return FloatImage(width: width, height: height,
                           pixels: results.map { max(0, min(1, $0.euler.Phi / pi)) })
     }
 
-    var symmetryDisorientationImage: FloatImage {
+    package var symmetryDisorientationImage: FloatImage {
         FloatImage(width: width, height: height,
                    pixels: results.map { $0.symmetryDisorientationRad })
     }
 
     /// Symmetry-specific inverse-pole-figure color for sample Z (beam).
-    var ipfZImage: RGBAImage {
+    package var ipfZImage: RGBAImage {
         var rgba = [UInt8]()
         rgba.reserveCapacity(results.count * 4)
         for result in results {

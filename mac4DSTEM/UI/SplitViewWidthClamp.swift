@@ -1,4 +1,5 @@
 import AppKit
+import DSTEMCore
 
 /// S22d: `NavigationSplitView` restores a persisted sidebar width even when
 /// it is narrower than the declared 250pt minimum — the standing Track B row

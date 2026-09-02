@@ -11,7 +11,7 @@ resolve_mac4dstem_developer_dir
 resolve_mac4dstem_python "$REPO"
 
 "$PYTHON_BIN" reference.py > "$WORK/expected.json"
-xcrun swiftc -parse-as-library -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -parse-as-library -o "$WORK/harness" \
   main.swift \
   "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
   "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \

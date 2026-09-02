@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import DSTEMCore
 
 /// The bottom overlay row of an image pane: the scale bar at the leading edge,
 /// the colour legend at the trailing edge.

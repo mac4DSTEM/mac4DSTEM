@@ -21,6 +21,7 @@
 //
 
 import SwiftUI
+import DSTEMCore
 
 struct LoadConfiguratorView: View {
     @Environment(AppState.self) private var appState

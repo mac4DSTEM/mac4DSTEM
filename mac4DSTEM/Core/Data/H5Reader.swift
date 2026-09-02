@@ -10,7 +10,7 @@ nonisolated private let h5IntegerClass: Int32 = 0
 nonisolated private let h5TwosComplementSign: Int32 = 1
 
 nonisolated private final class H5LinkCollector: @unchecked Sendable {
-    var paths: [String] = []
+    package var paths: [String] = []
 }
 
 nonisolated private let collectH5Link: @convention(c)
@@ -22,7 +22,7 @@ nonisolated private let collectH5Link: @convention(c)
         return 0
     }
 
-enum H5Error: LocalizedError {
+package enum H5Error: LocalizedError {
     case libraryUnavailable(String)
     case symbolMissing(String)
     case cannotOpenFile(String)
@@ -38,7 +38,7 @@ enum H5Error: LocalizedError {
     case readFailed(String)
     case unsupportedRank(Int)
 
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .libraryUnavailable(let detail):
             return "Could not load the bundled HDF5 library: \(detail)"
@@ -79,82 +79,82 @@ enum H5Error: LocalizedError {
 }
 
 nonisolated private struct HDF5Library: @unchecked Sendable {
-    typealias H5open = @convention(c) () -> herr_t
-    typealias H5EAuto2 = @convention(c) (hid_t, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5EsetAuto2 = @convention(c) (hid_t, H5EAuto2?, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5Fopen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
-    typealias H5Fclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Dopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    typealias H5Dclose = @convention(c) (hid_t) -> herr_t
-    typealias H5DgetSpace = @convention(c) (hid_t) -> hid_t
-    typealias H5DgetType = @convention(c) (hid_t) -> hid_t
-    typealias H5DgetCreatePlist = @convention(c) (hid_t) -> hid_t
-    typealias H5Dread = @convention(c) (hid_t, hid_t, hid_t, hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5Sclose = @convention(c) (hid_t) -> herr_t
-    typealias H5SgetSimpleExtentNdims = @convention(c) (hid_t) -> Int32
-    typealias H5SgetSimpleExtentDims = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?, UnsafeMutablePointer<hsize_t>?) -> Int32
-    typealias H5SselectHyperslab = @convention(c) (hid_t, Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> herr_t
-    typealias H5ScreateSimple = @convention(c) (Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> hid_t
-    typealias H5Pclose = @convention(c) (hid_t) -> herr_t
-    typealias H5PgetLayout = @convention(c) (hid_t) -> Int32
-    typealias H5PgetChunk = @convention(c) (hid_t, Int32, UnsafeMutablePointer<hsize_t>?) -> Int32
-    typealias H5Tclose = @convention(c) (hid_t) -> herr_t
-    typealias H5TgetClass = @convention(c) (hid_t) -> Int32
-    typealias H5TgetSize = @convention(c) (hid_t) -> Int
-    typealias H5TgetSign = @convention(c) (hid_t) -> Int32
-    typealias H5Tcopy = @convention(c) (hid_t) -> hid_t
-    typealias H5TsetSize = @convention(c) (hid_t, UInt) -> herr_t
-    typealias H5TisVariableStr = @convention(c) (hid_t) -> Int32
-    typealias H5AgetType = @convention(c) (hid_t) -> hid_t
-    typealias H5Oopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    typealias H5Oclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    typealias H5Aclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5Literate = @convention(c)
+    package typealias H5open = @convention(c) () -> herr_t
+    package typealias H5EAuto2 = @convention(c) (hid_t, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5EsetAuto2 = @convention(c) (hid_t, H5EAuto2?, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5Fopen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
+    package typealias H5Fclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Dopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
+    package typealias H5Dclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5DgetSpace = @convention(c) (hid_t) -> hid_t
+    package typealias H5DgetType = @convention(c) (hid_t) -> hid_t
+    package typealias H5DgetCreatePlist = @convention(c) (hid_t) -> hid_t
+    package typealias H5Dread = @convention(c) (hid_t, hid_t, hid_t, hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5Sclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5SgetSimpleExtentNdims = @convention(c) (hid_t) -> Int32
+    package typealias H5SgetSimpleExtentDims = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?, UnsafeMutablePointer<hsize_t>?) -> Int32
+    package typealias H5SselectHyperslab = @convention(c) (hid_t, Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> herr_t
+    package typealias H5ScreateSimple = @convention(c) (Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> hid_t
+    package typealias H5Pclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5PgetLayout = @convention(c) (hid_t) -> Int32
+    package typealias H5PgetChunk = @convention(c) (hid_t, Int32, UnsafeMutablePointer<hsize_t>?) -> Int32
+    package typealias H5Tclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5TgetClass = @convention(c) (hid_t) -> Int32
+    package typealias H5TgetSize = @convention(c) (hid_t) -> Int
+    package typealias H5TgetSign = @convention(c) (hid_t) -> Int32
+    package typealias H5Tcopy = @convention(c) (hid_t) -> hid_t
+    package typealias H5TsetSize = @convention(c) (hid_t, UInt) -> herr_t
+    package typealias H5TisVariableStr = @convention(c) (hid_t) -> Int32
+    package typealias H5AgetType = @convention(c) (hid_t) -> hid_t
+    package typealias H5Oopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
+    package typealias H5Oclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
+    package typealias H5Aclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5Literate = @convention(c)
         (hid_t, UnsafePointer<CChar>?, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5Lvisit2 = @convention(c)
+    package typealias H5Lvisit2 = @convention(c)
         (hid_t, Int32, Int32, H5Literate, UnsafeMutableRawPointer?) -> herr_t
 
-    let handle: UnsafeMutableRawPointer
-    let h5open: H5open
-    let h5esetAuto2: H5EsetAuto2
-    let h5fopen: H5Fopen
-    let h5fclose: H5Fclose
-    let h5dopen2: H5Dopen2
-    let h5dclose: H5Dclose
-    let h5dgetSpace: H5DgetSpace
-    let h5dgetType: H5DgetType
-    let h5dgetCreatePlist: H5DgetCreatePlist
-    let h5dread: H5Dread
-    let h5sclose: H5Sclose
-    let h5sgetSimpleExtentNdims: H5SgetSimpleExtentNdims
-    let h5sgetSimpleExtentDims: H5SgetSimpleExtentDims
-    let h5sselectHyperslab: H5SselectHyperslab
-    let h5screateSimple: H5ScreateSimple
-    let h5pclose: H5Pclose
-    let h5pgetLayout: H5PgetLayout
-    let h5pgetChunk: H5PgetChunk
-    let h5tclose: H5Tclose
-    let h5tgetClass: H5TgetClass
-    let h5tgetSize: H5TgetSize
-    let h5tgetSign: H5TgetSign
-    let h5tcopy: H5Tcopy
-    let h5tsetSize: H5TsetSize
-    let h5tisVariableStr: H5TisVariableStr
-    let h5agetType: H5AgetType
-    let h5oopen: H5Oopen
-    let h5oclose: H5Oclose
-    let h5aopen: H5Aopen
-    let h5aclose: H5Aclose
-    let h5aread: H5Aread
-    let h5lvisit2: H5Lvisit2
-    let nativeFloat: hid_t
-    let nativeDouble: hid_t
-    let nativeInt: hid_t
-    let stringC1: hid_t          // H5T_C_S1 base type for string reads
+    package let handle: UnsafeMutableRawPointer
+    package let h5open: H5open
+    package let h5esetAuto2: H5EsetAuto2
+    package let h5fopen: H5Fopen
+    package let h5fclose: H5Fclose
+    package let h5dopen2: H5Dopen2
+    package let h5dclose: H5Dclose
+    package let h5dgetSpace: H5DgetSpace
+    package let h5dgetType: H5DgetType
+    package let h5dgetCreatePlist: H5DgetCreatePlist
+    package let h5dread: H5Dread
+    package let h5sclose: H5Sclose
+    package let h5sgetSimpleExtentNdims: H5SgetSimpleExtentNdims
+    package let h5sgetSimpleExtentDims: H5SgetSimpleExtentDims
+    package let h5sselectHyperslab: H5SselectHyperslab
+    package let h5screateSimple: H5ScreateSimple
+    package let h5pclose: H5Pclose
+    package let h5pgetLayout: H5PgetLayout
+    package let h5pgetChunk: H5PgetChunk
+    package let h5tclose: H5Tclose
+    package let h5tgetClass: H5TgetClass
+    package let h5tgetSize: H5TgetSize
+    package let h5tgetSign: H5TgetSign
+    package let h5tcopy: H5Tcopy
+    package let h5tsetSize: H5TsetSize
+    package let h5tisVariableStr: H5TisVariableStr
+    package let h5agetType: H5AgetType
+    package let h5oopen: H5Oopen
+    package let h5oclose: H5Oclose
+    package let h5aopen: H5Aopen
+    package let h5aclose: H5Aclose
+    package let h5aread: H5Aread
+    package let h5lvisit2: H5Lvisit2
+    package let nativeFloat: hid_t
+    package let nativeDouble: hid_t
+    package let nativeInt: hid_t
+    package let stringC1: hid_t          // H5T_C_S1 base type for string reads
 
-    static func load() throws -> HDF5Library {
+    package static func load() throws -> HDF5Library {
         let paths = candidateLibraryPaths()
 
         var failures: [String] = []
@@ -247,16 +247,16 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     }
 }
 
-actor H5Reader: FourDDataSource {
+package actor H5Reader: FourDDataSource {
     private let hdf5: HDF5Library
     private let fileID: hid_t
-    let filePath: String
+    package let filePath: String
     /// Path of the most recently described dataset — anchor for locating the
     /// py4DSTEM calibration bundle / EMD dim vectors relative to the datacube.
     private var lastDatasetPath: String?
     private var lastDatasetShape: [Int]?
 
-    static let candidatePaths: [String] = [
+    package static let candidatePaths: [String] = [
         "/dm_dataset_root/dm_dataset/data",
         "/4DSTEM_experiment/data/datacubes/datacube_0/data",
         "/4DSTEM/data/datacubes/datacube_root/data",
@@ -265,7 +265,7 @@ actor H5Reader: FourDDataSource {
         "/Experiments/__unnamed__/data/data"
     ]
 
-    init(path: String) throws {
+    package init(path: String) throws {
         let hdf5 = try HDF5Library.load()
         _ = hdf5.h5esetAuto2(h5DefaultProperty, nil, nil)
         let id = path.withCString { hdf5.h5fopen($0, h5ReadOnly, h5DefaultProperty) }
@@ -281,7 +281,7 @@ actor H5Reader: FourDDataSource {
         }
     }
 
-    func discoverPrimaryDataset() throws -> DatasetDescriptor {
+    package func discoverPrimaryDataset() throws -> DatasetDescriptor {
         silenceAutomaticErrors()
         // `try?` is correct here (v2 S7 audit): each candidate path is a
         // PROBE — "this file has no dataset at that name" is the expected
@@ -339,7 +339,7 @@ actor H5Reader: FourDDataSource {
         throw H5Error.noDatasetFound(Self.candidatePaths + candidates)
     }
 
-    func describe(path: String) throws -> DatasetDescriptor {
+    package func describe(path: String) throws -> DatasetDescriptor {
         silenceAutomaticErrors()
         let datasetID = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
         guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(path) }
@@ -407,7 +407,7 @@ actor H5Reader: FourDDataSource {
     /// qy0:qy1]`), which is a NumPy view — the full cube stays alive as `.base`,
     /// so you lose access to the full extent while still paying for it. Here the
     /// crop is applied at READ time and the source file is untouched.
-    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown {
+    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown {
         let source = view.source
         guard let chunk = source.chunkShape, chunk.count == 4 else { return .full }
         return LoadPushdown(
@@ -534,7 +534,7 @@ actor H5Reader: FourDDataSource {
         return view.binned(buffer, patternCount: patternCount)
     }
 
-    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+    package func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
         guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw H5Error.readFailed("scan position (\(ry), \(rx)) is outside the loaded view")
         }
@@ -545,7 +545,7 @@ actor H5Reader: FourDDataSource {
     /// Read an entire view scan row: all view Rx patterns for a fixed view Ry,
     /// flattened as [Rx * Qy * Qx]. This remains a useful compatibility
     /// primitive; bounded whole-scan consumers prefer `readScanTile`.
-    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+    package func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
         guard ry >= 0, ry < view.descriptor.ry else {
             throw H5Error.readFailed("scan row \(ry) is outside the loaded view")
         }
@@ -553,7 +553,7 @@ actor H5Reader: FourDDataSource {
                         label: "scan row \(ry)")
     }
 
-    func readScanTile(_ view: LoadView,
+    package func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile {
         guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry,
               !yRange.isEmpty else {
@@ -575,7 +575,7 @@ actor H5Reader: FourDDataSource {
     ///  2. EMD dim vectors dim0…dim3 beside the data (spacing = dim[1]−dim[0],
     ///     units from the dataset attribute) — generic EMD/HyperSpy fallback.
     /// Otherwise nil → manual entry in the Calibration section.
-    func pixelCalibration() -> PixelCalibration? {
+    package func pixelCalibration() -> PixelCalibration? {
         silenceAutomaticErrors()
         guard let dsPath = lastDatasetPath else { return nil }
         let components = dsPath.split(separator: "/").map(String.init)
@@ -802,7 +802,7 @@ actor H5Reader: FourDDataSource {
         return String(cString: buffer)
     }
 
-    func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
+    package func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
         silenceAutomaticErrors()
         let objectID = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
         guard objectID >= 0 else { return nil }

@@ -5,31 +5,34 @@
 
 import Foundation
 
-nonisolated struct ParallaxDepthOptions: Equatable, Sendable {
-    var depthsAngstrom: [Double] = stride(from: -256.0, through: 256.0, by: 16.0)
+package nonisolated struct ParallaxDepthOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
+    package var depthsAngstrom: [Double] = stride(from: -256.0, through: 256.0, by: 16.0)
         .map { $0 }
-    var useFullFit = true
-    var informationLimitInvAngstrom: Double? = nil
-    var informationPower: Double = 1
-    var maxWorkingBytes = 1_073_741_824
+    package var useFullFit = true
+    package var informationLimitInvAngstrom: Double? = nil
+    package var informationPower: Double = 1
+    package var maxWorkingBytes = 1_073_741_824
 }
 
-nonisolated struct ParallaxDepthResult: Sendable {
-    let depthsAngstrom: [Double]
+package nonisolated struct ParallaxDepthResult: Sendable {
+    package let depthsAngstrom: [Double]
     /// Contiguous `[depth, padded row, padded column]` float32 planes.
-    let paddedStack: [Float]
-    let paddedHeight: Int
-    let paddedWidth: Int
-    let scanHeight: Int
-    let scanWidth: Int
-    let samplingAngstrom: Double
-    let usedFullFit: Bool
-    let informationLimitInvAngstrom: Double?
-    let informationPower: Double
+    package let paddedStack: [Float]
+    package let paddedHeight: Int
+    package let paddedWidth: Int
+    package let scanHeight: Int
+    package let scanWidth: Int
+    package let samplingAngstrom: Double
+    package let usedFullFit: Bool
+    package let informationLimitInvAngstrom: Double?
+    package let informationPower: Double
 
-    var planeCount: Int { depthsAngstrom.count }
+    package var planeCount: Int { depthsAngstrom.count }
 
-    func croppedPlane(at index: Int) -> FloatImage? {
+    package func croppedPlane(at index: Int) -> FloatImage? {
         guard depthsAngstrom.indices.contains(index) else { return nil }
         let top = (paddedHeight - scanHeight) / 2
         let left = (paddedWidth - scanWidth) / 2
@@ -44,16 +47,30 @@ nonisolated struct ParallaxDepthResult: Sendable {
         }
         return FloatImage(width: scanWidth, height: scanHeight, pixels: pixels)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(depthsAngstrom: [Double], paddedStack: [Float], paddedHeight: Int, paddedWidth: Int, scanHeight: Int, scanWidth: Int, samplingAngstrom: Double, usedFullFit: Bool, informationLimitInvAngstrom: Double?, informationPower: Double) {
+        self.depthsAngstrom = depthsAngstrom
+        self.paddedStack = paddedStack
+        self.paddedHeight = paddedHeight
+        self.paddedWidth = paddedWidth
+        self.scanHeight = scanHeight
+        self.scanWidth = scanWidth
+        self.samplingAngstrom = samplingAngstrom
+        self.usedFullFit = usedFullFit
+        self.informationLimitInvAngstrom = informationLimitInvAngstrom
+        self.informationPower = informationPower
+    }
 }
 
-nonisolated enum ParallaxDepthSectioner {
-    enum DepthError: LocalizedError, Equatable {
+package nonisolated enum ParallaxDepthSectioner {
+    package enum DepthError: LocalizedError, Equatable {
         case invalidInput(String)
         case memoryLimit(bytes: Int, limit: Int)
         case fftUnavailable
         case cancelled
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .invalidInput(let detail):
                 return "Cannot depth-section the parallax result: \(detail)."
@@ -67,7 +84,7 @@ nonisolated enum ParallaxDepthSectioner {
         }
     }
 
-    static func section(
+    package static func section(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
         fit: ParallaxHigherOrderAberrationFitResult,

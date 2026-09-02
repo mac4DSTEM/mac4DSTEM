@@ -10,38 +10,56 @@
 import Foundation
 
 /// Contiguous scan-row tile in app order `[tileRy,Rx,Qy,Qx]`.
-nonisolated struct FourDScanTile: Sendable {
-    let yRange: Range<Int>
-    let scanWidth: Int
-    let detectorHeight: Int
-    let detectorWidth: Int
-    let pixels: [Float]
+package nonisolated struct FourDScanTile: Sendable {
+    package let yRange: Range<Int>
+    package let scanWidth: Int
+    package let detectorHeight: Int
+    package let detectorWidth: Int
+    package let pixels: [Float]
 
-    var rowCount: Int { yRange.count }
+    package var rowCount: Int { yRange.count }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(yRange: Range<Int>, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, pixels: [Float]) {
+        self.yRange = yRange
+        self.scanWidth = scanWidth
+        self.detectorHeight = detectorHeight
+        self.detectorWidth = detectorWidth
+        self.pixels = pixels
+    }
 }
 
 /// Per-position origin arrays read from a py4DSTEM calibration bundle. Values
 /// stay in py4DSTEM's detector-axis frame here; AppState performs the single
 /// documented qx/qy -> app y/x conversion when activating the dataset.
-struct PixelOriginMaps: Sendable {
+package struct PixelOriginMaps: Sendable {
     /// py4DSTEM real-space array shape [R_Nx, R_Ny].
-    var shape: [Int]
-    var fittedQX: [Double]
-    var fittedQY: [Double]
-    var measuredQX: [Double]? = nil
-    var measuredQY: [Double]? = nil
+    package var shape: [Int]
+    package var fittedQX: [Double]
+    package var fittedQY: [Double]
+    package var measuredQX: [Double]? = nil
+    package var measuredQY: [Double]? = nil
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(shape: [Int], fittedQX: [Double], fittedQY: [Double], measuredQX: [Double]? = nil, measuredQY: [Double]? = nil) {
+        self.shape = shape
+        self.fittedQX = fittedQX
+        self.fittedQY = fittedQY
+        self.measuredQX = measuredQX
+        self.measuredQY = measuredQY
+    }
 }
 
 /// Pixel-size calibration read from the file, when the format carries it
 /// (DM4 does; plain HDF5 usually doesn't). Units are the file's own strings
 /// (Gatan: "nm" real-space, "1/nm" diffraction).
-struct PixelCalibration: Sendable {
-    var rSize: Double?
-    var rUnits: String?
-    var qSize: Double?
-    var qUnits: String?
+package struct PixelCalibration: Sendable {
+    package var rSize: Double?
+    package var rUnits: String?
+    package var qSize: Double?
+    package var qUnits: String?
     /// py4DSTEM QR_flip (detector axes transposed relative to scan), if stored.
-    var qrFlip: Bool?
+    package var qrFlip: Bool?
 
     // py4DSTEM origin/ellipse calibration, kept under py4DSTEM's own names
     // and axis frame to avoid a silent swap: py4DSTEM patterns are indexed
@@ -49,23 +67,40 @@ struct PixelCalibration: Sendable {
     // this app's detector y and its qy to this app's detector x. Convert at
     // the point of use, not here.
     /// Mean fitted beam origin along py4DSTEM's qx (first/row) axis, px.
-    var qx0Mean: Double? = nil
+    package var qx0Mean: Double? = nil
     /// Mean fitted beam origin along py4DSTEM's qy (second/column) axis, px.
-    var qy0Mean: Double? = nil
+    package var qy0Mean: Double? = nil
     /// Elliptical distortion parameters (py4DSTEM keys "a", "b", "theta";
     /// theta in radians).
-    var ellipseA: Double? = nil
-    var ellipseB: Double? = nil
-    var ellipseTheta: Double? = nil
+    package var ellipseA: Double? = nil
+    package var ellipseB: Double? = nil
+    package var ellipseTheta: Double? = nil
     /// py4DSTEM QR_rotation in radians.
-    var qrRotationRad: Double? = nil
+    package var qrRotationRad: Double? = nil
     /// Probe radius returned by py4DSTEM probe-size fitting, in detector px.
-    var probeSemiangle: Double? = nil
+    package var probeSemiangle: Double? = nil
     /// Fitted (and optionally measured) per-position origins from py4DSTEM.
-    var originMaps: PixelOriginMaps? = nil
+    package var originMaps: PixelOriginMaps? = nil
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(rSize: Double? = nil, rUnits: String? = nil, qSize: Double? = nil, qUnits: String? = nil, qrFlip: Bool? = nil, qx0Mean: Double? = nil, qy0Mean: Double? = nil, ellipseA: Double? = nil, ellipseB: Double? = nil, ellipseTheta: Double? = nil, qrRotationRad: Double? = nil, probeSemiangle: Double? = nil, originMaps: PixelOriginMaps? = nil) {
+        self.rSize = rSize
+        self.rUnits = rUnits
+        self.qSize = qSize
+        self.qUnits = qUnits
+        self.qrFlip = qrFlip
+        self.qx0Mean = qx0Mean
+        self.qy0Mean = qy0Mean
+        self.ellipseA = ellipseA
+        self.ellipseB = ellipseB
+        self.ellipseTheta = ellipseTheta
+        self.qrRotationRad = qrRotationRad
+        self.probeSemiangle = probeSemiangle
+        self.originMaps = originMaps
+    }
 }
 
-protocol FourDDataSource: Actor {
+package protocol FourDDataSource: Actor {
     /// The primary 4D datacube in the file, at **full extent**. A crop is a
     /// `LoadView` of this, never a different discovery result.
     func discoverPrimaryDataset() throws -> DatasetDescriptor

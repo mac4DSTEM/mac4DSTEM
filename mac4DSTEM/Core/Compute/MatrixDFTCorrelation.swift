@@ -5,18 +5,24 @@
 
 import Foundation
 
-nonisolated struct CorrelationPeak: Equatable, Sendable {
-    let row: Float
-    let column: Float
+package nonisolated struct CorrelationPeak: Equatable, Sendable {
+    package let row: Float
+    package let column: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(row: Float, column: Float) {
+        self.row = row
+        self.column = column
+    }
 }
 
 /// Guizar-Sicairos matrix-multiply DFT refinement as used by py4DSTEM's
 /// `align_images_fourier` / `upsampled_correlation` path.
-nonisolated enum MatrixDFTCorrelation {
+package nonisolated enum MatrixDFTCorrelation {
     /// Find the circular-correlation maximum, apply py4DSTEM's three-point
     /// parabolic estimate, round it to a half pixel, and refine it on a small
     /// matrix-DFT patch.
-    static func refinedPeak(
+    package static func refinedPeak(
         correlationRe: [Float],
         correlationIm: [Float],
         width: Int,
@@ -62,7 +68,7 @@ nonisolated enum MatrixDFTCorrelation {
 
     /// Refine an existing parabolic peak. This entry point is also shared by
     /// Bragg-disk multicorr, whose initial peak comes from its maxima image.
-    static func refine(
+    package static func refine(
         correlationRe: [Float],
         correlationIm: [Float],
         width: Int,

@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// Source-faithful controls for py4DSTEM-style Bragg-disk detection. The
 /// compact defaults stay visible; less commonly changed signal/filter

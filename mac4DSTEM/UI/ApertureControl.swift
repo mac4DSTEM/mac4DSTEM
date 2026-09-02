@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// Interactive detector overlay on the CBED view. Renders and lets you drag the
 /// active virtual-detector geometry: an annulus (inner/outer radius), a square

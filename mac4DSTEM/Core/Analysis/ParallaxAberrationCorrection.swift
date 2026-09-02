@@ -5,38 +5,56 @@
 
 import Foundation
 
-nonisolated struct ParallaxAberrationCorrectionOptions: Equatable, Sendable {
-    var useFullFit = true
-    var qLowpassInvAngstrom: Double? = nil
+package nonisolated struct ParallaxAberrationCorrectionOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
+    package var useFullFit = true
+    package var qLowpassInvAngstrom: Double? = nil
     /// High-pass support follows py4DSTEM's shared Butterworth envelope; the
     /// current parallax.py signature exposes this value but does not apply it.
-    var qHighpassInvAngstrom: Double? = nil
-    var butterworthOrder = 2
-    var maxWorkingBytes = 536_870_912
+    package var qHighpassInvAngstrom: Double? = nil
+    package var butterworthOrder = 2
+    package var maxWorkingBytes = 536_870_912
 }
 
-nonisolated struct ParallaxAberrationCorrectionResult: Sendable {
-    let paddedPhase: [Float]
-    let correctedPhase: FloatImage
-    let chiEven: [Float]
-    let chiOdd: [Float]
-    let transferReal: [Float]
-    let transferImaginary: [Float]
-    let samplingAngstrom: Double
-    let usedFullFit: Bool
-    let qLowpassInvAngstrom: Double?
-    let qHighpassInvAngstrom: Double?
-    let butterworthOrder: Int
+package nonisolated struct ParallaxAberrationCorrectionResult: Sendable {
+    package let paddedPhase: [Float]
+    package let correctedPhase: FloatImage
+    package let chiEven: [Float]
+    package let chiOdd: [Float]
+    package let transferReal: [Float]
+    package let transferImaginary: [Float]
+    package let samplingAngstrom: Double
+    package let usedFullFit: Bool
+    package let qLowpassInvAngstrom: Double?
+    package let qHighpassInvAngstrom: Double?
+    package let butterworthOrder: Int
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(paddedPhase: [Float], correctedPhase: FloatImage, chiEven: [Float], chiOdd: [Float], transferReal: [Float], transferImaginary: [Float], samplingAngstrom: Double, usedFullFit: Bool, qLowpassInvAngstrom: Double?, qHighpassInvAngstrom: Double?, butterworthOrder: Int) {
+        self.paddedPhase = paddedPhase
+        self.correctedPhase = correctedPhase
+        self.chiEven = chiEven
+        self.chiOdd = chiOdd
+        self.transferReal = transferReal
+        self.transferImaginary = transferImaginary
+        self.samplingAngstrom = samplingAngstrom
+        self.usedFullFit = usedFullFit
+        self.qLowpassInvAngstrom = qLowpassInvAngstrom
+        self.qHighpassInvAngstrom = qHighpassInvAngstrom
+        self.butterworthOrder = butterworthOrder
+    }
 }
 
-nonisolated enum ParallaxAberrationCorrector {
-    enum CorrectionError: LocalizedError, Equatable {
+package nonisolated enum ParallaxAberrationCorrector {
+    package enum CorrectionError: LocalizedError, Equatable {
         case invalidInput(String)
         case memoryLimit(bytes: Int, limit: Int)
         case fftUnavailable
         case cancelled
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .invalidInput(let detail):
                 return "Cannot correct the parallax phase: \(detail)."
@@ -50,7 +68,7 @@ nonisolated enum ParallaxAberrationCorrector {
         }
     }
 
-    static func correct(
+    package static func correct(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
         fit: ParallaxHigherOrderAberrationFitResult,

@@ -15,6 +15,7 @@
 //
 
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 @MainActor

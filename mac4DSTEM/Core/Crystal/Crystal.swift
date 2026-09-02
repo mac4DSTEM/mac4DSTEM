@@ -24,37 +24,56 @@ import Foundation
 import simd
 
 /// One atom in the unit cell.
-nonisolated struct AtomSite: Sendable {
-    var z: Int                       // atomic number
-    var fractional: SIMD3<Double>    // (x, y, z) fractional coordinates
-    var occupancy: Double = 1
+package nonisolated struct AtomSite: Sendable {
+    package var z: Int                       // atomic number
+    package var fractional: SIMD3<Double>    // (x, y, z) fractional coordinates
+    package var occupancy: Double = 1
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(z: Int, fractional: SIMD3<Double>, occupancy: Double = 1) {
+        self.z = z
+        self.fractional = fractional
+        self.occupancy = occupancy
+    }
 }
 
 /// One kinematically-allowed reflection.
-nonisolated struct Reflection: Sendable {
-    let h: Int, k: Int, l: Int
-    let g: SIMD3<Double>             // reciprocal-space vector (Å⁻¹), Cartesian
-    let gLength: Double              // |g| (Å⁻¹)
-    let structureFactorRe: Double
-    let structureFactorIm: Double
-    var intensity: Double           // |F|²
+package nonisolated struct Reflection: Sendable {
+    package let h: Int, k: Int, l: Int
+    package let g: SIMD3<Double>             // reciprocal-space vector (Å⁻¹), Cartesian
+    package let gLength: Double              // |g| (Å⁻¹)
+    package let structureFactorRe: Double
+    package let structureFactorIm: Double
+    package var intensity: Double           // |F|²
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(h: Int, k: Int, l: Int, g: SIMD3<Double>, gLength: Double, structureFactorRe: Double, structureFactorIm: Double, intensity: Double) {
+        self.h = h
+        self.k = k
+        self.l = l
+        self.g = g
+        self.gLength = gLength
+        self.structureFactorRe = structureFactorRe
+        self.structureFactorIm = structureFactorIm
+        self.intensity = intensity
+    }
 }
 
-nonisolated struct Crystal: Sendable {
+package nonisolated struct Crystal: Sendable {
 
     // Cell parameters.
-    let a: Double, b: Double, c: Double
-    let alphaDeg: Double, betaDeg: Double, gammaDeg: Double
-    let sites: [AtomSite]
+    package let a: Double, b: Double, c: Double
+    package let alphaDeg: Double, betaDeg: Double, gammaDeg: Double
+    package let sites: [AtomSite]
 
     // Derived lattice matrices (rows are lattice vectors).
-    let latReal: [SIMD3<Double>]     // real lattice vectors (Å)
-    let latInv: [SIMD3<Double>]      // reciprocal lattice vectors (Å⁻¹)
-    let volume: Double               // unit-cell volume (Å³)
+    package let latReal: [SIMD3<Double>]     // real lattice vectors (Å)
+    package let latInv: [SIMD3<Double>]      // reciprocal lattice vectors (Å⁻¹)
+    package let volume: Double               // unit-cell volume (Å³)
 
     // MARK: Construction
 
-    init(a: Double, b: Double, c: Double,
+    package init(a: Double, b: Double, c: Double,
          alphaDeg: Double = 90, betaDeg: Double = 90, gammaDeg: Double = 90,
          sites: [AtomSite]) {
         self.a = a; self.b = b; self.c = c
@@ -90,7 +109,7 @@ nonisolated struct Crystal: Sendable {
 
     /// All reflections with |g| ≤ kMax and |F| above `tolerance`, sorted by
     /// increasing |g|. Mirrors calculate_structure_factors.
-    func reflections(kMax: Double, tolerance: Double = 1e-4) -> [Reflection] {
+    package func reflections(kMax: Double, tolerance: Double = 1e-4) -> [Reflection] {
         // Shortest reciprocal-lattice direction, to bound the hkl tiling.
         let testDirs: [SIMD3<Double>] = [
             latInv[0], latInv[1], latInv[2],
@@ -143,14 +162,14 @@ nonisolated struct Crystal: Sendable {
     /// Atomic numbers in this crystal missing from the scattering-factor
     /// table. Non-empty → structure factors would be silently wrong; callers
     /// must check and fail loudly before generating templates.
-    var unsupportedElements: [Int] {
+    package var unsupportedElements: [Int] {
         Array(Set(sites.map(\.z).filter { !ScatteringFactors.isSupported(z: $0) })).sorted()
     }
 
     // MARK: Presets
 
     /// Face-centered cubic (4 atoms).
-    static func fcc(a: Double, z: Int) -> Crystal {
+    package static func fcc(a: Double, z: Int) -> Crystal {
         Crystal(a: a, b: a, c: a, sites: [
             AtomSite(z: z, fractional: [0, 0, 0]),
             AtomSite(z: z, fractional: [0.5, 0.5, 0]),
@@ -160,7 +179,7 @@ nonisolated struct Crystal: Sendable {
     }
 
     /// Body-centered cubic (2 atoms).
-    static func bcc(a: Double, z: Int) -> Crystal {
+    package static func bcc(a: Double, z: Int) -> Crystal {
         Crystal(a: a, b: a, c: a, sites: [
             AtomSite(z: z, fractional: [0, 0, 0]),
             AtomSite(z: z, fractional: [0.5, 0.5, 0.5]),
@@ -168,12 +187,12 @@ nonisolated struct Crystal: Sendable {
     }
 
     /// Simple cubic (1 atom).
-    static func sc(a: Double, z: Int) -> Crystal {
+    package static func sc(a: Double, z: Int) -> Crystal {
         Crystal(a: a, b: a, c: a, sites: [AtomSite(z: z, fractional: [0, 0, 0])])
     }
 
     /// Diamond cubic (8 atoms) — FCC plus a (¼,¼,¼) shifted sublattice.
-    static func diamond(a: Double, z: Int) -> Crystal {
+    package static func diamond(a: Double, z: Int) -> Crystal {
         let base: [SIMD3<Double>] = [[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]]
         let shift = SIMD3<Double>(0.25, 0.25, 0.25)
         return Crystal(a: a, b: a, c: a,
@@ -181,7 +200,7 @@ nonisolated struct Crystal: Sendable {
     }
 
     /// Hexagonal close-packed primitive cell in the conventional 120° basis.
-    static func hcp(a: Double, c: Double, z: Int) -> Crystal {
+    package static func hcp(a: Double, c: Double, z: Int) -> Crystal {
         Crystal(
             a: a, b: a, c: c,
             alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
@@ -193,14 +212,14 @@ nonisolated struct Crystal: Sendable {
     }
 
     /// Cubic structure families offered for user-defined (custom) crystals.
-    nonisolated enum CubicStructure: String, CaseIterable, Identifiable, Sendable {
+    package nonisolated enum CubicStructure: String, CaseIterable, Identifiable, Sendable {
         case fcc = "FCC"
         case bcc = "BCC"
         case sc = "Simple cubic"
         case diamond = "Diamond"
-        var id: String { rawValue }
+        package var id: String { rawValue }
 
-        var provenanceID: String {
+        package var provenanceID: String {
             switch self {
             case .fcc: "fcc"
             case .bcc: "bcc"
@@ -211,7 +230,7 @@ nonisolated struct Crystal: Sendable {
     }
 
     /// Build a single-element cubic crystal for the custom-crystal UI.
-    static func cubic(_ structure: CubicStructure, a: Double, z: Int) -> Crystal {
+    package static func cubic(_ structure: CubicStructure, a: Double, z: Int) -> Crystal {
         switch structure {
         case .fcc:     return fcc(a: a, z: z)
         case .bcc:     return bcc(a: a, z: z)
@@ -221,13 +240,13 @@ nonisolated struct Crystal: Sendable {
     }
 
     // Named materials (lattice constants in Å).
-    static var aluminum: Crystal { fcc(a: 4.0495, z: 13) }
-    static var gold: Crystal     { fcc(a: 4.0782, z: 79) }
-    static var nickel: Crystal   { fcc(a: 3.5240, z: 28) }
-    static var copper: Crystal   { fcc(a: 3.6149, z: 29) }
-    static var iron: Crystal     { bcc(a: 2.8665, z: 26) }
-    static var silicon: Crystal  { diamond(a: 5.4309, z: 14) }
-    static var magnesium: Crystal { hcp(a: 3.2094, c: 5.2108, z: 12) }
+    package static var aluminum: Crystal { fcc(a: 4.0495, z: 13) }
+    package static var gold: Crystal     { fcc(a: 4.0782, z: 79) }
+    package static var nickel: Crystal   { fcc(a: 3.5240, z: 28) }
+    package static var copper: Crystal   { fcc(a: 3.6149, z: 29) }
+    package static var iron: Crystal     { bcc(a: 2.8665, z: 26) }
+    package static var silicon: Crystal  { diamond(a: 5.4309, z: 14) }
+    package static var magnesium: Crystal { hcp(a: 3.2094, c: 5.2108, z: 12) }
 
     /// 2H tungsten disulfide, P6₃/mmc (#194) — the literature refinement:
     /// W. J. Schutte, J. L. de Boer, F. Jellinek, "Crystal structures of
@@ -250,7 +269,7 @@ nonisolated struct Crystal: Sendable {
     /// is the matching reference. z(S) = 0.614 (Kalikhman 1983) is the
     /// earlier powder value this refinement explicitly corrects — do not
     /// "fix" the coordinate back; tools/ws2-crystal-test pins the difference.
-    static var tungstenDisulfide: Crystal {
+    package static var tungstenDisulfide: Crystal {
         let zS = 0.6225
         return Crystal(
             a: 3.1532, b: 3.1532, c: 12.323,

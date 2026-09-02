@@ -24,6 +24,7 @@
 //
 
 import Foundation
+import DSTEMCore
 
 @MainActor
 @Observable

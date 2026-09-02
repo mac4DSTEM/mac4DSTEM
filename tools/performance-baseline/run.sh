@@ -16,7 +16,7 @@ for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
 done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
-xcrun swiftc -O -parse-as-library -o "$WORK/baseline" \
+xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/baseline" \
   "$ROOT/tools/performance-baseline/main.swift" \
   "$ROOT/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$ROOT/mac4DSTEM/Core/Data/DiffractionPattern.swift" \

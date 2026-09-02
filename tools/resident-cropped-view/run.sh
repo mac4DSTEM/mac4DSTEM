@@ -32,7 +32,7 @@ for source in "$REPO"/mac4DSTEM/Shaders/*.metal; do
 done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
-xcrun swiftc -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -o "$WORK/harness" \
   main.swift \
   "$REPO/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \

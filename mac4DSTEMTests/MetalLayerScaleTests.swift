@@ -26,6 +26,7 @@
 //
 
 import XCTest
+import DSTEMCore
 import MetalKit
 @testable import mac4DSTEM
 

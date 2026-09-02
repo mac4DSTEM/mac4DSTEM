@@ -13,6 +13,7 @@
 //
 
 import XCTest
+import DSTEMCore
 import ImageIO
 @testable import mac4DSTEM
 

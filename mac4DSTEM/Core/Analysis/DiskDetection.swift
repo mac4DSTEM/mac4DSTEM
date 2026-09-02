@@ -31,19 +31,26 @@ import Metal
 // MARK: - Types
 
 /// One detected Bragg reflection, in detector pixels (x = column, y = row).
-nonisolated struct BraggPeak: Sendable {
-    var x: Float
-    var y: Float
-    var intensity: Float
+package nonisolated struct BraggPeak: Sendable {
+    package var x: Float
+    package var y: Float
+    package var intensity: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(x: Float, y: Float, intensity: Float) {
+        self.x = x
+        self.y = y
+        self.intensity = intensity
+    }
 }
 
-nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Sendable {
+package nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Sendable {
     case pixel     = "Pixel"
     case poly      = "Parabolic"
     case multicorr = "Fourier (multicorr)"
-    var id: String { rawValue }
+    package var id: String { rawValue }
 
-    var provenanceID: String {
+    package var provenanceID: String {
         switch self {
         case .pixel: "pixel"
         case .poly: "poly"
@@ -55,7 +62,7 @@ nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Sendable {
 /// Stable parameter identifiers shared by the numerical detector, UI, tests,
 /// and persisted provenance. UI labels are deliberately defined here so a
 /// control cannot drift away from the quantity consumed by the core.
-nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
+package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
     case correlationPower = "corr_power"
     case patternSigma = "sigma_dp_px"
     case correlationSigma = "sigma_cc_px"
@@ -68,7 +75,7 @@ nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
     case edgeBoundary = "edge_boundary_px"
     case maximumPeaks = "max_num_peaks"
 
-    var title: String {
+    package var title: String {
         switch self {
         case .correlationPower: "Correlation power"
         case .patternSigma: "Pattern smoothing σ"
@@ -84,7 +91,7 @@ nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
         }
     }
 
-    var explanation: String {
+    package var explanation: String {
         switch self {
         case .correlationPower:
             "Hybrid-correlation exponent: 1 is cross-correlation, 0 is phase-correlation, and intermediate values mix both."
@@ -113,7 +120,7 @@ nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
 
     /// Recommended editor bounds. Dynamic detector-size and peak-rank bounds
     /// are supplied by `DiskDetectionContext` and `DiskDetectionParams`.
-    var editorRange: ClosedRange<Double>? {
+    package var editorRange: ClosedRange<Double>? {
         switch self {
         case .correlationPower: 0...1
         case .patternSigma, .correlationSigma: 0...10
@@ -125,7 +132,7 @@ nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
         }
     }
 
-    var editorStep: Double? {
+    package var editorStep: Double? {
         switch self {
         case .correlationPower: 0.05
         case .patternSigma, .correlationSigma: 0.1
@@ -138,59 +145,92 @@ nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendable {
     }
 }
 
-nonisolated struct DiskDetectionContext: Sendable, Equatable {
-    let qy: Int
-    let qx: Int
-    let probeRadius: Float?
+package nonisolated struct DiskDetectionContext: Sendable, Equatable {
+    package let qy: Int
+    package let qx: Int
+    package let probeRadius: Float?
 
-    var detectorMinimum: Int { min(qx, qy) }
-    var maximumEdgeBoundary: Int { max(1, (detectorMinimum - 1) / 2) }
+    package var detectorMinimum: Int { min(qx, qy) }
+    package var maximumEdgeBoundary: Int { max(1, (detectorMinimum - 1) / 2) }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(qy: Int, qx: Int, probeRadius: Float?) {
+        self.qy = qy
+        self.qx = qx
+        self.probeRadius = probeRadius
+    }
 }
 
-nonisolated enum DiskDetectionValidationSeverity: Sendable, Equatable {
+package nonisolated enum DiskDetectionValidationSeverity: Sendable, Equatable {
     case warning
     case error
 }
 
-nonisolated struct DiskDetectionValidationIssue: Sendable, Equatable {
-    let field: DiskDetectionParameterID
-    let severity: DiskDetectionValidationSeverity
-    let message: String
+package nonisolated struct DiskDetectionValidationIssue: Sendable, Equatable {
+    package let field: DiskDetectionParameterID
+    package let severity: DiskDetectionValidationSeverity
+    package let message: String
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(field: DiskDetectionParameterID, severity: DiskDetectionValidationSeverity, message: String) {
+        self.field = field
+        self.severity = severity
+        self.message = message
+    }
 }
 
 /// Per-pattern selection funnel. These diagnostics explain a zero- or
 /// low-peak preview without changing the py4DSTEM-compatible filter order.
-nonisolated struct DiskDetectionPatternDiagnostics: Sendable, Equatable {
-    let localMaximumCount: Int
-    let afterAbsoluteThresholdCount: Int
-    let afterRelativeThresholdCount: Int
-    let afterSpacingCount: Int
-    let acceptedCount: Int
-    let wasCountLimited: Bool
-    let relativeReferenceIntensity: Float?
-    let relativeReferenceWasAvailable: Bool
-    let correlationMaximum: Float
+package nonisolated struct DiskDetectionPatternDiagnostics: Sendable, Equatable {
+    package let localMaximumCount: Int
+    package let afterAbsoluteThresholdCount: Int
+    package let afterRelativeThresholdCount: Int
+    package let afterSpacingCount: Int
+    package let acceptedCount: Int
+    package let wasCountLimited: Bool
+    package let relativeReferenceIntensity: Float?
+    package let relativeReferenceWasAvailable: Bool
+    package let correlationMaximum: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(localMaximumCount: Int, afterAbsoluteThresholdCount: Int, afterRelativeThresholdCount: Int, afterSpacingCount: Int, acceptedCount: Int, wasCountLimited: Bool, relativeReferenceIntensity: Float?, relativeReferenceWasAvailable: Bool, correlationMaximum: Float) {
+        self.localMaximumCount = localMaximumCount
+        self.afterAbsoluteThresholdCount = afterAbsoluteThresholdCount
+        self.afterRelativeThresholdCount = afterRelativeThresholdCount
+        self.afterSpacingCount = afterSpacingCount
+        self.acceptedCount = acceptedCount
+        self.wasCountLimited = wasCountLimited
+        self.relativeReferenceIntensity = relativeReferenceIntensity
+        self.relativeReferenceWasAvailable = relativeReferenceWasAvailable
+        self.correlationMaximum = correlationMaximum
+    }
 }
 
-nonisolated struct DiskDetectionPatternResult: Sendable {
-    let peaks: [BraggPeak]
-    let diagnostics: DiskDetectionPatternDiagnostics
+package nonisolated struct DiskDetectionPatternResult: Sendable {
+    package let peaks: [BraggPeak]
+    package let diagnostics: DiskDetectionPatternDiagnostics
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(peaks: [BraggPeak], diagnostics: DiskDetectionPatternDiagnostics) {
+        self.peaks = peaks
+        self.diagnostics = diagnostics
+    }
 }
 
-nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
-    let positionCount: Int
-    let totalPeakCount: Int
-    let minimumPeakCount: Int
-    let medianPeakCount: Double
-    let maximumPeakCount: Int
-    let zeroPeakPositionCount: Int
+package nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
+    package let positionCount: Int
+    package let totalPeakCount: Int
+    package let minimumPeakCount: Int
+    package let medianPeakCount: Double
+    package let maximumPeakCount: Int
+    package let zeroPeakPositionCount: Int
     /// Positions whose returned count equals the configured ceiling. The
     /// aggregate vectors cannot distinguish an exact count from truncation;
     /// per-pattern diagnostics use `wasCountLimited` when that distinction is
     /// available.
-    let atMaximumPositionCount: Int
+    package let atMaximumPositionCount: Int
 
-    init(vectors: BraggVectors, maximumPeaks: Int) {
+    package init(vectors: BraggVectors, maximumPeaks: Int) {
         let counts = vectors.peaks.map(\.count).sorted()
         positionCount = counts.count
         totalPeakCount = counts.reduce(0, +)
@@ -207,7 +247,7 @@ nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
         }
     }
 
-    var warnings: [String] {
+    package var warnings: [String] {
         guard positionCount > 0 else { return ["No scan positions were evaluated."] }
         var result: [String] = []
         if zeroPeakPositionCount * 2 > positionCount {
@@ -226,20 +266,20 @@ nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
 /// Detection parameters, mirroring find_Bragg_disks. Defaults follow
 /// py4DSTEM where scale-free; AppState adapts the pixel-scaled ones
 /// (minPeakSpacing, edgeBoundary) to the detector size on dataset load.
-nonisolated struct DiskDetectionParams: Equatable, Sendable {
-    static let algorithmID = "py4dstem_find_bragg_disks_native_v1"
+package nonisolated struct DiskDetectionParams: Equatable, Sendable {
+    package static let algorithmID = "py4dstem_find_bragg_disks_native_v1"
 
-    var corrPower: Float = 1              // 1 = cross, 0 = phase correlation
-    var sigmaDP: Float = 0                // gaussian smoothing before correlation
-    var sigmaCC: Float = 2                // gaussian smoothing of CC before maxima
-    var subpixel: SubpixelMode = .poly
-    var upsampleFactor: Int = 16
-    var minAbsoluteIntensity: Float = 0
-    var minRelativeIntensity: Float = 0.005
-    var relativeToPeak: Int = 0
-    var minPeakSpacing: Float = 60
-    var edgeBoundary: Int = 20
-    var maxNumPeaks: Int = 70
+    package var corrPower: Float = 1              // 1 = cross, 0 = phase correlation
+    package var sigmaDP: Float = 0                // gaussian smoothing before correlation
+    package var sigmaCC: Float = 2                // gaussian smoothing of CC before maxima
+    package var subpixel: SubpixelMode = .poly
+    package var upsampleFactor: Int = 16
+    package var minAbsoluteIntensity: Float = 0
+    package var minRelativeIntensity: Float = 0.005
+    package var relativeToPeak: Int = 0
+    package var minPeakSpacing: Float = 60
+    package var edgeBoundary: Int = 20
+    package var maxNumPeaks: Int = 70
 
     /// py4DSTEM's literal spacing/edge defaults target roughly 512-pixel
     /// patterns. Preserve its scale-free defaults while keeping the spatial
@@ -282,7 +322,7 @@ nonisolated struct DiskDetectionParams: Equatable, Sendable {
     /// Without a probe radius the old detector-scaled value is retained: it is
     /// only a transient placeholder, since detection needs a probe kernel and
     /// therefore a radius before it can run at all.
-    static func detectorAdapted(
+    package static func detectorAdapted(
         qy: Int, qx: Int, probeRadius: Float? = nil
     ) -> DiskDetectionParams {
         var params = DiskDetectionParams()
@@ -306,7 +346,7 @@ nonisolated struct DiskDetectionParams: Equatable, Sendable {
         return params
     }
 
-    func validationIssues(in context: DiskDetectionContext) -> [DiskDetectionValidationIssue] {
+    package func validationIssues(in context: DiskDetectionContext) -> [DiskDetectionValidationIssue] {
         var issues: [DiskDetectionValidationIssue] = []
         func error(_ field: DiskDetectionParameterID, _ message: String) {
             issues.append(.init(field: field, severity: .error, message: message))
@@ -361,7 +401,7 @@ nonisolated struct DiskDetectionParams: Equatable, Sendable {
         return issues
     }
 
-    func provenance(kernel: ProbeKernel, qy: Int, qx: Int) -> [String: String] {
+    package func provenance(kernel: ProbeKernel, qy: Int, qx: Int) -> [String: String] {
         [
             "detection_algorithm": Self.algorithmID,
             DiskDetectionParameterID.correlationPower.rawValue: String(corrPower),
@@ -383,16 +423,31 @@ nonisolated struct DiskDetectionParams: Equatable, Sendable {
             "detector_qx": String(qx),
         ]
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.005, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
+        self.corrPower = corrPower
+        self.sigmaDP = sigmaDP
+        self.sigmaCC = sigmaCC
+        self.subpixel = subpixel
+        self.upsampleFactor = upsampleFactor
+        self.minAbsoluteIntensity = minAbsoluteIntensity
+        self.minRelativeIntensity = minRelativeIntensity
+        self.relativeToPeak = relativeToPeak
+        self.minPeakSpacing = minPeakSpacing
+        self.edgeBoundary = edgeBoundary
+        self.maxNumPeaks = maxNumPeaks
+    }
 }
 
 /// Detected peaks for every scan position, row-major [ry][rx].
-nonisolated struct BraggVectors: Sendable {
-    let scanWidth: Int
-    let scanHeight: Int
-    let peaks: [[BraggPeak]]              // count == scanWidth * scanHeight
-    let detectionProvenance: [String: String]
+package nonisolated struct BraggVectors: Sendable {
+    package let scanWidth: Int
+    package let scanHeight: Int
+    package let peaks: [[BraggPeak]]              // count == scanWidth * scanHeight
+    package let detectionProvenance: [String: String]
 
-    init(
+    package init(
         scanWidth: Int, scanHeight: Int, peaks: [[BraggPeak]],
         detectionProvenance: [String: String] = [:]
     ) {
@@ -402,13 +457,13 @@ nonisolated struct BraggVectors: Sendable {
         self.detectionProvenance = detectionProvenance
     }
 
-    var totalPeakCount: Int { peaks.reduce(0) { $0 + $1.count } }
+    package var totalPeakCount: Int { peaks.reduce(0) { $0 + $1.count } }
 
     /// Vectors for calibrated scientific analysis. Raw detector coordinates
     /// remain stored for overlays and py4DSTEM `_v_uncal` export. Per-position
     /// origins are first collapsed onto `referenceOrigin`, then py4DSTEM's
     /// ellipse matrix is applied in its native qx/qy axis convention.
-    nonisolated func calibrated(
+    package nonisolated func calibrated(
         with calibration: Calibration,
         referenceOrigin: (x: Float, y: Float),
         positions: [Int]? = nil
@@ -443,7 +498,7 @@ nonisolated struct BraggVectors: Sendable {
     /// Bragg vector map: intensity-weighted 2D histogram of all peak
     /// positions in detector space (bilinear deposition, py4DSTEM's
     /// add_to_2D_array_from_floats).
-    func map(qy: Int, qx: Int) -> FloatImage {
+    package func map(qy: Int, qx: Int) -> FloatImage {
         var out = [Float](repeating: 0, count: qy * qx)
         for positionPeaks in peaks {
             for p in positionPeaks {
@@ -468,7 +523,7 @@ nonisolated struct BraggVectors: Sendable {
 /// Per-worker detector: owns the FFT plan and scratch buffers, so one
 /// instance must not be used from two threads at once. Create one per
 /// concurrent worker (they share the kernel, which is immutable).
-nonisolated final class DiskDetector {
+package nonisolated final class DiskDetector {
 
     private let kernel: ProbeKernel
     private let fft: FFT2D
@@ -487,7 +542,7 @@ nonisolated final class DiskDetector {
     private var blurTaps: [Float] = []
     private var cachedBlurSigma: Float = -.greatestFiniteMagnitude
 
-    init?(kernel: ProbeKernel) {
+    package init?(kernel: ProbeKernel) {
         guard let fft = FFT2D(nx: kernel.px, ny: kernel.py) else { return nil }
         self.kernel = kernel
         self.fft = fft
@@ -506,13 +561,13 @@ nonisolated final class DiskDetector {
     // MARK: Detection (one pattern)
 
     /// Detect Bragg disks in one [qy * qx] pattern.
-    func detect(pattern: UnsafePointer<Float>, params: DiskDetectionParams) -> [BraggPeak] {
+    package func detect(pattern: UnsafePointer<Float>, params: DiskDetectionParams) -> [BraggPeak] {
         detectWithDiagnostics(pattern: pattern, params: params).peaks
     }
 
     /// Detect one pattern and retain the complete acceptance funnel for UI
     /// diagnostics. The numerical path is identical to `detect`.
-    func detectWithDiagnostics(
+    package func detectWithDiagnostics(
         pattern: UnsafePointer<Float>, params: DiskDetectionParams
     ) -> DiskDetectionPatternResult {
         crossCorrelate(
@@ -544,12 +599,12 @@ nonisolated final class DiskDetector {
     }
 
     /// Convenience for [Float] input (live single-pattern path).
-    func detect(pattern: [Float], params: DiskDetectionParams) -> [BraggPeak] {
+    package func detect(pattern: [Float], params: DiskDetectionParams) -> [BraggPeak] {
         precondition(pattern.count == qy * qx)
         return pattern.withUnsafeBufferPointer { detect(pattern: $0.baseAddress!, params: params) }
     }
 
-    func detectWithDiagnostics(
+    package func detectWithDiagnostics(
         pattern: [Float], params: DiskDetectionParams
     ) -> DiskDetectionPatternResult {
         precondition(pattern.count == qy * qx)
@@ -819,12 +874,12 @@ nonisolated final class DiskDetector {
 
 // MARK: - Full-scan detection
 
-enum DiskDetection {
+package enum DiskDetection {
 
     /// Detect disks at every scan position, parallelized over scan rows.
     /// `cube` is the resident float32 cube [ry][rx][qy][qx]; progress is
     /// reported in [0, 1] from worker threads.
-    nonisolated static func detectAll(cube: MTLBuffer,
+    package nonisolated static func detectAll(cube: MTLBuffer,
                           descriptor d: DatasetDescriptor,
                           kernel: ProbeKernel,
                           params: DiskDetectionParams,
@@ -846,8 +901,8 @@ enum DiskDetection {
         // never touch the same slot. The buffer is captured via a wrapper to
         // sidestep Sendable checking on the raw pointer (read-only access).
         struct Slots: @unchecked Sendable {
-            let ptr: UnsafeMutablePointer<[BraggPeak]>
-            let cubeBase: UnsafePointer<Float>
+            package let ptr: UnsafeMutablePointer<[BraggPeak]>
+            package let cubeBase: UnsafePointer<Float>
         }
         var results = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
         let rowsDone = NSLock()

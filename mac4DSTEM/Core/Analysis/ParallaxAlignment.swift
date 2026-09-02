@@ -7,57 +7,73 @@
 import Accelerate
 import Foundation
 
-nonisolated struct ParallaxScanShift: Equatable, Sendable {
+package nonisolated struct ParallaxScanShift: Equatable, Sendable {
     /// Shift along the first / scan-row axis.
-    let row: Float
+    package let row: Float
     /// Shift along the second / scan-column axis.
-    let column: Float
+    package let column: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(row: Float, column: Float) {
+        self.row = row
+        self.column = column
+    }
 }
 
-nonisolated struct ParallaxAlignmentGroup: Equatable, Sendable {
-    let rowBin: Int
-    let columnBin: Int
-    let memberIndices: [Int]
+package nonisolated struct ParallaxAlignmentGroup: Equatable, Sendable {
+    package let rowBin: Int
+    package let columnBin: Int
+    package let memberIndices: [Int]
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(rowBin: Int, columnBin: Int, memberIndices: [Int]) {
+        self.rowBin = rowBin
+        self.columnBin = columnBin
+        self.memberIndices = memberIndices
+    }
 }
 
-nonisolated struct ParallaxAlignmentOptions: Equatable, Sendable {
+package nonisolated struct ParallaxAlignmentOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
     /// Nil selects the first (coarsest) value in py4DSTEM's default schedule.
-    var alignmentBin: Int? = nil
-    var centeredAlignmentBins = false
-    var runningAverage = true
+    package var alignmentBin: Int? = nil
+    package var centeredAlignmentBins = false
+    package var runningAverage = true
     /// Values above 2 use py4DSTEM's matrix-DFT subpixel refinement. The
     /// compatibility `alignOneLevel` entry point retains integer peaks by
     /// default; the interactive continuation path explicitly selects 8.
-    var upsampleFactor = 1
+    package var upsampleFactor = 1
     /// Peak resident bytes: immutable input stack + output stack/masks + FFT work.
-    var maxWorkingBytes = 1_073_741_824
+    package var maxWorkingBytes = 1_073_741_824
 }
 
-nonisolated struct ParallaxAlignmentResult: Sendable {
-    let alignmentBin: Int
-    let alignmentSchedule: [Int]
-    let completedBins: [Int]
-    let upsampleFactor: Int
-    let groups: [ParallaxAlignmentGroup]
+package nonisolated struct ParallaxAlignmentResult: Sendable {
+    package let alignmentBin: Int
+    package let alignmentSchedule: [Int]
+    package let completedBins: [Int]
+    package let upsampleFactor: Int
+    package let groups: [ParallaxAlignmentGroup]
     /// Wrapped correlation peaks, one per radially ordered group.
-    let groupShifts: [ParallaxScanShift]
+    package let groupShifts: [ParallaxScanShift]
     /// Default py4DSTEM k-vector least-squares shifts after median centering.
-    let totalShifts: [ParallaxScanShift]
-    let shiftedStack: [Float]
-    let shiftedMasks: [Float]
-    let reconstructionMask: [Float]
-    let alignedBF: [Float]
-    let errorHistory: [Float]
-    let scanHeight: Int
-    let scanWidth: Int
-    let stackHeight: Int
-    let stackWidth: Int
+    package let totalShifts: [ParallaxScanShift]
+    package let shiftedStack: [Float]
+    package let shiftedMasks: [Float]
+    package let reconstructionMask: [Float]
+    package let alignedBF: [Float]
+    package let errorHistory: [Float]
+    package let scanHeight: Int
+    package let scanWidth: Int
+    package let stackHeight: Int
+    package let stackWidth: Int
 
-    var currentError: Float { errorHistory.last ?? .nan }
+    package var currentError: Float { errorHistory.last ?? .nan }
 
-    var isComplete: Bool { completedBins == alignmentSchedule }
+    package var isComplete: Bool { completedBins == alignmentSchedule }
 
-    var nextAlignmentBin: Int? {
+    package var nextAlignmentBin: Int? {
         guard completedBins.count < alignmentSchedule.count,
               Array(alignmentSchedule.prefix(completedBins.count)) == completedBins else {
             return nil
@@ -65,13 +81,13 @@ nonisolated struct ParallaxAlignmentResult: Sendable {
         return alignmentSchedule[completedBins.count]
     }
 
-    var maximumShiftPixels: Float {
+    package var maximumShiftPixels: Float {
         totalShifts.reduce(0) { partial, shift in
             max(partial, hypot(shift.row, shift.column))
         }
     }
 
-    var previewImage: FloatImage {
+    package var previewImage: FloatImage {
         let top = (stackHeight - scanHeight) / 2
         let left = (stackWidth - scanWidth) / 2
         var pixels = [Float](repeating: 0, count: scanHeight * scanWidth)
@@ -84,10 +100,30 @@ nonisolated struct ParallaxAlignmentResult: Sendable {
         }
         return FloatImage(width: scanWidth, height: scanHeight, pixels: pixels)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(alignmentBin: Int, alignmentSchedule: [Int], completedBins: [Int], upsampleFactor: Int, groups: [ParallaxAlignmentGroup], groupShifts: [ParallaxScanShift], totalShifts: [ParallaxScanShift], shiftedStack: [Float], shiftedMasks: [Float], reconstructionMask: [Float], alignedBF: [Float], errorHistory: [Float], scanHeight: Int, scanWidth: Int, stackHeight: Int, stackWidth: Int) {
+        self.alignmentBin = alignmentBin
+        self.alignmentSchedule = alignmentSchedule
+        self.completedBins = completedBins
+        self.upsampleFactor = upsampleFactor
+        self.groups = groups
+        self.groupShifts = groupShifts
+        self.totalShifts = totalShifts
+        self.shiftedStack = shiftedStack
+        self.shiftedMasks = shiftedMasks
+        self.reconstructionMask = reconstructionMask
+        self.alignedBF = alignedBF
+        self.errorHistory = errorHistory
+        self.scanHeight = scanHeight
+        self.scanWidth = scanWidth
+        self.stackHeight = stackHeight
+        self.stackWidth = stackWidth
+    }
 }
 
-nonisolated enum ParallaxAligner {
-    enum AlignmentError: LocalizedError, Equatable {
+package nonisolated enum ParallaxAligner {
+    package enum AlignmentError: LocalizedError, Equatable {
         case invalidInput(String)
         case memoryLimit(bytes: Int, limit: Int)
         case fftUnavailable
@@ -95,7 +131,7 @@ nonisolated enum ParallaxAligner {
         case alignmentComplete
         case cancelled
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .invalidInput(let detail):
                 return "Cannot align the parallax preview: \(detail)."
@@ -114,7 +150,7 @@ nonisolated enum ParallaxAligner {
     }
 
     /// py4DSTEM's default `2 ** arange(ceil(log2(min)), ceil(log2(max)))[::-1]`.
-    static func defaultBinSchedule(
+    package static func defaultBinSchedule(
         detectorIndices: [ParallaxDetectorIndex], minimumBin: Int = 1
     ) -> [Int] {
         guard !detectorIndices.isEmpty else { return [] }
@@ -129,7 +165,7 @@ nonisolated enum ParallaxAligner {
         return Array((minPower..<maxPower).reversed()).map { 1 << $0 }
     }
 
-    static func groups(
+    package static func groups(
         detectorIndices: [ParallaxDetectorIndex],
         alignmentBin: Int,
         centered: Bool = false
@@ -163,7 +199,7 @@ nonisolated enum ParallaxAligner {
         }
     }
 
-    static func alignOneLevel(
+    package static func alignOneLevel(
         preprocessing: ParallaxPreprocessResult,
         options: ParallaxAlignmentOptions = ParallaxAlignmentOptions(),
         cancellation: AnalysisCancellationToken? = nil,
@@ -185,7 +221,7 @@ nonisolated enum ParallaxAligner {
     /// Continue the source-locked coarse-to-fine schedule from the last fully
     /// published level. No previous arrays are mutated while the next level is
     /// being computed.
-    static func alignNextLevel(
+    package static func alignNextLevel(
         preprocessing: ParallaxPreprocessResult,
         previous: ParallaxAlignmentResult? = nil,
         options: ParallaxAlignmentOptions = ParallaxAlignmentOptions(),
@@ -461,8 +497,8 @@ nonisolated enum ParallaxAligner {
     }
 
     private struct BinCoordinate: Hashable {
-        let row: Int
-        let column: Int
+        package let row: Int
+        package let column: Int
     }
 
     private static func correlationShift(

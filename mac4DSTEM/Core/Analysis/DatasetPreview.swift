@@ -30,29 +30,29 @@
 import Foundation
 
 /// A strided sample of a dataset. Never a result — see I4 above.
-nonisolated struct DatasetPreview: Sendable {
+package nonisolated struct DatasetPreview: Sendable {
     /// Total detector intensity at each sampled scan position, on the sampled
     /// grid (NOT the full scan grid). Its dimensions are the sample's, so it
     /// must never be compared pixel-for-pixel with a real virtual image.
-    let realSpace: FloatImage
+    package let realSpace: FloatImage
     /// Mean and max diffraction pattern over the sampled positions only.
-    let meanDP: DiffractionPattern
-    let maxDP: DiffractionPattern
+    package let meanDP: DiffractionPattern
+    package let maxDP: DiffractionPattern
 
-    let strideY: Int
-    let strideX: Int
-    let sampledPositions: Int
-    let totalPositions: Int
+    package let strideY: Int
+    package let strideX: Int
+    package let sampledPositions: Int
+    package let totalPositions: Int
 
     /// True whenever any scan position was skipped.
-    var isSampled: Bool { sampledPositions < totalPositions }
+    package var isSampled: Bool { sampledPositions < totalPositions }
 
     /// The label that must appear wherever this is drawn (I4).
     ///
     /// States the stride explicitly rather than a percentage, because "every
     /// 6th position" tells a user what they are looking at and "5% sampled"
     /// does not.
-    var summary: String {
+    package var summary: String {
         guard isSampled else {
             return "Preview · every position"
         }
@@ -67,7 +67,7 @@ nonisolated struct DatasetPreview: Sendable {
     /// The stride multiplication lives here with the stride itself — a view
     /// hand-rolling it is the "missing stride multiplication" defect class
     /// (F1.10), one conversion drift away. // v2 S4
-    func sourcePosition(forSampledX x: Int, sampledY y: Int) -> (ry: Int, rx: Int) {
+    package func sourcePosition(forSampledX x: Int, sampledY y: Int) -> (ry: Int, rx: Int) {
         (ry: y * strideY, rx: x * strideX)
     }
 
@@ -79,25 +79,36 @@ nonisolated struct DatasetPreview: Sendable {
         default: return "\(value)th"
         }
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(realSpace: FloatImage, meanDP: DiffractionPattern, maxDP: DiffractionPattern, strideY: Int, strideX: Int, sampledPositions: Int, totalPositions: Int) {
+        self.realSpace = realSpace
+        self.meanDP = meanDP
+        self.maxDP = maxDP
+        self.strideY = strideY
+        self.strideX = strideX
+        self.sampledPositions = sampledPositions
+        self.totalPositions = totalPositions
+    }
 }
 
 // `nonisolated`: pure sampling math called from detached read contexts; under
 // MainActor default isolation the un-annotated enum isolated its own statics
 // away from its callers. // v2 S3
-nonisolated enum DatasetPreviewBuilder {
+package nonisolated enum DatasetPreviewBuilder {
 
     /// Roughly how many bytes the preview may read. 64 MB is a fraction of a
     /// second on local storage at the throughputs measured 2026-08-17
     /// (≈900 MB/s–4 GB/s), and it bounds the wait the same way on a 64² and a
     /// 512² detector.
-    static let defaultByteBudget = 64 << 20
+    package static let defaultByteBudget = 64 << 20
 
     /// The stride that keeps a preview inside `byteBudget`.
     ///
     /// Deterministic and separated out so it can be tested without any I/O:
     /// the same dataset always produces the same sample, which is what makes a
     /// preview comparable across two opens of the same file.
-    static func stride(
+    package static func stride(
         for descriptor: DatasetDescriptor, byteBudget: Int = defaultByteBudget
     ) -> (y: Int, x: Int) {
         let patternBytes = descriptor.qy * descriptor.qx * MemoryLayout<Float>.stride
@@ -119,7 +130,7 @@ nonisolated enum DatasetPreviewBuilder {
     /// shared by both open paths: three hand-rolled copies of this ceiling
     /// division would have to agree with the builder's own loop for the bar
     /// to end at 100%. // v2 S4
-    static func sampledRowCount(
+    package static func sampledRowCount(
         for descriptor: DatasetDescriptor, byteBudget: Int = defaultByteBudget
     ) -> Int {
         let step = stride(for: descriptor, byteBudget: byteBudget).y
@@ -131,7 +142,7 @@ nonisolated enum DatasetPreviewBuilder {
     /// Deliberately uses `pattern(ry:rx:)` rather than tiles: a tile read would
     /// pull whole scan rows and defeat the point, which is to touch a small,
     /// bounded fraction of a file the user has not yet committed to loading.
-    static func make(
+    package static func make(
         data: FourDArray,
         descriptor: DatasetDescriptor,
         byteBudget: Int = defaultByteBudget,
@@ -192,6 +203,6 @@ nonisolated enum DatasetPreviewBuilder {
 /// Core's own thousands formatter. It used to call `AppState.count`, the one
 /// upward reference in `Core/`; removed 2026-09-02 so Core builds as the
 /// standalone `DSTEMCore` module (`Package.swift`).
-nonisolated func formattedCount(_ value: Int) -> String {
+package nonisolated func formattedCount(_ value: Int) -> String {
     value.formatted(.number.locale(Locale(identifier: "en_US")))
 }

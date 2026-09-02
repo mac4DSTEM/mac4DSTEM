@@ -26,44 +26,44 @@
 
 import Foundation
 
-enum StrainComponent: String, CaseIterable, Identifiable {
+package enum StrainComponent: String, CaseIterable, Identifiable {
     case exx   = "ε_xx"
     case eyy   = "ε_yy"
     case exy   = "ε_xy"
     case theta = "θ (rotation)"
     case residual = "Fit residual"
     case indexed = "Indexed"
-    var id: String { rawValue }
+    package var id: String { rawValue }
 }
 
 // nonisolated: pure data/math (the S3-rider pattern) — presentation code in
 // StrainFrame.swift derives from it off the default actor.
-nonisolated struct StrainMap {
-    let width: Int
-    let height: Int
-    let exx: [Float]
-    let eyy: [Float]
-    let exy: [Float]
-    let theta: [Float]
-    let mask: [Bool]                      // false → too few peaks to fit
+package nonisolated struct StrainMap {
+    package let width: Int
+    package let height: Int
+    package let exx: [Float]
+    package let eyy: [Float]
+    package let exy: [Float]
+    package let theta: [Float]
+    package let mask: [Bool]                      // false → too few peaks to fit
     /// Per-position fitted lattice vectors and fit residuals (calibrated
     /// detector px). Retained so the local fit can be verified against the
     /// measured peaks on the diffraction pattern; zero where `mask` is false.
-    let localG1x: [Float]
-    let localG1y: [Float]
-    let localG2x: [Float]
-    let localG2y: [Float]
-    let localResidualPixels: [Float]
-    let refG1: (x: Float, y: Float)
-    let refG2: (x: Float, y: Float)
-    let referencePositionCount: Int
-    let indexedFraction: Float           // fraction of positions successfully fit
-    let diagnostics: StrainFitDiagnostics
+    package let localG1x: [Float]
+    package let localG1y: [Float]
+    package let localG2x: [Float]
+    package let localG2y: [Float]
+    package let localResidualPixels: [Float]
+    package let refG1: (x: Float, y: Float)
+    package let refG2: (x: Float, y: Float)
+    package let referencePositionCount: Int
+    package let indexedFraction: Float           // fraction of positions successfully fit
+    package let diagnostics: StrainFitDiagnostics
 
     /// One component as a display image. Masked (unfittable) positions become
     /// NaN so they render as explicitly invalid — never as 0, which a diverging
     /// colormap would show as "zero strain".
-    func component(_ c: StrainComponent) -> FloatImage {
+    package func component(_ c: StrainComponent) -> FloatImage {
         let source: [Float]
         switch c {
         case .exx:   source = exx
@@ -81,37 +81,73 @@ nonisolated struct StrainMap {
         for i in 0..<out.count where !mask[i] { out[i] = .nan }
         return FloatImage(width: width, height: height, pixels: out)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(width: Int, height: Int, exx: [Float], eyy: [Float], exy: [Float], theta: [Float], mask: [Bool], localG1x: [Float], localG1y: [Float], localG2x: [Float], localG2y: [Float], localResidualPixels: [Float], refG1: (x: Float, y: Float), refG2: (x: Float, y: Float), referencePositionCount: Int, indexedFraction: Float, diagnostics: StrainFitDiagnostics) {
+        self.width = width
+        self.height = height
+        self.exx = exx
+        self.eyy = eyy
+        self.exy = exy
+        self.theta = theta
+        self.mask = mask
+        self.localG1x = localG1x
+        self.localG1y = localG1y
+        self.localG2x = localG2x
+        self.localG2y = localG2y
+        self.localResidualPixels = localResidualPixels
+        self.refG1 = refG1
+        self.refG2 = refG2
+        self.referencePositionCount = referencePositionCount
+        self.indexedFraction = indexedFraction
+        self.diagnostics = diagnostics
+    }
 }
 
-struct StrainFitDiagnostics: Sendable {
-    let automaticBasis: Bool
-    let referenceMaskApplied: Bool
-    let basisObservationCount: Int
-    let basisSupportCount: Int
-    let basisSupportFraction: Float
-    let basisResidualPixels: Float
-    let basisConditionNumber: Float
-    let indexingTolerancePixels: Float
-    let localResidualMedianPixels: Float
-    let referenceCandidateCount: Int
-    let referenceRejectedCount: Int
+package struct StrainFitDiagnostics: Sendable {
+    package let automaticBasis: Bool
+    package let referenceMaskApplied: Bool
+    package let basisObservationCount: Int
+    package let basisSupportCount: Int
+    package let basisSupportFraction: Float
+    package let basisResidualPixels: Float
+    package let basisConditionNumber: Float
+    package let indexingTolerancePixels: Float
+    package let localResidualMedianPixels: Float
+    package let referenceCandidateCount: Int
+    package let referenceRejectedCount: Int
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(automaticBasis: Bool, referenceMaskApplied: Bool, basisObservationCount: Int, basisSupportCount: Int, basisSupportFraction: Float, basisResidualPixels: Float, basisConditionNumber: Float, indexingTolerancePixels: Float, localResidualMedianPixels: Float, referenceCandidateCount: Int, referenceRejectedCount: Int) {
+        self.automaticBasis = automaticBasis
+        self.referenceMaskApplied = referenceMaskApplied
+        self.basisObservationCount = basisObservationCount
+        self.basisSupportCount = basisSupportCount
+        self.basisSupportFraction = basisSupportFraction
+        self.basisResidualPixels = basisResidualPixels
+        self.basisConditionNumber = basisConditionNumber
+        self.indexingTolerancePixels = indexingTolerancePixels
+        self.localResidualMedianPixels = localResidualMedianPixels
+        self.referenceCandidateCount = referenceCandidateCount
+        self.referenceRejectedCount = referenceRejectedCount
+    }
 }
 
-nonisolated enum StrainMapping {
+package nonisolated enum StrainMapping {
 
     private struct BasisEstimate {
-        let g1: (x: Float, y: Float)
-        let g2: (x: Float, y: Float)
-        let observationCount: Int
-        let supportCount: Int
-        let residualPixels: Float
-        let conditionNumber: Float
-        let indexingTolerancePixels: Float
+        package let g1: (x: Float, y: Float)
+        package let g2: (x: Float, y: Float)
+        package let observationCount: Int
+        package let supportCount: Int
+        package let residualPixels: Float
+        package let conditionNumber: Float
+        package let indexingTolerancePixels: Float
     }
 
     /// Full strain-map computation from a set of Bragg vectors and a diffraction
     /// origin. Returns nil if a lattice basis can't be established.
-    nonisolated static func compute(bragg: BraggVectors,
+    package nonisolated static func compute(bragg: BraggVectors,
                                     originX: Float, originY: Float,
                                     minNumPeaks: Int = 5,
                                     referenceMask: [Bool]? = nil,
@@ -274,30 +310,30 @@ nonisolated enum StrainMapping {
     // MARK: - Lattice-vector selection
 
     private struct VectorObservation {
-        let x: Float
-        let y: Float
-        let radius: Float
+        package let x: Float
+        package let y: Float
+        package let radius: Float
     }
 
     private struct VectorCluster {
-        var sumX: Float
-        var sumY: Float
-        var count: Int
+        package var sumX: Float
+        package var sumY: Float
+        package var count: Int
 
-        var x: Float { sumX / Float(count) }
-        var y: Float { sumY / Float(count) }
-        var radius: Float { hypot(x, y) }
+        package var x: Float { sumX / Float(count) }
+        package var y: Float { sumY / Float(count) }
+        package var radius: Float { hypot(x, y) }
     }
 
     private struct VectorCell: Hashable {
-        let x: Int
-        let y: Int
+        package let x: Int
+        package let y: Int
     }
 
     /// Compatibility entry point for callers that only need the vectors. The
     /// full solver consumes `estimateLatticeBasis` so it can retain confidence
     /// and residual diagnostics.
-    nonisolated static func chooseLatticeVectors(bragg: BraggVectors,
+    package nonisolated static func chooseLatticeVectors(bragg: BraggVectors,
                                                  x0: Float, y0: Float,
                                                  minRadius: Float = 2,
                                                  cancellation: AnalysisCancellationToken? = nil)

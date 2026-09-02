@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// Live performance readout. The workspace header is the single progress and
 /// cancellation surface; the inspector only provides supporting metrics.

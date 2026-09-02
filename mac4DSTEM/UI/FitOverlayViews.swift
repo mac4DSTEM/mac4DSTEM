@@ -16,6 +16,7 @@
 //
 
 import SwiftUI
+import DSTEMCore
 
 struct PatternFitOverlayView: View {
     let strain: FitOverlays.StrainOverlay?

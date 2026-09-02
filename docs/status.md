@@ -17,7 +17,7 @@ Numbers are quoted only from retained, dated runs.
 |---|---|---|
 | 0 | Gate D on the crystal-replay log; tag v2.0.0 | **done 2026-09-02** (`96065a2`, `1c00c98`) |
 | 1 | Delete retired UI target; archive v2 chronology; live doc set; inventory in CI | **done 2026-09-02** (this commit) |
-| 2 | Package split: `DSTEMCore`, `DSTEMSession`, app | **2a done 2026-09-02**: `Package.swift` builds `Core/` as `DSTEMCore` (`run-tests.sh core`, CI job); the two upward refs (`AppState.count`, `Aperture`) moved into Core. **2b next**: `DSTEMSession` target from `App/` session types; app target depends on the packages (needs `public` API pass — see handoff below) |
+| 2 | Package split: `DSTEMCore`, `DSTEMSession`, app | **2a done 2026-09-02**: `Package.swift` builds `Core/` as `DSTEMCore`; the two upward refs moved into Core. **2b done 2026-09-03**: the app target depends on the package and no longer compiles `Core/` itself (synchronized-group exceptions); Core declarations are `package` access with generated `package init`s; `SWIFT_PACKAGE_NAME = mac4dstem` on app and test targets; harness compilers pass `-package-name`. **2c next**: `DSTEMSession` target from the `App/` session types that import no SwiftUI |
 | 3 | `ScientificProduct`, `ProductPresentation`, `ProductStore`; migrate virtual imaging | |
 | 4 | `CalibrationSession` with task-aware readiness | |
 | 5 | `OperationCenter` + task registry; live and replay on one path | |
@@ -29,7 +29,7 @@ Numbers are quoted only from retained, dated runs.
 
 | Gate | Result | Date, tree |
 |---|---|---|
-| `run-tests.sh unit` | 439 passed / 0 failed / 2 skipped, exit 0 | 2026-09-02, `96065a2` (retained log) |
+| `run-tests.sh unit` | 439 passed / 0 failed / 2 skipped, exit 0 | 2026-09-03, step 2b tree (retained log) |
 | `run-tests.sh scientific` | 42 of 42 harnesses, exit 0 | 2026-09-02, FFT tree `21f3990` |
 | `run-tests.sh all` | green end to end, 44 harnesses | 2026-09-01, DPC-closeout tree; not re-run since |
 | `run-tests.sh inventory` | exit 0 | 2026-09-02 |
@@ -37,14 +37,17 @@ Numbers are quoted only from retained, dated runs.
 
 ## Handoff (for the next agent, written 2026-09-02 night)
 
-- **Step 2b.** The app target still compiles `Core/` sources directly; the
-  package is a build guard, not yet a dependency. Making the app depend on
-  `DSTEMCore` requires a `public` pass over every Core declaration App/UI
-  use — mechanical but large; do it with a compile-error loop on a cheap
-  model, one directory at a time, `swift build` and `run-tests.sh unit`
-  green after each. `DSTEMSession` (calibration, products, recipes, replay,
-  operation lifecycle) comes after, from `App/` types that do not import
-  SwiftUI.
+- **Step 2c.** `DSTEMSession` (calibration state, products, recipes and
+  replay, operation lifecycle) from the `App/` types that import no SwiftUI.
+  Same mechanics as 2b: a package target, `package` access, generated
+  inits, synchronized-group exceptions for the moved files. Traps learned in
+  2b: Xcode compiles a local package with `-package-name` = the package
+  directory name lowercased (`mac4dstem`), not the manifest name; a
+  `package` struct's memberwise and default inits are internal, so every
+  struct constructed outside the module needs an explicit `package init`;
+  the harnesses compile Core sources standalone and need `-package-name` too.
+- New Core types must be declared `package` (or `public`) or the app cannot
+  see them; a `struct` needs an explicit `package init` if App constructs it.
 - **Step 3.** Pre-registered in `docs/v2.5-plan.md` §9 (the virtual-imaging
   product path, invariants, negative-control tests to write first). Needs
   the owner's decision on sidecar read/write compatibility (plan §8.1).

@@ -26,7 +26,7 @@ done
 
 PYTHONPATH="$REPO/References/py4DSTEM-dev" "$PYTHON_BIN" reference.py "$WORK"
 
-xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   "$SRC/DatasetDescriptor.swift" \
   "$SRC/FourDDataSource.swift" \
   "$SRC/LoadSpecification.swift" \

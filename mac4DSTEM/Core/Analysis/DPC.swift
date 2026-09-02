@@ -20,7 +20,7 @@
 import Foundation
 import Accelerate
 
-nonisolated enum IDPCBoundaryCondition: String, Sendable {
+package nonisolated enum IDPCBoundaryCondition: String, Sendable {
     /// Treat opposite scan edges as adjacent. Best for explicitly periodic
     /// synthetic fields; real specimens can show wrap-around seams.
     case periodic
@@ -32,18 +32,25 @@ nonisolated enum IDPCBoundaryCondition: String, Sendable {
 /// Physical inputs needed to turn detector-pixel CoM shifts into a projected
 /// phase gradient. Scan sampling is in Å/pixel and reciprocal sampling is in
 /// Å⁻¹/detector-pixel, matching py4DSTEM's calibrated CoM convention.
-nonisolated struct IDPCPhysicalCalibration: Equatable, Sendable {
-    let rowSamplingAngstrom: Float
-    let columnSamplingAngstrom: Float
-    let reciprocalAngstromPerDetectorPixel: Float
+package nonisolated struct IDPCPhysicalCalibration: Equatable, Sendable {
+    package let rowSamplingAngstrom: Float
+    package let columnSamplingAngstrom: Float
+    package let reciprocalAngstromPerDetectorPixel: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(rowSamplingAngstrom: Float, columnSamplingAngstrom: Float, reciprocalAngstromPerDetectorPixel: Float) {
+        self.rowSamplingAngstrom = rowSamplingAngstrom
+        self.columnSamplingAngstrom = columnSamplingAngstrom
+        self.reciprocalAngstromPerDetectorPixel = reciprocalAngstromPerDetectorPixel
+    }
 }
 
-enum DPC {
+package enum DPC {
 
     /// Express the CoM field in the scan frame: optionally swap the detector
     /// components (transpose), then rotate by the calibrated R–Q angle.
     /// `com` is interleaved [cx0,cy0,...]; returns the same layout.
-    nonisolated static func applyRotation(com: [Float], rotationRad: Float, transpose: Bool) -> [Float] {
+    package nonisolated static func applyRotation(com: [Float], rotationRad: Float, transpose: Bool) -> [Float] {
         let c = cos(rotationRad), s = sin(rotationRad)
         var out = [Float](repeating: 0, count: com.count)
         for i in 0..<(com.count / 2) {
@@ -56,7 +63,7 @@ enum DPC {
     }
 
     /// |CoM| per scan position. `com` is interleaved [cx0,cy0,cx1,cy1,...].
-    nonisolated static func magnitudeImage(com: [Float], width: Int, height: Int) -> FloatImage {
+    package nonisolated static func magnitudeImage(com: [Float], width: Int, height: Int) -> FloatImage {
         let n = width * height
         var out = [Float](repeating: 0, count: n)
         for i in 0..<n {
@@ -69,7 +76,7 @@ enum DPC {
 
     /// Relativistic electron wavelength for accelerating voltage in kV.
     /// λ[Å] = 12.2639 / sqrt(V[eV] · (1 + 0.97845e-6 V[eV])).
-    nonisolated static func electronWavelengthAngstrom(voltageKV: Double) -> Double? {
+    package nonisolated static func electronWavelengthAngstrom(voltageKV: Double) -> Double? {
         guard voltageKV.isFinite, voltageKV > 0 else { return nil }
         let volts = voltageKV * 1_000
         return 12.2639 / sqrt(volts * (1 + 0.97845e-6 * volts))
@@ -77,7 +84,7 @@ enum DPC {
 
     /// Small-angle scattering conversion: θ ≈ λ·q. Returns milliradians per
     /// detector pixel for q calibration in Å⁻¹/pixel.
-    nonisolated static func milliradiansPerDetectorPixel(
+    package nonisolated static func milliradiansPerDetectorPixel(
         voltageKV: Double,
         invAngstromPerPixel: Double
     ) -> Float? {
@@ -89,7 +96,7 @@ enum DPC {
 
     /// Normalize the calibration spellings accepted elsewhere in the app into
     /// the two physical quantities required by quantitative iDPC.
-    nonisolated static func physicalIDPCCalibration(
+    package nonisolated static func physicalIDPCCalibration(
         realPixelSize: Double?,
         realPixelUnits: String?,
         reciprocalPixelSize: Double?,
@@ -120,7 +127,7 @@ enum DPC {
         )
     }
 
-    nonisolated static func physicalMagnitudeImage(
+    package nonisolated static func physicalMagnitudeImage(
         com: [Float], width: Int, height: Int, milliradiansPerPixel: Float
     ) -> FloatImage {
         var pixels = magnitudeImage(com: com, width: width, height: height).pixels
@@ -129,7 +136,7 @@ enum DPC {
     }
 
     /// Direction of the CoM shift in radians, wrapped to [0, 2π).
-    nonisolated static func angleImage(com: [Float], width: Int, height: Int) -> FloatImage {
+    package nonisolated static func angleImage(com: [Float], width: Int, height: Int) -> FloatImage {
         let n = width * height
         var out = [Float](repeating: 0, count: n)
         let twoPi = Float(2.0 * Double.pi)
@@ -149,7 +156,7 @@ enum DPC {
     /// Full HSV color wheel: hue = CoM direction, value = CoM magnitude
     /// (saturation fixed at 1). Magnitude is normalized to its 99th percentile
     /// so a few hot pixels don't dim the whole map. Returns packed RGBA8.
-    nonisolated static func colorWheelRGBA(com: [Float], width: Int, height: Int) -> RGBAImage {
+    package nonisolated static func colorWheelRGBA(com: [Float], width: Int, height: Int) -> RGBAImage {
         let n = width * height
         var rgba = [UInt8](repeating: 255, count: n * 4)
 
@@ -176,7 +183,7 @@ enum DPC {
     }
 
     /// Standard HSV→RGB, all components in [0, 1].
-    nonisolated static func hsvToRGB(h: Float, s: Float, v: Float) -> (Float, Float, Float) {
+    package nonisolated static func hsvToRGB(h: Float, s: Float, v: Float) -> (Float, Float, Float) {
         let h6 = (h - h.rounded(.down)) * 6            // wrap hue into [0,6)
         let i = Int(h6) % 6
         let f = h6 - Float(Int(h6))
@@ -200,7 +207,7 @@ enum DPC {
     /// map that LOOKS like a computed projected phase is a fabricated result,
     /// exactly what the refusal rule bans. A caller that cannot integrate
     /// must say so, not draw zeros. // v2 S7
-    enum IDPCError: Error, Equatable, CustomStringConvertible, LocalizedError {
+    package enum IDPCError: Error, Equatable, CustomStringConvertible, LocalizedError {
         /// An input precondition failed; the reason names which.
         case invalidInput(String)
         /// Padding the scan grid would overflow `Int`.
@@ -208,7 +215,7 @@ enum DPC {
         /// No FFT plan exists for the padded grid size.
         case fftUnavailable(nx: Int, ny: Int)
 
-        var description: String {
+        package var description: String {
             switch self {
             case .invalidInput(let reason):
                 return "iDPC integration refused its input: \(reason)"
@@ -221,7 +228,7 @@ enum DPC {
             }
         }
 
-        var errorDescription: String? { description }
+        package var errorDescription: String? { description }
     }
 
     /// Integrate the CoM vector field into a scalar potential-like map:
@@ -237,7 +244,7 @@ enum DPC {
     /// For qualitative use, leave sampling and `comToGradientScale` at one.
     /// For quantitative projected phase, use scan sampling in Å and convert
     /// detector-pixel shifts to rad/Å with 2π·Q_pixel_size.
-    nonisolated static func integrateIDPC(com: [Float], width: Int, height: Int,
+    package nonisolated static func integrateIDPC(com: [Float], width: Int, height: Int,
                               regularization: Float = 1e-4,
                               rowSampling: Float = 1,
                               columnSampling: Float = 1,
@@ -363,7 +370,7 @@ enum DPC {
         return FloatImage(width: width, height: height, pixels: out)
     }
 
-    nonisolated static func integratePhysicalIDPC(
+    package nonisolated static func integratePhysicalIDPC(
         com: [Float], width: Int, height: Int,
         calibration: IDPCPhysicalCalibration,
         regularization: Float = 1e-4,

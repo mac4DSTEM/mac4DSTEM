@@ -15,55 +15,91 @@
 
 import Foundation
 
-nonisolated enum FitOverlays {
+package nonisolated enum FitOverlays {
 
     /// A predicted point on the pattern. `weight` is a relative emphasis in
     /// [0, 1] (e.g. template spot intensity), 1 when uniform.
-    struct Marker: Sendable {
-        let x: Float
-        let y: Float
-        let weight: Float
+    package struct Marker: Sendable {
+        package let x: Float
+        package let y: Float
+        package let weight: Float
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(x: Float, y: Float, weight: Float) {
+            self.x = x
+            self.y = y
+            self.weight = weight
+        }
     }
 
     /// An arrow in raw detector pixels (lattice vector, drawn from the origin).
-    struct Vector: Sendable {
-        let fromX: Float
-        let fromY: Float
-        let toX: Float
-        let toY: Float
+    package struct Vector: Sendable {
+        package let fromX: Float
+        package let fromY: Float
+        package let toX: Float
+        package let toY: Float
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(fromX: Float, fromY: Float, toX: Float, toY: Float) {
+            self.fromX = fromX
+            self.fromY = fromY
+            self.toX = toX
+            self.toY = toY
+        }
     }
 
     /// Strain-fit overlay for one scan position.
-    struct StrainOverlay: Sendable {
-        let originX: Float
-        let originY: Float
+    package struct StrainOverlay: Sendable {
+        package let originX: Float
+        package let originY: Float
         /// Lattice positions the local fit predicts (h·g1 + k·g2 grid).
         /// Empty when this position has no local fit.
-        let predicted: [Marker]
-        let localG1: Vector?
-        let localG2: Vector?
-        let referenceG1: Vector
-        let referenceG2: Vector
+        package let predicted: [Marker]
+        package let localG1: Vector?
+        package let localG2: Vector?
+        package let referenceG1: Vector
+        package let referenceG2: Vector
         /// Local per-position fit residual (calibrated px); nil when unfitted.
-        let localResidualPixels: Float?
+        package let localResidualPixels: Float?
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(originX: Float, originY: Float, predicted: [Marker], localG1: Vector?, localG2: Vector?, referenceG1: Vector, referenceG2: Vector, localResidualPixels: Float?) {
+            self.originX = originX
+            self.originY = originY
+            self.predicted = predicted
+            self.localG1 = localG1
+            self.localG2 = localG2
+            self.referenceG1 = referenceG1
+            self.referenceG2 = referenceG2
+            self.localResidualPixels = localResidualPixels
+        }
     }
 
     /// Matched-template overlay for one scan position.
-    struct TemplateOverlay: Sendable {
-        let originX: Float
-        let originY: Float
+    package struct TemplateOverlay: Sendable {
+        package let originX: Float
+        package let originY: Float
         /// Template reflections at the matched in-plane rotation. Weights are
         /// normalized to the strongest spot.
-        let predicted: [Marker]
-        let reliability: Float
-        let score: Float
+        package let predicted: [Marker]
+        package let reliability: Float
+        package let score: Float
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(originX: Float, originY: Float, predicted: [Marker], reliability: Float, score: Float) {
+            self.originX = originX
+            self.originY = originY
+            self.predicted = predicted
+            self.reliability = reliability
+            self.score = score
+        }
     }
 
     // MARK: - Shared inverse-calibration mapping
 
     /// The per-position origin that `BraggVectors.calibrated` would collapse
     /// from, using its exact map-usability rule.
-    static func localOrigin(
+    package static func localOrigin(
         calibration: Calibration,
         referenceOrigin: (x: Float, y: Float),
         scanIndex: Int, scanWidth: Int, scanHeight: Int
@@ -80,7 +116,7 @@ nonisolated enum FitOverlays {
 
     /// Map a calibrated-space detector offset onto the raw pattern around the
     /// given local origin (inverse of the forward calibration transform).
-    static func rawPoint(
+    package static func rawPoint(
         calibratedOffsetX: Float, calibratedOffsetY: Float,
         localOrigin: (x: Float, y: Float),
         calibration: Calibration
@@ -96,7 +132,7 @@ nonisolated enum FitOverlays {
     /// Build the strain-fit overlay for one scan position: the local fitted
     /// lattice (when this position indexed) and the reference lattice vectors,
     /// both mapped back onto the raw pattern.
-    static func strainOverlay(
+    package static func strainOverlay(
         map: StrainMap, scanIndex: Int,
         calibration: Calibration, referenceOrigin: (x: Float, y: Float),
         patternWidth: Int, patternHeight: Int,
@@ -161,7 +197,7 @@ nonisolated enum FitOverlays {
     /// conversion (r = px · invAngstromPerPixel, azim = atan2(dy, dx)); the
     /// reported in-plane angle is the pattern rotation, so predicted azimuth
     /// is template azimuth + inPlaneAngle.
-    static func acomTemplateOverlay(
+    package static func acomTemplateOverlay(
         result: OrientationResult, plan: OrientationPlan,
         invAngstromPerPixel: Double,
         calibration: Calibration, referenceOrigin: (x: Float, y: Float),
@@ -212,7 +248,7 @@ nonisolated enum FitOverlays {
     /// Sample the fitted ellipse as a polyline in raw detector pixels.
     /// `theta` stays in py4DSTEM's native frame (qx = app y, qy = app x);
     /// the axis swap to app coordinates happens here, in one place.
-    static func ellipsePolyline(
+    package static func ellipsePolyline(
         centerX: Float, centerY: Float,
         a: Double, b: Double, theta: Double,
         sampleCount: Int = 96

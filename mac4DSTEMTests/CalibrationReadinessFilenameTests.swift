@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Coverage for the scan-step token parser behind the R pixel-scale conflict

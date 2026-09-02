@@ -1,4 +1,5 @@
 import AppKit
+import DSTEMCore
 import Foundation
 
 enum ColormapKind: String, CaseIterable, Identifiable {

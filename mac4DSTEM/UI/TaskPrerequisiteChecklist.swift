@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// The single surface that explains whether the active task can run, shown
 /// directly under the workspace primary action. Rows come from

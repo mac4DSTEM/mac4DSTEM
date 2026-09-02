@@ -4,7 +4,7 @@ import Foundation
 /// This is deliberately separate from `hasFittedOrigin`: a py4DSTEM file can
 /// provide a trustworthy fitted *mean* without carrying the per-position maps
 /// needed by analyses that require descan correction.
-enum OriginProvenance: Equatable, Sendable {
+package enum OriginProvenance: Equatable, Sendable {
     /// Detector geometry only; no calibration has supplied an origin.
     case geometricDefault
     /// py4DSTEM qx0_mean/qy0_mean metadata, converted to the app's axis frame.
@@ -20,7 +20,7 @@ enum OriginProvenance: Equatable, Sendable {
     /// The user moved the aperture center after loading or calibration.
     case manual
 
-    var displayName: String {
+    package var displayName: String {
         switch self {
         case .geometricDefault: return "Geometric default (unfitted)"
         case .fileMean:         return "From file (qx0/qy0 mean)"
@@ -32,7 +32,7 @@ enum OriginProvenance: Equatable, Sendable {
         }
     }
 
-    var readinessProvenance: CalibrationValueProvenance? {
+    package var readinessProvenance: CalibrationValueProvenance? {
         switch self {
         case .geometricDefault: return nil
         case .fileMean, .fileMaps: return .importedFile
@@ -46,7 +46,7 @@ enum OriginProvenance: Equatable, Sendable {
 /// Source of a calibration value shown by the preprocessing readiness guide.
 /// This is tracked separately from the value itself so imported/session values
 /// are never presented as measurements performed by this app.
-enum CalibrationValueProvenance: String, Equatable, Sendable {
+package enum CalibrationValueProvenance: String, Equatable, Sendable {
     case importedFile = "Imported from file"
     case sessionSidecar = "Restored from session"
     case measuredInApp = "Measured in app"
@@ -56,26 +56,35 @@ enum CalibrationValueProvenance: String, Equatable, Sendable {
 
 /// Provenance for fields that do not already carry `OriginProvenance`.
 /// A nil entry means no trustworthy value is currently active.
-struct CalibrationProvenance: Equatable, Sendable {
-    var probe: CalibrationValueProvenance?
-    var ellipse: CalibrationValueProvenance?
-    var rotation: CalibrationValueProvenance?
-    var qScale: CalibrationValueProvenance?
-    var rScale: CalibrationValueProvenance?
+package struct CalibrationProvenance: Equatable, Sendable {
+    package var probe: CalibrationValueProvenance?
+    package var ellipse: CalibrationValueProvenance?
+    package var rotation: CalibrationValueProvenance?
+    package var qScale: CalibrationValueProvenance?
+    package var rScale: CalibrationValueProvenance?
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(probe: CalibrationValueProvenance? = nil, ellipse: CalibrationValueProvenance? = nil, rotation: CalibrationValueProvenance? = nil, qScale: CalibrationValueProvenance? = nil, rScale: CalibrationValueProvenance? = nil) {
+        self.probe = probe
+        self.ellipse = ellipse
+        self.rotation = rotation
+        self.qScale = qScale
+        self.rScale = rScale
+    }
 }
 
 /// One normalization contract for the physical sampling units accepted by
 /// readiness, DPC/iDPC, ACOM scale setup, and reconstruction preprocessing.
 /// Pixel labels deliberately do not pass: a positive value such as
 /// `1 pixels/pixel` is metadata, but it is not a physical calibration.
-nonisolated enum CalibrationUnitConversion {
+package nonisolated enum CalibrationUnitConversion {
     /// Canonical labels offered by the manual calibration controls. File
     /// imports may use any accepted spelling below; manual edits normalize to
     /// one of these labels so the value and its physical meaning are explicit.
-    static let editableRealUnits = ["Å", "nm", "pm"]
-    static let editableReciprocalUnits = ["Å⁻¹", "nm⁻¹", "mrad"]
+    package static let editableRealUnits = ["Å", "nm", "pm"]
+    package static let editableReciprocalUnits = ["Å⁻¹", "nm⁻¹", "mrad"]
 
-    static func normalized(_ unit: String?) -> String {
+    package static func normalized(_ unit: String?) -> String {
         (unit ?? "")
             .precomposedStringWithCanonicalMapping
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -84,7 +93,7 @@ nonisolated enum CalibrationUnitConversion {
             .replacingOccurrences(of: "ångström", with: "angstrom")
     }
 
-    static func realAngstromPerPixel(value: Double, units: String?) -> Double? {
+    package static func realAngstromPerPixel(value: Double, units: String?) -> Double? {
         guard value.isFinite, value > 0 else { return nil }
         switch normalized(units) {
         case "a", "å", "angstrom", "ang":
@@ -98,7 +107,7 @@ nonisolated enum CalibrationUnitConversion {
         }
     }
 
-    static func canonicalEditableRealUnit(_ units: String?) -> String? {
+    package static func canonicalEditableRealUnit(_ units: String?) -> String? {
         switch normalized(units) {
         case "a", "å", "angstrom", "ang":
             return "Å"
@@ -111,7 +120,7 @@ nonisolated enum CalibrationUnitConversion {
         }
     }
 
-    static func reciprocalInvAngstromPerPixel(
+    package static func reciprocalInvAngstromPerPixel(
         value: Double, units: String?, wavelengthAngstrom: Double? = nil
     ) -> Double? {
         guard value.isFinite, value > 0 else { return nil }
@@ -131,7 +140,7 @@ nonisolated enum CalibrationUnitConversion {
         }
     }
 
-    static func canonicalEditableReciprocalUnit(_ units: String?) -> String? {
+    package static func canonicalEditableReciprocalUnit(_ units: String?) -> String? {
         switch normalized(units) {
         case "1/a", "1/å", "a^-1", "å^-1", "a⁻¹", "å⁻¹",
              "angstrom^-1", "angstrom⁻¹", "1/angstrom", "ang^-1", "ang⁻¹":
@@ -146,12 +155,12 @@ nonisolated enum CalibrationUnitConversion {
         }
     }
 
-    static func isPhysicalReciprocalUnit(_ units: String?) -> Bool {
+    package static func isPhysicalReciprocalUnit(_ units: String?) -> Bool {
         if normalized(units) == "mrad" { return true }
         return reciprocalInvAngstromPerPixel(value: 1, units: units) != nil
     }
 
-    static func isPixelUnit(_ units: String?) -> Bool {
+    package static func isPixelUnit(_ units: String?) -> Bool {
         switch normalized(units) {
         case "px", "pixel", "pixels", "1", "1/px", "1/pixel", "1/pixels":
             return true
@@ -161,19 +170,19 @@ nonisolated enum CalibrationUnitConversion {
     }
 }
 
-enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
+package enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
     case originProbe = "Origin & probe"
     case ellipse = "Ellipse distortion"
     case rotation = "R–Q rotation"
     case qScale = "Q pixel scale"
     case rScale = "R pixel scale"
 
-    var id: String { rawValue }
+    package var id: String { rawValue }
 
     /// User-facing consequence of establishing this calibration field. Kept
     /// beside the readiness model so Prepare and export present the same
     /// scientific contract instead of maintaining two drifting explanations.
-    var unlockSummary: String {
+    package var unlockSummary: String {
         switch self {
         case .originProbe:
             return "Unlocks descan-corrected DPC, Bragg vectors, strain, and reconstruction."
@@ -189,7 +198,7 @@ enum CalibrationReadinessKind: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum CalibrationReadinessStatus: Equatable, Sendable {
+package enum CalibrationReadinessStatus: Equatable, Sendable {
     case ready(CalibrationValueProvenance)
     case missing
     /// Measured, but not to a standard that supports quantitative work.
@@ -211,12 +220,12 @@ enum CalibrationReadinessStatus: Equatable, Sendable {
     /// `missingItems` list, and the task prerequisite checklist therefore
     /// behave as they did before this case existed: it changes the *word*,
     /// never the judgement.
-    var isReady: Bool {
+    package var isReady: Bool {
         if case .ready = self { return true }
         return false
     }
 
-    var displayName: String {
+    package var displayName: String {
         switch self {
         case .ready(let provenance): return provenance.rawValue
         case .missing: return "Missing"
@@ -225,24 +234,31 @@ enum CalibrationReadinessStatus: Equatable, Sendable {
     }
 }
 
-struct CalibrationReadinessItem: Identifiable, Equatable, Sendable {
-    let kind: CalibrationReadinessKind
-    let status: CalibrationReadinessStatus
-    let detail: String
+package struct CalibrationReadinessItem: Identifiable, Equatable, Sendable {
+    package let kind: CalibrationReadinessKind
+    package let status: CalibrationReadinessStatus
+    package let detail: String
 
-    var id: CalibrationReadinessKind { kind }
+    package var id: CalibrationReadinessKind { kind }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(kind: CalibrationReadinessKind, status: CalibrationReadinessStatus, detail: String) {
+        self.kind = kind
+        self.status = status
+        self.detail = detail
+    }
 }
 
-struct CalibrationReadinessReport: Equatable, Sendable {
-    let items: [CalibrationReadinessItem]
+package struct CalibrationReadinessReport: Equatable, Sendable {
+    package let items: [CalibrationReadinessItem]
 
-    var missingItems: [CalibrationReadinessItem] {
+    package var missingItems: [CalibrationReadinessItem] {
         items.filter { !$0.status.isReady }
     }
 
-    var isReady: Bool { missingItems.isEmpty }
+    package var isReady: Bool { missingItems.isEmpty }
 
-    static func make(
+    package static func make(
         calibration: Calibration,
         provenance: CalibrationProvenance
     ) -> CalibrationReadinessReport {
@@ -384,21 +400,26 @@ struct CalibrationReadinessReport: Equatable, Sendable {
         guard valid else { return .missing }
         return .ready(provenance ?? .manual)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(items: [CalibrationReadinessItem]) {
+        self.items = items
+    }
 }
 
 /// Per-scan-position position of the unscattered beam, in detector pixels.
-struct OriginMaps: Sendable {
-    let width: Int
-    let height: Int
+package struct OriginMaps: Sendable {
+    package let width: Int
+    package let height: Int
 
     /// Raw per-pattern measurement, when available. py4DSTEM files can carry
     /// fitted qx0/qy0 arrays without the corresponding measured arrays.
-    let measuredX: [Float]?
-    let measuredY: [Float]?
+    package let measuredX: [Float]?
+    package let measuredY: [Float]?
 
     /// Smooth fit of the measurement. Analyses use the fitted origin when available.
-    var fittedX: [Float]
-    var fittedY: [Float]
+    package var fittedX: [Float]
+    package var fittedY: [Float]
 
     /// Fraction of scan positions the robust fit EXCLUDED, or nil when the maps
     /// did not come from one — imported py4DSTEM maps and file/session origins
@@ -410,7 +431,7 @@ struct OriginMaps: Sendable {
     /// of the fitted origin outranks coverage of the input measurements and the
     /// fraction is disclosure rather than an apology
     /// (`docs/q-calibration-design.md` §6a).
-    var excludedFraction: Float?
+    package var excludedFraction: Float?
 
     /// RMS(measured − fitted) over the positions the robust fit KEPT.
     ///
@@ -420,10 +441,10 @@ struct OriginMaps: Sendable {
     /// threshold would be circular. Measured on `Particle_1…bin8`: 2.19 px here
     /// against 18.47 px full-scan for the same trimmed fit (S12 §1.2). The
     /// gate reads this one deliberately — see `originFitIsSane`. // v2 S13
-    var robustResidual: Float?
+    package var robustResidual: Float?
 
     /// RMS of measured minus fitted origins, over EVERY scan position.
-    var rmsResidual: Float? {
+    package var rmsResidual: Float? {
         guard let measuredX, let measuredY,
               measuredX.count == fittedX.count,
               measuredY.count == fittedY.count,
@@ -440,7 +461,7 @@ struct OriginMaps: Sendable {
     }
 
     /// Fitted origins interleaved as [x0, y0, x1, y1, ...].
-    var interleavedFitted: [Float] {
+    package var interleavedFitted: [Float] {
         var output = [Float](repeating: 0, count: fittedX.count * 2)
         for index in 0..<fittedX.count {
             output[2 * index] = fittedX[index]
@@ -448,14 +469,26 @@ struct OriginMaps: Sendable {
         }
         return output
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil) {
+        self.width = width
+        self.height = height
+        self.measuredX = measuredX
+        self.measuredY = measuredY
+        self.fittedX = fittedX
+        self.fittedY = fittedY
+        self.excludedFraction = excludedFraction
+        self.robustResidual = robustResidual
+    }
 }
 
-struct Calibration: Sendable {
+package struct Calibration: Sendable {
     /// Provenance of the origin currently represented by the aperture center.
-    var originProvenance: OriginProvenance = .geometricDefault
+    package var originProvenance: OriginProvenance = .geometricDefault
 
     /// Radius of the central bright-field disk in detector pixels.
-    var probeRadius: Float?
+    package var probeRadius: Float?
 
     /// The beam centre a file or a restored session recorded as a mean, with no
     /// per-position maps beside it. **v2 S13.** Before this existed the value
@@ -465,31 +498,31 @@ struct Calibration: Sendable {
     /// the file's origin (S11, 2026-08-28). Stored as two scalars rather than a
     /// tuple so `Calibration` stays `Equatable`-friendly for callers that need
     /// it; read it through `recordedMeanOrigin`.
-    var recordedOriginX: Float?
-    var recordedOriginY: Float?
+    package var recordedOriginX: Float?
+    package var recordedOriginY: Float?
 
-    nonisolated var recordedMeanOrigin: (x: Float, y: Float)? {
+    package nonisolated var recordedMeanOrigin: (x: Float, y: Float)? {
         guard let recordedOriginX, let recordedOriginY,
               recordedOriginX.isFinite, recordedOriginY.isFinite else { return nil }
         return (recordedOriginX, recordedOriginY)
     }
 
     /// Center and spread of the unscattered beam across the scan.
-    var origin: OriginMaps?
+    package var origin: OriginMaps?
 
-    var qPixelSize: Double?
-    var qPixelUnits: String?
-    var rPixelSize: Double?
-    var rPixelUnits: String?
+    package var qPixelSize: Double?
+    package var qPixelUnits: String?
+    package var rPixelSize: Double?
+    package var rPixelUnits: String?
 
     /// Relative rotation between scan and detector axes.
-    var rotationRad: Float?
-    var transposeQR: Bool?
+    package var rotationRad: Float?
+    package var transposeQR: Bool?
 
     /// Elliptical distortion in py4DSTEM's native (qx=row, qy=column) frame.
-    var ellipseA: Double?
-    var ellipseB: Double?
-    var ellipseTheta: Double?
+    package var ellipseA: Double?
+    package var ellipseB: Double?
+    package var ellipseTheta: Double?
 
     /// Whether the fitted origin is trustworthy enough to derive a
     /// *quantitative* number from Bragg vectors re-centred on it.
@@ -564,9 +597,9 @@ struct Calibration: Sendable {
     /// planted at all. 2% sits above that whole range. The first version used
     /// 0.5%, which is *inside* it, so a perfectly clean scan was told "1%
     /// excluded as outliers".
-    static let excludedFractionDisclosureFloor: Float = 0.02
+    package static let excludedFractionDisclosureFloor: Float = 0.02
 
-    var originFitIsSane: Bool {
+    package var originFitIsSane: Bool {
         guard let residual = origin?.rmsResidual, let probeRadius else { return true }
         return residual.isFinite && residual <= probeRadius
     }
@@ -577,7 +610,7 @@ struct Calibration: Sendable {
     /// readiness row and the refusal cannot drift onto different numbers, which
     /// they had done before (`AppState` quoted `rmsResidual` while the panel
     /// quoted the robust one).
-    var judgedOriginResidual: Float? { origin?.rmsResidual }
+    package var judgedOriginResidual: Float? { origin?.rmsResidual }
 
     /// Whether a *reciprocal* measurement may be derived in this frame — the
     /// strict question, consulted by Q calibration only.
@@ -601,7 +634,7 @@ struct Calibration: Sendable {
     ///    the estimator's 2 px floor and the 7.07 px case is above the band
     ///    where its radius check acts — so this is closed structurally, here,
     ///    rather than watched for.
-    func originSupportsReciprocalMetrology(
+    package func originSupportsReciprocalMetrology(
         detectorQX: Int, detectorQY: Int, apertureCentre: (x: Float, y: Float)?
     ) -> Bool {
         guard originFitIsSane else { return false }
@@ -616,7 +649,7 @@ struct Calibration: Sendable {
     /// caller can refuse on the *kind* instead of re-deriving the fallback and
     /// getting a different answer, which is what S11 found four call sites
     /// doing three different ways.
-    nonisolated enum ReferenceOriginKind: String, Sendable, Equatable {
+    package nonisolated enum ReferenceOriginKind: String, Sendable, Equatable {
         /// Mean of the per-position fitted origin maps.
         case fittedMaps
         /// The beam centre a file or a restored session recorded, with no
@@ -632,18 +665,25 @@ struct Calibration: Sendable {
 
         /// Whether this origin is a *measurement* of the beam centre. Only
         /// these two may carry a reciprocal measurement.
-        var isMeasuredBeamCentre: Bool { self == .fittedMaps || self == .recordedMean }
+        package var isMeasuredBeamCentre: Bool { self == .fittedMaps || self == .recordedMean }
     }
 
-    nonisolated struct ReferenceOrigin: Sendable, Equatable {
-        var x: Float
-        var y: Float
-        var kind: ReferenceOriginKind
+    package nonisolated struct ReferenceOrigin: Sendable, Equatable {
+        package var x: Float
+        package var y: Float
+        package var kind: ReferenceOriginKind
         /// `nonisolated` deliberately: this is pure value arithmetic and it is
         /// read inside `Task.detached` at the Q-calibration call site. Without
         /// it the app target's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
         /// makes it main-actor-isolated and the access is a Swift 6 error.
-        nonisolated var point: (x: Float, y: Float) { (x, y) }
+        package nonisolated var point: (x: Float, y: Float) { (x, y) }
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(x: Float, y: Float, kind: ReferenceOriginKind) {
+            self.x = x
+            self.y = y
+            self.kind = kind
+        }
     }
 
     /// **The one derivation of "which origin do I re-centre on?"** — v2 S13,
@@ -657,7 +697,7 @@ struct Calibration: Sendable {
     /// the geometric middle. `apertureCentre` is optional so a caller with no
     /// aperture (a harness, an export) gets the same order minus that step
     /// rather than a different function.
-    nonisolated func referenceOrigin(
+    package nonisolated func referenceOrigin(
         detectorQX: Int, detectorQY: Int, apertureCentre: (x: Float, y: Float)?
     ) -> ReferenceOrigin {
         if let mean = meanOrigin {
@@ -692,7 +732,7 @@ struct Calibration: Sendable {
     /// measurement (manual entry bypasses the estimator entirely) but cannot
     /// move this residual, so appending it to the iDPC refusal printed a
     /// remedy that provably does nothing there (Gate B, 2026-08-25). // v2 S7
-    var originFitJudgement: String? {
+    package var originFitJudgement: String? {
         guard !originFitIsSane, let residual = judgedOriginResidual else { return nil }
         let excluded = origin?.excludedFraction
         let scope = (excluded ?? 0) > Self.excludedFractionDisclosureFloor
@@ -724,7 +764,7 @@ struct Calibration: Sendable {
     /// them apart: broad measurement failure (no tail to trim — trimming keeps
     /// ~100% and moves nothing) versus outlier contamination (a heavy tail the
     /// trim removed, and the residual is still too large).
-    var originFitRefusal: String? {
+    package var originFitRefusal: String? {
         guard let judgement = originFitJudgement else { return nil }
         // The diagnosis says only what was OBSERVED. The first version drew an
         // inference from an excluded fraction of zero — "the origin measurement
@@ -758,9 +798,9 @@ struct Calibration: Sendable {
             + " probe radius."
     }
 
-    var hasFittedOrigin: Bool { origin != nil }
-    var hasRotation: Bool { rotationRad != nil }
-    nonisolated var hasEllipse: Bool {
+    package var hasFittedOrigin: Bool { origin != nil }
+    package var hasRotation: Bool { rotationRad != nil }
+    package nonisolated var hasEllipse: Bool {
         guard let a = ellipseA, let b = ellipseB, let theta = ellipseTheta else { return false }
         return a.isFinite && b.isFinite && theta.isFinite && abs(a) > .leastNonzeroMagnitude
     }
@@ -777,7 +817,7 @@ struct Calibration: Sendable {
     /// admits it: a Q scale computed from a NaN origin, stamped
     /// `.measuredInApp`. `recordedMeanOrigin` had validated its scalars all
     /// along; this path did not, 250 lines apart in one file.
-    nonisolated var meanOrigin: (x: Float, y: Float)? {
+    package nonisolated var meanOrigin: (x: Float, y: Float)? {
         guard let origin, !origin.fittedX.isEmpty,
               origin.fittedY.count == origin.fittedX.count else { return nil }
         let count = Float(origin.fittedX.count)
@@ -807,7 +847,7 @@ struct Calibration: Sendable {
     /// Apply py4DSTEM `BraggVectors.cal._transform(..., ellipse=True)` to a
     /// detector offset. The axis swap is explicit: py4DSTEM [qx,qy] is this
     /// app's [dy,dx], and theta stays in that native py4DSTEM frame.
-    nonisolated func ellipseCorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
+    package nonisolated func ellipseCorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
         guard let t = ellipseTransform() else { return (dx, dy) }
         let qx = t.t00 * Double(dy) + t.t01 * Double(dx)
         let qy = t.t01 * Double(dy) + t.t11 * Double(dx)
@@ -818,7 +858,7 @@ struct Calibration: Sendable {
     /// offset back to the raw (distorted) detector frame. Used by fit-overlay
     /// rendering, which must place calibrated-space predictions onto the raw
     /// pattern. Identity when no ellipse is set, matching the forward path.
-    nonisolated func ellipseUncorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
+    package nonisolated func ellipseUncorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
         guard let t = ellipseTransform() else { return (dx, dy) }
         let det = t.t00 * t.t11 - t.t01 * t.t01
         guard abs(det) > .leastNormalMagnitude else { return (dx, dy) }
@@ -829,13 +869,31 @@ struct Calibration: Sendable {
         let rawDX = (-t.t01 * qx + t.t00 * qy) / det
         return (Float(rawDX), Float(rawDY))
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(originProvenance: OriginProvenance = .geometricDefault, probeRadius: Float? = nil, recordedOriginX: Float? = nil, recordedOriginY: Float? = nil, origin: OriginMaps? = nil, qPixelSize: Double? = nil, qPixelUnits: String? = nil, rPixelSize: Double? = nil, rPixelUnits: String? = nil, rotationRad: Float? = nil, transposeQR: Bool? = nil, ellipseA: Double? = nil, ellipseB: Double? = nil, ellipseTheta: Double? = nil) {
+        self.originProvenance = originProvenance
+        self.probeRadius = probeRadius
+        self.recordedOriginX = recordedOriginX
+        self.recordedOriginY = recordedOriginY
+        self.origin = origin
+        self.qPixelSize = qPixelSize
+        self.qPixelUnits = qPixelUnits
+        self.rPixelSize = rPixelSize
+        self.rPixelUnits = rPixelUnits
+        self.rotationRad = rotationRad
+        self.transposeQR = transposeQR
+        self.ellipseA = ellipseA
+        self.ellipseB = ellipseB
+        self.ellipseTheta = ellipseTheta
+    }
 }
 
 extension PixelOriginMaps {
     /// Convert py4DSTEM origin arrays to the app frame at the activation
     /// boundary. Real-space array order is unchanged; detector components swap
     /// because py4DSTEM qx is the first/row axis (app y), while qy is app x.
-    nonisolated func appOriginMaps(width: Int, height: Int) -> OriginMaps? {
+    package nonisolated func appOriginMaps(width: Int, height: Int) -> OriginMaps? {
         guard shape == [height, width],
               fittedQX.count == width * height,
               fittedQY.count == width * height else { return nil }

@@ -47,7 +47,7 @@ import Metal
 /// Gate A review 2026-08-19), and a dead conformance is a claim about
 /// behavior that does not exist — the same logic that removed
 /// `shouldAdmit`'s dead parameters.
-nonisolated enum Residency: Sendable {
+package nonisolated enum Residency: Sendable {
     /// Bounded scan-row tiles. Always available, always tested (invariant I6).
     case streamed
     /// One MTLBuffer holding the whole cube as float32.
@@ -60,14 +60,14 @@ nonisolated enum Residency: Sendable {
 /// published, and is only ever read afterwards — every kernel binds the cube as
 /// an input. Same rationale as `FFT2D`'s setup: immutable after construction,
 /// so sharing it across actors is safe even though `MTLBuffer` is not Sendable.
-nonisolated struct ResidentCube: @unchecked Sendable {
-    let buffer: MTLBuffer
-    let descriptor: DatasetDescriptor
+package nonisolated struct ResidentCube: @unchecked Sendable {
+    package let buffer: MTLBuffer
+    package let descriptor: DatasetDescriptor
     /// Which view of the source these bytes are. Compared by `matches`, because
     /// the descriptor alone cannot tell two equal-sized crops apart.
-    let specification: LoadSpecification
+    package let specification: LoadSpecification
 
-    var byteCount: Int { descriptor.byteCountAsFloat32 }
+    package var byteCount: Int { descriptor.byteCountAsFloat32 }
 
     /// Whether this buffer actually holds the cube `other` describes.
     ///
@@ -97,17 +97,24 @@ nonisolated struct ResidentCube: @unchecked Sendable {
     /// future stage that makes the view mutable, and it stays pinned as a unit
     /// by `tools/virtual-detector-residency`. Saying so rather than letting the
     /// paragraph above read as a running guard — adversarial review 2026-08-18.
-    func matches(_ other: DatasetDescriptor,
+    package func matches(_ other: DatasetDescriptor,
                  specification otherSpecification: LoadSpecification) -> Bool {
         descriptor.filePath == other.filePath
             && descriptor.datasetPath == other.datasetPath
             && descriptor.shape == other.shape
             && specification == otherSpecification
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(buffer: MTLBuffer, descriptor: DatasetDescriptor, specification: LoadSpecification) {
+        self.buffer = buffer
+        self.descriptor = descriptor
+        self.specification = specification
+    }
 }
 
 /// The admission rule: may this cube be held resident on this machine?
-nonisolated enum ResidencyAdmission {
+package nonisolated enum ResidencyAdmission {
 
     /// The fraction of the device's **own** recommended Metal working set that
     /// a resident cube may occupy.
@@ -130,7 +137,7 @@ nonisolated enum ResidencyAdmission {
     /// count: the app ships to Macs from 8 GB to 128 GB+, and the same cube
     /// must go resident on a large machine and stream on a small one, from one
     /// rule. Tuning it to make one particular dataset fit would be a defect.
-    static let measuredWorkingSetFraction: Double? = nil
+    package static let measuredWorkingSetFraction: Double? = nil
 
     /// Whether `descriptor` fits `fraction` of `workingSetSize`.
     ///
@@ -138,7 +145,7 @@ nonisolated enum ResidencyAdmission {
     /// `FourDDataSource`), so a uint16 file needs **twice** its file size here.
     /// `byteCountAsFloat32` is already that number; the on-disk size would be
     /// the more flattering figure and the wrong one.
-    static func admits(
+    package static func admits(
         _ descriptor: DatasetDescriptor,
         workingSetSize: UInt64,
         fraction: Double
@@ -170,7 +177,7 @@ nonisolated enum ResidencyAdmission {
     /// (v2 S3): they fed only its threshold branch, and a dead parameter is a
     /// claim this function checks something it does not. A returning
     /// `.automatic` re-adds them and calls `admits`.
-    static func shouldAdmit(
+    package static func shouldAdmit(
         _ requested: Residency,
         descriptor: DatasetDescriptor,
         maximumBufferLength: Int

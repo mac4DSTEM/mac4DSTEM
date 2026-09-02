@@ -13,6 +13,7 @@
 //
 
 import Foundation
+import DSTEMCore
 import Observation
 
 enum StrainReferenceMode: String, CaseIterable, Identifiable {

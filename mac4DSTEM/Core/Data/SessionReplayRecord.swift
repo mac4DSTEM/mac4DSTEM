@@ -31,23 +31,30 @@ import Foundation
 
 /// The recorded analysis pipeline of a session. Serialized as a JSON root
 /// attribute on the sidecar (`SessionSidecarFormat.replayRecordAttribute`).
-nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
+package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
 
     /// One analysis in the pipeline. `kind` matches the result-kind vocabulary
     /// used by `SessionResultDescriptor`; `parameters` is the same flat
     /// string-to-string convention as result provenance, so the two carriers
     /// stay mutually legible.
-    struct Step: Codable, Equatable, Sendable {
-        var kind: String
-        var parameters: [String: String]
+    package struct Step: Codable, Equatable, Sendable {
+        package var kind: String
+        package var parameters: [String: String]
         /// When this step's parameters were last settled. Informational — the
         /// ORDER of `steps` is the pipeline order, not the timestamps.
-        var recorded: Date
+        package var recorded: Date
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(kind: String, parameters: [String: String], recorded: Date) {
+            self.kind = kind
+            self.parameters = parameters
+            self.recorded = recorded
+        }
     }
 
-    var steps: [Step] = []
+    package var steps: [Step] = []
 
-    var isEmpty: Bool { steps.isEmpty }
+    package var isEmpty: Bool { steps.isEmpty }
 
     /// Record a run: first run of a kind appends, a re-run updates that
     /// kind's parameters IN PLACE — first-run order is the pipeline order.
@@ -57,7 +64,7 @@ nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     /// not part of a coherent pipeline any more — keeping it would produce a
     /// recipe that replays neither the saved maps nor anything the user built
     /// (Gate B-lite F4). Re-running the downstream analysis re-records it.
-    mutating func record(kind: String, parameters: [String: String], at date: Date = Date(),
+    package mutating func record(kind: String, parameters: [String: String], at date: Date = Date(),
                          invalidating downstream: [String] = []) {
         if !downstream.isEmpty {
             steps.removeAll { downstream.contains($0.kind) }
@@ -75,7 +82,7 @@ nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     /// Deterministic JSON: sorted keys and fixed-format dates, so re-encoding
     /// a decoded record is byte-stable — the property `tools/load-spec-roundtrip`
     /// pins for the specification, extended to this record by the same harness.
-    var jsonString: String? {
+    package var jsonString: String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .secondsSince1970
@@ -91,10 +98,15 @@ nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     /// The one production caller (`BraggVectorEMDWriter.loadSession`) REFUSES
     /// on nil for a present attribute (`WriterError.malformedAttribute`) —
     /// a mangled recipe must not read as "no recipe". // v2 S7
-    static func parse(_ json: String) -> SessionReplayRecord? {
+    package static func parse(_ json: String) -> SessionReplayRecord? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
         guard let data = json.data(using: .utf8) else { return nil }
         return try? decoder.decode(SessionReplayRecord.self, from: data)
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(steps: [Step] = []) {
+        self.steps = steps
     }
 }

@@ -19,7 +19,7 @@ for library in libhdf5 libsz.2 libaec.0; do
   codesign -f -s - "$WORK/$library.dylib" 2>/dev/null
 done
 
-xcrun swiftc -module-cache-path "$WORK/module-cache" -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -module-cache-path "$WORK/module-cache" -o "$WORK/harness" \
   main.swift "${MAC4DSTEM_SOURCES[@]}" \
   -framework Accelerate -framework Metal
 codesign -f -s - "$WORK/harness" 2>/dev/null
@@ -32,7 +32,7 @@ PYTHONPATH="$REPO/References/py4DSTEM-dev" \
   "$PYTHON_BIN" \
   inject_unknown.py "$WORK/session.mac4dstem.h5"
 
-xcrun swiftc -module-cache-path "$WORK/module-cache" -parse-as-library \
+xcrun swiftc -package-name mac4DSTEM -module-cache-path "$WORK/module-cache" -parse-as-library \
   -o "$WORK/preserve-unknown" preserve_unknown.swift "${MAC4DSTEM_SOURCES[@]}" \
   -framework Accelerate -framework Metal
 codesign -f -s - "$WORK/preserve-unknown" 2>/dev/null

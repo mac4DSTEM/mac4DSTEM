@@ -26,19 +26,19 @@ import Foundation
 import Accelerate
 
 nonisolated private struct ExactRadixStage: Sendable {
-    let groupSize: Int
-    let butterflyStride: Int
-    let twiddleReal: [Float]
-    let twiddleImaginaryForward: [Float]
+    package let groupSize: Int
+    package let butterflyStride: Int
+    package let twiddleReal: [Float]
+    package let twiddleImaginaryForward: [Float]
 }
 
 nonisolated private struct ExactRadixPlan: Sendable {
-    let length: Int
-    let radix: Int
-    let reversedIndices: [Int]
-    let stages: [ExactRadixStage]
+    package let length: Int
+    package let radix: Int
+    package let reversedIndices: [Int]
+    package let stages: [ExactRadixStage]
 
-    init(length: Int, radix: Int, exponent: Int) {
+    package init(length: Int, radix: Int, exponent: Int) {
         self.length = length
         self.radix = radix
 
@@ -100,20 +100,20 @@ nonisolated private struct ExactRadixPlan: Sendable {
 /// Immutable after construction (an FFTSetup is documented shareable across
 /// threads), so one plan serves every concurrent detection worker.
 nonisolated private final class BluesteinPlan: @unchecked Sendable {
-    let length: Int
-    let paddedLength: Int
-    let paddedLog2: vDSP_Length
-    let setup: FFTSetup
+    package let length: Int
+    package let paddedLength: Int
+    package let paddedLog2: vDSP_Length
+    package let setup: FFTSetup
     /// w_n = exp(−iπ n²/N) for n < N (the FORWARD chirp; inverse = conj).
-    let chirpRe: [Float]
-    let chirpIm: [Float]
+    package let chirpRe: [Float]
+    package let chirpIm: [Float]
     /// FFT_M of the symmetric conj-chirp filter, one per direction.
-    let filterForwardRe: [Float]
-    let filterForwardIm: [Float]
-    let filterInverseRe: [Float]
-    let filterInverseIm: [Float]
+    package let filterForwardRe: [Float]
+    package let filterForwardIm: [Float]
+    package let filterInverseRe: [Float]
+    package let filterInverseIm: [Float]
 
-    init?(length: Int) {
+    package init?(length: Int) {
         guard length > 0 else { return nil }
         let padded = FFT2D.nextPow2(2 * length - 1)
         let log2Padded = vDSP_Length(log2(Double(padded)))
@@ -174,7 +174,7 @@ nonisolated private final class BluesteinPlan: @unchecked Sendable {
     /// Exact length-N DFT of one line. `scratchRe/Im` must hold
     /// `paddedLength` floats each; they are caller-owned so concurrent
     /// workers never share them.
-    func execute(
+    package func execute(
         forward: Bool,
         _ inputRe: UnsafePointer<Float>, _ inputIm: UnsafePointer<Float>,
         _ outputRe: UnsafeMutablePointer<Float>, _ outputIm: UnsafeMutablePointer<Float>,
@@ -230,10 +230,10 @@ nonisolated private final class BluesteinPlan: @unchecked Sendable {
     }
 }
 
-nonisolated final class FFT2D: @unchecked Sendable {
+package nonisolated final class FFT2D: @unchecked Sendable {
 
-    let nx: Int
-    let ny: Int
+    package let nx: Int
+    package let ny: Int
     private let log2x: vDSP_Length
     private let log2y: vDSP_Length
     private let radix2Setup: FFTSetup?
@@ -254,7 +254,7 @@ nonisolated final class FFT2D: @unchecked Sendable {
     private let bluesteinY: BluesteinPlan?
 
     /// Fails only when a required Accelerate FFT setup cannot be allocated.
-    init?(nx: Int, ny: Int) {
+    package init?(nx: Int, ny: Int) {
         guard nx > 0, ny > 0 else { return nil }
         self.nx = nx
         self.ny = ny
@@ -343,7 +343,7 @@ nonisolated final class FFT2D: @unchecked Sendable {
     /// In-place complex 2D FFT over row-major [ny * nx] split-complex data.
     /// The inverse is unnormalized, matching vDSP — `scaleInverse` divides by
     /// nx*ny so forward→inverse round-trips to the input.
-    func transform(re: inout [Float], im: inout [Float],
+    package func transform(re: inout [Float], im: inout [Float],
                    forward: Bool, scaleInverse: Bool = true) {
         precondition(re.count == nx * ny && im.count == nx * ny)
         if let radix2Setup {
@@ -632,14 +632,14 @@ nonisolated final class FFT2D: @unchecked Sendable {
         return remainder == 1 ? exponent : nil
     }
 
-    static func nextPow2(_ v: Int) -> Int {
+    package static func nextPow2(_ v: Int) -> Int {
         var p = 1
         while p < v { p <<= 1 }
         return p
     }
 
     /// Frequency of bin k for an N-point FFT, in cycles per pixel (np.fftfreq).
-    static func fftfreq(_ k: Int, _ n: Int) -> Float {
+    package static func fftfreq(_ k: Int, _ n: Int) -> Float {
         let kk = k <= (n - 1) / 2 ? k : k - n
         return Float(kk) / Float(n)
     }

@@ -6,50 +6,71 @@
 
 import Foundation
 
-nonisolated struct ParallaxSubpixelOptions: Equatable, Sendable {
+package nonisolated struct ParallaxSubpixelOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
     /// Nil selects py4DSTEM's BF/DF sampling-limit heuristic.
-    var upsampleFactor: Double? = nil
-    var kdeSigmaPixels: Double = 0.125
-    var lowpassFilter = false
+    package var upsampleFactor: Double? = nil
+    package var kdeSigmaPixels: Double = 0.125
+    package var lowpassFilter = false
     /// Nil selects bilinear deposition. A positive value selects py4DSTEM's
     /// current Lanczos helper, including its checked-in Cartesian weight rule.
-    var lanczosOrder: Int? = nil
+    package var lanczosOrder: Int? = nil
     /// Nil disables probe-position correction; zero records the baseline score.
-    var positionCorrectionIterations: Int? = nil
-    var positionCorrectionInitialStep: Float = 1
-    var positionCorrectionMinimumStep: Float = 0.1
-    var positionCorrectionStepFactor: Float = 0.75
-    var positionCorrectionCheckerboard = false
-    var maxWorkingBytes = 1_073_741_824
+    package var positionCorrectionIterations: Int? = nil
+    package var positionCorrectionInitialStep: Float = 1
+    package var positionCorrectionMinimumStep: Float = 0.1
+    package var positionCorrectionStepFactor: Float = 0.75
+    package var positionCorrectionCheckerboard = false
+    package var maxWorkingBytes = 1_073_741_824
 }
 
-nonisolated struct ParallaxSubpixelResult: Sendable {
-    let upsampleFactor: Double
-    let brightFieldUpsampleLimit: Double
-    let darkFieldUpsampleLimit: Double
-    let kdeSigmaPixels: Double
-    let lowpassFilter: Bool
-    let lanczosOrder: Int?
-    let paddedHeight: Int
-    let paddedWidth: Int
-    let paddedBF: [Float]
-    let croppedBF: FloatImage
-    let outputSamplingAngstrom: Double
+package nonisolated struct ParallaxSubpixelResult: Sendable {
+    package let upsampleFactor: Double
+    package let brightFieldUpsampleLimit: Double
+    package let darkFieldUpsampleLimit: Double
+    package let kdeSigmaPixels: Double
+    package let lowpassFilter: Bool
+    package let lanczosOrder: Int?
+    package let paddedHeight: Int
+    package let paddedWidth: Int
+    package let paddedBF: [Float]
+    package let croppedBF: FloatImage
+    package let outputSamplingAngstrom: Double
     /// Padded scan-grid shifts in input scan pixels.
-    let probeShiftRows: [Float]
-    let probeShiftColumns: [Float]
-    let positionCorrectionScores: [Float]
+    package let probeShiftRows: [Float]
+    package let probeShiftColumns: [Float]
+    package let positionCorrectionScores: [Float]
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(upsampleFactor: Double, brightFieldUpsampleLimit: Double, darkFieldUpsampleLimit: Double, kdeSigmaPixels: Double, lowpassFilter: Bool, lanczosOrder: Int?, paddedHeight: Int, paddedWidth: Int, paddedBF: [Float], croppedBF: FloatImage, outputSamplingAngstrom: Double, probeShiftRows: [Float], probeShiftColumns: [Float], positionCorrectionScores: [Float]) {
+        self.upsampleFactor = upsampleFactor
+        self.brightFieldUpsampleLimit = brightFieldUpsampleLimit
+        self.darkFieldUpsampleLimit = darkFieldUpsampleLimit
+        self.kdeSigmaPixels = kdeSigmaPixels
+        self.lowpassFilter = lowpassFilter
+        self.lanczosOrder = lanczosOrder
+        self.paddedHeight = paddedHeight
+        self.paddedWidth = paddedWidth
+        self.paddedBF = paddedBF
+        self.croppedBF = croppedBF
+        self.outputSamplingAngstrom = outputSamplingAngstrom
+        self.probeShiftRows = probeShiftRows
+        self.probeShiftColumns = probeShiftColumns
+        self.positionCorrectionScores = positionCorrectionScores
+    }
 }
 
-nonisolated enum ParallaxSubpixelReconstructor {
-    enum ReconstructionError: LocalizedError, Equatable {
+package nonisolated enum ParallaxSubpixelReconstructor {
+    package enum ReconstructionError: LocalizedError, Equatable {
         case invalidInput(String)
         case invalidOptions(String)
         case memoryLimit(bytes: Int, limit: Int)
         case fftUnavailable
         case cancelled
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .invalidInput(let detail):
                 return "Cannot upsample the parallax reconstruction: \(detail)."
@@ -65,7 +86,7 @@ nonisolated enum ParallaxSubpixelReconstructor {
         }
     }
 
-    static func reconstruct(
+    package static func reconstruct(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
         options: ParallaxSubpixelOptions = ParallaxSubpixelOptions(),

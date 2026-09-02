@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import DSTEMCore
 import ImageIO
 import UniformTypeIdentifiers
 

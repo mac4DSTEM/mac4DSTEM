@@ -21,39 +21,53 @@ import Foundation
 import simd
 
 /// Shared polar-image geometry.
-nonisolated struct PolarGeometry {
-    let nRadial: Int
-    let nAzimuthal: Int          // power of two (azimuthal FFT length)
-    let radialScale: Double      // radial units per bin
+package nonisolated struct PolarGeometry {
+    package let nRadial: Int
+    package let nAzimuthal: Int          // power of two (azimuthal FFT length)
+    package let radialScale: Double      // radial units per bin
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(nRadial: Int, nAzimuthal: Int, radialScale: Double) {
+        self.nRadial = nRadial
+        self.nAzimuthal = nAzimuthal
+        self.radialScale = radialScale
+    }
 }
 
 /// One projected reflection of a template, in the template's polar frame:
 /// radius in the plan's radial units (Å⁻¹), azimuth in radians. Retained so a
 /// matched template can be projected back onto the diffraction pattern.
-nonisolated struct TemplateSpot: Sendable {
-    let r: Float
-    let azim: Float
-    let weight: Float
+package nonisolated struct TemplateSpot: Sendable {
+    package let r: Float
+    package let azim: Float
+    package let weight: Float
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(r: Float, azim: Float, weight: Float) {
+        self.r = r
+        self.azim = azim
+        self.weight = weight
+    }
 }
 
 /// The library, with per-template azimuthal FFTs precomputed for matching.
-nonisolated struct OrientationPlan {
-    let geometry: PolarGeometry
-    let symmetry: ACOMCrystalSymmetry
-    let zoneAxes: [SIMD3<Double>]
+package nonisolated struct OrientationPlan {
+    package let geometry: PolarGeometry
+    package let symmetry: ACOMCrystalSymmetry
+    package let zoneAxes: [SIMD3<Double>]
     /// py4DSTEM-style detector bases: lab x/y/z columns in crystal coordinates.
-    let detectorBases: [simd_double3x3]
+    package let detectorBases: [simd_double3x3]
     /// Per template: the projected reflections the polar image was built from.
     /// The overlay that verifies a match by eye draws exactly these spots.
-    let templateSpots: [[TemplateSpot]]
+    package let templateSpots: [[TemplateSpot]]
     /// Per template: real polar image [nRadial*nAzimuthal] (mean-subtracted,
     /// unit-normalized) — kept for inspection/visualization.
-    let templates: [[Float]]
+    package let templates: [[Float]]
     /// All template azimuthal FFTs in one contiguous
     /// `[template, radial, azimuthal]` allocation. This layout is shared by the
     /// optimized CPU matcher and the batched Metal backend.
-    let templateFFTRe: [Float]
-    let templateFFTIm: [Float]
+    package let templateFFTRe: [Float]
+    package let templateFFTIm: [Float]
     /// Exponent applied to spot weights before they are deposited into the
     /// polar image. The default 0.25 is py4DSTEM's own default, READ FROM ITS
     /// SOURCE, not fitted here: `References/py4DSTEM-dev/py4DSTEM/process/
@@ -65,25 +79,25 @@ nonisolated struct OrientationPlan {
     /// the brightest ring dominates the correlation; values below 1 compress
     /// the dynamic range so weak reflections still carry azimuthal detail. The
     /// matcher reads this so the experimental image is weighted identically.
-    let intensityPower: Double
+    package let intensityPower: Double
     /// Radial width (Å⁻¹) each spot is spread over when deposited, py4DSTEM's
     /// `corr_kernel_size`. The matcher reads this so the experimental image is
     /// built with exactly the same kernel as the templates.
-    let radialKernelInvAngstrom: Double
+    package let radialKernelInvAngstrom: Double
     /// How far apart two zone axes must be before they count as different
     /// orientations rather than two samples of one (radians). Used only to
     /// pick the runner-up that the reliability metric is measured against —
     /// see `selectOrientation` in OrientationMatcher.swift.
-    let distinctOrientationRad: Double
+    package let distinctOrientationRad: Double
 
-    var count: Int { zoneAxes.count }
+    package var count: Int { zoneAxes.count }
 
     // MARK: Generation
 
     /// Build a plan for `crystal`. `zoneAxisCount` sets the sampling density
     /// (≈ hemisphere points); `sgWidth`/`sgMax` are the excitation-error
     /// tolerances (Å⁻¹) selecting which reflections are "excited" at a zone axis.
-    static func generate(crystal: Crystal,
+    package static func generate(crystal: Crystal,
                          kMax: Double,
                          nRadial: Int = 32,
                          nAzimuthal: Int = 128,
@@ -168,7 +182,7 @@ nonisolated struct OrientationPlan {
     /// The curvature alone is not enough: with raw (power 1) intensities the
     /// brightest ring dominates the correlation and swamps the asymmetry. See
     /// `intensityPower`, which is what makes it visible.
-    static func project(reflections: [Reflection], zoneAxis n: SIMD3<Double>,
+    package static func project(reflections: [Reflection], zoneAxis n: SIMD3<Double>,
                         sgWidth: Double, sgMax: Double,
                         wavelengthAngstrom: Double? = nil,
                         intensityPower: Double = 0.25)
@@ -208,7 +222,7 @@ nonisolated struct OrientationPlan {
     /// synthetic peaks — template and pattern round identically — but brittle
     /// on real peaks, where measurement and Q-calibration error move a peak
     /// across a bin edge and it stops overlapping its own template entirely.
-    static func buildPolar(spots: [(r: Double, azim: Double, weight: Double)],
+    package static func buildPolar(spots: [(r: Double, azim: Double, weight: Double)],
                            geometry geo: PolarGeometry,
                            azimBlurBins: Double,
                            radialKernelInvAngstrom: Double = 0) -> [Float] {
@@ -250,7 +264,7 @@ nonisolated struct OrientationPlan {
     }
 
     /// Azimuthal FFT of every radial ring, ring-major layout.
-    static func ringFFTs(_ polar: [Float], geo: PolarGeometry, fft: FFT1D)
+    package static func ringFFTs(_ polar: [Float], geo: PolarGeometry, fft: FFT1D)
         -> (re: [Float], im: [Float]) {
         var outRe = [Float](repeating: 0, count: geo.nRadial * geo.nAzimuthal)
         var outIm = [Float](repeating: 0, count: geo.nRadial * geo.nAzimuthal)
@@ -292,11 +306,26 @@ nonisolated struct OrientationPlan {
         }
     }
 
-    static func normalizeUnit(_ img: inout [Float]) {
+    package static func normalizeUnit(_ img: inout [Float]) {
         var norm: Float = 0
         for v in img { norm += v * v }
         norm = norm.squareRoot()
         if norm > 0 { for i in 0..<img.count { img[i] /= norm } }
     }
 
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(geometry: PolarGeometry, symmetry: ACOMCrystalSymmetry, zoneAxes: [SIMD3<Double>], detectorBases: [simd_double3x3], templateSpots: [[TemplateSpot]], templates: [[Float]], templateFFTRe: [Float], templateFFTIm: [Float], intensityPower: Double, radialKernelInvAngstrom: Double, distinctOrientationRad: Double) {
+        self.geometry = geometry
+        self.symmetry = symmetry
+        self.zoneAxes = zoneAxes
+        self.detectorBases = detectorBases
+        self.templateSpots = templateSpots
+        self.templates = templates
+        self.templateFFTRe = templateFFTRe
+        self.templateFFTIm = templateFFTIm
+        self.intensityPower = intensityPower
+        self.radialKernelInvAngstrom = radialKernelInvAngstrom
+        self.distinctOrientationRad = distinctOrientationRad
+    }
 }

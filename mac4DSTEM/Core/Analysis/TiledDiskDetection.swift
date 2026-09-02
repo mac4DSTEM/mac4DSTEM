@@ -13,7 +13,7 @@ import Metal
 nonisolated private final class ProgressCoalescer: @unchecked Sendable {
     private let lock = NSLock()
     private var lastBucket = -1
-    func admits(_ fraction: Double) -> Bool {
+    package func admits(_ fraction: Double) -> Bool {
         let bucket = Int((fraction * 1000).rounded(.down))
         return lock.withLock {
             guard bucket != lastBucket else { return false }
@@ -32,7 +32,7 @@ extension DiskDetection {
     /// (docs/open-items.md, routed to v2 S7). A tile-read failure names the
     /// scan rows and carries the underlying error — which, since S1
     /// un-silenced `H5Eset_auto2`, includes the HDF5 detail. // v2 S7
-    enum FullScanError: Error, CustomStringConvertible, LocalizedError {
+    package enum FullScanError: Error, CustomStringConvertible, LocalizedError {
         /// Reading these scan rows from the source dataset failed.
         case tileRead(rows: Range<Int>, underlying: Error)
         /// The Metal buffer for a tile could not be allocated.
@@ -43,7 +43,7 @@ extension DiskDetection {
         /// could not be built.
         case detectorUnavailable
 
-        var description: String {
+        package var description: String {
             switch self {
             case .tileRead(let rows, let underlying):
                 return "Reading scan rows \(rows.lowerBound)–\(rows.upperBound - 1) "
@@ -60,7 +60,7 @@ extension DiskDetection {
             }
         }
 
-        var errorDescription: String? { description }
+        package var errorDescription: String? { description }
     }
 
     /// Detect every scan position without materializing the full datacube.
@@ -69,7 +69,7 @@ extension DiskDetection {
     ///
     /// Returns nil ONLY on cancellation — every failure throws a
     /// `FullScanError` naming what failed and where. // v2 S7
-    nonisolated static func detectAll(
+    package nonisolated static func detectAll(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         kernel: ProbeKernel,

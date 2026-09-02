@@ -16,11 +16,14 @@ Core/ (Data, Compute,        pure algorithms, readers, writers, GPU engine —
 Shaders/, Support/           Metal kernels; export, system monitor, bridging
 ```
 
-The rule that matters is direction: Core knows nothing above it. Enforced
-since 2026-09-02 by `Package.swift`, which builds `Core/` as the standalone
-`DSTEMCore` module (`tools/run-tests.sh core`, also in CI): any upward
-reference fails that build. The app target does not yet depend on the
-package (`status.md`, step 2b).
+The rule that matters is direction: Core knows nothing above it. Since
+2026-09-03 this is a module boundary, not a convention: `Package.swift`
+builds `Core/` as `DSTEMCore`, the app target depends on that product and
+excludes `Core/` from its own synchronized group, and Core declarations use
+the `package` access level (the app and test targets set
+`SWIFT_PACKAGE_NAME = mac4dstem`). `tools/run-tests.sh core` builds the
+module alone, also in CI. A new Core type must be `package` and, if
+constructed from App, carry an explicit `package init`.
 
 ## What it does, by subsystem
 

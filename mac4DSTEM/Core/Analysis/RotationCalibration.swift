@@ -28,25 +28,35 @@
 
 import Foundation
 
-enum RotationCalibration {
+package enum RotationCalibration {
 
-    struct Result {
-        let rotationRad: Float
-        let transpose: Bool
+    package struct Result {
+        package let rotationRad: Float
+        package let transpose: Bool
         /// Objective value at the optimum (mean |curl| or mean |div|).
-        let objective: Float
+        package let objective: Float
         /// The 1°-grid search curves, for plotting/inspection:
         /// angles in degrees, objective without and with transpose.
-        let anglesDeg: [Float]
-        let objectiveCurve: [Float]
-        let objectiveCurveTransposed: [Float]
+        package let anglesDeg: [Float]
+        package let objectiveCurve: [Float]
+        package let objectiveCurveTransposed: [Float]
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(rotationRad: Float, transpose: Bool, objective: Float, anglesDeg: [Float], objectiveCurve: [Float], objectiveCurveTransposed: [Float]) {
+            self.rotationRad = rotationRad
+            self.transpose = transpose
+            self.objective = objective
+            self.anglesDeg = anglesDeg
+            self.objectiveCurve = objectiveCurve
+            self.objectiveCurveTransposed = objectiveCurveTransposed
+        }
     }
 
     /// Solve for rotation + transpose from an interleaved CoM field
     /// [cx0, cy0, cx1, cy1, ...] of scan shape width × height.
     /// The field should already be descan-corrected (measured against fitted
     /// origins), i.e. py4DSTEM's "normalized" CoM.
-    nonisolated static func solve(com: [Float], width: Int, height: Int,
+    package nonisolated static func solve(com: [Float], width: Int, height: Int,
                       maximizeDivergence: Bool = false,
                       cancellation: AnalysisCancellationToken? = nil) -> Result? {
         guard cancellation?.isCancelled != true else { return nil }

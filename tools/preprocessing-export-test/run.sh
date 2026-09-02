@@ -16,7 +16,7 @@ for library in libhdf5 libsz.2 libaec.0; do
   codesign -f -s - "$WORK/$library.dylib" 2>/dev/null
 done
 
-xcrun swiftc -parse-as-library -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -parse-as-library -o "$WORK/harness" \
   main.swift \
   "$REPO/mac4DSTEM/Core/Data/HDF5Types.swift" \
   "$REPO/mac4DSTEM/Core/Data/H5Reader.swift" \

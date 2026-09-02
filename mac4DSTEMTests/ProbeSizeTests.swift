@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 import Metal
 @testable import mac4DSTEM
 

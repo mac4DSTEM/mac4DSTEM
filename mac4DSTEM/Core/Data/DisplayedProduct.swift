@@ -4,30 +4,37 @@ import Foundation
 /// Pixel payload, coordinate domain, validity, units, provenance, and fit
 /// evidence travel together so UI code never has to infer semantics from a
 /// display title or array dimensions.
-enum ProductDomain: String, Codable, Sendable {
+package enum ProductDomain: String, Codable, Sendable {
     case scan
     case detector
     case reconstruction
 }
 
-enum ProductQuantitativeStatus: String, Codable, Sendable {
+package enum ProductQuantitativeStatus: String, Codable, Sendable {
     case quantitative
     case relative
     case exploratory
     case categorical
 }
 
-struct ProductSampling: Equatable, Sendable {
-    let row: Double?
-    let column: Double?
-    let units: String?
+package struct ProductSampling: Equatable, Sendable {
+    package let row: Double?
+    package let column: Double?
+    package let units: String?
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(row: Double?, column: Double?, units: String?) {
+        self.row = row
+        self.column = column
+        self.units = units
+    }
 }
 
-enum ProductPayload {
+package enum ProductPayload {
     case scalar(FloatImage)
     case rgba(RGBAImage)
 
-    var dimensions: (width: Int, height: Int) {
+    package var dimensions: (width: Int, height: Int) {
         switch self {
         case .scalar(let image): (image.width, image.height)
         case .rgba(let image): (image.width, image.height)
@@ -35,34 +42,47 @@ enum ProductPayload {
     }
 }
 
-struct ProductQualityField {
-    let name: String
-    let units: String
-    let image: FloatImage
+package struct ProductQualityField {
+    package let name: String
+    package let units: String
+    package let image: FloatImage
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(name: String, units: String, image: FloatImage) {
+        self.name = name
+        self.units = units
+        self.image = image
+    }
 }
 
-struct ProductOverlayDescriptor: Equatable, Sendable {
-    let kind: String
-    let provenance: String
+package struct ProductOverlayDescriptor: Equatable, Sendable {
+    package let kind: String
+    package let provenance: String
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(kind: String, provenance: String) {
+        self.kind = kind
+        self.provenance = provenance
+    }
 }
 
-struct DisplayedProduct {
-    let kind: String
-    let displayName: String
-    let payload: ProductPayload
-    let domain: ProductDomain
-    let validityMask: [Bool]
-    let qualityFields: [ProductQualityField]
-    let sampling: ProductSampling
-    let valueUnits: String
-    let quantitativeStatus: ProductQuantitativeStatus
-    let provenance: [String: String]
-    let overlays: [ProductOverlayDescriptor]
+package struct DisplayedProduct {
+    package let kind: String
+    package let displayName: String
+    package let payload: ProductPayload
+    package let domain: ProductDomain
+    package let validityMask: [Bool]
+    package let qualityFields: [ProductQualityField]
+    package let sampling: ProductSampling
+    package let valueUnits: String
+    package let quantitativeStatus: ProductQuantitativeStatus
+    package let provenance: [String: String]
+    package let overlays: [ProductOverlayDescriptor]
 
-    var width: Int { payload.dimensions.width }
-    var height: Int { payload.dimensions.height }
+    package var width: Int { payload.dimensions.width }
+    package var height: Int { payload.dimensions.height }
 
-    init(
+    package init(
         kind: String, displayName: String, payload: ProductPayload,
         domain: ProductDomain, validityMask: [Bool]? = nil,
         qualityFields: [ProductQualityField] = [], sampling: ProductSampling,
@@ -95,7 +115,7 @@ struct DisplayedProduct {
         self.overlays = overlays
     }
 
-    func sample(x: Int, y: Int) -> ProductSample? {
+    package func sample(x: Int, y: Int) -> ProductSample? {
         guard x >= 0, y >= 0, x < width, y < height else { return nil }
         let index = y * width + x
         guard validityMask[index] else {
@@ -118,26 +138,35 @@ struct DisplayedProduct {
     }
 }
 
-struct ProductSample: Equatable {
-    let x: Int
-    let y: Int
-    let value: Float?
-    let units: String
-    let quality: [String: Float]
+package struct ProductSample: Equatable {
+    package let x: Int
+    package let y: Int
+    package let value: Float?
+    package let units: String
+    package let quality: [String: Float]
 
-    var accessibilityText: String {
+    package var accessibilityText: String {
         guard let value else { return "X \(x), Y \(y): no data" }
         return "X \(x), Y \(y): \(value) \(units)"
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(x: Int, y: Int, value: Float?, units: String, quality: [String: Float]) {
+        self.x = x
+        self.y = y
+        self.value = value
+        self.units = units
+        self.quality = quality
+    }
 }
 
-enum ProductComparison {
-    enum Compatibility: Equatable {
+package enum ProductComparison {
+    package enum Compatibility: Equatable {
         case compatible
         case incompatible(String)
     }
 
-    static func compatibility(_ lhs: DisplayedProduct, _ rhs: DisplayedProduct)
+    package static func compatibility(_ lhs: DisplayedProduct, _ rhs: DisplayedProduct)
         -> Compatibility {
         guard case .scalar = lhs.payload, case .scalar = rhs.payload else {
             return .incompatible("Difference requires two scalar products.")
@@ -160,7 +189,7 @@ enum ProductComparison {
         return .compatible
     }
 
-    static func difference(_ lhs: DisplayedProduct, _ rhs: DisplayedProduct)
+    package static func difference(_ lhs: DisplayedProduct, _ rhs: DisplayedProduct)
         -> DisplayedProduct? {
         guard compatibility(lhs, rhs) == .compatible,
               case .scalar(let a) = lhs.payload,
@@ -182,7 +211,7 @@ enum ProductComparison {
         )
     }
 
-    static func provenanceDifferences(_ lhs: DisplayedProduct, _ rhs: DisplayedProduct)
+    package static func provenanceDifferences(_ lhs: DisplayedProduct, _ rhs: DisplayedProduct)
         -> [(key: String, left: String?, right: String?)] {
         Set(lhs.provenance.keys).union(rhs.provenance.keys).sorted().compactMap { key in
             let left = lhs.provenance[key], right = rhs.provenance[key]

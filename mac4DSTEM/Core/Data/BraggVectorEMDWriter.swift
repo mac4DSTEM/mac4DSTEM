@@ -4,27 +4,27 @@ import Foundation
 /// One scalar real-space result persisted as a py4DSTEM `RealSlice`.
 /// Pixels use app row-major `[y][x]`, which is the same memory order as
 /// py4DSTEM's real-space `[R_Nx,R_Ny]` convention established by H5Reader.
-nonisolated struct ScalarResultMap: Sendable {
-    static let legacyEMDName = "result_map"
+package nonisolated struct ScalarResultMap: Sendable {
+    package static let legacyEMDName = "result_map"
     /// v2 DPC-angle unit repair: old sidecars stored normalized turns while
     /// claiming `rad`. New maps name their encoding so the reader can migrate
     /// only the legacy absence, without guessing about future representations.
-    static let dpcAngleEncodingKey = "dpc_angle_encoding"
-    static let dpcAngleRadiansEncoding = "radians"
-    static let dpcAngleTurnsEncoding = "normalized_turns"
+    package static let dpcAngleEncodingKey = "dpc_angle_encoding"
+    package static let dpcAngleRadiansEncoding = "radians"
+    package static let dpcAngleTurnsEncoding = "normalized_turns"
 
-    let width: Int
-    let height: Int
-    let pixels: [Float]
-    let kind: String
-    let displayName: String
-    let valueUnits: String
-    let pixelSizeRow: Double?
-    let pixelSizeColumn: Double?
-    let pixelUnits: String?
-    let provenance: [String: String]
+    package let width: Int
+    package let height: Int
+    package let pixels: [Float]
+    package let kind: String
+    package let displayName: String
+    package let valueUnits: String
+    package let pixelSizeRow: Double?
+    package let pixelSizeColumn: Double?
+    package let pixelUnits: String?
+    package let provenance: [String: String]
 
-    init(width: Int, height: Int, pixels: [Float], kind: String,
+    package init(width: Int, height: Int, pixels: [Float], kind: String,
          displayName: String, valueUnits: String,
          pixelSizeRow: Double? = nil, pixelSizeColumn: Double? = nil,
          pixelUnits: String? = nil, provenance: [String: String] = [:]) {
@@ -43,19 +43,19 @@ nonisolated struct ScalarResultMap: Sendable {
 
 /// One pre-colored scan-shaped scientific result (for example DPC direction
 /// or cubic IPF-Z), persisted losslessly as uint8 `[height,width,RGBA]`.
-nonisolated struct RGBAResultMap: Sendable {
-    let width: Int
-    let height: Int
-    let rgba: [UInt8]
-    let kind: String
-    let displayName: String
-    let valueUnits: String
-    let pixelSizeRow: Double?
-    let pixelSizeColumn: Double?
-    let pixelUnits: String?
-    let provenance: [String: String]
+package nonisolated struct RGBAResultMap: Sendable {
+    package let width: Int
+    package let height: Int
+    package let rgba: [UInt8]
+    package let kind: String
+    package let displayName: String
+    package let valueUnits: String
+    package let pixelSizeRow: Double?
+    package let pixelSizeColumn: Double?
+    package let pixelUnits: String?
+    package let provenance: [String: String]
 
-    init(
+    package init(
         width: Int, height: Int, rgba: [UInt8], kind: String,
         displayName: String, valueUnits: String,
         pixelSizeRow: Double? = nil, pixelSizeColumn: Double? = nil,
@@ -74,45 +74,69 @@ nonisolated struct RGBAResultMap: Sendable {
     }
 }
 
-nonisolated enum SessionResultStorage: String, Sendable {
+package nonisolated enum SessionResultStorage: String, Sendable {
     case scalarFloat32 = "scalar_f32"
     case rgba8 = "rgba8"
 }
 
 /// Lightweight on-disk map metadata used by the session inventory. The `id`
 /// is the stable HDF5 node name, not a user-visible label.
-nonisolated struct SessionResultDescriptor: Identifiable, Sendable, Equatable {
-    let id: String
-    let kind: String
-    let displayName: String
-    let valueUnits: String
-    let width: Int
-    let height: Int
-    let storage: SessionResultStorage
-    let pixelSizeRow: Double?
-    let pixelSizeColumn: Double?
-    let pixelUnits: String?
-    let provenance: [String: String]
+package nonisolated struct SessionResultDescriptor: Identifiable, Sendable, Equatable {
+    package let id: String
+    package let kind: String
+    package let displayName: String
+    package let valueUnits: String
+    package let width: Int
+    package let height: Int
+    package let storage: SessionResultStorage
+    package let pixelSizeRow: Double?
+    package let pixelSizeColumn: Double?
+    package let pixelUnits: String?
+    package let provenance: [String: String]
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(id: String, kind: String, displayName: String, valueUnits: String, width: Int, height: Int, storage: SessionResultStorage, pixelSizeRow: Double?, pixelSizeColumn: Double?, pixelUnits: String?, provenance: [String: String]) {
+        self.id = id
+        self.kind = kind
+        self.displayName = displayName
+        self.valueUnits = valueUnits
+        self.width = width
+        self.height = height
+        self.storage = storage
+        self.pixelSizeRow = pixelSizeRow
+        self.pixelSizeColumn = pixelSizeColumn
+        self.pixelUnits = pixelUnits
+        self.provenance = provenance
+    }
 }
 
-nonisolated struct SessionSidecarInventory: Sendable, Equatable {
-    static let empty = SessionSidecarInventory(
+package nonisolated struct SessionSidecarInventory: Sendable, Equatable {
+    package static let empty = SessionSidecarInventory(
         hasSidecar: false, hasBraggVectors: false, hasCalibration: false,
         results: [], currentResultID: nil
     )
 
-    let hasSidecar: Bool
-    let hasBraggVectors: Bool
-    let hasCalibration: Bool
-    let results: [SessionResultDescriptor]
-    let currentResultID: String?
+    package let hasSidecar: Bool
+    package let hasBraggVectors: Bool
+    package let hasCalibration: Bool
+    package let results: [SessionResultDescriptor]
+    package let currentResultID: String?
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(hasSidecar: Bool, hasBraggVectors: Bool, hasCalibration: Bool, results: [SessionResultDescriptor], currentResultID: String?) {
+        self.hasSidecar = hasSidecar
+        self.hasBraggVectors = hasBraggVectors
+        self.hasCalibration = hasCalibration
+        self.results = results
+        self.currentResultID = currentResultID
+    }
 }
 
-nonisolated struct SessionSidecarSnapshot: Sendable {
-    let inventory: SessionSidecarInventory
-    let calibration: PixelCalibration?
-    let currentResult: ScalarResultMap?
-    let currentRGBAResult: RGBAResultMap?
+package nonisolated struct SessionSidecarSnapshot: Sendable {
+    package let inventory: SessionSidecarInventory
+    package let calibration: PixelCalibration?
+    package let currentResult: ScalarResultMap?
+    package let currentRGBAResult: RGBAResultMap?
     /// The view these products were computed under. **Nil means full extent**,
     /// not "unknown": a sidecar written before L6 recorded no specification
     /// because there was none to record.
@@ -121,24 +145,34 @@ nonisolated struct SessionSidecarSnapshot: Sendable {
     /// re-derive from reduced data — the source is what is reopened, and the
     /// specification is applied to it again, which is the whole reason a crop is
     /// a view rather than a new dataset (docs/v2-scope.md §6.1).
-    var loadSpecification: LoadSpecification? = nil
+    package var loadSpecification: LoadSpecification? = nil
     /// The recorded analysis pipeline, when the sidecar carries one.
     /// **Nil means "no recipe was recorded"** — absence is absence, never an
     /// empty-but-asserted record (the `?? .fullExtent` lesson). // v2 S5
-    var replayRecord: SessionReplayRecord? = nil
+    package var replayRecord: SessionReplayRecord? = nil
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil) {
+        self.inventory = inventory
+        self.calibration = calibration
+        self.currentResult = currentResult
+        self.currentRGBAResult = currentRGBAResult
+        self.loadSpecification = loadSpecification
+        self.replayRecord = replayRecord
+    }
 }
 
 /// Bounded preprocessing applied while streaming a source datacube into a
 /// canonical py4DSTEM EMD file. Ranges use app/HDF5 order `[Ry,Rx]` and Q
 /// binning sums non-overlapping detector blocks, matching py4DSTEM's count-
 /// preserving diffraction binning semantics.
-nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable {
-    let scanY: Range<Int>
-    let scanX: Range<Int>
-    let qBin: Int
-    let tileRows: Int
+package nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable {
+    package let scanY: Range<Int>
+    package let scanX: Range<Int>
+    package let qBin: Int
+    package let tileRows: Int
 
-    init(scanY: Range<Int>, scanX: Range<Int>, qBin: Int = 1, tileRows: Int = 1) {
+    package init(scanY: Range<Int>, scanX: Range<Int>, qBin: Int = 1, tileRows: Int = 1) {
         self.scanY = scanY
         self.scanX = scanX
         self.qBin = qBin
@@ -146,10 +180,17 @@ nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable {
     }
 }
 
-nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
-    let shape: [Int]
-    let discardedQRows: Int
-    let discardedQColumns: Int
+package nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
+    package let shape: [Int]
+    package let discardedQRows: Int
+    package let discardedQColumns: Int
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(shape: [Int], discardedQRows: Int, discardedQColumns: Int) {
+        self.shape = shape
+        self.discardedQRows = discardedQRows
+        self.discardedQColumns = discardedQColumns
+    }
 }
 
 /// How an exported reduced DataCube was derived from its source — the
@@ -163,20 +204,20 @@ nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
 /// TOTAL source→file factor. The file NAME travels, never the path — a
 /// screenshot-able attribute must not leak the filesystem (the status-line
 /// lesson, docs/open-items.md).
-nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
-    var schema: Int = 1
-    var sourceFile: String?
-    var scanOffsetY: Int
-    var scanOffsetX: Int
-    var scanHeight: Int
-    var scanWidth: Int
-    var detectorOffsetY: Int
-    var detectorOffsetX: Int
-    var detectorBin: Int
-    var detectorHeight: Int
-    var detectorWidth: Int
+package nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
+    package var schema: Int = 1
+    package var sourceFile: String?
+    package var scanOffsetY: Int
+    package var scanOffsetX: Int
+    package var scanHeight: Int
+    package var scanWidth: Int
+    package var detectorOffsetY: Int
+    package var detectorOffsetX: Int
+    package var detectorBin: Int
+    package var detectorHeight: Int
+    package var detectorWidth: Int
 
-    enum CodingKeys: String, CodingKey {
+    package enum CodingKeys: String, CodingKey {
         case schema
         case sourceFile = "source_file"
         case scanOffsetY = "scan_offset_y"
@@ -196,7 +237,7 @@ nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
     /// trims the view the same way, so the composition is one crop at the
     /// view's offsets with the total bin — no intermediate state survives.
     /// Scan composition is pure selection: offsets add.
-    static func compose(view: LoadView,
+    package static func compose(view: LoadView,
                         options: CalibratedDataCubeExportOptions,
                         outputShape: [Int],
                         sourceFileName: String?) -> DataCubeDerivation {
@@ -218,7 +259,7 @@ nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
     }
 
     /// Deterministic JSON, same conventions as the other stamped records.
-    var jsonString: String? {
+    package var jsonString: String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         // try? OK (v2 S7 audit): all stored properties are Ints and an
@@ -227,13 +268,28 @@ nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
         guard let data = try? encoder.encode(self) else { return nil }
         return String(data: data, encoding: .utf8)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(schema: Int = 1, sourceFile: String? = nil, scanOffsetY: Int, scanOffsetX: Int, scanHeight: Int, scanWidth: Int, detectorOffsetY: Int, detectorOffsetX: Int, detectorBin: Int, detectorHeight: Int, detectorWidth: Int) {
+        self.schema = schema
+        self.sourceFile = sourceFile
+        self.scanOffsetY = scanOffsetY
+        self.scanOffsetX = scanOffsetX
+        self.scanHeight = scanHeight
+        self.scanWidth = scanWidth
+        self.detectorOffsetY = detectorOffsetY
+        self.detectorOffsetX = detectorOffsetX
+        self.detectorBin = detectorBin
+        self.detectorHeight = detectorHeight
+        self.detectorWidth = detectorWidth
+    }
 }
 
 /// Writes the detected peak grid as a py4DSTEM 0.14 / EMD 1.0 BraggVectors
 /// sidecar. The source dataset is never opened for writing. Publication is an
 /// atomic rename of a completed sibling temporary file, so cancellation or an
 /// HDF5 failure cannot leave a partial result at the requested destination.
-nonisolated enum BraggVectorEMDWriter {
+package nonisolated enum BraggVectorEMDWriter {
     private static let rootPath = "/" + SessionSidecarFormat.rootGroupName
     // Shared with H5Reader's sidecar recognition via SessionSidecarFormat
     // (Core/Data/HDF5Types.swift) — one constant, both sides. // v2 S4
@@ -263,11 +319,11 @@ nonisolated enum BraggVectorEMDWriter {
     /// replay record) does not raise it; a reduced specification does —
     /// ignoring one restores scan-indexed results at wrong positions (the
     /// docs/v2-release.md §5 evidence for the marker). // v2 S5
-    static func minimumReaderSchema(for specification: LoadSpecification?) -> Int {
+    package static func minimumReaderSchema(for specification: LoadSpecification?) -> Int {
         (specification == nil || specification?.isFullExtent == true) ? 5 : 6
     }
 
-    enum WriterError: LocalizedError {
+    package enum WriterError: LocalizedError {
         case cancelled
         case invalidDimensions(String)
         case libraryUnavailable(String)
@@ -288,7 +344,7 @@ nonisolated enum BraggVectorEMDWriter {
         /// // v2 S7
         case malformedAttribute(name: String)
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .cancelled:
                 return "The sidecar operation was cancelled."
@@ -335,7 +391,7 @@ nonisolated enum BraggVectorEMDWriter {
     /// one atomic file. This is used for scientifically coherent strain and
     /// orientation bundles; a cancelled or failed write never exposes a
     /// partial collection.
-    static func writeScientificBundle(
+    package static func writeScientificBundle(
         maps: [ScalarResultMap], calibration: PixelCalibration, to destination: URL,
         cancellation: AnalysisCancellationToken? = nil
     ) throws {
@@ -404,7 +460,7 @@ nonisolated enum BraggVectorEMDWriter {
     }
 
     /// Stable discoverable companion path used for automatic reload.
-    static func sessionSidecarURL(forSourcePath path: String) -> URL {
+    package static func sessionSidecarURL(forSourcePath path: String) -> URL {
         let source = URL(fileURLWithPath: path)
         let stem = source.deletingPathExtension().lastPathComponent
         return source.deletingLastPathComponent()
@@ -413,7 +469,7 @@ nonisolated enum BraggVectorEMDWriter {
 
     /// `qHeight` is the detector row count and becomes py4DSTEM Qshape[0];
     /// `qWidth` is the detector column count and becomes Qshape[1].
-    static func write(
+    package static func write(
         vectors: BraggVectors,
         qWidth: Int,
         qHeight: Int,
@@ -432,7 +488,7 @@ nonisolated enum BraggVectorEMDWriter {
     /// Stream a real-space crop through an optional integer detector bin into
     /// a canonical float32 py4DSTEM DataCube. Source reads and destination
     /// writes stay bounded by `tileRows`; the final file appears atomically.
-    static func writeCalibratedDataCube(
+    package static func writeCalibratedDataCube(
         source: any FourDDataSource,
         view: LoadView,
         calibration: PixelCalibration,
@@ -526,7 +582,7 @@ nonisolated enum BraggVectorEMDWriter {
     /// Add or replace the stable scalar result in a session sidecar. If the
     /// existing sidecar contains BraggVectors and no new vectors are supplied,
     /// HDF5 copies that object into the new temporary file before publication.
-    static func mergeResultMap(
+    package static func mergeResultMap(
         _ map: ScalarResultMap,
         vectors: BraggVectors?,
         qWidth: Int,
@@ -563,7 +619,7 @@ nonisolated enum BraggVectorEMDWriter {
                     cancellation: cancellation, progress: progress)
     }
 
-    static func mergeRGBAResultMap(
+    package static func mergeRGBAResultMap(
         _ map: RGBAResultMap,
         vectors: BraggVectors?,
         qWidth: Int,
@@ -595,7 +651,7 @@ nonisolated enum BraggVectorEMDWriter {
 
     /// Atomically replace the session calibration while preserving every
     /// supported result object already present in the companion file.
-    static func mergeCalibration(
+    package static func mergeCalibration(
         _ calibration: PixelCalibration,
         qWidth: Int,
         qHeight: Int,
@@ -624,7 +680,7 @@ nonisolated enum BraggVectorEMDWriter {
 
     /// Atomically remove one named result while preserving calibration,
     /// BraggVectors, and every other supported scalar/RGBA result.
-    static func removeResult(
+    package static func removeResult(
         kind: String,
         qWidth: Int,
         qHeight: Int,
@@ -677,7 +733,7 @@ nonisolated enum BraggVectorEMDWriter {
     /// against a REAL file through the REAL gate: a test reads a genuinely
     /// cropped sidecar as a schema-5 reader and watches the refusal fire.
     /// Production callers never pass it — the default is the build's truth.
-    static func loadSession(
+    package static func loadSession(
         from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> SessionSidecarSnapshot {
@@ -766,15 +822,15 @@ nonisolated enum BraggVectorEMDWriter {
         )
     }
 
-    static func loadInventory(from url: URL) throws -> SessionSidecarInventory {
+    package static func loadInventory(from url: URL) throws -> SessionSidecarInventory {
         try loadSession(from: url).inventory
     }
 
-    static func loadResultMap(from url: URL) throws -> ScalarResultMap? {
+    package static func loadResultMap(from url: URL) throws -> ScalarResultMap? {
         try loadSession(from: url).currentResult
     }
 
-    static func loadResultMap(
+    package static func loadResultMap(
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> ScalarResultMap? {
@@ -798,7 +854,7 @@ nonisolated enum BraggVectorEMDWriter {
         return try readResultMap(nodeName: id, from: root, hdf5: h5)
     }
 
-    static func loadRGBAResultMap(
+    package static func loadRGBAResultMap(
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> RGBAResultMap? {
@@ -824,7 +880,7 @@ nonisolated enum BraggVectorEMDWriter {
 
     /// Deterministic, HDF5-safe node name. The hash avoids collisions when two
     /// future result kinds sanitize to the same ASCII slug.
-    static func resultNodeName(forKind kind: String) -> String {
+    package static func resultNodeName(forKind kind: String) -> String {
         var slug = ""
         var previousUnderscore = false
         for scalar in kind.lowercased().unicodeScalars {
@@ -2472,115 +2528,115 @@ nonisolated private let h5IndexByName: Int32 = 0
 nonisolated private let h5IterationIncreasing: Int32 = 0
 
 nonisolated private struct EMDPeakRecord {
-    var qx: Double
-    var qy: Double
-    var intensity: Double
+    package var qx: Double
+    package var qy: Double
+    package var intensity: Double
 }
 
 nonisolated private struct H5VariableLength {
-    var length: Int
-    var pointer: UnsafeMutableRawPointer?
+    package var length: Int
+    package var pointer: UnsafeMutableRawPointer?
 }
 
 nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
-    typealias H5open = @convention(c) () -> herr_t
+    package typealias H5open = @convention(c) () -> herr_t
     /// `herr_t H5Eprint2(hid_t estack_id, FILE *stream)`. Optional: a library
     /// without it simply yields no detail rather than failing to load.
-    typealias H5Eprint2 = @convention(c) (hid_t, UnsafeMutablePointer<FILE>?) -> herr_t
-    typealias H5Fcreate = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t, hid_t) -> hid_t
-    typealias H5Fopen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
-    typealias H5Fclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Gcreate2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, hid_t, hid_t) -> hid_t
-    typealias H5Gopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    typealias H5Gclose = @convention(c) (hid_t) -> herr_t
-    typealias H5GgetNumObjects = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?) -> herr_t
-    typealias H5Screate = @convention(c) (Int32) -> hid_t
-    typealias H5ScreateSimple = @convention(c) (Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> hid_t
-    typealias H5SselectHyperslab = @convention(c) (hid_t, Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> herr_t
-    typealias H5Sclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Dcreate2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, hid_t, hid_t, hid_t, hid_t) -> hid_t
-    typealias H5Dopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    typealias H5DgetSpace = @convention(c) (hid_t) -> hid_t
-    typealias H5DgetType = @convention(c) (hid_t) -> hid_t
-    typealias H5Dwrite = @convention(c) (hid_t, hid_t, hid_t, hid_t, hid_t, UnsafeRawPointer?) -> herr_t
-    typealias H5Dread = @convention(c) (hid_t, hid_t, hid_t, hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5Dclose = @convention(c) (hid_t) -> herr_t
-    typealias H5SgetSimpleExtentNdims = @convention(c) (hid_t) -> Int32
-    typealias H5SgetSimpleExtentDims = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?, UnsafeMutablePointer<hsize_t>?) -> Int32
-    typealias H5Tcreate = @convention(c) (Int32, Int) -> hid_t
-    typealias H5Tinsert = @convention(c) (hid_t, UnsafePointer<CChar>?, Int, hid_t) -> herr_t
-    typealias H5TvlenCreate = @convention(c) (hid_t) -> hid_t
-    typealias H5Tcopy = @convention(c) (hid_t) -> hid_t
-    typealias H5TsetSize = @convention(c) (hid_t, UInt) -> herr_t
-    typealias H5TsetCset = @convention(c) (hid_t, Int32) -> herr_t
-    typealias H5Tclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Acreate2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, hid_t, hid_t, hid_t) -> hid_t
-    typealias H5Aexists = @convention(c) (hid_t, UnsafePointer<CChar>?) -> Int32
-    typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    typealias H5AgetType = @convention(c) (hid_t) -> hid_t
-    typealias H5Awrite = @convention(c) (hid_t, hid_t, UnsafeRawPointer?) -> herr_t
-    typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
-    typealias H5Aclose = @convention(c) (hid_t) -> herr_t
-    typealias H5Lexists = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> Int32
-    typealias H5Ocopy = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, UnsafePointer<CChar>?, hid_t, hid_t) -> herr_t
-    typealias H5freeMemory = @convention(c) (UnsafeMutableRawPointer?) -> herr_t
-    typealias H5LgetNameByIndex = @convention(c) (hid_t, UnsafePointer<CChar>?, Int32, Int32, hsize_t, UnsafeMutablePointer<CChar>?, Int, hid_t) -> Int
-    typealias H5Pcreate = @convention(c) (hid_t) -> hid_t
-    typealias H5PsetChunk = @convention(c) (hid_t, Int32, UnsafePointer<hsize_t>?) -> herr_t
-    typealias H5Pclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Eprint2 = @convention(c) (hid_t, UnsafeMutablePointer<FILE>?) -> herr_t
+    package typealias H5Fcreate = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t, hid_t) -> hid_t
+    package typealias H5Fopen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
+    package typealias H5Fclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Gcreate2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, hid_t, hid_t) -> hid_t
+    package typealias H5Gopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
+    package typealias H5Gclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5GgetNumObjects = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?) -> herr_t
+    package typealias H5Screate = @convention(c) (Int32) -> hid_t
+    package typealias H5ScreateSimple = @convention(c) (Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> hid_t
+    package typealias H5SselectHyperslab = @convention(c) (hid_t, Int32, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?, UnsafePointer<hsize_t>?) -> herr_t
+    package typealias H5Sclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Dcreate2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, hid_t, hid_t, hid_t, hid_t) -> hid_t
+    package typealias H5Dopen2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
+    package typealias H5DgetSpace = @convention(c) (hid_t) -> hid_t
+    package typealias H5DgetType = @convention(c) (hid_t) -> hid_t
+    package typealias H5Dwrite = @convention(c) (hid_t, hid_t, hid_t, hid_t, hid_t, UnsafeRawPointer?) -> herr_t
+    package typealias H5Dread = @convention(c) (hid_t, hid_t, hid_t, hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5Dclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5SgetSimpleExtentNdims = @convention(c) (hid_t) -> Int32
+    package typealias H5SgetSimpleExtentDims = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?, UnsafeMutablePointer<hsize_t>?) -> Int32
+    package typealias H5Tcreate = @convention(c) (Int32, Int) -> hid_t
+    package typealias H5Tinsert = @convention(c) (hid_t, UnsafePointer<CChar>?, Int, hid_t) -> herr_t
+    package typealias H5TvlenCreate = @convention(c) (hid_t) -> hid_t
+    package typealias H5Tcopy = @convention(c) (hid_t) -> hid_t
+    package typealias H5TsetSize = @convention(c) (hid_t, UInt) -> herr_t
+    package typealias H5TsetCset = @convention(c) (hid_t, Int32) -> herr_t
+    package typealias H5Tclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Acreate2 = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, hid_t, hid_t, hid_t) -> hid_t
+    package typealias H5Aexists = @convention(c) (hid_t, UnsafePointer<CChar>?) -> Int32
+    package typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
+    package typealias H5AgetType = @convention(c) (hid_t) -> hid_t
+    package typealias H5Awrite = @convention(c) (hid_t, hid_t, UnsafeRawPointer?) -> herr_t
+    package typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5Aclose = @convention(c) (hid_t) -> herr_t
+    package typealias H5Lexists = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> Int32
+    package typealias H5Ocopy = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t, UnsafePointer<CChar>?, hid_t, hid_t) -> herr_t
+    package typealias H5freeMemory = @convention(c) (UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5LgetNameByIndex = @convention(c) (hid_t, UnsafePointer<CChar>?, Int32, Int32, hsize_t, UnsafeMutablePointer<CChar>?, Int, hid_t) -> Int
+    package typealias H5Pcreate = @convention(c) (hid_t) -> hid_t
+    package typealias H5PsetChunk = @convention(c) (hid_t, Int32, UnsafePointer<hsize_t>?) -> herr_t
+    package typealias H5Pclose = @convention(c) (hid_t) -> herr_t
 
-    let handle: UnsafeMutableRawPointer
-    let h5open: H5open
-    let h5eprint2: H5Eprint2?
-    let h5fcreate: H5Fcreate
-    let h5fopen: H5Fopen
-    let h5fclose: H5Fclose
-    let h5gcreate2: H5Gcreate2
-    let h5gopen2: H5Gopen2
-    let h5gclose: H5Gclose
-    let h5ggetNumObjects: H5GgetNumObjects
-    let h5screate: H5Screate
-    let h5screateSimple: H5ScreateSimple
-    let h5sselectHyperslab: H5SselectHyperslab
-    let h5sclose: H5Sclose
-    let h5dcreate2: H5Dcreate2
-    let h5dopen2: H5Dopen2
-    let h5dgetSpace: H5DgetSpace
-    let h5dgetType: H5DgetType
-    let h5dwrite: H5Dwrite
-    let h5dread: H5Dread
-    let h5dclose: H5Dclose
-    let h5sgetSimpleExtentNdims: H5SgetSimpleExtentNdims
-    let h5sgetSimpleExtentDims: H5SgetSimpleExtentDims
-    let h5tcreate: H5Tcreate
-    let h5tinsert: H5Tinsert
-    let h5tvlenCreate: H5TvlenCreate
-    let h5tcopy: H5Tcopy
-    let h5tsetSize: H5TsetSize
-    let h5tsetCset: H5TsetCset
-    let h5tclose: H5Tclose
-    let h5acreate2: H5Acreate2
-    let h5aexists: H5Aexists
-    let h5aopen: H5Aopen
-    let h5agetType: H5AgetType
-    let h5awrite: H5Awrite
-    let h5aread: H5Aread
-    let h5aclose: H5Aclose
-    let h5lexists: H5Lexists
-    let h5ocopy: H5Ocopy
-    let h5freeMemory: H5freeMemory
-    let h5lgetNameByIndex: H5LgetNameByIndex
-    let h5pcreate: H5Pcreate
-    let h5psetChunk: H5PsetChunk
-    let h5pclose: H5Pclose
-    let nativeFloat: hid_t
-    let nativeDouble: hid_t
-    let nativeInt: hid_t
-    let nativeLongLong: hid_t
-    let nativeHBool: hid_t
-    let nativeUChar: hid_t
-    let stringC1: hid_t
-    let datasetCreatePropertyClass: hid_t
+    package let handle: UnsafeMutableRawPointer
+    package let h5open: H5open
+    package let h5eprint2: H5Eprint2?
+    package let h5fcreate: H5Fcreate
+    package let h5fopen: H5Fopen
+    package let h5fclose: H5Fclose
+    package let h5gcreate2: H5Gcreate2
+    package let h5gopen2: H5Gopen2
+    package let h5gclose: H5Gclose
+    package let h5ggetNumObjects: H5GgetNumObjects
+    package let h5screate: H5Screate
+    package let h5screateSimple: H5ScreateSimple
+    package let h5sselectHyperslab: H5SselectHyperslab
+    package let h5sclose: H5Sclose
+    package let h5dcreate2: H5Dcreate2
+    package let h5dopen2: H5Dopen2
+    package let h5dgetSpace: H5DgetSpace
+    package let h5dgetType: H5DgetType
+    package let h5dwrite: H5Dwrite
+    package let h5dread: H5Dread
+    package let h5dclose: H5Dclose
+    package let h5sgetSimpleExtentNdims: H5SgetSimpleExtentNdims
+    package let h5sgetSimpleExtentDims: H5SgetSimpleExtentDims
+    package let h5tcreate: H5Tcreate
+    package let h5tinsert: H5Tinsert
+    package let h5tvlenCreate: H5TvlenCreate
+    package let h5tcopy: H5Tcopy
+    package let h5tsetSize: H5TsetSize
+    package let h5tsetCset: H5TsetCset
+    package let h5tclose: H5Tclose
+    package let h5acreate2: H5Acreate2
+    package let h5aexists: H5Aexists
+    package let h5aopen: H5Aopen
+    package let h5agetType: H5AgetType
+    package let h5awrite: H5Awrite
+    package let h5aread: H5Aread
+    package let h5aclose: H5Aclose
+    package let h5lexists: H5Lexists
+    package let h5ocopy: H5Ocopy
+    package let h5freeMemory: H5freeMemory
+    package let h5lgetNameByIndex: H5LgetNameByIndex
+    package let h5pcreate: H5Pcreate
+    package let h5psetChunk: H5PsetChunk
+    package let h5pclose: H5Pclose
+    package let nativeFloat: hid_t
+    package let nativeDouble: hid_t
+    package let nativeInt: hid_t
+    package let nativeLongLong: hid_t
+    package let nativeHBool: hid_t
+    package let nativeUChar: hid_t
+    package let stringC1: hid_t
+    package let datasetCreatePropertyClass: hid_t
 
     /// The thread's current HDF5 error stack, formatted, or nil if empty.
     ///
@@ -2605,7 +2661,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     /// stale reason cannot be picked up sequentially — only concurrently. The
     /// same global is why concurrent HDF5 use crashes rather than racing
     /// benignly; see the open item on `H5SL_search`.
-    func currentErrorStack() -> String? {
+    package func currentErrorStack() -> String? {
         guard let h5eprint2 else { return nil }
         var buffer: UnsafeMutablePointer<CChar>?
         var size = 0
@@ -2641,7 +2697,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
         }
     }
 
-    static func load() throws -> HDF5WriteLibrary {
+    package static func load() throws -> HDF5WriteLibrary {
         var failures = [String]()
         var handle: UnsafeMutableRawPointer?
         for path in candidateLibraryPaths() where handle == nil {

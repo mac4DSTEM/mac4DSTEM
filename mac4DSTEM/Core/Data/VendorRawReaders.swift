@@ -1,12 +1,12 @@
 import Foundation
 
-enum VendorRawError: LocalizedError {
+package enum VendorRawError: LocalizedError {
     case cannotOpen(String)
     case malformed(String)
     case unsupported(String)
     case truncated(String)
 
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .cannotOpen(let path): return "Could not open vendor data file at \(path)."
         case .malformed(let detail): return "Malformed vendor data: \(detail)"
@@ -20,7 +20,7 @@ enum VendorRawError: LocalizedError {
 /// with the final two detector rows treated as a per-frame footer. Non-square
 /// scans require the vendor XML companion; square raw-only scans follow the
 /// conservative py4DSTEM fallback.
-actor EMPADReader: FourDDataSource {
+package actor EMPADReader: FourDDataSource {
     private static let rawHeight = 130
     private static let width = 128
     private static let imageHeight = 128
@@ -30,7 +30,7 @@ actor EMPADReader: FourDDataSource {
     private let scanHeight: Int
     private let scanWidth: Int
 
-    init(path: String) throws {
+    package init(path: String) throws {
         let url = URL(fileURLWithPath: path)
         let sourceXML: URL?
         if url.pathExtension.lowercased() == "xml" {
@@ -71,7 +71,7 @@ actor EMPADReader: FourDDataSource {
         }
     }
 
-    func discoverPrimaryDataset() throws -> DatasetDescriptor {
+    package func discoverPrimaryDataset() throws -> DatasetDescriptor {
         DatasetDescriptor(filePath: rawPath, datasetPath: "/EMPAD/raw",
                           shape: [scanHeight, scanWidth, Self.imageHeight, Self.width],
                           dtypeDescription: "float32 little-endian (EMPAD)", chunkShape: nil)
@@ -81,9 +81,9 @@ actor EMPADReader: FourDDataSource {
     /// detector crop within a frame is not, so it is sliced after the frame is
     /// read. One `read` per frame either way — many small strided reads would
     /// cost more than the bytes they saved.
-    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
+    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
 
-    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+    package func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
         try view.requireSource(shape: [scanHeight, scanWidth, Self.imageHeight, Self.width])
         guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw VendorRawError.malformed("EMPAD scan index is out of bounds.")
@@ -113,7 +113,7 @@ actor EMPADReader: FourDDataSource {
         return view.binned(cropped, patternCount: 1)
     }
 
-    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+    package func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
         // Validated here rather than only inside the loop: an empty view would
         // otherwise return [] for a foreign source without entering the body,
         // which is a silent answer to a question that should be refused.
@@ -129,7 +129,7 @@ actor EMPADReader: FourDDataSource {
         return result
     }
 
-    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+    package func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
         try view.requireSource(shape: [scanHeight, scanWidth, Self.imageHeight, Self.width])
         guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry else {
             throw VendorRawError.malformed("EMPAD tile is out of bounds.")
@@ -145,8 +145,8 @@ actor EMPADReader: FourDDataSource {
                              pixels: pixels)
     }
 
-    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
-    func pixelCalibration() -> PixelCalibration? { nil }
+    package func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    package func pixelCalibration() -> PixelCalibration? { nil }
 
     private static func parseXML(_ url: URL) throws -> (rawFile: String, scanX: Int, scanY: Int) {
         let data = try Data(contentsOf: url)
@@ -221,7 +221,7 @@ actor EMPADReader: FourDDataSource {
 /// Merlin MIB v1 reader contract: regular per-frame MIB (not packed R64),
 /// U08/U16/U32 big-endian payloads, 1x1/2x2/2x2G assemblies, and a companion
 /// `.hdr` containing ScanX/ScanY. Headers are skipped independently per frame.
-actor MIBReader: FourDDataSource {
+package actor MIBReader: FourDDataSource {
     private let path: String
     private let scanHeight: Int
     private let scanWidth: Int
@@ -232,7 +232,7 @@ actor MIBReader: FourDDataSource {
     private let dtype: String
     private let frameBytes: Int
 
-    init(path: String) throws {
+    package init(path: String) throws {
         self.path = path
         let first = try EMPADReader.read(path: path, offset: 0, count: min(4096, try EMPADReader.fileSize(path)))
         guard let zero = first.firstIndex(of: 0) else {
@@ -289,7 +289,7 @@ actor MIBReader: FourDDataSource {
         }
     }
 
-    func discoverPrimaryDataset() throws -> DatasetDescriptor {
+    package func discoverPrimaryDataset() throws -> DatasetDescriptor {
         DatasetDescriptor(filePath: path, datasetPath: "/Merlin/MIB",
                           shape: [scanHeight, scanWidth, detectorHeight, detectorWidth],
                           dtypeDescription: "\(dtype) big-endian (MIB)", chunkShape: nil)
@@ -298,9 +298,9 @@ actor MIBReader: FourDDataSource {
     /// Same as EMPAD: per-frame headers make frames contiguous units, so a scan
     /// crop seeks past whole frames while a detector crop is sliced out of a
     /// frame that had to be read anyway.
-    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
+    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
 
-    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+    package func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
         try view.requireSource(shape: [scanHeight, scanWidth, detectorHeight, detectorWidth])
         guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw VendorRawError.malformed("MIB scan index is out of bounds.")
@@ -330,7 +330,7 @@ actor MIBReader: FourDDataSource {
         return view.binned(cropped, patternCount: 1)
     }
 
-    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+    package func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
         // See EMPADReader.readScanRow: validated here, not only inside the loop.
         try view.requireSource(shape: [scanHeight, scanWidth, detectorHeight, detectorWidth])
         guard ry >= 0, ry < view.descriptor.ry else {
@@ -344,7 +344,7 @@ actor MIBReader: FourDDataSource {
         return result
     }
 
-    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+    package func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
         try view.requireSource(shape: [scanHeight, scanWidth, detectorHeight, detectorWidth])
         guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry else {
             throw VendorRawError.malformed("MIB tile is out of bounds.")
@@ -360,6 +360,6 @@ actor MIBReader: FourDDataSource {
                              pixels: pixels)
     }
 
-    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
-    func pixelCalibration() -> PixelCalibration? { nil }
+    package func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    package func pixelCalibration() -> PixelCalibration? { nil }
 }

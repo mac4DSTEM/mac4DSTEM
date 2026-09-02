@@ -57,8 +57,8 @@ import Foundation
 /// reason, never clamped, never carried. Clamping an origin into the crop would
 /// be the single most dangerous thing this file could do — it would place the
 /// beam at a pixel it is not at, and every downstream number would look fine.
-nonisolated struct CalibrationInvalidation: Equatable, Sendable, Identifiable {
-    enum Field: String, Equatable, Sendable {
+package nonisolated struct CalibrationInvalidation: Equatable, Sendable, Identifiable {
+    package enum Field: String, Equatable, Sendable {
         case origin = "Beam origin"
         case ellipse = "Ellipse distortion"
         case probeRadius = "Probe radius"
@@ -70,12 +70,18 @@ nonisolated struct CalibrationInvalidation: Equatable, Sendable, Identifiable {
         case sessionCalibration = "Session calibration"
     }
 
-    let field: Field
+    package let field: Field
     /// Why, in the app's own voice — shown to the user and written into
     /// provenance. Says what was dropped and what to do about it.
-    let reason: String
+    package let reason: String
 
-    var id: String { field.rawValue + reason }
+    package var id: String { field.rawValue + reason }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(field: Field, reason: String) {
+        self.field = field
+        self.reason = reason
+    }
 }
 
 /// Re-reference a calibration from the source frame into a view's frame.
@@ -83,40 +89,55 @@ nonisolated struct CalibrationInvalidation: Equatable, Sendable, Identifiable {
 /// Pure and synchronous: it takes what it is given and returns a new value, so
 /// it is testable without a dataset, an actor or a GPU. `AppState` applies the
 /// result; it does not contain the rules.
-nonisolated enum CalibrationReReference {
+package nonisolated enum CalibrationReReference {
 
     /// A position in the detector frame, in pixels. The aperture centre is one,
     /// and it lives in `AppState` rather than in `Calibration` — so it is passed
     /// through this function explicitly rather than being translated by the
     /// caller. Every detector-frame rule belongs in one file; splitting them
     /// across two is how a frame convention drifts.
-    struct DetectorPoint: Equatable, Sendable {
-        var x: Float
-        var y: Float
+    package struct DetectorPoint: Equatable, Sendable {
+        package var x: Float
+        package var y: Float
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(x: Float, y: Float) {
+            self.x = x
+            self.y = y
+        }
     }
 
-    struct Outcome: Sendable {
+    package struct Outcome: Sendable {
         /// The calibration expressed in the view's frame.
-        var calibration: Calibration
+        package var calibration: Calibration
 
         /// The aperture centre in the view's frame, or **nil when it could not
         /// be carried** — the direct beam is outside the diffraction crop. Nil
         /// means "fall back to the geometric default", never "leave it where it
         /// was": a stale centre is a beam position that is not the beam.
-        var apertureCenter: DetectorPoint?
+        package var apertureCenter: DetectorPoint?
         /// Provenance after the move. A re-referenced value keeps its
         /// provenance — a translation loses no trust, and the value still came
         /// from wherever it came from. An *invalidated* value loses its entry.
-        var provenance: CalibrationProvenance
+        package var provenance: CalibrationProvenance
         /// Everything that could not be carried, each with its reason.
-        var invalidated: [CalibrationInvalidation]
+        package var invalidated: [CalibrationInvalidation]
 
         /// True when a real-space crop has made existing scan-indexed results
         /// (strain, ACOM, Bragg vectors) refer to an extent that is no longer
         /// loaded.
-        var scanIndexedResultsAreAmbiguous: Bool
+        package var scanIndexedResultsAreAmbiguous: Bool
 
-        var isUnchanged: Bool { invalidated.isEmpty && !scanIndexedResultsAreAmbiguous }
+        package var isUnchanged: Bool { invalidated.isEmpty && !scanIndexedResultsAreAmbiguous }
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(calibration: Calibration, apertureCenter: DetectorPoint? = nil, provenance: CalibrationProvenance, invalidated: [CalibrationInvalidation], scanIndexedResultsAreAmbiguous: Bool) {
+            self.calibration = calibration
+            self.apertureCenter = apertureCenter
+            self.provenance = provenance
+            self.invalidated = invalidated
+            self.scanIndexedResultsAreAmbiguous = scanIndexedResultsAreAmbiguous
+        }
     }
 
     /// Move `calibration` into `view`'s frame.
@@ -124,7 +145,7 @@ nonisolated enum CalibrationReReference {
     /// A full-extent view returns its input untouched — the identity that makes
     /// "removing the specification promotes the rehearsal to the full dataset"
     /// literally true (docs/v2-scope.md §6.1).
-    static func apply(
+    package static func apply(
         _ view: LoadView,
         to calibration: Calibration,
         provenance: CalibrationProvenance,
@@ -370,7 +391,7 @@ nonisolated enum CalibrationReReference {
     /// This is the same transform `BraggVectorEMDWriter.transformedCalibration`
     /// already applies on export, and deliberately so: two conventions for the
     /// same operation in one codebase is how they drift apart.
-    static func binnedCoordinate(_ value: Float, bin: Int) -> Float {
+    package static func binnedCoordinate(_ value: Float, bin: Int) -> Float {
         bin > 1 ? (value + 0.5) / Float(bin) - 0.5 : value
     }
 
@@ -383,7 +404,7 @@ nonisolated enum CalibrationReReference {
     /// recipe re-referencing (view frame → source frame); positions
     /// additionally add the detector-crop offset at the call site, exactly as
     /// `apply` subtracts it. // v2 S10
-    static func sourceCoordinate(_ value: Float, bin: Int) -> Float {
+    package static func sourceCoordinate(_ value: Float, bin: Int) -> Float {
         bin > 1 ? (value + 0.5) * Float(bin) - 0.5 : value
     }
 

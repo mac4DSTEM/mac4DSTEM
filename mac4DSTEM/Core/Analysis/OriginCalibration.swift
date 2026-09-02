@@ -14,14 +14,14 @@
 import Foundation
 import Metal
 
-enum OriginFitFunction: String, CaseIterable, Identifiable {
+package enum OriginFitFunction: String, CaseIterable, Identifiable {
     case constant = "Constant"
     case plane    = "Plane"       // py4DSTEM default
     case parabola = "Parabola"
-    var id: String { rawValue }
+    package var id: String { rawValue }
 }
 
-nonisolated enum OriginCalibration {
+package nonisolated enum OriginCalibration {
 
     // MARK: - Probe size (py4DSTEM get_probe_size)
 
@@ -30,7 +30,7 @@ nonisolated enum OriginCalibration {
     /// threshold the pattern at N levels, convert each mask area to an
     /// equivalent circle radius, keep the threshold range where r(thresh) is
     /// stable (derivative near zero), and take the CoM at that threshold.
-    nonisolated static func probeSize(dp: [Float], qy: Int, qx: Int,
+    package nonisolated static func probeSize(dp: [Float], qy: Int, qx: Int,
                           threshLower: Float = 0.01, threshUpper: Float = 0.99,
                           n: Int = 100) -> (r: Float, x0: Float, y0: Float) {
         let dpMax = dp.max() ?? 0
@@ -88,7 +88,7 @@ nonisolated enum OriginCalibration {
     /// Fit the measured origin maps with a smooth 2D function and return the
     /// fitted maps evaluated at every scan position. Scan coordinates are
     /// normalized to [0, 1] before fitting for numerical conditioning.
-    nonisolated static func fitOrigin(measuredX: [Float], measuredY: [Float],
+    package nonisolated static func fitOrigin(measuredX: [Float], measuredY: [Float],
                           width: Int, height: Int,
                           fitFunction: OriginFitFunction = .plane)
         -> (fittedX: [Float], fittedY: [Float]) {
@@ -113,7 +113,7 @@ nonisolated enum OriginCalibration {
     /// so the trimmed fit's own uncertainty can be measured against the SHIPPED
     /// fitter instead of a second copy in a harness — the 2026-08-17 lesson
     /// about lists that drift applies to estimators too. // v2 S13
-    nonisolated static func fitOrigin(
+    package nonisolated static func fitOrigin(
         measuredX: [Float], measuredY: [Float],
         width: Int, height: Int,
         fitFunction: OriginFitFunction = .plane,
@@ -138,31 +138,40 @@ nonisolated enum OriginCalibration {
     // MARK: - Robust origin fit (v2 S13)
 
     /// Outcome of an iteratively-trimmed origin fit.
-    struct TrimmedFit: Sendable {
-        var fittedX: [Float]
-        var fittedY: [Float]
+    package struct TrimmedFit: Sendable {
+        package var fittedX: [Float]
+        package var fittedY: [Float]
         /// Positions the final round kept. `false` = the position's measurement
         /// was excluded from the fit, NOT that it has no fitted origin — every
         /// position gets one, evaluated from the surface the kept positions fit.
-        var kept: [Bool]
+        package var kept: [Bool]
         /// RMS(measured − fitted) over the KEPT positions only.
-        var keptResidual: Float
+        package var keptResidual: Float
         /// RMS(measured − fitted) over ALL positions, which is what the shipped
         /// gate reads. Recorded because it is NOT the same number and comparing
         /// `keptResidual` to a full-scan threshold is circular — trimming
         /// removes the largest residuals by construction, so RMS(kept) is
         /// guaranteed to fall (S12 §1.2, measured: 2.19 px kept vs 18.47 px
         /// full-scan on `Particle_1`).
-        var fullScanResidual: Float
+        package var fullScanResidual: Float
         /// nil when there are no positions at all. The first version clamped
         /// the denominator with `max(kept.count, 1)`, which turned an empty
         /// scan into a confident **1.0 — "excluded 100% of positions as
         /// outliers"** for a scan with nothing to exclude (Gate B,
         /// 2026-08-28). A NaN would have been wrong too; the honest answer is
         /// that the question does not apply.
-        var excludedFraction: Float? {
+        package var excludedFraction: Float? {
             guard !kept.isEmpty else { return nil }
             return 1 - Float(kept.filter { $0 }.count) / Float(kept.count)
+        }
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(fittedX: [Float], fittedY: [Float], kept: [Bool], keptResidual: Float, fullScanResidual: Float) {
+            self.fittedX = fittedX
+            self.fittedY = fittedY
+            self.kept = kept
+            self.keptResidual = keptResidual
+            self.fullScanResidual = fullScanResidual
         }
     }
 
@@ -211,7 +220,7 @@ nonisolated enum OriginCalibration {
     /// measured on `downsample_Si_SiGe_exp`, 100.0% kept, RMS moved by nothing
     /// (11.6551 → 11.6551). **Broad measurement failure excludes nothing**,
     /// which is why the excluded fraction cannot be the refusal statistic.
-    nonisolated static func fitOriginTrimmed(
+    package nonisolated static func fitOriginTrimmed(
         measuredX: [Float], measuredY: [Float],
         width: Int, height: Int,
         fitFunction: OriginFitFunction = .plane,
@@ -428,7 +437,7 @@ nonisolated enum OriginCalibration {
     /// Out-of-core origin calibration: tiled statistics establish the probe
     /// radius, a second tiled pass measures every pattern, and only the two
     /// scan-sized origin fields remain for the CPU fit.
-    nonisolated static func tiledRun(
+    package nonisolated static func tiledRun(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         fitFunction: OriginFitFunction = .plane,
@@ -501,7 +510,7 @@ nonisolated enum OriginCalibration {
     /// `ProbeSizeTests` pins its mean-pattern measurement anyway, so a future
     /// caller resurrects the honest statistic rather than whatever the dead
     /// code happened to feed. Deleting it instead is an owner option.
-    nonisolated static func run(cube: MTLBuffer, descriptor d: DatasetDescriptor,
+    package nonisolated static func run(cube: MTLBuffer, descriptor d: DatasetDescriptor,
                     fitFunction: OriginFitFunction = .plane,
                     rscale: Float = 1.2,
                     cancellation: AnalysisCancellationToken? = nil) throws

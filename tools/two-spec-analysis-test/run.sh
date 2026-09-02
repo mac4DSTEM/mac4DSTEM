@@ -43,7 +43,7 @@ xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
 mac4dstem_sources "$REPO" readers calibration analysis
 
-xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   "${MAC4DSTEM_ISOLATION_FLAGS[@]}" \
   "${MAC4DSTEM_SOURCES[@]}" \
   main.swift \

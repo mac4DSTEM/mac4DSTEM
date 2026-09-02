@@ -1,4 +1,5 @@
 import Foundation
+import DSTEMCore
 
 /// Which ACOM result map to display.
 enum ACOMDisplayMode: String, CaseIterable, Identifiable {

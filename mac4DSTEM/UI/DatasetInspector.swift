@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// S22a: the sixteen stacked sections this view had accreted are regrouped
 /// into the four approved by `docs/s22-ux-design.md` §4.3 — Dataset, Live,

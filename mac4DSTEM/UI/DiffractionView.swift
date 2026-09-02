@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import DSTEMCore
 
 struct DiffractionView: View {
     @Environment(AppState.self) private var app

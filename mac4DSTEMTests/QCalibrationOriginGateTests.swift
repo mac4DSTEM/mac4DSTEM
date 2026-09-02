@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Backlog #46. `calibrateQFromCrystal` derived a Q pixel size from an origin

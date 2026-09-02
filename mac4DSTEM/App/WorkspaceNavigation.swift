@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// The navigation/selection seam (S22c; `docs/development-process.md` §7 —
 /// one seam per stage, extracted at a green boundary). Owns which workspace

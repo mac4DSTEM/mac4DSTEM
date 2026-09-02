@@ -2,8 +2,8 @@ import Foundation
 
 /// Deterministic, in-memory 4D-STEM fixture used by UI automation and design
 /// walkthroughs. It never appears in normal launches and performs no file I/O.
-actor DemoFourDDataSource: FourDDataSource {
-    static let descriptor = DatasetDescriptor(
+package actor DemoFourDDataSource: FourDDataSource {
+    package static let descriptor = DatasetDescriptor(
         filePath: "/Demo/mac4DSTEM Demo.h5",
         datasetPath: "/demo/data",
         shape: [12, 12, 64, 64],
@@ -15,19 +15,19 @@ actor DemoFourDDataSource: FourDDataSource {
     private var patternCache: [Int: [Float]] = [:]
     private let includesCalibration: Bool
 
-    init(includesCalibration: Bool = true) {
+    package init(includesCalibration: Bool = true) {
         self.includesCalibration = includesCalibration
     }
 
-    func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
+    package func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
 
     /// There is no file, so nothing is skipped on disk — the crop is applied
     /// entirely in memory. Declared honestly rather than borrowing HDF5's
     /// `.full`, because this source stands in for a reader in UI automation and
     /// a false pushdown claim would propagate into provenance.
-    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
 
-    func readPattern(
+    package func readPattern(
         _ view: LoadView, ry: Int, rx: Int
     ) throws -> [Float] {
         try view.requireSource(shape: Self.descriptor.shape)
@@ -44,7 +44,7 @@ actor DemoFourDDataSource: FourDDataSource {
         )
     }
 
-    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+    package func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
         try view.requireSource(shape: Self.descriptor.shape)
         guard ry >= 0, ry < view.descriptor.ry else { throw DemoError.outOfBounds }
         var row: [Float] = []
@@ -55,7 +55,7 @@ actor DemoFourDDataSource: FourDDataSource {
         return row
     }
 
-    func readScanTile(
+    package func readScanTile(
         _ view: LoadView, yRange: Range<Int>
     ) throws -> FourDScanTile {
         try view.requireSource(shape: Self.descriptor.shape)
@@ -84,11 +84,11 @@ actor DemoFourDDataSource: FourDDataSource {
         return generated
     }
 
-    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {
+    package func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {
         name == "accelerating_voltage" ? 200 : nil
     }
 
-    func pixelCalibration() -> PixelCalibration? {
+    package func pixelCalibration() -> PixelCalibration? {
         guard includesCalibration else { return nil }
         let count = Self.descriptor.rx * Self.descriptor.ry
         let center = Double(Self.descriptor.qx) / 2
@@ -145,5 +145,5 @@ actor DemoFourDDataSource: FourDDataSource {
         return output
     }
 
-    enum DemoError: Error { case outOfBounds }
+    package enum DemoError: Error { case outOfBounds }
 }

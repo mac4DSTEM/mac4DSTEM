@@ -16,10 +16,10 @@
 
 import Foundation
 
-nonisolated enum ScatteringFactors {
+package nonisolated enum ScatteringFactors {
 
     /// Lobato parameters keyed by atomic number Z (1...102).
-    static let table: [Int: [Double]] = [
+    package static let table: [Int: [Double]] = [
         1: [6.47384848835291790e-03, 2.78519885379148890e+00, -4.90192576780229040e-01, 2.77620428330644750e+00, 5.73284160390876480e-01, 2.77538591050625130e+00, -3.79403301483990480e-01, 2.76759302867258810e+00, 5.54426474774079140e-01, 2.76511897642927540e+00],  // H
         2: [3.05745116099835460e+00, 1.08967248726078810e+00, -6.20044779127325260e+01, 9.39838798143121100e-01, 6.40055537084614490e+01, 9.25289034386265530e-01, -5.00132578542780590e+00, 8.22947498708650580e-01, 1.51798828700526440e-01, 5.77393110675402220e-01],  // He
         3: [3.92622272886147930e+00, 8.14276013517280360e+00, -4.54861962639998030e+00, 4.98941077007855770e+00, 2.19335312878658510e+00, 4.14428999239410880e+00, 6.99451265033965710e-02, 4.01922315065680210e-01, 2.09864224851937560e-03, 1.56479034719823580e-01],  // Li
@@ -125,7 +125,7 @@ nonisolated enum ScatteringFactors {
         103: [4.52147421198378830e+00, 8.28309906861142050e+00, 3.20212985587804380e+00, 7.31918958125393870e-01, 2.23028726956451650e-01, 5.80942773018654980e-02, 2.81716453892029730e-03, 2.56168016047444900e-03, 4.06427954038620530e-08, 4.03816515529006540e-05],  // Lr
     ]
 
-    static let symbols: [Int: String] = [
+    package static let symbols: [Int: String] = [
         1: "H",
         2: "He",
         3: "Li",
@@ -231,13 +231,13 @@ nonisolated enum ScatteringFactors {
         103: "Lr",
     ]
 
-    static var supportedElements: [Int] { table.keys.sorted() }
+    package static var supportedElements: [Int] { table.keys.sorted() }
 
-    static func isSupported(z: Int) -> Bool { table[z] != nil }
+    package static func isSupported(z: Int) -> Bool { table[z] != nil }
 
     /// Electron scattering factor f_e(Z, g^2), g^2 in A^-2, or nil for an
     /// element outside the table - callers must fail loudly, not silently.
-    static func electronScatteringFactor(z: Int, gSquared: Double) -> Double? {
+    package static func electronScatteringFactor(z: Int, gSquared: Double) -> Double? {
         guard let p = table[z] else { return nil }
         var fe = 0.0
         for i in 0..<5 {

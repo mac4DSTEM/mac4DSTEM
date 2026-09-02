@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 final class DiskDetectionContractTests: XCTestCase {

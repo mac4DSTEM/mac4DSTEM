@@ -1,4 +1,5 @@
 import Foundation
+import DSTEMCore
 
 struct SimpleError: LocalizedError {
     let message: String

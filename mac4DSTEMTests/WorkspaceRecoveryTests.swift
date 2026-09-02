@@ -1,4 +1,5 @@
 import Foundation
+import DSTEMCore
 import XCTest
 @testable import mac4DSTEM
 

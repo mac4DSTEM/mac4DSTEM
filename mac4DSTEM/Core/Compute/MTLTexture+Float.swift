@@ -11,7 +11,7 @@ extension MTLDevice {
 
     /// Build an `.r32Float` 2D texture from normalized [0,1] float pixels
     /// (row-major, length == width*height). Sampled by colormapFragment.
-    func makeFloatTexture(pixels: [Float], width: Int, height: Int) -> MTLTexture? {
+    package func makeFloatTexture(pixels: [Float], width: Int, height: Int) -> MTLTexture? {
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .r32Float, width: width, height: height, mipmapped: false)
         desc.usage = [.shaderRead]
@@ -28,7 +28,7 @@ extension MTLDevice {
 
     /// Build an `.rgba8Unorm` 2D texture from packed RGBA bytes
     /// (row-major, length == width*height*4). Sampled by rgbaFragment.
-    func makeRGBATexture(rgba: [UInt8], width: Int, height: Int) -> MTLTexture? {
+    package func makeRGBATexture(rgba: [UInt8], width: Int, height: Int) -> MTLTexture? {
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm, width: width, height: height, mipmapped: false)
         desc.usage = [.shaderRead]
@@ -44,7 +44,7 @@ extension MTLDevice {
     }
 
     /// Build a 1D `.rgba8Unorm` colormap LUT texture from 256*4 bytes.
-    func makeLUTTexture(rgba: [UInt8]) -> MTLTexture? {
+    package func makeLUTTexture(rgba: [UInt8]) -> MTLTexture? {
         let count = rgba.count / 4
         let desc = MTLTextureDescriptor()
         desc.textureType = .type1D

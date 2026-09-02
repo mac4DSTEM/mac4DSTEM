@@ -45,26 +45,34 @@ import Foundation
 /// Stored as offset + extent rather than as `Range` pairs so it is trivially
 /// `Codable` and `Equatable` — this value is written into session sidecars and
 /// every export, and compared to decide whether a resident buffer is stale.
-nonisolated struct AxisCrop: Equatable, Sendable, Codable {
+package nonisolated struct AxisCrop: Equatable, Sendable, Codable {
     /// Offset from the source origin, in source pixels.
-    var yOffset: Int
-    var xOffset: Int
+    package var yOffset: Int
+    package var xOffset: Int
     /// Extent of the view, in source pixels.
-    var height: Int
-    var width: Int
+    package var height: Int
+    package var width: Int
 
-    var yRange: Range<Int> { yOffset..<(yOffset + height) }
-    var xRange: Range<Int> { xOffset..<(xOffset + width) }
+    package var yRange: Range<Int> { yOffset..<(yOffset + height) }
+    package var xRange: Range<Int> { xOffset..<(xOffset + width) }
 
-    var isEmpty: Bool { height <= 0 || width <= 0 }
+    package var isEmpty: Bool { height <= 0 || width <= 0 }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(yOffset: Int, xOffset: Int, height: Int, width: Int) {
+        self.yOffset = yOffset
+        self.xOffset = xOffset
+        self.height = height
+        self.width = width
+    }
 }
 
 /// What part of the source is loaded. `nil` crops mean "the whole axis".
-nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
+package nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
     /// Real-space (scan) crop. nil = the whole scan.
-    var scanCrop: AxisCrop?
+    package var scanCrop: AxisCrop?
     /// Diffraction-space (detector) crop. nil = the whole detector.
-    var detectorCrop: AxisCrop?
+    package var detectorCrop: AxisCrop?
     /// Diffraction bin factor. 1 = none.
     ///
     /// DEVIATION from py4DSTEM (`preprocess.bin_data_diffraction`,
@@ -75,12 +83,12 @@ nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
     /// path rare on real detectors, since 64/128/256/512 are all divisible by 8.
     /// The remainder path is still implemented and tested — a 384 px or cropped
     /// detector reaches it, and a rare untested path is worse than a common one.
-    var detectorBin: Int = 1
+    package var detectorBin: Int = 1
 
     /// The factors the app offers. `1` is "no binning", not a choice.
-    static let availableBinFactors = [2, 4, 8]
+    package static let availableBinFactors = [2, 4, 8]
 
-    static let fullExtent = LoadSpecification()
+    package static let fullExtent = LoadSpecification()
 
     /// True when this loads the file exactly as stored.
     ///
@@ -88,8 +96,15 @@ nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
     /// `.fullExtent` is indistinguishable from not having one, so promoting a
     /// rehearsal to the full dataset is *removing* the specification, not
     /// converting a derived file back into a source.
-    var isFullExtent: Bool {
+    package var isFullExtent: Bool {
         scanCrop == nil && detectorCrop == nil && detectorBin == 1
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(scanCrop: AxisCrop? = nil, detectorCrop: AxisCrop? = nil, detectorBin: Int = 1) {
+        self.scanCrop = scanCrop
+        self.detectorCrop = detectorCrop
+        self.detectorBin = detectorBin
     }
 }
 
@@ -108,25 +123,31 @@ nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
 /// saving it did not get. A reader that silently ignores a specification is the
 /// defect this type is designed against — three of the five conformers ignore
 /// the descriptor they are handed today.
-nonisolated struct LoadPushdown: Equatable, Sendable, Codable {
+package nonisolated struct LoadPushdown: Equatable, Sendable, Codable {
     /// The reader skipped the cropped-out scan positions on disk.
-    var scanCropSkipsIO: Bool
+    package var scanCropSkipsIO: Bool
     /// The reader skipped the cropped-out detector pixels on disk.
-    var detectorCropSkipsIO: Bool
+    package var detectorCropSkipsIO: Bool
 
     /// Everything pushed down — HDF5's hyperslab.
-    static let full = LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)
+    package static let full = LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)
     /// Scan crop seeks, detector crop is sliced after the read — raw formats.
-    static let scanOnly = LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)
+    package static let scanOnly = LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)
     /// Nothing skipped; the specification is applied entirely in memory.
-    static let none = LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)
+    package static let none = LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(scanCropSkipsIO: Bool, detectorCropSkipsIO: Bool) {
+        self.scanCropSkipsIO = scanCropSkipsIO
+        self.detectorCropSkipsIO = detectorCropSkipsIO
+    }
 }
 
 // MARK: - Geometry
 
 nonisolated extension AxisCrop {
     /// Whether this crop fits inside a `height` x `width` source plane.
-    func fits(height: Int, width: Int) -> Bool {
+    package func fits(height: Int, width: Int) -> Bool {
         yOffset >= 0 && xOffset >= 0 && self.height > 0 && self.width > 0
             && yOffset + self.height <= height
             && xOffset + self.width <= width
@@ -135,12 +156,12 @@ nonisolated extension AxisCrop {
 
 nonisolated extension LoadSpecification {
     /// Offset of the view's first scan position within the source scan.
-    var scanOffset: (y: Int, x: Int) {
+    package var scanOffset: (y: Int, x: Int) {
         (scanCrop?.yOffset ?? 0, scanCrop?.xOffset ?? 0)
     }
 
     /// Offset of the view's first detector pixel within the source detector.
-    var detectorOffset: (y: Int, x: Int) {
+    package var detectorOffset: (y: Int, x: Int) {
         (detectorCrop?.yOffset ?? 0, detectorCrop?.xOffset ?? 0)
     }
 }
@@ -152,7 +173,7 @@ nonisolated extension LoadSpecification {
 /// full extent, or the right number of pixels from the wrong place, would
 /// fabricate a result rather than fail — the defect this stage is designed
 /// against (docs/load-pipeline-plan.md §6, L3 correction 2026-08-18).
-nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
+package nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
     case notFourDimensional([Int])
     case scanCropOutOfBounds(AxisCrop, sourceHeight: Int, sourceWidth: Int)
     case detectorCropOutOfBounds(AxisCrop, sourceHeight: Int, sourceWidth: Int)
@@ -165,7 +186,7 @@ nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
     /// A reader that cannot apply a specification at all was handed one.
     case unsupportedByReader(String)
 
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .notFourDimensional(let shape):
             return "A load specification needs a 4D dataset; this one is \(shape.count)D."
@@ -209,16 +230,16 @@ nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
 /// Coordinates: `descriptor` extents and every `ry`/`rx`/`yRange` a reader is
 /// given are in **view** coordinates, starting at 0. Readers add
 /// `specification.scanOffset` / `detectorOffset` to reach the source.
-nonisolated struct LoadView: Sendable {
+package nonisolated struct LoadView: Sendable {
     /// The dataset as stored in the file, at full extent.
-    let source: DatasetDescriptor
+    package let source: DatasetDescriptor
     /// Which part of `source` is loaded.
-    let specification: LoadSpecification
+    package let specification: LoadSpecification
     /// The shape being processed, **after** any crop and any binning. Identical
     /// to `source` — the same value, not a copy — when the specification is full
     /// extent, so that removing a specification restores the original dataset
     /// identity exactly.
-    let descriptor: DatasetDescriptor
+    package let descriptor: DatasetDescriptor
 
     /// The detector rectangle a reader actually reads: the requested crop
     /// trimmed down to a whole number of bins.
@@ -227,21 +248,21 @@ nonisolated struct LoadView: Sendable {
     /// differ by the edge remainder, and reading the untrimmed rectangle would
     /// hand the bin step a row or column it cannot pair up. `nil` means "the
     /// whole detector, unbinned".
-    let readDetectorCrop: AxisCrop?
+    package let readDetectorCrop: AxisCrop?
 
     /// Detector rows and columns dropped as the edge remainder, in source
     /// pixels. Zero unless binning is on and the extent does not divide.
     /// Surfaced to the user, per invariant I3 — a binned cube is a different
     /// measurement and a trimmed one is a different detector.
-    let discardedDetectorRows: Int
-    let discardedDetectorColumns: Int
+    package let discardedDetectorRows: Int
+    package let discardedDetectorColumns: Int
 
     /// Validate `specification` against `source` and derive the view.
     ///
     /// Throws rather than clamping: a crop that does not fit is a caller
     /// mistake, and silently shrinking it would change what was measured
     /// without saying so.
-    init(source: DatasetDescriptor, specification: LoadSpecification) throws {
+    package init(source: DatasetDescriptor, specification: LoadSpecification) throws {
         guard source.is4D else {
             throw LoadSpecificationError.notFourDimensional(source.shape)
         }
@@ -331,7 +352,7 @@ nonisolated struct LoadView: Sendable {
     /// descriptor. Readers re-check with `requireSource` against the shape they
     /// discovered themselves, so a wrong descriptor becomes a refusal at the
     /// first read rather than a silently misplaced one.
-    init(fullExtentOf source: DatasetDescriptor) {
+    package init(fullExtentOf source: DatasetDescriptor) {
         self.source = source
         self.specification = .fullExtent
         self.descriptor = source
@@ -340,12 +361,12 @@ nonisolated struct LoadView: Sendable {
         self.discardedDetectorColumns = 0
     }
 
-    var isFullExtent: Bool { specification.isFullExtent }
+    package var isFullExtent: Bool { specification.isFullExtent }
 
     /// Source scan row for a view scan row.
-    func sourceScanY(_ viewY: Int) -> Int { specification.scanOffset.y + viewY }
+    package func sourceScanY(_ viewY: Int) -> Int { specification.scanOffset.y + viewY }
     /// Source scan column for a view scan column.
-    func sourceScanX(_ viewX: Int) -> Int { specification.scanOffset.x + viewX }
+    package func sourceScanX(_ viewX: Int) -> Int { specification.scanOffset.x + viewX }
 
     /// Take the detector crop out of one full **source** pattern, laid out
     /// `[sourceQy * sourceQx]` row-major, and bin it.
@@ -359,7 +380,7 @@ nonisolated struct LoadView: Sendable {
     /// Slice and bin are one call on purpose: a reader that did only the first
     /// half would return a pattern of the wrong length, and it is better for
     /// that to be impossible than to be caught.
-    func detectorView(of pattern: [Float]) -> [Float] {
+    package func detectorView(of pattern: [Float]) -> [Float] {
         guard let crop = readDetectorCrop else { return binned(pattern, patternCount: 1) }
         let sourceQx = source.qx
         var output = [Float]()
@@ -396,7 +417,7 @@ nonisolated struct LoadView: Sendable {
     /// `tools/preprocess-crop-bin-test` holds because that fixture uses small
     /// integers, whose partial sums are exact in float32 in ANY order — not
     /// because the two implementations agree bit-for-bit in general.
-    func binned(_ pixels: [Float], patternCount: Int) -> [Float] {
+    package func binned(_ pixels: [Float], patternCount: Int) -> [Float] {
         let bin = specification.detectorBin
         guard bin > 1 else { return pixels }
         let readHeight = readDetectorCrop?.height ?? source.qy
@@ -425,7 +446,7 @@ nonisolated struct LoadView: Sendable {
 
     /// Check that a reader's own discovered shape is the source this view
     /// describes. Cheap, and it turns "the wrong file's view" into a refusal.
-    func requireSource(shape: [Int]) throws {
+    package func requireSource(shape: [Int]) throws {
         guard source.shape == shape else {
             throw LoadSpecificationError.sourceMismatch(
                 expected: shape, received: source.shape
@@ -449,14 +470,14 @@ nonisolated extension LoadView {
     ///
     /// `ry`/`rx`/`yRange` are **view** coordinates; the cube is indexed in
     /// source coordinates.
-    func pattern(fromFullCube cube: [Float], ry: Int, rx: Int) -> [Float] {
+    package func pattern(fromFullCube cube: [Float], ry: Int, rx: Int) -> [Float] {
         let sourcePatternCount = source.qy * source.qx
         let frame = (sourceScanY(ry) * source.rx + sourceScanX(rx)) * sourcePatternCount
         let full = Array(cube[frame..<(frame + sourcePatternCount)])
         return detectorView(of: full)
     }
 
-    func scanRow(fromFullCube cube: [Float], ry: Int) -> [Float] {
+    package func scanRow(fromFullCube cube: [Float], ry: Int) -> [Float] {
         var row = [Float]()
         row.reserveCapacity(descriptor.rx * descriptor.qy * descriptor.qx)
         for rx in 0..<descriptor.rx {
@@ -465,7 +486,7 @@ nonisolated extension LoadView {
         return row
     }
 
-    func scanTile(fromFullCube cube: [Float], yRange: Range<Int>) -> FourDScanTile {
+    package func scanTile(fromFullCube cube: [Float], yRange: Range<Int>) -> FourDScanTile {
         var pixels = [Float]()
         pixels.reserveCapacity(
             yRange.count * descriptor.rx * descriptor.qy * descriptor.qx
@@ -496,7 +517,7 @@ nonisolated extension LoadSpecification {
     /// Sorted keys so the same specification always produces the same bytes: a
     /// sidecar that differs only in field order looks like a changed session to
     /// anything comparing files.
-    var jsonString: String? {
+    package var jsonString: String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         // try? OK (v2 S7 audit): the stored properties are integers and
@@ -518,13 +539,13 @@ nonisolated extension LoadSpecification {
     /// (`BraggVectorEMDWriter.loadSession`) REFUSES on nil for a present
     /// attribute (`WriterError.malformedAttribute`) — a mangled crop
     /// attribute must not read as "no crop recorded". // v2 S7
-    static func decoded(from json: String) -> LoadSpecification? {
+    package static func decoded(from json: String) -> LoadSpecification? {
         guard let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(LoadSpecification.self, from: data)
     }
 
     /// A short human form for provenance display, or nil at full extent.
-    var provenanceSummary: String? {
+    package var provenanceSummary: String? {
         guard !isFullExtent else { return nil }
         var parts: [String] = []
         if let scan = scanCrop {

@@ -1,10 +1,10 @@
 import Foundation
 import Metal
 
-enum FourDError: LocalizedError {
+package enum FourDError: LocalizedError {
     case allocationFailed
 
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .allocationFailed:
             return "Could not allocate or read the requested 4D-STEM tile."
@@ -12,25 +12,25 @@ enum FourDError: LocalizedError {
     }
 }
 
-actor FourDArray {
+package actor FourDArray {
     private let reader: any FourDDataSource
     /// The source, the specification, and the descriptor derived from both.
     /// Passed to the reader as one value so the three can never disagree.
-    let view: LoadView
+    package let view: LoadView
     /// What is being processed — the view's shape, which is the source's shape
     /// when no specification is set.
-    let descriptor: DatasetDescriptor
+    package let descriptor: DatasetDescriptor
     /// What the reader pushed into its own I/O versus applied in memory, for
     /// *this* view. Carried here so L6 can record it rather than assume it, and
     /// resolved per view because for HDF5 the answer depends on the dataset's
     /// chunking, not only on the format.
-    let loadPushdown: LoadPushdown
+    package let loadPushdown: LoadPushdown
 
     private var cache: [Int: DiffractionPattern] = [:]
     private var order: [Int] = []
     private let maxCachedPatterns = 96
 
-    init(reader: any FourDDataSource, view: LoadView) {
+    package init(reader: any FourDDataSource, view: LoadView) {
         self.reader = reader
         self.view = view
         self.descriptor = view.descriptor
@@ -40,11 +40,11 @@ actor FourDArray {
     /// The whole dataset. The shipped path — nothing sets a specification until
     /// L5's configurator, and a crop must not reach the compute path before the
     /// calibration re-reference is proven (docs/load-pipeline-plan.md §6, L3).
-    init(reader: any FourDDataSource, descriptor: DatasetDescriptor) {
+    package init(reader: any FourDDataSource, descriptor: DatasetDescriptor) {
         self.init(reader: reader, view: LoadView(fullExtentOf: descriptor))
     }
 
-    func pattern(ry: Int, rx: Int) async throws -> DiffractionPattern {
+    package func pattern(ry: Int, rx: Int) async throws -> DiffractionPattern {
         let clampedY = min(max(ry, 0), max(descriptor.ry - 1, 0))
         let clampedX = min(max(rx, 0), max(descriptor.rx - 1, 0))
         let cacheKey = key(ry: clampedY, rx: clampedX)
@@ -76,12 +76,12 @@ actor FourDArray {
         return pattern
     }
 
-    func clearCache() {
+    package func clearCache() {
         cache.removeAll(keepingCapacity: true)
         order.removeAll(keepingCapacity: true)
     }
 
-    func scanTile(yRange: Range<Int>) async throws -> FourDScanTile {
+    package func scanTile(yRange: Range<Int>) async throws -> FourDScanTile {
         guard yRange.lowerBound >= 0, yRange.upperBound <= descriptor.ry,
               !yRange.isEmpty else {
             throw FourDError.allocationFailed
@@ -124,10 +124,10 @@ actor FourDArray {
 
     /// Which view of the source this array reads. `.fullExtent` unless this
     /// array was built from a cropped `LoadView`.
-    var loadSpecification: LoadSpecification { view.specification }
+    package var loadSpecification: LoadSpecification { view.specification }
 
     /// The resident cube, or nil when this array is streaming.
-    func resident() -> ResidentCube? { residentCube }
+    package func resident() -> ResidentCube? { residentCube }
 
     /// The resident cube **only if `descriptor` is what this array is loaded
     /// as**. Callers on the compute side should use this rather than
@@ -145,7 +145,7 @@ actor FourDArray {
     /// inside `ResidentCube.matches` is therefore defence in depth against a
     /// future stage that makes the view mutable, not a live guard here; saying
     /// otherwise would claim a protection that is not running.
-    func resident(for descriptor: DatasetDescriptor) -> ResidentCube? {
+    package func resident(for descriptor: DatasetDescriptor) -> ResidentCube? {
         guard describesThisView(descriptor), let residentCube,
               residentCube.matches(view.descriptor, specification: view.specification)
         else { return nil }
@@ -164,10 +164,10 @@ actor FourDArray {
             && other.shape == view.descriptor.shape
     }
 
-    var isResident: Bool { residentCube != nil }
+    package var isResident: Bool { residentCube != nil }
 
     /// Bytes currently held resident (0 when streaming).
-    var residentByteCount: Int { residentCube?.byteCount ?? 0 }
+    package var residentByteCount: Int { residentCube?.byteCount ?? 0 }
 
     /// How many tiles have been COPIED out of the resident cube into a Swift
     /// `[Float]` by `scanTile`.
@@ -218,7 +218,7 @@ actor FourDArray {
     /// one already being filled.
     private var preloadInFlight = false
 
-    func setResidencyRequest(_ mode: Residency) {
+    package func setResidencyRequest(_ mode: Residency) {
         residencyRequest = mode
         if mode == .streamed { releaseResident() }
     }
@@ -246,7 +246,7 @@ actor FourDArray {
     /// tiles and that arithmetic decides whether every subsequent analysis reads
     /// the right bytes. Adversarial review, 2026-08-17.
     @discardableResult
-    func makeResident(
+    package func makeResident(
         maximumRows: Int? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
@@ -316,7 +316,7 @@ actor FourDArray {
     /// Drop the resident cube and return to streaming. Safe at any time — the
     /// next tiled pass simply reads from disk again, and any preload in flight
     /// is invalidated rather than allowed to re-publish afterwards.
-    func releaseResident() {
+    package func releaseResident() {
         residentCube = nil
         residencyGeneration &+= 1
     }
@@ -363,7 +363,7 @@ actor FourDArray {
     /// prefetching), so two resident tiles at this halved per-tile budget
     /// keep total staging within the prior single-tile quarter-of-working-set
     /// bound. `maximumRows` lets parity tests force tiny tiles.
-    func scanTileRows(maximumRows: Int? = nil) -> Int {
+    package func scanTileRows(maximumRows: Int? = nil) -> Int {
         let bytesPerRow = descriptor.rx * descriptor.qy * descriptor.qx
             * MemoryLayout<Float>.stride
         // TWO bounds, and the host one was missing until v2 S9a.

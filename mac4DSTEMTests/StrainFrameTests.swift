@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// v2 S8. Strain is computed in detector x/y and presented in the scan frame

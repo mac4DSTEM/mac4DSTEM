@@ -60,7 +60,7 @@ build_probe() {
   xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
   . "$ROOT/tools/lib/sources.manifest"
   mac4dstem_sources "$ROOT" qcalibration
-  xcrun swiftc -O -parse-as-library -o "$WORK/$out" \
+  xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/$out" \
     "${MAC4DSTEM_SOURCES[@]}" "$ROOT/mac4DSTEM/Core/Data/DisplayedProduct.swift" \
     "$HERE/$entry" -framework Accelerate -framework Metal -framework MetalKit
   codesign -f -s - "$WORK/$out" 2>/dev/null
@@ -129,7 +129,7 @@ coarse-cost)
   xcrun -sdk macosx metal -c "$WORK/v0.metal" -o "$WORK/v0.air"
   xcrun -sdk macosx metal -c "$WORK/v1.metal" -o "$WORK/v1.air"
   xcrun -sdk macosx metallib "$WORK/v0.air" "$WORK/v1.air" -o "$WORK/default.metallib"
-  xcrun swiftc -O -parse-as-library -o "$WORK/bench" "$HERE/coarse-cost.swift" -framework Metal
+  xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/bench" "$HERE/coarse-cost.swift" -framework Metal
   codesign -f -s - "$WORK/bench" 2>/dev/null
   cd "$WORK" && ./bench
   ;;

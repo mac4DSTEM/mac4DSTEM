@@ -28,12 +28,12 @@ import simd
 /// the full scan geometry but matches one representative position per coarse
 /// block, then expands that result across the block. A selected region leaves
 /// positions outside the square explicitly unmatched.
-nonisolated enum ACOMScanSelection: Sendable, Equatable {
+package nonisolated enum ACOMScanSelection: Sendable, Equatable {
     case full
     case preview(maxDimension: Int)
     case square(centerX: Int, centerY: Int, radius: Int)
 
-    func sourceIndices(width: Int, height: Int) -> [Int] {
+    package func sourceIndices(width: Int, height: Int) -> [Int] {
         guard width > 0, height > 0 else { return [] }
         switch self {
         case .full:
@@ -64,11 +64,11 @@ nonisolated enum ACOMScanSelection: Sendable, Equatable {
         }
     }
 
-    func positionCount(width: Int, height: Int) -> Int {
+    package func positionCount(width: Int, height: Int) -> Int {
         sourceIndices(width: width, height: height).count
     }
 
-    func expandedPreview(_ map: OrientationMap) -> OrientationMap {
+    package func expandedPreview(_ map: OrientationMap) -> OrientationMap {
         guard case .preview(let maxDimension) = self else { return map }
         let step = previewStep(width: map.width, height: map.height,
                                maxDimension: maxDimension)
@@ -89,7 +89,7 @@ nonisolated enum ACOMScanSelection: Sendable, Equatable {
     }
 }
 
-nonisolated final class OrientationMatcher {
+package nonisolated final class OrientationMatcher {
 
     private let plan: OrientationPlan
     private let symmetry: ACOMCrystalSymmetry
@@ -104,7 +104,7 @@ nonisolated final class OrientationMatcher {
     private var productRe: [Float]
     private var productIm: [Float]
 
-    init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry = .cubic) {
+    package init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry = .cubic) {
         guard let fft = FFT1D(n: plan.geometry.nAzimuthal) else { return nil }
         self.plan = plan
         self.symmetry = symmetry
@@ -120,7 +120,7 @@ nonisolated final class OrientationMatcher {
     }
 
     /// Match one pattern's peaks against the plan.
-    func match(peaks: [BraggPeak], originX: Float, originY: Float,
+    package func match(peaks: [BraggPeak], originX: Float, originY: Float,
                invAngstromPerPixel: Double = 1) -> OrientationResult {
         guard prepareExperimentalFFT(
             peaks: peaks, originX: originX, originY: originY,
@@ -218,7 +218,7 @@ nonisolated final class OrientationMatcher {
 
     /// Prepare a copy for a Metal batch. The CPU and GPU paths therefore share
     /// exactly the same polar deposition, normalization, and forward FFT.
-    func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,
+    package func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,
                          invAngstromPerPixel: Double) -> (real: [Float], imaginary: [Float])? {
         guard prepareExperimentalFFT(
             peaks: peaks, originX: originX, originY: originY,
@@ -279,7 +279,7 @@ nonisolated final class OrientationMatcher {
 /// within `min_angle_between_matches_deg` of an already-taken match before
 /// searching for the next (`crystal_ACOM.py`, the `min_angle_between_matches_deg`
 /// block). This is the same rule, applied to the runner-up.
-nonisolated func selectOrientation(
+package nonisolated func selectOrientation(
     zoneAxes: [SIMD3<Double>], scores: [Float], bins: [UInt32],
     distinctOrientationRad: Double
 ) -> (template: Int, bin: Int, score: Float, secondScore: Float) {
@@ -327,17 +327,17 @@ private nonisolated func makeOrientationResult(
 }
 
 private nonisolated struct ACOMMetalParams {
-    var positions: UInt32
-    var templates: UInt32
-    var radial: UInt32
-    var azimuthal: UInt32
+    package var positions: UInt32
+    package var templates: UInt32
+    package var radial: UInt32
+    package var azimuthal: UInt32
 }
 
 /// Batched Metal matcher. Polar deposition and forward FFT deliberately remain
 /// shared with the CPU oracle; Metal accelerates the dominant template/ring
 /// correlation and inverse-angle search, then the CPU applies identical
 /// best/second selection and symmetry reporting.
-nonisolated final class MetalACOMMatcher {
+package nonisolated final class MetalACOMMatcher {
     private let plan: OrientationPlan
     private let symmetry: ACOMCrystalSymmetry
     private let device: MTLDevice
@@ -348,7 +348,7 @@ nonisolated final class MetalACOMMatcher {
     private let templateImaginary: MTLBuffer
     private let batchSize: Int
 
-    init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry) {
+    package init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry) {
         // try? OK (v2 S7 audit): this is a failable init whose nil contract
         // is "the GPU matcher is unavailable" — the two pipeline-state
         // creations are just two of the seven ways the guard can refuse.
@@ -392,7 +392,7 @@ nonisolated final class MetalACOMMatcher {
         self.batchSize = max(1, min(64, workingBudget / max(1, bytesPerPosition)))
     }
 
-    func matchAll(
+    package func matchAll(
         bragg: BraggVectors,
         originX: Float, originY: Float,
         invAngstromPerPixel: Double,
@@ -544,13 +544,13 @@ nonisolated final class MetalACOMMatcher {
 
 // MARK: - Full-scan matching
 
-enum OrientationMatching {
+package enum OrientationMatching {
 
     /// Match the requested scan positions against the plan. Full scans retain
     /// the row-parallel fast path; preview and region work only touch their
     /// selected source positions. Progress is the requested work, not the full
     /// dataset size.
-    nonisolated static func matchAll(bragg: BraggVectors, plan: OrientationPlan,
+    package nonisolated static func matchAll(bragg: BraggVectors, plan: OrientationPlan,
                                      originX: Float, originY: Float,
                                      invAngstromPerPixel: Double = 1,
                                      backend: ACOMMatchingBackend = .automatic,
@@ -654,7 +654,7 @@ enum OrientationMatching {
 
     /// Minimal wrapper to pass a mutable pointer into the concurrent closure.
     private nonisolated struct SendableBox: @unchecked Sendable {
-        let value: UnsafeMutablePointer<OrientationResult>
-        init(_ v: UnsafeMutablePointer<OrientationResult>) { value = v }
+        package let value: UnsafeMutablePointer<OrientationResult>
+        package init(_ v: UnsafeMutablePointer<OrientationResult>) { value = v }
     }
 }

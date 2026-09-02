@@ -58,6 +58,15 @@ dependency (`Aperture`) that grep had missed, and the guard is worth having
 before the `public` API pass that a real target dependency needs. The split
 into a dependency (2b) and `DSTEMSession` follow.
 
+**2026-09-03 — `package` access, not `public`, at the Core boundary.** The
+app depends on `DSTEMCore` through Swift's `package` access level and the
+`SWIFT_PACKAGE_NAME` setting rather than a designed public API. Reason:
+Core is one module consumed by one app in one repository; a public surface
+would be API design work with no second consumer, while `package` makes
+the boundary real for the compiler at the cost of a mechanical pass
+(1 645 modifiers, 96 generated initializers). If Core is ever published as
+a library, that is the moment to design `public`.
+
 **2026-09-02 — Live doc set.** `CLAUDE.md` (rules), `docs/status.md`,
 `docs/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
 `docs/architecture.md`, this file, plus the reference docs and Track B

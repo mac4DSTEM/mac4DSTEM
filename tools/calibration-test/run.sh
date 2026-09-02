@@ -22,7 +22,7 @@ cc make_fixture.c "$WORK/libhdf5.dylib" -Wl,-rpath,"$WORK" -o "$WORK/make_fixtur
 codesign -f -s - "$WORK/make_fixture" 2>/dev/null
 "$WORK/make_fixture" "$WORK/attrs.h5" "$WORK/datasets.h5"
 
-xcrun swiftc -o "$WORK/harness" main.swift \
+xcrun swiftc -package-name mac4DSTEM -o "$WORK/harness" main.swift \
   "$SRC/HDF5Types.swift" "$SRC/H5Reader.swift" "$SRC/FourDDataSource.swift" "$SRC/LoadSpecification.swift" "$SRC/DatasetDescriptor.swift" \
   "$SRC/Calibration.swift"
 codesign -f -s - "$WORK/harness" 2>/dev/null

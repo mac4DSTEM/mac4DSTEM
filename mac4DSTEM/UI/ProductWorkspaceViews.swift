@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 struct WelcomeWorkspace: View {
     @Environment(AppState.self) private var appState

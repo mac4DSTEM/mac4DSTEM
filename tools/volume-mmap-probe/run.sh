@@ -47,5 +47,5 @@ fi
 
 (( $# > 0 )) || { echo "Usage: run.sh <file>... | --mounts" >&2; exit 64; }
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
-xcrun swiftc -O -o "$WORK/probe" "$HERE/probe.swift"
+xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/probe" "$HERE/probe.swift"
 for f in "$@"; do "$WORK/probe" "$f"; echo; done

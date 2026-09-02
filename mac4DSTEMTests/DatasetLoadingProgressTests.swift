@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Pins the loading-progress contract from `docs/load-pipeline-plan.md` stage

@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Pins stage L5's preview and **invariant I4**: a sampled preview is not a

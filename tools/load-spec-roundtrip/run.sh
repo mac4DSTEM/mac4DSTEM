@@ -14,7 +14,7 @@ trap 'rm -rf "$WORK"' EXIT
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   "$SRC/DatasetDescriptor.swift" \
   "$SRC/DiffractionPattern.swift" \
   "$SRC/FourDDataSource.swift" \

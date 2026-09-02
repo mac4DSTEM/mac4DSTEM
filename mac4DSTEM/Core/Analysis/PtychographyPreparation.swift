@@ -5,13 +5,16 @@
 
 import Foundation
 
-nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
-    var probeRolloffMrad: Double = 2
-    var maxResidentBytes = 1_073_741_824
+package nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init() {}
+
+    package var probeRolloffMrad: Double = 2
+    package var maxResidentBytes = 1_073_741_824
 }
 
-nonisolated enum PtychographyPreparer {
-    static func prepare(
+package nonisolated enum PtychographyPreparer {
+    package static func prepare(
         source: any FourDDataSource,
         view: LoadView,
         calibration: ParallaxPhysicalCalibration,

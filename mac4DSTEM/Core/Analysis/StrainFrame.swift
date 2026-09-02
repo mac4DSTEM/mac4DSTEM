@@ -50,7 +50,7 @@ import Foundation
 
 /// Which frame strain components are presented in. Carried everywhere the
 /// numbers go — screen, burned caption, export provenance — never implied.
-nonisolated enum StrainPresentationFrame: Equatable, Sendable {
+package nonisolated enum StrainPresentationFrame: Equatable, Sendable {
     /// Rotated into the scan frame by the calibrated R–Q rotation.
     case scan(rotationRad: Float, transposed: Bool)
     /// Detector x/y exactly as computed — no measured rotation exists to
@@ -60,13 +60,13 @@ nonisolated enum StrainPresentationFrame: Equatable, Sendable {
     /// Resolve the frame the current calibration supports. A non-finite
     /// stored rotation is treated as absent, matching `Calibration`'s own
     /// validity test (`rotationRad?.isFinite == true`).
-    static func resolve(rotationRad: Float?, transposeQR: Bool?) -> StrainPresentationFrame {
+    package static func resolve(rotationRad: Float?, transposeQR: Bool?) -> StrainPresentationFrame {
         guard let rotation = rotationRad, rotation.isFinite else { return .detector }
         return .scan(rotationRad: rotation, transposed: transposeQR ?? false)
     }
 
     /// Machine token for provenance ("strain_frame" key).
-    var provenanceValue: String {
+    package var provenanceValue: String {
         switch self {
         case .scan: "scan"
         case .detector: "detector"
@@ -76,7 +76,7 @@ nonisolated enum StrainPresentationFrame: Equatable, Sendable {
     /// The one human-facing wording, shared by the controls row and anything
     /// else that names the frame — two sites deriving the label differently is
     /// the S7 two-gates shape.
-    var displayLabel: String {
+    package var displayLabel: String {
         switch self {
         case .scan(let rotationRad, let transposed):
             String(format: "Scan frame (R–Q %.1f°%@ applied)",
@@ -89,18 +89,18 @@ nonisolated enum StrainPresentationFrame: Equatable, Sendable {
 
 /// The strain tensor field expressed in a presentation frame, plus the frame
 /// itself so no caller can take the numbers without the label.
-nonisolated struct PresentedStrainMap {
-    let base: StrainMap
-    let frame: StrainPresentationFrame
-    let exx: [Float]
-    let eyy: [Float]
-    let exy: [Float]
-    let theta: [Float]
+package nonisolated struct PresentedStrainMap {
+    package let base: StrainMap
+    package let frame: StrainPresentationFrame
+    package let exx: [Float]
+    package let eyy: [Float]
+    package let exy: [Float]
+    package let theta: [Float]
 
     /// Same contract as `StrainMap.component`: masked positions are NaN,
     /// never 0. Residual and indexed are frame-free diagnostics and pass
     /// through from the base map.
-    func component(_ c: StrainComponent) -> FloatImage {
+    package func component(_ c: StrainComponent) -> FloatImage {
         let source: [Float]
         switch c {
         case .exx:   source = exx
@@ -113,13 +113,23 @@ nonisolated struct PresentedStrainMap {
         for i in 0..<out.count where !base.mask[i] { out[i] = .nan }
         return FloatImage(width: base.width, height: base.height, pixels: out)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(base: StrainMap, frame: StrainPresentationFrame, exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {
+        self.base = base
+        self.frame = frame
+        self.exx = exx
+        self.eyy = eyy
+        self.exy = exy
+        self.theta = theta
+    }
 }
 
 extension StrainMap {
     /// The tensor components expressed in `frame`. `.detector` is the
     /// identity — the arrays pass through untouched, so an uncalibrated
     /// session presents exactly what was computed.
-    nonisolated func presented(in frame: StrainPresentationFrame) -> PresentedStrainMap {
+    package nonisolated func presented(in frame: StrainPresentationFrame) -> PresentedStrainMap {
         switch frame {
         case .detector:
             return PresentedStrainMap(base: self, frame: frame,
@@ -136,7 +146,7 @@ extension StrainMap {
     }
 }
 
-nonisolated enum StrainFrameRotation {
+package nonisolated enum StrainFrameRotation {
 
     /// Rotate a strain tensor field from the detector frame into the scan
     /// frame: transpose first (swap εxx ↔ εyy, negate θ), then the tensor
@@ -144,7 +154,7 @@ nonisolated enum StrainFrameRotation {
     /// the vectors themselves (flip, then R·v). Element-wise over the raw
     /// field; masked positions hold 0 here and become NaN in `component`,
     /// exactly as in the unrotated path.
-    static func rotate(
+    package static func rotate(
         exx: [Float], eyy: [Float], exy: [Float], theta: [Float],
         rotationRad: Float, transposed: Bool
     ) -> (exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {

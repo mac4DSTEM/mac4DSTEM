@@ -13,6 +13,7 @@
 //
 
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 final class FFT2DArbitraryLengthTests: XCTestCase {

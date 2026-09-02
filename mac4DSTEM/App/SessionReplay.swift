@@ -12,6 +12,7 @@
 //
 
 import Foundation
+import DSTEMCore
 
 @Observable
 final class SessionReplay {

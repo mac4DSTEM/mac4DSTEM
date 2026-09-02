@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// `CIFImport.swift` (`mac4DSTEMTests/CIFImportTests.swift`) only covers the

@@ -21,7 +21,7 @@
 
 import Foundation
 
-nonisolated enum CIFImportError: LocalizedError, Equatable {
+package nonisolated enum CIFImportError: LocalizedError, Equatable {
     /// A required cell-parameter or atom-site coordinate tag is absent.
     case missingTag(String)
     /// A numeric value could not be parsed, even after stripping a CIF
@@ -70,7 +70,7 @@ nonisolated enum CIFImportError: LocalizedError, Equatable {
     /// reason not already surfaced as a more specific case above.
     case invalidModel([String])
 
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .missingTag(let tag):
             return "CIF is missing the required tag \(tag)."
@@ -100,13 +100,13 @@ nonisolated enum CIFImportError: LocalizedError, Equatable {
     }
 }
 
-nonisolated enum CIFImport {
+package nonisolated enum CIFImport {
 
     /// Parse `cifText` and build a validated, `.imported` `CrystalModel`.
     /// `fileBaseName` (typically the source filename without extension) is
     /// used to build a stable model id and as the display-name fallback when
     /// the CIF's own `data_` block name is empty.
-    static func crystalModel(from cifText: String, fileBaseName: String) throws -> CrystalModel {
+    package static func crystalModel(from cifText: String, fileBaseName: String) throws -> CrystalModel {
         let parsed = try parse(cifText)
         // The metric only proposes a family; the atom positions have to
         // confirm it, or a trigonal cell in the hexagonal setting would be
@@ -152,13 +152,13 @@ nonisolated enum CIFImport {
     // MARK: - Parsed intermediate structure
 
     private struct ParsedStructure {
-        var dataBlockName: String?
-        var a: Double, b: Double, c: Double
-        var alpha: Double, beta: Double, gamma: Double
-        var sites: [AtomSite]
+        package var dataBlockName: String?
+        package var a: Double, b: Double, c: Double
+        package var alpha: Double, beta: Double, gamma: Double
+        package var sites: [AtomSite]
         /// Coarsest rounding half-step over every written fractional
         /// coordinate — the precision the whole structure is limited by.
-        var coarsestHalfStep: Double
+        package var coarsestHalfStep: Double
     }
 
     /// One asymmetric-unit site plus how precisely each of its coordinates was
@@ -167,10 +167,10 @@ nonisolated enum CIFImport {
     /// expansion propagates it, which is the only way to tell "these two images
     /// are the same site, blurred by rounding" from "these are two atoms".
     private struct BaseSite {
-        let z: Int
-        let occupancy: Double
-        let position: SIMD3<Double>
-        let halfStep: SIMD3<Double>
+        package let z: Int
+        package let occupancy: Double
+        package let position: SIMD3<Double>
+        package let halfStep: SIMD3<Double>
     }
 
     private static func parse(_ text: String) throws -> ParsedStructure {
@@ -525,12 +525,12 @@ nonisolated enum CIFImport {
 
     /// One affine fractional-coordinate symmetry operation: `p' = M·p + t`.
     private struct SymOp {
-        let rowX: SIMD3<Double>
-        let rowY: SIMD3<Double>
-        let rowZ: SIMD3<Double>
-        let translation: SIMD3<Double>
+        package let rowX: SIMD3<Double>
+        package let rowY: SIMD3<Double>
+        package let rowZ: SIMD3<Double>
+        package let translation: SIMD3<Double>
 
-        func apply(_ p: SIMD3<Double>) -> SIMD3<Double> {
+        package func apply(_ p: SIMD3<Double>) -> SIMD3<Double> {
             SIMD3(
                 rowX.x * p.x + rowX.y * p.y + rowX.z * p.z + translation.x,
                 rowY.x * p.x + rowY.y * p.y + rowY.z * p.z + translation.y,
@@ -695,11 +695,11 @@ nonisolated enum CIFImport {
         let usableLattice = latReal.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }
 
         struct Image {
-            let z: Int
-            let occupancy: Double
-            let position: SIMD3<Double>
+            package let z: Int
+            package let occupancy: Double
+            package let position: SIMD3<Double>
             /// Per-axis rounding uncertainty carried into this image.
-            let uncertainty: SIMD3<Double>
+            package let uncertainty: SIMD3<Double>
         }
 
         var kept: [Image] = []

@@ -17,6 +17,7 @@
 //
 
 import SwiftUI
+import DSTEMCore
 import MetalKit
 
 struct MetalImageView: NSViewRepresentable {

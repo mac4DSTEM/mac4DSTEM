@@ -23,54 +23,87 @@ import MetalKit
 // MARK: - Shared parameter structs (mirror the .metal definitions!)
 
 /// Cube shape only — used by kernels that need no further parameters.
-nonisolated struct CubeDims {
-    var ry: UInt32
-    var rx: UInt32
-    var qy: UInt32
-    var qx: UInt32
+package nonisolated struct CubeDims {
+    package var ry: UInt32
+    package var rx: UInt32
+    package var qy: UInt32
+    package var qx: UInt32
 
-    init(_ d: DatasetDescriptor) {
+    package init(_ d: DatasetDescriptor) {
         ry = UInt32(d.ry); rx = UInt32(d.rx)
         qy = UInt32(d.qy); qx = UInt32(d.qx)
     }
 }
 
-struct ApertureParams {
-    var ry: UInt32
-    var rx: UInt32
-    var qy: UInt32
-    var qx: UInt32
-    var cx: Float        // detector center (column), in pixels
-    var cy: Float        // detector center (row), in pixels
-    var rInner: Float    // annulus inner radius (px)
-    var rOuter: Float    // annulus outer radius (px)
+package struct ApertureParams {
+    package var ry: UInt32
+    package var rx: UInt32
+    package var qy: UInt32
+    package var qx: UInt32
+    package var cx: Float        // detector center (column), in pixels
+    package var cy: Float        // detector center (row), in pixels
+    package var rInner: Float    // annulus inner radius (px)
+    package var rOuter: Float    // annulus outer radius (px)
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, rInner: Float, rOuter: Float) {
+        self.ry = ry
+        self.rx = rx
+        self.qy = qy
+        self.qx = qx
+        self.cx = cx
+        self.cy = cy
+        self.rInner = rInner
+        self.rOuter = rOuter
+    }
 }
 
-struct CoMParams {
-    var ry: UInt32
-    var rx: UInt32
-    var qy: UInt32
-    var qx: UInt32
-    var cx: Float        // global reference center (used when useOrigins == 0)
-    var cy: Float
-    var useOrigins: UInt32
+package struct CoMParams {
+    package var ry: UInt32
+    package var rx: UInt32
+    package var qy: UInt32
+    package var qx: UInt32
+    package var cx: Float        // global reference center (used when useOrigins == 0)
+    package var cy: Float
+    package var useOrigins: UInt32
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, useOrigins: UInt32) {
+        self.ry = ry
+        self.rx = rx
+        self.qy = qy
+        self.qx = qx
+        self.cx = cx
+        self.cy = cy
+        self.useOrigins = useOrigins
+    }
 }
 
-struct OriginParams {
-    var ry: UInt32
-    var rx: UInt32
-    var qy: UInt32
-    var qx: UInt32
-    var r: Float         // probe radius estimate (px)
-    var rscale: Float    // CoM window = r * rscale
+package struct OriginParams {
+    package var ry: UInt32
+    package var rx: UInt32
+    package var qy: UInt32
+    package var qx: UInt32
+    package var r: Float         // probe radius estimate (px)
+    package var rscale: Float    // CoM window = r * rscale
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, r: Float, rscale: Float) {
+        self.ry = ry
+        self.rx = rx
+        self.qy = qy
+        self.qx = qx
+        self.r = r
+        self.rscale = rscale
+    }
 }
 
-enum MetalError: LocalizedError {
+package enum MetalError: LocalizedError {
     case noDevice
     case noLibrary
     case functionMissing(String)
     case dispatchFailed(String)
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .noDevice: return "No Metal-capable GPU was found."
         case .noLibrary: return "Could not load the compiled Metal shader library (default.metallib)."
@@ -82,18 +115,18 @@ enum MetalError: LocalizedError {
 
 // MARK: - MetalEngine
 
-nonisolated final class MetalEngine {
+package nonisolated final class MetalEngine {
 
-    static let shared = MetalEngine()
+    package static let shared = MetalEngine()
 
-    let device: MTLDevice
-    let queue: MTLCommandQueue
-    let library: MTLLibrary
+    package let device: MTLDevice
+    package let queue: MTLCommandQueue
+    package let library: MTLLibrary
 
     // Render pipelines for the textured-quad image display:
     // scalar (LUT colormap) and pre-colored RGBA results.
-    let displayPSO: MTLRenderPipelineState
-    let displayRGBAPSO: MTLRenderPipelineState
+    package let displayPSO: MTLRenderPipelineState
+    package let displayRGBAPSO: MTLRenderPipelineState
 
     // Compute pipelines, built lazily on first use (each forces its own shader).
     //
@@ -168,7 +201,7 @@ nonisolated final class MetalEngine {
     /// Sum detector intensity within the annulus for every scan position.
     /// Returns the real-space image as [Ry*Rx] row-major Float.
     /// (Synchronous + waitUntilCompleted — call from a background Task.)
-    func virtualDetector(cube: MTLBuffer, params: ApertureParams) throws -> [Float] {
+    package func virtualDetector(cube: MTLBuffer, params: ApertureParams) throws -> [Float] {
         guard let pso = virtualAperturePSO else { throw MetalError.functionMissing("virtualAperture") }
         let n = Int(params.ry) * Int(params.rx)
         let out = try makeOutputBuffer(floats: n, label: "virtualAperture")
@@ -186,7 +219,7 @@ nonisolated final class MetalEngine {
 
     /// Sum pattern × mask for every scan position. `mask` is a row-major
     /// [Qy*Qx] detector-space weight image (see VirtualDetector.makeMask).
-    func virtualImage(cube: MTLBuffer, dims: CubeDims, mask: [Float]) throws -> [Float] {
+    package func virtualImage(cube: MTLBuffer, dims: CubeDims, mask: [Float]) throws -> [Float] {
         guard let pso = virtualMaskPSO else { throw MetalError.functionMissing("virtualMaskSum") }
         let n = Int(dims.ry) * Int(dims.rx)
         precondition(mask.count == Int(dims.qy) * Int(dims.qx), "mask must be Qy*Qx")
@@ -226,7 +259,7 @@ nonisolated final class MetalEngine {
 
     /// Sum every scan position selected by `scanMask` into one [Qy*Qx] pattern
     /// — the reciprocal of virtualImage. `scanMask` is row-major [Ry*Rx].
-    func virtualDiffraction(cube: MTLBuffer, cubeOffset: Int = 0,
+    package func virtualDiffraction(cube: MTLBuffer, cubeOffset: Int = 0,
                             dims: CubeDims, scanMask: [Float]) throws -> [Float] {
         guard let pso = virtualDiffractionPSO else { throw MetalError.functionMissing("virtualDiffraction") }
         let n = Int(dims.qy) * Int(dims.qx)
@@ -251,7 +284,7 @@ nonisolated final class MetalEngine {
 
     /// Max and mean over all scan positions, per detector pixel.
     /// Both are [Qy*Qx] row-major (py4DSTEM: get_dp_max / get_dp_mean).
-    func dpStatistics(cube: MTLBuffer, cubeOffset: Int = 0,
+    package func dpStatistics(cube: MTLBuffer, cubeOffset: Int = 0,
                       dims: CubeDims) throws -> (maxDP: [Float], meanDP: [Float]) {
         guard let pso = dpStatisticsPSO else { throw MetalError.functionMissing("dpStatistics") }
         let n = Int(dims.qy) * Int(dims.qx)
@@ -273,7 +306,7 @@ nonisolated final class MetalEngine {
     /// Measure the (000)-beam position of every pattern: coarse brightest-blob
     /// search at the probe-radius scale, then windowed CoM refinement
     /// (py4DSTEM get_origin). Returns interleaved [x0, y0] per scan position.
-    func measureOrigins(cube: MTLBuffer, cubeOffset: Int = 0,
+    package func measureOrigins(cube: MTLBuffer, cubeOffset: Int = 0,
                         params: OriginParams) throws -> [Float] {
         guard let pso = measureOriginPSO else { throw MetalError.functionMissing("measureOrigin") }
         let n = Int(params.ry) * Int(params.rx)
@@ -293,7 +326,7 @@ nonisolated final class MetalEngine {
     /// CoM shift (Qx, Qy) per scan position, relative to per-position
     /// `origins` (interleaved [x,y]) when given, else the global (cx, cy).
     /// Returns interleaved [comx0, comy0, ...] of length 2*Ry*Rx.
-    func centerOfMass(cube: MTLBuffer, cubeOffset: Int = 0,
+    package func centerOfMass(cube: MTLBuffer, cubeOffset: Int = 0,
                       params: CoMParams, origins: [Float]? = nil) throws -> [Float] {
         guard let pso = centerOfMassPSO else { throw MetalError.functionMissing("centerOfMass") }
         let n = Int(params.ry) * Int(params.rx)

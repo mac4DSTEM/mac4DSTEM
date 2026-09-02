@@ -22,7 +22,7 @@ trap 'rm -rf "$WORK"' EXIT
 resolve_mac4dstem_developer_dir
 
 SRC="$REPO/mac4DSTEM/Core"
-xcrun swiftc -O -parse-as-library -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   "$SRC/Data/DiffractionPattern.swift" \
   "$SRC/Analysis/OrientationResult.swift" \
   "$SRC/Crystal/ScatteringFactors.swift" \

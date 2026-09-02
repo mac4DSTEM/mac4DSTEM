@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import DSTEMCore
 
 @Observable
 final class PendingLoad: Identifiable {

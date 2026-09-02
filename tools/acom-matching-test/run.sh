@@ -14,7 +14,7 @@ for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
 done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
-xcrun swiftc -O -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" \
   "$ROOT/tools/acom-matching-test/main.swift" \
   "$ROOT/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
   "$ROOT/mac4DSTEM/Core/Data/DiffractionPattern.swift" \

@@ -1,4 +1,5 @@
 import SwiftUI
+import DSTEMCore
 
 /// A reusable, self-contained intensity histogram of raw pixel values.
 ///

@@ -1,27 +1,35 @@
 import Foundation
 
-nonisolated enum ScientificSeriesScale: Sendable {
+package nonisolated enum ScientificSeriesScale: Sendable {
     case linear
     case logarithmic
 }
 
-nonisolated struct ScientificSeriesPoint: Equatable, Sendable {
-    let index: Int
-    let x: Double
-    let y: Double
-    let value: Double
+package nonisolated struct ScientificSeriesPoint: Equatable, Sendable {
+    package let index: Int
+    package let x: Double
+    package let y: Double
+    package let value: Double
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(index: Int, x: Double, y: Double, value: Double) {
+        self.index = index
+        self.x = x
+        self.y = y
+        self.value = value
+    }
 }
 
 /// Pure, UI-independent plot geometry. Non-finite (and non-positive log)
 /// samples split the line instead of poisoning its range.
-nonisolated struct ScientificSeriesGeometry: Equatable, Sendable {
-    let segments: [[ScientificSeriesPoint]]
-    let minimum: Double?
-    let maximum: Double?
+package nonisolated struct ScientificSeriesGeometry: Equatable, Sendable {
+    package let segments: [[ScientificSeriesPoint]]
+    package let minimum: Double?
+    package let maximum: Double?
 
-    var points: [ScientificSeriesPoint] { segments.flatMap { $0 } }
+    package var points: [ScientificSeriesPoint] { segments.flatMap { $0 } }
 
-    static func make(values: [Float], scale: ScientificSeriesScale) -> Self {
+    package static func make(values: [Float], scale: ScientificSeriesScale) -> Self {
         let transformed: [Double?] = values.map { value in
             let value = Double(value)
             guard value.isFinite else { return nil }
@@ -52,26 +60,33 @@ nonisolated struct ScientificSeriesGeometry: Equatable, Sendable {
         return Self(segments: segments, minimum: minimum, maximum: maximum)
     }
 
-    func nearestIndex(toUnitX x: Double) -> Int? {
+    package func nearestIndex(toUnitX x: Double) -> Int? {
         points.min { abs($0.x - x) < abs($1.x - x) }?.index
     }
 
-    func point(at index: Int?) -> ScientificSeriesPoint? {
+    package func point(at index: Int?) -> ScientificSeriesPoint? {
         guard let index else { return nil }
         return points.first { $0.index == index }
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(segments: [[ScientificSeriesPoint]], minimum: Double?, maximum: Double?) {
+        self.segments = segments
+        self.minimum = minimum
+        self.maximum = maximum
     }
 }
 
 /// Compact labels for arbitrary-shape persisted scientific results.
-nonisolated enum SessionResultPresentation {
-    static func sampling(row: Double?, column: Double?, units: String?) -> String? {
+package nonisolated enum SessionResultPresentation {
+    package static func sampling(row: Double?, column: Double?, units: String?) -> String? {
         guard let row, let column, row.isFinite, column.isFinite,
               row > 0, column > 0 else { return nil }
         let suffix = (units?.isEmpty == false ? units! : "px") + "/px"
         return "sampling \(number(row)) × \(number(column)) \(suffix)"
     }
 
-    static func provenance(_ values: [String: String], limit: Int = 3) -> String? {
+    package static func provenance(_ values: [String: String], limit: Int = 3) -> String? {
         let order = [
             "depth_angstrom", "upsample_factor", "interpolation", "position_iterations",
             "method", "iterations", "final_error", "step_size",
@@ -116,32 +131,32 @@ nonisolated enum SessionResultPresentation {
 
 /// A validated, typed subset of schema-v4 provenance that can safely be
 /// copied back into controls. It intentionally contains no reconstructed data.
-nonisolated struct SessionControlRehydration: Equatable, Sendable {
-    var kdeUpsampleFactor: Double?
-    var kdeSigmaPixels: Double?
-    var kdeLanczosOrder: Int?
-    var positionIterations: Int?
-    var kdeLowpass: Bool?
-    var qLowpassInvAngstrom: Double?
-    var qHighpassInvAngstrom: Double?
-    var depthAngstrom: Double?
-    var depthUseFullFit: Bool?
-    var depthInformationLimit: Double?
-    var depthInformationPower: Double?
-    var ptychographyIterations: Int?
-    var ptychographyMethod: String?
-    var ptychographyStepSize: Float?
-    var ptychographyProjectionParameter: Float?
-    var ptychographyNormalizationMinimum: Float?
-    var ptychographyFixProbe: Bool?
-    var ptychographyConstrainObjectAmplitude: Bool?
-    var ptychographyPurePhaseObject: Bool?
-    var ptychographyFixProbeCenterOfMass: Bool?
-    var ptychographyConstrainProbeAmplitude: Bool?
-    var ptychographyProbeAmplitudeRadius: Float?
-    var ptychographyProbeAmplitudeWidth: Float?
+package nonisolated struct SessionControlRehydration: Equatable, Sendable {
+    package var kdeUpsampleFactor: Double?
+    package var kdeSigmaPixels: Double?
+    package var kdeLanczosOrder: Int?
+    package var positionIterations: Int?
+    package var kdeLowpass: Bool?
+    package var qLowpassInvAngstrom: Double?
+    package var qHighpassInvAngstrom: Double?
+    package var depthAngstrom: Double?
+    package var depthUseFullFit: Bool?
+    package var depthInformationLimit: Double?
+    package var depthInformationPower: Double?
+    package var ptychographyIterations: Int?
+    package var ptychographyMethod: String?
+    package var ptychographyStepSize: Float?
+    package var ptychographyProjectionParameter: Float?
+    package var ptychographyNormalizationMinimum: Float?
+    package var ptychographyFixProbe: Bool?
+    package var ptychographyConstrainObjectAmplitude: Bool?
+    package var ptychographyPurePhaseObject: Bool?
+    package var ptychographyFixProbeCenterOfMass: Bool?
+    package var ptychographyConstrainProbeAmplitude: Bool?
+    package var ptychographyProbeAmplitudeRadius: Float?
+    package var ptychographyProbeAmplitudeWidth: Float?
 
-    var appliedSettingNames: [String] {
+    package var appliedSettingNames: [String] {
         var names: [String] = []
         if kdeUpsampleFactor != nil { names.append("KDE factor") }
         if kdeSigmaPixels != nil { names.append("KDE sigma") }
@@ -169,10 +184,10 @@ nonisolated struct SessionControlRehydration: Equatable, Sendable {
         return names
     }
 
-    var isEmpty: Bool { appliedSettingNames.isEmpty }
-    var summary: String { appliedSettingNames.joined(separator: ", ") }
+    package var isEmpty: Bool { appliedSettingNames.isEmpty }
+    package var summary: String { appliedSettingNames.joined(separator: ", ") }
 
-    static func parse(kind: String, provenance p: [String: String]) -> Self {
+    package static func parse(kind: String, provenance p: [String: String]) -> Self {
         var result = Self()
         let product = p["source_product"] ?? kind
         switch product {

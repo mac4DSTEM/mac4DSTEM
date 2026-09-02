@@ -38,7 +38,7 @@ xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 SRC="$ROOT/mac4DSTEM/Core"
 # No -parse-as-library: main.swift is top-level code with top-level `await`,
 # which that flag forbids (it wants a @main type instead).
-xcrun swiftc -O -o "$WORK/harness" \
+xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" \
   "$SRC/Data/HDF5Types.swift" "$SRC/Data/H5Reader.swift" \
   "$SRC/Data/DatasetDescriptor.swift" "$SRC/Data/DiffractionPattern.swift" \
   "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" \

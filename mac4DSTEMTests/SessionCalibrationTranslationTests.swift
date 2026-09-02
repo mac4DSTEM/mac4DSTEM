@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// P2 wiring pins. The unit gate stayed green across a known-flawed

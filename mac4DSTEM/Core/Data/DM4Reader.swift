@@ -13,14 +13,14 @@
 
 import Foundation
 
-enum DM4Error: LocalizedError {
+package enum DM4Error: LocalizedError {
     case cannotOpen(String)
     case notLittleEndian
     case noDatacube
     case unsupportedDataType(Int)
     case truncated
 
-    var errorDescription: String? {
+    package var errorDescription: String? {
         switch self {
         case .cannotOpen(let p): return "Could not open DM file at \(p)."
         case .notLittleEndian: return "This DM file is big-endian (Mac-authored); only little-endian DM files are supported."
@@ -31,10 +31,10 @@ enum DM4Error: LocalizedError {
     }
 }
 
-actor DM4Reader: FourDDataSource {
+package actor DM4Reader: FourDDataSource {
 
     private let data: Data
-    let filePath: String
+    package let filePath: String
 
     private var descriptor: DatasetDescriptor?
     private var dataOffset = 0        // byte offset of the datacube blob
@@ -52,7 +52,7 @@ actor DM4Reader: FourDDataSource {
     // Async so the init is actor-isolated and may call parse(), which
     // mutates actor state; a synchronous actor init is nonisolated and
     // such a call is an error in Swift 6 language mode.
-    init(path: String) async throws {
+    package init(path: String) async throws {
         // The underlying error travels with the refusal (v2 S7 audit): the
         // old `try?` collapsed EPERM, ENOENT and a short read into one
         // pathless "cannot open". The `.mappedIfSafe` semantics themselves —
@@ -71,7 +71,7 @@ actor DM4Reader: FourDDataSource {
 
     // MARK: FourDDataSource
 
-    func discoverPrimaryDataset() throws -> DatasetDescriptor {
+    package func discoverPrimaryDataset() throws -> DatasetDescriptor {
         guard let descriptor else { throw DM4Error.noDatacube }
         return descriptor
     }
@@ -89,7 +89,7 @@ actor DM4Reader: FourDDataSource {
     /// to prevent, so the boolean rounds down. (An earlier comment here claimed
     /// the per-row decode was the thing being avoided, which had it backwards —
     /// adversarial review, 2026-08-18.)
-    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
+    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
 
     /// Byte offset of the first pixel of source pattern (`sourceY`, `sourceX`).
     private func frameOffset(sourceY: Int, sourceX: Int) -> Int {
@@ -127,7 +127,7 @@ actor DM4Reader: FourDDataSource {
             && view.descriptor.rx == rx
     }
 
-    func readPattern(_ view: LoadView, ry scanY: Int, rx scanX: Int) throws -> [Float] {
+    package func readPattern(_ view: LoadView, ry scanY: Int, rx scanX: Int) throws -> [Float] {
         try view.requireSource(shape: [ry, rx, qy, qx])
         guard scanY >= 0, scanY < view.descriptor.ry,
               scanX >= 0, scanX < view.descriptor.rx else {
@@ -137,7 +137,7 @@ actor DM4Reader: FourDDataSource {
                            sourceX: view.sourceScanX(scanX))
     }
 
-    func readScanRow(_ view: LoadView, ry scanY: Int) throws -> [Float] {
+    package func readScanRow(_ view: LoadView, ry scanY: Int) throws -> [Float] {
         try view.requireSource(shape: [ry, rx, qy, qx])
         guard scanY >= 0, scanY < view.descriptor.ry else { throw DM4Error.truncated }
         return try scanRow(view, viewY: scanY)
@@ -168,7 +168,7 @@ actor DM4Reader: FourDDataSource {
         return out
     }
 
-    func readScanTile(_ view: LoadView,
+    package func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile {
         try view.requireSource(shape: [ry, rx, qy, qx])
         let lower = max(0, yRange.lowerBound)
@@ -198,7 +198,7 @@ actor DM4Reader: FourDDataSource {
         )
     }
 
-    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {
+    package func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {
         let lower = name.lowercased()
         if lower.contains("voltage") || lower.contains("beam_energy") || lower.contains("kv") {
             return voltage
@@ -206,7 +206,7 @@ actor DM4Reader: FourDDataSource {
         return nil
     }
 
-    func pixelCalibration() -> PixelCalibration? {
+    package func pixelCalibration() -> PixelCalibration? {
         guard qPixelSize != nil || rPixelSize != nil else { return nil }
         return PixelCalibration(rSize: rPixelSize, rUnits: rPixelUnits,
                                 qSize: qPixelSize, qUnits: qPixelUnits)
@@ -496,30 +496,30 @@ actor DM4Reader: FourDDataSource {
 /// `overran`, which the parser checks (walkGroup) to throw `.truncated`
 /// instead of crashing on malformed/truncated files.
 private nonisolated struct ByteReader {
-    let data: Data
-    var offset = 0
+    package let data: Data
+    package var offset = 0
     /// True once any read went past the end of the buffer.
     private(set) var overran = false
 
-    init(_ data: Data) { self.data = data }
+    package init(_ data: Data) { self.data = data }
 
-    var remaining: Int { data.count - offset }
+    package var remaining: Int { data.count - offset }
 
-    mutating func u8() -> UInt8 {
+    package mutating func u8() -> UInt8 {
         guard offset >= 0, offset < data.count else { overran = true; offset += 1; return 0 }
         let v = data[data.startIndex + offset]; offset += 1; return v
     }
 
-    mutating func u16be() -> UInt16 { load(UInt16.self).bigEndian }
-    mutating func u16le() -> UInt16 { load(UInt16.self).littleEndian }
-    mutating func u32be() -> UInt32 { load(UInt32.self).bigEndian }
-    mutating func u64be() -> UInt64 { load(UInt64.self).bigEndian }
+    package mutating func u16be() -> UInt16 { load(UInt16.self).bigEndian }
+    package mutating func u16le() -> UInt16 { load(UInt16.self).littleEndian }
+    package mutating func u32be() -> UInt32 { load(UInt32.self).bigEndian }
+    package mutating func u64be() -> UInt64 { load(UInt64.self).bigEndian }
 
-    mutating func special(_ version: Int) -> UInt64 {
+    package mutating func special(_ version: Int) -> UInt64 {
         version == 4 ? u64be() : UInt64(u32be())
     }
 
-    mutating func bytes(_ n: Int) -> [UInt8] {
+    package mutating func bytes(_ n: Int) -> [UInt8] {
         guard n >= 0, offset >= 0, offset <= data.count else { overran = true; offset += max(n, 0); return [] }
         let start = data.startIndex + offset
         let end = min(start + n, data.endIndex)
@@ -529,12 +529,12 @@ private nonisolated struct ByteReader {
         return [UInt8](slice)
     }
 
-    mutating func string(_ n: Int) -> String {
+    package mutating func string(_ n: Int) -> String {
         String(decoding: bytes(n), as: UTF8.self)
     }
 
     /// Read one little-endian primitive of the given tag encoded-type as Double.
-    mutating func value(_ encType: Int) -> Double {
+    package mutating func value(_ encType: Int) -> Double {
         switch encType {
         case 2:  return Double(load(Int16.self).littleEndian)
         case 3:  return Double(load(Int32.self).littleEndian)
@@ -551,7 +551,7 @@ private nonisolated struct ByteReader {
         }
     }
 
-    mutating func seek(_ to: Int) { offset = to }
+    package mutating func seek(_ to: Int) { offset = to }
 
     private mutating func load<T: FixedWidthInteger>(_ type: T.Type) -> T {
         let size = MemoryLayout<T>.size

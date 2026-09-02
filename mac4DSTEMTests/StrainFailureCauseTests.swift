@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Backlog #8b / #5b. One strain failure message used to name two unrelated

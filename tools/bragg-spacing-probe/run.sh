@@ -47,7 +47,7 @@ done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
 SRC="$REPO/mac4DSTEM/Core"
-xcrun swiftc -O -parse-as-library -o "$WORK/probe" \
+xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/probe" \
   "$SRC/Data/HDF5Types.swift" "$SRC/Data/H5Reader.swift" \
   "$SRC/Data/DatasetDescriptor.swift" "$SRC/Data/DiffractionPattern.swift" \
   "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" "$SRC/Data/ResidentCube.swift" "$SRC/Data/LoadSpecification.swift" \

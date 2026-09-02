@@ -1,4 +1,5 @@
 import AppKit
+import DSTEMCore
 import SwiftUI
 import XCTest
 @testable import mac4DSTEM

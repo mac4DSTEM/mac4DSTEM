@@ -7,41 +7,67 @@
 
 import Foundation
 
-nonisolated enum EllipseCalibrationModel: String, Sendable, Equatable {
+package nonisolated enum EllipseCalibrationModel: String, Sendable, Equatable {
     case conic = "Intensity-weighted conic"
     case asymmetricGaussian = "Asymmetric Gaussian ring"
 }
 
-nonisolated struct EllipseProfileParameters: Sendable, Equatable {
-    let centralIntensity: Double
-    let ringIntensity: Double
-    let centralSigma: Double
-    let innerSigma: Double
-    let outerSigma: Double
-    let background: Double
+package nonisolated struct EllipseProfileParameters: Sendable, Equatable {
+    package let centralIntensity: Double
+    package let ringIntensity: Double
+    package let centralSigma: Double
+    package let innerSigma: Double
+    package let outerSigma: Double
+    package let background: Double
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(centralIntensity: Double, ringIntensity: Double, centralSigma: Double, innerSigma: Double, outerSigma: Double, background: Double) {
+        self.centralIntensity = centralIntensity
+        self.ringIntensity = ringIntensity
+        self.centralSigma = centralSigma
+        self.innerSigma = innerSigma
+        self.outerSigma = outerSigma
+        self.background = background
+    }
 }
 
-nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
+package nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
     /// Fitted center in py4DSTEM detector order: qx is row, qy is column.
-    let centerQX: Double
-    let centerQY: Double
-    let a: Double
-    let b: Double
-    let theta: Double
+    package let centerQX: Double
+    package let centerQY: Double
+    package let a: Double
+    package let b: Double
+    package let theta: Double
     /// Dimensionless residual for the model that was accepted.
-    let normalizedResidual: Double
-    let conicResidual: Double
-    let sampleCount: Int
-    let occupiedAngularBins: Int
-    let model: EllipseCalibrationModel
-    let profile: EllipseProfileParameters?
+    package let normalizedResidual: Double
+    package let conicResidual: Double
+    package let sampleCount: Int
+    package let occupiedAngularBins: Int
+    package let model: EllipseCalibrationModel
+    package let profile: EllipseProfileParameters?
     /// Populated when profile refinement was attempted but the conic fallback
     /// was retained. This is diagnostic provenance, not a scientific failure.
-    let profileFallbackReason: String?
+    package let profileFallbackReason: String?
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(centerQX: Double, centerQY: Double, a: Double, b: Double, theta: Double, normalizedResidual: Double, conicResidual: Double, sampleCount: Int, occupiedAngularBins: Int, model: EllipseCalibrationModel, profile: EllipseProfileParameters?, profileFallbackReason: String?) {
+        self.centerQX = centerQX
+        self.centerQY = centerQY
+        self.a = a
+        self.b = b
+        self.theta = theta
+        self.normalizedResidual = normalizedResidual
+        self.conicResidual = conicResidual
+        self.sampleCount = sampleCount
+        self.occupiedAngularBins = occupiedAngularBins
+        self.model = model
+        self.profile = profile
+        self.profileFallbackReason = profileFallbackReason
+    }
 }
 
-nonisolated enum EllipseCalibration {
-    enum FitError: LocalizedError, Equatable {
+package nonisolated enum EllipseCalibration {
+    package enum FitError: LocalizedError, Equatable {
         case invalidInput(String)
         case insufficientSignal
         case insufficientAngularCoverage(Int)
@@ -49,7 +75,7 @@ nonisolated enum EllipseCalibration {
         case invalidEllipse
         case excessiveResidual(Double)
 
-        var errorDescription: String? {
+        package var errorDescription: String? {
             switch self {
             case .invalidInput(let detail):
                 return "Cannot fit detector ellipse: \(detail)."
@@ -70,7 +96,7 @@ nonisolated enum EllipseCalibration {
     /// Port of py4DSTEM `fit_ellipse_1D`'s operative model:
     /// `(A dx² + B dx dy + C dy² - 1) * intensity`.
     /// Coordinates deliberately stay in py4DSTEM order (qx=row, qy=column).
-    static func fit1D(
+    package static func fit1D(
         pattern: DiffractionPattern,
         centerQX: Double,
         centerQY: Double,
@@ -87,9 +113,9 @@ nonisolated enum EllipseCalibration {
         }
 
         struct Sample {
-            let x: Double
-            let y: Double
-            let value: Double
+            package let x: Double
+            package let y: Double
+            package let value: Double
         }
         var samples = [Sample]()
         samples.reserveCapacity(pattern.pixels.count / 2)
@@ -231,7 +257,7 @@ nonisolated enum EllipseCalibration {
     /// Prefer the physically richer amorphous-ring profile, but never discard
     /// a valid conic calibration merely because the profile is absent,
     /// underconstrained, or incompatible with crystalline/overlapping signal.
-    static func fitBestAvailable(
+    package static func fitBestAvailable(
         pattern: DiffractionPattern,
         centerQX: Double,
         centerQY: Double,
@@ -275,7 +301,7 @@ nonisolated enum EllipseCalibration {
     /// variables instead of unconstrained `(A,B,C)`, then evaluate the exact
     /// canonical model. This is an intentional numerical-stability deviation:
     /// every candidate remains a physical ellipse.
-    static func fitAmorphousRing(
+    package static func fitAmorphousRing(
         pattern: DiffractionPattern,
         initial: EllipseCalibrationFit,
         centerQX: Double,
@@ -285,9 +311,9 @@ nonisolated enum EllipseCalibration {
         maximumResidual: Double = 0.22
     ) throws -> EllipseCalibrationFit {
         struct Sample {
-            let x: Double
-            let y: Double
-            let value: Double
+            package let x: Double
+            package let y: Double
+            package let value: Double
         }
         guard pattern.qy > 2, pattern.qx > 2,
               pattern.pixels.count == pattern.qy * pattern.qx,

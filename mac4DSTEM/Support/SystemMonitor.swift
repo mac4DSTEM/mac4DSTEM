@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import DSTEMCore
 import Metal
 
 enum SystemMonitor {
