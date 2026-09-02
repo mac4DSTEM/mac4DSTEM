@@ -1,5 +1,6 @@
 import Foundation
 import DSTEMCore
+import DSTEMSession
 
 struct SimpleError: LocalizedError {
     let message: String
@@ -31,14 +32,6 @@ enum PatternScaleUnit: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum VirtualShapeMode: String, CaseIterable, Identifiable {
-    case circle = "Circle"
-    case annulus = "Annulus"
-    case rectangle = "Rectangle"
-    case point = "Point"
-
-    var id: String { rawValue }
-}
 
 enum DPCDisplayMode: String, CaseIterable, Identifiable {
     case magnitude = "Magnitude (detector px)"

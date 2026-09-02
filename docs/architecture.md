@@ -8,22 +8,27 @@ sequence of the consolidation is `v2.5-plan.md`.
 ## Layers and the dependency rule
 
 ```text
-SwiftUI views (UI/)          present state, send user intent
-App/ (AppState + seams)      own mutable workflow state, dispatch, publish products
-Core/ (Data, Compute,        pure algorithms, readers, writers, GPU engine —
-      Analysis, Crystal,     no SwiftUI, no AppKit, no AppState
-      Workflow)
-Shaders/, Support/           Metal kernels; export, system monitor, bridging
+SwiftUI views (UI/)          present state, send user intent           app target
+App/ (AppState, PendingLoad, own the window, dispatch, publish         app target
+      ProductWorkflow, …)
+Session/  → DSTEMSession     replay plan/run/record, sidecar location,  package
+                             gates, calibration frame policy, products,
+                             residency, recovery, system monitor —
+                             no SwiftUI, no AppState
+Core/     → DSTEMCore        pure algorithms, readers, writers, GPU     package
+                             engine — no SwiftUI, no AppState, no Session
+Shaders/, Support/           Metal kernels; export, bridging header     app target
 ```
 
-The rule that matters is direction: Core knows nothing above it. Since
-2026-09-03 this is a module boundary, not a convention: `Package.swift`
-builds `Core/` as `DSTEMCore`, the app target depends on that product and
-excludes `Core/` from its own synchronized group, and Core declarations use
-the `package` access level (the app and test targets set
-`SWIFT_PACKAGE_NAME = mac4dstem`). `tools/run-tests.sh core` builds the
-module alone, also in CI. A new Core type must be `package` and, if
-constructed from App, carry an explicit `package init`.
+The rule that matters is direction: each layer knows nothing above it.
+Since 2026-09-03 this is a module boundary, not a convention: `Package.swift`
+builds `Core/` as `DSTEMCore` and `Session/` as `DSTEMSession`; the app
+target depends on both products and excludes those folders from its own
+synchronized group; their declarations use the `package` access level (the
+app and test targets set `SWIFT_PACKAGE_NAME = mac4dstem`).
+`tools/run-tests.sh core` builds the packages alone, also in CI. A new type
+in either package must be `package` and, if constructed from App, carry an
+explicit `package init`.
 
 ## What it does, by subsystem
 
@@ -93,7 +98,8 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 
 | Putting in… | goes under… |
 |---|---|
-| App entry, window and workflow state (`AppState`), seams, recovery, replay | `mac4DSTEM/App/` |
+| App entry, window state (`AppState`), pending load, workspace vocabulary | `mac4DSTEM/App/` |
+| Session state with no UI: replay, sidecars, gates, products, residency, recovery | `mac4DSTEM/Session/` (package `DSTEMSession`) |
 | Readers, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
 | Metal engine, FFTs, multicorr, cancellation | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
@@ -101,7 +107,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |
 | SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
-| Export, system monitor, bridging header | `mac4DSTEM/Support/` |
+| Export, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
 | Standalone parity, diagnostic and packaging harnesses | `tools/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
 | Docs | `docs/` (live set in `CLAUDE.md`); dated or superseded → `docs/archive/` |

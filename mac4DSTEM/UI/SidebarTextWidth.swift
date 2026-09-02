@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 /// S22d, verified live: the sidebar's `.sidebar`-style `List` does not offer
 /// its rows a width, so `fixedSize(horizontal: false, vertical: true)` never

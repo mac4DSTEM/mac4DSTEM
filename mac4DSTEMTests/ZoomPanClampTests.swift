@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// R16 (S22 feedback, 2026-09-01): panning may reveal the image's edge but

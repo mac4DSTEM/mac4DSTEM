@@ -26,20 +26,23 @@ import DSTEMCore
 
 @MainActor
 @Observable
-final class DatasetResidency {
+package final class DatasetResidency {
+
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    package init() {}
 
     /// What was asked for. `.streamed` is the shipped default — `.automatic`
     /// was dropped for v2 (owner decision 2026-08-18; it always streamed, so
     /// behaviour is unchanged). See the `Residency` enum for the return
     /// condition. // v2 S3
-    private(set) var mode: Residency = .streamed
+    package private(set) var mode: Residency = .streamed
 
     /// Whether a cube is actually held. Set only from the array's own answer,
     /// never from what was requested.
-    private(set) var isResident = false
+    package private(set) var isResident = false
 
     /// Bytes held (0 when streaming).
-    private(set) var byteCount = 0
+    package private(set) var byteCount = 0
 
     /// Determinate [0,1] while the preload runs, `nil` otherwise.
     ///
@@ -47,9 +50,9 @@ final class DatasetResidency {
     /// legitimately determinate (invariant I5) — and it is published only once
     /// real work has been reported, so a refused preload never flashes a 0%
     /// bar for a read that is not going to happen.
-    private(set) var preloadFraction: Double?
+    package private(set) var preloadFraction: Double?
 
-    var isPreloading: Bool { preloadFraction != nil }
+    package var isPreloading: Bool { preloadFraction != nil }
 
     /// One line for the Performance panel. The user must be able to tell at a
     /// glance which path their analyses are taking (L2.6).
@@ -58,7 +61,7 @@ final class DatasetResidency {
     /// — too large, refused, not measured — because the reasons are not all
     /// distinguishable here, and a confident wrong explanation is worse than a
     /// bare fact.
-    var summary: String {
+    package var summary: String {
         if isPreloading { return "Loading into memory…" }
         guard isResident else { return "Streaming" }
         return "Resident · \(SystemMonitor.byteString(byteCount))"
@@ -79,7 +82,7 @@ final class DatasetResidency {
 
     /// Forget everything. Called when a dataset is replaced — the incoming
     /// `FourDArray` is a different object with its own (absent) buffer.
-    func reset() {
+    package func reset() {
         generation &+= 1
         activePreload = nil
         mode = .streamed
@@ -88,7 +91,7 @@ final class DatasetResidency {
         preloadFraction = nil
     }
 
-    func request(_ newMode: Residency, on data: FourDArray?) async {
+    package func request(_ newMode: Residency, on data: FourDArray?) async {
         mode = newMode
         guard let data else { return }
         await data.setResidencyRequest(newMode)
@@ -105,7 +108,7 @@ final class DatasetResidency {
     /// `onProgress` receives the measured fraction of scan rows copied, so the
     /// caller can render it in whatever quantities it already uses.
     @discardableResult
-    func preload(
+    package func preload(
         _ data: FourDArray,
         maximumRows: Int? = nil,
         cancellation: AnalysisCancellationToken? = nil,
@@ -168,7 +171,7 @@ final class DatasetResidency {
     }
 
     /// Drop the cube and return to streaming. Safe at any time.
-    func release(_ data: FourDArray?) async {
+    package func release(_ data: FourDArray?) async {
         guard let data else { return }
         await data.releaseResident()
         await sync(with: data)

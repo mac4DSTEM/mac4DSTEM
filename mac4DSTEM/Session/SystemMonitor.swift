@@ -5,12 +5,13 @@
 
 import Foundation
 import DSTEMCore
+import DSTEMSession
 import Metal
 
-enum SystemMonitor {
+package enum SystemMonitor {
 
     /// Resident memory of this process, in MB.
-    static func residentMemoryMB() -> Double {
+    package static func residentMemoryMB() -> Double {
         var info = mach_task_basic_info()
         var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
         let result = withUnsafeMutablePointer(to: &info) { pointer in
@@ -21,15 +22,15 @@ enum SystemMonitor {
         return result == KERN_SUCCESS ? Double(info.resident_size) / 1_048_576 : 0
     }
 
-    static var gpuName: String { MetalEngine.shared.device.name }
+    package static var gpuName: String { MetalEngine.shared.device.name }
 
     /// Recommended max GPU working set, in MB.
-    static var gpuWorkingSetMB: Double {
+    package static var gpuWorkingSetMB: Double {
         Double(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 1_048_576
     }
 
     /// Format a byte count as MB or GB.
-    nonisolated static func byteString(_ bytes: Int) -> String {
+    package nonisolated static func byteString(_ bytes: Int) -> String {
         let mb = Double(bytes) / 1_048_576
         return mb >= 1024 ? String(format: "%.2f GB", mb / 1024) : String(format: "%.0f MB", mb)
     }

@@ -8,6 +8,7 @@
 
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 struct StemImageView: View {
     @Environment(AppState.self) private var app

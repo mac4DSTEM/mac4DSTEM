@@ -12,6 +12,7 @@
 
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 struct DiffractionView: View {
     @Environment(AppState.self) private var app

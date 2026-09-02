@@ -26,7 +26,7 @@
 //  WHY App/ AND NOT Core/. This is parsing, and "parsing lives in Core" is
 //  the letter of the placement rule — but the parser's whole OUTPUT
 //  vocabulary is App workflow state (`VirtualShapeMode`, `Aperture`,
-//  `ACOMRunScope`, `ACOMQualityPreset`, all defined in App/), so a Core
+//  `ACOMRunScope`, `ACOMQualityPreset` — session vocabulary, now DSTEMSession), so a Core
 //  placement would make Core depend on App, inverting the layering the rule
 //  exists to protect. It sits with the types it produces, beside the
 //  `SessionReplay` seam whose record it reads. Raised and weighed at S6's
@@ -36,11 +36,22 @@
 import Foundation
 import DSTEMCore
 
+// Moved here from App/AppState.swift 2026-09-03 (v2.5 step 2c): the recipe
+// vocabulary lives with the recipe.
+package enum VirtualShapeMode: String, CaseIterable, Identifiable {
+    case circle = "Circle"
+    case annulus = "Annulus"
+    case rectangle = "Rectangle"
+    case point = "Point"
+
+    package var id: String { rawValue }
+}
+
 /// Which detector frame a recipe's parameters are expressed in. Tracked live
 /// on `SessionReplay` (session state, never serialized): set when a recipe is
 /// adopted from a sidecar, merged on every live recording, and consulted once
 /// at replay time.
-enum ReplayParameterFrame: Equatable {
+package enum ReplayParameterFrame: Equatable {
     /// No detector crop, bin 1 — detector-frame parameters are already
     /// source-frame numbers. A scan crop alone stays in this case.
     case detectorIdentity
@@ -72,7 +83,7 @@ enum ReplayParameterFrame: Equatable {
     /// differs from it only by the bin-edge trim, which comes off the END of
     /// each axis (`LoadView`) — so the OFFSETS, the only part positions
     /// need, are identical. // v2 S10
-    static func of(_ specification: LoadSpecification?) -> ReplayParameterFrame {
+    package static func of(_ specification: LoadSpecification?) -> ReplayParameterFrame {
         guard let spec = specification,
               spec.detectorCrop != nil || spec.detectorBin > 1 else {
             return .detectorIdentity
@@ -80,7 +91,7 @@ enum ReplayParameterFrame: Equatable {
         return .detectorReduced(bin: spec.detectorBin, crop: spec.detectorCrop)
     }
 
-    func merging(_ other: ReplayParameterFrame) -> ReplayParameterFrame {
+    package func merging(_ other: ReplayParameterFrame) -> ReplayParameterFrame {
         self == other ? self : .mixed
     }
 
@@ -88,7 +99,7 @@ enum ReplayParameterFrame: Equatable {
     /// Nil when they can run as-is (`.detectorIdentity`) or be re-referenced
     /// (`.detectorReduced` — whose refusals are per-parameter, from the
     /// mapper, not wholesale). // v2 S10
-    var refusalReason: String? {
+    package var refusalReason: String? {
         switch self {
         case .detectorIdentity, .detectorReduced:
             return nil
@@ -102,7 +113,7 @@ enum ReplayParameterFrame: Equatable {
     /// The transform that re-expresses this frame's recorded numbers in the
     /// SOURCE detector frame — nil when none is needed (identity) or none
     /// exists (`.mixed`/`.unknown`, which refuse instead). // v2 S10
-    var sourceTransform: ReplayFrameTransform? {
+    package var sourceTransform: ReplayFrameTransform? {
         guard case .detectorReduced(let bin, let crop) = self,
               bin > 1 || crop != nil else { return nil }
         return .viewToSource(bin: bin,
@@ -114,7 +125,7 @@ enum ReplayParameterFrame: Equatable {
     /// replay is never a silent substitution: the numbers the entry points
     /// receive are exact re-expressions of the rehearsal's, and the carrier
     /// says so. Nil when nothing was re-referenced. // v2 S10
-    var reReferenceDescription: String? {
+    package var reReferenceDescription: String? {
         guard case .detectorReduced(let bin, let crop) = self,
               bin > 1 || crop != nil else { return nil }
         let what = switch (crop != nil, bin > 1) {
@@ -132,7 +143,7 @@ enum ReplayParameterFrame: Equatable {
 /// exported file's own frame) share one role table — two tables is how they
 /// drift. The coordinate primitives are `CalibrationReReference`'s, so the
 /// forward and inverse maps cannot disagree about the half-pixel. // v2 S10
-enum ReplayFrameTransform: Equatable {
+package enum ReplayFrameTransform: Equatable {
     /// Undo the load-time reduction. `CalibrationReReference.apply` shifts by
     /// the crop offset THEN bins, so the inverse un-bins then shifts back.
     case viewToSource(bin: Int, xOffset: Int, yOffset: Int)
@@ -142,7 +153,7 @@ enum ReplayFrameTransform: Equatable {
 
     /// A POSITION moves with the frame: un-bin about the pixel grid, then the
     /// crop offset comes back (or forward: bin about the grid).
-    func positionX(_ value: Float) -> Float {
+    package func positionX(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, let xOffset, _):
             CalibrationReReference.sourceCoordinate(value, bin: bin) + Float(xOffset)
@@ -151,7 +162,7 @@ enum ReplayFrameTransform: Equatable {
         }
     }
 
-    func positionY(_ value: Float) -> Float {
+    package func positionY(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, _, let yOffset):
             CalibrationReReference.sourceCoordinate(value, bin: bin) + Float(yOffset)
@@ -162,7 +173,7 @@ enum ReplayFrameTransform: Equatable {
 
     /// A LENGTH or DISPLACEMENT (a radius, a smoothing sigma, a g-vector
     /// component) scales with the pixel size and ignores the crop.
-    func length(_ value: Float) -> Float {
+    package func length(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, _, _): value * Float(bin)
         case .viewToExport(let bin): value / Float(bin)
@@ -171,7 +182,7 @@ enum ReplayFrameTransform: Equatable {
 
     /// A PER-PIXEL SAMPLING INTERVAL (Å⁻¹ per detector pixel) goes the other
     /// way from a length: fewer, bigger pixels each span more.
-    func perPixelScale(_ value: Double) -> Double {
+    package func perPixelScale(_ value: Double) -> Double {
         switch self {
         case .viewToSource(let bin, _, _): value / Double(bin)
         case .viewToExport(let bin): value * Double(bin)
@@ -181,7 +192,7 @@ enum ReplayFrameTransform: Equatable {
     /// An integer length maps only when the result is exact: ×bin always is,
     /// ÷bin only when divisible. Nil is "no exact value exists", which the
     /// mapper turns into a named refusal rather than a rounding.
-    func lengthInt(_ value: Int) -> Int? {
+    package func lengthInt(_ value: Int) -> Int? {
         switch self {
         case .viewToSource(let bin, _, _): value * bin
         case .viewToExport(let bin): value.isMultiple(of: bin) ? value / bin : nil
@@ -195,9 +206,9 @@ enum ReplayFrameTransform: Equatable {
 /// sites, never lead them. A key neither classified here nor written by them
 /// REFUSES rather than passing through: an unclassified number carried across
 /// frames is a fabrication waiting for a reader. // v2 S10
-enum ReplayRecordFrameMap {
+package enum ReplayRecordFrameMap {
 
-    enum Role {
+    package enum Role {
         case invariant
         case positionX, positionY
         case length
@@ -212,7 +223,7 @@ enum ReplayRecordFrameMap {
     }
 
     /// Every key the S5 recording sites write, by kind. `nil` = unknown key.
-    static func role(kind: String, key: String) -> Role? {
+    package static func role(kind: String, key: String) -> Role? {
         switch kind {
         case "virtual_detector":
             switch key {
@@ -261,7 +272,7 @@ enum ReplayRecordFrameMap {
 
     /// Map one step. Total and explicit, like the parser: every value that
     /// cannot be re-expressed EXACTLY becomes a refusal naming the key.
-    static func map(_ step: SessionReplayRecord.Step,
+    package static func map(_ step: SessionReplayRecord.Step,
                     through transform: ReplayFrameTransform)
         -> Result<SessionReplayRecord.Step, ReplayRefusal> {
         var mapped = step.parameters
@@ -313,7 +324,7 @@ enum ReplayRecordFrameMap {
     /// a coherent pipeline or nothing (the S5 rule), so ONE unmappable step
     /// drops the whole record — with the reason, so the export summary can
     /// say what was left out and why instead of the recipe silently missing.
-    static func mapForExport(_ record: SessionReplayRecord, exportBin: Int)
+    package static func mapForExport(_ record: SessionReplayRecord, exportBin: Int)
         -> Result<SessionReplayRecord, ReplayRefusal> {
         guard exportBin > 1 else { return .success(record) }
         var steps: [SessionReplayRecord.Step] = []
@@ -338,14 +349,19 @@ enum ReplayRecordFrameMap {
 
 /// A step the replay cannot run, with the reason a person can act on.
 /// `Error` only because `Result` requires it — a refusal is never thrown.
-struct ReplayRefusal: Equatable, Error {
-    let reason: String
+package struct ReplayRefusal: Equatable, Error {
+    package let reason: String
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(reason: String) {
+        self.reason = reason
+    }
 }
 
 /// One recorded step, parsed back into the typed values its entry point takes.
 /// Parsing is total and explicit: every missing, malformed or out-of-vocabulary
 /// value becomes a `ReplayRefusal` naming the key — never a default.
-enum ReplayStepPlan: Equatable {
+package enum ReplayStepPlan: Equatable {
     case virtualDetector(shape: VirtualShapeMode, aperture: Aperture)
     /// `wantsFittedOrigin` mirrors the recorded `origin_reference`: replay must
     /// run against the same origin class or refuse — silently substituting the
@@ -355,46 +371,67 @@ enum ReplayStepPlan: Equatable {
     case strain(StrainReplayPlan)
     case acom(ACOMReplayPlan)
 
-    struct StrainReplayPlan: Equatable {
+    package struct StrainReplayPlan: Equatable {
         /// Manual g-vectors when the recorded basis was manual; nil replays the
         /// automatic (consensus) basis, which re-derives on the full data —
         /// the recorded resolved_g values are informational for that mode
         /// (the fidelity decision S5 left to S6).
-        var manualBasis: ManualBasis?
-        struct ManualBasis: Equatable {
-            var g1x: Float, g1y: Float, g2x: Float, g2y: Float
+        package var manualBasis: ManualBasis?
+        package struct ManualBasis: Equatable {
+            package var g1x: Float, g1y: Float, g2x: Float, g2y: Float
+
+            // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+            package init(g1x: Float, g1y: Float, g2x: Float, g2y: Float) {
+                self.g1x = g1x
+                self.g1y = g1y
+                self.g2x = g2x
+                self.g2y = g2y
+            }
+        }
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(manualBasis: ManualBasis? = nil) {
+            self.manualBasis = manualBasis
         }
     }
 
-    struct ACOMReplayPlan: Equatable {
-        var materialID: String
+    package struct ACOMReplayPlan: Equatable {
+        package var materialID: String
         /// Lattice constant (Å) the custom-cubic model was rehearsed with. The
         /// custom id encodes structure and Z but not a₀, so without this a
         /// restored session whose `a` field drifted replayed a different
         /// crystal under the same id (Gate D 2026-09-02). nil for library and
         /// imported ids, and for records that predate the key.
-        var latticeA: Double? = nil
+        package var latticeA: Double? = nil
         /// The scale the run matched at, in Å⁻¹ per detector pixel. Replay
         /// verifies the session's scale semantics agree before running —
         /// matching at a different scale gets every orientation wrong with no
         /// shape check to catch it (the Gate B-lite F3 lesson).
-        var scaleInvAngstromPerPixel: Double
-        var scope: ACOMRunScope
-        var quality: ACOMQualityPreset
+        package var scaleInvAngstromPerPixel: Double
+        package var scope: ACOMRunScope
+        package var quality: ACOMQualityPreset
 
         /// What the session holds that a recorded material id can resolve
         /// against. Library models are global and need no field.
-        struct SessionMaterials {
-            var importedIDs: Set<String>
-            var customStructure: Crystal.CubicStructure
-            var customLatticeA: Double
-            var customZ: Int
+        package struct SessionMaterials {
+            package var importedIDs: Set<String>
+            package var customStructure: Crystal.CubicStructure
+            package var customLatticeA: Double
+            package var customZ: Int
+
+            // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+            package init(importedIDs: Set<String>, customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
+                self.importedIDs = importedIDs
+                self.customStructure = customStructure
+                self.customLatticeA = customLatticeA
+                self.customZ = customZ
+            }
         }
 
         /// The parameters the record site writes — built here so the write
         /// path is pinned by the same tests that pin the parser. `lattice_a`
         /// comes from the model that ran, not from the selection.
-        static func recordedParameters(model: CrystalModel, scale: Double, backend: String,
+        package static func recordedParameters(model: CrystalModel, scale: Double, backend: String,
                                        scope: ACOMRunScope, quality: ACOMQualityPreset) -> [String: String] {
             var p = [
                 "material": model.id,
@@ -407,7 +444,7 @@ enum ReplayStepPlan: Equatable {
             return p
         }
 
-        enum MaterialResolution: Equatable {
+        package enum MaterialResolution: Equatable {
             case library(String)
             case imported(String)
             case customCubic
@@ -420,7 +457,7 @@ enum ReplayStepPlan: Equatable {
         /// first, then the session's imports, then the session's custom-cubic
         /// fields when they produce exactly the recorded id AND the recorded
         /// lattice constant. Pure so the arm is testable without running ACOM.
-        func resolveMaterial(in session: SessionMaterials) -> MaterialResolution {
+        package func resolveMaterial(in session: SessionMaterials) -> MaterialResolution {
             if CrystalModelLibrary.model(id: materialID) != nil { return .library(materialID) }
             if session.importedIDs.contains(materialID) { return .imported(materialID) }
             let custom = CrystalModelLibrary.customCubic(
@@ -439,6 +476,15 @@ enum ReplayStepPlan: Equatable {
             }
             return .customCubic
         }
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(materialID: String, latticeA: Double? = nil, scaleInvAngstromPerPixel: Double, scope: ACOMRunScope, quality: ACOMQualityPreset) {
+            self.materialID = materialID
+            self.latticeA = latticeA
+            self.scaleInvAngstromPerPixel = scaleInvAngstromPerPixel
+            self.scope = scope
+            self.quality = quality
+        }
     }
 
     /// Whether this step consumes recorded numbers denominated in detector
@@ -446,7 +492,7 @@ enum ReplayStepPlan: Equatable {
     /// frame rule gates. Automatic-basis strain replays modes only, so it is
     /// deliberately not gated; its detector-frame inputs are the freshly
     /// replayed disk detection's, not recorded numbers.
-    var usesDetectorFrameParameters: Bool {
+    package var usesDetectorFrameParameters: Bool {
         switch self {
         case .virtualDetector, .diskDetection, .acom: true
         case .dpc: false
@@ -456,16 +502,23 @@ enum ReplayStepPlan: Equatable {
 }
 
 /// A record step with its parse outcome and display title, in pipeline order.
-struct PlannedReplayStep: Equatable {
-    let kind: String
-    let title: String
-    let result: Result<ReplayStepPlan, ReplayRefusal>
+package struct PlannedReplayStep: Equatable {
+    package let kind: String
+    package let title: String
+    package let result: Result<ReplayStepPlan, ReplayRefusal>
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(kind: String, title: String, result: Result<ReplayStepPlan, ReplayRefusal>) {
+        self.kind = kind
+        self.title = title
+        self.result = result
+    }
 }
 
-enum ReplayPlanner {
+package enum ReplayPlanner {
 
     /// Titles for the summary and progress UI, by recorded kind.
-    static func title(forKind kind: String) -> String {
+    package static func title(forKind kind: String) -> String {
         switch kind {
         case "virtual_detector": "Virtual detector"
         case "dpc": "DPC"
@@ -484,7 +537,7 @@ enum ReplayPlanner {
     /// every consequence of the plan is pure and computable BEFORE the
     /// expensive reopen, and the executor and the promote caption must read
     /// the same verdict (Gate A findings E1/B5, 2026-08-25).
-    static func plan(_ record: SessionReplayRecord,
+    package static func plan(_ record: SessionReplayRecord,
                      frame: ReplayParameterFrame) -> [PlannedReplayStep] {
         let transform = frame.sourceTransform
         var sawDiskDetection = false
@@ -537,7 +590,7 @@ enum ReplayPlanner {
     /// Parse one step. The keys and vocabularies are exactly what the S5
     /// recording sites write (`AppState.recordReplayStep` call sites) — this
     /// function must follow those sites, never lead them.
-    static func parse(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
+    package static func parse(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
         let p = step.parameters
         switch step.kind {
         case "virtual_detector":

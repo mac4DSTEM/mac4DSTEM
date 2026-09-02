@@ -43,11 +43,11 @@ package actor DM4Reader: FourDDataSource {
     private var ry = 0, rx = 0, qy = 0, qx = 0
 
     // Best-effort calibration.
-    private(set) var voltage: Double?
-    private(set) var qPixelSize: Double?
-    private(set) var qPixelUnits: String?
-    private(set) var rPixelSize: Double?
-    private(set) var rPixelUnits: String?
+    package private(set) var voltage: Double?
+    package private(set) var qPixelSize: Double?
+    package private(set) var qPixelUnits: String?
+    package private(set) var rPixelSize: Double?
+    package private(set) var rPixelUnits: String?
 
     // Async so the init is actor-isolated and may call parse(), which
     // mutates actor state; a synchronous actor init is nonisolated and
@@ -499,7 +499,7 @@ private nonisolated struct ByteReader {
     package let data: Data
     package var offset = 0
     /// True once any read went past the end of the buffer.
-    private(set) var overran = false
+    package private(set) var overran = false
 
     package init(_ data: Data) { self.data = data }
 

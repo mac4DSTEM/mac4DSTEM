@@ -120,7 +120,7 @@ package actor FourDArray {
     /// `.automatic` was dropped for v2 (owner decision 2026-08-18); see the
     /// `Residency` enum. Holding a cube takes an explicit `.resident`
     /// request. // v2 S3
-    private(set) var residencyRequest: Residency = .streamed
+    package private(set) var residencyRequest: Residency = .streamed
 
     /// Which view of the source this array reads. `.fullExtent` unless this
     /// array was built from a cropped `LoadView`.
@@ -194,7 +194,7 @@ package actor FourDArray {
     ///
     /// CPU-side consumers (parallax preprocessing, ptychography preparation,
     /// the EMD writer) legitimately still copy and still increment it.
-    private(set) var residentTileCopies = 0
+    package private(set) var residentTileCopies = 0
 
     /// Bumped by anything that invalidates an in-flight preload. A preload
     /// captures it, re-checks after every suspension, and refuses to publish a

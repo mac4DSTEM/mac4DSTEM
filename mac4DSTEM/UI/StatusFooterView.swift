@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 /// D2 (owner decision, 2026-09-01): the permanent status footer. The owner's
 /// words — the strip "shows the progress of a process, useful, but … there

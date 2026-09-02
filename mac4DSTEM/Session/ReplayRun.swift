@@ -21,9 +21,9 @@ import Foundation
 import DSTEMCore
 
 @Observable
-final class ReplayRun {
+package final class ReplayRun {
 
-    enum Outcome: Equatable {
+    package enum Outcome: Equatable {
         /// Step not started yet (or never reached, if the run halted earlier).
         case notReached
         /// Currently executing.
@@ -42,7 +42,7 @@ final class ReplayRun {
 
         /// A terminal outcome the run halted on (anything but not-reached,
         /// running, or success).
-        var halted: Bool {
+        package var halted: Bool {
             switch self {
             case .failed, .cancelled, .refused: true
             case .notReached, .running, .succeeded: false
@@ -50,14 +50,21 @@ final class ReplayRun {
         }
     }
 
-    struct StepReport: Identifiable, Equatable {
-        let index: Int
-        let title: String
-        var outcome: Outcome = .notReached
-        var id: Int { index }
+    package struct StepReport: Identifiable, Equatable {
+        package let index: Int
+        package let title: String
+        package var outcome: Outcome = .notReached
+        package var id: Int { index }
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(index: Int, title: String, outcome: Outcome = .notReached) {
+            self.index = index
+            self.title = title
+            self.outcome = outcome
+        }
     }
 
-    enum Phase: Equatable {
+    package enum Phase: Equatable {
         case idle
         case running
         case finished
@@ -65,32 +72,32 @@ final class ReplayRun {
 
     /// Derived from the timestamps, so the phase and the dates the summary
     /// renders can never disagree (Gate A simplification, 2026-08-25).
-    var phase: Phase {
+    package var phase: Phase {
         if startedAt == nil { return .idle }
         return endedAt == nil ? .running : .finished
     }
 
-    private(set) var steps: [StepReport] = []
-    private(set) var startedAt: Date?
-    private(set) var endedAt: Date?
+    package private(set) var steps: [StepReport] = []
+    package private(set) var startedAt: Date?
+    package private(set) var endedAt: Date?
     /// Nil when the run replayed every step; otherwise why it stopped where it
     /// did. A halted run is a completed record of an incomplete replay — the
     /// steps after the halt stay `.notReached` rather than being guessed at.
-    private(set) var haltReason: String?
+    package private(set) var haltReason: String?
     /// One sentence when the recipe's detector-pixel parameters were
     /// re-referenced from the rehearsal frame (v2 S10) — the morning summary
     /// must say it, not only the pre-click caption: a re-expressed replay is
     /// exact, but a reader diffing the recipe's numbers against the results'
     /// provenance needs the one line that explains why they differ.
-    private(set) var frameNote: String?
+    package private(set) var frameNote: String?
 
-    var isRunning: Bool { phase == .running }
+    package var isRunning: Bool { phase == .running }
 
     private let beginKeepAwake: () -> NSObjectProtocol?
     private let endKeepAwake: (NSObjectProtocol) -> Void
     @ObservationIgnored private var keepAwakeToken: NSObjectProtocol?
 
-    init(
+    package init(
         beginKeepAwake: @escaping () -> NSObjectProtocol? = {
             ProcessInfo.processInfo.beginActivity(
                 options: [.userInitiated, .idleSystemSleepDisabled],
@@ -113,7 +120,7 @@ final class ReplayRun {
     /// full-extent reopen, so the assertion covers the longest unattended
     /// phase, not just the analyses (findings B1/C1).
     @discardableResult
-    func begin(titles: [String], frameNote: String? = nil, at date: Date = Date()) -> Bool {
+    package func begin(titles: [String], frameNote: String? = nil, at date: Date = Date()) -> Bool {
         guard phase != .running else { return false }
         steps = titles.enumerated().map { StepReport(index: $0.offset, title: $0.element) }
         startedAt = date
@@ -124,12 +131,12 @@ final class ReplayRun {
         return true
     }
 
-    func willRun(step index: Int) {
+    package func willRun(step index: Int) {
         guard phase == .running, steps.indices.contains(index) else { return }
         steps[index].outcome = .running
     }
 
-    func conclude(step index: Int, outcome: Outcome) {
+    package func conclude(step index: Int, outcome: Outcome) {
         guard phase == .running, steps.indices.contains(index) else { return }
         steps[index].outcome = outcome
     }
@@ -137,7 +144,7 @@ final class ReplayRun {
     /// End the run — the one exit. Releases the keep-awake assertion whatever
     /// the outcome; a step still marked `.running` (the executor halted around
     /// it) is folded into the halt rather than left claiming to run forever.
-    func finish(haltReason: String?, at date: Date = Date()) {
+    package func finish(haltReason: String?, at date: Date = Date()) {
         guard phase == .running else { return }
         for index in steps.indices where steps[index].outcome == .running {
             steps[index].outcome = .failed(reason: haltReason ?? "the run ended while this step was executing")
@@ -155,7 +162,7 @@ final class ReplayRun {
     /// RUNNING run is never cleared here — the executor observes the epoch
     /// change and halts through `finish`, which keeps the keep-awake balance
     /// in one place.
-    func clearUnlessRunning() {
+    package func clearUnlessRunning() {
         guard phase != .running else { return }
         steps = []
         startedAt = nil
@@ -174,7 +181,7 @@ final class ReplayRun {
     /// between-steps halt (dataset changed before the next step began) says
     /// "after N of M" instead, so the headline can never contradict a step
     /// row that shows ✓ (Gate A findings A1/B6, 2026-08-25).
-    var summaryHeadline: String? {
+    package var summaryHeadline: String? {
         guard phase == .finished else { return nil }
         let window = [startedAt, endedAt]
             .compactMap { $0 }

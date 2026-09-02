@@ -1,5 +1,6 @@
 import CoreGraphics
 import DSTEMCore
+import DSTEMSession
 
 /// Who owns a plain drag in the real-space pane (backlog #35).
 ///

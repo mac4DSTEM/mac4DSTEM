@@ -11,6 +11,7 @@
 
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// A 4D source whose tile reads fail from a given scan row on — the shape of

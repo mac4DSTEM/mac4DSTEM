@@ -17,7 +17,7 @@ Numbers are quoted only from retained, dated runs.
 |---|---|---|
 | 0 | Gate D on the crystal-replay log; tag v2.0.0 | **done 2026-09-02** (`96065a2`, `1c00c98`) |
 | 1 | Delete retired UI target; archive v2 chronology; live doc set; inventory in CI | **done 2026-09-02** (this commit) |
-| 2 | Package split: `DSTEMCore`, `DSTEMSession`, app | **2a done 2026-09-02**: `Package.swift` builds `Core/` as `DSTEMCore`; the two upward refs moved into Core. **2b done 2026-09-03**: the app target depends on the package and no longer compiles `Core/` itself (synchronized-group exceptions); Core declarations are `package` access with generated `package init`s; `SWIFT_PACKAGE_NAME = mac4dstem` on app and test targets; harness compilers pass `-package-name`. **2c next**: `DSTEMSession` target from the `App/` session types that import no SwiftUI |
+| 2 | Package split: `DSTEMCore`, `DSTEMSession`, app | **2a done 2026-09-02**: `Package.swift` builds `Core/` as `DSTEMCore`; the two upward refs moved into Core. **2b done 2026-09-03**: the app target depends on the package and no longer compiles `Core/` itself (synchronized-group exceptions); Core declarations are `package` access with generated `package init`s; `SWIFT_PACKAGE_NAME = mac4dstem` on app and test targets; harness compilers pass `-package-name`. **2c done 2026-09-03**: `mac4DSTEM/Session/` (14 files: replay plan/run/record, sidecar locator, gates, calibration frame policy, strain product, Q-calibration run, ACOM workflow, residency, loaded view, recovery, recents, system monitor) is the `DSTEMSession` target; `VirtualShapeMode` moved out of `AppState.swift`. Left in `App/`: `AppState`, `PendingLoad` (touches a UI view), `ProductWorkflow` + `WorkspaceNavigation` (need `AnalysisMode`, SwiftUI). **Step 2 complete.** |
 | 3 | `ScientificProduct`, `ProductPresentation`, `ProductStore`; migrate virtual imaging | |
 | 4 | `CalibrationSession` with task-aware readiness | |
 | 5 | `OperationCenter` + task registry; live and replay on one path | |
@@ -29,7 +29,7 @@ Numbers are quoted only from retained, dated runs.
 
 | Gate | Result | Date, tree |
 |---|---|---|
-| `run-tests.sh unit` | 439 passed / 0 failed / 2 skipped, exit 0 | 2026-09-03, step 2b tree (retained log) |
+| `run-tests.sh unit` | 437 passed / 1 failed / 3 skipped — the failure is the S17 sidebar intermittent (2 of 5 runs on this tree, see `open-items.md`); the extra skip is `TB1StallProbeTests` whose staged WS₂ fixture was absent | 2026-09-03, step 2c tree (retained log) |
 | `run-tests.sh scientific` | 42 of 42 harnesses, exit 0 | 2026-09-02, FFT tree `21f3990` |
 | `run-tests.sh all` | green end to end, 44 harnesses | 2026-09-01, DPC-closeout tree; not re-run since |
 | `run-tests.sh inventory` | exit 0 | 2026-09-02 |
@@ -37,17 +37,15 @@ Numbers are quoted only from retained, dated runs.
 
 ## Handoff (for the next agent, written 2026-09-02 night)
 
-- **Step 2c.** `DSTEMSession` (calibration state, products, recipes and
-  replay, operation lifecycle) from the `App/` types that import no SwiftUI.
-  Same mechanics as 2b: a package target, `package` access, generated
-  inits, synchronized-group exceptions for the moved files. Traps learned in
-  2b: Xcode compiles a local package with `-package-name` = the package
+- **Step 2 is complete.** Traps learned, still binding for anything that
+  moves into a package: Xcode compiles a local package with `-package-name` = the package
   directory name lowercased (`mac4dstem`), not the manifest name; a
   `package` struct's memberwise and default inits are internal, so every
   struct constructed outside the module needs an explicit `package init`;
   the harnesses compile Core sources standalone and need `-package-name` too.
-- New Core types must be declared `package` (or `public`) or the app cannot
-  see them; a `struct` needs an explicit `package init` if App constructs it.
+- New Core/Session types must be declared `package` or the app cannot see
+  them; a `struct` or class constructed from App needs an explicit
+  `package init`; `private(set)` members need `package private(set)`.
 - **Step 3.** Pre-registered in `docs/v2.5-plan.md` §9 (the virtual-imaging
   product path, invariants, negative-control tests to write first). Needs
   the owner's decision on sidecar read/write compatibility (plan §8.1).

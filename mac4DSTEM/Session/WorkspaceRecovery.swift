@@ -1,11 +1,19 @@
 import Foundation
 import DSTEMCore
 
-nonisolated struct RecentDataset: Codable, Identifiable, Hashable {
-    let id: String
-    var displayName: String
-    var bookmark: Data
-    var lastOpened: Date
+package nonisolated struct RecentDataset: Codable, Identifiable, Hashable {
+    package let id: String
+    package var displayName: String
+    package var bookmark: Data
+    package var lastOpened: Date
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(id: String, displayName: String, bookmark: Data, lastOpened: Date) {
+        self.id = id
+        self.displayName = displayName
+        self.bookmark = bookmark
+        self.lastOpened = lastOpened
+    }
 }
 
 /// Where a recent dataset lives, said only as precisely as it needs to be said.
@@ -24,7 +32,7 @@ nonisolated struct RecentDataset: Codable, Identifiable, Hashable {
 /// `00_inbox/4DSTEM_Binned_Cubes`, so the parent is identical and only the
 /// volume differs. The rule below is therefore "volume, plus as much of the
 /// directory chain as it takes to tell these particular entries apart".
-nonisolated enum RecentDatasetLocation {
+package nonisolated enum RecentDatasetLocation {
 
     /// A label per path, in the same order, each the shortest form that
     /// distinguishes it from every other entry sharing its file name.
@@ -35,7 +43,7 @@ nonisolated enum RecentDatasetLocation {
     /// there would stall the first screen of the app. It also means this cannot
     /// claim a volume is "on the network", which would need a real query; the
     /// volume NAME is shown and the reader draws their own conclusion.
-    static func labels(for paths: [String]) -> [String] {
+    package static func labels(for paths: [String]) -> [String] {
         let names = paths.map { fileName(of: $0) }
         return paths.enumerated().map { index, path in
             let siblings = paths.enumerated()
@@ -46,7 +54,7 @@ nonisolated enum RecentDatasetLocation {
     }
 
     /// The shortest label for `path` that no entry in `others` shares.
-    static func label(for path: String, distinguishedFrom others: [String]) -> String {
+    package static func label(for path: String, distinguishedFrom others: [String]) -> String {
         let candidates = candidateLabels(for: path)
         guard !others.isEmpty else { return candidates.first ?? volumeName(of: path) }
         let otherCandidates = others.map(candidateLabels(for:))
@@ -79,7 +87,7 @@ nonisolated enum RecentDatasetLocation {
 
     /// The volume a path sits on, by name. Paths outside `/Volumes` are on the
     /// startup disk, which is worth naming as such rather than leaving blank.
-    static func volumeName(of path: String) -> String {
+    package static func volumeName(of path: String) -> String {
         let parts = path.split(separator: "/", omittingEmptySubsequences: true)
         if parts.count >= 2, parts[0] == "Volumes" { return String(parts[1]) }
         return "This Mac"
@@ -98,13 +106,13 @@ nonisolated enum RecentDatasetLocation {
     }
 }
 
-nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
-    var datasetID: String
-    var bookmark: Data
-    var selectedX: Int
-    var selectedY: Int
-    var analysisMode: String
-    var updated: Date
+package nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
+    package var datasetID: String
+    package var bookmark: Data
+    package var selectedX: Int
+    package var selectedY: Int
+    package var analysisMode: String
+    package var updated: Date
     /// The load specification whose FRAME `selectedX/Y` are expressed in.
     /// A position is only meaningful in the view it was selected in: after a
     /// promote the coordinates are full-extent, after a sidecar restore the
@@ -113,7 +121,7 @@ nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
     /// carried finding, fixed v2 S5). Nil = written by an older build, frame
     /// unknown — the restore applies the position only if it fits, and drops
     /// it otherwise. Optional so old persisted records still decode.
-    var loadSpecification: LoadSpecification? = nil
+    package var loadSpecification: LoadSpecification? = nil
 
     /// The recorded position, applied only when it is honest in the view
     /// being restored: the same SCAN frame (when the record knows its frame)
@@ -126,7 +134,7 @@ nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
     /// frame, and a detector crop or bin moves no scan index — a whole-spec
     /// comparison dropped honest positions on detector-only changes
     /// (Gate B-lite F13). Pure, so the tests can pin every branch. // v2 S5
-    nonisolated func position(
+    package nonisolated func position(
         inViewWith specification: LoadSpecification, rx: Int, ry: Int
     ) -> (x: Int, y: Int)? {
         if let frame = loadSpecification, frame.scanCrop != specification.scanCrop {
@@ -136,28 +144,39 @@ nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
               (0..<rx).contains(selectedX), (0..<ry).contains(selectedY) else { return nil }
         return (selectedX, selectedY)
     }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(datasetID: String, bookmark: Data, selectedX: Int, selectedY: Int, analysisMode: String, updated: Date, loadSpecification: LoadSpecification? = nil) {
+        self.datasetID = datasetID
+        self.bookmark = bookmark
+        self.selectedX = selectedX
+        self.selectedY = selectedY
+        self.analysisMode = analysisMode
+        self.updated = updated
+        self.loadSpecification = loadSpecification
+    }
 }
 
 /// Small UserDefaults-backed index only. Scientific results and large arrays
 /// remain in the source/session sidecar; this stores security-scoped bookmarks
 /// and enough UI position to recover a window after relaunch.
-nonisolated enum WorkspaceRecoveryStore {
+package nonisolated enum WorkspaceRecoveryStore {
     private static let recentKey = "workspace.recent-datasets.v1"
     private static let recoveryKey = "workspace.last-dataset.v1"
 
-    static func recent() -> [RecentDataset] { decode([RecentDataset].self, key: recentKey) ?? [] }
-    static func recovery() -> DatasetRecoveryRecord? { decode(DatasetRecoveryRecord.self, key: recoveryKey) }
+    package static func recent() -> [RecentDataset] { decode([RecentDataset].self, key: recentKey) ?? [] }
+    package static func recovery() -> DatasetRecoveryRecord? { decode(DatasetRecoveryRecord.self, key: recoveryKey) }
 
-    static func saveRecent(_ entries: [RecentDataset]) { encode(entries, key: recentKey) }
-    static func saveRecovery(_ record: DatasetRecoveryRecord) { encode(record, key: recoveryKey) }
-    static func clearRecovery() { UserDefaults.standard.removeObject(forKey: recoveryKey) }
+    package static func saveRecent(_ entries: [RecentDataset]) { encode(entries, key: recentKey) }
+    package static func saveRecovery(_ record: DatasetRecoveryRecord) { encode(record, key: recoveryKey) }
+    package static func clearRecovery() { UserDefaults.standard.removeObject(forKey: recoveryKey) }
 
-    static func bookmark(for url: URL) throws -> Data {
+    package static func bookmark(for url: URL) throws -> Data {
         try url.bookmarkData(options: [.withSecurityScope],
                              includingResourceValuesForKeys: [.nameKey], relativeTo: nil)
     }
 
-    static func resolve(_ bookmark: Data) throws -> (url: URL, stale: Bool) {
+    package static func resolve(_ bookmark: Data) throws -> (url: URL, stale: Bool) {
         var stale = false
         // `.withoutMounting` is load-bearing (Gate D, 2026-08-25): resolving
         // a bookmark whose volume is an unreachable network share otherwise
@@ -187,7 +206,7 @@ nonisolated enum WorkspaceRecoveryStore {
     /// state on a merely-unplugged NAS (2026-08-25): a recents row deleted
     /// with its volume label, and a chosen sidecar grant silently forgotten,
     /// which re-arms the silent-full-extent reopen through a new trigger.
-    static func unmountedVolumeName(forBookmark bookmark: Data) -> String? {
+    package static func unmountedVolumeName(forBookmark bookmark: Data) -> String? {
         guard let path = URL.resourceValues(
                 forKeys: [.pathKey], fromBookmarkData: bookmark
               )?.path,

@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// S22e backlog-polish pins: the comparison hover's inverse letterbox/zoom

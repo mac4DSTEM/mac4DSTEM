@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 /// D3 (owner decision, 2026-09-01: "colorbar click"): colormap choice lives
 /// ON the colorbar chip in each pane — click the gradient you are already

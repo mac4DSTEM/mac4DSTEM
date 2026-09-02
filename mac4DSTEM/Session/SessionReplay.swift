@@ -15,24 +15,27 @@ import Foundation
 import DSTEMCore
 
 @Observable
-final class SessionReplay {
+package final class SessionReplay {
+
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    package init() {}
 
     /// The recipe as currently known. Starts empty; `adopt` replaces it with
     /// a restored record; analyses append/update through `record(kind:...)`.
-    private(set) var record = SessionReplayRecord()
+    package private(set) var record = SessionReplayRecord()
 
     /// Which detector frame the record's parameters are expressed in — session
     /// state, never serialized (the sidecar's load specification carries the
     /// frame for a restored recipe; this tracks it once adopted, and merges to
     /// `.mixed` if steps are later recorded under a different one). Nil while
     /// the record is empty. Consulted once, by S6's replay executor. // v2 S6
-    private(set) var parameterFrame: ReplayParameterFrame?
+    package private(set) var parameterFrame: ReplayParameterFrame?
 
     /// What a save should carry. **Nil when empty** — writing an empty record
     /// would erase whatever recipe the file already carries (the writer
     /// preserves the existing record when handed nil), and an empty record
     /// asserts nothing worth asserting.
-    var recordForSaving: SessionReplayRecord? {
+    package var recordForSaving: SessionReplayRecord? {
         record.isEmpty ? nil : record
     }
 
@@ -40,7 +43,7 @@ final class SessionReplay {
     /// appends; a re-run updates in place; `invalidating` names downstream
     /// kinds whose recorded steps were built on the state this run replaces
     /// (`SessionReplayRecord.record`).
-    func record(kind: String, parameters: [String: String],
+    package func record(kind: String, parameters: [String: String],
                 invalidating downstream: [String] = [],
                 under frame: ReplayParameterFrame) {
         let wasEmpty = record.isEmpty
@@ -59,14 +62,14 @@ final class SessionReplay {
     /// absence is absence. `recordedOn` is the frame the restored record's
     /// parameters are expressed in — the sidecar's own load specification,
     /// or a captured pre-promote frame on the promote path. // v2 S6
-    func adopt(_ restored: SessionReplayRecord?, recordedOn frame: ReplayParameterFrame?) {
+    package func adopt(_ restored: SessionReplayRecord?, recordedOn frame: ReplayParameterFrame?) {
         guard let restored else { return }
         record = restored
         parameterFrame = frame
     }
 
     /// Dataset change: the recipe belongs to the session it was built in.
-    func reset() {
+    package func reset() {
         record = SessionReplayRecord()
         parameterFrame = nil
     }

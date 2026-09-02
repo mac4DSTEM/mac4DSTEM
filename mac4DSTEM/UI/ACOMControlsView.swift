@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 import UniformTypeIdentifiers
 
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,

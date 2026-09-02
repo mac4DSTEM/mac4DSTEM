@@ -11,7 +11,7 @@ import DSTEMCore
 /// and doubled-frame Q scales into strain (R11). The geometry lives in
 /// `CalibrationReReference`; this type is only the POLICY of when it runs —
 /// pure, so the three-way decision is unit-pinned.
-nonisolated enum SessionCalibrationFramePolicy: Equatable {
+package nonisolated enum SessionCalibrationFramePolicy: Equatable {
     /// Recorded on exactly the view now loaded — adopt verbatim.
     case identity
     /// Recorded at full extent — map into the loaded view with the engine,
@@ -22,7 +22,7 @@ nonisolated enum SessionCalibrationFramePolicy: Equatable {
     /// calibration is not adopted, and the reason is surfaced.
     case refuse(reason: String)
 
-    static func decide(
+    package static func decide(
         session: LoadSpecification, loaded: LoadSpecification
     ) -> SessionCalibrationFramePolicy {
         if session == loaded { return .identity }
@@ -46,18 +46,26 @@ nonisolated enum SessionCalibrationFramePolicy: Equatable {
 /// into a calibration of their own frame; phase 2 moves that snapshot
 /// through `CalibrationReReference` when the policy says so. The state
 /// merge stays in `AppState`.
-nonisolated enum SessionCalibrationTranslation {
-    struct Output {
-        var calibration: Calibration
-        var center: CalibrationReReference.DetectorPoint?
-        var restoredMaps: Bool
-        var invalidated: [CalibrationInvalidation]
+package nonisolated enum SessionCalibrationTranslation {
+    package struct Output {
+        package var calibration: Calibration
+        package var center: CalibrationReReference.DetectorPoint?
+        package var restoredMaps: Bool
+        package var invalidated: [CalibrationInvalidation]
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(calibration: Calibration, center: CalibrationReReference.DetectorPoint? = nil, restoredMaps: Bool, invalidated: [CalibrationInvalidation]) {
+            self.calibration = calibration
+            self.center = center
+            self.restoredMaps = restoredMaps
+            self.invalidated = invalidated
+        }
     }
 
     /// Returns nil only when the policy demands the engine and no view
     /// exists — unreachable by construction (a non-identity policy implies a
     /// reduced loaded view, which only exists with a live `LoadView`).
-    static func translate(
+    package static func translate(
         saved: PixelCalibration,
         policy: SessionCalibrationFramePolicy,
         view: LoadView?,

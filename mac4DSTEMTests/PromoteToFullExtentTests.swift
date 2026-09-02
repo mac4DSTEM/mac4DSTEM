@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// Pins the promote control's wiring (v2 S3): `promoteToFullExtent()` reopens

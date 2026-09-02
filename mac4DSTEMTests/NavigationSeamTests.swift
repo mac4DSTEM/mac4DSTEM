@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// S22c seam: navigation/selection state (workspace, task, pane visibility)

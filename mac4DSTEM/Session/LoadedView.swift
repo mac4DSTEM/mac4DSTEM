@@ -21,32 +21,35 @@ import Foundation
 import DSTEMCore
 
 @Observable
-final class LoadedView {
+package final class LoadedView {
+
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    package init() {}
 
     /// Which part of the source is loaded. `.fullExtent` is the shipped value —
     /// nothing sets a specification until L5's configurator.
-    private(set) var specification: LoadSpecification = .fullExtent
+    package private(set) var specification: LoadSpecification = .fullExtent
 
     /// What the reader pushed into its own I/O for this view, versus applied in
     /// memory. Recorded rather than inferred, so the app never claims an I/O
     /// saving it did not get (`LoadPushdown`).
-    private(set) var pushdown: LoadPushdown = .none
+    package private(set) var pushdown: LoadPushdown = .none
 
     /// Calibration values that could not be carried into this view, each with
     /// the reason. Empty at full extent, and empty is the honest answer there:
     /// nothing needed moving.
-    private(set) var invalidatedCalibration: [CalibrationInvalidation] = []
+    package private(set) var invalidatedCalibration: [CalibrationInvalidation] = []
 
     /// P2 (2026-09-01): session-restore outcomes join the same surface as
     /// load-time invalidations — the inspector's "Not carried into this view"
     /// section is the one place a dropped calibration is explained.
-    func appendInvalidated(_ items: [CalibrationInvalidation]) {
+    package func appendInvalidated(_ items: [CalibrationInvalidation]) {
         invalidatedCalibration.append(contentsOf: items)
     }
 
     /// True when a real-space crop made results measured on the full scan
     /// ambiguous — the same index now names a different physical position.
-    private(set) var scanIndexedResultsWereCleared = false
+    package private(set) var scanIndexedResultsWereCleared = false
 
     /// Detector rows and columns dropped as the binning edge remainder.
     ///
@@ -58,11 +61,11 @@ final class LoadedView {
     /// configurator, where all of it becomes visible in one Track B pass.
     /// Recorded here rather than implied, because an earlier version of this
     /// comment said "stated, never silent" of a value no view reads.
-    private(set) var discardedDetectorRows = 0
-    private(set) var discardedDetectorColumns = 0
+    package private(set) var discardedDetectorRows = 0
+    package private(set) var discardedDetectorColumns = 0
 
     /// Whether anything at all distinguishes this from opening the file whole.
-    var isFullExtent: Bool { specification.isFullExtent }
+    package var isFullExtent: Bool { specification.isFullExtent }
 
     // MARK: - Publishing
 
@@ -71,7 +74,7 @@ final class LoadedView {
     /// Takes the outcome rather than computing it: the rules live in
     /// `CalibrationReReference`, which is pure and testable without an
     /// `AppState`, a dataset or a GPU. This type is the record, not the policy.
-    func publish(
+    package func publish(
         view: LoadView,
         pushdown: LoadPushdown,
         outcome: CalibrationReReference.Outcome
@@ -88,7 +91,7 @@ final class LoadedView {
     /// A new dataset is a new (absent) view. Reset explicitly rather than
     /// letting the previous file's record survive into the next one — the defect
     /// pattern `DatasetResidency.reset` exists for.
-    func reset() {
+    package func reset() {
         specification = .fullExtent
         sourceShapeString = ""
         discardedDetectorRows = 0
@@ -105,7 +108,7 @@ final class LoadedView {
     /// Deliberately states the extent in SOURCE pixels — "rows 128–255" and not
     /// "128 rows" — because the number a person needs when deciding whether to
     /// re-run at full extent is *where* they were looking, not how much.
-    var summary: String? {
+    package var summary: String? {
         guard !specification.isFullExtent else { return nil }
         var parts: [String] = []
         if let scan = specification.scanCrop {
@@ -125,7 +128,7 @@ final class LoadedView {
 
     /// The source dataset's own shape, for the "instead of" half of the
     /// comparison. Empty when nothing has been loaded.
-    private(set) var sourceShapeString = ""
+    package private(set) var sourceShapeString = ""
 
     /// What binning did to the numbers, in the user's terms — or nil when the
     /// cube is not binned.
@@ -137,7 +140,7 @@ final class LoadedView {
     /// does not mean the same thing. A binned cube is a different measurement
     /// (invariant I3) and the app says so rather than leaving the user to
     /// discover it from a peak count.
-    var binningNotice: String? {
+    package var binningNotice: String? {
         let bin = specification.detectorBin
         guard bin > 1 else { return nil }
         var notice = "Diffraction binned \(bin)x: intensities are summed, so they are "

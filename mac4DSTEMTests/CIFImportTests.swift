@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// Coverage for `CIFImport`: the local-file CIF parser that produces a

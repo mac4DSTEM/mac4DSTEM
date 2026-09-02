@@ -14,6 +14,7 @@
 
 import XCTest
 import DSTEMCore
+import DSTEMSession
 import ImageIO
 @testable import mac4DSTEM
 

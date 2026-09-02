@@ -17,6 +17,7 @@
 
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 final class SidecarRecognitionTests: XCTestCase {

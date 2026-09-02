@@ -157,9 +157,10 @@ inventory() {
 }
 
 core_build() {
-  # Core/ as the standalone DSTEMCore module (Package.swift, v2.5 step 2).
-  # Fails the moment Core/ reaches upward into App/, UI/ or Support/.
-  ( cd "$ROOT" && swift build --product DSTEMCore 2>&1 | grep -vE '^\[[0-9]+/[0-9]+\]' ) && echo "core: DSTEMCore built"
+  # The package layers (Package.swift, v2.5 step 2): DSTEMCore (Core/) and
+  # DSTEMSession (Session/). Fails the moment either reaches upward into
+  # App/, UI/ or Support/, or Core reaches into Session.
+  ( cd "$ROOT" && swift build 2>&1 | grep -vE '^\[[0-9]+/[0-9]+\]' ) && echo "core: DSTEMCore + DSTEMSession built"
 }
 
 case "${1:-unit}" in

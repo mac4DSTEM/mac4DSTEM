@@ -2,7 +2,7 @@ import Foundation
 import DSTEMCore
 
 /// Which ACOM result map to display.
-enum ACOMDisplayMode: String, CaseIterable, Identifiable {
+package enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     case ipfZ = "IPF · Z"
     case reliability = "Reliability"
     case disorientation = "Symmetry FZ angle"
@@ -11,17 +11,17 @@ enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     case Phi = "Euler Φ"
     case phi2 = "Euler φ₂"
     case score = "Score"
-    var id: String { rawValue }
+    package var id: String { rawValue }
 }
 
-enum ACOMQualityPreset: String, CaseIterable, Identifiable {
+package enum ACOMQualityPreset: String, CaseIterable, Identifiable {
     case fast = "Fast"
     case balanced = "Balanced"
     case best = "Best"
 
-    var id: String { rawValue }
+    package var id: String { rawValue }
 
-    var templateCount: Int {
+    package var templateCount: Int {
         switch self {
         case .fast: 96
         case .balanced: 200
@@ -29,7 +29,7 @@ enum ACOMQualityPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    var detail: String {
+    package var detail: String {
         switch self {
         case .fast: "96 templates · rapid screening"
         case .balanced: "200 templates · recommended"
@@ -38,14 +38,14 @@ enum ACOMQualityPreset: String, CaseIterable, Identifiable {
     }
 }
 
-enum ACOMRunScope: String, CaseIterable, Identifiable {
+package enum ACOMRunScope: String, CaseIterable, Identifiable {
     case preview = "Preview"
     case selectedRegion = "Region"
     case fullScan = "Full scan"
 
-    var id: String { rawValue }
+    package var id: String { rawValue }
 
-    var resultQualifier: String {
+    package var resultQualifier: String {
         switch self {
         case .preview: "preview"
         case .selectedRegion: "region"
@@ -56,7 +56,7 @@ enum ACOMRunScope: String, CaseIterable, Identifiable {
 
 /// Provenance of the reciprocal scale actually used for one ACOM run.
 /// `exploratory` is a tunable alignment aid, not physical calibration.
-enum ACOMQScaleProvenance: String, Sendable {
+package enum ACOMQScaleProvenance: String, Sendable {
     case exploratory = "exploratory"
     case importedFile = "imported_file"
     case sessionSidecar = "session_sidecar"
@@ -64,9 +64,9 @@ enum ACOMQScaleProvenance: String, Sendable {
     case manual = "manual"
     case mixed = "mixed_sources"
 
-    var isPhysical: Bool { self != .exploratory }
+    package var isPhysical: Bool { self != .exploratory }
 
-    var displayName: String {
+    package var displayName: String {
         switch self {
         case .exploratory: "Exploratory"
         case .importedFile: "Physical · imported file"
@@ -77,7 +77,7 @@ enum ACOMQScaleProvenance: String, Sendable {
         }
     }
 
-    init(_ provenance: CalibrationValueProvenance?) {
+    package init(_ provenance: CalibrationValueProvenance?) {
         switch provenance {
         case .importedFile: self = .importedFile
         case .sessionSidecar: self = .sessionSidecar
@@ -88,25 +88,31 @@ enum ACOMQScaleProvenance: String, Sendable {
     }
 }
 
-struct ACOMScaleSemantics: Sendable, Equatable {
-    let invAngstromPerPixel: Double
-    let provenance: ACOMQScaleProvenance
+package struct ACOMScaleSemantics: Sendable, Equatable {
+    package let invAngstromPerPixel: Double
+    package let provenance: ACOMQScaleProvenance
 
-    var interpretation: String {
+    package var interpretation: String {
         provenance.isPhysical ? "physical" : "exploratory"
+    }
+
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    package init(invAngstromPerPixel: Double, provenance: ACOMQScaleProvenance) {
+        self.invAngstromPerPixel = invAngstromPerPixel
+        self.provenance = provenance
     }
 }
 
 /// Immutable scientific contract captured when a map finishes. Export and
 /// session persistence use this snapshot, never whichever controls happen to
 /// be visible later.
-struct ACOMRunSemantics: Sendable, Equatable {
-    let materialModelID: String
-    let materialDescription: String
-    let scale: ACOMScaleSemantics
-    let materialProvenance: [String: String]
+package struct ACOMRunSemantics: Sendable, Equatable {
+    package let materialModelID: String
+    package let materialDescription: String
+    package let scale: ACOMScaleSemantics
+    package let materialProvenance: [String: String]
 
-    init(
+    package init(
         materialModelID: String, materialDescription: String,
         scale: ACOMScaleSemantics,
         materialProvenance: [String: String] = [:]
@@ -117,7 +123,7 @@ struct ACOMRunSemantics: Sendable, Equatable {
         self.materialProvenance = materialProvenance
     }
 
-    func productStatus(for kind: String) -> ProductQuantitativeStatus {
+    package func productStatus(for kind: String) -> ProductQuantitativeStatus {
         guard scale.provenance.isPhysical else { return .exploratory }
         if kind.contains("ipf") { return .categorical }
         if kind.contains("reliability") || kind.contains("score") {
@@ -126,7 +132,7 @@ struct ACOMRunSemantics: Sendable, Equatable {
         return .quantitative
     }
 
-    var provenance: [String: String] {
+    package var provenance: [String: String] {
         var result = materialProvenance
         result.merge([
             "material_model_id": materialModelID,

@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 /// Diagnostic and fitting controls that supplement the single readiness path.
 /// Physical Q/R values are intentionally edited only in the readiness rows,

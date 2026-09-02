@@ -15,11 +15,27 @@ let package = Package(
     platforms: [.macOS(.v26)],
     products: [
         .library(name: "DSTEMCore", targets: ["DSTEMCore"]),
+        .library(name: "DSTEMSession", targets: ["DSTEMSession"]),
     ],
     targets: [
         .target(
             name: "DSTEMCore",
             path: "mac4DSTEM/Core",
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+                .defaultIsolation(MainActor.self),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+                .enableUpcomingFeature("InferIsolatedConformances"),
+                .enableUpcomingFeature("InferSendableFromCaptures"),
+                .enableUpcomingFeature("MemberImportVisibility"),
+            ]
+        ),
+        // Session layer (v2.5 step 2c): calibration state, products, recipes and
+        // replay, sidecar location, recovery, residency — no SwiftUI, no AppState.
+        .target(
+            name: "DSTEMSession",
+            dependencies: ["DSTEMCore"],
+            path: "mac4DSTEM/Session",
             swiftSettings: [
                 .swiftLanguageMode(.v5),
                 .defaultIsolation(MainActor.self),

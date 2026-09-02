@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// v2 S8's seam (`App/StrainProduct.swift`): the one owner of the strain

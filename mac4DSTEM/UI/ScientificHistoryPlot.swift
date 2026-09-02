@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 /// Compact interactive plot for retained analysis histories. Dragging selects
 /// an existing finite sample; gaps remain visible for invalid samples.

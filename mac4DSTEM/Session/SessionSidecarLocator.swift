@@ -60,7 +60,7 @@ import Foundation
 import DSTEMCore
 
 @Observable
-final class SessionSidecarLocator {
+package final class SessionSidecarLocator {
 
     /// The scoped URL currently held open, WITH the source path it was resolved
     /// for.
@@ -85,7 +85,7 @@ final class SessionSidecarLocator {
     /// signal for the affordance S4 will need — "this sidecar is reachable" —
     /// and deleting it now to re-add it then is churn; but until then it is
     /// state with one reader, and that is worth knowing.
-    private(set) var hasGrant = false
+    package private(set) var hasGrant = false
 
     /// Set when a sidecar exists beside the dataset and could not be read, so
     /// the inspector can say the loaded extent may not be the recorded one.
@@ -103,7 +103,7 @@ final class SessionSidecarLocator {
     ///
     /// Cleared by `release()`, i.e. when the open dataset changes, so it can
     /// never describe a dataset other than the one on screen.
-    private(set) var unreadableReason: String?
+    package private(set) var unreadableReason: String?
 
     /// Where bookmarks are persisted.
     ///
@@ -114,7 +114,7 @@ final class SessionSidecarLocator {
     /// being the single string the whole diagnosis is indexed by.
     @ObservationIgnored private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    package init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
@@ -127,7 +127,7 @@ final class SessionSidecarLocator {
     /// that may or may not be readable, and callers that need to know *which*
     /// they got must ask `grant(for:)`. This is the single derivation the eight
     /// former call sites now share.
-    func location(for descriptor: DatasetDescriptor) -> URL {
+    package func location(for descriptor: DatasetDescriptor) -> URL {
         location(forSourcePath: descriptor.filePath)
     }
 
@@ -139,7 +139,7 @@ final class SessionSidecarLocator {
     /// descriptor — it is deciding what to load. Making the path form the real
     /// one is what lets that call site use the same derivation as every other,
     /// which is the whole point of this type.
-    func location(forSourcePath path: String) -> URL {
+    package func location(forSourcePath path: String) -> URL {
         grant(forSourcePath: path)
             ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: path)
     }
@@ -151,12 +151,12 @@ final class SessionSidecarLocator {
     /// saved from this app installation — including every dataset after a
     /// bundle-identifier change, which replaces the container and so empties
     /// `UserDefaults` (the 2026-08-14 `1e5727d` change; docs/open-items.md C10).
-    func grant(for descriptor: DatasetDescriptor) -> URL? {
+    package func grant(for descriptor: DatasetDescriptor) -> URL? {
         grant(forSourcePath: descriptor.filePath)
     }
 
     /// The granted URL for a source path, or nil when there is no grant.
-    func grant(forSourcePath path: String) -> URL? {
+    package func grant(forSourcePath path: String) -> URL? {
         // Keyed by source path. The cache is only valid for the dataset it was
         // resolved for — see `scoped`.
         if let scoped, scoped.sourcePath == path { return scoped.url }
@@ -203,18 +203,18 @@ final class SessionSidecarLocator {
     }
 
     /// Record that a sidecar was found and could not be read.
-    func noteUnreadable(_ reason: String) {
+    package func noteUnreadable(_ reason: String) {
         unreadableReason = reason
     }
 
     // MARK: - Grants
 
     /// Hold `url` as the grant for `descriptor`, releasing any previous one.
-    func adopt(_ url: URL, for descriptor: DatasetDescriptor) {
+    package func adopt(_ url: URL, for descriptor: DatasetDescriptor) {
         adopt(url, forSourcePath: descriptor.filePath)
     }
 
-    func adopt(_ url: URL, forSourcePath path: String) {
+    package func adopt(_ url: URL, forSourcePath path: String) {
         if let scoped, scoped.url != url {
             scoped.url.stopAccessingSecurityScopedResource()
         }
@@ -226,11 +226,11 @@ final class SessionSidecarLocator {
     ///
     /// Only ever called AFTER atomic publication: Foundation cannot bookmark the
     /// not-yet-existing URL an `NSSavePanel` returns.
-    func remember(_ url: URL, for descriptor: DatasetDescriptor) throws {
+    package func remember(_ url: URL, for descriptor: DatasetDescriptor) throws {
         try remember(url, forSourcePath: descriptor.filePath)
     }
 
-    func remember(_ url: URL, forSourcePath path: String) throws {
+    package func remember(_ url: URL, forSourcePath path: String) throws {
         let data = try url.bookmarkData(
             options: .withSecurityScope,
             includingResourceValuesForKeys: nil,
@@ -240,7 +240,7 @@ final class SessionSidecarLocator {
     }
 
     /// Drop the held grant. Called when the open dataset changes.
-    func release() {
+    package func release() {
         scoped?.url.stopAccessingSecurityScopedResource()
         scoped = nil
         hasGrant = false
@@ -264,7 +264,7 @@ final class SessionSidecarLocator {
 /// and the sandbox will not let me open it" — two states that
 /// `recordedLoadSpecification` previously collapsed into `nil` with `try?`, and
 /// the collapse is what let a cropped session reopen silently at full extent.
-enum SessionSidecarReadFailure: Equatable {
+package enum SessionSidecarReadFailure: Equatable {
     /// The sandbox refused the file. EPERM, errno 1, "Operation not permitted".
     case notPermitted
     /// It failed for some other reason — corrupt, truncated, wrong format.
@@ -281,13 +281,13 @@ enum SessionSidecarReadFailure: Equatable {
     /// while an ordinary POSIX permission problem is EACCES (13) — established
     /// by `tools/sidecar-error-detail-test`, whose first version asserted the
     /// wrong one of the two and would have sent the diagnosis the other way.
-    static func classify(_ error: Error) -> SessionSidecarReadFailure {
+    package static func classify(_ error: Error) -> SessionSidecarReadFailure {
         let text = "\(error)" + " " + error.localizedDescription
         return text.contains("errno = 1,") ? .notPermitted : .unreadable
     }
 
     /// What to tell the user, naming the remedy rather than the mechanism.
-    func explanation(sidecar: String) -> String {
+    package func explanation(sidecar: String) -> String {
         switch self {
         case .notPermitted:
             return "\(sidecar) sits beside this dataset but mac4DSTEM has not been "
@@ -318,7 +318,7 @@ enum SessionSidecarReadFailure: Equatable {
 /// decision is where the defect lived. Verified by breaking it: making
 /// `unreadable` return `noneRecorded` reproduces the silent full-extent load and
 /// fails `SessionSidecarLocatorTests`.
-enum RecordedSpecificationOutcome: Equatable {
+package enum RecordedSpecificationOutcome: Equatable {
     /// No sidecar, or one that records the full extent. Load the whole file.
     case noneRecorded
     /// The session recorded this reduced specification.
@@ -332,7 +332,7 @@ extension SessionSidecarLocator {
     /// Interpret the result of reading a sidecar's recorded specification.
     ///
     /// `read` is `.success(nil)` when the sidecar opened but recorded nothing.
-    static func recordedOutcome(
+    package static func recordedOutcome(
         from read: Result<LoadSpecification?, Error>, sidecar: String
     ) -> RecordedSpecificationOutcome {
         switch read {

@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 private struct FocusedAppStateKey: FocusedValueKey {
     typealias Value = AppState

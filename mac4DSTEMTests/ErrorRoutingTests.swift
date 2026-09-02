@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// docs/ui-workflow-backlog.md #9: recoverable compute failures must stay on

@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// Pins `RecentDatasets` — the recents list extracted from `AppState` as S3's

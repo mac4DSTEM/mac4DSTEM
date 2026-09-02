@@ -28,24 +28,24 @@ import DSTEMCore
 
 @MainActor
 @Observable
-final class RecentDatasets {
+package final class RecentDatasets {
 
     /// Most recently opened first. Capped at `capacity`.
-    private(set) var entries: [RecentDataset]
+    package private(set) var entries: [RecentDataset]
 
     /// Where each entry lives, keyed by its path (`RecentDataset.id`), said
     /// only as precisely as it takes to tell same-named entries apart — see
     /// `RecentDatasetLocation`. Recomputed on every mutation, never on read.
-    private(set) var locationLabels: [String: String] = [:]
+    package private(set) var locationLabels: [String: String] = [:]
 
     /// Eight, matching the shipped behaviour this type was extracted from.
-    static let capacity = 8
+    package static let capacity = 8
 
     private let persist: ([RecentDataset]) -> Void
 
     /// `persist` is injectable so tests never write the user's real recents —
     /// `WorkspaceRecoveryStore` is `UserDefaults.standard` all the way down.
-    init(entries: [RecentDataset] = WorkspaceRecoveryStore.recent(),
+    package init(entries: [RecentDataset] = WorkspaceRecoveryStore.recent(),
          persist: @escaping ([RecentDataset]) -> Void = WorkspaceRecoveryStore.saveRecent) {
         self.entries = entries
         self.persist = persist
@@ -54,7 +54,7 @@ final class RecentDatasets {
 
     /// Insert (or move) `entry` to the front, drop anything past the cap,
     /// and persist.
-    func remember(_ entry: RecentDataset) {
+    package func remember(_ entry: RecentDataset) {
         entries.removeAll { $0.id == entry.id }
         entries.insert(entry, at: 0)
         if entries.count > Self.capacity {
@@ -63,7 +63,7 @@ final class RecentDatasets {
         save()
     }
 
-    func remove(id: String) {
+    package func remove(id: String) {
         let before = entries.count
         entries.removeAll { $0.id == id }
         // A miss is a no-op, same contract as `updateBookmark`: persisting an
@@ -73,13 +73,13 @@ final class RecentDatasets {
         save()
     }
 
-    func entry(withID id: String) -> RecentDataset? {
+    package func entry(withID id: String) -> RecentDataset? {
         entries.first { $0.id == id }
     }
 
     /// Replace a stale security-scoped bookmark in place. A miss is a no-op:
     /// the entry may have been removed while the resolve was in flight.
-    func updateBookmark(_ bookmark: Data, forID id: String) {
+    package func updateBookmark(_ bookmark: Data, forID id: String) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[index].bookmark = bookmark
         save()

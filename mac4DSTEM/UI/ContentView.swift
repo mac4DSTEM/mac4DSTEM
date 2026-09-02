@@ -1,5 +1,6 @@
 import AppKit
 import DSTEMCore
+import DSTEMSession
 import SwiftUI
 import UniformTypeIdentifiers
 import simd

@@ -1,5 +1,6 @@
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 /// Shared calibration path used by Prepare and the DataCube export sheet.
 /// Every row names provenance, consequence, and the next safe action; no

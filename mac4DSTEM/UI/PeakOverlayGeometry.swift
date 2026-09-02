@@ -1,5 +1,6 @@
 import CoreGraphics
 import DSTEMCore
+import DSTEMSession
 
 /// Pure detector-pixel → view geometry for the Bragg-peak overlay.
 /// Detector coordinates name pixel centers, so integer peaks receive a

@@ -17,6 +17,7 @@
 
 import SwiftUI
 import DSTEMCore
+import DSTEMSession
 
 struct PatternFitOverlayView: View {
     let strain: FitOverlays.StrainOverlay?

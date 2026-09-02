@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// P2 (Gate D, 2026-09-01): the three-way frame policy for adopting a session

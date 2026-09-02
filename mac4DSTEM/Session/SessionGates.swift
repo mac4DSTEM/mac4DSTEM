@@ -29,7 +29,10 @@ import DSTEMCore
 
 @Observable
 @MainActor
-final class SessionGates {
+package final class SessionGates {
+
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    package init() {}
 
     // MARK: - May I use the origin fit quantitatively?
 
@@ -47,7 +50,7 @@ final class SessionGates {
     /// Like `SessionSidecarLocator.sessionSidecarURL`, this makes a second
     /// derivation unlikely, not unrepresentable: `Calibration`'s members stay
     /// public for Core and the `tools/` harnesses.
-    func originQuantitativeRefusal(
+    package func originQuantitativeRefusal(
         for calibration: Calibration
     ) -> String? {
         calibration.originFitRefusal
@@ -71,7 +74,7 @@ final class SessionGates {
     /// is: S13 E1 measured the geometric-middle substitution at 1.14 px on
     /// `sim_Au` and 7.07 px on `downsample_Si_SiGe_exp`, straddling the band any
     /// estimator check can see, so "watch for it" was never going to work.
-    func reciprocalMetrologyRefusal(
+    package func reciprocalMetrologyRefusal(
         for calibration: Calibration,
         descriptor: DatasetDescriptor,
         apertureCentre: (x: Float, y: Float)?
@@ -121,8 +124,8 @@ final class SessionGates {
     // MARK: - May I rewrite the session sidecar?
 
     /// A recorded load specification this session failed to restore.
-    struct SidecarRestoreFailure: Equatable {
-        enum Kind: Equatable {
+    package struct SidecarRestoreFailure: Equatable {
+        package enum Kind: Equatable {
             /// The sidecar exists and the specification could not be read.
             case unreadable
             /// The specification was read and describes a region this file
@@ -130,8 +133,14 @@ final class SessionGates {
             /// copied beside a different cube.
             case doesNotFit
         }
-        var kind: Kind
-        var message: String
+        package var kind: Kind
+        package var message: String
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        package init(kind: Kind, message: String) {
+            self.kind = kind
+            self.message = message
+        }
     }
 
     /// Set when `recordedLoadSpecification` failed on its `.unreadable` or
@@ -148,15 +157,15 @@ final class SessionGates {
     /// report only through `statusText`, which S1 measured being overwritten
     /// three lines later by the loading stages — the same unreadable-channel
     /// defect S1 fixed for the sibling branch. The inspector renders this.
-    private(set) var sidecarRestoreFailure: SidecarRestoreFailure?
+    package private(set) var sidecarRestoreFailure: SidecarRestoreFailure?
 
-    func noteSidecarRestoreFailed(
+    package func noteSidecarRestoreFailed(
         _ kind: SidecarRestoreFailure.Kind, message: String
     ) {
         sidecarRestoreFailure = SidecarRestoreFailure(kind: kind, message: message)
     }
 
-    func clearSidecarRestoreFailure() {
+    package func clearSidecarRestoreFailure() {
         sidecarRestoreFailure = nil
     }
 
@@ -177,7 +186,7 @@ final class SessionGates {
     /// only reopening the dataset with its recorded view restored (or
     /// knowably absent) does. No override is offered; the refusal rule says
     /// precision explains a rejection, it never grants an admission.
-    func sidecarRewriteRefusal() -> String? {
+    package func sidecarRewriteRefusal() -> String? {
         guard let failure = sidecarRestoreFailure else { return nil }
         let remedy: String
         switch failure.kind {

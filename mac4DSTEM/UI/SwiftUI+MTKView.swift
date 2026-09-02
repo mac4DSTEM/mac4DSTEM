@@ -8,6 +8,7 @@
 
 import AppKit
 import DSTEMCore
+import DSTEMSession
 import SwiftUI
 
 /// Bundles the live zoom/pan state for an image viewer.

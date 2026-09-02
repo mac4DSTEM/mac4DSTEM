@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
+		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
 		000000000000000300000001 /* libhdf5.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000001 /* libhdf5.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		000000000000000300000002 /* libaec.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000002 /* libaec.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		000000000000000300000003 /* libsz.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000003 /* libsz.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -42,6 +43,20 @@
 		300000000000000000000001 /* Exceptions for "mac4DSTEM" folder in "mac4DSTEM" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Session/SystemMonitor.swift",
+				"Session/ACOMWorkflow.swift",
+				"Session/DatasetResidency.swift",
+				"Session/LoadedView.swift",
+				"Session/QCalibrationRun.swift",
+				"Session/RecentDatasets.swift",
+				"Session/ReplayPlan.swift",
+				"Session/ReplayRun.swift",
+				"Session/SessionCalibrationFramePolicy.swift",
+				"Session/SessionGates.swift",
+				"Session/SessionReplay.swift",
+				"Session/SessionSidecarLocator.swift",
+				"Session/StrainProduct.swift",
+				"Session/WorkspaceRecovery.swift",
 				"Core/Analysis/DPC.swift",
 				"Core/Analysis/DatasetPreview.swift",
 				"Core/Analysis/DiskDetection.swift",
@@ -130,6 +145,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				300000000000000000000004 /* DSTEMCore in Frameworks */,
+				300000000000000000000006 /* DSTEMSession in Frameworks */,
 			);
 		};
 		100000000000000130000000 /* Frameworks */ = {
@@ -190,6 +206,7 @@
 			name = mac4DSTEM;
 			packageProductDependencies = (
 				300000000000000000000003 /* DSTEMCore */,
+				300000000000000000000005 /* DSTEMSession */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
@@ -304,6 +321,10 @@
 		300000000000000000000003 /* DSTEMCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DSTEMCore;
+		};
+		300000000000000000000005 /* DSTEMSession */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DSTEMSession;
 		};
 /* End XCSwiftPackageProductDependency section */
 

@@ -27,25 +27,28 @@ import DSTEMCore
 
 @Observable
 @MainActor
-final class QCalibrationRun {
+package final class QCalibrationRun {
+
+    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    package init() {}
 
     /// The last estimate the app accepted, or nil when none has been made
     /// since the dataset changed. An estimate that was REFUSED is not stored
     /// here — `refusal` carries that case, so "there is an estimate" and "the
     /// estimate may be used" cannot drift apart.
-    private(set) var estimate: QCalibrationEstimate?
+    package private(set) var estimate: QCalibrationEstimate?
 
     /// Why the last attempt was refused, or nil. Set from exactly one source
     /// now: the origin/metrology gate (`SessionGates`). The estimator refuses
     /// nothing since Gate B cut its thresholds (2026-08-28) — it measures and
     /// reports, and `selfCheckSummary` carries what it found.
-    private(set) var refusal: String?
+    package private(set) var refusal: String?
 
     /// What the shell-ratio self-check said about the accepted estimate.
     /// `.notSelfChecked` is deliberately surfaced rather than folded into a
     /// pass: it is the state in which the single-shell assumption is least
     /// safe (docs/q-calibration-design.md §3.2).
-    var shellCheck: QCalibrationShellCheck? { estimate?.shellCheck }
+    package var shellCheck: QCalibrationShellCheck? { estimate?.shellCheck }
 
     /// One line for the calibration panel, or nil when there is nothing to say.
     /// Deliberately phrased as what WAS checked, not as reassurance.
@@ -58,7 +61,7 @@ final class QCalibrationRun {
     /// The position count is part of the claim, not decoration: a median over
     /// three scan positions and one over a hundred thousand are different
     /// statements, and nothing else here said which it was.
-    var selfCheckSummary: String? {
+    package var selfCheckSummary: String? {
         switch estimate?.shellCheck {
         case .measured(let observed, let expected, let positions):
             return String(
@@ -72,12 +75,12 @@ final class QCalibrationRun {
         }
     }
 
-    func record(_ estimate: QCalibrationEstimate) {
+    package func record(_ estimate: QCalibrationEstimate) {
         self.estimate = estimate
         self.refusal = nil
     }
 
-    func record(refusal: String) {
+    package func record(refusal: String) {
         self.estimate = nil
         self.refusal = refusal
     }
@@ -86,7 +89,7 @@ final class QCalibrationRun {
     /// against dataset A must never be shown beside dataset B. This is the
     /// mistake S5's Gate B caught on `SessionGates.sidecarRestoreFailure`,
     /// where "paired with every release()" turned out not to be every path.
-    func clear() {
+    package func clear() {
         estimate = nil
         refusal = nil
     }

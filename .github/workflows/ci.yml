@@ -30,7 +30,7 @@
 #
 # ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review (runner
 # classification, size metrics, stale status claims). Fails on drift. And
-# `tools/run-tests.sh core` — Core/ as the standalone DSTEMCore module; fails
+# `tools/run-tests.sh core` — Core/ and Session/ as standalone packages; fails
 # the moment Core/ depends on App/, UI/ or Support/.
 #
 # KNOWN CAVEATS, stated so a green run is not made to claim too much:
@@ -146,7 +146,7 @@ jobs:
         run: tools/run-tests.sh inventory
 
   core:
-    name: core (DSTEMCore standalone build)
+    name: core (DSTEMCore + DSTEMSession package build)
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -155,5 +155,5 @@ jobs:
         run: |
           xcode-select -p
           swift --version
-      - name: Build Core as a standalone module
+      - name: Build the package layers standalone
         run: tools/run-tests.sh core

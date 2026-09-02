@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// core-data-05 (S22a ride-along): the inspector's excluded-fraction

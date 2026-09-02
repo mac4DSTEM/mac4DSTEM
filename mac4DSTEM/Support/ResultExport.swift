@@ -8,6 +8,7 @@
 
 import AppKit
 import DSTEMCore
+import DSTEMSession
 import ImageIO
 import UniformTypeIdentifiers
 
