@@ -31,9 +31,7 @@ final class WorkspaceNavigation {
     /// `ActivePane` is untouched — it still drives Prepare's ROI direction.
     var focusedPane: FocusedPane?
 
-    /// Which inspector the column renders. `nil` focus keeps the 7b per-task
-    /// conditions (`AppState.inspectorShows*`) — an adapter that expires when
-    /// every pane sets `focusedPane` (7c slice 5).
+    /// Which inspector the column renders.
     var inspectorContent: InspectorContent {
         focusedPane == .result ? .product : .dataset
     }
@@ -73,10 +71,7 @@ enum FocusedPane: Equatable, Sendable {
     var showsDiffractionHistogram: Bool { self == .detectorPattern || self == .pattern }
     var showsRealSpaceHistogram: Bool { self == .image }
 
-    /// The descriptor a live pane claims when it takes the ring. `nil` for a
-    /// workspace whose panes do not claim yet (7c slices 3–5), which leaves
-    /// the inspector on the 7b per-task conditions — the adapter expires
-    /// when every case here is non-nil.
+    /// The descriptor a live pane claims when it takes the ring.
     static func livePane(
         _ active: ActivePane, in area: WorkspaceArea, task: AnalysisMode
     ) -> FocusedPane? {
@@ -94,8 +89,13 @@ enum FocusedPane: Equatable, Sendable {
                 // map's (7b's rule, F1.59, kept).
                 .image
             }
-        case .reconstruct, .results:
-            nil
+        case .reconstruct:
+            // Phase's diffraction pane shows the live CBED or the
+            // reconstruction's evidence beside a real-space product; the
+            // descriptor is the product's (7b's rule, F1.59, kept).
+            .image
+        case .results:
+            nil   // Results has one pane and claims `.result` on arrival
         }
     }
 }

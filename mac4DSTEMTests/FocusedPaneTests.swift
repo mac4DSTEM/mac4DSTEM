@@ -71,9 +71,18 @@ final class FocusedPaneTests: XCTestCase {
 
     /// The adapter's expiry, pinned: a workspace whose panes do not claim
     /// yet leaves the claim open so the 7b per-task conditions stand in.
-    /// Slice 5 turns this into a real descriptor.
-    func testWorkspacesBeforeTheirSliceLeaveTheClaimOpen() {
-        XCTAssertNil(FocusedPane.livePane(.realSpace, in: .reconstruct, task: .dpc))
+    /// Every live workspace's panes claim a descriptor; only Results, whose
+    /// single pane claims `.result` on arrival, stays out of the live map.
+    func testEveryLiveWorkspacePaneClaimsADescriptor() {
+        for area in WorkspaceArea.allCases where area != .results {
+            let tasks = area.analysisModes.isEmpty ? [AnalysisMode.virtualDetector] : area.analysisModes
+            for task in tasks {
+                for pane in [ActivePane.diffraction, .realSpace] {
+                    XCTAssertNotNil(FocusedPane.livePane(pane, in: area, task: task), "\(area) \(task) \(pane)")
+                }
+            }
+        }
+        XCTAssertNil(FocusedPane.livePane(.realSpace, in: .results, task: .virtualDetector))
     }
 
     func testAWorkspaceSwitchThroughAppStateReachesTheInspectorDecision() {

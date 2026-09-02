@@ -819,25 +819,6 @@ final class AppState {
         )
     }
 
-    /// v2.5 step 7b (plan §3 item 7): the inspector describes the panes the
-    /// current task shows. The aperture is a detector ROI on a diffraction
-    /// pane; the diffraction histogram windows that pane's contrast. Neither
-    /// belongs beside a strain or orientation map.
-    var inspectorShowsAperture: Bool {
-        switch navigation.workspaceArea {
-        case .prepare: true
-        case .image: navigation.analysisMode == .virtualDetector
-        default: false
-        }
-    }
-    var inspectorShowsDiffractionHistogram: Bool {
-        switch navigation.workspaceArea {
-        case .prepare, .image: true
-        case .map: navigation.analysisMode == .disks
-        default: false
-        }
-    }
-
     var activeResultDomain: ProductDomain {
         switch navigation.analysisMode {
         case .disks: .detector

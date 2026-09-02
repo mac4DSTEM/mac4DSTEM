@@ -173,13 +173,12 @@ struct DatasetInspector: View {
                 row("Pattern max", String(format: "%.3g", upperBound))
             }
 
-            // v2.5 step 7c: the focused pane's descriptor decides. With no
-            // claim yet (workspaces before their slice) the 7b per-task
-            // conditions stand in — an adapter that expires at slice 5.
+            // v2.5 step 7c: the focused pane's descriptor decides (plan §11c,
+            // one descriptor per pane). `nil` only between a workspace change
+            // and the pane's claim, one runloop turn.
             let pane = appState.navigation.focusedPane
-            let showsAperture = pane?.showsAperture ?? appState.inspectorShowsAperture
-            let showsDiffractionHistogram =
-                pane?.showsDiffractionHistogram ?? appState.inspectorShowsDiffractionHistogram
+            let showsAperture = pane?.showsAperture ?? false
+            let showsDiffractionHistogram = pane?.showsDiffractionHistogram ?? false
             let showsRealSpaceHistogram = pane?.showsRealSpaceHistogram ?? true
 
             if showsAperture {
