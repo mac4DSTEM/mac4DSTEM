@@ -35,11 +35,13 @@ Done means the repo tells the next reader the truth. In order:
    **Write findings, not narratives** — the file's own header carries the
    format rule adopted 2026-08-28: what is wrong, the evidence, the trap, the
    owner, the live residual; ≤ 20 lines. Refuted hypotheses and the story of
-   how the diagnosis converged go to the dated archive with a pointer. This is
-   the discipline that slipped: M1 cut the three-file kickoff tax to 1,901 and
-   it was 2,548 two days later, all of it narrative. **Check the tax at
-   closeout** — `wc -l CLAUDE.md docs/v2-release.md docs/open-items.md` — and
-   if your session pushed it up, say so in the record and trim something.
+   how the diagnosis converged go to the dated archive with a pointer.
+   **Run `tools/run-tests.sh inventory` and paste its output into the
+   closeout message.** It must exit 0 (every `tools/` runner classified, no
+   live doc claiming uncommitted work). Compare its numbers with the previous
+   closeout: the cold-start set and live-markdown lines must not go up; if
+   your session raised them, trim before landing. A session that adds a file
+   says why one existing home would not do (`docs/v2.5-plan.md` §7).
    **If you edited `CLAUDE.md`, run `tools/sync-agents-md.sh`** (or
    `--check`, which exits 1 when stale). `AGENTS.md` is generated from it since
    2026-08-28 — hand-maintained before that, it drifted six sessions and ended
