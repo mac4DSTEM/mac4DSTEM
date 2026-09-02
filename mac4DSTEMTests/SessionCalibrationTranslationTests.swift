@@ -92,6 +92,24 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         XCTAssertEqual(app.quantitativeStatus(for: "dpc_color", units: ""), .categorical)
     }
 
+    func testAFreshPublishNeverInheritsARestoredBadge() async throws {
+        // Control 1: a stale restore triple left behind (the missed-clear
+        // case) must not relabel a freshly computed result.
+        let app = AppState()
+        await app.openDemoFixture(calibrated: true)
+        app.navigation.analysisMode = .virtualDetector
+        app.restoredResultInfo = ("acom_ipf_z", "Restored IPF (stale)", "categorical")
+        _ = await app.runVirtualDetector(quiet: true)
+        let product = try XCTUnwrap(app.displayedProduct)
+        XCTAssertTrue(product.kind.hasPrefix("virtual_"), product.kind)
+        XCTAssertFalse(product.displayName.contains("Restored"), product.displayName)
+        XCTAssertEqual(product.quantitativeStatus, .relative)
+        XCTAssertEqual(product.valueUnits, "intensity")
+        // And a write through the legacy field drops the published product.
+        app.resultImage = nil
+        XCTAssertNil(app.publishedProduct)
+    }
+
     func testAMissingQUnitNeverBecomesAGuessedUnit() {
         var calibration = Calibration()
         calibration.qPixelSize = 0.0146

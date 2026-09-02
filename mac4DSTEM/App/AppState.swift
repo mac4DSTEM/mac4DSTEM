@@ -227,8 +227,19 @@ final class AppState {
             navigationResultPixelInfo = nil
             navigationResultDomain = nil
             if restoredResultInfo == nil { restoredResultDomain = nil }
+            // Any write through the legacy field invalidates the published
+            // product; a compute site that publishes one sets it AFTER this.
+            publishedProduct = nil
         }
     }
+
+    /// v2.5 step 3 (2026-09-03): the one authoritative result value, set by a
+    /// compute site at its success publish and returned by `displayedProduct`
+    /// ahead of the legacy field assembly. Only virtual imaging publishes it
+    /// so far; each migrated analysis adds its own publish, and the legacy
+    /// `resultImage`/`restoredResultInfo`/`navigationResult*` fields go when
+    /// the last one has (docs/v2.5-plan.md §9d, deletion condition 1).
+    var publishedProduct: DisplayedProduct?
     var resultRGBA: RGBAImage? {
         didSet {
             navigationResultInfo = nil
@@ -661,6 +672,9 @@ final class AppState {
                 provenance: ["display_role": "acom_region_reference"]
             )
         }
+        // A product published by its compute site is authoritative; the
+        // legacy assembly below serves the analyses not yet migrated.
+        if let product = publishedProduct { return product }
         guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
                 ?? resultRGBA.map(ProductPayload.rgba) else { return nil }
         let metadata = currentResultPersistenceMetadata
@@ -3546,6 +3560,20 @@ final class AppState {
             scanNavigationImage = image
             scanNavigationVersion &+= 1
             resultVersion &+= 1
+            // The product value — kind, name, units and status decided HERE,
+            // by the site that computed the pixels, not re-derived later from
+            // strings (v2.5 step 3). Mirrors `currentScalarResultMetadata`'s
+            // `.virtualDetector` case until that switch is deleted.
+            publishedProduct = DisplayedProduct(
+                kind: "virtual_\(shapeMode.rawValue.lowercased())",
+                displayName: "Virtual detector · \(shapeMode.rawValue)",
+                payload: .scalar(image), domain: .scan,
+                sampling: ProductSampling(
+                    row: calibration.rPixelSize, column: calibration.rPixelSize,
+                    units: calibration.rPixelUnits),
+                valueUnits: "intensity", quantitativeStatus: .relative,
+                provenance: ["display_domain": "scan", "quantitative_status": "relative",
+                             "virtual_shape": shapeMode.rawValue])
             if !quiet {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }
