@@ -220,7 +220,10 @@ final class AppState {
     private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
-    var acceleratingVoltage: Double?
+    var acceleratingVoltage: Double? {
+        get { calibrationSession.acceleratingVoltage }
+        set { calibrationSession.acceleratingVoltage = newValue }
+    }
 
     var currentPattern: DiffractionPattern?
     /// v2.5 step 3f: the pixels live in `publishedProduct`; these two are
@@ -302,12 +305,33 @@ final class AppState {
         }
     }
 
-    var calibration = Calibration()
-    private(set) var calibrationProvenance = CalibrationProvenance()
-    var originFitFunction: OriginFitFunction = .plane
-    var ellipseFitInnerRadius: Double = 10
-    var ellipseFitOuterRadius: Double = 30
-    private(set) var lastEllipseFit: EllipseCalibrationFit?
+    /// v2.5 step 4a: calibration state lives in `CalibrationSession`; these
+    /// forwarders keep the readers compiling until they move there.
+    let calibrationSession = CalibrationSession()
+    var calibration: Calibration {
+        get { calibrationSession.calibration }
+        set { calibrationSession.calibration = newValue }
+    }
+    private(set) var calibrationProvenance: CalibrationProvenance {
+        get { calibrationSession.provenance }
+        set { calibrationSession.provenance = newValue }
+    }
+    var originFitFunction: OriginFitFunction {
+        get { calibrationSession.originFitFunction }
+        set { calibrationSession.originFitFunction = newValue }
+    }
+    var ellipseFitInnerRadius: Double {
+        get { calibrationSession.ellipseFitInnerRadius }
+        set { calibrationSession.ellipseFitInnerRadius = newValue }
+    }
+    var ellipseFitOuterRadius: Double {
+        get { calibrationSession.ellipseFitOuterRadius }
+        set { calibrationSession.ellipseFitOuterRadius = newValue }
+    }
+    private(set) var lastEllipseFit: EllipseCalibrationFit? {
+        get { calibrationSession.lastEllipseFit }
+        set { calibrationSession.lastEllipseFit = newValue }
+    }
     private(set) var parallaxPreprocess: ParallaxPreprocessResult?
     private(set) var parallaxAberrationFit: ParallaxAberrationFitResult?
     private(set) var parallaxCorrection: ParallaxAberrationCorrectionResult?
@@ -1053,11 +1077,7 @@ final class AppState {
     }
     func requestPreprocessingExport() { preprocessingExportRequest &+= 1 }
 
-    var calibrationReadiness: CalibrationReadinessReport {
-        CalibrationReadinessReport.make(
-            calibration: calibration, provenance: calibrationProvenance
-        )
-    }
+    var calibrationReadiness: CalibrationReadinessReport { calibrationSession.readiness }
 
     var productWorkflowReadiness: ProductWorkflowReadiness {
         let readyKinds = Set(calibrationReadiness.items.compactMap { item in
@@ -1068,7 +1088,7 @@ final class AppState {
             hasRotation: readyKinds.contains(.rotation),
             hasQScale: readyKinds.contains(.qScale),
             hasRScale: readyKinds.contains(.rScale),
-            hasVoltage: acceleratingVoltage.map { $0.isFinite && $0 > 0 } ?? false,
+            hasVoltage: calibrationSession.hasUsableVoltage,
             hasBraggVectors: hasCurrentBraggVectors,
             hasACOMMaterial: acomModelSelection != .none,
             hasSupportedACOMMaterial: resolvedACOMModel != nil,
