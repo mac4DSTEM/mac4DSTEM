@@ -477,31 +477,35 @@ struct ResultsWorkspace: View {
         appState.resultImage != nil || appState.resultRGBA != nil
     }
 
+    // v2.5 step 7c slice 1: the saved-product chooser moved to
+    // `ResultsSidebar`; the descriptor lives in `ProductInspector`. This
+    // pane shows the product and, when A and B are set, the comparison.
     var body: some View {
-        HSplitView {
-            VStack(spacing: 0) {
-                if hasVisibleResult {
-                    StemImageView()
-                        .frame(minWidth: 420, minHeight: 360)
-                    Divider()
-                    currentResultSummary
-                } else {
-                    ContentUnavailableView {
-                        Label("No Results Yet", systemImage: "square.grid.2x2")
-                    } description: {
-                        Text("Create an image, map, or reconstruction. It will appear here ready to review and save.")
-                    } actions: {
-                        Button("Create an Image") { appState.selectWorkspace(.image) }
-                            .buttonStyle(.borderedProminent)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 0) {
+            if hasVisibleResult {
+                StemImageView()
+                    .frame(minWidth: 420, minHeight: 360)
+                Divider()
+                currentResultSummary
+            } else {
+                ContentUnavailableView {
+                    Label("No Results Yet", systemImage: "square.grid.2x2")
+                } description: {
+                    Text("Create an image, map, or reconstruction. It will appear here ready to review and save.")
+                } actions: {
+                    Button("Create an Image") { appState.selectWorkspace(.image) }
+                        .buttonStyle(.borderedProminent)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
 
-            savedProducts
-                .frame(minWidth: 300, idealWidth: 340, maxWidth: 400)
+            if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
+                Divider()
+                ProductComparisonView(a: a, b: b)
+                    .frame(minHeight: 230, idealHeight: 300)
+            }
         }
+        .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
@@ -551,132 +555,6 @@ struct ResultsWorkspace: View {
         }
         .padding(14)
         .background(.bar)
-    }
-
-    private var savedProducts: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Saved products")
-                    .font(.headline)
-                Text("Stored with this dataset and available after reopening.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(16)
-            Divider()
-
-            if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
-                ProductComparisonView(a: a, b: b)
-                    .frame(minHeight: 230, idealHeight: 300)
-                Divider()
-            }
-
-            if appState.sessionInventory.results.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "archivebox")
-                        .font(.system(size: 28, weight: .light))
-                        .foregroundStyle(.secondary)
-                    Text("Nothing saved yet")
-                        .font(.subheadline.weight(.medium))
-                    Text("Save the visible result to build a reusable product history for this dataset.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(24)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(appState.sessionInventory.results) { result in
-                            savedProductCard(result)
-                        }
-                    }
-                    .padding(12)
-                }
-            }
-
-            if let controls = appState.selectedSavedControlRehydration {
-                Divider()
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Saved settings available")
-                            .font(.caption.weight(.medium))
-                        Text(controls.summary)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    Button("Apply") { appState.applySelectedSavedControls() }
-                        .buttonStyle(.bordered)
-                }
-                .padding(12)
-            }
-        }
-        .background(.background)
-    }
-
-    private func savedProductCard(_ result: SessionResultDescriptor) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Button {
-                Task { await appState.selectSavedSessionResult(result) }
-            } label: {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: result.storage == .rgba8 ? "paintpalette" : "map")
-                        .foregroundStyle(Color.accentColor)
-                        .frame(width: 28, height: 28)
-                        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(result.displayName)
-                            .font(.subheadline.weight(.medium))
-                            .lineLimit(2)
-                        Text("\(result.width) × \(result.height) · \(result.valueUnits)")
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                        if let sampling = SessionResultPresentation.sampling(
-                            row: result.pixelSizeRow,
-                            column: result.pixelSizeColumn,
-                            units: result.pixelUnits
-                        ) {
-                            Text(sampling)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Displays this saved result")
-
-            VStack(spacing: 4) {
-                Button("A") { Task { await appState.loadSavedSessionResult(result, into: .a) } }
-                    .help("Load into comparison A")
-                    .accessibilityLabel("Load \(result.displayName) into comparison A")
-                Button("B") { Task { await appState.loadSavedSessionResult(result, into: .b) } }
-                    .help("Load into comparison B")
-                    .accessibilityLabel("Load \(result.displayName) into comparison B")
-            }
-            .buttonStyle(.bordered)
-
-            Button(role: .destructive) {
-                Task { await appState.removeSavedSessionResult(result) }
-            } label: {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-            .disabled(appState.isBusy)
-            .help("Remove saved result")
-        }
-        .padding(10)
-        .background(
-            result.id == appState.sessionInventory.currentResultID
-                ? Color.accentColor.opacity(0.09) : Color.secondary.opacity(0.06),
-            in: RoundedRectangle(cornerRadius: 10)
-        )
-        .accessibilityIdentifier("session.savedResult")
     }
 }
 

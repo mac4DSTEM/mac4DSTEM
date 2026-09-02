@@ -21,10 +21,6 @@ struct ContentView: View {
     @State private var showImporter = false
     @State private var showPreprocessingExport = false
 
-    /// Which Reconstruct stage the user has opened by hand. `nil` means "follow
-    /// the workflow" — see `reconstructionStageBinding`.
-    @State private var openedReconstructionStage: Int?
-
     private var h5Types: [UTType] {
         [
             UTType(filenameExtension: "h5"),
@@ -940,6 +936,13 @@ struct ContentView: View {
                     if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .acom {
                         ACOMControlsView()
                     }
+
+                    // v2.5 step 7c: the per-workspace sidebars, one file
+                    // each, replace the gated sections above as each slice
+                    // lands (plan §11h). Results is the first.
+                    if appState.navigation.workspaceArea == .results {
+                        ResultsSidebar()
+                    }
                 }
             }
             .listStyle(.sidebar)
@@ -978,6 +981,7 @@ struct ContentView: View {
                     ProductWorkspaceHeader()
                 }
 
+                Group {
                 if appState.hasDataset && !appState.isLoadingDataset && appState.navigation.workspaceArea == .results {
                     ResultsWorkspace()
                 } else {
@@ -1008,16 +1012,19 @@ struct ContentView: View {
                     // 2026-09-01 (open-items, owner playthrough item 4).
                     .frame(minWidth: 360)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    // A REAL system inspector column (S22a): draggable to
-                    // 560pt, collapsible, system-animated. The previous
-                    // hand-rolled HStack member (fixed 220–340pt frame, no
-                    // drag handle) was the direct cause of "the right panel
-                    // cannot be resized" and half of the clipped-edges layout
-                    // regime above.
-                    .inspector(isPresented: Bindable(appState.navigation).showInspectorPane) {
-                        DatasetInspector()
-                            .inspectorColumnWidth(min: 260, ideal: 320, max: 560)
-                    }
+                }
+                }
+                // A REAL system inspector column (S22a): draggable to
+                // 560pt, collapsible, system-animated. The previous
+                // hand-rolled HStack member (fixed 220–340pt frame, no
+                // drag handle) was the direct cause of "the right panel
+                // cannot be resized" and half of the clipped-edges layout
+                // regime above. One column for every workspace, Results
+                // included; which inspector it holds follows the focused
+                // pane (v2.5 step 7c).
+                .inspector(isPresented: Bindable(appState.navigation).showInspectorPane) {
+                    WorkspaceInspector()
+                        .inspectorColumnWidth(min: 260, ideal: 320, max: 560)
                 }
                 // D2 (owner decision, 2026-09-01): the permanent status
                 // footer — status line, live operation progress with Cancel,
@@ -1046,14 +1053,14 @@ struct ContentView: View {
                         }
                         .help("Show or hide the output log below the image panes")
                     }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            appState.navigation.showInspectorPane.toggle()
-                        } label: {
-                            Label("Toggle inspector", systemImage: "sidebar.trailing")
-                        }
-                        .help("Show or hide the inspector panel")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        appState.navigation.showInspectorPane.toggle()
+                    } label: {
+                        Label("Toggle inspector", systemImage: "sidebar.trailing")
                     }
+                    .help("Show or hide the inspector panel")
                 }
             }
         }
@@ -1609,15 +1616,6 @@ struct ContentView: View {
     /// The stage the workflow is on — the first one not yet complete.
     private var currentReconstructionStage: Int {
         (1...4).first { !reconstructionStageIsComplete($0) } ?? 4
-    }
-
-    /// R21 retired the user-managed stage disclosures; the active stage's
-    /// content shows automatically. Kept only until nothing references it.
-    private func reconstructionStageBinding(_ number: Int) -> Binding<Bool> {
-        Binding(
-            get: { (openedReconstructionStage ?? currentReconstructionStage) == number },
-            set: { openedReconstructionStage = $0 ? number : nil }
-        )
     }
 
 }

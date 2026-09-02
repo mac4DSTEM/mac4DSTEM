@@ -23,39 +23,36 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 4 `CalibrationSession`; one vocabulary (Not set / From file / Measured / … / Not quantitative) and one `Verdict` on every surface | done 2026-09-03 | `AppState` forwards every calibration field until the views read the session (7c) |
 | 5 `ProductWorkflow.readiness(for:)` — one answer for the primary action, the checklist and replay; `OperationCenter` owns busy/progress/lifecycle | done 2026-09-03 as scoped | plan §10g owner decisions: parallax/ptychography in the recipe vocabulary; `SessionGates` axis; replay's own refusal wording |
 | 6 `ACOMSession`; the IPF map confidence-gated (10th-percentile default, slider on the chip) | done 2026-09-03 | `runACOM`, `runStrainMapping`, `applyACOMDisplay`, the orientation plan/map still on `AppState` |
-| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03 | **7c next — decisions taken, slices in plan §11h**: `ContentView` recomposition, `FocusedPane`, a Results inspector, run functions into their sessions, forwarders deleted; 2–4 sessions, a short drive after each slice |
+| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03; 7c slice 1 done 2026-09-02 | **7c slices 2–6 next** (plan §11h, one commit each): slice 1 gave Results `ResultsSidebar` (the saved-product chooser, out of the detail pane), `ProductInspector`, and `FocusedPane` on `WorkspaceNavigation` (`nil` = the 7b per-task conditions, an adapter that expires at slice 5) |
 | 8 Checkpoint | reached 2026-09-03 | the product is simpler across all five surfaces; `AppState.swift` is not smaller yet (5 700 lines) because ownership moved through forwarders — 7c removes them |
 
-## Last gates (all on the tree at `b91f5bb`, 2026-09-03, retained logs)
+## Last gates (retained logs)
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 454 passed / 0 failed / 3 skipped, exit 0 (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
-| `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 |
-| `run-tests.sh core` (both packages) | exit 0 |
-| `run-tests.sh inventory` | exit 0 |
-| Xcode clean build | 0 warnings (was 102 after the package split) |
+| `run-tests.sh unit` | 456 passed / 0 failed / 3 skipped, exit 0 — 2026-09-02, 7c slice 1 tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
+| `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 — `b91f5bb`, 2026-09-03; App/UI-only slices since |
+| `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
+| `run-tests.sh inventory` | exit 0 — 2026-09-02, 7c slice 1 tree |
+| Xcode scratch build | 0 warnings — 2026-09-02, 7c slice 1 tree |
 | `run-tests.sh all` | not re-run since 2026-09-01 (the aggregate adds `real-data-acceptance` and `package-test`) |
-| Track B (human) | 31 passed / 9 partly / 19 unverified / 1 blocked; **F1.54–F1.59 queued this week, not driven**; F1.53 open |
+| Track B (human) | 31 passed / 9 partly / 19 unverified / 1 blocked; **F1.54–F1.60 queued, not driven**; F1.53 open |
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Start here — 7c is unblocked:** the four §11g decisions were taken
-  2026-09-03 (`docs/decisions.md`), and `docs/v2.5-plan.md` §11h lists the
-  six slices in order, one commit each with a short drive after: Results
-  sidebar + product inspector + `FocusedPane` first, then Prepare, Imaging,
-  Strain & ACOM (with the ACOM/strain run functions moving into their
-  sessions and that forwarder block deleted), then Phase (calibration
-  forwarders deleted), then `ContentView` as composition only. `/pickup`
-  takes it from this row.
+- **Start here — 7c slice 2 (Prepare):** `docs/v2.5-plan.md` §11h lists the
+  slices; slice 1 landed. Prepare's sidebar sections leave `ContentView` for
+  `PrepareSidebar` reading `calibrationSession`; its panes claim
+  `FocusedPane` and `DatasetInspector`'s Live group renders from it. Then
+  Imaging, Strain & ACOM (run functions into their sessions, ACOM forwarders
+  deleted), Phase (calibration forwarders deleted), `ContentView` as
+  composition only. `/pickup` takes it from this row.
 - **Binding traps:** new Core/Session types must be `package` and, if
   constructed from App, carry an explicit `package nonisolated init`; plain
   data structs are `nonisolated`; `private(set)` members need `package
   private(set)`; package imports in App/UI/Session files stay inside
   `#if canImport(DSTEMCore)` because the `tools/` harnesses compile those
   files single-module; the harnesses pass `-package-name mac4DSTEM`.
-- **The py4DSTEM lock** is fetched by `tools/lib/fetch-py4dstem.sh` at a
-  pinned commit; `run-tests.sh scientific` does it for you.
 - **The S17 sidebar intermittent** (`open-items.md`): 810.5pt against 786pt,
   the rows wrapping at the 250pt minimum; not the autosave leak; fires in
   bursts on some trees. Re-run the class; do not widen the test.

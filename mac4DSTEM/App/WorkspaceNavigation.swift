@@ -15,7 +15,28 @@ import DSTEMSession
 /// which are AppState's to coordinate. This type only stores the answer.
 @Observable
 final class WorkspaceNavigation {
-    var workspaceArea: WorkspaceArea = .prepare
+    /// Changing workspace releases the focus ring: `nil` until one of the new
+    /// workspace's panes claims it. Results has a single pane, so it is
+    /// focused on arrival.
+    var workspaceArea: WorkspaceArea = .prepare {
+        didSet {
+            if workspaceArea != oldValue {
+                focusedPane = workspaceArea == .results ? .result : nil
+            }
+        }
+    }
+
+    /// v2.5 step 7c (plan §11g decision 3): the pane holding the focus ring,
+    /// written by that pane and read only by the inspector column.
+    /// `ActivePane` is untouched — it still drives Prepare's ROI direction.
+    var focusedPane: FocusedPane?
+
+    /// Which inspector the column renders. `nil` focus keeps the 7b per-task
+    /// conditions (`AppState.inspectorShows*`) — an adapter that expires when
+    /// every pane sets `focusedPane` (7c slice 5).
+    var inspectorContent: InspectorContent {
+        focusedPane == .result ? .product : .dataset
+    }
 
     /// Task selection. The recovery hook preserves the exact semantics the
     /// old stored property's `didSet` had on `AppState`: persist the
@@ -29,4 +50,19 @@ final class WorkspaceNavigation {
     var showInspectorPane = false
 
     @ObservationIgnored var onModeChange: (() -> Void)?
+}
+
+/// The pane that carries the focus ring, named by what it draws — one
+/// descriptor per pane (plan §11c). Cases are added as each workspace's
+/// panes start setting it; `.result` is the Results product pane.
+enum FocusedPane: Equatable, Sendable {
+    case result
+}
+
+enum InspectorContent: Equatable, Sendable {
+    /// `DatasetInspector`: file, live panes, diagnostics, products.
+    case dataset
+    /// `ProductInspector`: the displayed product's descriptor, the session
+    /// inventory, diagnostics (plan §11g decision 2).
+    case product
 }

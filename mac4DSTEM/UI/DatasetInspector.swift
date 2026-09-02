@@ -8,6 +8,8 @@ import DSTEMSession
 /// into the four approved by `docs/s22-ux-design.md` §4.3 — Dataset, Live,
 /// Diagnostics, Products — and the view now lives in a system inspector
 /// column, so everything here sizes to the column width the user drags.
+/// Shown while no pane claims the focus ring or a live pane does; the Results
+/// pane gets `ProductInspector` instead (v2.5 step 7c, `WorkspaceInspector`).
 struct DatasetInspector: View {
     @Environment(AppState.self) private var appState
 
@@ -16,7 +18,7 @@ struct DatasetInspector: View {
             if let descriptor = appState.descriptor {
                 datasetGroup(descriptor)
                 liveGroup
-                diagnosticsGroup
+                InspectorDiagnosticsGroup()   // shared with ProductInspector (7c)
                 Section("Products") {
                     ProductsView()
                 }
@@ -206,187 +208,12 @@ struct DatasetInspector: View {
         }
     }
 
-    // MARK: - Diagnostics (rotation, performance, promote run, provenance)
-
-    @ViewBuilder
-    private var diagnosticsGroup: some View {
-        Section("Diagnostics") {
-            // THE PROMOTE RUN (v2 S6) — live progress while the recipe
-            // replays, and the morning summary afterwards. Outside the
-            // reduced-view condition above on purpose: a finished promote
-            // IS full extent, and the summary is exactly what the user
-            // reads then. Cleared on dataset change (`clearUnlessRunning`).
-            if appState.replayRun.phase != .idle {
-                subheader("Promote run")
-                if let headline = appState.replayRun.summaryHeadline {
-                    Text(headline)
-                        .font(.callout.weight(.medium))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("inspector.promoteRunHeadline")
-                }
-                if let halt = appState.replayRun.haltReason {
-                    Text("Halted — \(halt)")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("inspector.promoteRunHalt")
-                }
-                if let note = appState.replayRun.frameNote {
-                    Text(note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("inspector.promoteRunFrameNote")
-                }
-                ForEach(appState.replayRun.steps) { step in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(step.index + 1). \(step.title)  \(symbol(for: step.outcome))")
-                            .font(.caption.weight(.medium))
-                        if let detail = detail(for: step.outcome) {
-                            Text(detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
-
-            // Calibration values that could NOT be carried into this view.
-            // Shown separately from the loaded-view summary because these are
-            // refusals, not descriptions: something the file provided is now
-            // absent, and the reason is the actionable part.
-            if !appState.loadedView.invalidatedCalibration.isEmpty {
-                Group {
-                    subheader("Not carried into this view")
-                    ForEach(appState.loadedView.invalidatedCalibration) { item in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.field.rawValue)
-                                .font(.callout.weight(.medium))
-                            Text(item.reason)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-                .accessibilityIdentifier("inspector.invalidatedCalibration")
-            }
-
-            if let rotation = appState.lastRotationResult {
-                subheader("Rotation diagnostics")
-                RotationCurveView(result: rotation)
-                    .frame(height: 90)
-                Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            }
-
-            subheader("Performance")
-            PerformanceView()
-
-            // PROVENANCE (L6 item 3). A result restored from a session
-            // was computed under some view; if the app is now showing a
-            // different one, the numbers on screen and the numbers in the
-            // sidecar are about different data. Said in the existing
-            // provenance vocabulary rather than a second one (I3).
-            if let recorded = appState.sessionLoadSpecification,
-               recorded != appState.loadedView.specification {
-                Group {
-                    subheader("Session provenance")
-                    Text("The saved session was computed on a different view of this file.")
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                    row("Session view", recorded.provenanceSummary ?? "whole file")
-                    row("Loaded view",
-                        appState.loadedView.specification.provenanceSummary ?? "whole file")
-                    Text("Restored results describe the session's view, not the one loaded now.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // D4: the way OUT — a clean reopen with the session
-                    // skipped. The sidecar file is untouched.
-                    Button("Reopen Without This Session") {
-                        appState.reopenIgnoringSessionSidecar()
-                    }
-                    .controlSize(.small)
-                    .help("Reopens this dataset without restoring the saved session. "
-                          + "The sidecar file stays on disk; results you save afterwards "
-                          + "still go to the same sidecar.")
-                    .accessibilityIdentifier("inspector.reopenWithoutSession")
-                }
-                .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
-            }
-
-            // A SIDECAR THAT IS THERE AND UNREADABLE (v2 S1). Distinct from
-            // the mismatch above, and it has to be: that one compares two
-            // KNOWN views, while this is the case where the recorded view is
-            // unknown because the file could not be opened. The dataset then
-            // loaded at full extent, which looks exactly like a dataset that
-            // never had a session — so without this the user's only signal
-            // is a status line that the load itself overwrites within
-            // milliseconds (measured, Gate D 2026-08-19).
-            if let reason = appState.sessionSidecar.unreadableReason {
-                Group {
-                    subheader("Session sidecar")
-                    Text("A saved session sits beside this dataset and could not be read.")
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(reason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("The whole file is loaded. If that session recorded a crop, what is on screen is a different extent from what it saved.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .accessibilityIdentifier("inspector.sessionSidecarUnreadable")
-            }
-
-            // A RECORDED VIEW THIS FILE DOES NOT HAVE (v2 S7). The
-            // unreadable case above already renders through the locator;
-            // this is the sibling failure — the sidecar was READ, and the
-            // region it records does not fit the file (replaced dataset,
-            // or a sidecar copied beside a different cube). Before S7 its
-            // only signal was a status line the load overwrites, the
-            // exact channel defect S1 measured for the branch above.
-            // While either failure stands, sidecar rewrites are refused
-            // (`SessionGates.sidecarRewriteRefusal`).
-            if appState.sessionSidecar.unreadableReason == nil,
-               let failure = appState.gates.sidecarRestoreFailure,
-               failure.kind == .doesNotFit {
-                Group {
-                    subheader("Session sidecar")
-                    Text("The saved session beside this dataset describes a region this file does not have.")
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(failure.message)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .accessibilityIdentifier("inspector.sessionSidecarDoesNotFit")
-            }
-        }
-    }
-
     // MARK: - Shared row/label helpers
 
     /// A labelled block boundary inside one of the four groups. Sub-blocks
     /// were previously sixteen top-level `Section`s; the caps style keeps
     /// them scannable without sixteen headers' worth of chrome.
-    private func subheader(_ title: String) -> some View {
-        Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .padding(.top, 8)
-    }
+    private func subheader(_ title: String) -> some View { inspectorSubheader(title) }
 
     private func gammaControl(_ label: String, value: Binding<Float>) -> some View {
         HStack {
@@ -443,17 +270,7 @@ struct DatasetInspector: View {
     }
 
     private func row(_ label: String, _ value: String, mono: Bool = false) -> some View {
-        LabeledContent(label) {
-            Text(value)
-                .font(mono ? .caption.monospaced() : .callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
-                .textSelection(.enabled)
-                // Wrap, never truncate (S22a) — the inspector's fixed rows
-                // were part of the read-blocking truncation the owner
-                // reported; a long path or provenance string grows the row.
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        inspectorRow(label, value, mono: mono)
     }
 
     private func byteString(_ bytes: Int) -> String {
@@ -462,32 +279,6 @@ struct DatasetInspector: View {
             return String(format: "%.2f GB", megabytes / 1024)
         }
         return String(format: "%.1f MB", megabytes)
-    }
-
-    // MARK: - Promote run rendering (v2 S6)
-
-    private func symbol(for outcome: ReplayRun.Outcome) -> String {
-        switch outcome {
-        case .notReached: "· not reached"
-        case .running: "… running"
-        case .succeeded: "✓"
-        case .failed: "✕ failed"
-        case .cancelled: "⊘ cancelled"
-        case .refused: "— refused"
-        }
-    }
-
-    private func detail(for outcome: ReplayRun.Outcome) -> String? {
-        switch outcome {
-        case .notReached, .running, .cancelled:
-            nil
-        case .succeeded(let detail, let seconds):
-            seconds >= 1
-                ? "\(detail)  (\(Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .narrow))))"
-                : detail
-        case .failed(let reason), .refused(let reason):
-            reason
-        }
     }
 }
 
