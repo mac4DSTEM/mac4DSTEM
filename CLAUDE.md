@@ -5,6 +5,10 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff (start here)
 
+**After v2.0 ships: [`docs/v2.5-plan.md`](docs/v2.5-plan.md)** (2026-09-02) —
+the consolidation train (naming, merged UI findings, package split, product
+model, sequence, owner decisions). v3 is reserved for the feature plan.
+
 **Shipping v2? Start at [`docs/v2-ship-plan.md`](docs/v2-ship-plan.md)** (drafted
 2026-09-01) — the sequenced path from here to a tagged release, with the two
 owner decisions it waits on. It supersedes nothing; it orders what §9 already

@@ -36,6 +36,10 @@ v2-era closures move verbatim to
 only where something live leans on them. Cited numbers are prefixed `#` and
 refer to the v1.0 backlog.
 
+> **Post-v2.0 direction (2026-09-02):** [`docs/v2.5-plan.md`](v2.5-plan.md)
+> is the consolidation plan — its §3 lists the merged UI findings that wait on
+> the architecture seams; do not patch those on the current facade.
+
 ## Owner decisions — 2026-09-01 (v2 endgame scope)
 
 Taken in conversation with the release owner; they resolve
