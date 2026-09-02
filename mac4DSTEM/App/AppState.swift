@@ -4890,6 +4890,7 @@ final class AppState {
                                  pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
         resultRGBA = nil
         resultVersion &+= 1
+        publishProductFromLegacyFields()   // v2.5 step 3b-4
         Task { await ensureScanNavigator() }
     }
 
@@ -5447,11 +5448,27 @@ final class AppState {
         guard let map = orientationMap, navigation.analysisMode == .acom else { return }
         restoredResultInfo = nil
         resultColormap = .viridis
+        // v2.5 step 3b-4: every ACOM display mode publishes the product with the
+        // map's own validity (matched template) and quality (reliability, score),
+        // moved here from `displayedProduct`.
+        func publishACOMProduct() {
+            publishProductFromLegacyFields(
+                validityMask: map.results.map { $0.templateIndex >= 0 },
+                qualityFields: [
+                    ProductQualityField(name: "reliability", units: "dimensionless",
+                                        image: map.reliabilityImage),
+                    ProductQualityField(name: "score", units: "dimensionless",
+                                        image: map.scoreImage),
+                ],
+                overlays: [ProductOverlayDescriptor(
+                    kind: "matched_template", provenance: "selected ACOM orientation template")])
+        }
         switch acomDisplay {
         case .ipfZ:
             resultImage = nil
             resultRGBA = map.ipfZImage
             resultVersion &+= 1
+            publishACOMProduct()
             return
         case .reliability: resultImage = map.reliabilityImage
         case .disorientation: resultImage = map.symmetryDisorientationImage
@@ -5463,6 +5480,7 @@ final class AppState {
         }
         resultRGBA = nil
         resultVersion &+= 1
+        publishACOMProduct()
     }
 
     // MARK: - Fit-verification overlays (diffraction pane)
