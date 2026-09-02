@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.5.1 — unreleased
+
+- **Split view.** One contract for both side columns (drag far, collapse
+  past the minimum, reopen at the last width), the data pane's floor as a
+  split item, the inspector giving way first in a narrow window; the
+  sidebar may now be up to 600 pt wide. No scientific output changed.
+
 ## v2.5.0 — 2026-09-03
 
 Rehearse an analysis on a cropped or binned view, then promote it to the

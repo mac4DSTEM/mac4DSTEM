@@ -91,6 +91,17 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-03 — One split-view contract, like Xcode (owner).** Both side
+columns behave the same: drag far, collapse past the minimum, reopen at the
+last width; the data pane keeps a floor; a narrowing window squeezes the
+inspector, then the sidebar, then the pane. `SplitViewPolicy` is the only
+enforcement — AppKit split-item bounds and holding priorities — and the
+SwiftUI frame floors on the columns are gone. The sidebar's maximum goes
+from 340pt (the 2026-09-01 cap after a 750pt drag) to 600pt, the inspector's
+from 560 to 600: wide is allowed, content wraps. Measured before writing:
+SwiftUI already collapses on drag and reports it to the navigation flags;
+it does not apply the sidebar's declared minimum as an item bound.
+
 **2026-09-03 — Four lanes and a number rule (owner).** `open-items.md`'s
 sections are the lanes: patches (v2.5.x) for reported bugs and the known,
 scoped items; science one item at a time with the origin-fit guard leading;

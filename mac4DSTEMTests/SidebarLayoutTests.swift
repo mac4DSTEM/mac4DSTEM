@@ -428,7 +428,7 @@ final class SidebarLayoutTests: XCTestCase {
     /// column root used to make programmatic below-minimum positions impossible,
     /// but live owner repro on 2026-09-03 showed that constraint can fight the
     /// AppKit split-view drag and crash the window's update-constraints pass.
-    /// The supported belt is now `SplitViewWidthClamp`: no persistent hard view
+    /// The supported belt is now `SplitViewPolicy`: no persistent hard view
     /// floor, just AppKit thickness bounds plus a restoration clamp.
     func testTheSidebarRefusesPositionsOutsideItsDeclaredBand() async throws {
         let appState = AppState()
@@ -438,7 +438,7 @@ final class SidebarLayoutTests: XCTestCase {
         pump(0.6)
 
         let split = try XCTUnwrap(
-            SplitViewWidthClamp.outermostColumnSplit(in: window.contentView),
+            SplitViewPolicy.outermostColumnSplit(in: window.contentView),
             "no column split view in the window"
         )
         split.setPosition(144, ofDividerAt: 0)
@@ -447,14 +447,14 @@ final class SidebarLayoutTests: XCTestCase {
 
         let forced = try XCTUnwrap(split.arrangedSubviews.first).frame.width
         XCTAssertLessThan(
-            forced, SplitViewWidthClamp.sidebarMinimum,
+            forced, SplitViewPolicy.sidebar.minimum,
             "fixture precondition: a raw split-view position should still reproduce a below-minimum sidebar before the clamp; got \(forced)"
         )
 
-        let clamped = try XCTUnwrap(SplitViewWidthClamp.enforceSidebarMinimum(in: window))
+        let clamped = try XCTUnwrap(SplitViewPolicy.apply(to: window)?.sidebarWidth)
         XCTAssertGreaterThanOrEqual(
-            clamped, SplitViewWidthClamp.sidebarMinimum - 1,
-            "a forced 144pt sidebar must be corrected by SplitViewWidthClamp; got \(clamped)"
+            clamped, SplitViewPolicy.sidebar.minimum - 1,
+            "a forced 144pt sidebar must be corrected by SplitViewPolicy; got \(clamped)"
         )
 
         // The 340pt CEILING is deliberately not asserted here: it is enforced

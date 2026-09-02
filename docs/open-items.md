@@ -149,13 +149,20 @@ crashed with `NSGenericException` ("window has been marked as needing another
 Update Constraints in Window pass..."). Diagnosis: the hard SwiftUI
 `.frame(minWidth:)` on the column root fights AppKit's split-view drag.
 Fix in progress: remove that hard floor; rely on `NavigationSplitView` +
-`SplitViewWidthClamp` AppKit bounds/restoration clamp; needs live re-drive.
+`SplitViewPolicy` AppKit bounds/restoration clamp; needs live re-drive. 2026-09-03, the split-view policy tree: 1 of 2 full-class runs red at the
+same 810.5 (the red run also carried a 144pt sidebar a new test had autosaved
+into the shared domain — the tests now unpin the autosave first); the re-run
+was green.
 
 ### Sidebar drag crashes the app intermittently — Gate D open
+(2026-09-03, later: `SplitViewPolicy` landed as the single width authority —
+sidebar and inspector item bounds, collapse on drag synced to the navigation
+flags, the data pane's floor as a split item, no SwiftUI frame floor; the
+evidence below is still owed and decides whether the entry closes.)
 Owner report 2026-09-03: resizing the panes still crashes the app "from
 time to time". Diagnosis on file (an Xcode agent, same day): the hard
 `.frame(minWidth: 250)` on the sidebar column root, on top of the AppKit
-thickness bounds `SplitViewWidthClamp` sets and the SwiftUI column width,
+thickness bounds the AppKit clamp (now `SplitViewPolicy`) sets and the SwiftUI column width,
 lets a live divider drag re-enter window constraint updates until AppKit
 raises `NSGenericException`. That agent removed the floor; the edit reached
 `main` in `1274f72` by way of another session's `git add -A`, not through

@@ -138,14 +138,17 @@ struct ContentView: View {
             // declaration stopped reaching NavigationSplitView and the owner
             // dragged the sidebar to ~750pt and ~175pt on 2026-09-01 (S22
             // feedback R1/R2). AppKit-side enforcement is in
-            // SplitViewWidthClamp, because the declaration alone has already
+            // SplitViewPolicy, because the declaration alone has already
             // failed twice (the 144pt restore; the 625pt drag on the PRE-S22
             // build in the owner's original screenshots). Do not add a hard
             // `.frame(minWidth:)` here: live divider drags can make SwiftUI and
             // AppKit re-enter window constraint updates until AppKit raises
             // NSGenericException.
             .navigationTitle("mac4DSTEM")
-            .navigationSplitViewColumnWidth(min: 250, ideal: 292, max: 340)
+            .navigationSplitViewColumnWidth(
+                min: SplitViewPolicy.sidebar.minimum, ideal: SplitViewPolicy.sidebar.ideal,
+                max: SplitViewPolicy.sidebar.maximum
+            )
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
@@ -178,11 +181,9 @@ struct ContentView: View {
                             logPane
                         }
                     }
-                    // Soft floor so the sidebar and inspector cannot crush the
-                    // image panes into distorted slivers — the 2026-08-05
-                    // clipped-edges class, finally captured on screen
-                    // 2026-09-01 (open-items, owner playthrough item 4).
-                    .frame(minWidth: 360)
+                    // The data pane's floor is the split item's
+                    // (`SplitViewPolicy.detailMinimum`), not a view frame:
+                    // a frame here fights the split view during a drag.
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 }
@@ -196,7 +197,10 @@ struct ContentView: View {
                 // pane (v2.5 step 7c).
                 .inspector(isPresented: Bindable(appState.navigation).showInspectorPane) {
                     WorkspaceInspector()
-                        .inspectorColumnWidth(min: 260, ideal: 320, max: 560)
+                        .inspectorColumnWidth(
+                            min: SplitViewPolicy.inspector.minimum, ideal: SplitViewPolicy.inspector.ideal,
+                            max: SplitViewPolicy.inspector.maximum
+                        )
                 }
                 // D2 (owner decision, 2026-09-01): the permanent status
                 // footer — status line, live operation progress with Cancel,
@@ -236,17 +240,10 @@ struct ContentView: View {
                 }
             }
         }
-        .onAppear {
-            // S22d: after AppKit state restoration, clamp a sidebar restored
-            // below its declared 250pt minimum (the standing 144pt-restore
-            // Track B finding). Deferred one runloop turn so restoration has
-            // finished laying out.
-            DispatchQueue.main.async {
-                for window in NSApp.windows where window.isVisible {
-                    SplitViewWidthClamp.enforceSidebarMinimum(in: window)
-                }
-            }
-        }
+        .onAppear { applySplitViewPolicy() }
+        // The inspector's split item exists only while it is presented, so
+        // the policy is reapplied when it appears (idempotent).
+        .onChange(of: appState.navigation.showInspectorPane) { applySplitViewPolicy() }
         .onChange(of: appState.virtualShape) {
             appState.commitApertureChange()
         }
@@ -316,6 +313,17 @@ struct ContentView: View {
             Button("OK", role: .cancel) { appState.errorMessage = nil }
         } message: {
             Text(appState.errorMessage ?? "")
+        }
+    }
+
+    /// `SplitViewPolicy` on every visible window, one runloop turn later so
+    /// AppKit state restoration (and the inspector's presentation) has laid
+    /// out.
+    private func applySplitViewPolicy() {
+        DispatchQueue.main.async {
+            for window in NSApp.windows where window.isVisible {
+                SplitViewPolicy.apply(to: window)
+            }
         }
     }
 

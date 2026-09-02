@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
-		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
 		000000000000000300000001 /* libhdf5.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000001 /* libhdf5.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		000000000000000300000002 /* libaec.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000002 /* libaec.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		000000000000000300000003 /* libsz.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000003 /* libsz.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
+		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 /* End PBXBuildFile section */
 
@@ -39,85 +39,6 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		300000000000000000000001 /* Exceptions for "mac4DSTEM" folder in "mac4DSTEM" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Session/ACOMSession.swift",
-				"Session/OperationCenter.swift",
-				"Session/CalibrationSession.swift",
-				"Session/SystemMonitor.swift",
-				"Session/ACOMWorkflow.swift",
-				"Session/DatasetResidency.swift",
-				"Session/LoadedView.swift",
-				"Session/QCalibrationRun.swift",
-				"Session/RecentDatasets.swift",
-				"Session/ReplayPlan.swift",
-				"Session/ReplayRun.swift",
-				"Session/SessionCalibrationFramePolicy.swift",
-				"Session/SessionGates.swift",
-				"Session/SessionReplay.swift",
-				"Session/SessionSidecarLocator.swift",
-				"Session/StrainProduct.swift",
-				"Session/WorkspaceRecovery.swift",
-				"Core/Analysis/DPC.swift",
-				"Core/Analysis/DatasetPreview.swift",
-				"Core/Analysis/DiskDetection.swift",
-				"Core/Analysis/EllipseCalibration.swift",
-				"Core/Analysis/FitOverlays.swift",
-				"Core/Analysis/OrientationResult.swift",
-				"Core/Analysis/OriginCalibration.swift",
-				"Core/Analysis/ParallaxAberrationCorrection.swift",
-				"Core/Analysis/ParallaxAberrationFitting.swift",
-				"Core/Analysis/ParallaxAlignment.swift",
-				"Core/Analysis/ParallaxDepthSectioning.swift",
-				"Core/Analysis/ParallaxPreprocessing.swift",
-				"Core/Analysis/ParallaxSubpixelReconstruction.swift",
-				"Core/Analysis/ProbeKernel.swift",
-				"Core/Analysis/PtychographyPreparation.swift",
-				"Core/Analysis/QCalibration.swift",
-				"Core/Analysis/RotationCalibration.swift",
-				"Core/Analysis/SingleslicePtychography.swift",
-				"Core/Analysis/StrainFrame.swift",
-				"Core/Analysis/StrainMapping.swift",
-				"Core/Analysis/TiledDiskDetection.swift",
-				"Core/Analysis/VirtualDetector.swift",
-				"Core/Compute/AnalysisCancellationToken.swift",
-				"Core/Compute/FFT1D.swift",
-				"Core/Compute/FFT2D.swift",
-				"Core/Compute/MTLTexture+Float.swift",
-				"Core/Compute/MatrixDFTCorrelation.swift",
-				"Core/Compute/MetalEngine.swift",
-				"Core/Crystal/CIFImport.swift",
-				"Core/Crystal/Crystal.swift",
-				"Core/Crystal/CrystalModel.swift",
-				"Core/Crystal/OrientationMatcher.swift",
-				"Core/Crystal/OrientationPlan.swift",
-				"Core/Crystal/ScatteringFactors.swift",
-				"Core/Data/BraggVectorEMDWriter.swift",
-				"Core/Data/Calibration.swift",
-				"Core/Data/CalibrationReReference.swift",
-				"Core/Data/DM4Reader.swift",
-				"Core/Data/DatasetDescriptor.swift",
-				"Core/Data/DemoFourDDataSource.swift",
-				"Core/Data/DiffractionPattern.swift",
-				"Core/Data/DisplayedProduct.swift",
-				"Core/Data/FourDArray.swift",
-				"Core/Data/FourDDataSource.swift",
-				"Core/Data/H5Reader.swift",
-				"Core/Data/HDF5Types.swift",
-				"Core/Data/LoadConfiguration.swift",
-				"Core/Data/LoadSpecification.swift",
-				"Core/Data/ResidentCube.swift",
-				"Core/Data/ResultPresentation.swift",
-				"Core/Data/SessionReplayRecord.swift",
-				"Core/Data/VendorRawReaders.swift",
-				"Core/Workflow/AnalysisOperationController.swift",
-			);
-			target = 000000000000000100000000 /* mac4DSTEM */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* mac4DSTEM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mac4DSTEM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000200000001 /* libhdf5.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libhdf5.dylib; sourceTree = "<group>"; };
@@ -126,6 +47,85 @@
 		100000000000000000000120 /* mac4DSTEMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		300000000000000000000001 /* Exceptions for "mac4DSTEM" folder in "mac4DSTEM" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/Analysis/DatasetPreview.swift,
+				Core/Analysis/DiskDetection.swift,
+				Core/Analysis/DPC.swift,
+				Core/Analysis/EllipseCalibration.swift,
+				Core/Analysis/FitOverlays.swift,
+				Core/Analysis/OrientationResult.swift,
+				Core/Analysis/OriginCalibration.swift,
+				Core/Analysis/ParallaxAberrationCorrection.swift,
+				Core/Analysis/ParallaxAberrationFitting.swift,
+				Core/Analysis/ParallaxAlignment.swift,
+				Core/Analysis/ParallaxDepthSectioning.swift,
+				Core/Analysis/ParallaxPreprocessing.swift,
+				Core/Analysis/ParallaxSubpixelReconstruction.swift,
+				Core/Analysis/ProbeKernel.swift,
+				Core/Analysis/PtychographyPreparation.swift,
+				Core/Analysis/QCalibration.swift,
+				Core/Analysis/RotationCalibration.swift,
+				Core/Analysis/SingleslicePtychography.swift,
+				Core/Analysis/StrainFrame.swift,
+				Core/Analysis/StrainMapping.swift,
+				Core/Analysis/TiledDiskDetection.swift,
+				Core/Analysis/VirtualDetector.swift,
+				Core/Compute/AnalysisCancellationToken.swift,
+				Core/Compute/FFT1D.swift,
+				Core/Compute/FFT2D.swift,
+				Core/Compute/MatrixDFTCorrelation.swift,
+				Core/Compute/MetalEngine.swift,
+				"Core/Compute/MTLTexture+Float.swift",
+				Core/Crystal/CIFImport.swift,
+				Core/Crystal/Crystal.swift,
+				Core/Crystal/CrystalModel.swift,
+				Core/Crystal/OrientationMatcher.swift,
+				Core/Crystal/OrientationPlan.swift,
+				Core/Crystal/ScatteringFactors.swift,
+				Core/Data/BraggVectorEMDWriter.swift,
+				Core/Data/Calibration.swift,
+				Core/Data/CalibrationReReference.swift,
+				Core/Data/DatasetDescriptor.swift,
+				Core/Data/DemoFourDDataSource.swift,
+				Core/Data/DiffractionPattern.swift,
+				Core/Data/DisplayedProduct.swift,
+				Core/Data/DM4Reader.swift,
+				Core/Data/FourDArray.swift,
+				Core/Data/FourDDataSource.swift,
+				Core/Data/H5Reader.swift,
+				Core/Data/HDF5Types.swift,
+				Core/Data/LoadConfiguration.swift,
+				Core/Data/LoadSpecification.swift,
+				Core/Data/ResidentCube.swift,
+				Core/Data/ResultPresentation.swift,
+				Core/Data/SessionReplayRecord.swift,
+				Core/Data/VendorRawReaders.swift,
+				Core/Workflow/AnalysisOperationController.swift,
+				Session/ACOMSession.swift,
+				Session/ACOMWorkflow.swift,
+				Session/CalibrationSession.swift,
+				Session/DatasetResidency.swift,
+				Session/LoadedView.swift,
+				Session/OperationCenter.swift,
+				Session/QCalibrationRun.swift,
+				Session/RecentDatasets.swift,
+				Session/ReplayPlan.swift,
+				Session/ReplayRun.swift,
+				Session/SessionCalibrationFramePolicy.swift,
+				Session/SessionGates.swift,
+				Session/SessionReplay.swift,
+				Session/SessionSidecarLocator.swift,
+				Session/StrainProduct.swift,
+				Session/SystemMonitor.swift,
+				Session/WorkspaceRecovery.swift,
+			);
+			target = 000000000000000100000000 /* mac4DSTEM */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* mac4DSTEM */ = {
@@ -263,10 +263,10 @@
 				Base,
 			);
 			mainGroup = 000000000000000000000001;
+			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				300000000000000000000002 /* XCLocalSwiftPackageReference "." */,
 			);
-			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
 			projectDirPath = "";
@@ -312,24 +312,6 @@
 			targetProxy = 100000000000000160000000 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		300000000000000000000002 /* XCLocalSwiftPackageReference "." */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = .;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		300000000000000000000003 /* DSTEMCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DSTEMCore;
-		};
-		300000000000000000000005 /* DSTEMSession */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = DSTEMSession;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "mac4DSTEM" */ = {
@@ -506,8 +488,8 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_PACKAGE_NAME = mac4dstem;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -555,8 +537,8 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_PACKAGE_NAME = mac4dstem;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -628,6 +610,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		300000000000000000000002 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		300000000000000000000003 /* DSTEMCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DSTEMCore;
+		};
+		300000000000000000000005 /* DSTEMSession */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DSTEMSession;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 000000000000000000000000 /* Project object */;
 }
