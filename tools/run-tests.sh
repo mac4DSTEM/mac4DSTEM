@@ -169,7 +169,7 @@ case "${1:-unit}" in
   unit) require_free_space 8 "the xcodebuild unit suite"; unit_tests ;;
   benchmark) require_free_space 4 "the performance baseline"; "$ROOT/tools/performance-baseline/run.sh" ;;
   campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
-  scientific) require_free_space 4 "the science harnesses"; run_harnesses "${scientific[@]}" ;;
-  all) require_free_space 8 "the full suite"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
+  scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}" ;;
+  all) require_free_space 8 "the full suite"; "$ROOT/tools/lib/fetch-py4dstem.sh"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
   *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all|inventory|core]" >&2; exit 64 ;;
 esac

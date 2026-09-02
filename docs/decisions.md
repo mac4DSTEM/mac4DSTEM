@@ -67,6 +67,15 @@ the boundary real for the compiler at the cost of a mechanical pass
 (1 645 modifiers, 96 generated initializers). If Core is ever published as
 a library, that is the moment to design `public`.
 
+**2026-09-03 — The py4DSTEM lock is fetched, not vendored.** The 196 tracked
+source files under `References/` are replaced by `tools/lib/fetch-py4dstem.sh`,
+which clones upstream at commit `f050d207` (dev, 2026-03-26, version 0.14.19)
+— the commit whose tree matched the tracked copy byte for byte — into the
+gitignored folder on demand; CI and the scientific runner call it. Reason: the
+public repository should not carry a copy of another project; the file:line
+citations in `DEVIATION` notes stay true because the pin is exact. History is
+not rewritten (3.6 MB is not worth a force-push).
+
 **2026-09-02 — Live doc set.** `CLAUDE.md` (rules), `docs/status.md`,
 `docs/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
 `docs/architecture.md`, this file, plus the reference docs and Track B

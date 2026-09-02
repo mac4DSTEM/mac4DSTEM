@@ -1,8 +1,8 @@
 # CLAUDE.md — start here
 
 mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple
-Silicon, validated against the vendored py4DSTEM (`References/py4DSTEM-dev`,
-tracked). **v2.0.0 is tagged (2026-09-02)**; `main` is on the v2.5
+Silicon, validated against py4DSTEM at one pinned upstream commit
+(`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`). **v2.0.0 is tagged (2026-09-02)**; `main` is on the v2.5
 consolidation train. Rules only here; status and history live elsewhere.
 
 ## Read, in this order (the whole set is under 500 lines)

@@ -8,19 +8,10 @@
 # only produces churn between machines.
 /.swiftpm/
 
-# Machine-local scientific corpora and migration snapshots.
-#
-# One deliberate exception: the py4DSTEM **Python source** under
-# References/py4DSTEM-dev/ stays tracked, because the inline `DEVIATION` notes
-# throughout Core/ cite it by file and line, and those citations are worthless
-# if the reader cannot see the exact version they refer to. Its LICENSE.txt and
-# CITATION.cff are kept with it, since vendoring GPL source without its licence
-# would be wrong.
-#
-# Its documentation, images, CI configuration and devcontainer are NOT tracked
-# (removed 2026-08-06): ~6.6 MB of material that serves no purpose here, and it
-# dominated both the repository's language statistics and anything built from
-# the working tree.
+# Machine-local scientific corpora and migration snapshots — and, since
+# 2026-09-03, the py4DSTEM source lock too: tools/lib/fetch-py4dstem.sh clones
+# it at one pinned upstream commit on demand. The inline `DEVIATION` notes in
+# Core/ cite that commit's files by line; the pin is the reason they stay true.
 /References
 
 # Local build products

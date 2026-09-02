@@ -112,11 +112,12 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Standalone parity, diagnostic and packaging harnesses | `tools/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
 | Docs | `docs/` (live set in `CLAUDE.md`); dated or superseded → `docs/archive/` |
 | CI | `.github/workflows/` |
-| Vendored material and machine-local data | `References/` (gitignored except the py4DSTEM source lock) |
+| Machine-local data and the fetched py4DSTEM lock | `References/` (gitignored; `tools/lib/fetch-py4dstem.sh` pins the lock commit) |
 
 `References/` is tiered, not bloat: tiny tracked fixtures for every gate;
 locally staged representative datasets; multi-GB acceptance data on the
-owner's machines; the pinned py4DSTEM source that `DEVIATION` notes cite.
+owner's machines; the py4DSTEM source at the pinned commit that `DEVIATION`
+notes cite (fetched on demand, not tracked since 2026-09-03).
 
 ## Ownership today and where it is going
 

@@ -8,7 +8,8 @@
 #     this comment cannot go stale). Each builds its fixtures synthetically or
 #     reads small committed files and compiles production Core/ sources
 #     standalone; the py4DSTEM-parity harnesses among them compare against the
-#     vendored source lock (References/py4DSTEM-dev, tracked), with the
+#     pinned source lock (References/py4DSTEM-dev, fetched by
+#     tools/lib/fetch-py4dstem.sh at one upstream commit), with the
 #     numerical stack pinned by tools/lib/py4dstem-ci-constraints.txt.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
@@ -122,8 +123,12 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: tools/lib/py4dstem-ci-constraints.txt
-      - name: Install the vendored py4DSTEM lock
-        # Parity must run against the tracked source lock, never a PyPI
+      - name: Fetch the py4DSTEM source lock
+        # Since 2026-09-03 the lock is fetched at a pinned upstream commit
+        # (tools/lib/fetch-py4dstem.sh), not tracked in the tree.
+        run: tools/lib/fetch-py4dstem.sh
+      - name: Install the py4DSTEM lock
+        # Parity must run against the pinned source, never a PyPI
         # py4DSTEM — DEVIATION notes cite it by file and line. The constraints
         # file pins the numerical stack to the owner's parity environment so
         # an upstream release cannot shift the gate on an unchanged tree.
