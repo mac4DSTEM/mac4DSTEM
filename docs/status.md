@@ -11,7 +11,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
-| v2.5.0 | **next**: `main` after the owner's driving pass; project version 2.5 / build 3 | `docs/releasing.md` |
+| v2.5.0 | **built 2026-09-03 from `b026cd7`**, notarized and stapled (`build/release/mac4DSTEM-2.5.dmg`, SHA-256 `a2db8145…a2dd7`, notary ids in `CHANGELOG.md`); tag and the clean-account launch test owed to the owner | `CHANGELOG.md`, retained pipeline log |
 
 ## v2.5 consolidation train (`docs/archive/v2/v2.5-plan.md` §5) — done
 
@@ -54,6 +54,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 ## Owed to the owner
 
 
-- Drive the app once before tagging v2.5.0 (Results and the inspector
-  changed most); then build, sign and notarize per `docs/releasing.md`.
+- Tag `v2.5.0` on `b026cd7` and push it; test the DMG on a clean macOS 26
+  account before publishing; drive Results and the inspector, never seen on
+  screen since 7c.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.

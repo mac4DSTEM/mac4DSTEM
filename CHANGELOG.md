@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.5.0 — unreleased
+## v2.5.0 — 2026-09-03
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
 full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was tagged
@@ -42,10 +42,14 @@ stays as the pre-consolidation anchor.)
 
 ### Verified by
 
-- `tools/run-tests.sh unit` — 436 passed / 0 failed / 2 skipped (2026-09-02,
-  retained log). `scientific` — 42 of 42 harnesses (2026-09-02, FFT tree).
-  `all` — green end to end on the 2026-09-01 DPC-closeout tree; not re-run
-  on the final tree.
+- `tools/run-tests.sh all` on `e2284f1` (2026-09-03, retained log): unit 467
+  passed / 0 failed / 3 skipped, 43 harnesses green including the real-data
+  acceptance; the package audit passed after its literal version assertion
+  was made to read the project (`b026cd7`, docs and tooling only).
+- Built from `b026cd7`: Developer ID archive, app notarization
+  `5ce6829c-c270-44a2-b746-bfec27028ba6`, `mac4DSTEM-2.5.dmg` notarization
+  `70020137-4b1e-495e-9b5f-bf35f093ae73`, stapled, Gatekeeper-accepted;
+  DMG SHA-256 `a2db81452a960fb75d50265a7ee82d4f1bc929df2f2a8bac301834baec3a2dd7`.
 - On screen: the owner's own driving pass before the tag (the human
   checklist was retired 2026-09-03; its record is in `docs/archive/v2/`).
   Known issues ship listed in `docs/open-items.md`.
