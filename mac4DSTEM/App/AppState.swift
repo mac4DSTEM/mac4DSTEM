@@ -1408,7 +1408,10 @@ final class AppState {
     func currentDataSourceForExport() -> (any FourDDataSource)? { reader }
 
     func changeMode(_ mode: AnalysisMode) {
+        // v2.5 step 3b-8: a published product survives a task switch on its own;
+        // the relabel cache below is the pre-product path.
         if mode != navigation.analysisMode,
+           publishedProduct == nil,
            resultImage != nil || resultRGBA != nil,
            restoredResultInfo == nil,
            navigationResultInfo == nil {

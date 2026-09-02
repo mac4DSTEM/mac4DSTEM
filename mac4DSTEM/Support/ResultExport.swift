@@ -720,11 +720,17 @@ extension AppState {
     /// payload handed to the sidecar writer, including its units and encoding.
     func currentScalarResultMapForPersistence() -> ScalarResultMap? {
         guard let image = resultImage else { return nil }
-        let metadata = restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
+        // v2.5 step 3b-8: the sidecar map is built from the product when one is
+        // published (always, now); the chain below is the pre-product path.
+        let metadata: (kind: String, displayName: String, valueUnits: String) =
+            publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
+            ?? restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
         let persistence: (
             row: Double?, column: Double?, units: String?, provenance: [String: String]
         )
-        if restoredResultInfo != nil {
+        if publishedProduct != nil {
+            persistence = currentResultPersistenceMetadata
+        } else if restoredResultInfo != nil {
             persistence = restoredResultPixelInfo ?? (nil, nil, nil, [:])
         } else if navigationResultInfo != nil {
             persistence = navigationResultPixelInfo ?? (nil, nil, nil, [:])
@@ -756,7 +762,9 @@ extension AppState {
         }
         let scalarMap: ScalarResultMap?
         let rgbaMap: RGBAResultMap?
-        let metadata = restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
+        let metadata: (kind: String, displayName: String, valueUnits: String) =
+            publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
+            ?? restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
         if let map = currentScalarResultMapForPersistence() {
             scalarMap = map
             rgbaMap = nil
