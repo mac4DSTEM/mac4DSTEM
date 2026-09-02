@@ -149,3 +149,33 @@ final class ProductStatusNegativeControlTests: XCTestCase {
     }
 }
 
+// MARK: - v2.5 step 5b: one owner of the operation lifecycle
+
+@MainActor
+final class OperationCenterTests: XCTestCase {
+    func testAResetOnDatasetChangeClearsTheBusyState() {
+        // Plan §10c: two dataset-lifecycle sites reset the controller directly
+        // and used to leave `isBusy` true. Now every end goes through the centre.
+        let state = AppState()
+        let token = state.beginCancellableOperation("Probe", status: "Running…", totalUnits: 10)
+        XCTAssertTrue(state.isBusy)
+        XCTAssertTrue(state.updateCancellableOperation(token, progress: 0.5, status: "half") == ())
+        XCTAssertEqual(state.progress, 0.5)
+        state.operationCenter.reset()
+        XCTAssertFalse(state.isBusy)
+        XCTAssertNil(state.progress)
+        XCTAssertFalse(state.isCurrentOperation(token))
+    }
+
+    func testOnlyTheCurrentOperationMayReportProgress() {
+        let state = AppState()
+        let stale = state.beginCancellableOperation("First", status: "…")
+        let current = state.beginCancellableOperation("Second", status: "…")
+        XCTAssertFalse(state.operationCenter.update(stale, progress: 0.9))
+        XCTAssertTrue(state.operationCenter.update(current, progress: 0.25))
+        XCTAssertEqual(state.progress, 0.25)
+        state.finishCancellableOperation(current)
+        XCTAssertFalse(state.isBusy)
+    }
+}
+

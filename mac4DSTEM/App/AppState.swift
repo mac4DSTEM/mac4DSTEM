@@ -1051,7 +1051,9 @@ final class AppState {
     /// didSet performed is wired through `navigation.onModeChange` in `init`.
     let navigation = WorkspaceNavigation()
 
-    var isBusy = false
+    /// v2.5 step 5b: owned by `OperationCenter`; forwarded for the readers.
+    let operationCenter = OperationCenter()
+    var isBusy: Bool { operationCenter.isBusy }
     var statusText = "No file loaded" {
         didSet { appendLog(statusText) }
     }
@@ -1209,7 +1211,10 @@ final class AppState {
 
     /// Fractional progress [0,1] of the running long operation, or nil when
     /// idle / indeterminate. Drives the performance panel's progress bar.
-    var progress: Double?
+    var progress: Double? {
+        get { operationCenter.progress }
+        set { operationCenter.progress = newValue }
+    }
     /// Dataset opening is deliberately tracked separately from analysis work:
     /// automatic first-result generation can update `statusText` before loading
     /// has visibly finished, which made the file-open progress disappear into a
@@ -1262,47 +1267,39 @@ final class AppState {
     private var datasetLoadWasCancelled: Bool {
         datasetLoadCancellation?.isCancelled == true
     }
-    @ObservationIgnored private let operationController = AnalysisOperationController()
     /// Short label and unit budget for the performance panel.
-    var activeOperation: String? { operationController.name }
+    var activeOperation: String? { operationCenter.activeOperation }
 
-    var canCancelActiveOperation: Bool {
-        isBusy && operationController.hasActiveOperation
-    }
+    var canCancelActiveOperation: Bool { operationCenter.canCancel }
 
     func beginCancellableOperation(
         _ name: String, status: String, totalUnits: Int? = nil
     )
         -> AnalysisCancellationToken {
-        let token = operationController.begin(name: name, totalUnits: totalUnits)
-        isBusy = true
-        progress = 0
+        let token = operationCenter.begin(name: name, totalUnits: totalUnits)
         statusText = status
         return token
     }
 
     func finishCancellableOperation(_ token: AnalysisCancellationToken) {
-        guard operationController.finish(token) else { return }
-        isBusy = false
-        progress = nil
+        operationCenter.finish(token)
     }
 
     func activeOperationMetrics(at now: Date = Date())
         -> AnalysisOperationMetrics? {
-        operationController.metrics(progress: progress, at: now)
+        operationCenter.metrics(at: now)
     }
 
     /// Cross-file operation helpers keep extensions from reaching into the
     /// token identity itself while still rejecting late progress/status work.
     func isCurrentOperation(_ token: AnalysisCancellationToken) -> Bool {
-        operationController.isCurrent(token)
+        operationCenter.isCurrent(token)
     }
 
     func updateCancellableOperation(
         _ token: AnalysisCancellationToken, progress fraction: Double, status: String
     ) {
-        guard operationController.isCurrent(token), !token.isCancelled else { return }
-        progress = min(1, max(0, fraction))
+        guard operationCenter.update(token, progress: fraction) else { return }
         statusText = status
         // While the dataset is still opening, this operation IS the load: mirror
         // its measured progress into the welcome card rather than leaving that
@@ -1314,7 +1311,7 @@ final class AppState {
     }
 
     func cancelActiveOperation() {
-        guard let name = operationController.cancelCurrent() else { return }
+        guard let name = operationCenter.cancel() else { return }
         statusText = "Cancelling \(name)…"
     }
 
@@ -2257,8 +2254,8 @@ final class AppState {
         }
 
         Task {
-            isBusy = true
-            defer { isBusy = false }
+            operationCenter.setBusy(true)
+            defer { operationCenter.setBusy(false) }
 
             do {
                 guard let h5 = reader as? H5Reader else {
@@ -2421,7 +2418,7 @@ final class AppState {
 
         // Dataset replacement is also a cancellation boundary. The epoch still
         // independently prevents any non-cooperative GPU result from landing.
-        operationController.reset()
+        operationCenter.reset()
         if !isBusy { progress = nil }
         datasetEpoch &+= 1
         beginDatasetLoadingStage("Reading calibration metadata…")
@@ -2861,7 +2858,7 @@ final class AppState {
         sessionSidecar.release()
         gates.clearSidecarRestoreFailure() // paired with release() // v2 S7
         datasetEpoch &+= 1
-        operationController.reset()
+        operationCenter.reset()
         statusText = "Load cancelled"
     }
 
@@ -2869,7 +2866,7 @@ final class AppState {
         isLoadingDataset = true
         datasetLoadCancellation = AnalysisCancellationToken()
         isCancellingDatasetLoad = false
-        isBusy = true
+        operationCenter.setBusy(true)
         progress = nil
         datasetLoadingProgress = nil
         datasetLoadingStatus = status
@@ -2880,7 +2877,7 @@ final class AppState {
         isLoadingDataset = false
         datasetLoadCancellation = nil
         isCancellingDatasetLoad = false
-        isBusy = false
+        operationCenter.setBusy(false)
         progress = nil
         datasetLoadingProgress = nil
         datasetLoadingStatus = nil
