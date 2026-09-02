@@ -147,7 +147,9 @@ inventory() {
     (( hit )) || echo "  ${f#$ROOT/}  (${(j:, :)types})"
   done
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
-    if grep -nE 'uncommitted' "$ROOT"/CLAUDE.md "$ROOT"/docs/*.md | grep -vE 'then-uncommitted|was (still )?uncommitted|at the time|inventory'; then
+    # Status claims only ("held uncommitted", "still uncommitted"), not the
+    # word in general — the process doc uses it generically.
+    if grep -nEi '(held|still|stays?|remains?|is|are) uncommitted' "$ROOT"/CLAUDE.md "$ROOT"/docs/*.md | grep -vE 'was (still )?uncommitted|at the time'; then
       echo "  ^ live docs claim uncommitted work on a clean tree"; rc=1
     fi
   fi
