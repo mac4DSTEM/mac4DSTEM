@@ -45,9 +45,9 @@ unit_tests() (
     result_bundle_args=(-resultBundlePath "$MAC4DSTEM_XCRESULT_BUNDLE_PATH")
   fi
 
-  # -only-testing scopes this to the fast unit-test target. Without it,
-  # adding mac4DSTEMUITests (tools/ui-qc-playthrough) would silently pull a
-  # slow, screen-driving UI playthrough into every normal test run.
+  # -only-testing scopes this to the fast unit-test target (the retired
+  # UI-test target was deleted 2026-09-02; the flag stays so a future test
+  # target cannot silently join every normal run).
   LLVM_PROFILE_FILE="$work/default-%p.profraw" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
       -configuration Debug -destination 'platform=macOS' \
@@ -102,7 +102,7 @@ diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
   training-dataset-campaign review-record-check)
 owner_only=(stage-tb1-ws2-fixture ui-smoke-test)
-retired=(ui-qc-playthrough)
+retired=()
 support=(lib release)
 
 inventory() {
@@ -129,7 +129,7 @@ inventory() {
   printf "  %-36s %7s\n" "tools/ Swift lines" "$(swift_lines "$ROOT/tools")"
   printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md)"
   printf "  %-36s %7s\n" "archive markdown lines" "$(find "$ROOT/docs/archive" -name '*.md' -exec cat {} + | wc -l | tr -d ' ')"
-  printf "  %-36s %7s\n" "cold-start set (CLAUDE+open-items+plan)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/open-items.md "$ROOT"/docs/v2.5-plan.md)"
+  printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+plan+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/docs/v2.5-plan.md "$ROOT"/docs/open-items.md)"
   echo "== app files over 800 lines"
   find "$ROOT/mac4DSTEM" -name '*.swift' -exec wc -l {} + | awk -v r="$ROOT/" '$1 > 800 && $2 != "total" { sub(r, "", $2); printf "  %6d %s\n", $1, $2 }' | sort -rn
   # Candidates only — a build is the proof. 2026-09-02: a reviewer's "no

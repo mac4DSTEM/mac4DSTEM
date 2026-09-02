@@ -49,7 +49,7 @@ macOS 26 or later on Apple Silicon. No external runtime, toolchain, or library i
 
 Open `mac4DSTEM.xcodeproj` in Xcode and build the `mac4DSTEM` scheme.
 
-Architecture, test suites, supported file formats, and known limitations are documented in [`docs/technical-overview.md`](docs/technical-overview.md). Scope and release contracts are in [`docs/v1-scope.md`](docs/v1-scope.md) and [`CHANGELOG.md`](CHANGELOG.md). The analysis pipelines and their correspondence to py4DSTEM are described in [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
+Architecture, test suites, supported file formats, and known limitations are documented in [`docs/architecture.md`](docs/architecture.md). What each release is: [`CHANGELOG.md`](CHANGELOG.md); what is live now: [`docs/status.md`](docs/status.md). The analysis pipelines and their correspondence to py4DSTEM are described in [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
 
 ## Contributing
 

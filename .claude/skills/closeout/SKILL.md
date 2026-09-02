@@ -22,13 +22,14 @@ Done means the repo tells the next reader the truth. In order:
    `test_macos` route is the warm fallback for the app suite), and **exit 65 with exactly the S17
    sidebar intermittent** is the documented flake (add the run to S17's
    observation log in `docs/open-items.md` with the measured heights).
-2. If `AppState` was touched: confirm one seam was extracted
-   (`docs/development-process.md` §7). Splitting into
-   `extension AppState { }` does not count.
+2. If `AppState` was touched: confirm one responsibility moved out of it
+   (`CLAUDE.md` hard rules). Splitting into `extension AppState { }` does
+   not count.
 3. If the session changed what the app draws: Track B rows are queued (the
    `track-b` skill) and the work is stated as unverified on screen.
-4. Tick the session in `docs/v2-release.md` §9 with one line: what shipped
-   and what deviated.
+4. Update the step's row in `docs/status.md` (state, commit, what deviated)
+   and the dated gate table. One paragraph in `docs/decisions.md` if a
+   decision was made.
 5. Update `docs/open-items.md` — add, amend, or delete. Closed items move
    to `docs/archive/` immediately (§1 discipline); the file is loaded by
    every session, so its length taxes all of them.

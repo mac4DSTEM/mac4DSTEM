@@ -387,9 +387,9 @@ final class SidebarLayoutTests: XCTestCase {
     /// Backlog #39. Grouping Reconstruct's controls into four collapsible
     /// stages must not take the accelerating-voltage field with them.
     ///
-    /// `mac4DSTEMUITests.setAcceleratingVoltage` locates that field
+    /// The retired UI automation (deleted 2026-09-02) located that field
     /// *structurally*, by looking for a text field in the row labelled
-    /// "Voltage" — it has no identifier in the automation's own lookup path.
+    /// "Voltage" — it had no identifier in the automation's own lookup path.
     /// Inside a collapsed disclosure the field would not exist, the QC
     /// playthrough would call `recordError` and skip parallax entirely, and the
     /// run would still finish. That is a gate failing quietly, so the field's

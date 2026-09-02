@@ -24,11 +24,12 @@
 #     gitignored data or hand-supplied input.
 #   * `tools/ui-smoke-test` — drives the app on screen via AppleScript and
 #     needs an Accessibility (TCC) grant no hosted runner can give.
-#   * `tools/ui-qc-playthrough` + `mac4DSTEMUITests/` — retired 2026-08-17,
-#     unmaintained (docs/v2-scope.md §6.2).
 #   * `run-tests.sh benchmark` — machine-specific numbers, not pass/fail.
 #   * Track B (docs/visual-acceptance-checklist.md) — a person driving the
 #     app; no runner can stand in for it.
+#
+# ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review (runner
+# classification, size metrics, stale status claims). Fails on drift.
 #
 # KNOWN CAVEATS, stated so a green run is not made to claim too much:
 #   * S17 formally quarantines uncalibrated Prepare's sidebar height. The old
@@ -132,3 +133,12 @@ jobs:
         # PYTHON is tools/lib/python.sh's documented override; vendor-reader
         # uses bare python3, which setup-python also puts on PATH.
         run: PYTHON="$(command -v python)" tools/run-tests.sh scientific
+
+  inventory:
+    name: inventory (repo review)
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the inventory
+        run: tools/run-tests.sh inventory

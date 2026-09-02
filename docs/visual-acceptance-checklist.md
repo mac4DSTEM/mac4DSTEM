@@ -1,7 +1,7 @@
 # Visual acceptance — Track B
 
 **The human half of verification.** Adopted 2026-08-17
-([`docs/v2-scope.md`](v2-scope.md) §6.2–6.3) when the XCUITest QC playthrough
+([`docs/v2-scope.md`](archive/v2/v2-scope.md) §6.2–6.3) when the XCUITest QC playthrough
 was retired as the acceptance test.
 
 This is not a fallback for missing automation. It catches a **disjoint class of
