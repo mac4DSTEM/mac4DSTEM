@@ -345,7 +345,10 @@ final class ProductWorkflowTests: XCTestCase {
 
     func testNavigationDoesNotRelabelTheVisibleScientificResult() {
         let state = AppState()
-        state.resultImage = FloatImage(width: 1, height: 1, pixels: [1])
+        // v2.5 step 3f: sites publish products with their own labels; this
+        // test pins that navigation never relabels a published product.
+        state.publishProduct(kind: "virtual_annulus", displayName: "Virtual detector · Annulus",
+                             valueUnits: "intensity", payload: .scalar(FloatImage(width: 1, height: 1, pixels: [1])))
         XCTAssertEqual(state.currentResultDisplayName, "Virtual detector · Annulus")
         XCTAssertEqual(state.displayedProduct?.domain, .scan)
 
@@ -354,12 +357,14 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.currentResultKind, "virtual_annulus")
         XCTAssertEqual(state.displayedProduct?.domain, .scan)
 
-        state.resultImage = FloatImage(width: 1, height: 1, pixels: [2])
+        state.publishProduct(kind: "dpc_magnitude", displayName: "DPC magnitude",
+                             valueUnits: "detector_px", payload: .scalar(FloatImage(width: 1, height: 1, pixels: [2])))
         XCTAssertEqual(state.currentResultDisplayName, "DPC magnitude")
         XCTAssertEqual(state.displayedProduct?.domain, .scan)
 
         state.changeMode(.disks)
-        state.resultImage = FloatImage(width: 1, height: 1, pixels: [3])
+        state.publishProduct(kind: "bragg_vector_map", displayName: "Bragg vector map",
+                             valueUnits: "log_intensity", payload: .scalar(FloatImage(width: 1, height: 1, pixels: [3])))
         XCTAssertEqual(state.displayedProduct?.domain, .detector)
     }
 
@@ -367,7 +372,8 @@ final class ProductWorkflowTests: XCTestCase {
         let state = AppState()
         state.navigation.analysisMode = .dpc
         state.dpcDisplay = .angle
-        state.resultImage = FloatImage(width: 1, height: 1, pixels: [.pi / 2])
+        state.publishProduct(kind: "dpc_angle", displayName: "DPC angle", valueUnits: "rad",
+                             payload: .scalar(FloatImage(width: 1, height: 1, pixels: [.pi / 2])))
 
         XCTAssertEqual(state.currentResultKind, "dpc_angle")
         XCTAssertEqual(state.currentResultValueUnits, "rad")
@@ -420,10 +426,10 @@ final class ProductWorkflowTests: XCTestCase {
         state.calibration.qPixelUnits = "Å⁻¹"
         state.navigation.analysisMode = .disks
         state.navigation.workspaceArea = .map
-        state.resultImage = FloatImage(
-            width: 256, height: 256,
-            pixels: [Float](repeating: 1, count: 256 * 256)
-        )
+        state.publishProduct(
+            kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
+            payload: .scalar(FloatImage(width: 256, height: 256,
+                                        pixels: [Float](repeating: 1, count: 256 * 256))))
         state.scanNavigationImage = FloatImage(
             width: 106, height: 153,
             pixels: [Float](repeating: 2, count: 106 * 153)

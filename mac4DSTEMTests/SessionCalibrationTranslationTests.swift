@@ -109,7 +109,7 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         XCTAssertEqual(product.quantitativeStatus, .relative)
         XCTAssertEqual(product.valueUnits, "intensity")
         // And a write through the legacy field drops the published product.
-        app.resultImage = nil
+        app.publishedProduct = nil
         XCTAssertNil(app.publishedProduct)
     }
 

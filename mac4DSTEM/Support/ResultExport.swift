@@ -1086,8 +1086,7 @@ extension AppState {
                let current = inventory.results.first(where: { $0.id == currentID }) {
                 await selectSavedSessionResult(current)
             } else {
-                resultImage = nil
-                resultRGBA = nil
+                publishedProduct = nil
                 resultVersion &+= 1
             }
             statusText = "Removed \(saved.displayName) from \(url.lastPathComponent)"

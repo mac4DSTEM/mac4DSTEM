@@ -228,9 +228,9 @@ final class SidebarLayoutTests: XCTestCase {
         defer { window.orderOut(nil) }
 
         // A wide, short scan-domain result — the Si_SiGe strain-map shape.
-        appState.resultImage = FloatImage(
-            width: 200, height: 50, pixels: [Float](repeating: 0.5, count: 200 * 50)
-        )
+        appState.publishProduct(
+            kind: "virtual_annulus", displayName: "Virtual detector · Annulus", valueUnits: "intensity",
+            payload: .scalar(FloatImage(width: 200, height: 50, pixels: [Float](repeating: 0.5, count: 200 * 50))))
         appState.selectWorkspace(.results)
         pump(0.8)
 

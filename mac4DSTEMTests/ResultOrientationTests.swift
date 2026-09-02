@@ -184,13 +184,14 @@ final class ResultOrientationTests: XCTestCase {
         state.realSpaceDisplayOrientation = .quarterTurn
         state.realSpaceDisplayMirrored = true
 
-        state.resultImage = FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3])
+        state.publishProduct(kind: "virtual_annulus", displayName: "Virtual detector · Annulus",
+                             valueUnits: "intensity", payload: .scalar(FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3])))
         XCTAssertEqual(state.displayedProduct?.domain, .scan, "test precondition")
         XCTAssertEqual(state.effectiveRealSpaceDisplayOrientation, .quarterTurn)
         XCTAssertTrue(state.effectiveRealSpaceDisplayMirrored)
         XCTAssertFalse(state.realSpaceDisplayIsDefault)
 
-        state.resultImage = nil
+        state.publishedProduct = nil
         XCTAssertNotEqual(state.displayedProduct?.domain, .scan)
         XCTAssertEqual(
             state.effectiveRealSpaceDisplayOrientation, .identity,
@@ -204,7 +205,8 @@ final class ResultOrientationTests: XCTestCase {
     /// applied-but-unrecorded rotation is the one unacceptable outcome.
     func testProvenanceAlwaysStatesTheOrientation() {
         let state = AppState()
-        state.resultImage = FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3])
+        state.publishProduct(kind: "virtual_annulus", displayName: "Virtual detector · Annulus",
+                             valueUnits: "intensity", payload: .scalar(FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3])))
 
         XCTAssertEqual(state.realSpaceDisplayProvenance["display_rotation_deg"], "0")
         XCTAssertEqual(state.realSpaceDisplayProvenance["display_flip"], "none")

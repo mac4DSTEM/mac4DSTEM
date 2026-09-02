@@ -223,46 +223,14 @@ final class AppState {
     var acceleratingVoltage: Double?
 
     var currentPattern: DiffractionPattern?
-    /// v2.5 step 3c (2026-09-03): the pixels live in `publishedProduct`. These
-    /// two are ADAPTERS over it — reading unwraps the payload, writing
-    /// publishes a product labelled from the current mode's metadata (the
-    /// pre-product publish sites and the tests still write them). A nil write
-    /// clears the product only when it holds that payload kind, so the old
-    /// `resultImage = image; resultRGBA = nil` pairs keep their meaning.
-    /// Deletion condition: zero writers outside `publishLegacy`.
+    /// v2.5 step 3f: the pixels live in `publishedProduct`; these two are
+    /// read-only views of its payload for the readers not yet on the product.
+    /// Deletion condition: zero readers.
     var resultImage: FloatImage? {
-        get { if case .scalar(let image)? = publishedProduct?.payload { return image } else { return nil } }
-        set {
-            if let image = newValue { publishLegacy(payload: .scalar(image)) }
-            else if case .scalar? = publishedProduct?.payload { publishLegacy(payload: nil) }
-            else if publishedProduct == nil { publishLegacy(payload: nil) }
-        }
+        if case .scalar(let image)? = publishedProduct?.payload { return image } else { return nil }
     }
     var resultRGBA: RGBAImage? {
-        get { if case .rgba(let rgba)? = publishedProduct?.payload { return rgba } else { return nil } }
-        set {
-            if let rgba = newValue { publishLegacy(payload: .rgba(rgba)) }
-            else if case .rgba? = publishedProduct?.payload { publishLegacy(payload: nil) }
-        }
-    }
-
-    /// The legacy-field write path: label the payload from the current mode's
-    /// own metadata switch and the pre-product persistence metadata — never
-    /// from the product being replaced.
-    private func publishLegacy(payload: ProductPayload?) {
-        guard let payload else { publishedProduct = nil; return }
-        let meta = currentScalarResultMetadata
-        let persisted = currentScalarPersistenceMetadata
-        let domain = activeResultDomain
-        var provenance = persisted.provenance
-        provenance["display_domain"] = domain.rawValue
-        let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
-            ?? quantitativeStatus(for: meta.kind, units: meta.valueUnits)
-        provenance["quantitative_status"] = status.rawValue
-        publishedProduct = DisplayedProduct(
-            kind: meta.kind, displayName: meta.displayName, payload: payload, domain: domain,
-            sampling: ProductSampling(row: persisted.row, column: persisted.column, units: persisted.units),
-            valueUnits: meta.valueUnits, quantitativeStatus: status, provenance: provenance)
+        if case .rgba(let rgba)? = publishedProduct?.payload { return rgba } else { return nil }
     }
 
     /// v2.5 step 3 (2026-09-03): the one authoritative result value — the
@@ -313,32 +281,6 @@ final class AppState {
         resultVersion &+= 1
     }
 
-    /// v2.5 step 3b-2: publish the result the legacy fields currently hold as
-    /// the product value, with kind/name/units from the compute site's own
-    /// metadata switch and the status decided here. The display-mode
-    /// publishers (DPC, strain) call it right after they set the pixels;
-    /// it goes when each of them constructs its `DisplayedProduct` directly.
-    private func publishProductFromLegacyFields(
-        validityMask: [Bool]? = nil,
-        qualityFields: [ProductQualityField] = [],
-        overlays: [ProductOverlayDescriptor] = []
-    ) {
-        guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
-                ?? resultRGBA.map(ProductPayload.rgba) else { publishedProduct = nil; return }
-        let meta = currentScalarResultMetadata
-        let persisted = currentResultPersistenceMetadata
-        let status = persisted.provenance["quantitative_status"]
-            .flatMap(ProductQuantitativeStatus.init)
-            ?? quantitativeStatus(for: meta.kind, units: meta.valueUnits)
-        publishedProduct = DisplayedProduct(
-            kind: meta.kind, displayName: meta.displayName, payload: payload,
-            domain: activeResultDomain, validityMask: validityMask,
-            qualityFields: qualityFields,
-            sampling: ProductSampling(row: persisted.row, column: persisted.column,
-                                      units: persisted.units),
-            valueUnits: meta.valueUnits, quantitativeStatus: status,
-            provenance: persisted.provenance, overlays: overlays)
-    }
     /// Last structural scan-space image available for positioning regions.
     /// This is navigation context, not a scientific result: selecting an ACOM
     /// region must not replace the Bragg map/result that can still be saved.
@@ -871,8 +813,7 @@ final class AppState {
         acomLastRunSemantics = nil
         acomLastMatchedPositionCount = nil
         if navigation.analysisMode == .acom {
-            resultImage = nil
-            resultRGBA = nil
+            publishedProduct = nil
             resultVersion &+= 1
         }
     }
@@ -2653,8 +2594,7 @@ final class AppState {
         patternDisplayMode = .current
         meanPattern = nil
         maxPattern = nil
-        resultImage = nil
-        resultRGBA = nil
+        publishedProduct = nil
         scanNavigationImage = nil
         scanNavigationVersion = 0
         sessionInventory = .empty
@@ -3615,8 +3555,6 @@ final class AppState {
                 return .cancelled
             }
             resultColormap = .viridis
-            resultImage = image
-            resultRGBA = nil
             scanNavigationImage = image
             scanNavigationVersion &+= 1
             resultVersion &+= 1
