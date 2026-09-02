@@ -50,7 +50,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
         let vectors = try XCTUnwrap(state.braggVectors,
                                     "Demo disk detection published no Bragg vectors")
         XCTAssertGreaterThan(vectors.totalPeakCount, 0)
-        XCTAssertNil(state.calibration.qPixelSize,
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize,
                      "The uncalibrated demo must not arrive with a Q pixel size")
 
         state.acomModelSelection = .library("au_fcc")
@@ -85,10 +85,10 @@ final class QCalibrationOriginGateTests: XCTestCase {
     private func install(residual: Float, on state: AppState) {
         let scan = state.descriptor.map { max($0.rx, $0.ry) } ?? 12
         let centre = Float(state.descriptor.map { $0.qx } ?? 64) / 2
-        state.calibration.originProvenance = .fitted
-        state.calibration.probeRadius = Self.probeRadius
-        state.calibration.origin = origin(residual: residual, centre: centre, scan: scan)
-        XCTAssertEqual(state.calibration.origin?.rmsResidual ?? .nan, residual, accuracy: 1e-4)
+        state.calibrationSession.calibration.originProvenance = .fitted
+        state.calibrationSession.calibration.probeRadius = Self.probeRadius
+        state.calibrationSession.calibration.origin = origin(residual: residual, centre: centre, scan: scan)
+        XCTAssertEqual(state.calibrationSession.calibration.origin?.rmsResidual ?? .nan, residual, accuracy: 1e-4)
     }
 
     /// The defect: an origin the app itself calls unusable produced a Q pixel
@@ -100,11 +100,11 @@ final class QCalibrationOriginGateTests: XCTestCase {
 
         await state.calibrateQFromCrystal()
 
-        XCTAssertNil(state.calibration.qPixelSize,
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize,
                      "A refused Q calibration must not leave a scale behind")
-        XCTAssertNil(state.calibrationProvenance.qScale,
+        XCTAssertNil(state.calibrationSession.provenance.qScale,
                      "A refused Q calibration must not claim any provenance")
-        XCTAssertNotEqual(state.calibrationProvenance.qScale, .measuredInApp)
+        XCTAssertNotEqual(state.calibrationSession.provenance.qScale, .measuredInApp)
         XCTAssertFalse(state.acomScaleSemantics.provenance.isPhysical,
                        "ACOM must fall back to exploratory matching, not a measured scale")
         XCTAssertTrue(state.statusText.contains("exceeds the 4.5 px probe radius"),
@@ -143,15 +143,15 @@ final class QCalibrationOriginGateTests: XCTestCase {
         let descriptor = try XCTUnwrap(state.descriptor)
 
         XCTAssertNil(state.gates.reciprocalMetrologyRefusal(
-            for: state.calibration, descriptor: descriptor,
+            for: state.calibrationSession.calibration, descriptor: descriptor,
             apertureCentre: (x: state.aperture.centerX, y: state.aperture.centerY)
         ), "a usable fitted origin must pass the metrology gate")
 
         await state.calibrateQFromCrystal()
 
-        let scale = try XCTUnwrap(state.calibration.qPixelSize,
+        let scale = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize,
                                   "a usable origin must still calibrate: \(state.statusText)")
-        XCTAssertEqual(state.calibrationProvenance.qScale, .measuredInApp)
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .measuredInApp)
         XCTAssertNil(state.qCalibration.refusal, "the estimator refuses nothing")
 
         // The value, pinned tightly. It is NOT the demo's declared 0.02 — it is
@@ -237,18 +237,18 @@ final class QCalibrationOriginGateTests: XCTestCase {
         // them is what reaches the branch S11 said had never run; an earlier
         // version of this test asserted the maps were already nil and was
         // simply wrong about the fixture.
-        state.calibration.origin = nil
-        state.calibration.probeRadius = Self.probeRadius
-        XCTAssertNil(state.calibration.recordedMeanOrigin)
+        state.calibrationSession.calibration.origin = nil
+        state.calibrationSession.calibration.probeRadius = Self.probeRadius
+        XCTAssertNil(state.calibrationSession.calibration.recordedMeanOrigin)
         // The LOOSER predicate still passes — unchanged behaviour, and the
         // reason the two had to be split rather than one tightened.
-        XCTAssertTrue(state.calibration.originFitIsSane)
+        XCTAssertTrue(state.calibrationSession.calibration.originFitIsSane)
 
         await state.calibrateQFromCrystal()
 
-        XCTAssertNil(state.calibration.qPixelSize,
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize,
                      "A guessed centre must not produce a scale: \(state.statusText)")
-        XCTAssertNil(state.calibrationProvenance.qScale,
+        XCTAssertNil(state.calibrationSession.provenance.qScale,
                      "and must not claim any provenance, least of all .measuredInApp")
         XCTAssertTrue(state.statusText.contains("measured beam centre"),
                       "The refusal must say what is missing: \(state.statusText)")
@@ -269,28 +269,28 @@ final class QCalibrationOriginGateTests: XCTestCase {
     func testRecordedMeanOriginIsAcceptedAsAMeasuredBeamCentre() async throws {
         let state = try await stateReadyToCalibrateQ()
         let descriptor = try XCTUnwrap(state.descriptor)
-        state.calibration.origin = nil
-        state.calibration.probeRadius = Self.probeRadius
+        state.calibrationSession.calibration.origin = nil
+        state.calibrationSession.calibration.probeRadius = Self.probeRadius
 
         let aperture = (x: state.aperture.centerX, y: state.aperture.centerY)
         XCTAssertNotNil(state.gates.reciprocalMetrologyRefusal(
-            for: state.calibration, descriptor: descriptor, apertureCentre: aperture
+            for: state.calibrationSession.calibration, descriptor: descriptor, apertureCentre: aperture
         ), "with nothing measured, the gate refuses — the other half of the pair")
 
-        state.calibration.recordedOriginX = Float(descriptor.qx) / 2
-        state.calibration.recordedOriginY = Float(descriptor.qy) / 2
-        state.calibration.originProvenance = .fileMean
+        state.calibrationSession.calibration.recordedOriginX = Float(descriptor.qx) / 2
+        state.calibrationSession.calibration.recordedOriginY = Float(descriptor.qy) / 2
+        state.calibrationSession.calibration.originProvenance = .fileMean
 
         XCTAssertNil(state.gates.reciprocalMetrologyRefusal(
-            for: state.calibration, descriptor: descriptor, apertureCentre: aperture
+            for: state.calibrationSession.calibration, descriptor: descriptor, apertureCentre: aperture
         ), "a recorded beam centre IS a measurement and must be admitted")
 
         // And it must be used as ITSELF. Before S13 this state produced
         // `(qx/2, qy/2)` — which on this fixture happens to be the same point,
         // so the value is checked against a DISPLACED recorded origin, where
         // the two answers differ.
-        state.calibration.recordedOriginX = Float(descriptor.qx) / 2 + 7
-        let resolved = state.calibration.referenceOrigin(
+        state.calibrationSession.calibration.recordedOriginX = Float(descriptor.qx) / 2 + 7
+        let resolved = state.calibrationSession.calibration.referenceOrigin(
             detectorQX: descriptor.qx, detectorQY: descriptor.qy, apertureCentre: aperture
         )
         XCTAssertEqual(resolved.kind, .recordedMean)
@@ -303,7 +303,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
     /// existing prerequisite messages rather than this refusal.
     func testUnfittedOriginIsNotRefusedByTheFitGate() async {
         let state = AppState()
-        XCTAssertNil(state.calibration.originFitRefusal)
+        XCTAssertNil(state.calibrationSession.calibration.originFitRefusal)
 
         await state.calibrateQFromCrystal()
 

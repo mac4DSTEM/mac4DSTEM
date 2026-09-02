@@ -171,7 +171,7 @@ struct DiffractionView: View {
                                 / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
                             unitLabel: "mrad")
                     } else {
-                        let bar = app.calibration.diffractionScaleBar
+                        let bar = app.calibrationSession.calibration.diffractionScaleBar
                         ScaleBarView(
                             unitsPerPoint: bar.perPixel * Double(qx)
                                 / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),

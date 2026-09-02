@@ -440,7 +440,7 @@ extension AppState {
     var originFitProvenance: [String: String] {
         var keys: [String: String] = [:]
         if let descriptor {
-            let origin = calibration.referenceOrigin(
+            let origin = calibrationSession.calibration.referenceOrigin(
                 detectorQX: descriptor.qx, detectorQY: descriptor.qy,
                 apertureCentre: (x: aperture.centerX, y: aperture.centerY)
             )
@@ -448,10 +448,10 @@ extension AppState {
             keys["origin_reference_is_measured"] =
                 origin.kind.isMeasuredBeamCentre ? "true" : "false"
         }
-        if let residual = calibration.judgedOriginResidual, residual.isFinite {
+        if let residual = calibrationSession.calibration.judgedOriginResidual, residual.isFinite {
             keys["origin_fit_residual_px"] = String(residual)
         }
-        if let excluded = calibration.origin?.excludedFraction, excluded.isFinite {
+        if let excluded = calibrationSession.calibration.origin?.excludedFraction, excluded.isFinite {
             keys["origin_fit_excluded_fraction"] = String(excluded)
             keys["origin_fit_positions_used_fraction"] = String(1 - excluded)
         }
@@ -473,7 +473,7 @@ extension AppState {
     }
 
     func scientificBundleMaps() -> [ScalarResultMap]? {
-        let sampling = (calibration.rPixelSize, calibration.rPixelUnits)
+        let sampling = (calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelUnits)
         var bundle: [ScalarResultMap] = []
         if let map = strain.map {
             // The tensor components are exported in the presentation frame —
@@ -626,10 +626,10 @@ extension AppState {
             present(SimpleError("Could not render the diffraction pattern for export."))
             return
         }
-        let qSize = calibration.qPixelSize
+        let qSize = calibrationSession.calibration.qPixelSize
         let final = Self.burnScaleBar(on: cg,
                                       unitsPerDataPixel: qSize,
-                                      unitLabel: qSize != nil ? (calibration.qPixelUnits ?? "1/nm") : "px")
+                                      unitLabel: qSize != nil ? (calibrationSession.calibration.qPixelUnits ?? "1/nm") : "px")
         Self.savePNG(final, suggestedName: exportBaseName + "_cbed.png", state: self)
     }
 
@@ -1354,19 +1354,19 @@ extension AppState {
     /// boundary where app detector x/y becomes py4DSTEM qy/qx.
     private func sessionPixelCalibration(descriptor: DatasetDescriptor) -> PixelCalibration {
         var snapshot = PixelCalibration(
-            rSize: calibration.rPixelSize,
-            rUnits: calibration.rPixelUnits,
-            qSize: calibration.qPixelSize,
-            qUnits: calibration.qPixelUnits,
-            qrFlip: calibration.transposeQR
+            rSize: calibrationSession.calibration.rPixelSize,
+            rUnits: calibrationSession.calibration.rPixelUnits,
+            qSize: calibrationSession.calibration.qPixelSize,
+            qUnits: calibrationSession.calibration.qPixelUnits,
+            qrFlip: calibrationSession.calibration.transposeQR
         )
-        snapshot.qrRotationRad = calibration.rotationRad.map(Double.init)
-        snapshot.probeSemiangle = calibration.probeRadius.map(Double.init)
-        snapshot.ellipseA = calibration.ellipseA
-        snapshot.ellipseB = calibration.ellipseB
-        snapshot.ellipseTheta = calibration.ellipseTheta
+        snapshot.qrRotationRad = calibrationSession.calibration.rotationRad.map(Double.init)
+        snapshot.probeSemiangle = calibrationSession.calibration.probeRadius.map(Double.init)
+        snapshot.ellipseA = calibrationSession.calibration.ellipseA
+        snapshot.ellipseB = calibrationSession.calibration.ellipseB
+        snapshot.ellipseTheta = calibrationSession.calibration.ellipseTheta
 
-        if let maps = calibration.origin,
+        if let maps = calibrationSession.calibration.origin,
            maps.width == descriptor.rx, maps.height == descriptor.ry,
            maps.fittedX.count == descriptor.rx * descriptor.ry,
            maps.fittedY.count == descriptor.rx * descriptor.ry {
@@ -1378,16 +1378,16 @@ extension AppState {
                 measuredQY: maps.measuredX?.map(Double.init)
             )
         }
-        if let mean = calibration.meanOrigin {
+        if let mean = calibrationSession.calibration.meanOrigin {
             snapshot.qx0Mean = Double(mean.y)
             snapshot.qy0Mean = Double(mean.x)
-        } else if let recorded = calibration.recordedMeanOrigin {
+        } else if let recorded = calibrationSession.calibration.recordedMeanOrigin {
             // v2 S13: the recorded beam centre now has a home of its own, so a
             // `.fileMean`/`.sessionMean` session round-trips the ORIGIN rather
             // than wherever the user last dragged the aperture.
             snapshot.qx0Mean = Double(recorded.y)
             snapshot.qy0Mean = Double(recorded.x)
-        } else if calibration.originProvenance != .geometricDefault {
+        } else if calibrationSession.calibration.originProvenance != .geometricDefault {
             snapshot.qx0Mean = Double(aperture.centerY)
             snapshot.qy0Mean = Double(aperture.centerX)
         }
@@ -1533,17 +1533,17 @@ extension AppState {
                 "padding_factor": "2",
                 "regularization": "0.0001",
             ]
-            if let judgement = calibration.originFitJudgement {
+            if let judgement = calibrationSession.calibration.originFitJudgement {
                 provenance["qualitative_reason"] = "origin_fit_not_quantitative"
                 provenance["origin_fit_judgement"] = judgement
                 provenance["origins_subtracted"] =
-                    calibration.hasFittedOrigin ? "fitted_per_position" : "none"
+                    calibrationSession.calibration.hasFittedOrigin ? "fitted_per_position" : "none"
             } else {
                 provenance["qualitative_reason"] = "calibration_incomplete"
             }
             return (
-                calibration.rPixelSize, calibration.rPixelSize,
-                calibration.rPixelUnits,
+                calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
+                calibrationSession.calibration.rPixelUnits,
                 provenance
             )
         }
@@ -1578,8 +1578,8 @@ extension AppState {
             // QR_rotation, degrees for the human reading the caption.
             provenance.merge(strainFrameProvenance) { current, _ in current }
             return (
-                calibration.rPixelSize, calibration.rPixelSize,
-                calibration.rPixelUnits,
+                calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
+                calibrationSession.calibration.rPixelUnits,
                 provenance
             )
         }
@@ -1599,15 +1599,15 @@ extension AppState {
                 "friedel_angle_period_degrees": "180",
             ], uniquingKeysWith: { _, new in new })
             return (
-                calibration.rPixelSize, calibration.rPixelSize,
-                calibration.rPixelUnits,
+                calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
+                calibrationSession.calibration.rPixelUnits,
                 provenance
             )
         }
         if navigation.analysisMode == .disks {
             return (
-                calibration.qPixelSize, calibration.qPixelSize,
-                calibration.qPixelUnits,
+                calibrationSession.calibration.qPixelSize, calibrationSession.calibration.qPixelSize,
+                calibrationSession.calibration.qPixelUnits,
                 [
                     "analysis_mode": navigation.analysisMode.rawValue,
                     "source_product": "bragg_vector_map",
@@ -1617,8 +1617,8 @@ extension AppState {
         }
         guard navigation.analysisMode == .ptychography else {
             return (
-                calibration.rPixelSize, calibration.rPixelSize,
-                calibration.rPixelUnits, ["analysis_mode": navigation.analysisMode.rawValue]
+                calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
+                calibrationSession.calibration.rPixelUnits, ["analysis_mode": navigation.analysisMode.rawValue]
             )
         }
         switch parallaxResultProduct {

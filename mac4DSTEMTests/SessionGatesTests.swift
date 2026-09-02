@@ -56,9 +56,9 @@ final class SessionGatesTests: XCTestCase {
     private func install(residual: Float, on state: AppState) {
         let scan = state.descriptor.map { max($0.rx, $0.ry) } ?? 12
         let centre = Float(state.descriptor.map { $0.qx } ?? 64) / 2
-        state.calibration.originProvenance = .fitted
-        state.calibration.probeRadius = 4.5
-        state.calibration.origin = origin(residual: residual, centre: centre, scan: scan)
+        state.calibrationSession.calibration.originProvenance = .fitted
+        state.calibrationSession.calibration.probeRadius = 4.5
+        state.calibrationSession.calibration.origin = origin(residual: residual, centre: centre, scan: scan)
     }
 
     func testOriginGateIsTheCalibrationJudgement() {
@@ -86,7 +86,7 @@ final class SessionGatesTests: XCTestCase {
     func testPhysicalIDPCTakesTheSameOriginGateAsQCalibration() async throws {
         let state = AppState()
         await state.openDemoFixture(calibrated: true)
-        state.calibration.rotationRad = 0.3
+        state.calibrationSession.calibration.rotationRad = 0.3
         install(residual: 0.9, on: state)
         XCTAssertNotNil(state.idpcPhysicalCalibration,
                         "With a quantitative fit, rotation and both pixel scales, physical iDPC must be available")
@@ -106,10 +106,10 @@ final class SessionGatesTests: XCTestCase {
         // legitimately differ — "enter the scale manually" un-blocks a Q
         // measurement and does nothing for iDPC (Gate B, 2026-08-25) — so
         // the iDPC text must NOT carry the manual-scale clause.
-        let judgement = try XCTUnwrap(state.calibration.originFitJudgement)
+        let judgement = try XCTUnwrap(state.calibrationSession.calibration.originFitJudgement)
         XCTAssertTrue(refusal?.contains(judgement) == true,
                       "The iDPC refusal must carry the shared judgement verbatim")
-        XCTAssertTrue(state.gates.originQuantitativeRefusal(for: state.calibration)?
+        XCTAssertTrue(state.gates.originQuantitativeRefusal(for: state.calibrationSession.calibration)?
             .contains(judgement) == true,
                       "The Q gate must carry the same judgement verbatim")
         XCTAssertFalse(refusal?.contains("enter the scale manually") == true,

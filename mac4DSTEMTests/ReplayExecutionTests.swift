@@ -153,7 +153,7 @@ final class ReplayExecutionTests: XCTestCase {
         // fitted origins, session has none) shares the same guard line.
         let state = AppState()
         await state.openDemoFixture(specification: croppedSpec)
-        XCTAssertTrue(state.calibration.hasFittedOrigin,
+        XCTAssertTrue(state.calibrationSession.calibration.hasFittedOrigin,
                       "precondition: the fixture provides fitted origins")
         var record = SessionReplayRecord()
         record.record(kind: "dpc",

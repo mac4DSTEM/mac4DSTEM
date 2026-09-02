@@ -106,13 +106,13 @@ final class DatasetLoadCancellationTests: XCTestCase {
         // that reads as trustworthy and describes data the app does not have.
         let state = AppState()
         await state.openDemoFixture()
-        XCTAssertNotNil(state.calibration.origin,
+        XCTAssertNotNil(state.calibrationSession.calibration.origin,
                         "precondition: the demo fixture carries origin maps")
 
         await state.discardPartialLoad()
-        XCTAssertNil(state.calibration.origin)
-        XCTAssertNil(state.calibration.qPixelSize)
-        XCTAssertEqual(state.calibration.originProvenance, .geometricDefault)
+        XCTAssertNil(state.calibrationSession.calibration.origin)
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize)
+        XCTAssertEqual(state.calibrationSession.calibration.originProvenance, .geometricDefault)
     }
 
     func testCancellationIsMonotonicAndIdempotent() {

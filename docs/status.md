@@ -23,14 +23,14 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 4 `CalibrationSession`; one vocabulary (Not set / From file / Measured / … / Not quantitative) and one `Verdict` on every surface | done 2026-09-03 | `AppState` forwards every calibration field until the views read the session (7c) |
 | 5 `ProductWorkflow.readiness(for:)` — one answer for the primary action, the checklist and replay; `OperationCenter` owns busy/progress/lifecycle | done 2026-09-03 as scoped | plan §10g owner decisions: parallax/ptychography in the recipe vocabulary; `SessionGates` axis; replay's own refusal wording |
 | 6 `ACOMSession`; the IPF map confidence-gated (10th-percentile default, slider on the chip) | done 2026-09-03 | `runACOM`, `runStrainMapping`, `applyACOMDisplay`, the orientation plan/map still on `AppState` |
-| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03; 7c slices 1–3, 4a, 5a done 2026-09-02 | **7c 4b, 5b, 6 next** (plan §11h). Landed: the five workspace sidebars (`ResultsSidebar` with the saved-product chooser out of the detail pane, `PrepareSidebar`, `ImageSidebar`, `MapSidebar`, `PhaseSidebar`), `ProductInspector`, `FocusedPane` on `WorkspaceNavigation` claimed by every pane — the inspector renders from it alone, the 7b per-task adapter is gone; no UI file reads a calibration forwarder. **Owed:** 4b (run functions into their sessions, owner note), 5b (the calibration forwarder block, once `AppState`'s ~190 own reads go through `calibrationSession`), 6 (`ContentView` composition only) |
+| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03; 7c slices 1–3, 4a, 5 done 2026-09-02 | **7c 4b and 6 next** (plan §11h). Landed: the five workspace sidebars (`ResultsSidebar` with the saved-product chooser out of the detail pane, `PrepareSidebar`, `ImageSidebar`, `MapSidebar`, `PhaseSidebar`), `ProductInspector`, `FocusedPane` on `WorkspaceNavigation` claimed by every pane — the inspector renders from it alone; the calibration forwarder block is gone, every reader (AppState, `ResultExport`, UI, tests) goes through `calibrationSession`. **Owed:** 4b (run functions into their sessions, owner note), 6 (`ContentView` composition only) |
 | 8 Checkpoint | reached 2026-09-03 | the product is simpler across all five surfaces; `AppState.swift` is not smaller yet (5 700 lines) because ownership moved through forwarders — 7c removes them |
 
 ## Last gates (retained logs)
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 461 passed / 0 failed / 3 skipped, exit 0 — 2026-09-02, 7c slice 5a tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
+| `run-tests.sh unit` | 461 passed / 0 failed / 3 skipped, exit 0 — 2026-09-02, 7c slice 5b tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
 | `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 — `b91f5bb`, 2026-09-03; App/UI-only slices since |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-02, 7c slice 1 tree (re-run at closeout) |
@@ -40,15 +40,10 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Start here — 7c 5b, then 6:** `docs/v2.5-plan.md` §11h lists the
-  slices; 1–3, 4a and 5a landed, 4b waits on the owner note below. 5b: the
-  calibration forwarder block (`AppState.swift` ~308–330, plus
-  `acceleratingVoltage`, `lastEllipseFit`, `calibrationReadiness`) goes once
-  `AppState`'s own reads are rewritten to `calibrationSession.…` — 131
-  `calibration.` sites, 27 `calibrationProvenance`, no locals share the
-  name, but 16 string literals mention calibration, so rewrite code only and
-  review the diff for quotes. Then 6: `ContentView` as composition only
-  (`PreprocessingExportSheet` and the IPF legends to their own files).
+- **Start here — 7c slice 6:** `docs/v2.5-plan.md` §11h lists the slices;
+  1–3, 4a and 5 landed, 4b waits on the owner note below. Slice 6:
+  `ContentView` as composition only — the five `if`s become one `switch`,
+  `PreprocessingExportSheet` and the IPF legends move to their own files.
   `/pickup` takes it from this row.
 - **Binding traps:** new Core/Session types must be `package` and, if
   constructed from App, carry an explicit `package nonisolated init`; plain

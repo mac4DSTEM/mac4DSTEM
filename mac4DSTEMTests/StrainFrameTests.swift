@@ -177,7 +177,7 @@ final class StrainFrameTests: XCTestCase {
         let map = try XCTUnwrap(Self.syntheticStrainMap())
         state.strain.publish(map)
         let rotation: Float = 37.2 * .pi / 180
-        state.calibration.rotationRad = rotation
+        state.calibrationSession.calibration.rotationRad = rotation
         state.showComputedProduct(.strain)
 
         let image = try XCTUnwrap(state.resultImage)
@@ -226,8 +226,8 @@ final class StrainFrameTests: XCTestCase {
         let map = try XCTUnwrap(Self.syntheticStrainMap())
         state.strain.publish(map)
         let rotation: Float = 30 * .pi / 180
-        state.calibration.rotationRad = rotation
-        state.calibration.transposeQR = true
+        state.calibrationSession.calibration.rotationRad = rotation
+        state.calibrationSession.calibration.transposeQR = true
         state.showComputedProduct(.strain)
 
         let image = try XCTUnwrap(state.resultImage)
@@ -257,7 +257,7 @@ final class StrainFrameTests: XCTestCase {
         let state = AppState()
         let map = try XCTUnwrap(Self.syntheticStrainMap())
         state.strain.publish(map)
-        XCTAssertNil(state.calibration.rotationRad)
+        XCTAssertNil(state.calibrationSession.calibration.rotationRad)
         state.showComputedProduct(.strain)
 
         let image = try XCTUnwrap(state.resultImage)
@@ -286,7 +286,7 @@ final class StrainFrameTests: XCTestCase {
     func testFlippingTheRotationRederivesTheStrainDisplay() throws {
         let state = AppState()
         state.strain.publish(try XCTUnwrap(Self.syntheticStrainMap()))
-        state.calibration.rotationRad = .pi / 2
+        state.calibrationSession.calibration.rotationRad = .pi / 2
         state.showComputedProduct(.strain)
         let before = state.resultVersion
 
@@ -304,8 +304,8 @@ final class StrainFrameTests: XCTestCase {
                        "qr_rotation_not_calibrated")
         XCTAssertNil(state.strainFrameProvenance["qr_rotation_rad"])
 
-        state.calibration.rotationRad = -0.6493  // −37.2°
-        state.calibration.transposeQR = true
+        state.calibrationSession.calibration.rotationRad = -0.6493  // −37.2°
+        state.calibrationSession.calibration.transposeQR = true
         let scan = state.strainFrameProvenance
         XCTAssertEqual(scan["strain_frame"], "scan")
         XCTAssertEqual(scan["qr_rotation_deg"], "-37.2")
@@ -324,8 +324,8 @@ final class StrainFrameTests: XCTestCase {
         let map = try XCTUnwrap(Self.syntheticStrainMap())
         state.strain.publish(map)
         let rotation: Float = -64 * .pi / 180
-        state.calibration.rotationRad = rotation
-        state.calibration.transposeQR = true
+        state.calibrationSession.calibration.rotationRad = rotation
+        state.calibrationSession.calibration.transposeQR = true
 
         let bundle = try XCTUnwrap(state.scientificBundleMaps())
         let exx = try XCTUnwrap(bundle.first { $0.kind == "strain_exx" })

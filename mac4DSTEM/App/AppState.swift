@@ -225,10 +225,6 @@ final class AppState {
     private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
-    var acceleratingVoltage: Double? {
-        get { calibrationSession.acceleratingVoltage }
-        set { calibrationSession.acceleratingVoltage = newValue }
-    }
 
     var currentPattern: DiffractionPattern?
     /// v2.5 step 3f: the pixels live in `publishedProduct`; these two are
@@ -310,33 +306,9 @@ final class AppState {
         }
     }
 
-    /// v2.5 step 4a: calibration state lives in `CalibrationSession`; these
-    /// forwarders keep the readers compiling until they move there.
+    /// v2.5 step 4a: calibration state lives in `CalibrationSession`. Every
+    /// reader goes there directly; the forwarders went in 7c slice 5b.
     let calibrationSession = CalibrationSession()
-    var calibration: Calibration {
-        get { calibrationSession.calibration }
-        set { calibrationSession.calibration = newValue }
-    }
-    private(set) var calibrationProvenance: CalibrationProvenance {
-        get { calibrationSession.provenance }
-        set { calibrationSession.provenance = newValue }
-    }
-    var originFitFunction: OriginFitFunction {
-        get { calibrationSession.originFitFunction }
-        set { calibrationSession.originFitFunction = newValue }
-    }
-    var ellipseFitInnerRadius: Double {
-        get { calibrationSession.ellipseFitInnerRadius }
-        set { calibrationSession.ellipseFitInnerRadius = newValue }
-    }
-    var ellipseFitOuterRadius: Double {
-        get { calibrationSession.ellipseFitOuterRadius }
-        set { calibrationSession.ellipseFitOuterRadius = newValue }
-    }
-    private(set) var lastEllipseFit: EllipseCalibrationFit? {
-        get { calibrationSession.lastEllipseFit }
-        set { calibrationSession.lastEllipseFit = newValue }
-    }
     private(set) var parallaxPreprocess: ParallaxPreprocessResult?
     private(set) var parallaxAberrationFit: ParallaxAberrationFitResult?
     private(set) var parallaxCorrection: ParallaxAberrationCorrectionResult?
@@ -422,7 +394,7 @@ final class AppState {
     /// kernel's, else the calibration's. Same precedence `diskDetectionContext`
     /// uses, so the controls validate against the value they were derived from.
     private var fittedProbeRadius: Float? {
-        probeKernel?.probeRadius ?? calibration.probeRadius
+        probeKernel?.probeRadius ?? calibrationSession.calibration.probeRadius
     }
 
     /// Re-derive the disk-detection defaults once a probe radius is known.
@@ -456,7 +428,7 @@ final class AppState {
         guard let descriptor else { return nil }
         return DiskDetectionContext(
             qy: descriptor.qy, qx: descriptor.qx,
-            probeRadius: probeKernel?.probeRadius ?? calibration.probeRadius
+            probeRadius: probeKernel?.probeRadius ?? calibrationSession.calibration.probeRadius
         )
     }
 
@@ -741,8 +713,8 @@ final class AppState {
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
         if showsACOMRegionReference {
             return (
-                calibration.rPixelSize, calibration.rPixelSize,
-                calibration.rPixelUnits, ["display_role": "acom_region_reference"]
+                calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
+                calibrationSession.calibration.rPixelUnits, ["display_role": "acom_region_reference"]
             )
         }
         return currentResultPersistenceMetadata
@@ -757,8 +729,8 @@ final class AppState {
                 displayName: "Select ACOM region · real-space reference",
                 payload: .scalar(image), domain: .scan,
                 sampling: ProductSampling(
-                    row: calibration.rPixelSize, column: calibration.rPixelSize,
-                    units: calibration.rPixelUnits
+                    row: calibrationSession.calibration.rPixelSize, column: calibrationSession.calibration.rPixelSize,
+                    units: calibrationSession.calibration.rPixelUnits
                 ),
                 valueUnits: "intensity", quantitativeStatus: .relative,
                 provenance: ["display_role": "acom_region_reference"]
@@ -971,17 +943,17 @@ final class AppState {
     }
 
     var acomScaleSemantics: ACOMScaleSemantics {
-        if let value = calibration.qPixelSize {
-            let wavelength = acceleratingVoltage.flatMap {
+        if let value = calibrationSession.calibration.qPixelSize {
+            let wavelength = calibrationSession.acceleratingVoltage.flatMap {
                 DPC.electronWavelengthAngstrom(voltageKV: $0)
             }
             if let physical = CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
-                value: value, units: calibration.qPixelUnits,
+                value: value, units: calibrationSession.calibration.qPixelUnits,
                 wavelengthAngstrom: wavelength
             ) {
                 return ACOMScaleSemantics(
                     invAngstromPerPixel: physical,
-                    provenance: ACOMQScaleProvenance(calibrationProvenance.qScale)
+                    provenance: ACOMQScaleProvenance(calibrationSession.provenance.qScale)
                 )
             }
         }
@@ -1148,10 +1120,9 @@ final class AppState {
     }
     func requestPreprocessingExport() { preprocessingExportRequest &+= 1 }
 
-    var calibrationReadiness: CalibrationReadinessReport { calibrationSession.readiness }
 
     var productWorkflowReadiness: ProductWorkflowReadiness {
-        let readyKinds = Set(calibrationReadiness.items.compactMap { item in
+        let readyKinds = Set(calibrationSession.readiness.items.compactMap { item in
             item.status.isReady ? item.kind : nil
         })
         return ProductWorkflowReadiness(
@@ -1496,9 +1467,9 @@ final class AppState {
     func runPrimaryWorkspaceTask() async {
         switch navigation.workspaceArea {
         case .prepare:
-            if !calibration.hasFittedOrigin {
+            if !calibrationSession.calibration.hasFittedOrigin {
                 await calibrateOrigin()
-            } else if !calibration.hasRotation {
+            } else if !calibrationSession.calibration.hasRotation {
                 await calibrateRotation()
             }
         case .image:
@@ -2030,7 +2001,7 @@ final class AppState {
             return .ran(await runVirtualDetector(replaying: true))
 
         case .dpc(let wantsFittedOrigin):
-            guard calibration.hasFittedOrigin == wantsFittedOrigin else {
+            guard calibrationSession.calibration.hasFittedOrigin == wantsFittedOrigin else {
                 // The wanted-but-absent direction is the EXPECTED one after a
                 // promote: per-position origin maps are fitted at the
                 // rehearsal's extent and do not carry across the reopen
@@ -2540,7 +2511,7 @@ final class AppState {
         patternDisplayRangeHi = 1
         patternGamma = 1
         lastRotationResult = nil
-        lastEllipseFit = nil
+        calibrationSession.lastEllipseFit = nil
         parallaxPreprocess = nil
         parallaxAlignment = nil
         singleslicePtychography = nil
@@ -2563,8 +2534,8 @@ final class AppState {
         // prior value to move — so they belong here, but they must be derived
         // from the same frame.
         let detectorHalfSize = Double(min(descriptor.qx, descriptor.qy)) / 2
-        ellipseFitInnerRadius = max(1, detectorHalfSize * 0.35)
-        ellipseFitOuterRadius = max(ellipseFitInnerRadius + 2, detectorHalfSize * 0.9)
+        calibrationSession.ellipseFitInnerRadius = max(1, detectorHalfSize * 0.35)
+        calibrationSession.ellipseFitOuterRadius = max(calibrationSession.ellipseFitInnerRadius + 2, detectorHalfSize * 0.9)
         aperture = Aperture(
             centerX: Float(descriptor.qx) / 2,
             centerY: Float(descriptor.qy) / 2,
@@ -2576,9 +2547,9 @@ final class AppState {
         ) {
             // py4DSTEM metadata commonly stores eV while microscope UI and
             // DM tags may expose kV. Keep one app convention: kV.
-            acceleratingVoltage = rawVoltage > 1_000 ? rawVoltage / 1_000 : rawVoltage
+            calibrationSession.acceleratingVoltage = rawVoltage > 1_000 ? rawVoltage / 1_000 : rawVoltage
         } else {
-            acceleratingVoltage = nil
+            calibrationSession.acceleratingVoltage = nil
         }
         // The strain product dies BEFORE the calibration reset, not with the
         // other scan-indexed products further down: `activate` suspends on
@@ -2593,8 +2564,8 @@ final class AppState {
         // estimate and its self-check verdict describe dataset A's shells and
         // must not survive into dataset B's panel. // v2 S13
         qCalibration.clear()
-        calibration = Calibration()
-        calibrationProvenance = CalibrationProvenance()
+        calibrationSession.calibration = Calibration()
+        calibrationSession.provenance = CalibrationProvenance()
         clearSupersededFittedOrigin()
         // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
@@ -2605,27 +2576,27 @@ final class AppState {
                 rSize = r * 1000
                 rUnits = "nm"
             }
-            calibration.rPixelSize = rSize
-            calibration.rPixelUnits = rUnits
-            calibration.qPixelSize = pc.qSize
-            calibration.qPixelUnits = pc.qUnits
+            calibrationSession.calibration.rPixelSize = rSize
+            calibrationSession.calibration.rPixelUnits = rUnits
+            calibrationSession.calibration.qPixelSize = pc.qSize
+            calibrationSession.calibration.qPixelUnits = pc.qUnits
             if rSize.map({ $0.isFinite && $0 > 0 }) == true {
-                calibrationProvenance.rScale = .importedFile
+                calibrationSession.provenance.rScale = .importedFile
             }
             if pc.qSize.map({ $0.isFinite && $0 > 0 }) == true {
-                calibrationProvenance.qScale = .importedFile
+                calibrationSession.provenance.qScale = .importedFile
             }
-            if let flip = pc.qrFlip { calibration.transposeQR = flip }
-            calibration.rotationRad = pc.qrRotationRad.map(Float.init)
-            calibration.probeRadius = pc.probeSemiangle.map(Float.init)
-            calibration.ellipseA = pc.ellipseA
-            calibration.ellipseB = pc.ellipseB
-            calibration.ellipseTheta = pc.ellipseTheta
-            if calibration.hasRotation { calibrationProvenance.rotation = .importedFile }
-            if calibration.probeRadius.map({ $0.isFinite && $0 > 0 }) == true {
-                calibrationProvenance.probe = .importedFile
+            if let flip = pc.qrFlip { calibrationSession.calibration.transposeQR = flip }
+            calibrationSession.calibration.rotationRad = pc.qrRotationRad.map(Float.init)
+            calibrationSession.calibration.probeRadius = pc.probeSemiangle.map(Float.init)
+            calibrationSession.calibration.ellipseA = pc.ellipseA
+            calibrationSession.calibration.ellipseB = pc.ellipseB
+            calibrationSession.calibration.ellipseTheta = pc.ellipseTheta
+            if calibrationSession.calibration.hasRotation { calibrationSession.provenance.rotation = .importedFile }
+            if calibrationSession.calibration.probeRadius.map({ $0.isFinite && $0 > 0 }) == true {
+                calibrationSession.provenance.probe = .importedFile
             }
-            if calibration.hasEllipse { calibrationProvenance.ellipse = .importedFile }
+            if calibrationSession.calibration.hasEllipse { calibrationSession.provenance.ellipse = .importedFile }
             // AXIS SWAP (single documented conversion point — see
             // PixelCalibration.qx0Mean/qy0Mean doc comment): py4DSTEM indexes
             // patterns (qx, qy) with qx as the first/row axis, which is this
@@ -2639,9 +2610,9 @@ final class AppState {
                 // moment the user moved the detector and every analysis fell
                 // through to the detector's geometric middle while the
                 // inspector went on displaying the file's origin (S11).
-                calibration.recordedOriginX = Float(qy0)
-                calibration.recordedOriginY = Float(qx0)
-                calibration.originProvenance = .fileMean
+                calibrationSession.calibration.recordedOriginX = Float(qy0)
+                calibrationSession.calibration.recordedOriginY = Float(qx0)
+                calibrationSession.calibration.originProvenance = .fileMean
             }
             // Full py4DSTEM origin maps use real-space order [R_Nx, R_Ny],
             // matching app [Ry, Rx]. Detector coordinates still need the one
@@ -2654,12 +2625,12 @@ final class AppState {
             if let maps = pc.originMaps,
                let appMaps = maps.appOriginMaps(width: sourceDescriptor.rx,
                                                 height: sourceDescriptor.ry) {
-                calibration.origin = appMaps
-                if let origin = calibration.meanOrigin {
+                calibrationSession.calibration.origin = appMaps
+                if let origin = calibrationSession.calibration.meanOrigin {
                     aperture.centerX = origin.x
                     aperture.centerY = origin.y
                 }
-                calibration.originProvenance = .fileMaps
+                calibrationSession.calibration.originProvenance = .fileMaps
             }
         }
 
@@ -2675,11 +2646,11 @@ final class AppState {
         // The rules are in `CalibrationReReference`, deliberately not here: they
         // are pure geometry and they are testable without an AppState.
         let reReferenced = CalibrationReReference.apply(
-            view, to: calibration, provenance: calibrationProvenance,
+            view, to: calibrationSession.calibration, provenance: calibrationSession.provenance,
             apertureCenter: .init(x: aperture.centerX, y: aperture.centerY)
         )
-        calibration = reReferenced.calibration
-        calibrationProvenance = reReferenced.provenance
+        calibrationSession.calibration = reReferenced.calibration
+        calibrationSession.provenance = reReferenced.provenance
         if let center = reReferenced.apertureCenter {
             aperture.centerX = center.x
             aperture.centerY = center.y
@@ -2689,7 +2660,7 @@ final class AppState {
             // detector pixel that is no longer loaded.
             aperture.centerX = Float(view.descriptor.qx) / 2
             aperture.centerY = Float(view.descriptor.qy) / 2
-            calibration.originProvenance = .geometricDefault
+            calibrationSession.calibration.originProvenance = .geometricDefault
         }
         loadedView.publish(
             view: view,
@@ -2910,8 +2881,8 @@ final class AppState {
         descriptor = nil
         datasets = []
         datasetPreview = nil
-        calibration = Calibration()
-        calibrationProvenance = CalibrationProvenance()
+        calibrationSession.calibration = Calibration()
+        calibrationSession.provenance = CalibrationProvenance()
         // Every path that resets the calibration resets the Q run with it: an
         // estimate outlives the dataset it describes otherwise. The two are
         // adjacent here on purpose, so a third reset path is hard to add
@@ -3079,40 +3050,40 @@ final class AppState {
         // the mapped snapshot. Validity checks stay on the SAVED values
         // (finiteness and sign are frame-invariant under crop and bin).
         if let value = saved.rSize {
-            calibration.rPixelSize = mapped.rPixelSize
-            calibrationProvenance.rScale = value.isFinite && value > 0 ? .sessionSidecar : nil
+            calibrationSession.calibration.rPixelSize = mapped.rPixelSize
+            calibrationSession.provenance.rScale = value.isFinite && value > 0 ? .sessionSidecar : nil
         }
-        if saved.rUnits != nil { calibration.rPixelUnits = mapped.rPixelUnits }
+        if saved.rUnits != nil { calibrationSession.calibration.rPixelUnits = mapped.rPixelUnits }
         if let value = saved.qSize {
-            calibration.qPixelSize = mapped.qPixelSize
-            calibrationProvenance.qScale = value.isFinite && value > 0 ? .sessionSidecar : nil
+            calibrationSession.calibration.qPixelSize = mapped.qPixelSize
+            calibrationSession.provenance.qScale = value.isFinite && value > 0 ? .sessionSidecar : nil
         }
-        if saved.qUnits != nil { calibration.qPixelUnits = mapped.qPixelUnits }
-        if saved.qrFlip != nil { calibration.transposeQR = mapped.transposeQR }
+        if saved.qUnits != nil { calibrationSession.calibration.qPixelUnits = mapped.qPixelUnits }
+        if saved.qrFlip != nil { calibrationSession.calibration.transposeQR = mapped.transposeQR }
         if let value = saved.qrRotationRad {
-            calibration.rotationRad = mapped.rotationRad
-            calibrationProvenance.rotation = value.isFinite ? .sessionSidecar : nil
+            calibrationSession.calibration.rotationRad = mapped.rotationRad
+            calibrationSession.provenance.rotation = value.isFinite ? .sessionSidecar : nil
         }
         if let value = saved.probeSemiangle,
            !sessionInvalidated.contains(where: { $0.field == .probeRadius }) {
-            calibration.probeRadius = mapped.probeRadius
-            calibrationProvenance.probe = value.isFinite && value > 0 ? .sessionSidecar : nil
+            calibrationSession.calibration.probeRadius = mapped.probeRadius
+            calibrationSession.provenance.probe = value.isFinite && value > 0 ? .sessionSidecar : nil
             refreshDiskDefaultsForMeasuredProbe()
         }
         let savedEllipseCount = [saved.ellipseA, saved.ellipseB, saved.ellipseTheta]
             .compactMap { $0 }.count
         if savedEllipseCount > 0,
            !sessionInvalidated.contains(where: { $0.field == .ellipse }) {
-            if saved.ellipseA != nil { calibration.ellipseA = mapped.ellipseA }
-            if saved.ellipseB != nil { calibration.ellipseB = mapped.ellipseB }
-            if saved.ellipseTheta != nil { calibration.ellipseTheta = mapped.ellipseTheta }
-            calibrationProvenance.ellipse = calibration.hasEllipse
+            if saved.ellipseA != nil { calibrationSession.calibration.ellipseA = mapped.ellipseA }
+            if saved.ellipseB != nil { calibrationSession.calibration.ellipseB = mapped.ellipseB }
+            if saved.ellipseTheta != nil { calibrationSession.calibration.ellipseTheta = mapped.ellipseTheta }
+            calibrationSession.provenance.ellipse = calibrationSession.calibration.hasEllipse
                 ? (savedEllipseCount == 3 ? .sessionSidecar : .mixed)
                 : nil
         }
         if restoredMaps, mapped.origin != nil {
-            calibration.origin = mapped.origin
-            calibration.originProvenance = .sessionMaps
+            calibrationSession.calibration.origin = mapped.origin
+            calibrationSession.calibration.originProvenance = .sessionMaps
             if let center = mappedCenter {
                 aperture.centerX = center.x
                 aperture.centerY = center.y
@@ -3122,10 +3093,10 @@ final class AppState {
         // `appendInvalidated` above; the live origin is left untouched then.
         if !restoredMaps, saved.qx0Mean != nil, saved.qy0Mean != nil,
            !sessionInvalidated.contains(where: { $0.field == .origin }) {
-            calibration.origin = nil
-            calibration.recordedOriginX = mapped.recordedOriginX
-            calibration.recordedOriginY = mapped.recordedOriginY
-            calibration.originProvenance = .sessionMean
+            calibrationSession.calibration.origin = nil
+            calibrationSession.calibration.recordedOriginX = mapped.recordedOriginX
+            calibrationSession.calibration.recordedOriginY = mapped.recordedOriginY
+            calibrationSession.calibration.originProvenance = .sessionMean
             if let center = mappedCenter {
                 aperture.centerX = center.x
                 aperture.centerY = center.y
@@ -3224,7 +3195,7 @@ final class AppState {
               let fourD, let descriptor else { return }
         let d = descriptor
         let qRadius = Float(min(d.qx, d.qy)) / 2
-        let center = calibration.meanOrigin
+        let center = calibrationSession.calibration.meanOrigin
             ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
         do {
             let epoch = datasetEpoch
@@ -3274,9 +3245,9 @@ final class AppState {
     func restoreFittedOrigin() {
         guard let superseded = supersededFittedOrigin else { return }
         clearSupersededFittedOrigin()
-        calibration.origin = superseded.maps
-        calibration.originProvenance = superseded.provenance
-        if let mean = calibration.meanOrigin {
+        calibrationSession.calibration.origin = superseded.maps
+        calibrationSession.calibration.originProvenance = superseded.provenance
+        if let mean = calibrationSession.calibration.meanOrigin {
             aperture.centerX = mean.x
             aperture.centerY = mean.y
         }
@@ -3295,12 +3266,12 @@ final class AppState {
             // those maps inside `calibration` would make export silently
             // ignore the manual value — so they move to the recoverable
             // superseded slot instead of being destroyed.
-            if let displaced = calibration.origin {
-                supersededFittedOrigin = (displaced, calibration.originProvenance)
+            if let displaced = calibrationSession.calibration.origin {
+                supersededFittedOrigin = (displaced, calibrationSession.calibration.originProvenance)
                 canRestoreFittedOrigin = true
                 statusText = "Manual aperture center — fitted origin set aside (Restore Fitted Origin in Calibration undoes this)"
             }
-            calibration.origin = nil
+            calibrationSession.calibration.origin = nil
             // The file's recorded mean goes with them. Gate B, 2026-08-28: v2
             // S13 gave that value a home of its own and then did not clear it
             // here, so `referenceOrigin` returned `.recordedMean` — the FILE's
@@ -3310,9 +3281,9 @@ final class AppState {
             // pre-S13 semantics exactly (the aperture was the only carrier
             // then, and moving it destroyed the value); it is not recoverable
             // through `supersededFittedOrigin`, which holds maps only.
-            calibration.recordedOriginX = nil
-            calibration.recordedOriginY = nil
-            calibration.originProvenance = .manual
+            calibrationSession.calibration.recordedOriginX = nil
+            calibrationSession.calibration.recordedOriginY = nil
+            calibrationSession.calibration.originProvenance = .manual
             parallaxPreprocess = nil
             parallaxAlignment = nil
         }
@@ -3322,7 +3293,7 @@ final class AppState {
 
     var manualQPixelUnits: String {
         CalibrationUnitConversion.canonicalEditableReciprocalUnit(
-            calibration.qPixelUnits
+            calibrationSession.calibration.qPixelUnits
         ) ?? "nm⁻¹"
     }
 
@@ -3331,38 +3302,38 @@ final class AppState {
     /// the action field is intentionally empty (rendered as zero by SwiftUI).
     var manualQPixelSize: Double? {
         guard CalibrationUnitConversion.canonicalEditableReciprocalUnit(
-            calibration.qPixelUnits
+            calibrationSession.calibration.qPixelUnits
         ) != nil else { return nil }
-        return calibration.qPixelSize
+        return calibrationSession.calibration.qPixelSize
     }
 
     var manualRPixelUnits: String {
         CalibrationUnitConversion.canonicalEditableRealUnit(
-            calibration.rPixelUnits
+            calibrationSession.calibration.rPixelUnits
         ) ?? "nm"
     }
 
     var manualRPixelSize: Double? {
         guard CalibrationUnitConversion.canonicalEditableRealUnit(
-            calibration.rPixelUnits
+            calibrationSession.calibration.rPixelUnits
         ) != nil else { return nil }
-        return calibration.rPixelSize
+        return calibrationSession.calibration.rPixelSize
     }
 
     func setManualQPixelSize(_ value: Double) {
         parallaxPreprocess = nil
         parallaxAlignment = nil
         if value.isFinite && value > 0 {
-            calibration.qPixelSize = value
+            calibrationSession.calibration.qPixelSize = value
             // A manual number is entered beside a physical-unit picker. If the
             // file only supplied `pixels`, replace that index placeholder with
             // the picker's visible default instead of retaining pixels/px.
-            calibration.qPixelUnits = manualQPixelUnits
-            calibrationProvenance.qScale = .manual
+            calibrationSession.calibration.qPixelUnits = manualQPixelUnits
+            calibrationSession.provenance.qScale = .manual
             invalidateACOMResult()
         } else {
-            calibration.qPixelSize = nil
-            calibrationProvenance.qScale = nil
+            calibrationSession.calibration.qPixelSize = nil
+            calibrationSession.provenance.qScale = nil
             invalidateACOMResult()
         }
     }
@@ -3373,9 +3344,9 @@ final class AppState {
         else { return }
         parallaxPreprocess = nil
         parallaxAlignment = nil
-        calibration.qPixelUnits = canonical
-        if calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
-            calibrationProvenance.qScale = .manual
+        calibrationSession.calibration.qPixelUnits = canonical
+        if calibrationSession.calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
+            calibrationSession.provenance.qScale = .manual
         }
         invalidateACOMResult()
     }
@@ -3384,12 +3355,12 @@ final class AppState {
         parallaxPreprocess = nil
         parallaxAlignment = nil
         if value.isFinite && value > 0 {
-            calibration.rPixelSize = value
-            calibration.rPixelUnits = manualRPixelUnits
-            calibrationProvenance.rScale = .manual
+            calibrationSession.calibration.rPixelSize = value
+            calibrationSession.calibration.rPixelUnits = manualRPixelUnits
+            calibrationSession.provenance.rScale = .manual
         } else {
-            calibration.rPixelSize = nil
-            calibrationProvenance.rScale = nil
+            calibrationSession.calibration.rPixelSize = nil
+            calibrationSession.provenance.rScale = nil
         }
     }
 
@@ -3398,17 +3369,17 @@ final class AppState {
         else { return }
         parallaxPreprocess = nil
         parallaxAlignment = nil
-        calibration.rPixelUnits = canonical
-        if calibration.rPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
-            calibrationProvenance.rScale = .manual
+        calibrationSession.calibration.rPixelUnits = canonical
+        if calibrationSession.calibration.rPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
+            calibrationSession.provenance.rScale = .manual
         }
     }
 
     func setManualAcceleratingVoltage(_ value: Double) {
         parallaxPreprocess = nil
         parallaxAlignment = nil
-        acceleratingVoltage = value.isFinite && value > 0 ? value : nil
-        if CalibrationUnitConversion.normalized(calibration.qPixelUnits) == "mrad" {
+        calibrationSession.acceleratingVoltage = value.isFinite && value > 0 ? value : nil
+        if CalibrationUnitConversion.normalized(calibrationSession.calibration.qPixelUnits) == "mrad" {
             invalidateACOMResult()
         }
     }
@@ -3675,8 +3646,8 @@ final class AppState {
                 displayName: "Virtual detector · \(shapeMode.rawValue)",
                 payload: .scalar(image), domain: .scan,
                 sampling: ProductSampling(
-                    row: calibration.rPixelSize, column: calibration.rPixelSize,
-                    units: calibration.rPixelUnits),
+                    row: calibrationSession.calibration.rPixelSize, column: calibrationSession.calibration.rPixelSize,
+                    units: calibrationSession.calibration.rPixelUnits),
                 valueUnits: "intensity", quantitativeStatus: .relative,
                 // The persistence provenance (aperture etc.) plus this site's own keys.
                 provenance: currentResultPersistenceMetadata.provenance.merging(
@@ -3720,10 +3691,10 @@ final class AppState {
         let physical: ParallaxPhysicalCalibration
         do {
             physical = try ParallaxPhysicalCalibration.resolve(
-                calibration: calibration,
+                calibration: calibrationSession.calibration,
                 apertureCenterX: aperture.centerX,
                 apertureCenterY: aperture.centerY,
-                acceleratingVoltageKV: acceleratingVoltage
+                acceleratingVoltageKV: calibrationSession.acceleratingVoltage
             )
         } catch {
             presentComputeFailure(error)
@@ -4029,9 +4000,9 @@ final class AppState {
         let physical: ParallaxPhysicalCalibration
         do {
             physical = try ParallaxPhysicalCalibration.resolve(
-                calibration: calibration, apertureCenterX: aperture.centerX,
+                calibration: calibrationSession.calibration, apertureCenterX: aperture.centerX,
                 apertureCenterY: aperture.centerY,
-                acceleratingVoltageKV: acceleratingVoltage
+                acceleratingVoltageKV: calibrationSession.acceleratingVoltage
             )
         } catch {
             presentComputeFailure(error)
@@ -4261,7 +4232,7 @@ final class AppState {
         )
         defer { finishCancellableOperation(cancellation) }
 
-        let fitFn = originFitFunction
+        let fitFn = calibrationSession.originFitFunction
         let d = descriptor
         do {
             let epoch = datasetEpoch
@@ -4282,10 +4253,10 @@ final class AppState {
             }
             guard let result else { return }
 
-            calibration.probeRadius = result.probeRadius
-            calibrationProvenance.probe = .measuredInApp
+            calibrationSession.calibration.probeRadius = result.probeRadius
+            calibrationSession.provenance.probe = .measuredInApp
             refreshDiskDefaultsForMeasuredProbe()
-            calibration.origin = result.origin
+            calibrationSession.calibration.origin = result.origin
             clearSupersededFittedOrigin()
             parallaxPreprocess = nil
             parallaxAlignment = nil
@@ -4294,10 +4265,10 @@ final class AppState {
             patternVersion &+= 1
 
             // Recenter the aperture on the measured beam.
-            if let origin = calibration.meanOrigin {
+            if let origin = calibrationSession.calibration.meanOrigin {
                 aperture.centerX = origin.x
                 aperture.centerY = origin.y
-                calibration.originProvenance = .fitted
+                calibrationSession.calibration.originProvenance = .fitted
             }
             let rms = result.origin.rmsResidual ?? 0
             statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",
@@ -4325,11 +4296,11 @@ final class AppState {
             // collapsed onto the mean origin, with no ellipse applied —
             // fitting an already-corrected map would converge toward no
             // distortion and overwrite a valid calibration.
-            var uncorrected = calibration
+            var uncorrected = calibrationSession.calibration
             uncorrected.ellipseA = nil
             uncorrected.ellipseB = nil
             uncorrected.ellipseTheta = nil
-            let origin = calibration.meanOrigin
+            let origin = calibrationSession.calibration.meanOrigin
                 ?? (x: Float(descriptor.qx) / 2, y: Float(descriptor.qy) / 2)
             let bvm = vectors.calibrated(
                 with: uncorrected, referenceOrigin: origin
@@ -4347,16 +4318,16 @@ final class AppState {
             detectorPattern = meanPattern
             sourceName = "mean diffraction pattern"
         }
-        guard ellipseFitInnerRadius >= 0,
-              ellipseFitOuterRadius > ellipseFitInnerRadius else {
+        guard calibrationSession.ellipseFitInnerRadius >= 0,
+              calibrationSession.ellipseFitOuterRadius > calibrationSession.ellipseFitInnerRadius else {
             presentComputeFailure(SimpleError("Ellipse fit outer radius must be larger than its inner radius."))
             return
         }
 
         let centerQX = Double(aperture.centerY)
         let centerQY = Double(aperture.centerX)
-        let inner = ellipseFitInnerRadius
-        let outer = ellipseFitOuterRadius
+        let inner = calibrationSession.ellipseFitInnerRadius
+        let outer = calibrationSession.ellipseFitOuterRadius
         let epoch = datasetEpoch
         let cancellation = beginCancellableOperation(
             "Ellipse calibration", status: "Fitting detector ellipse…", totalUnits: 1
@@ -4374,11 +4345,11 @@ final class AppState {
                 statusText = "Ellipse calibration cancelled"
                 return
             }
-            calibration.ellipseA = fit.a
-            calibration.ellipseB = fit.b
-            calibration.ellipseTheta = fit.theta
-            calibrationProvenance.ellipse = .measuredInApp
-            lastEllipseFit = fit
+            calibrationSession.calibration.ellipseA = fit.a
+            calibrationSession.calibration.ellipseB = fit.b
+            calibrationSession.calibration.ellipseTheta = fit.theta
+            calibrationSession.provenance.ellipse = .measuredInApp
+            calibrationSession.lastEllipseFit = fit
             progress = 1
 
             // A displayed Bragg map can be reprojected immediately because
@@ -4405,9 +4376,9 @@ final class AppState {
     func calibrateRotation(maximizeDivergence: Bool = false) async {
         guard let descriptor else { return }
 
-        if !calibration.hasFittedOrigin {
+        if !calibrationSession.calibration.hasFittedOrigin {
             await calibrateOrigin()
-            guard calibration.hasFittedOrigin else { return }
+            guard calibrationSession.calibration.hasFittedOrigin else { return }
         }
 
         let cancellation = beginCancellableOperation(
@@ -4437,9 +4408,9 @@ final class AppState {
                 presentComputeFailure(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
             }
-            calibration.rotationRad = result.rotationRad
-            calibration.transposeQR = result.transpose
-            calibrationProvenance.rotation = .measuredInApp
+            calibrationSession.calibration.rotationRad = result.rotationRad
+            calibrationSession.calibration.transposeQR = result.transpose
+            calibrationSession.provenance.rotation = .measuredInApp
             parallaxPreprocess = nil
             parallaxAlignment = nil
             lastRotationResult = result
@@ -4468,8 +4439,8 @@ final class AppState {
     ) async throws -> [Float]? {
         guard cancellation?.isCancelled != true else { return nil }
         guard let fourD, let descriptor else { return nil }
-        let origins = calibration.origin?.interleavedFitted
-        let center = calibration.referenceOrigin(  // v2 S13: one derivation
+        let origins = calibrationSession.calibration.origin?.interleavedFitted
+        let center = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
             detectorQX: descriptor.qx, detectorQY: descriptor.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ).point
@@ -4529,7 +4500,7 @@ final class AppState {
             if let displayFailure = applyDPCDisplay() {
                 return .failed(displayFailure)
             }
-            let ref = calibration.hasFittedOrigin ? "calibrated origins" : "global center"
+            let ref = calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center"
             statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
             // Recipe step (v2 S5). ONLY the origin source: `computeCoMField`
             // takes no aperture at all — its parameterization is which origin
@@ -4557,11 +4528,11 @@ final class AppState {
     /// is blind to this (flipping both CoM components leaves both invariant),
     /// so inverted iDPC contrast is fixed here, by hand.
     func flipRotation180() {
-        guard var rotation = calibration.rotationRad else { return }
+        guard var rotation = calibrationSession.calibration.rotationRad else { return }
         rotation += .pi
         if rotation > .pi { rotation -= 2 * .pi }
-        calibration.rotationRad = rotation
-        calibrationProvenance.rotation = .manual
+        calibrationSession.calibration.rotationRad = rotation
+        calibrationSession.provenance.rotation = .manual
         parallaxPreprocess = nil
         parallaxAlignment = nil
         // Same rule as `calibrateRotation`: the flip stands either way, but a
@@ -4591,9 +4562,9 @@ final class AppState {
     /// chosen together (v2.5 step 3e, condition 2).
     private func applyDPCDisplay() -> String? {
         guard var com = comField, let d = descriptor, navigation.analysisMode == .dpc else { return nil }
-        if let rotation = calibration.rotationRad {
+        if let rotation = calibrationSession.calibration.rotationRad {
             com = DPC.applyRotation(com: com, rotationRad: rotation,
-                                    transpose: calibration.transposeQR ?? false)
+                                    transpose: calibrationSession.calibration.transposeQR ?? false)
         }
         let payload: ProductPayload
         let kind: String, name: String, units: String
@@ -4650,16 +4621,16 @@ final class AppState {
     }
 
     var dpcMilliradiansPerDetectorPixel: Float? {
-        guard let qSize = calibration.qPixelSize,
+        guard let qSize = calibrationSession.calibration.qPixelSize,
               qSize.isFinite, qSize > 0 else { return nil }
-        if CalibrationUnitConversion.normalized(calibration.qPixelUnits) == "mrad" {
+        if CalibrationUnitConversion.normalized(calibrationSession.calibration.qPixelUnits) == "mrad" {
             return Float(qSize)
         }
         guard let invAngstrom =
                 CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
-                    value: qSize, units: calibration.qPixelUnits
+                    value: qSize, units: calibrationSession.calibration.qPixelUnits
                 ) else { return nil }
-        guard let voltageKV = acceleratingVoltage else { return nil }
+        guard let voltageKV = calibrationSession.acceleratingVoltage else { return nil }
         return DPC.milliradiansPerDetectorPixel(
             voltageKV: voltageKV, invAngstromPerPixel: invAngstrom
         )
@@ -4679,7 +4650,7 @@ final class AppState {
     /// residual and so cannot bring physical iDPC back — a remedy that does
     /// nothing where it is printed (Gate B, 2026-08-25).
     var idpcOriginFitRefusal: String? {
-        calibration.originFitJudgement.map {
+        calibrationSession.calibration.originFitJudgement.map {
             $0 + " Try another Origin fit (Constant / Plane / Parabola) and "
                 + "re-run Calibrate Origin."
         }
@@ -4689,7 +4660,7 @@ final class AppState {
         // A scale alone is insufficient: quantitative integration also needs
         // per-position descan correction and a detector field rotated into the
         // scan frame.
-        guard calibration.hasFittedOrigin, calibration.hasRotation else { return nil }
+        guard calibrationSession.calibration.hasFittedOrigin, calibrationSession.calibration.hasRotation else { return nil }
         // The SAME gate Q calibration takes, asked through the same owner
         // (`SessionGates`, S7's seam). This call site used to derive the
         // policy from `hasFittedOrigin` alone, so an origin fit whose RMS
@@ -4697,15 +4668,15 @@ final class AppState {
         // was still admitted into "iDPC projected phase (rad)". A fit the
         // gate refuses renders qualitative iDPC instead, with the refusal
         // shown by the DPC controls (`idpcOriginFitRefusal`). // v2 S7
-        guard gates.originQuantitativeRefusal(for: calibration) == nil else {
+        guard gates.originQuantitativeRefusal(for: calibrationSession.calibration) == nil else {
             return nil
         }
         return DPC.physicalIDPCCalibration(
-            realPixelSize: calibration.rPixelSize,
-            realPixelUnits: calibration.rPixelUnits,
-            reciprocalPixelSize: calibration.qPixelSize,
-            reciprocalPixelUnits: calibration.qPixelUnits,
-            voltageKV: acceleratingVoltage
+            realPixelSize: calibrationSession.calibration.rPixelSize,
+            realPixelUnits: calibrationSession.calibration.rPixelUnits,
+            reciprocalPixelSize: calibrationSession.calibration.qPixelSize,
+            reciprocalPixelUnits: calibrationSession.calibration.qPixelUnits,
+            voltageKV: calibrationSession.acceleratingVoltage
         )
     }
 
@@ -4715,11 +4686,11 @@ final class AppState {
     /// running origin calibration first if needed.
     func generateProbeKernel() async {
         guard let descriptor else { return }
-        if calibration.probeRadius == nil {
+        if calibrationSession.calibration.probeRadius == nil {
             await calibrateOrigin()
-            guard calibration.probeRadius != nil else { return }
+            guard calibrationSession.calibration.probeRadius != nil else { return }
         }
-        guard let radius = calibration.probeRadius else { return }
+        guard let radius = calibrationSession.calibration.probeRadius else { return }
 
         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
             presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
@@ -4736,12 +4707,12 @@ final class AppState {
     /// normalization makes sum versus mean immaterial.
     func generateMeasuredProbeKernel() async {
         guard descriptor != nil, let pattern = displayedPattern else { return }
-        if calibration.probeRadius == nil {
+        if calibrationSession.calibration.probeRadius == nil {
             await calibrateOrigin()
-            guard calibration.probeRadius != nil else { return }
+            guard calibrationSession.calibration.probeRadius != nil else { return }
         }
-        guard let radius = calibration.probeRadius, let d = descriptor else { return }
-        let origin = calibration.referenceOrigin(  // v2 S13: one derivation
+        guard let radius = calibrationSession.calibration.probeRadius, let d = descriptor else { return }
+        let origin = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
             detectorQX: d.qx, detectorQY: d.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ).point
@@ -4990,13 +4961,13 @@ final class AppState {
         // Three sibling call sites fell back to the aperture instead; they now
         // ask the same function, and the KIND travels with the value so a
         // caller that must not accept a stand-in can refuse on it.
-        let origin = calibration.referenceOrigin(
+        let origin = calibrationSession.calibration.referenceOrigin(
             detectorQX: d.qx, detectorQY: d.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         )
         return (
             vectors.calibrated(
-                with: calibration, referenceOrigin: origin.point, positions: positions
+                with: calibrationSession.calibration, referenceOrigin: origin.point, positions: positions
             ),
             origin
         )
@@ -5179,8 +5150,8 @@ final class AppState {
     /// rotation calibration changes what is shown, never silently desyncs
     /// from it. // v2 S8
     var strainPresentationFrame: StrainPresentationFrame {
-        .resolve(rotationRad: calibration.rotationRad,
-                 transposeQR: calibration.transposeQR)
+        .resolve(rotationRad: calibrationSession.calibration.rotationRad,
+                 transposeQR: calibrationSession.calibration.transposeQR)
     }
 
     /// Show the selected strain component, expressed in the presentation
@@ -5258,7 +5229,7 @@ final class AppState {
         // requirement from the design's §2: the origin must be a MEASURED beam
         // centre. That is S11's worst finding closed structurally.
         if let refusal = gates.reciprocalMetrologyRefusal(
-            for: calibration, descriptor: descriptor,
+            for: calibrationSession.calibration, descriptor: descriptor,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ) {
             qCalibration.record(refusal: refusal)
@@ -5273,7 +5244,7 @@ final class AppState {
         let modelRevision = model.revisionID
         let calibrated = calibratedBraggVectors(rawBragg, descriptor: descriptor)
         let epoch = datasetEpoch
-        let probeRadiusPixels = calibration.probeRadius.map(Double.init)
+        let probeRadiusPixels = calibrationSession.calibration.probeRadius.map(Double.init)
         let estimate = await Task.detached(priority: .userInitiated) {
             // DISTINCT shell lengths. `Crystal.reflections` returns every
             // symmetry equivalent separately, all at the same |g|, so the
@@ -5309,9 +5280,9 @@ final class AppState {
         // for what went wrong and what a later session needs). What survived is
         // the measurement, which `qCalibration.selfCheckSummary` surfaces.
         qCalibration.record(estimate)
-        calibration.qPixelSize = estimate.invAngstromPerPixel
-        calibration.qPixelUnits = "Å⁻¹"
-        calibrationProvenance.qScale = .measuredInApp
+        calibrationSession.calibration.qPixelSize = estimate.invAngstromPerPixel
+        calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+        calibrationSession.provenance.qScale = .measuredInApp
         invalidateACOMResult()
         parallaxPreprocess = nil
         parallaxAlignment = nil
@@ -5357,7 +5328,7 @@ final class AppState {
         // which makes every template exactly π-periodic in azimuth and leaves
         // the in-plane angle determined only modulo 180°. Pass the wavelength
         // whenever the dataset carries a voltage.
-        let planWavelength = acceleratingVoltage.flatMap {
+        let planWavelength = calibrationSession.acceleratingVoltage.flatMap {
             DPC.electronWavelengthAngstrom(voltageKV: $0)
         }
         let plan = await Task.detached(priority: .userInitiated) {
@@ -5582,7 +5553,7 @@ final class AppState {
 
     private var overlayReferenceOrigin: (x: Float, y: Float)? {
         guard let d = descriptor else { return nil }
-        return calibration.meanOrigin ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
+        return calibrationSession.calibration.meanOrigin ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
     }
 
     /// Stored (raw detector) Bragg peaks at the selected scan position —
@@ -5607,7 +5578,7 @@ final class AppState {
         return FitOverlays.strainOverlay(
             map: map,
             scanIndex: selectedScan.y * d.rx + selectedScan.x,
-            calibration: calibration, referenceOrigin: origin,
+            calibration: calibrationSession.calibration, referenceOrigin: origin,
             patternWidth: d.qx, patternHeight: d.qy
         )
     }
@@ -5626,7 +5597,7 @@ final class AppState {
         return FitOverlays.acomTemplateOverlay(
             result: result, plan: plan,
             invAngstromPerPixel: acomScale,
-            calibration: calibration, referenceOrigin: origin,
+            calibration: calibrationSession.calibration, referenceOrigin: origin,
             scanIndex: selectedScan.y * d.rx + selectedScan.x,
             scanWidth: d.rx, scanHeight: d.ry,
             patternWidth: d.qx, patternHeight: d.qy
@@ -5638,18 +5609,18 @@ final class AppState {
     /// the mean/max pattern.
     var originFitOverlayPoint: (x: Float, y: Float)? {
         guard showFitOverlay, navigation.workspaceArea == .prepare,
-              calibration.hasFittedOrigin, let d = descriptor,
+              calibrationSession.calibration.hasFittedOrigin, let d = descriptor,
               realSpaceShape == .point else { return nil }
         switch patternDisplayMode {
         case .current:
-            guard let mean = calibration.meanOrigin else { return nil }
+            guard let mean = calibrationSession.calibration.meanOrigin else { return nil }
             return FitOverlays.localOrigin(
-                calibration: calibration, referenceOrigin: mean,
+                calibration: calibrationSession.calibration, referenceOrigin: mean,
                 scanIndex: selectedScan.y * d.rx + selectedScan.x,
                 scanWidth: d.rx, scanHeight: d.ry
             )
         case .mean, .max:
-            return calibration.meanOrigin
+            return calibrationSession.calibration.meanOrigin
         }
     }
 
@@ -5659,16 +5630,16 @@ final class AppState {
     var ellipseFitOverlayPolyline: [FitOverlays.Marker] {
         guard showFitOverlay, navigation.workspaceArea == .prepare,
               descriptor != nil else { return [] }
-        if let fit = lastEllipseFit {
+        if let fit = calibrationSession.lastEllipseFit {
             return FitOverlays.ellipsePolyline(
                 centerX: Float(fit.centerQY), centerY: Float(fit.centerQX),
                 a: fit.a, b: fit.b, theta: fit.theta
             )
         }
-        guard calibration.hasEllipse,
-              let a = calibration.ellipseA, let b = calibration.ellipseB,
-              let theta = calibration.ellipseTheta,
-              let mean = calibration.meanOrigin else { return [] }
+        guard calibrationSession.calibration.hasEllipse,
+              let a = calibrationSession.calibration.ellipseA, let b = calibrationSession.calibration.ellipseB,
+              let theta = calibrationSession.calibration.ellipseTheta,
+              let mean = calibrationSession.calibration.meanOrigin else { return [] }
         return FitOverlays.ellipsePolyline(
             centerX: mean.x, centerY: mean.y, a: a, b: b, theta: theta
         )
@@ -5683,7 +5654,7 @@ final class AppState {
         case .acom: return hasOrientationMap
         default:
             return navigation.workspaceArea == .prepare
-                && (calibration.hasFittedOrigin || calibration.hasEllipse)
+                && (calibrationSession.calibration.hasFittedOrigin || calibrationSession.calibration.hasEllipse)
         }
     }
 }

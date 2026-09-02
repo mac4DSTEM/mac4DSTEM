@@ -420,10 +420,10 @@ final class ProductWorkflowTests: XCTestCase {
             shape: [153, 106, 256, 256], dtypeDescription: "float32",
             chunkShape: nil
         )
-        state.calibration.rPixelSize = 2
-        state.calibration.rPixelUnits = "nm"
-        state.calibration.qPixelSize = 0.01
-        state.calibration.qPixelUnits = "Å⁻¹"
+        state.calibrationSession.calibration.rPixelSize = 2
+        state.calibrationSession.calibration.rPixelUnits = "nm"
+        state.calibrationSession.calibration.qPixelSize = 0.01
+        state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
         state.navigation.analysisMode = .disks
         state.navigation.workspaceArea = .map
         state.publishProduct(
@@ -463,10 +463,10 @@ final class ProductWorkflowTests: XCTestCase {
 
     func testManualPixelScaleReplacesIndexUnitsWithExplicitPhysicalUnits() {
         let state = AppState()
-        state.calibration.rPixelSize = 1
-        state.calibration.rPixelUnits = "pixels"
-        state.calibration.qPixelSize = 1
-        state.calibration.qPixelUnits = "pixels"
+        state.calibrationSession.calibration.rPixelSize = 1
+        state.calibrationSession.calibration.rPixelUnits = "pixels"
+        state.calibrationSession.calibration.qPixelSize = 1
+        state.calibrationSession.calibration.qPixelUnits = "pixels"
 
         XCTAssertEqual(state.manualRPixelUnits, "nm")
         XCTAssertEqual(state.manualQPixelUnits, "nm⁻¹")
@@ -474,21 +474,21 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertNil(state.manualQPixelSize)
 
         state.setManualRPixelSize(0.5)
-        XCTAssertEqual(state.calibration.rPixelSize, 0.5)
-        XCTAssertEqual(state.calibration.rPixelUnits, "nm")
+        XCTAssertEqual(state.calibrationSession.calibration.rPixelSize, 0.5)
+        XCTAssertEqual(state.calibrationSession.calibration.rPixelUnits, "nm")
         XCTAssertEqual(state.manualRPixelSize, 0.5)
-        XCTAssertEqual(state.calibrationProvenance.rScale, .manual)
+        XCTAssertEqual(state.calibrationSession.provenance.rScale, .manual)
 
         state.setManualRPixelUnits("Å")
-        XCTAssertEqual(state.calibration.rPixelUnits, "Å")
-        let rItem = state.calibrationReadiness.items.first { $0.kind == .rScale }
+        XCTAssertEqual(state.calibrationSession.calibration.rPixelUnits, "Å")
+        let rItem = state.calibrationSession.readiness.items.first { $0.kind == .rScale }
         XCTAssertEqual(rItem?.status, .ready(.manual))
 
         state.setManualQPixelSize(0.25)
-        XCTAssertEqual(state.calibration.qPixelUnits, "nm⁻¹")
+        XCTAssertEqual(state.calibrationSession.calibration.qPixelUnits, "nm⁻¹")
         XCTAssertEqual(state.acomScale, 0.025, accuracy: 1e-12)
         state.setManualQPixelUnits("Å⁻¹")
-        XCTAssertEqual(state.calibration.qPixelUnits, "Å⁻¹")
+        XCTAssertEqual(state.calibrationSession.calibration.qPixelUnits, "Å⁻¹")
         XCTAssertEqual(state.acomScale, 0.25, accuracy: 1e-12)
     }
 
