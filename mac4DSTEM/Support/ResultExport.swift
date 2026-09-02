@@ -1465,7 +1465,7 @@ extension AppState {
                     angular.contains(acomDisplay) ? "rad" : "dimensionless")
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
-        case .ptychography:
+        case .ptychography, .singleslicePtychography:
             switch parallaxResultProduct {
             case .correctedPhase:
                 return ("parallax_corrected_phase", "Parallax corrected phase",

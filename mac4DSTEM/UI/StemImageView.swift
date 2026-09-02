@@ -697,7 +697,7 @@ struct StemImageView: View {
             "Compute Strain after detecting Bragg disks"
         case .acom:
             "Run ACOM after detecting Bragg disks and choosing a material"
-        case .ptychography:
+        case .ptychography, .singleslicePtychography:
             "Prepare the parallax preview to begin reconstruction"
         }
     }

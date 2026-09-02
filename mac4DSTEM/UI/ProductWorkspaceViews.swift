@@ -390,6 +390,7 @@ struct ProductWorkspaceHeader: View {
             }
         case .reconstruct:
             if appState.navigation.analysisMode == .dpc { "Run DPC" }
+            else if appState.navigation.analysisMode == .singleslicePtychography { "Reconstruct Object" }
             else if appState.parallaxPreprocess == nil { "Prepare Preview" }
             else if appState.parallaxAlignment?.isComplete != true { "Align Next Level" }
             else if appState.parallaxHigherOrderFit == nil { "Fit Aberrations" }
@@ -413,9 +414,11 @@ struct ProductWorkspaceHeader: View {
                 ? "Runs the selected orientation area and quality shown in the tools panel."
                 : "Runs the selected whole-scan mapping task."
         case .reconstruct:
-            appState.navigation.analysisMode == .dpc
-                ? "Maps beam deflection across the scan and integrates projected phase."
-                : "Runs the next incomplete reconstruction stage."
+            switch appState.navigation.analysisMode {
+            case .dpc: "Maps beam deflection across the scan and integrates projected phase."
+            case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
+            default: "Runs the next incomplete parallax stage."
+            }
         case .results: "Adds the visible result to the reusable dataset session."
         }
     }

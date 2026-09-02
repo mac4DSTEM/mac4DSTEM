@@ -477,6 +477,84 @@ struct ContentView: View {
                         }
                     }
 
+                    if appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .singleslicePtychography {
+                        // v2.5 step 7a: its own task, no parallax stage in front of it.
+                        Section("Single-slice ptychography") {
+
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Picker("Method", selection: $appState.ptychographyMethod) {
+                                            ForEach(SingleslicePtychographyMethod.allCases) { method in
+                                                Text(method.rawValue).tag(method)
+                                            }
+                                        }
+                                        HStack {
+                                            TextField(
+                                                "Iterations", value: $appState.ptychographyIterations,
+                                                format: .number
+                                            )
+                                            .textFieldStyle(.roundedBorder)
+                                            TextField(
+                                                appState.ptychographyMethod == .gradientDescent
+                                                    ? "Step" : "DM/AP α",
+                                                value: appState.ptychographyMethod == .gradientDescent
+                                                    ? $appState.ptychographyStepSize
+                                                    : $appState.ptychographyProjectionParameter,
+                                                format: .number.precision(.fractionLength(0...3))
+                                            )
+                                            .textFieldStyle(.roundedBorder)
+                                            TextField(
+                                                "Norm min", value: $appState.ptychographyNormalizationMinimum,
+                                                format: .number.precision(.fractionLength(0...3))
+                                            )
+                                            .textFieldStyle(.roundedBorder)
+                                        }
+                                        Toggle("Fix probe", isOn: $appState.ptychographyFixProbe)
+                                        Toggle(
+                                            "Limit object transmission to 1",
+                                            isOn: $appState.ptychographyConstrainObjectAmplitude
+                                        )
+                                        Toggle(
+                                            "Pure-phase object",
+                                            isOn: $appState.ptychographyPurePhaseObject
+                                        )
+                                        .help("Sets reconstructed object amplitude to one after every iteration.")
+                                        if !appState.ptychographyFixProbe {
+                                            Toggle(
+                                                "Recenter probe each iteration",
+                                                isOn: $appState.ptychographyFixProbeCenterOfMass
+                                            )
+                                            Toggle(
+                                                "Constrain probe support",
+                                                isOn: $appState.ptychographyConstrainProbeAmplitude
+                                            )
+                                            if appState.ptychographyConstrainProbeAmplitude {
+                                                HStack {
+                                                    TextField(
+                                                        "Support radius",
+                                                        value: $appState.ptychographyProbeAmplitudeRadius,
+                                                        format: .number.precision(.fractionLength(0...3))
+                                                    )
+                                                    .textFieldStyle(.roundedBorder)
+                                                    TextField(
+                                                        "Edge width",
+                                                        value: $appState.ptychographyProbeAmplitudeWidth,
+                                                        format: .number.precision(.fractionLength(0...3))
+                                                    )
+                                                    .textFieldStyle(.roundedBorder)
+                                                }
+                                            }
+                                        }
+                                        Button {
+                                            Task { await appState.runSingleslicePtychography() }
+                                        } label: {
+                                            Label("Reconstruct Object", systemImage: "circle.hexagongrid")
+                                        }
+                                        .disabled(appState.isBusy)
+                                        .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
+                                    }
+                        }
+                    }
+
                     if appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .ptychography {
                         Section("Reconstruction workflow") {
                             reconstructionStage(1, "Prepare preview") {
@@ -620,79 +698,6 @@ struct ContentView: View {
                                         Label("Compute Depth Stack", systemImage: "square.3.layers.3d")
                                     }
                                     .disabled(appState.isBusy)
-                                }
-                                DisclosureGroup("Single-slice ptychography") {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Picker("Method", selection: $appState.ptychographyMethod) {
-                                            ForEach(SingleslicePtychographyMethod.allCases) { method in
-                                                Text(method.rawValue).tag(method)
-                                            }
-                                        }
-                                        HStack {
-                                            TextField(
-                                                "Iterations", value: $appState.ptychographyIterations,
-                                                format: .number
-                                            )
-                                            .textFieldStyle(.roundedBorder)
-                                            TextField(
-                                                appState.ptychographyMethod == .gradientDescent
-                                                    ? "Step" : "DM/AP α",
-                                                value: appState.ptychographyMethod == .gradientDescent
-                                                    ? $appState.ptychographyStepSize
-                                                    : $appState.ptychographyProjectionParameter,
-                                                format: .number.precision(.fractionLength(0...3))
-                                            )
-                                            .textFieldStyle(.roundedBorder)
-                                            TextField(
-                                                "Norm min", value: $appState.ptychographyNormalizationMinimum,
-                                                format: .number.precision(.fractionLength(0...3))
-                                            )
-                                            .textFieldStyle(.roundedBorder)
-                                        }
-                                        Toggle("Fix probe", isOn: $appState.ptychographyFixProbe)
-                                        Toggle(
-                                            "Limit object transmission to 1",
-                                            isOn: $appState.ptychographyConstrainObjectAmplitude
-                                        )
-                                        Toggle(
-                                            "Pure-phase object",
-                                            isOn: $appState.ptychographyPurePhaseObject
-                                        )
-                                        .help("Sets reconstructed object amplitude to one after every iteration.")
-                                        if !appState.ptychographyFixProbe {
-                                            Toggle(
-                                                "Recenter probe each iteration",
-                                                isOn: $appState.ptychographyFixProbeCenterOfMass
-                                            )
-                                            Toggle(
-                                                "Constrain probe support",
-                                                isOn: $appState.ptychographyConstrainProbeAmplitude
-                                            )
-                                            if appState.ptychographyConstrainProbeAmplitude {
-                                                HStack {
-                                                    TextField(
-                                                        "Support radius",
-                                                        value: $appState.ptychographyProbeAmplitudeRadius,
-                                                        format: .number.precision(.fractionLength(0...3))
-                                                    )
-                                                    .textFieldStyle(.roundedBorder)
-                                                    TextField(
-                                                        "Edge width",
-                                                        value: $appState.ptychographyProbeAmplitudeWidth,
-                                                        format: .number.precision(.fractionLength(0...3))
-                                                    )
-                                                    .textFieldStyle(.roundedBorder)
-                                                }
-                                            }
-                                        }
-                                        Button {
-                                            Task { await appState.runSingleslicePtychography() }
-                                        } label: {
-                                            Label("Reconstruct Object", systemImage: "circle.hexagongrid")
-                                        }
-                                        .disabled(appState.isBusy)
-                                        .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
-                                    }
                                 }
                             }
 
@@ -1521,7 +1526,7 @@ struct ContentView: View {
             appState.replay.record.steps.contains { $0.kind == "virtual_detector" }
         case .dpc:
             appState.replay.record.steps.contains { $0.kind == "dpc" }
-        case .ptychography: false
+        case .ptychography, .singleslicePtychography: false
         }
     }
 
@@ -1580,7 +1585,10 @@ struct ContentView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityValue(complete ? "Complete" : (active ? "Current step" : "Pending"))
-            if active {
+            // v2.5 step 7a (plan §3 item 6): a completed stage keeps its
+            // controls — Reset Alignment, the product picker — so the chain is
+            // revisitable; only pending stages stay collapsed.
+            if active || complete {
                 VStack(alignment: .leading, spacing: 6) { content() }
                     .padding(.leading, 22)
             }

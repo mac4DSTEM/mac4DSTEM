@@ -696,3 +696,30 @@ final class TaskReadinessTests: XCTestCase {
     }
 }
 
+// MARK: - v2.5 step 7a: the Phase split (plan §11b, §11f)
+
+@MainActor
+final class PhaseSplitTests: XCTestCase {
+    func testPhaseHasThreeIndependentTasksWithSharedCalibrationPrerequisites() {
+        XCTAssertEqual(WorkspaceArea.reconstruct.analysisModes, [.dpc, .ptychography, .singleslicePtychography])
+        let readiness = ProductWorkflowReadiness()
+        XCTAssertEqual(ProductWorkflow.prerequisites(for: .singleslicePtychography, readiness: readiness),
+                       ProductWorkflow.prerequisites(for: .ptychography, readiness: readiness),
+                       "same calibration list, separate state")
+        XCTAssertNotEqual(AnalysisMode.ptychography.productTitle, AnalysisMode.singleslicePtychography.productTitle)
+        XCTAssertEqual(AnalysisMode.singleslicePtychography.workspaceArea, .reconstruct)
+    }
+
+    func testSwitchingPhaseTaskNeverClearsAnotherTasksState() {
+        let state = AppState()
+        state.changeMode(.singleslicePtychography)
+        let other = SingleslicePtychographyMethod.allCases.first { $0 != state.ptychographyMethod }!
+        state.ptychographyMethod = other
+        state.changeMode(.ptychography)
+        XCTAssertEqual(state.ptychographyMethod, other)
+        state.changeMode(.dpc)
+        state.changeMode(.singleslicePtychography)
+        XCTAssertEqual(state.ptychographyMethod, other)
+    }
+}
+

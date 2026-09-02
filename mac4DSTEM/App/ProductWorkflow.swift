@@ -62,7 +62,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .map: [.disks, .strain, .acom]
         // The phase-contrast family, together — every member needs only
         // voltage and geometry, none needs Bragg vectors (§3.3 grammar).
-        case .reconstruct: [.dpc, .ptychography]
+        case .reconstruct: [.dpc, .ptychography, .singleslicePtychography]
         }
     }
 
@@ -171,7 +171,7 @@ extension AnalysisMode {
         switch self {
         case .disks: .producesBraggVectors
         case .strain, .acom: .requiresBraggVectors
-        case .virtualDetector, .dpc, .ptychography: .phaseContrast
+        case .virtualDetector, .dpc, .ptychography, .singleslicePtychography: .phaseContrast
         }
     }
 
@@ -182,7 +182,7 @@ extension AnalysisMode {
         // DPC sits with its prerequisite family (S22c): it shares the
         // voltage-only contract with parallax/ptychography, not the
         // zero-prerequisite contract of virtual imaging.
-        case .dpc, .ptychography: .reconstruct
+        case .dpc, .ptychography, .singleslicePtychography: .reconstruct
         }
     }
 
@@ -192,7 +192,8 @@ extension AnalysisMode {
         case .dpc: "DPC & iDPC"
         case .disks: "Bragg disks"
         case .strain: "Strain"
-        case .ptychography: "Parallax & ptychography"
+        case .ptychography: "Parallax"
+        case .singleslicePtychography: "Single-slice ptychography"
         case .acom: "Orientation"
         }
     }
@@ -203,7 +204,8 @@ extension AnalysisMode {
         case .dpc: "Map beam deflection and integrate projected phase"
         case .disks: "Detect reciprocal-lattice peaks across the scan"
         case .strain: "Measure lattice distortion from indexed Bragg peaks"
-        case .ptychography: "Reconstruct phase, amplitude, aberrations, and depth"
+        case .ptychography: "Align bright-field images, fit aberrations, correct phase, section depth"
+        case .singleslicePtychography: "Iterative object and probe reconstruction from the full datacube"
         case .acom: "Match crystal orientation and reliability"
         }
     }
@@ -215,6 +217,7 @@ extension AnalysisMode {
         case .disks: "circle.grid.cross"
         case .strain: "arrow.up.left.and.arrow.down.right"
         case .ptychography: "waveform.path.ecg"
+        case .singleslicePtychography: "circle.hexagongrid"
         case .acom: "cube.transparent"
         }
     }
@@ -285,7 +288,7 @@ enum ProductWorkflow {
                     )
                 )
             ]
-        case .ptychography:
+        case .ptychography, .singleslicePtychography:   // shared calibration list, separate state
             return [
                 TaskPrerequisite(
                     id: "originProbe", title: "Calibrate the diffraction origin",
@@ -371,7 +374,7 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [String] {
         switch mode {
-        case .virtualDetector, .disks, .ptychography:
+        case .virtualDetector, .disks, .ptychography, .singleslicePtychography:
             return []
         case .dpc:
             var missing: [String] = []

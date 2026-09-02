@@ -50,11 +50,16 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     case dpc = "DPC"
     case disks = "Disks"
     case strain = "Strain"
+    /// Parallax (the staged bright-field reconstruction). Raw value kept —
+    /// it is written into export provenance as `analysis_mode`.
     case ptychography = "Ptycho"
+    /// v2.5 step 7a (plan §11b): single-slice iterative ptychography is its
+    /// own task — it needs the datacube and calibration, never a parallax stage.
+    case singleslicePtychography = "Single-slice ptycho"
     case acom = "ACOM"
 
     var id: String { rawValue }
-    var isAdvanced: Bool { self == .ptychography }
+    var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
 }
 
 enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
@@ -817,7 +822,7 @@ final class AppState {
     var activeResultDomain: ProductDomain {
         switch navigation.analysisMode {
         case .disks: .detector
-        case .ptychography: .reconstruction
+        case .ptychography, .singleslicePtychography: .reconstruction
         case .virtualDetector, .dpc, .strain, .acom: .scan
         }
     }
@@ -1508,6 +1513,8 @@ final class AppState {
         case .reconstruct:
             if navigation.analysisMode == .dpc {
                 await runCurrentAnalysis()
+            } else if navigation.analysisMode == .singleslicePtychography {
+                await runSingleslicePtychography()   // v2.5 step 7a: its own task
             } else if parallaxPreprocess == nil {
                 await prepareParallaxPreview()
             } else if parallaxAlignment?.isComplete != true {
@@ -3198,6 +3205,8 @@ final class AppState {
         case .ptychography:
             if parallaxAlignment != nil { showParallaxProduct(.alignment) }
             else if parallaxPreprocess != nil { showParallaxProduct(.preprocess) }
+        case .singleslicePtychography:
+            if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
             if orientationMap != nil { applyACOMDisplay() }
         }
