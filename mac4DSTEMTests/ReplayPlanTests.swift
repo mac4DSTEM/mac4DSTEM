@@ -213,6 +213,128 @@ final class ReplayPlanTests: XCTestCase {
         }
     }
 
+    // MARK: - ACOM material resolution (Gate D 2026-09-02, crystal replay)
+    //
+    // The promote log read "C FCC, a = 4.08 Å" against a Z=79 default. The
+    // diagnosis: the recorded id was `custom_cubic_fcc_z6` because the
+    // rehearsal ran with carbon selected; replay cannot substitute Z. The
+    // live residual it exposed: the id omits a₀, so a drifted lattice
+    // constant replayed silently. These pin both halves.
+
+    private func session(z: Int, a: Double, imported: Set<String> = []) -> ReplayStepPlan.ACOMReplayPlan.SessionMaterials {
+        .init(importedIDs: imported, customStructure: .fcc, customLatticeA: a, customZ: z)
+    }
+
+    private func customPlan(id: String, latticeA: Double?) -> ReplayStepPlan.ACOMReplayPlan {
+        .init(materialID: id, latticeA: latticeA, scaleInvAngstromPerPixel: 0.0125,
+              scope: .fullScan, quality: .balanced)
+    }
+
+    func testCustomCubicRecordedIDEmbedsZButNotA() {
+        let carbon = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 6)
+        let gold = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 79)
+        let carbonOtherA = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 3.57, atomicNumber: 6)
+        XCTAssertNotEqual(carbon.id, gold.id, "Z is part of the id: replay cannot swap the element")
+        XCTAssertEqual(carbon.id, carbonOtherA.id, "a₀ is NOT part of the id — the reason lattice_a is recorded")
+        XCTAssertTrue(carbon.displayName.hasPrefix("C "), carbon.displayName)
+    }
+
+    func testCustomCubicReplayRefusesADifferentElement() {
+        let goldID = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 79).id
+        let plan = customPlan(id: goldID, latticeA: 4.08)
+        guard case .unavailable(let reason) = plan.resolveMaterial(in: session(z: 6, a: 4.08)) else {
+            return XCTFail("A z79 recipe must not run against a carbon session")
+        }
+        XCTAssertTrue(reason.contains(goldID), reason)
+    }
+
+    func testCustomCubicReplayResolvesTheRecordedElementAndLattice() {
+        let carbonID = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 6).id
+        let plan = customPlan(id: carbonID, latticeA: 4.08)
+        XCTAssertEqual(plan.resolveMaterial(in: session(z: 6, a: 4.08)), .customCubic)
+    }
+
+    func testCustomCubicReplayRefusesADriftedLatticeConstant() {
+        let carbonID = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 6).id
+        let plan = customPlan(id: carbonID, latticeA: 4.08)
+        guard case .unavailable(let reason) = plan.resolveMaterial(in: session(z: 6, a: 3.57)) else {
+            return XCTFail("Same id, different a₀ — the silent path this gate closes")
+        }
+        XCTAssertTrue(reason.contains("4.08") && reason.contains("3.57"), reason)
+    }
+
+    func testCustomCubicReplayRefusesARecordWithoutLatticeConstant() {
+        let carbonID = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 6).id
+        let plan = customPlan(id: carbonID, latticeA: nil)
+        guard case .unavailable(let reason) = plan.resolveMaterial(in: session(z: 6, a: 4.08)) else {
+            return XCTFail("A pre-lattice_a custom record cannot prove its a₀")
+        }
+        XCTAssertTrue(reason.contains("lattice constant"), reason)
+    }
+
+    func testCustomCubicReplayRefusesANearMissLatticeConstant() {
+        // 4.10 vs 4.08 is a different crystal (0.5 %); a tolerance loosened
+        // to 1e-1 would let it through while the 4.08-vs-3.57 test stays green.
+        let carbonID = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 6).id
+        let plan = customPlan(id: carbonID, latticeA: 4.08)
+        guard case .unavailable = plan.resolveMaterial(in: session(z: 6, a: 4.10)) else {
+            return XCTFail("A 0.5 % lattice drift must refuse")
+        }
+        XCTAssertEqual(plan.resolveMaterial(in: session(z: 6, a: 4.08 * (1 + 1e-9))), .customCubic,
+                       "Float round-trip noise is not a drift")
+    }
+
+    func testLibraryAndImportedIDsNeedNoLatticeConstant() {
+        XCTAssertEqual(customPlan(id: "au_fcc", latticeA: nil).resolveMaterial(in: session(z: 6, a: 1)),
+                       .library("au_fcc"))
+        // Imported ids are `imported_<file stem>` (CIFImport); membership only.
+        XCTAssertEqual(customPlan(id: "imported_ws2", latticeA: nil).resolveMaterial(in: session(z: 6, a: 1, imported: ["imported_ws2"])),
+                       .imported("imported_ws2"))
+    }
+
+    func testACOMParsesAndRefusesLatticeA() throws {
+        var step = acomStep
+        step.parameters["lattice_a"] = "4.08"
+        guard case .acom(let plan) = try ReplayPlanner.parse(step).get() else { return XCTFail() }
+        XCTAssertEqual(plan.latticeA, 4.08)
+        for bad in ["nan", "-1", "0", "abc"] {
+            step.parameters["lattice_a"] = bad
+            guard case .failure = ReplayPlanner.parse(step) else {
+                return XCTFail("A present but unusable lattice_a (\(bad)) is a refusal, not nil")
+            }
+        }
+    }
+
+    func testRecordSiteWritesLatticeAOnlyForCustomModelsAndItRoundTrips() throws {
+        let custom = CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 4.08, atomicNumber: 6)
+        let written = ReplayStepPlan.ACOMReplayPlan.recordedParameters(
+            model: custom, scale: 0.0125, backend: "CPU", scope: .fullScan, quality: .balanced)
+        XCTAssertEqual(written["lattice_a"], "4.08")
+        XCTAssertEqual(written["material"], custom.id)
+        let step = SessionReplayRecord.Step(kind: "acom", parameters: written, recorded: Date(timeIntervalSince1970: 0))
+        guard case .acom(let plan) = try ReplayPlanner.parse(step).get() else { return XCTFail() }
+        XCTAssertEqual(plan.resolveMaterial(in: session(z: 6, a: 4.08)), .customCubic,
+                       "What the record site writes, the applier resolves")
+
+        let library = try XCTUnwrap(CrystalModelLibrary.model(id: "au_fcc"))
+        let libraryWritten = ReplayStepPlan.ACOMReplayPlan.recordedParameters(
+            model: library, scale: 0.0125, backend: "CPU", scope: .fullScan, quality: .balanced)
+        XCTAssertNil(libraryWritten["lattice_a"], "Library models are resolved by id alone")
+    }
+
+    func testLatticeAIsFrameInvariantThroughABinnedExport() throws {
+        // Missing from the role registry, the key would refuse the whole
+        // recipe out of a reduced-file export (refuter finding, 2026-09-02).
+        let step = SessionReplayRecord.Step(
+            kind: "acom",
+            parameters: ["material": "custom_cubic_fcc_z6", "lattice_a": "4.08",
+                         "scale_inv_angstrom_per_pixel": "0.02", "matching_backend": "CPU",
+                         "scope": "fullScan", "quality": "balanced"],
+            recorded: Date(timeIntervalSince1970: 0))
+        let mapped = try ReplayRecordFrameMap.map(step, through: .viewToExport(bin: 2)).get()
+        XCTAssertEqual(mapped.parameters["lattice_a"], "4.08")
+    }
+
     // MARK: - Unknown kinds and order rules
 
     func testAnUnknownKindRefusesByName() {

@@ -246,7 +246,10 @@ enum ReplayRecordFrameMap {
             }
         case "acom":
             switch key {
-            case "material", "matching_backend", "scope", "quality": .invariant
+            // lattice_a is in Å — frame-invariant. Missing from this table it
+            // would drop every custom-phase recipe from a binned export
+            // (refuter, Gate D 2026-09-02).
+            case "material", "matching_backend", "scope", "quality", "lattice_a": .invariant
             case "scale_inv_angstrom_per_pixel": .perPixelScale
             default: nil
             }
@@ -364,6 +367,12 @@ enum ReplayStepPlan: Equatable {
 
     struct ACOMReplayPlan: Equatable {
         var materialID: String
+        /// Lattice constant (Å) the custom-cubic model was rehearsed with. The
+        /// custom id encodes structure and Z but not a₀, so without this a
+        /// restored session whose `a` field drifted replayed a different
+        /// crystal under the same id (Gate D 2026-09-02). nil for library and
+        /// imported ids, and for records that predate the key.
+        var latticeA: Double? = nil
         /// The scale the run matched at, in Å⁻¹ per detector pixel. Replay
         /// verifies the session's scale semantics agree before running —
         /// matching at a different scale gets every orientation wrong with no
@@ -371,6 +380,64 @@ enum ReplayStepPlan: Equatable {
         var scaleInvAngstromPerPixel: Double
         var scope: ACOMRunScope
         var quality: ACOMQualityPreset
+
+        /// What the session holds that a recorded material id can resolve
+        /// against. Library models are global and need no field.
+        struct SessionMaterials {
+            var importedIDs: Set<String>
+            var customStructure: Crystal.CubicStructure
+            var customLatticeA: Double
+            var customZ: Int
+        }
+
+        /// The parameters the record site writes — built here so the write
+        /// path is pinned by the same tests that pin the parser. `lattice_a`
+        /// comes from the model that ran, not from the selection.
+        static func recordedParameters(model: CrystalModel, scale: Double, backend: String,
+                                       scope: ACOMRunScope, quality: ACOMQualityPreset) -> [String: String] {
+            var p = [
+                "material": model.id,
+                "scale_inv_angstrom_per_pixel": String(scale),
+                "matching_backend": backend,
+                "scope": String(describing: scope),
+                "quality": String(describing: quality),
+            ]
+            if model.source == .custom { p["lattice_a"] = String(model.crystal.a) }
+            return p
+        }
+
+        enum MaterialResolution: Equatable {
+            case library(String)
+            case imported(String)
+            case customCubic
+            /// The refusal reason, in the recipe summary's voice.
+            case unavailable(String)
+        }
+
+        /// Resolve the recorded material BY ID — a replay that cannot resolve
+        /// it fails by name, never falls back to a different crystal. Library
+        /// first, then the session's imports, then the session's custom-cubic
+        /// fields when they produce exactly the recorded id AND the recorded
+        /// lattice constant. Pure so the arm is testable without running ACOM.
+        func resolveMaterial(in session: SessionMaterials) -> MaterialResolution {
+            if CrystalModelLibrary.model(id: materialID) != nil { return .library(materialID) }
+            if session.importedIDs.contains(materialID) { return .imported(materialID) }
+            let custom = CrystalModelLibrary.customCubic(
+                structure: session.customStructure, latticeA: session.customLatticeA,
+                atomicNumber: session.customZ)
+            guard custom.id == materialID else {
+                return .unavailable("the recipe's phase model '\(materialID)' is not available in this session — select or import the phase model it names, then run ACOM by hand")
+            }
+            guard let latticeA else {
+                return .unavailable("the recipe's custom phase '\(custom.displayName)' was recorded before recipes carried the lattice constant — confirm a matches the rehearsal, then run ACOM by hand")
+            }
+            guard abs(latticeA - session.customLatticeA) <= max(1e-9, abs(latticeA) * 1e-6) else {
+                return .unavailable(String(
+                    format: "the recipe's custom phase was rehearsed with a = %.4g Å but this session has a = %.4g Å — set a to the rehearsed value or run ACOM by hand",
+                    latticeA, session.customLatticeA))
+            }
+            return .customCubic
+        }
     }
 
     /// Whether this step consumes recorded numbers denominated in detector
@@ -582,7 +649,17 @@ enum ReplayPlanner {
                   let quality = ACOMQualityPreset.allCases.first(where: { String(describing: $0) == qualityText }) else {
                 return refused(step, key: "quality", value: p["quality"])
             }
+            // Optional key: absent on records that predate it. Present but
+            // unparseable is a refusal like every other malformed value.
+            var latticeA: Double? = nil
+            if let text = p["lattice_a"] {
+                guard let value = finiteDouble(text), value > 0 else {
+                    return refused(step, key: "lattice_a", value: text)
+                }
+                latticeA = value
+            }
             return .success(.acom(.init(materialID: material,
+                                        latticeA: latticeA,
                                         scaleInvAngstromPerPixel: scale,
                                         scope: scope,
                                         quality: quality)))

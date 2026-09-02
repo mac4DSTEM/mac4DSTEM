@@ -1947,25 +1947,19 @@ final class AppState {
             return .ran(await runStrainMapping(replaying: true))
 
         case .acom(let acomPlan):
-            // Resolve the material BY ID — a replay that cannot resolve it
-            // fails by name, never falls back to a different crystal (the
-            // rule the recording site states). Library first, then this
-            // session's imports, then the session's own custom-cubic fields
-            // when they produce exactly the recorded id (`activate` reset the
-            // SELECTION but the fields survive — without this arm a rehearsed
-            // custom phase could never replay; Gate A finding C4). Known
-            // residual, recorded in docs/open-items.md: the custom id does
-            // not encode the lattice constant, so a restored session whose
-            // custom fields drifted could resolve the id with a different a₀.
-            if CrystalModelLibrary.model(id: acomPlan.materialID) != nil {
-                acomModelSelection = .library(acomPlan.materialID)
-            } else if importedCrystalModels.contains(where: { $0.id == acomPlan.materialID }) {
-                acomModelSelection = .imported(acomPlan.materialID)
-            } else if CrystalModelLibrary.customCubic(
-                structure: customStructure, latticeA: customLatticeA,
-                atomicNumber: customZ
-            ).id == acomPlan.materialID {
-                acomModelSelection = .customCubic
+            // Resolution is `ACOMReplayPlan.resolveMaterial` (pure, tested):
+            // by id, never a fallback crystal; the custom-cubic arm exists
+            // because `activate` reset the SELECTION but the fields survive
+            // (Gate A finding C4), and it now also requires the rehearsed
+            // lattice constant (Gate D 2026-09-02).
+            switch acomPlan.resolveMaterial(in: .init(
+                importedIDs: Set(importedCrystalModels.map(\.id)),
+                customStructure: customStructure, customLatticeA: customLatticeA,
+                customZ: customZ)) {
+            case .library(let id): acomModelSelection = .library(id)
+            case .imported(let id): acomModelSelection = .imported(id)
+            case .customCubic: acomModelSelection = .customCubic
+            case .unavailable(let reason): return .refused(reason)
             }
             guard resolvedACOMModel?.id == acomPlan.materialID else {
                 return .refused("the recipe's phase model '\(acomPlan.materialID)' is not available in this session — select or import the phase model it names, then run ACOM by hand")
@@ -5355,13 +5349,13 @@ final class AppState {
         // orientation wrong with no shape check to catch it (Gate B-lite F3).
         // The material is recorded by ID: a replay that cannot resolve it
         // must fail by name, never fall back to a different crystal.
-        recordReplayStep(kind: "acom", parameters: [
-            "material": runSemantics.materialModelID,
-            "scale_inv_angstrom_per_pixel": String(scale),
-            "matching_backend": map.matchingBackend.rawValue,
-            "scope": String(describing: scope),
-            "quality": String(describing: quality),
-        ], replaying: replaying)
+        // The custom id carries structure and Z but not a₀; the record also
+        // carries lattice_a so replay can refuse a drifted a₀ by name.
+        recordReplayStep(kind: "acom",
+                         parameters: ReplayStepPlan.ACOMReplayPlan.recordedParameters(
+                             model: model, scale: scale, backend: map.matchingBackend.rawValue,
+                             scope: scope, quality: quality),
+                         replaying: replaying)
         acomLastRunScope = scope
         acomLastRunQuality = quality
         acomLastRunSemantics = runSemantics

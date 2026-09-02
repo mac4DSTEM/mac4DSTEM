@@ -981,12 +981,23 @@ citations cannot be trusted without checking.
     targets the newer run and the hours-long replayed step loses its cancel
     path. The recipe-side half was fixed in S6 (caller-keyed recording
     suppression); the operation-collision half is S18-class polish.
-  - **The custom-cubic model id does not encode the lattice constant**
-    (`custom_cubic_<structure>_z<Z>`), so ACOM replay's custom-cubic
-    resolution arm could, in a restored session whose custom fields drifted,
-    resolve the recorded id with a different a₀. Same-session promotes are
-    exact. Fix belongs with the next recipe-vocabulary change: record the
-    lattice constant in the acom step and require it to match.
+  - **Custom-cubic ACOM replay and the lattice constant — Gate D 2026-09-02,
+    CLOSED.** Symptom: a promote log read "C FCC, a = 4.08 Å" against a Z 79
+    default. Refuted hypothesis (replay drops the element): the id embeds Z,
+    the applier refuses unless the session regenerates the identical id, and
+    only the Element picker writes `customZ` — carbon was selected in that
+    session. What the gate exposed and fixed: the id omits a₀, so a drifted
+    `a` replayed a different crystal silently. Now `acom` steps carry
+    `lattice_a` (`ACOMReplayPlan.recordedParameters`, frame-invariant in the
+    export map) and `resolveMaterial` refuses a missing or drifted value by
+    name. **Compat break, deliberate:** custom-phase recipes recorded before
+    this refuse ("recorded before recipes carried the lattice constant");
+    library and imported ids are unaffected. Refuter (opus) stood the
+    diagnosis with corrections: the export-map registry gap, the untested
+    write path, a near-miss tolerance blind spot — all pinned in
+    `ReplayPlanTests`. **Residual, same class, open:** imported ids are
+    `imported_<file stem>` (`CIFImport.swift:139`), so two different CIFs
+    with one filename replay by set membership with no content check.
   - **Per-kind replay contracts live in three places** (record site, parser,
     applier) held together by tests, not structure — a plan field parsed but
     never applied compiles clean. Noted for whichever session next adds a
