@@ -4547,36 +4547,39 @@ final class AppState {
     /// and returned `.published` over a blank pane — the S1 channel defect
     /// plus the A6 phantom-step defect, both found by Gate B (2026-08-25).
     @discardableResult
+    /// The one publish site for every DPC display mode: pixels and label
+    /// chosen together (v2.5 step 3e, condition 2).
     private func applyDPCDisplay() -> String? {
         guard var com = comField, let d = descriptor, navigation.analysisMode == .dpc else { return nil }
         if let rotation = calibration.rotationRad {
             com = DPC.applyRotation(com: com, rotationRad: rotation,
                                     transpose: calibration.transposeQR ?? false)
         }
+        let payload: ProductPayload
+        let kind: String, name: String, units: String
         switch dpcDisplay {
         case .magnitude:
             resultColormap = .viridis
-            resultImage = DPC.magnitudeImage(com: com, width: d.rx, height: d.ry)
-            resultRGBA = nil
+            payload = .scalar(DPC.magnitudeImage(com: com, width: d.rx, height: d.ry))
+            (kind, name, units) = ("dpc_magnitude", "DPC magnitude", "detector_px")
         case .magnitudeMrad:
             resultColormap = .viridis
             if let scale = dpcMilliradiansPerDetectorPixel {
-                resultImage = DPC.physicalMagnitudeImage(
-                    com: com, width: d.rx, height: d.ry,
-                    milliradiansPerPixel: scale
-                )
+                payload = .scalar(DPC.physicalMagnitudeImage(
+                    com: com, width: d.rx, height: d.ry, milliradiansPerPixel: scale))
+                (kind, name, units) = ("dpc_magnitude_mrad", "DPC magnitude (mrad)", "mrad")
             } else {
-                resultImage = DPC.magnitudeImage(com: com, width: d.rx, height: d.ry)
+                payload = .scalar(DPC.magnitudeImage(com: com, width: d.rx, height: d.ry))
+                (kind, name, units) = ("dpc_magnitude", "DPC magnitude", "detector_px")
             }
-            resultRGBA = nil
         case .angle:
             resultColormap = .viridis
-            resultImage = DPC.angleImage(com: com, width: d.rx, height: d.ry)
-            resultRGBA = nil
+            payload = .scalar(DPC.angleImage(com: com, width: d.rx, height: d.ry))
+            (kind, name, units) = ("dpc_angle", "DPC angle", "rad")
         case .colorWheel:
             resultColormap = .viridis
-            resultRGBA = DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry)
-            resultImage = nil
+            payload = .rgba(DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry))
+            (kind, name, units) = ("dpc_color", "DPC color wheel", "rgba")
         case .idpc:
             resultColormap = .rdbu
             // `integrateIDPC` now throws instead of returning a zero image
@@ -4585,28 +4588,24 @@ final class AppState {
             // pixels under an iDPC label — and must say why.
             do {
                 if let physical = idpcPhysicalCalibration {
-                    resultImage = try DPC.integratePhysicalIDPC(
+                    payload = .scalar(try DPC.integratePhysicalIDPC(
                         com: com, width: d.rx, height: d.ry,
-                        calibration: physical,
-                        boundary: .zeroPadded, paddingFactor: 2
-                    )
+                        calibration: physical, boundary: .zeroPadded, paddingFactor: 2))
+                    (kind, name, units) = ("idpc_phase", "iDPC projected phase", "rad")
                 } else {
-                    resultImage = try DPC.integrateIDPC(
+                    payload = .scalar(try DPC.integrateIDPC(
                         com: com, width: d.rx, height: d.ry,
-                        boundary: .zeroPadded, paddingFactor: 2
-                    )
+                        boundary: .zeroPadded, paddingFactor: 2))
+                    (kind, name, units) = ("idpc_qualitative", "iDPC (qualitative)", "detector_px_scan_px")
                 }
             } catch {
-                resultImage = nil
-                resultRGBA = nil
+                publishedProduct = nil
                 resultVersion &+= 1
                 presentComputeFailure(error)
                 return error.localizedDescription
             }
-            resultRGBA = nil
         }
-        resultVersion &+= 1
-        publishProductFromLegacyFields()   // v2.5 step 3b-2
+        publishProduct(kind: kind, displayName: name, valueUnits: units, payload: payload)
         return nil
     }
 
