@@ -59,9 +59,13 @@ package nonisolated enum OriginCalibration {
         for i in 0..<n where dr[i] <= 0 && dr[i] >= 2 * median {
             trusted.append(i)
         }
-        // DEVIATION: py4DSTEM returns NaN if no thresholds qualify; we fall
-        // back to the middle of the threshold range so calibration always
-        // produces something usable, and the caller can inspect the result.
+        // Gate D 2026-09-03 (refuter stood it): this branch is UNREACHABLE for
+        // finite input. r(thresh) is non-increasing, so every dr ≤ 0, the
+        // median is ≤ 0, and max(dr) — an element of dr — satisfies both
+        // conditions. py4DSTEM's mask cannot be empty either; the "NaN" its
+        // docstring implies never happens. Kept as a guard, not a fallback.
+        // The REACHABLE silent path is the `dpMax > 0` guard above, which
+        // returns 1 px at the geometric centre unflagged (docs/open-items.md).
         if trusted.isEmpty { trusted = [n / 2] }
 
         let r = trusted.reduce(Float(0)) { $0 + rVals[$1] } / Float(trusted.count)

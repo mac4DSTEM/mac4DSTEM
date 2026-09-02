@@ -27,6 +27,28 @@ final class ProbeSizeTests: XCTestCase {
         } }
     }
 
+    /// Gate D 2026-09-03: the trusted-band fallback is provably unreachable
+    /// (see the comment at the fallback); the silent path is the `dpMax > 0`
+    /// guard, which hands back 1 px at the geometric centre with nothing to
+    /// tell a caller it measured nothing. This pins that behaviour so the
+    /// fix (an explicit "not measurable" outcome, Gate B) has a red to turn.
+    func testAnAllZeroPatternReturnsTheUnflaggedOnePixelCentre() {
+        let q = Self.q
+        let zero = [Float](repeating: 0, count: q * q)
+        let (r, x0, y0) = OriginCalibration.probeSize(dp: zero, qy: q, qx: q)
+        XCTAssertEqual(r, 1)
+        XCTAssertEqual(x0, Float(q) / 2)
+        XCTAssertEqual(y0, Float(q) / 2)
+        // A NaN in the FIRST pixel poisons `max()` and takes the same path; a
+        // NaN elsewhere is skipped by the fold and the pattern measures normally.
+        var nanFirst = zero; nanFirst[0] = .nan
+        XCTAssertEqual(OriginCalibration.probeSize(dp: nanFirst, qy: q, qx: q).r, 1)
+        var dp = [Float](repeating: 0, count: q * q)
+        Self.drawDisk(into: &dp, cx: 32, cy: 32, radius: 8, intensity: 1)
+        dp[5] = .nan
+        XCTAssertEqual(OriginCalibration.probeSize(dp: dp, qy: q, qx: q).r, 8, accuracy: 0.6)
+    }
+
     func testProbeSizeRecoversACleanDiskRadius() {
         var dp = [Float](repeating: 0, count: Self.q * Self.q)
         Self.drawDisk(into: &dp, cx: 31.5, cy: 31.5, radius: 6, intensity: 100)

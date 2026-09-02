@@ -24,9 +24,17 @@ estimator repair — don't fold it into either. Owner: a dedicated Gate D
 science session, not a UI slice.
 
 ### Origin-fit gate has three unresolved holes
-(a) `Core/Analysis/OriginCalibration.swift:62` falls back to the middle
-threshold where py4DSTEM would return NaN, so a radius always appears and
-readiness never flags the fallback (v2.5-plan.md §3 item 9). (b) Which
+(a) **Gate D 2026-09-03, refuted as filed:** the middle-threshold fallback
+in `probeSize` is unreachable — r(thresh) is non-increasing, so max(dr)
+always lies in the trusted band; py4DSTEM's "NaN" never happens either
+(refuter, sonnet, stood it with a general proof and 2000 random trials).
+The reachable silent path is the `dpMax > 0` guard (~line 37): an all-zero
+or NaN-first pattern returns **1 px at the geometric centre** and
+`Calibration.probeRadius` is a bare `Float?` with no provenance, so
+readiness (`AppState` ~4675) cannot tell it from a measurement. Pinned by
+`ProbeSizeTests.testAnAllZeroPatternReturnsTheUnflaggedOnePixelCentre`.
+Fix owed (Gate B): an explicit not-measurable outcome and a radius
+provenance like `originProvenance`. (b) Which
 statistic gates `originFitIsSane` is open: full-scan RMS (current) can't
 see bias; the robust/kept-set residual Gate B tried 2026-08-28 was
 reverted — it passes a 15px-displaced fit at 9.94px. (c) The trimmed fit
