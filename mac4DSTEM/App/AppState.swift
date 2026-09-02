@@ -223,24 +223,53 @@ final class AppState {
     var acceleratingVoltage: Double?
 
     var currentPattern: DiffractionPattern?
+    /// v2.5 step 3c (2026-09-03): the pixels live in `publishedProduct`. These
+    /// two are ADAPTERS over it — reading unwraps the payload, writing
+    /// publishes a product labelled from the current mode's metadata (the
+    /// pre-product publish sites and the tests still write them). A nil write
+    /// clears the product only when it holds that payload kind, so the old
+    /// `resultImage = image; resultRGBA = nil` pairs keep their meaning.
+    /// Deletion condition: zero writers outside `publishLegacy`.
     var resultImage: FloatImage? {
-        didSet {
-            navigationResultInfo = nil
-            navigationResultPixelInfo = nil
-            navigationResultDomain = nil
-            if restoredResultInfo == nil { restoredResultDomain = nil }
-            // Any write through the legacy field invalidates the published
-            // product; a compute site that publishes one sets it AFTER this.
-            publishedProduct = nil
+        get { if case .scalar(let image)? = publishedProduct?.payload { return image } else { return nil } }
+        set {
+            if let image = newValue { publishLegacy(payload: .scalar(image)) }
+            else if case .scalar? = publishedProduct?.payload { publishLegacy(payload: nil) }
+            else if publishedProduct == nil { publishLegacy(payload: nil) }
+        }
+    }
+    var resultRGBA: RGBAImage? {
+        get { if case .rgba(let rgba)? = publishedProduct?.payload { return rgba } else { return nil } }
+        set {
+            if let rgba = newValue { publishLegacy(payload: .rgba(rgba)) }
+            else if case .rgba? = publishedProduct?.payload { publishLegacy(payload: nil) }
         }
     }
 
-    /// v2.5 step 3 (2026-09-03): the one authoritative result value, set by a
-    /// compute site at its success publish and returned by `displayedProduct`
-    /// ahead of the legacy field assembly. Only virtual imaging publishes it
-    /// so far; each migrated analysis adds its own publish, and the legacy
-    /// `resultImage`/`restoredResultInfo`/`navigationResult*` fields go when
-    /// the last one has (docs/v2.5-plan.md §9d, deletion condition 1).
+    /// The legacy-field write path: label the payload from the current mode's
+    /// own metadata switch and the pre-product persistence metadata — never
+    /// from the product being replaced.
+    private func publishLegacy(payload: ProductPayload?) {
+        if restoredResultInfo == nil { restoredResultDomain = nil }
+        guard let payload else { publishedProduct = nil; return }
+        let meta = restoredResultInfo ?? currentScalarResultMetadata
+        let persisted = restoredResultPixelInfo ?? currentScalarPersistenceMetadata
+        let domain = restoredResultDomain ?? activeResultDomain
+        var provenance = persisted.provenance
+        provenance["display_domain"] = domain.rawValue
+        let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
+            ?? quantitativeStatus(for: meta.kind, units: meta.valueUnits)
+        provenance["quantitative_status"] = status.rawValue
+        publishedProduct = DisplayedProduct(
+            kind: meta.kind, displayName: meta.displayName, payload: payload, domain: domain,
+            sampling: ProductSampling(row: persisted.row, column: persisted.column, units: persisted.units),
+            valueUnits: meta.valueUnits, quantitativeStatus: status, provenance: provenance)
+    }
+
+    /// v2.5 step 3 (2026-09-03): the one authoritative result value — the
+    /// only storage for result pixels since 3c. Set by every compute and
+    /// restore site; `displayedProduct` returns it. `restoredResult*` stays
+    /// until the product carries its own restored-from marker.
     var publishedProduct: DisplayedProduct?
 
     /// v2.5 step 3b-6: a result restored from the sidecar is published as the
@@ -286,14 +315,6 @@ final class AppState {
             valueUnits: meta.valueUnits, quantitativeStatus: status,
             provenance: persisted.provenance, overlays: overlays)
     }
-    var resultRGBA: RGBAImage? {
-        didSet {
-            navigationResultInfo = nil
-            navigationResultPixelInfo = nil
-            navigationResultDomain = nil
-            if restoredResultInfo == nil { restoredResultDomain = nil }
-        }
-    }
     /// Last structural scan-space image available for positioning regions.
     /// This is navigation context, not a scientific result: selecting an ACOM
     /// region must not replace the Bragg map/result that can still be saved.
@@ -301,17 +322,23 @@ final class AppState {
     private(set) var scanNavigationVersion = 0
     /// Set only while `resultImage` is the scalar map restored from the stable
     /// session sidecar. New scientific results clear it at publication.
-    @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)?
+    /// v2.5 step 3c: these three are adapters too — setting them re-labels the
+    /// published product from their values, which is what the pre-product
+    /// restore path (and its tests) expect when they set them after the pixels.
+    @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)? {
+        didSet { relabelProductFromRestoredFields() }
+    }
     @ObservationIgnored var restoredResultPixelInfo:
-        (row: Double?, column: Double?, units: String?, provenance: [String: String])?
-    @ObservationIgnored var restoredResultDomain: ProductDomain?
-    /// Keeps a visible result correctly named when navigation changes the
-    /// selected task. A new publication clears these fields automatically.
-    @ObservationIgnored var navigationResultInfo:
-        (kind: String, displayName: String, valueUnits: String)?
-    @ObservationIgnored var navigationResultPixelInfo:
-        (row: Double?, column: Double?, units: String?, provenance: [String: String])?
-    @ObservationIgnored var navigationResultDomain: ProductDomain?
+        (row: Double?, column: Double?, units: String?, provenance: [String: String])? {
+        didSet { relabelProductFromRestoredFields() }
+    }
+    @ObservationIgnored var restoredResultDomain: ProductDomain? {
+        didSet { relabelProductFromRestoredFields() }
+    }
+    private func relabelProductFromRestoredFields() {
+        guard restoredResultInfo != nil, let payload = publishedProduct?.payload else { return }
+        publishLegacy(payload: payload)
+    }
     /// Read-only inventory of supported objects in the stable companion file.
     var sessionInventory: SessionSidecarInventory = .empty
     var comparisonProductA: DisplayedProduct?
@@ -724,7 +751,7 @@ final class AppState {
         guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
                 ?? resultRGBA.map(ProductPayload.rgba) else { return nil }
         let metadata = currentResultPersistenceMetadata
-        let domain = restoredResultDomain ?? navigationResultDomain ?? activeResultDomain
+        let domain = restoredResultDomain ?? activeResultDomain
         let status = metadata.provenance["quantitative_status"]
             .flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: currentResultKind, units: currentResultValueUnits)
@@ -1408,19 +1435,8 @@ final class AppState {
     func currentDataSourceForExport() -> (any FourDDataSource)? { reader }
 
     func changeMode(_ mode: AnalysisMode) {
-        // v2.5 step 3b-8: a published product survives a task switch on its own;
-        // the relabel cache below is the pre-product path.
-        if mode != navigation.analysisMode,
-           publishedProduct == nil,
-           resultImage != nil || resultRGBA != nil,
-           restoredResultInfo == nil,
-           navigationResultInfo == nil {
-            navigationResultInfo = (
-                currentResultKind, currentResultDisplayName, currentResultValueUnits
-            )
-            navigationResultPixelInfo = currentResultPersistenceMetadata
-            navigationResultDomain = activeResultDomain
-        }
+        // v2.5 step 3c: the published product survives a task switch on its
+        // own; the navigation relabel cache that used to live here is gone.
         navigation.analysisMode = mode
         navigation.workspaceArea = mode.workspaceArea
         if mode == .acom, acomScope == .selectedRegion {
@@ -5115,9 +5131,6 @@ final class AppState {
     /// user is now asking for a specific product rather than carrying the
     /// previous one along.
     func showComputedProduct(_ product: ComputedProduct) {
-        navigationResultInfo = nil
-        navigationResultPixelInfo = nil
-        navigationResultDomain = nil
         restoredResultInfo = nil
         restoredResultDomain = nil
         inspectQualityField = false

@@ -724,7 +724,7 @@ extension AppState {
         // published (always, now); the chain below is the pre-product path.
         let metadata: (kind: String, displayName: String, valueUnits: String) =
             publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
-            ?? restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
+            ?? restoredResultInfo ?? currentScalarResultMetadata
         let persistence: (
             row: Double?, column: Double?, units: String?, provenance: [String: String]
         )
@@ -732,8 +732,6 @@ extension AppState {
             persistence = currentResultPersistenceMetadata
         } else if restoredResultInfo != nil {
             persistence = restoredResultPixelInfo ?? (nil, nil, nil, [:])
-        } else if navigationResultInfo != nil {
-            persistence = navigationResultPixelInfo ?? (nil, nil, nil, [:])
         } else {
             persistence = currentResultPersistenceMetadata
         }
@@ -764,7 +762,7 @@ extension AppState {
         let rgbaMap: RGBAResultMap?
         let metadata: (kind: String, displayName: String, valueUnits: String) =
             publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
-            ?? restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata
+            ?? restoredResultInfo ?? currentScalarResultMetadata
         if let map = currentScalarResultMapForPersistence() {
             scalarMap = map
             rgbaMap = nil
@@ -1519,7 +1517,7 @@ extension AppState {
         }
     }
 
-    private var currentScalarPersistenceMetadata:
+    var currentScalarPersistenceMetadata:   // internal since v2.5 step 3c: publishLegacy reads it
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
         if navigation.analysisMode == .dpc, dpcDisplay == .idpc {
             if let physical = idpcPhysicalCalibration {
@@ -1730,15 +1728,15 @@ extension AppState {
     }
 
     var currentResultValueUnits: String {
-        publishedProduct?.valueUnits ?? (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).valueUnits
+        publishedProduct?.valueUnits ?? (restoredResultInfo ?? currentScalarResultMetadata).valueUnits
     }
 
     var currentResultDisplayName: String {
-        publishedProduct?.displayName ?? (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).displayName
+        publishedProduct?.displayName ?? (restoredResultInfo ?? currentScalarResultMetadata).displayName
     }
 
     var currentResultKind: String {
-        publishedProduct?.kind ?? (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).kind
+        publishedProduct?.kind ?? (restoredResultInfo ?? currentScalarResultMetadata).kind
     }
 
     var currentResultPersistenceMetadata:
@@ -1752,7 +1750,7 @@ extension AppState {
             if provenance["quantitative_status"] == nil {
                 provenance["quantitative_status"] = product.quantitativeStatus.rawValue
             }
-            if restoredResultInfo == nil, navigationResultInfo == nil,
+            if restoredResultInfo == nil,
                product.kind == "dpc_angle", product.valueUnits == "rad",
                provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
                 provenance[ScalarResultMap.dpcAngleEncodingKey] =
@@ -1761,18 +1759,15 @@ extension AppState {
             return (product.sampling.row, product.sampling.column, product.sampling.units, provenance)
         }
         let base = restoredResultPixelInfo
-            ?? navigationResultPixelInfo
             ?? currentScalarPersistenceMetadata
         var provenance = base.provenance
-        provenance["display_domain"] = (
-            restoredResultDomain ?? navigationResultDomain ?? activeResultDomain
-        ).rawValue
+        provenance["display_domain"] = (restoredResultDomain ?? activeResultDomain).rawValue
         if provenance["quantitative_status"] == nil {
             provenance["quantitative_status"] = quantitativeStatus(
                 for: currentResultKind, units: currentResultValueUnits
             ).rawValue
         }
-        if restoredResultInfo == nil, navigationResultInfo == nil,
+        if restoredResultInfo == nil,
            navigation.analysisMode == .dpc, dpcDisplay == .angle,
            currentResultKind == "dpc_angle", currentResultValueUnits == "rad",
            provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
