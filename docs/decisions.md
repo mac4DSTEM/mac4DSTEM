@@ -51,6 +51,13 @@ runs at every closeout and in CI. Three independent reviews converged on the
 same findings; what drifted was the state, so the state is now checked by
 script. No further whole-codebase review passes are commissioned.
 
+**2026-09-02 — Step 2 lands as a build guard first.** `Package.swift`
+compiles `Core/` as `DSTEMCore` from the shell while the app target keeps
+compiling the same sources directly. Reason: the compiler found an upward
+dependency (`Aperture`) that grep had missed, and the guard is worth having
+before the `public` API pass that a real target dependency needs. The split
+into a dependency (2b) and `DSTEMSession` follow.
+
 **2026-09-02 — Live doc set.** `CLAUDE.md` (rules), `docs/status.md`,
 `docs/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
 `docs/architecture.md`, this file, plus the reference docs and Track B

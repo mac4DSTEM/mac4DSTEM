@@ -60,7 +60,7 @@ nonisolated struct DatasetPreview: Sendable {
             ? "every \(ordinal(strideY)) position"
             : "every \(ordinal(strideY)) row, every \(ordinal(strideX)) column"
         return "Sampled preview · \(step) · "
-            + "\(AppState.count(sampledPositions)) of \(AppState.count(totalPositions))"
+            + "\(formattedCount(sampledPositions)) of \(formattedCount(totalPositions))"
     }
 
     /// A position on the SAMPLED grid, converted to source scan coordinates.
@@ -187,4 +187,11 @@ nonisolated enum DatasetPreviewBuilder {
             totalPositions: descriptor.ry * descriptor.rx
         )
     }
+}
+
+/// Core's own thousands formatter. It used to call `AppState.count`, the one
+/// upward reference in `Core/`; removed 2026-09-02 so Core builds as the
+/// standalone `DSTEMCore` module (`Package.swift`).
+nonisolated func formattedCount(_ value: Int) -> String {
+    value.formatted(.number.locale(Locale(identifier: "en_US")))
 }

@@ -2,13 +2,8 @@ import Foundation
 import Darwin
 import Metal
 
-// VirtualDetector.swift normally receives this UI value type from AppState.
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 actor SyntheticDataSource: FourDDataSource {
     let descriptor: DatasetDescriptor

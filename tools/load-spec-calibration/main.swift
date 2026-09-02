@@ -62,16 +62,8 @@
 
 import Foundation
 
-/// `Aperture` lives in `App/AppState.swift`, which this harness deliberately
-/// does not compile — the same stand-in `tools/virtual-detector-residency` uses,
-/// for the same reason: `VirtualDetector` needs the type, and pulling in the
-/// whole app facade to get it would make the harness depend on UI state.
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 var failures: [String] = []
 

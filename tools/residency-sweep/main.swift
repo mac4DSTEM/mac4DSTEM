@@ -42,12 +42,8 @@ import Metal
 // it had not flushed — which turns "it crashed at ratio 0.40" into "no output".
 setvbuf(stdout, nil, _IONBF, 0)
 
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("ERROR: \(message)\n".utf8))

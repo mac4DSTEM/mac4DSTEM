@@ -16,9 +16,11 @@ Core/ (Data, Compute,        pure algorithms, readers, writers, GPU engine —
 Shaders/, Support/           Metal kernels; export, system monitor, bridging
 ```
 
-The rule that matters is direction: Core knows nothing above it. Measured
-2026-09-02: `Core/` imports no SwiftUI or AppKit and references `AppState`
-in one line, so the package split in `v2.5-plan.md` step 2 is mechanical.
+The rule that matters is direction: Core knows nothing above it. Enforced
+since 2026-09-02 by `Package.swift`, which builds `Core/` as the standalone
+`DSTEMCore` module (`tools/run-tests.sh core`, also in CI): any upward
+reference fails that build. The app target does not yet depend on the
+package (`status.md`, step 2b).
 
 ## What it does, by subsystem
 

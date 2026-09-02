@@ -29,7 +29,9 @@
 #     app; no runner can stand in for it.
 #
 # ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review (runner
-# classification, size metrics, stale status claims). Fails on drift.
+# classification, size metrics, stale status claims). Fails on drift. And
+# `tools/run-tests.sh core` — Core/ as the standalone DSTEMCore module; fails
+# the moment Core/ depends on App/, UI/ or Support/.
 #
 # KNOWN CAVEATS, stated so a green run is not made to claim too much:
 #   * S17 formally quarantines uncalibrated Prepare's sidebar height. The old
@@ -142,3 +144,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run the inventory
         run: tools/run-tests.sh inventory
+
+  core:
+    name: core (DSTEMCore standalone build)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain on record
+        run: |
+          xcode-select -p
+          swift --version
+      - name: Build Core as a standalone module
+        run: tools/run-tests.sh core

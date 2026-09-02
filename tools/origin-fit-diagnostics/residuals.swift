@@ -1,14 +1,7 @@
 import Foundation
 
-// App-layer value type VirtualDetector's aperture overload needs, mirrored
-// from tools/training-dataset-campaign/main.swift so the production source
-// compiles standalone.
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 func pct(_ sorted: [Float], _ p: Double) -> Float {
     guard !sorted.isEmpty else { return .nan }

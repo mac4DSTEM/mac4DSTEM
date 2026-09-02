@@ -18,15 +18,8 @@ import Foundation
 // for exactly that reason. A wrong f_e table is not caught here at all — the
 // table is py4DSTEM-ported and gated by its own harnesses.
 
-/// App-layer value type `VirtualDetector`'s aperture overload needs, mirrored so
-/// the production source compiles standalone (the convention every harness in
-/// `tools/` that pulls the `analysis` group follows).
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))

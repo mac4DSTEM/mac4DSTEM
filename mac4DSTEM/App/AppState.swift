@@ -16,21 +16,6 @@ struct ScanPos: Equatable {
     var y: Int
 }
 
-/// The virtual-detector aperture in detector pixels.
-struct Aperture: Equatable {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-
-    init(centerX: Float = 0, centerY: Float = 0, inner: Float = 0, outer: Float = 20) {
-        self.centerX = centerX
-        self.centerY = centerY
-        self.inner = inner
-        self.outer = outer
-    }
-}
-
 enum PatternDisplayMode: String, CaseIterable, Identifiable {
     case current = "Current"
     case mean = "Mean"

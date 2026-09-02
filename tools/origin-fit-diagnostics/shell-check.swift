@@ -12,12 +12,8 @@ import Foundation
 // — displacing the reference frame alone would move every peak together and
 // measure nothing.
 
-struct Aperture {  // mirrored for VirtualDetector's aperture overload
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 /// Deterministic Gaussian jitter: a fixed-seed LCG + Box-Muller, so arm B is
 /// reproducible run to run and machine to machine.

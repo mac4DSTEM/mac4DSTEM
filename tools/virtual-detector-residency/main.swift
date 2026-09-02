@@ -30,15 +30,8 @@
 import Foundation
 import Metal
 
-// VirtualDetector.swift normally gets this UI-facing value type from
-// AppState.swift. Defining the identical input here avoids compiling the whole
-// application into this standalone harness.
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 /// Counts reads so the harness can prove a resident cube stops touching the
 /// reader — the property that makes residency worth having.

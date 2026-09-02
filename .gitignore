@@ -30,3 +30,7 @@
 # tools/ui-qc-playthrough dev-scoping handoff (see run.sh)
 /.ui-qc-filter
 /.ui-qc-no-screenshots
+
+# SwiftPM (Package.swift builds DSTEMCore from the shell)
+.build/
+.swiftpm/

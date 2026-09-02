@@ -78,29 +78,8 @@
 import Foundation
 import Metal
 
-/// `VirtualDetector.swift` refers to this type, which the app declares in
-/// `App/AppState.swift` — a file no standalone harness compiles. Every
-/// scientific harness that touches VirtualDetector therefore redeclares it;
-/// `tools/virtual-detector-test` has carried an identical copy since it was
-/// written.
-///
-/// **That is a known hazard, not a tidy pattern, and it is recorded rather than
-/// hidden:** if the app's `Aperture` gained a field, every one of these copies
-/// would still compile and would still pass, testing a shape the app no longer
-/// has. It is the `sources.manifest` problem in a different costume — one
-/// declaration, several spellings — and the honest fix is for `Aperture` to
-/// live in `Core/`, which is a change to app layout and therefore not S2's to
-/// make. Filed in docs/open-items.md.
-///
-/// This harness never constructs one: it drives `tiledImage(shape:)`, not
-/// `tiledRun(aperture:)`. The declaration exists only so VirtualDetector.swift
-/// compiles, which is why it is the minimum that satisfies the compiler.
-struct Aperture: Equatable {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 // MARK: - Harness plumbing
 

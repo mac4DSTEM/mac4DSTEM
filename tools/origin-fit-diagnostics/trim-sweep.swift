@@ -14,12 +14,8 @@ import Foundation
 // It calls the SHIPPED fitter — `OriginCalibration.fitOriginTrimmed` and the
 // masked `fitOrigin` — so nothing here can drift from what the app does.
 
-struct Aperture {  // mirrored for VirtualDetector's aperture overload
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 struct SeededRNG {
     private var state: UInt64

@@ -18,6 +18,24 @@
 import Foundation
 import Metal
 
+// Moved here from App/AppState.swift 2026-09-02 (v2.5 step 2): Core consumed
+// it, so it belongs to Core.
+/// The virtual-detector aperture in detector pixels.
+struct Aperture: Equatable {
+    var centerX: Float
+    var centerY: Float
+    var inner: Float
+    var outer: Float
+
+    init(centerX: Float = 0, centerY: Float = 0, inner: Float = 0, outer: Float = 20) {
+        self.centerX = centerX
+        self.centerY = centerY
+        self.inner = inner
+        self.outer = outer
+    }
+}
+
+
 // MARK: - Detector geometry (py4DSTEM get_virtual_image modes)
 
 /// A detector geometry in detector-pixel coordinates

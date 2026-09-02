@@ -156,12 +156,19 @@ inventory() {
   return $rc
 }
 
+core_build() {
+  # Core/ as the standalone DSTEMCore module (Package.swift, v2.5 step 2).
+  # Fails the moment Core/ reaches upward into App/, UI/ or Support/.
+  ( cd "$ROOT" && swift build --product DSTEMCore 2>&1 | grep -vE '^\[[0-9]+/[0-9]+\]' ) && echo "core: DSTEMCore built"
+}
+
 case "${1:-unit}" in
   inventory) inventory ;;
+  core) core_build ;;
   unit) require_free_space 8 "the xcodebuild unit suite"; unit_tests ;;
   benchmark) require_free_space 4 "the performance baseline"; "$ROOT/tools/performance-baseline/run.sh" ;;
   campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
   scientific) require_free_space 4 "the science harnesses"; run_harnesses "${scientific[@]}" ;;
   all) require_free_space 8 "the full suite"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
-  *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all|inventory]" >&2; exit 64 ;;
+  *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all|inventory|core]" >&2; exit 64 ;;
 esac
