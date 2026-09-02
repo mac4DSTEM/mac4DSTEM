@@ -55,7 +55,11 @@ Numbers are quoted only from retained, dated runs.
   writer of `resultImage`/`resultRGBA` outside the publish sites
   (`grep -n 'resultImage = \|resultRGBA = ' mac4DSTEM mac4DSTEMTests`),
   including the two `ProductWorkflowTests` that write the field directly,
-  and turn each into a product publish; then delete `resultImage`,
+  and turn each into a product publish — measured 2026-09-03: 52
+  assignments in `AppState.swift` (65 references), 6 in `ResultExport.swift`,
+  11 in tests, readers in `StemImageView`, `DatasetInspector`,
+  `ProductWorkspaceViews`, `Session/StrainProduct` — a bounded but
+  multi-hour session, one analysis family per commit; then delete `resultImage`,
   `resultRGBA`, `restoredResult*`, `navigationResult*` and the `didSet`
   coupling in ONE step — the 3b-9 attempt showed the relabel cache cannot
   go first (deletion condition 1); (4) move `currentScalarResultMetadata`'s
