@@ -865,6 +865,12 @@ extension AppState {
                     map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
                 )
                 restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
+                if let image = resultImage {
+                    publishRestoredProduct(   // v2.5 step 3b-6
+                        kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                        payload: .scalar(image), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                        pixelUnits: map.pixelUnits, provenance: map.provenance)
+                }
             case .rgba8:
                 let map = try await Task.detached(priority: .utility) {
                     try BraggVectorEMDWriter.loadRGBAResultMap(id: saved.id, from: url)
@@ -877,6 +883,12 @@ extension AppState {
                     map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
                 )
                 restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
+                if let rgba = resultRGBA {
+                    publishRestoredProduct(   // v2.5 step 3b-6
+                        kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                        payload: .rgba(rgba), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                        pixelUnits: map.pixelUnits, provenance: map.provenance)
+                }
             }
             sessionInventory = SessionSidecarInventory(
                 hasSidecar: sessionInventory.hasSidecar,

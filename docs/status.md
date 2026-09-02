@@ -30,7 +30,7 @@ Numbers are quoted only from retained, dated runs.
 | Gate | Result | Date, tree |
 |---|---|---|
 | `run-tests.sh unit` | 437 passed / 1 failed / 3 skipped — the failure is the S17 sidebar intermittent (2 of 5 runs on this tree, see `open-items.md`); the extra skip is `TB1StallProbeTests` whose staged WS₂ fixture was absent | 2026-09-03, step 2c tree (retained log) |
-| `run-tests.sh scientific` | 42 of 42 harnesses, exit 0 | 2026-09-02, FFT tree `21f3990` |
+| `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 (retained log) | 2026-09-03, tree at `dcd69fc`…`d49310a` (Core/, Session/ and the harness-compiled UI file unchanged since) |
 | `run-tests.sh all` | green end to end, 44 harnesses | 2026-09-01, DPC-closeout tree; not re-run since |
 | `run-tests.sh inventory` | exit 0 | 2026-09-02 |
 | Track B (human) | 31 passed / 9 partly / 19 unverified / 1 blocked | owner's final playthrough row F1.53 open |
@@ -46,13 +46,22 @@ Numbers are quoted only from retained, dated runs.
 - New Core/Session types must be declared `package` or the app cannot see
   them; a `struct` or class constructed from App needs an explicit
   `package init`; `private(set)` members need `package private(set)`.
-- **Step 3.** Pre-registered in `docs/v2.5-plan.md` §9 (the virtual-imaging
-  product path, invariants, negative-control tests to write first). Needs
-  the owner's decision on sidecar read/write compatibility (plan §8.1).
+- **Step 3 is mid-flight** (row above; plan §9 is the pre-registration).
+  The product value is `DisplayedProduct`, stored as
+  `AppState.publishedProduct`, set by every compute and restore site; the
+  legacy fields (`resultImage`, `resultRGBA`, `restoredResult*`,
+  `navigationResult*`) still exist and still feed persistence. The
+  remaining order: (1) `currentResultKind/DisplayName/ValueUnits` and
+  `currentResultPersistenceMetadata` read the product first; (2) the
+  save path builds `ScalarResultMap` from the product; (3) delete the
+  `restored*`/`navigationResult*` fields and the `didSet` coupling
+  (deletion condition 1); (4) move `currentScalarResultMetadata`'s switch
+  into the compute sites (condition 2). The sidecar wire format is
+  unchanged throughout, so plan decision §8.1 is not forced by any of it.
 - Scratch builds go to the session scratchpad, never the project; the
-  unit gate needs ~8 GB free (`tools/free-space.sh`). This Mac had 1–3 GB
-  free all night, so `run-tests.sh scientific` refused (exit 69) and the
-  harnesses touched by the `Aperture` move were run one by one instead.
+  unit gate needs ~8 GB free (`tools/free-space.sh`). The harnesses
+  compile Core/Session/UI sources into one module, so package imports in
+  those files stay inside `#if canImport(DSTEMCore)`.
 - **Not re-run after the `Aperture` move** (their local `Aperture` mirrors
   were removed, compile unverified): the diagnostic runners
   `performance-baseline`, `residency-sweep`, `origin-fit-diagnostics`. Run

@@ -243,6 +243,23 @@ final class AppState {
     /// the last one has (docs/v2.5-plan.md §9d, deletion condition 1).
     var publishedProduct: DisplayedProduct?
 
+    /// v2.5 step 3b-6: a result restored from the sidecar is published as the
+    /// product value straight from the map's own metadata — the status and
+    /// domain recorded at save time, never re-inferred from strings.
+    func publishRestoredProduct(
+        kind: String, displayName: String, valueUnits: String, payload: ProductPayload,
+        pixelSizeRow: Double?, pixelSizeColumn: Double?, pixelUnits: String?,
+        provenance: [String: String]
+    ) {
+        let domain = provenance["display_domain"].flatMap(ProductDomain.init) ?? activeResultDomain
+        let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
+            ?? quantitativeStatus(for: kind, units: valueUnits)
+        publishedProduct = DisplayedProduct(
+            kind: kind, displayName: displayName, payload: payload, domain: domain,
+            sampling: ProductSampling(row: pixelSizeRow, column: pixelSizeColumn, units: pixelUnits),
+            valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance)
+    }
+
     /// v2.5 step 3b-2: publish the result the legacy fields currently hold as
     /// the product value, with kind/name/units from the compute site's own
     /// metadata switch and the status decided here. The display-mode
@@ -3067,6 +3084,12 @@ final class AppState {
                 map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
             )
             restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
+            if let image = resultImage {
+                publishRestoredProduct(   // v2.5 step 3b-6
+                    kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                    payload: .scalar(image), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                    pixelUnits: map.pixelUnits, provenance: map.provenance)
+            }
         } else if let map = snapshot.currentRGBAResult {
             guard map.width == descriptor.rx, map.height == descriptor.ry else {
                 statusText = "Ignored \(url.lastPathComponent): saved RGBA map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
@@ -3079,6 +3102,12 @@ final class AppState {
                 map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
             )
             restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
+            if let rgba = resultRGBA {
+                publishRestoredProduct(   // v2.5 step 3b-6
+                    kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                    payload: .rgba(rgba), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                    pixelUnits: map.pixelUnits, provenance: map.provenance)
+            }
         } else {
             return
         }
