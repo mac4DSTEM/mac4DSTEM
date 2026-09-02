@@ -29,7 +29,7 @@ INFO="$APP/Contents/Info.plist"
 
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
   "com.mac4dstem.mac4DSTEM"
-test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "1.0"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "2.0"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "1"
 # 26.0, not 14.0: S19 raised MACOSX_DEPLOYMENT_TARGET in all six configurations
 # (aeaeacc, 2026-08-28) and did not update this assertion, so this harness has

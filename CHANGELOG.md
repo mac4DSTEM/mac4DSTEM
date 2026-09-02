@@ -1,5 +1,45 @@
 # Changelog
 
+## v2.0.0 — 2026-09-02
+
+Rehearse an analysis on a cropped or binned view, then promote it to the
+full cube unattended. Validated against py4DSTEM 0.14.19.
+
+### What is new
+
+- **Load pipeline.** Open with options (scan crop, detector crop, detector
+  bin), streaming residency for cubes larger than memory, and a promote run
+  that replays the rehearsed recipe on the full cube, re-referencing
+  detector-pixel parameters into the full frame. Reduced-file export carries
+  the recipe.
+- **Sidecar format.** Every session sidecar now names the oldest reader that
+  interprets it without misreading. A v1.0.0 build silently restores
+  reduced-view results against the full extent, which is why this is a major
+  version, not 1.1.
+- **Calibration honesty.** Q calibration from a known crystal, ellipse
+  distortion, R–Q rotation; a fit that fails its gate reports "not
+  quantitative" rather than a number. Probe radius is measured on the mean
+  pattern. The DPC angle's 2π unit error is fixed and legacy sidecars migrate.
+- **Refusals over guesses.** CIF import refuses what it cannot expand or was
+  cut mid-row; ACOM replay refuses a phase model it cannot resolve by id and
+  lattice constant; session calibration from a different frame is
+  re-referenced or refused, never applied twice.
+- **Workflow.** Prepare / Imaging / Strain & ACOM / Phase / Results, a system
+  inspector column, a permanent status footer, colormaps on each pane's
+  colorbar chip, detached long runs with live progress and Cancel.
+- **Speed.** An exact Bluestein FFT for any detector size: Detect All Disks
+  on a 250-px cube went from 14 min to under 15 s in Release, same peaks.
+
+### Verified by
+
+- `tools/run-tests.sh unit` — 436 passed / 0 failed / 2 skipped (2026-09-02,
+  retained log). `scientific` — 42 of 42 harnesses (2026-09-02, FFT tree).
+  `all` — green end to end on the 2026-09-01 DPC-closeout tree; not re-run
+  on the final tree.
+- Track B human visual pass — 31 passed / 9 partly / 19 unverified /
+  1 blocked; the owner's final playthrough row is open. The user-facing
+  issues that ship as known are listed in `docs/v2.5-plan.md` §3.
+
 ## v1.0.0 — 2026-08-06
 
 Native macOS 4D-STEM analysis for Apple Silicon, validated against

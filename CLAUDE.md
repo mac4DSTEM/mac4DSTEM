@@ -5,7 +5,11 @@ not duplicate the docs; it tells you what to read and where things go.
 
 ## Session kickoff (start here)
 
-**After v2.0 ships: [`docs/v2.5-plan.md`](docs/v2.5-plan.md)** (2026-09-02) —
+**v2.0.0 is TAGGED (2026-09-02)** — `CHANGELOG.md` says what it is; signing,
+notarizing and the DMG are built from the tag (`docs/releasing.md`) whenever
+the owner chooses. `main` has moved on to the consolidation train.
+
+**Now: [`docs/v2.5-plan.md`](docs/v2.5-plan.md)** (2026-09-02) —
 the consolidation train (naming, merged UI findings, package split, product
 model, sequence, owner decisions). v3 is reserved for the feature plan.
 
