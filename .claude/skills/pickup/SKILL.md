@@ -9,7 +9,9 @@ description: Start the next mac4DSTEM development step from docs/status.md and t
 only makes sure you enter them correctly.
 
 1. Read `CLAUDE.md` (if not in context), then `docs/status.md`, then the
-   step's row in `docs/v2.5-plan.md` §5 and the rules in §7.
+   step's row in `docs/v2.5-plan.md` §5 and the rules in §7 — and, where the
+   step has a pre-registration (§9 for step 3, §10 for 5, §11 for 7), its
+   slice list and decisions there (7c: §11h, one slice per commit).
 2. Take the lowest step in `docs/status.md` not marked done. The user naming
    one ("/pickup step 3") wins. If the step needs something only the user can
    provide — a decision from the plan's §8, a Track B drive, a data file —
