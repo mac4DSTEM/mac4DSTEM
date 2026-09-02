@@ -481,8 +481,16 @@ final class AppState {
     @ObservationIgnored private(set) var orientationMap: OrientationMap?
     var hasOrientationPlan = false
     var hasOrientationMap = false
-    var acomModelSelection: CrystalModelSelection = .none {
-        didSet { if acomModelSelection != oldValue { invalidateACOMPlan() } }
+    /// v2.5 step 6a: ACOM state lives in `ACOMSession`; these forwarders keep
+    /// the readers compiling and the old `didSet` effects in their setters.
+    let acomSession = ACOMSession()
+    var acomModelSelection: CrystalModelSelection {
+        get { acomSession.modelSelection }
+        set {
+            let changed = newValue != acomSession.modelSelection
+            acomSession.modelSelection = newValue
+            if changed { invalidateACOMPlan() }
+        }
     }
     /// CIF files imported this run via `importCrystalModel(from:)`. Session-
     /// local only (never written to disk or `UserDefaults`) — the same as
@@ -491,19 +499,35 @@ final class AppState {
     /// (built-in, custom, or imported) ever silently carries over from a
     /// previous session. See `acomModelSelectionIssue`'s `.imported` case for
     /// what happens if a selection outlives its model within one run.
-    private(set) var importedCrystalModels: [CrystalModel] = []
-    var acomExploratoryScale: Double = 0.01 {
-        didSet {
-            if acomExploratoryScale != oldValue { invalidateACOMResult() }
+    private(set) var importedCrystalModels: [CrystalModel] {
+        get { acomSession.importedCrystalModels }
+        set { acomSession.importedCrystalModels = newValue }
+    }
+    var acomExploratoryScale: Double {
+        get { acomSession.exploratoryScale }
+        set {
+            let changed = newValue != acomSession.exploratoryScale
+            acomSession.exploratoryScale = newValue
+            if changed { invalidateACOMResult() }
         }
     }
-    var acomBackend: ACOMMatchingBackend = .automatic
-    var acomQuality: ACOMQualityPreset = .balanced {
-        didSet { if acomQuality != oldValue { invalidateACOMPlan() } }
+    var acomBackend: ACOMMatchingBackend {
+        get { acomSession.backend }
+        set { acomSession.backend = newValue }
     }
-    var acomScope: ACOMRunScope = .preview {
-        didSet {
-            if acomScope == .selectedRegion {
+    var acomQuality: ACOMQualityPreset {
+        get { acomSession.quality }
+        set {
+            let changed = newValue != acomSession.quality
+            acomSession.quality = newValue
+            if changed { invalidateACOMPlan() }
+        }
+    }
+    var acomScope: ACOMRunScope {
+        get { acomSession.scope }
+        set {
+            acomSession.scope = newValue
+            if newValue == .selectedRegion {
                 acomRegionSelectionActive = true
                 realSpaceShape = .rectangle
                 realSpaceRadius = Float(acomRegionRadius)
@@ -513,21 +537,38 @@ final class AppState {
             }
         }
     }
-    var acomRegionRadius = 24 {
-        didSet {
+    var acomRegionRadius: Int {
+        get { acomSession.regionRadius }
+        set {
+            acomSession.regionRadius = newValue
             if acomScope == .selectedRegion {
                 acomRegionSelectionActive = true
-                realSpaceRadius = Float(acomRegionRadius)
+                realSpaceRadius = Float(newValue)
             }
         }
     }
-    private(set) var acomRegionSelectionActive = false
-    private(set) var acomLastRunScope: ACOMRunScope?
-    private(set) var acomLastRunQuality: ACOMQualityPreset?
-    private(set) var acomLastRunSemantics: ACOMRunSemantics?
-    private(set) var acomLastMatchedPositionCount: Int?
-    private(set) var acomLastPositionsPerSecond: Double?
-    private(set) var acomLastEndToEndDuration: TimeInterval?
+    private(set) var acomRegionSelectionActive: Bool {
+        get { acomSession.regionSelectionActive }
+        set { acomSession.regionSelectionActive = newValue }
+    }
+    private(set) var acomLastRunScope: ACOMRunScope? {
+        get { acomSession.lastRunScope } set { acomSession.lastRunScope = newValue }
+    }
+    private(set) var acomLastRunQuality: ACOMQualityPreset? {
+        get { acomSession.lastRunQuality } set { acomSession.lastRunQuality = newValue }
+    }
+    private(set) var acomLastRunSemantics: ACOMRunSemantics? {
+        get { acomSession.lastRunSemantics } set { acomSession.lastRunSemantics = newValue }
+    }
+    private(set) var acomLastMatchedPositionCount: Int? {
+        get { acomSession.lastMatchedPositionCount } set { acomSession.lastMatchedPositionCount = newValue }
+    }
+    private(set) var acomLastPositionsPerSecond: Double? {
+        get { acomSession.lastPositionsPerSecond } set { acomSession.lastPositionsPerSecond = newValue }
+    }
+    private(set) var acomLastEndToEndDuration: TimeInterval? {
+        get { acomSession.lastEndToEndDuration } set { acomSession.lastEndToEndDuration = newValue }
+    }
     @ObservationIgnored private var acomLastMeasuredTemplateCount: Int?
     @ObservationIgnored private var acomLastMeasuredBackend: ACOMMatchingBackend?
 
@@ -815,12 +856,17 @@ final class AppState {
     }
 
     // Custom (user-defined) cubic crystal for ACOM.
-    var customZ: Int = 79 { didSet { if customZ != oldValue { invalidateACOMPlan() } } }
-    var customStructure: Crystal.CubicStructure = .fcc {
-        didSet { if customStructure != oldValue { invalidateACOMPlan() } }
+    var customZ: Int {
+        get { acomSession.customZ }
+        set { let changed = newValue != acomSession.customZ; acomSession.customZ = newValue; if changed { invalidateACOMPlan() } }
     }
-    var customLatticeA: Double = 4.08 {
-        didSet { if customLatticeA != oldValue { invalidateACOMPlan() } }
+    var customStructure: Crystal.CubicStructure {
+        get { acomSession.customStructure }
+        set { let changed = newValue != acomSession.customStructure; acomSession.customStructure = newValue; if changed { invalidateACOMPlan() } }
+    }
+    var customLatticeA: Double {
+        get { acomSession.customLatticeA }
+        set { let changed = newValue != acomSession.customLatticeA; acomSession.customLatticeA = newValue; if changed { invalidateACOMPlan() } }
     }
 
     private func invalidateACOMPlan() {
@@ -952,20 +998,28 @@ final class AppState {
     /// percentile of matched reliabilities; a number overrides it (the
     /// colorbar chip's slider, when it lands). Positions below it draw grey.
     var acomReliabilityThreshold: Float? {
-        didSet { if acomReliabilityThreshold != oldValue { applyACOMDisplay() } }
+        get { acomSession.reliabilityThreshold }
+        set {
+            let changed = newValue != acomSession.reliabilityThreshold
+            acomSession.reliabilityThreshold = newValue
+            if changed { applyACOMDisplay() }
+        }
     }
     var acomEffectiveReliabilityThreshold: Float? {
         acomReliabilityThreshold ?? orientationMap?.reliabilityThreshold(percentile: 0.1)
     }
 
-    var acomDisplay: ACOMDisplayMode = .reliability {
-        didSet { applyACOMDisplay() }
+    var acomDisplay: ACOMDisplayMode {
+        get { acomSession.display }
+        set { acomSession.display = newValue; applyACOMDisplay() }
     }
 
     /// Whether the user has picked a display themselves. Set only by
     /// `selectACOMDisplay(_:)` from the picker, so a completed map may promote
     /// IPF·Z once without ever overriding a deliberate choice.
-    private(set) var acomDisplayIsUserChosen = false
+    private(set) var acomDisplayIsUserChosen: Bool {
+        get { acomSession.displayIsUserChosen } set { acomSession.displayIsUserChosen = newValue }
+    }
 
     /// Presentation-only orientation of the real-space viewer (backlog #17b).
     /// The retained product, its scan indices, and the scientific bundle are

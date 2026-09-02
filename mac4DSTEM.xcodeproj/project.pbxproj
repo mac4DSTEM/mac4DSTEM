@@ -43,6 +43,7 @@
 		300000000000000000000001 /* Exceptions for "mac4DSTEM" folder in "mac4DSTEM" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Session/ACOMSession.swift",
 				"Session/OperationCenter.swift",
 				"Session/CalibrationSession.swift",
 				"Session/SystemMonitor.swift",
