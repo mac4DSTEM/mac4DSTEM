@@ -10,7 +10,8 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | Version | State | Evidence |
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
-| v2.0.0 | **tagged 2026-09-02**, not yet built or notarized | `CHANGELOG.md`; build from the tag per `docs/releasing.md` |
+| v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
+| v2.5.0 | **next**: `main` after the owner's driving pass; project version 2.5 / build 3 | `docs/releasing.md` |
 
 ## v2.5 consolidation train (`docs/v2.5-plan.md` §5)
 
@@ -36,19 +37,19 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | `run-tests.sh inventory` | exit 0 — 2026-09-03, 7c 4b tree (live markdown 3 970, cold-start set 932; both below the previous closeout) |
 | Xcode scratch build | 0 Swift warnings — every 7c slice, 2026-09-02/03 |
 | `run-tests.sh all` | not re-run since 2026-09-01 (the aggregate adds `real-data-acceptance` and `package-test`) |
-| Track B (human) | 31 passed / 9 partly / 19 unverified / 1 blocked; **F1.54–F1.60 queued, not driven**; F1.53 open |
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
 - **Start here — the train is done; what is next is the owner's call:** the
-  owed science in `open-items.md` (each its own Gate D or B session), Track
-  B F1.54–F1.60 and F1.53, the v2.0.0 DMG from the tag, or a run layer
-  (`AnalysisRunner` with an injected host) as the next consolidation item.
-  `/pickup` with a named target.
+  owed science in `open-items.md` (each its own Gate D or B session, no
+  release number), bugs the owner reports from driving (each through
+  `/diagnose`), the v2.5.0 build, or a run layer (`AnalysisRunner` with an
+  injected host) as the next consolidation item. `/pickup` with a named
+  target. Nothing since 7c slice 1 has been seen on screen.
 
 ## Owed to the owner
 
 
-- Build, sign and notarize the v2.0.0 DMG from the tag.
-- Drive Track B F1.54–F1.59 (this week's visible changes) and F1.53.
+- Drive the app once before tagging v2.5.0 (Results and the inspector
+  changed most); then build, sign and notarize per `docs/releasing.md`.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.

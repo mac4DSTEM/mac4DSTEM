@@ -140,14 +140,12 @@ struct ContentView: View {
             // feedback R1/R2). AppKit-side enforcement is in
             // SplitViewWidthClamp, because the declaration alone has already
             // failed twice (the 144pt restore; the 625pt drag on the PRE-S22
-            // build in the owner's original screenshots).
+            // build in the owner's original screenshots). Do not add a hard
+            // `.frame(minWidth:)` here: live divider drags can make SwiftUI and
+            // AppKit re-enter window constraint updates until AppKit raises
+            // NSGenericException.
             .navigationTitle("mac4DSTEM")
             .navigationSplitViewColumnWidth(min: 250, ideal: 292, max: 340)
-            // Belt for the min: the declaration alone still allowed a hard
-            // drag to ~139pt (observed live 2026-09-01 even with the max
-            // holding). A hard floor on the column root is the constraint
-            // AppKit cannot drag through.
-            .frame(minWidth: 250)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {

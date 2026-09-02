@@ -91,6 +91,17 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-03 — v2.5.0 is the next release; Track B is retired.** v2.0.0
+was tagged and never built; the consolidation supersedes it, so the next
+release is v2.5.0 from `main` after the owner's own driving pass. The tag
+stays as the pre-consolidation anchor. Track B (the human checklist) is
+retired: the owner drives the app and reports bugs, each entering through
+`/diagnose`; a drawing change is stated as unverified on screen until the
+owner has seen it, and the checklist's trap notes live in the archive. The
+owed science items (`open-items.md`) carry no release number — each is a
+Gate D or Gate B session of unknown size, and the changelog names the
+number it changes when one lands.
+
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
 outside their own state; a session that ran them would need that surface

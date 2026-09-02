@@ -150,8 +150,8 @@ at scientifically meaningful boundaries.
   (`DEVELOPER_DIR` wins; the Command Line Tools directory is rejected).
 - Test: `tools/run-tests.sh unit | scientific | all | benchmark | inventory`.
   The `scientific` array in that script is the harness roster; no count is
-  stated anywhere else. Track B is a person driving
-  `visual-acceptance-checklist.md`.
+  stated anywhere else. On-screen verification is the owner driving the app
+  and reporting through `/diagnose` (the checklist was retired 2026-09-03).
 - Never add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch.
 
 ## HDF5 notes

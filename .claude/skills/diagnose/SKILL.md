@@ -13,8 +13,9 @@ while the refuting evidence sat in plain sight in a log nobody re-read.
 
 **First, read what is already known.** Search `docs/open-items.md` for the
 symptom — the error string, the file, the workspace — and read the whole entry,
-not the first paragraph. Then check `docs/visual-acceptance-checklist.md` for a
-row that names it. These entries carry hypotheses a previous session already
+not the first paragraph. Then check the archived checklist
+(`docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`) for a row that
+names it. These entries carry hypotheses a previous session already
 *refuted*, with dates, and a symptom seen twice is usually recorded once.
 
 Skipping this wastes the expensive half of the protocol. On 2026-08-19 (S1) it

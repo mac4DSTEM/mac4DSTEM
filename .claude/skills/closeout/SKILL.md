@@ -25,8 +25,8 @@ Done means the repo tells the next reader the truth. In order:
 2. If `AppState` was touched: confirm one responsibility moved out of it
    (`CLAUDE.md` hard rules). Splitting into `extension AppState { }` does
    not count.
-3. If the session changed what the app draws: Track B rows are queued (the
-   `track-b` skill) and the work is stated as unverified on screen.
+3. If the session changed what the app draws: say so, and state the work as
+   unverified on screen until the owner has driven it.
 4. Update the step's row in `docs/status.md` (state, commit, what deviated)
    and the dated gate table. One paragraph in `docs/decisions.md` if a
    decision was made.

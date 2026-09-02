@@ -22,11 +22,10 @@ consolidation train. Rules only here; status and history live elsewhere.
 History is `docs/archive/` (the v2 chronology under `docs/archive/v2/`).
 Consult it for *why*, never for what to do next. Reference docs that are
 neither status nor history: `docs/releasing.md`, `docs/dm4-format.md`,
-`docs/q-calibration-design.md`, `docs/py4dstem-pipelines.md`,
-`docs/visual-acceptance-checklist.md` (Track B).
+`docs/q-calibration-design.md`, `docs/py4dstem-pipelines.md`.
 
 Skills in `.claude/skills/` — `pickup`, `diagnose` (Gate D), `adversarial-review`
-(Gate B), `track-b`, `closeout` — are **Claude Code skills and cannot be invoked
+(Gate B), `closeout` — are **Claude Code skills and cannot be invoked
 from here**; read the matching `SKILL.md` as a document before doing that kind
 of work. Session memory lives in Claude Code's per-project memory directory and
 is not loaded here: do not assume a fact is remembered.
@@ -52,8 +51,10 @@ is not loaded here: do not assume a fact is remembered.
 - Port deviations from py4DSTEM get an inline `DEVIATION` note.
 - Don't add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch; use
   `tools/run-tests.sh unit` for unsigned XCTest work.
-- Acceptance is evaluation only: never change app code to make a Track B row
-  pass. That is a finding for `docs/open-items.md`.
+- On-screen verification is the owner driving the app (Track B retired
+  2026-09-03). A drawing change is stated as unverified on screen until the
+  owner has seen it; a bug report enters through `/diagnose`, never as an
+  app change made to satisfy a checklist.
 - Docs are part of done. Update `docs/status.md` and `docs/open-items.md` in
   the same commit as the code. Every session nets negative markdown lines or
   says why. No new file without saying why an existing home would not do.

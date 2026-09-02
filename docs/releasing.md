@@ -8,7 +8,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 ## Release contract
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
-- Version/build: `2.0` / `2` (v2.0.0 tag, 2026-09-02)
+- Version/build: `2.5` / `3` — the next release is v2.5.0. v2.0.0 was tagged 2026-09-02 and never built; the tag stays as the pre-consolidation anchor
 - Minimum system: macOS 14
 - Hardened runtime and App Sandbox enabled
 - User-selected read/write access plus app-scoped security bookmarks

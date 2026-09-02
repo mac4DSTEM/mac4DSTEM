@@ -423,16 +423,13 @@ final class SidebarLayoutTests: XCTestCase {
     // shown — holds structurally: the chip and the image are the same
     // surface and cannot be scoped apart.
 
-    /// S22 feedback R1 (2026-09-01): the sidebar cannot be forced outside its
-    /// declared 250–340pt band AT ALL any more. The hard `minWidth` on the
-    /// column root refuses the very position change a stale restoration
-    /// (144pt — the standing Track B row) or a hard drag used to achieve;
-    /// this test's earlier form PROVED the assertion discriminates, because
-    /// with the floor absent the same `setPosition(144)` measured 139–144pt
-    /// on screen and in this harness, and with the floor present its
-    /// below-minimum precondition became unsatisfiable — that gate failure is
-    /// what prompted this rewrite. `SplitViewWidthClamp` stays as a second
-    /// belt for restore paths that bypass layout.
+    /// S22 feedback R1 (2026-09-01): the sidebar should restore and drag inside
+    /// its declared 250–340pt band. A hard SwiftUI `.frame(minWidth:)` on the
+    /// column root used to make programmatic below-minimum positions impossible,
+    /// but live owner repro on 2026-09-03 showed that constraint can fight the
+    /// AppKit split-view drag and crash the window's update-constraints pass.
+    /// The supported belt is now `SplitViewWidthClamp`: no persistent hard view
+    /// floor, just AppKit thickness bounds plus a restoration clamp.
     func testTheSidebarRefusesPositionsOutsideItsDeclaredBand() async throws {
         let appState = AppState()
         await appState.openDemoFixture()
@@ -447,20 +444,25 @@ final class SidebarLayoutTests: XCTestCase {
         split.setPosition(144, ofDividerAt: 0)
         split.layoutSubtreeIfNeeded()
         pump(0.2)
-        let afterFloorPush = try XCTUnwrap(split.arrangedSubviews.first).frame.width
+
+        let forced = try XCTUnwrap(split.arrangedSubviews.first).frame.width
+        XCTAssertLessThan(
+            forced, SplitViewWidthClamp.sidebarMinimum,
+            "fixture precondition: a raw split-view position should still reproduce a below-minimum sidebar before the clamp; got \(forced)"
+        )
+
+        let clamped = try XCTUnwrap(SplitViewWidthClamp.enforceSidebarMinimum(in: window))
         XCTAssertGreaterThanOrEqual(
-            afterFloorPush, SplitViewWidthClamp.sidebarMinimum - 1,
-            "a forced 144pt sidebar must be refused by the floor; got \(afterFloorPush)"
+            clamped, SplitViewWidthClamp.sidebarMinimum - 1,
+            "a forced 144pt sidebar must be corrected by SplitViewWidthClamp; got \(clamped)"
         )
 
         // The 340pt CEILING is deliberately not asserted here: it is enforced
         // at the gesture level (the declared max resists user drags — held at
         // exactly 340 in the live drive, 2026-09-01) and via the AppKit
-        // thickness bounds, which need a contentViewController this harness
-        // window does not have. A programmatic setPosition(700) bypasses
-        // both intermittently, which made the assertion flaky in the full
-        // suite while passing standalone — a timing artifact, not a product
-        // property.
+        // thickness bounds. A programmatic setPosition(700) bypasses both
+        // intermittently, which made the assertion flaky in the full suite while
+        // passing standalone — a timing artifact, not a product property.
     }
 
     /// S22c moved the accelerating-voltage field to Prepare's Calibration

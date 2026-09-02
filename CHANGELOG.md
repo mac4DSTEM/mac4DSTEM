@@ -1,9 +1,11 @@
 # Changelog
 
-## v2.0.0 — 2026-09-02
+## v2.5.0 — unreleased
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
-full cube unattended. Validated against py4DSTEM 0.14.19.
+full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was tagged
+2026-09-02 and never built; the consolidation below supersedes it, and the tag
+stays as the pre-consolidation anchor.)
 
 ### What is new
 
@@ -29,6 +31,14 @@ full cube unattended. Validated against py4DSTEM 0.14.19.
   colorbar chip, detached long runs with live progress and Cancel.
 - **Speed.** An exact Bluestein FFT for any detector size: Detect All Disks
   on a 250-px cube went from 14 min to under 15 s in Release, same peaks.
+- **Consolidation (v2.5, 2026-09-02/03).** `Core/` and `Session/` are Swift
+  packages; one product value carries pixels, units, frame, validity and
+  provenance from compute to export; calibration, readiness, strain and ACOM
+  state have single owners; the Phase workspace lists DPC & iDPC, Parallax and
+  Single-slice ptychography as independent tasks with revisitable stages; each
+  workspace has its own sidebar, Results its own inspector, and the inspector
+  follows the pane with the focus ring; the IPF map is confidence-gated with a
+  slider on the colorbar chip. No scientific number changed.
 
 ### Verified by
 
@@ -36,9 +46,9 @@ full cube unattended. Validated against py4DSTEM 0.14.19.
   retained log). `scientific` — 42 of 42 harnesses (2026-09-02, FFT tree).
   `all` — green end to end on the 2026-09-01 DPC-closeout tree; not re-run
   on the final tree.
-- Track B human visual pass — 31 passed / 9 partly / 19 unverified /
-  1 blocked; the owner's final playthrough row is open. The user-facing
-  issues that ship as known are listed in `docs/v2.5-plan.md` §3.
+- On screen: the owner's own driving pass before the tag (the human
+  checklist was retired 2026-09-03; its record is in `docs/archive/v2/`).
+  Known issues ship listed in `docs/open-items.md`.
 
 ## v1.0.0 — 2026-08-06
 

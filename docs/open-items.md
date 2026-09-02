@@ -1,7 +1,9 @@
 # Open items
 
-The only maintained status doc: unresolved items after **v2.0.0** (tagged
-2026-09-02). Each entry is a live defect, debt, owed run, or open question —
+The only maintained status doc: unresolved items after the v2.5
+consolidation (2026-09-03). No science item here is scheduled for v2.5.0 or
+carries a release number; when one lands, the changelog names the number it
+changes. Each entry is a live defect, debt, owed run, or open question —
 ≤ 12 lines: what is wrong, the pinning evidence, the trap, the owner, any
 live residual. No narrative. Closed and historical material is the verbatim
 pre-cull file,
@@ -137,25 +139,23 @@ is not a package-split regression — the A/B was run — and it is not the
 autosave leak the comment describes, since the domain was clean. Owner:
 whoever next touches the sidebar layout; the pin-then-measure sequence needs
 a second look at what re-applies the 250pt minimum after `setPosition`.
+2026-09-03 owner repro changed the severity: dragging the left tools panel
+crashed with `NSGenericException` ("window has been marked as needing another
+Update Constraints in Window pass..."). Diagnosis: the hard SwiftUI
+`.frame(minWidth:)` on the column root fights AppKit's split-view drag.
+Fix in progress: remove that hard floor; rely on `NavigationSplitView` +
+`SplitViewWidthClamp` AppKit bounds/restoration clamp; needs live re-drive.
 
 ### No automated visual baseline
-Every acceptance run is numeric-only (`--no-screenshots`); Track B
-(`docs/visual-acceptance-checklist.md`) is the only evidence anything
-"looks right" — say who drove it and when. Standing: it has caught
-defects with every harness green (colormap control missing, readiness
-row self-contradicting, three more in the clean-account run).
-
-### Track B sittings 3–4 and the final playthrough are owner-owed
-Sitting 3 needs a multi-GB/NAS cube; sitting 4 needs a clean account; the
-owner's single final-playthrough row is F1.53. Individual rows never
-driven: F1.26 (unscored — sandbox re-grant path recovered from testimony
-only, needs a second reader), F1.19, F1.33, F1.35, F1.38, F1.1d. See
-`docs/visual-acceptance-checklist.md` for the live tally — do not quote a
-row count from memory.
-
-### The bounded ~30-minute promote run is owed
-Closes F1.14/F1.15/F1.19/F1.22/F1.23. Owner drives it once the queued
-fixes land; the replay feature ships regardless of this run.
+Every acceptance run is numeric-only (`--no-screenshots`); the owner
+driving the app is the only evidence anything "looks right" — say who
+drove it and when. Standing: driving has caught defects with every harness
+green (colormap control missing, readiness row self-contradicting, three
+more in the clean-account run). The retired checklist's trap notes are in
+`docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`. Never seen on
+screen: everything from 7c slice 1 on (Results sidebar and inspector, the
+inspector following the focused pane), the clean-account run, the bounded
+promote run, a real load cancel.
 
 ### `tools/run-tests.sh all` has not been re-run on the newest tree
 Last full green run was the DPC-angle-unit closeout tree; `unit` and
@@ -203,7 +203,7 @@ Live latent crash: `loadSession` runs on `Task.detached` while an
 `AppState.swift:2331` does `snapshot.loadSpecification ?? .fullExtent` —
 a sidecar saved from a cropped view before that attribute existed is now
 asserted full-extent rather than unknown. Both prior reproducers were
-overwritten by later Track B drives; demonstrating it again needs a
+overwritten by later driving sessions; demonstrating it again needs a
 synthesised sidecar, not a training-set one. Unowned, belongs with the
 trust fixes.
 
@@ -273,8 +273,8 @@ nothing. Driving F1.3f is both the acceptance row and the discriminator.
 
 ### Status line leaks a full filesystem path
 ~330 characters including the absolute path, rendered raw in
-`StatusFooterView` and `ProductWorkspaceViews`' header progress; Track B
-screenshots (public docs) have carried it since 2026-08-19. Worth
+`StatusFooterView` and `ProductWorkspaceViews`' header progress; the
+archived checklist's screenshots (public docs) have carried it since 2026-08-19. Worth
 truncating for display while keeping the log copy. Still open.
 
 ### Resident/streaming residuals
@@ -390,8 +390,8 @@ Kept because they changed outcomes, not because they are tidy:
    `recordError` and continues, or a control hidden behind a disclosure,
    turns a failure into a finding nobody reads.
 4. **Open the app.** Ten minutes of driving on a day with every harness
-   green has twice found defects the suite could not see. Track B
-   (`docs/visual-acceptance-checklist.md`) exists because nothing else
+   green has twice found defects the suite could not see. The owner's
+   driving sessions replace the retired checklist because nothing else
    catches that class.
 5. **A green suite can be green about the wrong thing.** Check what
    calling convention a suite actually exercises (absolute vs. relative

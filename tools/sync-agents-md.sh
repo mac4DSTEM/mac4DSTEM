@@ -62,10 +62,10 @@ text = text.replace(
 #    invoke them — telling it to type `/pickup` is a claim that does not hold.
 old_skills = (
     "Skills: `/pickup` takes the next step from `docs/status.md`; `/diagnose` is\n"
-    "Gate D; `/adversarial-review` is Gate B; `/track-b`; `/closeout`.\n")
+    "Gate D; `/adversarial-review` is Gate B; `/closeout`.\n")
 new_skills = (
     "Skills in `.claude/skills/` — `pickup`, `diagnose` (Gate D), `adversarial-review`\n"
-    "(Gate B), `track-b`, `closeout` — are **Claude Code skills and cannot be invoked\n"
+    "(Gate B), `closeout` — are **Claude Code skills and cannot be invoked\n"
     "from here**; read the matching `SKILL.md` as a document before doing that kind\n"
     "of work. Session memory lives in Claude Code's per-project memory directory and\n"
     "is not loaded here: do not assume a fact is remembered.\n")

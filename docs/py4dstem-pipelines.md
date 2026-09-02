@@ -322,8 +322,9 @@ Prepare→Map order is valid; better to *guide within* the existing structure.
    workspaces.
 4. ~~**Re-run this QC playthrough as the acceptance check** for each UI
    change.~~ **Superseded 2026-08-17:** the playthrough is retired; acceptance
-   for a UI change is the Track B pass in
-   [`docs/visual-acceptance-checklist.md`](visual-acceptance-checklist.md). The
+   for a UI change is the owner driving the app (the Track B checklist that
+   followed the playthrough was itself retired 2026-09-03; its record is in
+   `docs/archive/v2/`). The
    *pipelines* below are unaffected — they are still what any acceptance run,
    scripted or human, should drive the app through.
 
