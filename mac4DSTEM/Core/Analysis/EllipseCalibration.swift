@@ -21,7 +21,7 @@ package nonisolated struct EllipseProfileParameters: Sendable, Equatable {
     package let background: Double
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(centralIntensity: Double, ringIntensity: Double, centralSigma: Double, innerSigma: Double, outerSigma: Double, background: Double) {
+    package nonisolated init(centralIntensity: Double, ringIntensity: Double, centralSigma: Double, innerSigma: Double, outerSigma: Double, background: Double) {
         self.centralIntensity = centralIntensity
         self.ringIntensity = ringIntensity
         self.centralSigma = centralSigma
@@ -50,7 +50,7 @@ package nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
     package let profileFallbackReason: String?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(centerQX: Double, centerQY: Double, a: Double, b: Double, theta: Double, normalizedResidual: Double, conicResidual: Double, sampleCount: Int, occupiedAngularBins: Int, model: EllipseCalibrationModel, profile: EllipseProfileParameters?, profileFallbackReason: String?) {
+    package nonisolated init(centerQX: Double, centerQY: Double, a: Double, b: Double, theta: Double, normalizedResidual: Double, conicResidual: Double, sampleCount: Int, occupiedAngularBins: Int, model: EllipseCalibrationModel, profile: EllipseProfileParameters?, profileFallbackReason: String?) {
         self.centerQX = centerQX
         self.centerQY = centerQY
         self.a = a

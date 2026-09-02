@@ -67,7 +67,7 @@ package enum CalibrationValueProvenance: String, Equatable, Sendable {
 
 /// Provenance for fields that do not already carry `OriginProvenance`.
 /// A nil entry means no trustworthy value is currently active.
-package struct CalibrationProvenance: Equatable, Sendable {
+package nonisolated struct CalibrationProvenance: Equatable, Sendable {
     package var probe: CalibrationValueProvenance?
     package var ellipse: CalibrationValueProvenance?
     package var rotation: CalibrationValueProvenance?
@@ -75,7 +75,7 @@ package struct CalibrationProvenance: Equatable, Sendable {
     package var rScale: CalibrationValueProvenance?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(probe: CalibrationValueProvenance? = nil, ellipse: CalibrationValueProvenance? = nil, rotation: CalibrationValueProvenance? = nil, qScale: CalibrationValueProvenance? = nil, rScale: CalibrationValueProvenance? = nil) {
+    package nonisolated init(probe: CalibrationValueProvenance? = nil, ellipse: CalibrationValueProvenance? = nil, rotation: CalibrationValueProvenance? = nil, qScale: CalibrationValueProvenance? = nil, rScale: CalibrationValueProvenance? = nil) {
         self.probe = probe
         self.ellipse = ellipse
         self.rotation = rotation
@@ -256,7 +256,7 @@ package struct CalibrationReadinessItem: Identifiable, Equatable, Sendable {
     package var id: CalibrationReadinessKind { kind }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(kind: CalibrationReadinessKind, status: CalibrationReadinessStatus, detail: String) {
+    package nonisolated init(kind: CalibrationReadinessKind, status: CalibrationReadinessStatus, detail: String) {
         self.kind = kind
         self.status = status
         self.detail = detail
@@ -416,13 +416,13 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(items: [CalibrationReadinessItem]) {
+    package nonisolated init(items: [CalibrationReadinessItem]) {
         self.items = items
     }
 }
 
 /// Per-scan-position position of the unscattered beam, in detector pixels.
-package struct OriginMaps: Sendable {
+package nonisolated struct OriginMaps: Sendable {
     package let width: Int
     package let height: Int
 
@@ -485,7 +485,7 @@ package struct OriginMaps: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil) {
+    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil) {
         self.width = width
         self.height = height
         self.measuredX = measuredX
@@ -497,7 +497,7 @@ package struct OriginMaps: Sendable {
     }
 }
 
-package struct Calibration: Sendable {
+package nonisolated struct Calibration: Sendable {
     /// Provenance of the origin currently represented by the aperture center.
     package var originProvenance: OriginProvenance = .geometricDefault
 
@@ -701,7 +701,7 @@ package struct Calibration: Sendable {
         package nonisolated var point: (x: Float, y: Float) { (x, y) }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(x: Float, y: Float, kind: ReferenceOriginKind) {
+        package nonisolated init(x: Float, y: Float, kind: ReferenceOriginKind) {
             self.x = x
             self.y = y
             self.kind = kind
@@ -893,7 +893,7 @@ package struct Calibration: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(originProvenance: OriginProvenance = .geometricDefault, probeRadius: Float? = nil, recordedOriginX: Float? = nil, recordedOriginY: Float? = nil, origin: OriginMaps? = nil, qPixelSize: Double? = nil, qPixelUnits: String? = nil, rPixelSize: Double? = nil, rPixelUnits: String? = nil, rotationRad: Float? = nil, transposeQR: Bool? = nil, ellipseA: Double? = nil, ellipseB: Double? = nil, ellipseTheta: Double? = nil) {
+    package nonisolated init(originProvenance: OriginProvenance = .geometricDefault, probeRadius: Float? = nil, recordedOriginX: Float? = nil, recordedOriginY: Float? = nil, origin: OriginMaps? = nil, qPixelSize: Double? = nil, qPixelUnits: String? = nil, rPixelSize: Double? = nil, rPixelUnits: String? = nil, rotationRad: Float? = nil, transposeQR: Bool? = nil, ellipseA: Double? = nil, ellipseB: Double? = nil, ellipseTheta: Double? = nil) {
         self.originProvenance = originProvenance
         self.probeRadius = probeRadius
         self.recordedOriginX = recordedOriginX

@@ -34,7 +34,7 @@ import DSTEMCore
 package final class SessionGates {
 
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
-    package init() {}
+    package nonisolated init() {}
 
     // MARK: - May I use the origin fit quantitatively?
 
@@ -139,7 +139,7 @@ package final class SessionGates {
         package var message: String
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(kind: Kind, message: String) {
+        package nonisolated init(kind: Kind, message: String) {
             self.kind = kind
             self.message = message
         }

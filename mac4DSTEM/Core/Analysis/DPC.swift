@@ -38,7 +38,7 @@ package nonisolated struct IDPCPhysicalCalibration: Equatable, Sendable {
     package let reciprocalAngstromPerDetectorPixel: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(rowSamplingAngstrom: Float, columnSamplingAngstrom: Float, reciprocalAngstromPerDetectorPixel: Float) {
+    package nonisolated init(rowSamplingAngstrom: Float, columnSamplingAngstrom: Float, reciprocalAngstromPerDetectorPixel: Float) {
         self.rowSamplingAngstrom = rowSamplingAngstrom
         self.columnSamplingAngstrom = columnSamplingAngstrom
         self.reciprocalAngstromPerDetectorPixel = reciprocalAngstromPerDetectorPixel

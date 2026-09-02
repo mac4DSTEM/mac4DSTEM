@@ -26,7 +26,7 @@ import DSTEMCore
 package final class LoadedView {
 
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
-    package init() {}
+    package nonisolated init() {}
 
     /// Which part of the source is loaded. `.fullExtent` is the shipped value —
     /// nothing sets a specification until L5's configurator.

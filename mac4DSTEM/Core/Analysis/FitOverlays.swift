@@ -25,7 +25,7 @@ package nonisolated enum FitOverlays {
         package let weight: Float
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(x: Float, y: Float, weight: Float) {
+        package nonisolated init(x: Float, y: Float, weight: Float) {
             self.x = x
             self.y = y
             self.weight = weight
@@ -40,7 +40,7 @@ package nonisolated enum FitOverlays {
         package let toY: Float
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(fromX: Float, fromY: Float, toX: Float, toY: Float) {
+        package nonisolated init(fromX: Float, fromY: Float, toX: Float, toY: Float) {
             self.fromX = fromX
             self.fromY = fromY
             self.toX = toX
@@ -63,7 +63,7 @@ package nonisolated enum FitOverlays {
         package let localResidualPixels: Float?
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(originX: Float, originY: Float, predicted: [Marker], localG1: Vector?, localG2: Vector?, referenceG1: Vector, referenceG2: Vector, localResidualPixels: Float?) {
+        package nonisolated init(originX: Float, originY: Float, predicted: [Marker], localG1: Vector?, localG2: Vector?, referenceG1: Vector, referenceG2: Vector, localResidualPixels: Float?) {
             self.originX = originX
             self.originY = originY
             self.predicted = predicted
@@ -86,7 +86,7 @@ package nonisolated enum FitOverlays {
         package let score: Float
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(originX: Float, originY: Float, predicted: [Marker], reliability: Float, score: Float) {
+        package nonisolated init(originX: Float, originY: Float, predicted: [Marker], reliability: Float, score: Float) {
             self.originX = originX
             self.originY = originY
             self.predicted = predicted

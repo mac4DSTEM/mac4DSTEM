@@ -355,7 +355,7 @@ package struct ReplayRefusal: Equatable, Error {
     package let reason: String
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(reason: String) {
+    package nonisolated init(reason: String) {
         self.reason = reason
     }
 }
@@ -383,7 +383,7 @@ package enum ReplayStepPlan: Equatable {
             package var g1x: Float, g1y: Float, g2x: Float, g2y: Float
 
             // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-            package init(g1x: Float, g1y: Float, g2x: Float, g2y: Float) {
+            package nonisolated init(g1x: Float, g1y: Float, g2x: Float, g2y: Float) {
                 self.g1x = g1x
                 self.g1y = g1y
                 self.g2x = g2x
@@ -392,7 +392,7 @@ package enum ReplayStepPlan: Equatable {
         }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(manualBasis: ManualBasis? = nil) {
+        package nonisolated init(manualBasis: ManualBasis? = nil) {
             self.manualBasis = manualBasis
         }
     }
@@ -422,7 +422,7 @@ package enum ReplayStepPlan: Equatable {
             package var customZ: Int
 
             // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-            package init(importedIDs: Set<String>, customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
+            package nonisolated init(importedIDs: Set<String>, customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
                 self.importedIDs = importedIDs
                 self.customStructure = customStructure
                 self.customLatticeA = customLatticeA
@@ -480,7 +480,7 @@ package enum ReplayStepPlan: Equatable {
         }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(materialID: String, latticeA: Double? = nil, scaleInvAngstromPerPixel: Double, scope: ACOMRunScope, quality: ACOMQualityPreset) {
+        package nonisolated init(materialID: String, latticeA: Double? = nil, scaleInvAngstromPerPixel: Double, scope: ACOMRunScope, quality: ACOMQualityPreset) {
             self.materialID = materialID
             self.latticeA = latticeA
             self.scaleInvAngstromPerPixel = scaleInvAngstromPerPixel
@@ -510,7 +510,7 @@ package struct PlannedReplayStep: Equatable {
     package let result: Result<ReplayStepPlan, ReplayRefusal>
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(kind: String, title: String, result: Result<ReplayStepPlan, ReplayRefusal>) {
+    package nonisolated init(kind: String, title: String, result: Result<ReplayStepPlan, ReplayRefusal>) {
         self.kind = kind
         self.title = title
         self.result = result

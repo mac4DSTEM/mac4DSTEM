@@ -20,7 +20,7 @@ import DSTEMCore
 package final class SessionReplay {
 
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
-    package init() {}
+    package nonisolated init() {}
 
     /// The recipe as currently known. Starts empty; `adopt` replaces it with
     /// a restored record; analyses append/update through `record(kind:...)`.

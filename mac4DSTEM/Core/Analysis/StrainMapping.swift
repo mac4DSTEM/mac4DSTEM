@@ -83,7 +83,7 @@ package nonisolated struct StrainMap {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(width: Int, height: Int, exx: [Float], eyy: [Float], exy: [Float], theta: [Float], mask: [Bool], localG1x: [Float], localG1y: [Float], localG2x: [Float], localG2y: [Float], localResidualPixels: [Float], refG1: (x: Float, y: Float), refG2: (x: Float, y: Float), referencePositionCount: Int, indexedFraction: Float, diagnostics: StrainFitDiagnostics) {
+    package nonisolated init(width: Int, height: Int, exx: [Float], eyy: [Float], exy: [Float], theta: [Float], mask: [Bool], localG1x: [Float], localG1y: [Float], localG2x: [Float], localG2y: [Float], localResidualPixels: [Float], refG1: (x: Float, y: Float), refG2: (x: Float, y: Float), referencePositionCount: Int, indexedFraction: Float, diagnostics: StrainFitDiagnostics) {
         self.width = width
         self.height = height
         self.exx = exx
@@ -104,7 +104,7 @@ package nonisolated struct StrainMap {
     }
 }
 
-package struct StrainFitDiagnostics: Sendable {
+package nonisolated struct StrainFitDiagnostics: Sendable {
     package let automaticBasis: Bool
     package let referenceMaskApplied: Bool
     package let basisObservationCount: Int
@@ -118,7 +118,7 @@ package struct StrainFitDiagnostics: Sendable {
     package let referenceRejectedCount: Int
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(automaticBasis: Bool, referenceMaskApplied: Bool, basisObservationCount: Int, basisSupportCount: Int, basisSupportFraction: Float, basisResidualPixels: Float, basisConditionNumber: Float, indexingTolerancePixels: Float, localResidualMedianPixels: Float, referenceCandidateCount: Int, referenceRejectedCount: Int) {
+    package nonisolated init(automaticBasis: Bool, referenceMaskApplied: Bool, basisObservationCount: Int, basisSupportCount: Int, basisSupportFraction: Float, basisResidualPixels: Float, basisConditionNumber: Float, indexingTolerancePixels: Float, localResidualMedianPixels: Float, referenceCandidateCount: Int, referenceRejectedCount: Int) {
         self.automaticBasis = automaticBasis
         self.referenceMaskApplied = referenceMaskApplied
         self.basisObservationCount = basisObservationCount

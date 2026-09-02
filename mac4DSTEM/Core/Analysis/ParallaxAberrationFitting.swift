@@ -10,7 +10,7 @@ package nonisolated struct ParallaxPhysicalShift: Equatable, Sendable {
     package let columnAngstrom: Double
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(rowAngstrom: Double, columnAngstrom: Double) {
+    package nonisolated init(rowAngstrom: Double, columnAngstrom: Double) {
         self.rowAngstrom = rowAngstrom
         self.columnAngstrom = columnAngstrom
     }
@@ -18,7 +18,7 @@ package nonisolated struct ParallaxPhysicalShift: Equatable, Sendable {
 
 package nonisolated struct ParallaxLowOrderAberrationOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     package var forceTranspose = false
     package var forceRotationAngleDegrees: Double? = nil
@@ -38,7 +38,7 @@ package nonisolated struct ParallaxAberrationFitResult: Equatable, Sendable {
     package let forcedRotationAngleDegrees: Double?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(measuredShifts: [ParallaxPhysicalShift], fittedShifts: [ParallaxPhysicalShift], rotationRad: Double, c1Angstrom: Double, c12aAngstrom: Double, c12bAngstrom: Double, rmsResidualAngstrom: Double, forceTranspose: Bool, forcedRotationAngleDegrees: Double?) {
+    package nonisolated init(measuredShifts: [ParallaxPhysicalShift], fittedShifts: [ParallaxPhysicalShift], rotationRad: Double, c1Angstrom: Double, c12aAngstrom: Double, c12bAngstrom: Double, rmsResidualAngstrom: Double, forceTranspose: Bool, forcedRotationAngleDegrees: Double?) {
         self.measuredShifts = measuredShifts
         self.fittedShifts = fittedShifts
         self.rotationRad = rotationRad
@@ -58,7 +58,7 @@ package nonisolated struct ParallaxAberrationTerm: Equatable, Hashable, Sendable
     package let component: Int
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(radialOrder: Int, angularOrder: Int, component: Int) {
+    package nonisolated init(radialOrder: Int, angularOrder: Int, component: Int) {
         self.radialOrder = radialOrder
         self.angularOrder = angularOrder
         self.component = component
@@ -73,7 +73,7 @@ package nonisolated enum ParallaxAberrationFitMethod: String, CaseIterable, Send
 
 package nonisolated struct ParallaxHigherOrderAberrationOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     package var maxRadialOrder = 3
     package var maxAngularOrder = 4
@@ -94,7 +94,7 @@ package nonisolated struct ParallaxHigherOrderAberrationFitResult: Equatable, Se
     package let fitMethod: ParallaxAberrationFitMethod
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(lowOrder: ParallaxAberrationFitResult, terms: [ParallaxAberrationTerm], coefficientsAngstrom: [Double], fittedShifts: [ParallaxPhysicalShift], rmsResidualAngstrom: Double, fitMethod: ParallaxAberrationFitMethod) {
+    package nonisolated init(lowOrder: ParallaxAberrationFitResult, terms: [ParallaxAberrationTerm], coefficientsAngstrom: [Double], fittedShifts: [ParallaxPhysicalShift], rmsResidualAngstrom: Double, fitMethod: ParallaxAberrationFitMethod) {
         self.lowOrder = lowOrder
         self.terms = terms
         self.coefficientsAngstrom = coefficientsAngstrom

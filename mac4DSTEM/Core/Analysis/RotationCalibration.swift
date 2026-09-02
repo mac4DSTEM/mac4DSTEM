@@ -42,7 +42,7 @@ package enum RotationCalibration {
         package let objectiveCurveTransposed: [Float]
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(rotationRad: Float, transpose: Bool, objective: Float, anglesDeg: [Float], objectiveCurve: [Float], objectiveCurveTransposed: [Float]) {
+        package nonisolated init(rotationRad: Float, transpose: Bool, objective: Float, anglesDeg: [Float], objectiveCurve: [Float], objectiveCurveTransposed: [Float]) {
             self.rotationRad = rotationRad
             self.transpose = transpose
             self.objective = objective

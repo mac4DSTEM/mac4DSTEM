@@ -7,7 +7,7 @@ import Foundation
 
 package nonisolated struct ParallaxDepthOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     package var depthsAngstrom: [Double] = stride(from: -256.0, through: 256.0, by: 16.0)
         .map { $0 }
@@ -49,7 +49,7 @@ package nonisolated struct ParallaxDepthResult: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(depthsAngstrom: [Double], paddedStack: [Float], paddedHeight: Int, paddedWidth: Int, scanHeight: Int, scanWidth: Int, samplingAngstrom: Double, usedFullFit: Bool, informationLimitInvAngstrom: Double?, informationPower: Double) {
+    package nonisolated init(depthsAngstrom: [Double], paddedStack: [Float], paddedHeight: Int, paddedWidth: Int, scanHeight: Int, scanWidth: Int, samplingAngstrom: Double, usedFullFit: Bool, informationLimitInvAngstrom: Double?, informationPower: Double) {
         self.depthsAngstrom = depthsAngstrom
         self.paddedStack = paddedStack
         self.paddedHeight = paddedHeight

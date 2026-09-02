@@ -35,7 +35,7 @@ package nonisolated struct CubeDims {
     }
 }
 
-package struct ApertureParams {
+package nonisolated struct ApertureParams {
     package var ry: UInt32
     package var rx: UInt32
     package var qy: UInt32
@@ -46,7 +46,7 @@ package struct ApertureParams {
     package var rOuter: Float    // annulus outer radius (px)
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, rInner: Float, rOuter: Float) {
+    package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, rInner: Float, rOuter: Float) {
         self.ry = ry
         self.rx = rx
         self.qy = qy
@@ -58,7 +58,7 @@ package struct ApertureParams {
     }
 }
 
-package struct CoMParams {
+package nonisolated struct CoMParams {
     package var ry: UInt32
     package var rx: UInt32
     package var qy: UInt32
@@ -68,7 +68,7 @@ package struct CoMParams {
     package var useOrigins: UInt32
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, useOrigins: UInt32) {
+    package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, useOrigins: UInt32) {
         self.ry = ry
         self.rx = rx
         self.qy = qy
@@ -79,7 +79,7 @@ package struct CoMParams {
     }
 }
 
-package struct OriginParams {
+package nonisolated struct OriginParams {
     package var ry: UInt32
     package var rx: UInt32
     package var qy: UInt32
@@ -88,7 +88,7 @@ package struct OriginParams {
     package var rscale: Float    // CoM window = r * rscale
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, r: Float, rscale: Float) {
+    package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, r: Float, rscale: Float) {
         self.ry = ry
         self.rx = rx
         self.qy = qy

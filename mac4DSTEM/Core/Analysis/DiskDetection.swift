@@ -37,7 +37,7 @@ package nonisolated struct BraggPeak: Sendable {
     package var intensity: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(x: Float, y: Float, intensity: Float) {
+    package nonisolated init(x: Float, y: Float, intensity: Float) {
         self.x = x
         self.y = y
         self.intensity = intensity
@@ -154,7 +154,7 @@ package nonisolated struct DiskDetectionContext: Sendable, Equatable {
     package var maximumEdgeBoundary: Int { max(1, (detectorMinimum - 1) / 2) }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(qy: Int, qx: Int, probeRadius: Float?) {
+    package nonisolated init(qy: Int, qx: Int, probeRadius: Float?) {
         self.qy = qy
         self.qx = qx
         self.probeRadius = probeRadius
@@ -172,7 +172,7 @@ package nonisolated struct DiskDetectionValidationIssue: Sendable, Equatable {
     package let message: String
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(field: DiskDetectionParameterID, severity: DiskDetectionValidationSeverity, message: String) {
+    package nonisolated init(field: DiskDetectionParameterID, severity: DiskDetectionValidationSeverity, message: String) {
         self.field = field
         self.severity = severity
         self.message = message
@@ -193,7 +193,7 @@ package nonisolated struct DiskDetectionPatternDiagnostics: Sendable, Equatable 
     package let correlationMaximum: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(localMaximumCount: Int, afterAbsoluteThresholdCount: Int, afterRelativeThresholdCount: Int, afterSpacingCount: Int, acceptedCount: Int, wasCountLimited: Bool, relativeReferenceIntensity: Float?, relativeReferenceWasAvailable: Bool, correlationMaximum: Float) {
+    package nonisolated init(localMaximumCount: Int, afterAbsoluteThresholdCount: Int, afterRelativeThresholdCount: Int, afterSpacingCount: Int, acceptedCount: Int, wasCountLimited: Bool, relativeReferenceIntensity: Float?, relativeReferenceWasAvailable: Bool, correlationMaximum: Float) {
         self.localMaximumCount = localMaximumCount
         self.afterAbsoluteThresholdCount = afterAbsoluteThresholdCount
         self.afterRelativeThresholdCount = afterRelativeThresholdCount
@@ -211,7 +211,7 @@ package nonisolated struct DiskDetectionPatternResult: Sendable {
     package let diagnostics: DiskDetectionPatternDiagnostics
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(peaks: [BraggPeak], diagnostics: DiskDetectionPatternDiagnostics) {
+    package nonisolated init(peaks: [BraggPeak], diagnostics: DiskDetectionPatternDiagnostics) {
         self.peaks = peaks
         self.diagnostics = diagnostics
     }
@@ -425,7 +425,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.005, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
+    package nonisolated init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.005, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
         self.corrPower = corrPower
         self.sigmaDP = sigmaDP
         self.sigmaCC = sigmaCC

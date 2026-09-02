@@ -170,7 +170,7 @@ package nonisolated enum OriginCalibration {
         }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(fittedX: [Float], fittedY: [Float], kept: [Bool], keptResidual: Float, fullScanResidual: Float) {
+        package nonisolated init(fittedX: [Float], fittedY: [Float], kept: [Bool], keptResidual: Float, fullScanResidual: Float) {
             self.fittedX = fittedX
             self.fittedY = fittedY
             self.kept = kept

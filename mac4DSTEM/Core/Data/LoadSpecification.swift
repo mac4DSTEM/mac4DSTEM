@@ -59,7 +59,7 @@ package nonisolated struct AxisCrop: Equatable, Sendable, Codable {
     package var isEmpty: Bool { height <= 0 || width <= 0 }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(yOffset: Int, xOffset: Int, height: Int, width: Int) {
+    package nonisolated init(yOffset: Int, xOffset: Int, height: Int, width: Int) {
         self.yOffset = yOffset
         self.xOffset = xOffset
         self.height = height
@@ -101,7 +101,7 @@ package nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(scanCrop: AxisCrop? = nil, detectorCrop: AxisCrop? = nil, detectorBin: Int = 1) {
+    package nonisolated init(scanCrop: AxisCrop? = nil, detectorCrop: AxisCrop? = nil, detectorBin: Int = 1) {
         self.scanCrop = scanCrop
         self.detectorCrop = detectorCrop
         self.detectorBin = detectorBin
@@ -137,7 +137,7 @@ package nonisolated struct LoadPushdown: Equatable, Sendable, Codable {
     package static let none = LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(scanCropSkipsIO: Bool, detectorCropSkipsIO: Bool) {
+    package nonisolated init(scanCropSkipsIO: Bool, detectorCropSkipsIO: Bool) {
         self.scanCropSkipsIO = scanCropSkipsIO
         self.detectorCropSkipsIO = detectorCropSkipsIO
     }

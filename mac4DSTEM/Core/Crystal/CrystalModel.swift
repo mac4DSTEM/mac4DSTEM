@@ -13,7 +13,7 @@ package nonisolated struct CrystalModelValidationIssue: Sendable, Equatable {
     package let message: String
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(code: String, message: String) {
+    package nonisolated init(code: String, message: String) {
         self.code = code
         self.message = message
     }
@@ -225,7 +225,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(id: String, displayName: String, crystal: Crystal, symmetry: ACOMCrystalSymmetry, source: CrystalModelSource) {
+    package nonisolated init(id: String, displayName: String, crystal: Crystal, symmetry: ACOMCrystalSymmetry, source: CrystalModelSource) {
         self.id = id
         self.displayName = displayName
         self.crystal = crystal

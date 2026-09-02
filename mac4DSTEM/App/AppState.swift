@@ -3875,7 +3875,7 @@ final class AppState {
     }
 
     func resetParallaxAlignment() {
-        guard !isBusy, let preprocessing = parallaxPreprocess else { return }
+        guard !isBusy, parallaxPreprocess != nil else { return }
         parallaxAlignment = nil
         showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
         resultGamma = 1

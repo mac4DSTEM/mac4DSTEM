@@ -10,7 +10,7 @@ package nonisolated struct CorrelationPeak: Equatable, Sendable {
     package let column: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(row: Float, column: Float) {
+    package nonisolated init(row: Float, column: Float) {
         self.row = row
         self.column = column
     }

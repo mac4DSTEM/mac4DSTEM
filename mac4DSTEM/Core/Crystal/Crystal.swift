@@ -30,7 +30,7 @@ package nonisolated struct AtomSite: Sendable {
     package var occupancy: Double = 1
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(z: Int, fractional: SIMD3<Double>, occupancy: Double = 1) {
+    package nonisolated init(z: Int, fractional: SIMD3<Double>, occupancy: Double = 1) {
         self.z = z
         self.fractional = fractional
         self.occupancy = occupancy
@@ -47,7 +47,7 @@ package nonisolated struct Reflection: Sendable {
     package var intensity: Double           // |F|²
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(h: Int, k: Int, l: Int, g: SIMD3<Double>, gLength: Double, structureFactorRe: Double, structureFactorIm: Double, intensity: Double) {
+    package nonisolated init(h: Int, k: Int, l: Int, g: SIMD3<Double>, gLength: Double, structureFactorRe: Double, structureFactorIm: Double, intensity: Double) {
         self.h = h
         self.k = k
         self.l = l

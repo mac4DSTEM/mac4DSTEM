@@ -20,7 +20,7 @@ package nonisolated struct DatasetDescriptor: Identifiable, Hashable {
     package let chunkShape: [Int]?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(filePath: String, datasetPath: String, shape: [Int], dtypeDescription: String, chunkShape: [Int]?) {
+    package nonisolated init(filePath: String, datasetPath: String, shape: [Int], dtypeDescription: String, chunkShape: [Int]?) {
         self.filePath = filePath
         self.datasetPath = datasetPath
         self.shape = shape

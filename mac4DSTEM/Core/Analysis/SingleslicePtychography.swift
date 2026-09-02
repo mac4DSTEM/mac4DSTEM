@@ -11,7 +11,7 @@ package nonisolated struct PtychographyPosition: Equatable, Sendable {
     package let column: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(row: Float, column: Float) {
+    package nonisolated init(row: Float, column: Float) {
         self.row = row
         self.column = column
     }
@@ -24,7 +24,7 @@ package nonisolated struct PtychographyComplexArray: Sendable {
     package let imaginary: [Float]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(width: Int, height: Int, real: [Float], imaginary: [Float]) {
+    package nonisolated init(width: Int, height: Int, real: [Float], imaginary: [Float]) {
         self.width = width
         self.height = height
         self.real = real
@@ -46,7 +46,7 @@ package nonisolated struct SingleslicePtychographyInput: Sendable {
     package let initialProbe: PtychographyComplexArray
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray) {
+    package nonisolated init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray) {
         self.scanHeight = scanHeight
         self.scanWidth = scanWidth
         self.detectorHeight = detectorHeight
@@ -76,7 +76,7 @@ package nonisolated enum SingleslicePtychographyMethod: String, CaseIterable, Id
 
 package nonisolated struct SingleslicePtychographyOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     package var method: SingleslicePtychographyMethod = .gradientDescent
     package var iterations = 8
@@ -171,7 +171,7 @@ package nonisolated struct SingleslicePtychographyResult: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions) {
+    package nonisolated init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions) {
         self.object = object
         self.probe = probe
         self.positions = positions

@@ -8,7 +8,7 @@ import Foundation
 
 package nonisolated struct ParallaxSubpixelOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     /// Nil selects py4DSTEM's BF/DF sampling-limit heuristic.
     package var upsampleFactor: Double? = nil
@@ -44,7 +44,7 @@ package nonisolated struct ParallaxSubpixelResult: Sendable {
     package let positionCorrectionScores: [Float]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(upsampleFactor: Double, brightFieldUpsampleLimit: Double, darkFieldUpsampleLimit: Double, kdeSigmaPixels: Double, lowpassFilter: Bool, lanczosOrder: Int?, paddedHeight: Int, paddedWidth: Int, paddedBF: [Float], croppedBF: FloatImage, outputSamplingAngstrom: Double, probeShiftRows: [Float], probeShiftColumns: [Float], positionCorrectionScores: [Float]) {
+    package nonisolated init(upsampleFactor: Double, brightFieldUpsampleLimit: Double, darkFieldUpsampleLimit: Double, kdeSigmaPixels: Double, lowpassFilter: Bool, lanczosOrder: Int?, paddedHeight: Int, paddedWidth: Int, paddedBF: [Float], croppedBF: FloatImage, outputSamplingAngstrom: Double, probeShiftRows: [Float], probeShiftColumns: [Float], positionCorrectionScores: [Float]) {
         self.upsampleFactor = upsampleFactor
         self.brightFieldUpsampleLimit = brightFieldUpsampleLimit
         self.darkFieldUpsampleLimit = darkFieldUpsampleLimit

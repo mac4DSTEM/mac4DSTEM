@@ -6,7 +6,7 @@ package struct AnalysisOperationMetrics: Equatable {
     package let eta: TimeInterval?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(elapsed: TimeInterval, unitsPerSecond: Double?, eta: TimeInterval?) {
+    package nonisolated init(elapsed: TimeInterval, unitsPerSecond: Double?, eta: TimeInterval?) {
         self.elapsed = elapsed
         self.unitsPerSecond = unitsPerSecond
         self.eta = eta

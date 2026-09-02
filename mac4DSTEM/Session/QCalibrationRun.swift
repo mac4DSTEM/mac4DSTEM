@@ -32,7 +32,7 @@ import DSTEMCore
 package final class QCalibrationRun {
 
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
-    package init() {}
+    package nonisolated init() {}
 
     /// The last estimate the app accepted, or nil when none has been made
     /// since the dataset changed. An estimate that was REFUSED is not stored

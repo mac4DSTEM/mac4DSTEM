@@ -27,7 +27,7 @@ package nonisolated struct PolarGeometry {
     package let radialScale: Double      // radial units per bin
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(nRadial: Int, nAzimuthal: Int, radialScale: Double) {
+    package nonisolated init(nRadial: Int, nAzimuthal: Int, radialScale: Double) {
         self.nRadial = nRadial
         self.nAzimuthal = nAzimuthal
         self.radialScale = radialScale
@@ -43,7 +43,7 @@ package nonisolated struct TemplateSpot: Sendable {
     package let weight: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(r: Float, azim: Float, weight: Float) {
+    package nonisolated init(r: Float, azim: Float, weight: Float) {
         self.r = r
         self.azim = azim
         self.weight = weight
@@ -315,7 +315,7 @@ package nonisolated struct OrientationPlan {
 
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(geometry: PolarGeometry, symmetry: ACOMCrystalSymmetry, zoneAxes: [SIMD3<Double>], detectorBases: [simd_double3x3], templateSpots: [[TemplateSpot]], templates: [[Float]], templateFFTRe: [Float], templateFFTIm: [Float], intensityPower: Double, radialKernelInvAngstrom: Double, distinctOrientationRad: Double) {
+    package nonisolated init(geometry: PolarGeometry, symmetry: ACOMCrystalSymmetry, zoneAxes: [SIMD3<Double>], detectorBases: [simd_double3x3], templateSpots: [[TemplateSpot]], templates: [[Float]], templateFFTRe: [Float], templateFFTIm: [Float], intensityPower: Double, radialKernelInvAngstrom: Double, distinctOrientationRad: Double) {
         self.geometry = geometry
         self.symmetry = symmetry
         self.zoneAxes = zoneAxes

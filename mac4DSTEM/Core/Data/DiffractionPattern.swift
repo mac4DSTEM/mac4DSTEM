@@ -13,7 +13,7 @@ package nonisolated func finiteMinMax(_ pixels: [Float]) -> (Float, Float) {
     return (lo, hi)
 }
 
-package struct FloatImage {
+package nonisolated struct FloatImage {
     package let width: Int
     package let height: Int
     package let pixels: [Float]
@@ -46,7 +46,7 @@ package struct FloatImage {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(width: Int, height: Int, pixels: [Float]) {
+    package nonisolated init(width: Int, height: Int, pixels: [Float]) {
         self.width = width
         self.height = height
         self.pixels = pixels
@@ -54,20 +54,20 @@ package struct FloatImage {
 }
 
 /// A packed RGBA8 image for results that are inherently colored.
-package struct RGBAImage {
+package nonisolated struct RGBAImage {
     package let width: Int
     package let height: Int
     package let rgba: [UInt8]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(width: Int, height: Int, rgba: [UInt8]) {
+    package nonisolated init(width: Int, height: Int, rgba: [UInt8]) {
         self.width = width
         self.height = height
         self.rgba = rgba
     }
 }
 
-package struct DiffractionPattern {
+package nonisolated struct DiffractionPattern {
     package let qy: Int
     package let qx: Int
     package let pixels: [Float]
@@ -92,7 +92,7 @@ package struct DiffractionPattern {
     package nonisolated var asFloatImage: FloatImage { FloatImage(width: qx, height: qy, pixels: pixels) }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(qy: Int, qx: Int, pixels: [Float]) {
+    package nonisolated init(qy: Int, qx: Int, pixels: [Float]) {
         self.qy = qy
         self.qx = qx
         self.pixels = pixels

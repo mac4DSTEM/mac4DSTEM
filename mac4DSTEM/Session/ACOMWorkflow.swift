@@ -99,7 +99,7 @@ package struct ACOMScaleSemantics: Sendable, Equatable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(invAngstromPerPixel: Double, provenance: ACOMQScaleProvenance) {
+    package nonisolated init(invAngstromPerPixel: Double, provenance: ACOMQScaleProvenance) {
         self.invAngstromPerPixel = invAngstromPerPixel
         self.provenance = provenance
     }

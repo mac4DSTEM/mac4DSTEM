@@ -63,7 +63,7 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck) {
+    package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck) {
         self.invAngstromPerPixel = invAngstromPerPixel
         self.observedRadiusPixels = observedRadiusPixels
         self.referenceRadiusInvAngstrom = referenceRadiusInvAngstrom

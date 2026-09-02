@@ -115,7 +115,7 @@ package nonisolated struct PresentedStrainMap {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(base: StrainMap, frame: StrainPresentationFrame, exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {
+    package nonisolated init(base: StrainMap, frame: StrainPresentationFrame, exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {
         self.base = base
         self.frame = frame
         self.exx = exx

@@ -59,7 +59,7 @@ package final class ReplayRun {
         package var id: Int { index }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(index: Int, title: String, outcome: Outcome = .notReached) {
+        package nonisolated init(index: Int, title: String, outcome: Outcome = .notReached) {
             self.index = index
             self.title = title
             self.outcome = outcome

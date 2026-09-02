@@ -7,7 +7,7 @@ import Foundation
 
 package nonisolated struct ParallaxAberrationCorrectionOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     package var useFullFit = true
     package var qLowpassInvAngstrom: Double? = nil
@@ -32,7 +32,7 @@ package nonisolated struct ParallaxAberrationCorrectionResult: Sendable {
     package let butterworthOrder: Int
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(paddedPhase: [Float], correctedPhase: FloatImage, chiEven: [Float], chiOdd: [Float], transferReal: [Float], transferImaginary: [Float], samplingAngstrom: Double, usedFullFit: Bool, qLowpassInvAngstrom: Double?, qHighpassInvAngstrom: Double?, butterworthOrder: Int) {
+    package nonisolated init(paddedPhase: [Float], correctedPhase: FloatImage, chiEven: [Float], chiOdd: [Float], transferReal: [Float], transferImaginary: [Float], samplingAngstrom: Double, usedFullFit: Bool, qLowpassInvAngstrom: Double?, qHighpassInvAngstrom: Double?, butterworthOrder: Int) {
         self.paddedPhase = paddedPhase
         self.correctedPhase = correctedPhase
         self.chiEven = chiEven

@@ -45,7 +45,7 @@ package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
         package var recorded: Date
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(kind: String, parameters: [String: String], recorded: Date) {
+        package nonisolated init(kind: String, parameters: [String: String], recorded: Date) {
             self.kind = kind
             self.parameters = parameters
             self.recorded = recorded
@@ -106,7 +106,7 @@ package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(steps: [Step] = []) {
+    package nonisolated init(steps: [Step] = []) {
         self.steps = steps
     }
 }

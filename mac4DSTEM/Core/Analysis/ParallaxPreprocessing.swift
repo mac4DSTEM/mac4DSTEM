@@ -13,7 +13,7 @@ package nonisolated struct ParallaxDetectorIndex: Equatable, Sendable {
     package let qy: Int
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(qx: Int, qy: Int) {
+    package nonisolated init(qx: Int, qy: Int) {
         self.qx = qx
         self.qy = qy
     }
@@ -24,7 +24,7 @@ package nonisolated struct ParallaxVector: Equatable, Sendable {
     package let qy: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(qx: Float, qy: Float) {
+    package nonisolated init(qx: Float, qy: Float) {
         self.qx = qx
         self.qy = qy
     }
@@ -104,7 +104,7 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
 
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(scanSamplingAngstrom: Double, reciprocalSamplingInvAngstrom: Double, energyEV: Double, wavelengthAngstrom: Double, originQX: Double, originQY: Double, rotationRad: Double, transpose: Bool) {
+    package nonisolated init(scanSamplingAngstrom: Double, reciprocalSamplingInvAngstrom: Double, energyEV: Double, wavelengthAngstrom: Double, originQX: Double, originQY: Double, rotationRad: Double, transpose: Bool) {
         self.scanSamplingAngstrom = scanSamplingAngstrom
         self.reciprocalSamplingInvAngstrom = reciprocalSamplingInvAngstrom
         self.energyEV = energyEV
@@ -127,7 +127,7 @@ package nonisolated struct ParallaxPreprocessOptions: Equatable, Sendable {
     package var maxStackBytes: Int = 1_073_741_824
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(thresholdIntensity: Float = 0.8, edgeBlend: Float = 16, paddingY: Int = 32, paddingX: Int = 32, tileRows: Int? = nil, maxStackBytes: Int = 1_073_741_824) {
+    package nonisolated init(thresholdIntensity: Float = 0.8, edgeBlend: Float = 16, paddingY: Int = 32, paddingX: Int = 32, tileRows: Int? = nil, maxStackBytes: Int = 1_073_741_824) {
         self.thresholdIntensity = thresholdIntensity
         self.edgeBlend = edgeBlend
         self.paddingY = paddingY
@@ -188,7 +188,7 @@ package nonisolated struct ParallaxPreprocessResult: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, stackHeight: Int, stackWidth: Int, calibration: ParallaxPhysicalCalibration, thresholdIntensity: Float, detectorMask: [Bool], detectorIndices: [ParallaxDetectorIndex], reciprocalVectors: [ParallaxVector], probeAnglesMrad: [ParallaxVector], edgeWindow: [Float], normalizedStack: [Float], unshiftedStack: [Float], incoherentBF: [Float], initialError: Float) {
+    package nonisolated init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, stackHeight: Int, stackWidth: Int, calibration: ParallaxPhysicalCalibration, thresholdIntensity: Float, detectorMask: [Bool], detectorIndices: [ParallaxDetectorIndex], reciprocalVectors: [ParallaxVector], probeAnglesMrad: [ParallaxVector], edgeWindow: [Float], normalizedStack: [Float], unshiftedStack: [Float], incoherentBF: [Float], initialError: Float) {
         self.scanHeight = scanHeight
         self.scanWidth = scanWidth
         self.detectorHeight = detectorHeight

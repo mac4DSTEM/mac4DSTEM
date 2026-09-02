@@ -10,7 +10,7 @@ package nonisolated struct RecentDataset: Codable, Identifiable, Hashable {
     package var lastOpened: Date
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(id: String, displayName: String, bookmark: Data, lastOpened: Date) {
+    package nonisolated init(id: String, displayName: String, bookmark: Data, lastOpened: Date) {
         self.id = id
         self.displayName = displayName
         self.bookmark = bookmark
@@ -148,7 +148,7 @@ package nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(datasetID: String, bookmark: Data, selectedX: Int, selectedY: Int, analysisMode: String, updated: Date, loadSpecification: LoadSpecification? = nil) {
+    package nonisolated init(datasetID: String, bookmark: Data, selectedX: Int, selectedY: Int, analysisMode: String, updated: Date, loadSpecification: LoadSpecification? = nil) {
         self.datasetID = datasetID
         self.bookmark = bookmark
         self.selectedX = selectedX

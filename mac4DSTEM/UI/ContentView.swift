@@ -1574,7 +1574,7 @@ struct ContentView: View {
         // explains itself and there is nothing to open or close.
         let complete = reconstructionStageIsComplete(number)
         let active = number == currentReconstructionStage
-        return VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle")
                     .foregroundStyle(complete ? Color.green

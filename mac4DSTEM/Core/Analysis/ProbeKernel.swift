@@ -188,7 +188,7 @@ package nonisolated struct ProbeKernel: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(px: Int, py: Int, qx: Int, qy: Int, probeRadius: Float, trenchRadii: (inner: Float, outer: Float), source: ProbeKernelSource, kernel: [Float], ftRe: [Float], ftIm: [Float]) {
+    package nonisolated init(px: Int, py: Int, qx: Int, qy: Int, probeRadius: Float, trenchRadii: (inner: Float, outer: Float), source: ProbeKernelSource, kernel: [Float], ftRe: [Float], ftIm: [Float]) {
         self.px = px
         self.py = py
         self.qx = qx

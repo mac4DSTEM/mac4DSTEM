@@ -5,7 +5,7 @@ import Foundation
 /// monotonic/idempotent; callers check at row or iteration boundaries.
 package nonisolated final class AnalysisCancellationToken: @unchecked Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     private let lock = NSLock()
     private var cancelled = false

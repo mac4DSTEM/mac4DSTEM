@@ -78,7 +78,7 @@ package nonisolated struct CalibrationInvalidation: Equatable, Sendable, Identif
     package var id: String { field.rawValue + reason }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(field: Field, reason: String) {
+    package nonisolated init(field: Field, reason: String) {
         self.field = field
         self.reason = reason
     }
@@ -101,7 +101,7 @@ package nonisolated enum CalibrationReReference {
         package var y: Float
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(x: Float, y: Float) {
+        package nonisolated init(x: Float, y: Float) {
             self.x = x
             self.y = y
         }
@@ -131,7 +131,7 @@ package nonisolated enum CalibrationReReference {
         package var isUnchanged: Bool { invalidated.isEmpty && !scanIndexedResultsAreAmbiguous }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(calibration: Calibration, apertureCenter: DetectorPoint? = nil, provenance: CalibrationProvenance, invalidated: [CalibrationInvalidation], scanIndexedResultsAreAmbiguous: Bool) {
+        package nonisolated init(calibration: Calibration, apertureCenter: DetectorPoint? = nil, provenance: CalibrationProvenance, invalidated: [CalibrationInvalidation], scanIndexedResultsAreAmbiguous: Bool) {
             self.calibration = calibration
             self.apertureCenter = apertureCenter
             self.provenance = provenance

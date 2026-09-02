@@ -12,7 +12,7 @@ package nonisolated struct ScientificSeriesPoint: Equatable, Sendable {
     package let value: Double
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(index: Int, x: Double, y: Double, value: Double) {
+    package nonisolated init(index: Int, x: Double, y: Double, value: Double) {
         self.index = index
         self.x = x
         self.y = y
@@ -70,7 +70,7 @@ package nonisolated struct ScientificSeriesGeometry: Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(segments: [[ScientificSeriesPoint]], minimum: Double?, maximum: Double?) {
+    package nonisolated init(segments: [[ScientificSeriesPoint]], minimum: Double?, maximum: Double?) {
         self.segments = segments
         self.minimum = minimum
         self.maximum = maximum

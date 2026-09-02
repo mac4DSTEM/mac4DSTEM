@@ -95,7 +95,7 @@ package nonisolated struct SessionResultDescriptor: Identifiable, Sendable, Equa
     package let provenance: [String: String]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(id: String, kind: String, displayName: String, valueUnits: String, width: Int, height: Int, storage: SessionResultStorage, pixelSizeRow: Double?, pixelSizeColumn: Double?, pixelUnits: String?, provenance: [String: String]) {
+    package nonisolated init(id: String, kind: String, displayName: String, valueUnits: String, width: Int, height: Int, storage: SessionResultStorage, pixelSizeRow: Double?, pixelSizeColumn: Double?, pixelUnits: String?, provenance: [String: String]) {
         self.id = id
         self.kind = kind
         self.displayName = displayName
@@ -123,7 +123,7 @@ package nonisolated struct SessionSidecarInventory: Sendable, Equatable {
     package let currentResultID: String?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(hasSidecar: Bool, hasBraggVectors: Bool, hasCalibration: Bool, results: [SessionResultDescriptor], currentResultID: String?) {
+    package nonisolated init(hasSidecar: Bool, hasBraggVectors: Bool, hasCalibration: Bool, results: [SessionResultDescriptor], currentResultID: String?) {
         self.hasSidecar = hasSidecar
         self.hasBraggVectors = hasBraggVectors
         self.hasCalibration = hasCalibration
@@ -152,7 +152,7 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
     package var replayRecord: SessionReplayRecord? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil) {
+    package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil) {
         self.inventory = inventory
         self.calibration = calibration
         self.currentResult = currentResult
@@ -186,7 +186,7 @@ package nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable 
     package let discardedQColumns: Int
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(shape: [Int], discardedQRows: Int, discardedQColumns: Int) {
+    package nonisolated init(shape: [Int], discardedQRows: Int, discardedQColumns: Int) {
         self.shape = shape
         self.discardedQRows = discardedQRows
         self.discardedQColumns = discardedQColumns
@@ -270,7 +270,7 @@ package nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(schema: Int = 1, sourceFile: String? = nil, scanOffsetY: Int, scanOffsetX: Int, scanHeight: Int, scanWidth: Int, detectorOffsetY: Int, detectorOffsetX: Int, detectorBin: Int, detectorHeight: Int, detectorWidth: Int) {
+    package nonisolated init(schema: Int = 1, sourceFile: String? = nil, scanOffsetY: Int, scanOffsetX: Int, scanHeight: Int, scanWidth: Int, detectorOffsetY: Int, detectorOffsetX: Int, detectorBin: Int, detectorHeight: Int, detectorWidth: Int) {
         self.schema = schema
         self.sourceFile = sourceFile
         self.scanOffsetY = scanOffsetY

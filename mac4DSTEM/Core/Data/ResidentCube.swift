@@ -106,7 +106,7 @@ package nonisolated struct ResidentCube: @unchecked Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(buffer: MTLBuffer, descriptor: DatasetDescriptor, specification: LoadSpecification) {
+    package nonisolated init(buffer: MTLBuffer, descriptor: DatasetDescriptor, specification: LoadSpecification) {
         self.buffer = buffer
         self.descriptor = descriptor
         self.specification = specification

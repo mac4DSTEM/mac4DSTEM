@@ -81,7 +81,7 @@ package nonisolated struct DatasetPreview: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(realSpace: FloatImage, meanDP: DiffractionPattern, maxDP: DiffractionPattern, strideY: Int, strideX: Int, sampledPositions: Int, totalPositions: Int) {
+    package nonisolated init(realSpace: FloatImage, meanDP: DiffractionPattern, maxDP: DiffractionPattern, strideY: Int, strideX: Int, sampledPositions: Int, totalPositions: Int) {
         self.realSpace = realSpace
         self.meanDP = meanDP
         self.maxDP = maxDP

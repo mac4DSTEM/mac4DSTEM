@@ -163,7 +163,6 @@ struct DiffractionView: View {
                 // mrad mode shows the direct scattering angle, but falls back
                 // to the reciprocal/px behavior automatically if the Q
                 // calibration or voltage needed for it disappears.
-                let qSize = app.calibration.qPixelSize
                 PaneBottomOverlay {
                     if app.patternScaleUnit == .milliradians,
                        let mradPerPixel = app.dpcMilliradiansPerDetectorPixel {

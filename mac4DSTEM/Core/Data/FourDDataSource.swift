@@ -20,7 +20,7 @@ package nonisolated struct FourDScanTile: Sendable {
     package var rowCount: Int { yRange.count }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(yRange: Range<Int>, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, pixels: [Float]) {
+    package nonisolated init(yRange: Range<Int>, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, pixels: [Float]) {
         self.yRange = yRange
         self.scanWidth = scanWidth
         self.detectorHeight = detectorHeight
@@ -32,7 +32,7 @@ package nonisolated struct FourDScanTile: Sendable {
 /// Per-position origin arrays read from a py4DSTEM calibration bundle. Values
 /// stay in py4DSTEM's detector-axis frame here; AppState performs the single
 /// documented qx/qy -> app y/x conversion when activating the dataset.
-package struct PixelOriginMaps: Sendable {
+package nonisolated struct PixelOriginMaps: Sendable {
     /// py4DSTEM real-space array shape [R_Nx, R_Ny].
     package var shape: [Int]
     package var fittedQX: [Double]
@@ -41,7 +41,7 @@ package struct PixelOriginMaps: Sendable {
     package var measuredQY: [Double]? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(shape: [Int], fittedQX: [Double], fittedQY: [Double], measuredQX: [Double]? = nil, measuredQY: [Double]? = nil) {
+    package nonisolated init(shape: [Int], fittedQX: [Double], fittedQY: [Double], measuredQX: [Double]? = nil, measuredQY: [Double]? = nil) {
         self.shape = shape
         self.fittedQX = fittedQX
         self.fittedQY = fittedQY
@@ -53,7 +53,7 @@ package struct PixelOriginMaps: Sendable {
 /// Pixel-size calibration read from the file, when the format carries it
 /// (DM4 does; plain HDF5 usually doesn't). Units are the file's own strings
 /// (Gatan: "nm" real-space, "1/nm" diffraction).
-package struct PixelCalibration: Sendable {
+package nonisolated struct PixelCalibration: Sendable {
     package var rSize: Double?
     package var rUnits: String?
     package var qSize: Double?
@@ -83,7 +83,7 @@ package struct PixelCalibration: Sendable {
     package var originMaps: PixelOriginMaps? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(rSize: Double? = nil, rUnits: String? = nil, qSize: Double? = nil, qUnits: String? = nil, qrFlip: Bool? = nil, qx0Mean: Double? = nil, qy0Mean: Double? = nil, ellipseA: Double? = nil, ellipseB: Double? = nil, ellipseTheta: Double? = nil, qrRotationRad: Double? = nil, probeSemiangle: Double? = nil, originMaps: PixelOriginMaps? = nil) {
+    package nonisolated init(rSize: Double? = nil, rUnits: String? = nil, qSize: Double? = nil, qUnits: String? = nil, qrFlip: Bool? = nil, qx0Mean: Double? = nil, qy0Mean: Double? = nil, ellipseA: Double? = nil, ellipseB: Double? = nil, ellipseTheta: Double? = nil, qrRotationRad: Double? = nil, probeSemiangle: Double? = nil, originMaps: PixelOriginMaps? = nil) {
         self.rSize = rSize
         self.rUnits = rUnits
         self.qSize = qSize

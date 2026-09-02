@@ -14,7 +14,7 @@ package nonisolated struct ParallaxScanShift: Equatable, Sendable {
     package let column: Float
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(row: Float, column: Float) {
+    package nonisolated init(row: Float, column: Float) {
         self.row = row
         self.column = column
     }
@@ -26,7 +26,7 @@ package nonisolated struct ParallaxAlignmentGroup: Equatable, Sendable {
     package let memberIndices: [Int]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(rowBin: Int, columnBin: Int, memberIndices: [Int]) {
+    package nonisolated init(rowBin: Int, columnBin: Int, memberIndices: [Int]) {
         self.rowBin = rowBin
         self.columnBin = columnBin
         self.memberIndices = memberIndices
@@ -35,7 +35,7 @@ package nonisolated struct ParallaxAlignmentGroup: Equatable, Sendable {
 
 package nonisolated struct ParallaxAlignmentOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     /// Nil selects the first (coarsest) value in py4DSTEM's default schedule.
     package var alignmentBin: Int? = nil
@@ -102,7 +102,7 @@ package nonisolated struct ParallaxAlignmentResult: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(alignmentBin: Int, alignmentSchedule: [Int], completedBins: [Int], upsampleFactor: Int, groups: [ParallaxAlignmentGroup], groupShifts: [ParallaxScanShift], totalShifts: [ParallaxScanShift], shiftedStack: [Float], shiftedMasks: [Float], reconstructionMask: [Float], alignedBF: [Float], errorHistory: [Float], scanHeight: Int, scanWidth: Int, stackHeight: Int, stackWidth: Int) {
+    package nonisolated init(alignmentBin: Int, alignmentSchedule: [Int], completedBins: [Int], upsampleFactor: Int, groups: [ParallaxAlignmentGroup], groupShifts: [ParallaxScanShift], totalShifts: [ParallaxScanShift], shiftedStack: [Float], shiftedMasks: [Float], reconstructionMask: [Float], alignedBF: [Float], errorHistory: [Float], scanHeight: Int, scanWidth: Int, stackHeight: Int, stackWidth: Int) {
         self.alignmentBin = alignmentBin
         self.alignmentSchedule = alignmentSchedule
         self.completedBins = completedBins

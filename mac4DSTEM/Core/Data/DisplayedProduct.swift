@@ -17,20 +17,20 @@ package enum ProductQuantitativeStatus: String, Codable, Sendable {
     case categorical
 }
 
-package struct ProductSampling: Equatable, Sendable {
+package nonisolated struct ProductSampling: Equatable, Sendable {
     package let row: Double?
     package let column: Double?
     package let units: String?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(row: Double?, column: Double?, units: String?) {
+    package nonisolated init(row: Double?, column: Double?, units: String?) {
         self.row = row
         self.column = column
         self.units = units
     }
 }
 
-package enum ProductPayload {
+package nonisolated enum ProductPayload {
     case scalar(FloatImage)
     case rgba(RGBAImage)
 
@@ -42,25 +42,25 @@ package enum ProductPayload {
     }
 }
 
-package struct ProductQualityField {
+package nonisolated struct ProductQualityField {
     package let name: String
     package let units: String
     package let image: FloatImage
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(name: String, units: String, image: FloatImage) {
+    package nonisolated init(name: String, units: String, image: FloatImage) {
         self.name = name
         self.units = units
         self.image = image
     }
 }
 
-package struct ProductOverlayDescriptor: Equatable, Sendable {
+package nonisolated struct ProductOverlayDescriptor: Equatable, Sendable {
     package let kind: String
     package let provenance: String
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(kind: String, provenance: String) {
+    package nonisolated init(kind: String, provenance: String) {
         self.kind = kind
         self.provenance = provenance
     }
@@ -74,7 +74,7 @@ package enum ProductOrigin: Equatable, Sendable {
     case restoredFromSidecar
 }
 
-package struct DisplayedProduct {
+package nonisolated struct DisplayedProduct {
     package let origin: ProductOrigin
     package let kind: String
     package let displayName: String
@@ -162,7 +162,7 @@ package struct ProductSample: Equatable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(x: Int, y: Int, value: Float?, units: String, quality: [String: Float]) {
+    package nonisolated init(x: Int, y: Int, value: Float?, units: String, quality: [String: Float]) {
         self.x = x
         self.y = y
         self.value = value

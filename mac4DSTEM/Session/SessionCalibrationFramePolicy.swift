@@ -56,7 +56,7 @@ package nonisolated enum SessionCalibrationTranslation {
         package var invalidated: [CalibrationInvalidation]
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package init(calibration: Calibration, center: CalibrationReReference.DetectorPoint? = nil, restoredMaps: Bool, invalidated: [CalibrationInvalidation]) {
+        package nonisolated init(calibration: Calibration, center: CalibrationReReference.DetectorPoint? = nil, restoredMaps: Bool, invalidated: [CalibrationInvalidation]) {
             self.calibration = calibration
             self.center = center
             self.restoredMaps = restoredMaps

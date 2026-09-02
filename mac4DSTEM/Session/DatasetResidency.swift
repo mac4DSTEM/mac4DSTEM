@@ -31,7 +31,7 @@ import DSTEMCore
 package final class DatasetResidency {
 
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
-    package init() {}
+    package nonisolated init() {}
 
     /// What was asked for. `.streamed` is the shipped default — `.automatic`
     /// was dropped for v2 (owner decision 2026-08-18; it always streamed, so

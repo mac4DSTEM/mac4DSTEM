@@ -543,7 +543,7 @@ package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
 }
 
 private extension simd_double3x3 {
-    package nonisolated init(rows: [[Double]]) {
+    nonisolated init(rows: [[Double]]) {
         self.init(columns: (
             SIMD3(rows[0][0], rows[1][0], rows[2][0]),
             SIMD3(rows[0][1], rows[1][1], rows[2][1]),
@@ -584,7 +584,7 @@ package nonisolated struct OrientationResult: Equatable {
     )
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0) {
+    package nonisolated init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0) {
         self.templateIndex = templateIndex
         self.euler = euler
         self.inPlaneAngle = inPlaneAngle

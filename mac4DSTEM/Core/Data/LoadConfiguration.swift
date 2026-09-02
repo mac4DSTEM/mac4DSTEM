@@ -48,7 +48,7 @@ package nonisolated struct DragRectangle: Equatable, Sendable {
     package var maxY: Double { max(startY, endY) }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(startX: Double, startY: Double, endX: Double, endY: Double) {
+    package nonisolated init(startX: Double, startY: Double, endX: Double, endY: Double) {
         self.startX = startX
         self.startY = startY
         self.endX = endX
@@ -228,7 +228,7 @@ package nonisolated struct LoadConfiguration: Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init(source: DatasetDescriptor, scanCrop: AxisCrop? = nil, detectorCrop: AxisCrop? = nil, detectorBin: Int = 1) {
+    package nonisolated init(source: DatasetDescriptor, scanCrop: AxisCrop? = nil, detectorCrop: AxisCrop? = nil, detectorBin: Int = 1) {
         self.source = source
         self.scanCrop = scanCrop
         self.detectorCrop = detectorCrop

@@ -7,7 +7,7 @@ import Foundation
 
 package nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package init() {}
+    package nonisolated init() {}
 
     package var probeRolloffMrad: Double = 2
     package var maxResidentBytes = 1_073_741_824

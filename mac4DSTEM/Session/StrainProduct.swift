@@ -61,7 +61,7 @@ package enum StrainBasisMode: String, CaseIterable, Identifiable {
 package final class StrainProduct {
 
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
-    package init() {}
+    package nonisolated init() {}
 
     /// The retained whole-scan product. Only `publish`/`clear` may replace it,
     /// so a map can never appear without its failure state being reconciled.
