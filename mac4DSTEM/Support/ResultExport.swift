@@ -862,27 +862,21 @@ extension AppState {
                     try BraggVectorEMDWriter.loadResultMap(id: saved.id, from: url)
                 }.value
                 guard epoch == datasetEpoch, let map else { return }
-                resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
-                resultRGBA = nil
-                if let image = resultImage {
-                    publishRestoredProduct(   // v2.5 step 3b-6
-                        kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
-                        payload: .scalar(image), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
-                        pixelUnits: map.pixelUnits, provenance: map.provenance)
-                }
+                publishRestoredProduct(   // v2.5 step 3b-6
+                    kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                    payload: .scalar(FloatImage(width: map.width, height: map.height, pixels: map.pixels)),
+                    pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                    pixelUnits: map.pixelUnits, provenance: map.provenance)
             case .rgba8:
                 let map = try await Task.detached(priority: .utility) {
                     try BraggVectorEMDWriter.loadRGBAResultMap(id: saved.id, from: url)
                 }.value
                 guard epoch == datasetEpoch, let map else { return }
-                resultImage = nil
-                resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
-                if let rgba = resultRGBA {
-                    publishRestoredProduct(   // v2.5 step 3b-6
-                        kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
-                        payload: .rgba(rgba), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
-                        pixelUnits: map.pixelUnits, provenance: map.provenance)
-                }
+                publishRestoredProduct(   // v2.5 step 3b-6
+                    kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                    payload: .rgba(RGBAImage(width: map.width, height: map.height, rgba: map.rgba)),
+                    pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                    pixelUnits: map.pixelUnits, provenance: map.provenance)
             }
             sessionInventory = SessionSidecarInventory(
                 hasSidecar: sessionInventory.hasSidecar,

@@ -3101,27 +3101,21 @@ final class AppState {
     ) {
         let url = sessionSidecar.location(for: descriptor)
         if let map = snapshot.currentResult {
-            resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
-            resultRGBA = nil
-            if let image = resultImage {
-                publishRestoredProduct(   // v2.5 step 3b-6
-                    kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
-                    payload: .scalar(image), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
-                    pixelUnits: map.pixelUnits, provenance: map.provenance)
-            }
+            publishRestoredProduct(   // v2.5 step 3b-6
+                kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                payload: .scalar(FloatImage(width: map.width, height: map.height, pixels: map.pixels)),
+                pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                pixelUnits: map.pixelUnits, provenance: map.provenance)
         } else if let map = snapshot.currentRGBAResult {
             guard map.width == descriptor.rx, map.height == descriptor.ry else {
                 statusText = "Ignored \(url.lastPathComponent): saved RGBA map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
                 return
             }
-            resultImage = nil
-            resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
-            if let rgba = resultRGBA {
-                publishRestoredProduct(   // v2.5 step 3b-6
-                    kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
-                    payload: .rgba(rgba), pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
-                    pixelUnits: map.pixelUnits, provenance: map.provenance)
-            }
+            publishRestoredProduct(   // v2.5 step 3b-6
+                kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
+                payload: .rgba(RGBAImage(width: map.width, height: map.height, rgba: map.rgba)),
+                pixelSizeRow: map.pixelSizeRow, pixelSizeColumn: map.pixelSizeColumn,
+                pixelUnits: map.pixelUnits, provenance: map.provenance)
         } else {
             return
         }
@@ -4926,11 +4920,10 @@ final class AppState {
         let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
         let bvm = calibrated.map(qy: d.qy, qx: d.qx)
         resultColormap = .viridis
-        resultImage = FloatImage(width: bvm.width, height: bvm.height,
-                                 pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
-        resultRGBA = nil
-        resultVersion &+= 1
-        publishProductFromLegacyFields()   // v2.5 step 3b-4
+        publishProduct(   // v2.5 step 3e: its own label
+            kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
+            payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
+                                        pixels: bvm.pixels.map { log10(1 + max($0, 0)) })))
         Task { await ensureScanNavigator() }
     }
 
@@ -5147,27 +5140,31 @@ final class AppState {
     /// Show the selected strain component, expressed in the presentation
     /// frame; masked positions remain NaN and render with the explicit
     /// no-data color, never as neutral zero strain.
+    /// The one publish site for the strain product (v2.5 step 3e, condition 2).
     private func applyStrainDisplay() {
         guard let map = strain.map, navigation.analysisMode == .strain else { return }
         resultColormap = (strain.component == .residual || strain.component == .indexed)
             ? .viridis : .rdbu
-        resultImage = map.presented(in: strainPresentationFrame)
-            .component(strain.component)
-        resultRGBA = nil
-        resultVersion &+= 1
-        // v2.5 step 3b-2: the strain product carries its fit-quality fields and
-        // validity mask from the map itself (moved here from `displayedProduct`).
-        publishProductFromLegacyFields(
+        let kind: String, units: String
+        switch strain.component {
+        case .exx:      (kind, units) = ("strain_exx", "strain")
+        case .eyy:      (kind, units) = ("strain_eyy", "strain")
+        case .exy:      (kind, units) = ("strain_exy", "strain")
+        case .theta:    (kind, units) = ("strain_theta", "rad")
+        case .residual: (kind, units) = ("strain_fit_residual", "detector_px")
+        case .indexed:  (kind, units) = ("strain_indexed", "boolean")
+        }
+        publishProduct(
+            kind: kind, displayName: "Strain · \(strain.component.rawValue)", valueUnits: units,
+            payload: .scalar(map.presented(in: strainPresentationFrame).component(strain.component)),
             validityMask: map.mask,
             qualityFields: [
                 ProductQualityField(
                     name: "fit residual", units: "detector_px",
-                    image: FloatImage(width: map.width, height: map.height,
-                                      pixels: map.localResidualPixels)),
+                    image: FloatImage(width: map.width, height: map.height, pixels: map.localResidualPixels)),
                 ProductQualityField(
                     name: "indexed", units: "boolean",
-                    image: FloatImage(width: map.width, height: map.height,
-                                      pixels: map.mask.map { $0 ? 1 : 0 })),
+                    image: FloatImage(width: map.width, height: map.height, pixels: map.mask.map { $0 ? 1 : 0 })),
             ],
             overlays: [ProductOverlayDescriptor(
                 kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")])
@@ -5477,42 +5474,39 @@ final class AppState {
         return .published
     }
 
+    /// The one publish site for every ACOM display mode: pixels, label,
+    /// validity and quality fields chosen together (v2.5 step 3e, condition 2).
     private func applyACOMDisplay() {
         guard let map = orientationMap, navigation.analysisMode == .acom else { return }
         resultColormap = .viridis
-        // v2.5 step 3b-4: every ACOM display mode publishes the product with the
-        // map's own validity (matched template) and quality (reliability, score),
-        // moved here from `displayedProduct`.
-        func publishACOMProduct() {
-            publishProductFromLegacyFields(
-                validityMask: map.results.map { $0.templateIndex >= 0 },
-                qualityFields: [
-                    ProductQualityField(name: "reliability", units: "dimensionless",
-                                        image: map.reliabilityImage),
-                    ProductQualityField(name: "score", units: "dimensionless",
-                                        image: map.scoreImage),
-                ],
-                overlays: [ProductOverlayDescriptor(
-                    kind: "matched_template", provenance: "selected ACOM orientation template")])
-        }
+        let payload: ProductPayload
+        let baseKind: String
         switch acomDisplay {
-        case .ipfZ:
-            resultImage = nil
-            resultRGBA = map.ipfZImage
-            resultVersion &+= 1
-            publishACOMProduct()
-            return
-        case .reliability: resultImage = map.reliabilityImage
-        case .disorientation: resultImage = map.symmetryDisorientationImage
-        case .score:       resultImage = map.scoreImage
-        case .inPlane:     resultImage = map.inPlaneAngleImage
-        case .phi1:        resultImage = map.phi1Image
-        case .Phi:         resultImage = map.PhiImage
-        case .phi2:        resultImage = map.phi2Image
+        case .ipfZ:           payload = .rgba(map.ipfZImage);                     baseKind = "acom_ipf_z"
+        case .reliability:    payload = .scalar(map.reliabilityImage);            baseKind = "acom_reliability"
+        case .disorientation: payload = .scalar(map.symmetryDisorientationImage); baseKind = "acom_\(map.symmetry.rawValue)_fz_angle"
+        case .score:          payload = .scalar(map.scoreImage);                  baseKind = "acom_score"
+        case .inPlane:        payload = .scalar(map.inPlaneAngleImage);           baseKind = "acom_in_plane"
+        case .phi1:           payload = .scalar(map.phi1Image);                   baseKind = "acom_phi1"
+        case .Phi:            payload = .scalar(map.PhiImage);                    baseKind = "acom_Phi"
+        case .phi2:           payload = .scalar(map.phi2Image);                   baseKind = "acom_phi2"
         }
-        resultRGBA = nil
-        resultVersion &+= 1
-        publishACOMProduct()
+        // All three scopes are named, including full scan: a product whose
+        // label said least about how it was made was the most complete one.
+        let scope = acomLastRunScope ?? .fullScan
+        let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
+        publishProduct(
+            kind: "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))",
+            displayName: "ACOM \(scope.rawValue.lowercased()) · \(acomDisplay.rawValue)",
+            valueUnits: angular.contains(acomDisplay) ? "rad" : "dimensionless",
+            payload: payload,
+            validityMask: map.results.map { $0.templateIndex >= 0 },
+            qualityFields: [
+                ProductQualityField(name: "reliability", units: "dimensionless", image: map.reliabilityImage),
+                ProductQualityField(name: "score", units: "dimensionless", image: map.scoreImage),
+            ],
+            overlays: [ProductOverlayDescriptor(
+                kind: "matched_template", provenance: "selected ACOM orientation template")])
     }
 
     // MARK: - Fit-verification overlays (diffraction pane)
