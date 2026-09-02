@@ -51,7 +51,7 @@ struct CalibrationDetailsView: View {
             Button {
                 Task { await appState.calibrateRotation() }
             } label: {
-                Label("Calibrate Rotation", systemImage: "rotate.3d")
+                Label("Measure R–Q Rotation", systemImage: "rotate.3d")
             }
             .disabled(appState.isBusy)
 

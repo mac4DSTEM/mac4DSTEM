@@ -512,6 +512,14 @@ package struct Calibration: Sendable {
 
     package var qPixelSize: Double?
     package var qPixelUnits: String?
+
+    /// The diffraction scale bar's calibration: the Q sampling and its unit
+    /// only when BOTH are known, otherwise detector pixels. A missing unit is
+    /// never guessed as "1/nm" (v2.5 step 3, negative control 3).
+    package var diffractionScaleBar: (perPixel: Double, unitLabel: String) {
+        if let q = qPixelSize, q > 0, let u = qPixelUnits, !u.isEmpty { return (q, u) }
+        return (1, "px")
+    }
     package var rPixelSize: Double?
     package var rPixelUnits: String?
 

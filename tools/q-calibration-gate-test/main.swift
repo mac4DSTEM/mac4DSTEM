@@ -25,15 +25,8 @@
 
 import Foundation
 
-/// App-layer value type `VirtualDetector`'s aperture overload needs, mirrored so
-/// the production source compiles standalone (the convention every harness in
-/// `tools/` that pulls the `analysis` group follows).
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 var failures = 0
 var checks = 0

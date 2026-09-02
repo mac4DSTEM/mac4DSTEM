@@ -731,7 +731,15 @@ final class AppState {
             || units.contains("arbitrary") || units.contains("log_") {
             return .relative
         }
-        return .quantitative
+        // Only named families are quantitative. An unknown kind — a future
+        // writer, a foreign sidecar — must not inherit the strongest claim
+        // (v2.5 step 3, negative control 2; docs/v2.5-plan.md §9e).
+        let quantitativeFamilies = ["strain", "local_lattice", "dpc", "idpc",
+                                    "virtual_detector", "disk_detection", "matched_template"]
+        if quantitativeFamilies.contains(where: { kind == $0 || kind.hasPrefix($0 + "_") }) {
+            return .quantitative
+        }
+        return .relative
     }
 
     /// Viewer-level quality inspection: shows the displayed product's paired

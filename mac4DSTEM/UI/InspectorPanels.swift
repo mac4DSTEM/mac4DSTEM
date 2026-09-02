@@ -27,7 +27,7 @@ struct PerformanceView: View {
                 }
             }
             if let descriptor = appState.descriptor {
-                labeled("Cube (f32)", SystemMonitor.byteString(descriptor.byteCountAsFloat32))
+                labeled("Full cube (f32)", SystemMonitor.byteString(descriptor.byteCountAsFloat32))
                 // Which path the analyses are actually taking. Resident and
                 // streaming produce identical numbers, so nothing else on
                 // screen would tell the user which one they are on (L2.6).

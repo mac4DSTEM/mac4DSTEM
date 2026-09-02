@@ -170,10 +170,11 @@ struct DiffractionView: View {
                                 / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
                             unitLabel: "mrad")
                     } else {
+                        let bar = app.calibration.diffractionScaleBar
                         ScaleBarView(
-                            unitsPerPoint: (qSize ?? 1) * Double(qx)
+                            unitsPerPoint: bar.perPixel * Double(qx)
                                 / Double(box.width) / Double(max(0.25, zp.effectiveZoom)),
-                            unitLabel: qSize != nil ? (app.calibration.qPixelUnits ?? "1/nm") : "px")
+                            unitLabel: bar.unitLabel)
                     }
                 } trailing: {
                     if let range = app.patternDisplayedValueRange {

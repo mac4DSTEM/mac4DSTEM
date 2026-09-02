@@ -358,8 +358,8 @@ struct ProductWorkspaceHeader: View {
 
     private var headerSubtitle: String {
         switch appState.navigation.workspaceArea {
-        case .prepare: "Confirm the dataset, center the probe, and establish physical scales."
-        case .results: "Review, preserve, and export the products from this dataset."
+        // One subtitle per workspace, shared with the sidebar (plan §3 item 8).
+        case .prepare, .results: appState.navigation.workspaceArea.subtitle
         case .image, .map, .reconstruct: appState.navigation.analysisMode.productSubtitle
         }
     }
@@ -375,7 +375,7 @@ struct ProductWorkspaceHeader: View {
         switch appState.navigation.workspaceArea {
         case .prepare:
             if !appState.calibration.hasFittedOrigin { "Calibrate Origin" }
-            else if !appState.calibration.hasRotation { "Calibrate Rotation" }
+            else if !appState.calibration.hasRotation { "Measure R–Q Rotation" }
             else { nil }
         case .image:
             "Update Image"

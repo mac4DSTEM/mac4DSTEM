@@ -77,3 +77,33 @@ final class SessionCalibrationTranslationTests: XCTestCase {
         XCTAssertNotNil(out.calibration.origin)
     }
 }
+
+// MARK: - v2.5 step 3 negative controls (docs/v2.5-plan.md §9e), written 2026-09-03
+
+@MainActor
+final class ProductStatusNegativeControlTests: XCTestCase {
+    func testAnUnknownResultKindIsNotReportedQuantitative() {
+        let app = AppState()
+        XCTAssertNotEqual(app.quantitativeStatus(for: "some_future_kind", units: "nm"), .quantitative,
+                          "A kind this build has never heard of must not inherit the strongest claim")
+        XCTAssertEqual(app.quantitativeStatus(for: "strain_exx", units: "1"), .quantitative)
+        XCTAssertEqual(app.quantitativeStatus(for: "dpc_magnitude_mrad", units: "mrad"), .quantitative)
+        XCTAssertEqual(app.quantitativeStatus(for: "virtual_detector", units: "intensity"), .relative)
+        XCTAssertEqual(app.quantitativeStatus(for: "dpc_color", units: ""), .categorical)
+    }
+
+    func testAMissingQUnitNeverBecomesAGuessedUnit() {
+        var calibration = Calibration()
+        calibration.qPixelSize = 0.0146
+        calibration.qPixelUnits = nil
+        XCTAssertEqual(calibration.diffractionScaleBar.unitLabel, "px",
+                       "A known size with an unknown unit is not a calibrated bar")
+        XCTAssertEqual(calibration.diffractionScaleBar.perPixel, 1)
+        calibration.qPixelUnits = "A^-1"
+        XCTAssertEqual(calibration.diffractionScaleBar.unitLabel, "A^-1")
+        XCTAssertEqual(calibration.diffractionScaleBar.perPixel, 0.0146)
+        calibration.qPixelSize = nil
+        XCTAssertEqual(calibration.diffractionScaleBar.unitLabel, "px")
+    }
+}
+

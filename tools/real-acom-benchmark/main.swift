@@ -1,14 +1,7 @@
 import Foundation
 
-// VirtualDetector's aperture overload is part of the production source set;
-// this benchmark uses only its statistics/origin paths but still supplies the
-// small app-layer value type required to compile that source standalone.
-struct Aperture {
-    var centerX: Float
-    var centerY: Float
-    var inner: Float
-    var outer: Float
-}
+// `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
+// the local mirror this file carried is gone.
 
 struct RealACOMReport: Codable {
     let file: String

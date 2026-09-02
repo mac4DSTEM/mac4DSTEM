@@ -33,7 +33,7 @@ struct HistogramView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Toggle("Log counts", isOn: $useLog)
+                Toggle("Log y-axis", isOn: $useLog)
                     .font(.caption)
                     .toggleStyle(.switch)
                     .controlSize(.mini)
