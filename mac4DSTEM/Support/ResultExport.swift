@@ -1722,19 +1722,36 @@ extension AppState {
     }
 
     var currentResultValueUnits: String {
-        (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).valueUnits
+        publishedProduct?.valueUnits ?? (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).valueUnits
     }
 
     var currentResultDisplayName: String {
-        (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).displayName
+        publishedProduct?.displayName ?? (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).displayName
     }
 
     var currentResultKind: String {
-        (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).kind
+        publishedProduct?.kind ?? (restoredResultInfo ?? navigationResultInfo ?? currentScalarResultMetadata).kind
     }
 
     var currentResultPersistenceMetadata:
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        // v2.5 step 3b-7: the published product is the source; the legacy
+        // chain below serves nothing once every site publishes (it does) and
+        // goes with deletion condition 1.
+        if let product = publishedProduct {
+            var provenance = product.provenance
+            provenance["display_domain"] = product.domain.rawValue
+            if provenance["quantitative_status"] == nil {
+                provenance["quantitative_status"] = product.quantitativeStatus.rawValue
+            }
+            if restoredResultInfo == nil, navigationResultInfo == nil,
+               product.kind == "dpc_angle", product.valueUnits == "rad",
+               provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
+                provenance[ScalarResultMap.dpcAngleEncodingKey] =
+                    ScalarResultMap.dpcAngleRadiansEncoding
+            }
+            return (product.sampling.row, product.sampling.column, product.sampling.units, provenance)
+        }
         let base = restoredResultPixelInfo
             ?? navigationResultPixelInfo
             ?? currentScalarPersistenceMetadata

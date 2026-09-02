@@ -3630,8 +3630,10 @@ final class AppState {
                     row: calibration.rPixelSize, column: calibration.rPixelSize,
                     units: calibration.rPixelUnits),
                 valueUnits: "intensity", quantitativeStatus: .relative,
-                provenance: ["display_domain": "scan", "quantitative_status": "relative",
-                             "virtual_shape": shapeMode.rawValue])
+                // The persistence provenance (aperture etc.) plus this site's own keys.
+                provenance: currentResultPersistenceMetadata.provenance.merging(
+                    ["display_domain": "scan", "quantitative_status": "relative",
+                     "virtual_shape": shapeMode.rawValue]) { _, site in site })
             if !quiet {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }
