@@ -36,7 +36,6 @@ struct ContentView: View {
 
     var body: some View {
         @Bindable var appState = appState
-        @Bindable var strain = appState.strain
         return NavigationSplitView(columnVisibility: Binding(
             get: {
                 appState.navigation.showToolsPane && !appState.isLoadingDataset ? .all : .detailOnly
@@ -223,139 +222,8 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .disks {
-                        Section("Disk detection") {
-                            DiskDetectionControls()
-                        }
-                    }
-
-                    if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .strain {
-                        Section("Strain") {
-                            strainFailureRemedy
-
-                            Picker("Reference", selection: $strain.referenceMode) {
-                                ForEach(StrainReferenceMode.allCases) { mode in
-                                    Text(mode.rawValue).tag(mode)
-                                }
-                            }
-                            .accessibilityIdentifier("strain.reference")
-                            // These two pickers ARE the scientific decision, so
-                            // they say what they decide rather than only what
-                            // they are set to (backlog #5).
-                            Text(appState.strain.referenceMode == .selectedRegion
-                                 ? "Defines zero strain: the visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained."
-                                 : "Defines zero strain: the whole scan is averaged, so strain is measured relative to the mean lattice.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            Picker("Basis", selection: $strain.basisMode) {
-                                ForEach(StrainBasisMode.allCases) { mode in
-                                    Text(mode.rawValue).tag(mode)
-                                }
-                            }
-                            .accessibilityIdentifier("strain.basis")
-                            .help("The g₁ / g₂ pair every position is indexed against.")
-                            if appState.strain.basisMode == .manual {
-                                // The unit stays *visible* rather than moving
-                                // to hover: these are bare numbers, and a
-                                // basis vector read in the wrong unit is a
-                                // silently wrong strain map.
-                                HStack {
-                                    Text("g₁").frame(width: 18, alignment: .leading)
-                                    TextField("x", value: $strain.g1X,
-                                              format: .number.precision(.fractionLength(3)))
-                                    TextField("y", value: $strain.g1Y,
-                                              format: .number.precision(.fractionLength(3)))
-                                    Text("px").font(.caption2).foregroundStyle(.secondary)
-                                }
-                                HStack {
-                                    Text("g₂").frame(width: 18, alignment: .leading)
-                                    TextField("x", value: $strain.g2X,
-                                              format: .number.precision(.fractionLength(3)))
-                                    TextField("y", value: $strain.g2Y,
-                                              format: .number.precision(.fractionLength(3)))
-                                    Text("px").font(.caption2).foregroundStyle(.secondary)
-                                }
-                                .help("Detector x/y offsets in calibrated pixels.")
-                            }
-                            Button {
-                                Task { await appState.runStrainMapping() }
-                            } label: {
-                                Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
-                            }
-                            .disabled(appState.isBusy || !appState.hasCurrentBraggVectors)
-                            if appState.diskDetectionSettingsAreStale {
-                                Text("Detection settings changed — rerun Detect All Disks before strain.")
-                                    .font(.caption2).foregroundStyle(.orange)
-                            } else if appState.braggVectors == nil {
-                                Text("Detect Bragg disks first (Map → Bragg disks).")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
-                            if appState.strain.map != nil {
-                                Picker("Component", selection: $strain.component) {
-                                    ForEach(StrainComponent.allCases) { component in
-                                        Text(component.rawValue).tag(component)
-                                    }
-                                }
-                                .accessibilityIdentifier("strain.component")
-                                // The frame the tensor components are expressed
-                                // in — the map is drawn over scan axes, so a
-                                // detector-frame εxx read as "along the map's
-                                // horizontal" is silently wrong under a large
-                                // R–Q rotation (v2 S8). One wording authority:
-                                // StrainPresentationFrame.displayLabel.
-                                Text(appState.strainPresentationFrame.displayLabel)
-                                    .font(.caption2)
-                                    .foregroundStyle(
-                                        appState.strainPresentationFrame == .detector
-                                            ? AnyShapeStyle(.orange)
-                                            : AnyShapeStyle(.secondary)
-                                    )
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .accessibilityIdentifier("strain.frame")
-                                if let map = appState.strain.map {
-                                    LabeledContent(
-                                        map.diagnostics.automaticBasis
-                                            ? "Basis consensus" : "Basis support",
-                                        value: String(
-                                            format: "%.0f%% · %d/%d peaks",
-                                            map.diagnostics.basisSupportFraction * 100,
-                                            map.diagnostics.basisSupportCount,
-                                            map.diagnostics.basisObservationCount
-                                        )
-                                    )
-                                    .font(.caption)
-                                    .accessibilityIdentifier("strain.diagnostics.basisSupport")
-                                    LabeledContent(
-                                        "Basis fit",
-                                        value: String(
-                                            format: "RMS %.3g px · κ %.2f",
-                                            map.diagnostics.basisResidualPixels,
-                                            map.diagnostics.basisConditionNumber
-                                        )
-                                    )
-                                    .font(.caption)
-                                    .accessibilityIdentifier("strain.diagnostics.basisFit")
-                                    LabeledContent(
-                                        "Local fits",
-                                        value: String(
-                                            format: "%.0f%% indexed · median RMS %.3g px",
-                                            map.indexedFraction * 100,
-                                            map.diagnostics.localResidualMedianPixels
-                                        )
-                                    )
-                                    .font(.caption)
-                                    .accessibilityIdentifier("strain.diagnostics.localFits")
-                                    LabeledContent(
-                                        "Reference inliers",
-                                        value: "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
-                                    )
-                                    .font(.caption)
-                                    .accessibilityIdentifier("strain.diagnostics.referenceInliers")
-                                }
-                            }
-                        }
+                    if appState.navigation.workspaceArea == .map {
+                        MapSidebar()   // v2.5 step 7c slice 4a
                     }
 
                     if appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .singleslicePtychography {
@@ -818,9 +686,6 @@ struct ContentView: View {
                         }
                     }
 
-                    if appState.navigation.workspaceArea == .map && appState.navigation.analysisMode == .acom {
-                        ACOMControlsView()
-                    }
 
                     // v2.5 step 7c: the per-workspace sidebars, one file
                     // each, replace the gated sections above as each slice
@@ -1181,66 +1046,6 @@ struct ContentView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Dataset \(descriptor.fileName)")
         .accessibilityIdentifier("dataset.card")
-    }
-
-    /// After a failed strain run, offer the *one* control that addresses the
-    /// cause rather than restating both possibilities (backlog #5b, #8b).
-    @ViewBuilder
-    private var strainFailureRemedy: some View {
-        switch appState.strain.failureCause {
-        case .starvedInput(let medianPeaks, let emptyPercent):
-            VStack(alignment: .leading, spacing: 5) {
-                Label(
-                    String(format: "Too few peaks: median %.1f per pattern, %d%% empty",
-                           medianPeaks, emptyPercent),
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
-                Text("Indexing needs the direct beam plus two more reflections. "
-                     + "Lower the detection thresholds, not the reference.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Go to Bragg Disks") { appState.changeMode(.disks) }
-                    .font(.caption)
-                    .accessibilityIdentifier("strain.remedy.disks")
-            }
-            .padding(.bottom, 4)
-            .accessibilityIdentifier("strain.remedy")
-
-        case .illConditionedBasis:
-            VStack(alignment: .leading, spacing: 5) {
-                Label("No single lattice fits the whole reference",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                if appState.strain.referenceMode == .wholeScan {
-                    Text("The peak population is healthy. Averaging the whole scan "
-                         + "mixes regions with different lattices — pick an "
-                         + "unstrained region instead.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Use the current ROI as the reference") {
-                        appState.strain.referenceMode = .selectedRegion
-                    }
-                    .font(.caption)
-                    .accessibilityIdentifier("strain.remedy.useROI")
-                } else {
-                    Text("Move or resize the reference region onto an unstrained "
-                         + "area, or set g₁ and g₂ manually.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.bottom, 4)
-            .accessibilityIdentifier("strain.remedy")
-
-        case nil:
-            EmptyView()
-        }
     }
 
     /// Diffraction left, real space right — always.

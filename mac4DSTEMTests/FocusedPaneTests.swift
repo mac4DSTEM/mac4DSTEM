@@ -33,6 +33,20 @@ final class FocusedPaneTests: XCTestCase {
         XCTAssertEqual(FocusedPane.livePane(.realSpace, in: .image, task: .virtualDetector), .image)
     }
 
+    func testMapPanesClaimByTask() {   // slice 4a
+        XCTAssertEqual(FocusedPane.livePane(.diffraction, in: .map, task: .disks), .pattern,
+                       "Bragg disks show the pattern, not the virtual-detector ROI")
+        XCTAssertEqual(FocusedPane.livePane(.realSpace, in: .map, task: .disks), .image)
+        for task in [AnalysisMode.strain, .acom] {
+            XCTAssertEqual(FocusedPane.livePane(.diffraction, in: .map, task: task), .image,
+                           "beside a map the diffraction pane shows its evidence; the descriptor is the map's")
+            XCTAssertEqual(FocusedPane.livePane(.realSpace, in: .map, task: task), .image)
+        }
+        XCTAssertFalse(FocusedPane.pattern.showsAperture)
+        XCTAssertTrue(FocusedPane.pattern.showsDiffractionHistogram)
+        XCTAssertFalse(FocusedPane.pattern.showsRealSpaceHistogram)
+    }
+
     func testPreparePanesClaimTheDescriptorOfWhatTheyDraw() {
         XCTAssertEqual(
             FocusedPane.livePane(.diffraction, in: .prepare, task: .virtualDetector),
@@ -57,9 +71,8 @@ final class FocusedPaneTests: XCTestCase {
 
     /// The adapter's expiry, pinned: a workspace whose panes do not claim
     /// yet leaves the claim open so the 7b per-task conditions stand in.
-    /// Each of slices 4–5 turns one of these into a real descriptor.
+    /// Slice 5 turns this into a real descriptor.
     func testWorkspacesBeforeTheirSliceLeaveTheClaimOpen() {
-        XCTAssertNil(FocusedPane.livePane(.diffraction, in: .map, task: .disks))
         XCTAssertNil(FocusedPane.livePane(.realSpace, in: .reconstruct, task: .dpc))
     }
 

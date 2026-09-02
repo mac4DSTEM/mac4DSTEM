@@ -61,13 +61,16 @@ enum FocusedPane: Equatable, Sendable {
     /// Imaging's virtual detector): the aperture rows and the diffraction
     /// histogram belong beside it.
     case detectorPattern
+    /// A live CBED pattern without a detector overlay (Bragg disks): the
+    /// diffraction histogram, no aperture rows.
+    case pattern
     /// A real-space image or map computed from the cube: its own histogram.
     case image
     /// The Results workspace's product pane: `ProductInspector`.
     case result
 
     var showsAperture: Bool { self == .detectorPattern }
-    var showsDiffractionHistogram: Bool { self == .detectorPattern }
+    var showsDiffractionHistogram: Bool { self == .detectorPattern || self == .pattern }
     var showsRealSpaceHistogram: Bool { self == .image }
 
     /// The descriptor a live pane claims when it takes the ring. `nil` for a
@@ -81,7 +84,17 @@ enum FocusedPane: Equatable, Sendable {
         case .prepare, .image:
             // Both draw the virtual detector on their diffraction pane.
             active == .diffraction ? .detectorPattern : .image
-        case .map, .reconstruct, .results:
+        case .map:
+            switch task {
+            case .disks:
+                active == .diffraction ? .pattern : .image
+            default:
+                // Beside a strain or orientation map the diffraction pane
+                // shows the map's evidence overlays; its descriptor is the
+                // map's (7b's rule, F1.59, kept).
+                .image
+            }
+        case .reconstruct, .results:
             nil
         }
     }
