@@ -1089,6 +1089,7 @@ final class AppState {
             hasQScale: readyKinds.contains(.qScale),
             hasRScale: readyKinds.contains(.rScale),
             hasVoltage: calibrationSession.hasUsableVoltage,
+            hasValidDiskDetectionSettings: diskDetectionConfigurationIsValid,
             hasBraggVectors: hasCurrentBraggVectors,
             hasACOMMaterial: acomModelSelection != .none,
             hasSupportedACOMMaterial: resolvedACOMModel != nil,
@@ -1940,11 +1941,24 @@ final class AppState {
     /// Apply one parsed step's recorded parameters to live state and run the
     /// SAME entry point the user's click runs — replay must not grow a second
     /// execution path that can drift from the interactive one.
+    /// v2.5 step 5a: a replayed step refuses for exactly the reason the live
+    /// checklist would block the same task — one requirements list. Called
+    /// after a step has written its recorded parameters, so the answer is
+    /// about the state the run would actually see.
+    func replayRefusal(for mode: AnalysisMode) -> String? {
+        if case .unavailable(let reason) = ProductWorkflow.readiness(
+            for: mode, readiness: productWorkflowReadiness) {
+            return "this step cannot run on the promoted view — \(reason)"
+        }
+        return nil
+    }
+
     private func executeReplayStep(_ plan: ReplayStepPlan) async -> ReplayStepExecution {
         switch plan {
         case .virtualDetector(let shape, let recordedAperture):
             virtualShape = shape
             aperture = recordedAperture
+            if let reason = replayRefusal(for: .virtualDetector) { return .refused(reason) }
             return .ran(await runVirtualDetector(replaying: true))
 
         case .dpc(let wantsFittedOrigin):
@@ -1960,10 +1974,12 @@ final class AppState {
                 }
                 return .refused("the recipe ran DPC against the global center, but this session holds a fitted origin — running it anyway would silently change the measurement's reference")
             }
+            if let reason = replayRefusal(for: .dpc) { return .refused(reason) }
             return .ran(await runDPC(replaying: true))
 
         case .diskDetection(let params):
             diskParams = params
+            if let reason = replayRefusal(for: .disks) { return .refused(reason) }
             return .ran(await runDiskDetection(replaying: true))
 
         case .strain(let strainPlan):
@@ -1977,6 +1993,7 @@ final class AppState {
             } else {
                 strain.basisMode = .automatic
             }
+            if let reason = replayRefusal(for: .strain) { return .refused(reason) }
             return .ran(await runStrainMapping(replaying: true))
 
         case .acom(let acomPlan):
@@ -2006,6 +2023,7 @@ final class AppState {
             }
             acomScope = acomPlan.scope
             acomQuality = acomPlan.quality
+            if let reason = replayRefusal(for: .acom) { return .refused(reason) }
             return .ran(await runACOM(replaying: true))
         }
     }

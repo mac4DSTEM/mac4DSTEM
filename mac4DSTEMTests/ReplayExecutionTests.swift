@@ -113,8 +113,10 @@ final class ReplayExecutionTests: XCTestCase {
         let state = AppState()
         await state.openDemoFixture(specification: croppedSpec)
         var record = SessionReplayRecord()
-        // Parses cleanly, fails the entry point's own validation at run time
-        // (negative spacing) — a genuine ran-and-did-not-publish failure.
+        // Parses cleanly; the negative spacing is an invalid configuration.
+        // v2.5 step 5a: the replay executor asks the one readiness list before
+        // running, so this is REFUSED with the checklist's own sentence — the
+        // same reason the header button would be disabled — and the run halts.
         record.record(kind: "disk_detection",
                       parameters: ["corr_power": "1.0", "sigma_dp": "0.0",
                                    "sigma_cc": "2.0", "subpixel": "poly",
@@ -136,9 +138,10 @@ final class ReplayExecutionTests: XCTestCase {
 
         XCTAssertEqual(state.replayRun.phase, .finished)
         XCTAssertNotNil(state.replayRun.haltReason)
-        guard case .failed = state.replayRun.steps[0].outcome else {
-            return XCTFail("A run that published nothing is a failure, got \(String(describing: state.replayRun.steps[0].outcome))")
+        guard case .refused(let reason) = state.replayRun.steps[0].outcome else {
+            return XCTFail("An invalid configuration is refused by the shared readiness list, got \(String(describing: state.replayRun.steps[0].outcome))")
         }
+        XCTAssertTrue(reason.contains("Fix the disk-detection settings"), reason)
         XCTAssertEqual(state.replayRun.steps[1].outcome, .notReached)
     }
 

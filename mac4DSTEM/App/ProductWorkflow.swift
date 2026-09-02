@@ -227,6 +227,9 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     var hasQScale = false
     var hasRScale = false
     var hasVoltage = false
+    /// v2.5 step 5a: the disk-detection settings carry no errors — the same
+    /// predicate the tools panel used alone (`diskDetectionConfigurationIsValid`).
+    var hasValidDiskDetectionSettings = true   // no errors is the default; the app feeds the real predicate
     var hasBraggVectors = false
     var hasACOMMaterial = false
     var hasSupportedACOMMaterial = false
@@ -264,8 +267,20 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [TaskPrerequisite] {
         switch mode {
-        case .virtualDetector, .dpc, .disks:
+        case .virtualDetector, .dpc:
             return []
+        case .disks:
+            // v2.5 step 5a: the tools panel's private gate joins the one list,
+            // so the header's primary action and the panel button agree.
+            return [
+                TaskPrerequisite(
+                    id: "diskSettings", title: "Fix the disk-detection settings",
+                    isSatisfied: readiness.hasValidDiskDetectionSettings,
+                    resolution: .taskPanel(
+                        "Resolve the errors listed in the Bragg disk controls in the tools panel."
+                    )
+                )
+            ]
         case .ptychography:
             return [
                 TaskPrerequisite(
@@ -318,6 +333,21 @@ enum ProductWorkflow {
                 )
             ]
         }
+    }
+
+    /// v2.5 step 5a: the ONE answer to "may this task run" — the primary
+    /// action, the checklist and the replay executor all ask it.
+    enum TaskReadiness: Equatable {
+        case ready
+        case unavailable(reason: String)
+    }
+
+    static func readiness(
+        for mode: AnalysisMode, readiness: ProductWorkflowReadiness
+    ) -> TaskReadiness {
+        let unmet = prerequisites(for: mode, readiness: readiness)
+        return unmet.isEmpty ? .ready
+            : .unavailable(reason: unmet.joined(separator: "; "))
     }
 
     static func prerequisites(

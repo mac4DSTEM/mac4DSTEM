@@ -660,3 +660,39 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertTrue(map.component(.indexed).pixels[1].isNaN)
     }
 }
+
+// MARK: - v2.5 step 5a negative controls (docs/v2.5-plan.md §10f)
+
+@MainActor
+final class TaskReadinessTests: XCTestCase {
+    private func readiness(diskSettingsValid: Bool, bragg: Bool = false) -> ProductWorkflowReadiness {
+        ProductWorkflowReadiness(
+            hasOriginProbe: false, hasRotation: false, hasQScale: false, hasRScale: false,
+            hasVoltage: false, hasValidDiskDetectionSettings: diskSettingsValid,
+            hasBraggVectors: bragg, hasACOMMaterial: false, hasSupportedACOMMaterial: false,
+            hasPhysicalACOMScale: false)
+    }
+
+    func testInvalidDiskSettingsBlockTheTaskOnEverySurface() {
+        // Before 5a only the tools-panel button knew; the header ran anyway.
+        XCTAssertEqual(ProductWorkflow.readiness(for: .disks, readiness: readiness(diskSettingsValid: true)), .ready)
+        guard case .unavailable(let reason) = ProductWorkflow.readiness(for: .disks, readiness: readiness(diskSettingsValid: false)) else {
+            return XCTFail("invalid settings must make the task unavailable")
+        }
+        XCTAssertEqual(reason, "Fix the disk-detection settings")
+        XCTAssertEqual(ProductWorkflow.prerequisites(for: .disks, readiness: readiness(diskSettingsValid: false)), [reason])
+    }
+
+    func testAReplayedStepRefusesForTheChecklistsReason() {
+        // No Bragg vectors: the checklist blocks strain with one title, and the
+        // replay executor must refuse quoting that same title, not its own.
+        let state = AppState()
+        let checklist = ProductWorkflow.prerequisites(for: .strain, readiness: state.productWorkflowReadiness)
+        XCTAssertEqual(checklist, ["Detect Bragg disks first"])
+        let refusal = state.replayRefusal(for: .strain)
+        XCTAssertNotNil(refusal)
+        XCTAssertTrue(refusal?.contains("Detect Bragg disks first") == true, refusal ?? "nil")
+        XCTAssertNil(state.replayRefusal(for: .virtualDetector), "nothing gates virtual imaging")
+    }
+}
+

@@ -423,10 +423,11 @@ struct ProductWorkspaceHeader: View {
     private var primaryActionEnabled: Bool {
         guard appState.hasDataset, !appState.isBusy else { return false }
         if appState.navigation.workspaceArea != .prepare && appState.navigation.workspaceArea != .results {
-            guard ProductWorkflow.prerequisites(
+            // v2.5 step 5a: the same answer the checklist and replay get.
+            guard case .ready = ProductWorkflow.readiness(
                 for: appState.navigation.analysisMode,
                 readiness: appState.productWorkflowReadiness
-            ).isEmpty else { return false }
+            ) else { return false }
         }
         if appState.navigation.workspaceArea == .reconstruct,
            appState.navigation.analysisMode == .ptychography {
