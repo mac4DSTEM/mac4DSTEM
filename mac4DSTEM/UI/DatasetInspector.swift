@@ -48,7 +48,7 @@ struct DatasetInspector: View {
             subheader("Dimensions")
             row("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
             row("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")
-            if let acceleratingVoltage = appState.acceleratingVoltage {
+            if let acceleratingVoltage = appState.calibrationSession.acceleratingVoltage {
                 row("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
             }
 
@@ -173,7 +173,16 @@ struct DatasetInspector: View {
                 row("Pattern max", String(format: "%.3g", upperBound))
             }
 
-            if appState.inspectorShowsAperture {   // v2.5 step 7b: follows the task's panes
+            // v2.5 step 7c: the focused pane's descriptor decides. With no
+            // claim yet (workspaces before their slice) the 7b per-task
+            // conditions stand in — an adapter that expires at slice 5.
+            let pane = appState.navigation.focusedPane
+            let showsAperture = pane?.showsAperture ?? appState.inspectorShowsAperture
+            let showsDiffractionHistogram =
+                pane?.showsDiffractionHistogram ?? appState.inspectorShowsDiffractionHistogram
+            let showsRealSpaceHistogram = pane?.showsRealSpaceHistogram ?? true
+
+            if showsAperture {
                 subheader("Aperture (detector px)")
                 row("Center x", String(format: "%.1f", appState.aperture.centerX))
                 row("Center y", String(format: "%.1f", appState.aperture.centerY))
@@ -181,7 +190,7 @@ struct DatasetInspector: View {
                 row("Outer r", String(format: "%.1f", appState.aperture.outer))
             }
 
-            if let image = appState.resultImage {
+            if showsRealSpaceHistogram, let image = appState.resultImage {
                 subheader("Histogram (real space)")
                 HistogramView(pixels: image.pixels, version: appState.resultVersion,
                               rangeLo: Bindable(appState).displayRangeLo,
@@ -191,7 +200,7 @@ struct DatasetInspector: View {
                 gammaControl("Gamma", value: Bindable(appState).resultGamma)
             }
 
-            if appState.inspectorShowsDiffractionHistogram, let pattern = appState.displayedPattern {
+            if showsDiffractionHistogram, let pattern = appState.displayedPattern {
                 subheader("Histogram (diffraction)")
                 HistogramView(
                     pixels: pattern.contrastPixels(useLog: appState.logScale),

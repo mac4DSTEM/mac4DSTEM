@@ -60,7 +60,7 @@ struct ContentView: View {
                         if let hint = ProductWorkflow.nextStepHint(
                             for: appState.navigation.workspaceArea,
                             readiness: appState.productWorkflowReadiness,
-                            calibrationReady: appState.calibrationReadiness.isReady
+                            calibrationReady: appState.calibrationSession.readiness.isReady
                         ) {
                             Text(hint)
                                 .font(.caption2)
@@ -109,58 +109,15 @@ struct ContentView: View {
                     // image exists, so the control can never be stranded in a
                     // workspace without it.
 
-                    // CBED pattern source (current / mean / max) lives here when
-                    // the diffraction pane is the active (blue) one.
-                    // Prepare, Imaging, and DPC (which S22c moved to Phase but
-                    // still works from the live CBED) all use the mean/max
-                    // pattern controls.
-                    if (appState.navigation.workspaceArea == .prepare || appState.navigation.workspaceArea == .image
-                        || (appState.navigation.workspaceArea == .reconstruct && appState.navigation.analysisMode == .dpc))
-                        && appState.activePane == .diffraction {
-                        // S22 feedback R6 (2026-09-01): once mean/max exist,
-                        // the pane header's Current|Mean|Max toggle is the
-                        // ONLY switcher — the sidebar's duplicate "Show" row
-                        // was noise ("people will get what current, mean and
-                        // max mean"). The section now exists solely to offer
-                        // the compute before the statistics exist.
-                        if appState.meanPattern == nil {
-                            Section("Pattern") {
-                                Button {
-                                    Task { await appState.computeDPStatistics() }
-                                } label: {
-                                    Label("Compute Mean / Max", systemImage: "sum")
-                                }
-                                .disabled(appState.isBusy)
-                                .help("One pass over the cube; also computed by origin calibration.")
-                            }
-                        }
-                    }
-
                     if appState.navigation.workspaceArea == .prepare {
-                        Section("Calibration") {
-                            CalibrationReadinessChecklist()
-                            // S22c (pipelines §7.4): the accelerating voltage
-                            // is calibration — DPC, parallax and ptychography
-                            // all consume it — so it lives with the other
-                            // physical scales, not inside one consumer's
-                            // workflow. Identifier unchanged on purpose.
-                            HStack {
-                                Text("Voltage").font(.caption)
-                                Spacer()
-                                TextField("0", value: Binding(
-                                    get: { appState.acceleratingVoltage ?? 0 },
-                                    set: appState.setManualAcceleratingVoltage
-                                ), format: .number.precision(.fractionLength(0...2)))
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 90)
-                                    .accessibilityLabel("Accelerating voltage (kV)")
-                                    .accessibilityIdentifier("calibration.acceleratingVoltage")
-                                Text("kV")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            CalibrationDetailsView()
-                        }
+                        PrepareSidebar()   // v2.5 step 7c slice 2
+                    }
+                    // Imaging and DPC work from the live CBED too; the
+                    // compute offer for its statistics is shared.
+                    if appState.navigation.workspaceArea == .image
+                        || (appState.navigation.workspaceArea == .reconstruct
+                            && appState.navigation.analysisMode == .dpc) {
+                        ComputePatternStatisticsSection()
                     }
 
                     if appState.navigation.workspaceArea == .image && appState.navigation.analysisMode == .virtualDetector {
@@ -328,10 +285,10 @@ struct ContentView: View {
                                         .font(.caption)
                                 }
                             }
-                            if !appState.calibration.hasFittedOrigin {
+                            if !appState.calibrationSession.calibration.hasFittedOrigin {
                                 Text("Tip: calibrate the origin first — DPC shifts are measured against the fitted beam position.")
                                     .font(.caption2).foregroundStyle(.secondary).sidebarWrapped()
-                            } else if !appState.calibration.hasRotation {
+                            } else if !appState.calibrationSession.calibration.hasRotation {
                                 Text("Tip: calibrate the rotation for meaningful iDPC and vector direction.")
                                     .font(.caption2).foregroundStyle(.secondary).sidebarWrapped()
                             }
@@ -1381,20 +1338,40 @@ struct ContentView: View {
             diffractionPane.frame(minWidth: 170)
             realSpacePane.frame(minWidth: 170)
         }
+        // v2.5 step 7c: the pane with the ring claims the inspector's focus
+        // whenever what these panes show changes (workspace or task).
+        .onChange(of: appState.navigation.workspaceArea, initial: true) { claimPaneFocus() }
+        .onChange(of: appState.navigation.analysisMode) { claimPaneFocus() }
     }
 
     private var diffractionPane: some View {
         DiffractionView()
             .overlay(paneFocusBorder(active: appState.activePane == .diffraction))
             .contentShape(Rectangle())
-            .onTapGesture { appState.activePane = .diffraction }
+            .onTapGesture {
+                appState.activePane = .diffraction
+                claimPaneFocus()
+            }
     }
 
     private var realSpacePane: some View {
         StemImageView()
             .overlay(paneFocusBorder(active: appState.activePane == .realSpace))
             .contentShape(Rectangle())
-            .onTapGesture { appState.activePane = .realSpace }
+            .onTapGesture {
+                appState.activePane = .realSpace
+                claimPaneFocus()
+            }
+    }
+
+    /// The pane with the focus ring names itself to the inspector
+    /// (`FocusedPane`, plan §11g decision 3). `ActivePane` keeps its own job,
+    /// the ROI direction.
+    private func claimPaneFocus() {
+        appState.navigation.focusedPane = FocusedPane.livePane(
+            appState.activePane, in: appState.navigation.workspaceArea,
+            task: appState.navigation.analysisMode
+        )
     }
 
     private func workspaceButton(_ area: WorkspaceArea) -> some View {
@@ -1661,7 +1638,7 @@ struct PreprocessingExportSheet: View {
     }
 
     private var readiness: CalibrationReadinessReport {
-        appState.calibrationReadiness
+        appState.calibrationSession.readiness
     }
 
     private var missingCalibrationSummary: String {

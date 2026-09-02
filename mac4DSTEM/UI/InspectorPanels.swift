@@ -86,8 +86,8 @@ struct ProductsView: View {
                 .font(.caption2).foregroundStyle(.tertiary)
                 .padding(.top, 6)
 
-            product("Origin calibration", done: appState.calibration.hasFittedOrigin)
-            product("R–Q rotation", done: appState.calibration.hasRotation)
+            product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
+            product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             product(
                 "Bragg disks",
                 done: appState.hasCurrentBraggVectors,

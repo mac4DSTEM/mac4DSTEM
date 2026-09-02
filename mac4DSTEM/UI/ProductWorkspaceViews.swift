@@ -376,8 +376,8 @@ struct ProductWorkspaceHeader: View {
     private var primaryActionTitle: String? {
         switch appState.navigation.workspaceArea {
         case .prepare:
-            if !appState.calibration.hasFittedOrigin { "Calibrate Origin" }
-            else if !appState.calibration.hasRotation { "Measure R–Q Rotation" }
+            if !appState.calibrationSession.calibration.hasFittedOrigin { "Calibrate Origin" }
+            else if !appState.calibrationSession.calibration.hasRotation { "Measure R–Q Rotation" }
             else { nil }
         case .image:
             "Update Image"
@@ -405,7 +405,7 @@ struct ProductWorkspaceHeader: View {
     private var primaryActionHint: String {
         switch appState.navigation.workspaceArea {
         case .prepare:
-            appState.calibration.hasFittedOrigin
+            appState.calibrationSession.calibration.hasFittedOrigin
                 ? "Solves scan-to-detector rotation for quantitative vector output."
                 : "Fits the unscattered-beam origin across the scan."
         case .image: "Runs the selected imaging task with the current settings."

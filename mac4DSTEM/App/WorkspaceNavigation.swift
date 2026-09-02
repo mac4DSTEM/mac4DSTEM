@@ -53,10 +53,37 @@ final class WorkspaceNavigation {
 }
 
 /// The pane that carries the focus ring, named by what it draws — one
-/// descriptor per pane (plan §11c). Cases are added as each workspace's
-/// panes start setting it; `.result` is the Results product pane.
+/// descriptor per pane (plan §11c), so the inspector never asks which
+/// workspace it is in. Cases are added as each workspace's panes start
+/// claiming it.
 enum FocusedPane: Equatable, Sendable {
+    /// A live CBED pattern with the virtual detector drawn over it (Prepare,
+    /// Imaging's virtual detector): the aperture rows and the diffraction
+    /// histogram belong beside it.
+    case detectorPattern
+    /// A real-space image or map computed from the cube: its own histogram.
+    case image
+    /// The Results workspace's product pane: `ProductInspector`.
     case result
+
+    var showsAperture: Bool { self == .detectorPattern }
+    var showsDiffractionHistogram: Bool { self == .detectorPattern }
+    var showsRealSpaceHistogram: Bool { self == .image }
+
+    /// The descriptor a live pane claims when it takes the ring. `nil` for a
+    /// workspace whose panes do not claim yet (7c slices 3–5), which leaves
+    /// the inspector on the 7b per-task conditions — the adapter expires
+    /// when every case here is non-nil.
+    static func livePane(
+        _ active: ActivePane, in area: WorkspaceArea, task: AnalysisMode
+    ) -> FocusedPane? {
+        switch area {
+        case .prepare:
+            active == .diffraction ? .detectorPattern : .image
+        case .image, .map, .reconstruct, .results:
+            nil
+        }
+    }
 }
 
 enum InspectorContent: Equatable, Sendable {

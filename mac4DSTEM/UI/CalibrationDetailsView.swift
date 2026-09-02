@@ -20,11 +20,12 @@ struct CalibrationDetailsView: View {
     }
 
     var body: some View {
-        @Bindable var appState = appState
+        // v2.5 step 7c slice 2: the fit settings bind to their owner.
+        @Bindable var session = appState.calibrationSession
         DisclosureGroup("Fit diagnostics & advanced correction") {
             LabeledContent(
                 "Aperture center",
-                value: appState.calibration.originProvenance.displayName
+                value: appState.calibrationSession.calibration.originProvenance.displayName
             )
             .font(.caption)
             .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
@@ -39,7 +40,7 @@ struct CalibrationDetailsView: View {
                 .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
             }
 
-            Picker("Origin fit", selection: $appState.originFitFunction) {
+            Picker("Origin fit", selection: $session.originFitFunction) {
                 ForEach(OriginFitFunction.allCases) { fit in
                     Text(fit.rawValue).tag(fit)
                 }
@@ -57,7 +58,7 @@ struct CalibrationDetailsView: View {
             }
             .disabled(appState.isBusy)
 
-            if let radius = appState.calibration.probeRadius {
+            if let radius = appState.calibrationSession.calibration.probeRadius {
                 LabeledContent("Probe radius", value: String(format: "%.1f px", radius))
                     .font(.caption)
             }
@@ -65,7 +66,7 @@ struct CalibrationDetailsView: View {
             // where a robust fit ran. Showing `rmsResidual` here while the
             // verdict came from `robustResidual` would put two different
             // numbers for one decision in front of the user.
-            if let residual = appState.calibration.judgedOriginResidual {
+            if let residual = appState.calibrationSession.calibration.judgedOriginResidual {
                 LabeledContent("Fit residual", value: String(format: "%.3f px RMS", residual))
                     .font(.caption)
             }
@@ -73,7 +74,7 @@ struct CalibrationDetailsView: View {
             // number sees it (the release owner's decision, 2026-08-28):
             // "2.19 px over 73% of positions" is a different claim from
             // "2.19 px over all of them".
-            if let excluded = appState.calibration.origin?.excludedFraction,
+            if let excluded = appState.calibrationSession.calibration.origin?.excludedFraction,
                Self.disclosesExcludedFraction(excluded) {
                 LabeledContent(
                     "Positions used",
@@ -94,8 +95,8 @@ struct CalibrationDetailsView: View {
                         + "that assumption against the crystal; with one it cannot, and says so "
                         + "rather than passing silently.")
             }
-            if let rotation = appState.calibration.rotationRad {
-                let transposed = (appState.calibration.transposeQR ?? false) ? " ⊤" : ""
+            if let rotation = appState.calibrationSession.calibration.rotationRad {
+                let transposed = (appState.calibrationSession.calibration.transposeQR ?? false) ? " ⊤" : ""
                 LabeledContent(
                     "R–Q rotation",
                     value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed)
@@ -115,18 +116,18 @@ struct CalibrationDetailsView: View {
 
     @ViewBuilder
     private func ellipseControls(appState: AppState) -> some View {
-        @Bindable var appState = appState
+        @Bindable var session = appState.calibrationSession
         DisclosureGroup("Ellipse correction") {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Fit annulus").font(.caption)
                 HStack {
                     TextField(
-                        "inner", value: $appState.ellipseFitInnerRadius,
+                        "inner", value: $session.ellipseFitInnerRadius,
                         format: .number.precision(.fractionLength(0...2))
                     )
                     Text("to").font(.caption2).foregroundStyle(.secondary)
                     TextField(
-                        "outer", value: $appState.ellipseFitOuterRadius,
+                        "outer", value: $session.ellipseFitOuterRadius,
                         format: .number.precision(.fractionLength(0...2))
                     )
                     Text("px").font(.caption2).foregroundStyle(.secondary)
@@ -141,17 +142,17 @@ struct CalibrationDetailsView: View {
             .disabled(appState.isBusy)
             .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
 
-            if appState.calibration.hasEllipse,
-               let a = appState.calibration.ellipseA,
-               let b = appState.calibration.ellipseB,
-               let theta = appState.calibration.ellipseTheta {
+            if appState.calibrationSession.calibration.hasEllipse,
+               let a = appState.calibrationSession.calibration.ellipseA,
+               let b = appState.calibrationSession.calibration.ellipseB,
+               let theta = appState.calibrationSession.calibration.ellipseTheta {
                 LabeledContent(
                     "Correction",
                     value: String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
                 )
                 .font(.caption)
                 .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
-                if let fit = appState.lastEllipseFit {
+                if let fit = appState.calibrationSession.lastEllipseFit {
                     LabeledContent("Model", value: fit.model.rawValue).font(.caption)
                     LabeledContent(
                         "Residual",

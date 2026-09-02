@@ -23,6 +23,39 @@ final class FocusedPaneTests: XCTestCase {
                        "with no claim the column falls back to the dataset inspector (7b conditions)")
     }
 
+    // MARK: - slice 2: Prepare's panes claim their own descriptor
+
+    func testPreparePanesClaimTheDescriptorOfWhatTheyDraw() {
+        XCTAssertEqual(
+            FocusedPane.livePane(.diffraction, in: .prepare, task: .virtualDetector),
+            .detectorPattern, "Prepare's diffraction pane carries the virtual detector"
+        )
+        XCTAssertEqual(
+            FocusedPane.livePane(.realSpace, in: .prepare, task: .virtualDetector),
+            .image
+        )
+    }
+
+    func testTheDescriptorAloneDecidesTheLiveGroup() {
+        XCTAssertTrue(FocusedPane.detectorPattern.showsAperture)
+        XCTAssertTrue(FocusedPane.detectorPattern.showsDiffractionHistogram)
+        XCTAssertFalse(FocusedPane.detectorPattern.showsRealSpaceHistogram)
+        XCTAssertFalse(FocusedPane.image.showsAperture)
+        XCTAssertFalse(FocusedPane.image.showsDiffractionHistogram)
+        XCTAssertTrue(FocusedPane.image.showsRealSpaceHistogram)
+        XCTAssertFalse(FocusedPane.result.showsAperture)
+        XCTAssertFalse(FocusedPane.result.showsDiffractionHistogram)
+    }
+
+    /// The adapter's expiry, pinned: a workspace whose panes do not claim
+    /// yet leaves the claim open so the 7b per-task conditions stand in.
+    /// Each of slices 3–5 turns one of these into a real descriptor.
+    func testWorkspacesBeforeTheirSliceLeaveTheClaimOpen() {
+        XCTAssertNil(FocusedPane.livePane(.diffraction, in: .image, task: .virtualDetector))
+        XCTAssertNil(FocusedPane.livePane(.diffraction, in: .map, task: .disks))
+        XCTAssertNil(FocusedPane.livePane(.realSpace, in: .reconstruct, task: .dpc))
+    }
+
     func testAWorkspaceSwitchThroughAppStateReachesTheInspectorDecision() {
         let state = AppState()
         state.selectWorkspace(.results)

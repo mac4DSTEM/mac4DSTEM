@@ -12,7 +12,7 @@ struct CalibrationReadinessChecklist: View {
     var showsCompletionMessage = true
 
     private var report: CalibrationReadinessReport {
-        appState.calibrationReadiness
+        appState.calibrationSession.readiness
     }
 
     var body: some View {
@@ -191,9 +191,9 @@ struct CalibrationReadinessChecklist: View {
     /// Å are not reported as a conflict merely for being in different units.
     private var rScaleFilenameConflict: String? {
         guard let path = appState.descriptor?.filePath,
-              let size = appState.calibration.rPixelSize,
+              let size = appState.calibrationSession.calibration.rPixelSize,
               let inUse = CalibrationUnitConversion.realAngstromPerPixel(
-                  value: size, units: appState.calibration.rPixelUnits
+                  value: size, units: appState.calibrationSession.calibration.rPixelUnits
               ),
               let token = Self.scanStepAngstromPerPixel(inFilename: path)
         else { return nil }
@@ -205,7 +205,7 @@ struct CalibrationReadinessChecklist: View {
         guard abs(token.angstromPerPixel - inUse) > tolerance * max(token.angstromPerPixel, inUse)
         else { return nil }
 
-        return "Filename says \(token.text) per scan step, but \(CalibrationUnitConversion.isPixelUnit(appState.calibration.rPixelUnits) ? "the value in use" : "the imported value") is different. File metadata takes precedence — check which is right before trusting real-space scales."
+        return "Filename says \(token.text) per scan step, but \(CalibrationUnitConversion.isPixelUnit(appState.calibrationSession.calibration.rPixelUnits) ? "the value in use" : "the imported value") is different. File metadata takes precedence — check which is right before trusting real-space scales."
     }
 
     /// Parses a `ss<number><unit>` scan-step token (e.g. `ss30nm`) from a
