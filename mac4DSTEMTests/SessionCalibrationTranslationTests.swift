@@ -179,3 +179,37 @@ final class OperationCenterTests: XCTestCase {
     }
 }
 
+// MARK: - v2.5 step 6: the IPF map's confidence gate (plan §3 item 2)
+
+final class ReliabilityGateTests: XCTestCase {
+    private func map(reliabilities: [Float]) -> OrientationMap {
+        let results = reliabilities.map { r -> OrientationResult in
+            var result = OrientationResult.empty
+            result.templateIndex = 0
+            result.score = 1
+            result.secondScore = 1 - r
+            return result
+        }
+        var map = OrientationMap(width: results.count, height: 1, symmetry: .cubic)
+        map.results = results
+        return map
+    }
+
+    func testPercentileThresholdAndKeptFraction() {
+        let m = map(reliabilities: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+        XCTAssertEqual(m.reliabilityThreshold(percentile: 0.1)!, 0.1, accuracy: 1e-6)
+        XCTAssertEqual(m.reliabilityThreshold(percentile: 0.5)!, 0.5, accuracy: 1e-6)
+        XCTAssertEqual(m.fractionOfMatchedPositions(withReliabilityAtLeast: 0.5)!, 6.0 / 11.0, accuracy: 1e-6)
+        XCTAssertNil(map(reliabilities: []).reliabilityThreshold(percentile: 0.1))
+    }
+
+    func testMaskedPositionsAreGreyAndUnmaskedKeepTheirColour() {
+        let m = map(reliabilities: [0.05, 0.95])
+        let open = m.ipfZImage(maskingReliabilityBelow: nil).rgba
+        let gated = m.ipfZImage(maskingReliabilityBelow: 0.5).rgba
+        XCTAssertEqual(Array(gated[0..<3]), [97, 97, 97], "below the gate: neutral grey")
+        XCTAssertEqual(Array(gated[4..<8]), Array(open[4..<8]), "above the gate: unchanged")
+        XCTAssertEqual(open.count, 8)
+    }
+}
+

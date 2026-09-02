@@ -948,6 +948,16 @@ final class AppState {
             : "Exploratory matching"
     }
 
+    /// v2.5 step 6: the IPF map's confidence gate. Nil = automatic, the 10th
+    /// percentile of matched reliabilities; a number overrides it (the
+    /// colorbar chip's slider, when it lands). Positions below it draw grey.
+    var acomReliabilityThreshold: Float? {
+        didSet { if acomReliabilityThreshold != oldValue { applyACOMDisplay() } }
+    }
+    var acomEffectiveReliabilityThreshold: Float? {
+        acomReliabilityThreshold ?? orientationMap?.reliabilityThreshold(percentile: 0.1)
+    }
+
     var acomDisplay: ACOMDisplayMode = .reliability {
         didSet { applyACOMDisplay() }
     }
@@ -5455,7 +5465,7 @@ final class AppState {
         let payload: ProductPayload
         let baseKind: String
         switch acomDisplay {
-        case .ipfZ:           payload = .rgba(map.ipfZImage);                     baseKind = "acom_ipf_z"
+        case .ipfZ:           payload = .rgba(map.ipfZImage(maskingReliabilityBelow: acomEffectiveReliabilityThreshold)); baseKind = "acom_ipf_z"
         case .reliability:    payload = .scalar(map.reliabilityImage);            baseKind = "acom_reliability"
         case .disorientation: payload = .scalar(map.symmetryDisorientationImage); baseKind = "acom_\(map.symmetry.rawValue)_fz_angle"
         case .score:          payload = .scalar(map.scoreImage);                  baseKind = "acom_score"
@@ -5468,6 +5478,13 @@ final class AppState {
         // label said least about how it was made was the most complete one.
         let scope = acomLastRunScope ?? .fullScan
         let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
+        // The gate travels with the product: threshold and the fraction it keeps.
+        var gateProvenance: [String: String] = [:]
+        if let threshold = acomEffectiveReliabilityThreshold,
+           let kept = map.fractionOfMatchedPositions(withReliabilityAtLeast: threshold) {
+            gateProvenance["reliability_threshold"] = String(format: "%.3f", threshold)
+            gateProvenance["fraction_above_reliability_threshold"] = String(format: "%.3f", kept)
+        }
         publishProduct(
             kind: "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))",
             displayName: "ACOM \(scope.rawValue.lowercased()) · \(acomDisplay.rawValue)",
@@ -5480,6 +5497,15 @@ final class AppState {
             ],
             overlays: [ProductOverlayDescriptor(
                 kind: "matched_template", provenance: "selected ACOM orientation template")])
+        if !gateProvenance.isEmpty, let product = publishedProduct {
+            publishedProduct = DisplayedProduct(
+                origin: product.origin, kind: product.kind, displayName: product.displayName,
+                payload: product.payload, domain: product.domain, validityMask: product.validityMask,
+                qualityFields: product.qualityFields, sampling: product.sampling,
+                valueUnits: product.valueUnits, quantitativeStatus: product.quantitativeStatus,
+                provenance: product.provenance.merging(gateProvenance) { _, gate in gate },
+                overlays: product.overlays)
+        }
     }
 
     // MARK: - Fit-verification overlays (diffraction pane)

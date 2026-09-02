@@ -649,16 +649,42 @@ package nonisolated struct OrientationMap {
     }
 
     /// Symmetry-specific inverse-pole-figure color for sample Z (beam).
-    package var ipfZImage: RGBAImage {
+    package var ipfZImage: RGBAImage { ipfZImage(maskingReliabilityBelow: nil) }
+
+    /// The reliability value below which the given fraction of MATCHED
+    /// positions falls (0.1 → the 10th percentile). Nil when nothing matched.
+    /// v2.5 step 6 (plan §3 item 2): the default confidence gate for the IPF map.
+    package func reliabilityThreshold(percentile fraction: Float) -> Float? {
+        let matched = results.filter { $0.templateIndex >= 0 }.map(\.reliability).sorted()
+        guard !matched.isEmpty else { return nil }
+        let index = Int((Float(matched.count - 1) * max(0, min(1, fraction))).rounded())
+        return matched[index]
+    }
+
+    /// Fraction of matched positions at or above `threshold`; nil when nothing matched.
+    package func fractionOfMatchedPositions(withReliabilityAtLeast threshold: Float) -> Float? {
+        let matched = results.filter { $0.templateIndex >= 0 }
+        guard !matched.isEmpty else { return nil }
+        return Float(matched.filter { $0.reliability >= threshold }.count) / Float(matched.count)
+    }
+
+    /// IPF-Z with every position whose reliability falls below `threshold`
+    /// drawn neutral grey instead of a saturated orientation colour — a
+    /// low-confidence match must not read as a textured polycrystal
+    /// (v2.5 step 6, plan §3 item 2). Unmatched positions stay black.
+    package func ipfZImage(maskingReliabilityBelow threshold: Float?) -> RGBAImage {
         var rgba = [UInt8]()
         rgba.reserveCapacity(results.count * 4)
         for result in results {
             let direction = result.templateIndex >= 0
                 ? result.euler.py4DSTEMOrientationMatrix.columns.2
                 : SIMD3(0.0, 0.0, 0.0)
-            let rgb = result.templateIndex >= 0
-                ? symmetry.ipfColor(direction: direction)
-                : SIMD3<Float>(repeating: 0)
+            let masked = threshold.map { result.templateIndex >= 0 && result.reliability < $0 } ?? false
+            let rgb: SIMD3<Float> = masked
+                ? SIMD3<Float>(repeating: 0.38)
+                : result.templateIndex >= 0
+                    ? symmetry.ipfColor(direction: direction)
+                    : SIMD3<Float>(repeating: 0)
             rgba.append(UInt8((max(0, min(1, rgb.x)) * 255).rounded()))
             rgba.append(UInt8((max(0, min(1, rgb.y)) * 255).rounded()))
             rgba.append(UInt8((max(0, min(1, rgb.z)) * 255).rounded()))
