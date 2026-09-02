@@ -272,8 +272,8 @@ session save/reopen) fails silently — reopens at full extent, says
 nothing. Driving F1.3f is both the acceptance row and the discriminator.
 
 ### Status line leaks a full filesystem path
-~330 characters including the absolute path, rendered raw at
-`ContentView.swift:1007` and `ProductWorkspaceViews.swift:427`; Track B
+~330 characters including the absolute path, rendered raw in
+`StatusFooterView` and `ProductWorkspaceViews`' header progress; Track B
 screenshots (public docs) have carried it since 2026-08-19. Worth
 truncating for display while keeping the log copy. Still open.
 

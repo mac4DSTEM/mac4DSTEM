@@ -91,6 +91,13 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-02 — Results is three columns (7c slice 1).** The saved-product
+chooser moved from a third column inside the Results detail pane to
+`ResultsSidebar`; the pane shows the product and the A/B comparison, and
+`ProductInspector` describes it — an inspector beside the old column would
+have put three panels on the right. Beside strain, orientation and Phase
+products both panes carry the product's descriptor (7b's rule, F1.59).
+
 **2026-09-02 — Live doc set.** `CLAUDE.md` (rules), `docs/status.md`,
 `docs/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
 `docs/architecture.md`, this file, plus the reference docs and Track B
