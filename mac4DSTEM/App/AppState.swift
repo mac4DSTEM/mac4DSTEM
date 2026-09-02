@@ -289,6 +289,30 @@ final class AppState {
             valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance)
     }
 
+    /// v2.5 step 3e: a compute site publishes its product with ITS OWN
+    /// kind/name/units — condition 2 of plan §9d, one site at a time. Sampling
+    /// and provenance still come from the per-mode persistence metadata.
+    func publishProduct(
+        kind: String, displayName: String, valueUnits: String, payload: ProductPayload,
+        validityMask: [Bool]? = nil, qualityFields: [ProductQualityField] = [],
+        overlays: [ProductOverlayDescriptor] = []
+    ) {
+        let persisted = currentScalarPersistenceMetadata
+        let domain = activeResultDomain
+        var provenance = persisted.provenance
+        provenance["display_domain"] = domain.rawValue
+        let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
+            ?? quantitativeStatus(for: kind, units: valueUnits)
+        provenance["quantitative_status"] = status.rawValue
+        publishedProduct = DisplayedProduct(
+            kind: kind, displayName: displayName, payload: payload, domain: domain,
+            validityMask: validityMask, qualityFields: qualityFields,
+            sampling: ProductSampling(row: persisted.row, column: persisted.column, units: persisted.units),
+            valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance,
+            overlays: overlays)
+        resultVersion &+= 1
+    }
+
     /// v2.5 step 3b-2: publish the result the legacy fields currently hold as
     /// the product value, with kind/name/units from the compute site's own
     /// metadata switch and the status decided here. The display-mode
@@ -3139,12 +3163,8 @@ final class AppState {
             // just re-show it if already computed.
             if strain.map != nil { applyStrainDisplay() }
         case .ptychography:
-            if let preview = parallaxAlignment?.previewImage
-                ?? parallaxPreprocess?.previewImage {
-                resultImage = preview
-                resultRGBA = nil
-                resultVersion &+= 1
-            }
+            if parallaxAlignment != nil { showParallaxProduct(.alignment) }
+            else if parallaxPreprocess != nil { showParallaxProduct(.preprocess) }
         case .acom:
             if orientationMap != nil { applyACOMDisplay() }
         }
@@ -3693,9 +3713,7 @@ final class AppState {
                   !token.isCancelled else { return }
             parallaxPreprocess = result
             parallaxAlignment = nil
-            parallaxResultProduct = .preprocess
-            resultImage = result.previewImage
-            resultRGBA = nil
+            showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
             displayRangeHi = 1
@@ -3774,9 +3792,7 @@ final class AppState {
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
             parallaxAlignment = result
-            parallaxResultProduct = .alignment
-            resultImage = result.previewImage
-            resultRGBA = nil
+            showParallaxProduct(.alignment)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
             displayRangeHi = 1
@@ -3802,9 +3818,7 @@ final class AppState {
     func resetParallaxAlignment() {
         guard !isBusy, let preprocessing = parallaxPreprocess else { return }
         parallaxAlignment = nil
-        parallaxResultProduct = .preprocess
-        resultImage = preprocessing.previewImage
-        resultRGBA = nil
+        showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
         resultGamma = 1
         displayRangeLo = 0
         displayRangeHi = 1
@@ -3876,9 +3890,7 @@ final class AppState {
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
             parallaxSubpixel = result
-            parallaxResultProduct = .subpixel
-            resultImage = result.croppedBF
-            resultRGBA = nil
+            showParallaxProduct(.subpixel)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
             displayRangeHi = 1
@@ -4065,28 +4077,47 @@ final class AppState {
         }
     }
 
+    /// The one publish site for every parallax and ptychography product: the
+    /// image and its label are chosen together (v2.5 step 3e, condition 2).
     func showParallaxProduct(_ product: ParallaxResultProduct) {
         let image: FloatImage?
+        let kind: String, name: String, units: String
         switch product {
-        case .preprocess: image = parallaxPreprocess?.previewImage
-        case .alignment: image = parallaxAlignment?.previewImage
-        case .subpixel: image = parallaxSubpixel?.croppedBF
-        case .correctedPhase: image = parallaxCorrection?.correctedPhase
-        case .depth: image = parallaxDepth?.croppedPlane(at: parallaxDepthSelectedIndex)
-        case .iterativePhase: image = singleslicePtychography?.objectPhase()
-        case .iterativeAmplitude: image = singleslicePtychography?.objectAmplitude()
-        case .iterativeProbePhase: image = singleslicePtychography?.probePhase()
-        case .iterativeProbeAmplitude: image = singleslicePtychography?.probeAmplitude()
+        case .preprocess:
+            image = parallaxPreprocess?.previewImage
+            (kind, name, units) = ("parallax_preprocess", "Parallax incoherent BF preview", "normalized_intensity")
+        case .alignment:
+            image = parallaxAlignment?.previewImage
+            (kind, name, units) = ("parallax_alignment", "Parallax aligned BF", "normalized_intensity")
+        case .subpixel:
+            image = parallaxSubpixel?.croppedBF
+            (kind, name, units) = ("parallax_subpixel_bf", "Parallax subpixel BF", "normalized_intensity")
+        case .correctedPhase:
+            image = parallaxCorrection?.correctedPhase
+            (kind, name, units) = ("parallax_corrected_phase", "Parallax corrected phase", "arbitrary_phase")
+        case .depth:
+            image = parallaxDepth?.croppedPlane(at: parallaxDepthSelectedIndex)
+            let depth = parallaxDepth?.depthsAngstrom[parallaxDepthSelectedIndex] ?? 0
+            (kind, name, units) = ("parallax_depth", String(format: "Parallax depth %.1f Å", depth), "arbitrary_phase")
+        case .iterativePhase:
+            image = singleslicePtychography?.objectPhase()
+            (kind, name, units) = ("ptychography_object_phase", "Ptychography object phase", "rad")
+        case .iterativeAmplitude:
+            image = singleslicePtychography?.objectAmplitude()
+            (kind, name, units) = ("ptychography_object_amplitude", "Ptychography object amplitude", "dimensionless")
+        case .iterativeProbePhase:
+            image = singleslicePtychography?.probePhase()
+            (kind, name, units) = ("ptychography_probe_phase", "Ptychography probe phase", "rad")
+        case .iterativeProbeAmplitude:
+            image = singleslicePtychography?.probeAmplitude()
+            (kind, name, units) = ("ptychography_probe_amplitude", "Ptychography probe amplitude", "dimensionless")
         }
         guard let image else { return }
         parallaxResultProduct = product
-        resultImage = image
-        resultRGBA = nil
         resultGamma = 1
         displayRangeLo = 0
         displayRangeHi = 1
-        resultVersion &+= 1
-        publishProductFromLegacyFields()   // v2.5 step 3b-5: every live publish site now publishes
+        publishProduct(kind: kind, displayName: name, valueUnits: units, payload: .scalar(image))
     }
 
     func selectParallaxDepthPlane(_ index: Int) {
@@ -4125,9 +4156,7 @@ final class AppState {
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
             parallaxCorrection = result
-            parallaxResultProduct = .correctedPhase
-            resultImage = result.correctedPhase
-            resultRGBA = nil
+            showParallaxProduct(.correctedPhase)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
             displayRangeHi = 1

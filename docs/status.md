@@ -47,24 +47,18 @@ Numbers are quoted only from retained, dated runs.
   them; a `struct` or class constructed from App needs an explicit
   `package init`; `private(set)` members need `package private(set)`.
 - **Step 3 is mid-flight** (row above; plan §9 is the pre-registration).
-  The product value is `DisplayedProduct`, stored as
-  `AppState.publishedProduct`, set by every compute and restore site; the
-  legacy fields (`resultImage`, `resultRGBA`, `restoredResult*`,
-  `navigationResult*`) still exist and still feed persistence. The
-  remaining order — (1) and (2) are done (3b-7, 3b-8): (3) find every
-  writer of `resultImage`/`resultRGBA` outside the publish sites
-  (`grep -n 'resultImage = \|resultRGBA = ' mac4DSTEM mac4DSTEMTests`),
-  including the two `ProductWorkflowTests` that write the field directly,
-  and turn each into a product publish — measured 2026-09-03: 52
-  assignments in `AppState.swift` (65 references), 6 in `ResultExport.swift`,
-  11 in tests, readers in `StemImageView`, `DatasetInspector`,
-  `ProductWorkspaceViews`, `Session/StrainProduct` — a bounded but
-  multi-hour session, one analysis family per commit; then delete `resultImage`,
-  `resultRGBA`, `restoredResult*`, `navigationResult*` and the `didSet`
-  coupling in ONE step — the 3b-9 attempt showed the relabel cache cannot
-  go first (deletion condition 1); (4) move `currentScalarResultMetadata`'s
-  switch into the compute sites (condition 2). The sidecar wire format is
-  unchanged throughout, so plan decision §8.1 is not forced by any of it.
+  `AppState.publishedProduct` (a `DisplayedProduct` with an `origin`) is
+  the only result storage. `resultImage`/`resultRGBA` are computed
+  adapters: a non-nil write publishes a product labelled from the
+  per-mode switch `currentScalarResultMetadata` (`publishLegacy`); a nil
+  write clears when the product holds that payload kind. `restoredResult*`
+  and `navigationResult*` no longer exist. Remaining, in order: convert
+  each non-nil writer to `publishProduct(kind:displayName:valueUnits:payload:)`
+  with the site's own labels (parallax done via `showParallaxProduct`;
+  DPC, ACOM, strain, Bragg map, the four restore sites and 8 test writes
+  remain), then delete the switch (condition 2) and the adapters' setters;
+  the nil writers become `publishedProduct = nil`. The sidecar wire format
+  is unchanged throughout, so plan decision §8.1 is not forced by any of it.
 - Scratch builds go to the session scratchpad, never the project; the
   unit gate needs ~8 GB free (`tools/free-space.sh`). The harnesses
   compile Core/Session/UI sources into one module, so package imports in
