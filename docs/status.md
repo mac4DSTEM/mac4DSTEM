@@ -23,7 +23,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 4 `CalibrationSession`; one vocabulary (Not set / From file / Measured / … / Not quantitative) and one `Verdict` on every surface | done 2026-09-03 | `AppState` forwards every calibration field until the views read the session (7c) |
 | 5 `ProductWorkflow.readiness(for:)` — one answer for the primary action, the checklist and replay; `OperationCenter` owns busy/progress/lifecycle | done 2026-09-03 as scoped | plan §10g owner decisions: parallax/ptychography in the recipe vocabulary; `SessionGates` axis; replay's own refusal wording |
 | 6 `ACOMSession`; the IPF map confidence-gated (10th-percentile default, slider on the chip) | done 2026-09-03 | `runACOM`, `runStrainMapping`, `applyACOMDisplay`, the orientation plan/map still on `AppState` |
-| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03 | **7c not started**: `ContentView` recomposition and forwarder deletion — needs the four §11g decisions and eyes on screen per slice; 2–4 sessions |
+| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03 | **7c next — decisions taken, slices in plan §11h**: `ContentView` recomposition, `FocusedPane`, a Results inspector, run functions into their sessions, forwarders deleted; 2–4 sessions, a short drive after each slice |
 | 8 Checkpoint | reached 2026-09-03 | the product is simpler across all five surfaces; `AppState.swift` is not smaller yet (5 700 lines) because ownership moved through forwarders — 7c removes them |
 
 ## Last gates (all on the tree at `b91f5bb`, 2026-09-03, retained logs)
@@ -40,13 +40,14 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Start here:** `docs/v2.5-plan.md` §11 (step 7 pre-registration) and its §11g
-  decisions; when the owner has answered them, 7c goes one workspace sidebar
-  per commit — `PrepareSidebar`, `ImageSidebar`, `MapSidebar`, `PhaseSidebar`,
-  `ResultsSidebar` split out of `ContentView` (15 sections, 210 `appState.`
-  reads), each new view reading `appState.calibrationSession` /
-  `acomSession` / `operationCenter` directly, and each `AppState` forwarder
-  block deleted when its last reader outside `AppState.swift` is gone.
+- **Start here — 7c is unblocked:** the four §11g decisions were taken
+  2026-09-03 (`docs/decisions.md`), and `docs/v2.5-plan.md` §11h lists the
+  six slices in order, one commit each with a short drive after: Results
+  sidebar + product inspector + `FocusedPane` first, then Prepare, Imaging,
+  Strain & ACOM (with the ACOM/strain run functions moving into their
+  sessions and that forwarder block deleted), then Phase (calibration
+  forwarders deleted), then `ContentView` as composition only. `/pickup`
+  takes it from this row.
 - **Binding traps:** new Core/Session types must be `package` and, if
   constructed from App, carry an explicit `package nonisolated init`; plain
   data structs are `nonisolated`; `private(set)` members need `package
@@ -68,4 +69,4 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 - Build, sign and notarize the v2.0.0 DMG from the tag.
 - Drive Track B F1.54–F1.59 (this week's visible changes) and F1.53.
-- The §11g decisions (7c), the §10g decisions (step 5 residuals), plan §8.
+- The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.

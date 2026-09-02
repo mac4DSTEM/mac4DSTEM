@@ -76,6 +76,21 @@ public repository should not carry a copy of another project; the file:line
 citations in `DEVIATION` notes stay true because the pin is exact. History is
 not rewritten (3.6 MB is not worth a force-push).
 
+**2026-09-03 — Step 7c decisions (plan §11g), owner.** (1) The Phase tasks
+are DPC & iDPC / Parallax / Single-slice ptychography as coded; the ADV
+marker stays on both ptychography tasks. (2) Results gets its own inspector:
+the selected product's units, frame, sampling, quality fields, provenance
+and origin, the session inventory, and the Diagnostics group (the
+session-vs-view and invalidated-calibration warnings matter most there).
+(3) `ActivePane` is not widened — it also drives Prepare's ROI direction;
+a separate `FocusedPane` value, set by the pane with the focus ring and read
+only by the inspector, replaces the per-workspace conditions. (4) The run
+functions (`runACOM`, `runStrainMapping`, `applyACOMDisplay`, the orientation
+plan/map) move into their session objects within 7c, as each family's last
+slice: sidebars first so views stop reading `AppState`, then the family's
+run functions move with the state they need and its forwarder block is
+deleted in the same commit.
+
 **2026-09-02 — Live doc set.** `CLAUDE.md` (rules), `docs/status.md`,
 `docs/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
 `docs/architecture.md`, this file, plus the reference docs and Track B
