@@ -16,7 +16,10 @@ package actor FourDArray {
     private let reader: any FourDDataSource
     /// The source, the specification, and the descriptor derived from both.
     /// Passed to the reader as one value so the three can never disagree.
-    package let view: LoadView
+    /// Immutable for the actor's lifetime, so callers on the main actor may read
+    /// the shape they are about to hand to a reader without hopping actors
+    /// (this was the last actor-isolation warning left after the package split).
+    package nonisolated let view: LoadView
     /// What is being processed — the view's shape, which is the source's shape
     /// when no specification is set.
     package let descriptor: DatasetDescriptor

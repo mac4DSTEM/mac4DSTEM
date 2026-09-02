@@ -29,11 +29,11 @@ Numbers are quoted only from retained, dated runs.
 
 | Gate | Result | Date, tree |
 |---|---|---|
-| `run-tests.sh unit` | 442 passed / 0 failed / 3 skipped, exit 0 (the skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` with its staged WS₂ fixture absent). The S17 sidebar intermittent showed 2 of 5 runs on the step 2c tree and 0 of 13 since (`open-items.md`) | 2026-09-03, step 3c tree (retained log) |
-| `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 (retained log) | 2026-09-03, tree at `dcd69fc`…`d49310a` (Core/, Session/ and the harness-compiled UI file unchanged since) |
+| `run-tests.sh unit` | 454 passed / 0 failed / 3 skipped, exit 0 (the skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` with its staged WS₂ fixture absent). The S17 sidebar intermittent: 2 of 5 on the 2c tree, 3 of 4 on the 5a tree, 0 of 20 otherwise (`open-items.md`) | 2026-09-03, `FourDArray.view` tree (retained log) |
+| `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 (retained log) | 2026-09-03, `FourDArray.view` tree — after the product seam, the calibration and ACOM sessions, the readiness registry and the warning cleanup |
 | `run-tests.sh all` | green end to end, 44 harnesses | 2026-09-01, DPC-closeout tree; not re-run since |
 | `run-tests.sh inventory` | exit 0 | 2026-09-03 |
-| Xcode build warnings (clean build) | 3 distinct, all pre-existing: `LoadedView`'s actor-isolated `view` read from the main actor (`AppState.swift:120, 3738, 4047`); was 102 after the package split | 2026-09-03, retained clean-build log |
+| Xcode build warnings (clean build) | 0 (was 102 after the package split) | 2026-09-03, retained log |
 | Track B (human) | 31 passed / 9 partly / 19 unverified / 1 blocked | owner's final playthrough row F1.53 open |
 
 ## Handoff (for the next agent, written 2026-09-02 night)
