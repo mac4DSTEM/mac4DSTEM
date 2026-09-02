@@ -1187,9 +1187,9 @@ struct ContentView: View {
     }
 
     private func datasetCard(_ descriptor: DatasetDescriptor) -> some View {
-        let readiness = appState.productWorkflowReadiness
-        let coreCalibrated = readiness.hasOriginProbe && readiness.hasRotation
-            && readiness.hasQScale && readiness.hasRScale && readiness.hasVoltage
+        // v2.5 step 4b: the one verdict, shared with the readiness checklist.
+        let verdict = appState.calibrationSession.verdict
+        let coreCalibrated = verdict.quantitative
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 9) {
                 Image(systemName: "circle.grid.cross.fill")
@@ -1266,11 +1266,12 @@ struct ContentView: View {
 
             HStack(spacing: 6) {
                 Label(
-                    coreCalibrated ? "Core calibrated" : "Calibration incomplete",
+                    coreCalibrated ? "Quantitative" : "Not quantitative",
                     systemImage: coreCalibrated
                         ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
                 )
                 .foregroundStyle(coreCalibrated ? Color.green : Color.orange)
+                .help(verdict.summary)
                 Spacer()
                 if !appState.sessionInventory.results.isEmpty {
                     Text("\(appState.sessionInventory.results.count) saved")

@@ -52,6 +52,17 @@ package enum CalibrationValueProvenance: String, Equatable, Sendable {
     case measuredInApp = "Measured in app"
     case manual = "Manual"
     case mixed = "Mixed sources"
+
+    /// The short state word a readiness row shows (v2.5 step 4b).
+    package var stateLabel: String {
+        switch self {
+        case .importedFile: "From file"
+        case .sessionSidecar: "From session"
+        case .measuredInApp: "Measured"
+        case .manual: "Manual"
+        case .mixed: "Mixed"
+        }
+    }
 }
 
 /// Provenance for fields that do not already carry `OriginProvenance`.
@@ -227,8 +238,11 @@ package enum CalibrationReadinessStatus: Equatable, Sendable {
 
     package var displayName: String {
         switch self {
-        case .ready(let provenance): return provenance.rawValue
-        case .missing: return "Missing"
+        // One vocabulary on every surface (v2.5 step 4b): Not set / From file /
+        // Measured / Manual / From session / Mixed, and Not quantitative for a
+        // measurement that failed its own gate.
+        case .ready(let provenance): return provenance.stateLabel
+        case .missing: return "Not set"
         case .unusable: return "Not quantitative"
         }
     }
@@ -281,8 +295,8 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
                 format: "%.3g px (%@)", calibration.probeRadius!,
                 provenance.probe?.rawValue ?? "Unknown source"
             )
-            : "Missing"
-        var originDetail = "Origin: \(originSource?.rawValue ?? "Missing") · Probe: \(probeDetail)"
+            : "Not set"
+        var originDetail = "Origin: \(originSource?.stateLabel ?? "Not set") · Probe: \(probeDetail)"
         if let originResidual {
             originDetail += String(format: " · Fit RMS %.4g px", originResidual)
             // The excluded fraction reaches the reader who sees the NUMBER,

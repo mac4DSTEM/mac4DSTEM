@@ -20,14 +20,15 @@ struct CalibrationReadinessChecklist: View {
             ForEach(report.items) { item in
                 readinessRow(item)
             }
-            if showsCompletionMessage, report.isReady {
-                Label(
-                    "Calibration is complete for quantitative workflows and export.",
-                    systemImage: "checkmark.seal.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.green)
-                .accessibilityIdentifier("calibration.ready")
+            // v2.5 step 4b: the same verdict the dataset header shows.
+            if showsCompletionMessage {
+                let verdict = appState.calibrationSession.verdict
+                Label(verdict.summary,
+                      systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+                    .sidebarWrapped()
+                    .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
         }
         .accessibilityElement(children: .contain)

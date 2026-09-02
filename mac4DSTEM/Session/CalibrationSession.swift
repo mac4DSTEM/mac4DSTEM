@@ -35,4 +35,26 @@ package final class CalibrationSession {
     package var hasUsableVoltage: Bool {
         acceleratingVoltage.map { $0.isFinite && $0 > 0 } ?? false
     }
+
+    /// The ONE quantitative verdict every surface renders (v2.5 step 4b): the
+    /// dataset header, the readiness checklist and export used to compute
+    /// their own with different rules ("Core calibrated" ignored the ellipse,
+    /// "Calibration is complete" ignored the voltage).
+    package struct Verdict: Equatable, Sendable {
+        package let quantitative: Bool
+        /// "<item>: <state>" for everything still in the way, voltage included.
+        package let blockers: [String]
+        package var summary: String {
+            quantitative ? "Quantitative" : "Not quantitative — still needed: " + blockers.joined(separator: ", ")
+        }
+        package init(quantitative: Bool, blockers: [String]) {
+            self.quantitative = quantitative; self.blockers = blockers
+        }
+    }
+
+    package var verdict: Verdict {
+        var blockers = readiness.missingItems.map { "\($0.kind.rawValue): \($0.status.displayName)" }
+        if !hasUsableVoltage { blockers.append("Accelerating voltage: Not set") }
+        return Verdict(quantitative: blockers.isEmpty, blockers: blockers)
+    }
 }
