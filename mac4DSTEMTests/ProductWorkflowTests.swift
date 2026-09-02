@@ -392,11 +392,12 @@ final class ProductWorkflowTests: XCTestCase {
 
     func testRestoredForeignDPCAngleEncodingIsNotRelabeled() {
         let state = AppState()
-        state.resultImage = FloatImage(width: 1, height: 1, pixels: [90])
-        state.restoredResultInfo = ("dpc_angle", "Imported DPC angle", "degrees")
-        state.restoredResultPixelInfo = (
-            nil, nil, nil, [ScalarResultMap.dpcAngleEncodingKey: "degrees"]
-        )
+        // v2.5 step 3d: a restored result is a product with a restored origin.
+        state.publishRestoredProduct(
+            kind: "dpc_angle", displayName: "Imported DPC angle", valueUnits: "degrees",
+            payload: .scalar(FloatImage(width: 1, height: 1, pixels: [90])),
+            pixelSizeRow: nil, pixelSizeColumn: nil, pixelUnits: nil,
+            provenance: [ScalarResultMap.dpcAngleEncodingKey: "degrees"])
 
         let map = state.currentScalarResultMapForPersistence()
         XCTAssertEqual(map?.pixels, [90])

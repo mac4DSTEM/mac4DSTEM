@@ -724,14 +724,12 @@ extension AppState {
         // published (always, now); the chain below is the pre-product path.
         let metadata: (kind: String, displayName: String, valueUnits: String) =
             publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
-            ?? restoredResultInfo ?? currentScalarResultMetadata
+            ?? currentScalarResultMetadata
         let persistence: (
             row: Double?, column: Double?, units: String?, provenance: [String: String]
         )
         if publishedProduct != nil {
             persistence = currentResultPersistenceMetadata
-        } else if restoredResultInfo != nil {
-            persistence = restoredResultPixelInfo ?? (nil, nil, nil, [:])
         } else {
             persistence = currentResultPersistenceMetadata
         }
@@ -762,7 +760,7 @@ extension AppState {
         let rgbaMap: RGBAResultMap?
         let metadata: (kind: String, displayName: String, valueUnits: String) =
             publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
-            ?? restoredResultInfo ?? currentScalarResultMetadata
+            ?? currentScalarResultMetadata
         if let map = currentScalarResultMapForPersistence() {
             scalarMap = map
             rgbaMap = nil
@@ -866,11 +864,6 @@ extension AppState {
                 guard epoch == datasetEpoch, let map else { return }
                 resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
                 resultRGBA = nil
-                restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
-                restoredResultPixelInfo = (
-                    map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
-                )
-                restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
                 if let image = resultImage {
                     publishRestoredProduct(   // v2.5 step 3b-6
                         kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
@@ -884,11 +877,6 @@ extension AppState {
                 guard epoch == datasetEpoch, let map else { return }
                 resultImage = nil
                 resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
-                restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
-                restoredResultPixelInfo = (
-                    map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
-                )
-                restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
                 if let rgba = resultRGBA {
                     publishRestoredProduct(   // v2.5 step 3b-6
                         kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
@@ -998,11 +986,11 @@ extension AppState {
     /// the sidecar. This does not imply that its transient analysis arrays are
     /// resident or recoverable.
     var selectedSavedControlRehydration: SessionControlRehydration? {
-        guard let info = restoredResultInfo, let pixelInfo = restoredResultPixelInfo else {
+        guard let product = publishedProduct, product.origin == .restoredFromSidecar else {
             return nil
         }
         let plan = SessionControlRehydration.parse(
-            kind: info.kind, provenance: pixelInfo.provenance
+            kind: product.kind, provenance: product.provenance
         )
         return plan.isEmpty ? nil : plan
     }
@@ -1106,7 +1094,6 @@ extension AppState {
             } else {
                 resultImage = nil
                 resultRGBA = nil
-                restoredResultInfo = nil
                 resultVersion &+= 1
             }
             statusText = "Removed \(saved.displayName) from \(url.lastPathComponent)"
@@ -1728,15 +1715,15 @@ extension AppState {
     }
 
     var currentResultValueUnits: String {
-        publishedProduct?.valueUnits ?? (restoredResultInfo ?? currentScalarResultMetadata).valueUnits
+        publishedProduct?.valueUnits ?? currentScalarResultMetadata.valueUnits
     }
 
     var currentResultDisplayName: String {
-        publishedProduct?.displayName ?? (restoredResultInfo ?? currentScalarResultMetadata).displayName
+        publishedProduct?.displayName ?? currentScalarResultMetadata.displayName
     }
 
     var currentResultKind: String {
-        publishedProduct?.kind ?? (restoredResultInfo ?? currentScalarResultMetadata).kind
+        publishedProduct?.kind ?? currentScalarResultMetadata.kind
     }
 
     var currentResultPersistenceMetadata:
@@ -1750,7 +1737,7 @@ extension AppState {
             if provenance["quantitative_status"] == nil {
                 provenance["quantitative_status"] = product.quantitativeStatus.rawValue
             }
-            if restoredResultInfo == nil,
+            if publishedProduct?.origin != .restoredFromSidecar,
                product.kind == "dpc_angle", product.valueUnits == "rad",
                provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
                 provenance[ScalarResultMap.dpcAngleEncodingKey] =
@@ -1758,16 +1745,15 @@ extension AppState {
             }
             return (product.sampling.row, product.sampling.column, product.sampling.units, provenance)
         }
-        let base = restoredResultPixelInfo
-            ?? currentScalarPersistenceMetadata
+        let base = currentScalarPersistenceMetadata
         var provenance = base.provenance
-        provenance["display_domain"] = (restoredResultDomain ?? activeResultDomain).rawValue
+        provenance["display_domain"] = activeResultDomain.rawValue
         if provenance["quantitative_status"] == nil {
             provenance["quantitative_status"] = quantitativeStatus(
                 for: currentResultKind, units: currentResultValueUnits
             ).rawValue
         }
-        if restoredResultInfo == nil,
+        if publishedProduct?.origin != .restoredFromSidecar,
            navigation.analysisMode == .dpc, dpcDisplay == .angle,
            currentResultKind == "dpc_angle", currentResultValueUnits == "rad",
            provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {

@@ -250,11 +250,10 @@ final class AppState {
     /// own metadata switch and the pre-product persistence metadata — never
     /// from the product being replaced.
     private func publishLegacy(payload: ProductPayload?) {
-        if restoredResultInfo == nil { restoredResultDomain = nil }
         guard let payload else { publishedProduct = nil; return }
-        let meta = restoredResultInfo ?? currentScalarResultMetadata
-        let persisted = restoredResultPixelInfo ?? currentScalarPersistenceMetadata
-        let domain = restoredResultDomain ?? activeResultDomain
+        let meta = currentScalarResultMetadata
+        let persisted = currentScalarPersistenceMetadata
+        let domain = activeResultDomain
         var provenance = persisted.provenance
         provenance["display_domain"] = domain.rawValue
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
@@ -284,6 +283,7 @@ final class AppState {
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: kind, units: valueUnits)
         publishedProduct = DisplayedProduct(
+            origin: .restoredFromSidecar,
             kind: kind, displayName: displayName, payload: payload, domain: domain,
             sampling: ProductSampling(row: pixelSizeRow, column: pixelSizeColumn, units: pixelUnits),
             valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance)
@@ -322,23 +322,6 @@ final class AppState {
     private(set) var scanNavigationVersion = 0
     /// Set only while `resultImage` is the scalar map restored from the stable
     /// session sidecar. New scientific results clear it at publication.
-    /// v2.5 step 3c: these three are adapters too — setting them re-labels the
-    /// published product from their values, which is what the pre-product
-    /// restore path (and its tests) expect when they set them after the pixels.
-    @ObservationIgnored var restoredResultInfo: (kind: String, displayName: String, valueUnits: String)? {
-        didSet { relabelProductFromRestoredFields() }
-    }
-    @ObservationIgnored var restoredResultPixelInfo:
-        (row: Double?, column: Double?, units: String?, provenance: [String: String])? {
-        didSet { relabelProductFromRestoredFields() }
-    }
-    @ObservationIgnored var restoredResultDomain: ProductDomain? {
-        didSet { relabelProductFromRestoredFields() }
-    }
-    private func relabelProductFromRestoredFields() {
-        guard restoredResultInfo != nil, let payload = publishedProduct?.payload else { return }
-        publishLegacy(payload: payload)
-    }
     /// Read-only inventory of supported objects in the stable companion file.
     var sessionInventory: SessionSidecarInventory = .empty
     var comparisonProductA: DisplayedProduct?
@@ -751,7 +734,7 @@ final class AppState {
         guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
                 ?? resultRGBA.map(ProductPayload.rgba) else { return nil }
         let metadata = currentResultPersistenceMetadata
-        let domain = restoredResultDomain ?? activeResultDomain
+        let domain = activeResultDomain
         let status = metadata.provenance["quantitative_status"]
             .flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: currentResultKind, units: currentResultValueUnits)
@@ -866,7 +849,6 @@ final class AppState {
         if navigation.analysisMode == .acom {
             resultImage = nil
             resultRGBA = nil
-            restoredResultInfo = nil
             resultVersion &+= 1
         }
     }
@@ -2651,7 +2633,6 @@ final class AppState {
         resultRGBA = nil
         scanNavigationImage = nil
         scanNavigationVersion = 0
-        restoredResultInfo = nil
         sessionInventory = .empty
         sessionLoadSpecification = nil
         // The recipe belongs to the session it was built in. A restore of the
@@ -3098,11 +3079,6 @@ final class AppState {
         if let map = snapshot.currentResult {
             resultImage = FloatImage(width: map.width, height: map.height, pixels: map.pixels)
             resultRGBA = nil
-            restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
-            restoredResultPixelInfo = (
-                map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
-            )
-            restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
             if let image = resultImage {
                 publishRestoredProduct(   // v2.5 step 3b-6
                     kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
@@ -3116,11 +3092,6 @@ final class AppState {
             }
             resultImage = nil
             resultRGBA = RGBAImage(width: map.width, height: map.height, rgba: map.rgba)
-            restoredResultInfo = (map.kind, map.displayName, map.valueUnits)
-            restoredResultPixelInfo = (
-                map.pixelSizeRow, map.pixelSizeColumn, map.pixelUnits, map.provenance
-            )
-            restoredResultDomain = map.provenance["display_domain"].flatMap(ProductDomain.init)
             if let rgba = resultRGBA {
                 publishRestoredProduct(   // v2.5 step 3b-6
                     kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
@@ -3131,7 +3102,7 @@ final class AppState {
             return
         }
         resultVersion &+= 1
-        statusText = "Restored \(restoredResultInfo?.displayName ?? "result") ← \(url.lastPathComponent)"
+        statusText = "Restored \(publishedProduct?.displayName ?? "result") ← \(url.lastPathComponent)"
     }
 
     private func loadCurrentPattern() async {
@@ -3170,7 +3141,6 @@ final class AppState {
         case .ptychography:
             if let preview = parallaxAlignment?.previewImage
                 ?? parallaxPreprocess?.previewImage {
-                restoredResultInfo = nil
                 resultImage = preview
                 resultRGBA = nil
                 resultVersion &+= 1
@@ -3630,7 +3600,6 @@ final class AppState {
                 statusText = "Virtual detector cancelled"
                 return .cancelled
             }
-            restoredResultInfo = nil
             resultColormap = .viridis
             resultImage = image
             resultRGBA = nil
@@ -3725,7 +3694,6 @@ final class AppState {
             parallaxPreprocess = result
             parallaxAlignment = nil
             parallaxResultProduct = .preprocess
-            restoredResultInfo = nil
             resultImage = result.previewImage
             resultRGBA = nil
             resultGamma = 1
@@ -3807,7 +3775,6 @@ final class AppState {
                   !token.isCancelled else { return }
             parallaxAlignment = result
             parallaxResultProduct = .alignment
-            restoredResultInfo = nil
             resultImage = result.previewImage
             resultRGBA = nil
             resultGamma = 1
@@ -3836,7 +3803,6 @@ final class AppState {
         guard !isBusy, let preprocessing = parallaxPreprocess else { return }
         parallaxAlignment = nil
         parallaxResultProduct = .preprocess
-        restoredResultInfo = nil
         resultImage = preprocessing.previewImage
         resultRGBA = nil
         resultGamma = 1
@@ -3911,7 +3877,6 @@ final class AppState {
                   !token.isCancelled else { return }
             parallaxSubpixel = result
             parallaxResultProduct = .subpixel
-            restoredResultInfo = nil
             resultImage = result.croppedBF
             resultRGBA = nil
             resultGamma = 1
@@ -4115,7 +4080,6 @@ final class AppState {
         }
         guard let image else { return }
         parallaxResultProduct = product
-        restoredResultInfo = nil
         resultImage = image
         resultRGBA = nil
         resultGamma = 1
@@ -4162,7 +4126,6 @@ final class AppState {
                   !token.isCancelled else { return }
             parallaxCorrection = result
             parallaxResultProduct = .correctedPhase
-            restoredResultInfo = nil
             resultImage = result.correctedPhase
             resultRGBA = nil
             resultGamma = 1
@@ -4557,7 +4520,6 @@ final class AppState {
     @discardableResult
     private func applyDPCDisplay() -> String? {
         guard var com = comField, let d = descriptor, navigation.analysisMode == .dpc else { return nil }
-        restoredResultInfo = nil
         if let rotation = calibration.rotationRad {
             com = DPC.applyRotation(com: com, rotationRad: rotation,
                                     transpose: calibration.transposeQR ?? false)
@@ -4935,7 +4897,6 @@ final class AppState {
     private func showBraggMap(_ vectors: BraggVectors, descriptor d: DatasetDescriptor) {
         let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
         let bvm = calibrated.map(qy: d.qy, qx: d.qx)
-        restoredResultInfo = nil
         resultColormap = .viridis
         resultImage = FloatImage(width: bvm.width, height: bvm.height,
                                  pixels: bvm.pixels.map { log10(1 + max($0, 0)) })
@@ -5131,8 +5092,6 @@ final class AppState {
     /// user is now asking for a specific product rather than carrying the
     /// previous one along.
     func showComputedProduct(_ product: ComputedProduct) {
-        restoredResultInfo = nil
-        restoredResultDomain = nil
         inspectQualityField = false
         switch product {
         case .strain:
@@ -5162,8 +5121,6 @@ final class AppState {
     /// no-data color, never as neutral zero strain.
     private func applyStrainDisplay() {
         guard let map = strain.map, navigation.analysisMode == .strain else { return }
-        restoredResultInfo = nil
-        restoredResultDomain = nil
         resultColormap = (strain.component == .residual || strain.component == .indexed)
             ? .viridis : .rdbu
         resultImage = map.presented(in: strainPresentationFrame)
@@ -5494,7 +5451,6 @@ final class AppState {
 
     private func applyACOMDisplay() {
         guard let map = orientationMap, navigation.analysisMode == .acom else { return }
-        restoredResultInfo = nil
         resultColormap = .viridis
         // v2.5 step 3b-4: every ACOM display mode publishes the product with the
         // map's own validity (matched template) and quality (reliability, score),

@@ -98,7 +98,10 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         let app = AppState()
         await app.openDemoFixture(calibrated: true)
         app.navigation.analysisMode = .virtualDetector
-        app.restoredResultInfo = ("acom_ipf_z", "Restored IPF (stale)", "categorical")
+        app.publishRestoredProduct(
+            kind: "acom_ipf_z", displayName: "Restored IPF (stale)", valueUnits: "categorical",
+            payload: .scalar(FloatImage(width: 1, height: 1, pixels: [0])),
+            pixelSizeRow: nil, pixelSizeColumn: nil, pixelUnits: nil, provenance: [:])
         _ = await app.runVirtualDetector(quiet: true)
         let product = try XCTUnwrap(app.displayedProduct)
         XCTAssertTrue(product.kind.hasPrefix("virtual_"), product.kind)

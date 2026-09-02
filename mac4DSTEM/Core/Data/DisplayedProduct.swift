@@ -66,7 +66,16 @@ package struct ProductOverlayDescriptor: Equatable, Sendable {
     }
 }
 
+/// Where a product came from. Not persisted: a re-saved restored product is
+/// a fresh write. Lets persistence tell a live result from one read back
+/// without a parallel `restored*` field set (v2.5 step 3d).
+package enum ProductOrigin: Equatable, Sendable {
+    case computed
+    case restoredFromSidecar
+}
+
 package struct DisplayedProduct {
+    package let origin: ProductOrigin
     package let kind: String
     package let displayName: String
     package let payload: ProductPayload
@@ -83,12 +92,14 @@ package struct DisplayedProduct {
     package var height: Int { payload.dimensions.height }
 
     package init(
+        origin: ProductOrigin = .computed,
         kind: String, displayName: String, payload: ProductPayload,
         domain: ProductDomain, validityMask: [Bool]? = nil,
         qualityFields: [ProductQualityField] = [], sampling: ProductSampling,
         valueUnits: String, quantitativeStatus: ProductQuantitativeStatus,
         provenance: [String: String] = [:], overlays: [ProductOverlayDescriptor] = []
     ) {
+        self.origin = origin
         self.kind = kind
         self.displayName = displayName
         self.payload = payload
