@@ -171,11 +171,13 @@ struct DatasetInspector: View {
                 row("Pattern max", String(format: "%.3g", upperBound))
             }
 
-            subheader("Aperture (detector px)")
-            row("Center x", String(format: "%.1f", appState.aperture.centerX))
-            row("Center y", String(format: "%.1f", appState.aperture.centerY))
-            row("Inner r", String(format: "%.1f", appState.aperture.inner))
-            row("Outer r", String(format: "%.1f", appState.aperture.outer))
+            if appState.inspectorShowsAperture {   // v2.5 step 7b: follows the task's panes
+                subheader("Aperture (detector px)")
+                row("Center x", String(format: "%.1f", appState.aperture.centerX))
+                row("Center y", String(format: "%.1f", appState.aperture.centerY))
+                row("Inner r", String(format: "%.1f", appState.aperture.inner))
+                row("Outer r", String(format: "%.1f", appState.aperture.outer))
+            }
 
             if let image = appState.resultImage {
                 subheader("Histogram (real space)")
@@ -187,7 +189,7 @@ struct DatasetInspector: View {
                 gammaControl("Gamma", value: Bindable(appState).resultGamma)
             }
 
-            if let pattern = appState.displayedPattern {
+            if appState.inspectorShowsDiffractionHistogram, let pattern = appState.displayedPattern {
                 subheader("Histogram (diffraction)")
                 HistogramView(
                     pixels: pattern.contrastPixels(useLog: appState.logScale),

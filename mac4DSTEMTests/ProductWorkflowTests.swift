@@ -723,3 +723,31 @@ final class PhaseSplitTests: XCTestCase {
     }
 }
 
+// MARK: - v2.5 step 7b: the inspector follows the task's panes (plan §11f-4)
+
+@MainActor
+final class InspectorFocusTests: XCTestCase {
+    func testAnOrientationOrStrainTaskShowsNeitherApertureNorDiffractionHistogram() {
+        let state = AppState()
+        state.changeMode(.acom)
+        XCTAssertFalse(state.inspectorShowsAperture)
+        XCTAssertFalse(state.inspectorShowsDiffractionHistogram)
+        state.changeMode(.strain)
+        XCTAssertFalse(state.inspectorShowsAperture)
+        XCTAssertFalse(state.inspectorShowsDiffractionHistogram)
+    }
+
+    func testDiffractionPaneTasksKeepBoth() {
+        let state = AppState()
+        state.changeMode(.virtualDetector)
+        XCTAssertTrue(state.inspectorShowsAperture)
+        XCTAssertTrue(state.inspectorShowsDiffractionHistogram)
+        state.changeMode(.disks)
+        XCTAssertFalse(state.inspectorShowsAperture, "disks show the pattern, not the virtual-detector ROI")
+        XCTAssertTrue(state.inspectorShowsDiffractionHistogram)
+        state.selectWorkspace(.prepare)
+        XCTAssertTrue(state.inspectorShowsAperture)
+        XCTAssertTrue(state.inspectorShowsDiffractionHistogram)
+    }
+}
+
