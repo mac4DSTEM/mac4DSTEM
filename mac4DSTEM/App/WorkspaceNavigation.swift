@@ -78,9 +78,10 @@ enum FocusedPane: Equatable, Sendable {
         _ active: ActivePane, in area: WorkspaceArea, task: AnalysisMode
     ) -> FocusedPane? {
         switch area {
-        case .prepare:
+        case .prepare, .image:
+            // Both draw the virtual detector on their diffraction pane.
             active == .diffraction ? .detectorPattern : .image
-        case .image, .map, .reconstruct, .results:
+        case .map, .reconstruct, .results:
             nil
         }
     }
