@@ -73,6 +73,38 @@ struct ColormapChipMenu<Chip: View>: View {
                     selection.wrappedValue == kind ? .isSelected : []
                 )
             }
+            if pane == .result, appState.navigation.analysisMode == .acom,
+               appState.acomDisplay == .ipfZ, appState.orientationMap != nil {
+                // v2.5 step 7 (plan §3 item 2): the IPF map's confidence gate
+                // lives with the map's colours. Nil = automatic (10th percentile).
+                Divider()
+                let effective = appState.acomEffectiveReliabilityThreshold ?? 0
+                let kept = appState.orientationMap?
+                    .fractionOfMatchedPositions(withReliabilityAtLeast: effective)
+                HStack {
+                    Text("Confidence gate").font(.caption.weight(.semibold))
+                    Spacer()
+                    Text(String(format: "%.2f", effective)).font(.caption.monospacedDigit())
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(effective) },
+                        set: { appState.acomReliabilityThreshold = Float($0) }),
+                    in: 0...1)
+                    .accessibilityLabel("Reliability threshold")
+                    .accessibilityIdentifier("pane.acom.reliabilityThreshold")
+                HStack {
+                    if let kept {
+                        Text(String(format: "%.0f %% of matched positions kept", kept * 100))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if appState.acomReliabilityThreshold != nil {
+                        Button("Automatic") { appState.acomReliabilityThreshold = nil }
+                            .font(.caption2)
+                    }
+                }
+            }
             if pane == .diffraction {
                 Divider()
                 Toggle("Log display", isOn: $appState.logScale)
