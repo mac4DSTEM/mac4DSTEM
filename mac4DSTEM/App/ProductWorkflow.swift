@@ -271,11 +271,15 @@ enum ProductWorkflow {
             return []
         case .disks:
             // v2.5 step 5a: the tools panel's private gate joins the one list,
-            // so the header's primary action and the panel button agree.
+            // so the header's primary action and the panel button agree. The
+            // row exists only while unmet: a satisfied "fix the settings" row
+            // is noise, and the Strain & ACOM sidebar has no height to spare
+            // (SidebarLayoutTests measures it).
+            guard !readiness.hasValidDiskDetectionSettings else { return [] }
             return [
                 TaskPrerequisite(
                     id: "diskSettings", title: "Fix the disk-detection settings",
-                    isSatisfied: readiness.hasValidDiskDetectionSettings,
+                    isSatisfied: false,
                     resolution: .taskPanel(
                         "Resolve the errors listed in the Bragg disk controls in the tools panel."
                     )

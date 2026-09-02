@@ -128,8 +128,11 @@ fails intermittently with **Strain & ACOM (calibrated) at 810.5pt against
 2026-09-03, v2.5 step 2c tree, no app instance running, no sidebar key in
 the defaults domain: failed 2 of 5 runs (full unit run; class run), passed 3
 (single test; class twice); the 2b tree passed its one class run. Then 0 of
-14 full runs through step 4b; 1 of 1 on the step 5a tree (full run), the
-class re-run afterwards recorded in the 5a commit. Trap: it
+14 full runs through step 4b; on the step 5a tree 3 of 4 (one full run and
+two class runs red at the same 810.5, the next full run green). 5a adds
+observation reads to the header action, which may raise how often the
+width race fires; the content is unchanged (the extra disks row is shown
+only while unmet). Trap: it
 is not a package-split regression — the A/B was run — and it is not the
 autosave leak the comment describes, since the domain was clean. Owner:
 whoever next touches the sidebar layout; the pin-then-measure sequence needs
