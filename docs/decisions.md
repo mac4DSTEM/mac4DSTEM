@@ -91,6 +91,14 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-03 — Four lanes and a number rule (owner).** `open-items.md`'s
+sections are the lanes: patches (v2.5.x) for reported bugs and the known,
+scoped items; science one item at a time with the origin-fit guard leading;
+verification debt closed by its run; hygiene riding with whichever session
+touches the file. A patch changes no scientific output; a landed change to
+one cuts v2.6.0 and the changelog names the number. Releases are cut when
+what has landed is worth a build, never scheduled against a number.
+
 **2026-09-03 — v2.5.0 is the next release; Track B is retired.** v2.0.0
 was tagged and never built; the consolidation supersedes it, so the next
 release is v2.5.0 from `main` after the owner's own driving pass. The tag

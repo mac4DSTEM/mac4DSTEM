@@ -29,8 +29,15 @@ INFO="$APP/Contents/Info.plist"
 
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
   "com.mac4dstem.mac4DSTEM"
-test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "2.0"
-test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "1"
+# The version and build come from the project, not a literal here: a literal
+# encoded the 1.0 contract, then the 2.0 one, and went red at every bump
+# (2026-09-03: the 2.5 bump found it asserting 2.0 / 1). The audit's claim is
+# that the bundle carries what the project declares, and only that.
+MARKETING="$(grep -m1 'MARKETING_VERSION = ' "$REPO/mac4DSTEM.xcodeproj/project.pbxproj" | sed 's/.*= \(.*\);/\1/')"
+BUILD="$(grep -m1 'CURRENT_PROJECT_VERSION = ' "$REPO/mac4DSTEM.xcodeproj/project.pbxproj" | sed 's/.*= \(.*\);/\1/')"
+test -n "$MARKETING" && test -n "$BUILD"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "$MARKETING"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "$BUILD"
 # 26.0, not 14.0: S19 raised MACOSX_DEPLOYMENT_TARGET in all six configurations
 # (aeaeacc, 2026-08-28) and did not update this assertion, so this harness has
 # been red on main ever since — unnoticed because `all` aborted earlier, at
@@ -81,6 +88,6 @@ env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
   "$REPO/tools/calibration-test/real_py4dstem.h5"
 
 echo "PASS: hardened sandbox entitlements and nested signatures"
-echo "PASS: v1 identity, version, macOS 26 floor, and app icon"
+echo "PASS: identity, version $MARKETING ($BUILD) as the project declares, macOS 26 floor, and app icon"
 echo "PASS: no Homebrew/local dylib dependency in the Release product"
 echo "package-test: all passed"

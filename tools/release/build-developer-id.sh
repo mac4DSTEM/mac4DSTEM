@@ -25,5 +25,6 @@ if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.get-task-allow' \
     "$OUT/entitlements.plist" >/dev/null 2>&1; then
   echo "FAIL: distribution app contains get-task-allow" >&2; exit 1
 fi
-ditto -c -k --keepParent "$APP" "$OUT/mac4DSTEM-1.0-pre-notarization.zip"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+ditto -c -k --keepParent "$APP" "$OUT/mac4DSTEM-$VERSION-pre-notarization.zip"
 echo "$APP"

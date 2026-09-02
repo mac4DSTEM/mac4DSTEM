@@ -1,9 +1,14 @@
 # Open items
 
 The only maintained status doc: unresolved items after the v2.5
-consolidation (2026-09-03). No science item here is scheduled for v2.5.0 or
-carries a release number; when one lands, the changelog names the number it
-changes. Each entry is a live defect, debt, owed run, or open question —
+consolidation (2026-09-03). The four sections are the four lanes
+(2026-09-03, owner): **Science** items are taken one at a time, in the order
+the status handoff names, carry no release number, and when one lands the
+changelog names the number it changes — a landed change to a scientific
+output cuts v2.6.0, everything else ships in the next v2.5.x patch;
+**Verification debt** closes when its run happens; **Known, scoped** items and
+the owner's bug reports are patch work; **Code hygiene** rides with the
+session that touches its file, never its own. Each entry is a live defect, debt, owed run, or open question —
 ≤ 12 lines: what is wrong, the pinning evidence, the trap, the owner, any
 live residual. No narrative. Closed and historical material is the verbatim
 pre-cull file,
@@ -145,6 +150,23 @@ Update Constraints in Window pass..."). Diagnosis: the hard SwiftUI
 `.frame(minWidth:)` on the column root fights AppKit's split-view drag.
 Fix in progress: remove that hard floor; rely on `NavigationSplitView` +
 `SplitViewWidthClamp` AppKit bounds/restoration clamp; needs live re-drive.
+
+### Sidebar drag crashes the app intermittently — Gate D open
+Owner report 2026-09-03: resizing the panes still crashes the app "from
+time to time". Diagnosis on file (an Xcode agent, same day): the hard
+`.frame(minWidth: 250)` on the sidebar column root, on top of the AppKit
+thickness bounds `SplitViewWidthClamp` sets and the SwiftUI column width,
+lets a live divider drag re-enter window constraint updates until AppKit
+raises `NSGenericException`. That agent removed the floor; the edit reached
+`main` in `1274f72` by way of another session's `git add -A`, not through
+this repo's gate — the unit suite (including
+`testTheSidebarRefusesPositionsOutsideItsDeclaredBand`) has since passed on
+the tree without it. Evidence owed: the exception text, and a reproduction
+count (20 hard drags each way) on a build with and without the floor. What
+refutes it: a crash on the build without the floor. Trap: "crashes" may be
+two defects — this one and the constraint-loop class open-items already
+lists under the 144pt restore. Owner: whoever next touches the split view;
+the layout-model rework the Xcode agent proposes waits on the evidence.
 
 ### No automated visual baseline
 Every acceptance run is numeric-only (`--no-screenshots`); the owner

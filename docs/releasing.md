@@ -49,7 +49,7 @@ tools/release/notarize.sh \
 ```
 
 The script submits with `notarytool --wait`, staples and validates the ticket,
-runs Gatekeeper assessment, and produces `mac4DSTEM-1.0.zip`. Preserve the archive,
+runs Gatekeeper assessment, and produces `mac4DSTEM-<version>.zip`. Preserve the archive,
 notary submission ID/log, commit hash, and final SHA-256 together as release
 provenance. Test the ZIP on a clean **macOS 26+** account before publishing —
 the floor was raised from 14 on 2026-08-28, because the app had never been run

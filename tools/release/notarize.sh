@@ -22,7 +22,10 @@ if [[ "$TARGET" == *.dmg ]]; then
 fi
 
 APP="$TARGET"
-OUT="${2:-${APP:h}/mac4DSTEM-1.0.zip}"
+# Named after the bundle's own version, not a hardcoded one (1.0 shipped
+# under that name; 2.5.0 must not).
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+OUT="${2:-${APP:h}/mac4DSTEM-$VERSION.zip}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

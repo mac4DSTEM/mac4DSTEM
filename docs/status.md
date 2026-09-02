@@ -32,20 +32,24 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | Gate | Result |
 |---|---|
 | `run-tests.sh unit` | 467 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03, 7c 4b tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
-| `run-tests.sh scientific` | 42 started / 42 completed, zero FAIL, exit 0 — `b91f5bb`, 2026-09-03; App/UI-only slices since |
+| `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-03, 7c 4b tree (live markdown 3 970, cold-start set 932; both below the previous closeout) |
 | Xcode scratch build | 0 Swift warnings — every 7c slice, 2026-09-02/03 |
-| `run-tests.sh all` | not re-run since 2026-09-01 (the aggregate adds `real-data-acceptance` and `package-test`) |
+| `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Start here — the train is done; what is next is the owner's call:** the
-  owed science in `open-items.md` (each its own Gate D or B session, no
-  release number), bugs the owner reports from driving (each through
-  `/diagnose`), the v2.5.0 build, a v3 feature from `docs/v3-plan.md`
-  (pre-registered first), or the run layer named there. `/pickup` with a
-  named target. Nothing since 7c slice 1 has been seen on screen.
+- **Start here.** Four lanes (`open-items.md` header): patches v2.5.x for
+  bugs the owner reports (through `/diagnose`) and the known, scoped items;
+  the science lane one item at a time — **the origin-fit guard leads**
+  (1 px unflagged, radius provenance; Gate B; `open-items.md` "Origin-fit
+  gate" (a)), then the ACOM bundle's origin-provenance snapshot, the
+  selected-area mask fixture, bullseye disk detection (Gate D), CIF id
+  collision, Q-calibration scale, ACOM coverage; a landed number change
+  cuts v2.6.0. Features come from `docs/v3-plan.md`, pre-registered first.
+  `/pickup` with a named target. Nothing since 7c slice 1 has been seen on
+  screen.
 
 ## Owed to the owner
 
