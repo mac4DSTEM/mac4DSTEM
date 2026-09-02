@@ -4072,6 +4072,7 @@ final class AppState {
         displayRangeLo = 0
         displayRangeHi = 1
         resultVersion &+= 1
+        publishProductFromLegacyFields()   // v2.5 step 3b-5: every live publish site now publishes
     }
 
     func selectParallaxDepthPlane(_ index: Int) {
