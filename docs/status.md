@@ -34,39 +34,39 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 1 The chrome on the window's ground; dividers grab over 9 pt | done 2026-09-03 (`9493242`), owner-drove it | — |
 | 2a Prepare sidebar, dataset card and workspace list as one grouped `Form`; Liquid Glass diagnosed (Gate D, refuted independently); workspace holds least | done 2026-09-03, unverified on screen | `FormPolicy`/`NumericField` (`FormControls.swift`) hold the two numbers; the "sidebar fits without scrolling" gate retired for rule 5's width-range gate (`testEverySidebarSurvivesItsWholeColumnRange`, 250/292/600 pt, every workspace and task, attaches review PNGs under `MAC4DSTEM_CAPTURE`); `ColumnMaterialTests` holds rule 3 for the columns and can hold the window for a shell capture (`MAC4DSTEM_HOLD_SECONDS`); the columns stay flat by the OS's design (`open-items.md` (d)) |
 | 2b Imaging sidebar | done 2026-09-03 in the same commit (its four-segment picker was the width gate's only failure) | shape and region pickers are menus; presets a pull-down |
-| 2c Strain & ACOM (`MapSidebar`, `DiskDetectionControls`, `ACOMControlsView`) | next | — |
-| 2d Phase (`PhaseSidebar`) | queued | — |
-| 2e Results (`ResultsSidebar`); delete `SidebarTextWidth.swift` | queued | — |
-| 3 Both inspectors as Forms, thumbnails through `thumbnailCapped()` | queued | — |
-| 4 The rest of the window: pane chips and badges, welcome cards, configurator and export sheets, alerts; the rule-4 grep joins `inventory` | queued | — |
+| 2c Strain & ACOM (`MapSidebar`, `DiskDetectionControls`, `ACOMControlsView`) | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | `AdvancedDiskDetectionSection` is its own collapsible section; ACOM's engine/Q-scale and result blocks are sections |
+| 2d Phase (`PhaseSidebar`) | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | one section per parallax stage, the stage header row carries the stage identifier |
+| 2e Results (`ResultsSidebar`); `SidebarTextWidth.swift` deleted | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | Remove is its own row: beside A/B it truncated at 250 pt |
+| 3 Both inspectors as grouped Forms, one section per block, thumbnails through `thumbnailCapped()` | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | `testEveryInspectorSurvivesItsWholeColumnRange` (260/320/600 pt, both inspectors) in `ColumnMaterialTests`; the sidecar's Ignore/Change buttons are two rows |
+| 4 The rest of the window: pane badges are words in their colour (the owner's wrapped "Relative" capsule), the welcome workspace on `GroupBox`es with no gradient or wash, the configurator's choices and the export sheet as grouped Forms with sheet bands, the colorbar chip popover as a Form; `WindowPolicy` holds the window's numbers; the rule-4 grep joins `inventory` | done 2026-09-03, unverified on screen (the welcome and the loaded window reviewed from captures of the real app) | alerts were already system alerts; `TaskPrerequisiteChecklist` untouched (its line limits are the #16 fix) |
 | 5 The owner's full drive | owner | — |
 
 ## Last gates (retained logs)
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 475 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03 05:50, UI rework steps 2a+2b tree; skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent |
+| `run-tests.sh unit` | 476 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03 06:44, UI rework steps 2c–4 tree; skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | exit 0 — 2026-09-03, steps 2a+2b tree (live markdown 3 487, cold-start set 704) |
-| Xcode scratch build | 0 Swift warnings — steps 2a+2b, 2026-09-03 |
+| `run-tests.sh inventory` | exit 0 — 2026-09-03, steps 2c–4 tree (live markdown 3 510, cold-start set 715; both up on the 2a closeout by the rework's own rows, still below the step 1 closeout); now also holds rule 4 as a grep |
+| Xcode scratch build | 0 Swift warnings — every rework step, 2026-09-03 |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
 ## Handoff (rewritten 2026-09-03, unattended session)
 
-- **Next: the UI rework, step 2c** (table above). The owner's direction
+- **Next: the owner's drive, step 5** (table above). Every surface has
+  been reworked and gated; nothing since step 1 has been seen on screen
+  by the owner. Bugs found in the drive enter through `/diagnose`. The owner's direction
   (2026-09-03): a complete rework of every surface to Apple's standards —
   the app should look and behave as if it shipped with macOS — and nothing
   about releases or tags is considered until it is right. Contract in
   `architecture.md` "Presentation contract"; findings in `open-items.md`
-  "The UI rework". Pattern for every remaining step: `PrepareSidebar` /
-  `CalibrationReadinessView` / `ImageSidebar` (rows of the column's grouped
-  Form, `LabeledContent`, `NumericField`, no hand-built rows, no frames);
-  the gate is the rule-5 width-range test plus the existing hosted tests;
-  the review images are the test's PNG attachments (export with
-  `xcrun xcresulttool export attachments`). `/pickup the UI rework` from a
-  fresh session. **Nothing since step 1 has been seen on screen by the
-  owner**; a shell with a Screen Recording grant can capture the real app
+  "The UI rework". The pattern every surface now follows: rows of a grouped Form,
+  `LabeledContent`, `NumericField`, labelled `Slider` rows (a slider as a
+  row's trailing value collapses to its knob), no hand-built rows, no
+  frames outside `FormPolicy`/`WindowPolicy`; the gates are the two
+  width-range tests plus the hosted tests, and the review images are
+  their PNG attachments (`xcrun xcresulttool export attachments`). A shell with a Screen Recording grant can capture the real app
   (`open -n <Debug app> --args --demo-fixture`, `screencapture -l <id>`)
   and the hosted window (`MAC4DSTEM_HOLD_SECONDS`), which is how this
   session reviewed its own work.

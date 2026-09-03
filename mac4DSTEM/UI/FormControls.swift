@@ -16,6 +16,25 @@ enum FormPolicy {
     static let thumbnailMaximumHeight: CGFloat = 160
 }
 
+/// The window's own few numbers (rule 1: structure is fixed, content is
+/// fluid): strips, inline progress bars, popovers and sheets. Everything
+/// else takes the width it is given.
+enum WindowPolicy {
+    /// The output log strip under the panes.
+    static let outputStripHeight: CGFloat = 100
+    /// An inline progress bar beside its status text.
+    static let inlineProgressWidth: CGFloat = 110
+    /// A control popover (the colorbar chips).
+    static let popoverWidth: CGFloat = 260
+    /// Readable line length on the welcome workspace.
+    static let readableWidth: CGFloat = 560
+    /// The load configurator and export sheets: an ideal size and a floor,
+    /// so a short display shrinks the sheet instead of losing its footer
+    /// (the 2026-08-18 fixed-height defect).
+    static let configuratorSheet = (min: CGSize(width: 780, height: 520), ideal: CGSize(width: 900, height: 760))
+    static let exportSheet = (min: CGSize(width: 560, height: 480), ideal: CGSize(width: 620, height: 720))
+}
+
 /// A numeric text field with an optional unit, for the trailing side of a
 /// `LabeledContent` row. The only place a form control takes a width.
 struct NumericField<Value, Format: ParseableFormatStyle>: View

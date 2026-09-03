@@ -224,8 +224,8 @@ Owner drives 2026-09-03 (`df80e8e`, then step 1 `9493242`): (a) a wide
 sidebar puts every trailing value at the far edge — step 2a makes the
 column a grouped `Form`, so rows are `LabeledContent` (value trailing, as
 System Settings) and every field is `NumericField` (one width rule,
-`FormPolicy`), pending the owner's drive; (b) the inspector's thumbnails
-fill the column (step 3); (c) dividers' grab zone — fixed step 1,
+`FormPolicy`), pending the owner's drive; (b) thumbnails cap at `FormPolicy`'s one
+height (step 3, same drive); (c) dividers' grab zone — fixed step 1,
 owner-confirmed; (d) no Liquid Glass on the columns — Gate D 2026-09-03
 (`ColumnMaterialTests`, refuted independently): the hosted lists DID paint
 over AppKit's material (inspector: its own `contentBackground` effect

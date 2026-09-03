@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 struct ACOMControlsView: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
+    @State private var showsEngine = false
 
     /// Nothing on a stock macOS declares `.cif`, so this resolves to the
     /// dynamic type `dyn.ah62d4rv4ge80g4pg` — which is also what a `.cif` file
@@ -49,7 +50,6 @@ struct ACOMControlsView: View {
             } label: {
                 Label("Import CIF…", systemImage: "square.and.arrow.down")
             }
-            .font(.caption)
             .accessibilityIdentifier("acom.importCIF")
             .fileImporter(
                 isPresented: $showCIFImporter,
@@ -66,21 +66,16 @@ struct ACOMControlsView: View {
 
             if let reason = appState.acomModelSelectionIssue {
                 Label(reason, systemImage: "nosign")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
             } else if let model = appState.resolvedACOMModel {
                 LabeledContent("Symmetry", value: model.symmetry.displayName)
-                    .font(.caption)
                 if model.source == .imported {
                     LabeledContent("Source", value: "Imported CIF")
-                        .font(.caption)
-                        .foregroundStyle(.blue)
                 }
                 Text("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if appState.acomSession.modelSelection == .customCubic {
@@ -93,33 +88,35 @@ struct ACOMControlsView: View {
                 }
             }
             Text(appState.acomSession.quality.detail)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                // S22d: wrap, never truncate (see SidebarTextWidth.swift).
-                .sidebarWrapped()
 
             scopeControls(appState: appState)
 
             LabeledContent("Work", value: appState.acomWorkSummary)
-                .font(.caption)
                 .accessibilityIdentifier("acom.work")
             LabeledContent("Expected", value: appState.acomEstimatedDurationText)
-                .font(.caption)
                 .accessibilityIdentifier("acom.expected")
             if let suggestion = appState.acomFullScanSuggestion {
-                Button(suggestion) {
+                // The sentence wraps as a caption; the button is short
+                // (a long button title truncated at 250 pt, 2026-09-03).
+                Text(suggestion)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Use Full Scan") {
                     appState.acomSession.scope = .fullScan
                 }
-                .font(.caption)
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("acom.suggestFullScan")
             }
+        }
 
-            DisclosureGroup("Engine & Q scale") {
-                engineControls(appState: appState)
-                qScaleControls(appState: appState)
-            }
+        Section("Engine & Q scale", isExpanded: $showsEngine) {
+            engineControls(appState: appState)
+            qScaleControls(appState: appState)
+        }
 
+        Section("Result") {
             prerequisiteStatus
             resultControls(appState: appState)
         }
@@ -138,17 +135,16 @@ struct ACOMControlsView: View {
                 Text(structure.rawValue).tag(structure)
             }
         }
-        HStack {
-            Text("a (Å)").font(.caption)
-            TextField(
-                "a", value: $session.customLatticeA,
-                format: .number.precision(.fractionLength(0...4))
+        LabeledContent("a") {
+            NumericField(
+                title: "Lattice parameter a",
+                value: $session.customLatticeA,
+                format: .number.precision(.fractionLength(0...4)),
+                unit: "Å"
             )
-            .textFieldStyle(.roundedBorder)
-            .frame(width: 80)
         }
         Text("Custom models are single-element cubic cells. Compound or other point-group models require a complete validated phase definition.")
-            .font(.caption2)
+            .font(.caption)
             .foregroundStyle(.secondary)
     }
 
@@ -160,7 +156,7 @@ struct ACOMControlsView: View {
                 Text(scope.rawValue).tag(scope)
             }
         }
-        .pickerStyle(.segmented)
+        // A menu: three segments do not fit 250 pt (rule 5, 2026-09-03).
         .accessibilityIdentifier("acom.scope")
 
         if appState.acomSession.scope == .selectedRegion, let descriptor = appState.descriptor {
@@ -186,11 +182,11 @@ struct ACOMControlsView: View {
                 in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
             )
             Text("The orange square is matched at full spatial resolution.")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         } else if appState.acomSession.scope == .preview {
             Text("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -204,10 +200,9 @@ struct ACOMControlsView: View {
             }
         }
         LabeledContent("Will use", value: appState.effectiveACOMBackend.rawValue)
-            .font(.caption)
         if appState.acomSession.backend == .automatic {
             Text("Automatic currently uses the real-data-verified Accelerate CPU backend.")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -216,16 +211,15 @@ struct ACOMControlsView: View {
     private func qScaleControls(appState: AppState) -> some View {
         @Bindable var session = appState.acomSession
         let semantics = appState.acomScaleSemantics
-        LabeledContent("Interpretation", value: appState.acomInterpretationLabel)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(semantics.provenance.isPhysical ? Color.green : Color.orange)
+        LabeledContent("Interpretation") {
+            Text(appState.acomInterpretationLabel)
+                .foregroundStyle(semantics.provenance.isPhysical ? Color.green : Color.orange)
+        }
         LabeledContent(
             "Q scale",
             value: String(format: "%.6g Å⁻¹/px", semantics.invAngstromPerPixel)
         )
-        .font(.caption.monospacedDigit())
         LabeledContent("Provenance", value: semantics.provenance.displayName)
-            .font(.caption)
 
         // Backlog #40. **Prepare owns Q calibration.** This panel used to render
         // its own "Calibrate Q from Selected Material" button beside the same
@@ -243,23 +237,22 @@ struct ACOMControlsView: View {
         Button("Review Q Calibration in Prepare") {
             appState.selectWorkspace(.prepare)
         }
-        .font(.caption)
         .accessibilityIdentifier("acom.reviewQCalibration")
 
         if !semantics.provenance.isPhysical {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Exploratory scale  \(appState.acomSession.exploratoryScale, specifier: "%.4f") Å⁻¹/px")
-                    .font(.caption)
-                Slider(value: $session.exploratoryScale, in: 0.001...0.05)
-                Text("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+            // A labelled Slider row, not a LabeledContent: as a trailing
+            // value a slider collapses to its knob at 250 pt (measured
+            // 2026-09-03).
+            Slider(value: $session.exploratoryScale, in: 0.001...0.05) {
+                Text(String(format: "Exploratory scale, %.4f Å⁻¹/px", appState.acomSession.exploratoryScale))
             }
+            Text("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
+                .font(.caption)
+                .foregroundStyle(.orange)
         }
 
         if appState.acomSession.hasOrientationPlan, let plan = appState.acomSession.orientationPlan {
             LabeledContent("Cached plan", value: "\(plan.count) templates")
-                .font(.caption)
         }
     }
 
@@ -267,10 +260,10 @@ struct ACOMControlsView: View {
     private var prerequisiteStatus: some View {
         if appState.diskDetectionSettingsAreStale {
             Text("Detection settings changed — rerun Detect All Disks before ACOM.")
-                .font(.caption2).foregroundStyle(.orange)
+                .font(.caption).foregroundStyle(.orange)
         } else if appState.braggVectors == nil {
             Text("Detect Bragg disks first (Map → Bragg disks).")
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -284,7 +277,6 @@ struct ACOMControlsView: View {
                     systemImage: semantics.scale.provenance.isPhysical
                         ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
                 )
-                .font(.caption.weight(.medium))
                 .foregroundStyle(
                     semantics.scale.provenance.isPhysical ? Color.green : Color.orange
                 )
@@ -316,7 +308,7 @@ struct ACOMControlsView: View {
                     "\(appState.acomSession.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
                     value: text
                 )
-                .font(.caption.monospacedDigit())
+                .monospacedDigit()
             }
         }
     }

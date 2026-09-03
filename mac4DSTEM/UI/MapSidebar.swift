@@ -21,6 +21,7 @@ struct MapSidebar: View {
             Section("Disk detection") {
                 DiskDetectionControls()
             }
+            AdvancedDiskDetectionSection()
         case .strain:
             Section("Strain") {
                 strainFailureRemedy
@@ -37,9 +38,8 @@ struct MapSidebar: View {
                 Text(appState.strain.referenceMode == .selectedRegion
                      ? "Defines zero strain: the visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained."
                      : "Defines zero strain: the whole scan is averaged, so strain is measured relative to the mean lattice.")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
 
                 Picker("Basis", selection: $strain.basisMode) {
                     ForEach(StrainBasisMode.allCases) { mode in
@@ -52,22 +52,41 @@ struct MapSidebar: View {
                     // The unit stays *visible* rather than moving
                     // to hover: these are bare numbers, and a
                     // basis vector read in the wrong unit is a
-                    // silently wrong strain map.
-                    HStack {
-                        Text("g₁").frame(width: 18, alignment: .leading)
-                        TextField("x", value: $strain.g1X,
-                                  format: .number.precision(.fractionLength(3)))
-                        TextField("y", value: $strain.g1Y,
-                                  format: .number.precision(.fractionLength(3)))
-                        Text("px").font(.caption2).foregroundStyle(.secondary)
+                    // silently wrong strain map. Four rows, one
+                    // component each — a row with two fields beside
+                    // one label does not fit the column's minimum
+                    // width (rule 5).
+                    LabeledContent("g₁ x") {
+                        NumericField(
+                            title: "g₁ x",
+                            value: $strain.g1X,
+                            format: .number.precision(.fractionLength(3)),
+                            unit: "px"
+                        )
                     }
-                    HStack {
-                        Text("g₂").frame(width: 18, alignment: .leading)
-                        TextField("x", value: $strain.g2X,
-                                  format: .number.precision(.fractionLength(3)))
-                        TextField("y", value: $strain.g2Y,
-                                  format: .number.precision(.fractionLength(3)))
-                        Text("px").font(.caption2).foregroundStyle(.secondary)
+                    LabeledContent("g₁ y") {
+                        NumericField(
+                            title: "g₁ y",
+                            value: $strain.g1Y,
+                            format: .number.precision(.fractionLength(3)),
+                            unit: "px"
+                        )
+                    }
+                    LabeledContent("g₂ x") {
+                        NumericField(
+                            title: "g₂ x",
+                            value: $strain.g2X,
+                            format: .number.precision(.fractionLength(3)),
+                            unit: "px"
+                        )
+                    }
+                    LabeledContent("g₂ y") {
+                        NumericField(
+                            title: "g₂ y",
+                            value: $strain.g2Y,
+                            format: .number.precision(.fractionLength(3)),
+                            unit: "px"
+                        )
                     }
                     .help("Detector x/y offsets in calibrated pixels.")
                 }
@@ -79,10 +98,10 @@ struct MapSidebar: View {
                 .disabled(appState.isBusy || !appState.hasCurrentBraggVectors)
                 if appState.diskDetectionSettingsAreStale {
                     Text("Detection settings changed — rerun Detect All Disks before strain.")
-                        .font(.caption2).foregroundStyle(.orange)
+                        .font(.caption).foregroundStyle(.orange)
                 } else if appState.braggVectors == nil {
                     Text("Detect Bragg disks first (Map → Bragg disks).")
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 if appState.strain.map != nil {
                     Picker("Component", selection: $strain.component) {
@@ -98,13 +117,12 @@ struct MapSidebar: View {
                     // R–Q rotation (v2 S8). One wording authority:
                     // StrainPresentationFrame.displayLabel.
                     Text(appState.strainPresentationFrame.displayLabel)
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(
                             appState.strainPresentationFrame == .detector
                                 ? AnyShapeStyle(.orange)
                                 : AnyShapeStyle(.secondary)
                         )
-                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("strain.frame")
                     if let map = appState.strain.map {
                         LabeledContent(
@@ -117,7 +135,6 @@ struct MapSidebar: View {
                                 map.diagnostics.basisObservationCount
                             )
                         )
-                        .font(.caption)
                         .accessibilityIdentifier("strain.diagnostics.basisSupport")
                         LabeledContent(
                             "Basis fit",
@@ -127,7 +144,6 @@ struct MapSidebar: View {
                                 map.diagnostics.basisConditionNumber
                             )
                         )
-                        .font(.caption)
                         .accessibilityIdentifier("strain.diagnostics.basisFit")
                         LabeledContent(
                             "Local fits",
@@ -137,13 +153,11 @@ struct MapSidebar: View {
                                 map.diagnostics.localResidualMedianPixels
                             )
                         )
-                        .font(.caption)
                         .accessibilityIdentifier("strain.diagnostics.localFits")
                         LabeledContent(
                             "Reference inliers",
                             value: "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
                         )
-                        .font(.caption)
                         .accessibilityIdentifier("strain.diagnostics.referenceInliers")
                     }
                 }
@@ -162,53 +176,46 @@ struct MapSidebar: View {
     private var strainFailureRemedy: some View {
         switch appState.strain.failureCause {
         case .starvedInput(let medianPeaks, let emptyPercent):
-            VStack(alignment: .leading, spacing: 5) {
+            Group {
                 Label(
                     String(format: "Too few peaks: median %.1f per pattern, %d%% empty",
                            medianPeaks, emptyPercent),
                     systemImage: "exclamationmark.triangle.fill"
                 )
-                .font(.caption)
                 .foregroundStyle(.orange)
                 Text("Indexing needs the direct beam plus two more reflections. "
                      + "Lower the detection thresholds, not the reference.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Go to Bragg Disks") { appState.changeMode(.disks) }
                     .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Go to Bragg Disks") { appState.changeMode(.disks) }
                     .accessibilityIdentifier("strain.remedy.disks")
             }
-            .padding(.bottom, 4)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("strain.remedy")
 
         case .illConditionedBasis:
-            VStack(alignment: .leading, spacing: 5) {
+            Group {
                 Label("No single lattice fits the whole reference",
                       systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
                     .foregroundStyle(.orange)
                 if appState.strain.referenceMode == .wholeScan {
                     Text("The peak population is healthy. Averaging the whole scan "
                          + "mixes regions with different lattices — pick an "
                          + "unstrained region instead.")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                     Button("Use the current ROI as the reference") {
                         appState.strain.referenceMode = .selectedRegion
                     }
-                    .font(.caption)
                     .accessibilityIdentifier("strain.remedy.useROI")
                 } else {
                     Text("Move or resize the reference region onto an unstrained "
                          + "area, or set g₁ and g₂ manually.")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.bottom, 4)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("strain.remedy")
 
         case nil:

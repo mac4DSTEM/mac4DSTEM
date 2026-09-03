@@ -154,6 +154,14 @@ inventory() {
        | grep -vE 'StemImageView|DiffractionView|LoadConfiguratorView|MetalImageView|ScaleBarView|FitOverlayViews'; then
     echo "  ^ custom bar or opacity wash in the chrome (presentation contract rule 3)"; rc=1
   fi
+  # Rule 4 (2026-09-03): no fixed frames except the science. A numeric
+  # `.frame(...)` in the chrome must come from `FormPolicy`/`WindowPolicy`
+  # (FormControls.swift); the panes, overlays and plots are exempt.
+  if grep -nE '\.frame\([^)]*: *[0-9]' "$ROOT"/mac4DSTEM/UI/*.swift \
+       | grep -vE 'StemImageView|DiffractionView|MetalImageView|ScaleBarView|FitOverlayViews|HistogramView|ApertureControl|IPFLegendViews|ScientificHistoryPlot|FormControls|SwiftUI\+MTKView' \
+       | grep -vE 'FormPolicy|WindowPolicy|cropPane|// science'; then
+    echo "  ^ a fixed frame outside the science (presentation contract rule 4)"; rc=1
+  fi
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the
     # word in general — the process doc uses it generically.

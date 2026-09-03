@@ -1,4 +1,5 @@
 import AppKit
+import DSTEMCore
 import SwiftUI
 import XCTest
 @testable import mac4DSTEM
@@ -15,9 +16,9 @@ final class ColumnMaterialTests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(seconds))
     }
 
-    private func makeWindow(_ appState: AppState) async -> NSWindow {
+    private func makeWindow(_ appState: AppState, calibrated: Bool = true) async -> NSWindow {
         SplitViewPolicy.autosaveEnabled = false
-        await appState.openDemoFixture()
+        await appState.openDemoFixture(calibrated: calibrated)
         appState.navigation.showInspectorPane = true
         let window = NSWindow(
             contentRect: NSRect(x: 100, y: 100, width: 1470, height: 923),
@@ -178,6 +179,124 @@ final class ColumnMaterialTests: XCTestCase {
                     resolvedAlpha(table.backgroundColor, in: table), 0, accuracy: 0.01,
                     "\(name): the hosted table paints \(table.backgroundColor) over the column's material\n\(text)"
                 )
+            }
+        }
+    }
+
+    // MARK: - Both inspectors as grouped Forms (UI rework step 3)
+
+    // Copied locally from `SidebarLayoutTests` rather than shared: each
+    // hosted-window test file keeps its own probes so a change to one
+    // column's gate cannot silently loosen the other's.
+
+    private func scrollViews(_ view: NSView) -> [NSScrollView] {
+        var found: [NSScrollView] = []
+        if let s = view as? NSScrollView { found.append(s) }
+        for sub in view.subviews { found += scrollViews(sub) }
+        return found
+    }
+
+    private func controls(_ view: NSView) -> [NSControl] {
+        var found: [NSControl] = []
+        if let c = view as? NSControl, !c.isHiddenOrHasHiddenAncestor, c.frame.width > 0 { found.append(c) }
+        for sub in view.subviews { found += controls(sub) }
+        return found
+    }
+
+    /// Off-screen render of a view (no Screen Recording grant needed; Metal
+    /// panes come out empty) attached to the result bundle when
+    /// `MAC4DSTEM_CAPTURE` is set — the review images for a UI step.
+    private func attachPNG(_ view: NSView, name: String) {
+        guard ProcessInfo.processInfo.environment["MAC4DSTEM_CAPTURE"] != nil else { return }
+        view.layoutSubtreeIfNeeded()
+        pump(0.5)
+        view.display()
+        let bounds = view.bounds
+        guard bounds.width > 1, bounds.height > 1,
+              let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else { return }
+        view.cacheDisplay(in: bounds, to: rep)
+        guard let png = rep.representation(using: .png, properties: [:]) else { return }
+        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        attachment.name = "\(name).png"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// The inspector column's divider is index 1 (sidebar | workspace |
+    /// inspector); its position is measured from the trailing edge.
+    private func pinInspectorWidth(_ window: NSWindow, to width: CGFloat) {
+        guard let split = SplitViewPolicy.controller(in: window)?.splitView else { return }
+        split.autosaveName = ""
+        split.setPosition(split.frame.width - width, ofDividerAt: 1)
+        pump(0.4)
+    }
+
+    /// Contract rule 5 applied to `DatasetInspector` and `ProductInspector`
+    /// (step 3): each survives the inspector column's whole range — no
+    /// horizontal overflow of the document, and every AppKit control inside
+    /// the column at its minimum, ideal and maximum width. Calibrated and
+    /// not, dataset and product.
+    func testEveryInspectorSurvivesItsWholeColumnRange() async throws {
+        let band = SplitViewPolicy.inspector
+        for calibrated in [true, false] {
+            let appState = AppState()
+            let window = await makeWindow(appState, calibrated: calibrated)
+            defer { window.orderOut(nil) }
+
+            func assertColumnFits(_ stage: String, width: CGFloat) throws {
+                let controller = try XCTUnwrap(SplitViewPolicy.controller(in: window))
+                let column = controller.inspectorHost.view
+                let scroll = try XCTUnwrap(scrollViews(column).first)
+                let document = try XCTUnwrap(scroll.documentView)
+                XCTAssertEqual(
+                    column.bounds.width, width, accuracy: 2,
+                    "\(stage): the column is not at the requested width"
+                )
+                // SwiftUI can lay the hosted form out wider than its column
+                // and hang it past the edge (measured 283pt in a 250pt
+                // sidebar column, 2026-09-03): the scroll view and its
+                // document must both fit the column.
+                XCTAssertLessThanOrEqual(
+                    scroll.frame.width, column.bounds.width + 1,
+                    "\(stage): the inspector's scroll view is \(scroll.frame.width)pt wide in a \(column.bounds.width)pt column — a control inside forces the width"
+                )
+                XCTAssertLessThanOrEqual(
+                    document.frame.width, scroll.contentSize.width + 1,
+                    "\(stage): the inspector document is \(document.frame.width)pt wide in a \(scroll.contentSize.width)pt column"
+                )
+                for control in controls(document) {
+                    let r = control.convert(control.bounds, to: scroll)
+                    let title = (control as? NSButton)?.title ?? (control as? NSTextField)?.stringValue ?? ""
+                    XCTAssertTrue(
+                        r.minX >= -1 && r.maxX <= scroll.bounds.width + 1,
+                        "\(stage): \(type(of: control)) '\(title)' spans x \(Int(r.minX))–\(Int(r.maxX)) in a \(Int(scroll.bounds.width))pt column"
+                    )
+                    if control is NSSlider {
+                        XCTAssertGreaterThanOrEqual(r.width, 80, "\(stage): a slider is \(Int(r.width))pt wide — collapsed to its knob")
+                    }
+                }
+                attachPNG(document, name: stage)
+            }
+
+            // The dataset inspector is shown on any live workspace.
+            appState.selectWorkspace(.prepare)
+            for width in [band.minimum, band.ideal, band.maximum] {
+                pinInspectorWidth(window, to: width)
+                pump(0.5)
+                try assertColumnFits("inspector-dataset-\(calibrated ? "ready" : "blocked")-\(Int(width))", width: width)
+            }
+
+            // The product inspector takes over once a product is displayed
+            // and Results claims the focus ring (`FocusedPane.result`).
+            appState.publishProduct(
+                kind: "virtual_annulus", displayName: "Virtual detector · Annulus", valueUnits: "intensity",
+                payload: .scalar(FloatImage(width: 200, height: 50, pixels: [Float](repeating: 0.5, count: 200 * 50))))
+            appState.selectWorkspace(.results)
+            pump(0.6)
+            for width in [band.minimum, band.ideal, band.maximum] {
+                pinInspectorWidth(window, to: width)
+                pump(0.5)
+                try assertColumnFits("inspector-product-\(calibrated ? "ready" : "blocked")-\(Int(width))", width: width)
             }
         }
     }

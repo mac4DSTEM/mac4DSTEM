@@ -54,15 +54,14 @@ struct PreprocessingExportSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
+            Label {
+                Text("Preprocess & Export DataCube").font(.headline)
+                Text("Canonical py4DSTEM EMD · float32 · chunked · atomic")
+                    .font(.caption).foregroundStyle(.secondary)
+            } icon: {
                 Image(systemName: "shippingbox")
                     .font(.title2)
                     .foregroundStyle(.tint)
-                VStack(alignment: .leading) {
-                    Text("Preprocess & Export DataCube").font(.headline)
-                    Text("Canonical py4DSTEM EMD · float32 · chunked · atomic")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
             }
 
             Form {
@@ -78,18 +77,14 @@ struct PreprocessingExportSheet: View {
                 Section("Real-space crop") {
                     Toggle("Crop scan", isOn: $cropEnabled)
                     if cropEnabled {
-                        HStack {
-                            Stepper("X start  \(xStart)", value: $xStart,
-                                    in: 0...max(0, xEnd))
-                            Stepper("X end  \(xEnd)", value: $xEnd,
-                                    in: xStart...max(xStart, descriptor.rx - 1))
-                        }
-                        HStack {
-                            Stepper("Y start  \(yStart)", value: $yStart,
-                                    in: 0...max(0, yEnd))
-                            Stepper("Y end  \(yEnd)", value: $yEnd,
-                                    in: yStart...max(yStart, descriptor.ry - 1))
-                        }
+                        Stepper("X start  \(xStart)", value: $xStart,
+                                in: 0...max(0, xEnd))
+                        Stepper("X end  \(xEnd)", value: $xEnd,
+                                in: xStart...max(xStart, descriptor.rx - 1))
+                        Stepper("Y start  \(yStart)", value: $yStart,
+                                in: 0...max(0, yEnd))
+                        Stepper("Y end  \(yEnd)", value: $yEnd,
+                                in: yStart...max(yStart, descriptor.ry - 1))
                     }
                 }
 
@@ -115,6 +110,7 @@ struct PreprocessingExportSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
 
             HStack {
                 Spacer()
@@ -132,7 +128,13 @@ struct PreprocessingExportSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 620, height: 720)
+        // A band, not a fixed size (`WindowPolicy`; contract rule 1).
+        .frame(
+            minWidth: WindowPolicy.exportSheet.min.width,
+            idealWidth: WindowPolicy.exportSheet.ideal.width,
+            minHeight: WindowPolicy.exportSheet.min.height,
+            idealHeight: WindowPolicy.exportSheet.ideal.height
+        )
         .alert("Export with missing calibration?", isPresented: $showUncalibratedWarning) {
             Button("Keep Calibrating", role: .cancel) {}
             Button("Export Uncalibrated Anyway", role: .destructive) {

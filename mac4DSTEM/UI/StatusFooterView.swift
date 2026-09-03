@@ -35,7 +35,7 @@ struct StatusFooterView: View {
             if appState.isBusy {
                 HStack(spacing: 8) {
                     ProgressView(value: appState.progress)
-                        .frame(width: 96)
+                        .frame(width: WindowPolicy.inlineProgressWidth)
                     if let progress = appState.progress {
                         Text("\(Int(progress * 100)) %")
                             .font(.caption2.monospacedDigit())

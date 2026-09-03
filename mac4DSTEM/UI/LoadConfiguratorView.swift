@@ -34,28 +34,30 @@ struct LoadConfiguratorView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    previews
-                    binPicker
-                    sizeArithmetic
-                }
-                .padding(20)
+            // The previews are the science; the choices under them are a
+            // grouped Form, which scrolls when the sheet is short
+            // (presentation contract, 2026-09-03).
+            previews
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+            Form {
+                binPicker
+                sizeArithmetic
             }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
             Divider()
             footer
         }
-        // 900×760: sized so the standing content fits WITHOUT scrolling — the
-        // 720×640 sheet scrolled and clipped its own headers (open item,
-        // 2026-08-18). Honest limit: a FIXED height means that on a display
-        // shorter than ~790pt the sheet itself overflows and the footer (with
-        // the Load button and the refusal text) is what gets pushed off — the
-        // inner ScrollView cannot help with that, it only scrolls content
-        // *inside* the frame. Every supported Mac's built-in panel is taller;
-        // scaled external displays may not be. Recorded on Track B row F1.17;
-        // a content-driven sheet height is the real fix if it ever bites.
-        // // v2 S4
-        .frame(width: 900, height: 760)
+        // A band, not a fixed size (`WindowPolicy`): the 2026-08-18 fixed
+        // 900×760 sheet overflowed a display shorter than ~790pt and pushed
+        // its own footer — Load and the refusal text — off screen. // v2 S4
+        .frame(
+            minWidth: WindowPolicy.configuratorSheet.min.width,
+            idealWidth: WindowPolicy.configuratorSheet.ideal.width,
+            minHeight: WindowPolicy.configuratorSheet.min.height,
+            idealHeight: WindowPolicy.configuratorSheet.ideal.height
+        )
     }
 
     // MARK: - Header
@@ -163,7 +165,7 @@ struct LoadConfiguratorView: View {
                                 .font(.caption2).foregroundStyle(.secondary)
                             RoundedRectangle(cornerRadius: 6)
                                 .fill(.quaternary)
-                                .frame(height: 220)
+                                .frame(height: 220)   // science: the preview pane
                                 .accessibilityIdentifier("configurator.singleDPPlaceholder")
                         }
                     }
@@ -315,7 +317,7 @@ struct LoadConfiguratorView: View {
                 // Centre the letterboxed box in the pane it no longer fills.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(height: 220)
+            .frame(height: 220)   // science: the preview pane
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .accessibilityIdentifier(identifier)
         }
@@ -359,18 +361,14 @@ struct LoadConfiguratorView: View {
     // MARK: - Bin factor
 
     private var binPicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Diffraction binning").font(.callout.weight(.medium))
-            // Crop and bin are siblings on this panel but they trade against
-            // DIFFERENT things (release owner's question, 2026-08-19: "why is
-            // cropping in there at all, instead of only binning?"). Both
-            // mirror py4DSTEM (crop_data_diffraction / bin_data_diffraction);
-            // the panel owes the user the difference. // v2 S4
+        Section("Diffraction binning") {
+            // Crop and bin trade against DIFFERENT things (release owner's
+            // question, 2026-08-19); both mirror py4DSTEM
+            // (crop_data_diffraction / bin_data_diffraction). // v2 S4
             Text("A detector crop and a bin reduce different things. A crop cuts the angular range — scattering outside the box is never loaded, so crop when the disks you need sit in a small part of the detector. Binning keeps the full range but coarsens it, which costs sub-pixel disk-position precision — the quantity strain mapping is fitted from.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Picker("Diffraction binning", selection: Binding(
+            Picker("Bin factor", selection: Binding(
                 get: { pending.configuration.detectorBin },
                 set: { pending.configuration.detectorBin = $0 }
             )) {
@@ -380,20 +378,17 @@ struct LoadConfiguratorView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .labelsHidden()
             .accessibilityIdentifier("configurator.binFactor")
             if pending.configuration.detectorBin > 1 {
                 // The intensity consequence, before the load rather than after.
                 Text("Binning sums the pixels it merges, so intensities become \(pending.configuration.detectorBin * pending.configuration.detectorBin)x larger and the reciprocal pixel size \(pending.configuration.detectorBin)x coarser. Absolute-intensity thresholds from an unbinned run will not carry over.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             if let edge = pending.discardedEdge {
                 Text("The detector does not divide evenly: \(edge.rows) row(s) and \(edge.columns) column(s) will be trimmed from the far edge.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("configurator.edgeTrim")
             }
         }
@@ -402,55 +397,42 @@ struct LoadConfiguratorView: View {
     // MARK: - What it costs
 
     private var sizeArithmetic: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Size").font(.callout.weight(.medium))
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
-                // The cube's dimensions, stated in the dialog (owner request,
-                // 2026-08-18). Axis-labelled in the inspector's own
-                // convention, so this does not become a third ordering variant
-                // of the two-orders display already under S18.
-                sizeRow("Scan (Ry x Rx)", "\(pending.source.ry) x \(pending.source.rx)")
-                sizeRow("Detector (Qy x Qx)", "\(pending.source.qy) x \(pending.source.qx)")
-                if let fileBytes = pending.fileByteCount {
-                    sizeRow("File on disk", SystemMonitor.byteString(fileBytes))
-                }
-                sizeRow("Whole cube (f32)", SystemMonitor.byteString(pending.fullExtentByteCount))
-                if let loaded = pending.loadedByteCount {
-                    sizeRow(
-                        "This selection (f32)",
-                        SystemMonitor.byteString(loaded)
-                            + (pending.reductionSummary.map { " · \($0)" } ?? "")
-                    )
-                }
-                if let shape = pending.loadedShapeString {
-                    sizeRow("Loaded shape", shape)
-                }
-                // NOT a budget for this load, and the old label said it was.
-                // "GPU budget" sat directly under "This selection (f32)" in a
-                // table of load sizes, which reads as "you may load up to this"
-                // — while the figure is `recommendedMaxWorkingSetSize`, a
-                // hardware property (~65% of physical RAM on Apple Silicon)
-                // that says nothing about what this machine can spare. On an
-                // 8 GB Mac it invited a load that would get the user killed.
-                // Renamed and re-framed in v2 S9a; the memory a load actually
-                // uses is bounded in `FourDArray.scanTileRows`. // v2 S9a
-                sizeRow("GPU working-set limit",
-                        String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
+        Section("Size") {
+            // Axis-labelled in the inspector's own convention (owner request,
+            // 2026-08-18), so this is not a third ordering variant.
+            sizeRow("Scan (Ry x Rx)", "\(pending.source.ry) x \(pending.source.rx)")
+            sizeRow("Detector (Qy x Qx)", "\(pending.source.qy) x \(pending.source.qx)")
+            if let fileBytes = pending.fileByteCount {
+                sizeRow("File on disk", SystemMonitor.byteString(fileBytes))
             }
-            .font(.callout)
+            sizeRow("Whole cube (f32)", SystemMonitor.byteString(pending.fullExtentByteCount))
+            if let loaded = pending.loadedByteCount {
+                sizeRow(
+                    "This selection (f32)",
+                    SystemMonitor.byteString(loaded)
+                        + (pending.reductionSummary.map { " · \($0)" } ?? "")
+                )
+            }
+            if let shape = pending.loadedShapeString {
+                sizeRow("Loaded shape", shape)
+            }
+            // NOT a budget for this load: `recommendedMaxWorkingSetSize` is a
+            // hardware property (~65% of physical RAM on Apple Silicon); the
+            // old "GPU budget" label under the load sizes invited a load that
+            // would get an 8 GB Mac killed. Renamed in v2 S9a; the memory a
+            // load actually uses is bounded in `FourDArray.scanTileRows`.
+            sizeRow("GPU working-set limit",
+                    String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
             // Reads return float32 whatever the file stores, so a uint16 file
-            // costs twice its own size. Said here because the file size is
-            // right above it and the difference otherwise looks like an error.
+            // costs twice its own size.
             Text("Data is read as float32 regardless of how the file stores it, so the cube can be larger than the file. Loading into memory does not make the load faster — it makes the waiting happen once, when you choose. The GPU working-set limit is a property of this Mac's hardware, not an amount you may load: analyses stream in bounded tiles whatever the dataset's size.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func sizeRow(_ label: String, _ value: String) -> some View {
-        GridRow {
-            Text(label).foregroundStyle(.secondary)
+        LabeledContent(label) {
             Text(value).monospacedDigit()
         }
     }
@@ -476,7 +458,6 @@ struct LoadConfiguratorView: View {
                 Text(refusal)
                     .font(.caption)
                     .foregroundStyle(.orange)
-                    .lineLimit(3)
                     .accessibilityIdentifier("configurator.refusal")
             }
             Spacer()

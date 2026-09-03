@@ -592,6 +592,15 @@ final class SidebarLayoutTests: XCTestCase {
                                 r.minX >= -1 && r.maxX <= scroll.bounds.width + 1,
                                 "\(stage): \(type(of: control)) '\(title)' spans x \(Int(r.minX))–\(Int(r.maxX)) in a \(Int(scroll.bounds.width))pt column"
                             )
+                            // A slider narrower than its own thumb row is a
+                            // knob, not a control (a slider as a LabeledContent
+                            // value collapsed to 28pt, 2026-09-03).
+                            if control is NSSlider {
+                                XCTAssertGreaterThanOrEqual(
+                                    r.width, 80,
+                                    "\(stage): a slider is \(Int(r.width))pt wide — it has collapsed to its knob"
+                                )
+                            }
                         }
                         attachPNG(document, name: "sidebar-\(area.rawValue)\(mode.map { "-\($0.id)" } ?? "")-\(calibrated ? "ready" : "blocked")-\(Int(width))")
                     }

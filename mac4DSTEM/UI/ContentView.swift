@@ -313,7 +313,7 @@ struct ContentView: View {
         }
         // Presentation contract rule 3 (2026-09-03): no wash of its own; the
         // Divider above and the window's ground are the strip's whole look.
-        .frame(height: 100)
+        .frame(height: WindowPolicy.outputStripHeight)
     }
 
     /// Arrow keys step the selected scan position (Shift = 10 px steps).
@@ -410,8 +410,8 @@ struct ContentView: View {
     /// change under a dataset is worse than an under-filled pane.
     private var imagePanes: some View {
         HSplitView {
-            diffractionPane.frame(minWidth: 170)
-            realSpacePane.frame(minWidth: 170)
+            diffractionPane.frame(minWidth: 170)   // science: the pane floor
+            realSpacePane.frame(minWidth: 170)     // science: the pane floor
         }
         // v2.5 step 7c: the pane with the ring claims the inspector's focus
         // whenever what these panes show changes (workspace or task).

@@ -14,28 +14,33 @@ struct DatasetInspector: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        List {
+        Form {
             if let descriptor = appState.descriptor {
-                datasetGroup(descriptor)
-                liveGroup
+                datasetSection(descriptor)
+                dimensionsSection(descriptor)
+                previewSection
+                loadedViewSection(descriptor)
+                currentScanPositionSection
+                apertureSection
+                realSpaceHistogramSection
+                diffractionHistogramSection
                 InspectorDiagnosticsGroup()   // shared with ProductInspector (7c)
-                Section("Products") {
-                    ProductsView()
-                }
+                ProductsView()
             } else {
                 Text("No dataset loaded")
                     .foregroundStyle(.secondary)
             }
         }
-        // Contract rule 3: the list draws no ground over the column's
-        // material (Gate D 2026-09-03, `ColumnMaterialTests`).
+        .formStyle(.grouped)
+        // Contract rule 3: the grouped Form draws no ground over the
+        // column's material (Gate D 2026-09-03, `ColumnMaterialTests`).
         .scrollContentBackground(.hidden)
     }
 
     // MARK: - Dataset (file, dimensions, preview, loaded view)
 
     @ViewBuilder
-    private func datasetGroup(_ descriptor: DatasetDescriptor) -> some View {
+    private func datasetSection(_ descriptor: DatasetDescriptor) -> some View {
         Section("Dataset") {
             row("File", descriptor.fileName)
             row("Path", descriptor.datasetPath, mono: true)
@@ -47,26 +52,33 @@ struct DatasetInspector: View {
                 mono: true
             )
             row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
+        }
+    }
 
-            subheader("Dimensions")
+    @ViewBuilder
+    private func dimensionsSection(_ descriptor: DatasetDescriptor) -> some View {
+        Section("Dimensions") {
             row("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
             row("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")
             if let acceleratingVoltage = appState.calibrationSession.acceleratingVoltage {
                 row("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
             }
+        }
+    }
 
-            if let preview = appState.datasetPreview {
+    @ViewBuilder
+    private var previewSection: some View {
+        if let preview = appState.datasetPreview {
+            Section("Preview") {
                 // INVARIANT I4: a sampled preview is not a result. The
                 // summary states the stride and is drawn FIRST, above the
                 // images, so nothing here can be read as a virtual image.
                 // A strided preview and a real virtual image will differ,
                 // and a user comparing them will file a bug — this label is
                 // the thing that pre-empts it.
-                subheader("Preview")
                 Text(preview.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("preview.summary")
                 previewImage(
                     "Real space", pixels: preview.realSpace.normalized(),
@@ -89,23 +101,26 @@ struct DatasetInspector: View {
                         .foregroundStyle(.tertiary)
                 }
             }
+        }
+    }
 
-            // WHAT IS ACTUALLY LOADED, and what that cost the calibration.
-            //
-            // L4's "state them in the UI" and "label the result" (invariant
-            // I3): a cropped or binned cube is a DIFFERENT MEASUREMENT, and
-            // until this section existed the app knew that and never said
-            // it. `LoadedView`'s whole display surface had no reader.
-            //
-            // Absent at full extent, deliberately — a permanent row reading
-            // "no crop" on every dataset is noise, and the block's
-            // presence is itself the signal that something was reduced.
-            if !appState.loadedView.isFullExtent {
-                subheader("Loaded view")
+    // WHAT IS ACTUALLY LOADED, and what that cost the calibration.
+    //
+    // L4's "state them in the UI" and "label the result" (invariant
+    // I3): a cropped or binned cube is a DIFFERENT MEASUREMENT, and
+    // until this section existed the app knew that and never said
+    // it. `LoadedView`'s whole display surface had no reader.
+    //
+    // Absent at full extent, deliberately — a permanent row reading
+    // "no crop" on every dataset is noise, and the section's
+    // presence is itself the signal that something was reduced.
+    @ViewBuilder
+    private func loadedViewSection(_ descriptor: DatasetDescriptor) -> some View {
+        if !appState.loadedView.isFullExtent {
+            Section("Loaded view") {
                 if let summary = appState.loadedView.summary {
                     Text(summary)
                         .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("inspector.loadedViewSummary")
                 }
                 if let notice = appState.loadedView.binningNotice {
@@ -115,7 +130,6 @@ struct DatasetInspector: View {
                     Text(notice)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("inspector.binningNotice")
                 }
                 row("Source shape", appState.loadedView.sourceShapeString, mono: true)
@@ -123,77 +137,78 @@ struct DatasetInspector: View {
                 row("Size (f32)", byteString(descriptor.byteCountAsFloat32))
 
                 // THE PROMOTE CONTROL (v2 S3). It lives in this
-                // block because the block exists exactly when
+                // section because the section exists exactly when
                 // promotion is meaningful: a reduced view is loaded.
                 // Promotion is a reopen of the SOURCE at full extent —
                 // removing the specification, never re-deriving from
                 // reduced data — so the cost stated is the whole
                 // cube's, which is the number the user is deciding
                 // about.
-                VStack(alignment: .leading, spacing: 4) {
-                    Button("Reopen at Full Extent") {
-                        // The one-action promote (v2 S6): with a
-                        // recorded recipe this reopens AND replays;
-                        // with none it is the plain S3 reopen.
-                        Task { await appState.promoteAndReplayRecipe() }
-                    }
-                    .disabled(appState.isLoadingDataset
-                              || appState.replayRun.isRunning)
-                    .accessibilityIdentifier("inspector.promoteToFullExtent")
-                    if let source = appState.loadView?.source {
-                        // SystemMonitor.byteString, deliberately: the
-                        // configurator prices this same quantity
-                        // ("Whole cube (f32)") through it, and the two
-                        // surfaces a user compares when deciding to
-                        // promote must not render the same cube with
-                        // different precision.
-                        Text("Reloads the whole cube — "
-                             + SystemMonitor.byteString(source.byteCountAsFloat32)
-                             + " as float32. Analyses re-run against the full dataset.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    PromoteRunCaption(
-                        record: appState.replay.record,
-                        frame: appState.replay.parameterFrame
-                    )
+                Button("Reopen at Full Extent") {
+                    // The one-action promote (v2 S6): with a
+                    // recorded recipe this reopens AND replays;
+                    // with none it is the plain S3 reopen.
+                    Task { await appState.promoteAndReplayRecipe() }
                 }
+                .disabled(appState.isLoadingDataset
+                          || appState.replayRun.isRunning)
+                .accessibilityIdentifier("inspector.promoteToFullExtent")
+                if let source = appState.loadView?.source {
+                    // SystemMonitor.byteString, deliberately: the
+                    // configurator prices this same quantity
+                    // ("Whole cube (f32)") through it, and the two
+                    // surfaces a user compares when deciding to
+                    // promote must not render the same cube with
+                    // different precision.
+                    Text("Reloads the whole cube — "
+                         + SystemMonitor.byteString(source.byteCountAsFloat32)
+                         + " as float32. Analyses re-run against the full dataset.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                PromoteRunCaption(
+                    record: appState.replay.record,
+                    frame: appState.replay.parameterFrame
+                )
             }
         }
     }
 
     // MARK: - Live (scan position, aperture, histograms)
 
+    /// The focused pane's descriptor decides which of these show (plan §11c,
+    /// one descriptor per pane, v2.5 step 7c). `nil` only between a
+    /// workspace change and the pane's claim, one runloop turn.
+    private var focusedPane: FocusedPane? { appState.navigation.focusedPane }
+
     @ViewBuilder
-    private var liveGroup: some View {
-        Section("Live") {
-            subheader("Current scan position")
+    private var currentScanPositionSection: some View {
+        Section("Current scan position") {
             row("x (Rx)", "\(appState.selectedScan.x)")
             row("y (Ry)", "\(appState.selectedScan.y)")
             if let (lowerBound, upperBound) = appState.patternMinMax {
                 row("Pattern min", String(format: "%.3g", lowerBound))
                 row("Pattern max", String(format: "%.3g", upperBound))
             }
+        }
+    }
 
-            // v2.5 step 7c: the focused pane's descriptor decides (plan §11c,
-            // one descriptor per pane). `nil` only between a workspace change
-            // and the pane's claim, one runloop turn.
-            let pane = appState.navigation.focusedPane
-            let showsAperture = pane?.showsAperture ?? false
-            let showsDiffractionHistogram = pane?.showsDiffractionHistogram ?? false
-            let showsRealSpaceHistogram = pane?.showsRealSpaceHistogram ?? true
-
-            if showsAperture {
-                subheader("Aperture (detector px)")
+    @ViewBuilder
+    private var apertureSection: some View {
+        if focusedPane?.showsAperture ?? false {
+            Section("Aperture (detector px)") {
                 row("Center x", String(format: "%.1f", appState.aperture.centerX))
                 row("Center y", String(format: "%.1f", appState.aperture.centerY))
                 row("Inner r", String(format: "%.1f", appState.aperture.inner))
                 row("Outer r", String(format: "%.1f", appState.aperture.outer))
             }
+        }
+    }
 
-            if showsRealSpaceHistogram, let image = appState.resultImage {
-                subheader("Histogram (real space)")
+    @ViewBuilder
+    private var realSpaceHistogramSection: some View {
+        if focusedPane?.showsRealSpaceHistogram ?? true, let image = appState.resultImage {
+            Section("Histogram (real space)") {
                 HistogramView(pixels: image.pixels, version: appState.resultVersion,
                               rangeLo: Bindable(appState).displayRangeLo,
                               rangeHi: Bindable(appState).displayRangeHi)
@@ -201,9 +216,13 @@ struct DatasetInspector: View {
                     .font(.caption2).foregroundStyle(.tertiary)
                 gammaControl("Gamma", value: Bindable(appState).resultGamma)
             }
+        }
+    }
 
-            if showsDiffractionHistogram, let pattern = appState.displayedPattern {
-                subheader("Histogram (diffraction)")
+    @ViewBuilder
+    private var diffractionHistogramSection: some View {
+        if focusedPane?.showsDiffractionHistogram ?? false, let pattern = appState.displayedPattern {
+            Section("Histogram (diffraction)") {
                 HistogramView(
                     pixels: pattern.contrastPixels(useLog: appState.logScale),
                     version: appState.patternVersion,
@@ -221,63 +240,55 @@ struct DatasetInspector: View {
 
     // MARK: - Shared row/label helpers
 
-    /// A labelled block boundary inside one of the four groups. Sub-blocks
-    /// were previously sixteen top-level `Section`s; the caps style keeps
-    /// them scannable without sixteen headers' worth of chrome.
-    private func subheader(_ title: String) -> some View { inspectorSubheader(title) }
-
     private func gammaControl(_ label: String, value: Binding<Float>) -> some View {
-        HStack {
-            Text(label).font(.caption)
-            Slider(value: value, in: 0.2...3)
-                .accessibilityLabel(label)
-                .accessibilityValue(String(format: "%.2f", value.wrappedValue))
-            Text(String(format: "%.2f", value.wrappedValue))
-                .font(.caption.monospacedDigit())
-                .frame(width: 36, alignment: .trailing)
+        // A labelled Slider row: as a LabeledContent value a slider collapses
+        // to its knob at the column's minimum (measured 2026-09-03).
+        Slider(value: value, in: 0.2...3) {
+            Text("\(label), \(String(format: "%.2f", value.wrappedValue))")
         }
+        .accessibilityLabel(label)
+        .accessibilityValue(String(format: "%.2f", value.wrappedValue))
     }
 
-    /// One preview thumbnail, filling the inspector column's width (S22a):
-    /// dragging the inspector wider is how the preview grows — the fixed
-    /// 120pt cap this replaces is what made the preview permanently tiny
-    /// (owner playthrough 2026-09-01, finding O5).
+    /// One preview thumbnail, capped by the shared rule (`FormPolicy`,
+    /// architecture.md contract rule 4) — dragging the inspector wider grows
+    /// its width up to that one height cap; the fixed 120pt cap this
+    /// replaced made the preview permanently tiny (owner playthrough
+    /// 2026-09-01, finding O5).
+    @ViewBuilder
     private func previewImage(
         _ label: String, pixels: [Float], width: Int, height: Int,
         colormap: ColormapKind
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            MetalImageView(
-                pixels: pixels, width: width, height: height,
-                // `datasetPreview` is written exactly once per open, so the
-                // dataset epoch IS this image's version — it changes precisely
-                // when the preview does, including a same-shape swap (the
-                // defect the old dims-only hash could not see), and it is O(1)
-                // in a sidebar body that re-evaluates on every AppState
-                // change. // v2 S4
-                contentVersion: appState.datasetEpoch,
-                colormap: colormap, zoom: 1, offset: .zero
-            )
-            // LETTERBOX. `MetalImageView` maps the image to normalized view
-            // UVs, so a height-only frame stretches it to the sidebar's full
-            // width: a 128x128 mean or max pattern was drawn about 300x120,
-            // i.e. 2.5x wider than tall, and every Bragg disk rendered as a
-            // horizontal ellipse — in the app that has an ellipse-calibration
-            // feature for measuring exactly that distortion. The 200x50 real
-            // space preview was squashed the other way. Reported by the release
-            // owner from the inspector on 2026-08-27, same root cause as the
-            // configurator panes fixed the same day; this is the third call
-            // site of the class, after those and the main window (which was
-            // already correct).
-            .aspectRatio(
-                CGFloat(width) / CGFloat(max(height, 1)), contentMode: .fit
-            )
-            .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
-        }
-        .padding(.vertical, 2)
+        Text(label).font(.caption2).foregroundStyle(.secondary)
+        MetalImageView(
+            pixels: pixels, width: width, height: height,
+            // `datasetPreview` is written exactly once per open, so the
+            // dataset epoch IS this image's version — it changes precisely
+            // when the preview does, including a same-shape swap (the
+            // defect the old dims-only hash could not see), and it is O(1)
+            // in a sidebar body that re-evaluates on every AppState
+            // change. // v2 S4
+            contentVersion: appState.datasetEpoch,
+            colormap: colormap, zoom: 1, offset: .zero
+        )
+        // LETTERBOX. `MetalImageView` maps the image to normalized view
+        // UVs, so a height-only frame stretches it to the sidebar's full
+        // width: a 128x128 mean or max pattern was drawn about 300x120,
+        // i.e. 2.5x wider than tall, and every Bragg disk rendered as a
+        // horizontal ellipse — in the app that has an ellipse-calibration
+        // feature for measuring exactly that distortion. The 200x50 real
+        // space preview was squashed the other way. Reported by the release
+        // owner from the inspector on 2026-08-27, same root cause as the
+        // configurator panes fixed the same day; this is the third call
+        // site of the class, after those and the main window (which was
+        // already correct).
+        .aspectRatio(
+            CGFloat(width) / CGFloat(max(height, 1)), contentMode: .fit
+        )
+        .thumbnailCapped()
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
     }
 
     private func row(_ label: String, _ value: String, mono: Bool = false) -> some View {
@@ -316,7 +327,6 @@ private struct PromoteRunCaption: View {
                  + "runs (lid open). A step that fails halts the run.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("inspector.promoteReplayCaption")
             // A re-referenced replay is never a silent substitution: the
             // numbers the entry points will receive are exact re-expressions
@@ -332,7 +342,6 @@ private struct PromoteRunCaption: View {
                 Text("Recipe \(note) — the exact inverse of the load-time re-reference.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("inspector.promoteReplayReReference")
             }
             if let firstRefused = planned.firstIndex(where: {
@@ -343,7 +352,6 @@ private struct PromoteRunCaption: View {
                      : "The run will halt at step \(firstRefused + 1) (\(planned[firstRefused].title)): \(refusal.reason)")
                     .font(.caption)
                     .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("inspector.promoteReplayRefusal")
             }
         }

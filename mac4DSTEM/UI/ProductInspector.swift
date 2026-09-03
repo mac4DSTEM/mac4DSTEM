@@ -14,32 +14,35 @@ struct ProductInspector: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        List {
+        Form {
             Section("Product") {
                 if let product = appState.displayedProduct {
-                    productRows(product)
+                    productSummaryRows(product)
                 } else {
                     Text("No result displayed")
                         .foregroundStyle(.secondary)
                     Text("Create an image, map or reconstruction; it appears here with its units, frame and provenance.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .accessibilityIdentifier("inspector.product")
-            Section("Session") {
-                ProductsView()
+            if let product = appState.displayedProduct {
+                qualityFieldsSection(product)
+                overlaysSection(product)
+                provenanceSection(product)
             }
+            ProductsView()
             InspectorDiagnosticsGroup()
         }
-        // Contract rule 3: the list draws no ground over the column's
-        // material (Gate D 2026-09-03, `ColumnMaterialTests`).
+        .formStyle(.grouped)
+        // Contract rule 3: the grouped Form draws no ground over the
+        // column's material (Gate D 2026-09-03, `ColumnMaterialTests`).
         .scrollContentBackground(.hidden)
     }
 
     @ViewBuilder
-    private func productRows(_ product: DisplayedProduct) -> some View {
+    private func productSummaryRows(_ product: DisplayedProduct) -> some View {
         row("Name", product.displayName)
         row("Kind", product.kind.replacingOccurrences(of: "_", with: " "))
         row("Origin", product.origin == .computed
@@ -57,22 +60,36 @@ struct ProductInspector: View {
             ) ?? "not calibrated",
             mono: true)
         row("Valid", Self.validityLabel(product))
+    }
 
+    @ViewBuilder
+    private func qualityFieldsSection(_ product: DisplayedProduct) -> some View {
         if !product.qualityFields.isEmpty {
-            subheader("Quality fields")
-            ForEach(product.qualityFields, id: \.name) { field in
-                row(field.name, field.units, mono: true)
+            Section("Quality fields") {
+                ForEach(product.qualityFields, id: \.name) { field in
+                    row(field.name, field.units, mono: true)
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private func overlaysSection(_ product: DisplayedProduct) -> some View {
         if !product.overlays.isEmpty {
-            subheader("Overlays")
-            ForEach(product.overlays, id: \.kind) { overlay in
-                row(overlay.kind.replacingOccurrences(of: "_", with: " "), overlay.provenance)
+            Section("Overlays") {
+                ForEach(product.overlays, id: \.kind) { overlay in
+                    row(overlay.kind.replacingOccurrences(of: "_", with: " "), overlay.provenance)
+                }
             }
         }
-        subheader("Provenance")
-        ForEach(product.provenance.keys.sorted(), id: \.self) { key in
-            row(key, product.provenance[key] ?? "", mono: true)
+    }
+
+    @ViewBuilder
+    private func provenanceSection(_ product: DisplayedProduct) -> some View {
+        Section("Provenance") {
+            ForEach(product.provenance.keys.sorted(), id: \.self) { key in
+                row(key, product.provenance[key] ?? "", mono: true)
+            }
         }
     }
 
@@ -103,8 +120,6 @@ struct ProductInspector: View {
         return String(format: "%d of %d positions (%.0f%%)", valid, total,
                       Double(valid) / Double(total) * 100)
     }
-
-    private func subheader(_ title: String) -> some View { inspectorSubheader(title) }
 
     private func row(_ label: String, _ value: String, mono: Bool = false) -> some View {
         inspectorRow(label, value, mono: mono)

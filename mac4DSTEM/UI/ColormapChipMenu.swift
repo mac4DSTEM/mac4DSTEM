@@ -41,80 +41,84 @@ struct ColormapChipMenu<Chip: View>: View {
                                  : "pane.colormap.result")
         .popover(isPresented: $isPresented, arrowEdge: .top) {
             popoverContent
-                .padding(12)
-                .frame(width: 230)
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
+                .frame(width: WindowPolicy.popoverWidth)
         }
     }
 
+    /// The chip's popover as a grouped Form (presentation contract rule 2):
+    /// the swatch rows the owner asked for (D3), the IPF confidence gate,
+    /// and the diffraction display options, as system rows.
     @ViewBuilder
     private var popoverContent: some View {
         @Bindable var appState = appState
-        VStack(alignment: .leading, spacing: 10) {
-            let selection = pane == .diffraction
-                ? $appState.patternColormap : $appState.resultColormap
-            ForEach(ColormapKind.allCases) { kind in
-                Button {
-                    selection.wrappedValue = kind
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(nsImage: Colormaps.swatch(kind))
-                            .clipShape(RoundedRectangle(cornerRadius: 2))
-                        Text(kind.displayName)
-                        Spacer(minLength: 4)
-                        if selection.wrappedValue == kind {
-                            Image(systemName: "checkmark")
-                                .font(.caption.weight(.semibold))
+        let selection = pane == .diffraction
+            ? $appState.patternColormap : $appState.resultColormap
+        Form {
+            Section("Colormap") {
+                ForEach(ColormapKind.allCases) { kind in
+                    Button {
+                        selection.wrappedValue = kind
+                    } label: {
+                        LabeledContent {
+                            if selection.wrappedValue == kind {
+                                Image(systemName: "checkmark")
+                                    .fontWeight(.semibold)
+                            }
+                        } label: {
+                            Label {
+                                Text(kind.displayName)
+                            } icon: {
+                                Image(nsImage: Colormaps.swatch(kind))
+                                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                            }
                         }
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(
+                        selection.wrappedValue == kind ? .isSelected : []
+                    )
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(
-                    selection.wrappedValue == kind ? .isSelected : []
-                )
             }
             if pane == .result, appState.navigation.analysisMode == .acom,
                appState.acomSession.display == .ipfZ, appState.acomSession.orientationMap != nil {
                 // v2.5 step 7 (plan §3 item 2): the IPF map's confidence gate
                 // lives with the map's colours. Nil = automatic (10th percentile).
-                Divider()
                 let effective = appState.acomEffectiveReliabilityThreshold ?? 0
                 let kept = appState.acomSession.orientationMap?
                     .fractionOfMatchedPositions(withReliabilityAtLeast: effective)
-                HStack {
-                    Text("Confidence gate").font(.caption.weight(.semibold))
-                    Spacer()
-                    Text(String(format: "%.2f", effective)).font(.caption.monospacedDigit())
-                }
-                Slider(
-                    value: Binding(
-                        get: { Double(effective) },
-                        set: { appState.acomSession.reliabilityThreshold = Float($0) }),
-                    in: 0...1)
+                Section("Confidence gate") {
+                    Slider(
+                        value: Binding(
+                            get: { Double(effective) },
+                            set: { appState.acomSession.reliabilityThreshold = Float($0) }),
+                        in: 0...1
+                    ) {
+                        Text(String(format: "Threshold, %.2f", effective))
+                    }
                     .accessibilityLabel("Reliability threshold")
                     .accessibilityIdentifier("pane.acom.reliabilityThreshold")
-                HStack {
                     if let kept {
                         Text(String(format: "%.0f %% of matched positions kept", kept * 100))
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                    Spacer()
                     if appState.acomSession.reliabilityThreshold != nil {
                         Button("Automatic") { appState.acomSession.reliabilityThreshold = nil }
-                            .font(.caption2)
                     }
                 }
             }
             if pane == .diffraction {
-                Divider()
-                Toggle("Log display", isOn: $appState.logScale)
-                if appState.patternScaleMradAvailable {
-                    Picker("Q-scale units", selection: $appState.patternScaleUnit) {
-                        ForEach(PatternScaleUnit.allCases) { unit in
-                            Text(unit.rawValue).tag(unit)
+                Section("Display") {
+                    Toggle("Log display", isOn: $appState.logScale)
+                    if appState.patternScaleMradAvailable {
+                        Picker("Q-scale units", selection: $appState.patternScaleUnit) {
+                            ForEach(PatternScaleUnit.allCases) { unit in
+                                Text(unit.rawValue).tag(unit)
+                            }
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
             }
         }

@@ -110,12 +110,11 @@ struct StemImageView: View {
     @ViewBuilder
     private var zoomModeBadge: some View {
         if isZoomed, mapsScanPositions {
-            Text("PAN · ×\(zp.effectiveZoom, specifier: "%.1f")")
-                .font(.caption2.weight(.bold).monospacedDigit())
-                .foregroundStyle(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.accentColor.opacity(0.85), in: Capsule())
+            // A badge is a word in its colour, not a capsule (presentation
+            // contract rule 3, 2026-09-03); `fixedSize` so it never wraps.
+            Text("Pan ×\(zp.effectiveZoom, specifier: "%.1f")")
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color.accentColor)
                 .fixedSize()
                 .help("Zoomed in: drag to pan, drag the white marker to move the "
                       + "scan position, double-click to reset. At 1× a click "
@@ -174,13 +173,14 @@ struct StemImageView: View {
         }
     }
 
+    /// A badge is a word in its colour, not a capsule (presentation contract
+    /// rule 3, 2026-09-03); `fixedSize` so a narrow pane header never wraps
+    /// it (the owner's "Rel-ati-ve" capture).
     private func statusCapsule(text: String, color: Color) -> some View {
         Text(text)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.85), in: Capsule())
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(color)
+            .fixedSize()
             .help("Interpretation status of the displayed result")
             .accessibilityIdentifier("result.statusBadge")
     }

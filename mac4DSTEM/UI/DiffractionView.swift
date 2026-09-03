@@ -48,12 +48,11 @@ struct DiffractionView: View {
             // peak count (#24).
             if app.patternDisplayMode == .current,
                app.realSpaceShape != .point, app.virtualDiffractionPattern != nil {
-                Text("ROI SUM")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.85), in: Capsule())
+                // A word in its colour, not a capsule (contract rule 3).
+                Text("ROI sum")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .fixedSize()
                     .help("This pattern is the sum over the real-space region, "
                           + "not the pattern at one scan position. Set the "
                           + "region shape to Point to see a single position.")

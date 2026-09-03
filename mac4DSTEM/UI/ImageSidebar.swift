@@ -58,11 +58,11 @@ struct ImageSidebar: View {
                 .accessibilityLabel("Region shape")
 
                 if appState.realSpaceShape != .point, let d = appState.descriptor {
-                    LabeledContent("Radius, \(Int(appState.realSpaceRadius)) px") {
-                        Slider(value: $appState.realSpaceRadius,
-                               in: 1...Float(max(d.rx, d.ry) / 2))
-                            .accessibilityLabel("Region radius in pixels")
+                    Slider(value: $appState.realSpaceRadius,
+                           in: 1...Float(max(d.rx, d.ry) / 2)) {
+                        Text("Radius, \(Int(appState.realSpaceRadius)) px")
                     }
+                    .accessibilityLabel("Region radius in pixels")
                 }
                 Text(appState.realSpaceShape == .point
                      ? "Drag on the real-space image to scrub the diffraction pattern."

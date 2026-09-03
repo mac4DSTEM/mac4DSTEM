@@ -4,6 +4,10 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
+/// The welcome workspace: the doors first, three cards, recents — system
+/// controls on the window's own ground (presentation contract rule 3: the
+/// accent-to-cyan gradient, the radial wash and the hand-drawn material
+/// cards of the earlier version are gone; a card is a `GroupBox`).
 struct WelcomeWorkspace: View {
     @Environment(AppState.self) private var appState
 
@@ -13,27 +17,20 @@ struct WelcomeWorkspace: View {
                 VStack(spacing: 12) {
                     Image(systemName: "circle.grid.cross.fill")
                         .font(.system(size: 54, weight: .light))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.accentColor, .cyan],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                     Text("Turn 4D-STEM data into answers")
-                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                        .font(.largeTitle.weight(.semibold))
                     Text("A native Mac workspace for calibrated imaging, quantitative maps, and phase reconstruction.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .frame(maxWidth: 660)
+                        .frame(maxWidth: WindowPolicy.readableWidth)
                 }
 
                 // S22e: the entry points come BEFORE the feature cards — they
-                // used to sit below them and opened below the fold, so the
-                // first screen of the app showed marketing and hid the doors
-                // (Track B drive finding, 2026-09-01).
+                // used to open below the fold (Track B drive finding,
+                // 2026-09-01).
                 VStack(spacing: 8) {
                     HStack(spacing: 12) {
                         Button("Open Dataset…") { appState.requestOpenDataset() }
@@ -42,10 +39,7 @@ struct WelcomeWorkspace: View {
                             .keyboardShortcut(.defaultAction)
                             .disabled(appState.isBusy)
                         // The configured open is a SECOND door, not a mode on
-                        // the first: "Open Dataset…" behaves exactly as it
-                        // always has (release owner, 2026-08-18). Crop and bin
-                        // are something you go looking for, not a step in front
-                        // of every open.
+                        // the first (release owner, 2026-08-18).
                         Button("Open with Options…") {
                             appState.requestOpenDatasetWithOptions()
                         }
@@ -74,153 +68,117 @@ struct WelcomeWorkspace: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     // Guidance, not a warning: analyses stream the whole cube,
-                    // so a network source costs minutes on every pass. Measured
-                    // at ~3.3 MB/s over a NAS — ~30x below gigabit, and
-                    // latency-dominated rather than bandwidth-limited.
+                    // so a network source costs minutes on every pass
+                    // (measured ~3.3 MB/s over a NAS, latency-dominated).
                     Label(
                         "Work from a local disk. Datasets opened over a network share stream far more slowly on every whole-cube pass.",
                         systemImage: "internaldrive"
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .labelStyle(.titleAndIcon)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: 560)
+                    .frame(maxWidth: WindowPolicy.readableWidth)
                     .accessibilityIdentifier("welcome.localStorageNotice")
                 }
 
                 // S22 feedback R2 (2026-09-01): three compact cards SIDE BY
-                // SIDE, always — the ViewThatFits fallback stacked them as
-                // "large empty boxes" filling the first screen.
+                // SIDE, always.
                 HStack(alignment: .top, spacing: 12) { welcomeCards }
-                    .frame(maxWidth: 780)
+                    .frame(maxWidth: WindowPolicy.readableWidth * 1.4)
 
                 if !appState.recents.entries.isEmpty {
                     // Stored on the seam and recomputed only on mutation, so
                     // the O(n^2) disambiguation never runs during a redraw.
                     let locations = appState.recents.locationLabels
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Recent datasets")
-                            .font(.headline)
-                        ForEach(appState.recents.entries.prefix(5)) { recent in
-                            HStack(spacing: 10) {
-                                Button { appState.openRecent(recent) } label: {
-                                    HStack {
-                                        Image(systemName: "clock.arrow.circlepath")
-                                            .foregroundStyle(Color.accentColor)
-                                        // NAME AND LOCATION, because the name
-                                        // alone is not an identifier. Two copies
-                                        // of one cube — a NAS share and a local
-                                        // backup — rendered as identical rows on
-                                        // a list whose only job is choosing
-                                        // between them (Track B, 2026-08-18).
-                                        VStack(alignment: .leading, spacing: 1) {
+                    GroupBox("Recent datasets") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(appState.recents.entries.prefix(5)) { recent in
+                                LabeledContent {
+                                    Button { appState.removeRecent(recent) } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Remove from Recents")
+                                    .accessibilityLabel("Remove \(recent.displayName) from Recents")
+                                } label: {
+                                    Button { appState.openRecent(recent) } label: {
+                                        // NAME AND LOCATION: the name alone is
+                                        // not an identifier — two copies of one
+                                        // cube rendered as identical rows
+                                        // (Track B, 2026-08-18).
+                                        Label {
                                             Text(recent.displayName)
-                                                .lineLimit(1)
                                             if let location = locations[recent.id] {
                                                 Text(location)
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
-                                                    .lineLimit(1)
-                                                    .truncationMode(.head)
                                             }
+                                        } icon: {
+                                            Image(systemName: "clock.arrow.circlepath")
+                                                .foregroundStyle(Color.accentColor)
                                         }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundStyle(.tertiary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
                                     }
-                                    .contentShape(Rectangle())
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(
+                                        locations[recent.id].map { "\(recent.displayName), on \($0)" }
+                                            ?? recent.displayName
+                                    )
+                                    .accessibilityHint("Reopens this dataset and its saved session")
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(
-                                    locations[recent.id].map { "\(recent.displayName), on \($0)" }
-                                        ?? recent.displayName
-                                )
-                                .accessibilityHint("Reopens this dataset and its saved session")
-                                Button { appState.removeRecent(recent) } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .buttonStyle(.borderless)
-                                .help("Remove from Recents")
-                                .accessibilityLabel("Remove \(recent.displayName) from Recents")
-                            }
-                            if recent.id != appState.recents.entries.prefix(5).last?.id {
-                                Divider()
                             }
                         }
+                        .padding(4)
                     }
-                    .padding(16)
-                    .frame(maxWidth: 560)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(.quaternary, lineWidth: 1)
-                    }
+                    .frame(maxWidth: WindowPolicy.readableWidth)
                 }
             }
             .padding(.horizontal, 36)
             .padding(.vertical, 44)
             .frame(maxWidth: .infinity)
         }
-        .background(
-            RadialGradient(
-                colors: [Color.accentColor.opacity(0.10), Color.clear],
-                center: .top,
-                startRadius: 20,
-                endRadius: 520
-            )
-        )
     }
 
     private var loadingStatus: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                ProgressView()
-                    .controlSize(.small)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Loading dataset")
-                        .font(.subheadline.weight(.semibold))
-                    // Two lines, because the measured phase reports patterns
-                    // AND bytes and middle-truncating that would cut exactly
-                    // the quantities the line exists to show.
-                    Text(appState.datasetLoadingStatus ?? "Opening dataset…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                }
-                Spacer(minLength: 8)
-                // Next to the progress it cancels, not in a menu. Opening the
-                // wrong multi-gigabyte file used to leave quitting the app as
-                // the only way out, and the open is the longest uninterruptible
-                // wait in the product.
-                if appState.canCancelDatasetLoad {
-                    Button("Cancel") { appState.cancelDatasetLoad() }
-                        .buttonStyle(.borderless)
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    ProgressView()
                         .controlSize(.small)
-                        .accessibilityIdentifier("welcome.cancelDatasetLoad")
-                        .accessibilityHint("Stops loading this dataset and returns to the welcome screen")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Loading dataset")
+                            .font(.headline)
+                        // Two lines: the measured phase reports patterns AND
+                        // bytes, and middle-truncating would cut them.
+                        Text(appState.datasetLoadingStatus ?? "Opening dataset…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                    }
+                    Spacer(minLength: 8)
+                    // Next to the progress it cancels: the open is the
+                    // longest uninterruptible wait in the product.
+                    if appState.canCancelDatasetLoad {
+                        Button("Cancel") { appState.cancelDatasetLoad() }
+                            .controlSize(.small)
+                            .accessibilityIdentifier("welcome.cancelDatasetLoad")
+                            .accessibilityHint("Stops loading this dataset and returns to the welcome screen")
+                    }
+                }
+                // A determinate bar only where the denominator is real.
+                if let progress = appState.datasetLoadingProgress {
+                    ProgressView(value: progress)
+                        .accessibilityValue("\(Int(progress * 100)) percent")
+                } else {
+                    ProgressView()
                 }
             }
-            // A determinate bar only where the denominator is real. Metadata
-            // phases show the spinner above and no bar, rather than a fraction
-            // invented to keep something moving.
-            if let progress = appState.datasetLoadingProgress {
-                ProgressView(value: progress)
-                    .accessibilityValue("\(Int(progress * 100)) percent")
-            } else {
-                ProgressView()
-            }
+            .padding(4)
         }
-        .padding(14)
-        .frame(width: 420, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.quaternary, lineWidth: 1)
-        }
+        .frame(maxWidth: WindowPolicy.readableWidth)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("welcome.loadingStatus")
     }
@@ -242,25 +200,21 @@ struct WelcomeWorkspace: View {
     }
 
     private func welcomeCard(icon: String, title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(Color.accentColor)
-            Text(title)
-                .font(.headline)
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        // Sized by content (S22 feedback R2): the old 112pt floor was mostly
-        // empty box.
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(.quaternary, lineWidth: 1)
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(Color.accentColor)
+                Text(title)
+                    .font(.headline)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            // Sized by content (S22 feedback R2): the old 112pt floor was
+            // mostly empty box.
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(4)
         }
     }
 }
@@ -315,12 +269,10 @@ struct ProductWorkspaceHeader: View {
                         .font(.title3.weight(.semibold))
                     if appState.navigation.workspaceArea == .reconstruct
                         && appState.navigation.analysisMode.isAdvanced {
-                        Text("ADVANCED")
-                            .font(.caption2.weight(.bold))
+                        // A word, not a capsule (contract rule 3).
+                        Text("Advanced")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary, in: Capsule())
                     }
                 }
                 Text(headerSubtitle)
@@ -443,7 +395,7 @@ struct ProductWorkspaceHeader: View {
     private var operationProgress: some View {
         HStack(spacing: 10) {
             ProgressView(value: appState.progress)
-                .frame(width: 110)
+                .frame(width: WindowPolicy.inlineProgressWidth)
             VStack(alignment: .leading, spacing: 2) {
                 Text(appState.activeOperation ?? appState.statusText)
                     .font(.caption.weight(.medium))
@@ -483,7 +435,7 @@ struct ResultsWorkspace: View {
         VStack(spacing: 0) {
             if hasVisibleResult {
                 StemImageView()
-                    .frame(minWidth: 420, minHeight: 360)
+                    .frame(minWidth: 420, minHeight: 360)   // science: the result pane floor
                 Divider()
                 currentResultSummary
             } else {
@@ -501,7 +453,7 @@ struct ResultsWorkspace: View {
             if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
                 Divider()
                 ProductComparisonView(a: a, b: b)
-                    .frame(minHeight: 230, idealHeight: 300)
+                    .frame(minHeight: 230, idealHeight: 300)   // science: the comparison panes
             }
         }
         // The column's floor is the split item's (`SplitViewPolicy.detailMinimum`),
@@ -746,7 +698,7 @@ private struct ProductComparisonView: View {
                     }
                 }
             }
-            .frame(minHeight: 120)
+            .frame(minHeight: 120)   // science: a comparison pane
             if let cursor, let sample = product.sample(x: cursor.x, y: cursor.y) {
                 Text(sample.accessibilityText).font(.caption2.monospacedDigit()).lineLimit(1)
             } else {

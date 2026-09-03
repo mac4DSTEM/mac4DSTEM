@@ -130,6 +130,18 @@ touches the file. A patch changes no scientific output; a landed change to
 one cuts v2.6.0 and the changelog names the number. Releases are cut when
 what has landed is worth a build, never scheduled against a number.
 
+**2026-09-03 — Steps 2c–4 decisions (unattended session; the owner drives
+them).** (1) A slider is a labelled `Slider` row, never a `LabeledContent`
+value: as a trailing value it collapses to its knob at the column
+minimum; both width-range tests now refuse a slider under 80 pt. (2) A
+badge on a pane is a word in its colour, not a capsule; the owner's capture
+showed "Relative" wrapped to three lines inside one. (3) Sheets have bands
+(`WindowPolicy`), not fixed sizes, so a short display shrinks the sheet
+rather than losing its footer. (4) Agents in isolated worktrees cannot
+build this repo (the local package name derives from the directory); their
+patches were applied to the main tree and gated there, which is the
+procedure from now on.
+
 **2026-09-03 — Step 2a decisions (unattended session; the owner drives
 them).** (1) The sidebar is one grouped `Form` on the column's material,
 rows filling the group as System Settings' do — rule 1's "spare width is
