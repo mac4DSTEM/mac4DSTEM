@@ -11,7 +11,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
-| v2.5.0 | not before the presentation pass (owner, 2026-09-03). The `df80e8e` build (notarized, `build/release/mac4DSTEM-2.5.dmg`) has the crash fix but not the presentation contract; it is superseded, not released | `CHANGELOG.md` |
+| v2.5.0 | parked (owner, 2026-09-03 late): no release or tag thinking until the UI rework is complete and right. The `df80e8e` build (notarized, `build/release/mac4DSTEM-2.5.dmg`) is superseded, not released | `CHANGELOG.md` |
 
 ## v2.5 consolidation train (`docs/archive/v2/v2.5-plan.md` §5) — done
 
@@ -40,17 +40,26 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Next: the presentation pass, step 2 — the Prepare sidebar to `Form`**
-  (before any release). Step 1, the chrome, landed 2026-09-03: header,
-  footer and log strip draw no material of their own; each column divider
-  grabs over `SplitViewPolicy.dividerGrabWidth` (9 pt); unverified on
-  screen. Rule 3 (no bar or wash) is held by the inventory grep, not a
-  hosted test: SwiftUI's `.bar` leaves no view to count. Then Imaging, Strain & ACOM, Phase, Results, one sidebar per
-  commit, then the two inspectors with capped previews. Contract in
-  `architecture.md` "Presentation contract"; findings in `open-items.md`
-  "Wide columns…". Each step: hosted layout tests at 250 / 292 / 600 pt,
-  the owner drives. `/pickup the presentation pass` from a fresh session.
-- **Start here.** Four lanes (`open-items.md` header): patches v2.5.x for
+- **Next: the UI rework, step 2 — the Prepare sidebar to `Form`.** The
+  owner's direction (2026-09-03, after driving step 1): this is a complete
+  rework of every surface to Apple's standards — the app should look and
+  behave as if it shipped with macOS — and nothing about releases or tags
+  is considered until it is right. Contract in `architecture.md`
+  "Presentation contract"; findings in `open-items.md` "The UI rework".
+  Step 1 (the chrome) landed 2026-09-03 (`9493242`) and the owner drove
+  it: the dividers work. Order from here, one commit each, the owner
+  drives every one: **2a** Prepare sidebar + the shared dataset card and
+  workspace list as grouped Forms, with the missing Liquid Glass on the
+  columns diagnosed first (`/diagnose`, never guessed) and the divider
+  holding priorities fixed (content column holds least, as Xcode's
+  editor does); **2b–2e** Imaging, Strain & ACOM, Phase, Results; **3**
+  both inspectors as Forms, thumbnails capped by rule; **4** the rest of
+  the window — pane chips and badges, the welcome workspace cards, the
+  configurator and export sheets, alerts — against the same contract;
+  **5** the owner's full drive; only then is a release discussed. Each
+  step: hosted layout tests at 250 / 292 / 600 pt. `/pickup the UI
+  rework` from a fresh session.
+- **After the rework.** Four lanes (`open-items.md` header): patches for
   bugs the owner reports (through `/diagnose`) and the known, scoped items;
   the science lane one item at a time — **the origin-fit guard leads**
   (1 px unflagged, radius provenance; Gate B; `open-items.md` "Origin-fit
@@ -64,8 +73,6 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 ## Owed to the owner
 
 
-- Drive step 1 of the presentation pass (the chrome): header, footer and
-  log strip on the window's own ground, the divider's grab zone; whether
-  the inspector's line is now visible is the open half of finding (c).
-  The v2.5.0 build and tag come after the pass, from its last commit.
+- Drive each UI-rework step as it lands. Release and tag are parked until
+  the rework is complete; nothing else is owed on them.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.

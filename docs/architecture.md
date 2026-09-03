@@ -170,8 +170,10 @@ contract, not taste, and it is checkable:
    and maximum width; wrapped text is fine, truncation and overflow are
    findings.
 
-Deviations are recorded in `open-items.md` with the reason. The pass that
-adopts this contract is the next UI target (`status.md`).
+The contract covers every surface — the window, its sheets, panels and
+alerts — not only the columns. Deviations are recorded in `open-items.md`
+with the reason. The rework that adopts it is the only UI target until it
+is complete (`status.md`).
 
 ## Requirements, build, test
 

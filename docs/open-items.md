@@ -219,18 +219,21 @@ labels, Phase linearity, inspector layout) lives in
 not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
 
-### Wide columns expose row layouts designed for one width — the presentation pass
-Owner drive 2026-09-03 of the AppKit columns (`df80e8e`): (a) a sidebar
-dragged to ~800pt puts every trailing value at the far right, because the
-rows are `LabeledContent`/`Spacer` rows that fill whatever width they get;
-(b) the inspector at ~440pt blows the Real space and Mean pattern
-thumbnails up to the column width (S22a told them to fill it); (c) the
-inspector's divider had no obvious grab zone — widened to 9pt in step 1
-(2026-09-03); whether its line is visible is for the owner's eyes. The
-pass (`status.md`) is one design across the five sidebars and both
-inspectors: a maximum content width with the rest as margin, capped
-thumbnails. Trap: cap the column instead and you lose the wide-drag the
-owner asked for. Owner: the pass; lane: patch.
+### The UI rework — what the owner's drives found, by step
+Owner drives 2026-09-03 (`df80e8e`, then step 1 `9493242`): (a) a wide
+sidebar puts every trailing value ("Not set", the voltage, the Manual
+scale fields) at the far edge — hand-built `LabeledContent`/`Spacer` rows
+fill whatever width they get (step 2); (b) the inspector's Real space,
+Mean and Max thumbnails fill the column (S22a told them to; step 3);
+(c) the dividers' grab zone — fixed in step 1, owner-confirmed; (d) no
+Liquid Glass on the sidebar and inspector while the toolbar has it —
+something inside the columns paints over AppKit's material, candidate
+the hosting `List`'s own background; diagnose before touching (step 2a);
+(e) dragging one divider moves the opposite column — holding priorities
+(inspector 260 < sidebar 261 < content 262) make the inspector yield on
+any drag; Xcode's editor holds least, so a drag resizes only the content
+(step 2a). Trap: cap the columns and you lose the wide-drag the owner
+asked for. Owner: the rework; lane: the rework, no release number.
 
 ### Concurrent HDF5 use crashes the process
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb

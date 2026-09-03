@@ -130,6 +130,12 @@ touches the file. A patch changes no scientific output; a landed change to
 one cuts v2.6.0 and the changelog names the number. Releases are cut when
 what has landed is worth a build, never scheduled against a number.
 
+**2026-09-03 — The presentation pass is a complete UI rework; releases
+are parked.** After driving step 1 the owner widened the scope: every
+surface of the app is reworked to Apple's standards under the presentation
+contract, and no release or tag is considered until it is complete and
+right. v2.5.0 keeps its number but has no date and no gate on it.
+
 **2026-09-03 — Presentation contract rule 3 is held by a grep, not a
 hosted test.** A test counting `NSVisualEffectView`s outside the AppKit
 columns was written and broken first: it counted 2 with the header's and
