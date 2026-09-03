@@ -52,11 +52,12 @@ stays as the pre-consolidation anchor.)
   passed / 0 failed / 3 skipped, 43 harnesses green including the real-data
   acceptance; the package audit passed after its literal version assertion
   was made to read the project (`b026cd7`, docs and tooling only).
-- Built from BUILDCOMMIT (the earlier b026cd7 build was superseded before
-  release to include the split-view contract): Developer ID archive, app
-  notarization APPNOTARY, `mac4DSTEM-2.5.dmg` notarization DMGNOTARY, stapled,
-  Gatekeeper-accepted; DMG SHA-256 `DMGSHA`. Unit gate on the build tree:
-  471 passed / 0 failed / 3 skipped (2026-09-03).
+- Built from `df80e8e` (two earlier builds, b026cd7 and 749dbb2, were
+  superseded before release: the split-view contract, then the AppKit
+  columns): Developer ID archive, app notarization `8fbd3004-199e-46f2-bcb0-0fb5bb9c595f`,
+  `mac4DSTEM-2.5.dmg` notarization `cc743aef-165d-4861-b818-9f3eeb1fd669`, stapled, Gatekeeper-accepted;
+  DMG SHA-256 `892974e9ae2467a2dfdd5b9c0b23e580dbc9b556c21864ed1c447ef7e9013dd8`. Unit gate on the build tree: 471 passed / 0 failed /
+  3 skipped (2026-09-03).
 - On screen: the owner's own driving pass before the tag (the human
   checklist was retired 2026-09-03; its record is in `docs/archive/v2/`).
   Known issues ship listed in `docs/open-items.md`.

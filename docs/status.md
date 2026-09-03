@@ -11,7 +11,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
-| v2.5.0 | **rebuilt 2026-09-03 with the split-view contract** (the b026cd7 build was superseded before release); notarized and stapled `build/release/mac4DSTEM-2.5.dmg`, provenance in `CHANGELOG.md`; the owner drives it, then tags the build commit and publishes | `CHANGELOG.md`, retained pipeline log |
+| v2.5.0 | **built 2026-09-03 from `df80e8e`** with the AppKit columns (two earlier builds superseded before release); notarized and stapled `build/release/mac4DSTEM-2.5.dmg`, SHA-256 `892974e9…13dd8`, notary ids in `CHANGELOG.md`; the owner drives it, then tags `df80e8e` and publishes | `CHANGELOG.md`, retained pipeline log |
 
 ## v2.5 consolidation train (`docs/archive/v2/v2.5-plan.md` §5) — done
 
@@ -59,7 +59,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 ## Owed to the owner
 
 
-- Drive the rebuilt DMG (Results, the inspector, both columns' drag and
-  collapse), then tag the build commit `v2.5.0` in GitHub Desktop and
-  publish; test on a clean macOS 26 account before publishing.
+- Drive `build/release/mac4DSTEM-2.5.dmg` (Results, the inspector, both
+  columns' drag and collapse), then tag `df80e8e` as `v2.5.0` in GitHub
+  Desktop and publish; test on a clean macOS 26 account before publishing.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.
