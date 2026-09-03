@@ -219,6 +219,23 @@ labels, Phase linearity, inspector layout) lives in
 not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
 
+### Wide columns expose row layouts designed for one width — a UI pass, not fixes
+Owner drive 2026-09-03 of the AppKit columns (`df80e8e`): (a) a sidebar
+dragged to ~800pt puts every trailing value — "Not set", the voltage field,
+the Origin-fit picker — at the far right, because the rows are
+`LabeledContent`/`Spacer` rows that fill whatever width they get; (b) the
+inspector at ~440pt blows the Real space and Mean pattern thumbnails up to
+the column width (they were told to fill it, S22a, when 560pt was the cap
+and 320 the norm); (c) the inspector's divider has no visible line or
+obvious grab zone — the drag lands on the pane's focus ring. None is a
+defect of the split view; each column's content needs a written rule for
+its width range: a maximum content width with the rest as margin (Xcode's
+inspectors do this), capped thumbnails, a visible divider. One design
+session across the five sidebars and both inspectors, with the owner's
+screenshots; until then the columns' maxima (600) are the only knob.
+Trap: cap the column instead and you lose the wide-drag the owner asked
+for. Owner: the UI session; lane: patch.
+
 ### Concurrent HDF5 use crashes the process
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb
 within a few dozen iterations; the bundled build is `Threadsafety: OFF`.

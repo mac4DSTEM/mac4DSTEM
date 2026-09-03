@@ -40,11 +40,12 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **AppKit columns landed 2026-09-03 (in v2.5.0; driven by the agent with
-  real mouse events, not yet by the owner):** drag both columns past their
-  minimum (they collapse), reopen them by toolbar (they return at the old
-  width), drag the sidebar wide (the inspector gives way first; rows wrap
-  at 560pt). Both columns run full height under the toolbar, as before.
+- **AppKit columns landed 2026-09-03 and the owner drove them:** collapse,
+  reopen and wide drags behave; the drag crash is gone. What the drive
+  found is the next target — `open-items.md` "Wide columns expose row
+  layouts designed for one width": a UI design session across the five
+  sidebars and both inspectors, from the owner's screenshots, not a chain
+  of one-row fixes.
 - **Start here.** Four lanes (`open-items.md` header): patches v2.5.x for
   bugs the owner reports (through `/diagnose`) and the known, scoped items;
   the science lane one item at a time — **the origin-fit guard leads**
