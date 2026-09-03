@@ -31,7 +31,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 471 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03, split-view policy tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
+| `run-tests.sh unit` | 471 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03, AppKit-columns tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-03, 7c 4b tree (live markdown 3 970, cold-start set 932; both below the previous closeout) |
@@ -40,11 +40,11 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Split-view policy landed 2026-09-03 (in v2.5.0, not seen on
-  screen):** drive it — drag both columns past their minimum (they
-  collapse), reopen them by toolbar (they return at the old width), narrow
-  the window (the inspector gives way first). The drag-crash Gate D entry
-  still needs the exception text and a drag count.
+- **AppKit columns landed 2026-09-03 (in v2.5.0; driven by the agent with
+  real mouse events, not yet by the owner):** drag both columns past their
+  minimum (they collapse), reopen them by toolbar (they return at the old
+  width), drag the sidebar wide (the inspector gives way first; rows wrap
+  at 560pt). Both columns run full height under the toolbar, as before.
 - **Start here.** Four lanes (`open-items.md` header): patches v2.5.x for
   bugs the owner reports (through `/diagnose`) and the known, scoped items;
   the science lane one item at a time — **the origin-fit guard leads**

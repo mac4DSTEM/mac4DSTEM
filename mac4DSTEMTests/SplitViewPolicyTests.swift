@@ -3,19 +3,12 @@ import SwiftUI
 import XCTest
 @testable import mac4DSTEM
 
-/// The split-view contract (owner direction 2026-09-03: "like Xcode"): both
-/// side columns behave the same — drag far, collapse when dragged past the
-/// minimum, reopen at the width they had — and the data pane keeps a floor.
-/// One policy owns it (`SplitViewPolicy`); these are hosted-window tests,
-/// the only kind that can see AppKit's split items.
-///
-/// Written before the policy as pre-registered experiments. Predictions and
-/// outcomes (2026-09-03): E1, the inspector is a third item beside the
-/// sidebar — refuted, it is a second split controller nested in the detail;
-/// E2, a drag-collapse does NOT reach the navigation flags on its own —
-/// refuted, SwiftUI's bindings carry it (a sync written for it changed
-/// nothing under mutation and was deleted); E3, a toggled column reopens at
-/// its last width — confirmed. The tests stay as pins of the properties.
+/// The split-view contract (owner decision 2026-09-03: AppKit's
+/// `NSSplitViewController`, the way Xcode does it). Both side columns behave
+/// the same — drag far, collapse when dragged past the minimum, reopen at
+/// the width they had — the data pane keeps a floor, and a below-minimum
+/// position is refused by AppKit itself, not corrected afterwards. Hosted
+/// window tests: the only kind that can see the split items.
 @MainActor
 final class SplitViewPolicyTests: XCTestCase {
 
@@ -24,6 +17,7 @@ final class SplitViewPolicyTests: XCTestCase {
     }
 
     private func makeWindow(_ appState: AppState, inspector: Bool) async -> NSWindow {
+        SplitViewPolicy.autosaveEnabled = false
         await appState.openDemoFixture()
         appState.navigation.showInspectorPane = inspector
         let window = NSWindow(
@@ -37,98 +31,99 @@ final class SplitViewPolicyTests: XCTestCase {
         return window
     }
 
-    /// Pin the shared autosave before moving a divider: `NavigationSplitView`
-    /// persists divider positions into the app's defaults domain, and a test
-    /// that parks the sidebar at 144pt otherwise hands that width to every
-    /// later window (the S17 trap, hit again 2026-09-03).
-    private func unpinAutosave(_ split: NSSplitView) { split.autosaveName = "" }
+    /// The split persists divider positions under `SplitViewPolicy.autosaveName`;
+    /// a test that parks a divider must not hand that position to the next
+    /// window (the S17 trap, hit again 2026-09-03).
+    private func controller(_ window: NSWindow) throws -> ColumnSplitController {
+        let c = try XCTUnwrap(SplitViewPolicy.controller(in: window), "the window's column controller")
+        c.splitView.autosaveName = ""
+        return c
+    }
 
-    // E1 refuted, contract kept: the inspector is a second split controller
-    // nested in the detail, not a third item beside the sidebar. Both side
-    // items still get the same bounds and can collapse; the data pane's
-    // floor is a split item's; the holding order is inspector, sidebar, pane.
-    func testBothSideColumnsGetTheSameContractAndTheDetailKeepsItsFloor() async throws {
+    func testThreeItemsOnOneControllerWithTheSameContractOnBothSides() async throws {
         let appState = AppState()
         let window = await makeWindow(appState, inspector: true)
         defer { window.orderOut(nil) }
+        let c = try controller(window)
+        XCTAssertEqual(c.splitViewItems.count, 3, "sidebar, workspace, inspector")
 
-        let report = try XCTUnwrap(SplitViewPolicy.apply(to: window))
-        XCTAssertEqual(report.sidebar.minimumThickness, SplitViewPolicy.sidebar.minimum)
-        XCTAssertEqual(report.sidebar.maximumThickness, SplitViewPolicy.sidebar.maximum)
-        XCTAssertTrue(report.sidebar.canCollapse, "dragging past the minimum collapses the sidebar")
-
-        let inspector = try XCTUnwrap(report.inspector, "the inspector's split item while it is shown")
-        XCTAssertEqual(inspector.minimumThickness, SplitViewPolicy.inspector.minimum)
-        XCTAssertEqual(inspector.maximumThickness, SplitViewPolicy.inspector.maximum)
-        XCTAssertTrue(inspector.canCollapse, "the inspector collapses the same way")
-
-        let detail = try XCTUnwrap(report.detail)
-        XCTAssertEqual(detail.minimumThickness, SplitViewPolicy.detailMinimum,
-                       "the data pane's floor is the split item's, not a view frame")
-        XCTAssertGreaterThan(detail.holdingPriority.rawValue, inspector.holdingPriority.rawValue,
-                             "a narrowing window squeezes the inspector before the data pane")
-        XCTAssertGreaterThan(report.sidebar.holdingPriority.rawValue, report.outerDetail.holdingPriority.rawValue,
-                             "and the trailing pair gives way before the sidebar")
+        XCTAssertEqual(c.sidebarItem.minimumThickness, SplitViewPolicy.sidebar.minimum)
+        XCTAssertEqual(c.sidebarItem.maximumThickness, SplitViewPolicy.sidebar.maximum)
+        XCTAssertTrue(c.sidebarItem.canCollapse)
+        XCTAssertEqual(c.inspectorItem.minimumThickness, SplitViewPolicy.inspector.minimum)
+        XCTAssertEqual(c.inspectorItem.maximumThickness, SplitViewPolicy.inspector.maximum)
+        XCTAssertTrue(c.inspectorItem.canCollapse)
+        XCTAssertEqual(c.contentItem.minimumThickness, SplitViewPolicy.detailMinimum)
+        XCTAssertGreaterThan(c.contentItem.holdingPriority.rawValue, c.sidebarItem.holdingPriority.rawValue)
+        XCTAssertGreaterThan(c.sidebarItem.holdingPriority.rawValue, c.inspectorItem.holdingPriority.rawValue)
+        XCTAssertFalse(c.inspectorItem.isCollapsed, "the inspector was asked for — collapsed \(c.splitViewItems.map(\.isCollapsed)), widths \(c.splitView.arrangedSubviews.map { $0.frame.width })")
+        for host in [c.sidebarHost, c.contentHost, c.inspectorHost] {
+            XCTAssertEqual(host.sizingOptions, [], "SwiftUI content must not size the column — that constraint is the loop")
+        }
     }
 
-    // E2: a collapse done by the split view (a drag past the minimum) reaches
-    // the navigation flags, so the toggle buttons and menu never lie. SwiftUI
-    // provides this; the pin guards the day it stops.
     func testACollapseBySplitViewReachesTheNavigationFlags() async throws {
         let appState = AppState()
         let window = await makeWindow(appState, inspector: true)
         defer { window.orderOut(nil) }
-        let report = try XCTUnwrap(SplitViewPolicy.apply(to: window))
+        let c = try controller(window)
 
-        try XCTUnwrap(report.sidebar).isCollapsed = true
-        pump(0.4)
-        XCTAssertFalse(appState.navigation.showToolsPane, "sidebar collapsed by the split view")
-
-        try XCTUnwrap(report.inspector).isCollapsed = true
-        pump(0.4)
-        XCTAssertFalse(appState.navigation.showInspectorPane, "inspector collapsed by the split view")
+        c.sidebarItem.isCollapsed = true
+        pump(0.3)
+        XCTAssertFalse(appState.navigation.showToolsPane, "a drag-collapse reads as hidden to the toolbar and menu")
+        c.inspectorItem.isCollapsed = true
+        pump(0.3)
+        XCTAssertFalse(appState.navigation.showInspectorPane)
     }
 
-    // E3: the toggle reopens a column at the width it had.
-    func testAColumnReopensAtTheWidthItHad() async throws {
+    func testTheFlagsDriveTheColumnsAndAColumnReopensAtTheWidthItHad() async throws {
         let appState = AppState()
         let window = await makeWindow(appState, inspector: false)
         defer { window.orderOut(nil) }
-        _ = SplitViewPolicy.apply(to: window)
-        let split = try XCTUnwrap(SplitViewPolicy.outermostColumnSplit(in: window.contentView))
-        unpinAutosave(split)
+        let c = try controller(window)
+        XCTAssertTrue(c.inspectorItem.isCollapsed, "not asked for yet")
 
-        split.setPosition(320, ofDividerAt: 0)
-        split.layoutSubtreeIfNeeded()
-        pump(0.3)
-        let before = try XCTUnwrap(split.arrangedSubviews.first).frame.width
-        XCTAssertEqual(before, 320, accuracy: 2, "fixture precondition")
+        c.splitView.setPosition(320, ofDividerAt: 0)
+        c.splitView.layoutSubtreeIfNeeded(); pump(0.3)
+        let before = c.splitView.arrangedSubviews[0].frame.width
+        XCTAssertEqual(before, 320, accuracy: 2, "fixture precondition — split \(c.splitView.frame.width)pt wide, widths \(c.splitView.arrangedSubviews.map { $0.frame.width }), collapsed \(c.splitViewItems.map(\.isCollapsed))")
 
         appState.navigation.showToolsPane = false
-        pump(0.6)
-        appState.navigation.showToolsPane = true
         pump(0.8)
-        let after = try XCTUnwrap(split.arrangedSubviews.first).frame.width
-        XCTAssertEqual(after, before, accuracy: 2, "the sidebar came back at \(after)pt, not the \(before)pt it had")
+        XCTAssertTrue(c.sidebarItem.isCollapsed, "the toggle collapses the column")
+        appState.navigation.showToolsPane = true
+        pump(0.9)
+        XCTAssertFalse(c.sidebarItem.isCollapsed)
+        let after = c.splitView.arrangedSubviews[0].frame.width
+        XCTAssertEqual(after, before, accuracy: 2, "the sidebar came back at \(after)pt, not the \(before)pt it had — collapsed \(c.splitViewItems.map(\.isCollapsed)), widths \(c.splitView.arrangedSubviews.map { $0.frame.width })")
+
+        appState.navigation.showInspectorPane = true
+        pump(0.9)
+        XCTAssertFalse(c.inspectorItem.isCollapsed, "the inspector toggle opens its column")
     }
 
-    // The restoration clamp, now for both sides: a persisted width below the
-    // minimum is corrected rather than shown (the 144pt sidebar of 2026-08-06).
-    func testARestoredColumnBelowItsMinimumIsCorrectedOnBothSides() async throws {
+    /// The 144pt sidebar of 2026-08-06 and the 92pt sliver of 2026-09-03: a
+    /// below-minimum position is never shown — AppKit either holds the
+    /// minimum or collapses the column (the drag-past-the-minimum gesture),
+    /// on both sides. What it never does is a 144pt column with 305pt of
+    /// content in it.
+    func testABelowMinimumPositionIsRefusedOnBothSides() async throws {
         let appState = AppState()
         let window = await makeWindow(appState, inspector: true)
         defer { window.orderOut(nil) }
-        let outer = try XCTUnwrap(SplitViewPolicy.outermostColumnSplit(in: window.contentView))
-        let inner = try XCTUnwrap(SplitViewPolicy.inspectorColumnSplit(in: outer), "the inspector's own split")
-        unpinAutosave(outer); unpinAutosave(inner)
+        let c = try controller(window)
+        let split = c.splitView
 
-        outer.setPosition(144, ofDividerAt: 0)
-        inner.setPosition(inner.frame.width - 150, ofDividerAt: 0)
-        outer.layoutSubtreeIfNeeded(); inner.layoutSubtreeIfNeeded()
-        pump(0.2)
+        split.setPosition(144, ofDividerAt: 0)
+        split.layoutSubtreeIfNeeded(); pump(0.3)
+        let sidebar = split.arrangedSubviews[0].frame.width
+        XCTAssertTrue(sidebar >= SplitViewPolicy.sidebar.minimum - 1 || c.sidebarItem.isCollapsed,
+                      "sidebar at \(sidebar)pt, collapsed=\(c.sidebarItem.isCollapsed)")
 
-        let report = try XCTUnwrap(SplitViewPolicy.apply(to: window))
-        XCTAssertGreaterThanOrEqual(try XCTUnwrap(report.sidebarWidth), SplitViewPolicy.sidebar.minimum - 1)
-        XCTAssertGreaterThanOrEqual(try XCTUnwrap(report.inspectorWidth), SplitViewPolicy.inspector.minimum - 1)
+        split.setPosition(split.frame.width - 150, ofDividerAt: 1)
+        split.layoutSubtreeIfNeeded(); pump(0.3)
+        let inspector = split.arrangedSubviews[2].frame.width
+        XCTAssertTrue(inspector >= SplitViewPolicy.inspector.minimum - 1 || c.inspectorItem.isCollapsed,
+                      "inspector at \(inspector)pt, collapsed=\(c.inspectorItem.isCollapsed)")
     }
 }

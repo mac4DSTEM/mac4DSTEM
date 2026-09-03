@@ -39,10 +39,12 @@ stays as the pre-consolidation anchor.)
   workspace has its own sidebar, Results its own inspector, and the inspector
   follows the pane with the focus ring; the IPF map is confidence-gated with a
   slider on the colorbar chip. No scientific number changed.
-- **Split view.** One contract for both side columns (drag far, collapse
-  past the minimum, reopen at the last width), the data pane's floor as a
-  split item, the inspector giving way first in a narrow window; the
-  sidebar may now be up to 600 pt wide.
+- **Split view.** The sidebar and inspector are AppKit split-view columns
+  (the component Xcode uses): drag far, collapse past the minimum, reopen
+  at the last width, the inspector gives way first in a narrow window, the
+  sidebar may be up to 600 pt wide. Fixes the constraint-loop crash on a
+  sidebar drag (SwiftUI's split view let the divider violate its own
+  content minimum).
 
 ### Verified by
 

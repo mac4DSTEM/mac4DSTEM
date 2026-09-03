@@ -35,215 +35,70 @@ struct ContentView: View {
     }
 
     var body: some View {
-        @Bindable var appState = appState
-        return NavigationSplitView(columnVisibility: Binding(
-            get: {
-                appState.navigation.showToolsPane && !appState.isLoadingDataset ? .all : .detailOnly
-            },
-            set: { appState.navigation.showToolsPane = $0 != .detailOnly }
-        )) {
-            // S22d: publish the column's real width so long sidebar texts can
-            // wrap — this List never offers rows a width on its own (see
-            // SidebarTextWidth.swift). The 34pt covers the row insets.
-            GeometryReader { sidebarGeo in
-            List {
-                if let descriptor = appState.descriptor, descriptor.is4D {
-                    Section {
-                        datasetCard(descriptor)
-                    }
-
-                    Section("Workspace") {
-                        ForEach(WorkspaceArea.allCases) { area in
-                            workspaceButton(area)
-                        }
-                        if let hint = ProductWorkflow.nextStepHint(
-                            for: appState.navigation.workspaceArea,
-                            readiness: appState.productWorkflowReadiness,
-                            calibrationReady: appState.calibrationSession.readiness.isReady
-                        ) {
-                            Text(hint)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .sidebarWrapped()
-                                .accessibilityIdentifier("workspace.nextStepHint")
-                        }
-                    }
-
-                    if !appState.navigation.workspaceArea.analysisModes.isEmpty {
-                        Section("Task") {
-                            let groups = appState.navigation.workspaceArea.taskFamilyGroups
-                            let showsLabels = appState.navigation.workspaceArea.showsTaskFamilyLabels
-                            ForEach(groups) { group in
-                                if showsLabels {
-                                    Text(group.family.groupLabel)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityIdentifier(
-                                            "task.group.\(group.family.accessibilitySuffix)"
-                                        )
-                                }
-                                ForEach(group.modes) { taskButton($0) }
-                            }
-                        }
-                    }
+        VStack(spacing: 0) {
+            // Owner decision 2026-09-03: the columns are AppKit's
+            // (`ColumnSplitController`), the way Xcode's are — the divider is
+            // the only authority over a column's width and SwiftUI content
+            // lays out inside it. See SplitViewPolicy.swift for why.
+            WorkspaceColumns(
+                sidebar: AnyView(sidebarColumn.environment(appState)),
+                content: AnyView(workspaceColumn.environment(appState)),
+                inspector: AnyView(WorkspaceInspector().environment(appState)),
+                // The loading card hides the tools column itself.
+                sidebarVisible: appState.navigation.showToolsPane && !appState.isLoadingDataset,
+                inspectorVisible: appState.navigation.showInspectorPane,
+                onSidebarCollapsed: { collapsed in
+                    // A drag-collapse is the user hiding the column; the
+                    // loading card's collapse is not reported back.
+                    guard !appState.isLoadingDataset,
+                          appState.navigation.showToolsPane == collapsed else { return }
+                    appState.navigation.showToolsPane = !collapsed
+                },
+                onInspectorCollapsed: { collapsed in
+                    guard appState.navigation.showInspectorPane == collapsed else { return }
+                    appState.navigation.showInspectorPane = !collapsed
                 }
-
-                if !appState.hasDataset {
-                    Section("Dataset") {
-                    Button {
-                        appState.requestOpenDataset()
-                    } label: {
-                        Label(appState.hasDataset ? "Open Another…" : "Open Dataset…",
-                              systemImage: "folder")
-                    }
-                    }
-                }
-
-                if let descriptor = appState.descriptor, descriptor.is4D {
-                    // D3 (owner decision, 2026-09-01): the colormap and
-                    // display options moved ONTO the colorbar chips in the
-                    // panes (`ColormapChipMenu`). That dissolves the old
-                    // Results-scoping problem this sidebar section spent a
-                    // long comment justifying: the chip exists wherever its
-                    // image exists, so the control can never be stranded in a
-                    // workspace without it.
-
-                    // v2.5 step 7c: one sidebar per workspace, one file each
-                    // (plan §11d). This view only composes them.
-                    switch appState.navigation.workspaceArea {
-                    case .prepare: PrepareSidebar()
-                    case .image: ImageSidebar()
-                    case .map: MapSidebar()
-                    case .reconstruct: PhaseSidebar()
-                    case .results: ResultsSidebar()
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-            .environment(
-                \.sidebarTextWidth, max(sidebarGeo.size.width - 34, 216)
             )
-            // Backlog #16. The symptom (sidebar rows drawn across the traffic
-            // lights, top rows inert because the titlebar hit-tests above them)
-            // is the sidebar scroll view sitting at clip origin 0 instead of
-            // -contentInsets.top — i.e. scrolled one titlebar-height past its
-            // own top. Measured: docTopInWindow 923 instead of 871 in a
-            // 923pt window with a 52pt titlebar. Elastic overscroll at the top
-            // is the remaining candidate for how it gets there, so bouncing is
-            // limited to the case where there is genuinely something to scroll.
-            .scrollBounceBehavior(.basedOnSize)
+            // The hosted controller must take the window's size, not its
+            // own intrinsic one (the sum of the column minimums, 610pt —
+            // measured 2026-09-03 in a 1470pt window).
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // D2 (owner decision, 2026-09-01): the permanent status footer —
+            // status line, live operation progress with Cancel, and the
+            // standing memory/cube facts. A STACKED element under every
+            // column, so nothing can ever render behind it.
+            Divider()
+            StatusFooterView()
+        }
+        .navigationTitle("mac4DSTEM")
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    withAnimation { appState.navigation.showToolsPane.toggle() }
+                } label: {
+                    Label("Toggle tools", systemImage: "sidebar.leading")
+                }
+                .help("Show or hide the tools panel")
             }
-            // These sit on the COLUMN'S ROOT VIEW (the GeometryReader), not on
-            // the List inside it — attached inside the wrapper, the width
-            // declaration stopped reaching NavigationSplitView and the owner
-            // dragged the sidebar to ~750pt and ~175pt on 2026-09-01 (S22
-            // feedback R1/R2). AppKit-side enforcement is in
-            // SplitViewPolicy, because the declaration alone has already
-            // failed twice (the 144pt restore; the 625pt drag on the PRE-S22
-            // build in the owner's original screenshots). Do not add a hard
-            // `.frame(minWidth:)` here: live divider drags can make SwiftUI and
-            // AppKit re-enter window constraint updates until AppKit raises
-            // NSGenericException.
-            .navigationTitle("mac4DSTEM")
-            .navigationSplitViewColumnWidth(
-                min: SplitViewPolicy.sidebar.minimum, ideal: SplitViewPolicy.sidebar.ideal,
-                max: SplitViewPolicy.sidebar.maximum
-            )
-            .toolbar(removing: .sidebarToggle)
-        } detail: {
-            VStack(spacing: 0) {
-                if appState.hasDataset && !appState.isLoadingDataset {
-                    ProductWorkspaceHeader()
-                }
-
-                Group {
-                if appState.hasDataset && !appState.isLoadingDataset && appState.navigation.workspaceArea == .results {
-                    ResultsWorkspace()
-                } else {
-                    VStack(spacing: 0) {
-                        Group {
-                            if appState.hasDataset && !appState.isLoadingDataset {
-                                imagePanes
-                                    .focusable()
-                                    .focusEffectDisabled()
-                                    .onKeyPress(phases: .down) { press in
-                                        handleArrowKey(press)
-                                    }
-                            } else {
-                                WelcomeWorkspace()
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        // Output strip: rolling log of operations below the panes.
-                        if appState.navigation.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
-                            Divider()
-                            logPane
-                        }
-                    }
-                    // The data pane's floor is the split item's
-                    // (`SplitViewPolicy.detailMinimum`), not a view frame:
-                    // a frame here fights the split view during a drag.
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                }
-                // A REAL system inspector column (S22a): draggable to
-                // 560pt, collapsible, system-animated. The previous
-                // hand-rolled HStack member (fixed 220–340pt frame, no
-                // drag handle) was the direct cause of "the right panel
-                // cannot be resized" and half of the clipped-edges layout
-                // regime above. One column for every workspace, Results
-                // included; which inspector it holds follows the focused
-                // pane (v2.5 step 7c).
-                .inspector(isPresented: Bindable(appState.navigation).showInspectorPane) {
-                    WorkspaceInspector()
-                        .inspectorColumnWidth(
-                            min: SplitViewPolicy.inspector.minimum, ideal: SplitViewPolicy.inspector.ideal,
-                            max: SplitViewPolicy.inspector.maximum
-                        )
-                }
-                // D2 (owner decision, 2026-09-01): the permanent status
-                // footer — status line, live operation progress with Cancel,
-                // and the standing memory/cube facts. A STACKED element, not
-                // a floating inset (R18/R19): the inset version drew over the
-                // log strip's tail and over Results' own export/save row —
-                // stacked, nothing can ever render behind it.
-                Divider()
-                StatusFooterView()
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigation) {
-                    Button {
-                        withAnimation { appState.navigation.showToolsPane.toggle() }
-                    } label: {
-                        Label("Toggle tools", systemImage: "sidebar.leading")
-                    }
-                    .help("Show or hide the tools panel")
-                }
-                if appState.navigation.workspaceArea != .results {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            appState.navigation.showLogPane.toggle()
-                        } label: {
-                            Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
-                        }
-                        .help("Show or hide the output log below the image panes")
-                    }
-                }
+            if appState.navigation.workspaceArea != .results {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        appState.navigation.showInspectorPane.toggle()
+                        appState.navigation.showLogPane.toggle()
                     } label: {
-                        Label("Toggle inspector", systemImage: "sidebar.trailing")
+                        Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
                     }
-                    .help("Show or hide the inspector panel")
+                    .help("Show or hide the output log below the image panes")
                 }
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    appState.navigation.showInspectorPane.toggle()
+                } label: {
+                    Label("Toggle inspector", systemImage: "sidebar.trailing")
+                }
+                .help("Show or hide the inspector panel")
+            }
         }
-        .onAppear { applySplitViewPolicy() }
-        // The inspector's split item exists only while it is presented, so
-        // the policy is reapplied when it appears (idempotent).
-        .onChange(of: appState.navigation.showInspectorPane) { applySplitViewPolicy() }
         .onChange(of: appState.virtualShape) {
             appState.commitApertureChange()
         }
@@ -316,14 +171,140 @@ struct ContentView: View {
         }
     }
 
-    /// `SplitViewPolicy` on every visible window, one runloop turn later so
-    /// AppKit state restoration (and the inspector's presentation) has laid
-    /// out.
-    private func applySplitViewPolicy() {
-        DispatchQueue.main.async {
-            for window in NSApp.windows where window.isVisible {
-                SplitViewPolicy.apply(to: window)
+    /// The sidebar column: dataset card, workspaces, tasks and the workspace's
+    /// own sidebar (one file each).
+    private var sidebarColumn: some View {
+        // S22d: publish the column's real width so long sidebar texts can
+        // wrap — this List never offers rows a width on its own (see
+        // SidebarTextWidth.swift). The 34pt covers the row insets.
+        GeometryReader { sidebarGeo in
+        List {
+            if let descriptor = appState.descriptor, descriptor.is4D {
+                Section {
+                    datasetCard(descriptor)
+                }
+
+                Section("Workspace") {
+                    ForEach(WorkspaceArea.allCases) { area in
+                        workspaceButton(area)
+                    }
+                    if let hint = ProductWorkflow.nextStepHint(
+                        for: appState.navigation.workspaceArea,
+                        readiness: appState.productWorkflowReadiness,
+                        calibrationReady: appState.calibrationSession.readiness.isReady
+                    ) {
+                        Text(hint)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .sidebarWrapped()
+                            .accessibilityIdentifier("workspace.nextStepHint")
+                    }
+                }
+
+                if !appState.navigation.workspaceArea.analysisModes.isEmpty {
+                    Section("Task") {
+                        let groups = appState.navigation.workspaceArea.taskFamilyGroups
+                        let showsLabels = appState.navigation.workspaceArea.showsTaskFamilyLabels
+                        ForEach(groups) { group in
+                            if showsLabels {
+                                Text(group.family.groupLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityIdentifier(
+                                        "task.group.\(group.family.accessibilitySuffix)"
+                                    )
+                            }
+                            ForEach(group.modes) { taskButton($0) }
+                        }
+                    }
+                }
             }
+
+            if !appState.hasDataset {
+                Section("Dataset") {
+                Button {
+                    appState.requestOpenDataset()
+                } label: {
+                    Label(appState.hasDataset ? "Open Another…" : "Open Dataset…",
+                          systemImage: "folder")
+                }
+                }
+            }
+
+            if let descriptor = appState.descriptor, descriptor.is4D {
+                // D3 (owner decision, 2026-09-01): the colormap and
+                // display options moved ONTO the colorbar chips in the
+                // panes (`ColormapChipMenu`). That dissolves the old
+                // Results-scoping problem this sidebar section spent a
+                // long comment justifying: the chip exists wherever its
+                // image exists, so the control can never be stranded in a
+                // workspace without it.
+
+                // v2.5 step 7c: one sidebar per workspace, one file each
+                // (plan §11d). This view only composes them.
+                switch appState.navigation.workspaceArea {
+                case .prepare: PrepareSidebar()
+                case .image: ImageSidebar()
+                case .map: MapSidebar()
+                case .reconstruct: PhaseSidebar()
+                case .results: ResultsSidebar()
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .environment(
+            \.sidebarTextWidth, max(sidebarGeo.size.width - 34, 216)
+        )
+        // Backlog #16. The symptom (sidebar rows drawn across the traffic
+        // lights, top rows inert because the titlebar hit-tests above them)
+        // is the sidebar scroll view sitting at clip origin 0 instead of
+        // -contentInsets.top — i.e. scrolled one titlebar-height past its
+        // own top. Measured: docTopInWindow 923 instead of 871 in a
+        // 923pt window with a 52pt titlebar. Elastic overscroll at the top
+        // is the remaining candidate for how it gets there, so bouncing is
+        // limited to the case where there is genuinely something to scroll.
+        .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    /// The workspace column: header, the panes or Results, the log strip.
+    private var workspaceColumn: some View {
+        VStack(spacing: 0) {
+        if appState.hasDataset && !appState.isLoadingDataset {
+            ProductWorkspaceHeader()
+        }
+
+        Group {
+        if appState.hasDataset && !appState.isLoadingDataset && appState.navigation.workspaceArea == .results {
+            ResultsWorkspace()
+        } else {
+            VStack(spacing: 0) {
+                Group {
+                    if appState.hasDataset && !appState.isLoadingDataset {
+                        imagePanes
+                            .focusable()
+                            .focusEffectDisabled()
+                            .onKeyPress(phases: .down) { press in
+                                handleArrowKey(press)
+                            }
+                    } else {
+                        WelcomeWorkspace()
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Output strip: rolling log of operations below the panes.
+                if appState.navigation.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
+                    Divider()
+                    logPane
+                }
+            }
+            // The data pane's floor is the split item's
+            // (`SplitViewPolicy.detailMinimum`), not a view frame:
+            // a frame here fights the split view during a drag.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        }
         }
     }
 

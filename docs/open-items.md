@@ -154,26 +154,24 @@ same 810.5 (the red run also carried a 144pt sidebar a new test had autosaved
 into the shared domain — the tests now unpin the autosave first); the re-run
 was green.
 
-### Sidebar drag crashes the app intermittently — Gate D open
-(2026-09-03, later: `SplitViewPolicy` landed as the single width authority —
-sidebar and inspector item bounds, collapse on drag synced to the navigation
-flags, the data pane's floor as a split item, no SwiftUI frame floor; the
-evidence below is still owed and decides whether the entry closes.)
-Owner report 2026-09-03: resizing the panes still crashes the app "from
-time to time". Diagnosis on file (an Xcode agent, same day): the hard
-`.frame(minWidth: 250)` on the sidebar column root, on top of the AppKit
-thickness bounds the AppKit clamp (now `SplitViewPolicy`) sets and the SwiftUI column width,
-lets a live divider drag re-enter window constraint updates until AppKit
-raises `NSGenericException`. That agent removed the floor; the edit reached
-`main` in `1274f72` by way of another session's `git add -A`, not through
-this repo's gate — the unit suite (including
-`testTheSidebarRefusesPositionsOutsideItsDeclaredBand`) has since passed on
-the tree without it. Evidence owed: the exception text, and a reproduction
-count (20 hard drags each way) on a build with and without the floor. What
-refutes it: a crash on the build without the floor. Trap: "crashes" may be
-two defects — this one and the constraint-loop class open-items already
-lists under the 144pt restore. Owner: whoever next touches the split view;
-the layout-model rework the Xcode agent proposes waits on the evidence.
+### Sidebar drag crash — mechanism found and removed 2026-09-03, owner's drive owed
+Exception (owner, Xcode console): `NSGenericException: The window has been
+marked as needing another Update Constraints in Window pass, but it has
+already had more … passes than there are views in the window`, after a
+sidebar drag; the sidebar at ~60pt with its content laid out at full width.
+Reproduced on the demo fixture with real mouse events: column 92pt, content
+305pt wide at x = −213. Mechanism, measured in-process: SwiftUI's
+`NavigationSplitView` owned the sidebar's split item and rewrote its
+minimum to 140 on every update, while the declared 250 constrained only the
+content; a drag shrank the column under content that could not shrink and
+the loop guard threw. Refuted on the way: the hard frame belt (crash
+reproduced without it), the policy "never applying" (it applied and was
+overwritten). Fix: the columns are AppKit's (`ColumnSplitController`, an
+`NSSplitViewController` with sidebar/inspector items; hosted content with
+`sizingOptions = []` so it never sizes the column). Live drive 2026-09-03:
+drag past the minimum collapses, Show Tools reopens at the old width, a
+560pt sidebar squeezes the inspector first, no exception. Owner's drive
+still owed before the entry moves to the archive.
 
 ### No automated visual baseline
 Every acceptance run is numeric-only (`--no-screenshots`); the owner

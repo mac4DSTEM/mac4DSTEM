@@ -25,6 +25,7 @@ final class SidebarLayoutTests: XCTestCase {
         )
         window.title = "mac4DSTEM"
         window.toolbarStyle = .unified
+        SplitViewPolicy.autosaveEnabled = false
         window.contentView = NSHostingView(
             rootView: ContentView().environment(appState)
         )
@@ -39,13 +40,7 @@ final class SidebarLayoutTests: XCTestCase {
     /// strings wrap onto more lines there, so an unpinned width silently makes
     /// every height measurement machine-dependent.
     private func pinSidebarWidth(_ window: NSWindow, to width: CGFloat = 292) {
-        func splitViews(_ view: NSView) -> [NSSplitView] {
-            var found: [NSSplitView] = []
-            if let s = view as? NSSplitView { found.append(s) }
-            for sub in view.subviews { found += splitViews(sub) }
-            return found
-        }
-        guard let split = splitViews(window.contentView!).first else { return }
+        guard let split = SplitViewPolicy.controller(in: window)?.splitView else { return }
         split.autosaveName = ""
         split.setPosition(width, ofDividerAt: 0)
         pump(0.4)
@@ -58,10 +53,12 @@ final class SidebarLayoutTests: XCTestCase {
         return found
     }
 
-    /// The sidebar is the deepest/last scroll view in the tree; the detail
-    /// column's own scroll views (inspector, log) appear earlier.
+    /// The sidebar column's own scroll view (the List), found through the
+    /// column controller rather than by tree order — the inspector's list
+    /// exists collapsed and would otherwise be mistaken for it.
     private func sidebar(_ window: NSWindow) -> NSScrollView? {
-        scrollViews(window.contentView!).last
+        guard let host = SplitViewPolicy.controller(in: window)?.sidebarHost.view else { return nil }
+        return scrollViews(host).first
     }
 
     private func metalPanes(_ view: NSView) -> [NSView] {
@@ -95,10 +92,9 @@ final class SidebarLayoutTests: XCTestCase {
                 return XCTFail("no sidebar scroll view at stage: \(stage)")
             }
             let inset = scroll.contentInsets.top
-            XCTAssertGreaterThan(
-                inset, 0,
-                "\(stage): sidebar lost its titlebar accommodation entirely"
-            )
+            // With AppKit columns (2026-09-03) the sidebar starts below the
+            // toolbar: an inset of 0 is the design, not the #16 defect. What
+            // #16 was is the clip origin below, and that assertion stays.
             XCTAssertEqual(
                 scroll.contentView.bounds.origin.y, -inset, accuracy: 0.5,
                 "\(stage): sidebar clip origin is \(scroll.contentView.bounds.origin.y), "
@@ -428,8 +424,10 @@ final class SidebarLayoutTests: XCTestCase {
     /// column root used to make programmatic below-minimum positions impossible,
     /// but live owner repro on 2026-09-03 showed that constraint can fight the
     /// AppKit split-view drag and crash the window's update-constraints pass.
-    /// The supported belt is now `SplitViewPolicy`: no persistent hard view
-    /// floor, just AppKit thickness bounds plus a restoration clamp.
+    /// AppKit owns the columns since 2026-09-03 (`ColumnSplitController`):
+    /// a below-minimum position is refused by the split view itself, so the
+    /// 144pt restore of 2026-08-06 cannot recur. The 340pt ceiling of
+    /// 2026-09-01 is now 600 (owner direction: drag far, content wraps).
     func testTheSidebarRefusesPositionsOutsideItsDeclaredBand() async throws {
         let appState = AppState()
         await appState.openDemoFixture()
@@ -441,28 +439,14 @@ final class SidebarLayoutTests: XCTestCase {
             SplitViewPolicy.outermostColumnSplit(in: window.contentView),
             "no column split view in the window"
         )
+        split.autosaveName = ""
         split.setPosition(144, ofDividerAt: 0)
         split.layoutSubtreeIfNeeded()
         pump(0.2)
-
-        let forced = try XCTUnwrap(split.arrangedSubviews.first).frame.width
-        XCTAssertLessThan(
-            forced, SplitViewPolicy.sidebar.minimum,
-            "fixture precondition: a raw split-view position should still reproduce a below-minimum sidebar before the clamp; got \(forced)"
-        )
-
-        let clamped = try XCTUnwrap(SplitViewPolicy.apply(to: window)?.sidebarWidth)
         XCTAssertGreaterThanOrEqual(
-            clamped, SplitViewPolicy.sidebar.minimum - 1,
-            "a forced 144pt sidebar must be corrected by SplitViewPolicy; got \(clamped)"
+            try XCTUnwrap(split.arrangedSubviews.first).frame.width, SplitViewPolicy.sidebar.minimum - 1,
+            "a 144pt position must be refused by the split view"
         )
-
-        // The 340pt CEILING is deliberately not asserted here: it is enforced
-        // at the gesture level (the declared max resists user drags — held at
-        // exactly 340 in the live drive, 2026-09-01) and via the AppKit
-        // thickness bounds. A programmatic setPosition(700) bypasses both
-        // intermittently, which made the assertion flaky in the full suite while
-        // passing standalone — a timing artifact, not a product property.
     }
 
     /// S22c moved the accelerating-voltage field to Prepare's Calibration

@@ -91,6 +91,17 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-03 — The columns are AppKit's (owner).** After the drag crash's
+mechanism was measured (below, and `open-items.md`), the owner chose to own
+the columns with `NSSplitViewController` — sidebar, workspace, inspector
+items — the way Xcode, Finder and Mail do, instead of policing SwiftUI's
+`NavigationSplitView` from outside. Hosted SwiftUI content sizes nothing
+(`sizingOptions = []`); the divider is the only authority over width. The
+bridge to SwiftUI is small and stays: the two visibility flags in and out,
+and a remembered open width per side so a toggled column reopens where it
+was. Not reinvented: collapse on drag, bounds, holding order, autosave are
+AppKit's own.
+
 **2026-09-03 — One split-view contract, like Xcode (owner).** Both side
 columns behave the same: drag far, collapse past the minimum, reopen at the
 last width; the data pane keeps a floor; a narrowing window squeezes the
