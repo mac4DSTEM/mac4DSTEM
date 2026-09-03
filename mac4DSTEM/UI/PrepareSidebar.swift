@@ -6,7 +6,8 @@ import DSTEMSession
 
 /// Prepare's sidebar (v2.5 step 7c slice 2, plan §11d): the calibration
 /// section, reading `CalibrationSession` directly rather than through the
-/// `AppState` forwarders. One file per workspace sidebar.
+/// `AppState` forwarders. Sections of the column's grouped `Form`
+/// (presentation contract rule 2). One file per workspace sidebar.
 struct PrepareSidebar: View {
     @Environment(AppState.self) private var appState
 
@@ -18,23 +19,20 @@ struct PrepareSidebar: View {
             // — DPC, parallax and ptychography all consume it — so it lives
             // with the other physical scales, not inside one consumer's
             // workflow. Identifier unchanged on purpose.
-            HStack {
-                Text("Voltage").font(.caption)
-                Spacer()
-                TextField("0", value: Binding(
-                    get: { appState.calibrationSession.acceleratingVoltage ?? 0 },
-                    set: appState.setManualAcceleratingVoltage
-                ), format: .number.precision(.fractionLength(0...2)))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 90)
-                    .accessibilityLabel("Accelerating voltage (kV)")
-                    .accessibilityIdentifier("calibration.acceleratingVoltage")
-                Text("kV")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            LabeledContent("Voltage") {
+                NumericField(
+                    title: "Accelerating voltage (kV)",
+                    value: Binding(
+                        get: { appState.calibrationSession.acceleratingVoltage ?? 0 },
+                        set: appState.setManualAcceleratingVoltage
+                    ),
+                    format: .number.precision(.fractionLength(0...2)),
+                    unit: "kV"
+                )
+                .accessibilityIdentifier("calibration.acceleratingVoltage")
             }
-            CalibrationDetailsView()
         }
+        CalibrationDetailsView()
     }
 }
 
@@ -42,8 +40,7 @@ struct PrepareSidebar: View {
 /// one and the statistics do not exist yet. Shared by every sidebar whose
 /// diffraction pane works from the live CBED — Prepare, Imaging, DPC. Once
 /// mean and max exist the pane header's Current | Mean | Max toggle is the
-/// ONLY switcher; the sidebar's duplicate "Show" row was noise (S22 feedback
-/// R6, 2026-09-01).
+/// ONLY switcher (S22 feedback R6, 2026-09-01).
 struct ComputePatternStatisticsSection: View {
     @Environment(AppState.self) private var appState
 

@@ -172,18 +172,17 @@ struct ContentView: View {
     }
 
     /// The sidebar column: dataset card, workspaces, tasks and the workspace's
-    /// own sidebar (one file each).
+    /// own sidebar (one file each). One grouped `Form` on the column's own
+    /// material (presentation contract rules 2 and 3, 2026-09-03): rows are
+    /// system rows, text wraps at the column's width, and the list draws no
+    /// ground of its own — the sidebar list's source-list colour resolved 90%
+    /// opaque over AppKit's material (Gate D, `ColumnMaterialTests`).
     private var sidebarColumn: some View {
-        // S22d: publish the column's real width so long sidebar texts can
-        // wrap — this List never offers rows a width on its own (see
-        // SidebarTextWidth.swift). The 34pt covers the row insets.
-        GeometryReader { sidebarGeo in
-        List {
+        Form {
             if let descriptor = appState.descriptor, descriptor.is4D {
                 Section {
                     datasetCard(descriptor)
                 }
-
                 Section("Workspace") {
                     ForEach(WorkspaceArea.allCases) { area in
                         workspaceButton(area)
@@ -194,13 +193,11 @@ struct ContentView: View {
                         calibrationReady: appState.calibrationSession.readiness.isReady
                     ) {
                         Text(hint)
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                            .sidebarWrapped()
                             .accessibilityIdentifier("workspace.nextStepHint")
                     }
                 }
-
                 if !appState.navigation.workspaceArea.analysisModes.isEmpty {
                     Section("Task") {
                         let groups = appState.navigation.workspaceArea.taskFamilyGroups
@@ -208,7 +205,7 @@ struct ContentView: View {
                         ForEach(groups) { group in
                             if showsLabels {
                                 Text(group.family.groupLabel)
-                                    .font(.caption2)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .accessibilityIdentifier(
                                         "task.group.\(group.family.accessibilitySuffix)"
@@ -222,24 +219,18 @@ struct ContentView: View {
 
             if !appState.hasDataset {
                 Section("Dataset") {
-                Button {
-                    appState.requestOpenDataset()
-                } label: {
-                    Label(appState.hasDataset ? "Open Another…" : "Open Dataset…",
-                          systemImage: "folder")
-                }
+                    Button {
+                        appState.requestOpenDataset()
+                    } label: {
+                        Label("Open Dataset…", systemImage: "folder")
+                    }
                 }
             }
 
             if let descriptor = appState.descriptor, descriptor.is4D {
-                // D3 (owner decision, 2026-09-01): the colormap and
-                // display options moved ONTO the colorbar chips in the
-                // panes (`ColormapChipMenu`). That dissolves the old
-                // Results-scoping problem this sidebar section spent a
-                // long comment justifying: the chip exists wherever its
-                // image exists, so the control can never be stranded in a
-                // workspace without it.
-
+                // D3 (owner decision, 2026-09-01): the colormap and display
+                // options live on the colorbar chips in the panes
+                // (`ColormapChipMenu`), so no Display section here.
                 // v2.5 step 7c: one sidebar per workspace, one file each
                 // (plan §11d). This view only composes them.
                 switch appState.navigation.workspaceArea {
@@ -251,20 +242,11 @@ struct ContentView: View {
                 }
             }
         }
-        .listStyle(.sidebar)
-        .environment(
-            \.sidebarTextWidth, max(sidebarGeo.size.width - 34, 216)
-        )
-        // Backlog #16. The symptom (sidebar rows drawn across the traffic
-        // lights, top rows inert because the titlebar hit-tests above them)
-        // is the sidebar scroll view sitting at clip origin 0 instead of
-        // -contentInsets.top — i.e. scrolled one titlebar-height past its
-        // own top. Measured: docTopInWindow 923 instead of 871 in a
-        // 923pt window with a 52pt titlebar. Elastic overscroll at the top
-        // is the remaining candidate for how it gets there, so bouncing is
-        // limited to the case where there is genuinely something to scroll.
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        // Backlog #16: bounce only when there is something to scroll, so
+        // elastic overscroll can never park the clip origin above the top.
         .scrollBounceBehavior(.basedOnSize)
-        }
     }
 
     /// The workspace column: header, the panes or Results, the log strip.
@@ -360,104 +342,64 @@ struct ContentView: View {
             .allowsHitTesting(false)
     }
 
+    /// The dataset card: name and extents as the row's label, the actions
+    /// menu as its content, then the one verdict shared with the readiness
+    /// checklist (v2.5 step 4b) and the saved-product count.
+    @ViewBuilder
     private func datasetCard(_ descriptor: DatasetDescriptor) -> some View {
-        // v2.5 step 4b: the one verdict, shared with the readiness checklist.
         let verdict = appState.calibrationSession.verdict
-        let coreCalibrated = verdict.quantitative
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 9) {
-                Image(systemName: "circle.grid.cross.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.accentColor)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(descriptor.fileName)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(2)
-                    // Axis-labelled on purpose (v2 S18). This line and the
-                    // dataset inspector print the same two extents in
-                    // OPPOSITE orders — here in display order (across x down),
-                    // there in array order as `Scan (Ry x Rx)` beside a
-                    // `Shape` row of `ry x rx x qy x qx`. Each is right for
-                    // where it sits: the number beside an image should read
-                    // the way the image draws, and a row labelled with its own
-                    // axes should read the way the array is indexed. What made
-                    // it a defect is that this one carried no labels, so the
-                    // two contradicted each other on screen with nothing to
-                    // reconcile them — the same shape as the readiness row
-                    // that disagreed with its own detail line on tag day.
-                    // TWO lines, not one wrapped line. The single-line version
-                    // truncated at the default sidebar width — it rendered
-                    // `12 × 12 scan (Rx × Ry)  ·  64 × 64 detector (…`, so the
-                    // `(Qx × Qy)` half never appeared and the card labelled one
-                    // axis pair while silently dropping the other. That is the
-                    // exact ambiguity this line exists to remove, so a
-                    // truncation here is not cosmetic.
-                    //
-                    // `.fixedSize(horizontal: false, vertical: true)` was tried
-                    // first and did NOT fix it — verified on screen, not
-                    // assumed. Splitting the string is structural: neither line
-                    // is long enough to truncate at any sidebar width the app
-                    // allows (min 250pt, `:970`).
-                    //
-                    // Found by driving the app 2026-08-27. `unit` was green
-                    // throughout, including `SidebarLayoutTests`, because those
-                    // measure document height and column fit and truncation
-                    // changes neither.
-                    Text("\(descriptor.rx) × \(descriptor.ry) scan (Rx × Ry)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Text("\(descriptor.qx) × \(descriptor.qy) detector (Qx × Qy)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                Menu {
-                    Button("Open Another…") { appState.requestOpenDataset() }
-                    // S22e: with a dataset loaded, ⌘N used to be the ONLY
-                    // route back to the configured open (Track B drive
-                    // finding, 2026-09-01) — the second door now also exists
-                    // where the other dataset actions live.
-                    Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
-                    Button("Preprocess & Export…") { showPreprocessingExport = true }
-                        .disabled(appState.isBusy)
-                    Divider()
-                    Button("Save Calibration") {
-                        appState.saveCalibrationToSessionSidecar()
-                    }
+        LabeledContent {
+            Menu {
+                Button("Open Another…") { appState.requestOpenDataset() }
+                // S22e: the configured open has a second door beside the
+                // other dataset actions, not only ⌘N.
+                Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
+                Button("Preprocess & Export…") { showPreprocessingExport = true }
                     .disabled(appState.isBusy)
-                    Button("Export Diffraction PNG…") {
-                        appState.exportDiffractionImage()
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.body)
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help("Dataset actions")
+                Divider()
+                Button("Save Calibration") { appState.saveCalibrationToSessionSidecar() }
+                    .disabled(appState.isBusy)
+                Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
+            } label: {
+                Image(systemName: "ellipsis.circle")
             }
-
-            HStack(spacing: 6) {
-                Label(
-                    coreCalibrated ? "Quantitative" : "Not quantitative",
-                    systemImage: coreCalibrated
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-                )
-                .foregroundStyle(coreCalibrated ? Color.green : Color.orange)
-                .help(verdict.summary)
-                Spacer()
-                if !appState.sessionInventory.results.isEmpty {
-                    Text("\(appState.sessionInventory.results.count) saved")
-                        .foregroundStyle(.secondary)
-                }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Dataset actions")
+        } label: {
+            Label {
+                Text(descriptor.fileName)
+                    .font(.headline)
+            } icon: {
+                Image(systemName: "circle.grid.cross.fill")
+                    .foregroundStyle(Color.accentColor)
             }
-            .font(.caption)
+            // Two lines, axis-labelled, in display order (v2 S18): one
+            // wrapped line truncated its second axis pair at the default
+            // width, which is the ambiguity these labels exist to remove.
+            Text("\(descriptor.rx) × \(descriptor.ry) scan (Rx × Ry)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            Text("\(descriptor.qx) × \(descriptor.qy) detector (Qx × Qy)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Dataset \(descriptor.fileName)")
         .accessibilityIdentifier("dataset.card")
+
+        LabeledContent("Calibration") {
+            Label(
+                verdict.quantitative ? "Quantitative" : "Not quantitative",
+                systemImage: verdict.quantitative
+                    ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+            )
+            .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+            .help(verdict.summary)
+        }
+        if !appState.sessionInventory.results.isEmpty {
+            LabeledContent("Saved products", value: "\(appState.sessionInventory.results.count)")
+        }
     }
 
     /// Diffraction left, real space right — always.
@@ -508,116 +450,85 @@ struct ContentView: View {
     }
 
     private func workspaceButton(_ area: WorkspaceArea) -> some View {
-        Button {
+        let selected = appState.navigation.workspaceArea == area
+        return Button {
             withAnimation(.easeInOut(duration: 0.15)) {
                 appState.selectWorkspace(area)
             }
         } label: {
-            HStack(spacing: 9) {
-                Image(systemName: area.systemImage)
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 5) {
-                        Text(area.title)
-                            .font(.subheadline.weight(
-                                appState.navigation.workspaceArea == area ? .semibold : .regular
-                            ))
-                        // S22c: the ADV marker moved from the workspace to
-                        // the one task that earns it (ptychography) — with
-                        // DPC in Phase, a workspace-level badge would mark
-                        // an everyday analysis as advanced.
-                    }
-                    // The subtitle stands down once you are past needing it.
-                    // It described all five areas permanently, which cost 63pt
-                    // of an 871pt column to answer a question asked once. It is
-                    // still on the selected row (where it names where you are),
-                    // on hover via `help`, and in `accessibilityHint` — so the
-                    // fact is demoted, never deleted.
-                    if appState.navigation.workspaceArea == area {
-                        Text(area.subtitle)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
+            LabeledContent {
+                // A count as macOS sidebars carry one: a plain number.
                 if area == .results && !appState.sessionInventory.results.isEmpty {
                     Text("\(appState.sessionInventory.results.count)")
-                        .font(.caption2.monospacedDigit())
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.quaternary, in: Capsule())
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            } label: {
+                Label(area.title, systemImage: area.systemImage)
+                    .fontWeight(selected ? .semibold : .regular)
+                // The subtitle names where you are; elsewhere it is on hover
+                // and in the accessibility hint (2026-08-06 density pass).
+                if selected {
+                    Text(area.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(appState.navigation.workspaceArea == area ? Color.accentColor : Color.primary)
-        .padding(.vertical, 3)
+        .foregroundStyle(selected ? Color.accentColor : Color.primary)
         .help(area.subtitle)
         .accessibilityLabel(area.title)
         .accessibilityIdentifier("workspace.\(area.rawValue)")
         .accessibilityHint(area.subtitle)
-        .accessibilityAddTraits(appState.navigation.workspaceArea == area ? .isSelected : [])
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func taskButton(_ mode: AnalysisMode) -> some View {
-        Button {
+        let selected = appState.navigation.analysisMode == mode
+        // Backlog #33 + R15: three states, matching the inspector's
+        // "Computed this session" glyphs — orange ! blocked, empty circle
+        // ready, green check produced this session.
+        let unmet = taskUnmetCount(mode)
+        let produced = taskHasProduct(mode)
+        return Button {
             appState.changeMode(mode)
         } label: {
-            HStack(spacing: 9) {
-                Image(systemName: mode.systemImage)
-                    .frame(width: 20)
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 5) {
-                        Text(mode.productTitle)
-                            .font(.subheadline.weight(appState.navigation.analysisMode == mode ? .semibold : .regular))
-                        if mode.isAdvanced {
-                            Text("ADV")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    // Same rule as `workspaceButton`: on the selected row, on
-                    // hover, and in the accessibility hint — not permanently on
-                    // every row. See that comment for the reasoning.
-                    if appState.navigation.analysisMode == mode {
-                        Text(mode.productSubtitle)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-                // Backlog #33 + R15 (2026-09-01). Three states, matching the
-                // inspector's "Computed this session" glyphs exactly:
-                // orange ! = blocked; empty circle = ready but nothing
-                // produced; green check = this task HAS produced its product
-                // this session. #33 removed the green check for merely-READY
-                // because ready≠done was misread; done-as-check is that
-                // list's own meaning, so the ambiguity does not return. The
-                // owner hit the missing third state on 2026-09-01: 83,929
-                // peaks landed and the circle stayed empty.
-                let unmet = taskUnmetCount(mode)
-                let produced = taskHasProduct(mode)
+            LabeledContent {
                 Image(systemName: produced
                         ? "checkmark.circle.fill"
                         : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
-                    .font(.caption)
                     .foregroundStyle(produced
                         ? Color.green
                         : (unmet == 0 ? Color.secondary : Color.orange))
+            } label: {
+                Label {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(mode.productTitle).fontWeight(selected ? .semibold : .regular)
+                        // S22c: only ptychography earns the advanced marker.
+                        if mode.isAdvanced {
+                            Text("Advanced").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                } icon: {
+                    Image(systemName: mode.systemImage)
+                }
+                if selected {
+                    Text(mode.productSubtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(appState.navigation.analysisMode == mode ? Color.accentColor : Color.primary)
-        .padding(.vertical, 3)
+        .foregroundStyle(selected ? Color.accentColor : Color.primary)
         .help(mode.productSubtitle)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
-        .accessibilityAddTraits(appState.navigation.analysisMode == mode ? .isSelected : [])
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func taskUnmetCount(_ mode: AnalysisMode) -> Int {

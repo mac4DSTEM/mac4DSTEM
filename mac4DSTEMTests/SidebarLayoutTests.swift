@@ -312,12 +312,16 @@ final class SidebarLayoutTests: XCTestCase {
                     document = next
                 }
                 let available = scroll.bounds.height - scroll.contentInsets.top
-                XCTAssertLessThanOrEqual(
-                    document, available + 8,
-                    "\(area.title) (calibrated=\(calibrated)) sidebar is \(document)pt "
-                        + "against \(available)pt of column — it still has to scroll, so the "
-                        + "panel still changes shape when you switch to it"
-                )
+                // Presentation contract (2026-09-03): the sidebar is a grouped
+                // Form with the system's row metrics, and a Form that is
+                // taller than its column scrolls, as System Settings' do. The
+                // 2026-08-06 "must fit without scrolling" gate is retired;
+                // what stays gated is #16 (`testSidebarContentNeverDrawsOverTheTitlebar`,
+                // `SplitViewHeightTests`) and rule 5 (the width-range test
+                // below). The heights are recorded for the density record.
+                let attachment = XCTAttachment(string: "\(area.title) calibrated=\(calibrated): document \(document)pt, column \(available)pt")
+                attachment.name = "sidebar-height-\(area.rawValue)-\(calibrated ? "ready" : "blocked").txt"
+                add(attachment)
             }
         }
     }
@@ -516,6 +520,85 @@ final class SidebarLayoutTests: XCTestCase {
     }
 
     // MARK: - Presentation contract (architecture.md, owner decision 2026-09-03)
+
+    private func controls(_ view: NSView) -> [NSControl] {
+        var found: [NSControl] = []
+        if let c = view as? NSControl, !c.isHiddenOrHasHiddenAncestor, c.frame.width > 0 { found.append(c) }
+        for sub in view.subviews { found += controls(sub) }
+        return found
+    }
+
+    /// Off-screen render of a view (no Screen Recording grant needed;
+    /// Metal panes come out empty) attached to the result bundle when
+    /// `MAC4DSTEM_CAPTURE` is set — the review images for a UI step.
+    private func attachPNG(_ view: NSView, name: String) {
+        guard ProcessInfo.processInfo.environment["MAC4DSTEM_CAPTURE"] != nil else { return }
+        view.layoutSubtreeIfNeeded()
+        pump(0.5)
+        view.display()
+        let bounds = view.bounds
+        guard bounds.width > 1, bounds.height > 1,
+              let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else { return }
+        view.cacheDisplay(in: bounds, to: rep)
+        guard let png = rep.representation(using: .png, properties: [:]) else { return }
+        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        attachment.name = "\(name).png"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// Contract rule 5: every sidebar survives the column's whole range —
+    /// no horizontal overflow of the document, and every AppKit control
+    /// (field, button, pop-up, slider, stepper) inside the column at its
+    /// minimum, ideal and maximum width. Wrapped text is fine; a control
+    /// past the edge is a finding. Each workspace and each of its tasks,
+    /// calibrated and not.
+    func testEverySidebarSurvivesItsWholeColumnRange() async throws {
+        let band = SplitViewPolicy.sidebar
+        for calibrated in [true, false] {
+            let appState = AppState()
+            await appState.openDemoFixture(calibrated: calibrated)
+            let window = makeWindow(appState)
+            defer { window.orderOut(nil) }
+            for area in WorkspaceArea.allCases {
+                appState.selectWorkspace(area)
+                let modes: [AnalysisMode?] = area.analysisModes.isEmpty ? [nil] : area.analysisModes
+                for mode in modes {
+                    if let mode { appState.changeMode(mode) }
+                    for width in [band.minimum, band.ideal, band.maximum] {
+                        pinSidebarWidth(window, to: width)
+                        pump(0.5)
+                        let scroll = try XCTUnwrap(sidebar(window))
+                        let document = try XCTUnwrap(scroll.documentView)
+                        let stage = "\(area.title)\(mode.map { " › \($0.productTitle)" } ?? "") calibrated=\(calibrated) at \(Int(width))pt"
+                        let column = try XCTUnwrap(SplitViewPolicy.controller(in: window)?.sidebarHost.view)
+                        XCTAssertEqual(column.bounds.width, width, accuracy: 2, "\(stage): the column is not at the requested width")
+                        // SwiftUI can lay the hosted form out wider than its
+                        // column and hang it past the edge (measured 283pt in
+                        // a 250pt column, 2026-09-03): the scroll view and its
+                        // document must both fit the column.
+                        XCTAssertLessThanOrEqual(
+                            scroll.frame.width, column.bounds.width + 1,
+                            "\(stage): the sidebar's scroll view is \(scroll.frame.width)pt wide in a \(column.bounds.width)pt column — a control inside forces the width"
+                        )
+                        XCTAssertLessThanOrEqual(
+                            document.frame.width, scroll.contentSize.width + 1,
+                            "\(stage): the sidebar document is \(document.frame.width)pt wide in a \(scroll.contentSize.width)pt column"
+                        )
+                        for control in controls(document) {
+                            let r = control.convert(control.bounds, to: scroll)
+                            let title = (control as? NSButton)?.title ?? (control as? NSTextField)?.stringValue ?? ""
+                            XCTAssertTrue(
+                                r.minX >= -1 && r.maxX <= scroll.bounds.width + 1,
+                                "\(stage): \(type(of: control)) '\(title)' spans x \(Int(r.minX))–\(Int(r.maxX)) in a \(Int(scroll.bounds.width))pt column"
+                            )
+                        }
+                        attachPNG(document, name: "sidebar-\(area.rawValue)\(mode.map { "-\($0.id)" } ?? "")-\(calibrated ? "ready" : "blocked")-\(Int(width))")
+                    }
+                }
+            }
+        }
+    }
 
     // Contract rule 3 (no material of its own) has NO hosted gate, on purpose.
     // A test counting `NSVisualEffectView`s outside the AppKit columns was

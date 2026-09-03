@@ -33,6 +33,9 @@ struct ProductInspector: View {
             }
             InspectorDiagnosticsGroup()
         }
+        // Contract rule 3: the list draws no ground over the column's
+        // material (Gate D 2026-09-03, `ColumnMaterialTests`).
+        .scrollContentBackground(.hidden)
     }
 
     @ViewBuilder

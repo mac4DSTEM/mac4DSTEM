@@ -54,8 +54,10 @@ final class SplitViewPolicyTests: XCTestCase {
         XCTAssertEqual(c.inspectorItem.maximumThickness, SplitViewPolicy.inspector.maximum)
         XCTAssertTrue(c.inspectorItem.canCollapse)
         XCTAssertEqual(c.contentItem.minimumThickness, SplitViewPolicy.detailMinimum)
-        XCTAssertGreaterThan(c.contentItem.holdingPriority.rawValue, c.sidebarItem.holdingPriority.rawValue)
-        XCTAssertGreaterThan(c.sidebarItem.holdingPriority.rawValue, c.inspectorItem.holdingPriority.rawValue)
+        // Owner finding (e), 2026-09-03: the workspace holds least, so a drag
+        // on either divider resizes the workspace and never the far column.
+        XCTAssertLessThan(c.contentItem.holdingPriority.rawValue, c.inspectorItem.holdingPriority.rawValue)
+        XCTAssertLessThan(c.inspectorItem.holdingPriority.rawValue, c.sidebarItem.holdingPriority.rawValue)
         XCTAssertFalse(c.inspectorItem.isCollapsed, "the inspector was asked for — collapsed \(c.splitViewItems.map(\.isCollapsed)), widths \(c.splitView.arrangedSubviews.map { $0.frame.width })")
         for host in [c.sidebarHost, c.contentHost, c.inspectorHost] {
             XCTAssertEqual(host.sizingOptions, [], "SwiftUI content must not size the column — that constraint is the loop")
@@ -100,6 +102,23 @@ final class SplitViewPolicyTests: XCTestCase {
         appState.navigation.showInspectorPane = true
         pump(0.9)
         XCTAssertFalse(c.inspectorItem.isCollapsed, "the inspector toggle opens its column")
+    }
+
+    /// Owner finding (e): dragging the sidebar divider moved the inspector.
+    /// Moving divider 0 must change only the workspace's width.
+    func testASidebarDragLeavesTheInspectorWhereItWas() async throws {
+        let appState = AppState()
+        let window = await makeWindow(appState, inspector: true)
+        defer { window.orderOut(nil) }
+        let c = try controller(window)
+        let split = c.splitView
+        let inspectorBefore = split.arrangedSubviews[2].frame.width
+        let sidebarBefore = split.arrangedSubviews[0].frame.width
+        split.setPosition(sidebarBefore + 120, ofDividerAt: 0)
+        split.layoutSubtreeIfNeeded(); pump(0.3)
+        XCTAssertEqual(split.arrangedSubviews[0].frame.width, sidebarBefore + 120, accuracy: 2, "the sidebar took the drag")
+        XCTAssertEqual(split.arrangedSubviews[2].frame.width, inspectorBefore, accuracy: 1,
+                       "the inspector moved with a sidebar drag — the workspace must hold least")
     }
 
     /// The 144pt sidebar of 2026-08-06 and the 92pt sliver of 2026-09-03: a

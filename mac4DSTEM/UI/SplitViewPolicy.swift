@@ -28,11 +28,14 @@ enum SplitViewPolicy {
     static let inspector = Band(minimum: 260, ideal: 320, maximum: 600)
     /// The data pane's floor (the 2026-08-05 clipped-edges class).
     static let detailMinimum: CGFloat = 360
-    /// A narrowing window squeezes the inspector first, then the sidebar,
-    /// then the data pane.
+    /// The workspace holds least, as Xcode's editor does (owner finding (e),
+    /// 2026-09-03): a drag on either divider resizes the workspace alone, and
+    /// a narrowing window squeezes the workspace to its floor first, then the
+    /// inspector, then the sidebar. With the workspace holding MOST, every
+    /// drag on the sidebar divider moved the inspector instead.
+    static let detailHolding = NSLayoutConstraint.Priority.defaultLow
     static let inspectorHolding = NSLayoutConstraint.Priority(260)
     static let sidebarHolding = NSLayoutConstraint.Priority(261)
-    static let detailHolding = NSLayoutConstraint.Priority(262)
     static let autosaveName = "mac4DSTEM.columns"
     /// The grabbable width of each thin divider, centred on the drawn line
     /// (owner finding (c), 2026-09-03: a 1pt zone put the drag on the focus ring).
@@ -41,20 +44,15 @@ enum SplitViewPolicy {
     /// collapse state from an earlier run or test can reach them.
     nonisolated(unsafe) static var autosaveEnabled = true
 
-    /// The window's outermost column split — the widest vertical `NSSplitView`
-    /// (the panes' own splitter is narrower because it excludes the sidebar).
+    /// The window's column split, found by class; the panes' own splitter is a
+    /// plain `NSSplitView` and is never it.
     static func outermostColumnSplit(in view: NSView?) -> NSSplitView? {
         guard let view else { return nil }
-        var best: NSSplitView?
-        func walk(_ v: NSView) {
-            if let split = v as? NSSplitView, split.isVertical,
-               split.frame.width > (best?.frame.width ?? 0) {
-                best = split
-            }
-            for sub in v.subviews { walk(sub) }
+        if let split = view as? ColumnSplitView { return split }
+        for sub in view.subviews {
+            if let split = outermostColumnSplit(in: sub) { return split }
         }
-        walk(view)
-        return best
+        return nil
     }
 
     /// The controller behind the window's column split, for tests.
@@ -105,8 +103,17 @@ final class ColumnSplitController: NSSplitViewController {
         contentHost = NSHostingController(rootView: content)
         inspectorHost = NSHostingController(rootView: inspector)
         super.init(nibName: nil, bundle: nil)
-        // The columns decide the width; SwiftUI lays out inside them.
-        for host in [sidebarHost, contentHost, inspectorHost] { host.sizingOptions = [] }
+        // The columns decide the width; SwiftUI lays out inside them. Both
+        // halves are needed: with `sizingOptions` alone a hosted control's
+        // intrinsic width still held a 250pt column at 283pt (the Imaging
+        // sidebar's four-segment picker, measured 2026-09-03), because the
+        // hosting view's compression resistance (750) outranks every holding
+        // priority. Contract rule 1: nothing inside a column sizes itself.
+        for host in [sidebarHost, contentHost, inspectorHost] {
+            host.sizingOptions = []
+            host.view.setContentCompressionResistancePriority(.init(1), for: .horizontal)
+            host.view.setContentHuggingPriority(.init(1), for: .horizontal)
+        }
 
         let split = ColumnSplitView()
         split.isVertical = true

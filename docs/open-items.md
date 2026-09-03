@@ -221,19 +221,26 @@ architecture seams.
 
 ### The UI rework — what the owner's drives found, by step
 Owner drives 2026-09-03 (`df80e8e`, then step 1 `9493242`): (a) a wide
-sidebar puts every trailing value ("Not set", the voltage, the Manual
-scale fields) at the far edge — hand-built `LabeledContent`/`Spacer` rows
-fill whatever width they get (step 2); (b) the inspector's Real space,
-Mean and Max thumbnails fill the column (S22a told them to; step 3);
-(c) the dividers' grab zone — fixed in step 1, owner-confirmed; (d) no
-Liquid Glass on the sidebar and inspector while the toolbar has it —
-something inside the columns paints over AppKit's material, candidate
-the hosting `List`'s own background; diagnose before touching (step 2a);
-(e) dragging one divider moves the opposite column — holding priorities
-(inspector 260 < sidebar 261 < content 262) make the inspector yield on
-any drag; Xcode's editor holds least, so a drag resizes only the content
-(step 2a). Trap: cap the columns and you lose the wide-drag the owner
-asked for. Owner: the rework; lane: the rework, no release number.
+sidebar puts every trailing value at the far edge — step 2a makes the
+column a grouped `Form`, so rows are `LabeledContent` (value trailing, as
+System Settings) and every field is `NumericField` (one width rule,
+`FormPolicy`), pending the owner's drive; (b) the inspector's thumbnails
+fill the column (step 3); (c) dividers' grab zone — fixed step 1,
+owner-confirmed; (d) no Liquid Glass on the columns — Gate D 2026-09-03
+(`ColumnMaterialTests`, refuted independently): the hosted lists DID paint
+over AppKit's material (inspector: its own `contentBackground` effect
+view, rendered opaque; sidebar: a source-list colour resolving 90 % opaque,
+not confirmed at the pixel), gone with `.scrollContentBackground(.hidden)`;
+with them gone the columns still render flat — active window, saturated
+backdrop behind the window, AppKit-root and hosted alike, the real signed
+app alike — because the OS's column material is within-window and shows
+only content passing beneath it; `automaticallyAdjustsSafeAreaInsets`
+(26.0) lets content under but clipped the diffraction pane, so it is
+rejected: the columns look like Xcode 26's, flat on the window ground.
+Open residual: not tested in light appearance. (e) a sidebar drag moved
+the inspector — the workspace now holds least (`SplitViewPolicy`, pinned
+by `testASidebarDragLeavesTheInspectorWhereItWas`). Owner: the rework;
+lane: the rework, no release number.
 
 ### Concurrent HDF5 use crashes the process
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb

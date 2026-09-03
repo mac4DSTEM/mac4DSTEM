@@ -4,9 +4,9 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// Shared calibration path used by Prepare and the DataCube export sheet.
-/// Every row names provenance, consequence, and the next safe action; no
-/// missing value is synthesized by this view.
+/// Shared calibration path used by Prepare and the DataCube export sheet:
+/// rows of a grouped `Form`. Every row names provenance, consequence, and
+/// the next safe action; no missing value is synthesized by this view.
 struct CalibrationReadinessChecklist: View {
     @Environment(AppState.self) private var appState
     var showsCompletionMessage = true
@@ -20,14 +20,12 @@ struct CalibrationReadinessChecklist: View {
             ForEach(report.items) { item in
                 readinessRow(item)
             }
-            // v2.5 step 4b: the same verdict the dataset header shows.
+            // v2.5 step 4b: the same verdict the dataset card shows.
             if showsCompletionMessage {
                 let verdict = appState.calibrationSession.verdict
                 Label(verdict.summary,
                       systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
-                    .font(.caption)
                     .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
-                    .sidebarWrapped()
                     .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
         }
@@ -35,66 +33,48 @@ struct CalibrationReadinessChecklist: View {
         .accessibilityIdentifier("calibration.readiness")
     }
 
+    /// One calibration as a labelled row — the kind and its value under it
+    /// as the label, the provenance ("From file" / "Measured" / …, never
+    /// demoted) as the content — followed by its warning and its action.
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Label(
-                    item.kind.rawValue,
-                    systemImage: item.status.isReady
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-                )
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-                Spacer()
-                // Provenance ("Measured" / "Imported" / …). Never demoted.
-                Text(item.status.displayName)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
-            }
-            // For a satisfied row this is the calibrated **value and its
-            // units** — `0.0123 Å⁻¹/px`. It stays on screen unconditionally:
-            // it is the scientific content of the row, and it is also what
-            // `AXDriver.calibrationPanelText()` scrapes into the QC log, so
-            // hiding it would make a UI change look like a lost calibration in
-            // the acceptance diff.
-            Text(item.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                // S22d: wrap, never truncate — this row's tail is the caveat
-                // ("… (27% excluded as outliers)"), and cutting it was the
-                // owner-reported Group A finding: the actionable half of an
-                // already-correct disclosure was what got lost. The sidebar
-                // List scrolls, so unbounded vertical demand is safe here
-                // (the #16 trap is detail-column-only).
-                //
-                // `.sidebarWrapped()`, not bare fixedSize — verified live
-                // 2026-09-01: fixedSize alone still truncated in this List
-                // (see SidebarTextWidth.swift for the mechanism).
-                .sidebarWrapped()
-            // Rendered outside the `!isReady` branch below: an imported R scale
-            // that disagrees with the filename is *ready*, and that is exactly
-            // the case worth warning about.
-            if item.kind == .rScale, let conflict = rScaleFilenameConflict {
-                Label(conflict, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-                    .sidebarWrapped()
-                    .accessibilityIdentifier("calibration.rScale.filenameConflict")
-            }
-            if !item.status.isReady {
-                readinessAction(for: item.kind)
+        LabeledContent {
+            Text(item.status.displayName)
+                .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
+        } label: {
+            Label {
+                Text(item.kind.rawValue)
+                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
+                // The calibrated value and its units — the scientific
+                // content of the row, on screen unconditionally, wrapping
+                // never truncating (S22d: the tail is the caveat).
+                Text(item.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: item.status.isReady
+                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
             }
         }
-        .padding(.vertical, 2)
-        // `unlockSummary` says what this calibration *enables*. That is a
-        // motivation, not a status, and it was drawn permanently under all six
-        // rows — 78pt of an 871pt column restating something that never
-        // changes. On hover, and still in the row's accessibility description.
+        // `unlockSummary` says what this calibration *enables*: on hover and
+        // in the accessibility description, not permanently under six rows.
         .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
         .accessibilityElement(children: .contain)
         .accessibilityHint(item.kind.unlockSummary)
         .accessibilityIdentifier("calibration.item.\(item.kind.id)")
+
+        // Outside the `!isReady` branch: an imported R scale that disagrees
+        // with the filename is *ready*, and exactly the case worth a warning.
+        if item.kind == .rScale, let conflict = rScaleFilenameConflict {
+            Label(conflict, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("calibration.rScale.filenameConflict")
+        }
+        if !item.status.isReady {
+            readinessAction(for: item.kind)
+        }
     }
 
     @ViewBuilder
@@ -119,64 +99,49 @@ struct CalibrationReadinessChecklist: View {
             .disabled(appState.isBusy)
             .accessibilityIdentifier("calibration.action.rotation")
         case .qScale:
-            VStack(alignment: .leading, spacing: 6) {
-                if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
-                    Button("Calibrate from selected material") {
-                        Task { await appState.calibrateQFromCrystal() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(appState.isBusy)
-                    .accessibilityIdentifier("calibration.action.qCrystal")
-                    .help("Selected ACOM phase model: \(model.displayName)")
-
-                    HStack(spacing: 6) {
-                        Text("or")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        manualScaleField(
-                            value: appState.manualQPixelSize,
-                            units: appState.manualQPixelUnits,
-                            unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                            identifier: "calibration.action.qManual",
-                            onChange: appState.setManualQPixelSize,
-                            onUnitChange: appState.setManualQPixelUnits
-                        )
-                    }
-                } else {
-                    // Why the crystal route is unavailable is guidance about a
-                    // path you cannot take yet, not a property of the result.
-                    // On hover and in the field's accessibility hint; the row's
-                    // own "Missing" badge and `detail` still state the status.
-                    manualScaleField(
-                        value: appState.manualQPixelSize,
-                        units: appState.manualQPixelUnits,
-                        unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                        identifier: "calibration.action.qManual",
-                        onChange: appState.setManualQPixelSize,
-                        onUnitChange: appState.setManualQPixelUnits
-                    )
-                    .help(qScaleUnavailableReason)
-                    .accessibilityHint(qScaleUnavailableReason)
+            if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
+                Button("Calibrate from Selected Material") {
+                    Task { await appState.calibrateQFromCrystal() }
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.qCrystal")
+                .help("Selected ACOM phase model: \(model.displayName)")
+                manualScaleRows(
+                    value: appState.manualQPixelSize,
+                    units: appState.manualQPixelUnits,
+                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
+                    identifier: "calibration.action.qManual",
+                    help: "Or enter the reciprocal pixel size by hand.",
+                    onChange: appState.setManualQPixelSize,
+                    onUnitChange: appState.setManualQPixelUnits
+                )
+            } else {
+                // Why the crystal route is unavailable is guidance about a
+                // path you cannot take yet: on hover and in the hint.
+                manualScaleRows(
+                    value: appState.manualQPixelSize,
+                    units: appState.manualQPixelUnits,
+                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
+                    identifier: "calibration.action.qManual",
+                    help: qScaleUnavailableReason,
+                    onChange: appState.setManualQPixelSize,
+                    onUnitChange: appState.setManualQPixelUnits
+                )
             }
         case .rScale:
-            VStack(alignment: .leading, spacing: 6) {
-                // R scale is the one calibration with no measurement path in
-                // the app; saying so prevents a hunt for a "measure" button
-                // that does not exist. The field is labelled "Manual" and is
-                // the only control offered, which carries the same message
-                // structurally; the sentence itself is on hover.
-                manualScaleField(
-                    value: appState.manualRPixelSize,
-                    units: appState.manualRPixelUnits,
-                    unitOptions: CalibrationUnitConversion.editableRealUnits,
-                    identifier: "calibration.action.rManual",
-                    onChange: appState.setManualRPixelSize,
-                    onUnitChange: appState.setManualRPixelUnits
-                )
-                .help("R pixel scale cannot be measured from the data — enter it from the acquisition parameters.")
-                .accessibilityHint("R pixel scale cannot be measured from the data — enter it from the acquisition parameters.")
-            }
+            // R scale is the one calibration with no measurement path in the
+            // app; the field is the only control offered, and the sentence
+            // is on hover.
+            manualScaleRows(
+                value: appState.manualRPixelSize,
+                units: appState.manualRPixelUnits,
+                unitOptions: CalibrationUnitConversion.editableRealUnits,
+                identifier: "calibration.action.rManual",
+                help: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters.",
+                onChange: appState.setManualRPixelSize,
+                onUnitChange: appState.setManualRPixelUnits
+            )
         }
     }
 
@@ -255,34 +220,31 @@ struct CalibrationReadinessChecklist: View {
         }
     }
 
-    private func manualScaleField(
+    /// The manual scale as two rows — the value, then its unit per pixel —
+    /// because value, unit menu and suffix together do not fit the column's
+    /// minimum width beside a label (contract rule 5).
+    @ViewBuilder
+    private func manualScaleRows(
         value: Double?, units: String, unitOptions: [String], identifier: String,
+        help: String,
         onChange: @escaping (Double) -> Void,
         onUnitChange: @escaping (String) -> Void
     ) -> some View {
-        HStack(spacing: 6) {
-            Text("Manual")
-                .font(.caption)
-            TextField("0", value: Binding(
-                get: { value ?? 0 }, set: onChange
-            ), format: .number.precision(.fractionLength(0...6)))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 100)
-                .accessibilityIdentifier(identifier)
-            Picker("Units", selection: Binding(
-                get: { units }, set: onUnitChange
-            )) {
-                ForEach(unitOptions, id: \.self) { unit in
-                    Text(unit).tag(unit)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize()
-            .accessibilityIdentifier(identifier + ".units")
-            Text("/px")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+        LabeledContent("Manual") {
+            NumericField(
+                title: "Manual scale",
+                value: Binding(get: { value ?? 0 }, set: onChange),
+                format: .number.precision(.fractionLength(0...6))
+            )
+            .accessibilityIdentifier(identifier)
         }
+        .help(help)
+        .accessibilityHint(help)
+        Picker("Unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
+            ForEach(unitOptions, id: \.self) { unit in
+                Text(unit).tag(unit)
+            }
+        }
+        .accessibilityIdentifier(identifier + ".units")
     }
 }

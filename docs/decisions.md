@@ -130,6 +130,22 @@ touches the file. A patch changes no scientific output; a landed change to
 one cuts v2.6.0 and the changelog names the number. Releases are cut when
 what has landed is worth a build, never scheduled against a number.
 
+**2026-09-03 — Step 2a decisions (unattended session; the owner drives
+them).** (1) The sidebar is one grouped `Form` on the column's material,
+rows filling the group as System Settings' do — rule 1's "spare width is
+margin" is applied to controls (a numeric field is `FormPolicy`'s width,
+never the row), not to rows. (2) Two numbers live in `FormPolicy` and
+nowhere else: the numeric field width and the thumbnail height cap; the
+inventory grep enforces it once step 4 lands. (3) The 2026-08-06 "sidebar
+fits its column without scrolling" gate is retired: a Form with system
+row metrics is taller than the old list and scrolls; #16 stays pinned by
+its own tests and rule 5 is the new width-range gate. (4) The columns
+stay flat: on macOS 26 the sidebar/inspector material is within-window
+and only content beneath a column shows through it; letting the workspace
+under the columns clipped the diffraction pane (Gate D, `open-items.md`).
+(5) Hosted column content gets compression resistance 1 so no control can
+widen a column past a drag — measured: a four-segment picker held 283 pt.
+
 **2026-09-03 — The presentation pass is a complete UI rework; releases
 are parked.** After driving step 1 the owner widened the scope: every
 surface of the app is reworked to Apple's standards under the presentation
