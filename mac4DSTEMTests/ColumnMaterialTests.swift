@@ -82,6 +82,18 @@ final class ColumnMaterialTests: XCTestCase {
         return nil
     }
 
+    /// Whether an effect view is a table row's own decoration (the source
+    /// list's selection capsule) rather than a ground over the column.
+    private func isInsideTableRow(_ view: NSView) -> Bool {
+        var cursor: NSView? = view.superview
+        while let c = cursor {
+            if c is NSTableRowView { return true }
+            if c is NSTableView { return false }
+            cursor = c.superview
+        }
+        return false
+    }
+
     private func effectViews(_ v: NSView) -> [NSView] {
         var found: [NSView] = []
         if v is NSVisualEffectView || String(describing: type(of: v)).contains("GlassEffectView") { found.append(v) }
@@ -168,7 +180,25 @@ final class ColumnMaterialTests: XCTestCase {
                 ancestorsHaveMaterial,
                 "\(name): no material view between the hosted view and the split view — AppKit gave this column no material\n\(text)"
             )
-            let hostedEffects = effectViews(host.view)
+            // A source list draws its selected row as an `NSVisualEffectView`
+            // with the `.selection` material INSIDE the row view — that is
+            // the macOS selection capsule, not a ground painted over the
+            // column. Measured 2026-09-03 when the sidebar became a
+            // `List(selection:)`: one 230x32 effect view inside a
+            // `ListTableRowView`, while the host, the scroll view and the
+            // table each sampled rgba(0,0,0,0) and AppKit's own
+            // `NSGlassEffectView` spanned the full 250x871 column.
+            //
+            // What this gate exists to catch is Gate D finding (d): hosted
+            // content painting a ground over AppKit's material, column-wide.
+            // A row-scoped selection material is not that; anything else,
+            // including any effect view outside a row, still fails.
+            let hostedEffects = effectViews(host.view).filter { effect in
+                guard let visual = effect as? NSVisualEffectView,
+                      visual.material == .selection,
+                      isInsideTableRow(visual) else { return true }
+                return false
+            }
             XCTAssertTrue(
                 hostedEffects.isEmpty,
                 "\(name): hosted content brings \(hostedEffects.count) material view(s) of its own over the column's: "

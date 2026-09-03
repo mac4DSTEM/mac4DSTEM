@@ -10,10 +10,19 @@ import DSTEMSession
 /// sizes its numeric fields and thumbnails through these two rules; the
 /// inventory gate greps for any other `.frame(width:)` outside the panes.
 enum FormPolicy {
-    /// A numeric field is as wide as about eight digits — never the row.
-    static let numericFieldWidth: CGFloat = 90
-    /// A thumbnail is never taller than this, however wide the column.
-    static let thumbnailMaximumHeight: CGFloat = 160
+    /// A numeric field is as wide as about six digits — never the row. It was
+    /// 90, which with a unit beside it ran a 250pt sidebar row past its edge
+    /// ("Voltage 200 k", measured on screen 2026-09-03).
+    static let numericFieldWidth: CGFloat = 72
+    /// A thumbnail grows with its column and stops here.
+    ///
+    /// This number is a CEILING, not a size: `.aspectRatio(.fit)` fits the
+    /// image inside (column width x this), so for a square preview the
+    /// smaller of the two wins. At 160 that was always the height, so the
+    /// preview stayed 160pt wide however wide the inspector was dragged
+    /// (owner, 2026-09-03). At 320 the column width wins through the
+    /// inspector's usable range and the cap only catches a very wide column.
+    static let thumbnailMaximumHeight: CGFloat = 320
 }
 
 /// The window's own few numbers (rule 1: structure is fixed, content is
@@ -54,7 +63,11 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
                 .multilineTextAlignment(.trailing)
                 .frame(width: FormPolicy.numericFieldWidth)
             if let unit {
-                Text(unit).foregroundStyle(.secondary)
+                // The unit is part of the number's meaning: it never
+                // truncates, and it never wraps to a second line.
+                Text(unit)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
             }
         }
         .accessibilityLabel(title)

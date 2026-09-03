@@ -66,7 +66,7 @@ struct LoadConfiguratorView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Load \(pending.url.lastPathComponent)")
                 .font(.headline)
-            Text("Drag on either preview to load only part of the dataset. The source file is never changed, and removing a crop later reloads the whole thing.")
+            Text("Crop before loading. The source file is never changed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -176,7 +176,7 @@ struct LoadConfiguratorView: View {
                 // images are samples" would teach the user to distrust the one
                 // pane that is exact (invariant I4 works because the label is
                 // accurate, not merely present).
-                Text("Real-space and max are built from the sampled positions only — they will not match a virtual image pixel for pixel. The single-position pane is the recorded pattern at that scan position, exactly.")
+                Text("Real-space and max previews are sampled. The single-position pattern is exact.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -365,7 +365,7 @@ struct LoadConfiguratorView: View {
             // Crop and bin trade against DIFFERENT things (release owner's
             // question, 2026-08-19); both mirror py4DSTEM
             // (crop_data_diffraction / bin_data_diffraction). // v2 S4
-            Text("A detector crop and a bin reduce different things. A crop cuts the angular range — scattering outside the box is never loaded, so crop when the disks you need sit in a small part of the detector. Binning keeps the full range but coarsens it, which costs sub-pixel disk-position precision — the quantity strain mapping is fitted from.")
+            Text("Crop limits angular range. Binning keeps the range but coarsens disk positions.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Bin factor", selection: Binding(
@@ -381,12 +381,12 @@ struct LoadConfiguratorView: View {
             .accessibilityIdentifier("configurator.binFactor")
             if pending.configuration.detectorBin > 1 {
                 // The intensity consequence, before the load rather than after.
-                Text("Binning sums the pixels it merges, so intensities become \(pending.configuration.detectorBin * pending.configuration.detectorBin)x larger and the reciprocal pixel size \(pending.configuration.detectorBin)x coarser. Absolute-intensity thresholds from an unbinned run will not carry over.")
+                Text("Counts become \(pending.configuration.detectorBin * pending.configuration.detectorBin)x larger; reciprocal pixels become \(pending.configuration.detectorBin)x coarser. Recheck absolute thresholds.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             if let edge = pending.discardedEdge {
-                Text("The detector does not divide evenly: \(edge.rows) row(s) and \(edge.columns) column(s) will be trimmed from the far edge.")
+                Text("Trims \(edge.rows) row(s) and \(edge.columns) column(s) from the bottom/right edge.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("configurator.edgeTrim")
@@ -425,7 +425,7 @@ struct LoadConfiguratorView: View {
                     String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
             // Reads return float32 whatever the file stores, so a uint16 file
             // costs twice its own size.
-            Text("Data is read as float32 regardless of how the file stores it, so the cube can be larger than the file. Loading into memory does not make the load faster — it makes the waiting happen once, when you choose. The GPU working-set limit is a property of this Mac's hardware, not an amount you may load: analyses stream in bounded tiles whatever the dataset's size.")
+            Text("Float32 expansion can exceed file size. Loading into memory moves the wait upfront; analyses still stream in bounded tiles.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

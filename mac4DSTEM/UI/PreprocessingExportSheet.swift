@@ -141,7 +141,7 @@ struct PreprocessingExportSheet: View {
                 beginExport()
             }
         } message: {
-            Text("Missing: \(missingCalibrationSummary). Those fields will remain in pixel coordinates or be omitted from the output metadata.")
+            Text("Missing: \(missingCalibrationSummary). Values stay in pixels or are omitted.")
         }
     }
 

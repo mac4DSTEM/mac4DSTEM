@@ -178,7 +178,8 @@ Every acceptance run is numeric-only (`--no-screenshots`); the owner
 driving the app is the only evidence anything "looks right" — say who
 drove it and when. Standing: driving has caught defects with every harness
 green (colormap control missing, readiness row self-contradicting, three
-more in the clean-account run). The retired checklist's trap notes are in
+more in the clean-account run); the 2026-09-03 UI hardening and UI2
+scaffold passes are also not owner-seen. The retired checklist's trap notes are in
 `docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`. Never seen on
 screen: everything from 7c slice 1 on (Results sidebar and inspector, the
 inspector following the focused pane), the clean-account run, the bounded
@@ -218,6 +219,30 @@ labels, Phase linearity, inspector layout) lives in
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3. Do not duplicate it here and do
 not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
+
+### The presentation contract is wrong in two rules (4b, 2026-09-03)
+Found by building and looking, and by six independent reviewers; the
+amendment is owed to `architecture.md` before another pass runs against it.
+- **Rule 2 ("every group of controls in a sidebar or inspector is a grouped
+  `Form`") is a category error.** A grouped `Form` is System Settings'
+  *detail pane*. Applied to navigation it left the app with **no `List`
+  anywhere**, and `Form` has no `selection:` parameter, so the selected
+  workspace could only be drawn by tinting text. Amended in 4b: navigation
+  is a source list, controls are a form; `LabeledContent` only stacks a
+  multi-element label vertically inside a Form, so a view written for one
+  container does not survive the other.
+- **Rule 5 ("wrapped text is fine, truncation and overflow are findings")
+  is backwards for a fixed-width column**, and its gate cannot see the
+  case anyway: `controls(_:)` collects `NSControl`s, and no SwiftUI `Text`
+  is one. Its fixture's longest path is `"/demo/data"`, so the long-value
+  case never arises either. Finder truncates filenames, Xcode truncates
+  with a tooltip; unbounded wrapping is what made the column a wall.
+- Still open on screen after 4b, none of them yet fixed: the workspace
+  "hero header" repeats the selected sidebar row's title *and* subtitle
+  and takes ~100 pt off the top of both panes; both panes centre the
+  aspect-fitted image so the slack is split above and below it, which is
+  why the image sits far from its own title; ~40 permanent caption `Text`s
+  remain across the sidebars.
 
 ### The UI rework — what the owner's drives found, by step
 Owner drives 2026-09-03 (`df80e8e`, then step 1 `9493242`): (a) a wide
@@ -386,9 +411,13 @@ while the preflight gates on `$ROOT`/`$TMPDIR`'s volumes, which can
 differ on a non-boot checkout. Measured once at 10GB free: the script
 reported 0B reclaimable because the real pressure (Claude Desktop's VM
 bundle, `~/.cache/codex-runtimes`, package caches) is outside its two
-roots — do not conclude "nothing to reclaim" from a 0B report. Fix wants
-one `tools/lib/` constants file. Owner: whoever next touches
-`run-tests.sh`.
+roots — do not conclude "nothing to reclaim" from a 0B report. Confirmed
+again 2026-09-03 (4b): two `unit` runs exited 69 at 7.95 GB against the
+8 GB floor while the script found nothing; what freed it was this
+session's own `DerivedData/<proj>/Logs/Test` (159 MB) and the shared
+`DerivedData/ModuleCache.noindex` (812 MB, regenerates). Both belong in
+the script. Fix wants one `tools/lib/` constants file. Owner: whoever next
+touches `run-tests.sh`.
 
 ### Acceptance-gate test-infrastructure residuals
 `real-data-acceptance/run.sh` hand-spells 18 source paths instead of

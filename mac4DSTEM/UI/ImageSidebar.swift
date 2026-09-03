@@ -27,22 +27,22 @@ struct ImageSidebar: View {
                 .accessibilityLabel("Detector shape")
                 // Conventional STEM abbreviations; full names in the menu's
                 // help and accessibility labels.
+                // Three short system buttons fit the minimum column without
+                // adding a fixed-size custom glyph outside the image panes.
                 LabeledContent("Preset") {
-                    Menu {
+                    HStack(spacing: 6) {
                         ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
-                            Button("\(Self.shortName(preset)) — \(preset.rawValue)") {
+                            Button(Self.shortName(preset)) {
                                 appState.applyDetectorPreset(preset)
                             }
+                            .controlSize(.small)
+                            .help("Set the detector to \(preset.rawValue)")
                             .accessibilityLabel("Apply \(preset.rawValue) preset")
                             .accessibilityIdentifier(
                                 "detector.preset.\(Self.shortName(preset).lowercased())"
                             )
                         }
-                    } label: {
-                        Text("Apply")
                     }
-                    .fixedSize()
-                    .help("Set the detector to a bright-field, ADF or HAADF annulus")
                 }
                 Text("Drag the detector on the diffraction pane; the real-space image updates live.")
                     .font(.caption)
@@ -72,6 +72,7 @@ struct ImageSidebar: View {
             }
         }
     }
+
 
     /// Conventional STEM abbreviations. Lives here rather than on
     /// `DetectorPreset` because that type is in `Core/`, which stays free of

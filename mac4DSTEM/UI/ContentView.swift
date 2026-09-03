@@ -35,12 +35,18 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Owner decision 2026-09-03: the columns are AppKit's
-            // (`ColumnSplitController`), the way Xcode's are — the divider is
-            // the only authority over a column's width and SwiftUI content
-            // lays out inside it. See SplitViewPolicy.swift for why.
-            WorkspaceColumns(
+        // Owner decision 2026-09-03: the columns are AppKit's
+        // (`ColumnSplitController`), the way Xcode's are — the divider is
+        // the only authority over a column's width and SwiftUI content
+        // lays out inside it. See SplitViewPolicy.swift for why.
+        //
+        // Owner decision 2026-09-03 (late), superseding D2's "stacked under
+        // every column": the split view is the window's whole content, so
+        // all three columns run from under the toolbar to the bottom edge,
+        // as Xcode's do. Nothing spans beneath them — the status bar is a
+        // bottom bar INSIDE the workspace column, where Xcode puts its
+        // debug bar and Finder its status bar.
+        WorkspaceColumns(
                 sidebar: AnyView(sidebarColumn.environment(appState)),
                 content: AnyView(workspaceColumn.environment(appState)),
                 inspector: AnyView(WorkspaceInspector().environment(appState)),
@@ -59,44 +65,46 @@ struct ContentView: View {
                     appState.navigation.showInspectorPane = !collapsed
                 }
             )
-            // The hosted controller must take the window's size, not its
-            // own intrinsic one (the sum of the column minimums, 610pt —
-            // measured 2026-09-03 in a 1470pt window).
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // D2 (owner decision, 2026-09-01): the permanent status footer —
-            // status line, live operation progress with Cancel, and the
-            // standing memory/cube facts. A STACKED element under every
-            // column, so nothing can ever render behind it.
-            Divider()
-            StatusFooterView()
-        }
+        // The hosted controller must take the window's size, not its
+        // own intrinsic one (the sum of the column minimums, 610pt —
+        // measured 2026-09-03 in a 1470pt window).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("mac4DSTEM")
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
                     withAnimation { appState.navigation.showToolsPane.toggle() }
                 } label: {
-                    Label("Toggle tools", systemImage: "sidebar.leading")
+                    Label(
+                        appState.navigation.showToolsPane ? "Hide Tools" : "Show Tools",
+                        systemImage: "sidebar.leading"
+                    )
                 }
-                .help("Show or hide the tools panel")
+                .help(appState.navigation.showToolsPane ? "Hide the tools panel" : "Show the tools panel")
             }
             if appState.navigation.workspaceArea != .results {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         appState.navigation.showLogPane.toggle()
                     } label: {
-                        Label("Toggle output", systemImage: "rectangle.bottomthird.inset.filled")
+                        Label(
+                            appState.navigation.showLogPane ? "Hide Output" : "Show Output",
+                            systemImage: "rectangle.bottomthird.inset.filled"
+                        )
                     }
-                    .help("Show or hide the output log below the image panes")
+                    .help(appState.navigation.showLogPane ? "Hide the output log" : "Show the output log")
                 }
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     appState.navigation.showInspectorPane.toggle()
                 } label: {
-                    Label("Toggle inspector", systemImage: "sidebar.trailing")
+                    Label(
+                        appState.navigation.showInspectorPane ? "Hide Inspector" : "Show Inspector",
+                        systemImage: "sidebar.trailing"
+                    )
                 }
-                .help("Show or hide the inspector panel")
+                .help(appState.navigation.showInspectorPane ? "Hide the inspector panel" : "Show the inspector panel")
             }
         }
         .onChange(of: appState.virtualShape) {
@@ -178,14 +186,44 @@ struct ContentView: View {
     /// ground of its own — the sidebar list's source-list colour resolved 90%
     /// opaque over AppKit's material (Gate D, `ColumnMaterialTests`).
     private var sidebarColumn: some View {
-        Form {
+        // Navigation is a source list, the workspace's controls are a
+        // grouped Form, and one column holds both — split vertically by a
+        // draggable divider, the way Xcode stacks areas inside a column.
+        // Both halves are scroll views, so neither a VStack nor
+        // `.layoutPriority` can share the height between them: whichever was
+        // favoured took the whole column and the other rendered at zero
+        // height (both directions measured on screen, 2026-09-03).
+        //
+        // The two containers are not interchangeable. `LabeledContent` only
+        // stacks a multi-element label vertically inside a Form; in a List
+        // row it lays out horizontally, which crushed every calibration row
+        // onto one line ("Origin & p… Origin: From fi… From file", measured).
+        // The `.sidebar` List does not offer its rows a width, so a long text
+        // takes its one-line ideal and truncates; publishing the column's
+        // real width is what lets `.sidebarWrapped()` trade width for lines
+        // (`SidebarTextWidth.swift`). Deleted by UI rework step 2e on the
+        // theory that a grouped Form made it unnecessary — it did, and the
+        // Form cost the source list instead. The 34pt covers the row insets.
+        GeometryReader { columnGeometry in
+            navigationList
+                .environment(
+                    \.sidebarTextWidth, max(columnGeometry.size.width - 34, 216)
+                )
+        }
+    }
+
+    /// The navigation half of the tools column: what dataset is open, which
+    /// workspace, which task. Selection, hover and row metrics are the
+    /// source list's.
+    private var navigationList: some View {
+        List(selection: sidebarSelection) {
             if let descriptor = appState.descriptor, descriptor.is4D {
                 Section {
                     datasetCard(descriptor)
                 }
                 Section("Workspace") {
                     ForEach(WorkspaceArea.allCases) { area in
-                        workspaceButton(area)
+                        workspaceRow(area).tag(SidebarSelection.workspace(area))
                     }
                     if let hint = ProductWorkflow.nextStepHint(
                         for: appState.navigation.workspaceArea,
@@ -211,7 +249,9 @@ struct ContentView: View {
                                         "task.group.\(group.family.accessibilitySuffix)"
                                     )
                             }
-                            ForEach(group.modes) { taskButton($0) }
+                            ForEach(group.modes) { mode in
+                                taskRow(mode).tag(SidebarSelection.task(mode))
+                            }
                         }
                     }
                 }
@@ -242,11 +282,59 @@ struct ContentView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        // A navigation column is a source list, not a settings pane. The
+        // grouped `Form` this replaces (UI rework step 2a) had no
+        // `selection:` parameter at all, so the selected workspace could
+        // only be drawn by tinting its text — no row capsule, no hover, no
+        // arrow-key row navigation, no `AXOutlineRow`, and no row recycling.
+        // `.listStyle(.sidebar)` is what Finder, Mail, Notes, Shortcuts and
+        // System Settings' own left column use.
+        .listStyle(.sidebar)
+        // One material per column, and it is AppKit's. The sidebar item
+        // already paints the system material behind the whole column,
+        // including the strip beside the traffic lights; a `.sidebar` List
+        // paints a second one inside the scroll view, which starts below the
+        // titlebar inset. Stacked, the two composite differently where only
+        // one of them shows, so the column changed colour at the top (owner,
+        // 2026-09-03) — and `ColumnMaterialTests` fails on the duplicate.
+        // Hiding the scroll background costs nothing visible: the row
+        // selection capsule is drawn by the table, not by this background.
         .scrollContentBackground(.hidden)
         // Backlog #16: bounce only when there is something to scroll, so
         // elastic overscroll can never park the clip origin above the top.
         .scrollBounceBehavior(.basedOnSize)
+    }
+
+    /// One selection for the whole source list. A workspace with tasks is
+    /// represented by its selected task (the way selecting a file, not its
+    /// folder, is what highlights in Xcode's navigator); a workspace without
+    /// tasks — Prepare, Results — is selected in its own right.
+    private enum SidebarSelection: Hashable {
+        case workspace(WorkspaceArea)
+        case task(AnalysisMode)
+    }
+
+    private var sidebarSelection: Binding<SidebarSelection?> {
+        Binding(
+            get: {
+                let area = appState.navigation.workspaceArea
+                return area.analysisModes.isEmpty
+                    ? .workspace(area)
+                    : .task(appState.navigation.analysisMode)
+            },
+            set: { selection in
+                switch selection {
+                case .workspace(let area):
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        appState.selectWorkspace(area)
+                    }
+                case .task(let mode):
+                    appState.changeMode(mode)
+                case nil:
+                    break
+                }
+            }
+        )
     }
 
     /// The workspace column: header, the panes or Results, the log strip.
@@ -275,9 +363,10 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Output strip: rolling log of operations below the panes.
+                // Output strip: rolling log of operations below the panes,
+                // its top edge a drag handle.
                 if appState.navigation.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
-                    Divider()
+                    logResizeHandle
                     logPane
                 }
             }
@@ -287,6 +376,14 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         }
+
+        // D2's content (status line, live progress with Cancel, the standing
+        // memory/cube facts) in Xcode's place for it: a bottom bar INSIDE
+        // this column. Under all three columns it stopped the sidebar and
+        // inspector reaching the window's bottom edge, which is the one
+        // thing every Mac three-column window does (owner, 2026-09-03 late).
+        Divider()
+        StatusFooterView()
         }
     }
 
@@ -313,7 +410,37 @@ struct ContentView: View {
         }
         // Presentation contract rule 3 (2026-09-03): no wash of its own; the
         // Divider above and the window's ground are the strip's whole look.
-        .frame(height: WindowPolicy.outputStripHeight)
+        //
+        // Resizable, as Xcode's debug area is (owner, 2026-09-03): the height
+        // is dragged on the divider above and remembered for the session.
+        // `WindowPolicy.outputStripHeight` is now only where it opens.
+        .frame(height: logHeight)
+    }
+
+    /// The output strip's dragged height. A `VSplitView` cannot divide the
+    /// panes from the log — both are greedy, so it splits them evenly and the
+    /// panes lose half the window — so the divider carries the drag itself.
+    @State private var logHeight: CGFloat = WindowPolicy.outputStripHeight
+
+    /// The log's top edge, draggable like a split divider.
+    private var logResizeHandle: some View {
+        Divider()
+            .background(Color.clear)
+            .contentShape(Rectangle().inset(by: -SplitViewPolicy.dividerGrabWidth / 2))
+            .onHover { inside in
+                // The cursor names the affordance; without it the divider
+                // reads as decoration.
+                if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        // Up is negative in SwiftUI's coordinate space, and
+                        // the strip grows upward.
+                        logHeight = min(max(60, logHeight - value.translation.height), 600)
+                    }
+            )
+            .accessibilityLabel("Resize the output log")
     }
 
     /// Arrow keys step the selected scan position (Shift = 10 px steps).
@@ -449,86 +576,52 @@ struct ContentView: View {
         )
     }
 
-    private func workspaceButton(_ area: WorkspaceArea) -> some View {
-        let selected = appState.navigation.workspaceArea == area
-        return Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                appState.selectWorkspace(area)
-            }
-        } label: {
-            LabeledContent {
-                // A count as macOS sidebars carry one: a plain number.
-                if area == .results && !appState.sessionInventory.results.isEmpty {
-                    Text("\(appState.sessionInventory.results.count)")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-            } label: {
-                Label(area.title, systemImage: area.systemImage)
-                    .fontWeight(selected ? .semibold : .regular)
-                // The subtitle names where you are; elsewhere it is on hover
-                // and in the accessibility hint (2026-08-06 density pass).
-                if selected {
-                    Text(area.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(selected ? Color.accentColor : Color.primary)
-        .help(area.subtitle)
-        .accessibilityLabel(area.title)
-        .accessibilityIdentifier("workspace.\(area.rawValue)")
-        .accessibilityHint(area.subtitle)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+    /// A source-list row: a `Label`, and a count as macOS carries one — a
+    /// `.badge`, which hides itself at zero. Selection, hover, the row
+    /// capsule and the `AXOutlineRow` role all come from the List; nothing
+    /// here draws them. The subtitle that used to appear under the selected
+    /// row is gone: `ProductWorkspaceHeader` prints the same sentence,
+    /// larger, a few points to its right.
+    private func workspaceRow(_ area: WorkspaceArea) -> some View {
+        Label(area.title, systemImage: area.systemImage)
+            .badge(area == .results ? appState.sessionInventory.results.count : 0)
+            .help(area.subtitle)
+            .accessibilityLabel(area.title)
+            .accessibilityIdentifier("workspace.\(area.rawValue)")
+            .accessibilityHint(area.subtitle)
     }
 
-    private func taskButton(_ mode: AnalysisMode) -> some View {
-        let selected = appState.navigation.analysisMode == mode
+    private func taskRow(_ mode: AnalysisMode) -> some View {
         // Backlog #33 + R15: three states, matching the inspector's
         // "Computed this session" glyphs — orange ! blocked, empty circle
-        // ready, green check produced this session.
+        // ready, green check produced this session. It is the row's trailing
+        // accessory, which in a source list is where a status glyph goes.
         let unmet = taskUnmetCount(mode)
         let produced = taskHasProduct(mode)
-        return Button {
-            appState.changeMode(mode)
+        return LabeledContent {
+            Image(systemName: produced
+                    ? "checkmark.circle.fill"
+                    : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
+                .foregroundStyle(produced
+                    ? Color.green
+                    : (unmet == 0 ? Color.secondary : Color.orange))
         } label: {
-            LabeledContent {
-                Image(systemName: produced
-                        ? "checkmark.circle.fill"
-                        : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
-                    .foregroundStyle(produced
-                        ? Color.green
-                        : (unmet == 0 ? Color.secondary : Color.orange))
-            } label: {
-                Label {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(mode.productTitle).fontWeight(selected ? .semibold : .regular)
-                        // S22c: only ptychography earns the advanced marker.
-                        if mode.isAdvanced {
-                            Text("Advanced").font(.caption).foregroundStyle(.secondary)
-                        }
+            Label {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(mode.productTitle)
+                    // S22c: only ptychography earns the advanced marker.
+                    if mode.isAdvanced {
+                        Text("Advanced").font(.caption).foregroundStyle(.secondary)
                     }
-                } icon: {
-                    Image(systemName: mode.systemImage)
                 }
-                if selected {
-                    Text(mode.productSubtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            } icon: {
+                Image(systemName: mode.systemImage)
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(selected ? Color.accentColor : Color.primary)
         .help(mode.productSubtitle)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func taskUnmetCount(_ mode: AnalysisMode) -> Int {

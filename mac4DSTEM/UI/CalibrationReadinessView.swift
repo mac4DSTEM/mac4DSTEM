@@ -26,6 +26,7 @@ struct CalibrationReadinessChecklist: View {
                 Label(verdict.summary,
                       systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
                     .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+                    .sidebarWrapped()
                     .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
         }
@@ -38,24 +39,35 @@ struct CalibrationReadinessChecklist: View {
     /// demoted) as the content — followed by its warning and its action.
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
-        LabeledContent {
-            Text(item.status.displayName)
-                .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
-        } label: {
-            Label {
-                Text(item.kind.rawValue)
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-                // The calibrated value and its units — the scientific
-                // content of the row, on screen unconditionally, wrapping
-                // never truncating (S22d: the tail is the caveat).
-                Text(item.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } icon: {
-                Image(systemName: item.status.isReady
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
+        // A source-list row, not a Form row: `LabeledContent` stacks a
+        // multi-element label vertically only inside a `Form`, and this view
+        // is hosted in the sidebar's List, where it laid the kind, the detail
+        // and the provenance all on one line and truncated each of them
+        // ("Origin & p… Origin: From fi… From file", measured on screen
+        // 2026-09-03). The stack is explicit so the row reads the same in
+        // either container.
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Label {
+                    Text(item.kind.rawValue)
+                        .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
+                } icon: {
+                    Image(systemName: item.status.isReady
+                            ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
+                }
+                Spacer(minLength: 8)
+                Text(item.status.displayName)
+                    .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
+                    .fixedSize()
             }
+            // The calibrated value and its units — the scientific
+            // content of the row, on screen unconditionally, wrapping
+            // never truncating (S22d: the tail is the caveat).
+            Text(item.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .sidebarWrapped()
         }
         // `unlockSummary` says what this calibration *enables*: on hover and
         // in the accessibility description, not permanently under six rows.

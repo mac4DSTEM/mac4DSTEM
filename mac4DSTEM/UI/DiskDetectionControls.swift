@@ -118,13 +118,9 @@ struct DiskDetectionControls: View {
             .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
         }
 
-        Button {
-            Task { await appState.runDiskDetection() }
-        } label: {
-            Label("Detect All Disks", systemImage: "rays")
-        }
-        .disabled(appState.isBusy || !appState.diskDetectionConfigurationIsValid)
-        .accessibilityIdentifier("disk.detectAll")
+        Text("Use the workspace action to run full-scan detection.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
         if appState.diskDetectionSettingsAreStale {
             Label("Full-scan peaks use earlier settings", systemImage: "exclamationmark.triangle.fill")

@@ -143,7 +143,7 @@ struct ACOMControlsView: View {
                 unit: "Å"
             )
         }
-        Text("Custom models are single-element cubic cells. Compound or other point-group models require a complete validated phase definition.")
+        Text("Custom models are single-element cubic cells; other phases need a validated model.")
             .font(.caption)
             .foregroundStyle(.secondary)
     }

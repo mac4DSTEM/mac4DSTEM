@@ -60,6 +60,25 @@ struct StatusFooterView: View {
                     .fixedSize()
                     .accessibilityIdentifier("status.footer.facts")
             }
+
+            // The log's control lives on the bar the log opens above, the
+            // way Xcode's debug area is toggled from its own bar (owner,
+            // 2026-09-03). The toolbar button stays as the second door and
+            // the keyboard route; both drive the same flag.
+            if appState.hasDataset && !appState.isLoadingDataset {
+                Button {
+                    appState.navigation.showLogPane.toggle()
+                } label: {
+                    Image(systemName: "rectangle.bottomthird.inset.filled")
+                        .foregroundStyle(appState.navigation.showLogPane
+                                         ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help(appState.navigation.showLogPane
+                      ? "Hide the output log" : "Show the output log")
+                .accessibilityLabel("Toggle output log")
+                .accessibilityIdentifier("status.footer.toggleLog")
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)

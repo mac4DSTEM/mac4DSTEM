@@ -23,11 +23,17 @@ private struct DatasetWindow: View {
     @State private var loadedLaunchFixture = false
 
     var body: some View {
-        ContentView()
-            .environment(appState)
-            .focusedSceneValue(\.appState, appState)
-            .frame(minWidth: 1080, minHeight: 640)
-            .task {
+        Group {
+            if ProcessInfo.processInfo.arguments.contains("--ui2") {
+                UI2ContentView()
+            } else {
+                ContentView()
+            }
+        }
+        .environment(appState)
+        .focusedSceneValue(\.appState, appState)
+        .frame(minWidth: 1080, minHeight: 640)
+        .task {
                 guard !loadedLaunchFixture,
                       ProcessInfo.processInfo.arguments.contains("--demo-fixture") else {
                     return
@@ -96,7 +102,8 @@ private struct DatasetCommands: Commands {
             Button(appState?.navigation.showLogPane == true ? "Hide Output" : "Show Output") {
                 appState?.navigation.showLogPane.toggle()
             }
-                .keyboardShortcut("l", modifiers: [.command, .control])
+            .keyboardShortcut("l", modifiers: [.command, .control])
+            .disabled(appState?.hasDataset != true || appState?.navigation.workspaceArea == .results)
         }
         CommandMenu("Analysis") {
             Button("Run Current Task") {

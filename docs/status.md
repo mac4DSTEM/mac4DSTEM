@@ -39,17 +39,33 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 2e Results (`ResultsSidebar`); `SidebarTextWidth.swift` deleted | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | Remove is its own row: beside A/B it truncated at 250 pt |
 | 3 Both inspectors as grouped Forms, one section per block, thumbnails through `thumbnailCapped()` | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | `testEveryInspectorSurvivesItsWholeColumnRange` (260/320/600 pt, both inspectors) in `ColumnMaterialTests`; the sidecar's Ignore/Change buttons are two rows |
 | 4 The rest of the window: pane badges are words in their colour (the owner's wrapped "Relative" capsule), the welcome workspace on `GroupBox`es with no gradient or wash, the configurator's choices and the export sheet as grouped Forms with sheet bands, the colorbar chip popover as a Form; `WindowPolicy` holds the window's numbers; the rule-4 grep joins `inventory` | done 2026-09-03, unverified on screen (the welcome and the loaded window reviewed from captures of the real app) | alerts were already system alerts; `TaskPrerequisiteChecklist` untouched (its line limits are the #16 fix) |
+| UI2 side branch | scaffolded 2026-09-03, unverified on screen | `UI2ContentView` is a SwiftUI-only shell selected by `--ui2`; it reuses `AppState`, current workflow sidebars, panes, inspectors, importer/configurator/export sheets, and keeps the current `ContentView` as the default. Intended to replace `UI/` surface by surface, not in one cut |
+| 4b Hardening on the running app (the assistant built, launched and captured each change) | done 2026-09-03, **seen on screen by the assistant, not by the owner** | Five defects the gates could not see, below; captions shortened across the configurator, export sheet and ACOM; the duplicate "Detect All Disks" sidebar button deleted (the workspace action already owns it) |
 | 5 The owner's full drive | owner | — |
+
+### What 4b changed, and why the gates were green through all of it
+
+| Defect (measured on screen) | Cause | Fix |
+|---|---|---|
+| Inspector column invisible; its values clipped away | the split view was a passenger in a SwiftUI `VStack` beside the footer and laid out **1730 pt wide in a 1470 pt window** — the inspector's own 260 pt hung off the right edge | the split view is the window's whole content; the status bar moved INSIDE the workspace column (supersedes D2's "stacked under every column") |
+| No selection in the tools column | contract rule 2 made it a grouped `Form`, and `Form` has no `selection:` parameter at all | `List(selection:)` + `.listStyle(.sidebar)`, one `SidebarSelection` tag per row; `workspaceButton`/`taskButton` deleted |
+| Calibration rows crushed onto one line | `LabeledContent` stacks a multi-element label vertically **only inside a Form**; in a List row it lays out horizontally | `readinessRow` stacks explicitly; `SidebarTextWidth.swift` restored (2e deleted it — the `.sidebar` List still gives rows no width) |
+| The column changed colour at the top | two materials: AppKit's `NSGlassEffectView` (full height, behind the titlebar strip) plus the List's own inside the scroll view | `.scrollContentBackground(.hidden)` on the List; `ColumnMaterialTests` now excludes the row-scoped `.selection` capsule and was mutation-tested both ways |
+| Previews frozen at 160 pt; "Voltage 200 k" | `thumbnailCapped()`'s height cap won over the column width for square images; `numericFieldWidth` 90 + a unit overran a 250 pt row | cap 160 → 320 (a ceiling, not a size); field 90 → 72, unit `.fixedSize()` |
+
+Also 4b: the output log is toggled from the status bar and its top edge
+drags (Xcode's debug-area model), and the Imaging presets are three buttons
+drawing the geometry they apply, from `DetectorPreset.radii` itself.
 
 ## Last gates (retained logs)
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 476 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03 06:44, UI rework steps 2c–4 tree; skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent |
+| `run-tests.sh unit` | 476 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03, step 4b tree (log retained); skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent. `ColumnMaterialTests.testTheSideColumnsLeaveTheirMaterialVisible` went red on the source list and is the one gate 4b amended. Two runs before it exited 69 on the 8 GB floor with `free-space.sh` reporting nothing to clear — the debris was this session's own `Logs/Test` and `ModuleCache.noindex`, both outside the script's roots (`open-items.md`) |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | exit 0 — 2026-09-03, steps 2c–4 tree (live markdown 3 510, cold-start set 715; both up on the 2a closeout by the rework's own rows, still below the step 1 closeout); now also holds rule 4 as a grep |
-| Xcode scratch build | 0 Swift warnings — every rework step, 2026-09-03 |
+| `run-tests.sh inventory` | exit 0 — 2026-09-03, UI2 scaffold tree (live markdown 3 511, cold-start set 716; `UI2ContentView.swift` compiled beside current UI) |
+| Xcode scratch build | 0 Swift warnings — UI2 scaffold tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
 ## Handoff (rewritten 2026-09-03, unattended session)
@@ -61,15 +77,19 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
   the app should look and behave as if it shipped with macOS — and nothing
   about releases or tags is considered until it is right. Contract in
   `architecture.md` "Presentation contract"; findings in `open-items.md`
-  "The UI rework". The pattern every surface now follows: rows of a grouped Form,
-  `LabeledContent`, `NumericField`, labelled `Slider` rows (a slider as a
-  row's trailing value collapses to its knob), no hand-built rows, no
-  frames outside `FormPolicy`/`WindowPolicy`; the gates are the two
-  width-range tests plus the hosted tests, and the review images are
-  their PNG attachments (`xcrun xcresulttool export attachments`). A shell with a Screen Recording grant can capture the real app
-  (`open -n <Debug app> --args --demo-fixture`, `screencapture -l <id>`)
-  and the hosted window (`MAC4DSTEM_HOLD_SECONDS`), which is how this
-  session reviewed its own work.
+  "The UI rework". The pattern: **navigation is a `List(selection:)` with
+  `.listStyle(.sidebar)`; a grouped `Form` is for controls only** (4b —
+  rule 2 as written produced zero `List`s in the whole app and no way to
+  draw a selection), `LabeledContent`, `NumericField`, labelled `Slider`
+  rows, no frames outside `FormPolicy`/`WindowPolicy`.
+- **Build, launch, capture, look** — the loop 4b used and the one the
+  earlier steps lacked: `open -n <Debug app> --args --demo-fixture`,
+  `screencapture -x -o -l <window id>` (per-window needs no consent;
+  full-screen raises the picker), `tools/ui-drive/` for synthetic clicks
+  and drags. Every 4b defect was found this way with the suite green, and
+  none of them was visible to a hosted-layout test: those walk `NSControl`
+  subviews, and SwiftUI `Text`, images and custom views are not controls.
+  A gate that cannot see text cannot hold a rule about truncation.
 - **After the rework.** Four lanes (`open-items.md` header): patches for
   bugs the owner reports (through `/diagnose`) and the known, scoped items;
   the science lane one item at a time — **the origin-fit guard leads**
@@ -81,9 +101,11 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Owed to the owner
 
-
 - Drive the UI rework when it is complete (step 5). Release and tag are
-  parked until then. Answer the macOS consent dialog this session raised
-  for the Claude app (a full-screen `screencapture` asked to bypass the
-  window picker; per-window captures needed no consent) — decline is fine.
+  parked until then.
+- Amend `architecture.md`'s presentation contract: rules 2 and 5 are wrong
+  as written (`open-items.md`). No further pass should run against them.
+- Decide where the workspace's controls live. 4b left navigation and
+  controls sharing the left column, which is the source of both the 250 pt
+  wall and the 600 pt sprawl; Xcode, Pages and Keynote put controls right.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.
