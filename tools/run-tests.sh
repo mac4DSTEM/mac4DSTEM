@@ -103,7 +103,7 @@ diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   training-dataset-campaign review-record-check)
 owner_only=(stage-tb1-ws2-fixture ui-smoke-test)
 retired=()
-support=(lib release)
+support=(lib release ui-drive)
 
 inventory() {
   local rc=0 name f
