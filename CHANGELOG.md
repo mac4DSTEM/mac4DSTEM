@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.5.0 — 2026-09-03
+## v2.5.0 — unreleased (after the presentation pass)
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
 full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was tagged

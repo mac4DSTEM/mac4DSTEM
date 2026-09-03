@@ -140,6 +140,39 @@ Rules while migrating: no new stored state in `AppState`; a feature names its
 owner first; adapters carry an expiry condition; numerical code is split only
 at scientifically meaningful boundaries.
 
+## Presentation contract (owner decision 2026-09-03)
+
+The app should feel and behave like it shipped with macOS. That is a
+contract, not taste, and it is checkable:
+
+1. **Structure is fixed, content is fluid.** The window is a toolbar over
+   three AppKit columns (`ColumnSplitController`): tools on the left,
+   the workspace, the inspector on the right with information — dataset,
+   product, preview, sidecar, diagnostics. Columns have bounds; nothing
+   inside a column sizes itself. A control is as wide as its content, text
+   wraps, images are capped, spare width is margin.
+2. **Settings are forms.** Every group of controls in a sidebar or inspector
+   is a `Form` (grouped style) with `LabeledContent`, `Picker`, `Toggle`,
+   `TextField`, `Slider`, `Button` as system controls. No hand-built rows
+   with a `Spacer` between a label and its value; no `HStack` forms.
+3. **System materials only.** No `.background(...)` colours or tints, no
+   custom bars, no opacity washes, no drawn separators: the toolbar, the
+   sidebar, the inspector, the footer and the log strip take the system's
+   appearance (Liquid Glass on macOS 26) from their containers. The only
+   custom drawing is scientific: the Metal image panes, overlays, scale
+   bars, histograms, and the small task and workspace glyphs, which are
+   SF Symbols or symbol images so they render in the system's styles.
+4. **No fixed frames except the science.** `.frame(width:)`/`minWidth:`
+   are allowed only on image panes and their floors. Thumbnails cap their
+   height by rule, not by a number per site.
+5. **Every column survives its whole range.** Each sidebar and inspector
+   is measured in the hosted layout tests at the column's minimum, ideal
+   and maximum width; wrapped text is fine, truncation and overflow are
+   findings.
+
+Deviations are recorded in `open-items.md` with the reason. The pass that
+adopts this contract is the next UI target (`status.md`).
+
 ## Requirements, build, test
 
 - macOS 14+; Xcode 16 / Xcode 26 (synchronized folders, Metal toolchain).

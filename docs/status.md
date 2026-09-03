@@ -11,7 +11,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
-| v2.5.0 | **built 2026-09-03 from `df80e8e`** with the AppKit columns (two earlier builds superseded before release); notarized and stapled `build/release/mac4DSTEM-2.5.dmg`, SHA-256 `892974e9…13dd8`, notary ids in `CHANGELOG.md`; the owner drives it, then tags `df80e8e` and publishes | `CHANGELOG.md`, retained pipeline log |
+| v2.5.0 | not before the presentation pass (owner, 2026-09-03). The `df80e8e` build (notarized, `build/release/mac4DSTEM-2.5.dmg`) has the crash fix but not the presentation contract; it is superseded, not released | `CHANGELOG.md` |
 
 ## v2.5 consolidation train (`docs/archive/v2/v2.5-plan.md` §5) — done
 
@@ -40,12 +40,15 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **AppKit columns landed 2026-09-03 and the owner drove them:** collapse,
-  reopen and wide drags behave; the drag crash is gone. What the drive
-  found is the next target — `open-items.md` "Wide columns expose row
-  layouts designed for one width": a UI design session across the five
-  sidebars and both inspectors, from the owner's screenshots, not a chain
-  of one-row fixes.
+- **Next: the presentation pass (before any release).** Contract in
+  `architecture.md` "Presentation contract"; findings in `open-items.md`
+  "Wide columns expose row layouts designed for one width". Order: the
+  chrome first (header, footer, log strip, inspector divider: system
+  materials, no custom backgrounds), then one workspace sidebar per commit
+  converted to `Form` (Prepare, Imaging, Strain & ACOM, Phase, Results),
+  then the two inspectors with capped previews. Each step: hosted layout
+  tests at 250 / 292 / 600 pt, the owner drives. `/pickup the presentation
+  pass` from a fresh session.
 - **Start here.** Four lanes (`open-items.md` header): patches v2.5.x for
   bugs the owner reports (through `/diagnose`) and the known, scoped items;
   the science lane one item at a time — **the origin-fit guard leads**
@@ -60,7 +63,6 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 ## Owed to the owner
 
 
-- Drive `build/release/mac4DSTEM-2.5.dmg` (Results, the inspector, both
-  columns' drag and collapse), then tag `df80e8e` as `v2.5.0` in GitHub
-  Desktop and publish; test on a clean macOS 26 account before publishing.
+- Drive each presentation-pass step as it lands; the v2.5.0 build and tag
+  come after the pass, from its last commit.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.

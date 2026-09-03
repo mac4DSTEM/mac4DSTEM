@@ -91,6 +91,15 @@ slice: sidebars first so views stop reading `AppState`, then the family's
 run functions move with the state they need and its forwarder block is
 deleted in the same commit.
 
+**2026-09-03 — A system-only presentation (owner).** Tools stay on the
+left, information (dataset, product, preview, sidecar, diagnostics) on the
+right; every settings group is a system `Form`; no custom backgrounds,
+tints, bars or fixed frames outside the scientific panes; the app takes the
+system's appearance (Liquid Glass on macOS 26) from its containers. The
+contract is `architecture.md` "Presentation contract"; the adopting pass is
+one session with the owner's screenshots as input, one workspace per commit,
+driven by the owner before anything is released.
+
 **2026-09-03 — The columns are AppKit's (owner).** After the drag crash's
 mechanism was measured (below, and `open-items.md`), the owner chose to own
 the columns with `NSSplitViewController` — sidebar, workspace, inspector
