@@ -1,12 +1,5 @@
 # Changelog
 
-## v2.5.1 — unreleased
-
-- **Split view.** One contract for both side columns (drag far, collapse
-  past the minimum, reopen at the last width), the data pane's floor as a
-  split item, the inspector giving way first in a narrow window; the
-  sidebar may now be up to 600 pt wide. No scientific output changed.
-
 ## v2.5.0 — 2026-09-03
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
@@ -46,6 +39,10 @@ stays as the pre-consolidation anchor.)
   workspace has its own sidebar, Results its own inspector, and the inspector
   follows the pane with the focus ring; the IPF map is confidence-gated with a
   slider on the colorbar chip. No scientific number changed.
+- **Split view.** One contract for both side columns (drag far, collapse
+  past the minimum, reopen at the last width), the data pane's floor as a
+  split item, the inspector giving way first in a narrow window; the
+  sidebar may now be up to 600 pt wide.
 
 ### Verified by
 
@@ -53,10 +50,11 @@ stays as the pre-consolidation anchor.)
   passed / 0 failed / 3 skipped, 43 harnesses green including the real-data
   acceptance; the package audit passed after its literal version assertion
   was made to read the project (`b026cd7`, docs and tooling only).
-- Built from `b026cd7`: Developer ID archive, app notarization
-  `5ce6829c-c270-44a2-b746-bfec27028ba6`, `mac4DSTEM-2.5.dmg` notarization
-  `70020137-4b1e-495e-9b5f-bf35f093ae73`, stapled, Gatekeeper-accepted;
-  DMG SHA-256 `a2db81452a960fb75d50265a7ee82d4f1bc929df2f2a8bac301834baec3a2dd7`.
+- Built from BUILDCOMMIT (the earlier b026cd7 build was superseded before
+  release to include the split-view contract): Developer ID archive, app
+  notarization APPNOTARY, `mac4DSTEM-2.5.dmg` notarization DMGNOTARY, stapled,
+  Gatekeeper-accepted; DMG SHA-256 `DMGSHA`. Unit gate on the build tree:
+  471 passed / 0 failed / 3 skipped (2026-09-03).
 - On screen: the owner's own driving pass before the tag (the human
   checklist was retired 2026-09-03; its record is in `docs/archive/v2/`).
   Known issues ship listed in `docs/open-items.md`.
