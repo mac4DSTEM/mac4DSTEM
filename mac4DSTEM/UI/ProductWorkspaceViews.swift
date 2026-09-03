@@ -296,18 +296,17 @@ struct ProductWorkspaceHeader: View {
                 Divider()
                 TaskPrerequisiteChecklist()
             }
+            // Presentation contract rule 3 (2026-09-03): the header is a
+            // stacked strip on the window's own ground, not a bar of its own.
+            Divider()
         }
-        .background(.bar)
-        .overlay(alignment: .bottom) { Divider() }
     }
 
     private var headerRow: some View {
         HStack(spacing: 12) {
             Image(systemName: headerIcon)
-                .font(.system(size: 22, weight: .medium))
+                .font(.title2)
                 .foregroundStyle(Color.accentColor)
-                .frame(width: 42, height: 42)
-                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -327,7 +326,7 @@ struct ProductWorkspaceHeader: View {
                 Text(headerSubtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 // Prerequisites and guidance both render as the checklist below
                 // the header row (TaskPrerequisiteChecklist), never as a
                 // one-line summary here — one owner, one place.
@@ -505,8 +504,9 @@ struct ResultsWorkspace: View {
                     .frame(minHeight: 230, idealHeight: 300)
             }
         }
-        .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        // The column's floor is the split item's (`SplitViewPolicy.detailMinimum`),
+        // and the ground is the window's own (presentation contract rules 3–4).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var currentResultSummary: some View {
@@ -554,7 +554,7 @@ struct ResultsWorkspace: View {
             .accessibilityIdentifier("result.saveSession")
         }
         .padding(14)
-        .background(.bar)
+        // No bar of its own (presentation contract rule 3, 2026-09-03).
     }
 }
 

@@ -9,7 +9,7 @@ import DSTEMSession
 /// should be something static as well, info that is currently in the
 /// performance status under diagnostics … shown all the time".
 ///
-/// Left: the status line (the former bare inset Text, now on an opaque bar
+/// Left: the status line (the former bare inset Text, now a stacked strip
 /// so it can never overprint the log — R5). Middle: a slim live progress bar
 /// with Cancel whenever a cancellable operation runs, so long computes stay
 /// visible and killable from every workspace (the header's busy-swap remains
@@ -64,9 +64,9 @@ struct StatusFooterView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Opaque (R5): the transparent inset drew the status string straight
-        // over the log strip's last line.
-        .background(.bar)
+        // No bar of its own (presentation contract rule 3, 2026-09-03). R5's
+        // overprint cannot recur: the footer has been a stacked element under
+        // a Divider since D2, never an inset over the log.
     }
 
     private func footerFacts(_ descriptor: DatasetDescriptor) -> String {

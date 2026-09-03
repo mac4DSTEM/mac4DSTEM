@@ -146,6 +146,14 @@ inventory() {
     done
     (( hit )) || echo "  ${f#$ROOT/}  (${(j:, :)types})"
   done
+  # Presentation contract rule 3 (architecture.md, 2026-09-03): the chrome
+  # and the columns draw no bar or wash of their own. Not measurable in the
+  # NSView tree (SwiftUI's `.bar` hosts no NSVisualEffectView; measured
+  # 2026-09-03), so the rule is held here. The scientific panes are exempt.
+  if grep -nE '\.background\((\.bar\)|Color\.[a-zA-Z]+\.opacity)' "$ROOT"/mac4DSTEM/UI/*.swift \
+       | grep -vE 'StemImageView|DiffractionView|LoadConfiguratorView|MetalImageView|ScaleBarView|FitOverlayViews'; then
+    echo "  ^ custom bar or opacity wash in the chrome (presentation contract rule 3)"; rc=1
+  fi
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the
     # word in general — the process doc uses it generically.

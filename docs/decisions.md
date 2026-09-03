@@ -130,6 +130,14 @@ touches the file. A patch changes no scientific output; a landed change to
 one cuts v2.6.0 and the changelog names the number. Releases are cut when
 what has landed is worth a build, never scheduled against a number.
 
+**2026-09-03 — Presentation contract rule 3 is held by a grep, not a
+hosted test.** A test counting `NSVisualEffectView`s outside the AppKit
+columns was written and broken first: it counted 2 with the header's and
+footer's `.background(.bar)` in place and 2 without — zero-sized AppKit
+scroll-view backgrounds; SwiftUI's bar material never reaches the NSView
+tree. A gate that cannot see its subject was deleted; `run-tests.sh
+inventory` greps the UI files (scientific panes exempt) instead.
+
 **2026-09-03 — v2.5.0 is the next release; Track B is retired.** v2.0.0
 was tagged and never built; the consolidation supersedes it, so the next
 release is v2.5.0 from `main` after the owner's own driving pass. The tag

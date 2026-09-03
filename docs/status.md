@@ -31,24 +31,25 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 471 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03, AppKit-columns tree (skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent) |
+| `run-tests.sh unit` | 472 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03 03:29, presentation-pass step 1 tree, second run (the first run's one failure was `testEveryNonQuarantinedWorkspaceSidebarFitsItsColumn`, green alone and on the rerun, with a live Debug instance open: the recorded burst); skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | exit 0 — 2026-09-03, 7c 4b tree (live markdown 3 970, cold-start set 932; both below the previous closeout) |
+| `run-tests.sh inventory` | exit 0 — 2026-09-03, presentation-pass step 1 tree (live markdown 3 446, cold-start set 687; both below the previous closeout); now also holds presentation contract rule 3 as a grep |
 | Xcode scratch build | 0 Swift warnings — every 7c slice, 2026-09-02/03 |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
 ## Handoff (rewritten at the 2026-09-03 closeout)
 
-- **Next: the presentation pass (before any release).** Contract in
+- **Next: the presentation pass, step 2 — the Prepare sidebar to `Form`**
+  (before any release). Step 1, the chrome, landed 2026-09-03: header,
+  footer and log strip draw no material of their own; each column divider
+  grabs over `SplitViewPolicy.dividerGrabWidth` (9 pt); unverified on
+  screen. Rule 3 (no bar or wash) is held by the inventory grep, not a
+  hosted test: SwiftUI's `.bar` leaves no view to count. Then Imaging, Strain & ACOM, Phase, Results, one sidebar per
+  commit, then the two inspectors with capped previews. Contract in
   `architecture.md` "Presentation contract"; findings in `open-items.md`
-  "Wide columns expose row layouts designed for one width". Order: the
-  chrome first (header, footer, log strip, inspector divider: system
-  materials, no custom backgrounds), then one workspace sidebar per commit
-  converted to `Form` (Prepare, Imaging, Strain & ACOM, Phase, Results),
-  then the two inspectors with capped previews. Each step: hosted layout
-  tests at 250 / 292 / 600 pt, the owner drives. `/pickup the presentation
-  pass` from a fresh session.
+  "Wide columns…". Each step: hosted layout tests at 250 / 292 / 600 pt,
+  the owner drives. `/pickup the presentation pass` from a fresh session.
 - **Start here.** Four lanes (`open-items.md` header): patches v2.5.x for
   bugs the owner reports (through `/diagnose`) and the known, scoped items;
   the science lane one item at a time — **the origin-fit guard leads**
@@ -63,6 +64,8 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 ## Owed to the owner
 
 
-- Drive each presentation-pass step as it lands; the v2.5.0 build and tag
-  come after the pass, from its last commit.
+- Drive step 1 of the presentation pass (the chrome): header, footer and
+  log strip on the window's own ground, the divider's grab zone; whether
+  the inspector's line is now visible is the open half of finding (c).
+  The v2.5.0 build and tag come after the pass, from its last commit.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.

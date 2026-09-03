@@ -514,4 +514,41 @@ final class SidebarLayoutTests: XCTestCase {
                 + "— it overflowed by 169pt before the duplicate readiness block was removed"
         )
     }
+
+    // MARK: - Presentation contract (architecture.md, owner decision 2026-09-03)
+
+    // Contract rule 3 (no material of its own) has NO hosted gate, on purpose.
+    // A test counting `NSVisualEffectView`s outside the AppKit columns was
+    // written 2026-09-03 and broken first: it counted 2 with the header's and
+    // footer's `.background(.bar)` in place and 2 without them — both were
+    // zero-sized `_NSScrollViewContentBackgroundView` children AppKit owns,
+    // and SwiftUI's bar material never appears in the NSView tree. The rule
+    // is held by the inventory gate's grep over the UI files instead.
+
+    /// Owner finding (c), 2026-09-03: the inspector divider had no obvious
+    /// grab zone — the drag landed on the pane's focus ring. The split view's
+    /// delegate decides the effective (grabbable) rect of a thin divider;
+    /// both column dividers must offer `SplitViewPolicy.dividerGrabWidth`
+    /// centred on the drawn line.
+    func testColumnDividersHaveAGrabZone() async throws {
+        let appState = AppState()
+        await appState.openDemoFixture()
+        appState.navigation.showInspectorPane = true
+        let window = makeWindow(appState)
+        defer { window.orderOut(nil) }
+        pump(0.4)
+        let controller = try XCTUnwrap(SplitViewPolicy.controller(in: window))
+        let split = controller.splitView
+        for index in 0..<2 {
+            let drawn = split.arrangedSubviews[index].frame.maxX
+            let drawnRect = NSRect(x: drawn, y: 0, width: split.dividerThickness, height: split.bounds.height)
+            let effective = controller.splitView(split, effectiveRect: drawnRect, forDrawnRect: drawnRect, ofDividerAt: index)
+            XCTAssertGreaterThanOrEqual(
+                effective.width, SplitViewPolicy.dividerGrabWidth - 0.5,
+                "divider \(index) is grabbable over \(effective.width)pt; the contract asks for "
+                    + "\(SplitViewPolicy.dividerGrabWidth)pt so a drag never lands on the pane's focus ring"
+            )
+            XCTAssertEqual(effective.midX, drawnRect.midX, accuracy: 0.5, "divider \(index)'s grab zone is off-centre")
+        }
+    }
 }

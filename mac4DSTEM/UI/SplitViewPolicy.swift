@@ -34,6 +34,9 @@ enum SplitViewPolicy {
     static let sidebarHolding = NSLayoutConstraint.Priority(261)
     static let detailHolding = NSLayoutConstraint.Priority(262)
     static let autosaveName = "mac4DSTEM.columns"
+    /// The grabbable width of each thin divider, centred on the drawn line
+    /// (owner finding (c), 2026-09-03: a 1pt zone put the drag on the focus ring).
+    static let dividerGrabWidth: CGFloat = 9
     /// Tests turn this off before they make a window, so no position or
     /// collapse state from an earlier run or test can reach them.
     nonisolated(unsafe) static var autosaveEnabled = true
@@ -150,6 +153,17 @@ final class ColumnSplitController: NSSplitViewController {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Owner finding (c), 2026-09-03: a thin divider's grab zone is its 1pt
+    /// drawn line by default, so the drag landed on the pane's focus ring.
+    /// The delegate decides the effective rect; widen it around the line.
+    override func splitView(
+        _ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect,
+        forDrawnRect drawnRect: NSRect, ofDividerAt dividerIndex: Int
+    ) -> NSRect {
+        let slop = (SplitViewPolicy.dividerGrabWidth - drawnRect.width) / 2
+        return drawnRect.insetBy(dx: -slop, dy: 0)
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()

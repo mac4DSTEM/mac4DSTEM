@@ -329,8 +329,9 @@ struct ContentView: View {
                 proxy.scrollTo(appState.logMessages.count - 1, anchor: .bottom)
             }
         }
+        // Presentation contract rule 3 (2026-09-03): no wash of its own; the
+        // Divider above and the window's ground are the strip's whole look.
         .frame(height: 100)
-        .background(Color.black.opacity(0.15))
     }
 
     /// Arrow keys step the selected scan position (Shift = 10 px steps).
