@@ -20,16 +20,19 @@ final class ActivityLogTests: XCTestCase {
     @MainActor
     func testWritingStatusTextNotifiesAnObserverOfTheLog() {
         let state = AppState()
-        var fired = false
+        // A nonisolated reference box, not a captured `var`: `onChange` runs
+        // outside this actor, and mutating main-actor state there is an error
+        // under the Swift 6 language mode.
+        let flag = ObservationFlag()
         withObservationTracking {
             _ = state.activityLog.messages
         } onChange: {
-            fired = true
+            flag.fired = true
         }
 
         state.statusText = "a message the log must carry"
 
-        XCTAssertTrue(fired, "the output strip stops updating if this seam is not observed")
+        XCTAssertTrue(flag.fired, "the output strip stops updating if this seam is not observed")
     }
 
     /// The seam is held, not shadowed — the same contract `NavigationSeamTests`
@@ -97,5 +100,16 @@ final class ActivityLogTests: XCTestCase {
         XCTAssertTrue(log.messages[0].hasPrefix(stamp(Date(timeIntervalSinceReferenceDate: 0))))
         XCTAssertTrue(log.messages[1].hasPrefix(stamp(now)))
         XCTAssertNotEqual(String(log.messages[0].prefix(8)), String(log.messages[1].prefix(8)))
+    }
+}
+
+/// Set from `withObservationTracking`'s `onChange`, which runs off the main
+/// actor. Nonisolated on purpose; see its one use above.
+nonisolated final class ObservationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var fired: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return value }
+        set { lock.lock(); defer { lock.unlock() }; value = newValue }
     }
 }

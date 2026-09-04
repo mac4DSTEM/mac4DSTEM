@@ -183,6 +183,28 @@ drag past the minimum collapses, Show Tools reopens at the old width, a
 560pt sidebar squeezes the inspector first, no exception. Owner's drive
 still owed before the entry moves to the archive.
 
+### A unit-level column-width gate is not possible — falsified 2026-09-04
+`d5786e2` deleted the two width-range gates with the AppKit shell, so nothing
+gates a column's width today and this repo has repeatedly found truncation
+defects there. **Tried, and refuted before it was built.** A scratch probe
+hosted `PrepareSettings` (250 pt), `WorkspaceSidebar` (190 pt) and
+`WorkspaceInspector` (280 pt) in an `NSHostingView` and measured two things:
+`fittingSize.width`, and the worst overflow of any descendant `NSView` past
+the host's bounds. Then a **150-character section label was injected into
+`PrepareSettings`** — a row that cannot possibly fit 250 pt — and the probe
+re-run. **Both runs are byte-identical**: `fittingWidth=1103.0
+worstOverflow=0.0` before and after. The measurement cannot see the defect,
+because SwiftUI draws `Text` into layers and creates no `NSView` per label;
+only real controls (`NSTabView`, `NSTextField`) appear in the hierarchy. The
+deleted gate had the same hole — its `controls(_:)` collected `NSControl`s,
+and no SwiftUI `Text` is one — so it was partly vacuous too.
+`fittingSize.width` is not a substitute: it reported 1103 pt for a form that
+fits and 0 pt for the sidebar `List`.
+**Do not rebuild this as an `NSView`-measuring test.** Anything that would
+detect a too-long label has to rasterise (compare rendered text extent) or
+drive the app. The honest gate here is the owner's drive. Owner: unclaimed;
+re-open only with a measurement that survives the injected-label mutation.
+
 ### No automated visual baseline
 Every acceptance run is numeric-only (`--no-screenshots`); the owner
 driving the app is the only evidence anything "looks right" — say who
@@ -512,16 +534,23 @@ report how many are actually red — whether to continue-and-summarise
 instead is open.
 
 ### `.fixedSize()` in `UI/`, audited 2026-09-04 — one armed site, contained
-Against the constraint-loop rule above. **12 bare `.fixedSize()` sites; one
-is armed.** `ImagePanes.swift:452`, the real-space pane's zoom badge
+Against the constraint-loop rule above. **12 bare `.fixedSize()` call sites;
+one is armed.** (A grep that is not anchored to the start of the line reports 16 — the
+extra four are comments *about* `.fixedSize()`, two of them written the same
+day. Anchor it: `grep -rn '^\s*\.fixedSize()'`.) `ImagePanes.swift:452`, the real-space pane's zoom badge
 `Text("Pan ×\(zp.effectiveZoom …)")`: `liveZoom` is written on every
 magnify event, the digit count moves (×9.9 → ×10.0 → ×100.0), the live value
 is unclamped mid-pinch (`ZoomPan.swift:72` clamps only `.onEnded`), and the
 badge itself appears and disappears across ×1.0
 (`RealSpacePointerPolicy.swift:42`) — a `.fixedSize()` child inserted and
-removed repeatedly during one gesture. The other 11 are static: `NumericField`'s
-unit is a string literal at all 13 call sites, and `ExportSheet`'s is in a
-sheet, which is not split content.
+removed repeatedly during one gesture.
+Of the other 11, **eight are literals** (`NumericField`'s unit at all 13 call
+sites; `ExportSheet`'s, which is in a sheet and not split content) and
+**three change discretely**: `ImagePanes.swift:478`'s `badge(text:)` helper is
+passed `quality · …`, `status.rawValue.capitalized` and `Earlier settings`
+(`:413`, `:418`, `:437`). Those strings do move, but once per published
+product, not repeatedly — so they are not armed under the rule as written.
+They are the ones to re-check if a product ever starts republishing on a tick.
 **Why it has not been fixed.** The obvious remedy — a reserved slot, as the
 status bar got — closes the string-width channel and NOT the
 appears/disappears one, so it would ship a green test claiming a mechanism

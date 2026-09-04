@@ -16,7 +16,7 @@ import Foundation
 /// user's home directory, their volume names and their folder structure —
 /// none of which helps them fix a file that will not open. The message names
 /// the file; the log and the recents list still hold the whole path.
-package func displayFileName(_ path: String) -> String {
+package nonisolated func displayFileName(_ path: String) -> String {
     let name = (path as NSString).lastPathComponent
     return name.isEmpty ? path : name
 }
