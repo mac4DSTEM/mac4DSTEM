@@ -16,7 +16,7 @@ type: software
 authors:
   - family-names: Lobpreis
     given-names: Paul
-version: 2.5.0
+version: 2.5.1
 date-released: "2026-09-04"
 license: GPL-3.0-or-later
 repository-code: https://github.com/mac4DSTEM/mac4DSTEM

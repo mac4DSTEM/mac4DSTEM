@@ -88,8 +88,13 @@ Merlin MIB and EMPAD RAW readers are preview-grade. Current limitations:
 
 ## Requirements
 
-macOS 26 or later on Apple Silicon. Nothing else to install — every dependency
+macOS 14 or later on Apple Silicon. Nothing else to install — every dependency
 ships inside the application.
+
+Development and testing happen on macOS 26. The build supports 14 and later —
+that is the enforced minimum, not a claim every version has been exercised — so
+if something misbehaves on an older system, a report with the version in it is
+especially useful.
 
 ## Building
 

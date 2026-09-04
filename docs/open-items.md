@@ -261,19 +261,21 @@ unit count read one short twice because an xcodebuild timestamp interleaved
 mid-test-name, reconciled against the source file's method count, not
 assumed.
 
-### The macOS floor is 14 in the build and 26 in the claim — nothing tests 14–25
+### macOS 14–25 is supported and has never been run there
 Lowered 2026-09-04 (`decisions.md`): `MACOSX_DEPLOYMENT_TARGET` 26.0 → 14.0 in
 all four configurations, `Package.swift` to `.macOS(.v14)`. Two symbols stood
 above the floor, both cosmetic, both now behind `#available`: `ToolbarSpacer`
 and `.pointerStyle(.columnResize)`. macOS 13 is unreachable — `@Observable` is
 14 and the state layer rests on it. Established by building at 15.0, 14.0 and
-13.0 and reading the errors. **The live gap: no machine or VM here runs below
-26**, so 14–25 is COMPILE-verified only and never executed. README and the
-website therefore still say 26; lowering the published claim needs a real
-older machine first, and doing it without one would repeat the mistake the
-site made for a month in the other direction. Note `tools/package-test`'s
-floor assertion is now derived, so it no longer flags a floor change on its
-own — the floor is a recorded decision instead.
+13.0 and reading the errors. Published as macOS 14+ from v2.5.1 (owner, 2026-09-04): the counterfactual
+decided it — at 26 those users get nothing at all, and "requires 14 or later"
+is a true statement about the artefact's floor, not a claim every version was
+exercised. That is the distinction the site's earlier "macOS 14+" got wrong,
+where the artefact's floor was an enforced 26. **The live gap: no machine or
+VM here runs below 26**, so 14–25 is compile-verified and never executed; a
+VM would close it and needs ~40 GB this machine has not got. Note
+`tools/package-test`'s floor assertion is now derived, so it no longer flags a
+floor change on its own — the floor is a recorded decision instead.
 
 ### Residency `.automatic` cannot be re-measured without a second machine
 Dropped by decision (v2 S3, 2026-08-19), not dormant — do not set

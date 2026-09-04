@@ -11,6 +11,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
+| v2.5.1 | **cut 2026-09-04**, version/build 2.5.1 / 5 — macOS floor down to 14 and the sidecar-reader fix. First release able to claim `run-tests.sh all` exit 0 (458/0/0, 44 harnesses). v2.5.0's artefact cannot launch below macOS 26, so this is the build that reaches older systems | `CHANGELOG.md` |
 | v2.5.0 | released 2026-09-04, version/build 2.5 / 4 — the first shipped build of the SwiftUI rebuild. Gated on `unit` (457/0/0) + `package-test`, both exit 0; **`run-tests.sh all` was attempted and exited 1** on a pre-existing sidecar defect (`open-items.md`), and the notes say so. Artefact: built from `3c0a3eb`, app notarization `af7cc0f4`, DMG notarization `f4aa1d12`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `d55821a1…4c75`, 6 074 038 bytes. Build 3 (`df80e8e`) is superseded, kept as `mac4DSTEM-2.5-build3-superseded.dmg` | `CHANGELOG.md` |
 
 ## Where the UI stands
@@ -108,10 +109,11 @@ two symbols stood above the floor and both are cosmetic —
 `#available`, with the divider simply not changing the pointer below 15. macOS
 13 is out of reach: `@Observable` is 14 and the entire state layer rests on it.
 Found by building at 15.0, 14.0 and 13.0 and reading the errors rather than by
-inspection. `run-tests.sh all` is green at the new floor. **What is NOT
-claimed: that it runs below 26.** No machine or VM here is older, so the
-README and the site still say 26 and the published claim moves only once
-something real has run it (`open-items.md`, `decisions.md`).
+inspection. `run-tests.sh all` is green at the new floor. The published requirement moved to **macOS 14+** with v2.5.1 (owner): at 26
+those users get nothing, and stating the artefact's real floor is not the same
+as claiming every version was exercised — 14–25 remains compile-verified only,
+and both the README and the site say development and testing are on 26
+(`open-items.md`, `decisions.md`).
 
 **Not forgotten, owner will handle: the public face still shows v1.0.0.** The
 README, the project website and the GitHub release page all describe and link

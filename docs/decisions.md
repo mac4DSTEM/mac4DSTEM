@@ -284,11 +284,17 @@ both cosmetic and both now behind `#available`: `ToolbarSpacer(.flexible)`
 (`ContentView`) and `.pointerStyle(.columnResize)` (`WorkspaceView`). macOS 13
 is NOT reachable — `@Observable` is macOS 14 and the whole state layer rests on
 it. Determined by building at 15.0, 14.0 and 13.0 and reading the errors, not
-by inspection. **What is NOT claimed: that it runs below 26.** No machine or VM
-here is older, so 14–25 is compile-verified only, and the README and site keep
-saying 26 until something is actually tested. The website spent a month
-promising macOS 14 while the floor was an enforced 26; the lesson taken from
-that is not to make the mirror-image mistake. Related: `package-test`'s floor
+by inspection. **Amended the same day, owner: the published requirement moves to 14+ too,
+in v2.5.1.** The first call held the claim at 26 because 14–25 is
+compile-verified only. The owner's counterargument decided it: at 26 those
+users get nothing, so untested-but-probably-working strictly beats no access,
+and "requires macOS 14 or later" is a true statement about the artefact's
+floor — not a claim that every version was exercised. That is precisely how it
+differs from the site's earlier "macOS 14+", which was false about the file:
+the floor was an enforced 26 and the download could not launch. v2.5.0's
+artefact still cannot; only the v2.5.1 build reaches older systems, which is
+why this needed a new release and not just a doc edit. 14–25 stays untested
+until a VM exists (~40 GB, which this machine has not got). Related: `package-test`'s floor
 assertion changed from the literal `26.0` to a value derived from the project,
 because a literal had already gone stale once (S19, aeaeacc) and sat red on
 `main` unnoticed. That does mean the audit no longer flags a floor change on

@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.5.1 — 2026-09-04
+
+Lowers the system requirement and fixes a reader defect found by the gate on
+release night.
+
+- **macOS 14 or later**, down from 26. Exactly two symbols stood above the old
+  floor, both cosmetic and both now behind an availability check: the toolbar's
+  flexible spacer and the pane divider's resize cursor. Below macOS 15 the
+  divider still drags, it just does not change the pointer. macOS 13 is not
+  reachable — `@Observable` is macOS 14 and the application's state layer rests
+  on it. **v2.5.0 cannot launch below macOS 26**; only this build reaches older
+  systems. Development and testing are on macOS 26, and 14–25 has not been
+  exercised on hardware, so a report naming your macOS version is useful.
+- **A saved result is no longer mistaken for a datacube.** Opening a session
+  sidecar directly — easy to do, since it sorts next to the dataset in the open
+  panel — could return a saved RGBA orientation map as though it were the data,
+  with a four-pixel detector, instead of saying what the file is. It now names
+  the file and points at its dataset. The wider class behind this is recorded
+  in `docs/open-items.md` and is not yet fixed: discovery still accepts any
+  rank-3 array as a datacube.
+
+### Verified by
+
+- `tools/run-tests.sh all` — **exit 0**: 458 passed / 0 failed / 0 skipped,
+  44 harnesses including `real-data-acceptance` and `package-test`, read from
+  the gate's own exit line. This is the aggregate v2.5.0 could not claim.
+- Gate B: four independent refuters, each building its own fixtures. They
+  rejected the first version of the reader fix; what shipped is the reworked
+  one, and what they left open is filed rather than quietly closed.
+
 ## v2.5.0 — 2026-09-04
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
