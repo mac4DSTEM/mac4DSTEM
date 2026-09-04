@@ -39,7 +39,7 @@ Every quantity carries its calibration and provenance through display, export, a
 
 ## Status
 
-**v1.0.0** is the shipped release; work since then is unreleased. The analysis workflow is covered by gates anyone with the repository can reproduce, and each number below is quoted from the run that produced it rather than from an average:
+**v2.5.0** is the shipped release (2026-09-04). The analysis workflow is covered by gates anyone with the repository can reproduce, and each number below is quoted from the run that produced it rather than from an average:
 
 - `tools/run-tests.sh unit` — **457 passed, 0 failed, 1 skipped**, exit 0, 2026-09-04.
 - `tools/run-tests.sh all` — last run 2026-09-03: 43 harnesses green — py4DSTEM 0.14.19 parity against the pinned upstream source on synthetic and analytic fixtures, plus `real-data-acceptance` on experimental acquisitions against its own recorded baseline — and **exit 1** at `package-test`, whose literal version assertion the 2.5 bump turned red. The audit now derives the version from the project and passed on that same tree, but **the aggregate has not been re-run since**, so no aggregate exit 0 is claimed here.

@@ -210,6 +210,9 @@ struct SessionSection: View {
                 warnings
                 inventory
             }
+            // Contents, not navigation. NOTE: a `.sidebar` List re-applies its
+            // own font to every Label, so a `.font()` here does nothing — it
+            // has to go on each row, which is why they carry it individually.
             .accessibilityIdentifier("sidebar.session")
         }
     }
@@ -255,21 +258,105 @@ struct SessionSection: View {
         .accessibilityIdentifier(identifier)
     }
 
+    /// What the sidecar holds, and the actions on it. Moved here from the
+    /// Info panel on 2026-09-04 (owner): after loading a dataset the user
+    /// should see on the LEFT what came with it. Info keeps the two sections
+    /// that explain a sidecar the app could not read or could not fit — that
+    /// is the half of the split the comment above deliberately kept there.
+    ///
+    /// Every row takes the `.sidebar` List's one-line ideal and truncates, so
+    /// the detail a row cannot show is on `.help`, the same choice the
+    /// next-step hint makes. Nothing here uses `.fixedSize()`: a split column
+    /// may not change its own minimum (`docs/open-items.md`).
     @ViewBuilder
     private var inventory: some View {
         if let descriptor = appState.descriptor, appState.sessionInventory.hasSidecar {
+            // Through the seam: this once derived the path itself, so a
+            // bookmark resolving to a sidecar the user had RENAMED made the
+            // app name a file it was not reading.
             let sidecar = appState.sessionSidecar.location(for: descriptor)
-            VStack(alignment: .leading, spacing: 2) {
-                Label(sidecar.lastPathComponent, systemImage: "externaldrive")
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(contents)
+            // What this section IS, said once: the owner's note on first
+            // seeing it was that nothing tells you these came from a file
+            // loaded beside the cube rather than from this session's work.
+            // Short enough to survive a sidebar row's one-line width; the
+            // full sentence is on hover, the same choice the next-step hint
+            // makes.
+            Text("Loaded with the dataset — from earlier analysis")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .help("A session sidecar saved beside this dataset. It carries "
+                      + "the calibration and results of earlier analysis, and was "
+                      + "restored when the dataset was opened — nothing here was "
+                      + "computed in this session.")
+                .accessibilityIdentifier("sidebar.session.explainer")
+
+            // No summary line: the rows below name the same objects it counted.
+            Label(sidecar.lastPathComponent, systemImage: "externaldrive")
+                .font(.caption)
+                .imageScale(.small)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(sidecar.lastPathComponent)
+                .accessibilityIdentifier("sidebar.session.sidecar")
+
+            if appState.sessionInventory.hasCalibration {
+                Label("Calibration", systemImage: "scope")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .imageScale(.small)
+                    .accessibilityIdentifier("sidebar.session.calibration")
             }
-            .help(sidecar.lastPathComponent)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("sidebar.session.sidecar")
+            if appState.sessionInventory.hasBraggVectors {
+                Label("BraggVectors", systemImage: "circle.grid.cross")
+                    .font(.caption)
+                    .imageScale(.small)
+                    .accessibilityIdentifier("sidebar.session.braggVectors")
+            }
+            ForEach(appState.sessionInventory.results) { result in
+                savedResultRow(
+                    result, isCurrent: result.id == appState.sessionInventory.currentResultID
+                )
+            }
+            if let controls = appState.selectedSavedControlRehydration {
+                Button {
+                    appState.applySelectedSavedControls()
+                } label: {
+                    Label("Apply Saved Controls", systemImage: "slider.horizontal.3")
+                        .font(.caption)
+                        .imageScale(.small)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .disabled(appState.isBusy)
+                .help("Apply \(controls.summary). This does not rerun or restore transient arrays.")
+                .accessibilityIdentifier("sidebar.session.applySavedControls")
+            }
+            // Rename/relocate, offered where the user is already looking at
+            // the filename — once a grant exists the save panel never
+            // reappears on its own.
+            Button {
+                appState.saveSessionSidecarAs()
+            } label: {
+                Label("Change…", systemImage: "pencil")
+                    .font(.caption)
+                    .imageScale(.small)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+            .disabled(appState.isBusy)
+            .help("Choose a new name or location for the session sidecar. Existing saved results are copied across.")
+            .accessibilityIdentifier("sidebar.session.changeSidecar")
+            Button {
+                appState.reopenIgnoringSessionSidecar()
+            } label: {
+                Label("Ignore…", systemImage: "eye.slash")
+                    .font(.caption)
+                    .imageScale(.small)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+            .help("Reopen this dataset without restoring the saved session; the sidecar file stays on disk")
+            .accessibilityIdentifier("sidebar.session.reopenWithoutSession")
         } else {
             Text("Nothing saved with this dataset yet.")
                 .font(.caption)
@@ -278,15 +365,76 @@ struct SessionSection: View {
         }
     }
 
-    /// What the sidecar actually holds — named, not counted, because
-    /// "calibration" and "BraggVectors" are the two a reader cares whether
-    /// they were restored.
-    private var contents: String {
-        var parts: [String] = []
-        if appState.sessionInventory.hasCalibration { parts.append("calibration") }
-        if appState.sessionInventory.hasBraggVectors { parts.append("BraggVectors") }
-        let results = appState.sessionInventory.results.count
-        if results > 0 { parts.append("\(results) result\(results == 1 ? "" : "s")") }
-        return parts.isEmpty ? "no saved objects" : parts.joined(separator: " · ")
+    /// A saved result as a source-list row. The Info panel's version stacked
+    /// three caption lines and a trailing sampling value under the name; a
+    /// `.sidebar` row has no width to spend on them, so one caption line
+    /// survives and the rest is on `.help`.
+    ///
+    /// Remove is in the row's context menu, NOT a second visible row per
+    /// result as Info had it: two rows per saved result fills this column,
+    /// and a right-click is the source-list idiom for acting on a row. This
+    /// is the one judgement call in the move — it is placement, and it is the
+    /// owner's to overrule on screen.
+    @ViewBuilder
+    private func savedResultRow(_ result: SessionResultDescriptor, isCurrent: Bool) -> some View {
+        Button {
+            Task { await appState.selectSavedSessionResult(result) }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(
+                    result.displayName,
+                    systemImage: isCurrent
+                        ? "eye.fill"
+                        : (result.storage == .rgba8 ? "paintpalette" : "map")
+                )
+                .font(.caption)
+                .imageScale(.small)
+                .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                Text(resultDetail(result))
+                    .font(.caption2)
+                    .fontDesign(.monospaced)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(resultHelp(result))
+        .contextMenu {
+            Button(role: .destructive) {
+                Task { await appState.removeSavedSessionResult(result) }
+            } label: {
+                Label("Remove \(result.displayName)", systemImage: "trash")
+            }
+            .disabled(appState.isBusy)
+        }
+        .accessibilityIdentifier("sidebar.session.result")
     }
+
+    /// The one caption line a sidebar row can show.
+    private func resultDetail(_ result: SessionResultDescriptor) -> String {
+        "\(result.width)×\(result.height) · "
+            + (result.storage == .rgba8 ? "RGBA8" : "float32")
+            + " · \(result.valueUnits)"
+    }
+
+    /// Everything the row had to drop, plus what Info's version carried in
+    /// its tooltip.
+    private func resultHelp(_ result: SessionResultDescriptor) -> String {
+        var lines = ["\(result.displayName) — \(resultDetail(result))"]
+        if let sampling = SessionResultPresentation.sampling(
+            row: result.pixelSizeRow, column: result.pixelSizeColumn,
+            units: result.pixelUnits
+        ) {
+            lines.append(sampling)
+        }
+        if let provenance = SessionResultPresentation.provenance(result.provenance) {
+            lines.append(provenance)
+        }
+        lines.append("\(result.kind) · \(result.id)")
+        return lines.joined(separator: "\n")
+    }
+
 }

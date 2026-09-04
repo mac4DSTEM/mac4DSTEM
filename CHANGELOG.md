@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.5.0 — unreleased (after the presentation pass)
+## v2.5.0 — 2026-09-04
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
 full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was tagged
@@ -41,6 +41,17 @@ stays as the pre-consolidation anchor.)
   pane-focus routing described here — "the inspector follows the pane with the
   focus ring" — was deleted with the AppKit window. The rebuilt inspector has
   two tabs, Settings and Info, and renders both unconditionally.)*
+- **The window is SwiftUI, and the AppKit one is gone (2026-09-04).** The
+  hosted AppKit window's 32 files are deleted; `UI/` IS the rebuild, a
+  `NavigationSplitView` with the native `.inspector` and no flag selecting
+  between them. The inspector has two tabs, Settings and Info. The
+  saved-session sidecar's contents — Calibration, BraggVectors, the saved
+  results and the actions on them — moved out of Info into the left sidebar's
+  Session section, so what came with a dataset is on the left where the
+  dataset is; Info keeps the explanations for a sidecar that could not be read
+  or did not fit. The status bar gained elapsed / throughput / ETA in a
+  reserved fixed-width slot, and the output log moved off `AppState`.
+
 - **Split view.** ~~The sidebar and inspector are AppKit split-view columns~~
   *(superseded 2026-09-04: the AppKit shell was deleted in `d5786e2` and the
   window is a SwiftUI `NavigationSplitView` with the native `.inspector`. The
@@ -52,25 +63,32 @@ stays as the pre-consolidation anchor.)
 
 ### Verified by
 
-- `tools/run-tests.sh all` on `e2284f1` (2026-09-03, retained log): unit 467
-  passed / 0 failed / 3 skipped, 43 harnesses green including the real-data
-  acceptance, but **exit 1** at `package-test`, whose literal version assertion
-  the 2.5 / 3 bump turned red; the audit was then changed to derive the version
-  from the project and passed on the same tree (`b026cd7`, docs and tooling
-  only). No aggregate exit 0 is claimed for this tree.
-- **Superseded, never released.** Built from `df80e8e` (2026-09-03) and
-  notarized, but the AppKit UI it contained was retired the next day
-  (`d5786e2`); `docs/status.md` records v2.5.0 as parked. Two earlier builds,
-  b026cd7 and 749dbb2, were
-  superseded before release: the split-view contract, then the AppKit
-  columns): Developer ID archive, app notarization `8fbd3004-199e-46f2-bcb0-0fb5bb9c595f`,
-  `mac4DSTEM-2.5.dmg` notarization `cc743aef-165d-4861-b818-9f3eeb1fd669`, stapled, Gatekeeper-accepted;
-  DMG SHA-256 `892974e9ae2467a2dfdd5b9c0b23e580dbc9b556c21864ed1c447ef7e9013dd8`. Unit gate on the build tree: 471 passed / 0 failed /
-  3 skipped (2026-09-03).
-- On screen: the owner's own driving pass (there is no v2.5.0 tag; the human
-  checklist was retired 2026-09-03 and its record is in `docs/archive/v2/`).
-  That pass predates the 2026-09-04 SwiftUI rebuild, so it is **not** on-screen
-  evidence for the current tree.
+- **The full gate was attempted and did NOT pass, and this release does not
+  claim it.** `tools/run-tests.sh all` ran on the release tree (2026-09-04,
+  retained log) and **exited 1**: unit and 42 scientific harnesses green, then
+  a failure in `real-data-acceptance` on a session-sidecar file — a defect that
+  predates this release and is recorded, undiagnosed, in `docs/open-items.md`.
+  `tools/package-test/run.sh` is sequenced after that step and did not run in
+  that pass.
+- **What this release IS gated on**, both re-run on the final tree and each
+  exit code read on its own line: `tools/run-tests.sh unit` — **457 passed /
+  0 failed / 0 skipped, exit 0** across 63 suites (counted by `Suite.method`;
+  one log line was chopped mid-name by an interleaved xcodebuild timestamp and
+  was reconciled against the source file's 8 test methods, not assumed) — and
+  `tools/package-test/run.sh` — **exit 0**, which clean-builds a hardened
+  Release and audits the artefact itself: nested signatures, sandbox and
+  bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, the
+  embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version
+  `2.5 (4)` with the macOS 26 floor as the project declares them.
+- On screen: the owner drove the rebuilt SwiftUI app on 2026-09-04. A
+  full-scan Bragg detection on `sim_Au_data_all_binned.h5` confirmed the status
+  bar's live elapsed / throughput / ETA and the output log still updating after
+  `ActivityLog` took it off `AppState`; the sidecar contents were checked in
+  their new home in the left sidebar. Two things remain unverified on screen —
+  a cropped save → quit → reopen, and every divider, which no gate can measure.
+- Superseded and never released: builds from `df80e8e`, `b026cd7` and `749dbb2`
+  (2026-09-03). The first was notarized but carried the AppKit UI retired the
+  next day in `d5786e2`. Their provenance is in `docs/archive/v2/`.
   Known issues ship listed in `docs/open-items.md`.
 
 ## v1.0.0 — 2026-08-06

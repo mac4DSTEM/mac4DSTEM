@@ -503,8 +503,12 @@ private struct ProductInfoSections: View {
 
 // MARK: Info — products computed and saved
 
-/// The in-memory products and the objects discovered in the stable companion
-/// sidecar.
+/// The in-memory products only. The sidecar's own contents — its filename,
+/// Calibration, BraggVectors, the saved results and the actions on them —
+/// moved to the LEFT sidebar's `Session` section on 2026-09-04, so that after
+/// loading a dataset the user sees on the left what came with it. What stays
+/// on this side is Info: the two sections that explain a sidecar the app
+/// could not read or could not fit, and the way out of each.
 private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
 
@@ -525,55 +529,6 @@ private struct SessionProductsSections: View {
             showableProduct(.orientation, done: appState.acomSession.hasOrientationMap)
         }
 
-        Section("Saved session sidecar") {
-            if let descriptor = appState.descriptor, appState.sessionInventory.hasSidecar {
-                // Through the seam: this site once derived the path itself, so
-                // a bookmark resolving to a sidecar the user had RENAMED made
-                // the inspector name a file the app was not reading.
-                let sidecar = appState.sessionSidecar.location(for: descriptor)
-                Label(sidecar.lastPathComponent, systemImage: "externaldrive")
-                // Rename/relocate, offered where the user is already looking
-                // at the filename — once a grant exists the save panel never
-                // reappears on its own.
-                Button("Ignore…") { appState.reopenIgnoringSessionSidecar() }
-                    .help("Reopen this dataset without restoring the saved session; the sidecar file stays on disk")
-                    .accessibilityIdentifier("products.reopenWithoutSession")
-                Button("Change…") { appState.saveSessionSidecarAs() }
-                    .disabled(appState.isBusy)
-                    .help("Choose a new name or location for the session sidecar. Existing saved results are copied across.")
-                    .accessibilityIdentifier("inspector.changeSidecar")
-                if appState.sessionInventory.hasCalibration {
-                    Label("Calibration", systemImage: "scope")
-                }
-                if appState.sessionInventory.hasBraggVectors {
-                    Label("BraggVectors", systemImage: "circle.grid.cross")
-                }
-                ForEach(appState.sessionInventory.results) { result in
-                    savedResultButton(
-                        result, isCurrent: result.id == appState.sessionInventory.currentResultID
-                    )
-                    Button(role: .destructive) {
-                        Task { await appState.removeSavedSessionResult(result) }
-                    } label: {
-                        Label("Remove \(result.displayName)", systemImage: "trash")
-                    }
-                    .disabled(appState.isBusy)
-                    .help("Remove this saved result from the session sidecar")
-                }
-                if let controls = appState.selectedSavedControlRehydration {
-                    Button {
-                        appState.applySelectedSavedControls()
-                    } label: {
-                        Label("Apply Saved Controls", systemImage: "slider.horizontal.3")
-                    }
-                    .disabled(appState.isBusy)
-                    .help("Apply \(controls.summary). This does not rerun or restore transient arrays.")
-                }
-            } else {
-                Text("No companion results saved yet.")
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 
     /// A computed product that can be put back in the viewer on click.
@@ -606,38 +561,6 @@ private struct SessionProductsSections: View {
         }
     }
 
-    /// A saved result as a row-as-button: the current one highlighted, its
-    /// sampling as the row's trailing value.
-    private func savedResultButton(_ result: SessionResultDescriptor, isCurrent: Bool) -> some View {
-        Button {
-            Task { await appState.selectSavedSessionResult(result) }
-        } label: {
-            LabeledContent {
-                if let sampling = SessionResultPresentation.sampling(
-                    row: result.pixelSizeRow, column: result.pixelSizeColumn,
-                    units: result.pixelUnits
-                ) {
-                    Text(sampling).monospacedDigit().foregroundStyle(.secondary)
-                }
-            } label: {
-                Label(result.displayName,
-                      systemImage: isCurrent ? "eye.fill" : (result.storage == .rgba8 ? "paintpalette" : "map"))
-                    .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
-                Text("\(result.width)×\(result.height) · \(result.storage == .rgba8 ? "RGBA8" : "float32") · \(result.valueUnits)")
-                    .font(.caption)
-                    .fontDesign(.monospaced)
-                    .foregroundStyle(.secondary)
-                if let provenance = SessionResultPresentation.provenance(result.provenance) {
-                    Text(provenance)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("\(result.kind) · \(result.id)")
-    }
 }
 
 // MARK: Info — diagnostics

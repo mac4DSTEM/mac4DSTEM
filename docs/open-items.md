@@ -33,6 +33,20 @@ from the (already-actioned) permissive acceptance thresholds and the
 estimator repair — don't fold it into either. Owner: a dedicated Gate D
 science session, not a UI slice.
 
+### A results-rich session sidecar is read as data instead of refused
+`run-tests.sh all` exits 1 at `real-data-acceptance` on
+`downsample_Si_SiGe_exp.mac4dstem.h5` (2026-09-04, retained log):
+"Edge exclusion must be between 1 and 1 pixels for this detector".
+Reproduced alone on that one file. ESTABLISHED: it holds no 4D datacube
+(`_v_uncal/data {50,200}`, four `result_*` nodes), it DOES carry
+`mac4dstem_session_schema` on `/braggvectors_root`, the harness compiles the
+production `H5Reader.swift` so this is shipped behaviour, and it predates the
+v2.5.0 release work (UI and docs only). NOT ESTABLISHED, and not to be
+guessed: why `discoverPrimaryDataset` returns a descriptor rather than
+throwing `sessionSidecarOpened` or `noDatasetFound`. Two hypotheses already
+refuted. `SidecarRecognitionTests` pins only the calibration-only sidecar;
+the results-rich case has no test. **Gate D owed before any fix.**
+
 ### Origin-fit gate has three unresolved holes
 (a) **Gate D 2026-09-03, refuted as filed:** the middle-threshold fallback
 in `probeSize` is unreachable — r(thresh) is non-increasing, so max(dr)
@@ -217,20 +231,30 @@ screen: everything from 7c slice 1 on (Results sidebar and inspector, the
 inspector following the focused pane), the clean-account run, the bounded
 promote run, a real load cancel.
 
-### `tools/run-tests.sh all` has not been re-run on the newest tree
-Last run: 2026-09-03, `e2284f1` — 43 harnesses green, exit 1 only at
-`package-test`'s literal version assertion, since fixed and green on that
-same tree (`status.md`). Nothing aggregate has run since; `unit` and the
-reader harnesses have each run green individually on 2026-09-04's trees.
-The run itself is ~12 minutes and needs nothing the machine lacks except
-disk: the preflight demands 8 GB on both `$ROOT` and `$TMPDIR`, and getting
-there means deleting outside the two roots `free-space.sh` guards — which is
-the owner's call, not an agent's. Do not quote an aggregate you did not run.
+### `tools/run-tests.sh all` was run 2026-09-04 and FAILED
+Ran on the v2.5.0 release tree (owner freed the disk, 11 GB on both roots):
+unit 457 passed / 0 failed / 0 skipped counted by `Suite.method` over 63
+suites, 42 scientific harnesses green, then **exit 1 at
+`real-data-acceptance`** — the sidecar-read-as-data defect above.
+`package-test` never ran; it is sequenced after the failure
+(`run-tests.sh:202`). v2.5.0 therefore shipped on the reduced gate the
+release plan originally chose, and its notes say so. The trap that nearly
+hid this: the BACKGROUND TASK reported exit 0 while the gate's own
+`GATE_EXIT` line said 1 — the fourth time this has bitten. Read the gate's
+own line. The aggregate is still owed, and now has a named blocker.
 
-### The app has never been driven on the macOS version it claims to support
-`LSMinimumSystemVersion` is 14.0; every manual session has been on macOS
-26/27. CI now builds and unit-tests on macOS 26. Nothing from 14–25 has
-been exercised at all — only a real older machine answers this.
+### The macOS floor is enforced at 26, and bringing it down needs a machine we lack
+Corrected 2026-09-04; both halves of the old entry were wrong. It said
+`LSMinimumSystemVersion` is 14.0. The key exists — `GENERATE_INFOPLIST_FILE`
+derives it from `MACOSX_DEPLOYMENT_TARGET = 26.0` (all four configurations)
+and `tools/package-test/run.sh:46` asserts it reads `26.0`; `Package.swift:15`
+pins `.macOS(.v26)` to match. So the floor is ENFORCED, not claimed: macOS
+refuses to launch the app below 26 and nobody is being promised 14–25.
+Softening the wording changes nothing; only lowering the number does. That is
+decided (owner, 2026-09-04) and deliberately not release-night work — every
+green gate on record was gated at 26. Cheap to attempt: zero `@available(macOS
+…)` annotations exist, so it either compiles or names the API. Verifying the
+result still needs a real pre-26 machine or VM, which this project has not.
 
 ### Residency `.automatic` cannot be re-measured without a second machine
 Dropped by decision (v2 S3, 2026-08-19), not dormant — do not set
@@ -409,20 +433,19 @@ removed here precisely because it squeezed this label to "C…", so any fix
 must not reintroduce a width contender in that slot. Exact symptom still
 owner's to pin down (style vs. size vs. placement) before anyone changes it.
 
-### Saved-session sidecar contents belong in the LEFT sidebar, under Session
-Owner, 2026-09-04 (corrected the same day — an earlier note said "right
-panel" and was wrong). The sidecar's contents — Calibration, BraggVectors and
-the per-product rows with their Remove buttons — render today in the right
-Info panel (`UI/WorkspaceInspector.swift:200`). Move them into the LEFT
-sidebar's existing `Section("Session")`, below Dataset and Session
-(`UI/WorkspaceSidebar.swift:209`, `SessionSection`), so that after loading a
-dataset the user sees on the left what came with it. The right panel stays
-Info only. Note what this revisits: the comment at
-`WorkspaceSidebar.swift:216` records a deliberate split — the sidebar carries
-the warnings verbatim while "the full explanation and the way out stay in
-Info" — so this change decides which half the Remove actions live in, and
-whether the two surfaces may now differ. Placement, not science: no Gate D,
-but it moves destructive controls, so owner-verified on screen before done.
+### Sidecar contents moved to the LEFT sidebar — done in code, UNVERIFIED ON SCREEN
+Moved 2026-09-04 (owner asked for it on release night, having earlier deferred
+it). `Section("Saved session sidecar")` is gone from `WorkspaceInspector`; its
+filename row, Calibration, BraggVectors, the saved-result rows, Apply Saved
+Controls and Change…/Ignore… now render in `WorkspaceSidebar`'s
+`Section("Session")`. Info keeps only the unreadable / does-not-fit sections —
+the "full explanation and the way out" half of the split recorded at
+`WorkspaceSidebar.swift`. Builds clean, no warnings, no test names the moved
+identifiers. **The one judgement call, and it is the owner's to overrule:**
+Remove is now each result row's context menu, not a second visible row per
+result as Info had it — two rows per saved result fills this column, and
+right-click is the source-list idiom. Sidebar rows have no width, so one
+caption line survives and the rest is on `.help`. No gate can see any of this.
 
 ### Sidecar/session UX residuals
 Recents-row location labels unverified on screen (F1.1c). A sidecar

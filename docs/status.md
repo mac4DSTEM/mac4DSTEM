@@ -11,7 +11,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | tagged 2026-09-02, never built; superseded, the tag stays as the pre-consolidation anchor | `CHANGELOG.md` |
-| v2.5.0 | parked (owner, 2026-09-03 late): no release or tag thinking until the UI rework is complete and right. The `df80e8e` build (notarized, `build/release/mac4DSTEM-2.5.dmg`) is superseded, not released | `CHANGELOG.md` |
+| v2.5.0 | released 2026-09-04, version/build 2.5 / 4 — the first shipped build of the SwiftUI rebuild. Gated on `unit` (457/0/0) + `package-test`, both exit 0; **`run-tests.sh all` was attempted and exited 1** on a pre-existing sidecar defect (`open-items.md`), and the notes say so. Artefact provenance in the commit that follows the build. Build 3 (`df80e8e`) is superseded, kept as `mac4DSTEM-2.5-build3-superseded.dmg` | `CHANGELOG.md` |
 
 ## Where the UI stands
 
@@ -27,17 +27,19 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | UI rebuilt in SwiftUI, and the old one retired | done 2026-09-04 | `UI/` IS the SwiftUI rebuild: the AppKit-hosted window's 32 files are deleted, the `UI2/` folder and the `UI2` type prefix are both gone, and no flag selects a UI. Contract in `architecture.md` "The UI contract", three of its rules pinned by an `inventory` grep (`HSplitView`/`VSplitView`/`NSSplitView`/`NSSplitViewController`/`import AppKit`, mutation-tested both ways). Shape, drive calls and the retirement in `decisions.md` (2026-09-04). The launch crash is fixed (`PaneSplit`) and gated; its mechanism was refuted here and then DEMONSTRATED later the same day by the status-bar revert (`open-items.md`, the constraint-loop entry), which made the two probes named at the time moot (`open-items.md`). Cost of the retirement: 27 tests deleted, every one pinning the AppKit column shell; six repointed. Five renames were not bare strips (`LayoutPolicy`, `WorkspaceRoute`, `WorkspaceView`, `ProductComparisonView`, `PatternFitOverlay`) — reasons in `architecture.md`. The status bar's elapsed/throughput/ETA was added and REVERTED the same day: its per-second `.fixedSize()` text crashed the app on a real dataset and, in doing so, demonstrated the constraint-loop mechanism that had been refuted-but-unestablished (`open-items.md`) |
 | Status bar: elapsed / throughput / ETA, rebuilt in a reserved slot | done 2026-09-04, **unverified on screen** | `LayoutPolicy.operationMetricsWidth` (190 pt, constant) is the slot; the text truncates inside it and never resizes it. `OperationMetricsFormat.line` composes the line for both surfaces. `StatusBarMetricsTests` (4 tests, each broken first) measures the widest line the formatter can produce — an hour elapsed, an hour of ETA, 999.9 units/s — against that constant in the same font. The sibling `status.footer.facts` lost its `.fixedSize()`: it was breaking the same rule already, on every progress update, before the metrics line existed (predicted, not observed). Only a real dataset exercises the one-second tick |
 | The output log moved off `AppState` | done 2026-09-04, **unverified on screen** | `ActivityLog` (`App/ActivityLog.swift`) owns the strip's buffer: the filter, the no-repeat rule, the 300-line cap and the stamp, on an injected clock. `AppState` 495 → 494 stored properties. `@Observable` on it is load-bearing — with the annotation removed, five of its six tests still pass and the strip silently stops updating, which is why `ActivityLogTests` asserts the chain with `withObservationTracking` (the repo's first). Toggling the log from the status bar is the five-second check |
+| Saved-session sidecar contents moved to the LEFT sidebar | done 2026-09-04, **unverified on screen** | `Section("Saved session sidecar")` is gone from `WorkspaceInspector`; the sidecar filename, Calibration, BraggVectors, the saved-result rows, Apply Saved Controls and Change…/Ignore… render in `WorkspaceSidebar`'s `Section("Session")`. Info keeps only the unreadable / does-not-fit sections — the explanation half of the split. Builds clean with no warnings and no test names the moved identifiers, which is also the limit of what any gate can say: this is placement, and only the owner's eyes close it. One judgement call to overrule or keep — Remove is now the result row's context menu, not a second visible row per result (`open-items.md`) |
 | 5 The owner's full drive | owner | — |
 
 ## Last gates (retained logs)
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **457 passed / 0 failed / 1 skipped, exit 0 — 2026-09-04**, `ActivityLog` + warning-fix tree (458 tests), zero Swift warnings from any file this session touched. Full log retained; exit code read on its own line, never through a `tail` pipe; tests counted by METHOD name and reconciled against the expected delta (`open-items.md`, working methods — a chopped log line faked a missing test twice in one day). Same day: 455/0/1, 448/0/1, 451/0/1 |
+| `run-tests.sh unit` | **457 passed / 0 failed / 0 skipped, exit 0 — 2026-09-04, the v2.5.0 release tree** (63 suites, counted by `Suite.method`; one line chopped mid-name by an interleaved xcodebuild timestamp, reconciled against the source file's 8 methods rather than assumed). Earlier that day, pre-release tree: **457 passed / 0 failed / 1 skipped, exit 0**, `ActivityLog` + warning-fix tree (458 tests), zero Swift warnings from any file this session touched. Full log retained; exit code read on its own line, never through a `tail` pipe; tests counted by METHOD name and reconciled against the expected delta (`open-items.md`, working methods — a chopped log line faked a missing test twice in one day). Same day: 455/0/1, 448/0/1, 451/0/1 |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03. The four reader harnesses (`dm4-robustness-test`, `vendor-reader-test`, `sidecar-error-detail-test`, `load-spec-test`) each exit 0 on the path-leak tree, 2026-09-04 — that change was in `Core/`, so they were owed |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-04, clean tree (so its docs check actually ran). Cold-start set 889, down from 922 at the previous closeout; it dipped to 862 mid-session and the second docs pass put 27 back as verified file:line evidence, after every entry it touched was trimmed to the file's own ≤ 12-line rule. **Weaker than it reads:** its size numbers are `printf` with no return code, and its one docs check is skipped entirely on a dirty tree (`run-tests.sh:179`), which is how every session runs it. It gates the `tools/` classification and the UI-contract greps; it does not gate the doc numbers |
-| `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
+| `tools/package-test/run.sh` | **exit 0 — 2026-09-04, the v2.5.0 release tree.** Clean-builds a hardened Release and audits the artefact: nested signatures, sandbox/read-write/bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version `2.5 (4)` with the macOS 26 floor derived from the project, not asserted literally |
+| `run-tests.sh all` | **exit 1 — 2026-09-04, the release tree.** Unit + 42 scientific harnesses green, then failed at `real-data-acceptance` on `downsample_Si_SiGe_exp.mac4dstem.h5`; `package-test` never ran, being sequenced after it. Mechanism NOT established — `open-items.md`, sidecar-read-as-data, Gate D owed. Trap, for the fourth time: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1. Previously 2026-09-03, e2284f1: unit 467/0/3, 43 harnesses green, exit 1 at `package-test`'s literal version assertion, since fixed |
 
 ## Ship v2.5.0 — the standing plan (owner, 2026-09-04 evening)
 
@@ -48,13 +50,17 @@ still offers v1.0.0, and the owner's priority is replacing it, not perfecting
 it. The name is **v2.5.0** — not 2.5.1: nothing called 2.5.0 was ever
 released, so there is nothing to patch. Every doc must say the same thing.
 
-**The gate the owner chose: the cheaper middle path, deliberately.**
-`run-tests.sh unit` (~12 min; 457/0/1 green 2026-09-04) plus
-`tools/package-test/run.sh`, which is the audit of the artefact itself —
-nested signatures, entitlements, the embedded HDF5. `run-tests.sh all` is
-knowingly SKIPPED. **Say so in the release notes** rather than leaving it
-implied; do not let a later doc imply a full gate ran. Read every exit code
-on its own line, never through a pipe.
+**The gate: tried full, FAILED, shipped reduced (owner, 2026-09-04 evening).**
+The plan chose the cheaper middle path because disk was short. The owner freed
+the disk and called for `run-tests.sh all` instead. It ran and **exited 1** at
+`real-data-acceptance` on a defect that predates the release (`open-items.md`,
+sidecar-read-as-data) — 457/0/0 unit and 42 harnesses green first, but
+`package-test` is sequenced after the failure and never ran. The owner's call
+on seeing that: ship on the reduced gate as originally planned, with the
+defect recorded rather than buried. **So the release notes must say the full
+gate did not pass** — not merely that it was skipped. Read every exit code on
+its own line, never through a pipe: the background task said 0 while the
+gate's own line said 1.
 
 **Five places disagree today and all must read "v2.5.0, released".** Do these
 in one commit with the version bump:
@@ -67,10 +73,12 @@ in one commit with the version bump:
 4. `mac4DSTEM.xcodeproj/project.pbxproj` — `MARKETING_VERSION` is already 2.5;
    bump `CURRENT_PROJECT_VERSION` 3 → 4, because build 3 is the superseded
    2026-09-03 artefact in `build/release/`.
-5. `docs/open-items.md`, "The app has never been driven on the macOS version
-   it claims to support" — it says `LSMinimumSystemVersion` is 14.0. **That is
-   stale and wrong**: there is no such key anywhere; the floor is derived from
-   `MACOSX_DEPLOYMENT_TARGET = 26.0`. Rewrite it, do not delete it.
+5. `docs/open-items.md`, the macOS-floor entry — it said `LSMinimumSystemVersion`
+   is 14.0. Rewritten 2026-09-04. **The plan's own correction here was itself
+   half wrong** and is left standing as the warning: it said "there is no such
+   key anywhere". The key DOES exist — `GENERATE_INFOPLIST_FILE` derives it from
+   `MACOSX_DEPLOYMENT_TARGET = 26.0` and `tools/package-test/run.sh:46` asserts
+   it reads `26.0`. Stale was the VALUE, not the key.
 
 **Build order, and it is the part that bites** (`docs/releasing.md`):
 Developer ID archive → notarize the app → staple → `make-dmg.sh` from the
@@ -81,14 +89,16 @@ notary submissions, each usually 5–15 min. Credentials verified present
 the working `mac4dstem-notary` keychain profile. The owner tests the DMG on a
 second account on this Mac.
 
-**Blocked on the owner: disk.** 3.0 GB free on both roots at the time of
-writing; the archive, `package-test`'s clean build and the DMG all need room.
-The owner said they would handle it. Do not delete outside `free-space.sh`'s
-two guarded roots on an agent's own judgement.
+**Disk: cleared by the owner 2026-09-04.** 11 GB free on both roots, above
+`run-tests.sh`'s 8 GB preflight floor — which is what let the owner upgrade
+the gate below. Do not delete outside `free-space.sh`'s two guarded roots on
+an agent's own judgement.
 
 **Deferred by the owner, explicitly not v2.5.0 blockers:** the macOS floor
-(below), the toolbar Cancel button's appearance, and moving the sidecar
-contents into the left sidebar — all three are in `open-items.md`.
+(below) and the toolbar Cancel button's appearance, both in `open-items.md`.
+The third, moving the sidecar contents into the left sidebar, the owner
+un-deferred on release night and it is DONE in code — unverified on screen,
+and no gate can see it (`open-items.md`).
 
 **The macOS floor — DECIDED: it comes down (owner, 2026-09-04).** Not "if".
 The app is capped at macOS 26 by `MACOSX_DEPLOYMENT_TARGET = 26.0` *and*
@@ -135,8 +145,11 @@ start at item 2, not invent a way to do item 1.
    2026-09-04: the status bar's elapsed / throughput / ETA ticked live
    (`7 s · 88.0 positions/s · ETA 1:29 · 287 MB app · 525 MB cube ·
    streaming`) and the output log kept updating after `ActivityLog` took it
-   off `AppState`. **One remains**: a cropped save → quit → reopen (S1's crop
-   restore). The dividers stay unverifiable by any gate.
+   off `AppState`. **Two remain**: a cropped save → quit → reopen (S1's crop
+   restore), and the sidecar contents in their new home in the left sidebar —
+   load a dataset that has a sidecar, check the rows read correctly at the
+   sidebar's width, and right-click a saved result to find Remove. The
+   dividers stay unverifiable by any gate.
 2. **Manual Q and R pixel scale cannot be corrected once entered**
    (`open-items.md`). Small, owner-hit; a wrong R scale silently rescales every
    real-space axis, scale bar and export. Its recorded mechanism is imprecise
@@ -158,13 +171,11 @@ start at item 2, not invent a way to do item 1.
    unattended work**: each needs Gate D or Gate B with an independent refuter
    and the owner's judgement on what the number should be.
 
-**Two gates are owed and one is blocked.** `run-tests.sh all` has not run since
-2026-09-03 (`e2284f1`, exit 1 at `package-test`, since fixed on that tree). The
-run itself is ~12 minutes and needs nothing the machine lacks except disk — the
-preflight wants 8 GB on both `$ROOT` and `$TMPDIR`, and freeing it means
-deleting outside the two roots `free-space.sh` guards, which is the owner's
-call. `run-tests.sh scientific` has not run as a whole since 2026-09-03 either;
-the four reader harnesses ran green on 2026-09-04.
+**The aggregate gate is owed, and now has a named blocker.** `run-tests.sh all`
+ran on the release tree 2026-09-04 and exited 1 at `real-data-acceptance`; the
+defect behind it is real, pre-existing and undiagnosed (`open-items.md`). Disk
+is no longer the obstacle — the owner freed it and the preflight passes. Until
+that defect is diagnosed under Gate D, no aggregate exit 0 can be quoted.
 
 **The rule bought the hard way** (`open-items.md`, the constraint-loop entry):
 nothing inside a split column may repeatedly change its own minimum size.
@@ -185,5 +196,4 @@ report — that is how the constraint-loop mechanism was established.
 
 - **Drive the rebuilt app** (above) — three things are unverified on screen and
   a fourth, the front-page screenshot, still shows v1.0.0's window.
-- **The disk decision** that unblocks `run-tests.sh all`.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format).
