@@ -35,7 +35,8 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **463 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05**, full log retained at `/private/tmp/mac4dstem-discovery-unit-20260905.log`; the one skip is the existing unmounted-volume case. Exit was read from the gate's own line. |
+| `run-tests.sh unit` | **463 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05**, full log retained at `/private/tmp/mac4dstem-discovery-unit-20260905.log`; this run covers the committed reader change, before the current manual-scale UI change. The closeout rerun was refused by the free-space preflight (**exit 69**, 4 GB available versus its 8 GB floor); `/private/tmp/mac4dstem-manual-scale-closeout-unit-20260905.log`. |
+| `manual-scale focused tests` | **2 passed / 0 failed, exit 0 — 2026-09-05**, covering the manual setter/provenance path and ready-row editor policy; `/private/tmp/mac4dstem-manual-scale-focused-final2-20260905.log`. The pre-fix test failed to compile as expected because the policy was absent. |
 | `run-tests.sh scientific` | **43 harnesses, exit 0 — 2026-09-05**, using `PYTHON=$HOME/miniconda3/envs/py4dstem/bin/python`; includes `datacube-discovery-test`. Full log retained at `/private/tmp/mac4dstem-discovery-scientific-py4dstem-20260905.log`. |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-05, dirty-tree inventory; tool classification and UI-contract checks passed. Its clean-tree documentation check was skipped by design because this work remains uncommitted. |
@@ -69,9 +70,8 @@ agent should say so and start at item 2.
    saved result in the sidebar's Session section to find Remove** — the rows
    themselves the owner drove and approved, the context menu nobody has opened.
 2. **Manual Q and R pixel scale cannot be corrected once entered**
-   (`open-items.md`). Small, owner-hit; a wrong R scale silently rescales every
-   real-space axis, scale bar and export. Its recorded mechanism is imprecise
-   for `.qScale` — the code names `.rScale` — so check that before fixing.
+   (`open-items.md`). The UI fix is landed in both Prepare and ExportSheet;
+   owner drive remains for the ready/manual editor visibility and editability.
 3. **The four open UI-review findings** and **`PaneSplit` residuals**
    (`open-items.md`).
 4. **Then the rest of the science lane, one item at a time** — origin-fit guard

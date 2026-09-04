@@ -529,10 +529,15 @@ entry used to cite was deleted in `d5786e2`). The code names `.rScale` as
 (`PrepareSettings.swift:318`), so whether `.qScale` is equally trapped is
 worth checking rather than assuming. A wrong R scale silently
 rescales every real-space axis, scale bar and export, so this is a trust
-defect, not an inconvenience. Fix: keep the manual rows on screen when the
-value's provenance is manual (or always, for the two kinds with no measured
-path). Owner: unclaimed; small, but it touches calibration presentation and
-wants the owner watching.
+defect, not an inconvenience. **Code fix 2026-09-05:** the shared
+`PrepareSettings.shouldShowManualScaleEditor` policy keeps R editable for every
+provenance and Q editable when missing or manual; both Prepare and ExportSheet
+use it. The setter-to-readiness path and policy are pinned by two focused tests.
+Independent review found the first implementation missed ExportSheet and the
+post-unit-change provenance path; both gaps are corrected here.
+Still open: owner must drive the current build and verify the fields remain
+visible and editable in both surfaces; no headless test can close that visual
+claim.
 
 ### `calibration.*` identifiers exist twice while the export sheet is open
 `ExportSheet` re-renders the readiness rows, so `calibration.readiness`,

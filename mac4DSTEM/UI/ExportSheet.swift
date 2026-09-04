@@ -15,8 +15,8 @@
 //  belonging to the inspector, and this sheet needs the same *data* in its own
 //  `Form`. The rows are therefore the same shape, read the same
 //  `appState.calibrationSession.readiness`, and print the same strings; only
-//  the filename-conflict parser is shared, as a pure static, so the regex
-//  `CalibrationReadinessFilenameTests` pins has one spelling in UI.
+//  the filename-conflict parser and manual-editor visibility policy are shared,
+//  as pure statics, so the regex and ready-row behavior have one spelling in UI.
 //
 
 import SwiftUI
@@ -265,7 +265,9 @@ struct ExportSheet: View {
                 .foregroundStyle(.orange)
                 .accessibilityIdentifier("calibration.rScale.filenameConflict")
         }
-        if !item.status.isReady {
+        if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
+            for: item.kind, status: item.status
+        ) {
             readinessAction(for: item.kind)
         }
     }

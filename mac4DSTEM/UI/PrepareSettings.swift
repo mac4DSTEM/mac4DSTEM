@@ -9,7 +9,7 @@ import DSTEMSession
 /// The migration of `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
 /// `UI/CalibrationDetailsView` into UI. Everything scientific is carried over
 /// unchanged — the same properties, the same provenance vocabulary, the same
-/// formats, the same refusals and the same accessibility identifiers. Two
+/// formats, the same refusals and the same accessibility identifiers. Three
 /// things are presentation-only and did change:
 ///
 /// - Every readiness row is a real `LabeledContent` now. The old view built
@@ -20,6 +20,9 @@ import DSTEMSession
 /// - "Compute Mean / Max" no longer waits for the diffraction pane to be the
 ///   active one. The statistics are a property of the cube, not of which pane
 ///   has focus, and UI has no pane focus model.
+/// - Manual Q/R editors remain reachable after a valid manual value makes the
+///   readiness row green. R has no in-app measurement path; Q's editor stays
+///   available for manual provenance alongside its crystal route.
 struct PrepareSettings: View {
     @Environment(AppState.self) private var appState
     @State private var showsDiagnostics = false
@@ -31,6 +34,26 @@ struct PrepareSettings: View {
     /// measured 0.5% as inside the trim's own false-positive range.
     static func disclosesExcludedFraction(_ excluded: Float) -> Bool {
         excluded > Calibration.excludedFractionDisclosureFloor
+    }
+
+    /// Manual Q/R editing must remain reachable after the value becomes ready.
+    /// R has no measurement path in this app, while Q has a separate crystal
+    /// measurement path; a measured or imported Q value should not be silently
+    /// replaced by a second editor.
+    static func shouldShowManualScaleEditor(
+        for kind: CalibrationReadinessKind,
+        status: CalibrationReadinessStatus
+    ) -> Bool {
+        switch kind {
+        case .rScale:
+            return true
+        case .qScale:
+            if !status.isReady { return true }
+            if case .ready(.manual) = status { return true }
+            return false
+        case .originProbe, .ellipse, .rotation:
+            return false
+        }
     }
 
     private var report: CalibrationReadinessReport {
@@ -258,7 +281,9 @@ struct PrepareSettings: View {
                 .foregroundStyle(.orange)
                 .accessibilityIdentifier("calibration.rScale.filenameConflict")
         }
-        if !item.status.isReady {
+        if !item.status.isReady || Self.shouldShowManualScaleEditor(
+            for: item.kind, status: item.status
+        ) {
             readinessAction(for: item.kind)
         }
     }

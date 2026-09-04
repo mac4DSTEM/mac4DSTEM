@@ -483,13 +483,52 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.calibrationSession.calibration.rPixelUnits, "Å")
         let rItem = state.calibrationSession.readiness.items.first { $0.kind == .rScale }
         XCTAssertEqual(rItem?.status, .ready(.manual))
+        if let rItem {
+            XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+                for: rItem.kind, status: rItem.status
+            ))
+        }
 
         state.setManualQPixelSize(0.25)
         XCTAssertEqual(state.calibrationSession.calibration.qPixelUnits, "nm⁻¹")
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .manual)
+        let qItem = state.calibrationSession.readiness.items.first { $0.kind == .qScale }
+        XCTAssertEqual(qItem?.status, .ready(.manual))
+        if let qItem {
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+                for: qItem.kind, status: qItem.status
+            ))
+        }
         XCTAssertEqual(state.acomScale, 0.025, accuracy: 1e-12)
         state.setManualQPixelUnits("Å⁻¹")
         XCTAssertEqual(state.calibrationSession.calibration.qPixelUnits, "Å⁻¹")
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .manual)
+        let qItemAfterUnitChange = state.calibrationSession.readiness.items.first { $0.kind == .qScale }
+        XCTAssertEqual(qItemAfterUnitChange?.status, .ready(.manual))
+        if let qItemAfterUnitChange {
+            XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+                for: qItemAfterUnitChange.kind, status: qItemAfterUnitChange.status
+            ))
+        }
         XCTAssertEqual(state.acomScale, 0.25, accuracy: 1e-12)
+    }
+
+    func testManualScaleEditorsRemainReachableAfterReadiness() {
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+            for: .rScale, status: .ready(.importedFile)
+        ))
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+            for: .qScale, status: .ready(.manual)
+        ))
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+            for: .qScale, status: .missing
+        ))
+        XCTAssertFalse(PrepareSettings.shouldShowManualScaleEditor(
+            for: .qScale, status: .ready(.measuredInApp)
+        ))
+        XCTAssertFalse(PrepareSettings.shouldShowManualScaleEditor(
+            for: .rotation, status: .ready(.manual)
+        ))
     }
 
     func testACOMRequiresExplicitMaterialAndPreservesScaleMeaning() {
