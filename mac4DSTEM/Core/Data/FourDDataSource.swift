@@ -9,6 +9,18 @@
 
 import Foundation
 
+/// How a data file is named in a message the user reads.
+///
+/// The readers all knew the file by its absolute path and printed it. On a
+/// public repo, in a screenshot, in a pasted bug report, that path is the
+/// user's home directory, their volume names and their folder structure —
+/// none of which helps them fix a file that will not open. The message names
+/// the file; the log and the recents list still hold the whole path.
+package func displayFileName(_ path: String) -> String {
+    let name = (path as NSString).lastPathComponent
+    return name.isEmpty ? path : name
+}
+
 /// Contiguous scan-row tile in app order `[tileRy,Rx,Qy,Qx]`.
 package nonisolated struct FourDScanTile: Sendable {
     package let yRange: Range<Int>

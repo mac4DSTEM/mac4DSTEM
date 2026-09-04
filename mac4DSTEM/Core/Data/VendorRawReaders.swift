@@ -8,7 +8,7 @@ package enum VendorRawError: LocalizedError {
 
     package var errorDescription: String? {
         switch self {
-        case .cannotOpen(let path): return "Could not open vendor data file at \(path)."
+        case .cannotOpen(let path): return "Could not open \(displayFileName(path))."
         case .malformed(let detail): return "Malformed vendor data: \(detail)"
         case .unsupported(let detail): return "Unsupported vendor data layout: \(detail)"
         case .truncated(let detail): return "Vendor data is truncated: \(detail)"

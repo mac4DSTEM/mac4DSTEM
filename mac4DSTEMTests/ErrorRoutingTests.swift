@@ -56,4 +56,60 @@ final class ErrorRoutingTests: XCTestCase {
         XCTAssertNil(state.errorMessage)
         XCTAssertTrue(state.statusText.contains("Run disk detection first"))
     }
+
+    // MARK: - A refusal names the file, never the folders above it
+
+    /// A file that will not open is a session-level failure, so by the rule
+    /// above its message goes to the window-modal alert — the most
+    /// screenshotted surface in the app, in a public repo. The folders above
+    /// the file are the user's home directory, volume names and project
+    /// names, and none of them helps anyone fix an unreadable file.
+    ///
+    /// Deliberately NOT covered here: `H5Error.libraryUnavailable`, whose
+    /// detail is `dlopen` failures over app-install paths. That string carries
+    /// no user data and is the only diagnostic for a bundled-HDF5 load
+    /// failure, which is a live failure class in this repo.
+    func testReaderRefusalsNameTheFileAndNotTheFoldersAboveIt() {
+        let directory = "/Users/someone/Unpublished/Grant-2027"
+        let path = "\(directory)/scan_042.h5"
+
+        for message in [H5Error.cannotOpenFile(path).errorDescription,
+                        VendorRawError.cannotOpen(path).errorDescription] {
+            let message = try? XCTUnwrap(message)
+            XCTAssertEqual(message?.contains("scan_042.h5"), true,
+                           "the user must be told which file: \(message ?? "nil")")
+            XCTAssertEqual(message?.contains(directory), false,
+                           "the path above the file must not appear: \(message ?? "nil")")
+            XCTAssertEqual(message?.contains("Users"), false,
+                           "no home directory: \(message ?? "nil")")
+        }
+    }
+
+    /// `DM4Reader` composes its refusal at the throw site rather than in
+    /// `errorDescription`, so this exercises the real one. The underlying
+    /// error still travels with it — that was the v2 S7 audit's point, which
+    /// distinguishes EPERM from ENOENT from a short read — only the path
+    /// above the file is gone.
+    func testTheDM4RefusalKeepsItsUnderlyingErrorWithoutTheEnclosingPath() async {
+        let directory = NSTemporaryDirectory() + "mac4dstem-refusal-fixture"
+        let path = directory + "/no_such_cube.dm4"
+        do {
+            _ = try await DM4Reader(path: path)
+            XCTFail("a file that does not exist must not open")
+        } catch {
+            let message = error.localizedDescription
+            XCTAssertTrue(message.contains("no_such_cube.dm4"),
+                          "names the file: \(message)")
+            XCTAssertFalse(message.contains(directory),
+                           "but not the folder it is in: \(message)")
+        }
+    }
+
+    /// The helper itself, at the edges a path can actually have.
+    func testDisplayFileNameFallsBackRatherThanReturningNothing() {
+        XCTAssertEqual(displayFileName("/a/b/c.h5"), "c.h5")
+        XCTAssertEqual(displayFileName("c.h5"), "c.h5")
+        XCTAssertEqual(displayFileName("/a/b/"), "b", "a trailing slash is not a file name")
+        XCTAssertEqual(displayFileName(""), "", "nothing to name, and nothing invented")
+    }
 }

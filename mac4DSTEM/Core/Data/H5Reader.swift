@@ -45,7 +45,7 @@ package enum H5Error: LocalizedError {
         case .symbolMissing(let name):
             return "The HDF5 library is missing required symbol \(name)."
         case .cannotOpenFile(let path):
-            return "Could not open HDF5 file at \(path). Is it a valid .h5 file?"
+            return "Could not open \(displayFileName(path)). Is it a valid .h5 file?"
         case .noDatasetFound(let paths):
             // Capped: the full wall (30+ probed paths on a real sidecar) buries
             // the one sentence that matters. The first few say what was tried;

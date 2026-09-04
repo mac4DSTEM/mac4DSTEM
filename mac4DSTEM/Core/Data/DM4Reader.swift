@@ -22,7 +22,7 @@ package enum DM4Error: LocalizedError {
 
     package var errorDescription: String? {
         switch self {
-        case .cannotOpen(let p): return "Could not open DM file at \(p)."
+        case .cannotOpen(let detail): return "Could not open DM file: \(detail)"
         case .notLittleEndian: return "This DM file is big-endian (Mac-authored); only little-endian DM files are supported."
         case .noDatacube: return "No 4D (or scan-shaped 3D) datacube was found in this DM file."
         case .unsupportedDataType(let t): return "Unsupported DM image data type \(t)."
@@ -63,7 +63,8 @@ package actor DM4Reader: FourDDataSource {
             self.data = try Data(contentsOf: URL(fileURLWithPath: path),
                                  options: .mappedIfSafe)
         } catch {
-            throw DM4Error.cannotOpen("\(path) — \(error.localizedDescription)")
+            throw DM4Error.cannotOpen(
+                "\(displayFileName(path)) — \(error.localizedDescription)")
         }
         self.filePath = path
         try parse()

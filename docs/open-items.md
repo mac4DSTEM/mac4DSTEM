@@ -394,12 +394,6 @@ only, never `resolvedSessionSidecarURL`, and swallows the failure with
 session save/reopen) fails silently — reopens at full extent, says
 nothing. Driving F1.3f is both the acceptance row and the discriminator.
 
-### Status line leaks a full filesystem path
-~330 characters including the absolute path, rendered raw in
-`StatusFooterView` and `ProductWorkspaceViews`' header progress; the
-archived checklist's screenshots (public docs) have carried it since 2026-08-19. Worth
-truncating for display while keeping the log copy. Still open.
-
 ### Resident/streaming residuals
 `releaseResident()`'s "freed" claim is asserted by a derived byte count,
 never a measured one — a leaked `MTLBuffer` is invisible to every test.
