@@ -5,8 +5,9 @@
 //  keep beside AnalysisOperationController, plus the controller itself. Every
 //  way an operation ends (finish, cancel, reset on dataset change) goes
 //  through here, so `isBusy` can no longer be left stale by a bare reset
-//  (plan §10c). AppState forwards `isBusy`/`progress` and keeps `statusText`
-//  because its log hangs off it.
+//  (plan §10c). AppState forwards `isBusy`/`progress` and keeps `statusText`,
+//  whose didSet now feeds `ActivityLog` (the log itself moved off AppState,
+//  2026-09-04).
 //
 
 import Foundation

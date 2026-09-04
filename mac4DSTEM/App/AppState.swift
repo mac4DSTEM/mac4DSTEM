@@ -220,6 +220,10 @@ final class AppState {
     /// (docs/development-process.md §7) — see `App/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
+    /// What happened this session, for the output strip — the 2026-09-04
+    /// seam (docs/development-process.md §7) — see `App/ActivityLog.swift`.
+    /// Views read `activityLog.messages`; no forwarding properties.
+    let activityLog = ActivityLog()
 
     /// The ONE entry for recipe steps. Recording is suppressed while a
     /// dataset load is in flight: the automatic re-establishing pass on open
@@ -980,13 +984,10 @@ final class AppState {
     let operationCenter = OperationCenter()
     var isBusy: Bool { operationCenter.isBusy }
     var statusText = "No file loaded" {
-        didSet { appendLog(statusText) }
+        didSet { activityLog.record(statusText) }
     }
     var errorMessage: String?
 
-    /// Rolling log of meaningful status events, shown in the output strip
-    /// below the image panes. Progress spam ("… 42 %") is filtered out.
-    private(set) var logMessages: [String] = []
     private(set) var openDatasetRequest = 0
     private(set) var preprocessingExportRequest = 0
 
@@ -1022,20 +1023,6 @@ final class AppState {
             hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical
         )
     }
-
-    private func appendLog(_ message: String) {
-        guard !message.isEmpty, !message.hasSuffix("%") else { return }
-        if logMessages.last?.hasSuffix(message) == true { return }
-        let stamp = Self.logClock.string(from: Date())
-        logMessages.append("\(stamp)  \(message)")
-        if logMessages.count > 300 { logMessages.removeFirst(logMessages.count - 300) }
-    }
-
-    private static let logClock: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f
-    }()
 
     /// Increments whenever a (new) dataset is activated. Long-running detached
     /// analyses capture the epoch at launch and drop their results if it has

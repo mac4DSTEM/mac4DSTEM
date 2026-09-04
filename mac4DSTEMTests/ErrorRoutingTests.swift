@@ -15,7 +15,7 @@ final class ErrorRoutingTests: XCTestCase {
                      "A recoverable compute failure must not raise the window-modal alert")
         XCTAssertTrue(state.statusText.contains("No well-conditioned lattice explains the peaks."),
                       "The compute failure must still reach the status bar")
-        XCTAssertTrue(state.logMessages.last?.contains("No well-conditioned lattice") == true,
+        XCTAssertTrue(state.activityLog.messages.last?.contains("No well-conditioned lattice") == true,
                       "The compute failure must still reach the log pane")
     }
 

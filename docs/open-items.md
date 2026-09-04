@@ -551,14 +551,19 @@ the manifest's isolation flags buy visibility, not enforcement).
 
 ## Working methods that earned their keep
 
-### Count a gate's tests by name, never by grepping lines
+### Count a gate's tests by name, and reconcile against the expected delta
 `run-tests.sh unit` passes `-quiet`, so xcodebuild prints no summary and the
-count has to be grepped out of the log. The parallel runners interleave, and a
-`Test case '…' passed` line can be CHOPPED mid-name — 2026-09-04 one was, and
-`grep -c "Test case .* passed"` undercounted by exactly one, which read as a
-test that had silently vanished. Count unique test names instead:
-`grep -oE "[A-Za-z0-9_]+\.[a-zA-Z0-9_]+\(\)' passed" log | sort -u | wc -l`.
-Same family as the `| tail` trap: the gate was green, the number was wrong.
+count has to be grepped out of the log. The parallel runners interleave and a
+`Test case '…' passed` line gets CHOPPED mid-name — twice on 2026-09-04, in
+different places. `grep -c` on the whole line undercounts. Counting
+`Class.method` undercounts too when the chop lands in the class name (it did:
+`dedOriginSubtractsTheCropOffset…`). **Count the method alone —
+`grep -oE "[a-zA-Z0-9_]+\(\)' passed" log | sort -u | wc -l` — and then
+reconcile it against what you expected to change (prior total, minus deleted,
+plus added).** When the two disagree, `comm` the two runs' rosters: both times
+the "missing" test was a chopped duplicate of one that ran. Never conclude a
+test vanished from a count alone. Same family as the `| tail` trap: the gate
+was green, the number was wrong.
 
 
 

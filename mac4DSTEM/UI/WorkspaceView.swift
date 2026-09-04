@@ -124,7 +124,7 @@ struct WorkspaceView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(appState.logMessages.enumerated()), id: \.offset) { index, line in
+                    ForEach(Array(appState.activityLog.messages.enumerated()), id: \.offset) { index, line in
                         Text(line)
                             .font(.caption2.monospaced())
                             .foregroundStyle(.secondary)
@@ -136,8 +136,8 @@ struct WorkspaceView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
             }
-            .onChange(of: appState.logMessages.count) {
-                proxy.scrollTo(appState.logMessages.count - 1, anchor: .bottom)
+            .onChange(of: appState.activityLog.messages.count) {
+                proxy.scrollTo(appState.activityLog.messages.count - 1, anchor: .bottom)
             }
         }
         // No ground of its own: the divider above it and the window's own
