@@ -448,38 +448,24 @@ entry points below the fold; at the 171pt pane-width floor the header
 truncates and a badge wraps one letter per line. A saved sidebar divider
 can restore below its declared 250pt minimum (observed 144pt).
 
-### The constraint-loop crash: mechanism DEMONSTRATED; `HSplitView` was a trigger
-Two crashes, one exception, one frame: `NSGenericException` from
-`_postWindowNeedsUpdateConstraints`, through
-`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. The first
-aborted ~6 s after launch and was fixed by replacing `HSplitView` with
-`PaneSplit`. **2026-09-04, decisive: the second crash happened with NO
-`HSplitView` anywhere in the tree** — it had been deleted and an `inventory`
-grep forbids it — during disk detection on `polycrystal_2D_WS2.h5`, ~2.5 min
-in. That refutes the "conjunction of `HSplitView` + real panes" this file
-previously recorded as the mechanism, and confirms the Gate D refuter's H4:
-the loop is SwiftUI's split machinery reacting to **any hosted child whose
-minimum size keeps changing**, and `NavigationSplitView` and `.inspector` are
-splits too. What changed the minimum the second time was ours — a status-bar
-`Text(...).fixedSize()` on a `TimelineView(.periodic(by: 1))` inside
-`.safeAreaInset(edge: .bottom)`, whose width changed every second ("53 s" →
-"78.8 positions/s · ETA 2:35") and which ticks only while an operation runs.
-That is why every demo-fixture launch was clean and a real dataset died.
-Reverted; the same dataset then ran detection to completion ("Disks ✓ 16384
-peaks"), 150 s, no crash. **The rule: nothing inside a split's hosted content
-may repeatedly change its own minimum size**, and `.fixedSize()` on text whose
-string changes is the easiest way to do it by accident. `PaneSplit` is still
-right (it propagates no minimum at all) but was never the whole story.
-A SECOND child in the same strip was breaking the rule before the metrics
-line was ever written (2026-09-04): `status.footer.facts` is `.fixedSize()`
-on a string carrying `%.0f MB app`, and `StatusBar`'s body re-runs on every
-progress update, so its minimum moved throughout any operation. Predicted
-from this entry, not observed crashing; `.fixedSize()` removed and the text
-now truncates. Residuals: positive and negative are each n=1 against a fault
-this repo calls intermittent (S17); the inspector's Performance rows still
-tick per second, though inside a scroll view rather than a size-setting
-inset; and the two probes named earlier for separating "nesting" from "the
-panes' minimum" are now moot — the answer arrived by accident. Owner:
+### The constraint-loop crash: nothing in a split may change its own minimum
+`NSGenericException` from `_postWindowNeedsUpdateConstraints`, through
+`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. **The
+rule, demonstrated 2026-09-04: nothing inside a split's hosted content may
+repeatedly change its own minimum size.** SwiftUI's split machinery loops on
+it, and `NavigationSplitView` and `.inspector` are splits too. `.fixedSize()`
+on text whose string changes is the easiest way to do it by accident, and it
+only fires on a dataset big enough for an operation to tick — which is why
+every demo-fixture launch was clean and a real one died. Two sites, both in
+the status bar, both fixed: the metrics line and `status.footer.facts`.
+`PaneSplit` is right and should not be "fixed" — it propagates no minimum at
+all — but it was never the whole story. Full diagnosis, the refuted
+`HSplitView` conjunction that preceded it, and the two probes it made moot:
+commits `e608dbd` and `27de9bb`. Residuals: positive and negative are each
+n=1 against a fault this repo calls intermittent (S17); the inspector's
+Performance rows still tick per second, inside a scroll view rather than a
+size-setting inset; and **the 12 bare `.fixedSize()` sites left in `UI/` are
+unaudited against the rule** (9 of them in `ImagePanes.swift`). Owner:
 unclaimed.
 ### `PaneSplit` residuals from the refuter
 (a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a

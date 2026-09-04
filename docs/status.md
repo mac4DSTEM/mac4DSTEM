@@ -72,8 +72,8 @@ drawing the geometry they apply, from `DetectorPreset.radii` itself.
 ## Handoff (rewritten 2026-09-04, status-bar-metrics session)
 
 The UI is rebuilt in SwiftUI, the AppKit window is deleted, the `UI2` names are
-gone, and the app runs a full disk detection on the 1 GB WS2 cube. The local
-`origin/main` ref is at `282d67f`; this session's commit is not pushed.
+gone, and the app runs a full disk detection on the 1 GB WS2 cube. Push state
+is not recorded here — it went stale twice in two commits; ask git.
 
 **Next, in this order.** `/pickup` takes the first.
 

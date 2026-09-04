@@ -268,6 +268,15 @@ only controls are a `Form` (rule 2 as written produced no `List` anywhere in
 the app), and overflow — not wrapping — is the finding for a fixed-width
 column (rule 5 was backwards, and its gate cannot see text at all).
 
+**2026-09-04 — A status-bar number that ticks gets a reserved slot, not its
+own size.** Elapsed / throughput / ETA sit in a constant
+`LayoutPolicy.operationMetricsWidth` frame and truncate inside it, held for
+the whole operation. Reason: the obvious "improvement" — let it be as wide as
+it needs — IS the bug that crashed the app (constraint-loop rule,
+`open-items.md`). The constant is measured, not chosen
+(`StatusBarMetricsTests`). Corollary: `docs/status.md` no longer records push
+state; it went stale twice in two commits, and git is the authority.
+
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
 outside their own state; a session that ran them would need that surface
