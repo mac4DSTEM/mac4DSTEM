@@ -61,72 +61,68 @@ drawing the geometry they apply, from `DetectorPreset.radii` itself.
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **450 passed / 0 failed / 2 skipped, exit 0 — 2026-09-04, post-retirement tree (476/0/3 before it; the delta is exactly the 27 deleted shell tests) (full log retained, exit code read directly and not through a `tail` pipe — two earlier runs this session reported `tail`'s status and were withdrawn). Re-run green on the drive-fix tree, after an exit-69 preflight refusal cleared by deleting `ModuleCache.noindex` and 23 stale `DerivedData` husks — 415 MB, the debris `free-space.sh`'s roots still cannot see.** Previously: 476 / 0 / 3, exit 0 — 2026-09-03, step 4b tree (log retained); skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent. `ColumnMaterialTests.testTheSideColumnsLeaveTheirMaterialVisible` went red on the source list and is the one gate 4b amended. Two runs before it exited 69 on the 8 GB floor with `free-space.sh` reporting nothing to clear — the debris was this session's own `Logs/Test` and `ModuleCache.noindex`, both outside the script's roots (`open-items.md`) |
+| `run-tests.sh unit` | **451 passed / 0 failed / 1 skipped, exit 0 — 2026-09-04, closeout tree (full log retained; exit code read directly, never through a `tail` pipe).** 452 tests either way: 476/0/3 before the UI retirement, which deleted 27 AppKit-shell tests and gained the WS2 stall probe once its data appeared. Two exit-69 preflight refusals during the session, each cleared by deleting `ModuleCache.noindex` and stale `DerivedData` — debris `free-space.sh`'s roots still cannot see |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-04, refuter-fix tree; the UI contract grep is new and was mutation-tested both ways. Previously: exit 0 — 2026-09-03, UI scaffold tree |
 | Xcode scratch build | 0 Swift warnings — UI scheme-argument tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
-## Handoff (rewritten 2026-09-04, after the UI retirement)
+## Handoff (rewritten 2026-09-04 end of session)
 
-The UI rework is **finished**: `UI/` is the SwiftUI rebuild, the AppKit window
-is deleted, the owner drove it twice and its findings are fixed. Nothing about
-the UI is owed except the residuals below. Pushed through `d5786e2`.
+The UI is rebuilt in SwiftUI, the AppKit window is deleted, the `UI2` names are
+gone, and the app runs a full disk detection on the 1 GB WS2 cube. Pushed
+through `5c008d8`; `e608dbd`, `1f5121d` and this closeout are local.
 
-**Next, in this order.** Each is a session; `/pickup` takes the first.
+**Next, in this order.** `/pickup` takes the first.
 
-1. **Close Gate D on the launch crash — two probes, ~30 minutes.** The fix
-   (`PaneSplit`) is shipped and gated, but its MECHANISM is refuted, not
-   established (`open-items.md`, "UI launch crash"), and a shipped fix
-   standing on an unknown is the one thing in the tree that could bite
-   silently. The two probes are named there: `HSplitView` + real panes with
-   `.inspector` removed, and `HSplitView { Color.clear.frame(minWidth: 300); … }`.
-   Run each three times, not once — every negative in the original table is
-   n=1 against a fault this repo records as intermittent (S17). Gate: the
-   probes themselves; then rewrite the entry to what they show.
-2. **Manual Q and R pixel scale cannot be corrected once entered**
-   (`open-items.md`). Owner-hit, mechanism known, small: the readiness row
-   goes green and takes its own entry field with it, and those two kinds have
-   no measurement path. A wrong R scale silently rescales every real-space
-   axis, scale bar and export, so it is a trust defect. Gate: unit, plus the
-   owner re-entering a value on screen.
-3. **The four open UI-review findings** (`open-items.md`, "UI review
-   (Fable)"): the pattern min/max rows are not the current position's pattern
-   in Mean/Max/ROI mode; the A/B/A−B comparison has no scale at all; the
-   cursor prints a raw Float beside an Exploratory badge; staleness has two
-   verdicts across three surfaces. One session, one commit each if they
-   diverge.
-4. **`PaneSplit` residuals** (`open-items.md`): the pane header is ~420 pt
-   of `.fixedSize()` controls and a pane can be narrower — it clips now
-   instead of overprinting, but the header still needs to become
-   compressible; and the image floor lapses below 2× itself. Both predicted,
-   neither seen on screen.
-5. **Then the science lane, one item at a time, as it always was** — the
-   **origin-fit guard leads** (1 px unflagged, radius provenance; Gate B;
-   `open-items.md` "Origin-fit gate" (a)), then the ACOM bundle's
-   origin-provenance snapshot, the selected-area mask fixture, bullseye disk
-   detection (Gate D), the CIF id collision, Q-calibration scale, ACOM
-   coverage. A landed number change cuts v2.6.0. Features come from
-   `docs/v3-plan.md`, pre-registered first.
+1. **Your drive.** Nothing beyond Prepare, Imaging and Strain & ACOM has been
+   looked at since the retirement, and the last two sessions have both found
+   defects by driving that every gate was green through. Bugs enter via
+   `/diagnose`. Worth going at first: Phase's stages, the load configurator's
+   crop drags, the Results comparison row, the colorbar popover, and every
+   divider — the pane split is hand-built now.
+2. **Put elapsed / throughput / ETA back in the status bar**
+   (`open-items.md`). You asked for it; the first attempt crashed the app and
+   was reverted. `OperationMetricsFormat` is already shared with the
+   inspector, so only the placement is left, and it must reserve a slot whose
+   size never changes. Drive it on a real dataset — the demo cube finishes
+   faster than the one-second tick.
+3. **Manual Q and R pixel scale cannot be corrected once entered**
+   (`open-items.md`). Small, owner-hit, and a wrong R scale silently rescales
+   every real-space axis, scale bar and export.
+4. **The four open UI-review findings** (`open-items.md`, "UI review"): the
+   pattern min/max rows are not the current position's pattern in
+   Mean/Max/ROI mode; the A/B/A−B comparison has no scale; the cursor prints a
+   raw Float; staleness has two verdicts across three surfaces.
+5. **`PaneSplit` residuals**: the pane header is ~420 pt of `.fixedSize()`
+   controls and a pane can be narrower — it clips rather than overprints, but
+   the header still needs to compress; and the image floor lapses below 2×
+   itself.
+6. **Then the science lane, one item at a time, as it always was** — the
+   **origin-fit guard leads** (Gate B; `open-items.md` "Origin-fit gate" (a)),
+   then the ACOM bundle's origin-provenance snapshot, the selected-area mask
+   fixture, bullseye disk detection (Gate D), the CIF id collision,
+   Q-calibration scale, ACOM coverage. A landed number change cuts v2.6.0.
 
-**Build, launch, capture, look** — the loop that found every defect this
-repo's gates could not see, including a crash the whole suite was green
-through: `open -n <Debug app> --args --demo-fixture` (no flag selects a UI any
-more), `screencapture -x -o -l <window id>` (per-window needs no consent;
-full-screen raises the picker), `tools/ui-drive/` for synthetic clicks. Two
-limits worth knowing before you plan around them: the app's defaults live in
-its sandbox container and TCC blocks writing them, so you cannot preset a
-remembered tab; and synthetic keystrokes go nowhere unless the window is
-active.
+**The one rule this session bought the hard way** (`open-items.md`, the
+constraint-loop entry): nothing inside a split column may repeatedly change
+its own minimum size. `.fixedSize()` on text whose string changes is the
+easiest way to do it by accident, and it only shows on a dataset big enough
+for an operation to tick.
+
+**Driving, and its two limits.** `open -n <Debug app> --args --demo-fixture`
+(no flag selects a UI any more), `screencapture -x -o -l <window id>`
+(per-window needs no consent). The app's defaults live in its sandbox
+container and TCC blocks writing them, so a remembered tab cannot be preset;
+and synthetic keystrokes only land while the window is frontmost. Fastest loop
+found this session: the owner drives, and pastes the crash report — that is
+how the constraint-loop mechanism was finally established.
 
 ## Owed to the owner
 
-- **Drive the retired-UI build.** The retirement itself is gated and launched
-  once with no flag, but the four workspaces beyond Prepare and
-  Strain & ACOM have not been looked at since it landed.
+- **Drive the rebuilt app** (above).
 - **`FocusedPane` and `InspectorContent` are dead** (`App/WorkspaceNavigation.swift`)
-  with a live test: the retired inspector was their only reader. Removing
-  them is a genuine responsibility off `AppState`'s seam; left out of the
-  retirement to keep that change one thing.
+  with a live test: the retired inspector was their only reader. Removing them
+  takes a real responsibility off `AppState`'s seam.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format).

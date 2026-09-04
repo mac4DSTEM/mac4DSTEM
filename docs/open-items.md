@@ -490,6 +490,20 @@ the mechanism is unestablished, so it is recorded rather than made.
 (c) The divider position resets to centre whenever the workspace branch is
 rebuilt (`HSplitView` did too). Owner: with (a) above.
 
+### The status bar has no elapsed / throughput / ETA — owner asked, and it was reverted
+Owner, 2026-09-04: those three numbers belong beside the progress bar, not
+only in the inspector's Performance tab, which is a tab away from the progress
+being watched. Built, then reverted the same day because the implementation
+crashed the app: a `Text(...).fixedSize()` on a one-second `TimelineView`
+inside `.safeAreaInset(edge: .bottom)` changed the detail column's minimum
+width on every tick (see the constraint-loop entry above). The FEATURE is
+still wanted; the implementation must reserve a slot whose size never changes
+— a fixed-width frame from `LayoutPolicy`, monospaced digits, the text
+truncating inside it — and it must be driven on a real dataset before it is
+called done, because the demo cube finishes faster than the tick and cannot
+exercise it at all. `OperationMetricsFormat` is already in place and already
+shared with the inspector, so only the placement is left. Owner: unclaimed.
+
 ### Manual Q and R pixel scale cannot be corrected once entered
 Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel
 size, the readiness row turns green — and the entry field disappears with it,
