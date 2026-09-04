@@ -513,10 +513,7 @@ private struct UI2ParallaxRunDetailsSection: View {
                 )
                 LabeledContent(
                     "Stack memory",
-                    value: ByteCountFormatter.string(
-                        fromByteCount: Int64(preview.residentStackByteCount),
-                        countStyle: .file
-                    )
+                    value: ui2ByteString(preview.residentStackByteCount)
                 )
                 LabeledContent(
                     "Electron wavelength",
@@ -671,7 +668,8 @@ private struct UI2ParallaxFitDetails: View {
             )
             LabeledContent(
                 "KDE output",
-                value: "\(subpixel.croppedBF.height) × \(subpixel.croppedBF.width)"
+                // Width × height, UI2's one order for a shape.
+                value: "\(subpixel.croppedBF.width) × \(subpixel.croppedBF.height)"
             )
             if !subpixel.positionCorrectionScores.isEmpty {
                 UI2HistoryPlot(

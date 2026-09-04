@@ -125,34 +125,30 @@ rule violation): the app subtracts each ring's mean where py4DSTEM leaves
 that line commented out. Owner: S16 successor / whoever next touches ACOM
 weighting.
 
-### UI2 review (Fable, 2026-09-04) — six ways the UI can misstate a number
-Independent review of `UI2/`, ranked by the reviewer. (a) **Axis order and the
-letter q mean different things on one screen**: the pane prints `qx × qy` as
-columns × rows (`UI2Panes.swift:107`), the same pane's axis note prints "qₓ ↓"
-as rows (`:381`), Info prints "Detector (Qy x Qx)" as rows × cols
-(`UI2Inspector.swift:216`), the sidebar prints `rx × ry` (`UI2Sidebar.swift:200`)
-and Phase adds `height × width` (`UI2PhaseSettings.swift:674`). A 256×128
-detector reads "256 × 128" in one place and "128 x 256" in another. Related to
-the unchecked HDF5 axis-order assumption below. (b) **"Current scan position ▸
-Pattern min/max" is not that position's pattern** when Mean/Max/ROI mode is on
-(`UI2Inspector.swift:316`, `AppState.swift:1302`); the only ROI-sum flag is in
-the pane header, one tab away. (c) **Byte sizes in two bases under one label**:
-Info is 1024-based and says GB (`UI2Inspector.swift:1012`,
-`SystemMonitor.swift:34`), the export sheet is 1000-based
-(`UI2ExportSheet.swift:184`) — the same cube is 4.00 GB in one and 4.29 GB in
-the sheet the user opens to decide whether to write it. (d) **The A/B/A−B
-comparison has no scale**: three panels at 0…1, no colorbar, no range, no zero
-mark on a symmetric RdBu difference (`UI2Results.swift:186`). (e) **Cursor
-readout prints a raw Float** — seven-plus digits beside a badge that may say
-Exploratory (`UI2Panes.swift:389`, `DisplayedProduct.swift:161`). (f)
-**Staleness has two verdicts**: the sidebar's green check ignores
-`diskDetectionSettingsAreStale` by design (`UI2Sidebar.swift:332`) while the
-inspector and the pane both flag it; Strain and ACOM rows stay green on stale
-vectors. Also: scale bar can print a physical sampling labelled "px" when
-`pixel.units` is nil (`UI2Panes.swift:713`); disks are drawn at an invented
-`probeRadius ?? 3` when no kernel exists (`:152`). Owner: (a) and (c) are one
-naming/units pass; (b), (d), (e), (f) are presentation fixes with a trust
-consequence. None is a computed number — all are labels on correct values.
+### UI2 review (Fable, 2026-09-04) — labels that can misstate a number
+Independent review of `UI2/`. Nothing found was a wrong computed value; every
+finding is a LABEL on a correct one. **(a) and (c) fixed 2026-09-04**, the rest
+open. (a) *Axis order and the letter q meant different things on one screen* —
+FIXED: the file's own order is `[Ry, Rx, Qy, Qx]`, so the app's `rx`/`qx` ARE
+the columns; UI2 now prints columns × rows everywhere with `Rx × Ry` /
+`Qx × Qy` labels, and the one place showing py4DSTEM's opposite convention
+(whose `qx` is the rows) says "py4DSTEM" on screen instead of two bare glyphs.
+(c) *Byte sizes in two bases under one label* — FIXED: UI2 had three
+formatters (two hand-rolled 1024-based ones disagreeing on precision, plus
+`ByteCountFormatter(.file)` at 1000), so one cube read 4.00 GB in Info and
+4.29 GB in the export sheet; one helper now, Finder's style. STILL OPEN:
+(b) "Current scan position ▸ Pattern min/max" is not that position's pattern
+in Mean/Max/ROI mode (`UI2Inspector`, `AppState.swift:1302`) — the only ROI-sum
+flag is in the pane header, one tab away. (d) The A/B/A−B comparison draws
+three panels at 0…1 with no colorbar, range or zero mark on a symmetric RdBu
+difference (`UI2Results.swift:186`). (e) The cursor readout prints a raw Float,
+seven-plus digits, beside a badge that may say Exploratory (`UI2Panes.swift:389`,
+`DisplayedProduct.swift:161`). (f) Staleness has two verdicts: the sidebar's
+green check ignores `diskDetectionSettingsAreStale` by design while the
+inspector and pane both flag it, and Strain/ACOM rows stay green on stale
+vectors. Minor: the scale bar can print a physical sampling labelled "px" when
+`pixel.units` is nil (`UI2Panes.swift:713`); disks draw at an invented
+`probeRadius ?? 3` with no kernel (`:152`). Owner: (b), (d), (e), (f) unclaimed.
 
 ## Verification debt
 

@@ -392,16 +392,16 @@ struct UI2LoadConfigurator: View {
         Section("Size") {
             // Axis-labelled in the inspector's own convention (owner request,
             // 2026-08-18), so this is not a third ordering variant.
-            sizeRow("Scan (Ry x Rx)", "\(pending.source.ry) x \(pending.source.rx)")
-            sizeRow("Detector (Qy x Qx)", "\(pending.source.qy) x \(pending.source.qx)")
+            sizeRow("Scan (Rx × Ry)", "\(pending.source.rx) × \(pending.source.ry)")
+            sizeRow("Detector (Qx × Qy)", "\(pending.source.qx) × \(pending.source.qy)")
             if let fileBytes = pending.fileByteCount {
-                sizeRow("File on disk", SystemMonitor.byteString(fileBytes))
+                sizeRow("File on disk", ui2ByteString(fileBytes))
             }
-            sizeRow("Whole cube (f32)", SystemMonitor.byteString(pending.fullExtentByteCount))
+            sizeRow("Whole cube (f32)", ui2ByteString(pending.fullExtentByteCount))
             if let loaded = pending.loadedByteCount {
                 sizeRow(
                     "This selection (f32)",
-                    SystemMonitor.byteString(loaded)
+                    ui2ByteString(loaded)
                         + (pending.reductionSummary.map { " · \($0)" } ?? "")
                 )
             }

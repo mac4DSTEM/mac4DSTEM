@@ -538,7 +538,7 @@ struct UI2StatusBar: View {
 
     private func footerFacts(_ descriptor: DatasetDescriptor) -> String {
         let app = String(format: "%.0f MB app", SystemMonitor.residentMemoryMB())
-        let cube = SystemMonitor.byteString(descriptor.byteCountAsFloat32) + " cube"
+        let cube = ui2ByteString(descriptor.byteCountAsFloat32) + " cube"
         return "\(app) · \(cube) · \(appState.residency.summary.lowercased())"
     }
 }

@@ -213,8 +213,13 @@ private struct UI2DatasetInfoSections: View {
     @ViewBuilder
     private var dimensionsSection: some View {
         Section("Dimensions") {
-            ui2InspectorRow("Scan (Ry x Rx)", "\(descriptor.ry) x \(descriptor.rx)")
-            ui2InspectorRow("Detector (Qy x Qx)", "\(descriptor.qy) x \(descriptor.qx)")
+            // Columns × rows, the order the image is drawn in and the one
+            // every other surface prints. The file's own axis order is
+            // [Ry, Rx, Qy, Qx], so `rx`/`qx` ARE the columns; py4DSTEM names
+            // the other axis qx, which is why anything printing py4DSTEM's
+            // convention says so (`UI2Panes`).
+            ui2InspectorRow("Scan (Rx × Ry)", "\(descriptor.rx) × \(descriptor.ry)")
+            ui2InspectorRow("Detector (Qx × Qy)", "\(descriptor.qx) × \(descriptor.qy)")
             if let acceleratingVoltage = appState.calibrationSession.acceleratingVoltage {
                 ui2InspectorRow("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
             }
@@ -293,12 +298,12 @@ private struct UI2DatasetInfoSections: View {
                           || appState.replayRun.isRunning)
                 .accessibilityIdentifier("inspector.promoteToFullExtent")
                 if let source = appState.loadView?.source {
-                    // SystemMonitor.byteString, deliberately: the configurator
-                    // prices this same quantity through it, and the two
+                    // The configurator prices this same cube, and the two
                     // surfaces a user compares when deciding to promote must
-                    // not render the same cube with different precision.
+                    // not render it differently — so both go through
+                    // `ui2ByteString`, UI2's only byte formatter.
                     Text("Reloads the whole cube — "
-                         + SystemMonitor.byteString(source.byteCountAsFloat32)
+                         + ui2ByteString(source.byteCountAsFloat32)
                          + " as float32. Analyses re-run against the full dataset.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -846,7 +851,7 @@ private struct UI2PerformanceRows: View {
             labeled("App memory", String(format: "%.0f MB", SystemMonitor.residentMemoryMB()))
         }
         if let descriptor = appState.descriptor {
-            labeled("Full cube (f32)", SystemMonitor.byteString(descriptor.byteCountAsFloat32))
+            labeled("Full cube (f32)", ui2ByteString(descriptor.byteCountAsFloat32))
             // Which path the analyses are actually taking. Resident and
             // streaming produce identical numbers, so nothing else on screen
             // would tell the user which one they are on.
@@ -1006,13 +1011,3 @@ private func ui2InspectorRow(_ label: String, _ value: String, mono: Bool = fals
     }
 }
 
-/// The dataset inspector's own byte formatter — MB below a gigabyte, GB above.
-/// Deliberately NOT `SystemMonitor.byteString`: the rows that price the whole
-/// cube for a promote decision use that one, and the two must not be swapped.
-private func ui2ByteString(_ bytes: Int) -> String {
-    let megabytes = Double(bytes) / 1_048_576
-    if megabytes >= 1024 {
-        return String(format: "%.2f GB", megabytes / 1024)
-    }
-    return String(format: "%.1f MB", megabytes)
-}

@@ -181,9 +181,7 @@ struct UI2ExportSheet: View {
     private var outputSection: some View {
         Section("Output preview") {
             LabeledContent("Shape", value: outputShape.map(String.init).joined(separator: " × "))
-            LabeledContent("Float32 data", value: ByteCountFormatter.string(
-                fromByteCount: Int64(estimatedBytes), countStyle: .file
-            ))
+            LabeledContent("Float32 data", value: ui2ByteString(Int(estimatedBytes)))
             if descriptor.qy % qBin != 0 || descriptor.qx % qBin != 0 {
                 Label(
                     "Trims \(descriptor.qy % qBin) detector row(s) and \(descriptor.qx % qBin) column(s)",

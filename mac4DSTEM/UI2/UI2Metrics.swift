@@ -117,6 +117,20 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     }
 }
 
+/// Every byte quantity UI2 prints, through one formatter.
+///
+/// UI2 had three (2026-09-04 review): two hand-rolled 1024-based ones that
+/// disagreed on precision, and `ByteCountFormatter(.file)` at 1000. The same
+/// float32 cube read 4.00 GB in the inspector and 4.29 GB in the export sheet
+/// the user opens to decide whether to write it. Apple's own split — `.memory`
+/// for RAM, `.file` for disk, both labelled "GB" — is defensible in isolation
+/// and wrong here, because these numbers are read against each other across
+/// surfaces. One style, and it is Finder's, because Finder is the reference
+/// the user already has on screen.
+func ui2ByteString(_ bytes: Int) -> String {
+    bytes.formatted(.byteCount(style: .file))
+}
+
 extension View {
     /// A preview image fills its column's width up to the one height cap.
     func ui2Thumbnail() -> some View {

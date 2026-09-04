@@ -105,6 +105,7 @@ struct UI2DiffractionPane: View {
 
             if let pattern = appState.displayedPattern {
                 Text("\(pattern.qx) × \(pattern.qy)")
+                    .help("Detector Qx × Qy — columns × rows.")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .fixedSize()
@@ -378,11 +379,19 @@ struct UI2RealSpacePane: View {
                     .fixedSize()
             }
             if appState.displayedProduct?.domain == .detector {
-                Text("qᵧ →  ·  qₓ ↓")
+                // NAMED, because the app and py4DSTEM disagree about which
+                // axis "qx" is: the file's order is [Ry, Rx, Qy, Qx], so the
+                // app's qx is the columns, while py4DSTEM's qx is the rows.
+                // Unnamed, these two glyphs contradicted the "Qx × Qy" printed
+                // inches away and nobody could tell which convention was meant
+                // (review, 2026-09-04).
+                Text("py4DSTEM qᵧ →  ·  qₓ ↓")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .fixedSize()
-                    .help("App detector columns are py4DSTEM qy; rows are qx.")
+                    .help("py4DSTEM's detector axes: its qy runs along the app's "
+                          + "detector columns, its qx down the rows. The app's own "
+                          + "Qx × Qy, shown elsewhere, is columns × rows.")
                     .accessibilityLabel("Detector axes: q y increases right, q x increases down")
             }
             if let sample = cursorSample {
