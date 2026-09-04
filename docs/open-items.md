@@ -397,6 +397,33 @@ cancellation is 2.5× coarser than streaming (one indivisible dispatch) —
 academic until something under `mac4DSTEM/` requests `.resident`, which
 nothing does today.
 
+### Toolbar Cancel button renders wrong during a run — cosmetic, not blocking
+Owner, 2026-09-04, seen driving a full-scan Bragg detection on
+`sim_Au_data_all_binned.h5`. `WorkspaceView.swift:231` is a bare
+`Button("Cancel", role: .cancel)` with no `.buttonStyle`, so it renders as a
+bordered text pill beside three icon-glyph toolbar buttons; `role: .cancel`
+buys nothing in a toolbar. The action WORKS — this is appearance only, and
+the owner called it not a big deal, so it does not block v2.5.0. Note the
+comment above it (`WorkspaceView.swift:224`): the old inline progress bar was
+removed here precisely because it squeezed this label to "C…", so any fix
+must not reintroduce a width contender in that slot. Exact symptom still
+owner's to pin down (style vs. size vs. placement) before anyone changes it.
+
+### Saved-session sidecar contents belong in the LEFT sidebar, under Session
+Owner, 2026-09-04 (corrected the same day — an earlier note said "right
+panel" and was wrong). The sidecar's contents — Calibration, BraggVectors and
+the per-product rows with their Remove buttons — render today in the right
+Info panel (`UI/WorkspaceInspector.swift:200`). Move them into the LEFT
+sidebar's existing `Section("Session")`, below Dataset and Session
+(`UI/WorkspaceSidebar.swift:209`, `SessionSection`), so that after loading a
+dataset the user sees on the left what came with it. The right panel stays
+Info only. Note what this revisits: the comment at
+`WorkspaceSidebar.swift:216` records a deliberate split — the sidebar carries
+the warnings verbatim while "the full explanation and the way out stay in
+Info" — so this change decides which half the Remove actions live in, and
+whether the two surfaces may now differ. Placement, not science: no Gate D,
+but it moves destructive controls, so owner-verified on screen before done.
+
 ### Sidecar/session UX residuals
 Recents-row location labels unverified on screen (F1.1c). A sidecar
 retarget made before any save survives only until the next dataset

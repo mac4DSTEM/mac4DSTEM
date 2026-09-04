@@ -39,6 +39,80 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `run-tests.sh inventory` | exit 0 — 2026-09-04, clean tree (so its docs check actually ran). Cold-start set 889, down from 922 at the previous closeout; it dipped to 862 mid-session and the second docs pass put 27 back as verified file:line evidence, after every entry it touched was trimmed to the file's own ≤ 12-line rule. **Weaker than it reads:** its size numbers are `printf` with no return code, and its one docs check is skipped entirely on a dirty tree (`run-tests.sh:179`), which is how every session runs it. It gates the `tools/` classification and the UI-contract greps; it does not gate the doc numbers |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
+## Ship v2.5.0 — the standing plan (owner, 2026-09-04 evening)
+
+**The parking is lifted.** The v2.5.0 release was parked 2026-09-03 until the
+UI rework was right; the rework landed 2026-09-04 and the owner has now driven
+it. The next session's job is to get v2.5.0 out — the GitHub download page
+still offers v1.0.0, and the owner's priority is replacing it, not perfecting
+it. The name is **v2.5.0** — not 2.5.1: nothing called 2.5.0 was ever
+released, so there is nothing to patch. Every doc must say the same thing.
+
+**The gate the owner chose: the cheaper middle path, deliberately.**
+`run-tests.sh unit` (~12 min; 457/0/1 green 2026-09-04) plus
+`tools/package-test/run.sh`, which is the audit of the artefact itself —
+nested signatures, entitlements, the embedded HDF5. `run-tests.sh all` is
+knowingly SKIPPED. **Say so in the release notes** rather than leaving it
+implied; do not let a later doc imply a full gate ran. Read every exit code
+on its own line, never through a pipe.
+
+**Five places disagree today and all must read "v2.5.0, released".** Do these
+in one commit with the version bump:
+1. `CHANGELOG.md:3` — "v2.5.0 — unreleased" → dated; and its body still
+   describes the pre-rebuild app, so fold in the 2026-09-04 SwiftUI rebuild.
+2. `docs/status.md`, the Releases table above — the v2.5.0 row still says
+   "parked", and its cited `df80e8e` DMG is superseded.
+3. `docs/releasing.md:12` — the release contract still says parked "until the
+   UI rework is complete".
+4. `mac4DSTEM.xcodeproj/project.pbxproj` — `MARKETING_VERSION` is already 2.5;
+   bump `CURRENT_PROJECT_VERSION` 3 → 4, because build 3 is the superseded
+   2026-09-03 artefact in `build/release/`.
+5. `docs/open-items.md`, "The app has never been driven on the macOS version
+   it claims to support" — it says `LSMinimumSystemVersion` is 14.0. **That is
+   stale and wrong**: there is no such key anywhere; the floor is derived from
+   `MACOSX_DEPLOYMENT_TARGET = 26.0`. Rewrite it, do not delete it.
+
+**Build order, and it is the part that bites** (`docs/releasing.md`):
+Developer ID archive → notarize the app → staple → `make-dmg.sh` from the
+*stapled* app → **notarize the DMG too**. `make-dmg.sh` signs the image and
+does not notarize it; Gatekeeper assesses the thing the user opened. Two
+notary submissions, each usually 5–15 min. Credentials verified present
+2026-09-04: cert `Developer ID Application: Paul Lobpreis (3B8SMSSAX4)` and
+the working `mac4dstem-notary` keychain profile. The owner tests the DMG on a
+second account on this Mac.
+
+**Blocked on the owner: disk.** 3.0 GB free on both roots at the time of
+writing; the archive, `package-test`'s clean build and the DMG all need room.
+The owner said they would handle it. Do not delete outside `free-space.sh`'s
+two guarded roots on an agent's own judgement.
+
+**Deferred by the owner, explicitly not v2.5.0 blockers:** the macOS floor
+(below), the toolbar Cancel button's appearance, and moving the sidecar
+contents into the left sidebar — all three are in `open-items.md`.
+
+**The macOS floor — DECIDED: it comes down (owner, 2026-09-04).** Not "if".
+The app is capped at macOS 26 by `MACOSX_DEPLOYMENT_TARGET = 26.0` *and*
+`Package.swift: platforms: [.macOS(.v26)]`. This is an **enforced floor, not
+an untested claim**: macOS refuses to launch below it, so softening the
+wording changes nothing — only lowering the number does. Cheap to find out:
+there are **zero `@available(macOS …)` annotations in the entire codebase**,
+so nothing is version-gated and lowering the target either compiles or names
+the offending API at build time. Expect the Liquid Glass / within-window
+material work (`decisions.md`, `architecture.md`) to be where it bites.
+**Sequencing, and it is the owner's call, not an agent's:** every green gate
+on record was gated at 26, so lowering the floor re-opens the whole gate
+surface. Do NOT do it on release night. Ship v2.5.0 at 26, then lower the
+floor as its own session with its own gate — that lands as v2.6.0 (or 2.5.1
+if nothing else rides along), and it needs a real older machine or VM, which
+`open-items.md` records the project does not have.
+
+**Not forgotten, owner will handle: the public face still shows v1.0.0.** The
+README, the project website and the GitHub release page all describe and link
+v1.0.0. The front-page screenshot shows the retired AppKit window, which no
+longer exists in the codebase. None of this blocks cutting the release, but
+v2.5.0 is not *delivered* until the thing a stranger lands on says so. Owner
+said they will take care of it; this line exists so it cannot be dropped.
+
 ## Handoff (rewritten 2026-09-04, end of the unattended docs/hygiene run)
 
 The UI is rebuilt in SwiftUI, the AppKit window is deleted, and the app runs a
@@ -56,10 +130,13 @@ start at item 2, not invent a way to do item 1.
    crop drags, the Results comparison row, the colorbar popover, and every
    divider — the pane split is hand-built and **no gate can see a column's
    width** (a unit-level one was tried and falsified, `open-items.md`).
-   Three things are **unverified on screen** and only a drive closes them: the
-   status bar's elapsed / throughput / ETA (only a real dataset ticks it), the
-   output log after `ActivityLog` took it off `AppState`, and a cropped save →
-   quit → reopen (S1's crop restore).
+   Of the three things that were **unverified on screen**, the owner closed two
+   by driving a full-scan Bragg detection on `sim_Au_data_all_binned.h5` on
+   2026-09-04: the status bar's elapsed / throughput / ETA ticked live
+   (`7 s · 88.0 positions/s · ETA 1:29 · 287 MB app · 525 MB cube ·
+   streaming`) and the output log kept updating after `ActivityLog` took it
+   off `AppState`. **One remains**: a cropped save → quit → reopen (S1's crop
+   restore). The dividers stay unverifiable by any gate.
 2. **Manual Q and R pixel scale cannot be corrected once entered**
    (`open-items.md`). Small, owner-hit; a wrong R scale silently rescales every
    real-space axis, scale bar and export. Its recorded mechanism is imprecise
