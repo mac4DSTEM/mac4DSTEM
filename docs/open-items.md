@@ -458,9 +458,8 @@ all — but it was never the whole story. Full diagnosis, the refuted
 commits `e608dbd` and `27de9bb`. Residuals: positive and negative are each
 n=1 against a fault this repo calls intermittent (S17); the inspector's
 Performance rows still tick per second, inside a scroll view rather than a
-size-setting inset; and **the 12 bare `.fixedSize()` sites left in `UI/` are
-unaudited against the rule** (9 of them in `ImagePanes.swift`). Owner:
-unclaimed.
+size-setting inset. The 12 bare `.fixedSize()` sites left in `UI/` are now
+audited — see the entry below. Owner: unclaimed.
 ### `PaneSplit` residuals from the refuter
 (a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a
 child below its minimum; `.frame(width:)` proposes a width and lets the child
@@ -567,11 +566,34 @@ Separately: the runner aborts at the first failing harness, so it can't
 report how many are actually red — whether to continue-and-summarise
 instead is open.
 
-### 31 `.fixedSize(horizontal: false, vertical: true)` sites in `UI/`, unaudited
-Count drifts with every UI change (was 22, then 31) — safe today and
-covered by `SplitViewHeightTests`, but nobody has audited the set as a
-whole, including the 4 in `TaskPrerequisiteChecklist` that caused a past
-defect.
+### `.fixedSize()` in `UI/`, audited 2026-09-04 — one armed site, contained
+Against the constraint-loop rule above. **12 bare `.fixedSize()` sites; one
+is armed.** `ImagePanes.swift:452`, the real-space pane's zoom badge
+`Text("Pan ×\(zp.effectiveZoom …)")`: `liveZoom` is written on every
+magnify event, the digit count moves (×9.9 → ×10.0 → ×100.0), the live value
+is unclamped mid-pinch (`ZoomPan.swift:72` clamps only `.onEnded`), and the
+badge itself appears and disappears across ×1.0
+(`RealSpacePointerPolicy.swift:42`) — a `.fixedSize()` child inserted and
+removed repeatedly during one gesture. The other 11 are static: `NumericField`'s
+unit is a string literal at all 13 call sites, and `ExportSheet`'s is in a
+sheet, which is not split content.
+**Why it has not been fixed.** The obvious remedy — a reserved slot, as the
+status bar got — closes the string-width channel and NOT the
+appears/disappears one, so it would ship a green test claiming a mechanism
+was closed that is not. **Why it is not urgent.** `PaneSplit` is a
+`GeometryReader` giving each pane `.frame(width:)`, which terminates the
+pane's minimum: it propagates nothing upward. And none of the 12 sits in the
+one `.safeAreaInset` in `UI/`, which is where both crashing sites lived. An
+armed gun pointed at a wall.
+Separately, the `fixedSize(horizontal: false, vertical: true)` set this entry
+used to describe as "31 sites, covered by `SplitViewHeightTests`, including 4
+in `TaskPrerequisiteChecklist`" was wrong on all three counts: there are **5**
+(`ExportSheet.swift:119`, `LoadConfigurator.swift:82,203,209,451`),
+`SplitViewHeightTests` does not exist in the tree, and
+`TaskPrerequisiteChecklist` went with the AppKit window. Vertical-only
+`fixedSize` cannot move a width and is not the rule's subject. Owner:
+the zoom badge, with whoever makes the pane header compressible
+(`PaneSplit` residual (a)) — the two are the same header.
 
 ### Runner source lists still hand-spelled in places
 `SessionReplayRecord.swift` is patched into seven runners by hand rather
