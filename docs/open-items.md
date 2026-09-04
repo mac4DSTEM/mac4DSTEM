@@ -529,22 +529,24 @@ be built with `UI/` deleted. Owner: whoever retires `UI/`.
 
 ## Code hygiene
 
-### `tools/free-space.sh` duplicates path knowledge it can't see change
-The temp-file prefix is spelled by the producer (`run-tests.sh:37`) and
-twice more by the reaper, no shared constant; ~35 harness `run.sh` files
-use bare untagged `mktemp -d`, invisible to any reaper. The
-XcodeBuildMCP workspace root is hardcoded. The script reports `df -g /`
-while the preflight gates on `$ROOT`/`$TMPDIR`'s volumes, which can
-differ on a non-boot checkout. Measured once at 10GB free: the script
-reported 0B reclaimable because the real pressure (Claude Desktop's VM
-bundle, `~/.cache/codex-runtimes`, package caches) is outside its two
-roots — do not conclude "nothing to reclaim" from a 0B report. Confirmed
-again 2026-09-03 (4b): two `unit` runs exited 69 at 7.95 GB against the
-8 GB floor while the script found nothing; what freed it was this
-session's own `DerivedData/<proj>/Logs/Test` (159 MB) and the shared
-`DerivedData/ModuleCache.noindex` (812 MB, regenerates). Both belong in
-the script. Fix wants one `tools/lib/` constants file. Owner: whoever next
-touches `run-tests.sh`.
+### `tools/free-space.sh` still spells shared path knowledge three times
+Fixed 2026-09-04, the half that was misreporting: it now prints the two
+volumes the preflight actually gates (`$ROOT`, `$TMPDIR`) instead of `/`,
+answers "will the gate run?" against the 8 GB floor directly, and SURVEYS the
+regenerable roots outside its two — Xcode's own `DerivedData`, the
+per-project `ModuleCache.noindex`, `CodingAssistant`, `.build` — with sizes.
+Measured that day: 680 KB of clearable targets against 743 MB it could not
+see, and two exit-69 refusals in one session. The survey is report-only and
+`guard_path()` is untouched: what `--clear` deletes did not widen, and
+`build/release` (notarized, stapled disk images) is printed as PROTECTED so
+no future edit mistakes it for debris. Residual, unfixed: the temp prefix is
+still spelled by the producer (`run-tests.sh:38`) and twice by the reaper,
+the XcodeBuildMCP root is still hardcoded, and ~35 harness `run.sh` files
+still use untagged `mktemp -d` that no reaper can see. The entry's own
+proposed fix — one `tools/lib/` constants file — is deliberately NOT taken:
+every gate sources through `run-tests.sh` under `set -euo pipefail`, so a bad
+line in a new sourced file kills the whole harness with an unrelated-looking
+error. Owner: whoever next touches `run-tests.sh`, with that trap in mind.
 
 ### Acceptance-gate test-infrastructure residuals
 `real-data-acceptance/run.sh` hand-spells 18 source paths instead of
