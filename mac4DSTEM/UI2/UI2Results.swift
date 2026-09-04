@@ -25,12 +25,14 @@ struct UI2ResultsWorkspace: View {
                 // No scan marker here: Results has no diffraction pane
                 // for it to drive (owner, 2026-09-04).
                 UI2RealSpacePane(allowsScanSelection: false)
-                    .frame(
-                        minWidth: UI2Metrics.resultPaneMinimum.width,
-                        maxWidth: .infinity,
-                        minHeight: UI2Metrics.resultPaneMinimum.height,
-                        maxHeight: .infinity
-                    )
+                    // No minimum announced upward. The Results branch is the
+                    // one place left where a content-derived minimum reaches
+                    // the `NavigationSplitView` host directly — it flips on
+                    // and off with `hasVisibleResult` — and the launch crash's
+                    // mechanism is NOT established well enough to call that
+                    // safe (Gate D refuter, 2026-09-04). The pane's reading
+                    // size is the window's to give.
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
                 currentResultSummary
             } else {

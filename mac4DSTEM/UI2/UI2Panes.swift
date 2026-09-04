@@ -36,6 +36,14 @@ struct UI2DiffractionPane: View {
             }
         }
         .padding(8)
+        // A pane header is ~420 pt of `.fixedSize()` controls, and
+        // `UI2PaneSplit` hands a pane an explicit width rather than refusing
+        // to go below its minimum the way `HSplitView` did. At the window's
+        // own 1080 pt floor with both side columns wide, a pane can be
+        // narrower than its header — clipping keeps that inside the pane
+        // instead of overprinting the divider and its neighbour. The header
+        // still needs to become compressible; recorded in `open-items.md`.
+        .clipped()
         .contentShape(Rectangle())
         // `activePane` is the ROI direction's storage, and clicking a pane is
         // how the user chooses it. `navigation.focusedPane` is still never
@@ -290,6 +298,14 @@ struct UI2RealSpacePane: View {
             }
         }
         .padding(8)
+        // A pane header is ~420 pt of `.fixedSize()` controls, and
+        // `UI2PaneSplit` hands a pane an explicit width rather than refusing
+        // to go below its minimum the way `HSplitView` did. At the window's
+        // own 1080 pt floor with both side columns wide, a pane can be
+        // narrower than its header — clipping keeps that inside the pane
+        // instead of overprinting the divider and its neighbour. The header
+        // still needs to become compressible; recorded in `open-items.md`.
+        .clipped()
         .contentShape(Rectangle())
         .onTapGesture { appState.activePane = .realSpace }
         .overlay { UI2ActivePaneOutline(pane: .realSpace) }

@@ -422,6 +422,87 @@ UI2 uses them deliberately rather than duplicating LUTs and pointer geometry.
 They move to `Core/` (or `App/`) when `UI/` retires; until then `UI2/` cannot
 be built with `UI/` deleted. Owner: whoever retires `UI/`.
 
+### UI2 launch crash — fixed; the MECHANISM is refuted, not established
+`--ui2 --demo-fixture` aborted ~6 s in: `NSGenericException` ("more Update
+Constraints passes than there are views"), through
+`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. Fixed and
+gated: `UI2PaneSplit` replaces `HSplitView`, 3/3 cold launches clean, and the
+ban is now an `inventory` grep (mutation-tested both ways, 2026-09-04).
+**Two hypotheses have been refuted, including the one first recorded here.**
+(a) "the panes' explicit `.frame(minWidth:)`" — the crash reproduces without
+them (probe E4a); note that probe removed only `.frame(minWidth:)` in
+`UI2Workspace`/`UI2Results`, never touched `UI2Panes.swift`, and that file's
+nine `.fixedSize()` calls are stronger minimums, so E4a refutes the declared
+180 pt floor and nothing wider. (b) "`HSplitView` hosts each child in its own
+`NSHostingView` and loops on a content-derived, non-constant minimum" —
+refuted by this repo's own shipping code: `UI/ContentView.swift:539` puts two
+real panes with explicit minimums inside an `HSplitView` and does not crash.
+The surviving reading is the one MEASURED on 2026-09-03
+(`UI/SplitViewPolicy.swift`): a minimum travelling between a SwiftUI-owned
+split and its hosted content, with UI2 stacking three such splits
+(`NavigationSplitView` + `.inspector` + `HSplitView`) where `UI/` has one.
+Nothing measured a minimum at all on 2026-09-04. **Two probes would decide it
+and neither has been run:** `HSplitView` + real panes with `.inspector`
+removed (survives ⇒ nesting, not the panes); and
+`HSplitView { Color.clear.frame(minWidth: 300); … }` (crashes ⇒ a constant
+minimum suffices). Every negative probe is n=1 against a fault this repo
+already records as intermittent (S17), and no probe asserted the fixture
+actually landed — `alive=1` is also satisfied by a window still on the welcome
+screen. Owner: whoever next touches the UI2 shell. Gate D refuter ran
+2026-09-04 and produced all of the above.
+
+### `UI2PaneSplit` residuals from the refuter
+(a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a
+child below its minimum; `.frame(width:)` proposes a width and lets the child
+overdraw. A pane header is ~420 pt of `.fixedSize()` controls, and at the
+app's 1080 pt floor with both side columns wide each pane gets ~260–300 pt.
+Mitigated only — the pane now `.clipped()`s so it cannot overprint its
+neighbour; the header still needs to become compressible. Predicted, not seen
+on screen. (b) **The image floor lapses below 2× itself**: the divider
+fraction saturates at 0.5 under ~360 pt of usable width, and UI2 declares no
+detail-column minimum at all where `UI/` had `SplitViewPolicy.detailMinimum`
+= 360. Adding one is exactly the change most likely to re-arm the crash while
+the mechanism is unestablished, so it is recorded rather than made.
+(c) The divider position resets to centre whenever the workspace branch is
+rebuilt (`HSplitView` did too). Owner: with (a) above.
+
+### Manual Q and R pixel scale cannot be corrected once entered
+Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel
+size, the readiness row turns green — and the entry field disappears with it,
+so a typo is permanent for the session. Mechanism: the readiness rows render
+their action controls only `if !item.status.isReady`
+(`UI2PrepareSettings`, inherited verbatim from
+`UI/CalibrationReadinessView.swift`), and for `.qScale`/`.rScale` that control
+IS the only way to set the value — unlike origin, ellipse and rotation, which
+have a measurement path. **Both UIs have it.** A wrong R scale silently
+rescales every real-space axis, scale bar and export, so this is a trust
+defect, not an inconvenience. Fix: keep the manual rows on screen when the
+value's provenance is manual (or always, for the two kinds with no measured
+path). Owner: unclaimed; small, but it touches calibration presentation and
+wants the owner watching.
+
+### UI2 duplicates four things `UI/` still owns, until `UI/` retires
+Both UIs compile into the app target, so the migration left four pairs that
+can drift and only one half of each is defended. (a) `UI2ScaleBar.nice125` /
+`.format` duplicate `ScaleBarView`'s, and `Support/ResultExport.swift:1937,1943`
+still calls the OLD statics to burn the bar into exported PNGs — edit one and
+an exported figure disagrees with the screen. (b)
+`UI2PrepareSettings.scanStepAngstromPerPixel` and `.disclosesExcludedFraction`
+duplicate the copies `CalibrationReadinessFilenameTests` and
+`CalibrationDisclosureTests` pin, so the shipping UI2 copy is untested; the
+tests get re-pointed, not deleted, when `UI/` goes. (c) `UI2ExportSheet`
+re-renders the readiness rows and their `calibration.*` identifiers, so while
+the sheet is open two instances of each identifier exist — the old app had the
+same collision. (d) `UI2HistoryPlot` duplicates `ScientificHistoryPlot`.
+Owner: whoever retires `UI/`; nothing here is wrong today.
+
+### UI2 still reaches into `UI/` for five pure types
+`ColormapKind`, `Colormaps`, `PeakOverlayGeometry`, `RealSpacePointerPolicy`
+and `ComparisonHoverMapping` are model and policy mis-filed under `UI/`, and
+UI2 uses them deliberately rather than duplicating LUTs and pointer geometry.
+They move to `Core/` (or `App/`) when `UI/` retires; until then `UI2/` cannot
+be built with `UI/` deleted. Owner: whoever retires `UI/`.
+
 ### UI2 launch crash — Gate D 2026-09-04, mechanism found, refuter owed
 `--ui2 --demo-fixture` aborted ~6 s after launch: `NSGenericException`
 ("more Update Constraints passes than there are views"), through

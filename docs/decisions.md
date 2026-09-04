@@ -219,9 +219,14 @@ picker. The full contract is `architecture.md` "The UI2 contract".
 
 **2026-09-04 — UI2 may not use `HSplitView`, and the presentation contract's
 rules 2 and 5 are amended.** `HSplitView` nested in a `NavigationSplitView`
-detail aborts the app (Gate D, `open-items.md`): it hosts each child in its
-own `NSHostingView` and re-enters layout on every change of a
-content-derived minimum. `UI2PaneSplit` replaces it. Separately, the two
+detail aborts the app (Gate D, `open-items.md`); `UI2PaneSplit` replaces it,
+and `inventory` now greps for the ban. **Corrected the same day by the Gate D
+refuter:** the mechanism first recorded here — "it hosts each child in its own
+`NSHostingView` and re-enters layout on every change of a content-derived
+minimum" — is REFUTED by `UI/ContentView.swift:539`, which does exactly that
+and does not crash. The decision (no `HSplitView` in UI2) stands on the
+probe table; the explanation does not, and `open-items.md` carries what is
+actually established. Separately, the two
 presentation-contract rules the 4b pass found wrong are now amended in
 `architecture.md` rather than only reported: navigation is a source list and
 only controls are a `Form` (rule 2 as written produced no `List` anywhere in

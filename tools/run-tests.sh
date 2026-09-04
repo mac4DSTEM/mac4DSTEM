@@ -162,6 +162,19 @@ inventory() {
        | grep -vE 'FormPolicy|WindowPolicy|cropPane|// science'; then
     echo "  ^ a fixed frame outside the science (presentation contract rule 4)"; rc=1
   fi
+  # The UI2 contract (architecture.md, 2026-09-04). UI2 is SwiftUI only, and
+  # `HSplitView` in particular is banned: with the real panes inside it the
+  # app aborted on launch in AppKit's update-constraints guard (Gate D,
+  # `open-items.md`), and it is macOS-only besides. Prose could not hold this
+  # — a fix in this repo gets a gate. Comment lines are exempt: the ban is
+  # explained in several of them.
+  if grep -nE '^[^/]*\b(HSplitView|VSplitView|NSSplitView|NSSplitViewController)\b' \
+       "$ROOT"/mac4DSTEM/UI2/*.swift; then
+    echo "  ^ a split banned by the UI2 contract (architecture.md 'The UI2 contract')"; rc=1
+  fi
+  if grep -nE '^ *import +AppKit' "$ROOT"/mac4DSTEM/UI2/*.swift; then
+    echo "  ^ import AppKit in UI2 (architecture.md 'The UI2 contract')"; rc=1
+  fi
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the
     # word in general — the process doc uses it generically.

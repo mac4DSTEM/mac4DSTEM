@@ -548,35 +548,40 @@ struct UI2StatusBar: View {
 /// Two scientific panes side by side with a divider the user drags.
 ///
 /// **Why this is not `HSplitView`** (Gate D, 2026-09-04). `HSplitView` nested
-/// in the `NavigationSplitView` detail hosts each child in its own
-/// `NSHostingView` and reacts to its minimum size through
-/// `SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. A
-/// scientific pane's intrinsic minimum is content-derived and NOT constant —
-/// the header's badges, pickers and readouts appear and change as a dataset
-/// lands — so each change enqueued a layout invalidation, which re-laid out,
-/// which produced a new minimum, until AppKit's update-constraints guard threw
-/// `NSGenericException` and the app aborted on launch with `--demo-fixture`.
+/// in the `NavigationSplitView` detail is half of a launch crash: with both it
+/// and the real panes present the app aborted in AppKit's update-constraints
+/// guard ~6 s after `--ui2 --demo-fixture`, and removing either element
+/// removed the crash. Measured, one tree: HSplitView + real panes crashes (and
+/// still crashes with every `.frame(minWidth:)` removed, which refuted the
+/// first diagnosis); HSplitView + `Color.clear` children survives; `HStack` +
+/// real panes survives.
 ///
-/// Measured, all four with the same tree: `HSplitView` + real panes crashes
-/// (and still crashes with every explicit `.frame(minWidth:)` removed, which
-/// is what refuted the first diagnosis); `HSplitView` + `Color.clear` children
-/// survives; `HStack` + real panes survives; neither survives-case is a fix on
-/// its own because each drops something the window needs. It is the
-/// conjunction that crashes.
+/// **What is NOT established is why.** The first written explanation — that
+/// `HSplitView` hosts each child in its own `NSHostingView` and loops on a
+/// content-derived minimum — was refuted by this repo's own shipping code: the
+/// old window (`UI/ContentView.swift`) puts two real scientific panes with
+/// explicit minimums inside an `HSplitView` and does not crash. The mechanism
+/// that fits every observation, including that one, is the one measured
+/// in-process on 2026-09-03 (`UI/SplitViewPolicy.swift`): a minimum
+/// travelling between a SwiftUI-owned split and its hosted content. UI2 stacks
+/// three such splits — `NavigationSplitView`, `.inspector`, `HSplitView` — and
+/// every surviving probe drops it to two. Two probes would separate the two
+/// readings and neither has been run; they are named in `open-items.md`.
 ///
-/// The old window escapes this only because AppKit owns its columns and hosts
-/// their content with `sizingOptions = []` and compression resistance 1, which
-/// absorbs the demand before any split controller sees it. UI2 has no AppKit
-/// shell by contract, so the split itself must not ask its children how wide
-/// they would like to be: this one measures the container, hands each pane an
-/// explicit width, and propagates no minimum upward. It is also portable —
-/// `HSplitView` is macOS-only.
+/// The fix is safe under either reading, which is why it landed on an
+/// unfinished explanation: a `GeometryReader` reports the proposal and never
+/// consults its children, and `.frame(width:)` terminates each pane's
+/// minimum, so this view propagates no minimum upward at all. It is also
+/// portable — `HSplitView` is macOS-only.
 struct UI2PaneSplit<Leading: View, Trailing: View>: View {
     @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
 
-    /// The divider's position as a fraction of the usable width, remembered
-    /// for the session. View-local: it is where a divider sits, not app state.
+    /// The divider's position as a fraction of the usable width. View-local:
+    /// it is where a divider sits, not app state — and it resets to centre
+    /// whenever this branch of the workspace is rebuilt (a load, a trip to
+    /// Results). `HSplitView` behaved the same way, so this is not a
+    /// regression, but it is not "remembered" either.
     @State private var fraction: CGFloat = 0.5
     @State private var fractionAtDragStart: CGFloat?
 
@@ -585,24 +590,29 @@ struct UI2PaneSplit<Leading: View, Trailing: View>: View {
     var body: some View {
         GeometryReader { geometry in
             let usable = max(geometry.size.width - Self.dividerWidth, 1)
-            // Science: neither pane may be driven below the image floor. The
-            // clamp lives here, on a number this view already has, rather
-            // than as a minimum the panes announce upward.
-            let floor = min(0.5, UI2Metrics.imagePaneMinimum / usable)
-            let clamped = min(max(fraction, floor), 1 - floor)
+            // Science: neither pane is driven below the image floor while
+            // there is room for two of them. The clamp lives here, on a
+            // number this view already has, rather than as a minimum the
+            // panes announce upward — announcing one is what the crash was
+            // about. Below 2 x the floor the fraction saturates at 0.5 and
+            // both panes go under it: with 300 pt of container there is no
+            // arrangement that honours a 180 pt floor twice, so the split
+            // divides what it has evenly rather than pretending otherwise.
+            let smallest = min(0.5, UI2Metrics.imagePaneMinimum / usable)
+            let clamped = min(max(fraction, smallest), 1 - smallest)
             let leadingWidth = (usable * clamped).rounded()
 
             HStack(spacing: 0) {
                 leading()
                     .frame(width: leadingWidth)
-                divider(usable: usable, floor: floor)
+                divider(usable: usable, smallest: smallest)
                 trailing()
                     .frame(width: usable - leadingWidth)
             }
         }
     }
 
-    private func divider(usable: CGFloat, floor: CGFloat) -> some View {
+    private func divider(usable: CGFloat, smallest: CGFloat) -> some View {
         Divider()
             // The drawn line is 1 pt; the grab zone is the system's 9.
             .contentShape(
@@ -615,8 +625,8 @@ struct UI2PaneSplit<Leading: View, Trailing: View>: View {
                         let start = fractionAtDragStart ?? fraction
                         fractionAtDragStart = start
                         fraction = min(
-                            max(start + value.translation.width / usable, floor),
-                            1 - floor
+                            max(start + value.translation.width / usable, smallest),
+                            1 - smallest
                         )
                     }
                     .onEnded { _ in fractionAtDragStart = nil }
