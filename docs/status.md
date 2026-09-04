@@ -42,157 +42,76 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-04.** Clean-builds a hardened Release and audits the artefact: nested signatures, sandbox/read-write/bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version `2.5 (4)` with the deployment floor — both DERIVED from the project. The floor assertion and its success message were both literal `26.0` and both wrong after the floor moved; the message said "macOS 26 floor" while passing against 14.0 |
 | `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). It exited 1 on the release tree itself, at `real-data-acceptance`; that defect is diagnosed and closed as a stopgap, with the wider class left open (`open-items.md`). Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
 
-## Ship v2.5.0 — the standing plan (owner, 2026-09-04 evening)
+## The v2.5.0 / v2.5.1 release night
 
-**The parking is lifted.** The v2.5.0 release was parked 2026-09-03 until the
-UI rework was right; the rework landed 2026-09-04 and the owner has now driven
-it. The next session's job is to get v2.5.0 out — the GitHub download page
-still offers v1.0.0, and the owner's priority is replacing it, not perfecting
-it. The name is **v2.5.0** — not 2.5.1: nothing called 2.5.0 was ever
-released, so there is nothing to patch. Every doc must say the same thing.
+Both shipped 2026-09-04; the plan, its two self-corrections and the artefact
+provenance are
+[`docs/archive/v2/release-2026-09-04.md`](archive/v2/release-2026-09-04.md).
+The live facts are the Releases table above and `CHANGELOG.md`.
 
-**The gate: tried full, FAILED, shipped reduced (owner, 2026-09-04 evening).**
-The plan chose the cheaper middle path because disk was short. The owner freed
-the disk and called for `run-tests.sh all` instead. It ran and **exited 1** at
-`real-data-acceptance` on a defect that predates the release (`open-items.md`,
-sidecar-read-as-data) — 457/0/0 unit and 42 harnesses green first, but
-`package-test` is sequenced after the failure and never ran. The owner's call
-on seeing that: ship on the reduced gate as originally planned, with the
-defect recorded rather than buried. **So the release notes must say the full
-gate did not pass** — not merely that it was skipped. Read every exit code on
-its own line, never through a pipe: the background task said 0 while the
-gate's own line said 1.
+## Handoff (rewritten 2026-09-04, after the v2.5.0 / v2.5.1 release night)
 
-**Five places disagree today and all must read "v2.5.0, released".** Do these
-in one commit with the version bump:
-1. `CHANGELOG.md:3` — "v2.5.0 — unreleased" → dated; and its body still
-   describes the pre-rebuild app, so fold in the 2026-09-04 SwiftUI rebuild.
-2. `docs/status.md`, the Releases table above — the v2.5.0 row still says
-   "parked", and its cited `df80e8e` DMG is superseded.
-3. `docs/releasing.md:12` — the release contract still says parked "until the
-   UI rework is complete".
-4. `mac4DSTEM.xcodeproj/project.pbxproj` — `MARKETING_VERSION` is already 2.5;
-   bump `CURRENT_PROJECT_VERSION` 3 → 4, because build 3 is the superseded
-   2026-09-03 artefact in `build/release/`.
-5. `docs/open-items.md`, the macOS-floor entry — it said `LSMinimumSystemVersion`
-   is 14.0. Rewritten 2026-09-04. **The plan's own correction here was itself
-   half wrong** and is left standing as the warning: it said "there is no such
-   key anywhere". The key DOES exist — `GENERATE_INFOPLIST_FILE` derives it from
-   `MACOSX_DEPLOYMENT_TARGET = 26.0` and `tools/package-test/run.sh:46` asserts
-   it reads `26.0`. Stale was the VALUE, not the key.
+v2.5.1 is published and verified from its own download link. Both repos are
+pushed; the site says macOS 14+ and serves the build that can honour it. Push
+state is not recorded here — it went stale twice in two commits; ask git.
 
-**Build order, and it is the part that bites** (`docs/releasing.md`):
-Developer ID archive → notarize the app → staple → `make-dmg.sh` from the
-*stapled* app → **notarize the DMG too**. `make-dmg.sh` signs the image and
-does not notarize it; Gatekeeper assesses the thing the user opened. Two
-notary submissions, each usually 5–15 min. Credentials verified present
-2026-09-04: cert `Developer ID Application: Paul Lobpreis (3B8SMSSAX4)` and
-the working `mac4dstem-notary` keychain profile. The owner tests the DMG on a
-second account on this Mac.
-
-**Disk: cleared by the owner 2026-09-04.** 11 GB free on both roots, above
-`run-tests.sh`'s 8 GB preflight floor — which is what let the owner upgrade
-the gate below. Do not delete outside `free-space.sh`'s two guarded roots on
-an agent's own judgement.
-
-**Deferred by the owner, explicitly not v2.5.0 blockers — and two of the three
-have since landed.** The toolbar Cancel button's appearance is still open
-(`open-items.md`). The sidecar move into the left sidebar was un-deferred on
-release night and is DONE, owner-driven through four revisions. The macOS
-floor came down after the release, post-v2.5.0 (below).
-
-**The macOS floor — DONE, after v2.5.0 shipped (2026-09-04).** 26 → **14**, in
-all four configurations and `Package.swift`. The docs predicted the Liquid
-Glass / within-window material work would be where it bit; it was not. Exactly
-two symbols stood above the floor and both are cosmetic —
-`ToolbarSpacer(.flexible)` and `.pointerStyle(.columnResize)` — now behind
-`#available`, with the divider simply not changing the pointer below 15. macOS
-13 is out of reach: `@Observable` is 14 and the entire state layer rests on it.
-Found by building at 15.0, 14.0 and 13.0 and reading the errors rather than by
-inspection. `run-tests.sh all` is green at the new floor. The published requirement moved to **macOS 14+** with v2.5.1 (owner): at 26
-those users get nothing, and stating the artefact's real floor is not the same
-as claiming every version was exercised — 14–25 remains compile-verified only,
-and both the README and the site say development and testing are on 26
-(`open-items.md`, `decisions.md`).
-
-**Not forgotten, owner will handle: the public face still shows v1.0.0.** The
-README, the project website and the GitHub release page all describe and link
-v1.0.0. The front-page screenshot shows the retired AppKit window, which no
-longer exists in the codebase. None of this blocks cutting the release, but
-v2.5.0 is not *delivered* until the thing a stranger lands on says so. Owner
-said they will take care of it; this line exists so it cannot be dropped.
-
-## Handoff (rewritten 2026-09-04, end of the unattended docs/hygiene run)
-
-The UI is rebuilt in SwiftUI, the AppKit window is deleted, and the app runs a
-full disk detection on the 1 GB WS2 cube. Push state is not recorded here — it
-went stale twice in two commits; ask git.
-
-**Read this first: the top item is the owner's, and `/pickup` cannot take it.**
-Item 1 needs a person at the keyboard. An agent picking up should say so and
-start at item 2, not invent a way to do item 1.
+**Read this first: item 1 is the owner's and `/pickup` cannot take it.** An
+agent should say so and start at item 2.
 
 1. **Your drive. (OWNER ONLY.)** Nothing beyond Prepare, Imaging and Strain &
-   ACOM has been looked at since the retirement, and four sessions running have
-   found defects by driving that every gate was green through. Bugs enter via
-   `/diagnose`. Worth going at first: Phase's stages, the load configurator's
-   crop drags, the Results comparison row, the colorbar popover, and every
-   divider — the pane split is hand-built and **no gate can see a column's
-   width** (a unit-level one was tried and falsified, `open-items.md`).
-   Of the three things that were **unverified on screen**, the owner closed two
-   by driving a full-scan Bragg detection on `sim_Au_data_all_binned.h5` on
-   2026-09-04: the status bar's elapsed / throughput / ETA ticked live
-   (`7 s · 88.0 positions/s · ETA 1:29 · 287 MB app · 525 MB cube ·
-   streaming`) and the output log kept updating after `ActivityLog` took it
-   off `AppState`. **Two remain**: a cropped save → quit → reopen (S1's crop
-   restore), and the sidecar contents in their new home in the left sidebar —
-   load a dataset that has a sidecar, check the rows read correctly at the
-   sidebar's width, and right-click a saved result to find Remove. The
-   dividers stay unverifiable by any gate.
-2. **Manual Q and R pixel scale cannot be corrected once entered**
+   ACOM has been looked at since the AppKit retirement, and five sessions
+   running have found defects by driving that every gate was green through.
+   Bugs enter via `/diagnose`. Worth going at first: Phase's stages, the load
+   configurator's crop drags, the Results comparison row, the colorbar popover,
+   and every divider — the pane split is hand-built and **no gate can see a
+   column's width** (falsified, `open-items.md`). Still unverified on screen:
+   a cropped save → quit → reopen (S1's crop restore), and **right-clicking a
+   saved result in the sidebar's Session section to find Remove** — the rows
+   themselves the owner drove and approved, the context menu nobody has opened.
+2. **The reader class behind the release-night defect** (`open-items.md`, top
+   of Science). `is4D` is tautological after `describe` pads rank 3, so any
+   rank-3 array is taken for a datacube; and the candidate sort prefers the
+   shallowest `/data` path, so a shallow rank-3 node can outrank a genuine deep
+   cube and be returned as the data. **That is wrong data, not a refusal**, on
+   ordinary py4DSTEM files. The v2.5.1 fix is a labelled stopgap for the
+   sidecar instance only. Gate D, and it leads the science lane.
+3. **Manual Q and R pixel scale cannot be corrected once entered**
    (`open-items.md`). Small, owner-hit; a wrong R scale silently rescales every
    real-space axis, scale bar and export. Its recorded mechanism is imprecise
-   for `.qScale` — the code names `.rScale` as the one with no measurement
-   path — so check that before fixing.
-3. **The four open UI-review findings** (`open-items.md`, "UI review"): the
-   pattern min/max rows are not the current position's pattern in Mean/Max/ROI
-   mode; the A/B/A−B comparison has no scale; the cursor prints a raw Float;
-   staleness has two verdicts across three surfaces.
-4. **`PaneSplit` residuals**: the pane header is ~420 pt of `.fixedSize()`
-   controls and a pane can be narrower — it clips rather than overprints, but
-   the header still needs to compress; and the image floor lapses below 2×
-   itself. The zoom badge (the one armed `.fixedSize()` site) belongs with it.
-5. **Then the science lane, one item at a time** — the **origin-fit guard
-   leads** (Gate B; `open-items.md` "Origin-fit gate" (a)), then the ACOM
-   bundle's origin-provenance snapshot, the selected-area mask fixture,
-   bullseye disk detection (Gate D), the CIF id collision, Q-calibration scale,
-   ACOM coverage. A landed number change cuts v2.6.0. **None of these is
-   unattended work**: each needs Gate D or Gate B with an independent refuter
-   and the owner's judgement on what the number should be.
+   for `.qScale` — the code names `.rScale` — so check that before fixing.
+4. **The four open UI-review findings** and **`PaneSplit` residuals**
+   (`open-items.md`).
+5. **Then the rest of the science lane, one item at a time** — origin-fit guard
+   (Gate B), the ACOM bundle's origin-provenance snapshot, the selected-area
+   mask fixture, bullseye disk detection (Gate D), the CIF id collision,
+   Q-calibration scale, ACOM coverage. A landed number change cuts v2.6.0.
+   **None of these is unattended work.**
 
-**The aggregate gate is owed, and now has a named blocker.** `run-tests.sh all`
-ran on the release tree 2026-09-04 and exited 1 at `real-data-acceptance`; the
-defect behind it is real, pre-existing and undiagnosed (`open-items.md`). Disk
-is no longer the obstacle — the owner freed it and the preflight passes. Until
-that defect is diagnosed under Gate D, no aggregate exit 0 can be quoted.
+**macOS 14–25 is compile-verified and has never been executed.** The floor is
+14 in the build and published as such; every machine here is 26. A VM would
+close it and needs ~40 GB. Until then the first report from an older system is
+the real test — both README and site ask for the macOS version.
 
 **The rule bought the hard way** (`open-items.md`, the constraint-loop entry):
 nothing inside a split column may repeatedly change its own minimum size.
 `.fixedSize()` on text whose string changes is the easiest way to do it by
 accident, and it only shows on a dataset big enough for an operation to tick.
-All 12 bare `.fixedSize()` sites in `UI/` are now **audited**: one armed (the
-zoom badge), three that change once per product, eight literals — and
-`PaneSplit` terminates each pane's minimum, so none of them reaches a split.
+All 12 bare `.fixedSize()` sites in `UI/` are audited and contained.
+
+**Two traps that bit again on release night, both already documented.** A
+BACKGROUND TASK reported exit 0 while the gate's own `GATE_EXIT` line said 1 —
+read the gate's line, never the wrapper's. And the unit count read one short
+twice because an xcodebuild timestamp interleaved mid-test-name; reconcile
+against the suite's method count in source, never assume a test vanished.
 
 **Driving, and its two limits.** `open -n <Debug app> --args --demo-fixture`,
 `screencapture -x -o -l <window id>` (per-window needs no consent). The app's
-defaults live in its sandbox container and TCC blocks writing them, so a
-remembered tab cannot be preset; and synthetic keystrokes only land while the
-window is frontmost. Fastest loop found: the owner drives and pastes the crash
-report — that is how the constraint-loop mechanism was established.
+defaults live in its sandbox container and TCC blocks writing them; synthetic
+keystrokes only land while the window is frontmost. Fastest loop: the owner
+drives and pastes the result.
 
 ## Owed to the owner
 
-- **Drive the rebuilt app** (above) — three things are unverified on screen and
-  a fourth, the front-page screenshot, still shows v1.0.0's window.
-- The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format).
+- **Drive the rebuilt app** (above) — two things unverified on screen.
+- Gate D on the reader class (item 2) — the most valuable thing outstanding.
+- The §10g decisions and plan §8 (sidecar wire format).

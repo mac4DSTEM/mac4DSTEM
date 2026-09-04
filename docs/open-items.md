@@ -50,20 +50,14 @@ they sit alphabetically. Found by the Gate B refuters on 2026-09-04, each with
 its own fixture. The right fix names a format-honest signal (emdfile stamps a
 `dim{rank}` dataset whose `name` is `_labels_` on stacked Arrays) plus a
 detector-plausibility floor at the discovery boundary. **Gate D owed.**
-
-### Sidecar-subtree skip is a STOPGAP, and is labelled one
-Closed the reported instance 2026-09-04: `discoverPrimaryDataset` now skips
-paths under the sidecar's own root when the file carries the schema
-attribute, so a saved RGBA result map (`{H, W, 4}`, rank 3) is no longer
-returned as a `[1, H, W, 4]` cube with a 4-pixel detector. Mechanism
-established and independently reproduced by four refuters with their own
-fixtures; the arithmetic is near-unique to a channel-last image
-(`DiskDetection.swift:154,388`). It treats the LOCATION, not the mechanism —
-the class above is untouched, and a results-rich file WITHOUT the attribute
-still reproduces the symptom exactly. Reproducer note: the reported file
+v2.5.1 shipped a STOPGAP for one instance only: discovery skips a sidecar's own
+subtree when the file carries the schema attribute, so a saved RGBA map is no
+longer returned as a `[1, H, W, 4]` cube with a 4-pixel detector. It treats the
+location, not the mechanism — a results-rich file WITHOUT the attribute still
+reproduces the symptom exactly. Reproducer note: the reported file
 `downsample_Si_SiGe_exp.mac4dstem.h5` was deleted by an app session mid-day;
-the fix is verified on `sim_Au_data_all_binned.mac4dstem.h5` and by a fixture
-test that needs no gitignored data.
+verified instead on `sim_Au_data_all_binned.mac4dstem.h5` and by a fixture test
+needing no gitignored data.
 
 ### Origin-fit gate has three unresolved holes
 (a) **Gate D 2026-09-03, refuted as filed:** the middle-threshold fallback
@@ -248,18 +242,6 @@ native shell reset are also not owner-approved. The retired checklist's trap not
 screen: everything from 7c slice 1 on (Results sidebar and inspector, the
 inspector following the focused pane), the clean-account run, the bounded
 promote run, a real load cancel.
-
-### `tools/run-tests.sh all` — red, then GREEN on the fixed tree (2026-09-04)
-On the v2.5.0 release tree it exited 1 at `real-data-acceptance` (the sidecar
-defect above); `package-test` never ran, being sequenced after it
-(`run-tests.sh:202`), so **v2.5.0 shipped on the reduced gate** and its notes
-say so. After the fix, `all` is **exit 0** on the same machine: 458 passed /
-0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test`
-included. Two traps, both recorded before and both hit again: the BACKGROUND
-TASK reported exit 0 while the gate's own `GATE_EXIT` line said 1; and the
-unit count read one short twice because an xcodebuild timestamp interleaved
-mid-test-name, reconciled against the source file's method count, not
-assumed.
 
 ### macOS 14–25 is supported and has never been run there
 Lowered 2026-09-04 (`decisions.md`): `MACOSX_DEPLOYMENT_TARGET` 26.0 → 14.0 in
@@ -651,6 +633,12 @@ gate for actor isolation (`tools/load-spec-test` compiles nonisolated;
 the manifest's isolation flags buy visibility, not enforcement).
 
 ## Working methods that earned their keep
+
+### Read the gate's own exit line, never the wrapper's
+A backgrounded `run-tests.sh` reported exit 0 while the gate's own `GATE_EXIT`
+line said 1 (2026-09-04, the fourth time). Redirect to a log, `echo $?` on its
+own line, grep the log. A `| tail` pipe reports `tail`'s status. The same day,
+`git push … | tail` printed `PUSH_EXIT=0` over a failed push.
 
 ### Count a gate's tests by name, and reconcile against the expected delta
 `run-tests.sh unit` passes `-quiet`, so xcodebuild prints no summary and the
