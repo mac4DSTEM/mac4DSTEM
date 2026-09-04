@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(DSTEMCore)
+import DSTEMCore
+#endif
 
 /// UI's whole number budget, in one file.
 ///
@@ -58,6 +61,17 @@ enum LayoutPolicy {
 
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110
+
+    /// The status bar's elapsed/throughput/ETA slot, reserved.
+    ///
+    /// Nothing inside a split's hosted content may repeatedly change its own
+    /// minimum size — that loop crashed the app on a real dataset, 2026-09-04
+    /// (`open-items.md`, the constraint-loop entry), and a ticking string is
+    /// the easiest way to do it by accident. So the line is laid out at a
+    /// width that never moves and truncates inside it. The number is the
+    /// widest line the formatter can actually produce, measured in the same
+    /// font by `StatusBarMetricsTests`, plus a little air.
+    static let operationMetricsWidth: CGFloat = 190
 
     /// The grabbable width of a thin divider, centred on the drawn line. A
     /// 1 pt zone put the drag on the focus ring (owner finding (c),
@@ -141,6 +155,21 @@ enum OperationMetricsFormat {
 
     static func throughput(_ rate: Double, for operation: String?) -> String {
         String(format: "%.1f %@", rate, throughputUnit(for: operation))
+    }
+
+    /// The status bar's single line. Elapsed is always real; a rate the run
+    /// has not measured yet and an ETA it cannot yet estimate are absent
+    /// rather than printed as zero, because a zeroed rate reads as a stall
+    /// and an invented ETA is a number the user will plan around.
+    static func line(_ metrics: AnalysisOperationMetrics, for operation: String?) -> String {
+        var parts = [duration(metrics.elapsed)]
+        if let rate = metrics.unitsPerSecond {
+            parts.append(throughput(rate, for: operation))
+        }
+        if let eta = metrics.eta {
+            parts.append("ETA " + duration(eta))
+        }
+        return parts.joined(separator: " · ")
     }
 }
 

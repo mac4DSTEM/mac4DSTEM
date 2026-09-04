@@ -470,11 +470,17 @@ peaks"), 150 s, no crash. **The rule: nothing inside a split's hosted content
 may repeatedly change its own minimum size**, and `.fixedSize()` on text whose
 string changes is the easiest way to do it by accident. `PaneSplit` is still
 right (it propagates no minimum at all) but was never the whole story.
-Residuals: positive and negative are each n=1 against a fault this repo calls
-intermittent (S17); the inspector's Performance rows still tick per second,
-though inside a scroll view rather than a size-setting inset; and the two
-probes named earlier for separating "nesting" from "the panes' minimum" are
-now moot — the answer arrived by accident. Owner: unclaimed.
+A SECOND child in the same strip was breaking the rule before the metrics
+line was ever written (2026-09-04): `status.footer.facts` is `.fixedSize()`
+on a string carrying `%.0f MB app`, and `StatusBar`'s body re-runs on every
+progress update, so its minimum moved throughout any operation. Predicted
+from this entry, not observed crashing; `.fixedSize()` removed and the text
+now truncates. Residuals: positive and negative are each n=1 against a fault
+this repo calls intermittent (S17); the inspector's Performance rows still
+tick per second, though inside a scroll view rather than a size-setting
+inset; and the two probes named earlier for separating "nesting" from "the
+panes' minimum" are now moot — the answer arrived by accident. Owner:
+unclaimed.
 ### `PaneSplit` residuals from the refuter
 (a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a
 child below its minimum; `.frame(width:)` proposes a width and lets the child
@@ -490,19 +496,19 @@ the mechanism is unestablished, so it is recorded rather than made.
 (c) The divider position resets to centre whenever the workspace branch is
 rebuilt (`HSplitView` did too). Owner: with (a) above.
 
-### The status bar has no elapsed / throughput / ETA — owner asked, and it was reverted
+### Status-bar elapsed / throughput / ETA — rebuilt, NOT yet driven
 Owner, 2026-09-04: those three numbers belong beside the progress bar, not
-only in the inspector's Performance tab, which is a tab away from the progress
-being watched. Built, then reverted the same day because the implementation
-crashed the app: a `Text(...).fixedSize()` on a one-second `TimelineView`
-inside `.safeAreaInset(edge: .bottom)` changed the detail column's minimum
-width on every tick (see the constraint-loop entry above). The FEATURE is
-still wanted; the implementation must reserve a slot whose size never changes
-— a fixed-width frame from `LayoutPolicy`, monospaced digits, the text
-truncating inside it — and it must be driven on a real dataset before it is
-called done, because the demo cube finishes faster than the tick and cannot
-exercise it at all. `OperationMetricsFormat` is already in place and already
-shared with the inspector, so only the placement is left. Owner: unclaimed.
+only in the inspector's Performance tab. Built, reverted the same day for the
+crash above, rebuilt 2026-09-04 in a reserved slot:
+`LayoutPolicy.operationMetricsWidth`, a constant frame the text truncates
+inside, no `.fixedSize()`, held for the whole operation so an appearing rate
+or ETA moves nothing. `OperationMetricsFormat.line` composes it for both
+surfaces. `StatusBarMetricsTests` pins what it says and measures the widest
+line the formatter can produce (an hour elapsed, an hour of ETA, 999.9
+units/s) against the constant in the same font; all four tests were broken
+first. **What is left is the drive**: this is unverified on screen, and only a
+real dataset exercises it — the demo cube finishes faster than the one-second
+tick. Owner: the owner's drive.
 
 ### Manual Q and R pixel scale cannot be corrected once entered
 Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel

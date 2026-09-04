@@ -498,6 +498,12 @@ struct StatusBar: View {
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
+                    // Elapsed, throughput and ETA, beside the bar they
+                    // describe (owner, 2026-09-04). They were only in the
+                    // inspector's Performance rows, which is a tab away from
+                    // the progress a user is actually watching. Same source
+                    // and same wording as those rows.
+                    operationMetrics
                     if appState.canCancelActiveOperation {
                         Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
                             .controlSize(.mini)
@@ -508,11 +514,19 @@ struct StatusBar: View {
             }
 
             if let descriptor = appState.descriptor {
+                // NOT `.fixedSize()`. Its app-memory figure moves, and this
+                // body re-runs on every progress update, so a fixed size made
+                // this a second child changing its own minimum while an
+                // operation ran — the same loop as the metrics line above,
+                // and live here before that line was ever written. Truncating
+                // is the right trade: the inspector's Performance block holds
+                // the full detail, and this is the glanceable subset.
                 Text(footerFacts(descriptor))
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .fixedSize()
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
                     .accessibilityIdentifier("status.footer.facts")
             }
 
@@ -534,6 +548,35 @@ struct StatusBar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Elapsed · throughput · ETA while an operation runs, on the same
+    /// one-second tick the inspector uses.
+    ///
+    /// **The frame is the point.** The first version of this line was
+    /// `Text(...).fixedSize()`, whose width changed with the string on every
+    /// tick — a hosted child repeatedly changing its own minimum size, which
+    /// is the constraint loop that crashed the app 2.5 minutes into a real
+    /// disk detection (`open-items.md`). Here the slot is a constant width
+    /// from `LayoutPolicy`, wide enough for the longest line the formatter
+    /// produces, and the text truncates inside it rather than resizing it.
+    /// It is reserved for the whole operation, so an appearing rate or ETA
+    /// moves nothing either. Trailing-aligned: the numbers stay against the
+    /// Cancel button instead of drifting away from it as the line shortens.
+    @ViewBuilder
+    private var operationMetrics: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            // `activeOperationMetrics` is nil until the run has measured
+            // something; an empty string holds the slot until then.
+            Text(appState.activeOperationMetrics(at: context.date)
+                    .map { OperationMetricsFormat.line($0, for: appState.activeOperation) } ?? "")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: LayoutPolicy.operationMetricsWidth, alignment: .trailing)
+                .accessibilityIdentifier("status.footer.metrics")
+        }
     }
 
     private func footerFacts(_ descriptor: DatasetDescriptor) -> String {
