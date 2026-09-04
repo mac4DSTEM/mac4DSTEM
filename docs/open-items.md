@@ -125,6 +125,35 @@ rule violation): the app subtracts each ring's mean where py4DSTEM leaves
 that line commented out. Owner: S16 successor / whoever next touches ACOM
 weighting.
 
+### UI2 review (Fable, 2026-09-04) — six ways the UI can misstate a number
+Independent review of `UI2/`, ranked by the reviewer. (a) **Axis order and the
+letter q mean different things on one screen**: the pane prints `qx × qy` as
+columns × rows (`UI2Panes.swift:107`), the same pane's axis note prints "qₓ ↓"
+as rows (`:381`), Info prints "Detector (Qy x Qx)" as rows × cols
+(`UI2Inspector.swift:216`), the sidebar prints `rx × ry` (`UI2Sidebar.swift:200`)
+and Phase adds `height × width` (`UI2PhaseSettings.swift:674`). A 256×128
+detector reads "256 × 128" in one place and "128 x 256" in another. Related to
+the unchecked HDF5 axis-order assumption below. (b) **"Current scan position ▸
+Pattern min/max" is not that position's pattern** when Mean/Max/ROI mode is on
+(`UI2Inspector.swift:316`, `AppState.swift:1302`); the only ROI-sum flag is in
+the pane header, one tab away. (c) **Byte sizes in two bases under one label**:
+Info is 1024-based and says GB (`UI2Inspector.swift:1012`,
+`SystemMonitor.swift:34`), the export sheet is 1000-based
+(`UI2ExportSheet.swift:184`) — the same cube is 4.00 GB in one and 4.29 GB in
+the sheet the user opens to decide whether to write it. (d) **The A/B/A−B
+comparison has no scale**: three panels at 0…1, no colorbar, no range, no zero
+mark on a symmetric RdBu difference (`UI2Results.swift:186`). (e) **Cursor
+readout prints a raw Float** — seven-plus digits beside a badge that may say
+Exploratory (`UI2Panes.swift:389`, `DisplayedProduct.swift:161`). (f)
+**Staleness has two verdicts**: the sidebar's green check ignores
+`diskDetectionSettingsAreStale` by design (`UI2Sidebar.swift:332`) while the
+inspector and the pane both flag it; Strain and ACOM rows stay green on stale
+vectors. Also: scale bar can print a physical sampling labelled "px" when
+`pixel.units` is nil (`UI2Panes.swift:713`); disks are drawn at an invented
+`probeRadius ?? 3` when no kernel exists (`:152`). Owner: (a) and (c) are one
+naming/units pass; (b), (d), (e), (f) are presentation fixes with a trust
+consequence. None is a computed number — all are labels on correct values.
+
 ## Verification debt
 
 ### S17 sidebar intermittent — observation log
@@ -219,6 +248,29 @@ labels, Phase linearity, inspector layout) lives in
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3. Do not duplicate it here and do
 not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
+
+### UI2 polish list from the same review
+Not trust defects; the Mac-ness gap. Ranked by the reviewer: layout is not
+remembered (pane divider resets on every trip to Results, log height is
+per-window `@State`; `@SceneStorage` for both); the Info tab carries seven
+ACTIONS against its own descriptive contract (Reopen, Ignore…, Change…, Remove
+per result, Apply Saved Controls, Release cube); two per-body costs (the output
+log re-diffs every line and scrolls on each append; the validity row reduces
+the whole mask on every AppState change); no `.navigationDocument(url)`, so the
+window has no proxy icon or drag-out; the primary action answers to both ⌘↩ and
+⌘R and arrow-scrubbing needs a focus the user cannot see they must give.
+Un-Mac-like: `TabView` renders a bordered Preferences box in a 280 pt inspector
+(Xcode uses a segmented strip); "Ignore…" opens no dialog; values written into
+their own labels with a comma ("Gamma, 1.00", "Radius, 12 px") — no system
+control does that; Unicode glyphs where SF Symbols exist; "Reconstruction
+Ready" as a disabled prominent button; landing-page copy in the empty window.
+Stale copy: "shown in the tools panel" (no such panel in UI2), "Open a 4DSTEM
+.h5 file" (the importer takes dm4/mib/emd/raw), and one action called "Save to
+Session", "Save to Results" and "Save Current Result to Session Sidecar" in
+three places. Two contract leaks: `NSPasteboard` in `UI2ContentView` and an
+`NSString` bridge in `UI2PrepareSettings` (the latter deliberate — it keeps a
+tested helper byte-identical). Owner: a UI2 polish session, after the owner's
+next drive.
 
 ### The presentation contract is wrong in two rules (4b, 2026-09-03)
 Found by building and looking, and by six independent reviewers; the
