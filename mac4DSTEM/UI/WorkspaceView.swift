@@ -498,12 +498,6 @@ struct StatusBar: View {
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
-                    // Elapsed, throughput and ETA, beside the bar they
-                    // describe (owner, 2026-09-04). They were only in the
-                    // inspector's Performance rows, which is a tab away from
-                    // the progress a user is actually watching. Same source,
-                    // same wording, same one-second tick as those rows.
-                    operationMetrics
                     if appState.canCancelActiveOperation {
                         Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
                             .controlSize(.mini)
@@ -540,36 +534,6 @@ struct StatusBar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Elapsed · throughput · ETA while an operation runs, on the same
-    /// one-second tick the inspector uses. Each part appears only once it has
-    /// a real value: `activeOperationMetrics` returns nil before the run has
-    /// measured anything, and a rate or an ETA it cannot yet estimate is
-    /// absent rather than shown as zero.
-    @ViewBuilder
-    private var operationMetrics: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            if let metrics = appState.activeOperationMetrics(at: context.date) {
-                Text(metricsLine(metrics))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .accessibilityIdentifier("status.footer.metrics")
-            }
-        }
-    }
-
-    private func metricsLine(_ metrics: AnalysisOperationMetrics) -> String {
-        var parts = [OperationMetricsFormat.duration(metrics.elapsed)]
-        if let rate = metrics.unitsPerSecond {
-            parts.append(OperationMetricsFormat.throughput(rate, for: appState.activeOperation))
-        }
-        if let eta = metrics.eta {
-            parts.append("ETA " + OperationMetricsFormat.duration(eta))
-        }
-        return parts.joined(separator: " · ")
     }
 
     private func footerFacts(_ descriptor: DatasetDescriptor) -> String {
