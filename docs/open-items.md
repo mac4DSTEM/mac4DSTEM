@@ -184,26 +184,19 @@ drag past the minimum collapses, Show Tools reopens at the old width, a
 still owed before the entry moves to the archive.
 
 ### A unit-level column-width gate is not possible — falsified 2026-09-04
-`d5786e2` deleted the two width-range gates with the AppKit shell, so nothing
-gates a column's width today and this repo has repeatedly found truncation
-defects there. **Tried, and refuted before it was built.** A scratch probe
-hosted `PrepareSettings` (250 pt), `WorkspaceSidebar` (190 pt) and
-`WorkspaceInspector` (280 pt) in an `NSHostingView` and measured two things:
-`fittingSize.width`, and the worst overflow of any descendant `NSView` past
-the host's bounds. Then a **150-character section label was injected into
-`PrepareSettings`** — a row that cannot possibly fit 250 pt — and the probe
-re-run. **Both runs are byte-identical**: `fittingWidth=1103.0
-worstOverflow=0.0` before and after. The measurement cannot see the defect,
-because SwiftUI draws `Text` into layers and creates no `NSView` per label;
-only real controls (`NSTabView`, `NSTextField`) appear in the hierarchy. The
-deleted gate had the same hole — its `controls(_:)` collected `NSControl`s,
-and no SwiftUI `Text` is one — so it was partly vacuous too.
-`fittingSize.width` is not a substitute: it reported 1103 pt for a form that
-fits and 0 pt for the sidebar `List`.
-**Do not rebuild this as an `NSView`-measuring test.** Anything that would
-detect a too-long label has to rasterise (compare rendered text extent) or
-drive the app. The honest gate here is the owner's drive. Owner: unclaimed;
-re-open only with a measurement that survives the injected-label mutation.
+`d5786e2` deleted both width-range gates, so nothing gates a column's width and
+this repo keeps finding truncation defects there. **Refuted before it was
+built.** A probe hosted `PrepareSettings` (250 pt), `WorkspaceSidebar` (190 pt)
+and `WorkspaceInspector` (280 pt) in an `NSHostingView` and measured
+`fittingSize.width` and the worst descendant-`NSView` overflow; then a
+150-character section label — impossible in 250 pt — was injected and it re-ran.
+**Both runs byte-identical**: `fittingWidth=1103.0 worstOverflow=0.0`. SwiftUI
+draws `Text` into layers and makes no `NSView` per label, so only real controls
+appear; the deleted gate had the same hole (`controls(_:)` collected
+`NSControl`s). `fittingSize` is no substitute — 1103 pt for a form that fits,
+0 pt for the sidebar `List`. Anything that catches a long label must rasterise
+or drive the app. Owner: re-open only with a measurement that survives the
+injected-label mutation.
 
 ### No automated visual baseline
 Every acceptance run is numeric-only (`--no-screenshots`); the owner
@@ -310,14 +303,17 @@ overwritten by later driving sessions; demonstrating it again needs a
 synthesised sidecar, not a training-set one. Unowned, belongs with the
 trust fixes.
 
-### Sidecar restore doesn't check the calibration frame against the view
-`applySessionCalibration` adopts a saved calibration verbatim; a sidecar
-saved at full extent and restored onto a reconfigured (cropped/binned)
-view leaves a source-frame calibration beside reduced pixels (S10 Gate B
-finding 2). Related: `AppState.exportableRecipe` refuses rather than
-composing across frames when recorded frame ≠ live view — a three-frame
-composition (recorded→source→exported) that needs a transform
-`ReplayFrameTransform` doesn't have. Both unowned, predate S10.
+### Cross-frame recipe export refuses rather than composing
+The other half of this entry is CLOSED and archived: `applySessionCalibration`
+no longer adopts a saved calibration verbatim — it asks
+`SessionCalibrationFramePolicy.decide` (`AppState.swift:2887`), added
+2026-09-01, pinned by `SessionCalibrationFramePolicyTests` and
+`SessionCalibrationTranslationTests`. What survives is not a wrong number but a
+feature gap, so it moves out of the Science lane: `ResultExport.exportableRecipe`
+REFUSES, with a reason in the export status line, when the recorded frame is not
+the live view — a three-frame composition (recorded → source → exported) needs a
+transform `ReplayFrameTransform` does not have. Recorded as an S10 decision, not
+a defect. Owner: unclaimed.
 
 ### DM4Reader silently reads the whole file into RAM off non-local volumes
 `.mappedIfSafe` (`Core/Data/DM4Reader.swift:64`) declines to map on any
@@ -332,15 +328,20 @@ original 2026-08-18 8GB-machine death that motivated this is still NOT
 explained** — the mechanism is real and worth fixing but not established
 as that incident's cause. Owner: a later session, Gate B.
 
-### The open/promote unwind choreography is triplicated
-`openFileAsync`, `commitPendingLoad`, `promoteToFullExtent` each hand-roll
-the same begin→activate→cancel/discard→finish tail, with the ordering
-rules documented in only one copy. Two live hazards: a cancel landing
-between the last check and `finishDatasetLoading` is silently swallowed
-as success; a second initiator (e.g. ⌘O mid-load) replaces the shared
-cancellation token so Cancel only hits the newer load (open-during-load
-direction; promote's own entry is already guarded). Owner: whichever
-session next touches any of the three.
+### The open/promote unwind is sixfold, and Cancel can vanish mid-load
+Corrected 2026-09-04. **Six begin/finish brackets, not three**: `openFileAsync`,
+`commitPendingLoad`, `promoteToFullExtent`, plus `selectDataset`,
+`openManualPath` and `openDemoFixture` with no cancel handling at all.
+**The old hazard 1 is refuted** — there is no suspension point between the last
+cancellation check and `finishDatasetLoading` on any path (`AppState` is
+main-actor isolated, `project.pbxproj:488`, and the calls there are not async).
+**Hazard 2 is worse than recorded**: `finishDatasetLoading`
+(`AppState.swift:2789`) unconditionally nils `datasetLoadCancellation` and
+clears `isLoadingDataset`, both of which `canCancelDatasetLoad` (`:1162`)
+depends on — so with two loads in flight the FIRST tail to finish disarms
+Cancel for the second, and the running load becomes uncancellable. Unification
+alone is not the fix. No fixture exercises these branches; that is the
+precondition. Owner: whichever session next touches any of the six.
 
 ### Promote/replay residuals
 (a) Owner design question, queued TB1: should promote carry the scan
@@ -367,12 +368,16 @@ icon view upscale past 256px (macOS 26+ renders from the `.icon` source
 correctly; the Dock is unaffected). Undecided whether to ship a legacy
 PNG set alongside.
 
-### `recordedLoadSpecification` bypasses the security-scoped bookmark
-`App/AppState.swift:1416-1431` reads the sidecar through the derived path
-only, never `resolvedSessionSidecarURL`, and swallows the failure with
-`try?`. If the sandbox/bookmark hypothesis is right, F1.3f (crop survives
-session save/reopen) fails silently — reopens at full extent, says
-nothing. Driving F1.3f is both the acceptance row and the discriminator.
+### S1's crop restore is repaired in code and unverified on screen
+Retitled 2026-09-04: **its three code claims are all false now.**
+`recordedLoadSpecification` reads through `sessionSidecar.location(forSourcePath:)`,
+which takes the security-scoped grant first (`SessionSidecarLocator.swift:144`),
+and the `try?` is gone — a refused read and "no crop recorded" stay different
+facts. What is open is the drive: F1.3h passed on a FULL-EXTENT sidecar, which
+never enters the repaired branch, so a cropped save → quit → reopen has never
+been driven. `SessionSidecarLocatorTests.swift:269` cannot close it either — it
+adopts an in-memory grant and never opens HDF5. Failure mode if still wrong:
+right numbers, wrong region. Owner: the owner's drive.
 
 ### Resident/streaming residuals
 `releaseResident()`'s "freed" claim is asserted by a derived byte count,
@@ -393,14 +398,20 @@ configurator's beam proxy has no "load anyway" override (owner question,
 queued TB1; unifying it with `CalibrationReReference`'s gate is a
 deliberate non-unification, `App/SessionGates.swift`).
 
-### DPC result badged Quantitative while its banner says qualitative
-`AppState.quantitativeStatus(for:units:)` pattern-matches strings and
-falls through to `.quantitative` for anything unrecognised, never
-consulting calibration readiness — verified escaping into exported PNG
-XMP and a self-contradicting strain-export dictionary. Same architectural
-family as the archived v2.5 plan's §3 item 1 (provenance is inferred, not typed);
-fix is a judgement call (status consults readiness, or the badge changes
-wording). Owner: the trust-fixes/error-honesty session.
+### DPC's banner contradicts its badge — entry corrected 2026-09-04
+Three claims here were wrong. **Mechanism:** the fall-through is `.relative`
+(`AppState.swift:761`), not `.quantitative` — only named families are
+quantitative (`:756`). Still true: it pattern-matches strings and consults no
+calibration readiness, while `idpcPhysicalCalibration` consults three gates.
+**Carrier:** not XMP (no "xmp" in any Swift file) — the PNG `Description` JSON
+chunk and the status burned into the caption's pixels (`ResultExport.swift`).
+**Headline:** iDPC's badge and banner AGREE; the contradiction is
+`PhaseSettings`' always-shown qualitative banner over `dpc_magnitude` /
+`dpc_angle`, which `quantitativeStatus` calls quantitative.
+Before any fix: status is frozen at publish and at persist and preferred over
+re-derivation on restore, so a change corrects neither existing sidecars nor
+exported PNGs, and there is no version field to migrate on. Owner: the
+trust-fixes session; which way it goes is a judgement call, and the owner's.
 
 ### Misc unclaimed, low priority
 Load-cancel: F1.1d (cancel a real load on screen) never driven; resident
@@ -417,10 +428,12 @@ cubic-dataset override run would compare apples-to-oranges in the parity
 comparator (can't arise for WS₂). Virtual-detector mask boundary
 (`r² < rOut²` vs `<=`) is unpinned against analytic truth. #31
 `validationIssues` is O(n²) in a SwiftUI view body. #32 `isSymmetry`'s
-bijection check has no fixture coverage. Launch-screen cards push real
-entry points below the fold; at the 171pt pane-width floor the header
-truncates and a badge wraps one letter per line. A saved sidebar divider
-can restore below its declared 250pt minimum (observed 144pt).
+bijection check has no fixture coverage. (Three UI clauses deleted 2026-09-04,
+each verified obsolete: the launch-screen cards are gone with the welcome
+rebuild; "the 171 pt pane-width floor" — `171` appears nowhere in the tree, the
+floor is `LayoutPolicy.imagePaneMinimum` = 180; and "a saved sidebar divider can
+restore below its 250 pt minimum" — there is no `autosaveName` anywhere in the
+app, and the sidebar is a `NavigationSplitView` with a 190 pt minimum.)
 
 ### The constraint-loop crash: nothing in a split may change its own minimum
 `NSGenericException` from `_postWindowNeedsUpdateConstraints`, through
@@ -496,23 +509,18 @@ row by identifier. The old app had the same collision. Owner: unclaimed.
 ## Code hygiene
 
 ### `tools/free-space.sh` still spells shared path knowledge three times
-Fixed 2026-09-04, the half that was misreporting: it now prints the two
-volumes the preflight actually gates (`$ROOT`, `$TMPDIR`) instead of `/`,
-answers "will the gate run?" against the 8 GB floor directly, and SURVEYS the
-regenerable roots outside its two — Xcode's own `DerivedData`, the
-per-project `ModuleCache.noindex`, `CodingAssistant`, `.build` — with sizes.
-Measured that day: 680 KB of clearable targets against 743 MB it could not
-see, and two exit-69 refusals in one session. The survey is report-only and
-`guard_path()` is untouched: what `--clear` deletes did not widen, and
-`build/release` (notarized, stapled disk images) is printed as PROTECTED so
-no future edit mistakes it for debris. Residual, unfixed: the temp prefix is
-still spelled by the producer (`run-tests.sh:38`) and twice by the reaper,
-the XcodeBuildMCP root is still hardcoded, and ~35 harness `run.sh` files
-still use untagged `mktemp -d` that no reaper can see. The entry's own
-proposed fix — one `tools/lib/` constants file — is deliberately NOT taken:
-every gate sources through `run-tests.sh` under `set -euo pipefail`, so a bad
-line in a new sourced file kills the whole harness with an unrelated-looking
-error. Owner: whoever next touches `run-tests.sh`, with that trap in mind.
+Fixed 2026-09-04, the misreporting half: it prints the two volumes the preflight
+gates (`$ROOT`, `$TMPDIR`) instead of `/`, answers "will the gate run?" against
+the 8 GB floor, and surveys the regenerable roots outside its two — Xcode's
+`DerivedData`, the per-project `ModuleCache.noindex`, `CodingAssistant`,
+`.build`. Measured that day: 680 KB clearable against 743 MB it could not see.
+Report-only; `guard_path()` untouched, and `build/release` (notarized, stapled
+images) prints as PROTECTED. Residual: the temp prefix is spelled by producer
+and reaper separately, the MCP root is hardcoded, and ~35 harnesses use
+untagged `mktemp -d`. The proposed `tools/lib/` constants file is deliberately
+NOT taken — every gate sources through `run-tests.sh` under `set -euo
+pipefail`, so a bad line there kills the whole harness. Owner: whoever next
+touches `run-tests.sh`.
 
 ### Acceptance-gate test-infrastructure residuals
 `real-data-acceptance/run.sh` hand-spells 18 source paths instead of
@@ -534,40 +542,24 @@ report how many are actually red — whether to continue-and-summarise
 instead is open.
 
 ### `.fixedSize()` in `UI/`, audited 2026-09-04 — one armed site, contained
-Against the constraint-loop rule above. **12 bare `.fixedSize()` call sites;
-one is armed.** (A grep that is not anchored to the start of the line reports 16 — the
-extra four are comments *about* `.fixedSize()`, two of them written the same
-day. Anchor it: `grep -rn '^\s*\.fixedSize()'`.) `ImagePanes.swift:452`, the real-space pane's zoom badge
-`Text("Pan ×\(zp.effectiveZoom …)")`: `liveZoom` is written on every
-magnify event, the digit count moves (×9.9 → ×10.0 → ×100.0), the live value
-is unclamped mid-pinch (`ZoomPan.swift:72` clamps only `.onEnded`), and the
-badge itself appears and disappears across ×1.0
-(`RealSpacePointerPolicy.swift:42`) — a `.fixedSize()` child inserted and
-removed repeatedly during one gesture.
-Of the other 11, **eight are literals** (`NumericField`'s unit at all 13 call
-sites; `ExportSheet`'s, which is in a sheet and not split content) and
-**three change discretely**: `ImagePanes.swift:478`'s `badge(text:)` helper is
-passed `quality · …`, `status.rawValue.capitalized` and `Earlier settings`
-(`:413`, `:418`, `:437`). Those strings do move, but once per published
-product, not repeatedly — so they are not armed under the rule as written.
-They are the ones to re-check if a product ever starts republishing on a tick.
-**Why it has not been fixed.** The obvious remedy — a reserved slot, as the
-status bar got — closes the string-width channel and NOT the
-appears/disappears one, so it would ship a green test claiming a mechanism
-was closed that is not. **Why it is not urgent.** `PaneSplit` is a
-`GeometryReader` giving each pane `.frame(width:)`, which terminates the
-pane's minimum: it propagates nothing upward. And none of the 12 sits in the
-one `.safeAreaInset` in `UI/`, which is where both crashing sites lived. An
-armed gun pointed at a wall.
-Separately, the `fixedSize(horizontal: false, vertical: true)` set this entry
-used to describe as "31 sites, covered by `SplitViewHeightTests`, including 4
-in `TaskPrerequisiteChecklist`" was wrong on all three counts: there are **5**
-(`ExportSheet.swift:119`, `LoadConfigurator.swift:82,203,209,451`),
-`SplitViewHeightTests` does not exist in the tree, and
-`TaskPrerequisiteChecklist` went with the AppKit window. Vertical-only
-`fixedSize` cannot move a width and is not the rule's subject. Owner:
-the zoom badge, with whoever makes the pane header compressible
-(`PaneSplit` residual (a)) — the two are the same header.
+12 bare call sites against the constraint-loop rule above (an unanchored grep
+says 16; four of those are comments *about* `.fixedSize()` — use
+`grep -rn '^\s*\.fixedSize()'`). **One is armed**: `ImagePanes.swift:452`, the
+zoom badge. `liveZoom` is written on every magnify event, the digit count moves
+(×9.9 → ×10.0 → ×100.0), the value is unclamped mid-pinch, and the badge itself
+appears and disappears across ×1.0 — a `.fixedSize()` child inserted and removed
+repeatedly in one gesture. Of the rest, eight are literals and three change once
+per published product (`badge(text:)`, `:413/:418/:437`) — not armed, but the
+ones to re-check if a product ever republishes on a tick.
+**Not fixed, deliberately:** a reserved slot closes the string-width channel and
+NOT the appears/disappears one, so it would ship a green test claiming a closed
+mechanism. **Not urgent:** `PaneSplit` gives each pane `.frame(width:)`, which
+terminates its minimum, and none of the 12 is in the one `.safeAreaInset` in
+`UI/` where both crashing sites lived. Owner: with the pane header's
+compressibility (`PaneSplit` residual (a)) — same header.
+(The `fixedSize(horizontal:vertical:)` set this entry once called "31 sites
+covered by `SplitViewHeightTests`" is 5 sites, that test does not exist, and
+vertical-only `fixedSize` cannot move a width.)
 
 ### Runner source lists still hand-spelled in places
 `SessionReplayRecord.swift` is patched into seven runners by hand rather

@@ -35,3 +35,28 @@ app-install paths — no user data, and the only diagnostic for a bundled-HDF5
 load failure. `DM4Error` keeps the underlying error that the v2 S7 audit
 added to distinguish EPERM from ENOENT from a short read; only the enclosing
 path is gone.
+
+---
+
+## Sidecar restore doesn't check the calibration frame — closed 2026-09-04
+
+### ~~Sidecar restore doesn't check the calibration frame against the view~~ — **CLOSED 2026-09-04**
+
+> `applySessionCalibration` adopts a saved calibration verbatim; a sidecar
+> saved at full extent and restored onto a reconfigured (cropped/binned)
+> view leaves a source-frame calibration beside reduced pixels (S10 Gate B
+> finding 2).
+
+**Closure.** It asks now. `applySessionCalibration` calls
+`SessionCalibrationFramePolicy.decide` (`mac4DSTEM/App/AppState.swift:2887`);
+the policy is `mac4DSTEM/Session/SessionCalibrationFramePolicy.swift`, added
+2026-09-01, and is pinned by `SessionCalibrationFramePolicyTests` and
+`SessionCalibrationTranslationTests`. Evidence class, stated plainly: verified
+by reading the tree on 2026-09-04. The restore path itself still has no test —
+the policy and the translation are pinned as pure functions, and the call site
+is review-pinned, which `StrainFrameTests` notes.
+
+The entry's second half — `exportableRecipe` refusing rather than composing
+across frames — is NOT closed. It was never a wrong number: the archive records
+it as an S10 decision with the reason surfaced in the export status line. It
+stays live under "Known, scoped, not blocking".
