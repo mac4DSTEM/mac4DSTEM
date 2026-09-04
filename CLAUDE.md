@@ -29,10 +29,18 @@ Gate D; `/adversarial-review` is Gate B; `/closeout`.
   `AppState` is the single source of truth until the plan's stores replace it.
 - No new stored state in `AppState`: a feature names its owner first. A
   session that touches `AppState` moves one responsibility out of it.
-- Anything that changes a scientific number: Gate D (diagnosis, refuting
-  observation, predicted outcome, then the experiment) before the fix; an
-  independent refuter after; a fixture. The model that wrote the change never
-  approves it alone. Review the diagnosis, not the diff.
+- **Gate D applies when a change can move a scientific number, or when the
+  cause of a defect is not yet established** — not to every change in `Core/`.
+  Diagnosis, refuting observation, predicted outcome, then the experiment,
+  before the fix; an independent refuter after; a fixture. The model that
+  wrote the change never approves it alone. Review the diagnosis, not the diff.
+  The refuter stays because this repo has shipped three confident wrong
+  diagnoses that passed every test written for them; a model that forms a
+  hypothesis writes tests that confirm it.
+- **What does NOT need Gate D**, and saying so is the point (2026-09-04): pure
+  placement and presentation changes, renames, docs, tooling, and defects whose
+  mechanism is already proven by a reproducing observation. State which of the
+  two triggers applies, or say that neither does and proceed.
 - Break every new test before trusting it. Do not drive the app during the
   unit gate. Quote test numbers only from a retained log, dated;
   `tools/run-tests.sh` is the only thing that knows the harness count.

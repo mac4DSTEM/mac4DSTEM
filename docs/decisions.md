@@ -277,6 +277,17 @@ it needs — IS the bug that crashed the app (constraint-loop rule,
 (`StatusBarMetricsTests`). Corollary: `docs/status.md` no longer records push
 state; it went stale twice in two commits, and git is the authority.
 
+**2026-09-04 — Gate D's trigger is sharpened; the refuter stays.** The rule
+read "anything that changes a scientific number" and was in practice reached
+for on changes that touch no number. It now names two triggers — a change that
+can move a scientific number, OR a defect whose cause is not yet established —
+and states plainly what does not need it: placement and presentation, renames,
+docs, tooling, and defects with a proven reproducing mechanism. The independent
+refuter is NOT relaxed. It earns its place: on the day this was written it
+caught that the session's own sidecar fix was aimed a level too low, and found
+a worse defect underneath it that the author had not looked for. Owner-approved
+2026-09-04. `AGENTS.md` is generated from `CLAUDE.md`; regenerate after editing.
+
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
 outside their own state; a session that ran them would need that surface
