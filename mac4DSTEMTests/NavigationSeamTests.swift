@@ -17,7 +17,7 @@ final class NavigationSeamTests: XCTestCase {
         }
         XCTAssertTrue(names.contains("navigation"), "the facade holds the seam")
         let forbidden = ["workspaceArea", "analysisMode", "showToolsPane",
-                         "showLogPane", "showInspectorPane", "focusedPane"]
+                         "showLogPane", "showInspectorPane"]
         let shadows = forbidden.filter(names.contains)
         XCTAssertTrue(
             shadows.isEmpty,
@@ -39,5 +39,53 @@ final class NavigationSeamTests: XCTestCase {
         XCTAssertEqual(fires, 1, "an actual change fires the hook once")
         nav.analysisMode = .dpc
         XCTAssertEqual(fires, 1, "writing the current value again stays quiet")
+    }
+
+    /// `selectWorkspace` is the orchestration the seam deliberately does NOT
+    /// own, and until now its only test lived in `FocusedPaneTests`, which
+    /// went with the retired pane-focus model (2026-09-04). It has eight
+    /// production call sites; this is the replacement, not an addition.
+    ///
+    /// The contract: moving to a workspace never starts scientific work, and
+    /// it only re-points the task when the current one does not belong to the
+    /// destination.
+    func testSelectingAWorkspaceAdoptsItsDefaultTaskOnlyWhenTheCurrentOneDoesNotBelong() {
+        let state = AppState()
+        XCTAssertEqual(state.navigation.analysisMode, .virtualDetector)
+
+        // Imaging owns the virtual detector, so the task must survive.
+        state.selectWorkspace(.image)
+        XCTAssertEqual(state.navigation.workspaceArea, .image)
+        XCTAssertEqual(state.navigation.analysisMode, .virtualDetector,
+                       "a task the destination owns is kept")
+
+        // Map does not, so it adopts Map's first task — disks, which produce
+        // the vectors the other two consume.
+        state.selectWorkspace(.map)
+        XCTAssertEqual(state.navigation.workspaceArea, .map)
+        XCTAssertEqual(state.navigation.analysisMode, .disks,
+                       "a task the destination does not own is replaced by its default")
+
+        // Strain is Map's too: arriving again must not reset the user's task.
+        state.navigation.analysisMode = .strain
+        state.selectWorkspace(.map)
+        XCTAssertEqual(state.navigation.analysisMode, .strain,
+                       "re-entering a workspace does not reset a task it owns")
+    }
+
+    /// Prepare and Results have no tasks at all (`analysisModes` is empty, so
+    /// `defaultAnalysisMode` is nil). Navigating to them must leave the task
+    /// alone rather than fall through to some other workspace's default.
+    func testATasklessWorkspaceLeavesTheCurrentTaskUntouched() {
+        let state = AppState()
+        state.selectWorkspace(.map)
+        XCTAssertEqual(state.navigation.analysisMode, .disks)
+
+        for area in [WorkspaceArea.results, .prepare] {
+            state.selectWorkspace(area)
+            XCTAssertEqual(state.navigation.workspaceArea, area)
+            XCTAssertEqual(state.navigation.analysisMode, .disks,
+                           "\(area) owns no task and must not re-point one")
+        }
     }
 }

@@ -15,26 +15,7 @@ import DSTEMSession
 /// which are AppState's to coordinate. This type only stores the answer.
 @Observable
 final class WorkspaceNavigation {
-    /// Changing workspace releases the focus ring: `nil` until one of the new
-    /// workspace's panes claims it. Results has a single pane, so it is
-    /// focused on arrival.
-    var workspaceArea: WorkspaceArea = .prepare {
-        didSet {
-            if workspaceArea != oldValue {
-                focusedPane = workspaceArea == .results ? .result : nil
-            }
-        }
-    }
-
-    /// v2.5 step 7c (plan §11g decision 3): the pane holding the focus ring,
-    /// written by that pane and read only by the inspector column.
-    /// `ActivePane` is untouched — it still drives Prepare's ROI direction.
-    var focusedPane: FocusedPane?
-
-    /// Which inspector the column renders.
-    var inspectorContent: InspectorContent {
-        focusedPane == .result ? .product : .dataset
-    }
+    var workspaceArea: WorkspaceArea = .prepare
 
     /// Task selection. The recovery hook preserves the exact semantics the
     /// old stored property's `didSet` had on `AppState`: persist the
@@ -48,62 +29,4 @@ final class WorkspaceNavigation {
     var showInspectorPane = false
 
     @ObservationIgnored var onModeChange: (() -> Void)?
-}
-
-/// The pane that carries the focus ring, named by what it draws — one
-/// descriptor per pane (plan §11c), so the inspector never asks which
-/// workspace it is in. Cases are added as each workspace's panes start
-/// claiming it.
-enum FocusedPane: Equatable, Sendable {
-    /// A live CBED pattern with the virtual detector drawn over it (Prepare,
-    /// Imaging's virtual detector): the aperture rows and the diffraction
-    /// histogram belong beside it.
-    case detectorPattern
-    /// A live CBED pattern without a detector overlay (Bragg disks): the
-    /// diffraction histogram, no aperture rows.
-    case pattern
-    /// A real-space image or map computed from the cube: its own histogram.
-    case image
-    /// The Results workspace's product pane: `ProductInspector`.
-    case result
-
-    var showsAperture: Bool { self == .detectorPattern }
-    var showsDiffractionHistogram: Bool { self == .detectorPattern || self == .pattern }
-    var showsRealSpaceHistogram: Bool { self == .image }
-
-    /// The descriptor a live pane claims when it takes the ring.
-    static func livePane(
-        _ active: ActivePane, in area: WorkspaceArea, task: AnalysisMode
-    ) -> FocusedPane? {
-        switch area {
-        case .prepare, .image:
-            // Both draw the virtual detector on their diffraction pane.
-            active == .diffraction ? .detectorPattern : .image
-        case .map:
-            switch task {
-            case .disks:
-                active == .diffraction ? .pattern : .image
-            default:
-                // Beside a strain or orientation map the diffraction pane
-                // shows the map's evidence overlays; its descriptor is the
-                // map's (7b's rule, F1.59, kept).
-                .image
-            }
-        case .reconstruct:
-            // Phase's diffraction pane shows the live CBED or the
-            // reconstruction's evidence beside a real-space product; the
-            // descriptor is the product's (7b's rule, F1.59, kept).
-            .image
-        case .results:
-            nil   // Results has one pane and claims `.result` on arrival
-        }
-    }
-}
-
-enum InspectorContent: Equatable, Sendable {
-    /// `DatasetInspector`: file, live panes, diagnostics, products.
-    case dataset
-    /// `ProductInspector`: the displayed product's descriptor, the session
-    /// inventory, diagnostics (plan §11g decision 2).
-    case product
 }

@@ -722,29 +722,3 @@ final class PhaseSplitTests: XCTestCase {
         XCTAssertEqual(state.ptychographyMethod, other)
     }
 }
-
-// MARK: - v2.5 step 7b/7c: the inspector follows the focused pane (plan §11f-4)
-
-@MainActor
-final class InspectorFocusTests: XCTestCase {
-    /// §11f-4: beside a strain or orientation map neither the aperture rows
-    /// nor the diffraction histogram render — whichever pane holds the ring.
-    func testAnOrientationOrStrainTaskShowsNeitherApertureNorDiffractionHistogram() {
-        for task in [AnalysisMode.acom, .strain] {
-            for pane in [ActivePane.diffraction, .realSpace] {
-                let descriptor = FocusedPane.livePane(pane, in: .map, task: task)
-                XCTAssertEqual(descriptor?.showsAperture, false, "\(task) \(pane)")
-                XCTAssertEqual(descriptor?.showsDiffractionHistogram, false, "\(task) \(pane)")
-            }
-        }
-    }
-
-    func testDiffractionPaneTasksKeepBoth() {
-        XCTAssertEqual(FocusedPane.livePane(.diffraction, in: .image, task: .virtualDetector)?.showsAperture, true)
-        XCTAssertEqual(FocusedPane.livePane(.diffraction, in: .image, task: .virtualDetector)?.showsDiffractionHistogram, true)
-        let disks = FocusedPane.livePane(.diffraction, in: .map, task: .disks)
-        XCTAssertEqual(disks?.showsAperture, false, "disks show the pattern, not the virtual-detector ROI")
-        XCTAssertEqual(disks?.showsDiffractionHistogram, true)
-        XCTAssertEqual(FocusedPane.livePane(.diffraction, in: .prepare, task: .virtualDetector)?.showsAperture, true)
-    }
-}

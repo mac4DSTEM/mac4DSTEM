@@ -46,8 +46,8 @@ struct DiffractionPane: View {
         .clipped()
         .contentShape(Rectangle())
         // `activePane` is the ROI direction's storage, and clicking a pane is
-        // how the user chooses it. `navigation.focusedPane` is still never
-        // written — the retired model was an inspector-routing rule, not this.
+        // how the user chooses it. UI has no pane focus model at all — the
+        // retired one was an inspector-routing rule, not this.
         .onTapGesture { appState.activePane = .diffraction }
         .overlay { ActivePaneOutline(pane: .diffraction) }
     }

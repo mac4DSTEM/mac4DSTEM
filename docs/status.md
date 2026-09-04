@@ -24,7 +24,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 4 `CalibrationSession`; one vocabulary (Not set / From file / Measured / … / Not quantitative) and one `Verdict` on every surface | done 2026-09-03 | `AppState` forwards every calibration field until the views read the session (7c) |
 | 5 `ProductWorkflow.readiness(for:)` — one answer for the primary action, the checklist and replay; `OperationCenter` owns busy/progress/lifecycle | done 2026-09-03 as scoped | plan §10g owner decisions: parallax/ptychography in the recipe vocabulary; `SessionGates` axis; replay's own refusal wording |
 | 6 `ACOMSession`; the IPF map confidence-gated (10th-percentile default, slider on the chip) | done 2026-09-03 | `runACOM`, `runStrainMapping`, `applyACOMDisplay`, the orientation plan/map still on `AppState` |
-| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03; 7c done 2026-09-03 | Five workspace sidebars (`ResultsSidebar` with the saved-product chooser out of the detail pane, `PrepareSidebar`, `ImageSidebar`, `MapSidebar`, `PhaseSidebar`), `ProductInspector`, `FocusedPane` on `WorkspaceNavigation` claimed by every pane; the calibration and ACOM forwarder blocks are gone — `ACOMSession` owns the ACOM state, plan, map and their invalidation, with hooks to `AppState` for the window effects; the run functions stay on `AppState` (owner decision 2026-09-03, `decisions.md`) |
+| 7 Phase split (DPC & iDPC / Parallax / Single-slice ptychography), revisitable stages, inspector follows the task, chip slider | 7a, 7b, 7d done 2026-09-03; 7c done 2026-09-03 | Five workspace sidebars (`ResultsSidebar` with the saved-product chooser out of the detail pane, `PrepareSidebar`, `ImageSidebar`, `MapSidebar`, `PhaseSidebar`), `ProductInspector`, a `FocusedPane` routing model on `WorkspaceNavigation` (deleted 2026-09-04: the rebuild has no pane focus model and nothing read it); the calibration and ACOM forwarder blocks are gone — `ACOMSession` owns the ACOM state, plan, map and their invalidation, with hooks to `AppState` for the window effects; the run functions stay on `AppState` (owner decision 2026-09-03, `decisions.md`) |
 | 8 Checkpoint | reached 2026-09-03; re-checked 2026-09-03 after 7c | the product is simpler across all five surfaces. §2 metrics: `AppState.swift` 5 528 → 5 544 lines (ownership left it, the run functions did not — a run layer with an injected host is the next consolidation item, not scheduled), `ContentView.swift` 1 859 → 672, live markdown 9.4 k → 4.0 k lines, cold-start set 944 |
 
 ## The UI rework (presentation contract, `architecture.md`) — in progress
@@ -62,7 +62,7 @@ drawing the geometry they apply, from `DetectorPreset.radii` itself.
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **455 passed / 0 failed / 1 skipped, exit 0 — 2026-09-04, status-bar-metrics tree (full log retained; exit code read directly, never through a `tail` pipe): 451 + the four new `StatusBarMetricsTests`.** 452 tests either way: 476/0/3 before the UI retirement, which deleted 27 AppKit-shell tests and gained the WS2 stall probe once its data appeared. Two exit-69 preflight refusals during the session, each cleared by deleting `ModuleCache.noindex` and stale `DerivedData` — debris `free-space.sh`'s roots still cannot see |
+| `run-tests.sh unit` | **448 passed / 0 failed / 1 skipped, exit 0 — 2026-09-04, dead-focus-model tree (full log retained; exit code read directly, never through a `tail` pipe).** 456 → 449 tests: 9 deleted with the focus model, 2 added for `selectWorkspace`. Earlier the same day: 455/0/1 on the status-bar tree. 452 tests either way: 476/0/3 before the UI retirement, which deleted 27 AppKit-shell tests and gained the WS2 stall probe once its data appeared. Two exit-69 preflight refusals during the session, each cleared by deleting `ModuleCache.noindex` and stale `DerivedData` — debris `free-space.sh`'s roots still cannot see |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-04, status-bar-metrics tree; the UI contract grep is new and was mutation-tested both ways. Previously: exit 0 — 2026-09-03, UI scaffold tree |
@@ -124,7 +124,4 @@ constraint-loop mechanism was finally established.
 ## Owed to the owner
 
 - **Drive the rebuilt app** (above).
-- **`FocusedPane` and `InspectorContent` are dead** (`App/WorkspaceNavigation.swift`)
-  with a live test: the retired inspector was their only reader. Removing them
-  takes a real responsibility off `AppState`'s seam.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format).

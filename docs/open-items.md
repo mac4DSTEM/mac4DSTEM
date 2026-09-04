@@ -588,6 +588,17 @@ the manifest's isolation flags buy visibility, not enforcement).
 
 ## Working methods that earned their keep
 
+### Count a gate's tests by name, never by grepping lines
+`run-tests.sh unit` passes `-quiet`, so xcodebuild prints no summary and the
+count has to be grepped out of the log. The parallel runners interleave, and a
+`Test case '…' passed` line can be CHOPPED mid-name — 2026-09-04 one was, and
+`grep -c "Test case .* passed"` undercounted by exactly one, which read as a
+test that had silently vanished. Count unique test names instead:
+`grep -oE "[A-Za-z0-9_]+\.[a-zA-Z0-9_]+\(\)' passed" log | sort -u | wc -l`.
+Same family as the `| tail` trap: the gate was green, the number was wrong.
+
+
+
 Kept because they changed outcomes, not because they are tidy:
 
 1. **Cost a UI change before designing it.** Measure the shape change

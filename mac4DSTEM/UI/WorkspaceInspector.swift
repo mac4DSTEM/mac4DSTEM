@@ -14,11 +14,12 @@ import DSTEMSession
 /// `ProductInspector`, merged.
 ///
 /// **Why they merged.** The old pair was chosen by which pane held the focus
-/// ring (`WorkspaceNavigation.inspectorContent`), so the dataset's dimensions
-/// and the product's units were never on screen together and the user had to
-/// click a pane to change what the inspector described. UI has no pane focus
-/// model: the dataset sections are always shown, and the product sections
-/// join them whenever a product is displayed.
+/// ring, so the dataset's dimensions and the product's units were never on
+/// screen together and the user had to click a pane to change what the
+/// inspector described. UI has no pane focus model: the dataset sections are
+/// always shown, and the product sections join them whenever a product is
+/// displayed. (That routing model and its types were deleted 2026-09-04;
+/// `git show d5786e2^:mac4DSTEM/UI/InspectorPanels.swift` has the old pair.)
 struct WorkspaceInspector: View {
     /// Persisted so the column comes back on the tab the user left it on.
     private enum InspectorTab: String {
