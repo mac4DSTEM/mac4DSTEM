@@ -29,8 +29,14 @@
 #   * Track B (docs/visual-acceptance-checklist.md) — a person driving the
 #     app; no runner can stand in for it.
 #
-# ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review (runner
-# classification, size metrics, stale status claims). Fails on drift. And
+# ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
+# on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
+# and on a live doc claiming uncommitted work. It only PRINTS the size metrics
+# (live markdown, cold-start set, AppState): they set no return code, so no
+# number rising can turn this red — the "must not go up" rule is the closeout
+# skill's, enforced by a person. Note also that the uncommitted-claim check is
+# skipped on a dirty tree, so locally it is nearly always inert; here, on a
+# fresh checkout, it actually runs. And
 # `tools/run-tests.sh core` — Core/ and Session/ as standalone packages; fails
 # the moment Core/ depends on App/, UI/ or Support/.
 #

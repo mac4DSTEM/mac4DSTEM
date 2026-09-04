@@ -250,7 +250,7 @@ runs it; readiness has exactly one home, the Settings tab's first section, so
 `TaskPrerequisiteChecklist` is not carried over; and the pane focus model
 (`FocusedPane`, `inspectorContent`) is retired, with `AppState.activePane`
 surviving only as the ROI direction's storage behind an explicit Direction
-picker. The full contract is `architecture.md` "The UI2 contract".
+picker. The full contract is `architecture.md` "The UI contract".
 
 **2026-09-04 — UI2 may not use `HSplitView`, and the presentation contract's
 rules 2 and 5 are amended.** `HSplitView` nested in a `NavigationSplitView`
@@ -299,4 +299,6 @@ products both panes carry the product's descriptor (7b's rule, F1.59).
 `docs/architecture.md`, this file, plus the reference docs and Track B
 checklist. Everything else moved to `docs/archive/v2/` unchanged. The
 former `v2.5-contract.md` from the plan's §6 was dropped: the plan is the
-contract.
+contract. *(Amended 2026-09-04: `v2.5-plan.md` is itself archived and
+`docs/v3-plan.md` took its place in the set; the Track B checklist went with
+Track B's retirement. `CLAUDE.md`'s reading order is the current list.)*

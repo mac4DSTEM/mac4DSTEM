@@ -13,7 +13,10 @@ session that touches its file, never its own. Each entry is a live defect, debt,
 live residual. No narrative. Closed and historical material is the verbatim
 pre-cull file,
 [`docs/archive/v2/open-items-2026-09-02.md`](archive/v2/open-items-2026-09-02.md),
-plus [`docs/archive/closed-items-2026-08.md`](archive/closed-items-2026-08.md).
+plus [`docs/archive/closed-items-2026-08.md`](archive/closed-items-2026-08.md)
+and [`docs/archive/closed-items-2026-09.md`](archive/closed-items-2026-09.md).
+The finished AppKit UI rework and the v2.5 train are
+[`docs/archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md).
 **[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md)** is the finished consolidation plan — its §3 is
 the merged UI-findings list; point there, do not duplicate. Owner decisions
 and standing directives now live in `docs/decisions.md`.
@@ -152,32 +155,14 @@ vectors. Minor: the scale bar can print a physical sampling labelled "px" when
 
 ## Verification debt
 
-### S17 sidebar intermittent — observation log
-`SidebarLayoutTests.testEveryNonQuarantinedWorkspaceSidebarFitsItsColumn`
-fails intermittently with **Strain & ACOM (calibrated) at 810.5pt against
-786pt**, the number the test's own comment records for rows wrapping at the
-250pt minimum width (`ContentView.swift` publishes `max(width − 34, 216)`).
-2026-09-03, v2.5 step 2c tree, no app instance running, no sidebar key in
-the defaults domain: failed 2 of 5 runs (full unit run; class run), passed 3
-(single test; class twice); the 2b tree passed its one class run. Then 0 of
-14 full runs through step 4b; on the step 5a tree 3 of 4 (one full run and
-two class runs red at the same 810.5, the next full run green). 5a adds
-observation reads to the header action, which may raise how often the
-width race fires; the content is unchanged (the extra disks row is shown
-only while unmet). Trap: it
-is not a package-split regression — the A/B was run — and it is not the
-autosave leak the comment describes, since the domain was clean. Owner:
-whoever next touches the sidebar layout; the pin-then-measure sequence needs
-a second look at what re-applies the 250pt minimum after `setPosition`.
-2026-09-03 owner repro changed the severity: dragging the left tools panel
-crashed with `NSGenericException` ("window has been marked as needing another
-Update Constraints in Window pass..."). Diagnosis: the hard SwiftUI
-`.frame(minWidth:)` on the column root fights AppKit's split-view drag.
-Fix in progress: remove that hard floor; rely on `NavigationSplitView` +
-`SplitViewPolicy` AppKit bounds/restoration clamp; needs live re-drive. 2026-09-03, the split-view policy tree: 1 of 2 full-class runs red at the
-same 810.5 (the red run also carried a 144pt sidebar a new test had autosaved
-into the shared domain — the tests now unpin the autosave first); the re-run
-was green.
+### S17 sidebar intermittent — archived, its test is gone
+`SidebarLayoutTests` and the `ContentView` column publisher the whole
+observation log measured were deleted with the AppKit window (`d5786e2`), so
+the log cannot be extended and the fault cannot recur in the same place. The
+full record — 2 of 5, then 0 of 14, then 3 of 4, and the 810.5 pt against
+786 pt it always failed at — is in [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md). What survives it is the rule in
+the constraint-loop entry below. Kept live only as the name S17, which other
+entries still cite.
 
 ### Sidebar drag crash — mechanism found and removed 2026-09-03, owner's drive owed
 Exception (owner, Xcode console): `NSGenericException: The window has been
@@ -211,10 +196,14 @@ inspector following the focused pane), the clean-account run, the bounded
 promote run, a real load cancel.
 
 ### `tools/run-tests.sh all` has not been re-run on the newest tree
-Last full green run was the DPC-angle-unit closeout tree; `unit` and
-`scientific` have each re-run green individually since (including on the
-FFT/R23 tree, 429/0/2 and 42/42), but the aggregate `all` itself has not.
-Do not quote an aggregate you did not just run.
+Last run: 2026-09-03, `e2284f1` — 43 harnesses green, exit 1 only at
+`package-test`'s literal version assertion, since fixed and green on that
+same tree (`status.md`). Nothing aggregate has run since; `unit` and the
+reader harnesses have each run green individually on 2026-09-04's trees.
+The run itself is ~12 minutes and needs nothing the machine lacks except
+disk: the preflight demands 8 GB on both `$ROOT` and `$TMPDIR`, and getting
+there means deleting outside the two roots `free-space.sh` guards — which is
+the owner's call, not an agent's. Do not quote an aggregate you did not run.
 
 ### The app has never been driven on the macOS version it claims to support
 `LSMinimumSystemVersion` is 14.0; every manual session has been on macOS
@@ -268,52 +257,21 @@ three places. Two contract leaks: `NSPasteboard` in `ContentView` and an
 tested helper byte-identical). Owner: a UI polish session, after the owner's
 next drive.
 
-### The presentation contract is wrong in two rules (4b, 2026-09-03)
-Found by building and looking, and by six independent reviewers; the
-amendment is owed to `architecture.md` before another pass runs against it.
-- **Rule 2 ("every group of controls in a sidebar or inspector is a grouped
-  `Form`") is a category error.** A grouped `Form` is System Settings'
-  *detail pane*. Applied to navigation it left the app with **no `List`
-  anywhere**, and `Form` has no `selection:` parameter, so the selected
-  workspace could only be drawn by tinting text. Amended in 4b: navigation
-  is a source list, controls are a form; `LabeledContent` only stacks a
-  multi-element label vertically inside a Form, so a view written for one
-  container does not survive the other.
-- **Rule 5 ("wrapped text is fine, truncation and overflow are findings")
-  is backwards for a fixed-width column**, and its gate cannot see the
-  case anyway: `controls(_:)` collects `NSControl`s, and no SwiftUI `Text`
-  is one. Its fixture's longest path is `"/demo/data"`, so the long-value
-  case never arises either. Finder truncates filenames, Xcode truncates
-  with a tooltip; unbounded wrapping is what made the column a wall.
-- Still open on screen after 4b, none of them yet fixed: the workspace
-  "hero header" repeats the selected sidebar row's title *and* subtitle
-  and takes ~100 pt off the top of both panes; both panes centre the
-  aspect-fitted image so the slack is split above and below it, which is
-  why the image sits far from its own title; ~40 permanent caption `Text`s
-  remain across the sidebars.
+### Presentation-contract residuals still open on screen
+Rules 2 and 5 were wrong as written and are amended in `architecture.md`; the
+finding and its evidence are archived ([`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)). Two of the three "still
+open" items closed with the rebuild: there is no workspace hero header any
+more (`WorkspaceView` says so in as many words), and the pane-centring
+complaint is now `PaneSplit`'s business. What is left, unverified: **~40
+permanent caption `Text`s across the sidebars**, and **nothing has been seen
+in light appearance**. Owner: the owner's drive.
 
-### The UI rework — what the owner's drives found, by step
-Owner drives 2026-09-03 (`df80e8e`, then step 1 `9493242`): (a) a wide
-sidebar puts every trailing value at the far edge — step 2a makes the
-column a grouped `Form`, so rows are `LabeledContent` (value trailing, as
-System Settings) and every field is `NumericField` (one width rule,
-`FormPolicy`), pending the owner's drive; (b) thumbnails cap at `FormPolicy`'s one
-height (step 3, same drive); (c) dividers' grab zone — fixed step 1,
-owner-confirmed; (d) no Liquid Glass on the columns — Gate D 2026-09-03
-(`ColumnMaterialTests`, refuted independently): the hosted lists DID paint
-over AppKit's material (inspector: its own `contentBackground` effect
-view, rendered opaque; sidebar: a source-list colour resolving 90 % opaque,
-not confirmed at the pixel), gone with `.scrollContentBackground(.hidden)`;
-with them gone the columns still render flat — active window, saturated
-backdrop behind the window, AppKit-root and hosted alike, the real signed
-app alike — because the OS's column material is within-window and shows
-only content passing beneath it; `automaticallyAdjustsSafeAreaInsets`
-(26.0) lets content under but clipped the diffraction pane, so it is
-rejected: the columns look like Xcode 26's, flat on the window ground.
-Open residual: not tested in light appearance. (e) a sidebar drag moved
-the inspector — the workspace now holds least (`SplitViewPolicy`, pinned
-by `testASidebarDragLeavesTheInspectorWhereItWas`). Owner: the rework;
-lane: the rework, no release number.
+### The columns' material was diagnosed, and never checked in light
+Gate D 2026-09-03 (archived, [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)): the hosted lists were painting over
+AppKit's column material; `.scrollContentBackground(.hidden)` removed that,
+and the columns still render flat because the OS's column material is
+within-window. The conclusion — the columns look like Xcode 26's, flat on the
+window ground — was reached in dark appearance only. Owner: the owner's drive.
 
 ### Concurrent HDF5 use crashes the process
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb
@@ -494,37 +452,24 @@ Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel
 size, the readiness row turns green — and the entry field disappears with it,
 so a typo is permanent for the session. Mechanism: the readiness rows render
 their action controls only `if !item.status.isReady`
-(`PrepareSettings`, inherited verbatim from
-`UI/CalibrationReadinessView.swift`), and for `.qScale`/`.rScale` that control
-IS the only way to set the value — unlike origin, ellipse and rotation, which
-have a measurement path. **Both UIs have it.** A wrong R scale silently
+(`PrepareSettings.swift:251`; the `UI/CalibrationReadinessView.swift` this
+entry used to cite was deleted in `d5786e2`). The code names `.rScale` as
+"the one calibration with no measurement path in the app"
+(`PrepareSettings.swift:318`), so whether `.qScale` is equally trapped is
+worth checking rather than assuming. A wrong R scale silently
 rescales every real-space axis, scale bar and export, so this is a trust
 defect, not an inconvenience. Fix: keep the manual rows on screen when the
 value's provenance is manual (or always, for the two kinds with no measured
 path). Owner: unclaimed; small, but it touches calibration presentation and
 wants the owner watching.
 
-### UI duplicates four things `UI/` still owns, until `UI/` retires
-Both UIs compile into the app target, so the migration left four pairs that
-can drift and only one half of each is defended. (a) `ScaleBar.nice125` /
-`.format` duplicate `ScaleBarView`'s, and `Support/ResultExport.swift:1937,1943`
-still calls the OLD statics to burn the bar into exported PNGs — edit one and
-an exported figure disagrees with the screen. (b)
-`PrepareSettings.scanStepAngstromPerPixel` and `.disclosesExcludedFraction`
-duplicate the copies `CalibrationReadinessFilenameTests` and
-`CalibrationDisclosureTests` pin, so the shipping UI copy is untested; the
-tests get re-pointed, not deleted, when `UI/` goes. (c) `ExportSheet`
-re-renders the readiness rows and their `calibration.*` identifiers, so while
-the sheet is open two instances of each identifier exist — the old app had the
-same collision. (d) `ScientificHistoryPlot` duplicates `ScientificHistoryPlot`.
-Owner: whoever retires `UI/`; nothing here is wrong today.
-
-### UI still reaches into `UI/` for five pure types
-`ColormapKind`, `Colormaps`, `PeakOverlayGeometry`, `RealSpacePointerPolicy`
-and `ComparisonHoverMapping` are model and policy mis-filed under `UI/`, and
-UI uses them deliberately rather than duplicating LUTs and pointer geometry.
-They move to `Core/` (or `App/`) when `UI/` retires; until then `UI/` cannot
-be built with `UI/` deleted. Owner: whoever retires `UI/`.
+### `calibration.*` identifiers exist twice while the export sheet is open
+`ExportSheet` re-renders the readiness rows, so `calibration.readiness`,
+`calibration.item.*`, `calibration.rScale.filenameConflict` and
+`calibration.action.originProbe` are each emitted by both it and
+`PrepareSettings` while the sheet is up. Harmless today — nothing queries them
+at runtime — but it would defeat any future UI test that addresses a readiness
+row by identifier. The old app had the same collision. Owner: unclaimed.
 
 ## Code hygiene
 
