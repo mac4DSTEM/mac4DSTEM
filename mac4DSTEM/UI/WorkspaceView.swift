@@ -661,7 +661,7 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
             .contentShape(
                 Rectangle().inset(by: -LayoutPolicy.dividerGrabWidth / 2)
             )
-            .pointerStyle(.columnResize)
+            .modifier(ColumnResizePointer())
             .gesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
@@ -705,6 +705,21 @@ struct SaveResultButton: View {
             .help("Keeps the displayed result with this dataset, in its session "
                   + "sidecar. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")
+        }
+    }
+}
+
+/// `pointerStyle` is macOS 15+, and it was the second and last thing pinning
+/// this app to a high floor (2026-09-04). The column-resize cursor over a
+/// divider is a refinement: below 15 the divider still drags, it just does not
+/// change the pointer. A `ViewModifier` rather than an inline `if #available`
+/// so both branches keep a single concrete type.
+private struct ColumnResizePointer: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.pointerStyle(.columnResize)
+        } else {
+            content
         }
     }
 }

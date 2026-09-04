@@ -94,27 +94,24 @@ second account on this Mac.
 the gate below. Do not delete outside `free-space.sh`'s two guarded roots on
 an agent's own judgement.
 
-**Deferred by the owner, explicitly not v2.5.0 blockers:** the macOS floor
-(below) and the toolbar Cancel button's appearance, both in `open-items.md`.
-The third, moving the sidecar contents into the left sidebar, the owner
-un-deferred on release night and it is DONE in code — unverified on screen,
-and no gate can see it (`open-items.md`).
+**Deferred by the owner, explicitly not v2.5.0 blockers — and two of the three
+have since landed.** The toolbar Cancel button's appearance is still open
+(`open-items.md`). The sidecar move into the left sidebar was un-deferred on
+release night and is DONE, owner-driven through four revisions. The macOS
+floor came down after the release, post-v2.5.0 (below).
 
-**The macOS floor — DECIDED: it comes down (owner, 2026-09-04).** Not "if".
-The app is capped at macOS 26 by `MACOSX_DEPLOYMENT_TARGET = 26.0` *and*
-`Package.swift: platforms: [.macOS(.v26)]`. This is an **enforced floor, not
-an untested claim**: macOS refuses to launch below it, so softening the
-wording changes nothing — only lowering the number does. Cheap to find out:
-there are **zero `@available(macOS …)` annotations in the entire codebase**,
-so nothing is version-gated and lowering the target either compiles or names
-the offending API at build time. Expect the Liquid Glass / within-window
-material work (`decisions.md`, `architecture.md`) to be where it bites.
-**Sequencing, and it is the owner's call, not an agent's:** every green gate
-on record was gated at 26, so lowering the floor re-opens the whole gate
-surface. Do NOT do it on release night. Ship v2.5.0 at 26, then lower the
-floor as its own session with its own gate — that lands as v2.6.0 (or 2.5.1
-if nothing else rides along), and it needs a real older machine or VM, which
-`open-items.md` records the project does not have.
+**The macOS floor — DONE, after v2.5.0 shipped (2026-09-04).** 26 → **14**, in
+all four configurations and `Package.swift`. The docs predicted the Liquid
+Glass / within-window material work would be where it bit; it was not. Exactly
+two symbols stood above the floor and both are cosmetic —
+`ToolbarSpacer(.flexible)` and `.pointerStyle(.columnResize)` — now behind
+`#available`, with the divider simply not changing the pointer below 15. macOS
+13 is out of reach: `@Observable` is 14 and the entire state layer rests on it.
+Found by building at 15.0, 14.0 and 13.0 and reading the errors rather than by
+inspection. `run-tests.sh all` is green at the new floor. **What is NOT
+claimed: that it runs below 26.** No machine or VM here is older, so the
+README and the site still say 26 and the published claim moves only once
+something real has run it (`open-items.md`, `decisions.md`).
 
 **Not forgotten, owner will handle: the public face still shows v1.0.0.** The
 README, the project website and the GitHub release page all describe and link

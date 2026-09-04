@@ -9,8 +9,11 @@ notary-service credentials. Those secrets do not belong in the repository.
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
 - Version/build: `2.5` / `4`. **The v2.5.0 parking is lifted** (owner, 2026-09-04): the UI rework it waited on landed, and v2.5.0 is being cut. Build 3 is the superseded 2026-09-03 artefact, which is why this is 4. A landed science number cuts v2.6.0 instead (`docs/status.md`). v2.0.0 was tagged 2026-09-02 and never built; the tag stays as the pre-consolidation anchor
-- Minimum system: macOS 26 (`MACOSX_DEPLOYMENT_TARGET = 26.0`; raised from 14 on
-  2026-08-28 — see the clean-account note below, which this line contradicted)
+- Minimum system: the BUILD floor is macOS 14 (`MACOSX_DEPLOYMENT_TARGET =
+  14.0`, `Package.swift: .macOS(.v14)`, lowered from 26 on 2026-09-04 —
+  `decisions.md`). The PUBLISHED requirement stays **macOS 26**, because
+  nothing here has run the app below 26; the two are deliberately different
+  and the claim moves only when a real older machine has tested it
 - Hardened runtime and App Sandbox enabled
 - User-selected read/write access plus app-scoped security bookmarks
 - HDF5, sz, and aec libraries embedded, nested-signed, and free of Homebrew paths
@@ -54,9 +57,9 @@ tools/release/notarize.sh \
 The script submits with `notarytool --wait`, staples and validates the ticket,
 runs Gatekeeper assessment, and produces `mac4DSTEM-<version>.zip`. Preserve the archive,
 notary submission ID/log, commit hash, and final SHA-256 together as release
-provenance. Test the ZIP on a clean **macOS 26+** account before publishing —
-the floor was raised from 14 on 2026-08-28, because the app had never been run
-below macOS 26 and the declared floor said otherwise.
+provenance. Test the ZIP on a clean **macOS 26+** account before publishing.
+The build now permits 14+, but 14–25 has never been executed — testing there is
+what would let the published claim move.
 
 ## The disk image users actually download
 

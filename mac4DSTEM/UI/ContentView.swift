@@ -153,7 +153,14 @@ struct ContentView: View {
         // centred (`.principal`) until 2026-09-04; the owner's drive found
         // that the centre slot is too narrow for the busy state, which
         // truncated "Cancel" to "C…".
-        ToolbarSpacer(.flexible)
+        // The ONE macOS 26-only symbol in the codebase, and the only thing
+        // that stood between this app and an older deployment target
+        // (2026-09-04). `.primaryAction` already places items at the trailing
+        // edge on macOS, so the spacer refines that grouping rather than
+        // creating it; below 26 the toolbar simply loses the extra gap.
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible)
+        }
 
         ToolbarItem(placement: .primaryAction) {
             PrimaryActionButton()

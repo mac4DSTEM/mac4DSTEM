@@ -261,18 +261,19 @@ unit count read one short twice because an xcodebuild timestamp interleaved
 mid-test-name, reconciled against the source file's method count, not
 assumed.
 
-### The macOS floor is enforced at 26, and bringing it down needs a machine we lack
-Corrected 2026-09-04; both halves of the old entry were wrong. It said
-`LSMinimumSystemVersion` is 14.0. The key exists — `GENERATE_INFOPLIST_FILE`
-derives it from `MACOSX_DEPLOYMENT_TARGET = 26.0` (all four configurations)
-and `tools/package-test/run.sh:46` asserts it reads `26.0`; `Package.swift:15`
-pins `.macOS(.v26)` to match. So the floor is ENFORCED, not claimed: macOS
-refuses to launch the app below 26 and nobody is being promised 14–25.
-Softening the wording changes nothing; only lowering the number does. That is
-decided (owner, 2026-09-04) and deliberately not release-night work — every
-green gate on record was gated at 26. Cheap to attempt: zero `@available(macOS
-…)` annotations exist, so it either compiles or names the API. Verifying the
-result still needs a real pre-26 machine or VM, which this project has not.
+### The macOS floor is 14 in the build and 26 in the claim — nothing tests 14–25
+Lowered 2026-09-04 (`decisions.md`): `MACOSX_DEPLOYMENT_TARGET` 26.0 → 14.0 in
+all four configurations, `Package.swift` to `.macOS(.v14)`. Two symbols stood
+above the floor, both cosmetic, both now behind `#available`: `ToolbarSpacer`
+and `.pointerStyle(.columnResize)`. macOS 13 is unreachable — `@Observable` is
+14 and the state layer rests on it. Established by building at 15.0, 14.0 and
+13.0 and reading the errors. **The live gap: no machine or VM here runs below
+26**, so 14–25 is COMPILE-verified only and never executed. README and the
+website therefore still say 26; lowering the published claim needs a real
+older machine first, and doing it without one would repeat the mistake the
+site made for a month in the other direction. Note `tools/package-test`'s
+floor assertion is now derived, so it no longer flags a floor change on its
+own — the floor is a recorded decision instead.
 
 ### Residency `.automatic` cannot be re-measured without a second machine
 Dropped by decision (v2 S3, 2026-08-19), not dormant — do not set

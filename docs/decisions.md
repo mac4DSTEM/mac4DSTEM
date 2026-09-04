@@ -277,6 +277,23 @@ it needs — IS the bug that crashed the app (constraint-loop rule,
 (`StatusBarMetricsTests`). Corollary: `docs/status.md` no longer records push
 state; it went stale twice in two commits, and git is the authority.
 
+**2026-09-04 — The macOS floor comes down to 14, and the claim stays at 26.**
+`MACOSX_DEPLOYMENT_TARGET` 26.0 → 14.0 in all four configurations and
+`Package.swift` to `.macOS(.v14)`. Exactly two symbols stood above the floor,
+both cosmetic and both now behind `#available`: `ToolbarSpacer(.flexible)`
+(`ContentView`) and `.pointerStyle(.columnResize)` (`WorkspaceView`). macOS 13
+is NOT reachable — `@Observable` is macOS 14 and the whole state layer rests on
+it. Determined by building at 15.0, 14.0 and 13.0 and reading the errors, not
+by inspection. **What is NOT claimed: that it runs below 26.** No machine or VM
+here is older, so 14–25 is compile-verified only, and the README and site keep
+saying 26 until something is actually tested. The website spent a month
+promising macOS 14 while the floor was an enforced 26; the lesson taken from
+that is not to make the mirror-image mistake. Related: `package-test`'s floor
+assertion changed from the literal `26.0` to a value derived from the project,
+because a literal had already gone stale once (S19, aeaeacc) and sat red on
+`main` unnoticed. That does mean the audit no longer flags a floor change on
+its own — which is why the floor is a decision recorded here.
+
 **2026-09-04 — Gate D's trigger is sharpened; the refuter stays.** The rule
 read "anything that changes a scientific number" and was in practice reached
 for on changes that touch no number. It now names two triggers — a change that

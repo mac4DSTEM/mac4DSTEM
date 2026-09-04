@@ -38,12 +38,15 @@ BUILD="$(grep -m1 'CURRENT_PROJECT_VERSION = ' "$REPO/mac4DSTEM.xcodeproj/projec
 test -n "$MARKETING" && test -n "$BUILD"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "$MARKETING"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")" = "$BUILD"
-# 26.0, not 14.0: S19 raised MACOSX_DEPLOYMENT_TARGET in all six configurations
-# (aeaeacc, 2026-08-28) and did not update this assertion, so this harness has
-# been red on main ever since — unnoticed because `all` aborted earlier, at
-# real-data-acceptance. The floor is the deliberate product decision; the
-# assertion encoded the superseded contract.
-test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "26.0"
+# DERIVED, not literal (2026-09-04). This assertion was hardcoded 26.0 and had
+# already been wrong once: S19 raised the target in every configuration
+# (aeaeacc, 2026-08-28) without updating it, leaving the harness red on main —
+# unnoticed because `all` aborted earlier at real-data-acceptance. A literal
+# here re-breaks at every floor change, which is the same mistake the version
+# assertion above made and had fixed. What this gate is for is that the SHIPPED
+# bundle agrees with the project, not that the floor is any particular number.
+FLOOR="$(grep -m1 'MACOSX_DEPLOYMENT_TARGET = ' "$REPO/mac4DSTEM.xcodeproj/project.pbxproj" | sed 's/.*= \(.*\);/\1/')"
+test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "$FLOOR"
 # Derived from Info.plist rather than hardcoded: the compiled icon is named
 # after ASSETCATALOG_COMPILER_APPICON_NAME, so it moved from AppIcon.icns to
 # mac4DSTEM.icns when the icon became an Icon Composer .icon. Asserting the
@@ -88,6 +91,6 @@ env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
   "$REPO/tools/calibration-test/real_py4dstem.h5"
 
 echo "PASS: hardened sandbox entitlements and nested signatures"
-echo "PASS: identity, version $MARKETING ($BUILD) as the project declares, macOS 26 floor, and app icon"
+echo "PASS: identity, version $MARKETING ($BUILD) and macOS $FLOOR floor as the project declares, and app icon"
 echo "PASS: no Homebrew/local dylib dependency in the Release product"
 echo "package-test: all passed"
