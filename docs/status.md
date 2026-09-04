@@ -39,59 +39,74 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `run-tests.sh inventory` | exit 0 — 2026-09-04, clean tree (so its docs check actually ran). Cold-start set 889, down from 922 at the previous closeout; it dipped to 862 mid-session and the second docs pass put 27 back as verified file:line evidence, after every entry it touched was trimmed to the file's own ≤ 12-line rule. **Weaker than it reads:** its size numbers are `printf` with no return code, and its one docs check is skipped entirely on a dirty tree (`run-tests.sh:179`), which is how every session runs it. It gates the `tools/` classification and the UI-contract greps; it does not gate the doc numbers |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
-## Handoff (rewritten 2026-09-04, status-bar-metrics session)
+## Handoff (rewritten 2026-09-04, end of the unattended docs/hygiene run)
 
-The UI is rebuilt in SwiftUI, the AppKit window is deleted, the `UI2` names are
-gone, and the app runs a full disk detection on the 1 GB WS2 cube. Push state
-is not recorded here — it went stale twice in two commits; ask git.
+The UI is rebuilt in SwiftUI, the AppKit window is deleted, and the app runs a
+full disk detection on the 1 GB WS2 cube. Push state is not recorded here — it
+went stale twice in two commits; ask git.
 
-**Next, in this order.** `/pickup` takes the first.
+**Read this first: the top item is the owner's, and `/pickup` cannot take it.**
+Item 1 needs a person at the keyboard. An agent picking up should say so and
+start at item 2, not invent a way to do item 1.
 
-1. **Your drive.** Nothing beyond Prepare, Imaging and Strain & ACOM has been
-   looked at since the retirement, and the last three sessions have all found
-   defects by driving that every gate was green through. Bugs enter via
+1. **Your drive. (OWNER ONLY.)** Nothing beyond Prepare, Imaging and Strain &
+   ACOM has been looked at since the retirement, and four sessions running have
+   found defects by driving that every gate was green through. Bugs enter via
    `/diagnose`. Worth going at first: Phase's stages, the load configurator's
    crop drags, the Results comparison row, the colorbar popover, and every
-   divider — the pane split is hand-built now. **Carry the status bar with
-   you**: its elapsed / throughput / ETA is back, in a slot that cannot resize
-   (above), and only a real dataset ticks it. Watch that the numbers appear,
-   that nothing beside them jumps as they change, and that the app survives
-   the whole run — that is the one thing the gates cannot see.
+   divider — the pane split is hand-built and **no gate can see a column's
+   width** (a unit-level one was tried and falsified, `open-items.md`).
+   Three things are **unverified on screen** and only a drive closes them: the
+   status bar's elapsed / throughput / ETA (only a real dataset ticks it), the
+   output log after `ActivityLog` took it off `AppState`, and a cropped save →
+   quit → reopen (S1's crop restore).
 2. **Manual Q and R pixel scale cannot be corrected once entered**
-   (`open-items.md`). Small, owner-hit, and a wrong R scale silently rescales
-   every real-space axis, scale bar and export.
+   (`open-items.md`). Small, owner-hit; a wrong R scale silently rescales every
+   real-space axis, scale bar and export. Its recorded mechanism is imprecise
+   for `.qScale` — the code names `.rScale` as the one with no measurement
+   path — so check that before fixing.
 3. **The four open UI-review findings** (`open-items.md`, "UI review"): the
-   pattern min/max rows are not the current position's pattern in
-   Mean/Max/ROI mode; the A/B/A−B comparison has no scale; the cursor prints a
-   raw Float; staleness has two verdicts across three surfaces.
+   pattern min/max rows are not the current position's pattern in Mean/Max/ROI
+   mode; the A/B/A−B comparison has no scale; the cursor prints a raw Float;
+   staleness has two verdicts across three surfaces.
 4. **`PaneSplit` residuals**: the pane header is ~420 pt of `.fixedSize()`
    controls and a pane can be narrower — it clips rather than overprints, but
    the header still needs to compress; and the image floor lapses below 2×
-   itself.
-5. **Then the science lane, one item at a time, as it always was** — the
-   **origin-fit guard leads** (Gate B; `open-items.md` "Origin-fit gate" (a)),
-   then the ACOM bundle's origin-provenance snapshot, the selected-area mask
-   fixture, bullseye disk detection (Gate D), the CIF id collision,
-   Q-calibration scale, ACOM coverage. A landed number change cuts v2.6.0.
+   itself. The zoom badge (the one armed `.fixedSize()` site) belongs with it.
+5. **Then the science lane, one item at a time** — the **origin-fit guard
+   leads** (Gate B; `open-items.md` "Origin-fit gate" (a)), then the ACOM
+   bundle's origin-provenance snapshot, the selected-area mask fixture,
+   bullseye disk detection (Gate D), the CIF id collision, Q-calibration scale,
+   ACOM coverage. A landed number change cuts v2.6.0. **None of these is
+   unattended work**: each needs Gate D or Gate B with an independent refuter
+   and the owner's judgement on what the number should be.
 
-**The rule the last session bought the hard way** (`open-items.md`, the
-constraint-loop entry): nothing inside a split column may repeatedly change
-its own minimum size. `.fixedSize()` on text whose string changes is the
-easiest way to do it by accident, and it only shows on a dataset big enough
-for an operation to tick. Two sites in the status bar broke it; both are
-fixed. **The 12 remaining bare `.fixedSize()` calls in `UI/` are unaudited**
-against it — 9 of them in `ImagePanes.swift`, which is the pane-header
-residual above.
+**Two gates are owed and one is blocked.** `run-tests.sh all` has not run since
+2026-09-03 (`e2284f1`, exit 1 at `package-test`, since fixed on that tree). The
+run itself is ~12 minutes and needs nothing the machine lacks except disk — the
+preflight wants 8 GB on both `$ROOT` and `$TMPDIR`, and freeing it means
+deleting outside the two roots `free-space.sh` guards, which is the owner's
+call. `run-tests.sh scientific` has not run as a whole since 2026-09-03 either;
+the four reader harnesses ran green on 2026-09-04.
 
-**Driving, and its two limits.** `open -n <Debug app> --args --demo-fixture`
-(no flag selects a UI any more), `screencapture -x -o -l <window id>`
-(per-window needs no consent). The app's defaults live in its sandbox
-container and TCC blocks writing them, so a remembered tab cannot be preset;
-and synthetic keystrokes only land while the window is frontmost. Fastest loop
-found: the owner drives, and pastes the crash report — that is how the
-constraint-loop mechanism was finally established.
+**The rule bought the hard way** (`open-items.md`, the constraint-loop entry):
+nothing inside a split column may repeatedly change its own minimum size.
+`.fixedSize()` on text whose string changes is the easiest way to do it by
+accident, and it only shows on a dataset big enough for an operation to tick.
+All 12 bare `.fixedSize()` sites in `UI/` are now **audited**: one armed (the
+zoom badge), three that change once per product, eight literals — and
+`PaneSplit` terminates each pane's minimum, so none of them reaches a split.
+
+**Driving, and its two limits.** `open -n <Debug app> --args --demo-fixture`,
+`screencapture -x -o -l <window id>` (per-window needs no consent). The app's
+defaults live in its sandbox container and TCC blocks writing them, so a
+remembered tab cannot be preset; and synthetic keystrokes only land while the
+window is frontmost. Fastest loop found: the owner drives and pastes the crash
+report — that is how the constraint-loop mechanism was established.
 
 ## Owed to the owner
 
-- **Drive the rebuilt app** (above).
+- **Drive the rebuilt app** (above) — three things are unverified on screen and
+  a fourth, the front-page screenshot, still shows v1.0.0's window.
+- **The disk decision** that unblocks `run-tests.sh all`.
 - The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format).

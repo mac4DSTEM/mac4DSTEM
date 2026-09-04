@@ -13,8 +13,9 @@ while the refuting evidence sat in plain sight in a log nobody re-read.
 
 **First, read what is already known.** Search `docs/open-items.md` for the
 symptom — the error string, the file, the workspace — and read the whole entry,
-not the first paragraph. Then check `docs/visual-acceptance-checklist.md` for a
-row that names it. These entries carry hypotheses a previous session already
+not the first paragraph. Then check the archived checklist
+(`docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`) for a row that
+names it. These entries carry hypotheses a previous session already
 *refuted*, with dates, and a symptom seen twice is usually recorded once.
 
 Skipping this wastes the expensive half of the protocol. On 2026-08-19 (S1) it
@@ -48,6 +49,20 @@ say what it costs — do not skip ahead to the fix.
 
 A fix may land only on a diagnosis that survived its own refutation test.
 Before the session closes, a second agent reviews the diagnosis against the
-primary evidence — the log, the fixture output, not the diff. Record the
+primary evidence — the log, the fixture output, not the diff.
+
+**Ask for that second agent EARLY, not at closeout.** Some sessions run under
+a harness that forbids spawning subagents unless the user asks for one, so the
+gate cannot be satisfied silently. Raise it as soon as the diagnosis firms up,
+while there is still time to act on what the refuter finds — on 2026-08-27 the
+refuter overturned the stated cause of the defect (it had already reached four
+files), corrected an overstated correlation and a reversed chronology, and
+supplied the causal control the evidence was missing. All of that needed
+follow-up work, not just a note.
+
+**Give the refuter the evidence, not the diff:** the probe logs, the
+screenshots, the trial counts, the harness script itself — and tell it to
+attack the harness too. Its sharpest finding that day was that five "cold
+opens" were two byte-identical screenshots. Record the
 outcome in `docs/open-items.md`, including the refuted hypotheses with
 dates, so the next reader does not re-walk a dead end that looks fresh.

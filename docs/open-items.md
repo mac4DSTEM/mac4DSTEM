@@ -180,8 +180,15 @@ overwritten). Fix: the columns are AppKit's (`ColumnSplitController`, an
 `NSSplitViewController` with sidebar/inspector items; hosted content with
 `sizingOptions = []` so it never sizes the column). Live drive 2026-09-03:
 drag past the minimum collapses, Show Tools reopens at the old width, a
-560pt sidebar squeezes the inspector first, no exception. Owner's drive
-still owed before the entry moves to the archive.
+560pt sidebar squeezes the inspector first, no exception.
+**2026-09-04: the fix described above no longer exists.** `d5786e2` deleted the
+AppKit shell, `ColumnSplitController` with it; the columns are a SwiftUI
+`NavigationSplitView` now. So the drive this entry asks for cannot be performed
+as written — dragging today exercises different code. What is worth carrying
+forward is the MECHANISM, not the fix: a split rewriting a hosted child's
+minimum under content that cannot shrink, which is the constraint-loop rule
+below. Kept live rather than archived only because the owner has still never
+driven a column divider on the rebuilt window.
 
 ### A unit-level column-width gate is not possible — falsified 2026-09-04
 `d5786e2` deleted both width-range gates, so nothing gates a column's width and
@@ -464,7 +471,7 @@ Mitigated only — the pane now `.clipped()`s so it cannot overprint its
 neighbour; the header still needs to become compressible. Predicted, not seen
 on screen. (b) **The image floor lapses below 2× itself**: the divider
 fraction saturates at 0.5 under ~360 pt of usable width, and UI declares no
-detail-column minimum at all where `UI/` had `SplitViewPolicy.detailMinimum`
+detail-column minimum at all where the retired AppKit UI had `SplitViewPolicy.detailMinimum`
 = 360. Adding one is exactly the change most likely to re-arm the crash while
 the mechanism is unestablished, so it is recorded rather than made.
 (c) The divider position resets to centre whenever the workspace branch is

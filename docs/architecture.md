@@ -218,8 +218,9 @@ Six rules, the first three enforced by `run-tests.sh inventory`:
    else. Outside it, a `.frame` is permitted only as scientific drawing
    geometry — the panes, overlays, scale bars, colorbars, histograms and
    legends, whose sizes are the image's, not the layout's.
-4. **No pane focus model.** `WorkspaceNavigation.focusedPane` and
-   `.inspectorContent` are retired for UI. Where the old UI switched its
+4. **No pane focus model.** There is none, and the types that carried the old
+   one — `WorkspaceNavigation.focusedPane` and `.inspectorContent` — were
+   DELETED on 2026-09-04 (`f8a8c2d`), not merely left unused. Where the old UI switched its
    controls on which pane was "active", UI offers an explicit control;
    `AppState.activePane` survives only as the ROI direction's storage.
 5. **No new state on `AppState`.** UI's selection is derived from
