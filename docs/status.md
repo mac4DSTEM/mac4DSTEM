@@ -40,7 +40,7 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 3 Both inspectors as grouped Forms, one section per block, thumbnails through `thumbnailCapped()` | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | `testEveryInspectorSurvivesItsWholeColumnRange` (260/320/600 pt, both inspectors) in `ColumnMaterialTests`; the sidecar's Ignore/Change buttons are two rows |
 | 4 The rest of the window: pane badges are words in their colour (the owner's wrapped "Relative" capsule), the welcome workspace on `GroupBox`es with no gradient or wash, the configurator's choices and the export sheet as grouped Forms with sheet bands, the colorbar chip popover as a Form; `WindowPolicy` holds the window's numbers; the rule-4 grep joins `inventory` | done 2026-09-03, unverified on screen (the welcome and the loaded window reviewed from captures of the real app) | alerts were already system alerts; `TaskPrerequisiteChecklist` untouched (its line limits are the #16 fix) |
 | 4b Hardening on the running app (the assistant built, launched and captured each change) | done 2026-09-03, **seen on screen by the assistant, not by the owner** | Five defects the gates could not see, below; captions shortened across the configurator, export sheet and ACOM; the duplicate "Detect All Disks" sidebar button deleted (the workspace action already owns it) |
-| UI rebuilt in SwiftUI, and the old one retired | done 2026-09-04 | `UI/` IS the SwiftUI rebuild: the AppKit-hosted window's 32 files are deleted, `UI2/` renamed onto `UI/`, no flag selects a UI. Contract in `architecture.md` "The UI contract", three of its rules pinned by an `inventory` grep (`HSplitView`/`VSplitView`/`NSSplitView`/`NSSplitViewController`/`import AppKit`, mutation-tested both ways). Shape, drive calls and the retirement in `decisions.md` (2026-09-04). The launch crash is fixed (`UI2PaneSplit`) and gated, but **its mechanism is refuted, not established** — `open-items.md` names the two probes that would decide it. Cost of the retirement: 27 tests deleted, every one pinning the AppKit column shell; six repointed. Type names keep their `UI2` prefix by decision |
+| UI rebuilt in SwiftUI, and the old one retired | done 2026-09-04 | `UI/` IS the SwiftUI rebuild: the AppKit-hosted window's 32 files are deleted, the `UI2/` folder and the `UI2` type prefix are both gone, and no flag selects a UI. Contract in `architecture.md` "The UI contract", three of its rules pinned by an `inventory` grep (`HSplitView`/`VSplitView`/`NSSplitView`/`NSSplitViewController`/`import AppKit`, mutation-tested both ways). Shape, drive calls and the retirement in `decisions.md` (2026-09-04). The launch crash is fixed (`PaneSplit`) and gated, but **its mechanism is refuted, not established** — `open-items.md` names the two probes that would decide it. Cost of the retirement: 27 tests deleted, every one pinning the AppKit column shell; six repointed. Five renames were not bare strips (`LayoutPolicy`, `WorkspaceRoute`, `WorkspaceView`, `ProductComparisonView`, `PatternFitOverlay`) — reasons in `architecture.md`. The status bar now carries elapsed/throughput/ETA beside the progress bar, through the one formatter the inspector also uses |
 | 5 The owner's full drive | owner | — |
 
 ### What 4b changed, and why the gates were green through all of it
@@ -64,8 +64,8 @@ drawing the geometry they apply, from `DetectorPreset.radii` itself.
 | `run-tests.sh unit` | **450 passed / 0 failed / 2 skipped, exit 0 — 2026-09-04, post-retirement tree (476/0/3 before it; the delta is exactly the 27 deleted shell tests) (full log retained, exit code read directly and not through a `tail` pipe — two earlier runs this session reported `tail`'s status and were withdrawn). Re-run green on the drive-fix tree, after an exit-69 preflight refusal cleared by deleting `ModuleCache.noindex` and 23 stale `DerivedData` husks — 415 MB, the debris `free-space.sh`'s roots still cannot see.** Previously: 476 / 0 / 3, exit 0 — 2026-09-03, step 4b tree (log retained); skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent. `ColumnMaterialTests.testTheSideColumnsLeaveTheirMaterialVisible` went red on the source list and is the one gate 4b amended. Two runs before it exited 69 on the 8 GB floor with `free-space.sh` reporting nothing to clear — the debris was this session's own `Logs/Test` and `ModuleCache.noindex`, both outside the script's roots (`open-items.md`) |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | exit 0 — 2026-09-04, refuter-fix tree; the UI2 contract grep is new and was mutation-tested both ways. Previously: exit 0 — 2026-09-03, UI2 scaffold tree |
-| Xcode scratch build | 0 Swift warnings — UI2 scheme-argument tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
+| `run-tests.sh inventory` | exit 0 — 2026-09-04, refuter-fix tree; the UI contract grep is new and was mutation-tested both ways. Previously: exit 0 — 2026-09-03, UI scaffold tree |
+| Xcode scratch build | 0 Swift warnings — UI scheme-argument tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
 ## Handoff (rewritten 2026-09-04, after the UI retirement)
@@ -77,8 +77,8 @@ the UI is owed except the residuals below. Pushed through `d5786e2`.
 **Next, in this order.** Each is a session; `/pickup` takes the first.
 
 1. **Close Gate D on the launch crash — two probes, ~30 minutes.** The fix
-   (`UI2PaneSplit`) is shipped and gated, but its MECHANISM is refuted, not
-   established (`open-items.md`, "UI2 launch crash"), and a shipped fix
+   (`PaneSplit`) is shipped and gated, but its MECHANISM is refuted, not
+   established (`open-items.md`, "UI launch crash"), and a shipped fix
    standing on an unknown is the one thing in the tree that could bite
    silently. The two probes are named there: `HSplitView` + real panes with
    `.inspector` removed, and `HSplitView { Color.clear.frame(minWidth: 300); … }`.
@@ -97,7 +97,7 @@ the UI is owed except the residuals below. Pushed through `d5786e2`.
    cursor prints a raw Float beside an Exploratory badge; staleness has two
    verdicts across three surfaces. One session, one commit each if they
    diverge.
-4. **`UI2PaneSplit` residuals** (`open-items.md`): the pane header is ~420 pt
+4. **`PaneSplit` residuals** (`open-items.md`): the pane header is ~420 pt
    of `.fixedSize()` controls and a pane can be narrower — it clips now
    instead of overprinting, but the header still needs to become
    compressible; and the image floor lapses below 2× itself. Both predicted,
@@ -125,10 +125,6 @@ active.
 - **Drive the retired-UI build.** The retirement itself is gated and launched
   once with no flag, but the four workspaces beyond Prepare and
   Strain & ACOM have not been looked at since it landed.
-- **Decide on the `UI2` type-name prefix.** The folder is `UI/`; the types
-  inside still read `UI2ContentView`, `UI2Metrics`. Kept deliberately —
-  dropping it gives `Metrics` and `Route`, too generic to grep — but it is a
-  standing oddity, not a decision anyone has ratified.
 - **`FocusedPane` and `InspectorContent` are dead** (`App/WorkspaceNavigation.swift`)
   with a live test: the retired inspector was their only reader. Removing
   them is a genuine responsibility off `AppState`'s seam; left out of the

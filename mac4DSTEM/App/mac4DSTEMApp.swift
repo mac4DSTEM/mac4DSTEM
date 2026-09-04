@@ -23,7 +23,7 @@ private struct DatasetWindow: View {
     @State private var loadedLaunchFixture = false
 
     var body: some View {
-        UI2ContentView()
+        ContentView()
             .environment(appState)
         .focusedSceneValue(\.appState, appState)
         .frame(minWidth: 1080, minHeight: 640)

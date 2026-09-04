@@ -82,10 +82,16 @@ final class TB1StallProbeTests: XCTestCase {
         }
         XCTAssertTrue(state.hasDataset && !state.isLoadingDataset,
                       "Open did not complete in 180 s — last status: \(lastStatus)")
-        // The staged sidecar records a 200×200 crop WS₂ cannot fit: the
-        // does-not-fit gate must be armed, and the open must still finish.
-        XCTAssertEqual(state.gates.sidecarRestoreFailure?.kind, .doesNotFit,
-                       "The staged fixture should arm the rewrite gate")
+        // The probe asserts the OPEN, and only the open. It used to also
+        // require `sidecarRestoreFailure == .doesNotFit`, which held only
+        // while a deliberately staged sidecar — one recording a 200×200 crop
+        // WS₂ cannot fit — sat beside the file. Saving a session from the app
+        // overwrites that fixture with a real one, so the owner using the app
+        // normally turned this gate red (2026-09-04: the sidecar was rewritten
+        // at 03:17 and the next run failed here). A gate that reddens because
+        // the product was used is a false alarm, and this one was redundant
+        // besides: `SessionGatesTests` pins the does-not-fit gate against
+        // state it synthesises itself, with no machine-local file to clobber.
     }
 }
 

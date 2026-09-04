@@ -183,6 +183,21 @@ owed science items (`open-items.md`) carry no release number — each is a
 Gate D or Gate B session of unknown size, and the changelog names the
 number it changes when one lands.
 
+**2026-09-04 — the `UI2` type prefix is dropped.** The folder rename left
+`UI/ContentView` named `UI2ContentView`, the confusing half-state the rename
+existed to remove. A blanket strip would have been wrong in five places and a
+compile error in one: `ProductComparison` is already a `package enum` in
+`Core/Data/DisplayedProduct.swift`. So it went through an explicit map —
+`LayoutPolicy`, `WorkspaceRoute`, `WorkspaceView`, `ProductComparisonView`,
+`PatternFitOverlay` — with everything else taking the name the retirement had
+just freed (`ContentView`, `MetalImageView`, `HistogramView`, `ScaleBar`,
+`ComparisonPanel`, `WelcomeWorkspace`, `ResultsWorkspace`, `NumericField` …),
+and files renamed to match. The trap for anyone repeating it: the same pass
+rewrote prose `UI2` → `UI` in the live docs, which silently corrupted the three
+passages that were ABOUT the prefix ("renamed `UI/` onto `UI/`"). Rewritten by
+hand afterwards; a prose substitution and an identifier substitution are not
+the same job.
+
 **2026-09-04 — `UI/` retired; the SwiftUI rebuild IS the UI.** The
 AppKit-hosted window and its 32 files are deleted, `UI2/` is renamed to `UI/`,
 and no flag selects a UI any more. Keeping both compiling was the thing that

@@ -14,22 +14,22 @@ import UniformTypeIdentifiers
 /// is deliberately literal: every threshold, format string, unit, disabled
 /// condition, refusal, staleness warning and accessibility identifier is the
 /// old one. What changed is presentation only — the old views' `NumericField`
-/// is `UI2NumericField`, and the body is a bare set of `Section`s for the
+/// is `NumericField`, and the body is a bare set of `Section`s for the
 /// inspector's grouped `Form`.
-struct UI2MapSettings: View {
+struct MapSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         switch appState.navigation.analysisMode {
         case .disks:
             Section("Disk detection") {
-                UI2DiskDetectionRows()
+                DiskDetectionRows()
             }
-            UI2AdvancedDiskDetectionSection()
+            AdvancedDiskDetectionSection()
         case .strain:
-            UI2StrainSection()
+            StrainSection()
         case .acom:
-            UI2ACOMSections()
+            ACOMSections()
         default:
             EmptyView()
         }
@@ -41,8 +41,8 @@ struct UI2MapSettings: View {
 /// Source-faithful controls for py4DSTEM-style Bragg-disk detection: the
 /// compact defaults stay visible as rows of the "Disk detection" section; the
 /// less commonly changed signal/filter parameters live in the sibling
-/// `UI2AdvancedDiskDetectionSection`, a collapsed section of its own.
-private struct UI2DiskDetectionRows: View {
+/// `AdvancedDiskDetectionSection`, a collapsed section of its own.
+private struct DiskDetectionRows: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -72,12 +72,12 @@ private struct UI2DiskDetectionRows: View {
             )
         }
 
-        ui2ParameterSliderRow(
+        parameterSliderRow(
             title: DiskDetectionParameterID.correlationPower.title,
-            value: ui2FloatBinding(
-                appState, \.corrPower, in: ui2FloatEditorRange(.correlationPower)
+            value: floatBinding(
+                appState, \.corrPower, in: floatEditorRange(.correlationPower)
             ),
-            range: ui2FloatEditorRange(.correlationPower),
+            range: floatEditorRange(.correlationPower),
             step: Float(DiskDetectionParameterID.correlationPower.editorStep!),
             valueText: String(format: "%.2f", appState.diskParams.corrPower)
         )
@@ -85,7 +85,7 @@ private struct UI2DiskDetectionRows: View {
 
         Picker(
             DiskDetectionParameterID.subpixel.title,
-            selection: ui2ParameterBinding(appState, \.subpixel)
+            selection: parameterBinding(appState, \.subpixel)
         ) {
             ForEach(SubpixelMode.allCases) { mode in
                 Text(mode.rawValue).tag(mode)
@@ -93,7 +93,7 @@ private struct UI2DiskDetectionRows: View {
         }
         .help(DiskDetectionParameterID.subpixel.explanation)
 
-        Stepper(value: ui2MaximumPeaksBinding(appState), in: 1...500) {
+        Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
             Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskParams.maxNumPeaks)")
         }
         .help(DiskDetectionParameterID.maximumPeaks.explanation)
@@ -184,7 +184,7 @@ private struct UI2DiskDetectionRows: View {
 
 /// The less commonly changed signal/filter parameters, as their own collapsed
 /// section — a sibling of the basic rows, not a child of them.
-private struct UI2AdvancedDiskDetectionSection: View {
+private struct AdvancedDiskDetectionSection: View {
     @Environment(AppState.self) private var appState
     @State private var showsAdvanced = false
 
@@ -201,23 +201,23 @@ private struct UI2AdvancedDiskDetectionSection: View {
     var body: some View {
         Section("Advanced detection", isExpanded: $showsAdvanced) {
             // Signal conditioning.
-            ui2ParameterSliderRow(
+            parameterSliderRow(
                 title: DiskDetectionParameterID.patternSigma.title,
-                value: ui2FloatBinding(
-                    appState, \.sigmaDP, in: ui2FloatEditorRange(.patternSigma)
+                value: floatBinding(
+                    appState, \.sigmaDP, in: floatEditorRange(.patternSigma)
                 ),
-                range: ui2FloatEditorRange(.patternSigma),
+                range: floatEditorRange(.patternSigma),
                 step: Float(DiskDetectionParameterID.patternSigma.editorStep!),
                 valueText: String(format: "%.1f px", appState.diskParams.sigmaDP)
             )
             .help(DiskDetectionParameterID.patternSigma.explanation)
 
-            ui2ParameterSliderRow(
+            parameterSliderRow(
                 title: DiskDetectionParameterID.correlationSigma.title,
-                value: ui2FloatBinding(
-                    appState, \.sigmaCC, in: ui2FloatEditorRange(.correlationSigma)
+                value: floatBinding(
+                    appState, \.sigmaCC, in: floatEditorRange(.correlationSigma)
                 ),
-                range: ui2FloatEditorRange(.correlationSigma),
+                range: floatEditorRange(.correlationSigma),
                 step: Float(DiskDetectionParameterID.correlationSigma.editorStep!),
                 valueText: String(format: "%.1f px", appState.diskParams.sigmaCC)
             )
@@ -225,9 +225,9 @@ private struct UI2AdvancedDiskDetectionSection: View {
 
             // Peak acceptance.
             LabeledContent(DiskDetectionParameterID.minimumAbsoluteIntensity.title) {
-                UI2NumericField(
+                NumericField(
                     DiskDetectionParameterID.minimumAbsoluteIntensity.title,
-                    value: ui2NonnegativeFloatBinding(appState, \.minAbsoluteIntensity),
+                    value: nonnegativeFloatBinding(appState, \.minAbsoluteIntensity),
                     format: .number.precision(.significantDigits(1...5)),
                     unit: "CC"
                 )
@@ -235,9 +235,9 @@ private struct UI2AdvancedDiskDetectionSection: View {
             .help(DiskDetectionParameterID.minimumAbsoluteIntensity.explanation)
 
             LabeledContent(DiskDetectionParameterID.minimumRelativeIntensity.title) {
-                UI2NumericField(
+                NumericField(
                     DiskDetectionParameterID.minimumRelativeIntensity.title,
-                    value: ui2RelativeIntensityPercentBinding(appState),
+                    value: relativeIntensityPercentBinding(appState),
                     format: .number.precision(.fractionLength(0...3)),
                     unit: "%"
                 )
@@ -245,7 +245,7 @@ private struct UI2AdvancedDiskDetectionSection: View {
             .help(DiskDetectionParameterID.minimumRelativeIntensity.explanation)
 
             Stepper(
-                value: ui2RelativePeakRankBinding(appState),
+                value: relativePeakRankBinding(appState),
                 in: 1...max(1, appState.diskParams.maxNumPeaks)
             ) {
                 Text("\(DiskDetectionParameterID.relativeReferencePeak.title)  #\(appState.diskParams.relativeToPeak + 1)")
@@ -253,7 +253,7 @@ private struct UI2AdvancedDiskDetectionSection: View {
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
             Stepper(
-                value: ui2FloatBinding(appState, \.minPeakSpacing, in: 0...Float(detectorMinimum)),
+                value: floatBinding(appState, \.minPeakSpacing, in: 0...Float(detectorMinimum)),
                 in: 0...Float(detectorMinimum),
                 step: 1
             ) {
@@ -266,7 +266,7 @@ private struct UI2AdvancedDiskDetectionSection: View {
             .help(DiskDetectionParameterID.minimumPeakSpacing.explanation)
 
             Stepper(
-                value: ui2IntBinding(appState, \.edgeBoundary, in: 1...maximumEdgeBoundary),
+                value: intBinding(appState, \.edgeBoundary, in: 1...maximumEdgeBoundary),
                 in: 1...maximumEdgeBoundary
             ) {
                 Text("\(DiskDetectionParameterID.edgeBoundary.title)  \(appState.diskParams.edgeBoundary) px")
@@ -276,7 +276,7 @@ private struct UI2AdvancedDiskDetectionSection: View {
             // Fourier localization.
             if appState.diskParams.subpixel == .multicorr {
                 Stepper(
-                    value: ui2IntBinding(appState, \.upsampleFactor, in: 4...64),
+                    value: intBinding(appState, \.upsampleFactor, in: 4...64),
                     in: 4...64,
                     step: 4
                 ) {
@@ -303,7 +303,7 @@ private struct UI2AdvancedDiskDetectionSection: View {
 
 // MARK: - Strain
 
-private struct UI2StrainSection: View {
+private struct StrainSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -338,10 +338,10 @@ private struct UI2StrainSection: View {
                 // these are bare numbers, and a basis vector read in the
                 // wrong unit is a silently wrong strain map. Four rows, one
                 // component each.
-                UI2ManualBasisRow(title: "g₁ x", value: $strain.g1X)
-                UI2ManualBasisRow(title: "g₁ y", value: $strain.g1Y)
-                UI2ManualBasisRow(title: "g₂ x", value: $strain.g2X)
-                UI2ManualBasisRow(title: "g₂ y", value: $strain.g2Y)
+                ManualBasisRow(title: "g₁ x", value: $strain.g1X)
+                ManualBasisRow(title: "g₁ y", value: $strain.g1Y)
+                ManualBasisRow(title: "g₂ x", value: $strain.g2X)
+                ManualBasisRow(title: "g₂ y", value: $strain.g2Y)
             }
 
             Button {
@@ -472,13 +472,13 @@ private struct UI2StrainSection: View {
 
 /// One component of the manual g₁ / g₂ basis. The unit is on screen, not in
 /// the tooltip; the tooltip says what frame the number is in.
-private struct UI2ManualBasisRow: View {
+private struct ManualBasisRow: View {
     let title: String
     @Binding var value: Float
 
     var body: some View {
         LabeledContent(title) {
-            UI2NumericField(
+            NumericField(
                 title,
                 value: $value,
                 format: .number.precision(.fractionLength(3)),
@@ -494,7 +494,7 @@ private struct UI2ManualBasisRow: View {
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,
 /// work scope, and result diagnostics together prevents a physically labelled
 /// output from being assembled out of unrelated controls elsewhere.
-private struct UI2ACOMSections: View {
+private struct ACOMSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
     @State private var showsEngine = false
@@ -620,7 +620,7 @@ private struct UI2ACOMSections: View {
             }
         }
         LabeledContent("a") {
-            UI2NumericField(
+            NumericField(
                 "Lattice parameter a",
                 value: $session.customLatticeA,
                 format: .number.precision(.fractionLength(0...4)),
@@ -789,7 +789,7 @@ private struct UI2ACOMSections: View {
 /// A parameter slider row: the title and current value as the slider's own
 /// label. Not a `LabeledContent` — as a trailing value a slider collapses to
 /// its knob in a narrow column (measured 2026-09-03).
-private func ui2ParameterSliderRow(
+private func parameterSliderRow(
     title: String,
     value: Binding<Float>,
     range: ClosedRange<Float>,
@@ -801,14 +801,14 @@ private func ui2ParameterSliderRow(
     }
 }
 
-private func ui2FloatEditorRange(
+private func floatEditorRange(
     _ parameter: DiskDetectionParameterID
 ) -> ClosedRange<Float> {
     let range = parameter.editorRange ?? 0...1
     return Float(range.lowerBound)...Float(range.upperBound)
 }
 
-private func ui2ParameterBinding<Value>(
+private func parameterBinding<Value>(
     _ appState: AppState,
     _ keyPath: WritableKeyPath<DiskDetectionParams, Value>
 ) -> Binding<Value> {
@@ -822,7 +822,7 @@ private func ui2ParameterBinding<Value>(
     )
 }
 
-private func ui2FloatBinding(
+private func floatBinding(
     _ appState: AppState,
     _ keyPath: WritableKeyPath<DiskDetectionParams, Float>,
     in range: ClosedRange<Float>
@@ -837,7 +837,7 @@ private func ui2FloatBinding(
     )
 }
 
-private func ui2NonnegativeFloatBinding(
+private func nonnegativeFloatBinding(
     _ appState: AppState,
     _ keyPath: WritableKeyPath<DiskDetectionParams, Float>
 ) -> Binding<Float> {
@@ -851,7 +851,7 @@ private func ui2NonnegativeFloatBinding(
     )
 }
 
-private func ui2IntBinding(
+private func intBinding(
     _ appState: AppState,
     _ keyPath: WritableKeyPath<DiskDetectionParams, Int>,
     in range: ClosedRange<Int>
@@ -866,7 +866,7 @@ private func ui2IntBinding(
     )
 }
 
-private func ui2MaximumPeaksBinding(_ appState: AppState) -> Binding<Int> {
+private func maximumPeaksBinding(_ appState: AppState) -> Binding<Int> {
     Binding(
         get: { appState.diskParams.maxNumPeaks },
         set: { value in
@@ -880,7 +880,7 @@ private func ui2MaximumPeaksBinding(_ appState: AppState) -> Binding<Int> {
 
 /// py4DSTEM stores this value as a fraction. Percent is easier to reason
 /// about in a compact UI while preserving the exact underlying parameter.
-private func ui2RelativeIntensityPercentBinding(_ appState: AppState) -> Binding<Double> {
+private func relativeIntensityPercentBinding(_ appState: AppState) -> Binding<Double> {
     Binding(
         get: { Double(appState.diskParams.minRelativeIntensity) * 100 },
         set: { value in
@@ -892,7 +892,7 @@ private func ui2RelativeIntensityPercentBinding(_ appState: AppState) -> Binding
     )
 }
 
-private func ui2RelativePeakRankBinding(_ appState: AppState) -> Binding<Int> {
+private func relativePeakRankBinding(_ appState: AppState) -> Binding<Int> {
     Binding(
         get: { appState.diskParams.relativeToPeak + 1 },
         set: { rank in

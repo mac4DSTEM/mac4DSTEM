@@ -34,7 +34,7 @@ import DSTEMSession
 final class PendingLoad: Identifiable {
 
     /// One display-ready image: normalized pixels plus the version
-    /// `UI2MetalImage` keys its texture upload on. Computed ONCE when the
+    /// `MetalImageView` keys its texture upload on. Computed ONCE when the
     /// data lands — never in a view body (#31's class of defect) — so a crop
     /// drag tick costs no per-frame normalization or hashing.
     struct DisplayImage {
@@ -47,7 +47,7 @@ final class PendingLoad: Identifiable {
             self.pixels = pixels
             self.width = width
             self.height = height
-            self.version = UI2MetalImage.contentVersion(
+            self.version = MetalImageView.contentVersion(
                 of: pixels, width: width, height: height
             )
         }

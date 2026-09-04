@@ -200,23 +200,23 @@ Six rules, the first three enforced by `run-tests.sh inventory`:
 
 1. **SwiftUI only.** No `NSSplitViewController`, no hosted AppKit shell, no
    `NSEvent` monitors, no `NSCursor`, no AppKit layout, no `import AppKit`.
-   The one permitted platform bridge is `UI2MetalImage`, which is written
+   The one permitted platform bridge is `MetalImageView`, which is written
    with a shared body and a two-line per-OS conformance.
 2. **No AppKit shell.** `HSplitView`, `VSplitView`, `NSSplitView` and
    `NSSplitViewController` are banned outright — `HSplitView` was half of a
    launch crash (`open-items.md`) and is macOS-only besides. `inventory`
    greps for all four and for `import AppKit`.
-3. **`UI2Metrics` is the whole number budget.** Every column range, science
+3. **`LayoutPolicy` is the whole number budget.** Every column range, science
    floor, field width, thumbnail ceiling and sheet size is there and nowhere
    else. Outside it, a `.frame` is permitted only as scientific drawing
    geometry — the panes, overlays, scale bars, colorbars, histograms and
    legends, whose sizes are the image's, not the layout's.
 4. **No pane focus model.** `WorkspaceNavigation.focusedPane` and
-   `.inspectorContent` are retired for UI2. Where the old UI switched its
-   controls on which pane was "active", UI2 offers an explicit control;
+   `.inspectorContent` are retired for UI. Where the old UI switched its
+   controls on which pane was "active", UI offers an explicit control;
    `AppState.activePane` survives only as the ROI direction's storage.
-5. **No new state on `AppState`.** UI2's selection is derived from
-   `WorkspaceNavigation`, never stored beside it (`UI2Route`).
+5. **No new state on `AppState`.** UI's selection is derived from
+   `WorkspaceNavigation`, never stored beside it (`WorkspaceRoute`).
 6. **The window is three columns with one job each.** Left is navigation and
    nothing else. Centre is the science, with the status strip and the output
    log on its bottom edge. Right is the inspector in two tabs — **Settings**,
@@ -225,10 +225,14 @@ Six rules, the first three enforced by `run-tests.sh inventory`:
    title carries the task and the toolbar carries the one action that runs
    it. Readiness has exactly one home, the Settings tab's first section.
 
-Type names still carry a `UI2` prefix from the migration. It is a name, not a
-namespace: dropping it would turn `UI2Metrics` into `Metrics` and `UI2Route`
-into `Route`, which are too generic to grep, so it stays until there is a
-better reason than tidiness.
+The migration's `UI2` type prefix is gone (owner, 2026-09-04). Five names are
+not bare strips, and the reasons are worth keeping: `LayoutPolicy` (a bare
+`Metrics` says nothing, and `*Policy` is this repo's own idiom),
+`WorkspaceRoute` and `WorkspaceView` (`Route` and `Workspace` are too generic
+to grep), `ProductComparisonView` (`ProductComparison` is taken by
+`Core/Data/DisplayedProduct.swift`) and `PatternFitOverlay` (a bare
+`FitOverlay` sits one letter from Core's `FitOverlays`). Everything else took
+the name the retirement freed.
 
 ## Requirements, build, test
 
@@ -276,7 +280,7 @@ Distribution always uses hardened Release (`releasing.md`).
 ## Developer notes
 
 - One `@main` in `App/mac4DSTEMApp.swift`; the root view is
-  `UI/UI2ContentView.swift`. See "The UI contract" below.
+  `UI/ContentView.swift`. See "The UI contract" below.
 - Swift 5 language mode, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`;
   blocking compute types are `nonisolated` and run via `Task.detached`;
   readers are actors; long analyses guard publication with dataset epoch and

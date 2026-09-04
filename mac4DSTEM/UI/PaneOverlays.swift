@@ -1,15 +1,15 @@
 //
-//  UI2PaneOverlays.swift
-//  Role: everything UI2 draws ON TOP of a scientific image — the pane footer
+//  PaneOverlays.swift
+//  Role: everything UI draws ON TOP of a scientific image — the pane footer
 //        that carries the scale bar and the colour legend, the interactive
 //        virtual-detector overlay, the Bragg-disk and fit-verification marks,
 //        and the two inverse-pole-figure keys.
 //
-//  This is the ONE UI2 file where custom drawing is expected. Every number in
+//  This is the ONE UI file where custom drawing is expected. Every number in
 //  it is DRAWING GEOMETRY, not layout: the length of a quantized scale bar,
 //  the 132 x 9 pt colour strip, the 116 x 62 pt IPF triangle, a 12 pt drag
 //  handle, a 4 pt cross arm. None of it is chrome, and none of it sizes text
-//  for a form — UI2Metrics still owns every layout number in UI2.
+//  for a form — LayoutPolicy still owns every layout number in UI.
 //
 //  Geometry is science. The detector-coordinate map (pixel CENTRES, the
 //  `dx = Float(x) - centerX` convention `VirtualDetector`'s mask uses) is
@@ -38,7 +38,7 @@ import DSTEMSession
 /// bar (found on a Track B drive; fixed in v2 S18). The legend is 146pt wide
 /// before its label, and the bar is quantized to ~70pt of *drawn* length plus
 /// its own caption, so the collision is a property of the width of the **drawn
-/// image box** — `UI2Metrics.fitted(in:aspect:)`, which this overlay sits
+/// image box** — `LayoutPolicy.fitted(in:aspect:)`, which this overlay sits
 /// inside — and NOT of the pane. For a square pattern in a pane taller than it
 /// is wide the two coincide; for a rotated tall-narrow scan the box stays
 /// narrow at any divider position, so that pane is stacked always and
@@ -47,7 +47,7 @@ import DSTEMSession
 /// `ViewThatFits` picks side-by-side while both ideal widths fit and stacks
 /// them otherwise, which keeps the wide case pixel-identical to what shipped
 /// and makes the narrow case legible instead of overlapping.
-struct UI2PaneFooter<Leading: View, Trailing: View>: View {
+struct PaneFooter<Leading: View, Trailing: View>: View {
     private let leading: Leading
     private let trailing: Trailing
 
@@ -82,7 +82,7 @@ struct UI2PaneFooter<Leading: View, Trailing: View>: View {
 /// length near a target on-screen size, so it re-quantizes as the user zooms.
 /// Falls back to pixel units when no calibration exists — an uncalibrated bar
 /// labelled "px" is still honest and useful.
-struct UI2ScaleBar: View {
+struct ScaleBar: View {
     /// Physical units per screen POINT at the current zoom
     /// (= pixelSize * imagePixels / (fittedWidthPoints * zoom)).
     let unitsPerPoint: Double
@@ -132,7 +132,7 @@ struct UI2ScaleBar: View {
 
 /// Numeric scalar legend for the exact colormap and contrast window displayed
 /// by a pane. Pre-colored scientific images use their own directional keys.
-struct UI2Colorbar: View {
+struct Colorbar: View {
     let colormap: ColormapKind
     let low: Double
     let high: Double
@@ -213,7 +213,7 @@ struct UI2Colorbar: View {
         // Legibility plate over the image, as on the scale bar.
         .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
         // R23 (2026-09-02, diagnosed live): this view is the LABEL of
-        // `UI2ColormapChip`'s button. `.allowsHitTesting(false)` here made the
+        // `ColormapChip`'s button. `.allowsHitTesting(false)` here made the
         // button's whole area transparent to real clicks — AXPress opened the
         // popover, a click inside the button's own 146×51 pt frame did not.
         // Plain (non-button) uses opt out at their call site instead.
@@ -246,7 +246,7 @@ struct UI2Colorbar: View {
 /// SwiftUI `Canvas` there, so the gradient vanished and the chip degraded to
 /// a bare number (owner screenshots, 21:33). A `.popover` is presented
 /// SwiftUI-side, so the chip and the swatches render exactly as authored.
-struct UI2ColormapChip<Chip: View>: View {
+struct ColormapChip<Chip: View>: View {
     @Environment(AppState.self) private var appState
     @State private var isPresented = false
 
@@ -280,7 +280,7 @@ struct UI2ColormapChip<Chip: View>: View {
             popoverContent
                 .formStyle(.grouped)
                 .scrollContentBackground(.hidden)
-                .frame(width: UI2Metrics.popoverWidth)
+                .frame(width: LayoutPolicy.popoverWidth)
         }
     }
 
@@ -380,7 +380,7 @@ struct UI2ColormapChip<Chip: View>: View {
 /// active virtual-detector geometry: an annulus (inner/outer radius), a square
 /// (half-extent = outer), or a single point. The shape matches the selected
 /// `VirtualShapeMode` so what you see is what the kernel integrates.
-struct UI2ApertureOverlay: View {
+struct ApertureOverlay: View {
     let aperture: Aperture
     let shape: VirtualShapeMode
     let patternWidth: Int
@@ -622,7 +622,7 @@ struct UI2ApertureOverlay: View {
 /// verbatim out of the old `DiffractionView.peakOverlay(box:qx:qy:)`, which
 /// is where this drawing lived; the caller passes the peaks and the drawn box
 /// so the overlay never reaches into `AppState` itself.
-struct UI2PeakOverlay: View {
+struct PeakOverlay: View {
     let peaks: [BraggPeak]
     let probeRadius: Float
     let patternWidth: Int
@@ -667,7 +667,7 @@ struct UI2PeakOverlay: View {
 ///   orange arrow  = fitted local lattice vector
 ///   dashed white  = reference lattice vector
 ///   red           = calibration (origin marker, fitted ellipse)
-struct UI2FitOverlay: View {
+struct PatternFitOverlay: View {
     let strain: FitOverlays.StrainOverlay?
     let template: FitOverlays.TemplateOverlay?
     let originPoint: (x: Float, y: Float)?
@@ -856,7 +856,7 @@ struct UI2FitOverlay: View {
 
 /// Compact sampled m-3m inverse-pole-figure key. The map and legend share the
 /// same color function, keeping the on-screen key aligned with exported pixels.
-struct UI2CubicIPFLegend: View {
+struct CubicIPFLegend: View {
     var body: some View {
         VStack(spacing: 1) {
             Canvas { context, size in
@@ -910,7 +910,7 @@ struct UI2CubicIPFLegend: View {
 }
 
 /// Native 6/mmm key sharing the production hexagonal color function.
-struct UI2HexagonalIPFLegend: View {
+struct HexagonalIPFLegend: View {
     var body: some View {
         VStack(spacing: 1) {
             Canvas { context, size in

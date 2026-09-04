@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Zoom and pan for a scientific image pane — pure SwiftUI.
 ///
-/// UI2 deliberately drops the AppKit scroll-wheel monitor the old panes
+/// UI deliberately drops the AppKit scroll-wheel monitor the old panes
 /// installed (`NSEvent.addLocalMonitorForEvents`, application-wide, which
 /// swallowed scrolls for the whole app whenever a pane's hover never
 /// reported `.ended`). `MagnifyGesture` covers trackpads, and macOS
@@ -14,7 +14,7 @@ import SwiftUI
 /// `0.5 + offset/viewSize`, so the window stays inside the image exactly
 /// while `|offset| <= size * (1 - 1/zoom) / 2` per axis. Panning can
 /// therefore never push the image out of its own pane.
-struct UI2ZoomPan: Equatable {
+struct ZoomPan: Equatable {
     var zoom: CGFloat = 1
     var offset: CGSize = .zero
 
@@ -37,7 +37,7 @@ struct UI2ZoomPan: Equatable {
 
     var isZoomedIn: Bool { effectiveZoom > 1.01 }
 
-    mutating func reset() { self = UI2ZoomPan() }
+    mutating func reset() { self = ZoomPan() }
 
     static func clampZoom(_ zoom: CGFloat) -> CGFloat {
         min(maximumZoom, max(minimumZoom, zoom))
@@ -56,8 +56,8 @@ struct UI2ZoomPan: Equatable {
     }
 }
 
-private struct UI2ZoomPanModifier: ViewModifier {
-    @Binding var state: UI2ZoomPan
+private struct ZoomPanModifier: ViewModifier {
+    @Binding var state: ZoomPan
     /// The drawn image's box — the clamp is expressed against the pixels,
     /// not against whatever the container happens to be.
     let box: CGSize
@@ -69,11 +69,11 @@ private struct UI2ZoomPanModifier: ViewModifier {
                     MagnifyGesture()
                         .onChanged { state.liveZoom = $0.magnification }
                         .onEnded { value in
-                            state.zoom = UI2ZoomPan.clampZoom(state.zoom * value.magnification)
+                            state.zoom = ZoomPan.clampZoom(state.zoom * value.magnification)
                             state.liveZoom = 1
                             // Zooming out while panned pulls the image back
                             // inside the pane.
-                            state.offset = UI2ZoomPan.clampedOffset(
+                            state.offset = ZoomPan.clampedOffset(
                                 state.offset, zoom: state.zoom, in: box
                             )
                         },
@@ -85,7 +85,7 @@ private struct UI2ZoomPanModifier: ViewModifier {
                             )
                             // Live clamp, so the drag stops at the edge
                             // rather than rubber-banding past it.
-                            let allowed = UI2ZoomPan.clampedOffset(
+                            let allowed = ZoomPan.clampedOffset(
                                 proposed, zoom: state.effectiveZoom, in: box
                             )
                             state.liveOffset = CGSize(
@@ -98,7 +98,7 @@ private struct UI2ZoomPanModifier: ViewModifier {
                                 width: state.offset.width + value.translation.width,
                                 height: state.offset.height + value.translation.height
                             )
-                            state.offset = UI2ZoomPan.clampedOffset(
+                            state.offset = ZoomPan.clampedOffset(
                                 proposed, zoom: state.zoom, in: box
                             )
                             state.liveOffset = .zero
@@ -114,7 +114,7 @@ private struct UI2ZoomPanModifier: ViewModifier {
 extension View {
     /// Pinch to zoom, drag to pan, double-click to reset. `box` is the
     /// drawn image's size, which is what the pan clamp is measured against.
-    func ui2ZoomPan(_ state: Binding<UI2ZoomPan>, box: CGSize) -> some View {
-        modifier(UI2ZoomPanModifier(state: state, box: box))
+    func zoomPan(_ state: Binding<ZoomPan>, box: CGSize) -> some View {
+        modifier(ZoomPanModifier(state: state, box: box))
     }
 }

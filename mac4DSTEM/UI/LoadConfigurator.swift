@@ -1,13 +1,13 @@
 //
-//  UI2LoadConfigurator.swift
-//  Role: L5's configurator in UI2 — decide what to load, while the decision is
+//  LoadConfigurator.swift
+//  Role: L5's configurator in UI — decide what to load, while the decision is
 //        still cheap, from a preview of the actual data.
 //
-//  The migration of `UI/LoadConfiguratorView` into UI2. Every number, every
+//  The migration of `UI/LoadConfiguratorView` into UI. Every number, every
 //  refusal, every caption that states a scientific consequence and every
 //  accessibility identifier is carried over unchanged; only the platform
-//  bridge (`UI2MetalImage`, which takes no zoom) and the layout helper
-//  (`UI2Metrics.fitted`) differ.
+//  bridge (`MetalImageView`, which takes no zoom) and the layout helper
+//  (`LayoutPolicy.fitted`) differ.
 //
 //  VOCABULARY (L5 item 4, plan §1). Everything here says **crop**, and a crop
 //  is not an ROI. A crop changes what data exists in the loaded view; an ROI
@@ -34,7 +34,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-struct UI2LoadConfigurator: View {
+struct LoadConfigurator: View {
     @Environment(AppState.self) private var appState
     let pending: PendingLoad
 
@@ -61,10 +61,10 @@ struct UI2LoadConfigurator: View {
         // overflowed a display shorter than ~790pt and pushed its own footer
         // off screen.
         .frame(
-            minWidth: UI2Metrics.configuratorSheet.min.width,
-            idealWidth: UI2Metrics.configuratorSheet.ideal.width,
-            minHeight: UI2Metrics.configuratorSheet.min.height,
-            idealHeight: UI2Metrics.configuratorSheet.ideal.height
+            minWidth: LayoutPolicy.configuratorSheet.min.width,
+            idealWidth: LayoutPolicy.configuratorSheet.ideal.width,
+            minHeight: LayoutPolicy.configuratorSheet.min.height,
+            idealHeight: LayoutPolicy.configuratorSheet.ideal.height
         )
     }
 
@@ -88,7 +88,7 @@ struct UI2LoadConfigurator: View {
     // MARK: - The preview panes
 
     /// All three panes draw pixels `PendingLoad` normalised when the data
-    /// landed — `UI2MetalImage`'s contract, and the one the old view broke
+    /// landed — `MetalImageView`'s contract, and the one the old view broke
     /// until 2026-08-18. `realSpace` holds the *sum* of every detector pixel
     /// at a scan position (10⁴–10⁸ on a real cube) and the fragment shader
     /// clamps to [0,1], so raw values collapse to the top LUT entry and both
@@ -183,8 +183,8 @@ struct UI2LoadConfigurator: View {
                                 .controlSize(.small)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .frame(
-                                    minHeight: UI2Metrics.imagePaneMinimum,
-                                    maxHeight: UI2Metrics.thumbnailMaximumHeight
+                                    minHeight: LayoutPolicy.imagePaneMinimum,
+                                    maxHeight: LayoutPolicy.thumbnailMaximumHeight
                                 )
                                 .accessibilityIdentifier("configurator.singleDPPlaceholder")
                         }
@@ -258,12 +258,12 @@ struct UI2LoadConfigurator: View {
                 // Sizing the ZStack to `box` also fixes the gestures for free —
                 // tap and drag then work in the box's own coordinate space, so
                 // no letterbox offset has to be subtracted anywhere.
-                let box = UI2Metrics.fitted(
+                let box = LayoutPolicy.fitted(
                     in: geometry.size,
                     aspect: CGFloat(image.width) / CGFloat(max(image.height, 1))
                 )
                 ZStack(alignment: .topLeading) {
-                    UI2MetalImage(
+                    MetalImageView(
                         pixels: image.pixels,
                         width: image.width, height: image.height,
                         // The version was computed once, when the pixels were
@@ -323,8 +323,8 @@ struct UI2LoadConfigurator: View {
             // Science: a preview below this stops being an image; above the cap
             // it stops leaving room for the arithmetic underneath.
             .frame(
-                minHeight: UI2Metrics.imagePaneMinimum,
-                maxHeight: UI2Metrics.thumbnailMaximumHeight
+                minHeight: LayoutPolicy.imagePaneMinimum,
+                maxHeight: LayoutPolicy.thumbnailMaximumHeight
             )
             .accessibilityIdentifier(identifier)
         }
@@ -395,13 +395,13 @@ struct UI2LoadConfigurator: View {
             sizeRow("Scan (Rx × Ry)", "\(pending.source.rx) × \(pending.source.ry)")
             sizeRow("Detector (Qx × Qy)", "\(pending.source.qx) × \(pending.source.qy)")
             if let fileBytes = pending.fileByteCount {
-                sizeRow("File on disk", ui2ByteString(fileBytes))
+                sizeRow("File on disk", displayByteString(fileBytes))
             }
-            sizeRow("Whole cube (f32)", ui2ByteString(pending.fullExtentByteCount))
+            sizeRow("Whole cube (f32)", displayByteString(pending.fullExtentByteCount))
             if let loaded = pending.loadedByteCount {
                 sizeRow(
                     "This selection (f32)",
-                    ui2ByteString(loaded)
+                    displayByteString(loaded)
                         + (pending.reductionSummary.map { " · \($0)" } ?? "")
                 )
             }

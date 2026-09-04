@@ -11,21 +11,21 @@ import DSTEMSession
 ///
 /// **Structure**, unchanged from the view this replaces: a compact single-line
 /// header, a `GeometryReader` letterboxing the pattern with
-/// `UI2Metrics.fitted(in:aspect:)`, the image and every overlay in ONE
+/// `LayoutPolicy.fitted(in:aspect:)`, the image and every overlay in ONE
 /// transformed container so SwiftUI maps hit-testing through the transform
-/// (overlay handles stay pixel-accurate at any zoom), and a `UI2PaneFooter`
+/// (overlay handles stay pixel-accurate at any zoom), and a `PaneFooter`
 /// carrying the scale bar and the colorbar chip.
 ///
 /// **Two migration fixes** (owner findings, 2026-09-04):
 /// - The fitted image is pinned to the TOP of the available space rather than
 ///   centred, so the header sits directly above the image instead of across a
 ///   band of slack.
-/// - Zoom is SwiftUI's own `scaleEffect`/`offset`; `UI2MetalImage` no longer
+/// - Zoom is SwiftUI's own `scaleEffect`/`offset`; `MetalImageView` no longer
 ///   takes a zoom or an offset, so there is one transform rather than two that
 ///   can disagree.
-struct UI2DiffractionPane: View {
+struct DiffractionPane: View {
     @Environment(AppState.self) private var appState
-    @State private var zp = UI2ZoomPan()
+    @State private var zp = ZoomPan()
 
     var body: some View {
         VStack(spacing: 6) {
@@ -37,7 +37,7 @@ struct UI2DiffractionPane: View {
         }
         .padding(8)
         // A pane header is ~420 pt of `.fixedSize()` controls, and
-        // `UI2PaneSplit` hands a pane an explicit width rather than refusing
+        // `PaneSplit` hands a pane an explicit width rather than refusing
         // to go below its minimum the way `HSplitView` did. At the window's
         // own 1080 pt floor with both side columns wide, a pane can be
         // narrower than its header — clipping keeps that inside the pane
@@ -49,7 +49,7 @@ struct UI2DiffractionPane: View {
         // how the user chooses it. `navigation.focusedPane` is still never
         // written — the retired model was an inspector-routing rule, not this.
         .onTapGesture { appState.activePane = .diffraction }
-        .overlay { UI2ActivePaneOutline(pane: .diffraction) }
+        .overlay { ActivePaneOutline(pane: .diffraction) }
     }
 
     /// Everything here is single-line on purpose: a wrapping title or readout
@@ -117,12 +117,12 @@ struct UI2DiffractionPane: View {
     private func content(in size: CGSize) -> some View {
         if let pattern = appState.displayedPattern {
             let qx = pattern.qx, qy = pattern.qy
-            let box = UI2Metrics.fitted(in: size, aspect: CGFloat(qx) / CGFloat(qy))
+            let box = LayoutPolicy.fitted(in: size, aspect: CGFloat(qx) / CGFloat(qy))
             let norm = appState.normalizedPatternPixels()   // cached per patternVersion
 
             ZStack {
                 ZStack {
-                    UI2MetalImage(
+                    MetalImageView(
                         pixels: norm,
                         width: qx, height: qy,
                         contentVersion: appState.patternVersion,
@@ -136,7 +136,7 @@ struct UI2DiffractionPane: View {
 
                     // Interactive annular aperture (Virtual Detector only).
                     if appState.navigation.analysisMode == .virtualDetector {
-                        UI2ApertureOverlay(
+                        ApertureOverlay(
                             aperture: appState.aperture,
                             shape: appState.virtualShape,
                             patternWidth: qx, patternHeight: qy,
@@ -148,7 +148,7 @@ struct UI2DiffractionPane: View {
                     // Detected Bragg disks for the current pattern (Disks mode).
                     if appState.navigation.analysisMode == .disks,
                        !appState.currentPeaks.isEmpty {
-                        UI2PeakOverlay(
+                        PeakOverlay(
                             peaks: appState.currentPeaks,
                             probeRadius: appState.probeKernel?.probeRadius ?? 3,
                             patternWidth: qx, patternHeight: qy,
@@ -165,7 +165,7 @@ struct UI2DiffractionPane: View {
                     let fitEllipse = appState.ellipseFitOverlayPolyline
                     if fitStrain != nil || fitTemplate != nil
                         || fitOrigin != nil || !fitEllipse.isEmpty {
-                        UI2FitOverlay(
+                        PatternFitOverlay(
                             strain: fitStrain,
                             template: fitTemplate,
                             originPoint: fitOrigin,
@@ -185,7 +185,7 @@ struct UI2DiffractionPane: View {
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))
-                .ui2ZoomPan($zp, box: box)
+                .zoomPan($zp, box: box)
 
                 // Calibrated q-space scale bar (px fallback), zoom-aware, and
                 // the intensity legend — one bottom row so they cannot collide
@@ -194,16 +194,16 @@ struct UI2DiffractionPane: View {
                 // mrad shows the direct scattering angle, but falls back to the
                 // reciprocal/px behaviour automatically if the Q calibration or
                 // the voltage it needs disappears.
-                UI2PaneFooter {
+                PaneFooter {
                     if appState.patternScaleUnit == .milliradians,
                        let mradPerPixel = appState.dpcMilliradiansPerDetectorPixel {
-                        UI2ScaleBar(
+                        ScaleBar(
                             unitsPerPoint: Double(mradPerPixel) * Double(qx)
                                 / Double(box.width) / Double(zp.drawZoom),
                             unitLabel: "mrad")
                     } else {
                         let bar = appState.calibrationSession.calibration.diffractionScaleBar
-                        UI2ScaleBar(
+                        ScaleBar(
                             unitsPerPoint: bar.perPixel * Double(qx)
                                 / Double(box.width) / Double(zp.drawZoom),
                             unitLabel: bar.unitLabel)
@@ -211,8 +211,8 @@ struct UI2DiffractionPane: View {
                 } trailing: {
                     if let range = appState.patternDisplayedValueRange {
                         // The chip IS the colormap control — click it.
-                        UI2ColormapChip(pane: .diffraction) {
-                            UI2Colorbar(
+                        ColormapChip(pane: .diffraction) {
+                            Colorbar(
                                 colormap: appState.patternColormap,
                                 low: range.low,
                                 high: range.high,
@@ -256,8 +256,8 @@ struct UI2DiffractionPane: View {
 /// detector image, a DPC map, a Bragg-vector map, strain, an IPF map — with
 /// the scan-position selection, the ROI, and the legends the result calls for.
 ///
-/// Same structure and the same two migration fixes as `UI2DiffractionPane`.
-struct UI2RealSpacePane: View {
+/// Same structure and the same two migration fixes as `DiffractionPane`.
+struct RealSpacePane: View {
     /// Whether this pane offers the scan-position marker and click-to-scrub.
     ///
     /// False in Results (owner, 2026-09-04): the marker moves the position the
@@ -266,13 +266,13 @@ struct UI2RealSpacePane: View {
     var allowsScanSelection = true
 
     @Environment(AppState.self) private var appState
-    @State private var zp = UI2ZoomPan()
+    @State private var zp = ZoomPan()
     @State private var cursorSample: ProductSample?
 
     /// Name of the image+overlay container's coordinate space. The scan-marker
     /// handle reads its drag here rather than in `.local`, which for a
     /// `.position`ed view is that view's own frame, not the image's.
-    private static let imageSpace = "ui2RealSpaceImage"
+    private static let imageSpace = "realSpaceImage"
 
     /// The DPC colour wheel is scientific drawing, and a legend that is not
     /// round is not this legend — so it takes a size, as the pane's other
@@ -300,7 +300,7 @@ struct UI2RealSpacePane: View {
         }
         .padding(8)
         // A pane header is ~420 pt of `.fixedSize()` controls, and
-        // `UI2PaneSplit` hands a pane an explicit width rather than refusing
+        // `PaneSplit` hands a pane an explicit width rather than refusing
         // to go below its minimum the way `HSplitView` did. At the window's
         // own 1080 pt floor with both side columns wide, a pane can be
         // narrower than its header — clipping keeps that inside the pane
@@ -309,9 +309,9 @@ struct UI2RealSpacePane: View {
         .clipped()
         .contentShape(Rectangle())
         .onTapGesture { appState.activePane = .realSpace }
-        .overlay { UI2ActivePaneOutline(pane: .realSpace) }
+        .overlay { ActivePaneOutline(pane: .realSpace) }
         // Arrow-key scan stepping is NOT here. It has exactly one owner —
-        // `UI2Workspace`, on the container holding both panes, which is where
+        // `WorkspaceView`, on the container holding both panes, which is where
         // the old window had it and which is what lets the keys work while
         // either pane holds focus. A second handler on this pane would be a
         // second copy of a scientific selection rule.
@@ -559,7 +559,7 @@ struct UI2RealSpacePane: View {
             // `imageBox` is the container the image and its overlays are laid
             // out in, which stays in image orientation. A quarter turn swaps
             // one into the other.
-            let box = UI2Metrics.fitted(
+            let box = LayoutPolicy.fitted(
                 in: size, aspect: orientation.swapsAxes ? 1 / imageAspect : imageAspect
             )
             let imageBox = orientation.swapsAxes
@@ -585,7 +585,7 @@ struct UI2RealSpacePane: View {
                 // hand-rolling an inversion that could drift from the forward
                 // transform.
                 ZStack {
-                    UI2MetalImage(
+                    MetalImageView(
                         pixels: norm,
                         width: dims.width, height: dims.height,
                         contentVersion: qualityField != nil
@@ -647,7 +647,7 @@ struct UI2RealSpacePane: View {
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))
-                .ui2ZoomPan($zp, box: box)
+                .zoomPan($zp, box: box)
 
                 if appState.displayedProduct?.domain != .scan,
                    let navigator = appState.scanNavigationImage {
@@ -715,8 +715,8 @@ struct UI2RealSpacePane: View {
             ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
         let pixelsAcross = orientation.swapsAxes ? dims.height : dims.width
 
-        UI2PaneFooter {
-            UI2ScaleBar(
+        PaneFooter {
+            ScaleBar(
                 unitsPerPoint: (sampling ?? 1) * Double(pixelsAcross)
                     / Double(box.width) / Double(effZoom),
                 unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
@@ -756,9 +756,9 @@ struct UI2RealSpacePane: View {
                     // over an arbitrary orientation map.
                     Group {
                         if appState.acomSession.orientationMap?.symmetry == .hexagonal {
-                            UI2HexagonalIPFLegend()
+                            HexagonalIPFLegend()
                         } else {
-                            UI2CubicIPFLegend()
+                            CubicIPFLegend()
                         }
                     }
                     .padding(7)
@@ -768,7 +768,7 @@ struct UI2RealSpacePane: View {
 
                 if let field = qualityField,
                    let range = appState.displayedQualityValueRange {
-                    UI2Colorbar(
+                    Colorbar(
                         colormap: .viridis,
                         low: range.low,
                         high: range.high,
@@ -783,8 +783,8 @@ struct UI2RealSpacePane: View {
                     // The chip IS the colormap control — click it. (The
                     // quality-field chip above stays plain: its map is fixed
                     // by design.)
-                    UI2ColormapChip(pane: .result) {
-                        UI2Colorbar(
+                    ColormapChip(pane: .result) {
+                        Colorbar(
                             colormap: appState.displayedResultColormap,
                             low: range.low,
                             high: range.high,
@@ -807,7 +807,7 @@ struct UI2RealSpacePane: View {
         let width = Self.scanNavigatorWidth
         let height = width * CGFloat(image.height) / CGFloat(max(image.width, 1))
         return ZStack {
-            UI2MetalImage(
+            MetalImageView(
                 pixels: image.normalized(),
                 width: image.width, height: image.height,
                 contentVersion: appState.scanNavigationVersion,
@@ -1025,7 +1025,7 @@ struct UI2RealSpacePane: View {
 /// already asks: which of the two panes does dragging act on. It therefore
 /// appears only in Imaging, the one workspace where that choice exists;
 /// elsewhere `activePane` decides nothing and an outline would be noise.
-struct UI2ActivePaneOutline: View {
+struct ActivePaneOutline: View {
     @Environment(AppState.self) private var appState
     let pane: ActivePane
 

@@ -8,21 +8,21 @@ import DSTEMSession
 ///
 /// **There is no workspace header.** The old `ProductWorkspaceHeader` repeated
 /// the sidebar row's own title and subtitle and cost about 100 pt off the top
-/// of both panes; in UI2 the window title carries the task name, the toolbar
-/// carries the one action that runs it (`UI2PrimaryActionButton`), and
+/// of both panes; in UI the window title carries the task name, the toolbar
+/// carries the one action that runs it (`PrimaryActionButton`), and
 /// readiness has exactly one owner — the inspector's Settings tab. Nothing
 /// here re-creates `TaskPrerequisiteChecklist`.
 ///
 /// The bottom edge is a `safeAreaInset`, so the panes lay out above it and
 /// neither strip can ever overprint an image.
-struct UI2Workspace: View {
+struct WorkspaceView: View {
     @Environment(AppState.self) private var appState
 
     /// The output log's dragged height, remembered for the session. A
     /// `VSplitView` cannot divide the panes from the log — both are greedy,
     /// so it splits them evenly and the panes lose half the window — so the
     /// divider above the log carries the drag itself.
-    @State private var logHeight: CGFloat = UI2Metrics.outputLogHeight.ideal
+    @State private var logHeight: CGFloat = LayoutPolicy.outputLogHeight.ideal
 
     /// The height the current drag started from. Without it the gesture's
     /// cumulative `translation` is re-applied on every change event and the
@@ -47,7 +47,7 @@ struct UI2Workspace: View {
                         outputLog
                     }
                     Divider()
-                    UI2StatusBar()
+                    StatusBar()
                 }
             }
     }
@@ -57,17 +57,17 @@ struct UI2Workspace: View {
         if appState.isLoadingDataset {
             loadingState
         } else if !appState.hasDataset {
-            UI2Welcome()
+            WelcomeWorkspace()
         } else if appState.navigation.workspaceArea == .results {
-            UI2ResultsWorkspace()
+            ResultsWorkspace()
         } else {
             // Two scientific panes, side by side, with a divider the user
-            // owns. NOT `HSplitView` — see `UI2PaneSplit` for the crash that
+            // owns. NOT `HSplitView` — see `PaneSplit` for the crash that
             // ruled it out.
-            UI2PaneSplit {
-                UI2DiffractionPane()
+            PaneSplit {
+                DiffractionPane()
             } trailing: {
-                UI2RealSpacePane()
+                RealSpacePane()
             }
             // Arrow keys step the selected scan position (Shift = 10 px),
             // carried over from the old workspace column. A pane that
@@ -110,7 +110,7 @@ struct UI2Workspace: View {
                     .accessibilityHint("Stops loading this dataset and returns to the welcome screen")
             }
         }
-        .frame(maxWidth: UI2Metrics.readableWidth)
+        .frame(maxWidth: LayoutPolicy.readableWidth)
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
@@ -158,8 +158,8 @@ struct UI2Workspace: View {
                         // Up is negative in SwiftUI's coordinate space, and
                         // the strip grows upward.
                         logHeight = min(
-                            max(UI2Metrics.outputLogHeight.min, base - value.translation.height),
-                            UI2Metrics.outputLogHeight.max
+                            max(LayoutPolicy.outputLogHeight.min, base - value.translation.height),
+                            LayoutPolicy.outputLogHeight.max
                         )
                     }
                     .onEnded { _ in logHeightAtDragStart = nil }
@@ -199,7 +199,7 @@ struct UI2Workspace: View {
 /// checklist and the replay executor ask the same question of. When the
 /// action is disabled by an unmet requirement, the help names the first one,
 /// so the disabled state explains itself without a second readiness surface.
-struct UI2PrimaryActionButton: View {
+struct PrimaryActionButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -242,7 +242,7 @@ struct UI2PrimaryActionButton: View {
     /// The hint, unless a requirement is what is holding the action back —
     /// then the requirement, because that is the question the user has.
     private var helpText: String {
-        if !primaryActionEnabled, let first = appState.ui2UnmetRequirements.first {
+        if !primaryActionEnabled, let first = appState.unmetRequirements.first {
             return first.title
         }
         return primaryActionHint
@@ -330,7 +330,7 @@ struct UI2PrimaryActionButton: View {
 /// already looking at. What survives is what a first run needs: a way in, and
 /// the one piece of guidance a user cannot infer (a network source costs
 /// minutes on every whole-cube pass).
-struct UI2Welcome: View {
+struct WelcomeWorkspace: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -347,7 +347,7 @@ struct UI2Welcome: View {
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
-                        .frame(maxWidth: UI2Metrics.readableWidth)
+                        .frame(maxWidth: LayoutPolicy.readableWidth)
                 }
 
                 VStack(spacing: 12) {
@@ -362,13 +362,13 @@ struct UI2Welcome: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: UI2Metrics.readableWidth)
+                    .frame(maxWidth: LayoutPolicy.readableWidth)
                     .accessibilityIdentifier("welcome.localStorageNotice")
                 }
 
                 if !appState.recents.entries.isEmpty {
                     recents
-                        .frame(maxWidth: UI2Metrics.readableWidth)
+                        .frame(maxWidth: LayoutPolicy.readableWidth)
                 }
             }
             .padding(.horizontal, 36)
@@ -474,7 +474,7 @@ struct UI2Welcome: View {
 ///
 /// No bar of its own: the safe-area inset and the divider above it are its
 /// whole look.
-struct UI2StatusBar: View {
+struct StatusBar: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -492,12 +492,18 @@ struct UI2StatusBar: View {
             if appState.isBusy {
                 HStack(spacing: 8) {
                     ProgressView(value: appState.progress)
-                        .frame(width: UI2Metrics.inlineProgressWidth)
+                        .frame(width: LayoutPolicy.inlineProgressWidth)
                     if let progress = appState.progress {
                         Text("\(Int(progress * 100)) %")
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
+                    // Elapsed, throughput and ETA, beside the bar they
+                    // describe (owner, 2026-09-04). They were only in the
+                    // inspector's Performance rows, which is a tab away from
+                    // the progress a user is actually watching. Same source,
+                    // same wording, same one-second tick as those rows.
+                    operationMetrics
                     if appState.canCancelActiveOperation {
                         Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
                             .controlSize(.mini)
@@ -536,9 +542,39 @@ struct UI2StatusBar: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Elapsed · throughput · ETA while an operation runs, on the same
+    /// one-second tick the inspector uses. Each part appears only once it has
+    /// a real value: `activeOperationMetrics` returns nil before the run has
+    /// measured anything, and a rate or an ETA it cannot yet estimate is
+    /// absent rather than shown as zero.
+    @ViewBuilder
+    private var operationMetrics: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            if let metrics = appState.activeOperationMetrics(at: context.date) {
+                Text(metricsLine(metrics))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .accessibilityIdentifier("status.footer.metrics")
+            }
+        }
+    }
+
+    private func metricsLine(_ metrics: AnalysisOperationMetrics) -> String {
+        var parts = [OperationMetricsFormat.duration(metrics.elapsed)]
+        if let rate = metrics.unitsPerSecond {
+            parts.append(OperationMetricsFormat.throughput(rate, for: appState.activeOperation))
+        }
+        if let eta = metrics.eta {
+            parts.append("ETA " + OperationMetricsFormat.duration(eta))
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private func footerFacts(_ descriptor: DatasetDescriptor) -> String {
         let app = String(format: "%.0f MB app", SystemMonitor.residentMemoryMB())
-        let cube = ui2ByteString(descriptor.byteCountAsFloat32) + " cube"
+        let cube = displayByteString(descriptor.byteCountAsFloat32) + " cube"
         return "\(app) · \(cube) · \(appState.residency.summary.lowercased())"
     }
 }
@@ -563,7 +599,7 @@ struct UI2StatusBar: View {
 /// explicit minimums inside an `HSplitView` and does not crash. The mechanism
 /// that fits every observation, including that one, is the one measured
 /// in-process on 2026-09-03 (`UI/SplitViewPolicy.swift`): a minimum
-/// travelling between a SwiftUI-owned split and its hosted content. UI2 stacks
+/// travelling between a SwiftUI-owned split and its hosted content. UI stacks
 /// three such splits — `NavigationSplitView`, `.inspector`, `HSplitView` — and
 /// every surviving probe drops it to two. Two probes would separate the two
 /// readings and neither has been run; they are named in `open-items.md`.
@@ -573,7 +609,7 @@ struct UI2StatusBar: View {
 /// consults its children, and `.frame(width:)` terminates each pane's
 /// minimum, so this view propagates no minimum upward at all. It is also
 /// portable — `HSplitView` is macOS-only.
-struct UI2PaneSplit<Leading: View, Trailing: View>: View {
+struct PaneSplit<Leading: View, Trailing: View>: View {
     @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
 
@@ -598,7 +634,7 @@ struct UI2PaneSplit<Leading: View, Trailing: View>: View {
             // both panes go under it: with 300 pt of container there is no
             // arrangement that honours a 180 pt floor twice, so the split
             // divides what it has evenly rather than pretending otherwise.
-            let smallest = min(0.5, UI2Metrics.imagePaneMinimum / usable)
+            let smallest = min(0.5, LayoutPolicy.imagePaneMinimum / usable)
             let clamped = min(max(fraction, smallest), 1 - smallest)
             let leadingWidth = (usable * clamped).rounded()
 
@@ -616,7 +652,7 @@ struct UI2PaneSplit<Leading: View, Trailing: View>: View {
         Divider()
             // The drawn line is 1 pt; the grab zone is the system's 9.
             .contentShape(
-                Rectangle().inset(by: -UI2Metrics.dividerGrabWidth / 2)
+                Rectangle().inset(by: -LayoutPolicy.dividerGrabWidth / 2)
             )
             .pointerStyle(.columnResize)
             .gesture(
@@ -646,7 +682,7 @@ struct UI2PaneSplit<Leading: View, Trailing: View>: View {
 /// The action is the same one Results calls — one writer, one sidecar — and
 /// the wording is now the same in both places: the destination the user is
 /// thinking of is the Results list, not the file format underneath it.
-struct UI2SaveResultButton: View {
+struct SaveResultButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {

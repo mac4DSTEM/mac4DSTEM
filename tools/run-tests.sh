@@ -151,15 +151,15 @@ inventory() {
   # NSView tree (SwiftUI's `.bar` hosts no NSVisualEffectView; measured
   # 2026-09-03), so the rule is held here. The scientific panes are exempt.
   if grep -nE '\.background\((\.bar\)|Color\.[a-zA-Z]+\.opacity)' "$ROOT"/mac4DSTEM/UI/*.swift \
-       | grep -vE 'UI2Panes|UI2PaneOverlays|UI2LoadConfigurator|UI2MetalImage|UI2Histogram'; then
+       | grep -vE 'ImagePanes|PaneOverlays|LoadConfigurator|MetalImageView|HistogramView'; then
     echo "  ^ custom bar or opacity wash in the chrome (presentation contract rule 3)"; rc=1
   fi
   # Rule 4 (2026-09-03): no fixed frames except the science. A numeric
   # `.frame(...)` in the chrome must come from `FormPolicy`/`WindowPolicy`
   # (FormControls.swift); the panes, overlays and plots are exempt.
   if grep -nE '\.frame\([^)]*: *[0-9]' "$ROOT"/mac4DSTEM/UI/*.swift \
-       | grep -vE 'UI2Panes|UI2PaneOverlays|UI2Histogram|UI2Results|UI2LoadConfigurator|UI2Metrics' \
-       | grep -vE 'UI2Metrics\.|cropPane|// science'; then
+       | grep -vE 'ImagePanes|PaneOverlays|HistogramView|ResultsWorkspace|LoadConfigurator|LayoutPolicy' \
+       | grep -vE 'LayoutPolicy\.|cropPane|// science'; then
     echo "  ^ a fixed frame outside the science (presentation contract rule 4)"; rc=1
   fi
   # The UI contract (architecture.md, 2026-09-04). UI/ is SwiftUI only, and

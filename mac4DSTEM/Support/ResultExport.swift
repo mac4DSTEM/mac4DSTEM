@@ -1934,13 +1934,13 @@ extension AppState {
 
         // Bar sized to a nice 1-2-5 value near 1/5 of the image width.
         let unitsPerOutPixel = (unitsPerDataPixel ?? 1) / Double(scale)
-        let nice = UI2ScaleBar.nice125(unitsPerOutPixel * Double(outW) / 5)
+        let nice = ScaleBar.nice125(unitsPerOutPixel * Double(outW) / 5)
         let barLength = CGFloat(nice / unitsPerOutPixel)
         let margin = CGFloat(max(10, outH / 30))
         let barHeight = CGFloat(max(3, outH / 150))
         let fontSize = CGFloat(max(11, outH / 28))
 
-        let text = "\(UI2ScaleBar.format(nice)) \(unitLabel)" as NSString
+        let text = "\(ScaleBar.format(nice)) \(unitLabel)" as NSString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .medium),
             .foregroundColor: NSColor.white,

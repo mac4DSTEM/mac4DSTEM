@@ -10,7 +10,7 @@ import DSTEMSession
 final class CalibrationReadinessFilenameTests: XCTestCase {
 
     private func parse(_ name: String) -> (angstromPerPixel: Double, text: String)? {
-        UI2PrepareSettings.scanStepAngstromPerPixel(inFilename: name)
+        PrepareSettings.scanStepAngstromPerPixel(inFilename: name)
     }
 
     // MARK: - Tokens that must parse

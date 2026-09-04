@@ -5,7 +5,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The one SwiftUI to Metal bridge in UI2: a single-channel image already
+/// The one SwiftUI to Metal bridge in UI: a single-channel image already
 /// normalised to [0, 1], drawn through `MetalEngine`'s display pipeline
 /// (fullscreen triangle + colormap LUT), or packed RGBA8 bytes drawn
 /// through the RGBA pipeline.
@@ -19,7 +19,7 @@ import DSTEMSession
 ///   what keeps zooming and panning free. Passing a literal `0` here is the
 ///   defect that froze a comparison panel on the previous product's pixels.
 ///
-/// **Why it is still a platform representable.** Everything else in UI2 is
+/// **Why it is still a platform representable.** Everything else in UI is
 /// plain SwiftUI, but there is no SwiftUI view that samples a float texture
 /// through a LUT with a display window and gamma in the fragment shader, and
 /// the alternative — rasterising to a `CGImage` per frame — would cost the
@@ -28,11 +28,11 @@ import DSTEMSession
 /// `makeMetalView`/`updateMetalView`, and only the two-line platform
 /// conformance differs, so an iOS target needs no rewrite.
 ///
-/// Unlike its predecessor this view takes **no zoom or offset**: UI2 zooms
+/// Unlike its predecessor this view takes **no zoom or offset**: UI zooms
 /// with SwiftUI's own `scaleEffect` (every previous call site already passed
 /// `zoom: 1, offset: .zero`), so there is one transform in the app rather
 /// than two that can disagree.
-struct UI2MetalImage {
+struct MetalImageView {
     /// A version derived from the pixel VALUES and the dimensions. O(n)
     /// FNV-1a — call it where the pixels are produced, once per image, never
     /// inside a `body`. Dimensions are folded in because the coordinator
@@ -240,7 +240,7 @@ struct UI2MetalImage {
                 return
             }
 
-            // Identity transform: UI2 zooms and pans with SwiftUI's own
+            // Identity transform: UI zooms and pans with SwiftUI's own
             // `scaleEffect`/`offset`, so the shader draws the whole image.
             var transform = SIMD4<Float>(1, 0, 0, 0)
             encoder.setVertexBytes(
@@ -264,7 +264,7 @@ struct UI2MetalImage {
 }
 
 #if os(macOS)
-extension UI2MetalImage: NSViewRepresentable {
+extension MetalImageView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> MTKView { makeMetalView(context.coordinator) }
     func updateNSView(_ view: MTKView, context: Context) {
@@ -272,7 +272,7 @@ extension UI2MetalImage: NSViewRepresentable {
     }
 }
 #else
-extension UI2MetalImage: UIViewRepresentable {
+extension MetalImageView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> MTKView { makeMetalView(context.coordinator) }
     func updateUIView(_ view: MTKView, context: Context) {

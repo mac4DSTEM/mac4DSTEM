@@ -1,22 +1,22 @@
 //
-//  UI2ExportSheet.swift
+//  ExportSheet.swift
 //  Role: the guided front end for the bounded canonical DataCube writer, in
-//        UI2. Defaults are deliberately lossless (full scan, Q bin 1); every
+//        UI. Defaults are deliberately lossless (full scan, Q bin 1); every
 //        destructive reduction is visible in the output preview before the
 //        save panel appears.
 //
 //  The migration of `UI/PreprocessingExportSheet` (and, for its readiness
-//  block, `UI/CalibrationReadinessView`) into UI2. Every number, every unit,
+//  block, `UI/CalibrationReadinessView`) into UI. Every number, every unit,
 //  every provenance word, the uncalibrated-export warning and its wording, and
 //  every accessibility identifier are carried over unchanged.
 //
 //  WHY THE READINESS ROWS ARE RE-AUTHORED HERE rather than shared with
-//  `UI2PrepareSettings`: a settings view's body is a bare set of `Section`s
+//  `PrepareSettings`: a settings view's body is a bare set of `Section`s
 //  belonging to the inspector, and this sheet needs the same *data* in its own
 //  `Form`. The rows are therefore the same shape, read the same
 //  `appState.calibrationSession.readiness`, and print the same strings; only
 //  the filename-conflict parser is shared, as a pure static, so the regex
-//  `CalibrationReadinessFilenameTests` pins has one spelling in UI2.
+//  `CalibrationReadinessFilenameTests` pins has one spelling in UI.
 //
 
 import SwiftUI
@@ -25,7 +25,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-struct UI2ExportSheet: View {
+struct ExportSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     let descriptor: DatasetDescriptor
@@ -92,10 +92,10 @@ struct UI2ExportSheet: View {
         // A band, not a fixed size: a short display must shrink the sheet
         // rather than push its own footer off screen.
         .frame(
-            minWidth: UI2Metrics.exportSheet.min.width,
-            idealWidth: UI2Metrics.exportSheet.ideal.width,
-            minHeight: UI2Metrics.exportSheet.min.height,
-            idealHeight: UI2Metrics.exportSheet.ideal.height
+            minWidth: LayoutPolicy.exportSheet.min.width,
+            idealWidth: LayoutPolicy.exportSheet.ideal.width,
+            minHeight: LayoutPolicy.exportSheet.min.height,
+            idealHeight: LayoutPolicy.exportSheet.ideal.height
         )
         .alert("Export with missing calibration?", isPresented: $showUncalibratedWarning) {
             Button("Keep Calibrating", role: .cancel) {}
@@ -181,7 +181,7 @@ struct UI2ExportSheet: View {
     private var outputSection: some View {
         Section("Output preview") {
             LabeledContent("Shape", value: outputShape.map(String.init).joined(separator: " × "))
-            LabeledContent("Float32 data", value: ui2ByteString(Int(estimatedBytes)))
+            LabeledContent("Float32 data", value: displayByteString(Int(estimatedBytes)))
             if descriptor.qy % qBin != 0 || descriptor.qx % qBin != 0 {
                 Label(
                     "Trims \(descriptor.qy % qBin) detector row(s) and \(descriptor.qx % qBin) column(s)",
@@ -348,9 +348,9 @@ struct UI2ExportSheet: View {
     /// precedence. Comparison is done in Å/px so a token in nm and a value in
     /// Å are not reported as a conflict merely for being in different units.
     ///
-    /// The parser itself is `UI2PrepareSettings`'s pure static, deliberately
+    /// The parser itself is `PrepareSettings`'s pure static, deliberately
     /// not a second copy: the regex is pinned by a test, and two spellings of
-    /// it in UI2 is exactly the drift that produces a warning on one surface
+    /// it in UI is exactly the drift that produces a warning on one surface
     /// and silence on the other.
     private var rScaleFilenameConflict: String? {
         guard let path = appState.descriptor?.filePath,
@@ -358,7 +358,7 @@ struct UI2ExportSheet: View {
               let inUse = CalibrationUnitConversion.realAngstromPerPixel(
                   value: size, units: appState.calibrationSession.calibration.rPixelUnits
               ),
-              let token = UI2PrepareSettings.scanStepAngstromPerPixel(inFilename: path)
+              let token = PrepareSettings.scanStepAngstromPerPixel(inFilename: path)
         else { return nil }
 
         // 5% absorbs rounding in an abbreviated filename token (a file written
@@ -393,7 +393,7 @@ struct UI2ExportSheet: View {
         onUnitChange: @escaping (String) -> Void
     ) -> some View {
         LabeledContent("Manual") {
-            UI2NumericField(
+            NumericField(
                 "Manual scale",
                 value: Binding(get: { value ?? 0 }, set: onChange),
                 format: .number.precision(.fractionLength(0...6))

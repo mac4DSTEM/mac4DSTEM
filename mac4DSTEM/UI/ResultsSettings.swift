@@ -10,7 +10,7 @@ import DSTEMSession
 /// `LabeledContent` crushed onto one line) into the inspector's grouped
 /// `Form`, where it stacks as intended. Body is bare `Section`s for the
 /// caller's `Form`.
-struct UI2ResultsSettings: View {
+struct ResultsSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {

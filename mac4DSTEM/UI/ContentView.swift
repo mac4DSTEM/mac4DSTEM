@@ -11,7 +11,7 @@ import DSTEMSession
 /// **The frozen rules.** `NavigationSplitView` and the native `.inspector`
 /// are the whole window structure — no `NSSplitViewController`, no hosted
 /// AppKit shell, no custom pane chrome, no pane focus ring, and no call into
-/// a view under `UI/`. UI2 reads and drives the shared `App/`, `Session/`
+/// a view under `UI/`. UI reads and drives the shared `App/`, `Session/`
 /// and `Core/` logic, and nothing else.
 ///
 /// **The shape** (owner decision, 2026-09-04) is Xcode's, Pages' and
@@ -30,7 +30,7 @@ import DSTEMSession
 /// workspace header that repeated the sidebar's own title is gone — the
 /// window title says where you are and the toolbar holds the one action that
 /// runs the task.
-struct UI2ContentView: View {
+struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
     @State private var showExportSheet = false
@@ -41,26 +41,26 @@ struct UI2ContentView: View {
             .compactMap { UTType(filenameExtension: $0) }
     }
 
-    private var route: UI2Route { UI2Route.current(appState.navigation) }
+    private var route: WorkspaceRoute { WorkspaceRoute.current(appState.navigation) }
 
     var body: some View {
         @Bindable var navigation = appState.navigation
 
         NavigationSplitView(columnVisibility: sidebarVisibility) {
-            UI2Sidebar()
+            WorkspaceSidebar()
                 .navigationSplitViewColumnWidth(
-                    min: UI2Metrics.sidebarWidth.min,
-                    ideal: UI2Metrics.sidebarWidth.ideal,
-                    max: UI2Metrics.sidebarWidth.max
+                    min: LayoutPolicy.sidebarWidth.min,
+                    ideal: LayoutPolicy.sidebarWidth.ideal,
+                    max: LayoutPolicy.sidebarWidth.max
                 )
         } detail: {
-            UI2Workspace()
+            WorkspaceView()
                 .inspector(isPresented: $navigation.showInspectorPane) {
-                    UI2Inspector()
+                    WorkspaceInspector()
                         .inspectorColumnWidth(
-                            min: UI2Metrics.inspectorWidth.min,
-                            ideal: UI2Metrics.inspectorWidth.ideal,
-                            max: UI2Metrics.inspectorWidth.max
+                            min: LayoutPolicy.inspectorWidth.min,
+                            ideal: LayoutPolicy.inspectorWidth.ideal,
+                            max: LayoutPolicy.inspectorWidth.max
                         )
                 }
         }
@@ -68,7 +68,7 @@ struct UI2ContentView: View {
         .navigationSubtitle(appState.descriptor?.fileName ?? "")
         .toolbar { toolbarContent }
         .task {
-            // The inspector holds the workspace's controls in UI2, so it
+            // The inspector holds the workspace's controls in UI, so it
             // opens with the window. The flag is `WorkspaceNavigation`'s, so
             // the Show/Hide Inspector menu item keeps working.
             guard !openedInspectorOnce else { return }
@@ -108,12 +108,12 @@ struct UI2ContentView: View {
             get: { appState.pendingLoad },
             set: { if $0 == nil { appState.discardPendingLoad() } }
         )) { pending in
-            UI2LoadConfigurator(pending: pending)
+            LoadConfigurator(pending: pending)
                 .environment(appState)
         }
         .sheet(isPresented: $showExportSheet) {
             if let descriptor = appState.descriptor {
-                UI2ExportSheet(descriptor: descriptor)
+                ExportSheet(descriptor: descriptor)
                     .environment(appState)
             }
         }
@@ -147,7 +147,7 @@ struct UI2ContentView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         // `NavigationSplitView` contributes the sidebar toggle. Everything
-        // UI2 adds sits trailing, where macOS puts affirmative actions: the
+        // UI adds sits trailing, where macOS puts affirmative actions: the
         // one action that runs the task, the way to keep its result, the
         // dataset's own menu, and the inspector's toggle. The action was
         // centred (`.principal`) until 2026-09-04; the owner's drive found
@@ -156,11 +156,11 @@ struct UI2ContentView: View {
         ToolbarSpacer(.flexible)
 
         ToolbarItem(placement: .primaryAction) {
-            UI2PrimaryActionButton()
+            PrimaryActionButton()
         }
 
         ToolbarItem(placement: .primaryAction) {
-            UI2SaveResultButton()
+            SaveResultButton()
         }
 
         ToolbarItem(placement: .primaryAction) {

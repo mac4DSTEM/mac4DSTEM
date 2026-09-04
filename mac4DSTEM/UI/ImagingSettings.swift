@@ -7,10 +7,10 @@ import DSTEMSession
 /// Imaging's inspector Settings tab: the virtual detector and the reciprocal
 /// region, whichever direction is chosen. The old `ImageSidebar` switched
 /// between the two on `AppState.activePane` with no control the user could
-/// see; UI2 rule 7 forbids reading that implicit mode silently, so the first
+/// see; UI rule 7 forbids reading that implicit mode silently, so the first
 /// row here is an explicit `Picker` bound to it. Body is bare `Section`s for
 /// the caller's grouped `Form`.
-struct UI2ImagingSettings: View {
+struct ImagingSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {

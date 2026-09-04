@@ -14,7 +14,7 @@ import DSTEMSession
 /// range); the excluded tails are dimmed. The log toggle only scales the BAR
 /// HEIGHTS, so the two interact freely — handle positions are intensity-axis
 /// fractions either way.
-struct UI2Histogram: View {
+struct HistogramView: View {
     let pixels: [Float]
     /// Bump this when `pixels` changes (e.g. the result-image version counter)
     /// so recompute keys on a cheap Int instead of comparing the whole array.

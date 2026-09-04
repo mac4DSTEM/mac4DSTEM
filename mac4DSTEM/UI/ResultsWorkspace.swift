@@ -9,10 +9,10 @@ import DSTEMSession
 /// comparison row beneath.
 ///
 /// The saved-product chooser lives in the inspector's Settings tab
-/// (`UI2ResultsSettings`) and the product descriptor in its Info tab; this
+/// (`ResultsSettings`) and the product descriptor in its Info tab; this
 /// surface owns only the science pane and the three actions that move a
 /// result out of the app.
-struct UI2ResultsWorkspace: View {
+struct ResultsWorkspace: View {
     @Environment(AppState.self) private var appState
 
     private var hasVisibleResult: Bool {
@@ -24,7 +24,7 @@ struct UI2ResultsWorkspace: View {
             if hasVisibleResult {
                 // No scan marker here: Results has no diffraction pane
                 // for it to drive (owner, 2026-09-04).
-                UI2RealSpacePane(allowsScanSelection: false)
+                RealSpacePane(allowsScanSelection: false)
                     // No minimum announced upward. The Results branch is the
                     // one place left where a content-derived minimum reaches
                     // the `NavigationSplitView` host directly — it flips on
@@ -49,7 +49,7 @@ struct UI2ResultsWorkspace: View {
 
             if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
                 Divider()
-                UI2ProductComparison(a: a, b: b)
+                ProductComparisonView(a: a, b: b)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -114,7 +114,7 @@ struct UI2ResultsWorkspace: View {
 /// Two defects lived in the three lines this replaced (v2 S18), and both are
 /// structural rather than cosmetic — this type exists to keep them dead:
 ///
-/// 1. **The texture froze.** `UI2MetalImage` re-uploads only when
+/// 1. **The texture froze.** `MetalImageView` re-uploads only when
 ///    `contentVersion` changes and the old panel passed the literal `0`. The
 ///    coordinator starts at `Int.min`, so the first image uploaded and every
 ///    later one was silently dropped — swapping which saved product sits in
@@ -132,8 +132,8 @@ struct UI2ResultsWorkspace: View {
 /// product the SAME version — an IPF map and a DPC colour wheel of equal
 /// dimensions would be indistinguishable and one would keep the other's
 /// texture. That is defect 1 again, one payload case further in.
-/// `UI2MetalImage.contentVersion(of:rgba:width:height:)` is exactly that rule.
-struct UI2ComparisonPanel: Identifiable {
+/// `MetalImageView.contentVersion(of:rgba:width:height:)` is exactly that rule.
+struct ComparisonPanel: Identifiable {
     let id: String
     let product: DisplayedProduct
     let label: String
@@ -155,7 +155,7 @@ struct UI2ComparisonPanel: Identifiable {
             self.pixels = [Float](repeating: 0, count: image.width * image.height)
             self.rgba = image.rgba
         }
-        self.contentVersion = UI2MetalImage.contentVersion(
+        self.contentVersion = MetalImageView.contentVersion(
             of: pixels, rgba: rgba, width: product.width, height: product.height
         )
     }
@@ -164,12 +164,12 @@ struct UI2ComparisonPanel: Identifiable {
 /// A and B side by side, with A − B beside them when the two products are
 /// numerically comparable at all.
 ///
-/// The zoom is shared and magnification-only. UI2's `UI2ZoomPan` is
+/// The zoom is shared and magnification-only. UI's `ZoomPan` is
 /// deliberately NOT used here: it adds a pan offset, and
 /// `ComparisonHoverMapping.sourcePixel` inverts a centre-anchored fit plus
 /// zoom and nothing else, so a panned pane would report the value of a pixel
 /// the pointer is not over. A wrong number is worse than a missing gesture.
-struct UI2ProductComparison: View {
+struct ProductComparisonView: View {
     let a: DisplayedProduct
     let b: DisplayedProduct
 
@@ -177,17 +177,17 @@ struct UI2ProductComparison: View {
     @State private var liveZoom: CGFloat = 1
     @State private var cursor: (x: Int, y: Int)?
 
-    private let panels: [UI2ComparisonPanel]
+    private let panels: [ComparisonPanel]
 
     init(a: DisplayedProduct, b: DisplayedProduct) {
         self.a = a
         self.b = b
         var built = [
-            UI2ComparisonPanel(a, label: "A", colormap: .viridis),
-            UI2ComparisonPanel(b, label: "B", colormap: .viridis),
+            ComparisonPanel(a, label: "A", colormap: .viridis),
+            ComparisonPanel(b, label: "B", colormap: .viridis),
         ]
         if let difference = ProductComparison.difference(a, b) {
-            built.append(UI2ComparisonPanel(difference, label: "A \u{2212} B", colormap: .rdbu))
+            built.append(ComparisonPanel(difference, label: "A \u{2212} B", colormap: .rdbu))
         }
         self.panels = built
     }
@@ -235,14 +235,14 @@ struct UI2ProductComparison: View {
         .accessibilityIdentifier("result.comparison")
     }
 
-    private func panel(_ rendered: UI2ComparisonPanel) -> some View {
+    private func panel(_ rendered: ComparisonPanel) -> some View {
         let product = rendered.product
         return VStack(alignment: .leading, spacing: 4) {
             Text("\(rendered.label) · \(product.displayName)")
                 .font(.caption.weight(.semibold)).lineLimit(1)
             GeometryReader { geometry in
                 let size = geometry.size
-                UI2MetalImage(
+                MetalImageView(
                     pixels: rendered.pixels,
                     width: product.width, height: product.height,
                     contentVersion: rendered.contentVersion,
@@ -268,7 +268,7 @@ struct UI2ProductComparison: View {
                         .onChanged { liveZoom = $0.magnification }
                         .onEnded { value in
                             zoom = min(
-                                UI2ZoomPan.maximumZoom,
+                                ZoomPan.maximumZoom,
                                 max(1, zoom * value.magnification)
                             )
                             liveZoom = 1
@@ -292,7 +292,7 @@ struct UI2ProductComparison: View {
                     }
                 }
             }
-            .frame(minHeight: UI2Metrics.comparisonPaneMinimum)   // science: a comparison pane
+            .frame(minHeight: LayoutPolicy.comparisonPaneMinimum)   // science: a comparison pane
             if let cursor, let sample = product.sample(x: cursor.x, y: cursor.y) {
                 Text(sample.accessibilityText).font(.caption2.monospacedDigit()).lineLimit(1)
             } else {

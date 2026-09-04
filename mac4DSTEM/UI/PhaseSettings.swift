@@ -15,32 +15,32 @@ import DSTEMSession
 /// DPC & iDPC, single-slice ptychography, and the four-stage parallax
 /// pipeline — exactly as they did.
 ///
-/// Two presentation rules of UI2 change how the old file *looked*, never what
+/// Two presentation rules of UI change how the old file *looked*, never what
 /// it decided:
 ///
 /// - The old "Pattern" section appeared only while the diffraction pane was
-///   the *active* one. UI2 has no pane focus model, and both panes are on
+///   the *active* one. UI has no pane focus model, and both panes are on
 ///   screen at once, so the offer is gated on the statistics being absent and
 ///   nothing else.
 /// - A pending parallax stage used to render no controls at all. Here every
 ///   stage is visible and its controls carry the same `disabled` conditions
 ///   the old file already gave them, so the order still explains itself
 ///   without a stage ever becoming operable early.
-struct UI2PhaseSettings: View {
+struct PhaseSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         switch appState.navigation.analysisMode {
         case .dpc:
-            UI2PatternStatisticsSection()   // DPC works from the live CBED
-            UI2DPCSettingsSection()
+            PatternStatisticsSection()   // DPC works from the live CBED
+            DPCSettingsSection()
         case .singleslicePtychography:
             // v2.5 step 7a: its own task, no parallax stage in front of it.
-            UI2SingleslicePtychographySection()
+            SingleslicePtychographySection()
         case .ptychography:
-            UI2ParallaxStageSections()
-            UI2ParallaxProductSection()
-            UI2ParallaxRunDetailsSection()
+            ParallaxStageSections()
+            ParallaxProductSection()
+            ParallaxRunDetailsSection()
         default:
             EmptyView()
         }
@@ -50,7 +50,7 @@ struct UI2PhaseSettings: View {
 
 // MARK: - DPC & iDPC
 
-private struct UI2DPCSettingsSection: View {
+private struct DPCSettingsSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -138,7 +138,7 @@ private struct UI2DPCSettingsSection: View {
 
 // MARK: - Single-slice ptychography
 
-private struct UI2SingleslicePtychographySection: View {
+private struct SingleslicePtychographySection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -151,14 +151,14 @@ private struct UI2SingleslicePtychographySection: View {
                 }
             }
             LabeledContent("Iterations") {
-                UI2NumericField(
+                NumericField(
                     "Iterations",
                     value: $appState.ptychographyIterations,
                     format: .number
                 )
             }
             LabeledContent(isGradientDescent ? "Step" : "DM/AP α") {
-                UI2NumericField(
+                NumericField(
                     isGradientDescent ? "Step" : "DM/AP α",
                     value: isGradientDescent
                         ? $appState.ptychographyStepSize
@@ -167,7 +167,7 @@ private struct UI2SingleslicePtychographySection: View {
                 )
             }
             LabeledContent("Norm min") {
-                UI2NumericField(
+                NumericField(
                     "Norm min",
                     value: $appState.ptychographyNormalizationMinimum,
                     format: .number.precision(.fractionLength(0...3))
@@ -194,14 +194,14 @@ private struct UI2SingleslicePtychographySection: View {
                 )
                 if appState.ptychographyConstrainProbeAmplitude {
                     LabeledContent("Support radius") {
-                        UI2NumericField(
+                        NumericField(
                             "Support radius",
                             value: $appState.ptychographyProbeAmplitudeRadius,
                             format: .number.precision(.fractionLength(0...3))
                         )
                     }
                     LabeledContent("Edge width") {
-                        UI2NumericField(
+                        NumericField(
                             "Edge width",
                             value: $appState.ptychographyProbeAmplitudeWidth,
                             format: .number.precision(.fractionLength(0...3))
@@ -231,7 +231,7 @@ private struct UI2SingleslicePtychographySection: View {
 /// Every control here already carried its own prerequisite in `disabled(…)`
 /// or an enclosing `if`, so a later stage is visible and inert rather than
 /// absent: no gate is loosened by showing it.
-private struct UI2ParallaxStageSections: View {
+private struct ParallaxStageSections: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -278,7 +278,7 @@ private struct UI2ParallaxStageSections: View {
             .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
             if appState.parallaxHigherOrderFit != nil {
                 LabeledContent("Low-pass") {
-                    UI2NumericField(
+                    NumericField(
                         "Low-pass",
                         value: $appState.parallaxQLowpassInvAngstrom,
                         format: .number.precision(.fractionLength(0...4)),
@@ -286,7 +286,7 @@ private struct UI2ParallaxStageSections: View {
                     )
                 }
                 LabeledContent("High-pass") {
-                    UI2NumericField(
+                    NumericField(
                         "High-pass",
                         value: $appState.parallaxQHighpassInvAngstrom,
                         format: .number.precision(.fractionLength(0...4)),
@@ -305,28 +305,28 @@ private struct UI2ParallaxStageSections: View {
         stageSection(4, "Inspect or reconstruct products") {
             if appState.parallaxAlignment?.isComplete == true {
                 LabeledContent("Auto factor") {
-                    UI2NumericField(
+                    NumericField(
                         "Auto factor",
                         value: $appState.parallaxKDEUpsampleFactor,
                         format: .number.precision(.fractionLength(0...3))
                     )
                 }
                 LabeledContent("KDE σ") {
-                    UI2NumericField(
+                    NumericField(
                         "KDE σ",
                         value: $appState.parallaxKDESigmaPixels,
                         format: .number.precision(.fractionLength(0...3))
                     )
                 }
                 LabeledContent("Lanczos (0=off)") {
-                    UI2NumericField(
+                    NumericField(
                         "Lanczos (0=off)",
                         value: $appState.parallaxKDELanczosOrder,
                         format: .number
                     )
                 }
                 LabeledContent("Position iters") {
-                    UI2NumericField(
+                    NumericField(
                         "Position iters",
                         value: $appState.parallaxPositionCorrectionIterations,
                         format: .number
@@ -349,7 +349,7 @@ private struct UI2ParallaxStageSections: View {
             }
             if appState.parallaxHigherOrderFit != nil {
                 LabeledContent("Depth start") {
-                    UI2NumericField(
+                    NumericField(
                         "Depth start",
                         value: $appState.parallaxDepthStartAngstrom,
                         format: .number.precision(.fractionLength(0...1)),
@@ -357,7 +357,7 @@ private struct UI2ParallaxStageSections: View {
                     )
                 }
                 LabeledContent("Depth end") {
-                    UI2NumericField(
+                    NumericField(
                         "Depth end",
                         value: $appState.parallaxDepthEndAngstrom,
                         format: .number.precision(.fractionLength(0...1)),
@@ -365,14 +365,14 @@ private struct UI2ParallaxStageSections: View {
                     )
                 }
                 LabeledContent("Planes") {
-                    UI2NumericField(
+                    NumericField(
                         "Planes",
                         value: $appState.parallaxDepthPlaneCount,
                         format: .number
                     )
                 }
                 LabeledContent("Info limit") {
-                    UI2NumericField(
+                    NumericField(
                         "Info limit",
                         value: $appState.parallaxDepthInformationLimit,
                         format: .number.precision(.fractionLength(0...4)),
@@ -380,7 +380,7 @@ private struct UI2ParallaxStageSections: View {
                     )
                 }
                 LabeledContent("Power") {
-                    UI2NumericField(
+                    NumericField(
                         "Power",
                         value: $appState.parallaxDepthInformationPower,
                         format: .number.precision(.fractionLength(0...2))
@@ -409,7 +409,7 @@ private struct UI2ParallaxStageSections: View {
             // `computeParallaxDepthSections()` only on the higher-order fit,
             // so Core would happily run stage 4 before Correct Phase. The old
             // sidebar enforced it by rendering nothing for a pending stage;
-            // UI2 shows the stage so the chain explains itself and disables
+            // UI shows the stage so the chain explains itself and disables
             // it instead, which is no looser.
             content()
                 .disabled(!(active || complete))
@@ -449,7 +449,7 @@ private struct UI2ParallaxStageSections: View {
 /// The displayed-product pickers deliberately stay outside the stages,
 /// because they choose what is on screen right now rather than
 /// parameterising a step.
-private struct UI2ParallaxProductSection: View {
+private struct ParallaxProductSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -485,7 +485,7 @@ private struct UI2ParallaxProductSection: View {
                         "Ptychography",
                         value: "\(iterative.errorHistory.count) iterations"
                     )
-                    UI2HistoryPlot(
+                    ScientificHistoryPlot(
                         title: "\(iterative.options.method.rawValue) error",
                         values: iterative.errorHistory,
                         scale: .logarithmic
@@ -498,7 +498,7 @@ private struct UI2ParallaxProductSection: View {
 
 // MARK: - Parallax: run details
 
-private struct UI2ParallaxRunDetailsSection: View {
+private struct ParallaxRunDetailsSection: View {
     @Environment(AppState.self) private var appState
     @State private var showsRunDetails = false
 
@@ -513,7 +513,7 @@ private struct UI2ParallaxRunDetailsSection: View {
                 )
                 LabeledContent(
                     "Stack memory",
-                    value: ui2ByteString(preview.residentStackByteCount)
+                    value: displayByteString(preview.residentStackByteCount)
                 )
                 LabeledContent(
                     "Electron wavelength",
@@ -528,7 +528,7 @@ private struct UI2ParallaxRunDetailsSection: View {
                     value: String(format: "%.4f", preview.initialError)
                 )
                 if let alignment = appState.parallaxAlignment {
-                    UI2ParallaxAlignmentDetails(alignment: alignment)
+                    ParallaxAlignmentDetails(alignment: alignment)
                 }
             }
         } else {
@@ -562,7 +562,7 @@ private struct UI2ParallaxRunDetailsSection: View {
 
 /// The alignment half of "Run details", split out so the type-checker sees
 /// two modest bodies rather than one very large one.
-private struct UI2ParallaxAlignmentDetails: View {
+private struct ParallaxAlignmentDetails: View {
     @Environment(AppState.self) private var appState
     let alignment: ParallaxAlignmentResult
 
@@ -588,7 +588,7 @@ private struct UI2ParallaxAlignmentDetails: View {
             "Aligned mismatch",
             value: String(format: "%.4f", alignment.currentError)
         )
-        UI2HistoryPlot(
+        ScientificHistoryPlot(
             title: "Alignment mismatch",
             values: alignment.errorHistory,
             scale: .logarithmic
@@ -618,14 +618,14 @@ private struct UI2ParallaxAlignmentDetails: View {
             Text("Diagnostic fit only; calibration and aligned data are unchanged.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            UI2ParallaxFitDetails()
+            ParallaxFitDetails()
         }
     }
 }
 
 /// The higher-order fit, the correction and the KDE reconstruction — the
 /// rows the old file nested three deep inside the aberration-fit branch.
-private struct UI2ParallaxFitDetails: View {
+private struct ParallaxFitDetails: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -668,11 +668,11 @@ private struct UI2ParallaxFitDetails: View {
             )
             LabeledContent(
                 "KDE output",
-                // Width × height, UI2's one order for a shape.
+                // Width × height, UI's one order for a shape.
                 value: "\(subpixel.croppedBF.width) × \(subpixel.croppedBF.height)"
             )
             if !subpixel.positionCorrectionScores.isEmpty {
-                UI2HistoryPlot(
+                ScientificHistoryPlot(
                     title: "Position correction score",
                     values: subpixel.positionCorrectionScores
                 )
@@ -690,8 +690,8 @@ private struct UI2ParallaxFitDetails: View {
 /// sample, and gaps stay visible where a sample is not finite (or not
 /// positive on a log scale) rather than being interpolated over. The geometry
 /// itself is `Core`'s `ScientificSeriesGeometry`, so what is plotted is
-/// decided outside the view. Its one height comes from `UI2Metrics`.
-private struct UI2HistoryPlot: View {
+/// decided outside the view. Its one height comes from `LayoutPolicy`.
+private struct ScientificHistoryPlot: View {
     let title: String
     let values: [Float]
     var scale: ScientificSeriesScale = .linear
@@ -749,7 +749,7 @@ private struct UI2HistoryPlot: View {
                     selectedIndex = geometry.nearestIndex(toUnitX: x)
                 })
             }
-            .frame(height: UI2Metrics.diagnosticPlotHeight)
+            .frame(height: LayoutPolicy.diagnosticPlotHeight)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
             .accessibilityValue(selectionLabel)

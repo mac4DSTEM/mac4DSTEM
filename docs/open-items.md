@@ -125,29 +125,29 @@ rule violation): the app subtracts each ring's mean where py4DSTEM leaves
 that line commented out. Owner: S16 successor / whoever next touches ACOM
 weighting.
 
-### UI2 review (Fable, 2026-09-04) — labels that can misstate a number
-Independent review of `UI2/`. Nothing found was a wrong computed value; every
+### UI review (Fable, 2026-09-04) — labels that can misstate a number
+Independent review of `UI/`. Nothing found was a wrong computed value; every
 finding is a LABEL on a correct one. **(a) and (c) fixed 2026-09-04**, the rest
 open. (a) *Axis order and the letter q meant different things on one screen* —
 FIXED: the file's own order is `[Ry, Rx, Qy, Qx]`, so the app's `rx`/`qx` ARE
-the columns; UI2 now prints columns × rows everywhere with `Rx × Ry` /
+the columns; UI now prints columns × rows everywhere with `Rx × Ry` /
 `Qx × Qy` labels, and the one place showing py4DSTEM's opposite convention
 (whose `qx` is the rows) says "py4DSTEM" on screen instead of two bare glyphs.
-(c) *Byte sizes in two bases under one label* — FIXED: UI2 had three
+(c) *Byte sizes in two bases under one label* — FIXED: UI had three
 formatters (two hand-rolled 1024-based ones disagreeing on precision, plus
 `ByteCountFormatter(.file)` at 1000), so one cube read 4.00 GB in Info and
 4.29 GB in the export sheet; one helper now, Finder's style. STILL OPEN:
 (b) "Current scan position ▸ Pattern min/max" is not that position's pattern
-in Mean/Max/ROI mode (`UI2Inspector`, `AppState.swift:1302`) — the only ROI-sum
+in Mean/Max/ROI mode (`WorkspaceInspector`, `AppState.swift:1302`) — the only ROI-sum
 flag is in the pane header, one tab away. (d) The A/B/A−B comparison draws
 three panels at 0…1 with no colorbar, range or zero mark on a symmetric RdBu
-difference (`UI2Results.swift:186`). (e) The cursor readout prints a raw Float,
-seven-plus digits, beside a badge that may say Exploratory (`UI2Panes.swift:389`,
+difference (`ResultsWorkspace.swift:186`). (e) The cursor readout prints a raw Float,
+seven-plus digits, beside a badge that may say Exploratory (`ImagePanes.swift:389`,
 `DisplayedProduct.swift:161`). (f) Staleness has two verdicts: the sidebar's
 green check ignores `diskDetectionSettingsAreStale` by design while the
 inspector and pane both flag it, and Strain/ACOM rows stay green on stale
 vectors. Minor: the scale bar can print a physical sampling labelled "px" when
-`pixel.units` is nil (`UI2Panes.swift:713`); disks draw at an invented
+`pixel.units` is nil (`ImagePanes.swift:713`); disks draw at an invented
 `probeRadius ?? 3` with no kernel (`:152`). Owner: (b), (d), (e), (f) unclaimed.
 
 ## Verification debt
@@ -203,7 +203,7 @@ Every acceptance run is numeric-only (`--no-screenshots`); the owner
 driving the app is the only evidence anything "looks right" — say who
 drove it and when. Standing: driving has caught defects with every harness
 green (colormap control missing, readiness row self-contradicting, three
-more in the clean-account run); the 2026-09-03 UI hardening and UI2
+more in the clean-account run); the 2026-09-03 UI hardening and UI
 native shell reset are also not owner-approved. The retired checklist's trap notes are in
 `docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`. Never seen on
 screen: everything from 7c slice 1 on (Results sidebar and inspector, the
@@ -245,7 +245,7 @@ labels, Phase linearity, inspector layout) lives in
 not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
 
-### UI2 polish list from the same review
+### UI polish list from the same review
 Not trust defects; the Mac-ness gap. Ranked by the reviewer: layout is not
 remembered (pane divider resets on every trip to Results, log height is
 per-window `@State`; `@SceneStorage` for both); the Info tab carries seven
@@ -260,12 +260,12 @@ Un-Mac-like: `TabView` renders a bordered Preferences box in a 280 pt inspector
 their own labels with a comma ("Gamma, 1.00", "Radius, 12 px") — no system
 control does that; Unicode glyphs where SF Symbols exist; "Reconstruction
 Ready" as a disabled prominent button; landing-page copy in the empty window.
-Stale copy: "shown in the tools panel" (no such panel in UI2), "Open a 4DSTEM
+Stale copy: "shown in the tools panel" (no such panel in UI), "Open a 4DSTEM
 .h5 file" (the importer takes dm4/mib/emd/raw), and one action called "Save to
 Session", "Save to Results" and "Save Current Result to Session Sidecar" in
-three places. Two contract leaks: `NSPasteboard` in `UI2ContentView` and an
-`NSString` bridge in `UI2PrepareSettings` (the latter deliberate — it keeps a
-tested helper byte-identical). Owner: a UI2 polish session, after the owner's
+three places. Two contract leaks: `NSPasteboard` in `ContentView` and an
+`NSString` bridge in `PrepareSettings` (the latter deliberate — it keeps a
+tested helper byte-identical). Owner: a UI polish session, after the owner's
 next drive.
 
 ### The presentation contract is wrong in two rules (4b, 2026-09-03)
@@ -448,16 +448,16 @@ entry points below the fold; at the 171pt pane-width floor the header
 truncates and a badge wraps one letter per line. A saved sidebar divider
 can restore below its declared 250pt minimum (observed 144pt).
 
-### UI2 launch crash — fixed; the MECHANISM is refuted, not established
+### UI launch crash — fixed; the MECHANISM is refuted, not established
 `--ui2 --demo-fixture` aborted ~6 s in: `NSGenericException` ("more Update
 Constraints passes than there are views"), through
 `SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. Fixed and
-gated: `UI2PaneSplit` replaces `HSplitView`, 3/3 cold launches clean, and the
+gated: `PaneSplit` replaces `HSplitView`, 3/3 cold launches clean, and the
 ban is now an `inventory` grep (mutation-tested both ways, 2026-09-04).
 **Two hypotheses have been refuted, including the one first recorded here.**
 (a) "the panes' explicit `.frame(minWidth:)`" — the crash reproduces without
 them (probe E4a); note that probe removed only `.frame(minWidth:)` in
-`UI2Workspace`/`UI2Results`, never touched `UI2Panes.swift`, and that file's
+`WorkspaceView`/`ResultsWorkspace`, never touched `ImagePanes.swift`, and that file's
 nine `.fixedSize()` calls are stronger minimums, so E4a refutes the declared
 180 pt floor and nothing wider. (b) "`HSplitView` hosts each child in its own
 `NSHostingView` and loops on a content-derived, non-constant minimum" —
@@ -467,7 +467,7 @@ crash (`UI/ContentView.swift:539` as of `8528cd7`; that window was deleted in
 the retirement, so the counterexample is in git history, not the tree).
 The surviving reading is the one MEASURED on 2026-09-03
 (`UI/SplitViewPolicy.swift`): a minimum travelling between a SwiftUI-owned
-split and its hosted content, with UI2 stacking three such splits
+split and its hosted content, with UI stacking three such splits
 (`NavigationSplitView` + `.inspector` + `HSplitView`) where `UI/` has one.
 Nothing measured a minimum at all on 2026-09-04. **Two probes would decide it
 and neither has been run:** `HSplitView` + real panes with `.inspector`
@@ -476,10 +476,10 @@ removed (survives ⇒ nesting, not the panes); and
 minimum suffices). Every negative probe is n=1 against a fault this repo
 already records as intermittent (S17), and no probe asserted the fixture
 actually landed — `alive=1` is also satisfied by a window still on the welcome
-screen. Owner: whoever next touches the UI2 shell. Gate D refuter ran
+screen. Owner: whoever next touches the UI shell. Gate D refuter ran
 2026-09-04 and produced all of the above.
 
-### `UI2PaneSplit` residuals from the refuter
+### `PaneSplit` residuals from the refuter
 (a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a
 child below its minimum; `.frame(width:)` proposes a width and lets the child
 overdraw. A pane header is ~420 pt of `.fixedSize()` controls, and at the
@@ -487,7 +487,7 @@ app's 1080 pt floor with both side columns wide each pane gets ~260–300 pt.
 Mitigated only — the pane now `.clipped()`s so it cannot overprint its
 neighbour; the header still needs to become compressible. Predicted, not seen
 on screen. (b) **The image floor lapses below 2× itself**: the divider
-fraction saturates at 0.5 under ~360 pt of usable width, and UI2 declares no
+fraction saturates at 0.5 under ~360 pt of usable width, and UI declares no
 detail-column minimum at all where `UI/` had `SplitViewPolicy.detailMinimum`
 = 360. Adding one is exactly the change most likely to re-arm the crash while
 the mechanism is unestablished, so it is recorded rather than made.
@@ -499,7 +499,7 @@ Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel
 size, the readiness row turns green — and the entry field disappears with it,
 so a typo is permanent for the session. Mechanism: the readiness rows render
 their action controls only `if !item.status.isReady`
-(`UI2PrepareSettings`, inherited verbatim from
+(`PrepareSettings`, inherited verbatim from
 `UI/CalibrationReadinessView.swift`), and for `.qScale`/`.rScale` that control
 IS the only way to set the value — unlike origin, ellipse and rotation, which
 have a measurement path. **Both UIs have it.** A wrong R scale silently
@@ -509,29 +509,29 @@ value's provenance is manual (or always, for the two kinds with no measured
 path). Owner: unclaimed; small, but it touches calibration presentation and
 wants the owner watching.
 
-### UI2 duplicates four things `UI/` still owns, until `UI/` retires
+### UI duplicates four things `UI/` still owns, until `UI/` retires
 Both UIs compile into the app target, so the migration left four pairs that
-can drift and only one half of each is defended. (a) `UI2ScaleBar.nice125` /
+can drift and only one half of each is defended. (a) `ScaleBar.nice125` /
 `.format` duplicate `ScaleBarView`'s, and `Support/ResultExport.swift:1937,1943`
 still calls the OLD statics to burn the bar into exported PNGs — edit one and
 an exported figure disagrees with the screen. (b)
-`UI2PrepareSettings.scanStepAngstromPerPixel` and `.disclosesExcludedFraction`
+`PrepareSettings.scanStepAngstromPerPixel` and `.disclosesExcludedFraction`
 duplicate the copies `CalibrationReadinessFilenameTests` and
-`CalibrationDisclosureTests` pin, so the shipping UI2 copy is untested; the
-tests get re-pointed, not deleted, when `UI/` goes. (c) `UI2ExportSheet`
+`CalibrationDisclosureTests` pin, so the shipping UI copy is untested; the
+tests get re-pointed, not deleted, when `UI/` goes. (c) `ExportSheet`
 re-renders the readiness rows and their `calibration.*` identifiers, so while
 the sheet is open two instances of each identifier exist — the old app had the
-same collision. (d) `UI2HistoryPlot` duplicates `ScientificHistoryPlot`.
+same collision. (d) `ScientificHistoryPlot` duplicates `ScientificHistoryPlot`.
 Owner: whoever retires `UI/`; nothing here is wrong today.
 
-### UI2 still reaches into `UI/` for five pure types
+### UI still reaches into `UI/` for five pure types
 `ColormapKind`, `Colormaps`, `PeakOverlayGeometry`, `RealSpacePointerPolicy`
 and `ComparisonHoverMapping` are model and policy mis-filed under `UI/`, and
-UI2 uses them deliberately rather than duplicating LUTs and pointer geometry.
-They move to `Core/` (or `App/`) when `UI/` retires; until then `UI2/` cannot
+UI uses them deliberately rather than duplicating LUTs and pointer geometry.
+They move to `Core/` (or `App/`) when `UI/` retires; until then `UI/` cannot
 be built with `UI/` deleted. Owner: whoever retires `UI/`.
 
-### UI2 launch crash — Gate D 2026-09-04, mechanism found, refuter owed
+### UI launch crash — Gate D 2026-09-04, mechanism found, refuter owed
 `--ui2 --demo-fixture` aborted ~6 s after launch: `NSGenericException`
 ("more Update Constraints passes than there are views"), through
 `SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)` →
@@ -546,11 +546,11 @@ hosts each pane in its own `NSHostingView` and reacts to a minimum size that
 is content-derived and non-constant (header badges, pickers and readouts
 appear as a dataset lands), so each change re-enters layout. `UI/` escapes it
 only because AppKit owns its columns and hosts content with
-`sizingOptions = []`. Fix: `UI2PaneSplit` (`UI2Workspace.swift`) — a
+`sizingOptions = []`. Fix: `PaneSplit` (`WorkspaceView.swift`) — a
 `GeometryReader` that hands each pane an explicit width and propagates no
 minimum upward; 3/3 cold launches clean. **Owed: the independent refuter
 (Gate D's second reader) has not run — this session's harness does not spawn
-agents unattended.** Trap: `HSplitView` is also macOS-only, so any UI2 file
+agents unattended.** Trap: `HSplitView` is also macOS-only, so any UI file
 reintroducing it breaks the crash fix and the iOS goal at once.
 
 ## Code hygiene

@@ -7,17 +7,17 @@ import DSTEMSession
 /// The left column: navigation and nothing else. Every control that used to
 /// share this column with the workspace/task lists (v1's `PrepareSidebar`,
 /// `ImageSidebar`, `MapSidebar`, `PhaseSidebar`, `ResultsSidebar`, and the
-/// dataset action menu) has moved into `UI2Inspector` — this view composes
+/// dataset action menu) has moved into `WorkspaceInspector` — this view composes
 /// none of them.
 ///
 /// A source list, not a settings pane: selection, hover, the row capsule and
-/// `AXOutlineRow` all come from the `List` itself, tagged with `UI2Route` so
-/// selection binds straight onto `appState.ui2Route`.
-struct UI2Sidebar: View {
+/// `AXOutlineRow` all come from the `List` itself, tagged with `WorkspaceRoute` so
+/// selection binds straight onto `appState.workspaceRoute`.
+struct WorkspaceSidebar: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        List(selection: appState.ui2Route) {
+        List(selection: appState.workspaceRoute) {
             if !appState.hasDataset {
                 Section("Dataset") {
                     Button {
@@ -35,7 +35,7 @@ struct UI2Sidebar: View {
 
             Section("Workspace") {
                 ForEach(WorkspaceArea.allCases) { area in
-                    workspaceRow(area).tag(UI2Route.workspace(area))
+                    workspaceRow(area).tag(WorkspaceRoute.workspace(area))
                 }
                 if let hint = ProductWorkflow.nextStepHint(
                     for: appState.navigation.workspaceArea,
@@ -70,13 +70,13 @@ struct UI2Sidebar: View {
                                 )
                         }
                         ForEach(group.modes) { mode in
-                            taskRow(mode).tag(UI2Route.task(mode))
+                            taskRow(mode).tag(WorkspaceRoute.task(mode))
                         }
                     }
                 }
             }
 
-            UI2SessionSection()
+            SessionSection()
         }
         .listStyle(.sidebar)
         // One material per column, and it is AppKit's — a `.sidebar` List
@@ -187,7 +187,7 @@ struct UI2Sidebar: View {
 ///
 /// Rows here are List rows, not Form rows, so they stack explicitly —
 /// `LabeledContent` would lay them out on one line and truncate.
-struct UI2SessionSection: View {
+struct SessionSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {

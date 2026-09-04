@@ -1,16 +1,16 @@
 import SwiftUI
 
-/// UI2's whole number budget, in one file.
+/// UI's whole number budget, in one file.
 ///
-/// The rule UI2 is built on: **SwiftUI decides size, we decide bounds.** A
+/// The rule UI is built on: **SwiftUI decides size, we decide bounds.** A
 /// control is as wide as its content, a column is as wide as the user dragged
 /// it, and spare space is margin. The only numbers here are the ones a
 /// container genuinely cannot infer — a split column's range, a scientific
 /// image's floor, and the width of a field holding six digits. Nothing in
-/// UI2 may declare a `.frame(width:)`/`minWidth:` outside these constants;
+/// UI may declare a `.frame(width:)`/`minWidth:` outside these constants;
 /// the science panes are the one exception, and they take their floor from
 /// `imagePaneMinimum` / `resultPaneMinimum` rather than spelling a number.
-enum UI2Metrics {
+enum LayoutPolicy {
     /// The navigation column. Narrow on purpose: it holds five words and a
     /// task list, never a control.
     static let sidebarWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (190, 230, 320)
@@ -76,8 +76,8 @@ enum UI2Metrics {
 }
 
 /// A numeric text field with an optional unit, for the trailing side of a
-/// `LabeledContent` row — the one place a UI2 form control takes a width.
-struct UI2NumericField<Value, Format: ParseableFormatStyle>: View
+/// `LabeledContent` row — the one place a UI form control takes a width.
+struct NumericField<Value, Format: ParseableFormatStyle>: View
 where Format.FormatInput == Value, Format.FormatOutput == String {
     let title: String
     @Binding var value: Value
@@ -104,7 +104,7 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
                 .labelsHidden()
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
-                .frame(width: UI2Metrics.numericFieldWidth)
+                .frame(width: LayoutPolicy.numericFieldWidth)
             if let unit {
                 // The unit is part of the number's meaning: it never
                 // truncates and never wraps.
@@ -117,9 +117,36 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     }
 }
 
-/// Every byte quantity UI2 prints, through one formatter.
+/// How a running operation's numbers are worded, in one place.
 ///
-/// UI2 had three (2026-09-04 review): two hand-rolled 1024-based ones that
+/// The status bar and the inspector's Performance rows both print elapsed,
+/// throughput and ETA (owner, 2026-09-04: the numbers belong beside the
+/// progress bar, not only one tab away). Two copies of "53 s" versus "0:53"
+/// is exactly the drift this session spent its time removing, so both read
+/// from here.
+enum OperationMetricsFormat {
+    /// Seconds as "53 s" below a minute, "2:35" above it.
+    static func duration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return total >= 60
+            ? String(format: "%d:%02d", total / 60, total % 60)
+            : "\(total) s"
+    }
+
+    /// The virtual detector walks patterns; everything else walks scan
+    /// positions. Keyed on the operation's own name, as it always was.
+    static func throughputUnit(for operation: String?) -> String {
+        operation == "Virtual detector" ? "patterns/s" : "positions/s"
+    }
+
+    static func throughput(_ rate: Double, for operation: String?) -> String {
+        String(format: "%.1f %@", rate, throughputUnit(for: operation))
+    }
+}
+
+/// Every byte quantity UI prints, through one formatter.
+///
+/// UI had three (2026-09-04 review): two hand-rolled 1024-based ones that
 /// disagreed on precision, and `ByteCountFormatter(.file)` at 1000. The same
 /// float32 cube read 4.00 GB in the inspector and 4.29 GB in the export sheet
 /// the user opens to decide whether to write it. Apple's own split — `.memory`
@@ -127,13 +154,13 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 /// and wrong here, because these numbers are read against each other across
 /// surfaces. One style, and it is Finder's, because Finder is the reference
 /// the user already has on screen.
-func ui2ByteString(_ bytes: Int) -> String {
+func displayByteString(_ bytes: Int) -> String {
     bytes.formatted(.byteCount(style: .file))
 }
 
 extension View {
     /// A preview image fills its column's width up to the one height cap.
-    func ui2Thumbnail() -> some View {
-        frame(maxWidth: .infinity, maxHeight: UI2Metrics.thumbnailMaximumHeight)
+    func thumbnailCapped() -> some View {
+        frame(maxWidth: .infinity, maxHeight: LayoutPolicy.thumbnailMaximumHeight)
     }
 }

@@ -7,7 +7,7 @@ import DSTEMSession
 /// Prepare's controls, as Sections of the inspector's Settings tab.
 ///
 /// The migration of `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
-/// `UI/CalibrationDetailsView` into UI2. Everything scientific is carried over
+/// `UI/CalibrationDetailsView` into UI. Everything scientific is carried over
 /// unchanged — the same properties, the same provenance vocabulary, the same
 /// formats, the same refusals and the same accessibility identifiers. Two
 /// things are presentation-only and did change:
@@ -19,8 +19,8 @@ import DSTEMSession
 ///   stacks for us, so the hand-built stack is gone and the row reads the same.
 /// - "Compute Mean / Max" no longer waits for the diffraction pane to be the
 ///   active one. The statistics are a property of the cube, not of which pane
-///   has focus, and UI2 has no pane focus model.
-struct UI2PrepareSettings: View {
+///   has focus, and UI has no pane focus model.
+struct PrepareSettings: View {
     @Environment(AppState.self) private var appState
     @State private var showsDiagnostics = false
     @State private var showsEllipse = false
@@ -41,7 +41,7 @@ struct UI2PrepareSettings: View {
         @Bindable var session = appState.calibrationSession
         let calibration = session.calibration
 
-        UI2PatternStatisticsSection()
+        PatternStatisticsSection()
 
         Section("Calibration") {
             Group {
@@ -63,7 +63,7 @@ struct UI2PrepareSettings: View {
             // with the other physical scales, not inside one consumer's
             // workflow. Identifier unchanged on purpose.
             LabeledContent("Voltage") {
-                UI2NumericField(
+                NumericField(
                     "Accelerating voltage (kV)",
                     value: Binding(
                         get: { appState.calibrationSession.acceleratingVoltage ?? 0 },
@@ -161,7 +161,7 @@ struct UI2PrepareSettings: View {
             // Value, unit: one row per radius, because two fields beside one
             // label do not fit the column's minimum width.
             LabeledContent("Fit annulus inner") {
-                UI2NumericField(
+                NumericField(
                     "Inner fit radius",
                     value: $session.ellipseFitInnerRadius,
                     format: .number.precision(.fractionLength(0...2)),
@@ -169,7 +169,7 @@ struct UI2PrepareSettings: View {
                 )
             }
             LabeledContent("Fit annulus outer") {
-                UI2NumericField(
+                NumericField(
                     "Outer fit radius",
                     value: $session.ellipseFitOuterRadius,
                     format: .number.precision(.fractionLength(0...2)),
@@ -417,7 +417,7 @@ struct UI2PrepareSettings: View {
         onUnitChange: @escaping (String) -> Void
     ) -> some View {
         LabeledContent("Manual") {
-            UI2NumericField(
+            NumericField(
                 "Manual scale",
                 value: Binding(get: { value ?? 0 }, set: onChange),
                 format: .number.precision(.fractionLength(0...6))
@@ -442,7 +442,7 @@ struct UI2PrepareSettings: View {
 /// them: the old app had one `ComputePatternStatisticsSection` for the same
 /// reason. Once mean and max exist the pane's own Current | Mean | Max control
 /// is the ONLY switcher (S22 feedback R6, 2026-09-01).
-struct UI2PatternStatisticsSection: View {
+struct PatternStatisticsSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
