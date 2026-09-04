@@ -29,6 +29,15 @@ release night.
 - Gate B: four independent refuters, each building its own fixtures. They
   rejected the first version of the reader fix; what shipped is the reworked
   one, and what they left open is filed rather than quietly closed.
+- **The shipped artefact.** Built from `a9a0437`, Developer ID archive,
+  notarized twice as the procedure requires — the app
+  (`fb693c50-c3c2-49a3-a851-b6da20668cff`, Accepted) and then the disk image
+  built from that stapled app (`f3d05e79-0ede-4912-a52f-b35ad367db2c`,
+  Accepted). Both stapled and validated; `spctl` on the DMG returns `accepted`,
+  `source=Notarized Developer ID`. The app inside the shipped image declares
+  `LSMinimumSystemVersion 14.0` — checked by mounting it, because that is the
+  whole point of this release. `mac4DSTEM-2.5.1.dmg`, 6 157 051 bytes, SHA-256
+  `302822063df22399d0fc4a8810fca6a55e53379df34ec4a37a0e0a738b8031af`.
 
 ## v2.5.0 — 2026-09-04
 
