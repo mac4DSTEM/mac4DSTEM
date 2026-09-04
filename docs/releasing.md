@@ -8,8 +8,9 @@ notary-service credentials. Those secrets do not belong in the repository.
 ## Release contract
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
-- Version/build: `2.5` / `3` — the next release is v2.5.0. v2.0.0 was tagged 2026-09-02 and never built; the tag stays as the pre-consolidation anchor
-- Minimum system: macOS 14
+- Version/build: `2.5` / `3`. **v2.5.0 is parked** (owner, 2026-09-03) until the UI rework is complete; a landed science number cuts v2.6.0 instead (`docs/status.md`). v2.0.0 was tagged 2026-09-02 and never built; the tag stays as the pre-consolidation anchor
+- Minimum system: macOS 26 (`MACOSX_DEPLOYMENT_TARGET = 26.0`; raised from 14 on
+  2026-08-28 — see the clean-account note below, which this line contradicted)
 - Hardened runtime and App Sandbox enabled
 - User-selected read/write access plus app-scoped security bookmarks
 - HDF5, sz, and aec libraries embedded, nested-signed, and free of Homebrew paths
@@ -22,8 +23,10 @@ Run the complete gate from the repository root:
 tools/run-tests.sh all
 ```
 
-This includes XCTest, scientific/source-locked harnesses, the checked-in real-data
-goldens and time budget, and an ad-hoc hardened Release package audit.
+This includes XCTest, the scientific/source-locked harnesses, and an ad-hoc
+hardened Release package audit. The `real-data-acceptance` step needs the
+gitignored `References/training_dataset` acquisitions: without them it cannot
+run, which is why CI does not.
 
 ## Developer ID archive
 

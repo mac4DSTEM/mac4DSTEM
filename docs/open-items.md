@@ -362,11 +362,13 @@ entry (single-window use, the shipped reality, is unaffected). Separately,
 `openRecent`'s failure path removes a dead entry from the list but leaves
 "Reopen" dead-ending in "No recoverable dataset." Both unclaimed.
 
-### Legacy `.icns` tops out at 256px
-On the macOS 14 floor this app declares, Get Info/Quick Look/large Finder
-icon view upscale past 256px (macOS 26+ renders from the `.icon` source
-correctly; the Dock is unaffected). Undecided whether to ship a legacy
-PNG set alongside.
+### Legacy `.icns` tops out at 256px — probably moot
+Written against a macOS 14 floor this app no longer declares: the deployment
+target is 26.0 in every build configuration and in `Package.swift` (corrected
+across the docs 2026-09-04). On macOS 26+ Get Info, Quick Look and large Finder
+icon view render from the `.icon` source correctly and the Dock was never
+affected, so the defect can only appear below the supported floor. Close it
+unless a reason to ship a legacy PNG set appears.
 
 ### S1's crop restore is repaired in code and unverified on screen
 Retitled 2026-09-04: **its three code claims are all false now.**

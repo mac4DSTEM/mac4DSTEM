@@ -6,9 +6,12 @@ The feature plan is [`docs/v3-plan.md`](docs/v3-plan.md); live status is
 intentionally short: completed implementation history belongs in Git, and a passing
 workflow is not automatically a validated scientific claim.
 
-## Phase status (2026-09-02)
+## Phase status (2026-09-04)
 
-**v2.0.0 is tagged** (`CHANGELOG.md`); the DMG is built from the tag. Live
+**v1.0.0 is the only built and shipped release.** v2.0.0 was tagged 2026-09-02
+and **never built**; the tag stays as the pre-consolidation anchor. v2.5.0 is
+parked by owner decision until the UI rework is complete — the notarized
+`mac4DSTEM-2.5.dmg` on disk was superseded, not released. Live
 status is [`docs/status.md`](docs/status.md); the consolidation train is
 [`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md), done 2026-09-03. The three priorities below are
 standing — they are how work is judged, not a task list.
@@ -54,7 +57,7 @@ Earlier whole-codebase reviews are in `docs/archive/` (2026-07-19,
 5. Direction after v2: propagate uncertainty, not just validity — a
    quantitative result should carry an error bar derived from the fit
    residuals that already exist, under the constraints recorded in
-   [`docs/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md) (#29 first; a wrongly
+   [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md) (#29 first; a wrongly
    modelled interval is a precise wrong claim).
 
 ## Priority 2 — product clarity
@@ -82,9 +85,12 @@ Earlier whole-codebase reviews are in `docs/archive/` (2026-07-19,
 
 ## Release-owner actions
 
-- Build, sign, notarize and staple the v2.0.0 DMG from the tag
-  (`tools/release/`, `docs/releasing.md`). Signing and the clean-account
-  launch were done for v1.0.0 (2026-08-14/15); the declared floor is macOS 26.
+- **No release is pending.** v2.0.0 was tagged 2026-09-02 and never built;
+  v2.5.0 is parked by owner decision until the UI rework is complete
+  (`docs/status.md`). When one is cut: build, sign, notarize and staple from
+  the tag (`tools/release/`, `docs/releasing.md`). Signing and the
+  clean-account launch were done for v1.0.0 (2026-08-14/15); the declared
+  floor is macOS 26.
 - Real acquisitions from at least two instruments before promoting MIB/EMPAD
   readers from Preview.
 
@@ -92,7 +98,7 @@ Earlier whole-codebase reviews are in `docs/archive/` (2026-07-19,
 
 **v1 (frozen):** a feature had to close a correctness, reliability,
 interoperability, accessibility, or release gap in
-[`docs/v1-scope.md`](docs/archive/v2/v1-scope.md), or it was post-v1.
+[`docs/archive/v2/v1-scope.md`](docs/archive/v2/v1-scope.md), or it was post-v1.
 
 **v2.5 (2026-09-02/03):** [`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md) — no new
 science until the ownership seams land; every session nets negative markdown.
@@ -100,7 +106,7 @@ science until the ownership seams land; every session nets negative markdown.
 **v3:** [`docs/v3-plan.md`](docs/v3-plan.md) — a dependency-ordered feature sequence,
 draft; the first feature to land bumps the version to v3.0.
 
-**v2 (2026-08-18 → v2.0.0):** [`docs/v2-release.md`](docs/archive/v2/v2-release.md) was a
+**v2 (2026-08-18 → v2.0.0):** [`docs/archive/v2/v2-release.md`](docs/archive/v2/v2-release.md) was a
 release contract again — a claim, five workstreams, a **cut line** naming in
 advance which workstreams are severable (so a schedule problem can never argue
 for thinning a review gate instead), and the standing **refusal rule**:

@@ -140,17 +140,23 @@ Rules while migrating: no new stored state in `AppState`; a feature names its
 owner first; adapters carry an expiry condition; numerical code is split only
 at scientifically meaningful boundaries.
 
-## Presentation contract (owner decision 2026-09-03)
+## Presentation contract (owner decision 2026-09-03) — SUPERSEDED
+
+**Read "The UI contract" below instead.** This section is kept because that
+contract is this one "with AppKit removed and the shape re-cut", and its
+amendments to rules 2 and 5 are still in force and still worth their reasons.
+Nothing here describes the shipping app: rule 1's window was deleted on
+2026-09-04, and `ColumnSplitController` does not exist in the tree.
 
 The app should feel and behave like it shipped with macOS. That is a
 contract, not taste, and it is checkable:
 
-1. **Structure is fixed, content is fluid.** The window is a toolbar over
-   three AppKit columns (`ColumnSplitController`): tools on the left,
-   the workspace, the inspector on the right with information — dataset,
-   product, preview, sidecar, diagnostics. Columns have bounds; nothing
-   inside a column sizes itself. A control is as wide as its content, text
-   wraps, images are capped, spare width is margin.
+1. ~~**Structure is fixed, content is fluid.** The window is a toolbar over
+   three AppKit columns (`ColumnSplitController`)~~ — **dead**; the AppKit
+   shell went in `d5786e2` and the class with it. The part that survives is
+   in rule 6 of the UI contract, and this: columns have bounds, nothing
+   inside a column sizes itself, a control is as wide as its content, images
+   are capped, spare width is margin.
 2. **Navigation is a source list, settings are forms.** *(Amended
    2026-09-04; the original rule said every group of controls is a `Form`,
    which is a category error — a grouped `Form` is System Settings' detail
@@ -187,8 +193,9 @@ contract, not taste, and it is checkable:
 
 The contract covers every surface — the window, its sheets, panels and
 alerts — not only the columns. Deviations are recorded in `open-items.md`
-with the reason. The rework that adopts it is the only UI target until it
-is complete (`status.md`).
+with the reason. *(The rework this section was written for finished on
+2026-09-03 and its window was deleted the next day; see the archive,
+`archive/v2/ui-rework-2026-09-03.md`.)*
 
 ## The UI contract (owner decision, 2026-09-04)
 
@@ -236,7 +243,10 @@ the name the retirement freed.
 
 ## Requirements, build, test
 
-- macOS 14+; Xcode 16 / Xcode 26 (synchronized folders, Metal toolchain).
+- macOS 26+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 26.0` in every
+  build configuration and `.macOS(.v26)` in `Package.swift`; this line said
+  "macOS 14+" until 2026-09-04, contradicting `README.md`. Xcode 26
+  (synchronized folders, Metal toolchain).
   No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.

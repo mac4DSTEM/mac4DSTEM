@@ -5,12 +5,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml"><img src="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml/badge.svg" alt="CI: the unit and scientific gates on every push"></a>
+  <a href="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml"><img src="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml/badge.svg" alt="CI: unit, scientific, inventory and core gates on every push"></a>
 </p>
 
 <p align="center">
-  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM Map workspace showing diffraction fit overlay, strain map, and diagnostics" width="100%">
+  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM v1.0.0 Map workspace: diffraction fit overlay, strain map, and diagnostics" width="100%">
 </p>
+
+<p align="center"><sub>Captured from v1.0.0 (2026-08-06). The window was rebuilt in SwiftUI on 2026-09-04 and the workspaces renamed (Prepare / Imaging / Strain &amp; ACOM / Phase / Results); a current capture is owed.</sub></p>
 
 ---
 
@@ -20,7 +22,7 @@ Four-dimensional scanning transmission electron microscopy records a complete co
 
 mac4DSTEM brings that analysis into an interactive application. Detector geometry, calibration, and reconstruction parameters can be adjusted against a live view of the data, so the effect of a decision is visible as it is made rather than after a batch run completes.
 
-The application is built directly on Apple Silicon's unified memory and GPU. Its algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and validated against it on experimental data, so results are traceable to the established reference implementation in the field.
+The application is built directly on Apple Silicon's unified memory and GPU. Its algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and validated against it, so results are traceable to the established reference implementation in the field. The gated harnesses compare against py4DSTEM on synthetic and analytic fixtures; parity on experimental acquisitions is `tools/training-dataset-campaign`, which needs multi-GB datasets that are not in the repository and is therefore not part of the public gate.
 
 ## Capabilities
 
@@ -37,9 +39,14 @@ Every quantity carries its calibration and provenance through display, export, a
 
 ## Status
 
-**v1.0.0** is the first release. The analysis workflow is complete and covered by an automated gate that anyone with the repository can reproduce: `tools/run-tests.sh all` — **exit 0 over 44 harnesses**, with **393 unit tests passed** (2 skipped, 0 failed), last run 2026-09-01. That aggregate is 42 scientific harnesses — including parity measured against py4DSTEM 0.14.19 on experimental datasets — plus real-data acceptance and packaging. The badge above runs the unit and scientific gates on every push.
+**v1.0.0** is the shipped release; work since then is unreleased. The analysis workflow is covered by gates anyone with the repository can reproduce, and each number below is quoted from the run that produced it rather than from an average:
 
-That verification is numerical: the application is tested against known-correct values, not against its rendered output. What it does **not** cover is what the app draws — that is checked by a human pass ([`docs/visual-acceptance-checklist.md`](docs/visual-acceptance-checklist.md)), which exists because the numerical gate has stayed green through real on-screen defects. The Merlin MIB and EMPAD RAW readers remain preview-grade pending further vendor data. Current limitations are documented in [`docs/open-items.md`](docs/open-items.md).
+- `tools/run-tests.sh unit` — **457 passed, 0 failed, 1 skipped**, exit 0, 2026-09-04.
+- `tools/run-tests.sh all` — last run 2026-09-03: 43 harnesses green — py4DSTEM 0.14.19 parity against the pinned upstream source on synthetic and analytic fixtures, plus `real-data-acceptance` on experimental acquisitions against its own recorded baseline — and **exit 1** at `package-test`, whose literal version assertion the 2.5 bump turned red. The audit now derives the version from the project and passed on that same tree, but **the aggregate has not been re-run since**, so no aggregate exit 0 is claimed here.
+
+The scientific set is 42 harnesses. The badge above covers four jobs on every push: the unit gate, the scientific gate, the repository's own `inventory` review, and `core`, which fails the moment `Core/` reaches upward into the app.
+
+That verification is numerical: the application is tested against known-correct values, not against its rendered output. What it does **not** cover is what the app draws. That is checked by a person driving the app, which exists because the numerical gate has stayed green through real on-screen defects — most recently a status-bar readout that crashed the app on a real dataset while every gate stayed green. The scripted visual checklist that used to sit here was retired on 2026-09-03 and is archived at [`docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`](docs/archive/v2/visual-acceptance-checklist-2026-09-03.md). The Merlin MIB and EMPAD RAW readers remain preview-grade pending further vendor data. Current limitations are documented in [`docs/open-items.md`](docs/open-items.md).
 
 ## Requirements
 
@@ -63,7 +70,7 @@ If mac4DSTEM contributes to published work, please cite both it and py4DSTEM, wh
 
 mac4DSTEM implements algorithms ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and validated against it.
 
-Released under the **GNU General Public License v3.0**. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+Released under the **GNU General Public License v3.0 or later**. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
 ## Contact
 

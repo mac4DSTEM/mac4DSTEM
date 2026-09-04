@@ -36,12 +36,16 @@ stays as the pre-consolidation anchor.)
   provenance from compute to export; calibration, readiness, strain and ACOM
   state have single owners; the Phase workspace lists DPC & iDPC, Parallax and
   Single-slice ptychography as independent tasks with revisitable stages; each
-  workspace has its own sidebar, Results its own inspector, and the inspector
-  follows the pane with the focus ring; the IPF map is confidence-gated with a
-  slider on the colorbar chip. No scientific number changed.
-- **Split view.** The sidebar and inspector are AppKit split-view columns
-  (the component Xcode uses): drag far, collapse past the minimum, reopen
-  at the last width, the inspector gives way first in a narrow window, the
+  workspace has its own sidebar; the IPF map is confidence-gated with a slider
+  on the colorbar chip. No scientific number changed. *(Amended 2026-09-04: the
+  pane-focus routing described here — "the inspector follows the pane with the
+  focus ring" — was deleted with the AppKit window. The rebuilt inspector has
+  two tabs, Settings and Info, and renders both unconditionally.)*
+- **Split view.** ~~The sidebar and inspector are AppKit split-view columns~~
+  *(superseded 2026-09-04: the AppKit shell was deleted in `d5786e2` and the
+  window is a SwiftUI `NavigationSplitView` with the native `.inspector`. The
+  behaviour below described the retired columns.)* drag far, collapse past the
+  minimum, reopen at the last width, the inspector gives way first, the
   sidebar may be up to 600 pt wide. Fixes the constraint-loop crash on a
   sidebar drag (SwiftUI's split view let the divider violate its own
   content minimum).
@@ -50,16 +54,23 @@ stays as the pre-consolidation anchor.)
 
 - `tools/run-tests.sh all` on `e2284f1` (2026-09-03, retained log): unit 467
   passed / 0 failed / 3 skipped, 43 harnesses green including the real-data
-  acceptance; the package audit passed after its literal version assertion
-  was made to read the project (`b026cd7`, docs and tooling only).
-- Built from `df80e8e` (two earlier builds, b026cd7 and 749dbb2, were
+  acceptance, but **exit 1** at `package-test`, whose literal version assertion
+  the 2.5 / 3 bump turned red; the audit was then changed to derive the version
+  from the project and passed on the same tree (`b026cd7`, docs and tooling
+  only). No aggregate exit 0 is claimed for this tree.
+- **Superseded, never released.** Built from `df80e8e` (2026-09-03) and
+  notarized, but the AppKit UI it contained was retired the next day
+  (`d5786e2`); `docs/status.md` records v2.5.0 as parked. Two earlier builds,
+  b026cd7 and 749dbb2, were
   superseded before release: the split-view contract, then the AppKit
   columns): Developer ID archive, app notarization `8fbd3004-199e-46f2-bcb0-0fb5bb9c595f`,
   `mac4DSTEM-2.5.dmg` notarization `cc743aef-165d-4861-b818-9f3eeb1fd669`, stapled, Gatekeeper-accepted;
   DMG SHA-256 `892974e9ae2467a2dfdd5b9c0b23e580dbc9b556c21864ed1c447ef7e9013dd8`. Unit gate on the build tree: 471 passed / 0 failed /
   3 skipped (2026-09-03).
-- On screen: the owner's own driving pass before the tag (the human
-  checklist was retired 2026-09-03; its record is in `docs/archive/v2/`).
+- On screen: the owner's own driving pass (there is no v2.5.0 tag; the human
+  checklist was retired 2026-09-03 and its record is in `docs/archive/v2/`).
+  That pass predates the 2026-09-04 SwiftUI rebuild, so it is **not** on-screen
+  evidence for the current tree.
   Known issues ship listed in `docs/open-items.md`.
 
 ## v1.0.0 — 2026-08-06
@@ -117,8 +128,8 @@ current reproducible figures are in [`README.md`](README.md).)* Parity is
 measured against py4DSTEM 0.14.19 on a four-dataset training set, with records
 in `References/parity_records/`.
 
-A separate on-screen QC playthrough (`tools/ui-qc-playthrough/run.sh`) drives
-the real app through the canonical py4DSTEM pipelines and logs every number it
+A separate on-screen QC playthrough (`tools/ui-qc-playthrough/run.sh`, since
+removed) drove the real app through the canonical py4DSTEM pipelines and logs every number it
 reads from the app's own controls. Its last full run was green on all four
 datasets.
 
@@ -139,7 +150,7 @@ deferred rather than faked, and it is the first entry in
   predicate the Prepare readiness row uses, so the badge, the app's behaviour
   and the parity records cannot disagree. The underlying estimator is *not*
   fixed and is fragile to origin error well below that threshold — recorded in
-  [`docs/post-v1-ideas.md`](docs/post-v1-ideas.md) as a deliberate scope
+  [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md) as a deliberate scope
   decision, not an oversight.
 - **The Result colormap was unreachable from the Results workspace**, the one
   screen built for looking at results.
@@ -157,7 +168,7 @@ remain release-owner actions.
 ### Deliberately out of scope
 
 Cropping and partial/binned loading, multi-slice ptychography, and a WS₂ crystal
-model. See [`docs/post-v1-ideas.md`](docs/post-v1-ideas.md).
+model. See [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md).
 
 ---
 

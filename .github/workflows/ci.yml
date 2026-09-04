@@ -1,4 +1,4 @@
-# CI — the aggregate claim, made mechanical (v2 S21, docs/v2-release.md §8).
+# CI — the aggregate claim, made mechanical (v2 S21, docs/archive/v2/v2-release.md §8).
 #
 # WHAT RUNS on every push and pull request: the two Track A gates a public
 # checkout can reproduce —
@@ -13,7 +13,7 @@
 #     numerical stack pinned by tools/lib/py4dstem-ci-constraints.txt.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
-# missing (docs/v2-release.md §3):
+# missing (docs/archive/v2/v2-release.md §3):
 #   * `real-data-acceptance` — needs gitignored multi-GB acquisitions that
 #     exist only on the release owner's machines.
 #   * `package-test` (the rest of `run-tests.sh all`) — outside the
@@ -26,8 +26,10 @@
 #   * `tools/ui-smoke-test` — drives the app on screen via AppleScript and
 #     needs an Accessibility (TCC) grant no hosted runner can give.
 #   * `run-tests.sh benchmark` — machine-specific numbers, not pass/fail.
-#   * Track B (docs/visual-acceptance-checklist.md) — a person driving the
-#     app; no runner can stand in for it.
+#   * On-screen verification — the owner drives the app and reports bugs
+#     through /diagnose (CLAUDE.md). No runner can stand in for it; the
+#     scripted checklist this line used to name was retired 2026-09-03 and is
+#     archived at docs/archive/v2/visual-acceptance-checklist-2026-09-03.md.
 #
 # ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
 # on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
