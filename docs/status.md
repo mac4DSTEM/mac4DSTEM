@@ -68,45 +68,69 @@ drawing the geometry they apply, from `DetectorPreset.radii` itself.
 | Xcode scratch build | 0 Swift warnings — UI2 scheme-argument tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
-## Handoff (rewritten 2026-09-03, unattended session)
+## Handoff (rewritten 2026-09-04, after the UI retirement)
 
-- **Next: the owner's drive of UI2** (table above), which is now the whole
-  app and not a slice. Nothing in it has been seen on screen by anyone —
-  the assistant built it and gated it, and did not drive it. Every surface
-  since step 1 is likewise unseen by the owner. Bugs found in the drive enter through `/diagnose`. The owner's direction
-  (2026-09-03): a complete rework of every surface to Apple's standards —
-  the app should look and behave as if it shipped with macOS — and nothing
-  about releases or tags is considered until it is right. Contract in
-  `architecture.md` "Presentation contract"; findings in `open-items.md`
-  "The UI rework". The pattern: **navigation is a `List(selection:)` with
-  `.listStyle(.sidebar)`; a grouped `Form` is for controls only** (4b —
-  rule 2 as written produced zero `List`s in the whole app and no way to
-  draw a selection), `LabeledContent`, `NumericField`, labelled `Slider`
-  rows, no frames outside `FormPolicy`/`WindowPolicy`.
-- **Build, launch, capture, look** — the loop 4b used and the one the
-  earlier steps lacked: `open -n <Debug app> --args --demo-fixture`,
-  `screencapture -x -o -l <window id>` (per-window needs no consent;
-  full-screen raises the picker), `tools/ui-drive/` for synthetic clicks
-  and drags. Every 4b defect was found this way with the suite green, and
-  none of them was visible to a hosted-layout test: those walk `NSControl`
-  subviews, and SwiftUI `Text`, images and custom views are not controls.
-  A gate that cannot see text cannot hold a rule about truncation.
-- **After the rework.** Four lanes (`open-items.md` header): patches for
-  bugs the owner reports (through `/diagnose`) and the known, scoped items;
-  the science lane one item at a time — **the origin-fit guard leads**
-  (1 px unflagged, radius provenance; Gate B; `open-items.md` "Origin-fit
-  gate" (a)), then the ACOM bundle's origin-provenance snapshot, the
-  selected-area mask fixture, bullseye disk detection (Gate D), CIF id
-  collision, Q-calibration scale, ACOM coverage; a landed number change
-  cuts v2.6.0. Features come from `docs/v3-plan.md`, pre-registered first.
+The UI rework is **finished**: `UI/` is the SwiftUI rebuild, the AppKit window
+is deleted, the owner drove it twice and its findings are fixed. Nothing about
+the UI is owed except the residuals below. Pushed through `d5786e2`.
+
+**Next, in this order.** Each is a session; `/pickup` takes the first.
+
+1. **Close Gate D on the launch crash — two probes, ~30 minutes.** The fix
+   (`UI2PaneSplit`) is shipped and gated, but its MECHANISM is refuted, not
+   established (`open-items.md`, "UI2 launch crash"), and a shipped fix
+   standing on an unknown is the one thing in the tree that could bite
+   silently. The two probes are named there: `HSplitView` + real panes with
+   `.inspector` removed, and `HSplitView { Color.clear.frame(minWidth: 300); … }`.
+   Run each three times, not once — every negative in the original table is
+   n=1 against a fault this repo records as intermittent (S17). Gate: the
+   probes themselves; then rewrite the entry to what they show.
+2. **Manual Q and R pixel scale cannot be corrected once entered**
+   (`open-items.md`). Owner-hit, mechanism known, small: the readiness row
+   goes green and takes its own entry field with it, and those two kinds have
+   no measurement path. A wrong R scale silently rescales every real-space
+   axis, scale bar and export, so it is a trust defect. Gate: unit, plus the
+   owner re-entering a value on screen.
+3. **The four open UI-review findings** (`open-items.md`, "UI review
+   (Fable)"): the pattern min/max rows are not the current position's pattern
+   in Mean/Max/ROI mode; the A/B/A−B comparison has no scale at all; the
+   cursor prints a raw Float beside an Exploratory badge; staleness has two
+   verdicts across three surfaces. One session, one commit each if they
+   diverge.
+4. **`UI2PaneSplit` residuals** (`open-items.md`): the pane header is ~420 pt
+   of `.fixedSize()` controls and a pane can be narrower — it clips now
+   instead of overprinting, but the header still needs to become
+   compressible; and the image floor lapses below 2× itself. Both predicted,
+   neither seen on screen.
+5. **Then the science lane, one item at a time, as it always was** — the
+   **origin-fit guard leads** (1 px unflagged, radius provenance; Gate B;
+   `open-items.md` "Origin-fit gate" (a)), then the ACOM bundle's
+   origin-provenance snapshot, the selected-area mask fixture, bullseye disk
+   detection (Gate D), the CIF id collision, Q-calibration scale, ACOM
+   coverage. A landed number change cuts v2.6.0. Features come from
+   `docs/v3-plan.md`, pre-registered first.
+
+**Build, launch, capture, look** — the loop that found every defect this
+repo's gates could not see, including a crash the whole suite was green
+through: `open -n <Debug app> --args --demo-fixture` (no flag selects a UI any
+more), `screencapture -x -o -l <window id>` (per-window needs no consent;
+full-screen raises the picker), `tools/ui-drive/` for synthetic clicks. Two
+limits worth knowing before you plan around them: the app's defaults live in
+its sandbox container and TCC blocks writing them, so you cannot preset a
+remembered tab; and synthetic keystrokes go nowhere unless the window is
+active.
 
 ## Owed to the owner
 
-- Drive the UI rework when it is complete (step 5). Release and tag are
-  parked until then.
-- Amend `architecture.md`'s presentation contract: rules 2 and 5 are wrong
-  as written (`open-items.md`). No further pass should run against them.
-- Decide where the workspace's controls live. 4b left navigation and
-  controls sharing the left column, which is the source of both the 250 pt
-  wall and the 600 pt sprawl; Xcode, Pages and Keynote put controls right.
-- The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format) — neither blocks 7c.
+- **Drive the retired-UI build.** The retirement itself is gated and launched
+  once with no flag, but the four workspaces beyond Prepare and
+  Strain & ACOM have not been looked at since it landed.
+- **Decide on the `UI2` type-name prefix.** The folder is `UI/`; the types
+  inside still read `UI2ContentView`, `UI2Metrics`. Kept deliberately —
+  dropping it gives `Metrics` and `Route`, too generic to grep — but it is a
+  standing oddity, not a decision anyone has ratified.
+- **`FocusedPane` and `InspectorContent` are dead** (`App/WorkspaceNavigation.swift`)
+  with a live test: the retired inspector was their only reader. Removing
+  them is a genuine responsibility off `AppState`'s seam; left out of the
+  retirement to keep that change one thing.
+- The §10g decisions (step 5 residuals) and plan §8 (sidecar wire format).
