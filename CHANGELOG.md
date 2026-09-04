@@ -86,6 +86,14 @@ stays as the pre-consolidation anchor.)
   `ActivityLog` took it off `AppState`; the sidecar contents were checked in
   their new home in the left sidebar. Two things remain unverified on screen —
   a cropped save → quit → reopen, and every divider, which no gate can measure.
+- **The shipped artefact.** Built from `3c0a3eb`, Developer ID archive, then
+  notarized TWICE as the procedure requires — the app
+  (`af7cc0f4-d354-4c7a-bcb9-d245deda5ea1`, Accepted) and then the disk image
+  built from that stapled app (`f4aa1d12-91a4-412d-8ad9-979289aede6c`,
+  Accepted), because Gatekeeper assesses the thing the user opens. Both stapled
+  and validated; `spctl` on the DMG returns `accepted`,
+  `source=Notarized Developer ID`. `mac4DSTEM-2.5.dmg`, 6 074 038 bytes,
+  SHA-256 `d55821a11dde44b6fc2d1337f43b5eb3ec2342fe6374d0dcc3f72d13ee234c75`.
 - Superseded and never released: builds from `df80e8e`, `b026cd7` and `749dbb2`
   (2026-09-03). The first was notarized but carried the AppKit UI retired the
   next day in `d5786e2`. Their provenance is in `docs/archive/v2/`.
