@@ -183,6 +183,51 @@ owed science items (`open-items.md`) carry no release number — each is a
 Gate D or Gate B session of unknown size, and the changelog names the
 number it changes when one lands.
 
+**2026-09-04 (owner's first drive of UI2) — the toolbar's trailing edge owns
+the run action, and the sidebar's foot owns session trust.** Two calls, both
+from driving it. (a) The primary action moves from `.principal` to
+`.primaryAction`: centred, the busy state had no room and truncated "Cancel"
+to "C…", and its progress bar was a second copy of the status bar's. Trailing,
+and busy means one plain Cancel — the bottom bar keeps progress. (b) The empty
+lower sidebar takes a Dataset and a Session section, and the three
+session-vs-data disagreements (sidecar unreadable / describes a region this
+file lacks / computed on a different view) are promoted out of the Info tab
+into permanent view, because "an old sidecar loaded with a cube" is exactly
+the case nobody thinks to go looking for. Detail stays in Info; the wording is
+shared so the two cannot drift. Also from that drive: shape and direction
+pickers are segmented pictograms (the 283 pt reason for menus died with the
+shared column), the pane the Imaging Direction drives carries an accent
+outline, Results' real-space pane drops the scan marker (it has no diffraction
+pane to drive), keeping a result is offered where the result is made, and the
+toolbar's bare folder icon became the dataset menu the migration had dropped.
+
+**2026-09-04 — UI2's shape: navigation left, science centre, controls right.**
+The question `status.md` had been carrying as owed ("decide where the
+workspace's controls live") is answered for UI2: the left column is
+navigation and nothing else, and every control the selected workspace owns
+moves to the inspector's **Settings** tab, beside an **Info** tab holding the
+dataset and product descriptors. That is Xcode's, Pages' and Keynote's shape;
+it retires both failure modes of the shared column at once (the 250 pt wall
+and the 600 pt sprawl), and it ports to iOS, where an inspector becomes a
+sheet. Consequences taken deliberately: the workspace "hero header" is gone —
+the window title carries the task and the toolbar carries the one action that
+runs it; readiness has exactly one home, the Settings tab's first section, so
+`TaskPrerequisiteChecklist` is not carried over; and the pane focus model
+(`FocusedPane`, `inspectorContent`) is retired, with `AppState.activePane`
+surviving only as the ROI direction's storage behind an explicit Direction
+picker. The full contract is `architecture.md` "The UI2 contract".
+
+**2026-09-04 — UI2 may not use `HSplitView`, and the presentation contract's
+rules 2 and 5 are amended.** `HSplitView` nested in a `NavigationSplitView`
+detail aborts the app (Gate D, `open-items.md`): it hosts each child in its
+own `NSHostingView` and re-enters layout on every change of a
+content-derived minimum. `UI2PaneSplit` replaces it. Separately, the two
+presentation-contract rules the 4b pass found wrong are now amended in
+`architecture.md` rather than only reported: navigation is a source list and
+only controls are a `Form` (rule 2 as written produced no `List` anywhere in
+the app), and overflow — not wrapping — is the finding for a fixed-width
+column (rule 5 was backwards, and its gate cannot see text at all).
+
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
 outside their own state; a session that ran them would need that surface

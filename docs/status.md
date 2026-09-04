@@ -39,8 +39,8 @@ Numbers are quoted only from retained, dated runs. The per-increment log of
 | 2e Results (`ResultsSidebar`); `SidebarTextWidth.swift` deleted | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | Remove is its own row: beside A/B it truncated at 250 pt |
 | 3 Both inspectors as grouped Forms, one section per block, thumbnails through `thumbnailCapped()` | done 2026-09-03 (Sonnet agent, gated in the main tree), unverified on screen | `testEveryInspectorSurvivesItsWholeColumnRange` (260/320/600 pt, both inspectors) in `ColumnMaterialTests`; the sidecar's Ignore/Change buttons are two rows |
 | 4 The rest of the window: pane badges are words in their colour (the owner's wrapped "Relative" capsule), the welcome workspace on `GroupBox`es with no gradient or wash, the configurator's choices and the export sheet as grouped Forms with sheet bands, the colorbar chip popover as a Form; `WindowPolicy` holds the window's numbers; the rule-4 grep joins `inventory` | done 2026-09-03, unverified on screen (the welcome and the loaded window reviewed from captures of the real app) | alerts were already system alerts; `TaskPrerequisiteChecklist` untouched (its line limits are the #16 fix) |
-| UI2 side branch | scaffolded 2026-09-03, unverified on screen | `UI2ContentView` is a SwiftUI-only shell selected by `--ui2`; it reuses `AppState`, current workflow sidebars, panes, inspectors, importer/configurator/export sheets, and keeps the current `ContentView` as the default. Intended to replace `UI/` surface by surface, not in one cut |
 | 4b Hardening on the running app (the assistant built, launched and captured each change) | done 2026-09-03, **seen on screen by the assistant, not by the owner** | Five defects the gates could not see, below; captions shortened across the configurator, export sheet and ACOM; the duplicate "Detect All Disks" sidebar button deleted (the workspace action already owns it) |
+| UI2 — every surface migrated | done 2026-09-04; **owner-driven once, and its findings fixed** | `UI2/` is the whole app in SwiftUI: 20 files, zero references to any view under `UI/`. Contract in `architecture.md` "The UI2 contract"; the shape and the two drive decisions in `decisions.md` (2026-09-04). Launch crash found by driving it and fixed under Gate D (`open-items.md`): `HSplitView` is gone, `UI2PaneSplit` replaces it. The owner's drive then produced eight findings, all fixed in the same session: run action moved to the toolbar's trailing edge with a Cancel-only busy state (the centred one truncated "Cancel" and doubled the status bar's progress); segmented pictogram pickers for direction and both shapes; an accent outline on the pane Imaging's Direction drives; Results' pane no longer offers a scan marker it cannot drive; "Save to Results" offered where the result is produced; the bare folder toolbar icon became the dataset menu the migration dropped; Dataset + Session sections fill the sidebar's foot, promoting the three sidecar-vs-data warnings out of Info. `UI/` is untouched and still the default; `--ui2` selects the rebuild |
 | 5 The owner's full drive | owner | — |
 
 ### What 4b changed, and why the gates were green through all of it
@@ -61,18 +61,19 @@ drawing the geometry they apply, from `DetectorPreset.radii` itself.
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | 476 passed / 0 failed / 3 skipped, exit 0 — 2026-09-03, step 4b tree (log retained); skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent. `ColumnMaterialTests.testTheSideColumnsLeaveTheirMaterialVisible` went red on the source list and is the one gate 4b amended. Two runs before it exited 69 on the 8 GB floor with `free-space.sh` reporting nothing to clear — the debris was this session's own `Logs/Test` and `ModuleCache.noindex`, both outside the script's roots (`open-items.md`) |
+| `run-tests.sh unit` | **476 passed / 0 failed / 3 skipped, exit 0 — 2026-09-04, UI2 migration tree (full log retained, exit code read directly and not through a `tail` pipe — two earlier runs this session reported `tail`'s status and were withdrawn). Re-run green on the drive-fix tree, after an exit-69 preflight refusal cleared by deleting `ModuleCache.noindex` and 23 stale `DerivedData` husks — 415 MB, the debris `free-space.sh`'s roots still cannot see.** Previously: 476 / 0 / 3, exit 0 — 2026-09-03, step 4b tree (log retained); skips: unmounted-volume probe, S17 quarantine, `TB1StallProbeTests` fixture absent. `ColumnMaterialTests.testTheSideColumnsLeaveTheirMaterialVisible` went red on the source list and is the one gate 4b amended. Two runs before it exited 69 on the 8 GB floor with `free-space.sh` reporting nothing to clear — the debris was this session's own `Logs/Test` and `ModuleCache.noindex`, both outside the script's roots (`open-items.md`) |
 | `run-tests.sh scientific` | inside `all` above, 2026-09-03 |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-03, UI2 scaffold tree (live markdown 3 511, cold-start set 716; `UI2ContentView.swift` compiled beside current UI) |
-| Xcode scratch build | 0 Swift warnings — UI2 scaffold tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
+| Xcode scratch build | 0 Swift warnings — UI2 scheme-argument tree, 2026-09-03. `launch_mac_app --ui2 --demo-fixture` was attempted after `get_mac_app_path`, but the helper returned a stale/missing app path |
 | `run-tests.sh all` | 2026-09-03, e2284f1 tree: unit 467/0/3 and 43 harnesses green including `real-data-acceptance`; exit 1 at `package-test`, whose literal `2.0` / `1` version assertion the 2.5 / 3 bump turned red — the audit now derives both from the project and passed on the same tree (log retained). Trap: the background task's exit code was 0; the gate's own EXIT line said 1 |
 
 ## Handoff (rewritten 2026-09-03, unattended session)
 
-- **Next: the owner's drive, step 5** (table above). Every surface has
-  been reworked and gated; nothing since step 1 has been seen on screen
-  by the owner. Bugs found in the drive enter through `/diagnose`. The owner's direction
+- **Next: the owner's drive of UI2** (table above), which is now the whole
+  app and not a slice. Nothing in it has been seen on screen by anyone —
+  the assistant built it and gated it, and did not drive it. Every surface
+  since step 1 is likewise unseen by the owner. Bugs found in the drive enter through `/diagnose`. The owner's direction
   (2026-09-03): a complete rework of every surface to Apple's standards —
   the app should look and behave as if it shipped with macOS — and nothing
   about releases or tags is considered until it is right. Contract in

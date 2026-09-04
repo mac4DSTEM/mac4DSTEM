@@ -1,74 +1,97 @@
 import SwiftUI
+import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
 #endif
-import UniformTypeIdentifiers
 
-/// SwiftUI-native replacement shell, compiled beside the current UI and enabled
-/// with `--ui2`. It reuses the existing product/session views while resetting
-/// the window structure around system SwiftUI containers.
+/// The UI2 window: a SwiftUI-only shell, selected with `--ui2`.
+///
+/// **The frozen rules.** `NavigationSplitView` and the native `.inspector`
+/// are the whole window structure — no `NSSplitViewController`, no hosted
+/// AppKit shell, no custom pane chrome, no pane focus ring, and no call into
+/// a view under `UI/`. UI2 reads and drives the shared `App/`, `Session/`
+/// and `Core/` logic, and nothing else.
+///
+/// **The shape** (owner decision, 2026-09-04) is Xcode's, Pages' and
+/// Keynote's, not the old window's:
+///
+/// - **Left** is navigation and nothing else: five workspaces and their
+///   tasks, in a source list narrow enough to stay narrow.
+/// - **Centre** is the science: the panes, with the status of the running
+///   operation and the output log along the bottom edge.
+/// - **Right** is the inspector, in two tabs — **Settings**, every control
+///   the selected workspace owns, and **Info**, what the dataset and the
+///   displayed product actually are.
+///
+/// That split is what retires the old column's two failure modes at once:
+/// controls no longer compete with navigation for one 250 pt column, and the
+/// workspace header that repeated the sidebar's own title is gone — the
+/// window title says where you are and the toolbar holds the one action that
+/// runs the task.
 struct UI2ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
-    @State private var showPreprocessingExport = false
-    @State private var logHeight: CGFloat = 170
+    @State private var showExportSheet = false
+    @State private var openedInspectorOnce = false
 
-    private var h5Types: [UTType] {
-        [
-            UTType(filenameExtension: "h5"),
-            UTType(filenameExtension: "hdf5"),
-            UTType(filenameExtension: "emd"),
-            UTType(filenameExtension: "dm4"),
-            UTType(filenameExtension: "dm3"),
-            UTType(filenameExtension: "mib"),
-            UTType(filenameExtension: "raw"),
-            UTType(filenameExtension: "xml")
-        ].compactMap { $0 }
+    private var datasetTypes: [UTType] {
+        ["h5", "hdf5", "emd", "dm4", "dm3", "mib", "raw", "xml"]
+            .compactMap { UTType(filenameExtension: $0) }
     }
 
-    private var splitVisibility: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: { appState.navigation.showToolsPane ? .all : .detailOnly },
-            set: { appState.navigation.showToolsPane = $0 != .detailOnly }
-        )
-    }
+    private var route: UI2Route { UI2Route.current(appState.navigation) }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: splitVisibility) {
-            UI2Sidebar(showPreprocessingExport: $showPreprocessingExport)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 360)
+        @Bindable var navigation = appState.navigation
+
+        NavigationSplitView(columnVisibility: sidebarVisibility) {
+            UI2Sidebar()
+                .navigationSplitViewColumnWidth(
+                    min: UI2Metrics.sidebarWidth.min,
+                    ideal: UI2Metrics.sidebarWidth.ideal,
+                    max: UI2Metrics.sidebarWidth.max
+                )
         } detail: {
-            workspace
-                .inspector(isPresented: inspectorPresented) {
-                    WorkspaceInspector()
-                        .inspectorColumnWidth(min: 260, ideal: 320, max: 520)
+            UI2Workspace()
+                .inspector(isPresented: $navigation.showInspectorPane) {
+                    UI2Inspector()
+                        .inspectorColumnWidth(
+                            min: UI2Metrics.inspectorWidth.min,
+                            ideal: UI2Metrics.inspectorWidth.ideal,
+                            max: UI2Metrics.inspectorWidth.max
+                        )
                 }
         }
-        .navigationSplitViewStyle(.balanced)
-        .navigationTitle("mac4DSTEM")
+        .navigationTitle(appState.hasDataset ? route.title : "mac4DSTEM")
+        .navigationSubtitle(appState.descriptor?.fileName ?? "")
         .toolbar { toolbarContent }
+        .task {
+            // The inspector holds the workspace's controls in UI2, so it
+            // opens with the window. The flag is `WorkspaceNavigation`'s, so
+            // the Show/Hide Inspector menu item keeps working.
+            guard !openedInspectorOnce else { return }
+            openedInspectorOnce = true
+            appState.navigation.showInspectorPane = true
+        }
         .onChange(of: appState.virtualShape) { appState.commitApertureChange() }
         .onChange(of: appState.realSpaceShape) { appState.updateRealSpaceRegion() }
         .onChange(of: appState.realSpaceRadius) { appState.updateRealSpaceRegion() }
         .onChange(of: appState.openDatasetRequest) { showImporter = true }
         .onChange(of: appState.preprocessingExportRequest) {
-            if appState.hasDataset { showPreprocessingExport = true }
-        }
-        .sheet(isPresented: $showPreprocessingExport) {
-            if let descriptor = appState.descriptor {
-                PreprocessingExportSheet(descriptor: descriptor)
-                    .environment(appState)
-            }
+            if appState.hasDataset { showExportSheet = true }
         }
         .fileImporter(
             isPresented: $showImporter,
-            allowedContentTypes: h5Types,
+            allowedContentTypes: datasetTypes,
             allowsMultipleSelection: false
         ) { result in
             switch result {
             case .success(let urls):
                 if let url = urls.first {
+                    // One importer, two destinations: "Open Dataset…" loads
+                    // straight through, and only "Open with Options…" stops
+                    // to ask.
                     if appState.configureOnOpen {
                         appState.openFileForConfiguration(url: url)
                     } else {
@@ -84,8 +107,14 @@ struct UI2ContentView: View {
             get: { appState.pendingLoad },
             set: { if $0 == nil { appState.discardPendingLoad() } }
         )) { pending in
-            LoadConfiguratorView(pending: pending)
+            UI2LoadConfigurator(pending: pending)
                 .environment(appState)
+        }
+        .sheet(isPresented: $showExportSheet) {
+            if let descriptor = appState.descriptor {
+                UI2ExportSheet(descriptor: descriptor)
+                    .environment(appState)
+            }
         }
         .alert(
             "Something went wrong",
@@ -94,6 +123,7 @@ struct UI2ContentView: View {
                 set: { if !$0 { appState.errorMessage = nil } }
             )
         ) {
+            Button("Copy Details") { copyToPasteboard(appState.errorMessage ?? "") }
             Button("Open Another…") {
                 appState.errorMessage = nil
                 appState.requestOpenDataset()
@@ -104,355 +134,74 @@ struct UI2ContentView: View {
         }
     }
 
-    private var inspectorPresented: Binding<Bool> {
+    /// The sidebar's visibility rides on the same flag as the Show/Hide Tools
+    /// menu item, so the two can never disagree.
+    private var sidebarVisibility: Binding<NavigationSplitViewVisibility> {
         Binding(
-            get: { appState.navigation.showInspectorPane },
-            set: { appState.navigation.showInspectorPane = $0 }
+            get: { appState.navigation.showToolsPane ? .all : .detailOnly },
+            set: { appState.navigation.showToolsPane = ($0 != .detailOnly) }
         )
     }
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigation) {
-            Button {
-                withAnimation { appState.navigation.showToolsPane.toggle() }
-            } label: {
-                Label(
-                    appState.navigation.showToolsPane ? "Hide Tools" : "Show Tools",
-                    systemImage: "sidebar.leading"
-                )
-            }
-            .help(appState.navigation.showToolsPane ? "Hide the tools sidebar" : "Show the tools sidebar")
-        }
-
+        // `NavigationSplitView` contributes the sidebar toggle. Everything
+        // UI2 adds sits trailing, where macOS puts affirmative actions: the
+        // one action that runs the task, the way to keep its result, the
+        // dataset's own menu, and the inspector's toggle. The action was
+        // centred (`.principal`) until 2026-09-04; the owner's drive found
+        // that the centre slot is too narrow for the busy state, which
+        // truncated "Cancel" to "C…".
         ToolbarSpacer(.flexible)
 
-        ToolbarItemGroup(placement: .primaryAction) {
-            if appState.hasDataset && appState.navigation.workspaceArea != .results {
-                Button {
-                    withAnimation { appState.navigation.showLogPane.toggle() }
-                } label: {
-                    Label(
-                        appState.navigation.showLogPane ? "Hide Output" : "Show Output",
-                        systemImage: "rectangle.bottomthird.inset.filled"
-                    )
-                }
-                .help(appState.navigation.showLogPane ? "Hide the output log" : "Show the output log")
-            }
+        ToolbarItem(placement: .primaryAction) {
+            UI2PrimaryActionButton()
+        }
 
+        ToolbarItem(placement: .primaryAction) {
+            UI2SaveResultButton()
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button("Open Dataset…") { appState.requestOpenDataset() }
+                Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
+                if appState.hasDataset {
+                    Divider()
+                    Button("Preprocess & Export…") { appState.requestPreprocessingExport() }
+                        .disabled(appState.isBusy)
+                    Button("Save Calibration") { appState.saveCalibrationToSessionSidecar() }
+                        .disabled(appState.isBusy)
+                    Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
+                        .disabled(appState.displayedPattern == nil)
+                }
+            } label: {
+                Label("Dataset", systemImage: "folder")
+            }
+            .help("Open a dataset, or act on the one that is open")
+            .accessibilityIdentifier("toolbar.datasetMenu")
+        }
+
+        ToolbarItem(placement: .primaryAction) {
             Button {
-                withAnimation { appState.navigation.showInspectorPane.toggle() }
+                appState.navigation.showInspectorPane.toggle()
             } label: {
                 Label(
                     appState.navigation.showInspectorPane ? "Hide Inspector" : "Show Inspector",
                     systemImage: "sidebar.trailing"
                 )
             }
-            .help(appState.navigation.showInspectorPane ? "Hide the inspector" : "Show the inspector")
+            .help(appState.navigation.showInspectorPane
+                  ? "Hide the inspector" : "Show the inspector")
         }
     }
 
-    private var workspace: some View {
-        VStack(spacing: 0) {
-            if appState.hasDataset && !appState.isLoadingDataset {
-                ProductWorkspaceHeader()
-            }
-
-            Group {
-                if appState.hasDataset && !appState.isLoadingDataset && appState.navigation.workspaceArea == .results {
-                    ResultsWorkspace()
-                } else if appState.hasDataset && !appState.isLoadingDataset {
-                    dataWorkspace
-                } else {
-                    WelcomeWorkspace()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if appState.navigation.showLogPane && appState.hasDataset && !appState.isLoadingDataset {
-                UI2OutputLog(height: $logHeight)
-            }
-
-            Divider()
-            StatusFooterView()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var dataWorkspace: some View {
-        HSplitView {
-            ui2Pane(active: appState.activePane == .diffraction) {
-                DiffractionView()
-            }
-            .frame(minWidth: 220)
-            .onTapGesture {
-                appState.activePane = .diffraction
-                claimPaneFocus()
-            }
-
-            ui2Pane(active: appState.activePane == .realSpace) {
-                StemImageView()
-            }
-            .frame(minWidth: 220)
-            .onTapGesture {
-                appState.activePane = .realSpace
-                claimPaneFocus()
-            }
-        }
-        .focusable()
-        .focusEffectDisabled()
-        .onKeyPress(phases: .down) { handleArrowKey($0) }
-        .onChange(of: appState.navigation.workspaceArea, initial: true) { claimPaneFocus() }
-        .onChange(of: appState.navigation.analysisMode) { claimPaneFocus() }
-    }
-
-    private func ui2Pane<Content: View>(
-        active: Bool,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        content()
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(active ? Color.accentColor : Color.clear)
-                    .frame(height: 2)
-                    .allowsHitTesting(false)
-            }
-            .contentShape(Rectangle())
-    }
-
-    private func claimPaneFocus() {
-        appState.navigation.focusedPane = FocusedPane.livePane(
-            appState.activePane,
-            in: appState.navigation.workspaceArea,
-            task: appState.navigation.analysisMode
-        )
-    }
-
-    private func handleArrowKey(_ press: KeyPress) -> KeyPress.Result {
-        guard let descriptor = appState.descriptor else { return .ignored }
-        let step = press.modifiers.contains(.shift) ? 10 : 1
-        var x = appState.selectedScan.x
-        var y = appState.selectedScan.y
-
-        switch press.key {
-        case .leftArrow: x -= step
-        case .rightArrow: x += step
-        case .upArrow: y -= step
-        case .downArrow: y += step
-        default: return .ignored
-        }
-
-        appState.selectScan(
-            x: min(max(0, x), descriptor.rx - 1),
-            y: min(max(0, y), descriptor.ry - 1)
-        )
-        return .handled
-    }
-}
-
-struct UI2Sidebar: View {
-    @Environment(AppState.self) private var appState
-    @Binding var showPreprocessingExport: Bool
-
-    private var selection: Binding<UI2SidebarSelection?> {
-        Binding(
-            get: {
-                let area = appState.navigation.workspaceArea
-                return area.analysisModes.isEmpty
-                    ? .workspace(area)
-                    : .task(appState.navigation.analysisMode)
-            },
-            set: { selection in
-                switch selection {
-                case .workspace(let area):
-                    appState.selectWorkspace(area)
-                case .task(let mode):
-                    appState.changeMode(mode)
-                case nil:
-                    break
-                }
-            }
-        )
-    }
-
-    var body: some View {
-        List(selection: selection) {
-            if let descriptor = appState.descriptor, descriptor.is4D {
-                Section {
-                    datasetRow(descriptor)
-                }
-            }
-
-            Section("Workspace") {
-                ForEach(WorkspaceArea.allCases) { area in
-                    Label(area.title, systemImage: area.systemImage)
-                        .tag(UI2SidebarSelection.workspace(area))
-                }
-            }
-
-            if !appState.navigation.workspaceArea.analysisModes.isEmpty {
-                Section("Task") {
-                    ForEach(appState.navigation.workspaceArea.taskFamilyGroups) { group in
-                        ForEach(group.modes) { mode in
-                            taskRow(mode)
-                                .tag(UI2SidebarSelection.task(mode))
-                        }
-                    }
-                }
-            }
-
-            if appState.hasDataset && !appState.isLoadingDataset {
-                Section("Controls") {
-                    controlsForCurrentWorkspace
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-    }
-
-    private func datasetRow(_ descriptor: DatasetDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Image(systemName: "circle.grid.cross.fill")
-                    .foregroundStyle(Color.accentColor)
-                Text(descriptor.fileName)
-                    .font(.headline)
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                Menu {
-                    Button("Open Another…") { appState.requestOpenDataset() }
-                    Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
-                    Button("Preprocess & Export…") { showPreprocessingExport = true }
-                        .disabled(appState.isBusy)
-                    Divider()
-                    Button("Save Calibration") { appState.saveCalibrationToSessionSidecar() }
-                        .disabled(appState.isBusy)
-                    Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-            }
-
-            Text("\(descriptor.rx) x \(descriptor.ry) scan · \(descriptor.qx) x \(descriptor.qy) detector")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Label(
-                appState.calibrationSession.verdict.quantitative ? "Quantitative" : "Not quantitative",
-                systemImage: appState.calibrationSession.verdict.quantitative
-                    ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-            )
-            .font(.caption)
-            .foregroundStyle(appState.calibrationSession.verdict.quantitative ? Color.green : Color.orange)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func taskRow(_ mode: AnalysisMode) -> some View {
-        Label {
-            HStack(spacing: 6) {
-                Text(mode.productTitle)
-                Spacer(minLength: 4)
-                taskStatusGlyph(mode)
-            }
-        } icon: {
-            Image(systemName: mode.systemImage)
-        }
-        .help(mode.productSubtitle)
-    }
-
-    private func taskStatusGlyph(_ mode: AnalysisMode) -> some View {
-        let unmet = ProductWorkflow.prerequisites(
-            for: mode,
-            readiness: appState.productWorkflowReadiness
-        ).count
-        let produced = taskHasProduct(mode)
-        return Image(systemName: produced
-            ? "checkmark.circle.fill"
-            : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
-            .foregroundStyle(produced ? Color.green : (unmet == 0 ? Color.secondary : Color.orange))
-    }
-
-    private func taskHasProduct(_ mode: AnalysisMode) -> Bool {
-        switch mode {
-        case .disks:
-            appState.hasCurrentBraggVectors
-        case .strain:
-            appState.strain.map != nil
-        case .acom:
-            appState.acomSession.hasOrientationMap
-        case .virtualDetector:
-            appState.replay.record.steps.contains { $0.kind == "virtual_detector" }
-        case .dpc:
-            appState.replay.record.steps.contains { $0.kind == "dpc" }
-        case .ptychography, .singleslicePtychography:
-            false
-        }
-    }
-
-    @ViewBuilder
-    private var controlsForCurrentWorkspace: some View {
-        switch appState.navigation.workspaceArea {
-        case .prepare:
-            PrepareSidebar()
-        case .image:
-            ImageSidebar()
-        case .map:
-            MapSidebar()
-        case .reconstruct:
-            PhaseSidebar()
-        case .results:
-            ResultsSidebar()
-        }
-    }
-}
-
-private enum UI2SidebarSelection: Hashable {
-    case workspace(WorkspaceArea)
-    case task(AnalysisMode)
-}
-
-struct UI2OutputLog: View {
-    @Environment(AppState.self) private var appState
-    @Binding var height: CGFloat
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Divider()
-                .contentShape(Rectangle().inset(by: -4))
-                .gesture(
-                    DragGesture(minimumDistance: 1)
-                        .onChanged { value in
-                            height = min(max(72, height - value.translation.height), 520)
-                        }
-                )
-                .accessibilityLabel("Resize output log")
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(appState.logMessages.enumerated()), id: \.offset) { index, line in
-                            Text(line)
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                                .id(index)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                }
-                .onChange(of: appState.logMessages.count) {
-                    proxy.scrollTo(appState.logMessages.count - 1, anchor: .bottom)
-                }
-            }
-        }
-        .frame(height: height)
-        .background(.bar)
+    private func copyToPasteboard(_ text: String) {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #else
+        UIPasteboard.general.string = text
+        #endif
     }
 }

@@ -179,7 +179,7 @@ driving the app is the only evidence anything "looks right" — say who
 drove it and when. Standing: driving has caught defects with every harness
 green (colormap control missing, readiness row self-contradicting, three
 more in the clean-account run); the 2026-09-03 UI hardening and UI2
-scaffold passes are also not owner-seen. The retired checklist's trap notes are in
+native shell reset are also not owner-approved. The retired checklist's trap notes are in
 `docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`. Never seen on
 screen: everything from 7c slice 1 on (Results sidebar and inspector, the
 inspector following the focused pane), the clean-account run, the bounded
@@ -399,6 +399,50 @@ bijection check has no fixture coverage. Launch-screen cards push real
 entry points below the fold; at the 171pt pane-width floor the header
 truncates and a badge wraps one letter per line. A saved sidebar divider
 can restore below its declared 250pt minimum (observed 144pt).
+
+### UI2 duplicates four things `UI/` still owns, until `UI/` retires
+Both UIs compile into the app target, so the migration left four pairs that
+can drift and only one half of each is defended. (a) `UI2ScaleBar.nice125` /
+`.format` duplicate `ScaleBarView`'s, and `Support/ResultExport.swift:1937,1943`
+still calls the OLD statics to burn the bar into exported PNGs — edit one and
+an exported figure disagrees with the screen. (b)
+`UI2PrepareSettings.scanStepAngstromPerPixel` and `.disclosesExcludedFraction`
+duplicate the copies `CalibrationReadinessFilenameTests` and
+`CalibrationDisclosureTests` pin, so the shipping UI2 copy is untested; the
+tests get re-pointed, not deleted, when `UI/` goes. (c) `UI2ExportSheet`
+re-renders the readiness rows and their `calibration.*` identifiers, so while
+the sheet is open two instances of each identifier exist — the old app had the
+same collision. (d) `UI2HistoryPlot` duplicates `ScientificHistoryPlot`.
+Owner: whoever retires `UI/`; nothing here is wrong today.
+
+### UI2 still reaches into `UI/` for five pure types
+`ColormapKind`, `Colormaps`, `PeakOverlayGeometry`, `RealSpacePointerPolicy`
+and `ComparisonHoverMapping` are model and policy mis-filed under `UI/`, and
+UI2 uses them deliberately rather than duplicating LUTs and pointer geometry.
+They move to `Core/` (or `App/`) when `UI/` retires; until then `UI2/` cannot
+be built with `UI/` deleted. Owner: whoever retires `UI/`.
+
+### UI2 launch crash — Gate D 2026-09-04, mechanism found, refuter owed
+`--ui2 --demo-fixture` aborted ~6 s after launch: `NSGenericException`
+("more Update Constraints passes than there are views"), through
+`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)` →
+`AppKitPlatformViewHost.enqueueLayoutInvalidation()`. Same exception family
+as the 2026-09-03 sidebar-drag crash. **Refuted first, as in 2026-09-03: the
+explicit `.frame(minWidth:)` on the panes is NOT the cause** — the crash
+reproduces with every explicit minimum in the detail subtree removed.
+Mechanism (four probes, one tree): `HSplitView` + real panes crashes;
+`HSplitView` + `Color.clear` children survives; `HStack` + real panes
+survives; neither present survives. It is the CONJUNCTION — `HSplitView`
+hosts each pane in its own `NSHostingView` and reacts to a minimum size that
+is content-derived and non-constant (header badges, pickers and readouts
+appear as a dataset lands), so each change re-enters layout. `UI/` escapes it
+only because AppKit owns its columns and hosts content with
+`sizingOptions = []`. Fix: `UI2PaneSplit` (`UI2Workspace.swift`) — a
+`GeometryReader` that hands each pane an explicit width and propagates no
+minimum upward; 3/3 cold launches clean. **Owed: the independent refuter
+(Gate D's second reader) has not run — this session's harness does not spawn
+agents unattended.** Trap: `HSplitView` is also macOS-only, so any UI2 file
+reintroducing it breaks the crash fix and the iOS goal at once.
 
 ## Code hygiene
 

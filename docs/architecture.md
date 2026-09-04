@@ -106,7 +106,8 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Crystal models, scattering factors, ACOM matching, CIF import | `mac4DSTEM/Core/Crystal/` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |
-| SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
+| Current SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
+| UI2 SwiftUI migration views | `mac4DSTEM/UI2/` |
 | Export, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
 | Standalone parity, diagnostic and packaging harnesses | `tools/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
@@ -151,10 +152,18 @@ contract, not taste, and it is checkable:
    product, preview, sidecar, diagnostics. Columns have bounds; nothing
    inside a column sizes itself. A control is as wide as its content, text
    wraps, images are capped, spare width is margin.
-2. **Settings are forms.** Every group of controls in a sidebar or inspector
-   is a `Form` (grouped style) with `LabeledContent`, `Picker`, `Toggle`,
-   `TextField`, `Slider`, `Button` as system controls. No hand-built rows
-   with a `Spacer` between a label and its value; no `HStack` forms.
+2. **Navigation is a source list, settings are forms.** *(Amended
+   2026-09-04; the original rule said every group of controls is a `Form`,
+   which is a category error — a grouped `Form` is System Settings' detail
+   pane, it has no `selection:` parameter, and applying it to navigation left
+   the app with no `List` anywhere and no way to draw a selection.)*
+   Navigation is `List(selection:)` with `.listStyle(.sidebar)`. Controls are
+   a grouped `Form` with `LabeledContent`, `Picker`, `Toggle`, `TextField`,
+   `Slider`, `Button` as system controls; no hand-built rows with a `Spacer`
+   between a label and its value. The two containers are **not**
+   interchangeable: `LabeledContent` stacks a multi-element label vertically
+   only inside a `Form`, so a row written for one crushes onto one line in
+   the other.
 3. **System materials only.** No `.background(...)` colours or tints, no
    custom bars, no opacity washes, no drawn separators: the toolbar, the
    sidebar, the inspector, the footer and the log strip take the system's
@@ -167,13 +176,57 @@ contract, not taste, and it is checkable:
    height by rule, not by a number per site.
 5. **Every column survives its whole range.** Each sidebar and inspector
    is measured in the hosted layout tests at the column's minimum, ideal
-   and maximum width; wrapped text is fine, truncation and overflow are
-   findings.
+   and maximum width. *(Amended 2026-09-04; the original rule said
+   "wrapped text is fine, truncation and overflow are findings", which is
+   backwards for a fixed-width column — unbounded wrapping is what made the
+   old column a wall — and its gate cannot see the case anyway, because
+   `controls(_:)` collects `NSControl`s and no SwiftUI `Text` is one.)*
+   **Overflow is a finding; truncation is a choice.** A long value truncates
+   the way Finder truncates a filename and Xcode truncates with a tooltip;
+   text that must be read in full is short by construction or lives on
+   `.help`. A gate that cannot see text cannot hold a rule about text.
 
 The contract covers every surface — the window, its sheets, panels and
 alerts — not only the columns. Deviations are recorded in `open-items.md`
 with the reason. The rework that adopts it is the only UI target until it
 is complete (`status.md`).
+
+## The UI2 contract (owner decision, 2026-09-04)
+
+`UI2/` is the SwiftUI-only rebuild of every surface in `UI/`, selected with
+`--ui2`. It is not a second style of the same window: it is the presentation
+contract above with AppKit removed and the shape re-cut, and it is the surface
+that ports to iOS. Six rules, all checkable:
+
+1. **SwiftUI only.** No `NSSplitViewController`, no hosted AppKit shell, no
+   `NSEvent` monitors, no `NSCursor`, no AppKit layout, no `import AppKit`.
+   The one permitted platform bridge is `UI2MetalImage`, which is written
+   with a shared body and a two-line per-OS conformance.
+2. **No view under `UI/` is referenced.** UI2 calls shared `App/`, `Session/`
+   and `Core/` logic, plus the five non-View pure types that are mis-filed in
+   `UI/` and move out when it retires: `ColormapKind`, `Colormaps`,
+   `PeakOverlayGeometry`, `RealSpacePointerPolicy`, `ComparisonHoverMapping`.
+3. **`UI2Metrics` is the whole number budget.** Every column range, science
+   floor, field width, thumbnail ceiling and sheet size is there and nowhere
+   else. Outside it, a `.frame` is permitted only as scientific drawing
+   geometry — the panes, overlays, scale bars, colorbars, histograms and
+   legends, whose sizes are the image's, not the layout's.
+4. **No pane focus model.** `WorkspaceNavigation.focusedPane` and
+   `.inspectorContent` are retired for UI2. Where the old UI switched its
+   controls on which pane was "active", UI2 offers an explicit control;
+   `AppState.activePane` survives only as the ROI direction's storage.
+5. **No new state on `AppState`.** UI2's selection is derived from
+   `WorkspaceNavigation`, never stored beside it (`UI2Route`).
+6. **The window is three columns with one job each.** Left is navigation and
+   nothing else. Centre is the science, with the status strip and the output
+   log on its bottom edge. Right is the inspector in two tabs — **Settings**,
+   every control the selected workspace owns, and **Info**, what the dataset
+   and the displayed product are. There is no workspace header: the window
+   title carries the task and the toolbar carries the one action that runs
+   it. Readiness has exactly one home, the Settings tab's first section.
+
+Both UIs compile into the app target while the migration runs; `UI/` stays
+the default and `--ui2` selects the rebuild.
 
 ## Requirements, build, test
 
@@ -220,7 +273,9 @@ Distribution always uses hardened Release (`releasing.md`).
 
 ## Developer notes
 
-- One `@main` in `App/mac4DSTEMApp.swift`; root UI in `UI/ContentView.swift`.
+- One `@main` in `App/mac4DSTEMApp.swift`; current root UI in
+  `UI/ContentView.swift`; UI2 root in `UI2/UI2ContentView.swift` behind
+  `--ui2`. See "The UI2 contract" below.
 - Swift 5 language mode, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`;
   blocking compute types are `nonisolated` and run via `Task.detached`;
   readers are actors; long analyses guard publication with dataset epoch and

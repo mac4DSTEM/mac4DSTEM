@@ -36,6 +36,10 @@ Gate D; `/adversarial-review` is Gate B; `/closeout`.
 - Break every new test before trusting it. Do not drive the app during the
   unit gate. Quote test numbers only from a retained log, dated;
   `tools/run-tests.sh` is the only thing that knows the harness count.
+  **Never read a gate's exit code through a pipe** — `run-tests.sh … | tail`
+  reports `tail`'s status, not the gate's. Redirect to a log, `echo $?` on
+  its own line, then grep the log. This has swallowed a failing gate three
+  times (S4, S8, and twice in one session on 2026-09-04).
 - No claim a reader cannot reproduce. The repo is public.
 - Do NOT set `ResidencyAdmission.measuredWorkingSetFraction` — nil by
   decision; `.automatic` residency was dropped, not tuned.
