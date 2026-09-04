@@ -311,6 +311,30 @@ caught that the session's own sidecar fix was aimed a level too low, and found
 a worse defect underneath it that the author had not looked for. Owner-approved
 2026-09-04. `AGENTS.md` is generated from `CLAUDE.md`; regenerate after editing.
 
+**2026-09-04 — A file's own labels decide what is a datacube; no size
+floor.** Discovery refuses a rank-3 or rank-4 node only on a signal a known
+writer stamps: emdfile / py4DSTEM's `_labels_` on the dim of a stack axis, and
+this app's `RGBA` dim / `rgba8` units on a saved map. A stored rank-4 cube
+anywhere beats a promoted rank-3 array anywhere within the link search;
+paths only break ties, and a canonical path is honoured first as the file's
+own declaration, unless a file-root sidecar marker says the canonical node is
+part of the saved-result file. Legacy v0.12 string labels are scoped to the
+pinned `data/diffractionslices` subtree. The detector-plausibility floor the
+open item asked for is
+DECLINED, not impossible — Gate B refuted the first reason given (the
+calibration fixture is stored rank 4, untouched by a floor scoped to stored
+rank 3): the reason is the rank-3 contract, under which an unlabelled rank-3
+array with nothing better opens as one scan row (`load-spec-test`), and a
+floor on its last axis would be a magic number tied to one channel count.
+The v2.5.1 sidecar-subtree skip STAYS beside the label rule as a
+writer-independent location guarantee (Gate B, same day), and
+`DatasetDescriptor.storedRank` is the one new field — the descriptor knows it
+was promoted, `is4D` stays what every consumer expects, and
+`pixelCalibration` uses it to read a promoted rank-3's dims as (N, Qy, Qx).
+Amended 2026-09-05 after independent review: the file-root sidecar marker is
+checked before canonical probes, and the legacy string-label rule is confined
+to the pinned `data/diffractionslices` subtree.
+
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
 outside their own state; a session that ran them would need that surface

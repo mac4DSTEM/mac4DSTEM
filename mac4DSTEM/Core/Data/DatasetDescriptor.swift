@@ -18,14 +18,20 @@ package nonisolated struct DatasetDescriptor: Identifiable, Hashable {
     package let dtypeDescription: String
     /// Chunk dimensions if the dataset is chunked, else nil for contiguous data.
     package let chunkShape: [Int]?
+    /// Rank of the dataset AS STORED. `H5Reader.describe` promotes a rank-3
+    /// dataset to one scan row, so `shape.count` is 4 either way; discovery
+    /// needs the difference, because a stored rank-4 cube beats a promoted
+    /// rank-3 array whatever their paths. Defaults to `shape.count`. // 2026-09-04
+    package let storedRank: Int
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(filePath: String, datasetPath: String, shape: [Int], dtypeDescription: String, chunkShape: [Int]?) {
+    package nonisolated init(filePath: String, datasetPath: String, shape: [Int], dtypeDescription: String, chunkShape: [Int]?, storedRank: Int? = nil) {
         self.filePath = filePath
         self.datasetPath = datasetPath
         self.shape = shape
         self.dtypeDescription = dtypeDescription
         self.chunkShape = chunkShape
+        self.storedRank = storedRank ?? shape.count
     }
 
     package nonisolated var is4D: Bool { shape.count == 4 }

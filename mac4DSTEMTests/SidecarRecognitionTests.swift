@@ -47,6 +47,9 @@ final class SidecarRecognitionTests: XCTestCase {
     /// discovery SUCCEEDS. The sidecar check never runs, because it is
     /// deliberately placed after the search. The caller gets a descriptor
     /// whose detector is `width × 4` instead of the sentence naming the file.
+    /// v2.5.1 closed it by skipping the sidecar's own subtree (a stopgap);
+    /// since 2026-09-04 the node is refused by its own `RGBA` dim name and
+    /// `rgba8` units (`H5Reader.datacubeRejection`), wherever it sits.
     func testAResultsRichSidecarIsStillRecognisedAndNotReadAsADatacube() async throws {
         let url = workDirectory.appendingPathComponent("results.mac4dstem.h5")
         let calibration = PixelCalibration(
@@ -78,13 +81,14 @@ final class SidecarRecognitionTests: XCTestCase {
         // pass this repo has been bitten by three times.
         let trapPath = "/" + SessionSidecarFormat.rootGroupName + "/"
             + BraggVectorEMDWriter.resultNodeName(forKind: "acom_full_ipf_z") + "/data"
-        let trap = try reader.describe(path: trapPath)
+        let trap = try await reader.describe(path: trapPath)
         XCTAssertEqual(
             trap.shape, [1, height, width, 4],
             "The fixture must contain the rank-3 array that `describe` promotes; "
             + "without it this test proves nothing about the defect."
         )
         XCTAssertTrue(trap.is4D, "`is4D` is a tautology after padding — that IS the trap.")
+        XCTAssertEqual(trap.storedRank, 3, "the descriptor now remembers the promotion")
 
         do {
             let descriptor = try await reader.discoverPrimaryDataset()

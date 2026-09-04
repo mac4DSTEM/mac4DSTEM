@@ -79,7 +79,7 @@ scientific=(
   idpc-test cancellation-test
   bragg-export-test sidecar-result-test strain-test strain-frame-test
   ellipse-calibration-test
-  dm4-robustness-test vendor-reader-test load-spec-test load-spec-calibration
+  dm4-robustness-test vendor-reader-test load-spec-test datacube-discovery-test load-spec-calibration
   preprocess-crop-bin-test load-spec-roundtrip sidecar-error-detail-test
   two-spec-analysis-test reduced-export-test
   preprocessing-export-test parallax-preprocessing-test parallax-alignment-test

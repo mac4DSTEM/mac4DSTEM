@@ -33,32 +33,6 @@ from the (already-actioned) permissive acceptance thresholds and the
 estimator repair — don't fold it into either. Owner: a dedicated Gate D
 science session, not a UI slice.
 
-### Discovery accepts ANY rank-3 dataset as a datacube — `is4D` is a tautology
-The class behind the 2026-09-04 sidecar failure, still open after that
-instance was closed. `describe` accepts rank 3 and pads it to
-`[1, d0, d1, d2]` (`H5Reader.swift:370,379`) while `is4D` is only
-`shape.count == 4` (`DatasetDescriptor.swift:31`) — so `descriptor.is4D` can
-never be false and the guard in both discovery loops is DEAD CODE. Any rank-3
-array anywhere is returned as the primary cube. Real instances: py4DSTEM's
-StrainMap is a 6-slice RealSlice, and this repo's own
-`calibrationData_bullseyeProbe.h5` carries a rank-3 `probe_template` stack.
-Compounding it, the candidate sort (`H5Reader.swift:304-312`) prefers the
-SHALLOWEST `/data` path and never asks whether a node is plausibly a cube, so
-a shallow rank-3 node outranks a genuine deep datacube and is returned instead
-of it — wrong data, not a refusal. The four pinned cubes escape only by where
-they sit alphabetically. Found by the Gate B refuters on 2026-09-04, each with
-its own fixture. The right fix names a format-honest signal (emdfile stamps a
-`dim{rank}` dataset whose `name` is `_labels_` on stacked Arrays) plus a
-detector-plausibility floor at the discovery boundary. **Gate D owed.**
-v2.5.1 shipped a STOPGAP for one instance only: discovery skips a sidecar's own
-subtree when the file carries the schema attribute, so a saved RGBA map is no
-longer returned as a `[1, H, W, 4]` cube with a 4-pixel detector. It treats the
-location, not the mechanism — a results-rich file WITHOUT the attribute still
-reproduces the symptom exactly. Reproducer note: the reported file
-`downsample_Si_SiGe_exp.mac4dstem.h5` was deleted by an app session mid-day;
-verified instead on `sim_Au_data_all_binned.mac4dstem.h5` and by a fixture test
-needing no gitignored data.
-
 ### Origin-fit gate has three unresolved holes
 (a) **Gate D 2026-09-03, refuted as filed:** the middle-threshold fallback
 in `probeSize` is unreachable — r(thresh) is non-increasing, so max(dr)

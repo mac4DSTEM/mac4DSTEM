@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — the v2.6.0 science lane
+
+- **Discovery no longer takes any rank-3 array for a datacube.** py4DSTEM
+  stacks (a strain map, a probe stack, any `_labels_` array) and this app's
+  saved RGBA maps are refused by their own labels wherever they sit, and a
+  genuine 4D cube anywhere in a file now outranks a rank-3 array anywhere —
+  before, a shallow rank-3 sibling could be returned AS the data, and the
+  pinned real files escaped only by where their nodes sorted alphabetically.
+  Legacy py4DSTEM v0.12 slice stacks are refused too, by the string-typed
+  label vector that format keeps. A file whose best node is an unlabelled
+  rank-3 array still opens as one scan row, as before, and the v2.5.1 sidecar
+  location guard stays. Gated by the new `tools/datacube-discovery-test`
+  harness (27 fixtures) and five unit tests. The unit gate passed with
+  463/0/1 and the scientific gate passed all 43 harnesses on 2026-09-05;
+  the closed item is recorded in `docs/archive/closed-items-2026-09.md`.
+- **A rank-3 EMD file's pixel sizes were read from the wrong axes.** For a
+  file stored as (N, Qy, Qx) the reader took the detector spacing as the
+  real-space pixel size and found no Q size; it now reads the scan axis and the
+  detector axis. Found by the Gate B refuter on the change above; only files
+  with rank-3 data and EMD dim vectors are affected.
+
 ## v2.5.1 — 2026-09-04
 
 Lowers the system requirement and fixes a reader defect found by the gate on

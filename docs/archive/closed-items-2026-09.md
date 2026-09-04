@@ -8,6 +8,30 @@ last stood in the live file, with a closure note. **History, not guidance.**
 
 ---
 
+## Datacube discovery accepts rank-3 non-cubes — closed 2026-09-05
+
+### ~~Datacube discovery accepts rank-3 non-cubes~~ — **CLOSED 2026-09-05**
+
+> `describe` promoted every rank-3 dataset to `[1, d0, d1, d2]`, making
+> `is4D` tautological. A shallow `/data` sibling could therefore win over a
+> genuine deep cube and load the wrong pixels and calibration.
+
+**Closure.** `DatasetDescriptor.storedRank` preserves the on-disk rank;
+discovery now prefers stored rank 4 and rejects known stack/map labels from
+emdfile/py4DSTEM and this app's RGBA writer. Legacy v0.12 string labels are
+recognized only in the pinned `diffractionslices` context. A file-root
+sidecar marker is honored before canonical-path probes, while marked subtrees
+remain excluded. Calibration follows the selected descriptor, including the
+rank-3 `(N, Qy, Qx)` axis mapping.
+
+The independent Gate B mutation review confirmed the mechanism and found no
+remaining scoped refutation. The 27-fixture discovery harness, 463/0/1 unit
+gate, and 43-harness scientific gate passed on 2026-09-05. An unlabelled rank-3
+fallback remains intentional: it opens as one scan row when no better signal
+exists; no detector-size magic floor was added.
+
+---
+
 ## Status line leaks a full filesystem path — closed 2026-09-04
 
 ### ~~Status line leaks a full filesystem path~~ — **CLOSED 2026-09-04**

@@ -7,6 +7,7 @@ nonisolated private let h5SelectSet: Int32 = 0
 nonisolated private let h5ChunkedLayout: Int32 = 2
 nonisolated private let h5FloatClass: Int32 = 1
 nonisolated private let h5IntegerClass: Int32 = 0
+nonisolated private let h5StringClass: Int32 = 3
 nonisolated private let h5TwosComplementSign: Int32 = 1
 
 nonisolated private final class H5LinkCollector: @unchecked Sendable {
@@ -255,6 +256,7 @@ package actor H5Reader: FourDDataSource {
     /// py4DSTEM calibration bundle / EMD dim vectors relative to the datacube.
     private var lastDatasetPath: String?
     private var lastDatasetShape: [Int]?
+    private var lastStoredRank: Int?
 
     package static let candidatePaths: [String] = [
         "/dm_dataset_root/dm_dataset/data",
@@ -283,16 +285,23 @@ package actor H5Reader: FourDDataSource {
 
     package func discoverPrimaryDataset() throws -> DatasetDescriptor {
         silenceAutomaticErrors()
-        // `try?` is correct here (v2 S7 audit): each candidate path is a
-        // PROBE — "this file has no dataset at that name" is the expected
-        // answer for most of them, not a failure to surface. A file-level
-        // I/O error would also be swallowed per-candidate, but the file
-        // handle was already opened successfully and the fall-through ends
-        // in a named "no 4D dataset" error, never a silent success.
+        let sidecarRoot = "/" + SessionSidecarFormat.rootGroupName
+        let attribute = SessionSidecarFormat.schemaAttribute
+        let markedAtRootGroup = readStringAttribute(attribute, onPath: sidecarRoot) != nil
+        let markedAtFileRoot = readStringAttribute(attribute, onPath: "/") != nil
+        // Each candidate path is a PROBE (v2 S7 audit): "this file has no
+        // dataset at that name" is the expected answer for most of them, not
+        // a failure to surface. A file-level I/O error would also be swallowed
+        // per-candidate, but the file handle was already opened successfully
+        // and the fall-through ends in a named "no 4D dataset" error, never a
+        // silent success.
         for path in Self.candidatePaths {
-            if let descriptor = try? describe(path: path), descriptor.is4D {
-                return descriptor
-            }
+            // A file-root schema mark declares the WHOLE file a sidecar. It
+            // must therefore win even over a canonical path; otherwise a
+            // specially shaped saved product at a canonical name would bypass
+            // the location guarantee before the general search sees it.
+            if markedAtFileRoot { continue }
+            if let descriptor = datacubeCandidate(at: path) { return anchored(descriptor) }
         }
 
         // EMD 1.0 permits arbitrary root/node names. Visit links only after
@@ -310,41 +319,46 @@ package actor H5Reader: FourDDataSource {
             let rhsDepth = $1.filter { $0 == "/" }.count
             return lhsDepth == rhsDepth ? $0 < $1 : lhsDepth < rhsDepth
         }
-        // A SIDECAR'S OWN ROOT HOLDS SAVED PRODUCTS, NEVER A DATACUBE.
+        // THE PATH ORDER ALONE MAY NOT CHOOSE. `describe` promotes a rank-3
+        // array to one scan row, so until 2026-09-04 the first `/data` node of
+        // rank 3 or 4 in that order won: a shallow rank-3 sibling — a strain
+        // map, a probe stack, a saved RGBA result — outranked a genuine rank-4
+        // cube deeper in the file and was returned AS the data, and the pinned
+        // real cubes escaped only by where they sat alphabetically. Within this
+        // search a node the file itself labels as not-a-cube is refused
+        // (`datacubeRejection`), a stored rank-4 cube anywhere beats a
+        // promoted rank-3 array anywhere, and the path order breaks ties —
+        // the FIRST of two cubes wins, which two pinned real files exercise.
+        // The canonical loop above is a different contract for ordinary files:
+        // a canonical path is the file's own declaration of where its datacube
+        // is, honoured first-match even for a rank-3 there. An explicit
+        // file-root sidecar mark overrides that declaration, because it says
+        // the whole file is session content. The
+        // rank-3 contract stands: a file whose best node is an unlabelled
+        // rank-3 array opens as one scan row (`load-spec-test`). Every case is
+        // pinned by `tools/datacube-discovery-test`; the Gate D/B record is
+        // still owed in the live documentation until the full gate completes.
         //
-        // `describe` accepts rank 3 and promotes it to `[1, d0, d1, d2]`,
-        // which is right for a genuine single-row cube. An RGBA result map is
-        // stored `{height, width, 4}` — also rank 3 — so without this skip the
-        // link search "finds a 4D datacube" inside a saved IPF map: shape
-        // `[1, 100, 84, 4]`, a 4-pixel detector, and discovery SUCCEEDS on a
-        // file that contains no cube at all. The sidecar sentence below is
-        // then never reached, because it only runs when the search fails.
-        //
-        // Found by `run-tests.sh all` on 2026-09-04, which exited 1 in
-        // `real-data-acceptance` on a sidecar written beside a training cube.
-        // Only the sidecar's own subtree is skipped, so the rule the ordering
-        // below encodes still holds: a file carrying both the attribute and a
-        // real 4D dataset elsewhere still opens as data.
-        let sidecarRoot = "/" + SessionSidecarFormat.rootGroupName
-        let markedAtRootGroup =
-            readStringAttribute(SessionSidecarFormat.schemaAttribute, onPath: sidecarRoot) != nil
-        let markedAtFileRoot =
-            readStringAttribute(SessionSidecarFormat.schemaAttribute, onPath: "/") != nil
-        let isSessionSidecar = markedAtRootGroup || markedAtFileRoot
+        // A SIDECAR'S OWN ROOT HOLDS SAVED PRODUCTS, NEVER A DATACUBE — a
+        // location guarantee independent of what a writer stamped. The label
+        // rule is the mechanism-level fix; this stays beside it because the
+        // Gate B refuter showed (2026-09-04) that without it a sidecar node
+        // carrying neither stamp is again returned as a 4-pixel-detector cube.
+        // A file marked at its FILE ROOT declares the whole file a sidecar; one
+        // marked at the sidecar root group only speaks for that subtree, so a
+        // cube outside it still opens.
+        var promoted: DatasetDescriptor?
         for path in candidates where !Self.candidatePaths.contains(path) {
-            // A file marked at its FILE ROOT declares the whole file a sidecar,
-            // so nothing in it is a cube; one marked at the sidecar root group
-            // only speaks for that subtree. Keyed off both flags rather than the
-            // literal prefix alone: the Gate B refuter showed that a file the
-            // flag already called a sidecar via the "/" branch still reproduced
-            // this defect verbatim, because the skip tested only the prefix.
             if markedAtFileRoot { continue }
             if markedAtRootGroup, path.hasPrefix(sidecarRoot + "/") { continue }
-            // Same probe contract as the canonical loop above. // v2 S7
-            if let descriptor = try? describe(path: path), descriptor.is4D {
-                return descriptor
-            }
+            guard let descriptor = datacubeCandidate(at: path) else { continue }
+            if descriptor.storedRank == 4 { return anchored(descriptor) }
+            if promoted == nil { promoted = descriptor }
         }
+        if let promoted { return anchored(promoted) }
+        lastDatasetPath = nil
+        lastDatasetShape = nil
+        lastStoredRank = nil
         // Before answering "no dataset", ask whether this is one of the app's
         // own session sidecars: they contain no datacube BY DESIGN. The writer
         // stamps the schema attribute on its ROOT GROUP, not the file root —
@@ -352,13 +366,10 @@ package actor H5Reader: FourDDataSource {
         // test; "/" is kept as a fallback so a future writer that stamps the
         // file root is still recognised. Deliberately checked only AFTER the
         // full search fails: a file that carries both the attribute and a real
-        // 4D dataset OUTSIDE the sidecar's own subtree opens as data. A rank-4
-        // cube placed INSIDE that subtree is now unreachable — a narrowing with
-        // no writer that produces it (cubes go to `datacube_root`, bundles to
-        // `scientific_bundle_root`), recorded here because it is real. The suggestion is the source's STEM, not a
-        // filename — the naming rule strips any extension, so the source may
-        // be .dm4, .emd, anything. // v2 S4
-        if isSessionSidecar {
+        // 4D dataset outside the sidecar's own subtree opens as data. The
+        // suggestion is the source's STEM, not a filename — the naming rule
+        // strips any extension, so the source may be .dm4, .emd, anything. // v2 S4
+        if markedAtRootGroup || markedAtFileRoot {
             let name = URL(fileURLWithPath: filePath).lastPathComponent
             let suffix = SessionSidecarFormat.nameSuffix
             let suggested: String? = name.hasSuffix(suffix)
@@ -367,6 +378,54 @@ package actor H5Reader: FourDDataSource {
             throw H5Error.sessionSidecarOpened(sidecar: name, suggestedSource: suggested)
         }
         throw H5Error.noDatasetFound(Self.candidatePaths + candidates)
+    }
+
+    /// `describe` plus the discovery-boundary judgement: nil when the path is
+    /// not a dataset of rank 3 or 4, or when the file labels the node as
+    /// something other than a datacube (`datacubeRejection`). // 2026-09-04
+    private func datacubeCandidate(at path: String) -> DatasetDescriptor? {
+        guard let descriptor = try? describe(path: path) else { return nil }
+        let parent = "/" + path.split(separator: "/").dropLast().joined(separator: "/")
+        let lastAxisDim = (parent == "/" ? "" : parent) + "/dim\(descriptor.storedRank - 1)"
+        // Legacy py4DSTEM v0.12 numbers dims from 1, so its last axis is
+        // `dim{rank}`; a slice stack keeps its labels there as strings.
+        let legacyLastDim = (parent == "/" ? "" : parent) + "/dim\(descriptor.storedRank)"
+        let candidate = DatacubeCandidate(
+            path: path, storedRank: descriptor.storedRank,
+            lastAxisName: readStringAttribute("name", onPath: lastAxisDim),
+            units: readStringAttribute("units", onPath: path),
+            // v0.12 applies this string-label rule only to objects selected
+            // from its `data/diffractionslices` collection. A same-named
+            // string sibling in an unrelated modern group is metadata, not a
+            // reason to refuse an otherwise genuine cube.
+            legacySliceLabels: path.contains("/data/diffractionslices/")
+                && datasetIsStringTyped(legacyLastDim)
+        )
+        return Self.datacubeRejection(of: candidate) == nil ? descriptor : nil
+    }
+
+    /// True when `path` is a dataset whose STORED type is a string — the
+    /// pinned legacy v0.12 reader's own test for a slice-label vector
+    /// (`read_v0_12.py:365-366`, `"S" in lbls.dtype.str`). A real axis vector
+    /// is numeric, so this cannot refuse a genuine dim of any numbering.
+    private func datasetIsStringTyped(_ path: String) -> Bool {
+        let dataset = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard dataset >= 0 else { return false }
+        defer { _ = hdf5.h5dclose(dataset) }
+        let type = hdf5.h5dgetType(dataset)
+        defer { _ = hdf5.h5tclose(type) }
+        return hdf5.h5tgetClass(type) == h5StringClass
+    }
+
+    /// Discovery describes nodes it then rejects or passes over, and each
+    /// `describe` moves the calibration anchor (`lastDatasetPath`); the anchor
+    /// must end on the node discovery RETURNS, or on nothing. Before 2026-09-04
+    /// the first successful `describe` was always the returned one.
+    private func anchored(_ chosen: DatasetDescriptor) -> DatasetDescriptor {
+        lastDatasetPath = chosen.datasetPath
+        lastDatasetShape = chosen.shape
+        lastStoredRank = chosen.storedRank
+        return chosen
     }
 
     package func describe(path: String) throws -> DatasetDescriptor {
@@ -409,12 +468,14 @@ package actor H5Reader: FourDDataSource {
 
         lastDatasetPath = path
         lastDatasetShape = shape
+        lastStoredRank = rank
         return DatasetDescriptor(
             filePath: filePath,
             datasetPath: path,
             shape: shape,
             dtypeDescription: describeType(typeID),
-            chunkShape: chunkShape
+            chunkShape: chunkShape,
+            storedRank: rank
         )
     }
 
@@ -669,16 +730,22 @@ package actor H5Reader: FourDDataSource {
             }
         }
 
-        // 2. EMD dim-vector fallback ([Ry, Rx, Qy, Qx] → dim1 = R, dim3 = Q).
+        // 2. EMD dim-vector fallback. Stored rank 4 is [Ry, Rx, Qy, Qx], so
+        // dim1 = R and dim3 = Q. A promoted rank-3 array was STORED (N, Qy, Qx)
+        // with dim0…dim2: its scan axis is dim0 and its detector axis dim2.
+        // Reading dim1/dim3 there reported the detector spacing as the
+        // real-space pixel size, in reciprocal units, and no Q at all (Gate B
+        // refuter, 2026-09-04; pinned by `datacube-discovery-test` c4).
         if out.rSize == nil || out.qSize == nil {
             let parent = "/" + components.dropLast().joined(separator: "/")
+            let (rIndex, qIndex) = lastStoredRank == 3 ? (0, 2) : (1, 3)
             func dim(_ i: Int) -> (size: Double, units: String?)? {
                 guard let v = readDoubleVector(parent + "/dim\(i)", maxCount: 65536),
                       v.count >= 2, v[1] - v[0] > 0 else { return nil }
                 return (v[1] - v[0], readStringAttribute("units", onPath: parent + "/dim\(i)"))
             }
-            if out.rSize == nil, let d = dim(1) { out.rSize = d.size; out.rUnits = d.units }
-            if out.qSize == nil, let d = dim(3) { out.qSize = d.size; out.qUnits = d.units }
+            if out.rSize == nil, let d = dim(rIndex) { out.rSize = d.size; out.rUnits = d.units }
+            if out.qSize == nil, let d = dim(qIndex) { out.qSize = d.size; out.qUnits = d.units }
         }
 
         let hasCalibration = out.rSize != nil || out.qSize != nil
@@ -869,5 +936,61 @@ package actor H5Reader: FourDDataSource {
     /// public entry point rather than assuming the initializer's thread sticks.
     private func silenceAutomaticErrors() {
         _ = hdf5.h5esetAuto2(h5DefaultProperty, nil, nil)
+    }
+}
+
+// MARK: Discovery rule (pure, unit-tested without HDF5)
+
+extension H5Reader {
+    /// What discovery knows about a node before judging it. The reader fills
+    /// it from the file; the rule below is pure so the unit target can pin it.
+    package nonisolated struct DatacubeCandidate: Sendable {
+        package let path: String
+        package let storedRank: Int
+        /// `name` attribute of the dim dataset for the LAST axis, `dim{rank-1}`.
+        package let lastAxisName: String?
+        /// `units` attribute of the data itself.
+        package let units: String?
+        /// Legacy py4DSTEM v0.12 numbers dims from 1 and keeps a slice stack's
+        /// labels in a STRING-typed `dim{rank}` beside the data; true when
+        /// that dataset exists and is string-typed.
+        package let legacySliceLabels: Bool
+
+        package nonisolated init(path: String, storedRank: Int, lastAxisName: String?, units: String?,
+                                 legacySliceLabels: Bool = false) {
+            self.path = path
+            self.storedRank = storedRank
+            self.lastAxisName = lastAxisName
+            self.units = units
+            self.legacySliceLabels = legacySliceLabels
+        }
+    }
+
+    /// Why a dataset of rank 3 or 4 is NOT a datacube, from what the file says
+    /// about itself; nil when nothing says so. Three signals, each one a
+    /// known writer's own mark: emdfile / py4DSTEM put `_labels_` on the dim
+    /// of a stack axis (verifiable in the pinned tree only under
+    /// `io/legacy/legacy13`, `v13_emd_classes/io.py:390,429`; 0.14.19's live
+    /// writer is the unvendored `emdfile` package); legacy v0.12 keeps a slice
+    /// stack's labels as strings in a 1-based `dim{rank}` (`read_v0_12.py:365`);
+    /// and this app's sidecar writer names the channel axis `RGBA` and stamps
+    /// `rgba8` on the pixels. NOT a size heuristic, on purpose — and the reason
+    /// is the rank-3 contract, not a fixture: an unlabelled rank-3 array with
+    /// nothing better in the file opens as one scan row (`load-spec-test`), so
+    /// a floor on a promoted rank-3's last axis would be a magic number tied to
+    /// one channel count. (A floor scoped to stored rank 3 WOULD leave every
+    /// checked-in rank-4 fixture and real file untouched — the Gate B refuter
+    /// built one; it is declined, not impossible.) // 2026-09-04
+    package nonisolated static func datacubeRejection(of candidate: DatacubeCandidate) -> String? {
+        if candidate.lastAxisName == "_labels_" {
+            return "a stacked EMD array: its last axis is labelled slices, not a detector"
+        }
+        if candidate.legacySliceLabels {
+            return "a legacy py4DSTEM v0.12 slice stack: its last dim holds slice labels, not a detector axis"
+        }
+        if candidate.lastAxisName == "RGBA" || candidate.units == "rgba8" {
+            return "an RGBA result map, not a datacube"
+        }
+        return nil
     }
 }

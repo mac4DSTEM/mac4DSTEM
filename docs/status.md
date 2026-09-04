@@ -35,12 +35,12 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **457 passed / 0 failed / 0 skipped, exit 0 — 2026-09-04, the v2.5.0 release tree** (63 suites, counted by `Suite.method`; one line chopped mid-name by an interleaved xcodebuild timestamp, reconciled against the source file's 8 methods rather than assumed). Earlier that day, pre-release tree: **457 passed / 0 failed / 1 skipped, exit 0**, `ActivityLog` + warning-fix tree (458 tests), zero Swift warnings from any file this session touched. Full log retained; exit code read on its own line, never through a `tail` pipe; tests counted by METHOD name and reconciled against the expected delta (`open-items.md`, working methods — a chopped log line faked a missing test twice in one day). Same day: 455/0/1, 448/0/1, 451/0/1 |
-| `run-tests.sh scientific` | inside `all` above, 2026-09-03. The four reader harnesses (`dm4-robustness-test`, `vendor-reader-test`, `sidecar-error-detail-test`, `load-spec-test`) each exit 0 on the path-leak tree, 2026-09-04 — that change was in `Core/`, so they were owed |
+| `run-tests.sh unit` | **463 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05**, full log retained at `/private/tmp/mac4dstem-discovery-unit-20260905.log`; the one skip is the existing unmounted-volume case. Exit was read from the gate's own line. |
+| `run-tests.sh scientific` | **43 harnesses, exit 0 — 2026-09-05**, using `PYTHON=$HOME/miniconda3/envs/py4dstem/bin/python`; includes `datacube-discovery-test`. Full log retained at `/private/tmp/mac4dstem-discovery-scientific-py4dstem-20260905.log`. |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | exit 0 — 2026-09-04, clean tree (so its docs check actually ran). Cold-start set 889, down from 922 at the previous closeout; it dipped to 862 mid-session and the second docs pass put 27 back as verified file:line evidence, after every entry it touched was trimmed to the file's own ≤ 12-line rule. **Weaker than it reads:** its size numbers are `printf` with no return code, and its one docs check is skipped entirely on a dirty tree (`run-tests.sh:179`), which is how every session runs it. It gates the `tools/` classification and the UI-contract greps; it does not gate the doc numbers |
+| `run-tests.sh inventory` | exit 0 — 2026-09-05, dirty-tree inventory; tool classification and UI-contract checks passed. Its clean-tree documentation check was skipped by design because this work remains uncommitted. |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-04.** Clean-builds a hardened Release and audits the artefact: nested signatures, sandbox/read-write/bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version `2.5 (4)` with the deployment floor — both DERIVED from the project. The floor assertion and its success message were both literal `26.0` and both wrong after the floor moved; the message said "macOS 26 floor" while passing against 14.0 |
-| `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). It exited 1 on the release tree itself, at `real-data-acceptance`; that defect is diagnosed and closed as a stopgap, with the wider class left open (`open-items.md`). Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
+| `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). The release-tree attempt exited 1 at `real-data-acceptance`; that sidecar instance was diagnosed and closed as a stopgap then, and the wider discovery class was subsequently closed on 2026-09-05. Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
 
 ## The v2.5.0 / v2.5.1 release night
 
@@ -49,7 +49,7 @@ provenance are
 [`docs/archive/v2/release-2026-09-04.md`](archive/v2/release-2026-09-04.md).
 The live facts are the Releases table above and `CHANGELOG.md`.
 
-## Handoff (rewritten 2026-09-04, after the v2.5.0 / v2.5.1 release night)
+## Handoff (rewritten 2026-09-05, after the v2.5.0 / v2.5.1 release night and reader gate)
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -68,20 +68,13 @@ agent should say so and start at item 2.
    a cropped save → quit → reopen (S1's crop restore), and **right-clicking a
    saved result in the sidebar's Session section to find Remove** — the rows
    themselves the owner drove and approved, the context menu nobody has opened.
-2. **The reader class behind the release-night defect** (`open-items.md`, top
-   of Science). `is4D` is tautological after `describe` pads rank 3, so any
-   rank-3 array is taken for a datacube; and the candidate sort prefers the
-   shallowest `/data` path, so a shallow rank-3 node can outrank a genuine deep
-   cube and be returned as the data. **That is wrong data, not a refusal**, on
-   ordinary py4DSTEM files. The v2.5.1 fix is a labelled stopgap for the
-   sidecar instance only. Gate D, and it leads the science lane.
-3. **Manual Q and R pixel scale cannot be corrected once entered**
+2. **Manual Q and R pixel scale cannot be corrected once entered**
    (`open-items.md`). Small, owner-hit; a wrong R scale silently rescales every
    real-space axis, scale bar and export. Its recorded mechanism is imprecise
    for `.qScale` — the code names `.rScale` — so check that before fixing.
-4. **The four open UI-review findings** and **`PaneSplit` residuals**
+3. **The four open UI-review findings** and **`PaneSplit` residuals**
    (`open-items.md`).
-5. **Then the rest of the science lane, one item at a time** — origin-fit guard
+4. **Then the rest of the science lane, one item at a time** — origin-fit guard
    (Gate B), the ACOM bundle's origin-provenance snapshot, the selected-area
    mask fixture, bullseye disk detection (Gate D), the CIF id collision,
    Q-calibration scale, ACOM coverage. A landed number change cuts v2.6.0.
@@ -113,5 +106,4 @@ drives and pastes the result.
 ## Owed to the owner
 
 - **Drive the rebuilt app** (above) — two things unverified on screen.
-- Gate D on the reader class (item 2) — the most valuable thing outstanding.
 - The §10g decisions and plan §8 (sidecar wire format).
