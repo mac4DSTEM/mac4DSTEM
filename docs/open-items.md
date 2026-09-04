@@ -448,37 +448,33 @@ entry points below the fold; at the 171pt pane-width floor the header
 truncates and a badge wraps one letter per line. A saved sidebar divider
 can restore below its declared 250pt minimum (observed 144pt).
 
-### UI launch crash — fixed; the MECHANISM is refuted, not established
-`--ui2 --demo-fixture` aborted ~6 s in: `NSGenericException` ("more Update
-Constraints passes than there are views"), through
-`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. Fixed and
-gated: `PaneSplit` replaces `HSplitView`, 3/3 cold launches clean, and the
-ban is now an `inventory` grep (mutation-tested both ways, 2026-09-04).
-**Two hypotheses have been refuted, including the one first recorded here.**
-(a) "the panes' explicit `.frame(minWidth:)`" — the crash reproduces without
-them (probe E4a); note that probe removed only `.frame(minWidth:)` in
-`WorkspaceView`/`ResultsWorkspace`, never touched `ImagePanes.swift`, and that file's
-nine `.fixedSize()` calls are stronger minimums, so E4a refutes the declared
-180 pt floor and nothing wider. (b) "`HSplitView` hosts each child in its own
-`NSHostingView` and loops on a content-derived, non-constant minimum" —
-refuted by this repo's own shipping code at the time: the AppKit-hosted window
-put two real panes with explicit minimums inside an `HSplitView` and did not
-crash (`UI/ContentView.swift:539` as of `8528cd7`; that window was deleted in
-the retirement, so the counterexample is in git history, not the tree).
-The surviving reading is the one MEASURED on 2026-09-03
-(`UI/SplitViewPolicy.swift`): a minimum travelling between a SwiftUI-owned
-split and its hosted content, with UI stacking three such splits
-(`NavigationSplitView` + `.inspector` + `HSplitView`) where `UI/` has one.
-Nothing measured a minimum at all on 2026-09-04. **Two probes would decide it
-and neither has been run:** `HSplitView` + real panes with `.inspector`
-removed (survives ⇒ nesting, not the panes); and
-`HSplitView { Color.clear.frame(minWidth: 300); … }` (crashes ⇒ a constant
-minimum suffices). Every negative probe is n=1 against a fault this repo
-already records as intermittent (S17), and no probe asserted the fixture
-actually landed — `alive=1` is also satisfied by a window still on the welcome
-screen. Owner: whoever next touches the UI shell. Gate D refuter ran
-2026-09-04 and produced all of the above.
-
+### The constraint-loop crash: mechanism DEMONSTRATED; `HSplitView` was a trigger
+Two crashes, one exception, one frame: `NSGenericException` from
+`_postWindowNeedsUpdateConstraints`, through
+`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. The first
+aborted ~6 s after launch and was fixed by replacing `HSplitView` with
+`PaneSplit`. **2026-09-04, decisive: the second crash happened with NO
+`HSplitView` anywhere in the tree** — it had been deleted and an `inventory`
+grep forbids it — during disk detection on `polycrystal_2D_WS2.h5`, ~2.5 min
+in. That refutes the "conjunction of `HSplitView` + real panes" this file
+previously recorded as the mechanism, and confirms the Gate D refuter's H4:
+the loop is SwiftUI's split machinery reacting to **any hosted child whose
+minimum size keeps changing**, and `NavigationSplitView` and `.inspector` are
+splits too. What changed the minimum the second time was ours — a status-bar
+`Text(...).fixedSize()` on a `TimelineView(.periodic(by: 1))` inside
+`.safeAreaInset(edge: .bottom)`, whose width changed every second ("53 s" →
+"78.8 positions/s · ETA 2:35") and which ticks only while an operation runs.
+That is why every demo-fixture launch was clean and a real dataset died.
+Reverted; the same dataset then ran detection to completion ("Disks ✓ 16384
+peaks"), 150 s, no crash. **The rule: nothing inside a split's hosted content
+may repeatedly change its own minimum size**, and `.fixedSize()` on text whose
+string changes is the easiest way to do it by accident. `PaneSplit` is still
+right (it propagates no minimum at all) but was never the whole story.
+Residuals: positive and negative are each n=1 against a fault this repo calls
+intermittent (S17); the inspector's Performance rows still tick per second,
+though inside a scroll view rather than a size-setting inset; and the two
+probes named earlier for separating "nesting" from "the panes' minimum" are
+now moot — the answer arrived by accident. Owner: unclaimed.
 ### `PaneSplit` residuals from the refuter
 (a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a
 child below its minimum; `.frame(width:)` proposes a width and lets the child
@@ -530,28 +526,6 @@ and `ComparisonHoverMapping` are model and policy mis-filed under `UI/`, and
 UI uses them deliberately rather than duplicating LUTs and pointer geometry.
 They move to `Core/` (or `App/`) when `UI/` retires; until then `UI/` cannot
 be built with `UI/` deleted. Owner: whoever retires `UI/`.
-
-### UI launch crash — Gate D 2026-09-04, mechanism found, refuter owed
-`--ui2 --demo-fixture` aborted ~6 s after launch: `NSGenericException`
-("more Update Constraints passes than there are views"), through
-`SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)` →
-`AppKitPlatformViewHost.enqueueLayoutInvalidation()`. Same exception family
-as the 2026-09-03 sidebar-drag crash. **Refuted first, as in 2026-09-03: the
-explicit `.frame(minWidth:)` on the panes is NOT the cause** — the crash
-reproduces with every explicit minimum in the detail subtree removed.
-Mechanism (four probes, one tree): `HSplitView` + real panes crashes;
-`HSplitView` + `Color.clear` children survives; `HStack` + real panes
-survives; neither present survives. It is the CONJUNCTION — `HSplitView`
-hosts each pane in its own `NSHostingView` and reacts to a minimum size that
-is content-derived and non-constant (header badges, pickers and readouts
-appear as a dataset lands), so each change re-enters layout. `UI/` escapes it
-only because AppKit owns its columns and hosts content with
-`sizingOptions = []`. Fix: `PaneSplit` (`WorkspaceView.swift`) — a
-`GeometryReader` that hands each pane an explicit width and propagates no
-minimum upward; 3/3 cold launches clean. **Owed: the independent refuter
-(Gate D's second reader) has not run — this session's harness does not spawn
-agents unattended.** Trap: `HSplitView` is also macOS-only, so any UI file
-reintroducing it breaks the crash fix and the iOS goal at once.
 
 ## Code hygiene
 
