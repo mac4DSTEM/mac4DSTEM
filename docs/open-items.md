@@ -33,19 +33,37 @@ from the (already-actioned) permissive acceptance thresholds and the
 estimator repair — don't fold it into either. Owner: a dedicated Gate D
 science session, not a UI slice.
 
-### A results-rich session sidecar is read as data instead of refused
-`run-tests.sh all` exits 1 at `real-data-acceptance` on
-`downsample_Si_SiGe_exp.mac4dstem.h5` (2026-09-04, retained log):
-"Edge exclusion must be between 1 and 1 pixels for this detector".
-Reproduced alone on that one file. ESTABLISHED: it holds no 4D datacube
-(`_v_uncal/data {50,200}`, four `result_*` nodes), it DOES carry
-`mac4dstem_session_schema` on `/braggvectors_root`, the harness compiles the
-production `H5Reader.swift` so this is shipped behaviour, and it predates the
-v2.5.0 release work (UI and docs only). NOT ESTABLISHED, and not to be
-guessed: why `discoverPrimaryDataset` returns a descriptor rather than
-throwing `sessionSidecarOpened` or `noDatasetFound`. Two hypotheses already
-refuted. `SidecarRecognitionTests` pins only the calibration-only sidecar;
-the results-rich case has no test. **Gate D owed before any fix.**
+### Discovery accepts ANY rank-3 dataset as a datacube — `is4D` is a tautology
+The class behind the 2026-09-04 sidecar failure, still open after that
+instance was closed. `describe` accepts rank 3 and pads it to
+`[1, d0, d1, d2]` (`H5Reader.swift:370,379`) while `is4D` is only
+`shape.count == 4` (`DatasetDescriptor.swift:31`) — so `descriptor.is4D` can
+never be false and the guard in both discovery loops is DEAD CODE. Any rank-3
+array anywhere is returned as the primary cube. Real instances: py4DSTEM's
+StrainMap is a 6-slice RealSlice, and this repo's own
+`calibrationData_bullseyeProbe.h5` carries a rank-3 `probe_template` stack.
+Compounding it, the candidate sort (`H5Reader.swift:304-312`) prefers the
+SHALLOWEST `/data` path and never asks whether a node is plausibly a cube, so
+a shallow rank-3 node outranks a genuine deep datacube and is returned instead
+of it — wrong data, not a refusal. The four pinned cubes escape only by where
+they sit alphabetically. Found by the Gate B refuters on 2026-09-04, each with
+its own fixture. The right fix names a format-honest signal (emdfile stamps a
+`dim{rank}` dataset whose `name` is `_labels_` on stacked Arrays) plus a
+detector-plausibility floor at the discovery boundary. **Gate D owed.**
+
+### Sidecar-subtree skip is a STOPGAP, and is labelled one
+Closed the reported instance 2026-09-04: `discoverPrimaryDataset` now skips
+paths under the sidecar's own root when the file carries the schema
+attribute, so a saved RGBA result map (`{H, W, 4}`, rank 3) is no longer
+returned as a `[1, H, W, 4]` cube with a 4-pixel detector. Mechanism
+established and independently reproduced by four refuters with their own
+fixtures; the arithmetic is near-unique to a channel-last image
+(`DiskDetection.swift:154,388`). It treats the LOCATION, not the mechanism —
+the class above is untouched, and a results-rich file WITHOUT the attribute
+still reproduces the symptom exactly. Reproducer note: the reported file
+`downsample_Si_SiGe_exp.mac4dstem.h5` was deleted by an app session mid-day;
+the fix is verified on `sim_Au_data_all_binned.mac4dstem.h5` and by a fixture
+test that needs no gitignored data.
 
 ### Origin-fit gate has three unresolved holes
 (a) **Gate D 2026-09-03, refuted as filed:** the middle-threshold fallback
@@ -231,17 +249,17 @@ screen: everything from 7c slice 1 on (Results sidebar and inspector, the
 inspector following the focused pane), the clean-account run, the bounded
 promote run, a real load cancel.
 
-### `tools/run-tests.sh all` was run 2026-09-04 and FAILED
-Ran on the v2.5.0 release tree (owner freed the disk, 11 GB on both roots):
-unit 457 passed / 0 failed / 0 skipped counted by `Suite.method` over 63
-suites, 42 scientific harnesses green, then **exit 1 at
-`real-data-acceptance`** — the sidecar-read-as-data defect above.
-`package-test` never ran; it is sequenced after the failure
-(`run-tests.sh:202`). v2.5.0 therefore shipped on the reduced gate the
-release plan originally chose, and its notes say so. The trap that nearly
-hid this: the BACKGROUND TASK reported exit 0 while the gate's own
-`GATE_EXIT` line said 1 — the fourth time this has bitten. Read the gate's
-own line. The aggregate is still owed, and now has a named blocker.
+### `tools/run-tests.sh all` — red, then GREEN on the fixed tree (2026-09-04)
+On the v2.5.0 release tree it exited 1 at `real-data-acceptance` (the sidecar
+defect above); `package-test` never ran, being sequenced after it
+(`run-tests.sh:202`), so **v2.5.0 shipped on the reduced gate** and its notes
+say so. After the fix, `all` is **exit 0** on the same machine: 458 passed /
+0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test`
+included. Two traps, both recorded before and both hit again: the BACKGROUND
+TASK reported exit 0 while the gate's own `GATE_EXIT` line said 1; and the
+unit count read one short twice because an xcodebuild timestamp interleaved
+mid-test-name, reconciled against the source file's method count, not
+assumed.
 
 ### The macOS floor is enforced at 26, and bringing it down needs a machine we lack
 Corrected 2026-09-04; both halves of the old entry were wrong. It said

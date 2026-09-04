@@ -310,7 +310,36 @@ package actor H5Reader: FourDDataSource {
             let rhsDepth = $1.filter { $0 == "/" }.count
             return lhsDepth == rhsDepth ? $0 < $1 : lhsDepth < rhsDepth
         }
+        // A SIDECAR'S OWN ROOT HOLDS SAVED PRODUCTS, NEVER A DATACUBE.
+        //
+        // `describe` accepts rank 3 and promotes it to `[1, d0, d1, d2]`,
+        // which is right for a genuine single-row cube. An RGBA result map is
+        // stored `{height, width, 4}` — also rank 3 — so without this skip the
+        // link search "finds a 4D datacube" inside a saved IPF map: shape
+        // `[1, 100, 84, 4]`, a 4-pixel detector, and discovery SUCCEEDS on a
+        // file that contains no cube at all. The sidecar sentence below is
+        // then never reached, because it only runs when the search fails.
+        //
+        // Found by `run-tests.sh all` on 2026-09-04, which exited 1 in
+        // `real-data-acceptance` on a sidecar written beside a training cube.
+        // Only the sidecar's own subtree is skipped, so the rule the ordering
+        // below encodes still holds: a file carrying both the attribute and a
+        // real 4D dataset elsewhere still opens as data.
+        let sidecarRoot = "/" + SessionSidecarFormat.rootGroupName
+        let markedAtRootGroup =
+            readStringAttribute(SessionSidecarFormat.schemaAttribute, onPath: sidecarRoot) != nil
+        let markedAtFileRoot =
+            readStringAttribute(SessionSidecarFormat.schemaAttribute, onPath: "/") != nil
+        let isSessionSidecar = markedAtRootGroup || markedAtFileRoot
         for path in candidates where !Self.candidatePaths.contains(path) {
+            // A file marked at its FILE ROOT declares the whole file a sidecar,
+            // so nothing in it is a cube; one marked at the sidecar root group
+            // only speaks for that subtree. Keyed off both flags rather than the
+            // literal prefix alone: the Gate B refuter showed that a file the
+            // flag already called a sidecar via the "/" branch still reproduced
+            // this defect verbatim, because the skip tested only the prefix.
+            if markedAtFileRoot { continue }
+            if markedAtRootGroup, path.hasPrefix(sidecarRoot + "/") { continue }
             // Same probe contract as the canonical loop above. // v2 S7
             if let descriptor = try? describe(path: path), descriptor.is4D {
                 return descriptor
@@ -323,12 +352,13 @@ package actor H5Reader: FourDDataSource {
         // test; "/" is kept as a fallback so a future writer that stamps the
         // file root is still recognised. Deliberately checked only AFTER the
         // full search fails: a file that carries both the attribute and a real
-        // 4D dataset opens as data. The suggestion is the source's STEM, not a
+        // 4D dataset OUTSIDE the sidecar's own subtree opens as data. A rank-4
+        // cube placed INSIDE that subtree is now unreachable — a narrowing with
+        // no writer that produces it (cubes go to `datacube_root`, bundles to
+        // `scientific_bundle_root`), recorded here because it is real. The suggestion is the source's STEM, not a
         // filename — the naming rule strips any extension, so the source may
         // be .dm4, .emd, anything. // v2 S4
-        let attribute = SessionSidecarFormat.schemaAttribute
-        if readStringAttribute(attribute, onPath: "/" + SessionSidecarFormat.rootGroupName) != nil
-            || readStringAttribute(attribute, onPath: "/") != nil {
+        if isSessionSidecar {
             let name = URL(fileURLWithPath: filePath).lastPathComponent
             let suffix = SessionSidecarFormat.nameSuffix
             let suggested: String? = name.hasSuffix(suffix)
