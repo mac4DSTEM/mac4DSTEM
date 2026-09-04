@@ -124,7 +124,7 @@ inventory() {
   printf "  %-36s %7s\n" "app Swift+Metal lines" "$(swift_lines "$ROOT/mac4DSTEM")"
   printf "  %-36s %7s\n" "AppState.swift lines" "$(wc -l < "$ROOT/mac4DSTEM/App/AppState.swift" | tr -d ' ')"
   printf "  %-36s %7s\n" "AppState stored properties" "$(grep -cE '^[[:space:]]*(@ObservationIgnored )?(var|let) ' "$ROOT/mac4DSTEM/App/AppState.swift")"
-  printf "  %-36s %7s\n" "ContentView.swift lines" "$(wc -l < "$ROOT/mac4DSTEM/UI/ContentView.swift" | tr -d ' ')"
+  printf "  %-36s %7s\n" "UI/ Swift lines" "$(cat "$ROOT"/mac4DSTEM/UI/*.swift | wc -l | tr -d ' ')"
   printf "  %-36s %7s\n" "unit-test lines" "$(swift_lines "$ROOT/mac4DSTEMTests")"
   printf "  %-36s %7s\n" "tools/ Swift lines" "$(swift_lines "$ROOT/tools")"
   printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md)"
@@ -151,29 +151,29 @@ inventory() {
   # NSView tree (SwiftUI's `.bar` hosts no NSVisualEffectView; measured
   # 2026-09-03), so the rule is held here. The scientific panes are exempt.
   if grep -nE '\.background\((\.bar\)|Color\.[a-zA-Z]+\.opacity)' "$ROOT"/mac4DSTEM/UI/*.swift \
-       | grep -vE 'StemImageView|DiffractionView|LoadConfiguratorView|MetalImageView|ScaleBarView|FitOverlayViews'; then
+       | grep -vE 'UI2Panes|UI2PaneOverlays|UI2LoadConfigurator|UI2MetalImage|UI2Histogram'; then
     echo "  ^ custom bar or opacity wash in the chrome (presentation contract rule 3)"; rc=1
   fi
   # Rule 4 (2026-09-03): no fixed frames except the science. A numeric
   # `.frame(...)` in the chrome must come from `FormPolicy`/`WindowPolicy`
   # (FormControls.swift); the panes, overlays and plots are exempt.
   if grep -nE '\.frame\([^)]*: *[0-9]' "$ROOT"/mac4DSTEM/UI/*.swift \
-       | grep -vE 'StemImageView|DiffractionView|MetalImageView|ScaleBarView|FitOverlayViews|HistogramView|ApertureControl|IPFLegendViews|ScientificHistoryPlot|FormControls|SwiftUI\+MTKView' \
-       | grep -vE 'FormPolicy|WindowPolicy|cropPane|// science'; then
+       | grep -vE 'UI2Panes|UI2PaneOverlays|UI2Histogram|UI2Results|UI2LoadConfigurator|UI2Metrics' \
+       | grep -vE 'UI2Metrics\.|cropPane|// science'; then
     echo "  ^ a fixed frame outside the science (presentation contract rule 4)"; rc=1
   fi
-  # The UI2 contract (architecture.md, 2026-09-04). UI2 is SwiftUI only, and
+  # The UI contract (architecture.md, 2026-09-04). UI/ is SwiftUI only, and
   # `HSplitView` in particular is banned: with the real panes inside it the
   # app aborted on launch in AppKit's update-constraints guard (Gate D,
   # `open-items.md`), and it is macOS-only besides. Prose could not hold this
   # — a fix in this repo gets a gate. Comment lines are exempt: the ban is
   # explained in several of them.
   if grep -nE '^[^/]*\b(HSplitView|VSplitView|NSSplitView|NSSplitViewController)\b' \
-       "$ROOT"/mac4DSTEM/UI2/*.swift; then
-    echo "  ^ a split banned by the UI2 contract (architecture.md 'The UI2 contract')"; rc=1
+       "$ROOT"/mac4DSTEM/UI/*.swift; then
+    echo "  ^ a split banned by the UI contract (architecture.md 'The UI contract')"; rc=1
   fi
-  if grep -nE '^ *import +AppKit' "$ROOT"/mac4DSTEM/UI2/*.swift; then
-    echo "  ^ import AppKit in UI2 (architecture.md 'The UI2 contract')"; rc=1
+  if grep -nE '^ *import +AppKit' "$ROOT"/mac4DSTEM/UI/*.swift; then
+    echo "  ^ import AppKit in UI (architecture.md 'The UI contract')"; rc=1
   fi
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the

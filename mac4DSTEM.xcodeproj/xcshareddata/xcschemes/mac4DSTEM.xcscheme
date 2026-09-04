@@ -63,10 +63,6 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "--ui2"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "--demo-fixture"
             isEnabled = "NO">
          </CommandLineArgument>

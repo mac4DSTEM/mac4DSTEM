@@ -13,12 +13,12 @@ final class CalibrationDisclosureTests: XCTestCase {
     func testExcludedFractionDisclosureUsesTheSharedPolicyFloor() {
         // 1% sits between the retired 0.5% and the shared 2%: the old
         // threshold disclosed it; the policy says stay quiet.
-        XCTAssertFalse(CalibrationDetailsView.disclosesExcludedFraction(0.01))
+        XCTAssertFalse(UI2PrepareSettings.disclosesExcludedFraction(0.01))
         // Exactly at the floor: quiet — the policy is strictly-greater,
         // matching Calibration's own readiness use of the constant.
-        XCTAssertFalse(CalibrationDetailsView.disclosesExcludedFraction(
+        XCTAssertFalse(UI2PrepareSettings.disclosesExcludedFraction(
             Calibration.excludedFractionDisclosureFloor))
         // Above the floor: disclosed.
-        XCTAssertTrue(CalibrationDetailsView.disclosesExcludedFraction(0.03))
+        XCTAssertTrue(UI2PrepareSettings.disclosesExcludedFraction(0.03))
     }
 }

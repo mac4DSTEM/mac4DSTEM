@@ -48,11 +48,11 @@ final class ComparisonPanelVersionTests: XCTestCase {
     // MARK: - Scalar payloads
 
     func testTwoScalarProductsOfTheSameShapeVersionDifferently() {
-        let a = ComparisonPanel(
+        let a = UI2ComparisonPanel(
             scalarProduct([0, 1, 2, 3], width: 2, height: 2),
             label: "A", colormap: .viridis
         )
-        let b = ComparisonPanel(
+        let b = UI2ComparisonPanel(
             scalarProduct([0, 1, 2, 9], width: 2, height: 2),
             label: "A", colormap: .viridis
         )
@@ -67,10 +67,10 @@ final class ComparisonPanelVersionTests: XCTestCase {
         // would re-upload the texture on every body evaluation, which is the
         // cost the version exists to avoid.
         let pixels: [Float] = [4, 5, 6, 7]
-        let first = ComparisonPanel(
+        let first = UI2ComparisonPanel(
             scalarProduct(pixels, width: 2, height: 2), label: "A", colormap: .viridis
         )
-        let second = ComparisonPanel(
+        let second = UI2ComparisonPanel(
             scalarProduct(pixels, width: 2, height: 2), label: "A", colormap: .viridis
         )
         XCTAssertEqual(first.contentVersion, second.contentVersion)
@@ -79,7 +79,7 @@ final class ComparisonPanelVersionTests: XCTestCase {
     func testTheVersionIsNotTheConstantItReplaced() {
         // The literal defect: `contentVersion: 0`. The Coordinator starts at
         // Int.min, so a constant zero uploads once and never again.
-        let panel = ComparisonPanel(
+        let panel = UI2ComparisonPanel(
             scalarProduct([1, 2, 3, 4], width: 2, height: 2), label: "A", colormap: .viridis
         )
         XCTAssertNotEqual(panel.contentVersion, 0)
@@ -90,11 +90,11 @@ final class ComparisonPanelVersionTests: XCTestCase {
     func testTwoRGBAProductsOfTheSameSizeVersionDifferently() {
         // Both carry an all-zero `pixels` array of equal length at equal
         // dimensions, so everything except the packed bytes is identical.
-        let a = ComparisonPanel(
+        let a = UI2ComparisonPanel(
             rgbaProduct([UInt8](repeating: 10, count: 2 * 2 * 4), width: 2, height: 2),
             label: "A", colormap: .viridis
         )
-        let b = ComparisonPanel(
+        let b = UI2ComparisonPanel(
             rgbaProduct([UInt8](repeating: 200, count: 2 * 2 * 4), width: 2, height: 2),
             label: "A", colormap: .viridis
         )
@@ -107,11 +107,11 @@ final class ComparisonPanelVersionTests: XCTestCase {
     func testAnRGBAProductDoesNotCollideWithTheScalarProductBehindIt() {
         // The zero-filled `pixels` an RGBA panel carries is a real scalar image
         // in its own right; the two must not share a version.
-        let rgba = ComparisonPanel(
+        let rgba = UI2ComparisonPanel(
             rgbaProduct([UInt8](repeating: 0, count: 2 * 2 * 4), width: 2, height: 2),
             label: "A", colormap: .viridis
         )
-        let zeros = ComparisonPanel(
+        let zeros = UI2ComparisonPanel(
             scalarProduct([0, 0, 0, 0], width: 2, height: 2), label: "A", colormap: .viridis
         )
         XCTAssertNotEqual(rgba.contentVersion, zeros.contentVersion)
@@ -120,11 +120,11 @@ final class ComparisonPanelVersionTests: XCTestCase {
     func testTheRGBAVersionDependsOnByteOrderNotJustTheByteSet() {
         // A sum or an order-free fold would pass the test above and still miss
         // a flipped or rotated colour map.
-        let a = ComparisonPanel(
+        let a = UI2ComparisonPanel(
             rgbaProduct([1, 2, 3, 4, 5, 6, 7, 8], width: 2, height: 1),
             label: "A", colormap: .viridis
         )
-        let b = ComparisonPanel(
+        let b = UI2ComparisonPanel(
             rgbaProduct([5, 6, 7, 8, 1, 2, 3, 4], width: 2, height: 1),
             label: "A", colormap: .viridis
         )
@@ -139,10 +139,10 @@ final class ComparisonPanelVersionTests: XCTestCase {
         // re-upload for no reason, and would also mask a real payload change
         // whenever the label happened to change with it.
         let pixels: [Float] = [1, 2, 3, 4]
-        let a = ComparisonPanel(
+        let a = UI2ComparisonPanel(
             scalarProduct(pixels, width: 2, height: 2), label: "A", colormap: .viridis
         )
-        let b = ComparisonPanel(
+        let b = UI2ComparisonPanel(
             scalarProduct(pixels, width: 2, height: 2), label: "B", colormap: .viridis
         )
         XCTAssertEqual(a.contentVersion, b.contentVersion)

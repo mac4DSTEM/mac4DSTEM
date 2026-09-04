@@ -183,6 +183,26 @@ owed science items (`open-items.md`) carry no release number — each is a
 Gate D or Gate B session of unknown size, and the changelog names the
 number it changes when one lands.
 
+**2026-09-04 — `UI/` retired; the SwiftUI rebuild IS the UI.** The
+AppKit-hosted window and its 32 files are deleted, `UI2/` is renamed to `UI/`,
+and no flag selects a UI any more. Keeping both compiling was the thing that
+cost: it doubled the build, and it kept alive four duplications that could
+drift apart silently — the 1-2-5 scale-bar quantiser (the on-screen bar and
+the PNG export were quantised by separate copies), two calibration helpers
+whose only tests defended the retired copy, and a diagnostic plot. Git history
+is the archive; a second UI folder is not. What moved rather than died:
+`PeakOverlayGeometry`, `RealSpacePointerPolicy` and `ComparisonHoverMapping`
+into `UI/`, and `Colormaps` into `App/` — it is display vocabulary that
+`AppState` and the exporter both consume, and it imports AppKit for its
+`NSImage` swatches, which the UI contract's grep now forbids in `UI/`. What
+died: 27 tests, all of them pinning the AppKit column shell
+(`SidebarLayoutTests`, `ColumnMaterialTests`, `SplitViewHeightTests`,
+`SplitViewPolicyTests`, `SidebarDensityMeasurementTests`) — a gate for a
+deleted shell is not coverage. Six tests were repointed instead, because the
+rule each pins still exists. Type names keep their `UI2` prefix: it is a name,
+not a namespace, and `UI2Metrics` → `Metrics` / `UI2Route` → `Route` are too
+generic to grep.
+
 **2026-09-04 (owner's first drive of UI2) — the toolbar's trailing edge owns
 the run action, and the sidebar's foot owns session trust.** Two calls, both
 from driving it. (a) The primary action moves from `.principal` to

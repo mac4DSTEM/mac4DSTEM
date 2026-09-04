@@ -23,14 +23,8 @@ private struct DatasetWindow: View {
     @State private var loadedLaunchFixture = false
 
     var body: some View {
-        Group {
-            if ProcessInfo.processInfo.arguments.contains("--ui2") {
-                UI2ContentView()
-            } else {
-                ContentView()
-            }
-        }
-        .environment(appState)
+        UI2ContentView()
+            .environment(appState)
         .focusedSceneValue(\.appState, appState)
         .frame(minWidth: 1080, minHeight: 640)
         .task {

@@ -550,7 +550,7 @@ struct UI2StatusBar: View {
 /// **Why this is not `HSplitView`** (Gate D, 2026-09-04). `HSplitView` nested
 /// in the `NavigationSplitView` detail is half of a launch crash: with both it
 /// and the real panes present the app aborted in AppKit's update-constraints
-/// guard ~6 s after `--ui2 --demo-fixture`, and removing either element
+/// guard ~6 s after launching on the demo fixture, and removing either element
 /// removed the crash. Measured, one tree: HSplitView + real panes crashes (and
 /// still crashes with every `.frame(minWidth:)` removed, which refuted the
 /// first diagnosis); HSplitView + `Color.clear` children survives; `HStack` +

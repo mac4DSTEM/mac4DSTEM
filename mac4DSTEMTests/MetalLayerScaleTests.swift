@@ -1,6 +1,6 @@
 //
 //  MetalLayerScaleTests.swift
-//  Pins MetalImageView.ScaleAwareMTKView — the fix for F1.3b, the configurator
+//  Pins UI2MetalImage.ScaleAwareMTKView — the fix for F1.3b, the configurator
 //  panes that drew nothing for nine days (2026-08-18 → 2026-08-27).
 //
 //  The defect class this guards: inside SwiftUI's sheet the hosted MTKView's
@@ -78,7 +78,7 @@ final class MetalLayerScaleTests: XCTestCase {
     /// case, it covers a path that is sufficient on its own for F1.3b.
     func testAChangeInBackingPropertiesIsFollowed() throws {
         let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
-        let view = MetalImageView.ScaleAwareMTKView(frame: .zero, device: device)
+        let view = UI2MetalImage.ScaleAwareMTKView(frame: .zero, device: device)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
             styleMask: [.titled], backing: .buffered, defer: false

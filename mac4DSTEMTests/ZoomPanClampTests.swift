@@ -13,11 +13,11 @@ final class ZoomPanClampTests: XCTestCase {
     func testPanIsBlockedAtOneXAndBelow() {
         let size = CGSize(width: 400, height: 300)
         XCTAssertEqual(
-            ZoomPanState.clampedOffset(CGSize(width: 50, height: -80), zoom: 1, in: size),
+            UI2ZoomPan.clampedOffset(CGSize(width: 50, height: -80), zoom: 1, in: size),
             .zero, "at 1× the image fills the pane — a plain click scrubs, panning is meaningless"
         )
         XCTAssertEqual(
-            ZoomPanState.clampedOffset(CGSize(width: 50, height: -80), zoom: 0.5, in: size),
+            UI2ZoomPan.clampedOffset(CGSize(width: 50, height: -80), zoom: 0.5, in: size),
             .zero, "zoomed out, the image fits entirely — it stays centred"
         )
     }
@@ -25,14 +25,14 @@ final class ZoomPanClampTests: XCTestCase {
     func testZoomedPanStopsExactlyAtTheEdge() {
         let size = CGSize(width: 400, height: 300)
         // zoom 2 → limit size·(1 − 1/2)/2 = size/4 = (100, 75).
-        let clamped = ZoomPanState.clampedOffset(
+        let clamped = UI2ZoomPan.clampedOffset(
             CGSize(width: 500, height: -500), zoom: 2, in: size
         )
         XCTAssertEqual(clamped.width, 100)
         XCTAssertEqual(clamped.height, -75)
         // Inside the band, the pan passes through untouched.
         XCTAssertEqual(
-            ZoomPanState.clampedOffset(CGSize(width: 40, height: -60), zoom: 2, in: size),
+            UI2ZoomPan.clampedOffset(CGSize(width: 40, height: -60), zoom: 2, in: size),
             CGSize(width: 40, height: -60)
         )
     }
@@ -42,7 +42,7 @@ final class ZoomPanClampTests: XCTestCase {
         // Panned to the zoom-4 limit (150pt), then the zoom drops to 2:
         // the limit is now 100pt and the offset must come back with it.
         XCTAssertEqual(
-            ZoomPanState.clampedOffset(CGSize(width: 150, height: 150), zoom: 2, in: size),
+            UI2ZoomPan.clampedOffset(CGSize(width: 150, height: 150), zoom: 2, in: size),
             CGSize(width: 100, height: 100)
         )
     }

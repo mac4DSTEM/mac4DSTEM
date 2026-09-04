@@ -5,7 +5,8 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The UI2 window: a SwiftUI-only shell, selected with `--ui2`.
+/// The app's window: a SwiftUI-only shell. It was `--ui2` until 2026-09-04,
+/// when the AppKit-hosted window it replaced was deleted.
 ///
 /// **The frozen rules.** `NavigationSplitView` and the native `.inspector`
 /// are the whole window structure — no `NSSplitViewController`, no hosted

@@ -133,7 +133,7 @@ struct UI2ResultsWorkspace: View {
 /// dimensions would be indistinguishable and one would keep the other's
 /// texture. That is defect 1 again, one payload case further in.
 /// `UI2MetalImage.contentVersion(of:rgba:width:height:)` is exactly that rule.
-private struct UI2ComparisonPanel: Identifiable {
+struct UI2ComparisonPanel: Identifiable {
     let id: String
     let product: DisplayedProduct
     let label: String

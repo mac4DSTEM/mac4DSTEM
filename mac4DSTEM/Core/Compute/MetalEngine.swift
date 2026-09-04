@@ -1,7 +1,7 @@
 //
 //  MetalEngine.swift
 //  Role: The one place that owns the GPU — MTLDevice, command queue, the
-//        compiled shader library, the render pipelines used by MetalImageView,
+//        compiled shader library, the render pipelines used by UI2MetalImage,
 //        and the compute pipelines used by the Analysis layer.
 //
 //  ISOLATION: marked `nonisolated` so it is NOT bound to the project's default

@@ -106,8 +106,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Crystal models, scattering factors, ACOM matching, CIF import | `mac4DSTEM/Core/Crystal/` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |
-| Current SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
-| UI2 SwiftUI migration views | `mac4DSTEM/UI2/` |
+| SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
 | Export, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
 | Standalone parity, diagnostic and packaging harnesses | `tools/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
@@ -191,21 +190,22 @@ alerts — not only the columns. Deviations are recorded in `open-items.md`
 with the reason. The rework that adopts it is the only UI target until it
 is complete (`status.md`).
 
-## The UI2 contract (owner decision, 2026-09-04)
+## The UI contract (owner decision, 2026-09-04)
 
-`UI2/` is the SwiftUI-only rebuild of every surface in `UI/`, selected with
-`--ui2`. It is not a second style of the same window: it is the presentation
-contract above with AppKit removed and the shape re-cut, and it is the surface
-that ports to iOS. Six rules, all checkable:
+`UI/` was rebuilt from scratch in SwiftUI in 2026-09-04's migration; the
+AppKit-hosted window it replaced was deleted the same day, so there is one UI
+again and no flag selects it. It is the presentation contract above with
+AppKit removed and the shape re-cut, and it is the surface that ports to iOS.
+Six rules, the first three enforced by `run-tests.sh inventory`:
 
 1. **SwiftUI only.** No `NSSplitViewController`, no hosted AppKit shell, no
    `NSEvent` monitors, no `NSCursor`, no AppKit layout, no `import AppKit`.
    The one permitted platform bridge is `UI2MetalImage`, which is written
    with a shared body and a two-line per-OS conformance.
-2. **No view under `UI/` is referenced.** UI2 calls shared `App/`, `Session/`
-   and `Core/` logic, plus the five non-View pure types that are mis-filed in
-   `UI/` and move out when it retires: `ColormapKind`, `Colormaps`,
-   `PeakOverlayGeometry`, `RealSpacePointerPolicy`, `ComparisonHoverMapping`.
+2. **No AppKit shell.** `HSplitView`, `VSplitView`, `NSSplitView` and
+   `NSSplitViewController` are banned outright — `HSplitView` was half of a
+   launch crash (`open-items.md`) and is macOS-only besides. `inventory`
+   greps for all four and for `import AppKit`.
 3. **`UI2Metrics` is the whole number budget.** Every column range, science
    floor, field width, thumbnail ceiling and sheet size is there and nowhere
    else. Outside it, a `.frame` is permitted only as scientific drawing
@@ -225,8 +225,10 @@ that ports to iOS. Six rules, all checkable:
    title carries the task and the toolbar carries the one action that runs
    it. Readiness has exactly one home, the Settings tab's first section.
 
-Both UIs compile into the app target while the migration runs; `UI/` stays
-the default and `--ui2` selects the rebuild.
+Type names still carry a `UI2` prefix from the migration. It is a name, not a
+namespace: dropping it would turn `UI2Metrics` into `Metrics` and `UI2Route`
+into `Route`, which are too generic to grep, so it stays until there is a
+better reason than tidiness.
 
 ## Requirements, build, test
 
@@ -273,9 +275,8 @@ Distribution always uses hardened Release (`releasing.md`).
 
 ## Developer notes
 
-- One `@main` in `App/mac4DSTEMApp.swift`; current root UI in
-  `UI/ContentView.swift`; UI2 root in `UI2/UI2ContentView.swift` behind
-  `--ui2`. See "The UI2 contract" below.
+- One `@main` in `App/mac4DSTEMApp.swift`; the root view is
+  `UI/UI2ContentView.swift`. See "The UI contract" below.
 - Swift 5 language mode, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`;
   blocking compute types are `nonisolated` and run via `Task.detached`;
   readers are actors; long analyses guard publication with dataset epoch and

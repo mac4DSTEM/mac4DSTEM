@@ -448,28 +448,6 @@ entry points below the fold; at the 171pt pane-width floor the header
 truncates and a badge wraps one letter per line. A saved sidebar divider
 can restore below its declared 250pt minimum (observed 144pt).
 
-### UI2 duplicates four things `UI/` still owns, until `UI/` retires
-Both UIs compile into the app target, so the migration left four pairs that
-can drift and only one half of each is defended. (a) `UI2ScaleBar.nice125` /
-`.format` duplicate `ScaleBarView`'s, and `Support/ResultExport.swift:1937,1943`
-still calls the OLD statics to burn the bar into exported PNGs — edit one and
-an exported figure disagrees with the screen. (b)
-`UI2PrepareSettings.scanStepAngstromPerPixel` and `.disclosesExcludedFraction`
-duplicate the copies `CalibrationReadinessFilenameTests` and
-`CalibrationDisclosureTests` pin, so the shipping UI2 copy is untested; the
-tests get re-pointed, not deleted, when `UI/` goes. (c) `UI2ExportSheet`
-re-renders the readiness rows and their `calibration.*` identifiers, so while
-the sheet is open two instances of each identifier exist — the old app had the
-same collision. (d) `UI2HistoryPlot` duplicates `ScientificHistoryPlot`.
-Owner: whoever retires `UI/`; nothing here is wrong today.
-
-### UI2 still reaches into `UI/` for five pure types
-`ColormapKind`, `Colormaps`, `PeakOverlayGeometry`, `RealSpacePointerPolicy`
-and `ComparisonHoverMapping` are model and policy mis-filed under `UI/`, and
-UI2 uses them deliberately rather than duplicating LUTs and pointer geometry.
-They move to `Core/` (or `App/`) when `UI/` retires; until then `UI2/` cannot
-be built with `UI/` deleted. Owner: whoever retires `UI/`.
-
 ### UI2 launch crash — fixed; the MECHANISM is refuted, not established
 `--ui2 --demo-fixture` aborted ~6 s in: `NSGenericException` ("more Update
 Constraints passes than there are views"), through
@@ -483,8 +461,10 @@ them (probe E4a); note that probe removed only `.frame(minWidth:)` in
 nine `.fixedSize()` calls are stronger minimums, so E4a refutes the declared
 180 pt floor and nothing wider. (b) "`HSplitView` hosts each child in its own
 `NSHostingView` and loops on a content-derived, non-constant minimum" —
-refuted by this repo's own shipping code: `UI/ContentView.swift:539` puts two
-real panes with explicit minimums inside an `HSplitView` and does not crash.
+refuted by this repo's own shipping code at the time: the AppKit-hosted window
+put two real panes with explicit minimums inside an `HSplitView` and did not
+crash (`UI/ContentView.swift:539` as of `8528cd7`; that window was deleted in
+the retirement, so the counterexample is in git history, not the tree).
 The surviving reading is the one MEASURED on 2026-09-03
 (`UI/SplitViewPolicy.swift`): a minimum travelling between a SwiftUI-owned
 split and its hosted content, with UI2 stacking three such splits
