@@ -396,8 +396,12 @@ us.** The ANE is reached only through Core ML, which has no FFT; FCU-Net's
 Fourier layer can never run there, and MLX runs on the GPU. So: a plain-conv
 U-Net on three channels (pattern, probe, and the Metal correlation — the
 third decided in the same day so the net learns ring artifacts directly),
-own simulator, own weights (no weight licence), MLX to train, Core ML to
-serve; the net proposes, classical refinement measures. Weighed and not
+own simulator, own weights (no weight licence), PyTorch to train (Apple's
+documented path, PyTorch → `coremltools` → Core ML; MLX is out of this
+loop because `coremltools` cannot read it and a hand-written export is a
+moving part for no gain at this size), Core ML to serve; the net proposes,
+classical refinement measures. The confirmed/rejected patterns the owner
+clicks are owned by the session sidecar. Weighed and not
 taken: MLX Swift in the app (GPU only), FCU-Net via Core ML (impossible on
 the ANE), FCU-Net-first-then-ANE. Accepted cost: no py4DSTEM parity —
 simulated truth and a net-vs-classical disagreement map on real cubes are

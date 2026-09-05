@@ -64,7 +64,7 @@ is its own product").
 - **Needle-shaped precipitate pipeline** (2026-08-06, re-requested
   2026-08-26) — per-object, real-space segmentation driving per-object
   analysis; a per-object result is not a map, which is the expensive part to
-  get wrong; the most plausible first home for MLX. **Precipitate density**
+  get wrong; the most plausible second Neural Engine feature (§3a). **Precipitate density**
   (2026-08-26): count over a calibrated extent — the denominator must be the
   area actually analysed; areal is not volumetric without foil thickness.
   → v3 design session (§1.5).
@@ -217,7 +217,8 @@ is wrong we need more data and a training run.
 - The **disagreement map** is a product like any other per-position map:
   computed in `Core/`, drawn by a view, owned by the product store.
 - The **confirmed/rejected patterns** are new stored state, so their owner
-  is named now (proposed): the session sidecar, the repo's sharing unit,
+  is named now — **decided (owner, 2026-09-06): the session sidecar**, the
+  repo's sharing unit,
   holding per entry the file, scan position, detector settings and weights
   hash, the confirmed disk list and the verdict. A fine-tuning export writes
   them to a local, gitignored folder under `tools/disk-detector/` (they are
@@ -237,21 +238,24 @@ repository earns its keep only if the trainer becomes a product on its own,
 which it is not. The app gets one `.mlpackage` and one inference class in
 `Core/`.
 
-Contents: `simulate.py` (patterns + truth), `train.py` (MLX), `export.py`
-(→ `.mlpackage`), `check_export.py` (Core ML vs MLX, pixel for pixel),
+Contents: `simulate.py` (patterns + truth), `train.py` (PyTorch, MPS
+backend), `export.py` (→ `.mlpackage`), `check_export.py` (Core ML vs
+PyTorch, pixel for pixel),
 `fixture/` (a small, fully synthetic committed set with expected centres — a
 reader must be able to reproduce it; runs on the owner's real cubes are
 quoted from dated retained logs), `README.md` with pinned versions.
 `run-tests.sh inventory` must classify the directory: the fixture runner
 gated (`scientific`), the trainer diagnostic (machine-local data, GPU time).
-`tools/lib/python.sh` resolves the pinned py4DSTEM environment; MLX and
+`tools/lib/python.sh` resolves the pinned py4DSTEM environment; PyTorch and
 `coremltools` are pinned in the detector's own requirements so the parity
-environment stays as pinned (proposed).
+environment stays as pinned (proposed). Mind the disk floor: run
+`tools/free-space.sh` before installing PyTorch.
 
 #### Training data
 
-The Neural Engine is not trained on; it only runs models. Training is MLX on
-the Mac's GPU; the result is exported to Core ML. The data is ours, generated
+The Neural Engine is not trained on; it only runs models. Training is
+PyTorch on the Mac's GPU (the MPS backend); the result is exported to
+Core ML through `coremltools` — decided 2026-09-06, below. The data is ours, generated
 on the fly by our own simulator — nothing stored, nothing downloaded,
 nothing to license:
 
@@ -314,18 +318,33 @@ correlation and drawing; the wall-clock win is unproven.
   learn and costs one extra array the Metal engine already computes. What
   we give up is a second opinion formed without looking at the first one.
   The owner took the easier ring problem.
-- **Getting the trained net from MLX into Core ML — still open.** MLX saves
-  the network in its own format; Core ML needs a model file built by
-  Apple's `coremltools`, which knows how to read PyTorch and TensorFlow
-  models but, as far as we know, not MLX. Two ways through: (a) a short
-  script that describes our dozen layers to `coremltools` directly in its
-  MIL builder and pours the MLX arrays in — everything stays in MLX,
-  roughly a hundred lines; (b) write the same net a second time in PyTorch,
-  copy the weights across, and let `coremltools` convert that — the
-  well-trodden road, one more file to keep in sync. Step 2 starts by
-  verifying (a) on the pinned `coremltools` version and falls back to (b)
-  if it does not hold. Either way the exported model is checked against
-  MLX pixel for pixel on the same inputs before anything else.
+- **Getting the trained net into Core ML — decided (owner, 2026-09-06):
+  train in PyTorch, not MLX.** The network is a recipe (the layers) plus a
+  bag of learned numbers (the weights). The Neural Engine only reads recipes
+  written by Apple's translator, `coremltools`, which understands PyTorch
+  and TensorFlow, not MLX. Three ways were weighed: (a) keep training in
+  MLX and spell the dozen layers out for the translator by hand in its MIL
+  builder — stays in MLX, off the beaten path, needs a trial first; (b) keep
+  training in MLX and maintain an identical PyTorch copy of the recipe for
+  translation only — well documented, two copies that must never drift;
+  (c) write the recipe in PyTorch from the start — PyTorch trains on the
+  Mac's GPU perfectly well for a net this size and the translator reads it
+  directly. (c) is the stupid-simple macOS way and the one Apple documents
+  (PyTorch → `coremltools` → Core ML), with the fewest moving parts and the
+  fewest places to be wrong. The trainer choice touches only the training
+  kitchen: the app sees one `.mlpackage` either way and runs identically on
+  the ANE. MLX stays available for experiments; it is not in this feature's
+  loop. The exported model is still checked against PyTorch pixel for pixel
+  on the same inputs before anything else.
+- **Where the confirmed/rejected patterns live — decided (owner,
+  2026-09-06): the session sidecar.** "Owned by" means the one place a
+  remembered value lives and the only thing allowed to change it; everyone
+  else asks the owner. The rule exists because everything used to live in
+  `AppState` (5 593 lines, 497 stored properties at the 2026-09-06
+  inventory) and the repo is moving responsibilities out of it. The sidecar
+  fits because a label belongs to one file and one scan position, survives
+  reopen, and travels with the sidecar when it is shared; the fine-tuning
+  script reads labels out of sidecars.
 
 #### The Neural Engine beyond disk detection
 
@@ -359,8 +378,8 @@ Not for the ANE: ptychography, strain, Q calibration, anything where
    proven before any net sees them, independently of any net. A few abTEM
    patterns as the honesty check. Break the fixture first. Classify the
    directory in `run-tests.sh inventory`.
-2. **Net + training in MLX; export to Core ML.** Verify the export path
-   first (above). The Core ML model checked against MLX pixel for pixel;
+2. **Net + training in PyTorch; export to Core ML through `coremltools`.**
+   The Core ML model checked against PyTorch pixel for pixel;
    the performance report shows every op on the ANE; a per-pattern time is
    stated from a run.
 3. **Does it earn its place?** Net + refinement against the drawn centres
