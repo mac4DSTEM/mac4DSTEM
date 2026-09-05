@@ -28,31 +28,68 @@ final class ProbeSizeTests: XCTestCase {
     }
 
     /// Gate D 2026-09-03: the trusted-band fallback is provably unreachable
-    /// (see the comment at the fallback); the silent path is the `dpMax > 0`
-    /// guard, which hands back 1 px at the geometric centre with nothing to
-    /// tell a caller it measured nothing. This pins that behaviour so the
-    /// fix (an explicit "not measurable" outcome, Gate B) has a red to turn.
-    func testAnAllZeroPatternReturnsTheUnflaggedOnePixelCentre() {
+    /// (see the comment at the fallback); the silent path was the `dpMax > 0`
+    /// guard, which handed back 1 px at the geometric centre with nothing to
+    /// tell a caller it measured nothing. Closed 2026-09-05: nothing to
+    /// measure is nil, and a NaN pixel — first or anywhere — is skipped rather
+    /// than poisoning `max()` into the same silent path.
+    func testAnAllZeroPatternIsNotMeasurableAndANaNPixelIsSkipped() throws {
         let q = Self.q
         let zero = [Float](repeating: 0, count: q * q)
-        let (r, x0, y0) = OriginCalibration.probeSize(dp: zero, qy: q, qx: q)
-        XCTAssertEqual(r, 1)
-        XCTAssertEqual(x0, Float(q) / 2)
-        XCTAssertEqual(y0, Float(q) / 2)
-        // A NaN in the FIRST pixel poisons `max()` and takes the same path; a
-        // NaN elsewhere is skipped by the fold and the pattern measures normally.
-        var nanFirst = zero; nanFirst[0] = .nan
-        XCTAssertEqual(OriginCalibration.probeSize(dp: nanFirst, qy: q, qx: q).r, 1)
+        XCTAssertNil(OriginCalibration.probeSize(dp: zero, qy: q, qx: q))
+        XCTAssertNil(OriginCalibration.probeSize(dp: [Float](repeating: .nan, count: q * q), qy: q, qx: q))
+        XCTAssertNil(OriginCalibration.probeSize(dp: [Float](repeating: -3, count: q * q), qy: q, qx: q),
+                     "a pattern with no intensity above zero has no disk to size")
         var dp = [Float](repeating: 0, count: q * q)
         Self.drawDisk(into: &dp, cx: 32, cy: 32, radius: 8, intensity: 1)
-        dp[5] = .nan
-        XCTAssertEqual(OriginCalibration.probeSize(dp: dp, qy: q, qx: q).r, 8, accuracy: 0.6)
+        let clean = try XCTUnwrap(OriginCalibration.probeSize(dp: dp, qy: q, qx: q))
+        XCTAssertEqual(clean.r, 8, accuracy: 0.6)
+        var nanFirst = dp; nanFirst[0] = .nan
+        let first = try XCTUnwrap(OriginCalibration.probeSize(dp: nanFirst, qy: q, qx: q),
+                                  "a NaN in pixel 0 used to poison max() and return 1 px")
+        XCTAssertEqual(first.r, clean.r, accuracy: 1e-4)
+        XCTAssertEqual(first.x0, clean.x0, accuracy: 1e-4)
+        var nanInside = dp; nanInside[32 * q + 30] = .nan
+        let inside = try XCTUnwrap(OriginCalibration.probeSize(dp: nanInside, qy: q, qx: q))
+        XCTAssertEqual(inside.r, clean.r, accuracy: 0.1,
+                       "one dead pixel inside the disk is one pixel of area, not a refusal")
+        // Gate B refuter 2026-09-05: +inf passed every threshold mask and made
+        // the centre of mass inf/inf = NaN while the radius stayed finite.
+        var hot = dp; hot[3 * q + 3] = .infinity
+        let saturated = try XCTUnwrap(OriginCalibration.probeSize(dp: hot, qy: q, qx: q))
+        XCTAssertTrue(saturated.x0.isFinite && saturated.y0.isFinite, "a hot pixel must not poison the centre")
+        XCTAssertEqual(saturated.r, clean.r, accuracy: 1e-4, "an infinity is one dead pixel, not disk area")
+        XCTAssertEqual(saturated.x0, clean.x0, accuracy: 1e-4)
+        XCTAssertNil(OriginCalibration.probeSize(dp: [Float](repeating: .infinity, count: q * q), qy: q, qx: q),
+                     "no FINITE intensity above zero is nothing to measure")
     }
 
-    func testProbeSizeRecoversACleanDiskRadius() {
+    /// The pipeline refuses with a sentence rather than calibrating against
+    /// an invented probe: both entry points, the tiled one the app calls and
+    /// the resident-cube one it keeps for a future caller.
+    func testACubeWithNoIntensityRefusesOriginCalibration() async throws {
+        let source = ZeroFourDDataSource()
+        let d = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: d)
+        do {
+            _ = try await OriginCalibration.tiledRun(data: data, descriptor: d)
+            XCTFail("tiledRun calibrated against a pattern with no intensity")
+        } catch let error as OriginCalibrationError {
+            XCTAssertEqual(error, .probeNotMeasurable)
+            XCTAssertTrue(error.errorDescription?.contains("no probe radius") == true)
+        }
+        let cube = await source.fullCube()
+        let buffer = try XCTUnwrap(MetalEngine.shared.device.makeBuffer(
+            bytes: cube, length: cube.count * MemoryLayout<Float>.stride))
+        XCTAssertThrowsError(try OriginCalibration.run(cube: buffer, descriptor: d)) { error in
+            XCTAssertEqual(error as? OriginCalibrationError, .probeNotMeasurable)
+        }
+    }
+
+    func testProbeSizeRecoversACleanDiskRadius() throws {
         var dp = [Float](repeating: 0, count: Self.q * Self.q)
         Self.drawDisk(into: &dp, cx: 31.5, cy: 31.5, radius: 6, intensity: 100)
-        let (r, x0, y0) = OriginCalibration.probeSize(dp: dp, qy: Self.q, qx: Self.q)
+        let (r, x0, y0) = try XCTUnwrap(OriginCalibration.probeSize(dp: dp, qy: Self.q, qx: Self.q))
         XCTAssertEqual(r, 6, accuracy: 0.5)
         XCTAssertEqual(x0, 31.5, accuracy: 0.5)
         XCTAssertEqual(y0, 31.5, accuracy: 0.5)
@@ -64,14 +101,14 @@ final class ProbeSizeTests: XCTestCase {
     /// over-measuring, the estimator's semantics changed and every consumer's
     /// assumptions need re-checking — it is why the max-union input was
     /// unsafe, not a behaviour to "fix" in probeSize itself.
-    func testBraggContentAboveThresholdInflatesTheRadius() {
+    func testBraggContentAboveThresholdInflatesTheRadius() throws {
         var dp = [Float](repeating: 0, count: Self.q * Self.q)
         Self.drawDisk(into: &dp, cx: 31.5, cy: 31.5, radius: 4, intensity: 100)
         for (sx, sy) in [(12, 12), (50, 12), (12, 50), (50, 50),
                          (31, 10), (31, 53), (10, 31), (53, 31)] {
             Self.drawDisk(into: &dp, cx: Double(sx), cy: Double(sy), radius: 4, intensity: 80)
         }
-        let (r, _, _) = OriginCalibration.probeSize(dp: dp, qy: Self.q, qx: Self.q)
+        let r = try XCTUnwrap(OriginCalibration.probeSize(dp: dp, qy: Self.q, qx: Self.q)).r
         XCTAssertGreaterThan(
             r, 9, "nine equal-area disks must read ~3x one disk's radius (12), got \(r)"
         )
@@ -92,8 +129,8 @@ final class ProbeSizeTests: XCTestCase {
         guard let fit = try await OriginCalibration.tiledRun(
             data: data, descriptor: d, fitFunction: .plane
         ) else { return XCTFail("tiledRun returned nil") }
-        let (rMean, _, _) = OriginCalibration.probeSize(dp: fit.meanDP, qy: d.qy, qx: d.qx)
-        let (rMax, _, _) = OriginCalibration.probeSize(dp: fit.maxDP, qy: d.qy, qx: d.qx)
+        let rMean = try XCTUnwrap(OriginCalibration.probeSize(dp: fit.meanDP, qy: d.qy, qx: d.qx)).r
+        let rMax = try XCTUnwrap(OriginCalibration.probeSize(dp: fit.maxDP, qy: d.qy, qx: d.qx)).r
         XCTAssertGreaterThan(
             rMax, rMean * 1.5,
             "fixture broken: max and mean no longer discriminate (max \(rMax), mean \(rMean))"
@@ -125,8 +162,8 @@ final class ProbeSizeTests: XCTestCase {
         guard let fit = try OriginCalibration.run(cube: buffer, descriptor: d) else {
             return XCTFail("run(cube:) returned nil")
         }
-        let (rMean, _, _) = OriginCalibration.probeSize(dp: fit.meanDP, qy: d.qy, qx: d.qx)
-        let (rMax, _, _) = OriginCalibration.probeSize(dp: fit.maxDP, qy: d.qy, qx: d.qx)
+        let rMean = try XCTUnwrap(OriginCalibration.probeSize(dp: fit.meanDP, qy: d.qy, qx: d.qx)).r
+        let rMax = try XCTUnwrap(OriginCalibration.probeSize(dp: fit.maxDP, qy: d.qy, qx: d.qx)).r
         XCTAssertGreaterThan(
             rMax, rMean * 1.5,
             "fixture broken: max and mean no longer discriminate (max \(rMax), mean \(rMean))"
@@ -177,6 +214,30 @@ private actor SatelliteFourDDataSource: FourDDataSource {
     /// The whole cube, for tests that hand it to the resident-cube pipeline.
     func fullCube() -> [Float] { cube }
 
+    func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        view.pattern(fromFullCube: cube, ry: ry, rx: rx)
+    }
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        view.scanRow(fromFullCube: cube, ry: ry)
+    }
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+        view.scanTile(fromFullCube: cube, yRange: yRange)
+    }
+    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    func pixelCalibration() -> PixelCalibration? { nil }
+}
+
+/// A 2x2 scan of an all-zero 16x16 detector: nothing to size a probe on.
+private actor ZeroFourDDataSource: FourDDataSource {
+    static let descriptor = DatasetDescriptor(
+        filePath: "/tmp/zero.h5", datasetPath: "/data",
+        shape: [2, 2, 16, 16], dtypeDescription: "float32", chunkShape: nil
+    )
+    private let cube = [Float](repeating: 0, count: 2 * 2 * 16 * 16)
+
+    func fullCube() -> [Float] { cube }
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {

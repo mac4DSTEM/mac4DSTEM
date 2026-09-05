@@ -18,6 +18,28 @@
 
 ## Unreleased — the v2.6.0 science lane
 
+- **A recipe cannot replay against the wrong CIF.** Imported phase models are
+  identified by their file stem, so two different CIFs named alike shared an
+  id and a saved recipe resolved either. The ACOM step now records a content
+  fingerprint of the cell, symmetry and atomic basis, and replay refuses by
+  name when the session's same-named import differs; older recipes without
+  the key still resolve as before.
+- **Origin calibration refuses instead of inventing a probe.** A mean pattern
+  with no intensity above zero used to yield a 1 px probe at the detector's
+  geometric centre, stored with "measured" provenance, and the calibration
+  carried on against it. `probeSize` now reports nothing to measure, both
+  calibration entry points refuse with a sentence, and a NaN or infinite pixel
+  is one dead pixel rather than a poisoned maximum or a NaN centre (py4DSTEM's
+  `np.max` would void the measurement; inline DEVIATION). The threshold-slope
+  median now matches `np.median` for an even count — the port took the upper
+  middle value alone, a Gate B finding; the probe radius can move by a
+  fraction of a pixel on some patterns.
+- **ACOM bundles carry the origin they were computed against.** The origin
+  reference, fit residual and excluded fraction are snapshotted when the map
+  is computed, as the strain bundle already did, instead of being omitted.
+- **Selected-area diffraction's tile masks are pinned** by a ground-truth
+  case whose region excludes whole scan rows; the mutation that survived every
+  harness on 2026-08-27 now fails it.
 - **Gatan STEM-SI DM4 files open with their axes in the calibrated roles.**
   Empty DM tag labels are resolved by physical sibling position (ncempy's
   rule), so the included `Si-SiGe.dm4` is discovered at all. Its calibration

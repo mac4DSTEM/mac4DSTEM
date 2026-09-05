@@ -25,6 +25,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Step | State | What it left behind |
 |---|---|---|
+| Science lane: probe refusal, ACOM origin snapshot, selected-area fixture, CIF fingerprint | done 2026-09-05, Gate B passed with findings applied | `probeSize` → nil, `OriginCalibrationError.probeNotMeasurable`, finite-only at every step, `np.median` parity; `ACOMRunSemantics.originProvenance`; `selected_area_diffraction_partial_rows` with `2^scan` values and a 1 × 2 region (ten mutations, refuter's row-reversal included); `CrystalModel.contentFingerprint` recorded as `material_fingerprint`, `resolveMaterial` refuses a different CIF under a shared id. Refuter report and every mutation log in the scratchpad; closures in `closed-items-2026-09.md` |
 | UI-review label findings (b)(d)(e)(f), minors, `PaneSplit` (a)(c) | done 2026-09-05, **unverified on screen** | Pattern statistics named for what is on screen (`PatternSourceLabel`); comparison panels carry a `Colorbar` (range, units, zero mark, masked swatch); cursor readout at four significant digits; ONE staleness verdict (`TaskProductState`, `ProductWorkflow.productState`) on the sidebar, the inspector and the strain/ACOM maps; scale bar never prints a unitless sampling as px (`ScaleBar.footerSampling`); no kernel → cross markers, not a 3 px circle (`PeakOverlayGeometry.radius` is optional). Both pane headers are `ViewThatFits` with an overflow menu; the divider fraction is `@SceneStorage`. Six unit tests, each broken first |
 | DM4 Gatan STEM-SI import | fixed 2026-09-05, reviewed and reworked the same day; owner's GMS observation and re-drive owed | Empty positional labels resolve by physical sibling index (ncempy's rule, confirmed against ncempy on the real file); calibration domains distinguish detector-fastest from scan-fastest storage. `Si-SiGe.dm4` discovers as scan 77 × 17, detector 448 × 480, uint16, 2 nm / 0.06208537 1/nm — the roles are proven by the units and the survey rectangle; **the detector pair's x/y order is not** (`open-items.md`, Gate D). Review rework: full-cube read 19 s → 0.94 s (blocked transpose), undecidable units open the file without pixel sizes instead of refusing it, detector-fastest DM4 reports `.scanOnly` pushdown again, py4DSTEM's TitanX roll recorded as unported. Probe log `scratchpad/dm4-probe-20260905.log` |
 | UI rebuilt in SwiftUI, and the old one retired | done 2026-09-04 | `UI/` IS the SwiftUI rebuild: the AppKit-hosted window's 32 files are deleted, the `UI2/` folder and the `UI2` type prefix are both gone, and no flag selects a UI. Contract in `architecture.md` "The UI contract", three of its rules pinned by an `inventory` grep (`HSplitView`/`VSplitView`/`NSSplitView`/`NSSplitViewController`/`import AppKit`, mutation-tested both ways). Shape, drive calls and the retirement in `decisions.md` (2026-09-04). The launch crash is fixed (`PaneSplit`) and gated; its mechanism was refuted here and then DEMONSTRATED later the same day by the status-bar revert (`open-items.md`, the constraint-loop entry), which made the two probes named at the time moot (`open-items.md`). Cost of the retirement: 27 tests deleted, every one pinning the AppKit column shell; six repointed. Five renames were not bare strips (`LayoutPolicy`, `WorkspaceRoute`, `WorkspaceView`, `ProductComparisonView`, `PatternFitOverlay`) — reasons in `architecture.md`. The status bar's elapsed/throughput/ETA was added and REVERTED the same day: its per-second `.fixedSize()` text crashed the app on a real dataset and, in doing so, demonstrated the constraint-loop mechanism that had been refuted-but-unestablished (`open-items.md`) |
@@ -38,7 +39,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | Gate | Result |
 |---|---|
 | DM4 harnesses | **`dm4-robustness-test` exit 0 (8 checks), `load-spec-test` exit 0 — 2026-09-05**, logs `scratchpad/dm4-robustness-20260905.log`, `scratchpad/load-spec-20260905.log`; four mutants each failed the robustness harness first (`closed-items-2026-09.md`). The full `scientific` gate was not rerun: these two are the harnesses that compile the changed reader. |
-| `run-tests.sh unit` | **472 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05, UI-review fixes**, `scratchpad/unit-ui-20260905.log`, `GATE_EXIT` from the log's own line; 473 test methods in source, reconciled. The six new tests each failed under a targeted mutant first (`scratchpad/mutants-ui-20260905.log`, `mutants-ui2-20260905.log`). Earlier the same day: 463/0/1 after the DM4 rework (`unit-20260905.log`), replacing a RED tree — the manual-scale commit had shipped two assertions its policy could not satisfy (`focused-manual-scale-20260905.log`, exit 65). |
+| `run-tests.sh unit` | **477 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05, science lane (probe refusal, ACOM origin snapshot, selected-area fixture, CIF fingerprint)**, `scratchpad/unit-science3-20260905.log`, `GATE_EXIT` from the log's own line; 478 methods in source, reconciled BY NAME — one line lost its `Test ` prefix to an interleaved timestamp (the recorded trap, again). Same day, earlier: 474/0/1 before the refuter's remedies; 472/0/1 after the UI-review fixes (`unit-ui-20260905.log`); 463/0/1 after the DM4 rework (`unit-20260905.log`), replacing a RED tree — the manual-scale commit had shipped two assertions its policy could not satisfy (`focused-manual-scale-20260905.log`, exit 65). |
 | `run-tests.sh scientific` | **43 harnesses, exit 0 — 2026-09-05**, using `PYTHON=$HOME/miniconda3/envs/py4dstem/bin/python`; includes `datacube-discovery-test`. Full log retained at `/private/tmp/mac4dstem-discovery-scientific-py4dstem-20260905.log`. |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-05, dirty-tree inventory; tool classification and UI-contract checks passed. Its clean-tree documentation check was skipped by design because this work remains uncommitted. |
@@ -78,11 +79,16 @@ agent should say so and start at item 2.
 3. **Drive the UI-review fixes and the pane headers** (`open-items.md`):
    the four label findings, the two minors, the compressible headers and the
    remembered divider all landed 2026-09-05 with tests and no screen time.
-4. **Then the rest of the science lane, one item at a time** — origin-fit guard
-   (Gate B), the ACOM bundle's origin-provenance snapshot, the selected-area
-   mask fixture, bullseye disk detection (Gate D), the CIF id collision,
-   Q-calibration scale, ACOM coverage. A landed number change cuts v2.6.0.
-   **None of these is unattended work.**
+4. **The science lane, one item at a time.** Landed 2026-09-05, each
+   through Gate B with an independent refuter whose findings were applied
+   and re-broken: the origin-fit guard's hole (a), the ACOM origin-provenance
+   snapshot, the selected-area mask fixture (`closed-items-2026-09.md`) and
+   the CIF id collision (b). Next, in order: Q-calibration scale (a) — a
+   Gate D experiment on `polycrystal_2D_WS2` and `sim_Au` comparing the
+   per-pattern minimum against a same-shell cluster estimator; bullseye disk
+   detection (Gate D, needs the owner's eyes); ACOM coverage (a) is an owner
+   decision, relabel or convert; the origin-fit holes (b)/(c) as a design
+   pass. A landed number change cuts v2.6.0.
 
 **macOS 14–25 is compile-verified and has never been executed.** The floor is
 14 in the build and published as such; every machine here is 26. A VM would

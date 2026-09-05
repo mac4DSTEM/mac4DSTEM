@@ -224,6 +224,26 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
         ]
     }
 
+    /// A stable digest of what the model IS — cell, symmetry and atomic basis
+    /// — independent of its id and display name. An imported model's id is
+    /// `imported_<file stem>`, so two different CIFs with the same filename
+    /// share an id; a recipe that resolved its material by id alone would
+    /// replay against the wrong crystal (open item, closed 2026-09-05). FNV-1a
+    /// over the provenance strings, not `Hasher`, because `Hasher` is seeded
+    /// per process and this value is written into session files.
+    package var contentFingerprint: String {
+        let keys = ["crystal_symmetry", "cell_a_angstrom", "cell_b_angstrom", "cell_c_angstrom",
+                    "cell_alpha_degrees", "cell_beta_degrees", "cell_gamma_degrees", "atomic_basis"]
+        let provenance = self.provenance
+        let canonical = keys.map { "\($0)=\(provenance[$0] ?? "")" }.joined(separator: "\n")
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in canonical.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3
+        }
+        return String(format: "%016llx", hash)
+    }
+
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(id: String, displayName: String, crystal: Crystal, symmetry: ACOMCrystalSymmetry, source: CrystalModelSource) {
         self.id = id

@@ -263,7 +263,8 @@ package enum ReplayRecordFrameMap {
             // lattice_a is in Å — frame-invariant. Missing from this table it
             // would drop every custom-phase recipe from a binned export
             // (refuter, Gate D 2026-09-02).
-            case "material", "matching_backend", "scope", "quality", "lattice_a": .invariant
+            case "material", "matching_backend", "scope", "quality", "lattice_a",
+                 "material_fingerprint": .invariant
             case "scale_inv_angstrom_per_pixel": .perPixelScale
             default: nil
             }
@@ -405,6 +406,13 @@ package enum ReplayStepPlan: Equatable {
         /// crystal under the same id (Gate D 2026-09-02). nil for library and
         /// imported ids, and for records that predate the key.
         package var latticeA: Double? = nil
+        /// `CrystalModel.contentFingerprint` of the IMPORTED model that ran.
+        /// Imported ids are `imported_<file stem>`, so two CIFs with one
+        /// filename share an id; without this a restored session that had
+        /// imported a different file under the same name replayed against it
+        /// (open item, closed 2026-09-05). nil for library and custom ids,
+        /// and for records that predate the key.
+        package var materialFingerprint: String? = nil
         /// The scale the run matched at, in Å⁻¹ per detector pixel. Replay
         /// verifies the session's scale semantics agree before running —
         /// matching at a different scale gets every orientation wrong with no
@@ -417,13 +425,17 @@ package enum ReplayStepPlan: Equatable {
         /// against. Library models are global and need no field.
         package struct SessionMaterials {
             package var importedIDs: Set<String>
+            /// `contentFingerprint` by imported id, for the content check.
+            package var importedFingerprints: [String: String]
             package var customStructure: Crystal.CubicStructure
             package var customLatticeA: Double
             package var customZ: Int
 
             // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-            package nonisolated init(importedIDs: Set<String>, customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
+            package nonisolated init(importedIDs: Set<String>, importedFingerprints: [String: String] = [:],
+                                     customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
                 self.importedIDs = importedIDs
+                self.importedFingerprints = importedFingerprints
                 self.customStructure = customStructure
                 self.customLatticeA = customLatticeA
                 self.customZ = customZ
@@ -443,6 +455,7 @@ package enum ReplayStepPlan: Equatable {
                 "quality": String(describing: quality),
             ]
             if model.source == .custom { p["lattice_a"] = String(model.crystal.a) }
+            if model.source == .imported { p["material_fingerprint"] = model.contentFingerprint }
             return p
         }
 
@@ -461,7 +474,16 @@ package enum ReplayStepPlan: Equatable {
         /// lattice constant. Pure so the arm is testable without running ACOM.
         package func resolveMaterial(in session: SessionMaterials) -> MaterialResolution {
             if CrystalModelLibrary.model(id: materialID) != nil { return .library(materialID) }
-            if session.importedIDs.contains(materialID) { return .imported(materialID) }
+            if session.importedIDs.contains(materialID) {
+                // Same id is not the same crystal: the id is the file stem.
+                // A record without the key predates it and resolves by
+                // membership, as `lattice_a` does for custom models.
+                if let recorded = materialFingerprint,
+                   session.importedFingerprints[materialID] != recorded {
+                    return .unavailable("the recipe's imported phase '\(materialID)' was rehearsed from a different CIF than the one imported now (cell, symmetry or atomic basis differ) — import the rehearsed file, then run ACOM by hand")
+                }
+                return .imported(materialID)
+            }
             let custom = CrystalModelLibrary.customCubic(
                 structure: session.customStructure, latticeA: session.customLatticeA,
                 atomicNumber: session.customZ)
@@ -480,9 +502,11 @@ package enum ReplayStepPlan: Equatable {
         }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package nonisolated init(materialID: String, latticeA: Double? = nil, scaleInvAngstromPerPixel: Double, scope: ACOMRunScope, quality: ACOMQualityPreset) {
+        package nonisolated init(materialID: String, latticeA: Double? = nil, materialFingerprint: String? = nil,
+                                 scaleInvAngstromPerPixel: Double, scope: ACOMRunScope, quality: ACOMQualityPreset) {
             self.materialID = materialID
             self.latticeA = latticeA
+            self.materialFingerprint = materialFingerprint
             self.scaleInvAngstromPerPixel = scaleInvAngstromPerPixel
             self.scope = scope
             self.quality = quality
@@ -714,8 +738,15 @@ package enum ReplayPlanner {
                 }
                 latticeA = value
             }
+            // Optional like `lattice_a`; present but empty is malformed.
+            var fingerprint: String? = nil
+            if let text = p["material_fingerprint"] {
+                guard !text.isEmpty else { return refused(step, key: "material_fingerprint", value: text) }
+                fingerprint = text
+            }
             return .success(.acom(.init(materialID: material,
                                         latticeA: latticeA,
+                                        materialFingerprint: fingerprint,
                                         scaleInvAngstromPerPixel: scale,
                                         scope: scope,
                                         quality: quality)))

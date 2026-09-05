@@ -1914,6 +1914,11 @@ final class AppState {
             // lattice constant (Gate D 2026-09-02).
             switch acomPlan.resolveMaterial(in: .init(
                 importedIDs: Set(acomSession.importedCrystalModels.map(\.id)),
+                // The content check: an imported id is a file stem, so the
+                // recipe's fingerprint must match THIS session's import.
+                importedFingerprints: Dictionary(
+                    acomSession.importedCrystalModels.map { ($0.id, $0.contentFingerprint) },
+                    uniquingKeysWith: { _, last in last }),
                 customStructure: acomSession.customStructure, customLatticeA: acomSession.customLatticeA,
                 customZ: acomSession.customZ)) {
             case .library(let id): acomSession.modelSelection = .library(id)
@@ -5289,7 +5294,10 @@ final class AppState {
             materialModelID: model.id,
             materialDescription: model.displayName,
             scale: scaleSemantics,
-            materialProvenance: model.provenance
+            materialProvenance: model.provenance,
+            // Snapshot NOW, beside the origin the vectors were just re-centred
+            // against — the same moment `strain.publish` takes its copy.
+            originProvenance: originFitProvenance
         )
         let modelRevision = model.revisionID
         let backend = effectiveACOMBackend

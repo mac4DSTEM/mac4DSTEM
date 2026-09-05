@@ -641,6 +641,36 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(physical.provenance["q_scale_provenance"], "imported_file")
     }
 
+    /// The origin the map was computed against travels with the run
+    /// (2026-09-05, closing the open item): no snapshot means no origin keys,
+    /// a snapshot means exactly its keys, and it wins over a same-named key
+    /// the material's own provenance might carry.
+    func testACOMRunSemanticsCarriesTheOriginSnapshotItWasComputedAgainst() {
+        let scale = ACOMScaleSemantics(invAngstromPerPixel: 0.02, provenance: .importedFile)
+        let bare = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Gold (FCC)", scale: scale
+        )
+        XCTAssertNil(bare.provenance["origin_reference"], "no snapshot, no origin claim")
+
+        let snapshotted = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Gold (FCC)", scale: scale,
+            materialProvenance: ["origin_reference": "stale-material-key", "cif_source": "test"],
+            originProvenance: [
+                "origin_reference": "fitted_mean",
+                "origin_reference_is_measured": "true",
+                "origin_fit_residual_px": "0.42",
+                "origin_fit_excluded_fraction": "0.05",
+            ]
+        )
+        let provenance = snapshotted.provenance
+        XCTAssertEqual(provenance["origin_reference"], "fitted_mean", "the compute-time snapshot wins")
+        XCTAssertEqual(provenance["origin_reference_is_measured"], "true")
+        XCTAssertEqual(provenance["origin_fit_residual_px"], "0.42")
+        XCTAssertEqual(provenance["origin_fit_excluded_fraction"], "0.05")
+        XCTAssertEqual(provenance["cif_source"], "test", "material keys survive beside the snapshot")
+        XCTAssertEqual(provenance["material_model_id"], "au_fcc")
+    }
+
     func testRejectedStrainPixelsAreNoDataRatherThanZeroStrain() {
         let map = StrainMap(
             width: 2, height: 1,

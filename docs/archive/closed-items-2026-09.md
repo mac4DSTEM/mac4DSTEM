@@ -104,3 +104,42 @@ row 0.06 s, full tile 0.94 s, checksum of pattern (ry 1, rx 2) unchanged at
 mutants — strides swapped, the blocked path reading one position for all,
 the sweep ignoring the crop offset, the units contradiction ignored — each
 failed the harness before the tests were trusted.
+
+---
+
+## ACOM bundle exports no origin provenance — closed 2026-09-05
+
+> The strain bundle snapshots `origin_reference` and the excluded fraction at
+> compute time; `ACOMRunSemantics` had no equivalent, so reading live
+> calibration at export time (what Gate B found wrong on 2026-08-28) was the
+> only option, and the exporter deliberately wrote no origin keys at all.
+
+**Closure.** `ACOMRunSemantics.originProvenance` is captured in `runACOM`
+from `originFitProvenance` at the moment the vectors are re-centred, and
+`provenance` merges it (the snapshot wins over any same-named material key).
+The orientation bundle now carries `origin_reference`,
+`origin_reference_is_measured`, the fit residual and the excluded fraction as
+they stood when the map was computed. Pinned by `ProductWorkflowTests`.
+Refuter note (2026-09-05, pre-existing, not fixed): a calibration change made
+while the detached match is running is not detected by the post-run guard,
+which checks model and scale only; the snapshot stays right for the map, the
+live calibration then differs with no staleness flag.
+
+## Selected-area diffraction's mask-to-tile correspondence is unpinned — closed 2026-09-05
+
+> Gate B demonstrated (2026-08-27) that replacing the per-tile mask slice
+> with row 0's mask stays green on every harness: the fixture had two scan
+> rows and a region covering both, so every row's slice equalled row 0's.
+
+**Closure.** `tools/virtual-detector-test` gained
+`selected_area_diffraction_partial_rows`: a four-row cube, a region over rows
+1–2 only, one-row AND two-row tiles, compared against a CPU sum of the
+analytic cube rather than the resident Metal path (which shares `makeMask`).
+The row-0 mutation was re-applied on 2026-09-05: the old case stayed green
+and the new one failed (`scratchpad/virtual-detector-mutant-20260905.log`).
+The Gate B refuter then broke the first cut of this case: with values linear
+in scan index, reversing the mask rows inside a tile summed rows {0,3} for
+{1,2} and 1+2+10+11 = 4+5+7+8 — 22/22 green. Values are now `2^scan` (every
+subset sums uniquely) and the region 1 × 2 (an x/y swap cannot cancel);
+the reversal fails (`virtual-detector-mut-i-20260905.log`) and the refuter's
+swap fails the new case alone (`var-B-mut-ix.log`). Ten mutations in all.

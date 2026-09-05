@@ -181,6 +181,59 @@ let tiledDiffraction = try await VirtualDetector.tiledDiffraction(
 compare(tiledDiffraction.pixels, expected: residentDiffraction.pixels,
         caseName: "selected_area_diffraction", path: "forced 1-row tiles")
 
+// Selected-area diffraction on a cube TALL enough that the region's mask
+// differs from row to row (ry = 4, region rows 1…2, rows 0 and 3 excluded),
+// against a ground truth summed here on the CPU — not against the resident
+// Metal path, which shares `makeMask` with the tiled one. Gate B 2026-08-27
+// showed that with the 2-row fixture above, feeding every tile ROW 0's mask
+// slice stayed green on every harness; here row 0 is excluded, so that
+// mutation sums nothing and fails. Two more from the 2026-09-05 refuter:
+// the scan value is `2^scan`, so every SUBSET of scan positions has a unique
+// sum (a value linear in scan index let a row REVERSAL inside a tile pass,
+// because 1+2+10+11 = 4+5+7+8); and the region is 1 wide × 2 tall, so an
+// x/y swap of the region cannot cancel (docs/open-items.md, "Selected-area
+// diffraction's mask-to-tile correspondence is unpinned").
+do {
+    let tall = DatasetDescriptor(
+        filePath: "synthetic-tall", datasetPath: "/synthetic-tall",
+        shape: [4, d.rx, d.qy, d.qx], dtypeDescription: "float32", chunkShape: nil
+    )
+    let tallScanCount = tall.ry * tall.rx
+    var tallCube = [Float](repeating: 0, count: tallScanCount * detectorPixels)
+    for scan in 0..<tallScanCount {
+        for y in 0..<tall.qy {
+            for x in 0..<tall.qx {
+                tallCube[scan * detectorPixels + y * tall.qx + x] = Float(1 << scan) * 1_000 + Float(y * 100 + x)
+            }
+        }
+    }
+    let region = DetectorShape.rectangle(xMin: 1, xMax: 2, yMin: 1, yMax: 3)
+    var truth = [Float](repeating: 0, count: detectorPixels)
+    for ry in 1..<3 {
+        for rx in 1..<2 {
+            let scan = ry * tall.rx + rx
+            for index in 0..<detectorPixels { truth[index] += tallCube[scan * detectorPixels + index] }
+        }
+    }
+    let tallSource = SyntheticDataSource(descriptor: tall, cube: tallCube)
+    let tallData = FourDArray(reader: tallSource, descriptor: tall)
+    let tallTiled = try await VirtualDetector.tiledDiffraction(
+        data: tallData, descriptor: tall, region: region, maximumTileRows: 1
+    )
+    compare(tallTiled.pixels, expected: truth,
+            caseName: "selected_area_diffraction_partial_rows", path: "forced 1-row tiles vs CPU truth")
+    guard await tallSource.maximumRowsRead == 1 else {
+        fail("selected_area_diffraction_partial_rows tile reader exceeded the forced one-row bound")
+    }
+    // Two-row tiles straddle the region's edge rows (tile 0 = rows 0–1, tile
+    // 1 = rows 2–3): the slice must be per row inside a tile as well.
+    let twoRow = try await VirtualDetector.tiledDiffraction(
+        data: tallData, descriptor: tall, region: region, maximumTileRows: 2
+    )
+    compare(twoRow.pixels, expected: truth,
+            caseName: "selected_area_diffraction_partial_rows", path: "forced 2-row tiles vs CPU truth")
+}
+
 guard let diskKernel = ProbeKernel.synthetic(
     radius: 1.25, width: 0.75, qy: d.qy, qx: d.qx
 ) else { fail("could not construct disk kernel for tiled parity") }

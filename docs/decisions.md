@@ -335,6 +335,18 @@ Amended 2026-09-05 after independent review: the file-root sidecar marker is
 checked before canonical probes, and the legacy string-label rule is confined
 to the pinned `data/diffractionslices` subtree.
 
+**2026-09-05 — Nothing measurable is a refusal, not a default.** `probeSize`
+returns nil when a pattern has no finite intensity above zero, and origin
+calibration throws `probeNotMeasurable` with a sentence, where it used to
+carry on against an invented 1 px probe at the geometric centre with a
+"measured" provenance. The same rule the DM4 reader took the same day for a
+calibration it cannot trust: an absent number the user can supply beats a
+plausible one nobody measured. Corollary for NaN: a dead pixel is skipped,
+not a reason to refuse — py4DSTEM's `np.max` would void the whole
+measurement (inline DEVIATION). Compute-time facts are snapshotted on the
+product (`ACOMRunSemantics.originProvenance` joins `StrainProduct`); an
+export never reads live calibration to describe a map.
+
 **2026-09-05 — DM4 calibration domains decide which axis pair is scan.** DM
 dimension tags are fastest-first, but Gatan writes both detector-fastest and
 scan-fastest cubes (LiberTEM's "F/C-hybrid `(sig, nav)`" layout), and axis

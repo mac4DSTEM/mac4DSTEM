@@ -506,4 +506,30 @@ final class CIFImportTests: XCTestCase {
             expected: .truncatedLoop(firstTag: "_atom_site_label", columns: 5, values: 19)
         )
     }
+
+    /// Two CIFs with the same file stem get the same id (`imported_<stem>`)
+    /// and must NOT get the same content fingerprint; the same text twice
+    /// must. The fingerprint is what a recipe uses to tell them apart on
+    /// replay (open item "CIF import can silently accept a wrong crystal" (b),
+    /// closed 2026-09-05).
+    func testSameFilenameDifferentCellHaveOneIDAndTwoFingerprints() throws {
+        let gold = try CIFImport.crystalModel(from: goldP1CIF, fileBaseName: "phase")
+        let again = try CIFImport.crystalModel(from: goldP1CIF, fileBaseName: "phase")
+        // A multi-line literal strips its common indentation, so the edits
+        // below target the runtime text; each is checked to have taken.
+        let stretchedText = goldP1CIF.replacingOccurrences(of: "4.0782", with: "4.2000")
+        XCTAssertNotEqual(stretchedText, goldP1CIF, "the fixture edit must take, or the test compares a CIF to itself")
+        let stretched = try CIFImport.crystalModel(from: stretchedText, fileBaseName: "phase")
+        XCTAssertEqual(gold.id, stretched.id, "the id is the file stem; that is the collision")
+        XCTAssertEqual(gold.contentFingerprint, again.contentFingerprint)
+        XCTAssertNotEqual(gold.contentFingerprint, stretched.contentFingerprint)
+        XCTAssertEqual(gold.contentFingerprint.count, 16)
+        XCTAssertNotNil(UInt64(gold.contentFingerprint, radix: 16), "fixed-width hex, stable across processes")
+        // A basis change with the same cell is a different crystal too.
+        let threeSitesText = goldP1CIF.replacingOccurrences(of: "Au4 Au 0.0 0.5 0.5", with: "")
+        XCTAssertNotEqual(threeSitesText, goldP1CIF, "the fixture edit must take")
+        let threeSites = try CIFImport.crystalModel(from: threeSitesText, fileBaseName: "phase")
+        XCTAssertEqual(threeSites.crystal.sites.count, 3)
+        XCTAssertNotEqual(gold.contentFingerprint, threeSites.contentFingerprint)
+    }
 }

@@ -286,6 +286,61 @@ final class ReplayPlanTests: XCTestCase {
                        "Float round-trip noise is not a drift")
     }
 
+    /// Imported ids are the file stem, so two CIFs named alike share one id.
+    /// The recorded content fingerprint is what tells them apart (closed
+    /// 2026-09-05): a mismatch refuses by name, a match resolves, and a record
+    /// from before the key resolves by membership as `lattice_a` does.
+    func testImportedReplayRefusesADifferentCIFUnderTheSameID() {
+        var plan = customPlan(id: "imported_ws2", latticeA: nil)
+        plan.materialFingerprint = "0123456789abcdef"
+        let same = ReplayStepPlan.ACOMReplayPlan.SessionMaterials(
+            importedIDs: ["imported_ws2"], importedFingerprints: ["imported_ws2": "0123456789abcdef"],
+            customStructure: .fcc, customLatticeA: 1, customZ: 6)
+        XCTAssertEqual(plan.resolveMaterial(in: same), .imported("imported_ws2"))
+
+        let other = ReplayStepPlan.ACOMReplayPlan.SessionMaterials(
+            importedIDs: ["imported_ws2"], importedFingerprints: ["imported_ws2": "fedcba9876543210"],
+            customStructure: .fcc, customLatticeA: 1, customZ: 6)
+        guard case .unavailable(let reason) = plan.resolveMaterial(in: other) else {
+            return XCTFail("a different CIF under the same id must refuse, not replay against it")
+        }
+        XCTAssertTrue(reason.contains("different CIF"), reason)
+
+        let unfingerprinted = ReplayStepPlan.ACOMReplayPlan.SessionMaterials(
+            importedIDs: ["imported_ws2"], customStructure: .fcc, customLatticeA: 1, customZ: 6)
+        guard case .unavailable = plan.resolveMaterial(in: unfingerprinted) else {
+            return XCTFail("a session that cannot prove its content does not satisfy a fingerprinted record")
+        }
+        plan.materialFingerprint = nil
+        XCTAssertEqual(plan.resolveMaterial(in: unfingerprinted), .imported("imported_ws2"),
+                       "a record from before the key resolves by membership")
+    }
+
+    func testRecordSiteWritesTheFingerprintOnlyForImportedModelsAndItRoundTrips() throws {
+        let imported = CrystalModel(
+            id: "imported_ws2", displayName: "WS2",
+            crystal: CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 3.2, atomicNumber: 74).crystal,
+            symmetry: .cubic, source: .imported)
+        let written = ReplayStepPlan.ACOMReplayPlan.recordedParameters(
+            model: imported, scale: 0.0125, backend: "CPU", scope: .fullScan, quality: .balanced)
+        XCTAssertEqual(written["material_fingerprint"], imported.contentFingerprint)
+        XCTAssertEqual(written["material_fingerprint"]?.count, 16)
+        let step = SessionReplayRecord.Step(kind: "acom", parameters: written, recorded: Date(timeIntervalSince1970: 0))
+        guard case .acom(let plan) = try ReplayPlanner.parse(step).get() else { return XCTFail() }
+        XCTAssertEqual(plan.materialFingerprint, imported.contentFingerprint)
+
+        let library = try XCTUnwrap(CrystalModelLibrary.model(id: "au_fcc"))
+        XCTAssertNil(ReplayStepPlan.ACOMReplayPlan.recordedParameters(
+            model: library, scale: 0.0125, backend: "CPU", scope: .fullScan, quality: .balanced)["material_fingerprint"],
+            "library ids are global and need no content check")
+
+        var malformed = step
+        malformed.parameters["material_fingerprint"] = ""
+        guard case .failure = ReplayPlanner.parse(malformed) else {
+            return XCTFail("a present but empty fingerprint is a refusal, not nil")
+        }
+    }
+
     func testLibraryAndImportedIDsNeedNoLatticeConstant() {
         XCTAssertEqual(customPlan(id: "au_fcc", latticeA: nil).resolveMaterial(in: session(z: 6, a: 1)),
                        .library("au_fcc"))

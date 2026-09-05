@@ -104,10 +104,10 @@ func fail(_ message: String) -> Never {
                     sampledMaximum[index] = max(sampledMaximum[index], pattern[index])
                 }
             }
-            let probe = OriginCalibration.probeSize(
-                dp: sampledMaximum, qy: descriptor.qy, qx: descriptor.qx
-            )
-            guard probe.r.isFinite, probe.r > 0,
+            guard let probe = OriginCalibration.probeSize(
+                    dp: sampledMaximum, qy: descriptor.qy, qx: descriptor.qx
+                  ),
+                  probe.r.isFinite, probe.r > 0,
                   let kernel = ProbeKernel.synthetic(
                     radius: probe.r, qy: descriptor.qy, qx: descriptor.qx
                   ),

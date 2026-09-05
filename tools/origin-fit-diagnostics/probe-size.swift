@@ -46,7 +46,10 @@ struct Probe {
             print(String(format: "  app tiledRun probeRadius   = %8.3f px   (the shipped number; fed meanDP since 2026-09-01)",
                          fit.probeRadius))
             func size(_ dp: [Float], _ label: String) {
-                let (r, x0, y0) = OriginCalibration.probeSize(dp: dp, qy: d.qy, qx: d.qx)
+                guard let probe = OriginCalibration.probeSize(dp: dp, qy: d.qy, qx: d.qx) else {
+                    print("  probeSize(\(label)) not measurable: no intensity above zero"); return
+                }
+                let (r, x0, y0) = probe
                 print(String(format: "  probeSize(%@) r = %8.3f px   centre (%.2f, %.2f)", label, r, x0, y0))
             }
             size(fit.maxDP, "maxDP )")

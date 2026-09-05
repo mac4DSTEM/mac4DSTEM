@@ -33,37 +33,34 @@ from the (already-actioned) permissive acceptance thresholds and the
 estimator repair — don't fold it into either. Owner: a dedicated Gate D
 science session, not a UI slice.
 
-### Origin-fit gate has three unresolved holes
-(a) **Gate D 2026-09-03, refuted as filed:** the middle-threshold fallback
-in `probeSize` is unreachable — r(thresh) is non-increasing, so max(dr)
-always lies in the trusted band; py4DSTEM's "NaN" never happens either
-(refuter, sonnet, stood it with a general proof and 2000 random trials).
-The reachable silent path is the `dpMax > 0` guard (~line 37): an all-zero
-or NaN-first pattern returns **1 px at the geometric centre** and
-`Calibration.probeRadius` is a bare `Float?` with no provenance, so
-readiness (`AppState` ~4675) cannot tell it from a measurement. Pinned by
-`ProbeSizeTests.testAnAllZeroPatternReturnsTheUnflaggedOnePixelCentre`.
-Fix owed (Gate B): an explicit not-measurable outcome and a radius
-provenance like `originProvenance`. (b) Which
-statistic gates `originFitIsSane` is open: full-scan RMS (current) can't
-see bias; the robust/kept-set residual Gate B tried 2026-08-28 was
-reverted — it passes a 15px-displaced fit at 9.94px. (c) The trimmed fit
-is blind to spatially clustered failure and contamination ≥50% (a 40px-off
+### Origin-fit gate has two unresolved holes
+(a) closed 2026-09-05: `probeSize` returns nil when no finite pixel is above
+zero or no mass clears the threshold, both `tiledRun` and `run(cube:)` throw
+`OriginCalibrationError.probeNotMeasurable` with a sentence, and a NaN or
+infinite pixel is skipped at every step (the Gate B refuter caught +inf
+passing the masks after the first cut filtered only the maximum; DEVIATION
+inline). The port's median now matches `np.median` for even n (refuter). No
+radius is stored, so "measured" can no longer name an invented one
+(`ProbeSizeTests`; the old pin flipped, two mutants caught).
+(b) Which statistic gates `originFitIsSane` is open: full-scan RMS (current)
+can't see bias; the robust/kept-set residual Gate B tried 2026-08-28 was
+reverted — it passes a 15px-displaced fit at 9.94px. (c) The trimmed fit is
+blind to spatially clustered failure and contamination ≥50% (a 40px-off
 quarter of the scan gives 100% kept, 20.6px error; an exactly-bimodal
-residual zeroes the MAD guard). Owner: (a) Gate D, same family as the
-probe-radius fix; (b)/(c) a design pass — no statistic proposed yet
-distinguishes displacement from contamination. `docs/q-calibration-design.md`.
+residual zeroes the MAD guard). Owner: a design pass — no statistic proposed
+yet distinguishes displacement from contamination. `docs/q-calibration-design.md`.
 
 ### CIF import can silently accept a wrong crystal
-Two mechanisms, same family: (a) a non-P1 declaration with a PARTIAL ops
-list still imports the wrong cell (`verifyFamily` can pass it — Gate B
-refuter escape E2, 2026-09-01, recorded not fixed; missing/identity-only
-case is already guarded). (b) Imported ids are `imported_<file stem>`
-(`Core/Crystal/CIFImport.swift:139`) — two different CIFs sharing a
-filename replay by set membership with no content check (residual of the
-2026-09-02 lattice-constant Gate D). Trap: (a) needs a 230-entry
-IT-number→group-order table the importer deliberately lacks — cheap
-mitigation, new scope. Owner: unclaimed, Gate B when picked up.
+(a) A non-P1 declaration with a PARTIAL ops list still imports the wrong
+cell (`verifyFamily` can pass it — Gate B refuter escape E2, 2026-09-01,
+recorded not fixed; missing/identity-only case is already guarded). Trap:
+needs a 230-entry IT-number→group-order table the importer deliberately
+lacks — cheap mitigation, new scope. (b) closed 2026-09-05: the ACOM recipe
+step records `material_fingerprint` (`CrystalModel.contentFingerprint`, FNV-1a
+over cell, symmetry and basis) for imported models and `resolveMaterial`
+refuses by name when the session's same-named import differs; pre-key records
+still resolve by membership (`ReplayPlanTests`, `CIFImportTests`). Owner: (a)
+unclaimed, Gate B when picked up.
 
 ### ACOM orientation/export coverage gaps
 Found in W4b Gate B, 2026-08-31; the shipping numbers are believed correct
@@ -91,22 +88,6 @@ end to end: correlation score HALVES at the defective scale, and median
 reliability to choose between candidate scales. Owner: (a) Gate D first
 (mode/trimmed-mean/profile-fit?) then Gate B; (b) its own W3-territory
 design pass, owner's call on scheduling.
-
-### ACOM bundle exports no origin provenance
-The strain bundle snapshots `origin_reference` and the excluded fraction
-at compute time; `ACOMRunSemantics` has no equivalent, so reading live
-calibration at export time (what Gate B found wrong) is the only option
-today. Fix is one snapshot field. Owner: whoever next touches
-`ACOMRunSemantics`.
-
-### Selected-area diffraction's mask-to-tile correspondence is unpinned
-Gate B demonstrated (2026-08-27) that replacing the per-tile mask slice
-(`Core/Analysis/VirtualDetector.swift:354`) with row 0's mask stays green
-on every harness in the repo — excluded scan rows could be summed in:
-wrong science, plausible numbers, nothing would catch it. Fix: a ground
-truth case in `tools/virtual-detector-test` with ry≥4, a partial region,
-`tiledDiffraction(maximumTileRows: 1)` vs whole-cube. Owner: whichever
-session next touches virtual diffraction.
 
 ### #18 — training-dataset campaign can't reproduce the app's Si_SiGe strain
 Mechanism resolved: the campaign's fitted mean origin is ~7px off centre

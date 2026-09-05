@@ -113,16 +113,24 @@ package struct ACOMRunSemantics: Sendable, Equatable {
     package let materialDescription: String
     package let scale: ACOMScaleSemantics
     package let materialProvenance: [String: String]
+    /// The origin-fit keys (`origin_reference`, residual, excluded fraction)
+    /// as they stood WHEN THE MAP WAS COMPUTED — the snapshot `StrainProduct`
+    /// keeps and this type lacked, so the export read the live calibration
+    /// and could describe an origin the map was never computed against
+    /// (Gate B, 2026-08-28; the open item closed 2026-09-05).
+    package let originProvenance: [String: String]
 
     package init(
         materialModelID: String, materialDescription: String,
         scale: ACOMScaleSemantics,
-        materialProvenance: [String: String] = [:]
+        materialProvenance: [String: String] = [:],
+        originProvenance: [String: String] = [:]
     ) {
         self.materialModelID = materialModelID
         self.materialDescription = materialDescription
         self.scale = scale
         self.materialProvenance = materialProvenance
+        self.originProvenance = originProvenance
     }
 
     package func productStatus(for kind: String) -> ProductQuantitativeStatus {
@@ -136,6 +144,10 @@ package struct ACOMRunSemantics: Sendable, Equatable {
 
     package var provenance: [String: String] {
         var result = materialProvenance
+        // The snapshot wins over any same-named material key: it is the
+        // compute-time fact, and nothing in a material's provenance names an
+        // origin.
+        result.merge(originProvenance) { _, snapshot in snapshot }
         result.merge([
             "material_model_id": materialModelID,
             "material_model": materialDescription,

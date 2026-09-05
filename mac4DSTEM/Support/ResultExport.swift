@@ -545,12 +545,10 @@ extension AppState {
                 // viewer's orientation is recorded rather than applied (#17b).
                 "display_orientation_applied": "false",
             ], uniquingKeysWith: { _, new in new })
-            // NO origin-fit keys here yet, deliberately. `ACOMRunSemantics`
-            // does not carry a compute-time snapshot the way `StrainProduct`
-            // now does, and reading the live calibration would reproduce
-            // exactly the defect Gate B found on 2026-08-28 — keys describing
-            // an origin the map was not computed against. Owed, and recorded in
-            // docs/open-items.md; an absent key is honest, a wrong one is not.
+            // The origin-fit keys come from `semantics.originProvenance`, the
+            // compute-time snapshot (2026-09-05) — never from the live
+            // calibration, which is the defect Gate B found on 2026-08-28:
+            // keys describing an origin the map was not computed against.
             provenance.merge(realSpaceDisplayProvenance) { current, _ in current }
             func values(_ body: (OrientationResult) -> Float) -> [Float] {
                 map.results.indices.map { valid[$0] ? body(map.results[$0]) : Float.nan }

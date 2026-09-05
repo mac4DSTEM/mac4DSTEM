@@ -21,6 +21,24 @@ package enum OriginFitFunction: String, CaseIterable, Identifiable {
     package var id: String { rawValue }
 }
 
+/// Why an origin calibration produced no calibration. A refusal with a
+/// sentence, where until 2026-09-05 the pipeline carried on with an invented
+/// 1 px probe at the geometric centre and a provenance that said "measured".
+package enum OriginCalibrationError: LocalizedError, Equatable {
+    /// The pattern the probe radius is measured on has no finite intensity
+    /// above zero (or no mass above threshold): there is no disk to size.
+    case probeNotMeasurable
+
+    package var errorDescription: String? {
+        switch self {
+        case .probeNotMeasurable:
+            return "The mean diffraction pattern has no finite intensity above zero, so no probe "
+                + "radius can be measured. Check the dataset, the crop and the detector region "
+                + "before calibrating the origin."
+        }
+    }
+}
+
 package nonisolated enum OriginCalibration {
 
     // MARK: - Probe size (py4DSTEM get_probe_size)
@@ -30,17 +48,34 @@ package nonisolated enum OriginCalibration {
     /// threshold the pattern at N levels, convert each mask area to an
     /// equivalent circle radius, keep the threshold range where r(thresh) is
     /// stable (derivative near zero), and take the CoM at that threshold.
+    ///
+    /// nil when nothing can be measured: no finite pixel above zero, or no
+    /// mass above the chosen threshold. Until 2026-09-05 both cases returned
+    /// `(1, qx/2, qy/2)` — a number indistinguishable from a measurement,
+    /// which the Gate D of 2026-09-03 named as the estimator's one reachable
+    /// silent path (`docs/open-items.md`, "Origin-fit gate", hole (a)).
+    ///
+    /// DEVIATION from py4DSTEM: `np.max` propagates a NaN, so one bad pixel
+    /// empties every threshold mask there and the result is r = 0 with a NaN
+    /// centre (probe.py:46-60 with get_CoM, utils.py:184-187). Here every
+    /// step — the maximum, the threshold counts and the centre of mass — sees
+    /// FINITE pixels only: a NaN or an infinity is one dead pixel, neither a
+    /// refusal nor a contribution. (The 2026-09-05 first cut filtered only
+    /// the maximum; the Gate B refuter showed a +inf pixel then passed every
+    /// threshold and made the centre NaN.)
     package nonisolated static func probeSize(dp: [Float], qy: Int, qx: Int,
                           threshLower: Float = 0.01, threshUpper: Float = 0.99,
-                          n: Int = 100) -> (r: Float, x0: Float, y0: Float) {
-        let dpMax = dp.max() ?? 0
-        guard dpMax > 0 else { return (1, Float(qx) / 2, Float(qy) / 2) }
+                          n: Int = 100) -> (r: Float, x0: Float, y0: Float)? {
+        var dpMax: Float = 0
+        for v in dp where v.isFinite && v > dpMax { dpMax = v }
+        guard dpMax > 0 else { return nil }
 
         let threshVals = (0..<n).map { i in
             threshLower + (threshUpper - threshLower) * Float(i) / Float(n - 1)
         }
         let rVals: [Float] = threshVals.map { t in
-            let area = dp.reduce(into: 0) { c, v in if v > dpMax * t { c += 1 } }
+            let level = dpMax * t
+            let area = dp.reduce(into: 0) { c, v in if v.isFinite && v > level { c += 1 } }
             return (Float(area) / .pi).squareRoot()
         }
 
@@ -51,8 +86,10 @@ package nonisolated enum OriginCalibration {
             else if i == n - 1 { dr[i] = rVals[n - 1] - rVals[n - 2] }
             else { dr[i] = (rVals[i + 1] - rVals[i - 1]) / 2 }
         }
+        // np.median: for even n the mean of the two middle values. The port
+        // took `sorted[n/2]` alone until 2026-09-05 (Gate B refuter).
         let sorted = dr.sorted()
-        let median = sorted[n / 2]
+        let median = n % 2 == 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[n / 2]
 
         // Trustworthy where the (negative) slope is between 2*median and 0.
         var trusted: [Int] = []
@@ -64,8 +101,8 @@ package nonisolated enum OriginCalibration {
         // median is ≤ 0, and max(dr) — an element of dr — satisfies both
         // conditions. py4DSTEM's mask cannot be empty either; the "NaN" its
         // docstring implies never happens. Kept as a guard, not a fallback.
-        // The REACHABLE silent path is the `dpMax > 0` guard above, which
-        // returns 1 px at the geometric centre unflagged (docs/open-items.md).
+        // The REACHABLE silent path WAS the `dpMax > 0` guard above; since
+        // 2026-09-05 it returns nil and the callers refuse with a sentence.
         if trusted.isEmpty { trusted = [n / 2] }
 
         let r = trusted.reduce(Float(0)) { $0 + rVals[$1] } / Float(trusted.count)
@@ -76,14 +113,14 @@ package nonisolated enum OriginCalibration {
         for y in 0..<qy {
             for x in 0..<qx {
                 let v = dp[y * qx + x]
-                if v > dpMax * thresh {
+                if v.isFinite && v > dpMax * thresh {
                     sumI += v
                     sumIX += v * Float(x)
                     sumIY += v * Float(y)
                 }
             }
         }
-        guard sumI > 0 else { return (r, Float(qx) / 2, Float(qy) / 2) }
+        guard sumI > 0 else { return nil }
         return (r, sumIX / sumI, sumIY / sumI)
     }
 
@@ -473,7 +510,10 @@ package nonisolated enum OriginCalibration {
         // in docs/open-items.md); the max's grows with scan area and
         // diffraction strength. A single low-sum pattern is NOT a safe input:
         // Particle_1's minimum-sum position returns 31.8 px.
-        let (radius, _, _) = probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx)
+        guard let probe = probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx) else {
+            throw OriginCalibrationError.probeNotMeasurable
+        }
+        let radius = probe.r
         let originProgress: (@Sendable (Double) -> Void) = { fraction in
             progress?(0.35 + 0.55 * fraction)
         }
@@ -527,7 +567,10 @@ package nonisolated enum OriginCalibration {
         guard cancellation?.isCancelled != true else { return nil }
         // Same DEVIATION as tiledRun above: the mean, not the max — see the
         // measurement note there.
-        let (r, _, _) = probeSize(dp: meanDP, qy: d.qy, qx: d.qx)
+        guard let probe = probeSize(dp: meanDP, qy: d.qy, qx: d.qx) else {
+            throw OriginCalibrationError.probeNotMeasurable
+        }
+        let r = probe.r
 
         let measured = try engine.measureOrigins(
             cube: cube,
