@@ -406,4 +406,7 @@ taken: MLX Swift in the app (GPU only), FCU-Net via Core ML (impossible on
 the ANE), FCU-Net-first-then-ANE. Accepted cost: no py4DSTEM parity —
 simulated truth and a net-vs-classical disagreement map on real cubes are
 the ground, and the owner's clicks on that map build the fine-tuning set.
+Working method: one feature branch with the per-commit rules loosened and
+the full discipline re-applied at the merge; throughput ceiling 2× the
+classical detector on the same cube (both owner, 2026-09-06 evening).
 `v3-plan.md` §3a is the complete record, long by the owner's instruction.

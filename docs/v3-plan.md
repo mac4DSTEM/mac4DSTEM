@@ -303,9 +303,9 @@ built, from the owner's judgement on the owner's data.
 #### Throughput
 
 A 256×256 scan is 65 536 patterns. The detector states a per-pattern time
-from a measurement, never a claim. The ceiling is an owner decision taken at
-the start of step 3, before the comparison (a proposal to decide against: no
-slower than the classical detector by more than 2× on the same cube). The
+from a measurement, never a claim. **The ceiling, decided (owner,
+2026-09-06): no slower than the classical detector by more than 2× on the
+same cube**, measured at step 3 on the same tree, same settings. The
 honest argument for the ANE is power and leaving the GPU free for
 correlation and drawing; the wall-clock win is unproven.
 
@@ -370,9 +370,10 @@ plausibility:
 Not for the ANE: ptychography, strain, Q calibration, anything where
 0.01 px matters.
 
-#### Working method (proposed 2026-09-06, owner to confirm)
+#### Working method (decided, owner, 2026-09-06)
 
-- **A branch, with the rules loosened on it and re-applied at the merge.**
+- **A branch, with the rules loosened on it and re-applied at the merge**
+  (confirmed by the owner, 2026-09-06).
   Steps 1–3 are Python under `tools/` and cannot break the app; step 4 is
   the app wiring. All of it on one feature branch off `main`. On the
   branch: commit freely, no docs-per-commit, no inventory, no gate per
