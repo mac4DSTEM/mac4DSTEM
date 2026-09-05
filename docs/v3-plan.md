@@ -157,7 +157,8 @@ most data, awkward for unusual detectors. The speed win is not guaranteed:
 our Metal correlation is already fast and whether the net is faster on wall
 clock is an unmade measurement. Retraining is the fix for every failure:
 when the classical detector is wrong we change a threshold; when the network
-is wrong we need more data and a training run.
+is wrong we need more data and a training run. And the learned detector
+needs macOS 27 (Core AI): users below it keep the classical detector.
 
 #### Shape of the detector
 
@@ -197,26 +198,25 @@ is wrong we need more data and a training run.
   at each disk centre — not a segmentation mask. Peak-picking: local maxima
   above a threshold with a minimum separation of about the probe radius.
   Loss: heatmap regression (MSE or a focal variant); settled in step 2.
-- **Serving, Core ML route (macOS 14+).** `coremltools` → ML Program
-  `.mlpackage`, float16, compiled by
-  Xcode into the bundle; compute units set to prefer the Neural Engine
-  (Core ML falls back to GPU/CPU where no ANE exists, so nothing crashes on
-  odd hardware); batched prediction with IOSurface-backed `MLMultiArray` so
-  a whole scan streams through without per-pattern copies. Per-op placement
-  is read from Xcode's Core ML performance report: every op on the ANE, or
-  the graph is split and the design has failed its own premise. Every
-  Core ML API used must exist on macOS 14, the app's floor.
-- **Serving, Core AI route (macOS 27+, beta on 2026-09-06).** `coreai-torch`
-  → `.aimodel` from the same PyTorch net; in Swift `AIModel(contentsOf:)`
-  (asynchronous — it specialises the model for the device on first load,
-  cached by `AIModelCache`, never in an interactive flow), `loadFunction`,
+- **Serving, Core ML route — insurance in the tooling, not in the app
+  (decided 2026-09-06 late).** `coremltools` → `.mlpackage` from the same
+  PyTorch net, with its own pixel check, kept so that if Core AI misses the
+  ceiling or churns at step 3 the fallback is one Swift class, not a
+  rewrite. No Core ML code ships in the app.
+- **Serving, Core AI (decided 2026-09-06 late; the learned detector is a
+  macOS 27-only option behind an availability check, the classical detector
+  serves everyone else).** `coreai-torch` → `.aimodel` from the PyTorch
+  net; in Swift `AIModel(contentsOf:)` (asynchronous — it specialises the
+  model for the device on first load; `AIModelCache` keeps the result; the
+  app shows "preparing the detector" once and never specialises inside a
+  run; `coreai-build` ahead-of-time compiles per Mac architecture if the
+  measured first-load time warrants it), `loadFunction`,
   `InferenceFunction.run(inputs:)` on `NDArray` with contiguous mutable
-  views (zero-copy), and `SpecializationOptions(preferredComputeUnitKind:
-  .neuralEngine)` with `allowedComputeUnitKinds` — explicit ANE targeting
-  is a first-class API here. Ahead-of-time: `xcrun coreai-build compile`
-  → one `.aimodelc` per device architecture. Every op's placement is read
-  in Xcode's graph view or Instruments. Batching is not documented on the
-  pages read; measure it. Details and sources in the Core AI block.
+  views (zero-copy), `SpecializationOptions(preferredComputeUnitKind:
+  .neuralEngine)` with `allowedComputeUnitKinds`. Every op's placement is
+  read in Xcode's graph view or Instruments. Batching is not documented on
+  the pages read; it is designed in as a model dimension and measured. The
+  loop design is in the Core AI block.
 - **Weights.** Ship in the bundle, pinned; never fetched at build or run
   time (py4DSTEM's loader fetches "latest" — we do the opposite). SHA-256 of
   the model file in provenance beside `detector_class`; a result must say
@@ -255,9 +255,9 @@ which it is not. The app gets one `.mlpackage` and one inference class in
 `Core/`.
 
 Contents: `simulate.py` (patterns + truth), `train.py` (PyTorch, MPS
-backend), `export.py` (→ `.mlpackage` via `coremltools` and → `.aimodel`
-via `coreai-torch`, both from the one PyTorch net), `check_export.py` (each
-export vs PyTorch, pixel for pixel),
+backend), `export.py` (→ `.aimodel` via `coreai-torch`; → `.mlpackage` via
+`coremltools` as insurance; both from the one PyTorch net),
+`check_export.py` (each export vs PyTorch, pixel for pixel),
 `fixture/` (a small, fully synthetic committed set with expected centres — a
 reader must be able to reproduce it; runs on the owner's real cubes are
 quoted from dated retained logs), `README.md` with pinned versions.
@@ -272,9 +272,8 @@ environment stays as pinned (proposed). Mind the disk floor: run
 
 The Neural Engine is not trained on; it only runs models. Training is
 PyTorch on the Mac's GPU (the MPS backend) — decided 2026-09-06, below; the result is
-exported to Core ML through `coremltools` and to Core AI through
-`coreai-torch`, both from the same net (the dual export is the
-recommendation in the Core AI block). The data is ours, generated
+exported to Core AI through `coreai-torch` (decided; the `coremltools`
+export stays in the tooling as insurance — Core AI block). The data is ours, generated
 on the fly by our own simulator — nothing stored, nothing downloaded,
 nothing to license:
 
@@ -367,6 +366,11 @@ correlation and drawing; the wall-clock win is unproven.
   reopen, and travels with the sidecar when it is shared; the fine-tuning
   script reads labels out of sidecars.
 
+- **The runtime — decided (owner, 2026-09-06 late): Core AI exclusively.**
+  The learned detector is a macOS 27-only option; the classical detector
+  serves everyone else; a Core ML export stays in the tooling as insurance.
+  The reasons and the loop design are in the Core AI block.
+
 #### Core AI (the owner's question, 2026-09-06 evening)
 
 **What it is, source-locked** (developer.apple.com/documentation/coreai,
@@ -410,16 +414,63 @@ every machine here runs 26 or 27). The classical detector works
 everywhere, so the learned detector can be a macOS-27-only option behind
 an availability check without moving the floor.
 
-**Recommendation (proposed; the owner decides).** The PyTorch net is the
-single source. Step 2 exports both — one extra export target and one extra
-pixel check — and measures both on the ANE. Step 3 chooses the shipping
-runtime on facts that do not exist today: whether 27.0 has shipped by then
-(step 4 is 3–5 weeks out) and which runtime measures at least as fast at
-equal recall. Provenance records the runtime beside the weights hash, since
-float16 numerics may differ between them. The alternative, Core AI only
-from step 2, is the more future-proof line at the price of a beta API
-during steps 2–4 and a macOS-27 floor for the feature. Not recommended:
-shipping both runtimes in the app.
+**Decided (owner, 2026-09-06 late): Core AI exclusively in the app.**
+What was weighed against it, none decisive: a beta API until 27.0 ships
+(weeks; step 4 is 3–5 weeks out — pin the release Xcode before step 4 and
+keep the Swift class thin); batching undocumented (designed in, measured
+in step 2 against the 2× ceiling); first-load specialisation (asynchronous,
+cached, shown once, never inside a run; ahead-of-time compiles if slow); a
+Metal-Toolchain build dependency (installed here; 4.9 GB free on
+2026-09-06); young tooling (the pixel check contains the correctness risk,
+not the schedule risk); users below macOS 27 get no learned detector (the
+classical one works; the floor stays 14 behind availability guards, which
+must keep the "compiles for 14" claim true); and "the future" being Apple's
+direction, not Apple's statement. This machine builds it today: macOS 27.0
+(26A5388g), Xcode 27.0 beta (27A5209h), Metal Toolchain with
+`coreai-build` present. The `coremltools` export stays in the tooling as
+insurance unless the owner strikes it. Provenance records `runtime:
+coreai`, the `.aimodel` SHA-256 (the source asset is the pinned identity;
+the specialised artifact differs per device) and the model version.
+
+**Running the loop inside the runtime** (owner, 2026-09-06 late: "make
+use of these capabilities"). The owner pasted a third-party claim that
+Core AI runs an LLM's token loop — KV cache and sampling — inside the
+runtime and is up to 3.5× faster than Core ML for it. That is about
+autoregressive generation; a disk detector is one forward pass per
+pattern with no token loop, so the number does not transfer and is not a
+reason here. The principle transfers: leave the CPU out of the
+per-pattern loop. Apple's own pages give the tools — stateful execution,
+zero-copy `NDArray` views, `ComputeStream` for asynchronous work, several
+exported functions in one asset, custom Metal kernels inside the asset.
+Applied, in the order they land:
+
+1. **Batch as a model dimension.** The exported function takes
+   `[B, C, 128, 128]` with B fixed at export and chosen by measurement in
+   step 2: one call per batch, never per pattern.
+2. **Peak-picking inside the graph.** Local maxima as
+   `heatmap == maxpool3×3(heatmap)` and `heatmap > threshold`, then a
+   fixed K per pattern (the app already caps at 70 peaks) with scores,
+   zero-padded — plain ops; where the top-K lands is read in Xcode, and a
+   CPU-placed top-K over 70 slots is cheap. The function returns candidate
+   coordinates and scores, not heatmaps: a 256×256 scan is 65 536 × 128² ×
+   2 bytes = 2.1 GB of float16 heatmaps back to the CPU, against kilobytes
+   of candidates.
+3. **The probe as model state.** It is identical for every pattern of a
+   scan, so a second exported function writes it into a model buffer once
+   per scan (the in-place-update pattern Apple shows for KV caches; step 2
+   verifies the converter preserves a buffer across calls) and the detect
+   function reads it; the per-pattern input drops to two channels.
+4. **Compute streams.** Batches enqueued asynchronously so the ANE never
+   waits for the CPU to unpack the previous batch's candidates.
+5. **Later, not in step 4: the Metal cross-correlation as a custom kernel
+   inside the asset**, channel three computed in-graph (its MSL possibly
+   the engine's own source), only after it is verified pixel for pixel
+   against the Metal engine — in step 4 the correlation still comes from
+   the existing, parity-checked engine.
+
+Refinement stays outside the graph: the classical sub-pixel measurement
+runs in the Metal engine on the returned candidates. That is the number
+that reaches strain, and it stays separately verified.
 
 #### The Neural Engine beyond disk detection
 
@@ -494,16 +545,17 @@ Not for the ANE: ptychography, strain, Q calibration, anything where
    proven before any net sees them, independently of any net. A few abTEM
    patterns as the honesty check. Break the fixture first. Classify the
    directory in `run-tests.sh inventory`.
-2. **Net + training in PyTorch; export to Core ML (`coremltools`) and to
-   Core AI (`coreai-torch`) from the one net.** Each export checked against
-   PyTorch pixel for pixel; each shown on the ANE (Core ML's performance
-   report; Core AI's Xcode/Instruments view with `.neuralEngine`
-   preferred); a per-pattern time stated from a run for each.
+2. **Net + training in PyTorch; export to Core AI (`coreai-torch`); the
+   Core ML export kept as insurance.** The `.aimodel` checked against
+   PyTorch pixel for pixel; every op's placement read in Xcode/Instruments
+   with `.neuralEngine` preferred; the batch size, the in-graph
+   peak-picking and the probe-as-state function verified (Core AI block);
+   first-load specialisation timed; a per-pattern and per-scan time stated
+   from a run against the 2× ceiling.
 3. **Does it earn its place?** Net + refinement against the drawn centres
    (recall, precision, residual after refinement); against the classical
    detector on the bullseye and WS₂ cubes; against the throughput ceiling
-   set before the comparison. The verdict goes to `decisions.md`, and so
-   does the shipping runtime, chosen here (Core AI block).
+   set before the comparison. The verdict goes to `decisions.md`.
 4. **Wire in as an option**: `DetectorClass`, the hash in provenance, the
    disagreement map, the labelled-pattern store in the sidecar. Gate B
    campaign (it is `Core/` and it moves which disks are found); any

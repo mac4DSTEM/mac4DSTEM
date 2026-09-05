@@ -415,3 +415,11 @@ classical detector on the same cube (both owner, 2026-09-06 evening).
 only, so the PyTorch decision stands with a second reason. The shipping
 runtime, Core ML or Core AI, is an owner decision deferred to step 3 unless
 taken earlier; §3a's Core AI block.)*
+*(Late evening: the owner chose Core AI exclusively — the learned detector
+is a macOS 27-only option, the classical detector serves everyone else, the
+Core ML export stays in tooling as insurance. The design leaves the CPU
+out of the per-pattern loop: batch as a model dimension, in-graph
+peak-picking returning candidates not heatmaps, the probe as model state,
+compute streams; the correlation kernel moves in-graph only after it is
+verified against the Metal engine. The third-party "3.5× faster than
+Core ML" claim is about LLM token loops and is not a reason here.)*
