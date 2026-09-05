@@ -30,6 +30,11 @@ case "$mode" in
   train)    exec "$DETECTOR_PYTHON" train.py "$@" ;;
   export)   exec "$DETECTOR_PYTHON" export.py "$@" ;;
   check)    exec "$DETECTOR_PYTHON" check_export.py "$@" ;;
-  evaluate) exec "$DETECTOR_PYTHON" evaluate.py "$@" ;;
+  evaluate)
+    # two stages: the net's heatmaps in the detector env, then py4DSTEM's refinement and the classical
+    # comparison in the pinned py4DSTEM env (torch is not installed there, py4DSTEM not here).
+    . "$REPO/tools/lib/python.sh"; resolve_mac4dstem_python "$REPO"
+    "$DETECTOR_PYTHON" evaluate.py --stage net "$@"
+    exec "$PYTHON_BIN" evaluate.py --stage compare "$@" ;;
   *) echo "usage: $0 [fixture|train|export|check|evaluate] [args]" >&2; exit 64 ;;
 esac

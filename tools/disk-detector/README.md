@@ -11,7 +11,7 @@ The app gets one asset and one inference class at step 4; nothing here touches
 | Environment | Used for | Pinned |
 |---|---|---|
 | `$HOME/miniconda3/envs/py4dstem` (py4DSTEM 0.14.17, python 3.12.4) | the reference detector in `verify_fixture.py` and `evaluate.py` — only to call py4DSTEM | `tools/lib/python.sh` resolves it |
-| `$HOME/miniconda3/envs/disk-detector` (python 3.12) | `train.py`, `export.py`, `check_export.py` | `requirements.txt` (2026-09-06: torch 2.13.0, numpy 2.5.2, coremltools 9.0, coreai-torch 0.4.2 + coreai-core 1.0.0b2, tensorboard 2.21.0) |
+| `$HOME/miniconda3/envs/disk-detector` (python 3.12) | `train.py`, `export.py`, `check_export.py` | `requirements.txt` (2026-09-06: torch 2.11.0 — coreai-opt 0.2.1 pins it — numpy 2.3.5, coremltools 9.0, coreai-torch 0.4.2 + coreai-core 1.0.0b2 + coreai-opt 0.2.1, tensorboard 2.21.0) |
 
 `simulate.py` imports in both (numpy + scipy only). Run `tools/free-space.sh`
 before installing anything; the machine runs near its disk floor.
