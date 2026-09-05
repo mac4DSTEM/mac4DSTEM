@@ -68,6 +68,8 @@ final class SessionReplayAppStateTests: XCTestCase {
         // Pre-adopting the grant is what keeps the save panel out of a test.
         state.sessionSidecar.adopt(url, for: descriptor)
 
+        state.setManualQPixelUnits("nm⁻¹")
+        state.setManualQPixelSize(0.25)
         state.saveCalibrationToSessionSidecar()
         // Wait for the app's OWN follow-up inventory read to publish, not
         // merely for the file to exist: the bundled HDF5 is Threadsafety: OFF
@@ -85,5 +87,18 @@ final class SessionReplayAppStateTests: XCTestCase {
         let snapshot = try BraggVectorEMDWriter.loadSession(from: url)
         XCTAssertEqual(snapshot.replayRecord?.steps.map(\.kind), ["virtual_detector"],
                        "The session's recipe must travel with the calibration save")
+
+        let restored = AppState(sessionSidecar: SessionSidecarLocator(defaults: defaults))
+        await restored.openDemoFixture()
+        XCTAssertEqual(restored.manualQPixelSize, 0.25)
+        XCTAssertEqual(restored.manualQPixelUnits, "nm⁻¹")
+        let qItem = try XCTUnwrap(restored.calibrationSession.readiness.items.first { $0.kind == .qScale })
+        XCTAssertEqual(qItem.status, .ready(.sessionSidecar),
+                       "The test must exercise restoration, not the demo's file calibration")
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(for: qItem.kind, status: qItem.status),
+                      "A saved manual scale must remain editable after reopening")
+        restored.setManualQPixelSize(0.5)
+        XCTAssertEqual(restored.manualQPixelSize, 0.5)
+        XCTAssertEqual(restored.calibrationSession.provenance.qScale, .manual)
     }
 }

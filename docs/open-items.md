@@ -334,7 +334,15 @@ volume disappears mid-read. Needs a CI fixture (disk image on internal
 disk reproduces `MNT_REMOVABLE` with no external hardware). **The
 original 2026-08-18 8GB-machine death that motivated this is still NOT
 explained** — the mechanism is real and worth fixing but not established
-as that incident's cause. Owner: a later session, Gate B.
+as that incident's cause. The 2026-09-05 axis/order fix does not alter this
+mapping behavior. Owner: a later session, Gate B.
+
+### Scan-fastest DM4 tile reads traverse the mapping out of storage order
+The 2026-09-05 Gate B measured `Si-SiGe.dm4` at 4.17 s for one scan row and
+17.01 s for a full tile, warm. Correct strided reads visit detector pixels
+pattern by pattern; a sequential raw-order gather/transpose would be more
+cache-friendly. Correctness is pinned and the example is usable, but cold or
+memory-constrained volumes may be slower. Owner: DM4 performance follow-up.
 
 ### The open/promote unwind is sixfold, and Cancel can vanish mid-load
 Corrected 2026-09-04. **Six begin/finish brackets, not three**: `openFileAsync`,

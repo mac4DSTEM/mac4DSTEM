@@ -62,8 +62,10 @@ if tag == 21: read data tag payload (§1.3)
 if tag == 20: recurse into tag group (§1.2)
 ```
 The DM4 `tagByteCount` lets a reader **seek past** any tag/type it doesn't understand.
-Build paths by joining labels with `.` (e.g. `ImageList.1.ImageData.Data`). Empty
-labels are normal.
+Build paths by joining labels with `.` (e.g. `ImageList.1.ImageData.Data`). An
+empty label is the entry's **one-based physical sibling position in its current
+group**, counting labelled siblings too; keeping `""` collapses distinct image
+objects and dimensions onto one path.
 
 ### 1.3 Data tag payload (the `%%%%` block)
 
@@ -187,24 +189,34 @@ On the `Data` array tag, don't read it — store `arraySize = arrayLength × ite
 `DataType`; never load a multi-GB cube into RAM.
 
 ### 3.3 Dimension interpretation → [Ry, Rx, Qy, Qx]
-DM dims are **fastest-first**: `Dimensions.1` = xSize (contiguous), `.2` = ySize,
-`.3` = zSize, `.4` = zSize2. ncempy reshapes as `(zSize2, zSize, ySize, xSize)` then
-drops singletons. Three real layouts (all handled by `read_dm.py`):
-- **True 4D** (`zSize2 > 1`): `(zSize2, zSize, ySize, xSize)` → **[Ry=zSize2, Rx=zSize, Qy=ySize, Qx=xSize]**.
-- **3D "TitanX"**: `(N_scan, Qy, Qx)`; scan shape from tags `4D STEM Tags.Scan shape X/Y`; py4DSTEM reshapes `(scan)→(Ry,Rx)` and applies a **`-2` pixel roll on axis 1** (TitanX artifact). If those tags are absent, Rx/Ry can't be recovered from data alone.
-- **2D**: single pattern/image — not a datacube.
+DM dims are **fastest-first**, but their roles are not fixed. Two true-4D
+layouts occur:
+
+- detector-fastest `[Qx,Qy,Rx,Ry]` → app shape `[Ry,Rx,Qy,Qx]`; one pattern is contiguous;
+- scan-fastest `[Rx,Ry,Qy,Qx]` → app shape `[Ry,Rx,Qy,Qx]`; raw C-order is
+  `[Qx,Qy,Ry,Rx]`, so one pattern must be gathered with strides.
+
+Infer the pair roles from calibration domains (`nm`/`µm`/Å = real,
+`1/nm`/`1/Å`/`mrad` = reciprocal), never from axis size. If both pairs are
+known but contradictory, refuse. If units are missing or unknown, preserve the
+historical detector-fastest interpretation. `Si-SiGe.dm4` is scan-fastest:
+tags `[17,77,448,480]` mean scan `77×17`, detector `448×480`.
+
+**DEVIATION from py4DSTEM:** its generic DM path blindly wraps ncempy's reversed
+shape as DataCube axes and therefore swaps scan and diffraction for this
+Gatan STEM-SI layout. Shape agreement with py4DSTEM is not validation here.
+
+**3D "TitanX":** `(N_scan,Qy,Qx)`; recover `Rx/Ry` from `4D STEM Tags.Scan
+shape X/Y`. **2D** is an image, not a datacube.
 
 **Selection heuristic (replicate):** pick the first object whose `squeeze(shape).ndim > 2`
 (skips a thumbnail at index 0 and any 2D survey image). `read_dm.py`:
 `if dmFile.dataShape[dataset_index + thumbnail_count] > 2`.
 
 ### 3.4 Calibration extraction
-Per-dimension `scale`/`scaleUnit`/`origin` are chained flat across objects. `getDataset`
-slices `scale[jj : jj+dataShape][::-1]` with `jj = sum(dataShape[0:obj])` — note the
-**`[::-1]` reversal** (tags stored fastest→slowest; return order slowest→fastest). In
-`read_dm.py` the offset also adds `2 * thumbnail_count`. For a 4D object the four
-calibrations map to Qx, Qy, Rx, Ry (fastest→slowest); py4DSTEM takes `pixelsize[0]` =
-Q pixel size, `pixelsize[2]` = R pixel size.
+Read calibration using the object's actual numeric dimension suffixes (writers
+use both 0-based and 1-based labels). In detector-fastest layout, the leading
+pair supplies Q and the trailing pair R; scan-fastest reverses those roles.
 
 **Reliably present:** per-dim `Scale`, `Origin`, `Units`; `ImageData.DataType`;
 `Dimensions.*`. Origin is in pixels (`round(-1 * origin * scale, 4)`).

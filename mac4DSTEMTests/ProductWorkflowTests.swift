@@ -521,6 +521,9 @@ final class ProductWorkflowTests: XCTestCase {
             for: .qScale, status: .ready(.manual)
         ))
         XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+            for: .qScale, status: .ready(.sessionSidecar)
+        ), "restoring a saved manual scale must not lock its editor")
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
             for: .qScale, status: .missing
         ))
         XCTAssertFalse(PrepareSettings.shouldShowManualScaleEditor(

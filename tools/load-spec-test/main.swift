@@ -417,7 +417,7 @@ func fullCube(
             let cube = try await fullCube(of: source) { try await reader.readScanTile($0, yRange: $1) }
             await exercise(
                 "DM4", source: source, fullCube: cube,
-                sourceValue: { Float($0) }, expectedPushdown: .scanOnly,
+                sourceValue: { Float($0) }, expectedPushdown: .none,
                 read: { try await reader.readScanTile($0, yRange: $1) },
                 readRow: { try await reader.readScanRow($0, ry: $1) },
                 readPattern: { try await reader.readPattern($0, ry: $1, rx: $2) },

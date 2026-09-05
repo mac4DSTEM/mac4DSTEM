@@ -127,8 +127,9 @@ package protocol FourDDataSource: Actor {
     /// inside a chunk skips nothing. Measured 2026-08-18 on a gzip-chunked
     /// (16,16,256,256) f4 dataset with chunks (1,16,256,256): reading 1/64 of
     /// the detector pixels took 0.135 s against 0.137 s for all of them. The raw
-    /// formats store patterns contiguously, so a scan crop is a seek but a
-    /// detector crop is a slice after the read.
+    /// formats that store patterns contiguously make a scan crop a seek but a
+    /// detector crop a slice after the read. DM4 permits either pair to be
+    /// contiguous and therefore reports neither saving conservatively.
     ///
     /// The app records this in provenance, so the saving is never overstated —
     /// which is the whole reason the declaration exists rather than being

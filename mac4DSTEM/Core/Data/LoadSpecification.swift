@@ -112,10 +112,10 @@ package nonisolated struct LoadSpecification: Equatable, Sendable, Codable {
 ///
 /// **This exists so the saving is never overstated.** Cropping at read time
 /// saves memory *and* I/O only when the reader can skip the bytes. HDF5 can, on
-/// all four axes, via the hyperslab it already builds. The raw formats
-/// (DM4, MIB, EMPAD) store patterns contiguously, so a *scan* crop is a
-/// contiguous seek and does skip bytes, while a *detector* crop would need many
-/// small strided reads within each frame — so those readers slice after reading
+/// all four axes, via the hyperslab it already builds. Pattern-contiguous raw
+/// formats (MIB, EMPAD, and some DM4) make a *scan* crop a contiguous seek,
+/// while a *detector* crop needs many small strided reads within each frame —
+/// so those readers slice after reading
 /// and save memory only.
 ///
 /// Decided 2026-08-18: push down where it pays, slice where it does not, and
@@ -131,7 +131,8 @@ package nonisolated struct LoadPushdown: Equatable, Sendable, Codable {
 
     /// Everything pushed down — HDF5's hyperslab.
     package static let full = LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)
-    /// Scan crop seeks, detector crop is sliced after the read — raw formats.
+    /// Scan crop seeks, detector crop is sliced after the read —
+    /// pattern-contiguous raw formats.
     package static let scanOnly = LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)
     /// Nothing skipped; the specification is applied entirely in memory.
     package static let none = LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)

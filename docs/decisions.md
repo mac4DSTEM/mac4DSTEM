@@ -335,6 +335,18 @@ Amended 2026-09-05 after independent review: the file-root sidecar marker is
 checked before canonical probes, and the legacy string-label rule is confined
 to the pinned `data/diffractionslices` subtree.
 
+**2026-09-05 — DM4 calibration domains decide which axis pair is scan.** DM
+dimension tags are fastest-first, but Gatan writes both detector-fastest
+`[Qx,Qy,Rx,Ry]` and scan-fastest `[Rx,Ry,Qy,Qx]` cubes. Axis sizes cannot
+distinguish them. A real-space unit pair (`nm`, `µm`, Å) and a reciprocal pair
+(`1/nm`, `1/Å`, `mrad`) are explicit evidence, so the reader uses those domains
+and refuses contradictory known pairs. Missing or unknown units preserve the
+legacy detector-fastest interpretation for compatibility. This deliberately
+deviates from py4DSTEM's generic DM importer, which blindly assigns ncempy's
+reversed array axes and swaps the included `Si-SiGe.dm4`. DM4 now reports no
+crop-I/O pushdown because either axis pair may be contiguous; reduced views
+still save conversion and resident memory.
+
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members
 outside their own state; a session that ran them would need that surface

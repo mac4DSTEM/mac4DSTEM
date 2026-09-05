@@ -178,6 +178,17 @@ with h5py.File(root / "x2v_legacy12_vlen_labels.h5", "w") as f:
     dim(p, 2, np.arange(8), "Q_y", "[pix]")
     variable_labels(p, 3, ["probe", "kernel", "mask"])
 
+# Legacy RealSlice stacks use the same dim3 labels as DiffractionSlice
+# (pinned read_v0_12.py:373–388). Neither string representation is a detector.
+for suffix, variable in [("fixed", False), ("vlen", True)]:
+    with h5py.File(root / f"x2r_legacy12_realslices_{suffix}.h5", "w") as f:
+        p = f.create_group("4DSTEM_experiment/data/realslices/strain")
+        p.create_dataset("data", data=cube((5, 7, 4)))
+        dim(p, 1, np.arange(5), "R_x", "nm")
+        dim(p, 2, np.arange(7), "R_y", "nm")
+        writer = variable_labels if variable else labels
+        writer(p, 3, ["exx", "eyy", "exy", "theta"])
+
 # x3 — a labelled stack at the FILE ROOT: "/data", dims at "/dim0…".
 with h5py.File(root / "x3_root_level_stack.h5", "w") as f:
     f.create_dataset("data", data=cube((8, 8, 3)))

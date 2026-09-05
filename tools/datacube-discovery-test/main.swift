@@ -90,6 +90,12 @@ func fail(_ message: String) -> Never {
             print("PASS: a `_labels_` stack is refused at rank 3, at rank 4 and at the file root; the anchor is cleared")
             _ = await expectRefusal("x2_legacy12_stack_only.h5", .noDataset)
             _ = await expectRefusal("x2v_legacy12_vlen_labels.h5", .noDataset)
+            for suffix in ["fixed", "vlen"] {
+                let realReader = await expectRefusal("x2r_legacy12_realslices_\(suffix).h5", .noDataset)
+                expect(await realReader.pixelCalibration() == nil,
+                       "legacy RealSlice refusal must clear its calibration anchor")
+            }
+            print("PASS: legacy real-space stacks are refused with fixed and variable string labels")
             let (_, numeric) = await discover("x2n_legacy12_numeric_dim3.h5")
             expect(numeric.shape == [1, 8, 8, 3], "x2n \(numeric.shape)")
             print("PASS: a legacy v0.12 slice stack is refused by its string-typed dim3; a numeric dim3 is not a label (recorded residual)")

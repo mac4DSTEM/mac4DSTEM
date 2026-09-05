@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — next v2.5.x patch
+
+- **Gatan STEM-SI DM4 axes now load in their calibrated roles.** Empty DM tag
+  labels are resolved by physical sibling position, so the included
+  `Si-SiGe.dm4` is discovered. Its calibration identifies the leading pair as
+  real space and the trailing pair as diffraction space; the app now reports
+  scan `77 × 17`, detector `448 × 480`, and gathers the file's strided
+  diffraction patterns correctly. Previously the previews visibly showed
+  diffraction spots under “Scan — real space” and the scan image under
+  “Diffraction.” Missing axis units keep the compatible legacy layout;
+  contradictory known units are refused rather than guessed.
+
 ## Unreleased — the v2.6.0 science lane
 
 - **Discovery no longer takes any rank-3 array for a datacube.** py4DSTEM
