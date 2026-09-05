@@ -54,6 +54,10 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     /// the first to belong to a different shell, when one exists.
     package let secondShellRadiusPixels: Double?
     package let shellCheck: QCalibrationShellCheck
+    /// Median number of same-shell equivalents averaged per position — the k
+    /// of the order-statistic bias the cluster estimator removes. 1 means the
+    /// estimate rests on single peaks and the cluster brought nothing.
+    package let sameShellPeaksPerPosition: Double
 
     /// `medianAbsoluteDeviationPixels / observedRadiusPixels`. Computed and
     /// exposed because it is free and a later design pass will need it; **no
@@ -63,7 +67,7 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck) {
+    package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck, sameShellPeaksPerPosition: Double) {
         self.invAngstromPerPixel = invAngstromPerPixel
         self.observedRadiusPixels = observedRadiusPixels
         self.referenceRadiusInvAngstrom = referenceRadiusInvAngstrom
@@ -71,6 +75,7 @@ package nonisolated struct QCalibrationEstimate: Sendable {
         self.sampleCount = sampleCount
         self.secondShellRadiusPixels = secondShellRadiusPixels
         self.shellCheck = shellCheck
+        self.sameShellPeaksPerPosition = sameShellPeaksPerPosition
     }
 }
 
@@ -146,8 +151,32 @@ package nonisolated enum KnownCrystalQCalibration {
         // because several symmetry equivalents of one |g| are excited at once.
         let separation = expectedRatio.map { ($0 - 1) / 2 }
 
+        // THE SAME-SHELL CLUSTER, not the minimum (Gate D 2026-09-05,
+        // docs/q-calibration-design.md §8). The innermost shell is excited as
+        // k symmetry equivalents at once, each measured with radial noise σ;
+        // the smallest of k is biased low by c_k·σ (c_6 = 1.27), and the
+        // median across positions kept that bias, so the scale read HIGH by
+        // 2.1 % on polycrystal_2D_WS2 and 2.4 % on sim_Au — both within 8 % of
+        // the value the order statistic predicts from the measured k and σ.
+        // The Gate B refuter then showed the WS₂ spread is mostly a 0.26 px
+        // ORIGIN-FIT offset (the minimum is the same spoke at 99 % of
+        // positions), which a symmetric set of equivalents cancels in the
+        // mean: the cluster reads 18.902 px against 18.901 from the
+        // independent 11-20 shell. The band is the model's derived
+        // separation capped at 8 % (fcc 200/111 sits 15.5 % out; hcp Mg's
+        // own derived separation is 3.3 %, and the cap does not widen it).
+        // Known limit, recorded in `open-items.md`: on a single crystal with
+        // a real per-position asymmetry between Friedel pairs (sim_Au, 2.4 %)
+        // the band truncates clusters and the mean is not shown to be truth.
+        let sameShellBand = min(0.08, separation ?? 0.08)
+        func shellMean(from radii: ArraySlice<Double>) -> (mean: Double, count: Int)? {
+            guard let first = radii.first else { return nil }
+            let cluster = radii.prefix { $0 <= first * (1 + sameShellBand) }
+            return (cluster.reduce(0, +) / Double(cluster.count), cluster.count)
+        }
         var firstRadii: [Double] = []
         var secondRadii: [Double] = []
+        var equivalentsPerPosition: [Double] = []
         firstRadii.reserveCapacity(bragg.peaks.count)
         for peaks in bragg.peaks {
             let radii = peaks.compactMap { peak -> Double? in
@@ -156,11 +185,13 @@ package nonisolated enum KnownCrystalQCalibration {
                 let radius = (dx * dx + dy * dy).squareRoot()
                 return radius.isFinite && radius > minimumRadiusPixels ? Double(radius) : nil
             }.sorted()
-            guard let first = radii.first else { continue }
-            firstRadii.append(first)
+            guard let first = shellMean(from: radii[...]) else { continue }
+            firstRadii.append(first.mean)
+            equivalentsPerPosition.append(Double(first.count))
             if let separation,
-               let second = radii.first(where: { $0 > first * (1 + separation) }) {
-                secondRadii.append(second)
+               let secondIndex = radii.firstIndex(where: { $0 > first.mean * (1 + separation) }),
+               let second = shellMean(from: radii[secondIndex...]) {
+                secondRadii.append(second.mean)
             }
         }
         guard !firstRadii.isEmpty else { return nil }
@@ -199,7 +230,8 @@ package nonisolated enum KnownCrystalQCalibration {
             medianAbsoluteDeviationPixels: mad,
             sampleCount: firstRadii.count,
             secondShellRadiusPixels: secondObserved,
-            shellCheck: shellCheck
+            shellCheck: shellCheck,
+            sameShellPeaksPerPosition: median(equivalentsPerPosition)
         )
     }
 

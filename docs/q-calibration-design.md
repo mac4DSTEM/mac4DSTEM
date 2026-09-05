@@ -516,3 +516,51 @@ ceiling, S13 measures where to put it rather than picking a round number.
   different reasoning than they were first given.
 - **Track A was not run**, and is not owed: nothing under `mac4DSTEM/` was
   touched.
+
+## 8. Gate D, 2026-09-05 — the per-pattern minimum radius (open item (a))
+
+**Pre-registered** (scratchpad `qcal-gate-d-preregistration.md`, written
+before the run). Diagnosis: `estimate` took `radii.first` at every position;
+the innermost shell is k symmetry equivalents of one radius, each with radial
+noise σ, and the minimum of k is biased low by c_k·σ (c_4 1.03, c_6 1.27).
+Refuting observation: a min-versus-cluster shift under 0.3 % on either real
+dataset. Prediction: shift ≈ c_k·σ̂/r within ±30 %.
+
+| dataset | k | σ̂ (px) | median(min) | median(cluster) | observed shift | predicted |
+|---|---|---|---|---|---|---|
+| synthetic (truth 30 px, σ 0.3, k 6) | 6 | 0.281 | 29.632 | 30.001 | +1.23 % | +1.19 % |
+| `polycrystal_2D_WS2` (`ws2_2h`, min-relative 5e-4) | 6 | 0.294 | 18.502 | 18.902 | +2.12 % | +1.97 % |
+| `sim_Au_data_all_binned` (`au_fcc`) | 4 | 0.553 | 21.298 | 21.828 | +2.43 % | +2.61 % |
+
+Logs: `scratchpad/qcal-experiment-{ws2c,au}-20260905.log`. The shift is in the
+predicted direction and within 8 % of the predicted size on both datasets,
+and the refuting observation did not occur — but **the Gate B refuter showed
+the mechanism was misattributed.** On WS₂ the within-cluster spread is mostly
+a 0.26 px ORIGIN-FIT offset, not iid noise: the plane fit sits at
+(63.996, 63.996) while the beam's centre of mass is (63.74, 63.74), the
+first-shell radius runs 18.51 → 19.20 px around the ring, and the minimum is
+the same spoke at 99 % of positions. σ̂ absorbed the term, which is why the
+±30 % prediction test could not tell the two apart. The conclusion stands
+for a symmetric set — the mean cancels the displacement — and is checked
+independently: cluster 18.902 px against 18.901 from the 11-20 shell / √3
+over 16 367 positions. On sim_Au (the primary cube is the single-crystal
+nanoplatelet, four spokes) it does NOT: the two Friedel pairs of one shell
+differ by 2.4 % per position, the 7.7 % band truncates the cluster at ~30 %
+of positions, and against an origin-immune 200-pair reference the minimum
+reads −1.0 % and the cluster +1.4 %. Neither is truth there; item (b) — the
+reference shell — dominates that dataset. **Fix, as shipped:** the
+per-position sample is the mean of the same-shell cluster (radii within the
+model's derived separation, capped at 8 %), applied to both shells;
+`QCalibrationEstimate.sameShellPeaksPerPosition` reports k. Fixture:
+`tools/q-calibration-gate-test` §4b — analytic truth, the minimum must read
+≥ 0.25 px low on the same peaks, an asymmetric cluster pins the MEAN against
+a median, and a shell 12 % out pins the cap (the refuter's two survivors,
+now caught; 79 checks). Fourteen mutations in all.
+
+Two things this did NOT settle. WS₂'s Bragg disks are ~0.002 of the central
+beam, below the shipped `minRelativeIntensity` 0.005, so the app detects
+nothing on that file at defaults — a detection-settings finding, recorded in
+`open-items.md`. The model's shell list for `ws2_2h` starts at 000l
+(0.1623 Å⁻¹ = c/2), which a [0001] specimen never shows; item (b) stands. And
+the 0.26 px origin-fit offset on WS₂ is its own open item.
+

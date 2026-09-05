@@ -18,6 +18,15 @@
 
 ## Unreleased — the v2.6.0 science lane
 
+- **Q calibration from a known crystal averages the innermost shell's
+  equivalents instead of taking the smallest.** The smallest radius was the
+  same spoke almost everywhere — a small origin offset makes one side of the
+  ring read short — so the pixel size came out 2.1 % high on the WS₂ training
+  set; the cluster mean cancels the offset for a symmetric set and agrees
+  with the file's second shell to 0.001 px (Gate D and B,
+  `docs/q-calibration-design.md` §8). The estimate reports how many peaks it
+  averaged. Known limit: on a single crystal whose Friedel pairs differ in
+  radius the band can truncate the cluster (recorded).
 - **A recipe cannot replay against the wrong CIF.** Imported phase models are
   identified by their file stem, so two different CIFs named alike shared an
   id and a saved recipe resolved either. The ACOM step now records a content

@@ -25,6 +25,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Step | State | What it left behind |
 |---|---|---|
+| Q-calibration (a): the same-shell cluster mean replaces the per-pattern minimum | done 2026-09-05, Gate D pre-registered, Gate B passed with the mechanism corrected | `KnownCrystalQCalibration.estimate` averages the innermost shell's equivalents (band = derived separation capped at 8 %), both shells; `sameShellPeaksPerPosition` reports k. WS₂: cluster 18.902 px vs 18.901 from the independent 11-20 shell; the minimum was one spoke of a 0.26 px origin-fit offset (new open item). sim_Au: the reference shell is item (b)'s problem and Friedel pairs differ 2.4 %, so no truth claim there. `q-calibration-gate-test` 79 checks, 14 mutations; the scratch experiment harness and the refuter's dumps are in the scratchpad |
 | Science lane: probe refusal, ACOM origin snapshot, selected-area fixture, CIF fingerprint | done 2026-09-05, Gate B passed with findings applied | `probeSize` → nil, `OriginCalibrationError.probeNotMeasurable`, finite-only at every step, `np.median` parity; `ACOMRunSemantics.originProvenance`; `selected_area_diffraction_partial_rows` with `2^scan` values and a 1 × 2 region (ten mutations, refuter's row-reversal included); `CrystalModel.contentFingerprint` recorded as `material_fingerprint`, `resolveMaterial` refuses a different CIF under a shared id. Refuter report and every mutation log in the scratchpad; closures in `closed-items-2026-09.md` |
 | UI-review label findings (b)(d)(e)(f), minors, `PaneSplit` (a)(c) | done 2026-09-05, **unverified on screen** | Pattern statistics named for what is on screen (`PatternSourceLabel`); comparison panels carry a `Colorbar` (range, units, zero mark, masked swatch); cursor readout at four significant digits; ONE staleness verdict (`TaskProductState`, `ProductWorkflow.productState`) on the sidebar, the inspector and the strain/ACOM maps; scale bar never prints a unitless sampling as px (`ScaleBar.footerSampling`); no kernel → cross markers, not a 3 px circle (`PeakOverlayGeometry.radius` is optional). Both pane headers are `ViewThatFits` with an overflow menu; the divider fraction is `@SceneStorage`. Six unit tests, each broken first |
 | DM4 Gatan STEM-SI import | fixed 2026-09-05, reviewed and reworked the same day; owner's GMS observation and re-drive owed | Empty positional labels resolve by physical sibling index (ncempy's rule, confirmed against ncempy on the real file); calibration domains distinguish detector-fastest from scan-fastest storage. `Si-SiGe.dm4` discovers as scan 77 × 17, detector 448 × 480, uint16, 2 nm / 0.06208537 1/nm — the roles are proven by the units and the survey rectangle; **the detector pair's x/y order is not** (`open-items.md`, Gate D). Review rework: full-cube read 19 s → 0.94 s (blocked transpose), undecidable units open the file without pixel sizes instead of refusing it, detector-fastest DM4 reports `.scanOnly` pushdown again, py4DSTEM's TitanX roll recorded as unported. Probe log `scratchpad/dm4-probe-20260905.log` |
@@ -39,7 +40,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | Gate | Result |
 |---|---|
 | DM4 harnesses | **`dm4-robustness-test` exit 0 (8 checks), `load-spec-test` exit 0 — 2026-09-05**, logs `scratchpad/dm4-robustness-20260905.log`, `scratchpad/load-spec-20260905.log`; four mutants each failed the robustness harness first (`closed-items-2026-09.md`). The full `scientific` gate was not rerun: these two are the harnesses that compile the changed reader. |
-| `run-tests.sh unit` | **477 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05, science lane (probe refusal, ACOM origin snapshot, selected-area fixture, CIF fingerprint)**, `scratchpad/unit-science3-20260905.log`, `GATE_EXIT` from the log's own line; 478 methods in source, reconciled BY NAME — one line lost its `Test ` prefix to an interleaved timestamp (the recorded trap, again). Same day, earlier: 474/0/1 before the refuter's remedies; 472/0/1 after the UI-review fixes (`unit-ui-20260905.log`); 463/0/1 after the DM4 rework (`unit-20260905.log`), replacing a RED tree — the manual-scale commit had shipped two assertions its policy could not satisfy (`focused-manual-scale-20260905.log`, exit 65). |
+| `run-tests.sh unit` | **478 passed / 0 failed / 1 skipped, exit 0 — 2026-09-05, Q-calibration cluster estimator after the refuter's remedies**, `scratchpad/unit-qcal2-20260905.log`, 479 methods in source, reconciled by name. Same day: 477/0/1 for the science lane (`unit-science3`); 472/0/1 after the UI-review fixes; 463/0/1 after the DM4 rework, replacing a RED tree (`focused-manual-scale-20260905.log`, exit 65). |
 | `run-tests.sh scientific` | **43 harnesses, exit 0 — 2026-09-05**, using `PYTHON=$HOME/miniconda3/envs/py4dstem/bin/python`; includes `datacube-discovery-test`. Full log retained at `/private/tmp/mac4dstem-discovery-scientific-py4dstem-20260905.log`. |
 | `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
 | `run-tests.sh inventory` | exit 0 — 2026-09-05, dirty-tree inventory; tool classification and UI-contract checks passed. Its clean-tree documentation check was skipped by design because this work remains uncommitted. |
@@ -83,12 +84,16 @@ agent should say so and start at item 2.
    through Gate B with an independent refuter whose findings were applied
    and re-broken: the origin-fit guard's hole (a), the ACOM origin-provenance
    snapshot, the selected-area mask fixture (`closed-items-2026-09.md`) and
-   the CIF id collision (b). Next, in order: Q-calibration scale (a) — a
-   Gate D experiment on `polycrystal_2D_WS2` and `sim_Au` comparing the
-   per-pattern minimum against a same-shell cluster estimator; bullseye disk
-   detection (Gate D, needs the owner's eyes); ACOM coverage (a) is an owner
-   decision, relabel or convert; the origin-fit holes (b)/(c) as a design
-   pass. A landed number change cuts v2.6.0.
+   the CIF id collision (b). Also landed: Q-calibration (a), the
+   minimum-radius bias, by a pre-registered Gate D on `polycrystal_2D_WS2`
+   and `sim_Au` and a Gate B whose refuter corrected the mechanism (an
+   origin-fit offset, now its own open item) and added two fixture checks
+   (`q-calibration-design.md` §8). Next, in order:
+   the new detection-threshold item (WS₂ finds nothing at defaults),
+   bullseye disk detection (Gate D, needs the owner's eyes); ACOM coverage
+   (a) is an owner decision, relabel or convert; Q-calibration (b) and the
+   origin-fit holes (b)/(c) as design passes. A landed number change cuts
+   v2.6.0.
 
 **macOS 14–25 is compile-verified and has never been executed.** The floor is
 14 in the build and published as such; every machine here is 26. A VM would

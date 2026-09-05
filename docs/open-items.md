@@ -77,17 +77,42 @@ offset, the reliability distinctness test, `intensityPower`. Owner: (a)
 relabel-vs-convert decision then Gate B; (b)–(d) Gate B, unscheduled.
 
 ### Q-calibration scale defects on real crystals
-(a) `KnownCrystalQCalibration.estimate` takes the per-pattern MINIMUM
-radius as the reference ring, biased low by an order statistic (~1.9–2%
-measured on `polycrystal_2D_WS2`). (b) The reference-shell pick has no
-l-filter or visibility filter; on 2H-WS₂ it selects (0002), a reflection
-a [0001]-zone specimen never shows — predicted mis-scale 2.26×, silent
-(S13's Gate B cut the threshold that would have refused it). Measured
-end to end: correlation score HALVES at the defective scale, and median
-`reliability` is HIGHER at the wrong scale — no fix may lean on
-reliability to choose between candidate scales. Owner: (a) Gate D first
-(mode/trimmed-mean/profile-fit?) then Gate B; (b) its own W3-territory
-design pass, owner's call on scheduling.
+(a) closed 2026-09-05 by Gate D + B (`q-calibration-design.md` §8): the
+per-position minimum was the same spoke at 99 % of WS₂ positions — a 0.26 px
+origin-fit offset, not iid noise, which a symmetric cluster MEAN cancels;
+the cluster reads 18.902 px against 18.901 from the independent 11-20 shell.
+`estimate` now averages the same-shell cluster (`sameShellPeaksPerPosition`
+reports k); 14 mutations, 79 harness checks. Residual, folded into (b): on a
+single crystal with a 2.4 % Friedel-pair asymmetry (sim_Au nanoplatelet) the
+band truncates clusters and neither estimator is shown to be truth. (b) The
+reference-shell pick has no l-filter or visibility filter; on 2H-WS₂ it
+selects (0002), a reflection a [0001]-zone specimen never shows — predicted
+mis-scale 2.26×, silent. Measured end to end: correlation score HALVES at the
+defective scale and median `reliability` is HIGHER — no fix may lean on
+reliability to choose between scales. Owner: (b) its own design pass.
+
+### The plane origin fit sits 0.26 px off the beam on `polycrystal_2D_WS2`
+Gate B refuter, 2026-09-05 (`scratchpad/qcal-refute/`): fitted origin
+(63.996, 63.996) against the mean pattern's beam centre of mass (63.74,
+63.74) and the Bragg-ring centre from a cos/sin fit (63.76, 63.76); the
+first-shell radius runs 18.51 → 19.20 px around the ring. Every radius-based
+number downstream carries it until a symmetric set cancels it. Not diagnosed:
+whether the per-position measurement or the plane fit is off. Owner: a Gate
+D on `tiledMeasuredOrigins` / `fitOriginTrimmed` with this file.
+
+### Disk detection at defaults finds only the beam on `polycrystal_2D_WS2`
+Its Bragg disks are ~0.002 of the central beam (numpy, 2026-09-05); the
+shipped `minRelativeIntensity` 0.005 — py4DSTEM's own default,
+`braggvectors/diskdetection.py:34-35`, so a shared limit, not a port error —
+rejects every one: one peak per position, the beam. Evidence:
+`scratchpad/qcal-experiment-ws2b-20260905.log` (default) against `-ws2c`
+(5e-4: 13 peaks per position). The Map panel's scan summary DOES warn
+("median pattern contains at most one accepted peak; spacing or thresholds"),
+so the case is not silent — but the warning cannot say which threshold, and
+`detectorAdapted` scales spacing and edge only. Owed: a Gate D on whether
+`relativeToPeak = 1` (relative to the brightest disk, not the beam) should be
+the default, measured on all four training cubes, with the owner's eyes on
+the maps; pre-registration drafted in the scratchpad. Owner: unclaimed.
 
 ### #18 — training-dataset campaign can't reproduce the app's Si_SiGe strain
 Mechanism resolved: the campaign's fitted mean origin is ~7px off centre

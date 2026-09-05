@@ -383,9 +383,13 @@ struct QCalibrationGateTest {
             secondShellRadiusInvAngstrom: g2, probeRadiusPixels: 5
         ) else { print("FAIL: the healthy case must produce an estimate"); exit(1) }
 
-        requireClose(healthyEstimate.observedRadiusPixels, firstShellPixels, 1e-9,
+        // Float32 peak coordinates round each equivalent's radius by ~1e-6;
+        // the cluster MEAN carries that (the minimum happened to be the one
+        // spoke at angle 0, exact in Float). Tolerance is Float precision, not
+        // a relaxed science claim (2026-09-05).
+        requireClose(healthyEstimate.observedRadiusPixels, firstShellPixels, 1e-5,
                      "observed first shell")
-        requireClose(healthyEstimate.invAngstromPerPixel, g1 / firstShellPixels, 1e-12,
+        requireClose(healthyEstimate.invAngstromPerPixel, g1 / firstShellPixels, 1e-8,
                      "Q pixel size")
 
         // THE SEPARATION REPAIR, which is the part that survived review. Six
@@ -441,6 +445,107 @@ struct QCalibrationGateTest {
         if case .notSelfChecked = unchecked.shellCheck {} else {
             require(false, "no second shell supplied must report NOT self-checked — got "
                     + "\(unchecked.shellCheck)")
+        }
+
+        // MARK: - 4b. The same-shell cluster, not the minimum (Gate D 2026-09-05)
+        //
+        // k equivalents of ONE radius, each with independent radial noise: the
+        // minimum of k is biased low by c_k·σ (c_6 = 1.27), the mean is not.
+        // Ground truth is the radius the peaks were generated from; the
+        // anti-vacuity guard is that the per-position MINIMUM, computed here
+        // from the same peaks, reads low by at least 0.25 px (expected 0.38),
+        // so a reversion to the minimum cannot pass this case.
+        do {
+            struct Noise {
+                var state: UInt64 = 0x5133_2026_09_05
+                mutating func uniform() -> Double {
+                    state = state &* 6364136223846793005 &+ 1442695040888963407
+                    return Double(state >> 11) / Double(1 << 53)
+                }
+                mutating func normal() -> Double {
+                    let u1 = max(uniform(), 1e-12), u2 = uniform()
+                    return (-2 * log(u1)).squareRoot() * cos(2 * .pi * u2)
+                }
+            }
+            var noise = Noise()
+            let sigma = 0.3, truth = firstShellPixels, positions = 400
+            var peaks: [[BraggPeak]] = []
+            var minimumMedianInput: [Double] = []
+            for _ in 0..<positions {
+                var row: [BraggPeak] = []
+                var radiiHere: [Double] = []
+                for shell in [truth, truth * expectedRatio] {
+                    for spoke in 0..<6 {
+                        let angle = Double(spoke) * .pi / 3 + 0.1
+                        let radius = shell + noise.normal() * sigma
+                        if shell == truth { radiiHere.append(radius) }
+                        row.append(BraggPeak(x: centre.x + Float(radius * cos(angle)),
+                                             y: centre.y + Float(radius * sin(angle)), intensity: 1))
+                    }
+                }
+                peaks.append(row)
+                minimumMedianInput.append(radiiHere.min()!)
+            }
+            let noisy = BraggVectors(scanWidth: positions, scanHeight: 1, peaks: peaks)
+            guard let clustered = KnownCrystalQCalibration.estimate(
+                bragg: noisy, origin: centre, referenceRadiusInvAngstrom: g1,
+                secondShellRadiusInvAngstrom: g2, probeRadiusPixels: 5
+            ) else { print("FAIL: the noisy-equivalents case must produce an estimate"); exit(1) }
+            let sortedMinima = minimumMedianInput.sorted()
+            let minimumMedian = (sortedMinima[positions / 2 - 1] + sortedMinima[positions / 2]) / 2
+            require(truth - minimumMedian > 0.25,
+                    "fixture broken: the per-position minimum must read ≥ 0.25 px low here (c_6·σ = 0.38), "
+                    + "got \(truth - minimumMedian)")
+            require(abs(clustered.observedRadiusPixels - truth) < 0.03,
+                    "the same-shell cluster mean must recover the radius within 0.03 px "
+                    + "(the minimum reads \(minimumMedian)) — got \(clustered.observedRadiusPixels)")
+            requireClose(clustered.sameShellPeaksPerPosition, 6, 1e-12, "six equivalents per position")
+            requireClose(clustered.invAngstromPerPixel, g1 / truth, g1 / truth * 0.002, "Q pixel size within 0.2 %")
+            guard case .measured(let noisyRatio, _, _) = clustered.shellCheck else {
+                print("FAIL: the noisy two-shell case must measure a ratio"); exit(1)
+            }
+            requireClose(noisyRatio, expectedRatio, 0.003, "second shell is clustered the same way")
+            print("PASS: same-shell cluster recovers the radius the minimum reads \(String(format: "%.2f", truth - minimumMedian)) px low")
+        }
+
+        // REFUTER 2026-09-05: the per-position sample is the MEAN of the
+        // equivalents, every member weighted equally. An asymmetric cluster
+        // separates mean from median (and from any trimmed variant): three
+        // members at 19.0, 19.2 and 20.4 px (all within 8 % of the smallest)
+        // must read 19.5333, not 19.2.
+        do {
+            let members = [19.0, 19.2, 20.4]
+            var rows: [[BraggPeak]] = []
+            for _ in 0..<7 {
+                rows.append(members.enumerated().map { index, radius in
+                    let angle = Double(index) * 2 * .pi / 3
+                    return BraggPeak(x: centre.x + Float(radius * cos(angle)),
+                                     y: centre.y + Float(radius * sin(angle)), intensity: 1)
+                })
+            }
+            guard let asymmetric = KnownCrystalQCalibration.estimate(
+                bragg: BraggVectors(scanWidth: 7, scanHeight: 1, peaks: rows), origin: centre,
+                referenceRadiusInvAngstrom: g1, secondShellRadiusInvAngstrom: g2, probeRadiusPixels: 5
+            ) else { print("FAIL: the asymmetric-cluster case must produce an estimate"); exit(1) }
+            requireClose(asymmetric.observedRadiusPixels, members.reduce(0, +) / 3, 1e-5,
+                         "the cluster sample is the equal-weight MEAN of its members (median would read 19.2)")
+            requireClose(asymmetric.sameShellPeaksPerPosition, 3, 1e-12, "three members")
+        }
+
+        // REFUTER 2026-09-05: the 8 % cap. A crystal whose listed second shell
+        // is far away (ratio 1.5, derived separation 25 %) can still show a
+        // real shell 12 % out when the zone axis hides the listed one; the
+        // cap keeps that shell out of the first cluster.
+        do {
+            let far = ring(origin: centre, radii: [firstShellPixels, firstShellPixels * 1.12,
+                                                   firstShellPixels * 1.5], positions: 20)
+            guard let capped = KnownCrystalQCalibration.estimate(
+                bragg: far, origin: centre, referenceRadiusInvAngstrom: g1,
+                secondShellRadiusInvAngstrom: g1 * 1.5, probeRadiusPixels: 5
+            ) else { print("FAIL: the capped-band case must produce an estimate"); exit(1) }
+            requireClose(capped.observedRadiusPixels, firstShellPixels, 1e-5,
+                         "a shell 12 % out must not be folded into the first cluster whatever the model's separation says")
+            requireClose(capped.sameShellPeaksPerPosition, 6, 1e-12, "six members, not twelve")
         }
 
         // MARK: - 5. Coverage the 2026-08-28 mutation sweep proved was missing

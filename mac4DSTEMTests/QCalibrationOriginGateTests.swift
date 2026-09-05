@@ -310,4 +310,49 @@ final class QCalibrationOriginGateTests: XCTestCase {
         XCTAssertTrue(state.statusText.contains("Detect Bragg disks"),
                       "Expected the pre-existing prerequisite message: \(state.statusText)")
     }
+
+    /// Gate D 2026-09-05 (`docs/q-calibration-design.md` §8): the innermost
+    /// shell is k noisy equivalents of one radius; their minimum is biased low
+    /// by c_k·σ and the scale read 2.1 % high on WS₂, 2.4 % on sim_Au. The
+    /// estimator averages the same-shell cluster. The minimum, computed here
+    /// from the same peaks, must read low — or the test compares nothing.
+    func testSameShellEquivalentsAreAveragedNotMinimised() throws {
+        var state: UInt64 = 0x5133
+        func normal() -> Double {
+            func uniform() -> Double {
+                state = state &* 6364136223846793005 &+ 1442695040888963407
+                return Double(state >> 11) / Double(1 << 53)
+            }
+            let u1 = max(uniform(), 1e-12), u2 = uniform()
+            return (-2 * log(u1)).squareRoot() * cos(2 * .pi * u2)
+        }
+        let truth = 20.0, sigma = 0.3, positions = 300
+        let centre = (x: Float(64), y: Float(64))
+        var peaks: [[BraggPeak]] = []
+        var minima: [Double] = []
+        for _ in 0..<positions {
+            var row: [BraggPeak] = []
+            var radii: [Double] = []
+            for spoke in 0..<6 {
+                let angle = Double(spoke) * .pi / 3 + 0.2
+                let radius = truth + normal() * sigma
+                radii.append(radius)
+                row.append(BraggPeak(x: centre.x + Float(radius * cos(angle)),
+                                     y: centre.y + Float(radius * sin(angle)), intensity: 1))
+            }
+            peaks.append(row)
+            minima.append(radii.min()!)
+        }
+        let vectors = BraggVectors(scanWidth: positions, scanHeight: 1, peaks: peaks)
+        let estimate = try XCTUnwrap(KnownCrystalQCalibration.estimate(
+            bragg: vectors, origin: centre, referenceRadiusInvAngstrom: 0.4,
+            secondShellRadiusInvAngstrom: nil, probeRadiusPixels: nil))
+        let minimumMedian = minima.sorted()[positions / 2]
+        XCTAssertGreaterThan(truth - minimumMedian, 0.25,
+                             "fixture broken: the minimum of six must read ≥ 0.25 px low (c_6·σ = 0.38)")
+        XCTAssertEqual(estimate.observedRadiusPixels, truth, accuracy: 0.03,
+                       "the cluster mean is unbiased; the minimum reads \(minimumMedian)")
+        XCTAssertEqual(estimate.sameShellPeaksPerPosition, 6)
+        XCTAssertEqual(estimate.invAngstromPerPixel, 0.4 / truth, accuracy: 0.4 / truth * 0.002)
+    }
 }
