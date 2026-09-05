@@ -496,6 +496,49 @@ plausibility:
 Not for the ANE: ptychography, strain, Q calibration, anything where
 0.01 px matters.
 
+**The precipitate chain (the owner's question, 2026-09-06 late;
+exploration, not pre-registered).** Asked: segmentation, precipitate
+analysis, number densities. Each is its own feature with its own simulated
+truth, listed in the order the data flows. The shared payoff of Core AI
+exclusively is one runtime class, one simulator, one export path, one
+provenance rule and the sidecar labels, reused by every model:
+
+1. **Per-pattern phase classification** — matrix, precipitate phase(s),
+   amorphous, vacuum — from the diffraction pattern itself rather than a
+   virtual-detector threshold: superlattice reflections are the signal.
+   Truth for free: the app's ACOM template library already draws kinematic
+   patterns from the imported CIFs; the simulator adds real backgrounds,
+   noise and dose. Same loop design as the detector (batch in, a class
+   vector per pattern out → a phase map). Checked against classical ACOM
+   phase mapping; the disagreement map again.
+2. **Real-space precipitate segmentation** — a U-Net over a stack of maps
+   at scan resolution: the phase map from (1), virtual BF/ADF, a dark-field
+   image at a precipitate reflection, orientation, strain. Instance
+   separation for needles by a centre-plus-offset heatmap or a distance map
+   (plain ops, ANE). One image per scan, so the loop does not matter here;
+   the ANE only makes it free. Truth: synthetic needles (elongated shapes,
+   random length, orientation, overlap, contrast, noise) first; the owner's
+   brush corrections in the sidecar second.
+3. **Per-object analysis** — length, width, orientation in real space; the
+   mean pattern inside each object → phase, orientation, strain per object.
+   Not ML: Metal/CPU reductions over the mask. This is the data-model change
+   §3 names as the expensive part: a per-object result is not a map.
+4. **Number density** — count over the analysed extent (the denominator is
+   the area actually analysed, calibrated; §3), plus size and orientation
+   distributions. Areal, not volumetric, until —
+5. **Thickness from PACBED** — a CNN on the position-averaged CBED of a
+   region, trained on multislice (abTEM) simulations, regressing thickness
+   and mistilt: a published method (Xu & LeBeau, Ultramicroscopy 188, 2018)
+   and the missing denominator that makes (4) volumetric. Own simulated
+   truth per material and zone axis; heavy once, cheap after.
+
+Also cheap on the same runtime: denoising of virtual images for lower dose,
+dead-pixel and beam-stop inpainting, per-pattern embeddings for
+unsupervised clustering, ACOM template pre-ranking. Order: nothing before
+the disk detector's step 3 verdict proves the pipeline, one Gate B campaign
+at a time; then (1) → (2) → (4) with (3) as the data-model session between
+them, and (5) once a material's simulation library exists.
+
 #### Working method (decided, owner, 2026-09-06)
 
 - **A branch, with the rules loosened on it and re-applied at the merge**
