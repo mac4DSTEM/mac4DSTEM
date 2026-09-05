@@ -160,3 +160,37 @@ iterates the window on its own estimate in max(r · rscale, r + 1.5 px);
 WS₂ reads 63.738 at the shipped rscale. Pinned by `origin_measurement_truth`
 at 0.02 px (the old kernel failed it by 0.42 px) and by the two-spec
 harness's P4 equivariance check, tightened from 0.65 px to 0.001 px.
+
+---
+
+## Disk detection at defaults finds only the beam on `polycrystal_2D_WS2` — closed 2026-09-05
+
+> Its Bragg disks are ~0.002 of the central beam; the shipped
+> `minRelativeIntensity` 0.005 (py4DSTEM's own default) rejects every one.
+> The scan warning said "spacing or thresholds" and could not name which.
+
+**Closure.** Two pre-registered candidates, both settled the same evening.
+(1) The warning names the knob: `DiskDetectionScanSummary` carries the run's
+parameters and the median ≤ 1 text names Min relative intensity, its value,
+its reference (the brightest peak — the central beam — at `relativeToPeak`
+0) and both remedies; one test, failing first. (2) `relativeToPeak` 1 as the
+default is REFUTED by measurement on six training cubes at the shipped
+0.5 % (`det-experiment-20260905.log`;
+`tools/bragg-spacing-probe/detection-threshold-probe.swift`):
+
+| cube | peaks/position, ref 0 → ref 1 | at the 70 cap, ref 0 → 1 |
+|---|---|---|
+| WS₂ (disks at 0.16 % of the beam) | 1 → 45 | 0 → 344 of 16 384 |
+| sim_Au | 16 (4 020 of 8 400 exactly one) → 36 | 0 → 3 918 |
+| Si-SiGe experimental | 24 → 27 | 0 → 0 |
+| SPED MgO | 66 → 70 | 2 901 → 12 357 of 12 426 |
+| Si-SiGe calibrated | 22 → 36 | 0 → 2 |
+| twisted bilayer graphene | 1 → 1 | — |
+
+WS₂ needs ~13 peaks (six-fold shells at 18.9 px, found at 5e-4 relative to
+the beam); 45 is the disks plus noise, because 0.5 % of a disk that is
+0.16 % of the beam is 8 ppm of the beam. Wherever the second-brightest peak
+is itself weak — vacuum-like positions in sim_Au, MgO's dense rings — the
+reference collapses and the cap saturates. The right remedy for WS₂-type
+data is a lower threshold per dataset, which the warning now says; a
+noise-referenced threshold would be a design pass, not a default flip.

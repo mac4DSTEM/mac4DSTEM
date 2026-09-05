@@ -229,8 +229,12 @@ package nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
     /// per-pattern diagnostics use `wasCountLimited` when that distinction is
     /// available.
     package let atMaximumPositionCount: Int
+    /// The thresholds the run used, so a warning can name the one that is
+    /// most likely holding peaks back instead of saying "thresholds".
+    package let parameters: DiskDetectionParams?
 
-    package init(vectors: BraggVectors, maximumPeaks: Int) {
+    package init(vectors: BraggVectors, maximumPeaks: Int, parameters: DiskDetectionParams? = nil) {
+        self.parameters = parameters
         let counts = vectors.peaks.map(\.count).sorted()
         positionCount = counts.count
         totalPeakCount = counts.reduce(0, +)
@@ -257,9 +261,41 @@ package nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
             result.append("More than 10% of scan positions reached the maximum-peak limit; raise the limit and rerun to check for truncation.")
         }
         if medianPeakCount <= 1 {
-            result.append("The median pattern contains at most one accepted peak; spacing or thresholds may be too restrictive for lattice analysis.")
+            result.append(onePeakWarning)
         }
         return result
+    }
+
+    /// One accepted peak per pattern is what a too-strict relative threshold
+    /// looks like: with `relativeToPeak` 0 every maximum is held to a fraction
+    /// of the BRIGHTEST correlation peak, which is the central beam whenever
+    /// it is in the pattern, and a specimen whose disks are weaker than that
+    /// fraction keeps only the beam (WS₂: disks at ~0.2 % of the beam against
+    /// the shipped 0.5 %, open item 2026-09-05). The text names the threshold
+    /// and the reference so the reader reaches for the right knob; it does not
+    /// claim to know which filter removed the peaks — the per-pattern funnel
+    /// in the Bragg panel does that.
+    private var onePeakWarning: String {
+        let lead = "The median pattern contains at most one accepted peak."
+        guard let p = parameters, p.minRelativeIntensity > 0 else {
+            return lead + " Min peak spacing or the edge boundary may be too restrictive for lattice analysis."
+        }
+        let percent = String(format: "%.3g %%", Double(p.minRelativeIntensity) * 100)
+        let reference: String
+        if p.relativeToPeak == 0 {
+            reference = "the brightest peak — the central beam when it is in the pattern — so every disk weaker than that fraction of the beam is rejected. Lower Min relative intensity, or set Relative to peak to 1 to measure against the brightest disk instead"
+        } else {
+            reference = "the \(ordinal(p.relativeToPeak + 1))-brightest peak; disks weaker than that fraction of it are rejected. Lower Min relative intensity"
+        }
+        return lead + " Min relative intensity \(percent) is measured against \(reference). Min peak spacing (\(String(format: "%.0f", p.minPeakSpacing)) px) and the edge boundary can also remove peaks."
+    }
+
+    private func ordinal(_ n: Int) -> String {
+        switch n {
+        case 2: return "second"
+        case 3: return "third"
+        default: return "\(n)th"
+        }
     }
 }
 

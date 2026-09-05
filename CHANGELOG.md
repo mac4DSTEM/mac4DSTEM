@@ -18,6 +18,18 @@
 
 ## Unreleased — the v2.6.0 science lane
 
+- **The one-peak-per-pattern warning names the threshold.** When full-scan
+  detection keeps at most one peak in the median pattern, the Bragg panel
+  used to say "spacing or thresholds may be too restrictive". It now names
+  Min relative intensity with its value, says that with Relative to peak 0
+  the reference is the brightest peak — the central beam when it is in the
+  pattern — and offers the two remedies. WS₂ is the case: its disks are
+  ~0.2 % of the beam and the shipped 0.5 % rejects every one. Unverified on
+  screen. The default itself is unchanged: measured on six training cubes,
+  moving the reference to the brightest disk floods noise (WS₂ 1 → 45 peaks
+  per position where ~13 are disks; sim_Au and MgO saturate the 70-peak cap),
+  so the remedy stays a lower threshold per dataset
+  (`docs/archive/closed-items-2026-09.md`).
 - **The diffraction origin is measured where the beam is.** The per-pattern
   centre of mass took one pass in a window of 1.2 × the probe radius around a
   coarse block centre; on a small beam the window could not reach it and

@@ -103,19 +103,14 @@ mis-scale 2.26×, silent. Measured end to end: correlation score HALVES at the
 defective scale and median `reliability` is HIGHER — no fix may lean on
 reliability to choose between scales. Owner: (b) its own design pass.
 
-### Disk detection at defaults finds only the beam on `polycrystal_2D_WS2`
-Its Bragg disks are ~0.002 of the central beam (numpy, 2026-09-05); the
-shipped `minRelativeIntensity` 0.005 — py4DSTEM's own default,
-`braggvectors/diskdetection.py:34-35`, so a shared limit, not a port error —
-rejects every one: one peak per position, the beam. Evidence:
-`scratchpad/qcal-experiment-ws2b-20260905.log` (default) against `-ws2c`
-(5e-4: 13 peaks per position). The Map panel's scan summary DOES warn
-("median pattern contains at most one accepted peak; spacing or thresholds"),
-so the case is not silent — but the warning cannot say which threshold, and
-`detectorAdapted` scales spacing and edge only. Owed: a Gate D on whether
-`relativeToPeak = 1` (relative to the brightest disk, not the beam) should be
-the default, measured on all four training cubes, with the owner's eyes on
-the maps; pre-registration drafted in the scratchpad. Owner: unclaimed.
+### Twisted bilayer graphene finds only the beam at defaults, at either reference
+Observed 2026-09-05 (`det-experiment-20260905.log`): 10 201 positions, one
+accepted peak each, with `relativeToPeak` 0 AND 1 — so the relative threshold
+is not what removes the disks; the funnel is one local maximum before any
+threshold (probe r 25.3 px, spacing 16, edge 5 on a 128 px detector). Not
+diagnosed: whether the 25-px synthetic kernel's correlation has a single
+maximum, or the edge boundary/spacing swallow the ring at ~38 px. Owner:
+unclaimed; a Gate D with the per-pattern funnel on one position.
 
 ### #18 — training-dataset campaign can't reproduce the app's Si_SiGe strain
 Mechanism resolved: the campaign's fitted mean origin is ~7px off centre

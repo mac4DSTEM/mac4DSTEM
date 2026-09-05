@@ -4798,7 +4798,7 @@ final class AppState {
             "kernel_source": kernel.source.provenanceID,
         ], invalidating: ["strain", "acom"], replaying: replaying)
         completedDiskSummary = DiskDetectionScanSummary(
-            vectors: vectors, maximumPeaks: params.maxNumPeaks
+            vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params
         )
         braggPeakCount = vectors.totalPeakCount
         showBraggMap(vectors, descriptor: d)

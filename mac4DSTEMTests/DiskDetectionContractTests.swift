@@ -130,4 +130,45 @@ final class DiskDetectionContractTests: XCTestCase {
         XCTAssertEqual(summary.atMaximumPositionCount, 1)
         XCTAssertFalse(summary.warnings.isEmpty)
     }
+
+    /// One accepted peak per pattern is the WS2 signature: every Bragg disk is
+    /// ~0.2 % of the beam and the shipped 0.5 % threshold, measured against
+    /// the brightest peak, rejects them all (open item, 2026-09-05). The
+    /// warning has to name that threshold, its reference and the remedy —
+    /// "spacing or thresholds" sent the reader to the wrong knob.
+    func testOnePeakPerPatternWarningNamesTheRelativeThreshold() {
+        let beamOnly = BraggVectors(
+            scanWidth: 2, scanHeight: 2,
+            peaks: Array(repeating: [BraggPeak(x: 64, y: 64, intensity: 1)], count: 4)
+        )
+        var shipped = DiskDetectionParams()
+        shipped.minRelativeIntensity = 0.005
+        shipped.relativeToPeak = 0
+        let warning = DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70, parameters: shipped)
+            .warnings.joined(separator: " ")
+        XCTAssertTrue(warning.contains("0.5 %"), warning)
+        XCTAssertTrue(warning.contains("brightest peak"), warning)
+        XCTAssertTrue(warning.contains("central beam"), warning)
+        XCTAssertTrue(warning.contains("Relative to peak"), warning)
+
+        // Already measuring against the brightest disk: the beam is not the
+        // reference, and the text must not say it is.
+        var againstDisk = shipped
+        againstDisk.relativeToPeak = 1
+        let diskWarning = DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70, parameters: againstDisk)
+            .warnings.joined(separator: " ")
+        XCTAssertTrue(diskWarning.contains("0.5 %"), diskWarning)
+        XCTAssertFalse(diskWarning.contains("central beam"), diskWarning)
+
+        // No relative threshold at all: nothing to name, the spacing/edge text stands alone.
+        var none = shipped
+        none.minRelativeIntensity = 0
+        let plain = DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70, parameters: none)
+            .warnings.joined(separator: " ")
+        XCTAssertFalse(plain.contains("%"), plain)
+        XCTAssertTrue(plain.contains("spacing"), plain)
+
+        // Without parameters (older call sites) the generic warning survives.
+        XCTAssertFalse(DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70).warnings.isEmpty)
+    }
 }
