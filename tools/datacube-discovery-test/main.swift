@@ -101,6 +101,52 @@ func fail(_ message: String) -> Never {
             print("PASS: a legacy v0.12 slice stack is refused by its string-typed dim3; a numeric dim3 is not a label (recorded residual)")
         }
 
+        // A probe image beside the cube (bullseye tutorial layout): offered as
+        // a kernel source on the cube's grid, never as the cube; slice 0 of the
+        // stack is what is read, in (row, col) order; a same-named image on
+        // another grid is not offered. // 2026-09-05
+        do {
+            let (reader, cube) = await discover("p1_cube_with_probe_template.h5")
+            expect(cube.shape == [2, 2, 8, 8], "p1: the cube is the dataset, got \(cube.shape)")
+            do {
+                let probes = try await reader.probeCandidates(detectorQY: 8, detectorQX: 8)
+                expect(probes.count == 1, "p1: expected one probe candidate, got \(probes.map(\.path))")
+                expect(probes.first?.path == "/4DSTEM_experiment/data/diffractionslices/probe_template/data",
+                       "p1: candidate path \(probes.first?.path ?? "nil")")
+                expect(probes.first?.sliceCount == 3, "p1: slice count \(probes.first?.sliceCount ?? -1)")
+                let probe = try await reader.readProbe(probes[0])
+                expect(probe.count == 8 * 8, "p1: probe pixel count \(probe.count)")
+                expect(probe[2 * 8 + 3] == 100 + 2 * 8 + 3, "p1: pixel (row 2, col 3) read \(probe[2 * 8 + 3]), expected slice 0's 119")
+                expect(probe[7 * 8 + 0] == 100 + 7 * 8, "p1: pixel (row 7, col 0) read \(probe[7 * 8]), expected 156")
+                let none = try await reader.probeCandidates(detectorQY: 16, detectorQX: 16)
+                expect(none.isEmpty, "p1: no probe on a 16x16 grid, got \(none.map(\.path))")
+            } catch { fail("p1: probe candidates threw \(error)") }
+            print("PASS: a legacy probe_template beside the cube is a probe candidate; slice 0 is read in row-major order; other grids are not offered")
+        }
+        // The legacy PAIR (N = 2) and the modern (2, Qx, Qy) Probe: slice 0 is
+        // the probe in both, in different memory orders. // Gate B 2026-09-05
+        do {
+            let (pair, _) = await discover("p2_cube_with_legacy_probe_pair.h5")
+            do {
+                let probes = try await pair.probeCandidates(detectorQY: 8, detectorQX: 8)
+                expect(probes.count == 1 && probes[0].sliceCount == 2 && !probes[0].slicesFirst, "p2: \(probes)")
+                let probe = try await pair.readProbe(probes[0])
+                expect(probe[4 * 8 + 1] == 200 + 4 * 8 + 1, "p2: pixel (4,1) read \(probe[4 * 8 + 1]), expected the probe's 233, not the kernel's")
+            } catch { fail("p2: \(error)") }
+            let (modern, cube) = await discover("p3_cube_with_modern_probe.h5")
+            expect(cube.shape == [2, 3, 16, 20], "p3: the cube is the dataset, got \(cube.shape)")
+            do {
+                let probes = try await modern.probeCandidates(detectorQY: 16, detectorQX: 20)
+                expect(probes.count == 1 && probes[0].path == "/probe_root/probe/data" && probes[0].sliceCount == 2 && probes[0].slicesFirst,
+                       "p3: \(probes)")
+                let probe = try await modern.readProbe(probes[0])
+                expect(probe.count == 16 * 20, "p3: pixel count \(probe.count)")
+                expect(probe[5 * 20 + 7] == 300 + 5 * 20 + 7, "p3: pixel (5,7) read \(probe[5 * 20 + 7]), expected data[0]'s 407")
+                expect(probe[15 * 20 + 19] == 300 + 15 * 20 + 19, "p3: last pixel read \(probe[15 * 20 + 19]), expected 619")
+            } catch { fail("p3: \(error)") }
+            print("PASS: legacy probe/kernel pairs and modern (2, Qx, Qy) Probe nodes both yield the probe as slice 0")
+        }
+
         // The sidecar location guarantee, independent of the writer's stamps.
         do {
             _ = await expectRefusal("y1_sidecar_file_root_mark.h5", .sessionSidecar)

@@ -189,6 +189,44 @@ for suffix, variable in [("fixed", False), ("vlen", True)]:
         writer = variable_labels if variable else labels
         writer(p, 3, ["exx", "eyy", "exy", "theta"])
 
+# p1 — a cube WITH a legacy probe_template stack beside it (the bullseye
+# tutorial's layout): the cube is the dataset, the stack is a PROBE candidate
+# on the same detector grid. Slice 0 carries 100 + row*8 + col so the read
+# slice and axis order are both pinned; slice 1 is half of that.
+with h5py.File(root / "p1_cube_with_probe_template.h5", "w") as f:
+    f.create_group("4DSTEM_experiment/data/datacubes/datacube_0").create_dataset("data", data=cube((2, 2, 8, 8)))
+    p = f.create_group("4DSTEM_experiment/data/diffractionslices/probe_template")
+    stack = np.zeros((8, 8, 3), dtype=np.float32)
+    stack[:, :, 0] = 100 + np.arange(8)[:, None] * 8 + np.arange(8)[None, :]
+    stack[:, :, 1] = stack[:, :, 0] / 2
+    p.create_dataset("data", data=stack)
+    dim(p, 1, np.arange(8), "Q_x", "[pix]")
+    dim(p, 2, np.arange(8), "Q_y", "[pix]")
+    labels(p, 3, ["probe", "kernel", "mask"])
+    # a same-named image on the WRONG grid is not a candidate
+    f.create_group("4DSTEM_experiment/data/diffractionslices/probe_other").create_dataset("data", data=np.ones((6, 8), dtype=np.float32))
+
+# p2 — the legacy PAIR (N = 2, labels probe/kernel): slice 0 is the probe.
+# p3 — the modern `Probe` class as py4DSTEM 0.14 saves it: (2, Qx, Qy), slices
+# FIRST, data[0] the probe and data[1] its kernel, beside a (·, ·, 16, 20) cube.
+with h5py.File(root / "p2_cube_with_legacy_probe_pair.h5", "w") as f:
+    f.create_group("4DSTEM_experiment/data/datacubes/datacube_0").create_dataset("data", data=cube((2, 2, 8, 8)))
+    p = f.create_group("4DSTEM_experiment/data/diffractionslices/probe")
+    stack = np.zeros((8, 8, 2), dtype=np.float32)
+    stack[:, :, 0] = 200 + np.arange(8)[:, None] * 8 + np.arange(8)[None, :]
+    stack[:, :, 1] = -stack[:, :, 0]
+    p.create_dataset("data", data=stack)
+    labels(p, 3, ["probe", "kernel"])
+with h5py.File(root / "p3_cube_with_modern_probe.h5", "w") as f:
+    f.create_group("cube_root/datacube").create_dataset("data", data=cube((2, 3, 16, 20)))
+    p = f.create_group("probe_root/probe")
+    p.attrs["emd_group_type"] = 1
+    p.attrs["py4dstem_class"] = "Probe"
+    stack = np.zeros((2, 16, 20), dtype=np.float32)
+    stack[0] = 300 + np.arange(16)[:, None] * 20 + np.arange(20)[None, :]
+    stack[1] = -stack[0]
+    p.create_dataset("data", data=stack)
+
 # x3 — a labelled stack at the FILE ROOT: "/data", dims at "/dim0…".
 with h5py.File(root / "x3_root_level_stack.h5", "w") as f:
     f.create_dataset("data", data=cube((8, 8, 3)))

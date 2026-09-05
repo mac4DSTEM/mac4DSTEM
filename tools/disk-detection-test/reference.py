@@ -32,6 +32,9 @@ SOURCE_CONTRACTS = (
     (PROBE_SOURCE, "probe = 1 / (1 + np.exp(4 * qr / width))"),
     (PROBE_SOURCE, "sigmoid = np.cos((np.pi / 2) * sigmoid) ** 2"),
     (PROBE_SOURCE, "probe_kernel / np.sum(probe_kernel) - sigmoid / np.sum(sigmoid)"),
+    # get_probe_kernel_flat: normalise, then shift the centre to the corner.
+    (PROBE_SOURCE, "probe = probe / np.sum(probe)"),
+    (PROBE_SOURCE, "probe_kernel = get_shifted_ar(probe, -xCoM, -yCoM, bilinear=bilinear)"),
     (CROSS_SOURCE, "m = np.fft.fft2(ar) * template_FT"),
     (CROSS_SOURCE, "cc = np.abs(m) ** (corrPower) * np.exp(1j * np.angle(m))"),
     (CROSS_SOURCE, "cc = np.maximum(np.real(np.fft.ifft2(cc)), 0)"),
@@ -73,6 +76,31 @@ for row in range(ROWS):
 probe_sum = sum(probe)
 trench_sum = sum(trench)
 kernel = [p / probe_sum - t / trench_sum for p, t in zip(probe, trench)]
+
+# FLAT kernel from a STRUCTURED (bullseye-like) probe centred on an INTEGER
+# pixel, so py4DSTEM's Fourier shift of (-xCoM, -yCoM) is an exact roll and
+# the reference needs no FFT: kernel[r][c] = probe[(r + cy) % ROWS][(c + cx) % COLS] / sum.
+FLAT_CX, FLAT_CY = 17, 11
+flat_probe = []
+for row in range(ROWS):
+    for col in range(COLS):
+        radius = math.hypot(row - FLAT_CY, col - FLAT_CX)
+        if radius <= 2.5:
+            value = 1000.0
+        elif 4.5 <= radius <= 7.5:
+            value = 600.0
+        elif 7.5 < radius < 8.5:
+            value = 150.0
+        else:
+            value = 0.0
+        flat_probe.append(value)
+flat_sum = sum(flat_probe)
+flat_kernel = [
+    flat_probe[((row + FLAT_CY) % ROWS) * COLS + (col + FLAT_CX) % COLS] / flat_sum
+    for row in range(ROWS)
+    for col in range(COLS)
+]
+
 
 
 # Five isolated logistic disks with deliberately different intensities. Two
@@ -463,6 +491,53 @@ cases = [
     case("gaussian_sigma_1_25", sigmaCC=1.25, subpixel="poly"),
 ]
 
+
+def fftfreq_index(k, n):
+    return k if k < (n + 1) // 2 else k - n
+
+
+def fourier_shift(values, row_shift, col_shift):
+    """get_shifted_ar (preprocess/utils.py): w = exp(-2πi (yshift·qy + xshift·qx))
+    with fftfreq coordinates, real part of the inverse transform."""
+    spectrum = fft2(values)
+    for kr in range(ROWS):
+        for kc in range(COLS):
+            phase = -2 * math.pi * (row_shift * fftfreq_index(kr, ROWS) / ROWS + col_shift * fftfreq_index(kc, COLS) / COLS)
+            spectrum[kr][kc] *= complex(math.cos(phase), math.sin(phase))
+    return ifft2(spectrum)          # ifft2 returns the flat real part already
+
+
+# The same probe at a FRACTIONAL centre: an asymmetric two-blob probe (so a
+# transpose or a dropped conjugation moves the answer) shifted by the pinned
+# Fourier route. Pins the fftfreq wrapping of the phase, which an integer
+# centre cannot see (Gate B refuter, 2026-09-05: the unwrapped index passed
+# the integer case to 2.7e-5).
+FRAC_CX, FRAC_CY = 17.3, 10.6
+frac_probe = []
+for row in range(ROWS):
+    for col in range(COLS):
+        d1 = math.hypot(row - FRAC_CY, col - FRAC_CX)
+        d2 = math.hypot(row - (FRAC_CY + 2.0), col - (FRAC_CX + 5.5))
+        frac_probe.append(1000.0 * math.exp(-d1 * d1 / (2 * 1.8 * 1.8)) + 350.0 * math.exp(-d2 * d2 / (2 * 1.2 * 1.2)))
+frac_sum = sum(frac_probe)
+frac_kernel = fourier_shift([v / frac_sum for v in frac_probe], -FRAC_CY, -FRAC_CX)
+# conj(FFT(kernel)) is what the detector multiplies every pattern's spectrum
+# with; its imaginary part pins the conjugation (dropping it is a convolution).
+frac_spectrum = fft2(frac_kernel)
+frac_ft_imag = [-frac_spectrum[r][c].imag for r in range(ROWS) for c in range(COLS)]
+
+
+def representable(values):
+    # Gaussian tails reach 1e-46, below Float's range; Swift's JSON decoder
+    # refuses them. Below 1e-30 is zero for a 2e-6 comparison.
+    return [v if abs(v) > 1e-30 else 0.0 for v in values]
+
+
+frac_probe = representable(frac_probe)
+frac_kernel = representable(frac_kernel)
+frac_ft_imag = representable(frac_ft_imag)
+
+
 json.dump(
     {
         "dimensions": [ROWS, COLS],
@@ -471,6 +546,13 @@ json.dump(
         "trenchRadii": [TRENCH_INNER, TRENCH_OUTER],
         "pattern": pattern,
         "kernel": kernel,
+        "flatProbe": flat_probe,
+        "flatCentre": [FLAT_CX, FLAT_CY],
+        "flatKernel": flat_kernel,
+        "fracProbe": frac_probe,
+        "fracCentre": [FRAC_CX, FRAC_CY],
+        "fracKernel": frac_kernel,
+        "fracFTImag": frac_ft_imag,
         "cases": cases,
     },
     sys.stdout,

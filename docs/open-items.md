@@ -23,15 +23,20 @@ and standing directives now live in `docs/decisions.md`.
 
 ## Science — Gate D or Gate B owed
 
-### Bullseye disk detection accepts noise, not disks
-Map ▸ Bragg disks on `calibrationData_bullseyeProbe.h5` (100×84 scan,
-250×250 detector, synthetic kernel r=6.8px, correlation power 1.00,
-parabolic subpixel, funnel absolute 187/relative 72/spacing 68): accepted
-circles sit across noise regions far from any disk. Evidence: owner
-playthrough, 2026-09-01 second sitting, finding 1. Trap: this is distinct
-from the (already-actioned) permissive acceptance thresholds and the
-estimator repair — don't fold it into either. Owner: a dedicated Gate D
-science session, not a UI slice.
+### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
+Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
+py4DSTEM truth (`tools/bragg-spacing-probe/bullseye-kernel-truth.py`): (1) the
+probe-size estimator reads the ring-shaped probe at 7.4 px where the ring ends
+at ~10–12 (beam brightest at 41 % of positions with a flat disk at r 7, 98 %
+at 11.5); (2) the trench kernel at THOSE radii leaves the beam never brightest
+— at the true radii it works as well as flat, so (2) is (1) in another guise
+and flat side-steps it by needing no radius; (3) correlation noise is 2–5 % of
+the beam peak, so the 0.5 % default keeps ~130 noise peaks/position. LANDED:
+flat mode + Use File's Probe, parity 878/878 and 164/164 with py4DSTEM's flat
+route (status table). OPEN: (1), an outer-edge probe size for structured probes
+(it also feeds the origin window — its own Gate D). Owner: drive Map ▸ Bragg
+disks on the bullseye file with Flat + Use File's Probe at Min relative
+intensity ~0.05; the maps are the closing evidence.
 
 ### Origin-fit gate has two unresolved holes
 (a) closed 2026-09-05: `probeSize` returns nil when no finite pixel is above

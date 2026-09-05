@@ -452,6 +452,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
             DiskDetectionParameterID.edgeBoundary.rawValue: String(edgeBoundary),
             DiskDetectionParameterID.maximumPeaks.rawValue: String(maxNumPeaks),
             "kernel_source": kernel.source.provenanceID,
+            "kernel_mode": kernel.mode.provenanceID,
             "kernel_probe_radius_px": String(kernel.probeRadius),
             "kernel_trench_inner_px": String(kernel.trenchRadii.inner),
             "kernel_trench_outer_px": String(kernel.trenchRadii.outer),

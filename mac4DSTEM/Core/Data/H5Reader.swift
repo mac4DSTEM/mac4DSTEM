@@ -434,6 +434,96 @@ package actor H5Reader: FourDDataSource {
         return chosen
     }
 
+    // MARK: Probe images (FourDDataSource)
+
+    /// Datasets named for a probe — the last path component or its parent
+    /// group contains "probe" (py4DSTEM: `probe`, `probe_template`) — on the
+    /// detector grid in either layout: legacy v0.12 (Qx, Qy, N), slices LAST
+    /// (read_v0_12.py get_diffractionslice_from_grp), or the modern `Probe`
+    /// class (2, Qx, Qy), slices FIRST (probe.py:56-71; a Gate B refuter
+    /// saved one with py4DSTEM 0.14.17 and got (2, 16, 20)). A rank-3 stack
+    /// whose first two dims match is read as slices-last; when only its last
+    /// two match, slices-first. Nothing under the session sidecar root is a
+    /// probe. Order: shallowest path first, then alphabetical.
+    package func probeCandidates(detectorQY qy: Int, detectorQX qx: Int) throws -> [ProbeCandidate] {
+        silenceAutomaticErrors()
+        let collector = H5LinkCollector()
+        let unmanaged = Unmanaged.passUnretained(collector)
+        _ = hdf5.h5lvisit2(fileID, 0, 0, collectH5Link, unmanaged.toOpaque())
+        let sidecarRoot = "/" + SessionSidecarFormat.rootGroupName + "/"
+        var found: [ProbeCandidate] = []
+        for path in collector.paths where !path.hasPrefix(sidecarRoot) {
+            let components = path.split(separator: "/").map(String.init)
+            guard let last = components.last else { continue }
+            let parent = components.count >= 2 ? components[components.count - 2] : ""
+            guard last.lowercased().contains("probe") || parent.lowercased().contains("probe") else { continue }
+            guard let dims = datasetDimensions(path), dims.count == 2 || dims.count == 3 else { continue }
+            if dims[0] == qy, dims[1] == qx {
+                found.append(ProbeCandidate(path: path, qy: qy, qx: qx,
+                                            sliceCount: dims.count == 3 ? dims[2] : 1, slicesFirst: false))
+            } else if dims.count == 3, dims[1] == qy, dims[2] == qx {
+                found.append(ProbeCandidate(path: path, qy: qy, qx: qx,
+                                            sliceCount: dims[0], slicesFirst: true))
+            }
+        }
+        return found.sorted {
+            let l = $0.path.filter { $0 == "/" }.count, r = $1.path.filter { $0 == "/" }.count
+            return l == r ? $0.path < $1.path : l < r
+        }
+    }
+
+    /// Slice 0 of the candidate as a detector-grid pattern: the whole dataset
+    /// is read as float; for a (qy, qx, N) stack every pixel's first slice is
+    /// taken, for an (N, qy, qx) stack the first qy·qx values are.
+    package func readProbe(_ candidate: ProbeCandidate) throws -> [Float] {
+        silenceAutomaticErrors()
+        guard let dims = datasetDimensions(candidate.path), dims.count == 2 || dims.count == 3,
+              candidate.slicesFirst
+                ? (dims.count == 3 && dims[1] == candidate.qy && dims[2] == candidate.qx)
+                : (dims[0] == candidate.qy && dims[1] == candidate.qx) else {
+            throw H5Error.datasetOpenFailed(candidate.path)
+        }
+        let datasetID = candidate.path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(candidate.path) }
+        defer { _ = hdf5.h5dclose(datasetID) }
+        let filespaceID = hdf5.h5dgetSpace(datasetID)
+        defer { _ = hdf5.h5sclose(filespaceID) }
+        let count = dims.reduce(1, *)
+        var buffer = [Float](repeating: 0, count: count)
+        let hdims = dims.map { hsize_t($0) }
+        let memorySpaceID = hdims.withUnsafeBufferPointer {
+            hdf5.h5screateSimple(Int32(dims.count), $0.baseAddress, nil)
+        }
+        defer { _ = hdf5.h5sclose(memorySpaceID) }
+        let status = buffer.withUnsafeMutableBytes {
+            hdf5.h5dread(datasetID, hdf5.nativeFloat, memorySpaceID, filespaceID,
+                         h5DefaultProperty, $0.baseAddress)
+        }
+        guard status >= 0 else { throw H5Error.readFailed("probe image \(candidate.path)") }
+        guard dims.count == 3 else { return buffer }
+        if candidate.slicesFirst { return Array(buffer[0..<(candidate.qy * candidate.qx)]) }
+        let slices = dims[2]
+        var pixels = [Float](repeating: 0, count: candidate.qy * candidate.qx)
+        for index in pixels.indices { pixels[index] = buffer[index * slices] }
+        return pixels
+    }
+
+    /// Dimensions of a dataset at `path`, nil when it is not a dataset.
+    private func datasetDimensions(_ path: String) -> [Int]? {
+        let datasetID = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
+        guard datasetID >= 0 else { return nil }
+        defer { _ = hdf5.h5dclose(datasetID) }
+        let dataspaceID = hdf5.h5dgetSpace(datasetID)
+        defer { _ = hdf5.h5sclose(dataspaceID) }
+        let rank = Int(hdf5.h5sgetSimpleExtentNdims(dataspaceID))
+        guard rank > 0 else { return nil }
+        var dimensions = [hsize_t](repeating: 0, count: rank)
+        _ = dimensions.withUnsafeMutableBufferPointer {
+            hdf5.h5sgetSimpleExtentDims(dataspaceID, $0.baseAddress, nil)
+        }
+        return dimensions.map(Int.init)
+    }
+
     package func describe(path: String) throws -> DatasetDescriptor {
         silenceAutomaticErrors()
         let datasetID = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }

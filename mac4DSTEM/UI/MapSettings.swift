@@ -44,6 +44,12 @@ struct MapSettings: View {
 /// `AdvancedDiskDetectionSection`, a collapsed section of its own.
 private struct DiskDetectionRows: View {
     @Environment(AppState.self) private var appState
+    /// How a MEASURED probe becomes a kernel. A view choice, not app state:
+    /// the kernel that results records its own mode in provenance. Flat by
+    /// default: the trench needs a correct probe radius, and the estimator
+    /// reads structured probes small (Gate B, 2026-09-05 — the trench default
+    /// rebuilt the failing bullseye kernel on the first click).
+    @State private var measuredKernelMode: ProbeKernelMode = .flat
 
     var body: some View {
         Button {
@@ -54,8 +60,16 @@ private struct DiskDetectionRows: View {
         .disabled(appState.isBusy)
         .accessibilityIdentifier("disk.generateSyntheticKernel")
 
+        Picker("Measured kernel mode", selection: $measuredKernelMode) {
+            ForEach(ProbeKernelMode.allCases) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
+        .accessibilityIdentifier("disk.measuredKernelMode")
+
         Button {
-            Task { await appState.generateMeasuredProbeKernel() }
+            Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
         } label: {
             Label("Use Current CBED / ROI", systemImage: "scope")
         }
@@ -63,11 +77,21 @@ private struct DiskDetectionRows: View {
         .accessibilityIdentifier("disk.generateMeasuredKernel")
         .help("Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern.")
 
+        Button {
+            Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
+        } label: {
+            Label("Use File's Probe", systemImage: "doc.viewfinder")
+        }
+        .disabled(appState.isBusy)
+        .accessibilityIdentifier("disk.generateFileProbeKernel")
+        .help("Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none.")
+
         if let kernel = appState.probeKernel {
             LabeledContent(
                 "Kernel",
                 value: String(
-                    format: "%@ · %.1f px", kernel.source.rawValue, kernel.probeRadius
+                    format: "%@ · %@ · %.1f px", kernel.source.rawValue,
+                    kernel.mode.rawValue.lowercased(), kernel.probeRadius
                 )
             )
         }

@@ -72,6 +72,15 @@ is its own product").
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
+- **Learned disk candidates** (owner, 2026-09-05; Core ML + MLX preferred) —
+  a net proposes CANDIDATES, the classical correlation keeps the sub-pixel
+  position (strain needs 0.01 px; a box centre is ~0.5 px). py4DSTEM's own is
+  FCU-Net (crystal4D, TensorFlow/Keras, pattern AND probe as inputs, weights
+  fetched from Google Drive by `diskdetection_aiml._get_latest_model`); the
+  owner wants help extracting those weights (Keras → coremltools / MLX; no
+  PyTorch anywhere in the pinned source). Ships only with a pinned weight
+  hash in provenance, a simulated-truth fixture, and a licence check (YOLOv8
+  is AGPL-3.0; the stock `yolov8n.mlpackage` in the tree is not committable).
 
 ## 4. Leave alone; where the app is ahead
 

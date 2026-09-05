@@ -7,6 +7,13 @@ struct Fixture: Decodable {
     let trenchRadii: [Float]
     let pattern: [Float]
     let kernel: [Float]
+    let flatProbe: [Float]
+    let flatCentre: [Float]
+    let flatKernel: [Float]
+    let fracProbe: [Float]
+    let fracCentre: [Float]
+    let fracKernel: [Float]
+    let fracFTImag: [Float]
     let cases: [DetectionCase]
 }
 
@@ -78,6 +85,45 @@ guard maximumKernelError <= 2e-6 else {
     fail("synthetic kernel max error \(maximumKernelError) at \(maximumKernelIndex)")
 }
 print("PASS: synthetic_probe_sigmoid_kernel max error \(maximumKernelError)")
+
+// FLAT measured kernel (get_probe_kernel_flat): a bullseye-like probe at an
+// integer centre, so the pinned Fourier shift is an exact roll of the
+// normalised probe. Pins the normalisation, the shift DIRECTION and the axis
+// order at once — a transposed or sign-flipped shift lands the rings elsewhere.
+guard fixture.flatProbe.count == qy * qx, fixture.flatKernel.count == qy * qx, fixture.flatCentre.count == 2 else {
+    fail("flat fixture size does not match detector")
+}
+guard let flat = ProbeKernel.flat(
+    pattern: DiffractionPattern(qy: qy, qx: qx, pixels: fixture.flatProbe),
+    originX: fixture.flatCentre[0], originY: fixture.flatCentre[1], radius: 8
+) else { fail("production ProbeKernel.flat returned nil") }
+var maximumFlatError: Float = 0
+for index in flat.kernel.indices {
+    maximumFlatError = max(maximumFlatError, abs(flat.kernel[index] - fixture.flatKernel[index]))
+}
+guard maximumFlatError <= 2e-6 else { fail("flat kernel max error \(maximumFlatError) against the rolled normalised probe") }
+guard abs(flat.kernel.reduce(0, +) - 1) <= 1e-4 else { fail("flat kernel sum \(flat.kernel.reduce(0, +)), expected 1") }
+print("PASS: flat_measured_kernel max error \(maximumFlatError)")
+
+// FRACTIONAL centre, asymmetric probe: pins the fftfreq wrapping of the shift
+// phase (an unwrapped index survived the integer case) and, through the
+// imaginary part of conj(FFT(kernel)), the conjugation the detector relies on
+// (dropping it survived every real-space check). Gate B refuter, 2026-09-05.
+guard let frac = ProbeKernel.flat(
+    pattern: DiffractionPattern(qy: qy, qx: qx, pixels: fixture.fracProbe),
+    originX: fixture.fracCentre[0], originY: fixture.fracCentre[1], radius: 3
+) else { fail("production ProbeKernel.flat returned nil for the fractional centre") }
+var maximumFracError: Float = 0
+for index in frac.kernel.indices {
+    maximumFracError = max(maximumFracError, abs(frac.kernel[index] - fixture.fracKernel[index]))
+}
+guard maximumFracError <= 2e-6 else { fail("fractional-centre flat kernel max error \(maximumFracError) against get_shifted_ar") }
+var maximumFTError: Float = 0
+for index in frac.ftIm.indices {
+    maximumFTError = max(maximumFTError, abs(frac.ftIm[index] - fixture.fracFTImag[index]))
+}
+guard maximumFTError <= 1e-5 else { fail("conj(FFT(kernel)) imaginary part max error \(maximumFTError) — the detector would convolve, not correlate") }
+print("PASS: flat_kernel_fractional_centre max error \(maximumFracError), conjugate transform \(maximumFTError)")
 
 guard let detector = DiskDetector(kernel: kernel) else {
     fail("production DiskDetector returned nil")

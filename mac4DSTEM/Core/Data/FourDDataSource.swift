@@ -112,7 +112,36 @@ package nonisolated struct PixelCalibration: Sendable {
     }
 }
 
+/// A probe image the file carries beside its datacube — py4DSTEM's vacuum
+/// probe. Two layouts exist and both are read: legacy v0.12
+/// `diffractionslices/<name>/data`, (Qx, Qy) or (Qx, Qy, N) with the slices
+/// LAST (read_v0_12.py get_diffractionslice_from_grp); and the modern `Probe`
+/// class, (2, Qx, Qy) with the slices FIRST — `data[0]` the probe, `data[1]`
+/// its kernel (braggvectors/probe.py:56-71). Only images whose detector shape
+/// matches the cube's are candidates; a kernel must live on the cube's grid.
+package nonisolated struct ProbeCandidate: Sendable, Equatable {
+    package let path: String
+    package let qy: Int
+    package let qx: Int
+    /// 1 for a single image; N for a stack, of which slice 0 is read.
+    package let sliceCount: Int
+    /// True for the modern (N, Qx, Qy) layout, false for (Qx, Qy, N).
+    package let slicesFirst: Bool
+
+    package init(path: String, qy: Int, qx: Int, sliceCount: Int, slicesFirst: Bool = false) {
+        self.path = path; self.qy = qy; self.qx = qx; self.sliceCount = sliceCount; self.slicesFirst = slicesFirst
+    }
+}
+
 package protocol FourDDataSource: Actor {
+    /// Probe images in the file on the detector grid (`qy`, `qx`). Empty when
+    /// the format carries none — the default for every reader but HDF5.
+    func probeCandidates(detectorQY qy: Int, detectorQX qx: Int) throws -> [ProbeCandidate]
+
+    /// Slice 0 of a candidate as `qy * qx` row-major floats on the detector
+    /// grid (a bare array, so readers compile without `DiffractionPattern`).
+    func readProbe(_ candidate: ProbeCandidate) throws -> [Float]
+
     /// The primary 4D datacube in the file, at **full extent**. A crop is a
     /// `LoadView` of this, never a different discovery result.
     func discoverPrimaryDataset() throws -> DatasetDescriptor
@@ -156,4 +185,20 @@ package protocol FourDDataSource: Actor {
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double?
     /// Pixel sizes/units from file metadata, or nil if the format has none.
     func pixelCalibration() -> PixelCalibration?
+}
+
+package extension FourDDataSource {
+    func probeCandidates(detectorQY qy: Int, detectorQX qx: Int) throws -> [ProbeCandidate] { [] }
+    func readProbe(_ candidate: ProbeCandidate) throws -> [Float] {
+        throw FourDDataSourceError.noProbe(candidate.path)
+    }
+}
+
+package nonisolated enum FourDDataSourceError: Error, LocalizedError {
+    case noProbe(String)
+    package var errorDescription: String? {
+        switch self {
+        case .noProbe(let path): "This reader cannot read a probe image at \(path)."
+        }
+    }
 }

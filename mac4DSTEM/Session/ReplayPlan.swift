@@ -241,7 +241,7 @@ package enum ReplayRecordFrameMap {
             switch key {
             case "corr_power", "subpixel", "upsample_factor",
                  "min_relative_intensity", "relative_to_peak", "max_peaks",
-                 "kernel_source": .invariant
+                 "kernel_source", "kernel_mode", "kernel_probe_path": .invariant
             case "sigma_dp", "sigma_cc", "min_peak_spacing": .length
             case "edge_boundary": .lengthInt
             case "min_absolute_intensity": .absoluteIntensity
@@ -652,6 +652,11 @@ package enum ReplayPlanner {
                 break
             case "measured_roi":
                 return .failure(ReplayRefusal(reason: "it detected disks with a probe kernel measured from a vacuum ROI, and the recipe cannot carry that measurement — measure a kernel on the promoted view, then run detection by hand"))
+            case "measured_file_probe":
+                // The probe image IS in the file (kernel_probe_path), so this
+                // could replay; it does not yet — the executor builds no
+                // kernel. Refused rather than substituted (2026-09-05).
+                return .failure(ReplayRefusal(reason: "it detected disks with the file's own probe image as the kernel (\(p["kernel_probe_path"] ?? "")), which the replay does not rebuild yet — choose Use File's Probe on the promoted view, then run detection by hand"))
             default:
                 return refused(step, key: "kernel_source", value: p["kernel_source"])
             }

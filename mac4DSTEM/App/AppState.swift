@@ -4587,7 +4587,7 @@ final class AppState {
     /// Build a measured kernel from the CBED currently displayed. With a
     /// rectangle/circle real-space ROI this is its summed vacuum pattern;
     /// normalization makes sum versus mean immaterial.
-    func generateMeasuredProbeKernel() async {
+    func generateMeasuredProbeKernel(mode: ProbeKernelMode = .sigmoidTrench) async {
         guard descriptor != nil, let pattern = displayedPattern else { return }
         if calibrationSession.calibration.probeRadius == nil {
             await calibrateOrigin()
@@ -4599,14 +4599,60 @@ final class AppState {
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ).point
         guard let kernel = ProbeKernel.measured(
-            pattern: pattern, originX: origin.x, originY: origin.y, radius: radius
+            pattern: pattern, originX: origin.x, originY: origin.y, radius: radius, mode: mode
         ) else {
             presentComputeFailure(SimpleError("The current CBED/ROI did not contain a usable measured probe."))
             return
         }
         probeKernel = kernel
         statusText = String(
-            format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI", radius
+            format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI, %@", radius,
+            mode.rawValue.lowercased()
+        )
+        await detectCurrentPattern()
+    }
+
+    /// Build the kernel from a probe image the FILE carries (py4DSTEM's
+    /// `probe` / `probe_template`), the way the bullseye tutorial does. The
+    /// probe's own centre and radius come from the probe-size estimator on
+    /// that image, as `get_probe_kernel_flat` does with `origin=None`. The
+    /// first candidate on the detector grid is used; the status names it.
+    func generateFileProbeKernel(mode: ProbeKernelMode = .flat) async {
+        guard let descriptor, let reader else { return }
+        let candidates: [ProbeCandidate]
+        do {
+            candidates = try await reader.probeCandidates(detectorQY: descriptor.qy, detectorQX: descriptor.qx)
+        } catch {
+            presentComputeFailure(error)
+            return
+        }
+        guard let candidate = candidates.first else {
+            presentComputeFailure(SimpleError("This file carries no probe image on the \(descriptor.qx) × \(descriptor.qy) detector grid — use a vacuum CBED / ROI instead."))
+            return
+        }
+        let pattern: DiffractionPattern
+        do {
+            pattern = DiffractionPattern(qy: candidate.qy, qx: candidate.qx, pixels: try await reader.readProbe(candidate))
+        } catch {
+            presentComputeFailure(error)
+            return
+        }
+        guard let size = OriginCalibration.probeSize(dp: pattern.pixels, qy: pattern.qy, qx: pattern.qx) else {
+            presentComputeFailure(SimpleError("The probe image at \(candidate.path) has no measurable disk."))
+            return
+        }
+        guard let kernel = ProbeKernel.measured(
+            pattern: pattern, originX: size.x0, originY: size.y0, radius: size.r,
+            mode: mode, source: .fileProbe, probePath: candidate.path
+        ) else {
+            presentComputeFailure(SimpleError("The probe image at \(candidate.path) did not yield a usable kernel."))
+            return
+        }
+        probeKernel = kernel
+        let others = candidates.count > 1 ? " (\(candidates.count - 1) more in the file)" : ""
+        statusText = String(
+            format: "File probe kernel ✓  r = %.1f px, %@, from %@%@", size.r,
+            mode.rawValue.lowercased(), candidate.path, others
         )
         await detectCurrentPattern()
     }
@@ -4796,6 +4842,8 @@ final class AppState {
             // every peak (Gate A finding C3, 2026-08-25). Vocabulary shared
             // with result provenance ("synthetic" / "measured_roi").
             "kernel_source": kernel.source.provenanceID,
+            "kernel_mode": kernel.mode.provenanceID,
+            "kernel_probe_path": kernel.probePath ?? "",
         ], invalidating: ["strain", "acom"], replaying: replaying)
         completedDiskSummary = DiskDetectionScanSummary(
             vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params

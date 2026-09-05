@@ -18,6 +18,26 @@
 
 ## Unreleased — the v2.6.0 science lane
 
+- **A flat measured kernel, and the file's own probe as a kernel source.**
+  py4DSTEM's `Probe.get_kernel` recommends the FLAT mode — the probe
+  normalised and shifted, nothing subtracted — "for bullseye or other
+  structured probes"; the app's measured kernel could only subtract the
+  sine² trench, which at the estimator's under-read radius (7.4 px for a
+  ring that ends at ~10–12) leaves the beam never the brightest correlation
+  peak on the bullseye probe — flat needs no radius. Map ▸ Bragg disks gains
+  a measured-kernel mode (flat by default / sigmoid trench) and **Use File's
+  Probe**, which reads py4DSTEM's probe from the file on the cube's detector
+  grid in both layouts: legacy v0.12 `probe_template` (Qx, Qy, N) and the
+  modern `Probe` node (2, Qx, Qy), slice 0 either way. On
+  `calibrationData_bullseyeProbe` the app's flat file-probe kernel
+  reproduces py4DSTEM's flat route peak for peak — 878 of 878 within
+  0.0013 px and 164 of 164 exactly at two thresholds, both sides pinned to
+  the template's centre (125, 125), poly subpixel, 90 positions — and the
+  kernel built at the app's own probe centre matches to 3e-6. Provenance
+  records `kernel_mode` and `kernel_probe_path`; a file-probe kernel refuses
+  to replay rather than substitute (the recipe names the path; rebuilding it
+  is owed). Unverified on screen. The probe-size estimator still reads a
+  ring-shaped probe small — open item.
 - **The one-peak-per-pattern warning names the threshold.** When full-scan
   detection keeps at most one peak in the median pattern, the Bragg panel
   used to say "spacing or thresholds may be too restrictive". It now names
