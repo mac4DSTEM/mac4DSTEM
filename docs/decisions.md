@@ -390,3 +390,16 @@ former `v2.5-contract.md` from the plan's §6 was dropped: the plan is the
 contract. *(Amended 2026-09-04: `v2.5-plan.md` is itself archived and
 `docs/v3-plan.md` took its place in the set; the Track B checklist went with
 Track B's retirement. `CLAUDE.md`'s reading order is the current list.)*
+
+**2026-09-06 — Learned disk detector is Neural-Engine-native, trained by
+us.** The ANE is reached only through Core ML, which has no FFT; FCU-Net's
+Fourier layer can never run there, and MLX runs on the GPU. So: a plain-conv
+U-Net on three channels (pattern, probe, and the Metal correlation — the
+third decided in the same day so the net learns ring artifacts directly),
+own simulator, own weights (no weight licence), MLX to train, Core ML to
+serve; the net proposes, classical refinement measures. Weighed and not
+taken: MLX Swift in the app (GPU only), FCU-Net via Core ML (impossible on
+the ANE), FCU-Net-first-then-ANE. Accepted cost: no py4DSTEM parity —
+simulated truth and a net-vs-classical disagreement map on real cubes are
+the ground, and the owner's clicks on that map build the fine-tuning set.
+`v3-plan.md` §3a is the complete record, long by the owner's instruction.

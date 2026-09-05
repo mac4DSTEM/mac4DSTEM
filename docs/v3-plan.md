@@ -72,54 +72,313 @@ is its own product").
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
-- **Learned disk candidates** (owner, 2026-09-05; Core ML + MLX preferred) —
-  pre-registered below (§3a); the first ML feature, starting 2026-09-06.
+- **Learned disk candidates** (owner, 2026-09-05; ANE-native decided
+  2026-09-06) — pre-registered below (§3a); the first ML feature.
 
-### 3a. Learned disk candidates — pre-registration (2026-09-05)
+### 3a. Learned disk candidates — pre-registration (2026-09-05, revised 2026-09-06)
 
-**Shape.** A second detector class beside the classical one: a net proposes
-disk CANDIDATES on a pattern, the existing correlation/centroid refinement
-measures each to sub-pixel precision. No coordinate from the net reaches
-strain or Q calibration — strain needs 0.01 px and a probability map or a
-box centre is ~0.5 px. This is also how py4DSTEM's own ML mode works:
-FCU-Net (Fourier Convolutional U-Net, Munshi et al. 2022; `crystal4D`,
-TensorFlow/Keras) outputs a disk-probability map and `get_maxima_2D` does
-the rest (`braggvectors/diskdetection_aiml.py`). It takes the PROBE as a
-second input, which is why it generalises across probe shapes — the bullseye
-failure class. Core ML is how the app runs a model (Neural Engine, Swift, no
-Python); MLX is for experiments and fine-tuning in Python; an MLX model
-reaches the app through `coremltools` like any other.
+The complete record of the 2026-09-06 planning session, at the owner's
+instruction ("we shouldn't forget any info, no matter the length"): the
+cold-start set grows by it, knowingly. Nothing here is implemented. Every
+number not marked *measured* is a design default to be settled by its step.
 
-**Owner of state.** The kernel's owner today is `AppState.probeKernel`; a
-learned detector adds a `DetectorClass` beside `ProbeKernel`, owned by the
-detection settings, never new `AppState` stored state. Provenance carries
-`detector_class` and the model file's SHA-256 — a result must say which
-weights made it, so weights are pinned and hashed, never fetched "latest" at
-build time (py4DSTEM's loader downloads a zip from Google Drive by a
-`model_metadata.json`; we vendor one copy).
+#### The decision, and why
 
-**Steps, in order, each its own session.**
-1. FCU-Net as a reference in Python: `crystal4D` + TensorFlow in the py4DSTEM
-   env, `_get_latest_model()` once, run on the bullseye and WS₂ cubes;
-   compare its peak sets with the classical detector at the settings the
-   2026-09-05 Gate D established. Decides whether the net earns its place.
-2. Convert to Core ML with `coremltools`; check the converted model against
-   Keras pixel for pixel on the same probability maps. The FFT layers are the
-   likely hand-written part. MLX is NOT a Keras loader: the architecture is
-   rewritten in MLX and the exported arrays loaded layer by layer, each
-   layer checked numerically against Keras.
-3. Fixture in `tools/` on SIMULATED truth — patterns drawn with known disk
-   centres, run through net + refinement, checked against the drawn centres.
-   No py4DSTEM parity exists for a Core ML model; simulated truth is the
-   ground. Break it first, as always.
-4. Wire it in as an option with the hash in provenance; Gate B campaign.
-5. Only then MLX fine-tuning on the owner's own probes and cameras; the
-   bullseye probe is the first case.
+Neural-Engine-native, trained by us, no py4DSTEM model, no py4DSTEM
+fallback. The Neural Engine (ANE, in every Apple Silicon Mac) has exactly
+one public door, Core ML; MLX runs on the GPU and never touches the ANE.
+Core ML has no FFT operation. py4DSTEM's own learned detector, FCU-Net
+(Fourier Convolutional U-Net, Munshi et al. 2022; `crystal4D`, TF/Keras;
+`braggvectors/diskdetection_aiml.py` in the pinned source), is built on a
+Fourier layer — FFT, multiply, inverse FFT — so it can never compile for the
+ANE; a custom Core ML layer would carry it on CPU or GPU and the ANE argument
+evaporates. Once the goal is stated as "the macOS way, on the Neural Engine,
+even at the price of new training and no py4DSTEM fallback" (owner,
+2026-09-06), the model must be designed for Core ML from the first line and
+FCU-Net is out.
 
-**Owed to the owner before step 4.** The licence of the FCU-Net weights
-(py4DSTEM's project) before they ship inside a GPL-3.0 app; YOLOv8 code and
-weights are AGPL-3.0, which is why the stock `yolov8n.mlpackage` in the tree
-is a reference, not a dependency, and is not committed.
+Alternatives weighed the same day and not taken: (1) MLX Swift inside the
+app running FCU-Net — native FFT, one architecture shared with Python, but
+GPU-only, a second GPU tenant beside our Metal engine, never the ANE;
+(2) Core ML with FCU-Net — impossible on the ANE, above; (3) FCU-Net via MLX
+first and an ANE-native net later only if throughput demanded it —
+superseded by going straight to ANE-native. Create ML is not applicable: it
+has no custom heatmap-regression task. What FCU-Net still teaches and we
+keep: the probe as a second input, and the shape "net paints a probability
+map, classical peak-finding does the rest" (`get_maxima_2D` in the pinned
+source). Running FCU-Net as a Python yardstick is optional and no step
+requires it (it needs `crystal4D` + TensorFlow; `_get_latest_model()`
+downloads a zip from Google Drive by `model_metadata.json`).
+
+The accepted cost, stated once so nobody rediscovers it: **no py4DSTEM
+parity for this feature.** Every other number in the app is checked against
+py4DSTEM; this one rests on simulated truth and on a net-vs-classical
+disagreement check on real cubes. That is a policy decision for the repo
+(`decisions.md`, 2026-09-06) more than a technical one.
+
+#### In plain terms
+
+Today the app finds Bragg disks by sliding the probe image over each
+diffraction pattern and looking for where it matches best. That works, and
+it is fooled when the probe has rings (the bullseye case), when disks
+overlap, or when they sit on a bright background. The learned detector is a
+small neural network that looks at a pattern and paints a "here is a disk"
+map, on the Neural Engine, the chip Apple puts in every Mac for exactly this
+kind of work. The network only proposes where disks are; the existing
+classical code still measures each one precisely, because the network is
+not accurate enough for strain on its own.
+
+**Pros.** It uses hardware the app leaves idle: the GPU is busy with
+correlation and drawing, the ANE sits unused. Low power, quiet fans — on a
+laptop that matters. It can learn what correlation cannot express:
+correlation asks "does this spot look like the probe"; the net can learn
+"this spot looks like the probe but it is a ring artifact, skip it", which
+is the bullseye failure in one sentence. Our own weights, our own licence:
+no py4DSTEM model, no Google Drive download, no licence question; the weights
+ship in the app, pinned and hashed. The most durable Apple contract: Core ML
+has been stable since 2017 and every new chip runs the same model file
+faster — that is the future-proof part. Fine-tuning stays cheap because we
+trained it: retraining on the owner's own probe or camera is the same script
+with more data.
+
+**Cons.** No py4DSTEM parity (above). The simulation-to-reality gap: a net
+trained on synthetic patterns can be confident and wrong on a camera it has
+never seen — a real risk, not a formality. We build the training pipeline
+ourselves: simulator, labels, training loop, export, each with its own
+tests, all outside the app. Limited toolbox: the ANE runs plain convolutions
+and simple math only — no FFT, no complex numbers, no clever layers — and
+anything outside that set silently falls back to the GPU and loses the
+benefit. Fixed input size: every cube is binned or padded to it; fine for
+most data, awkward for unusual detectors. The speed win is not guaranteed:
+our Metal correlation is already fast and whether the net is faster on wall
+clock is an unmade measurement. Retraining is the fix for every failure:
+when the classical detector is wrong we change a threshold; when the network
+is wrong we need more data and a training run.
+
+#### Shape of the detector
+
+- **A candidate stage, never a measurement.** A second `DetectorClass`
+  beside the classical one: the net paints a disk-centre heatmap,
+  peak-picking on it gives CANDIDATES, the existing correlation/centroid
+  refinement measures each to sub-pixel. No coordinate from the net reaches
+  strain or Q calibration: strain needs 0.01 px, a heatmap peak is ~0.5 px.
+- **Recall over precision.** A bad proposal is pruned by refinement for free
+  (it refines to a poor correlation and is dropped); a missed disk is the
+  expensive error. The net is trained to over-propose.
+- **Architecture** inside the ANE's set: a small plain-convolution U-Net —
+  convolutions, pooling, ReLU/SiLU, skip connections by concatenation —
+  float16 weights and activations, fixed input shape, no FFT, no complex
+  numbers, no custom layers, no dynamic shapes. Anything outside splits the
+  graph onto GPU/CPU with copies between the pieces. Design default: four
+  levels, 16–128 channels, order 1–2 M parameters, a few MB at fp16.
+- **Inputs: three channels at one fixed size** (design default 128×128
+  after the load spec's binning; larger patterns are binned or cropped
+  around the measured origin, smaller ones padded; Core ML's *enumerated*
+  shapes stay ANE-friendly if a second size is ever needed, *range* shapes
+  do not):
+  1. the pattern, log-scaled and normalised per pattern — dose-invariant,
+     and it keeps raw counts inside float16's range;
+  2. the probe (the measured kernel, centred, same size) — FCU-Net's trick
+     for generalising across probe shapes, the bullseye failure class;
+  3. the Metal cross-correlation the classical detector would use at its
+     current settings — **decided in (owner, 2026-09-06).** Why: the net
+     then sees the classical detector's evidence and learns which
+     correlation maxima are ring artifacts, targeting the bullseye failure
+     directly instead of rediscovering correlation. The price, accepted:
+     the net is no longer an opinion independent of the classical path. The
+     disagreement map (below) stays meaningful because the net can still
+     add and reject candidates; it just cannot be sold as a blind second
+     reading.
+- **Output.** One heatmap with a Gaussian bump (σ ≈ 1–2 px, design default)
+  at each disk centre — not a segmentation mask. Peak-picking: local maxima
+  above a threshold with a minimum separation of about the probe radius.
+  Loss: heatmap regression (MSE or a focal variant); settled in step 2.
+- **Serving.** `coremltools` → ML Program `.mlpackage`, float16, compiled by
+  Xcode into the bundle; compute units set to prefer the Neural Engine
+  (Core ML falls back to GPU/CPU where no ANE exists, so nothing crashes on
+  odd hardware); batched prediction with IOSurface-backed `MLMultiArray` so
+  a whole scan streams through without per-pattern copies. Per-op placement
+  is read from Xcode's Core ML performance report: every op on the ANE, or
+  the graph is split and the design has failed its own premise. Every
+  Core ML API used must exist on macOS 14, the app's floor.
+- **Weights.** Ship in the bundle, pinned; never fetched at build or run
+  time (py4DSTEM's loader fetches "latest" — we do the opposite). SHA-256 of
+  the model file in provenance beside `detector_class`; a result must say
+  which weights made it, and every retrain is a new hash. In the tree if
+  the package stays under ~20 MB (a small U-Net will), else a release asset
+  with the hash committed.
+
+#### Owner of state
+
+- `DetectorClass` beside `ProbeKernel`, owned by the detection settings —
+  never new `AppState` stored state. The classical detector stays the
+  default; the learned one is an option; making it the default is a later
+  owner decision.
+- The **disagreement map** is a product like any other per-position map:
+  computed in `Core/`, drawn by a view, owned by the product store.
+- The **confirmed/rejected patterns** are new stored state, so their owner
+  is named now (proposed): the session sidecar, the repo's sharing unit,
+  holding per entry the file, scan position, detector settings and weights
+  hash, the confirmed disk list and the verdict. A fine-tuning export writes
+  them to a local, gitignored folder under `tools/disk-detector/` (they are
+  the owner's data).
+
+#### Home in the repo
+
+`tools/disk-detector/` — trainer, simulator, export, export check, fixture;
+Python, never ships. Why no existing home would do: `tools/bragg-spacing-probe/`
+is detection *diagnostics* on real data; `tools/training-dataset-campaign/`
+is the real-data parity campaign (its "training dataset" is the owner's
+collection of real cubes in the gitignored `References/training_dataset/`,
+nothing to do with ML training). A thing that produces a shipped artifact
+is a third kind. Same repo, not a spin-off: the fixture, the weights hash
+and the simulator must match the app build that consumes them; a separate
+repository earns its keep only if the trainer becomes a product on its own,
+which it is not. The app gets one `.mlpackage` and one inference class in
+`Core/`.
+
+Contents: `simulate.py` (patterns + truth), `train.py` (MLX), `export.py`
+(→ `.mlpackage`), `check_export.py` (Core ML vs MLX, pixel for pixel),
+`fixture/` (a small, fully synthetic committed set with expected centres — a
+reader must be able to reproduce it; runs on the owner's real cubes are
+quoted from dated retained logs), `README.md` with pinned versions.
+`run-tests.sh inventory` must classify the directory: the fixture runner
+gated (`scientific`), the trainer diagnostic (machine-local data, GPU time).
+`tools/lib/python.sh` resolves the pinned py4DSTEM environment; MLX and
+`coremltools` are pinned in the detector's own requirements so the parity
+environment stays as pinned (proposed).
+
+#### Training data
+
+The Neural Engine is not trained on; it only runs models. Training is MLX on
+the Mac's GPU; the result is exported to Core ML. The data is ours, generated
+on the fly by our own simulator — nothing stored, nothing downloaded,
+nothing to license:
+
+- measured probes from real files in `References/training_dataset/`
+  (`calibrationData_bullseyeProbe.h5`, `polycrystal_2D_WS2.h5` first), with
+  randomised variants;
+- random two-dimensional reciprocal lattices at realistic spacings,
+  sometimes two overlapping grains;
+- random per-disk intensities; real vacuum/amorphous backgrounds from real
+  cubes with synthetic disks placed on top;
+- Poisson noise at a range of real doses, readout noise, gain variation,
+  hot pixels;
+- randomised everything we do not control: disk size, ring strength, tilt,
+  overlap, intensity spread, dose, background level, detector offset.
+
+| Set | Size | Source |
+|---|---|---|
+| Training | 50–200 k patterns per run | simulated on the fly |
+| Validation | a few thousand | held-out simulation + real cubes with classical labels |
+| Fine-tuning | a few hundred | real patterns the owner confirmed in the app |
+
+Minutes to a couple of hours on an M-series GPU for a net this size. A
+handful of abTEM multislice patterns serve as an honesty check on the cheap
+simulator, never as training data (abTEM is GPL-3.0, a tool only). Real
+cubes labelled by the classical detector are validation only, never
+training truth — otherwise the net learns the classical detector's
+mistakes.
+
+#### The simulation-to-reality gap — the risk that decides the feature
+
+Four layers, cheapest first: (1) real ingredients in the simulator (the
+measured probe, real backgrounds, real noise levels); (2) randomise what we
+do not control; (3) recall over precision, so a wrong proposal costs
+nothing; (4) make the owner's eyeballing systematic. The owner sits in front
+of the app and can judge a fitted pattern by eye, but not 65 thousand of
+them. So the app computes, per scan position, where the net and the
+classical detector disagree — a different disk count, or a matched disk
+whose position differs beyond a tolerance (the count is the main signal;
+refinement makes positions agree) — and draws that as a map over the scan.
+The owner clicks the hot spots instead of clicking at random. Each click
+that says "this one is right" or "this one is wrong" is stored as a labelled
+pattern (owner of state, above); that is how step 5's fine-tuning set is
+built, from the owner's judgement on the owner's data.
+
+#### Throughput
+
+A 256×256 scan is 65 536 patterns. The detector states a per-pattern time
+from a measurement, never a claim. The ceiling is an owner decision taken at
+the start of step 3, before the comparison (a proposal to decide against: no
+slower than the classical detector by more than 2× on the same cube). The
+honest argument for the ANE is power and leaving the GPU free for
+correlation and drawing; the wall-clock win is unproven.
+
+#### Open and decided, in plain terms
+
+- **Correlation as the third input channel — decided in (owner).** We can
+  show the net only the picture and the probe and let it form its own
+  opinion, or we can also show it the classical detector's "match score"
+  picture. Showing it the score picture makes the ring problem easy to
+  learn and costs one extra array the Metal engine already computes. What
+  we give up is a second opinion formed without looking at the first one.
+  The owner took the easier ring problem.
+- **Getting the trained net from MLX into Core ML — still open.** MLX saves
+  the network in its own format; Core ML needs a model file built by
+  Apple's `coremltools`, which knows how to read PyTorch and TensorFlow
+  models but, as far as we know, not MLX. Two ways through: (a) a short
+  script that describes our dozen layers to `coremltools` directly in its
+  MIL builder and pours the MLX arrays in — everything stays in MLX,
+  roughly a hundred lines; (b) write the same net a second time in PyTorch,
+  copy the weights across, and let `coremltools` convert that — the
+  well-trodden road, one more file to keep in sync. Step 2 starts by
+  verifying (a) on the pinned `coremltools` version and falls back to (b)
+  if it does not hold. Either way the exported model is checked against
+  MLX pixel for pixel on the same inputs before anything else.
+
+#### The Neural Engine beyond disk detection
+
+Rule of thumb: **the ANE proposes, classifies and segments; Metal
+measures.** Anything per-pattern, fixed-size and convolution-shaped fits;
+anything needing FFTs, float32 precision, sub-0.1 px accuracy or a
+reduction over the whole cube does not. Candidates, in rough order of
+plausibility:
+
+1. **Real-space segmentation of virtual images** for the needle-precipitate
+   pipeline (§3): a textbook U-Net task on a small image, probably the
+   second ANE feature and the easier one.
+2. **Per-position classification** — vacuum, amorphous, crystal, thick — a
+   mask from a classifier replacing a hand-drawn region.
+3. **ACOM template pre-ranking**: which orientation families to try before
+   the classical match; the truth comes free from the template library.
+4. **Low-dose denoising** before detection or virtual imaging.
+5. **Dead-pixel and beam-stop inpainting.**
+6. **Per-pattern embeddings** for unsupervised phase clustering.
+7. **Acquisition copilot** (§3, nothing designed): drift, contamination and
+   beam-damage flags per frame — cheap enough to run live.
+
+Not for the ANE: ptychography, strain, Q calibration, anything where
+0.01 px matters.
+
+#### Steps, in order, each its own session
+
+1. **Simulator + fixture** in `tools/disk-detector/`: patterns with known
+   disk centres, and the classical detector at the 2026-09-05 Gate D
+   settings recovers the drawn centres — the simulator and the fixture are
+   proven before any net sees them, independently of any net. A few abTEM
+   patterns as the honesty check. Break the fixture first. Classify the
+   directory in `run-tests.sh inventory`.
+2. **Net + training in MLX; export to Core ML.** Verify the export path
+   first (above). The Core ML model checked against MLX pixel for pixel;
+   the performance report shows every op on the ANE; a per-pattern time is
+   stated from a run.
+3. **Does it earn its place?** Net + refinement against the drawn centres
+   (recall, precision, residual after refinement); against the classical
+   detector on the bullseye and WS₂ cubes; against the throughput ceiling
+   set before the comparison. The verdict goes to `decisions.md`.
+4. **Wire in as an option**: `DetectorClass`, the hash in provenance, the
+   disagreement map, the labelled-pattern store in the sidecar. Gate B
+   campaign (it is `Core/` and it moves which disks are found); any
+   real-cube disagreement that looks like a defect enters through Gate D.
+   The first v3 feature to land bumps the version to v3.0 (`decisions.md`,
+   2026-09-02). Owed before this step is called done: the licence table —
+   own weights, none; abTEM GPL-3.0 as a tool; YOLOv8 code and weights
+   AGPL-3.0, which is why the stock `yolov8n.mlpackage` dragged into the
+   Xcode project on 2026-09-05 is a reference only and is never committed.
+5. **Fine-tuning** on the owner's confirmed patterns, the bullseye probe
+   first; retrained weights are a new hash, so old results still say what
+   made them.
 
 ## 4. Leave alone; where the app is ahead
 
