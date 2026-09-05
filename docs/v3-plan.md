@@ -370,6 +370,45 @@ plausibility:
 Not for the ANE: ptychography, strain, Q calibration, anything where
 0.01 px matters.
 
+#### Working method (proposed 2026-09-06, owner to confirm)
+
+- **A branch, with the rules loosened on it and re-applied at the merge.**
+  Steps 1–3 are Python under `tools/` and cannot break the app; step 4 is
+  the app wiring. All of it on one feature branch off `main`. On the
+  branch: commit freely, no docs-per-commit, no inventory, no gate per
+  commit, experiments allowed to fail in the open. At the merge, in one
+  landing: rebase onto `main` (linear `main`, no merge commit), the fixture
+  broken and green, the Gate B campaign, `status.md` / `open-items.md` /
+  `decisions.md` in the landing commit, inventory exit 0. What stays strict
+  even on the branch: never commit the owner's data or the AGPL YOLO
+  package; the weights hash from the first export; the `AppState` rule
+  (structural — cannot be retrofitted cheaply); no science claim in a live
+  doc until merged. `main` moves 20–50 commits on a heavy day, so rebase
+  often; a branch older than a week is a merge problem.
+- **What can be done away from this Mac.** The simulator, the net, the
+  training loop, the export script and their Python tests run on any
+  machine, a cloud session included, on the synthetic set. What must be
+  local: training on the real probes (the data is in the gitignored
+  `References/`), the Core ML pixel check (`coremltools` predicts only on
+  macOS), the ANE placement report (Xcode), the Swift wiring, and the drive.
+  A cloud GPU can train on synthetic data but the point of the feature is
+  the Mac; use one only if the local GPU is the bottleneck.
+- **How the owner watches training.** Training is a terminal script, not a
+  GUI. PyTorch's own TensorBoard writer shows the loss curve and sample
+  heatmaps in the browser while it runs; Xcode's model viewer opens the
+  exported `.mlpackage` (inputs, outputs, per-op placement, the performance
+  report); mac4DSTEM shows the results — the detector option, the
+  disagreement map, the clicks — from step 4. Apple's Create ML app does
+  not apply (no custom heatmap task). Training never enters the mac4DSTEM
+  GUI.
+- **Estimate (2026-09-06)**, anchored on the measured cadence — 239 commits
+  in the 31 days since v1.0.0, 18 active days, ~8 commits per active day;
+  the v2 release train was ~20 sessions in 15 days: step 1, 1–2 sessions;
+  step 2, 2–3 plus training wall-clock; step 3, 1–2; step 4, 4–6 including
+  Gate B, the drive and the v3.0 release; step 5, 1–2 at the owner's
+  clicking pace. 10–16 sessions, 3–5 calendar weeks to a landed step 4 with
+  one Gate B campaign in flight at a time; budget one loop back from step 3.
+
 #### Steps, in order, each its own session
 
 1. **Simulator + fixture** in `tools/disk-detector/`: patterns with known
