@@ -17,7 +17,6 @@ package enum DM4Error: LocalizedError {
     case cannotOpen(String)
     case notLittleEndian
     case noDatacube
-    case ambiguousAxisCalibration([String])
     case unsupportedDataType(Int)
     case truncated
 
@@ -26,8 +25,6 @@ package enum DM4Error: LocalizedError {
         case .cannotOpen(let detail): return "Could not open DM file: \(detail)"
         case .notLittleEndian: return "This DM file is big-endian (Mac-authored); only little-endian DM files are supported."
         case .noDatacube: return "No 4D (or scan-shaped 3D) datacube was found in this DM file."
-        case .ambiguousAxisCalibration(let units):
-            return "The DM file's dimension calibrations do not identify one real-space pair and one diffraction-space pair (units: \(units.joined(separator: ", ")))."
         case .unsupportedDataType(let t): return "Unsupported DM image data type \(t)."
         case .truncated: return "The DM file ended unexpectedly while parsing."
         }
@@ -44,15 +41,31 @@ package actor DM4Reader: FourDDataSource {
         case scanFastest
     }
 
+    /// The parsed layout, readable from the nonisolated `loadPushdown`.
+    /// Written once by `parse()` inside `init`, before any caller can hold
+    /// the reader; the lock is what makes that claim checkable rather than
+    /// a `nonisolated(unsafe)` promise.
+    private nonisolated final class LayoutCell: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: StorageLayout?
+        var value: StorageLayout? {
+            get { lock.lock(); defer { lock.unlock() }; return stored }
+            set { lock.lock(); stored = newValue; lock.unlock() }
+        }
+    }
+
     private let data: Data
     package let filePath: String
+    private let layoutCell = LayoutCell()
 
     private var descriptor: DatasetDescriptor?
     private var dataOffset = 0        // byte offset of the datacube blob
     private var imageDataType = 0     // Gatan ImageData.DataType code
     private var elementSize = 0       // bytes per pixel
     private var ry = 0, rx = 0, qy = 0, qx = 0
-    private var storageLayout = StorageLayout.detectorFastest
+    private var storageLayout = StorageLayout.detectorFastest {
+        didSet { layoutCell.value = storageLayout }
+    }
 
     // Best-effort calibration.
     package private(set) var voltage: Double?
@@ -60,6 +73,14 @@ package actor DM4Reader: FourDDataSource {
     package private(set) var qPixelUnits: String?
     package private(set) var rPixelSize: Double?
     package private(set) var rPixelUnits: String?
+    /// Why the file's pixel calibration was NOT imported, when its four axis
+    /// units could not name one real-space pair and one reciprocal pair. The
+    /// cube still opens, in the legacy detector-fastest layout, with no pixel
+    /// sizes — py4DSTEM's own answer to a Gatan file whose calibration is
+    /// invalid (`read_dm.py`, "the calibrations can be invalid"). Refusing the
+    /// file was the 2026-09-05 first cut and was reversed the same day: a
+    /// wrong calibration is the user's to override, a closed file is not.
+    package private(set) var calibrationNote: String?
 
     // Async so the init is actor-isolated and may call parse(), which
     // mutates actor state; a synchronous actor init is nonisolated and
@@ -89,11 +110,16 @@ package actor DM4Reader: FourDDataSource {
         return descriptor
     }
 
-    /// DM4 permits either scan or detector axes to be contiguous. This method
-    /// is nonisolated and cannot inspect the parsed layout, so it conservatively
-    /// claims neither crop as skipped I/O. Both crops still reduce conversion
-    /// and resident-memory work; `.none` only avoids overstating disk savings.
-    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    /// Detector-fastest DM4 is one contiguous blob of patterns, so a *scan*
+    /// crop is a seek and genuinely skips bytes; a *detector* crop decodes
+    /// only the kept rows, but the excluded columns share pages with the kept
+    /// ones, and `LoadPushdown` is a boolean that rounds down (adversarial
+    /// review, 2026-08-18). Scan-fastest storage spreads every pattern across
+    /// the whole blob, so there neither crop skips I/O. The layout is parsed
+    /// in `init`, and `layoutCell` is how this nonisolated method sees it.
+    package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown {
+        layoutCell.value == .scanFastest ? .none : .scanOnly
+    }
 
     /// Byte offset of the first pixel of source pattern (`sourceY`, `sourceX`).
     private func frameOffset(sourceY: Int, sourceX: Int) -> Int {
@@ -105,7 +131,9 @@ package actor DM4Reader: FourDDataSource {
     /// memory saving is real even though the I/O saving is not.
     private func pattern(_ view: LoadView, sourceY: Int, sourceX: Int) throws -> [Float] {
         if storageLayout == .scanFastest {
-            return try scanFastestPattern(view, sourceY: sourceY, sourceX: sourceX)
+            return view.binned(
+                try scanFastestGather(view, positions: [(sourceY, sourceX)]),
+                patternCount: 1)
         }
         let base = frameOffset(sourceY: sourceY, sourceX: sourceX)
         guard let crop = view.readDetectorCrop else {
@@ -125,56 +153,123 @@ package actor DM4Reader: FourDDataSource {
         return view.binned(out, patternCount: 1)
     }
 
-    /// Gather one pattern from `[Qx,Qy,Ry,Rx]` C-order storage. In this DM
-    /// layout the scan pair is fastest-changing, so a diffraction pattern is
-    /// strided across the blob rather than one contiguous frame.
-    private func scanFastestPattern(
-        _ view: LoadView, sourceY: Int, sourceX: Int
+    /// Element strides of the two detector axes in scan-fastest storage. The
+    /// scan plane (`ry * rx` elements) is the contiguous unit; which detector
+    /// axis steps by one plane and which by a whole detector row is THE
+    /// orientation question still under Gate D (`open-items.md`, "Scan-fastest
+    /// DM4 detector pair may be transposed"). Today's model: fastest-first tags
+    /// `[Rx, Ry, Qy, Qx]`, so `qy` steps by one plane and `qx` by `qy` planes.
+    /// Flipping that model is this one property plus the shape line in
+    /// `locateDatacube`; every read path below goes through here.
+    private var scanFastestStrides: (qy: Int, qx: Int) {
+        (qy: ry * rx, qx: qy * ry * rx)
+    }
+
+    /// Gather patterns from scan-fastest storage, `positions` being source
+    /// scan positions in output order. Returns `[position][outY][outX]` over
+    /// `readDetectorCrop` (or the whole detector), BEFORE binning.
+    ///
+    /// One pattern is strided across the whole blob here, so the naive
+    /// pattern-at-a-time loop — the 2026-09-05 first cut — walked a 1.2 MB
+    /// stride per detector pixel and took 19 s for the 560 MB `Si-SiGe.dm4`.
+    /// This is a blocked transpose instead: for a block of 32 detector
+    /// columns and 32 scan positions, the 32 source cache lines are each
+    /// reused 32 times and every output run is contiguous, so a full-cube
+    /// read is bounded by memory bandwidth, not by cache misses.
+    private func scanFastestGather(
+        _ view: LoadView, positions: [(y: Int, x: Int)]
     ) throws -> [Float] {
         let cropY = view.readDetectorCrop?.yOffset ?? 0
         let cropX = view.readDetectorCrop?.xOffset ?? 0
         let height = view.readDetectorCrop?.height ?? qy
         let width = view.readDetectorCrop?.width ?? qx
-        var out = [Float](repeating: 0, count: height * width)
+        let strides = scanFastestStrides
+        let count = positions.count
+        guard count > 0 else { return [] }
 
-        let scanPlane = ry * rx
-        let detectorPlane = qy * scanPlane
-        let lastElement = (cropX + width - 1) * detectorPlane
-            + (cropY + height - 1) * scanPlane
-            + sourceY * rx + sourceX
-        let (lastByte, byteOverflow) = lastElement.multipliedReportingOverflow(by: elementSize)
-        let (byteEnd, sizeOverflow) = lastByte.addingReportingOverflow(elementSize)
-        let (end, endOverflow) = dataOffset.addingReportingOverflow(byteEnd)
-        guard !byteOverflow, !sizeOverflow, !endOverflow, end <= data.count else {
+        // Element offset of each position inside a detector pixel's scan
+        // plane; the same for every detector pixel.
+        let planeOffsets = positions.map { $0.y * rx + $0.x }
+        guard let farthest = planeOffsets.max(), planeOffsets.min()! >= 0 else {
             throw DM4Error.truncated
         }
+        // Never hand back zero-filled pixels as if they were read: the last
+        // element this gather touches must lie inside the mapping.
+        let lastElement = (cropX + width - 1) * strides.qx
+            + (cropY + height - 1) * strides.qy + farthest
+        let (lastByte, o1) = lastElement.multipliedReportingOverflow(by: elementSize)
+        let (byteEnd, o2) = lastByte.addingReportingOverflow(elementSize)
+        let (end, o3) = dataOffset.addingReportingOverflow(byteEnd)
+        guard !o1, !o2, !o3, end <= data.count else { throw DM4Error.truncated }
 
+        var out = [Float](repeating: 0, count: count * height * width)
+        let block = 32
+        // Which detector axis walks the file in the larger steps. A gather of
+        // fewer positions than one block has no cache line to reuse, and the
+        // pattern browser's single pattern touches every page of the file
+        // whatever the order — so there the loop follows STORAGE order (major
+        // stride outermost), which turns 215 040 random page touches into a
+        // sequential sweep. Measured on `Si-SiGe.dm4`: one pattern 3.7 s → 0.04 s.
+        let majorIsX = strides.qx >= strides.qy
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             guard let base = raw.baseAddress else { return }
-            func gather(_ value: (Int) -> Float) {
-                for outY in 0..<height {
-                    let sourceQY = cropY + outY
-                    for outX in 0..<width {
-                        let sourceQX = cropX + outX
-                        let element = sourceQX * detectorPlane
-                            + sourceQY * scanPlane + sourceY * rx + sourceX
-                        out[outY * width + outX] = value(dataOffset + element * elementSize)
+            let origin = base + dataOffset
+            func sweep<T>(_: T.Type, _ toFloat: (T) -> Float) {
+                out.withUnsafeMutableBufferPointer { out in
+                    let (majorCount, minorCount) = majorIsX ? (width, height) : (height, width)
+                    for major in 0..<majorCount {
+                        for minor in 0..<minorCount {
+                            let (outY, outX) = majorIsX ? (minor, major) : (major, minor)
+                            let element = (cropY + outY) * strides.qy + (cropX + outX) * strides.qx
+                            for p in 0..<count {
+                                out[(p * height + outY) * width + outX] = toFloat(origin.loadUnaligned(
+                                    fromByteOffset: (element + planeOffsets[p]) * MemoryLayout<T>.size,
+                                    as: T.self))
+                            }
+                        }
+                    }
+                }
+            }
+            func transpose<T>(_: T.Type, _ toFloat: (T) -> Float) {
+                if count < block { return sweep(T.self, toFloat) }
+                out.withUnsafeMutableBufferPointer { out in
+                    for outY in 0..<height {
+                        let rowBase = (cropY + outY) * strides.qy
+                        var x0 = 0
+                        while x0 < width {
+                            let x1 = min(x0 + block, width)
+                            var p0 = 0
+                            while p0 < count {
+                                let p1 = min(p0 + block, count)
+                                for p in p0..<p1 {
+                                    let sourceBase = rowBase + planeOffsets[p]
+                                    let outBase = (p * height + outY) * width
+                                    for outX in x0..<x1 {
+                                        let element = sourceBase + (cropX + outX) * strides.qx
+                                        out[outBase + outX] = toFloat(origin.loadUnaligned(
+                                            fromByteOffset: element * MemoryLayout<T>.size, as: T.self))
+                                    }
+                                }
+                                p0 = p1
+                            }
+                            x0 = x1
+                        }
                     }
                 }
             }
             switch imageDataType {
-            case 1:  gather { Float(base.loadUnaligned(fromByteOffset: $0, as: Int16.self)) }
-            case 10: gather { Float(base.loadUnaligned(fromByteOffset: $0, as: UInt16.self)) }
-            case 7:  gather { Float(base.loadUnaligned(fromByteOffset: $0, as: Int32.self)) }
-            case 11: gather { Float(base.loadUnaligned(fromByteOffset: $0, as: UInt32.self)) }
-            case 6:  gather { Float(base.loadUnaligned(fromByteOffset: $0, as: UInt8.self)) }
-            case 9:  gather { Float(base.loadUnaligned(fromByteOffset: $0, as: Int8.self)) }
-            case 2:  gather { base.loadUnaligned(fromByteOffset: $0, as: Float.self) }
-            case 12: gather { Float(base.loadUnaligned(fromByteOffset: $0, as: Double.self)) }
+            case 1:  transpose(Int16.self) { Float($0) }
+            case 10: transpose(UInt16.self) { Float($0) }
+            case 7:  transpose(Int32.self) { Float($0) }
+            case 11: transpose(UInt32.self) { Float($0) }
+            case 6:  transpose(UInt8.self) { Float($0) }
+            case 9:  transpose(Int8.self) { Float($0) }
+            case 2:  transpose(Float.self) { $0 }
+            case 12: transpose(Double.self) { Float($0) }
             default: break
             }
         }
-        return view.binned(out, patternCount: 1)
+        return out
     }
 
     /// True when a whole view scan row is one contiguous run of source bytes:
@@ -203,8 +298,22 @@ package actor DM4Reader: FourDDataSource {
         return try scanRow(view, viewY: scanY)
     }
 
+    /// The source positions of a run of view rows, in output order.
+    private func sourcePositions(_ view: LoadView, rows: Range<Int>) -> [(y: Int, x: Int)] {
+        rows.flatMap { viewY in
+            (0..<view.descriptor.rx).map { viewX in
+                (y: view.sourceScanY(viewY), x: view.sourceScanX(viewX))
+            }
+        }
+    }
+
     private func scanRow(_ view: LoadView, viewY: Int) throws -> [Float] {
         let sourceY = view.sourceScanY(viewY)
+        if storageLayout == .scanFastest {
+            return view.binned(
+                try scanFastestGather(view, positions: sourcePositions(view, rows: viewY..<(viewY + 1))),
+                patternCount: view.descriptor.rx)
+        }
         if rowsAreContiguous(view) {
             let rowPix = rx * qy * qx
             let raw = try decode(byteOffset: dataOffset + sourceY * rowPix * elementSize,
@@ -241,6 +350,12 @@ package actor DM4Reader: FourDDataSource {
                 + view.sourceScanY(lower) * rowPix * elementSize
             let raw = try decode(byteOffset: start, count: range.count * rowPix)
             pixels = view.binned(raw, patternCount: range.count * rx)
+        } else if storageLayout == .scanFastest {
+            // One pass for the whole tile: the blocked gather amortises each
+            // source cache line over every position in the tile.
+            pixels = view.binned(
+                try scanFastestGather(view, positions: sourcePositions(view, rows: range)),
+                patternCount: range.count * view.descriptor.rx)
         } else {
             var buffer = [Float]()
             buffer.reserveCapacity(
@@ -468,8 +583,9 @@ package actor DM4Reader: FourDDataSource {
 
             let shape: [Int]
             let layout: StorageLayout
+            let note: String?
             if dims.count >= 4 {
-                layout = try storageLayout(
+                (layout, note) = storageLayout(
                     objectPrefix: objectPrefix,
                     dimensionIndices: dimensionEntries.map(\.index)
                 )
@@ -488,6 +604,7 @@ package actor DM4Reader: FourDDataSource {
                       let scanY = scanShape("Scan shape Y") else { continue }
                 shape = [scanY, scanX, dims[1], dims[0]]
                 layout = .detectorFastest
+                note = nil
             } else {
                 continue
             }
@@ -519,10 +636,12 @@ package actor DM4Reader: FourDDataSource {
                 dtypeDescription: dtypeName(dtype),
                 chunkShape: nil)
 
+            calibrationNote = note
             extractCalibration(
                 objectPrefix: objectPrefix,
                 layout: layout,
-                dimensionIndices: dimensionEntries.map(\.index)
+                dimensionIndices: dimensionEntries.map(\.index),
+                pixelSizesTrusted: note == nil
             )
             return
         }
@@ -563,37 +682,47 @@ package actor DM4Reader: FourDDataSource {
     /// Infer axis roles from the dimension calibration rather than from size.
     /// Size is not a safe discriminator: a narrow detector can be smaller than
     /// a large scan. Missing/unknown units preserve the historical
-    /// detector-fastest interpretation for compatibility; contradictory known
-    /// domains are refused instead of silently swapping scientific axes.
+    /// detector-fastest interpretation for compatibility. Known units that
+    /// contradict each other (a mixed pair, or both pairs in one domain) also
+    /// fall back to that layout, but with the calibration DROPPED and the
+    /// reason returned as a note: the file opens, its pixel sizes do not.
+    ///
+    /// Newer GMS versions also write `ImageTags.Meta Data.Data Order Swapped`,
+    /// the tag LiberTEM's reader honours first; `Si-SiGe.dm4` (2018) lacks it,
+    /// so it is not yet read here (`open-items.md`).
     private func storageLayout(
         objectPrefix prefix: String, dimensionIndices: [Int]
-    ) throws -> StorageLayout {
-        guard dimensionIndices.count >= 4 else { return .detectorFastest }
+    ) -> (layout: StorageLayout, note: String?) {
+        guard dimensionIndices.count >= 4 else { return (.detectorFastest, nil) }
         let indices = Array(dimensionIndices.prefix(4))
         let units = indices.map {
             strings[prefix + "Calibrations.Dimension.\($0).Units"]
         }
-        func pairDomain(_ range: Range<Int>) throws -> AxisDomain? {
+        let contradiction = "Pixel calibration not imported: the DM file's axis units "
+            + "(\(units.map { $0 ?? "none" }.joined(separator: ", "))) do not name one "
+            + "real-space pair and one diffraction pair. Enter the pixel sizes by hand."
+        // nil: not fully known. A pair whose two known units disagree is a
+        // contradiction, reported through `contradictory`.
+        var contradictory = false
+        func pairDomain(_ range: Range<Int>) -> AxisDomain? {
             let domains = range.map { axisDomain(units[$0]) }
             guard domains.allSatisfy({ $0 != nil }) else { return nil }
             let known = Set(domains.compactMap { $0 })
-            guard known.count <= 1 else {
-                throw DM4Error.ambiguousAxisCalibration(units.map { $0 ?? "unknown" })
-            }
+            if known.count > 1 { contradictory = true }
             return known.first
         }
-        let leading = try pairDomain(0..<2)
-        let trailing = try pairDomain(2..<4)
-        guard let leading, let trailing else { return .detectorFastest }
-        guard leading != trailing else {
-            throw DM4Error.ambiguousAxisCalibration(units.map { $0 ?? "unknown" })
-        }
+        let leading = pairDomain(0..<2)
+        let trailing = pairDomain(2..<4)
+        if contradictory { return (.detectorFastest, contradiction) }
+        guard let leading, let trailing else { return (.detectorFastest, nil) }
+        guard leading != trailing else { return (.detectorFastest, contradiction) }
 
         // DEVIATION from py4DSTEM: read_dm.py blindly wraps ncempy's reversed
-        // shape as [Rx,Ry,Qx,Qy]. Gatan STEM-SI files can instead store
-        // fastest-first [Rx,Ry,Qy,Qx]; the calibration domains are the file's
+        // shape as [Rx,Ry,Qx,Qy], then drops the calibration when it finds
+        // real-space units on the first axis. Gatan STEM-SI files can instead
+        // store the scan pair fastest; the calibration domains are the file's
         // explicit evidence for which pair is scan versus diffraction.
-        return leading == .real ? .scanFastest : .detectorFastest
+        return (leading == .real ? .scanFastest : .detectorFastest, nil)
     }
 
     private func scanShape(_ needle: String) -> Int? {
@@ -604,22 +733,24 @@ package actor DM4Reader: FourDDataSource {
     private func extractCalibration(
         objectPrefix prefix: String,
         layout: StorageLayout,
-        dimensionIndices: [Int]
+        dimensionIndices: [Int],
+        pixelSizesTrusted: Bool
     ) {
         func scale(_ i: Int) -> Double? { numbers[prefix + "Calibrations.Dimension.\(i).Scale"] }
         func units(_ i: Int) -> String? {
             let u = strings[prefix + "Calibrations.Dimension.\(i).Units"]
             return (u?.isEmpty ?? true) ? nil : u
         }
-        guard dimensionIndices.count >= 3 else { return }
-        let leading = dimensionIndices[0]
-        let trailing = dimensionIndices[2]
-        let qIndex = layout == .detectorFastest ? leading : trailing
-        let rIndex = layout == .detectorFastest ? trailing : leading
-        qPixelSize = scale(qIndex)
-        qPixelUnits = units(qIndex)
-        rPixelSize = scale(rIndex)
-        rPixelUnits = units(rIndex)
+        if pixelSizesTrusted, dimensionIndices.count >= 3 {
+            let leading = dimensionIndices[0]
+            let trailing = dimensionIndices[2]
+            let qIndex = layout == .detectorFastest ? leading : trailing
+            let rIndex = layout == .detectorFastest ? trailing : leading
+            qPixelSize = scale(qIndex)
+            qPixelUnits = units(qIndex)
+            rPixelSize = scale(rIndex)
+            rPixelUnits = units(rIndex)
+        }
         for (key, value) in numbers where key.contains("Microscope Info.Voltage") {
             voltage = value; break
         }

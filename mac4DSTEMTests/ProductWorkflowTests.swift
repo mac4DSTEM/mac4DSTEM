@@ -526,12 +526,22 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
             for: .qScale, status: .missing
         ))
+        XCTAssertTrue(PrepareSettings.shouldShowManualScaleEditor(
+            for: .qScale, status: .ready(.importedFile)
+        ), "a file's Q calibration can be invalid (py4DSTEM read_dm.py); the user must be able to override it")
         XCTAssertFalse(PrepareSettings.shouldShowManualScaleEditor(
             for: .qScale, status: .ready(.measuredInApp)
         ))
         XCTAssertFalse(PrepareSettings.shouldShowManualScaleEditor(
             for: .rotation, status: .ready(.manual)
         ))
+        // The hover text says what an entry replaces, except when nothing is
+        // replaced or the value is already manual.
+        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .missing, otherwise: "fallback"), "fallback")
+        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .ready(.manual), otherwise: "fallback"), "fallback")
+        XCTAssertEqual(
+            PrepareSettings.manualScaleHelp(status: .ready(.importedFile), otherwise: "fallback"),
+            "Replaces the value imported from file; provenance becomes Manual.")
     }
 
     func testACOMRequiresExplicitMaterialAndPreservesScaleMeaning() {

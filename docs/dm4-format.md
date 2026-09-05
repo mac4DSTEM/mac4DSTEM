@@ -193,21 +193,30 @@ DM dims are **fastest-first**, but their roles are not fixed. Two true-4D
 layouts occur:
 
 - detector-fastest `[Qx,Qy,Rx,Ry]` → app shape `[Ry,Rx,Qy,Qx]`; one pattern is contiguous;
-- scan-fastest `[Rx,Ry,Qy,Qx]` → app shape `[Ry,Rx,Qy,Qx]`; raw C-order is
-  `[Qx,Qy,Ry,Rx]`, so one pattern must be gathered with strides.
+- scan-fastest (LiberTEM: "F/C-hybrid `(sig, nav)`") → every pattern is
+  strided across the whole blob; `DM4Reader.scanFastestGather` is a blocked
+  transpose. The reader currently maps the tags as `[Rx,Ry,Qy,Qx]`; whether
+  the detector pair is instead x-first (`[Rx,Ry,Qx,Qy]`, DM's convention
+  for the scan pair) is an open Gate D item.
 
 Infer the pair roles from calibration domains (`nm`/`µm`/Å = real,
-`1/nm`/`1/Å`/`mrad` = reciprocal), never from axis size. If both pairs are
-known but contradictory, refuse. If units are missing or unknown, preserve the
-historical detector-fastest interpretation. `Si-SiGe.dm4` is scan-fastest:
-tags `[17,77,448,480]` mean scan `77×17`, detector `448×480`.
+`1/nm`/`1/Å`/`mrad` = reciprocal), never from axis size. Units missing or
+unknown: legacy detector-fastest. Units known but contradictory: legacy
+layout, pixel sizes dropped, reason logged (`DM4Reader.calibrationNote`).
+Newer GMS also writes `ImageTags.Meta Data.Data Order Swapped` (1 = C order,
+which LiberTEM reads first); not yet honoured here. `Si-SiGe.dm4` (2018,
+no such tag) is scan-fastest: tags `[17,77,448,480]`, scan 17 wide × 77 tall
+(its survey `Spectrum Image Rect` is 202 × 895 px).
 
-**DEVIATION from py4DSTEM:** its generic DM path blindly wraps ncempy's reversed
-shape as DataCube axes and therefore swaps scan and diffraction for this
-Gatan STEM-SI layout. Shape agreement with py4DSTEM is not validation here.
+**DEVIATION from py4DSTEM:** its generic DM path wraps ncempy's reversed
+shape as DataCube axes, swapping scan and diffraction for this layout, and
+drops the calibration when it sees `nm` on the first axis. Shape agreement
+with py4DSTEM is not validation here.
 
 **3D "TitanX":** `(N_scan,Qy,Qx)`; recover `Rx/Ry` from `4D STEM Tags.Scan
-shape X/Y`. **2D** is an image, not a datacube.
+shape X/Y`. py4DSTEM also rolls the data by −2 pixels along axis 1 (a TitanX
+artefact); **this app does not** — an unported step, recorded here. **2D**
+is an image, not a datacube.
 
 **Selection heuristic (replicate):** pick the first object whose `squeeze(shape).ndim > 2`
 (skips a thumbnail at index 0 and any 2D survey image). `read_dm.py`:
@@ -309,7 +318,7 @@ calib  = { scale/units/origin per dim, reversed to axis order }   # §3.4
 - **Model:** a flat `[String: TagValue]` (path-joined) plus `[ImageObject]` capturing `{ dataOffset, byteCount, dataType, dims, calibrations }`. Calibration extraction is then a substring search over the map (mirrors ncempy `allTags`).
 - **Datacube handoff:** expose the mapped `Data` sub-range `[offset ..< offset+byteCount]` + `(Ry, Rx, Qy, Qx)` + dtype to the existing 4D pipeline. DM stores fastest-first C-order (Qx contiguous), so honoring the `(zSize2, zSize, ySize, xSize)` reshape yields `[Ry][Rx][Qy][Qx]` with no transpose.
 - **Robustness:** use the DM4 per-tag byte count to `seek` past unimplemented tags/types; guard `nFields`/`nTags`/`arrayLength` against absurd values.
-- **Port from py4DSTEM `read_dm.py`:** thumbnail skip, `ndim > 2` object selection, TitanX 3D→4D reshape (`Scan shape X/Y` + `-2` roll), and the Q-unit sanity/conversion logic.
+- **Ported from py4DSTEM `read_dm.py`:** thumbnail skip, `ndim > 2` object selection, TitanX 3D→4D reshape (`Scan shape X/Y`). **Not ported:** the TitanX `-2` roll (§3.3); the Q-unit conversion lives in `Calibration.swift`, not the reader.
 
 ### How it plugs into mac4DSTEM
 The reader produces `(mapped data range, dtype, [Ry,Rx,Qy,Qx], calibration)`. Two options:

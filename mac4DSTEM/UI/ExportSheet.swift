@@ -268,12 +268,12 @@ struct ExportSheet: View {
         if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
             for: item.kind, status: item.status
         ) {
-            readinessAction(for: item.kind)
+            readinessAction(for: item.kind, status: item.status)
         }
     }
 
     @ViewBuilder
-    private func readinessAction(for kind: CalibrationReadinessKind) -> some View {
+    private func readinessAction(for kind: CalibrationReadinessKind, status: CalibrationReadinessStatus) -> some View {
         switch kind {
         case .originProbe:
             Button("Measure Origin & Probe") {
@@ -307,7 +307,7 @@ struct ExportSheet: View {
                     units: appState.manualQPixelUnits,
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
-                    help: "Or enter the reciprocal pixel size by hand.",
+                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: "Or enter the reciprocal pixel size by hand."),
                     onChange: appState.setManualQPixelSize,
                     onUnitChange: appState.setManualQPixelUnits
                 )
@@ -319,7 +319,7 @@ struct ExportSheet: View {
                     units: appState.manualQPixelUnits,
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
-                    help: qScaleUnavailableReason,
+                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: qScaleUnavailableReason),
                     onChange: appState.setManualQPixelSize,
                     onUnitChange: appState.setManualQPixelUnits
                 )
@@ -333,7 +333,7 @@ struct ExportSheet: View {
                 units: appState.manualRPixelUnits,
                 unitOptions: CalibrationUnitConversion.editableRealUnits,
                 identifier: "calibration.action.rManual",
-                help: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters.",
+                help: PrepareSettings.manualScaleHelp(status: status, otherwise: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters."),
                 onChange: appState.setManualRPixelSize,
                 onUnitChange: appState.setManualRPixelUnits
             )

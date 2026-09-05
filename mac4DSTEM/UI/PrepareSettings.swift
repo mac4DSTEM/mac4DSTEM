@@ -36,10 +36,14 @@ struct PrepareSettings: View {
         excluded > Calibration.excludedFractionDisclosureFloor
     }
 
-    /// Manual Q/R editing must remain reachable after the value becomes ready.
-    /// R has no measurement path in this app, while Q has a separate crystal
-    /// measurement path; a measured or imported Q value should not be silently
-    /// replaced by a second editor.
+    /// Manual Q/R editing stays reachable after the value becomes ready, for
+    /// every provenance but one. R has no measurement path in this app. Q's
+    /// imported value is exactly the one worth overriding — py4DSTEM's own DM
+    /// reader documents Gatan files whose calibration is invalid — and a
+    /// restored session value must not lock its editor either (the 2026-09-05
+    /// first cut did both, and two tests committed against it were red). Only
+    /// a Q measured in the app from a known crystal keeps the field away: that
+    /// number was earned here, and overriding it is a re-measure, not a typo.
     static func shouldShowManualScaleEditor(
         for kind: CalibrationReadinessKind,
         status: CalibrationReadinessStatus
@@ -48,12 +52,18 @@ struct PrepareSettings: View {
         case .rScale:
             return true
         case .qScale:
-            if !status.isReady { return true }
-            if case .ready(.manual) = status { return true }
-            return false
+            if case .ready(.measuredInApp) = status { return false }
+            return true
         case .originProbe, .ellipse, .rotation:
             return false
         }
+    }
+
+    /// The manual field's hover text: what entering a value does to the value
+    /// already there, so an imported or restored scale is overridden knowingly.
+    static func manualScaleHelp(status: CalibrationReadinessStatus, otherwise: String) -> String {
+        guard case .ready(let provenance) = status, provenance != .manual else { return otherwise }
+        return "Replaces the value \(provenance.rawValue.lowercased()); provenance becomes Manual."
     }
 
     private var report: CalibrationReadinessReport {
@@ -284,12 +294,12 @@ struct PrepareSettings: View {
         if !item.status.isReady || Self.shouldShowManualScaleEditor(
             for: item.kind, status: item.status
         ) {
-            readinessAction(for: item.kind)
+            readinessAction(for: item.kind, status: item.status)
         }
     }
 
     @ViewBuilder
-    private func readinessAction(for kind: CalibrationReadinessKind) -> some View {
+    private func readinessAction(for kind: CalibrationReadinessKind, status: CalibrationReadinessStatus) -> some View {
         switch kind {
         case .originProbe:
             Button("Measure Origin & Probe") {
@@ -323,7 +333,7 @@ struct PrepareSettings: View {
                     units: appState.manualQPixelUnits,
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
-                    help: "Or enter the reciprocal pixel size by hand.",
+                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: "Or enter the reciprocal pixel size by hand."),
                     onChange: appState.setManualQPixelSize,
                     onUnitChange: appState.setManualQPixelUnits
                 )
@@ -335,7 +345,7 @@ struct PrepareSettings: View {
                     units: appState.manualQPixelUnits,
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
-                    help: qScaleUnavailableReason,
+                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: qScaleUnavailableReason),
                     onChange: appState.setManualQPixelSize,
                     onUnitChange: appState.setManualQPixelUnits
                 )
@@ -349,7 +359,7 @@ struct PrepareSettings: View {
                 units: appState.manualRPixelUnits,
                 unitOptions: CalibrationUnitConversion.editableRealUnits,
                 identifier: "calibration.action.rManual",
-                help: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters.",
+                help: PrepareSettings.manualScaleHelp(status: status, otherwise: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters."),
                 onChange: appState.setManualRPixelSize,
                 onUnitChange: appState.setManualRPixelUnits
             )

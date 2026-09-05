@@ -2438,6 +2438,12 @@ final class AppState {
         calibrationSession.calibration = Calibration()
         calibrationSession.provenance = CalibrationProvenance()
         clearSupersededFittedOrigin()
+        // A DM4 whose axis units cannot be trusted opens WITHOUT its pixel
+        // sizes, and the reason goes to the log — the status line is what the
+        // log records — so the empty readiness rows are explained, not mute.
+        if let dm4 = reader as? DM4Reader, let note = await dm4.calibrationNote {
+            statusText = note
+        }
         // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
             var rSize = pc.rSize

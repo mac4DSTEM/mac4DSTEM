@@ -84,3 +84,23 @@ The entry's second half — `exportableRecipe` refusing rather than composing
 across frames — is NOT closed. It was never a wrong number: the archive records
 it as an S10 decision with the reason surfaced in the export status line. It
 stays live under "Known, scoped, not blocking".
+
+---
+
+## Scan-fastest DM4 tile reads traverse the mapping out of storage order — closed 2026-09-05
+
+> The 2026-09-05 Gate B measured `Si-SiGe.dm4` at 4.17 s for one scan row and
+> 17.01 s for a full tile, warm: the strided read visited detector pixels
+> pattern by pattern, a 1.2 MB stride per pixel.
+
+**Closure.** `DM4Reader.scanFastestGather` is a blocked transpose (32
+detector columns × 32 scan positions per block) for tiles, and a storage-order
+sweep for fewer positions than a block. Same file, same machine, probe
+compiled with `-O` (`scratchpad/dm4-probe-20260905.log`): pattern 0.044 s,
+row 0.06 s, full tile 0.94 s, checksum of pattern (ry 1, rx 2) unchanged at
+5877300012132 and equal to ncempy's under the same axis model. Pinned by
+`tools/dm4-robustness-test` (`testScanFastestBlockedGather`: 45 positions,
+70 columns, cropped and binned, against the analytic storage formula); four
+mutants — strides swapped, the blocked path reading one position for all,
+the sweep ignoring the crop offset, the units contradiction ignored — each
+failed the harness before the tests were trusted.

@@ -336,16 +336,22 @@ checked before canonical probes, and the legacy string-label rule is confined
 to the pinned `data/diffractionslices` subtree.
 
 **2026-09-05 — DM4 calibration domains decide which axis pair is scan.** DM
-dimension tags are fastest-first, but Gatan writes both detector-fastest
-`[Qx,Qy,Rx,Ry]` and scan-fastest `[Rx,Ry,Qy,Qx]` cubes. Axis sizes cannot
-distinguish them. A real-space unit pair (`nm`, `µm`, Å) and a reciprocal pair
-(`1/nm`, `1/Å`, `mrad`) are explicit evidence, so the reader uses those domains
-and refuses contradictory known pairs. Missing or unknown units preserve the
-legacy detector-fastest interpretation for compatibility. This deliberately
-deviates from py4DSTEM's generic DM importer, which blindly assigns ncempy's
-reversed array axes and swaps the included `Si-SiGe.dm4`. DM4 now reports no
-crop-I/O pushdown because either axis pair may be contiguous; reduced views
-still save conversion and resident memory.
+dimension tags are fastest-first, but Gatan writes both detector-fastest and
+scan-fastest cubes (LiberTEM's "F/C-hybrid `(sig, nav)`" layout), and axis
+sizes cannot tell them apart. A real-space unit pair (`nm`, `µm`, Å) and a
+reciprocal pair (`1/nm`, `1/Å`, `mrad`) are explicit evidence, so the reader
+uses those domains. Missing or unknown units keep the legacy detector-fastest
+interpretation. Amended the same day after independent review: units that
+contradict each other (a mixed pair, or both pairs in one domain — py4DSTEM's
+documented "invalid calibration" case) no longer REFUSE the file; the cube
+opens detector-fastest with no pixel sizes and the reason in the log, because
+a wrong calibration is the user's to override and a closed file is not. This
+deviates from py4DSTEM's generic DM importer, which wraps ncempy's reversed
+axes blindly and loads `Si-SiGe.dm4` swapped. Which detector axis is x inside
+the scan-fastest pair is NOT decided here — `open-items.md`, Gate D owed.
+`loadPushdown` reads the parsed layout through a lock cell: `.scanOnly` for
+detector-fastest files as before, `.none` for scan-fastest, where every
+pattern spans the whole blob.
 
 **2026-09-03 — The run functions stay on `AppState` (7c 4b).** `runACOM`,
 `applyACOMDisplay` and `runStrainMapping` each reach ~20 `AppState` members

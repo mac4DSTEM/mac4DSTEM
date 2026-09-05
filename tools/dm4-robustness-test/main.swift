@@ -369,8 +369,78 @@ func testUnlabeledDetectorMajorEntries(in dir: URL) async throws {
     print("PASS: unlabeled detector-major entries preserve axes, calibration, and pixels")
 }
 
-/// Four known real-space units cannot identify a diffraction pair. The reader
-/// must refuse this conflict rather than guess from the small dimensions.
+/// The scan-fastest read has two code paths: a storage-order sweep for fewer
+/// positions than one block (32) and a blocked transpose above that. The
+/// fixture above never has 32 positions, so this one does — 45 positions,
+/// 70 detector columns, so both loops see full blocks AND remainders — and
+/// checks every read against the analytic storage formula, with and without
+/// a scan crop, a detector crop and binning. Values are generated in raw
+/// storage order, independently of the reader's index code.
+func testScanFastestBlockedGather(in dir: URL) async throws {
+    let (rx, ry, qy, qx) = (9, 5, 3, 70)
+    func value(qx x: Int, qy y: Int, ry sy: Int, rx sx: Int) -> UInt16 {
+        UInt16(((x * qy + y) * (ry * rx)) + sy * rx + sx)
+    }
+    var pixels = ByteWriter()
+    for x in 0..<qx { for y in 0..<qy { for sy in 0..<ry { for sx in 0..<rx {
+        pixels.u16le(value(qx: x, qy: y, ry: sy, rx: sx))
+    } } } }
+    let labels = ["1", "2", "3", "4"]
+    let cube = imageDataObject(
+        rawDimensions: [Int32(rx), Int32(ry), Int32(qy), Int32(qx)],
+        dataType: 10, arrayElementType: 4, dimensionLabels: labels,
+        calibration: calibrationDimensions(
+            labels: labels, scales: [1, 1, 1, 1], units: ["nm", "nm", "1/nm", "1/nm"]),
+        dataLength: UInt64(rx * ry * qy * qx), dataPayload: pixels.bytes)
+    let url = dir.appendingPathComponent("scan-fastest-blocked.dm4")
+    try writeFixture(dm4Header() + groupHeader(nTags: 1) + cube, to: url)
+
+    let reader = try await DM4Reader(path: url.path)
+    let ds = try await reader.discoverPrimaryDataset()
+    guard ds.shape == [ry, rx, qy, qx] else { fail("blocked gather: shape \(ds.shape)") }
+    guard reader.loadPushdown(for: LoadView(fullExtentOf: ds)) == .none else {
+        fail("blocked gather: scan-fastest storage must not claim a scan-crop seek")
+    }
+    func expected(_ view: LoadView, rows: Range<Int>) -> [Float] {
+        let crop = view.readDetectorCrop
+        let (cy, cx) = (crop?.yOffset ?? 0, crop?.xOffset ?? 0)
+        let (h, w) = (crop?.height ?? qy, crop?.width ?? qx)
+        let bin = view.specification.detectorBin
+        return rows.flatMap { viewY in (0..<view.descriptor.rx).flatMap { viewX in
+            (0..<(h / bin)).flatMap { oy in (0..<(w / bin)).map { ox -> Float in
+                var sum: Float = 0
+                for dy in 0..<bin { for dx in 0..<bin {
+                    sum += Float(value(qx: cx + ox * bin + dx, qy: cy + oy * bin + dy,
+                                       ry: view.sourceScanY(viewY), rx: view.sourceScanX(viewX)))
+                } }
+                return sum
+            } }
+        } }
+    }
+    let full = LoadView(fullExtentOf: ds)
+    let reduced = try LoadView(source: ds, specification: LoadSpecification(
+        scanCrop: AxisCrop(yOffset: 1, xOffset: 2, height: 4, width: 6),
+        detectorCrop: AxisCrop(yOffset: 1, xOffset: 3, height: 2, width: 65),
+        detectorBin: 2))
+    for (name, view) in [("full", full), ("reduced", reduced)] {
+        let tile = try await reader.readScanTile(view, yRange: 0..<view.descriptor.ry)
+        guard tile.pixels == expected(view, rows: 0..<view.descriptor.ry) else {
+            fail("blocked gather: \(name) tile disagrees with the storage formula")
+        }
+        let row = try await reader.readScanRow(view, ry: 1)
+        guard row == expected(view, rows: 1..<2) else { fail("blocked gather: \(name) row") }
+        let pattern = try await reader.readPattern(view, ry: 2, rx: 1)
+        guard pattern == Array(expected(view, rows: 2..<3).dropFirst(pattern.count).prefix(pattern.count)) else {
+            fail("blocked gather: \(name) pattern")
+        }
+    }
+    print("PASS: scan-fastest blocked and sweep gathers agree with the storage formula, cropped and binned")
+}
+
+/// Four known real-space units cannot identify a diffraction pair — py4DSTEM's
+/// documented "invalid calibration" case. The cube must still OPEN, in the
+/// legacy detector-fastest layout, with no pixel sizes and a note saying why;
+/// the first cut refused the whole file, and a closed file cannot be corrected.
 func testContradictoryAxisCalibration(in dir: URL) async throws {
     var pixels = ByteWriter()
     for i in 0..<16 { pixels.i16le(Int16(i)) }
@@ -387,14 +457,23 @@ func testContradictoryAxisCalibration(in dir: URL) async throws {
     let url = dir.appendingPathComponent("contradictory-axes.dm4")
     try writeFixture(body, to: url)
 
-    do {
-        _ = try await DM4Reader(path: url.path)
-        fail("contradictory axes: reader guessed an axis layout")
-    } catch DM4Error.ambiguousAxisCalibration {
-        print("PASS: contradictory known axis units refuse instead of guessing")
-    } catch {
-        fail("contradictory axes: wrong error \(error)")
+    let reader = try await DM4Reader(path: url.path)
+    let ds = try await reader.discoverPrimaryDataset()
+    guard ds.shape == [2, 2, 2, 2] else { fail("contradictory axes: shape \(ds.shape)") }
+    guard await reader.pixelCalibration() == nil else {
+        fail("contradictory axes: an undecidable calibration was imported")
     }
+    guard let note = await reader.calibrationNote, note.contains("nm, nm, nm, nm") else {
+        fail("contradictory axes: no note naming the units")
+    }
+    guard reader.loadPushdown(for: LoadView(fullExtentOf: ds)) == .scanOnly else {
+        fail("contradictory axes: legacy layout must report the scan-crop seek")
+    }
+    let pattern = try await reader.readPattern(LoadView(fullExtentOf: ds), ry: 1, rx: 1)
+    guard pattern == [12, 13, 14, 15] else {
+        fail("contradictory axes: legacy layout pixels \(pattern)")
+    }
+    print("PASS: contradictory known axis units open detector-fastest with the calibration dropped and a note")
 }
 
 /// One labelled axis does not establish a pair. Partial metadata must retain
@@ -496,6 +575,7 @@ func testDeepNesting(in dir: URL) async throws {
 
         try await testValid(in: workDir)
         try await testUnlabeledDetectorMajorEntries(in: workDir)
+        try await testScanFastestBlockedGather(in: workDir)
         try await testContradictoryAxisCalibration(in: workDir)
         try await testPartiallyMissingAxisCalibration(in: workDir)
         try await testTruncated(in: workDir)

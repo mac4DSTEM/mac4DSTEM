@@ -334,15 +334,20 @@ volume disappears mid-read. Needs a CI fixture (disk image on internal
 disk reproduces `MNT_REMOVABLE` with no external hardware). **The
 original 2026-08-18 8GB-machine death that motivated this is still NOT
 explained** — the mechanism is real and worth fixing but not established
-as that incident's cause. The 2026-09-05 axis/order fix does not alter this
-mapping behavior. Owner: a later session, Gate B.
+as that incident's cause. Owner: a later session, Gate B.
 
-### Scan-fastest DM4 tile reads traverse the mapping out of storage order
-The 2026-09-05 Gate B measured `Si-SiGe.dm4` at 4.17 s for one scan row and
-17.01 s for a full tile, warm. Correct strided reads visit detector pixels
-pattern by pattern; a sequential raw-order gather/transpose would be more
-cache-friendly. Correctness is pinned and the example is usable, but cold or
-memory-constrained volumes may be slower. Owner: DM4 performance follow-up.
+### Scan-fastest DM4 detector pair may be transposed — Gate D owed
+`Si-SiGe.dm4` stores its scan pair fastest; the reader maps the tags as
+`[Rx, Ry, Qy, Qx]`, a pattern 480 wide × 448 tall. DM's convention, which the
+same code applies to the scan pair (survey `Spectrum Image Rect` 202 × 895 px
+= 17 wide × 77 tall confirms it) and to detector-fastest files, is x first:
+dim 3 = 448 = width. Nothing in the 2026-09-05 commit justifies the
+asymmetry; its fixture was generated from the code's own model. A transposed
+pattern silently flips strain axes and the R–Q rotation. Owed: the owner
+reads the pattern's width and height in GMS. If 448 wide: flip
+`DM4Reader.scanFastestStrides` and the scan-fastest shape line, then pin a
+checksum from ncempy's raw array on the real file. Residual: honour newer
+GMS's `Meta Data.Data Order Swapped` tag (LiberTEM reads it first).
 
 ### The open/promote unwind is sixfold, and Cancel can vanish mid-load
 Corrected 2026-09-04. **Six begin/finish brackets, not three**: `openFileAsync`,
@@ -526,26 +531,17 @@ first. **What is left is the drive**: this is unverified on screen, and only a
 real dataset exercises it — the demo cube finishes faster than the one-second
 tick. Owner: the owner's drive.
 
-### Manual Q and R pixel scale cannot be corrected once entered
+### Manual Q and R pixel scale cannot be corrected once entered — fixed in code, drive owed
 Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel
-size, the readiness row turns green — and the entry field disappears with it,
-so a typo is permanent for the session. Mechanism: the readiness rows render
-their action controls only `if !item.status.isReady`
-(`PrepareSettings.swift:251`; the `UI/CalibrationReadinessView.swift` this
-entry used to cite was deleted in `d5786e2`). The code names `.rScale` as
-"the one calibration with no measurement path in the app"
-(`PrepareSettings.swift:318`), so whether `.qScale` is equally trapped is
-worth checking rather than assuming. A wrong R scale silently
-rescales every real-space axis, scale bar and export, so this is a trust
-defect, not an inconvenience. **Code fix 2026-09-05:** the shared
-`PrepareSettings.shouldShowManualScaleEditor` policy keeps R editable for every
-provenance and Q editable when missing or manual; both Prepare and ExportSheet
-use it. The setter-to-readiness path and policy are pinned by two focused tests.
-Independent review found the first implementation missed ExportSheet and the
-post-unit-change provenance path; both gaps are corrected here.
-Still open: owner must drive the current build and verify the fields remain
-visible and editable in both surfaces; no headless test can close that visual
-claim.
+size, the row turns green and the field disappears with it. A wrong R scale
+silently rescales every real-space axis, scale bar and export, so this is a
+trust defect. **Code fix 2026-09-05** (second cut; the first locked a restored
+session value and an imported Q, and committed two red tests against
+itself): `PrepareSettings.shouldShowManualScaleEditor` keeps R editable
+always and Q editable for every provenance except measured-in-app, with the
+hover text naming the value an entry replaces; Prepare and ExportSheet share
+it, three unit tests pin it. Owed: the owner drives both surfaces and sees
+the fields stay visible and editable after the row is green.
 
 ### `calibration.*` identifiers exist twice while the export sheet is open
 `ExportSheet` re-renders the readiness rows, so `calibration.readiness`,

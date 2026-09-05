@@ -1,19 +1,29 @@
 # Changelog
 
-## Unreleased — next v2.5.x patch
-
-- **Gatan STEM-SI DM4 axes now load in their calibrated roles.** Empty DM tag
-  labels are resolved by physical sibling position, so the included
-  `Si-SiGe.dm4` is discovered. Its calibration identifies the leading pair as
-  real space and the trailing pair as diffraction space; the app now reports
-  scan `77 × 17`, detector `448 × 480`, and gathers the file's strided
-  diffraction patterns correctly. Previously the previews visibly showed
-  diffraction spots under “Scan — real space” and the scan image under
-  “Diffraction.” Missing axis units keep the compatible legacy layout;
-  contradictory known units are refused rather than guessed.
-
 ## Unreleased — the v2.6.0 science lane
 
+- **Gatan STEM-SI DM4 files open with their axes in the calibrated roles.**
+  Empty DM tag labels are resolved by physical sibling position (ncempy's
+  rule), so the included `Si-SiGe.dm4` is discovered at all. Its calibration
+  units name the leading pair real space and the trailing pair diffraction
+  space, and the reader now uses that, so the file loads as a 77 × 17 scan of
+  448 × 480 patterns with 2 nm and 0.062 nm⁻¹ pixels; before, the previews
+  showed diffraction spots under "Scan" and the scan under "Diffraction", and
+  py4DSTEM's reader loads the same file swapped, with pixel units (inline
+  `DEVIATION`). **Whether the pattern's x and y are the right way round for
+  this layout is not yet established** — the tags' x-first convention says
+  448 wide, the reader currently says 480 wide — and is a Gate D item in
+  `docs/open-items.md` awaiting the owner's GMS observation. A full-cube read
+  of that file went from 19 s to under a second (a blocked transpose replaced
+  the pattern-at-a-time gather). A DM4 whose four axis units cannot name one
+  real and one reciprocal pair opens in the legacy layout with NO pixel
+  sizes and a logged reason, instead of being refused. Ordinary
+  detector-fastest DM4 files report their scan-crop pushdown again.
+- **Manual Q and R pixel scales stay editable.** The field no longer vanishes
+  when its row turns green: R is always editable, and Q is editable for every
+  provenance except a value measured in the app from a known crystal, with
+  the hover text saying which value an entry replaces. Both Prepare and the
+  export sheet share the rule (`PrepareSettings.shouldShowManualScaleEditor`).
 - **Discovery no longer takes any rank-3 array for a datacube.** py4DSTEM
   stacks (a strain map, a probe stack, any `_labels_` array) and this app's
   saved RGBA maps are refused by their own labels wherever they sit, and a
