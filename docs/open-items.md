@@ -128,30 +128,16 @@ rule violation): the app subtracts each ring's mean where py4DSTEM leaves
 that line commented out. Owner: S16 successor / whoever next touches ACOM
 weighting.
 
-### UI review (Fable, 2026-09-04) — labels that can misstate a number
-Independent review of `UI/`. Nothing found was a wrong computed value; every
-finding is a LABEL on a correct one. **(a) and (c) fixed 2026-09-04**, the rest
-open. (a) *Axis order and the letter q meant different things on one screen* —
-FIXED: the file's own order is `[Ry, Rx, Qy, Qx]`, so the app's `rx`/`qx` ARE
-the columns; UI now prints columns × rows everywhere with `Rx × Ry` /
-`Qx × Qy` labels, and the one place showing py4DSTEM's opposite convention
-(whose `qx` is the rows) says "py4DSTEM" on screen instead of two bare glyphs.
-(c) *Byte sizes in two bases under one label* — FIXED: UI had three
-formatters (two hand-rolled 1024-based ones disagreeing on precision, plus
-`ByteCountFormatter(.file)` at 1000), so one cube read 4.00 GB in Info and
-4.29 GB in the export sheet; one helper now, Finder's style. STILL OPEN:
-(b) "Current scan position ▸ Pattern min/max" is not that position's pattern
-in Mean/Max/ROI mode (`WorkspaceInspector`, `AppState.swift:1302`) — the only ROI-sum
-flag is in the pane header, one tab away. (d) The A/B/A−B comparison draws
-three panels at 0…1 with no colorbar, range or zero mark on a symmetric RdBu
-difference (`ResultsWorkspace.swift:186`). (e) The cursor readout prints a raw Float,
-seven-plus digits, beside a badge that may say Exploratory (`ImagePanes.swift:389`,
-`DisplayedProduct.swift:161`). (f) Staleness has two verdicts: the sidebar's
-green check ignores `diskDetectionSettingsAreStale` by design while the
-inspector and pane both flag it, and Strain/ACOM rows stay green on stale
-vectors. Minor: the scale bar can print a physical sampling labelled "px" when
-`pixel.units` is nil (`ImagePanes.swift:713`); disks draw at an invented
-`probeRadius ?? 3` with no kernel (`:152`). Owner: (b), (d), (e), (f) unclaimed.
+### UI review (Fable, 2026-09-04) — labels that can misstate a number — fixed in code, drive owed
+Nothing found was a wrong computed value; every finding was a LABEL on a
+correct one. (a) axis order and (c) byte sizes fixed 2026-09-04; (b) pattern
+statistics named for what is on screen, (d) comparison panels carry a
+colorbar with range, units and a zero mark, (e) the cursor readout prints
+four significant digits, (f) one staleness verdict (`TaskProductState`) on
+the sidebar, the inspector and the maps computed from stale disks, plus the
+two minors (no "px" under a physical sampling; no invented disk radius
+without a kernel) — all 2026-09-05, six unit tests, **unverified on
+screen**. Owner: the owner's drive.
 
 ## Verification debt
 
@@ -258,9 +244,9 @@ not patch findings 1/4/5/7 on the current facade — they wait on the
 architecture seams.
 
 ### UI polish list from the same review
-Not trust defects; the Mac-ness gap. Ranked by the reviewer: layout is not
-remembered (pane divider resets on every trip to Results, log height is
-per-window `@State`; `@SceneStorage` for both); the Info tab carries seven
+Not trust defects; the Mac-ness gap. Ranked by the reviewer: the log height
+is per-window `@State` (`@SceneStorage`; the pane divider got it 2026-09-05);
+the Info tab carries seven
 ACTIONS against its own descriptive contract (Reopen, Ignore…, Change…, Remove
 per result, Apply Saved Controls, Release cube); two per-body costs (the output
 log re-diffs every line and scrolls on each append; the validity row reduces
@@ -503,19 +489,15 @@ Performance rows still tick per second, inside a scroll view rather than a
 size-setting inset. The 12 bare `.fixedSize()` sites left in `UI/` are now
 audited — see the entry below. Owner: unclaimed.
 ### `PaneSplit` residuals from the refuter
-(a) **Header overflow at a narrow window.** `HSplitView` refused to shrink a
-child below its minimum; `.frame(width:)` proposes a width and lets the child
-overdraw. A pane header is ~420 pt of `.fixedSize()` controls, and at the
-app's 1080 pt floor with both side columns wide each pane gets ~260–300 pt.
-Mitigated only — the pane now `.clipped()`s so it cannot overprint its
-neighbour; the header still needs to become compressible. Predicted, not seen
-on screen. (b) **The image floor lapses below 2× itself**: the divider
-fraction saturates at 0.5 under ~360 pt of usable width, and UI declares no
-detail-column minimum at all where the retired AppKit UI had `SplitViewPolicy.detailMinimum`
-= 360. Adding one is exactly the change most likely to re-arm the crash while
-the mechanism is unestablished, so it is recorded rather than made.
-(c) The divider position resets to centre whenever the workspace branch is
-rebuilt (`HSplitView` did too). Owner: with (a) above.
+(a) header overflow and (c) the divider resetting to centre are closed in
+code 2026-09-05 (`ViewThatFits` headers with an overflow menu; the fraction
+in `@SceneStorage`), **unverified on screen**. (b) **The image floor lapses
+below 2× itself**: the fraction saturates at 0.5 under ~360 pt of usable
+width, and UI declares no detail-column minimum where the retired AppKit UI
+had `SplitViewPolicy.detailMinimum` = 360. SwiftUI offers no detail-column
+minimum short of the window's own floor, and announcing one from inside the
+split is the constraint-loop shape; recorded, not made. Owner: with the
+owner's drive.
 
 ### Status-bar elapsed / throughput / ETA — rebuilt, NOT yet driven
 Owner, 2026-09-04: those three numbers belong beside the progress bar, not

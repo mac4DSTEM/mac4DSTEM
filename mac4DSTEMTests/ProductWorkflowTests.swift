@@ -544,6 +544,34 @@ final class ProductWorkflowTests: XCTestCase {
             "Replaces the value imported from file; provenance becomes Manual.")
     }
 
+    /// UI review 2026-09-04, finding (f): the sidebar's check and the
+    /// inspector's rows must give ONE verdict on stale disk settings, and the
+    /// maps computed from the disks inherit it.
+    func testProductStateIsOneVerdictAcrossSurfaces() {
+        XCTAssertEqual(ProductWorkflow.productState(for: .disks, hasProduct: false, diskSettingsStale: true), .none,
+                       "no product is no product, whatever the settings did")
+        XCTAssertEqual(ProductWorkflow.productState(for: .disks, hasProduct: true, diskSettingsStale: false), .current)
+        XCTAssertEqual(ProductWorkflow.productState(for: .disks, hasProduct: true, diskSettingsStale: true), .staleDiskSettings)
+        XCTAssertEqual(ProductWorkflow.productState(for: .strain, hasProduct: true, diskSettingsStale: true), .staleDiskSettings,
+                       "a strain map computed from stale disks must not stay green")
+        XCTAssertEqual(ProductWorkflow.productState(for: .acom, hasProduct: true, diskSettingsStale: true), .staleDiskSettings)
+        XCTAssertEqual(ProductWorkflow.productState(for: .virtualDetector, hasProduct: true, diskSettingsStale: true), .current,
+                       "a virtual image does not depend on the disks")
+        XCTAssertEqual(ProductWorkflow.productState(for: .dpc, hasProduct: true, diskSettingsStale: true), .current)
+        XCTAssertFalse(TaskProductState.none.isProduced)
+        XCTAssertTrue(TaskProductState.staleDiskSettings.isProduced)
+    }
+
+    /// Finding (b): "Pattern min" under "Current scan position" must name a
+    /// mean, a max or a region sum when that is what is on screen.
+    func testPatternSourceNounNamesWhatIsOnScreen() {
+        XCTAssertEqual(PatternSourceLabel.noun(mode: .current, roiSummed: false), "Pattern")
+        XCTAssertEqual(PatternSourceLabel.noun(mode: .current, roiSummed: true), "ROI-sum pattern")
+        XCTAssertEqual(PatternSourceLabel.noun(mode: .mean, roiSummed: false), "Mean pattern")
+        XCTAssertEqual(PatternSourceLabel.noun(mode: .max, roiSummed: true), "Max pattern",
+                       "Mean and Max are whole-scan statistics; a region never sums into them")
+    }
+
     func testACOMRequiresExplicitMaterialAndPreservesScaleMeaning() {
         let state = AppState()
         XCTAssertEqual(state.acomSession.modelSelection, .none)

@@ -620,13 +620,20 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
     @ViewBuilder var leading: () -> Leading
     @ViewBuilder var trailing: () -> Trailing
 
-    /// The divider's position as a fraction of the usable width. View-local:
-    /// it is where a divider sits, not app state — and it resets to centre
-    /// whenever this branch of the workspace is rebuilt (a load, a trip to
-    /// Results). `HSplitView` behaved the same way, so this is not a
-    /// regression, but it is not "remembered" either.
-    @State private var fraction: CGFloat = 0.5
+    /// The divider's position as a fraction of the usable width. Where a
+    /// divider sits is window state, not app state, so it lives in the
+    /// scene's own storage: it survives this branch being rebuilt (a load, a
+    /// trip to Results) and the window being reopened, and each window keeps
+    /// its own. As `@State` it reset to centre on every rebuild — the
+    /// `PaneSplit` residual (c) and the first item of the UI polish list
+    /// (`open-items.md`), closed 2026-09-05.
+    @SceneStorage("workspace.paneSplit.fraction") private var storedFraction: Double = 0.5
     @State private var fractionAtDragStart: CGFloat?
+
+    private var fraction: CGFloat {
+        get { CGFloat(storedFraction) }
+        nonmutating set { storedFraction = Double(newValue) }
+    }
 
     private static var dividerWidth: CGFloat { 1 }
 

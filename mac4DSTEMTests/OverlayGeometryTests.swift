@@ -82,6 +82,38 @@ final class OverlayGeometryTests: XCTestCase {
         XCTAssertEqual(zeroBox.x, 0)
         XCTAssertEqual(zeroBox.y, 0)
     }
+
+    // MARK: - Minor findings of the 2026-09-04 UI review
+
+    /// Without a probe kernel there is no radius to draw — the overlay used to
+    /// invent 3 px and circle every peak with it.
+    func testNoProbeKernelMeansNoDiskRadius() {
+        // This file's second class has no shared box; the numbers are the
+        // first class's: 512 pt for 128 px.
+        let box = CGSize(width: 512, height: 512)
+        XCTAssertNil(PeakOverlayGeometry.radius(
+            probeRadius: nil, patternWidth: 128, patternHeight: 128, box: box))
+        XCTAssertNil(PeakOverlayGeometry.radius(
+            probeRadius: 0, patternWidth: 128, patternHeight: 128, box: box))
+        XCTAssertEqual(PeakOverlayGeometry.radius(
+            probeRadius: 2, patternWidth: 128, patternHeight: 128, box: box), 8,
+            "512 pt / 128 px = 4 pt per pixel, so a 2 px radius is 8 pt")
+    }
+
+    /// A sampling with no unit is not a physical sampling: the scale bar
+    /// falls back to pixels rather than printing the number under "px".
+    func testTheScaleBarNeverLabelsAPhysicalSamplingAsPixels() {
+        let unitless = ScaleBar.footerSampling(row: 2.5, column: 2.5, units: nil, swapsAxes: false)
+        XCTAssertEqual(unitless.perPixel, 1)
+        XCTAssertEqual(unitless.label, "px")
+        let physical = ScaleBar.footerSampling(row: 3, column: 2, units: "nm", swapsAxes: false)
+        XCTAssertEqual(physical.perPixel, 2, "the bar is horizontal, so it measures the column sampling")
+        XCTAssertEqual(physical.label, "nm")
+        let turned = ScaleBar.footerSampling(row: 3, column: 2, units: "nm", swapsAxes: true)
+        XCTAssertEqual(turned.perPixel, 3, "a quarter turn puts the row sampling along the horizontal")
+        let missing = ScaleBar.footerSampling(row: nil, column: nil, units: "nm", swapsAxes: false)
+        XCTAssertEqual(missing.label, "px", "a unit with no sampling is not a physical scale either")
+    }
 }
 
 /// The real-space ROI drives `displayedPattern` in *every* task, so it must be

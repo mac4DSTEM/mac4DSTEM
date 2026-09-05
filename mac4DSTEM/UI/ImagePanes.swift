@@ -6,6 +6,19 @@ import DSTEMSession
 
 // MARK: - Diffraction (CBED)
 
+/// The noun for the pattern on screen, shared by the diffraction pane and the
+/// inspector's statistics rows, so "Pattern min" can never silently describe a
+/// mean, a max or a region sum (UI review 2026-09-04, finding b).
+enum PatternSourceLabel {
+    static func noun(mode: PatternDisplayMode, roiSummed: Bool) -> String {
+        switch mode {
+        case .current: roiSummed ? "ROI-sum pattern" : "Pattern"
+        case .mean: "Mean pattern"
+        case .max: "Max pattern"
+        }
+    }
+}
+
 /// The live CBED pane: the pattern at the selected scan position (or the ROI
 /// sum, or the mean/max pattern), with the aperture, disk and fit overlays.
 ///
@@ -36,13 +49,11 @@ struct DiffractionPane: View {
             }
         }
         .padding(8)
-        // A pane header is ~420 pt of `.fixedSize()` controls, and
         // `PaneSplit` hands a pane an explicit width rather than refusing
-        // to go below its minimum the way `HSplitView` did. At the window's
-        // own 1080 pt floor with both side columns wide, a pane can be
-        // narrower than its header — clipping keeps that inside the pane
-        // instead of overprinting the divider and its neighbour. The header
-        // still needs to become compressible; recorded in `open-items.md`.
+        // to go below its minimum the way `HSplitView` did, so the header
+        // is compressible (`ViewThatFits`, 2026-09-05) and the clip is the
+        // backstop: whatever still does not fit stays inside the pane
+        // instead of overprinting the divider and its neighbour.
         .clipped()
         .contentShape(Rectangle())
         // `activePane` is the ROI direction's storage, and clicking a pane is
@@ -55,30 +66,84 @@ struct DiffractionPane: View {
     /// Everything here is single-line on purpose: a wrapping title or readout
     /// changes the header's height, which moves the image below it. The title
     /// yields first — the window title already names the task.
+    ///
+    /// Two layouts, the first that fits wins (`PaneSplit` residual (a),
+    /// 2026-09-05): the full row, or — below the width its `.fixedSize()`
+    /// controls need — the title, the ROI badge and one overflow menu holding
+    /// the same controls. Neither announces a minimum width upward, which is
+    /// the constraint-loop rule (`open-items.md`).
     private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            fullHeader
+            compactHeader
+        }
+    }
+
+    private var title: some View {
+        Text("Diffraction (CBED)")
+            .font(.headline)
+            .lineLimit(1)
+            .layoutPriority(-1)
+    }
+
+    /// A summed pattern must never look like a single-position one: the ROI
+    /// sum silently drives the probe kernel and the current-CBED peak count
+    /// (#24).
+    @ViewBuilder
+    private var roiSumBadge: some View {
+        if appState.patternDisplayMode == .current,
+           appState.realSpaceShape != .point,
+           appState.virtualDiffractionPattern != nil {
+            Text("ROI sum")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+                .fixedSize()
+                .help("This pattern is the sum over the real-space region, "
+                      + "not the pattern at one scan position. Set the "
+                      + "region shape to Point to see a single position.")
+                .accessibilityLabel("Showing a region-summed pattern, not a single scan position")
+                .accessibilityIdentifier("pattern.roiSumBadge")
+        }
+    }
+
+    private var compactHeader: some View {
         @Bindable var appState = appState
         return HStack {
-            Text("Diffraction (CBED)")
-                .font(.headline)
-                .lineLimit(1)
-                .layoutPriority(-1)
-
-            // A summed pattern must never look like a single-position one:
-            // the ROI sum silently drives the probe kernel and the current-CBED
-            // peak count (#24).
-            if appState.patternDisplayMode == .current,
-               appState.realSpaceShape != .point,
-               appState.virtualDiffractionPattern != nil {
-                Text("ROI sum")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.orange)
-                    .fixedSize()
-                    .help("This pattern is the sum over the real-space region, "
-                          + "not the pattern at one scan position. Set the "
-                          + "region shape to Point to see a single position.")
-                    .accessibilityLabel("Showing a region-summed pattern, not a single scan position")
-                    .accessibilityIdentifier("pattern.roiSumBadge")
+            title
+            roiSumBadge
+            Spacer(minLength: 8)
+            if appState.meanPattern != nil || appState.fitOverlayIsAvailable {
+                Menu {
+                    if appState.meanPattern != nil {
+                        Picker("Pattern source", selection: $appState.patternDisplayMode) {
+                            ForEach(PatternDisplayMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    }
+                    if appState.fitOverlayIsAvailable {
+                        Toggle("Fit overlay", isOn: $appState.showFitOverlay)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.button)
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .fixedSize()
+                .help("Pattern source and overlay controls — the pane is too narrow to show them in the header")
+                .accessibilityLabel("Pattern display controls")
+                .accessibilityIdentifier("pattern.compactControls")
             }
+        }
+    }
+
+    private var fullHeader: some View {
+        @Bindable var appState = appState
+        return HStack {
+            title
+            roiSumBadge
 
             Spacer(minLength: 8)
 
@@ -150,7 +215,7 @@ struct DiffractionPane: View {
                        !appState.currentPeaks.isEmpty {
                         PeakOverlay(
                             peaks: appState.currentPeaks,
-                            probeRadius: appState.probeKernel?.probeRadius ?? 3,
+                            probeRadius: appState.probeKernel?.probeRadius,
                             patternWidth: qx, patternHeight: qy,
                             box: box
                         )
@@ -172,7 +237,7 @@ struct DiffractionPane: View {
                             ellipse: fitEllipse,
                             measuredPeaks: (fitStrain != nil || fitTemplate != nil)
                                 ? appState.storedPeaksAtSelection : [],
-                            probeRadius: appState.probeKernel?.probeRadius ?? 3,
+                            probeRadius: appState.probeKernel?.probeRadius,
                             patternWidth: qx, patternHeight: qy,
                             box: box
                         )
@@ -299,13 +364,11 @@ struct RealSpacePane: View {
             }
         }
         .padding(8)
-        // A pane header is ~420 pt of `.fixedSize()` controls, and
         // `PaneSplit` hands a pane an explicit width rather than refusing
-        // to go below its minimum the way `HSplitView` did. At the window's
-        // own 1080 pt floor with both side columns wide, a pane can be
-        // narrower than its header — clipping keeps that inside the pane
-        // instead of overprinting the divider and its neighbour. The header
-        // still needs to become compressible; recorded in `open-items.md`.
+        // to go below its minimum the way `HSplitView` did, so the header
+        // is compressible (`ViewThatFits`, 2026-09-05) and the clip is the
+        // backstop: whatever still does not fit stays inside the pane
+        // instead of overprinting the divider and its neighbour.
         .clipped()
         .contentShape(Rectangle())
         .onTapGesture { appState.activePane = .realSpace }
@@ -356,14 +419,89 @@ struct RealSpacePane: View {
 
     /// Single-line on purpose: a wrapping title or cursor readout changes the
     /// header's height, which moves the image. The title yields first.
+    ///
+    /// Two layouts, the first that fits wins (`PaneSplit` residual (a),
+    /// 2026-09-05): the full row, or — below the ~420 pt its `.fixedSize()`
+    /// controls need — title, badges, cursor readout and one overflow menu
+    /// holding the quality toggle and the view orientation. Neither layout
+    /// announces a minimum width upward (the constraint-loop rule).
     private var header: some View {
-        HStack {
-            Text(appState.displayedResultName)
-                .font(.headline)
+        ViewThatFits(in: .horizontal) {
+            fullHeader
+            compactHeader
+        }
+    }
+
+    private var title: some View {
+        Text(appState.displayedResultName)
+            .font(.headline)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .help(appState.displayedResultName)
+            .accessibilityIdentifier("result.title")
+    }
+
+    @ViewBuilder
+    private var cursorReadout: some View {
+        if let sample = cursorSample {
+            Text(sample.accessibilityText)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .truncationMode(.tail)
-                .help(appState.displayedResultName)
-                .accessibilityIdentifier("result.title")
+                .accessibilityIdentifier("result.cursorReadout")
+        }
+    }
+
+    private var compactHeader: some View {
+        HStack {
+            title
+            statusBadge
+            staleBadge
+            zoomModeBadge
+            Spacer(minLength: 8)
+            cursorReadout
+            compactControls
+        }
+    }
+
+    /// The same controls as `qualityToggle` and `orientationControl`, bound
+    /// to the same state, as menu items.
+    @ViewBuilder
+    private var compactControls: some View {
+        @Bindable var appState = appState
+        let hasQuality = appState.displayedProduct?.qualityFields.isEmpty == false
+        let isScan = appState.displayedProduct?.domain == .scan
+        if hasQuality || isScan {
+            Menu {
+                if hasQuality {
+                    Toggle("Inspect quality field", isOn: $appState.inspectQualityField)
+                }
+                if isScan {
+                    Picker("View orientation — display only",
+                           selection: $appState.realSpaceDisplayOrientation) {
+                        ForEach(RealSpaceDisplayOrientation.allCases) { orientation in
+                            Text(orientation.displayName).tag(orientation)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    Toggle("Mirror horizontally", isOn: $appState.realSpaceDisplayMirrored)
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.button)
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .fixedSize()
+            .help("Display controls — the pane is too narrow to show them in the header")
+            .accessibilityLabel("More display controls")
+            .accessibilityIdentifier("result.compactControls")
+        }
+    }
+
+    private var fullHeader: some View {
+        HStack {
+            title
             statusBadge
             staleBadge
             qualityToggle
@@ -394,13 +532,7 @@ struct RealSpacePane: View {
                           + "Qx × Qy, shown elsewhere, is columns × rows.")
                     .accessibilityLabel("Detector axes: q y increases right, q x increases down")
             }
-            if let sample = cursorSample {
-                Text(sample.accessibilityText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .accessibilityIdentifier("result.cursorReadout")
-            }
+            cursorReadout
         }
     }
 
@@ -711,15 +843,16 @@ struct RealSpacePane: View {
         effZoom: CGFloat
     ) -> some View {
         let pixel = appState.displayedResultPixelMetadata
-        let sampling = orientation.swapsAxes
-            ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
+        let sampling = ScaleBar.footerSampling(
+            row: pixel.row, column: pixel.column, units: pixel.units,
+            swapsAxes: orientation.swapsAxes)
         let pixelsAcross = orientation.swapsAxes ? dims.height : dims.width
 
         PaneFooter {
             ScaleBar(
-                unitsPerPoint: (sampling ?? 1) * Double(pixelsAcross)
+                unitsPerPoint: sampling.perPixel * Double(pixelsAcross)
                     / Double(box.width) / Double(effZoom),
-                unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
+                unitLabel: sampling.label)
         } trailing: {
             // Order preserved from the separate overlays this replaced. **At
             // most one of these three ever renders**, and the stack claims no

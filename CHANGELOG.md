@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — next v2.5.x patch
+
+- **Labels that could misstate a number, from the 2026-09-04 UI review.** The
+  inspector's pattern statistics say "Mean pattern", "Max pattern" or
+  "ROI-sum pattern" when that is what is on screen; the A/B/A−B comparison
+  panels carry a colorbar with range, units and a zero mark; the cursor
+  readout prints four significant digits instead of a raw float; a strain or
+  orientation map computed from Bragg disks whose settings have since
+  changed is flagged in the sidebar and the inspector with the same words as
+  the result pane; the scale bar never prints a unitless sampling as "px";
+  and without a probe kernel detected peaks are marked with a cross rather
+  than circled at an invented radius.
+- **Pane headers compress instead of clipping**, with an overflow menu for
+  the controls that no longer fit, and the diffraction/real-space divider
+  keeps its position across loads, trips to Results and reopening.
+
 ## Unreleased — the v2.6.0 science lane
 
 - **Gatan STEM-SI DM4 files open with their axes in the calibrated roles.**

@@ -141,6 +141,16 @@ struct ComparisonPanel: Identifiable {
     let pixels: [Float]
     let rgba: [UInt8]?
     let contentVersion: Int
+    /// The value window the normalised pixels span — what the panel's
+    /// colorbar prints. A diverging map is symmetric about zero, exactly as
+    /// `normalized(symmetric:)` scales it, so the bar's zero mark is where
+    /// the map's neutral colour is. nil for an RGBA payload, which has no
+    /// scalar window. Until 2026-09-05 the three panels drew at 0…1 with no
+    /// legend, so a symmetric RdBu difference had no readable zero or range
+    /// (UI review, finding d).
+    let valueRange: (low: Double, high: Double)?
+    /// True when the payload holds pixels the map cannot colour (no data).
+    let hasMasked: Bool
 
     init(_ product: DisplayedProduct, label: String, colormap: ColormapKind) {
         self.id = label
@@ -151,9 +161,19 @@ struct ComparisonPanel: Identifiable {
         case .scalar(let image):
             self.pixels = image.normalized(symmetric: colormap.isDiverging)
             self.rgba = nil
+            let (lo, hi) = image.minMax
+            if colormap.isDiverging {
+                let magnitude = Double(max(abs(lo), abs(hi)))
+                self.valueRange = (-magnitude, magnitude)
+            } else {
+                self.valueRange = (Double(lo), Double(hi))
+            }
+            self.hasMasked = product.validityMask.contains(false)
         case .rgba(let image):
             self.pixels = [Float](repeating: 0, count: image.width * image.height)
             self.rgba = image.rgba
+            self.valueRange = nil
+            self.hasMasked = false
         }
         self.contentVersion = MetalImageView.contentVersion(
             of: pixels, rgba: rgba, width: product.width, height: product.height
@@ -290,6 +310,21 @@ struct ProductComparisonView: View {
                         }
                     case .ended: cursor = nil
                     }
+                }
+                // The legend the main pane's footer carries, on the same
+                // plate: value range, units, a zero mark on a diverging map.
+                if let range = rendered.valueRange {
+                    Colorbar(
+                        colormap: rendered.colormap,
+                        low: range.low, high: range.high,
+                        unitLabel: product.valueUnits,
+                        marksZero: rendered.colormap.isDiverging,
+                        showsMasked: rendered.hasMasked
+                    )
+                    .padding(6)
+                    .allowsHitTesting(false)
+                    .frame(width: size.width, height: size.height, alignment: .bottomTrailing)
+                    .accessibilityIdentifier("result.comparison.colorbar.\(rendered.id)")
                 }
             }
             .frame(minHeight: LayoutPolicy.comparisonPaneMinimum)   // science: a comparison pane

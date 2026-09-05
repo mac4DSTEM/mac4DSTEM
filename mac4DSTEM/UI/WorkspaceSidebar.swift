@@ -109,7 +109,8 @@ struct WorkspaceSidebar: View {
     /// lays out horizontally and crushes the row onto one truncated line.
     private func taskRow(_ mode: AnalysisMode) -> some View {
         let unmet = taskUnmetCount(mode)
-        let produced = taskHasProduct(mode)
+        let state = taskProductState(mode)
+        let produced = state.isProduced
         return HStack {
             Label {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -122,14 +123,21 @@ struct WorkspaceSidebar: View {
                 Image(systemName: mode.systemImage)
             }
             Spacer()
-            Image(systemName: produced
-                    ? "checkmark.circle.fill"
-                    : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
-                .foregroundStyle(produced
-                    ? Color.green
-                    : (unmet == 0 ? Color.secondary : Color.orange))
+            if state == .staleDiskSettings {
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(Color.orange)
+                    .help(Self.staleDiskSettingsHelp)
+                    .accessibilityIdentifier("task.\(mode.id).stale")
+            } else {
+                Image(systemName: produced
+                        ? "checkmark.circle.fill"
+                        : (unmet == 0 ? "circle" : "exclamationmark.circle.fill"))
+                    .foregroundStyle(produced
+                        ? Color.green
+                        : (unmet == 0 ? Color.secondary : Color.orange))
+            }
         }
-        .help(mode.productSubtitle)
+        .help(state == .staleDiskSettings ? Self.staleDiskSettingsHelp : mode.productSubtitle)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
@@ -141,15 +149,28 @@ struct WorkspaceSidebar: View {
         ).count
     }
 
+    /// The one sentence the sidebar, the inspector and the result pane agree
+    /// on for a product computed with disk settings that have since changed.
+    static let staleDiskSettingsHelp =
+        "Computed with earlier disk-detection settings. Run Detect All Disks again to bring it up to date."
+
+    /// The state of this task's retained product — the same rule the
+    /// inspector's "Computed this session" rows apply, so the two surfaces
+    /// cannot give different verdicts on stale disk settings.
+    private func taskProductState(_ mode: AnalysisMode) -> TaskProductState {
+        ProductWorkflow.productState(
+            for: mode, hasProduct: taskHasProduct(mode),
+            diskSettingsStale: appState.diskDetectionSettingsAreStale)
+    }
+
     /// Whether this task has produced its product in this session — only for
-    /// the tasks with an unambiguous retained product. Staleness is
-    /// deliberately not folded in here; the result pane's own badge carries
-    /// it. Virtual imaging and DPC share the single scalar result slot, so
-    /// "has produced" is read from the recipe record — it survives the slot
-    /// being replaced and resets with the dataset.
+    /// the tasks with an unambiguous retained product. Staleness is judged by
+    /// `taskProductState`, on top of this. Virtual imaging and DPC share the
+    /// single scalar result slot, so "has produced" is read from the recipe
+    /// record — it survives the slot being replaced and resets with the dataset.
     private func taskHasProduct(_ mode: AnalysisMode) -> Bool {
         switch mode {
-        case .disks: appState.hasCurrentBraggVectors
+        case .disks: appState.braggVectors != nil
         case .strain: appState.strain.map != nil
         case .acom: appState.acomSession.hasOrientationMap
         case .virtualDetector:
@@ -164,7 +185,11 @@ struct WorkspaceSidebar: View {
     /// `accessibilityLabel` on a container replaces its children's, so a
     /// label on the image alone would never be announced.
     private func taskAccessibilityLabel(_ mode: AnalysisMode) -> String {
-        if taskHasProduct(mode) { return "\(mode.productTitle), computed" }
+        switch taskProductState(mode) {
+        case .current: return "\(mode.productTitle), computed"
+        case .staleDiskSettings: return "\(mode.productTitle), computed with earlier disk-detection settings"
+        case .none: break
+        }
         let unmet = taskUnmetCount(mode)
         if unmet == 0 { return "\(mode.productTitle), ready" }
         return "\(mode.productTitle), \(unmet) requirement\(unmet == 1 ? "" : "s") missing"

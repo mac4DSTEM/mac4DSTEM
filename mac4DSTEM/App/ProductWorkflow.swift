@@ -262,7 +262,41 @@ struct TaskPrerequisite: Equatable, Identifiable, Sendable {
     let resolution: Resolution
 }
 
+/// What a task's retained product is worth right now — ONE verdict, shared by
+/// the sidebar's task rows and the inspector's "Computed this session" rows.
+/// Until 2026-09-05 the sidebar's green check ignored stale disk settings by
+/// design while the inspector and the result pane both flagged them, and a
+/// strain or orientation map stayed green after the disk settings that fed
+/// it had changed (UI review 2026-09-04, finding f).
+enum TaskProductState: Equatable, Sendable {
+    /// Nothing retained for this task.
+    case none
+    /// Retained, and its inputs have not changed since.
+    case current
+    /// Retained, but computed from Bragg disks whose detection settings have
+    /// since changed and not been re-run.
+    case staleDiskSettings
+
+    var isProduced: Bool { self != .none }
+}
+
 enum ProductWorkflow {
+    /// The tasks whose product depends on the full-scan Bragg disks: the
+    /// disks themselves, and the two maps computed from them.
+    static func dependsOnBraggDisks(_ mode: AnalysisMode) -> Bool {
+        switch mode {
+        case .disks, .strain, .acom: true
+        case .virtualDetector, .dpc, .ptychography, .singleslicePtychography: false
+        }
+    }
+
+    static func productState(
+        for mode: AnalysisMode, hasProduct: Bool, diskSettingsStale: Bool
+    ) -> TaskProductState {
+        guard hasProduct else { return .none }
+        return diskSettingsStale && dependsOnBraggDisks(mode) ? .staleDiskSettings : .current
+    }
+
     /// The full requirement list for a task — met and unmet — in the same
     /// order `prerequisites(for:)` has always reported the unmet subset.
     static func prerequisiteItems(

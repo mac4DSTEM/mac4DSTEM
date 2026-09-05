@@ -91,6 +91,20 @@ struct ScaleBar: View {
 
     private static let targetPoints = 70.0
 
+    /// What the bar measures for a displayed product: the physical sampling
+    /// along the SCREEN horizontal and its unit, or pixels when the product
+    /// carries no unit. A sampling with no unit is not a physical sampling —
+    /// printing it under "px" mislabelled a number (UI review 2026-09-04).
+    static func footerSampling(
+        row: Double?, column: Double?, units: String?, swapsAxes: Bool
+    ) -> (perPixel: Double, label: String) {
+        let along = swapsAxes ? (row ?? column) : (column ?? row)
+        guard let units, !units.isEmpty, let along, along.isFinite, along > 0 else {
+            return (1, "px")
+        }
+        return (along, units)
+    }
+
     var body: some View {
         if unitsPerPoint > 0, unitsPerPoint.isFinite {
             let nice = Self.nice125(unitsPerPoint * Self.targetPoints)
@@ -624,10 +638,15 @@ struct ApertureOverlay: View {
 /// so the overlay never reaches into `AppState` itself.
 struct PeakOverlay: View {
     let peaks: [BraggPeak]
-    let probeRadius: Float
+    /// nil when no probe kernel exists: peaks are then marked, not circled.
+    let probeRadius: Float?
     let patternWidth: Int
     let patternHeight: Int
     let box: CGSize
+
+    /// Half-size of the marker drawn without a kernel, in view points — a
+    /// screen-space cross, so it cannot be read as a disk radius.
+    static let markerHalfSize: CGFloat = 4
 
     var body: some View {
         let r = PeakOverlayGeometry.radius(
@@ -638,18 +657,30 @@ struct PeakOverlay: View {
         )
         ZStack {
             ForEach(Array(peaks.enumerated()), id: \.offset) { _, p in
-                Circle()
+                let center = PeakOverlayGeometry.center(
+                    x: p.x, y: p.y,
+                    patternWidth: patternWidth, patternHeight: patternHeight, box: box
+                )
+                if let r {
+                    Circle()
+                        .stroke(Color.green, lineWidth: 1.2)
+                        .frame(width: 2 * r, height: 2 * r)
+                        .position(center)
+                } else {
+                    Path { path in
+                        let h = Self.markerHalfSize
+                        path.move(to: CGPoint(x: center.x - h, y: center.y))
+                        path.addLine(to: CGPoint(x: center.x + h, y: center.y))
+                        path.move(to: CGPoint(x: center.x, y: center.y - h))
+                        path.addLine(to: CGPoint(x: center.x, y: center.y + h))
+                    }
                     .stroke(Color.green, lineWidth: 1.2)
-                    .frame(width: 2 * r, height: 2 * r)
-                    .position(PeakOverlayGeometry.center(
-                        x: p.x,
-                        y: p.y,
-                        patternWidth: patternWidth,
-                        patternHeight: patternHeight,
-                        box: box
-                    ))
+                }
             }
         }
+        .accessibilityLabel(r == nil
+            ? "\(peaks.count) detected peaks, marked at their centres; no probe kernel, so no disk radius is drawn"
+            : "\(peaks.count) detected disks at the probe radius")
     }
 }
 
@@ -673,7 +704,8 @@ struct PatternFitOverlay: View {
     let originPoint: (x: Float, y: Float)?
     let ellipse: [FitOverlays.Marker]
     let measuredPeaks: [BraggPeak]
-    let probeRadius: Float
+    /// nil when no probe kernel exists; measured peaks are then marked, not circled.
+    let probeRadius: Float?
     let patternWidth: Int
     let patternHeight: Int
     let box: CGSize
@@ -719,15 +751,26 @@ struct PatternFitOverlay: View {
 
     private func drawMeasuredPeaks(_ context: GraphicsContext) {
         guard !measuredPeaks.isEmpty else { return }
-        let r = PeakOverlayGeometry.radius(
+        let radius: CGFloat? = PeakOverlayGeometry.radius(
             probeRadius: probeRadius,
             patternWidth: patternWidth, patternHeight: patternHeight, box: box
         )
         for peak in measuredPeaks {
             let c = point(peak.x, peak.y)
-            let rect = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
-            context.stroke(Path(ellipseIn: rect),
-                           with: .color(Self.measuredColor), lineWidth: 1.2)
+            if let r = radius {
+                let rect = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
+                context.stroke(Path(ellipseIn: rect),
+                               with: .color(Self.measuredColor), lineWidth: 1.2)
+            } else {
+                // No kernel, no radius: the same cross `PeakOverlay` draws.
+                let h = PeakOverlay.markerHalfSize
+                var path = Path()
+                path.move(to: CGPoint(x: c.x - h, y: c.y))
+                path.addLine(to: CGPoint(x: c.x + h, y: c.y))
+                path.move(to: CGPoint(x: c.x, y: c.y - h))
+                path.addLine(to: CGPoint(x: c.x, y: c.y + h))
+                context.stroke(path, with: .color(Self.measuredColor), lineWidth: 1.2)
+            }
         }
     }
 

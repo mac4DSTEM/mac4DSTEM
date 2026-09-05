@@ -156,9 +156,13 @@ package struct ProductSample: Equatable {
     package let units: String
     package let quality: [String: Float]
 
+    /// Four significant digits. A raw `Float` prints seven or more, which
+    /// beside an "Exploratory" badge claims a precision the number does not
+    /// have (UI review 2026-09-04, finding e). Four is what the display range
+    /// and the inspector's own rows print.
     package var accessibilityText: String {
         guard let value else { return "X \(x), Y \(y): no data" }
-        return "X \(x), Y \(y): \(value) \(units)"
+        return "X \(x), Y \(y): \(String(format: "%.4g", value)) \(units)"
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

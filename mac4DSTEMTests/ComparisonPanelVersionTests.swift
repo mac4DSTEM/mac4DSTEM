@@ -76,6 +76,45 @@ final class ComparisonPanelVersionTests: XCTestCase {
         XCTAssertEqual(first.contentVersion, second.contentVersion)
     }
 
+    // MARK: - Legend (UI review 2026-09-04, finding d)
+
+    func testASequentialPanelReportsTheValueWindowItsPixelsSpan() {
+        let panel = ComparisonPanel(
+            scalarProduct([2, 4, 6, 10], width: 2, height: 2), label: "A", colormap: .viridis
+        )
+        XCTAssertEqual(panel.valueRange?.low, 2)
+        XCTAssertEqual(panel.valueRange?.high, 10)
+        XCTAssertFalse(panel.hasMasked)
+    }
+
+    func testADivergingDifferencePanelIsSymmetricAboutZero() {
+        // `normalized(symmetric:)` scales by max |value|, so the legend's
+        // zero mark sits where the map's neutral colour is only if the
+        // window is ±that magnitude — not min…max.
+        let panel = ComparisonPanel(
+            scalarProduct([-1, 0.5, 3, .nan], width: 2, height: 2), label: "A − B", colormap: .rdbu
+        )
+        XCTAssertEqual(panel.valueRange?.low, -3)
+        XCTAssertEqual(panel.valueRange?.high, 3)
+        XCTAssertTrue(panel.hasMasked, "the NaN pixel is masked and the legend must say so")
+    }
+
+    func testAnRGBAPanelHasNoScalarWindow() {
+        let panel = ComparisonPanel(
+            rgbaProduct([UInt8](repeating: 7, count: 16), width: 2, height: 2), label: "B", colormap: .viridis
+        )
+        XCTAssertNil(panel.valueRange)
+    }
+
+    /// Finding (e): the cursor readout printed a raw Float, seven-plus digits.
+    func testTheCursorReadoutPrintsFourSignificantDigits() {
+        let product = scalarProduct([0.123456789, 12345.678, .nan, 2], width: 2, height: 2)
+        XCTAssertEqual(product.sample(x: 0, y: 0)?.accessibilityText, "X 0, Y 0: 0.1235 counts")
+        XCTAssertEqual(product.sample(x: 1, y: 0)?.accessibilityText, "X 1, Y 0: 1.235e+04 counts")
+        XCTAssertEqual(product.sample(x: 0, y: 1)?.accessibilityText, "X 0, Y 1: no data")
+        XCTAssertEqual(product.sample(x: 1, y: 1)?.accessibilityText, "X 1, Y 1: 2 counts")
+    }
+
     func testTheVersionIsNotTheConstantItReplaced() {
         // The literal defect: `contentVersion: 0`. The Coordinator starts at
         // Int.min, so a constant zero uploads once and never again.

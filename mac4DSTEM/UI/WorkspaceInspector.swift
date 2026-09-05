@@ -322,9 +322,17 @@ private struct DatasetInfoSections: View {
         Section("Current scan position") {
             inspectorRow("x (Rx)", "\(appState.selectedScan.x)")
             inspectorRow("y (Ry)", "\(appState.selectedScan.y)")
+            // The statistics are of the pattern ON SCREEN, which in Mean, Max
+            // or ROI mode is not this position's pattern; the row says which
+            // (UI review 2026-09-04, finding b — the only other flag was the
+            // pane header, one tab away).
             if let (lowerBound, upperBound) = appState.patternMinMax {
-                inspectorRow("Pattern min", String(format: "%.3g", lowerBound))
-                inspectorRow("Pattern max", String(format: "%.3g", upperBound))
+                let noun = PatternSourceLabel.noun(
+                    mode: appState.patternDisplayMode,
+                    roiSummed: appState.realSpaceShape != .point
+                        && appState.virtualDiffractionPattern != nil)
+                inspectorRow("\(noun) min", String(format: "%.3g", lowerBound))
+                inspectorRow("\(noun) max", String(format: "%.3g", upperBound))
             }
         }
     }
@@ -516,17 +524,22 @@ private struct SessionProductsSections: View {
         Section("Computed this session") {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
+            let stale = appState.diskDetectionSettingsAreStale
             product(
                 "Bragg disks",
-                done: appState.hasCurrentBraggVectors,
-                detail: appState.diskDetectionSettingsAreStale
+                state: ProductWorkflow.productState(
+                    for: .disks, hasProduct: appState.braggVectors != nil,
+                    diskSettingsStale: stale),
+                detail: stale
                     ? "settings changed · rerun"
                     : appState.braggPeakCount.map { "\($0) peaks" }
             )
             // Clickable when retained: these are held in memory
-            // simultaneously, so bringing one back needs no recompute.
-            showableProduct(.strain, done: appState.strain.map != nil)
-            showableProduct(.orientation, done: appState.acomSession.hasOrientationMap)
+            // simultaneously, so bringing one back needs no recompute. Their
+            // state is the sidebar's rule: a map computed from disks whose
+            // settings have since changed says so, instead of staying green.
+            showableProduct(.strain, mode: .strain, done: appState.strain.map != nil)
+            showableProduct(.orientation, mode: .acom, done: appState.acomSession.hasOrientationMap)
         }
 
     }
@@ -534,16 +547,22 @@ private struct SessionProductsSections: View {
     /// A computed product that can be put back in the viewer on click.
     @ViewBuilder
     private func showableProduct(
-        _ kind: AppState.ComputedProduct, done: Bool
+        _ kind: AppState.ComputedProduct, mode: AnalysisMode, done: Bool
     ) -> some View {
+        let state = ProductWorkflow.productState(
+            for: mode, hasProduct: done,
+            diskSettingsStale: appState.diskDetectionSettingsAreStale)
         if done {
             Button {
                 appState.showComputedProduct(kind)
             } label: {
-                product(kind.displayName, done: true, detail: "show")
+                product(kind.displayName, state: state,
+                        detail: state == .staleDiskSettings ? "earlier disk settings · show" : "show")
             }
             .buttonStyle(.plain)
-            .help("Display this result again — it is still in memory, nothing is recomputed")
+            .help(state == .staleDiskSettings
+                  ? WorkspaceSidebar.staleDiskSettingsHelp
+                  : "Display this result again — it is still in memory, nothing is recomputed")
             .accessibilityIdentifier("computed.\(kind.rawValue)")
         } else {
             product(kind.displayName, done: false)
@@ -551,13 +570,27 @@ private struct SessionProductsSections: View {
     }
 
     private func product(_ name: String, done: Bool, detail: String? = nil) -> some View {
+        product(name, state: done ? .current : .none, detail: detail)
+    }
+
+    /// Same glyphs and colours as the sidebar's task rows, for the same
+    /// three states — one verdict on both surfaces.
+    private func product(_ name: String, state: TaskProductState, detail: String? = nil) -> some View {
         LabeledContent {
             if let detail {
                 Text(detail).fontDesign(.monospaced).foregroundStyle(.secondary)
             }
         } label: {
-            Label(name, systemImage: done ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(done ? Color.green : Color.secondary)
+            switch state {
+            case .none:
+                Label(name, systemImage: "circle").foregroundStyle(Color.secondary)
+            case .current:
+                Label(name, systemImage: "checkmark.circle.fill").foregroundStyle(Color.green)
+            case .staleDiskSettings:
+                Label(name, systemImage: "clock.arrow.circlepath")
+                    .foregroundStyle(Color.orange)
+                    .help(WorkspaceSidebar.staleDiskSettingsHelp)
+            }
         }
     }
 
