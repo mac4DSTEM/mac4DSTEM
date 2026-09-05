@@ -544,7 +544,8 @@ them, and (5) once a material's simulation library exists.
 - **A branch, with the rules loosened on it and re-applied at the merge**
   (confirmed by the owner, 2026-09-06).
   Steps 1–3 are Python under `tools/` and cannot break the app; step 4 is
-  the app wiring. All of it on one feature branch off `main`. On the
+  the app wiring. All of it on one feature branch off `main`:
+  `ml/disk-detector`, created 2026-09-06. On the
   branch: commit freely, no docs-per-commit, no inventory, no gate per
   commit, experiments allowed to fail in the open. At the merge, in one
   landing: rebase onto `main` (linear `main`, no merge commit), the fixture

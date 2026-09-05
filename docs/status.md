@@ -99,8 +99,11 @@ agent should say so and start at item 2.
    measured-kernel mode, the file's probe as a kernel source; parity with
    py4DSTEM's flat route), the probe-size under-read on ring-shaped probes
    stays open, and the owner's drive of the bullseye maps closes the item.
-   **Next: the learned-detector option, `v3-plan.md` §3a (ANE-native,
-   decided 2026-09-06), step 1 (simulator + fixture).** ACOM coverage
+   **Next: the learned-detector option, `v3-plan.md` §3a (Core AI,
+   decided 2026-09-06), step 1 (simulator + fixture) — on the branch
+   `ml/disk-detector` (created 2026-09-06 at `a5a0f49`), where §3a's working
+   method applies: commit freely, no docs or gate per commit; the full
+   discipline returns at the merge.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.
