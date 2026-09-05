@@ -85,7 +85,7 @@ package nonisolated struct OriginParams {
     package var qy: UInt32
     package var qx: UInt32
     package var r: Float         // probe radius estimate (px)
-    package var rscale: Float    // CoM window = r * rscale
+    package var rscale: Float    // CoM window = max(r * rscale, r + 1.5 px); see OriginMeasure.metal
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, r: Float, rscale: Float) {

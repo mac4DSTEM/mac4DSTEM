@@ -110,7 +110,7 @@ import Metal
 /// This number goes DOWN to zero when S13 lands a translation-equivariant coarse
 /// step; it must never be raised to make a run pass. Raising it is the refusal
 /// rule's "widening a gate", and the gate is the only reason this line exists.
-let P4_KNOWN_BOUND: Float = 0.65
+let P4_KNOWN_BOUND: Float = 0.001
 
 /// How far the measured beam centre may sit from the centre reference.py planted.
 ///
@@ -905,28 +905,20 @@ func describe(_ peak: BraggPeak) -> String {
 
     // MARK: P4 — translation equivariance of the origin measurement
 
-    /// **A CHARACTERIZATION OF A KNOWN DEFECT, NOT A PASSING INVARIANCE.**
-    /// Read this before trusting a green run.
-    ///
-    /// The property that *should* hold: translate a diffraction pattern by an
-    /// integer (dy, dx) and the measured origin moves by exactly (dy, dx).
-    /// It does not, and the reason is visible in `Shaders/OriginMeasure.metal`:
-    /// the coarse step scans bin-aligned blocks pinned to the DETECTOR origin
-    /// (`for (uint by = 0; by < p.qy; by += bin)`, line 47), so translating the
-    /// feature moves it *within* its block. The coarse centre therefore jumps in
-    /// bin-sized steps rather than following the feature, and the CoM window it
-    /// seeds — radius `r * rscale` — admits a different pixel set at the two
-    /// positions. Already recorded in docs/open-items.md: "the same dataset
-    /// cropped two ways can fit two origins ~1 px apart".
-    ///
-    /// So this asserts the MEASURED bound, not zero. A green run here means "the
-    /// known deviation has not got worse", and nothing else. The assertion
-    /// tightens to exact when S12 weighs the translation-equivariant coarse step
-    /// and S13 lands whatever it recommends — at which point this property
-    /// becomes what its name says.
-    ///
-    /// It is seeded here anyway, because the class of defect it covers is the
-    /// one this repo keeps finding late and by hand.
+    /// Translate a diffraction pattern by an integer (dy, dx) and the measured
+    /// origin must move by exactly (dy, dx). Until 2026-09-05 this pinned a
+    /// KNOWN DEFECT at 0.65 px: the coarse step in `Shaders/OriginMeasure.metal`
+    /// scans bin-aligned blocks pinned to the detector origin, so translating
+    /// the feature moved it *within* its block, and ONE centre of mass in a
+    /// window seeded there admitted a different pixel set at the two positions.
+    /// The kernel now iterates the centre of mass on its own estimate, so the
+    /// block seed no longer reaches the answer: the worst deviation measured
+    /// 9.5e-7 px on this fixture, and the bound is 1e-3 px. Negative controls
+    /// the same day (Gate B mutation log): the old kernel reads 0.61 px here,
+    /// a single-pass variant of the new one 0.016 px — both above the bound.
+    /// The coarse step's grid dependence itself is unchanged and still matters
+    /// when the window cannot reach the beam (an r underestimated so far that
+    /// the window sits inside a flat plateau).
     static func originTranslationEquivariance() throws {
         let qy = 32, qx = 36
         let radius: Float = 3
@@ -986,9 +978,9 @@ func describe(_ peak: BraggPeak) -> String {
         print("P4 origin translation equivariance: worst deviation \(worstDeviation) px — \(worstCase)")
         check(worstDeviation <= P4_KNOWN_BOUND,
               "P4 equivariance: the origin measurement's translation error is \(worstDeviation) px, "
-              + "worse than the recorded bound of \(P4_KNOWN_BOUND) px (\(worstCase)). This test pins a "
-              + "KNOWN defect in Shaders/OriginMeasure.metal's coarse step; a regression here means it got "
-              + "worse, not that it appeared.")
+              + "above the bound of \(P4_KNOWN_BOUND) px (\(worstCase)). The iterated centre of mass in "
+              + "Shaders/OriginMeasure.metal made this exact on 2026-09-05; a failure here means the "
+              + "measurement depends on where the beam sits in the coarse block grid again.")
     }
 
     /// A handful of scan crops per fixture, including the degenerate ones. The

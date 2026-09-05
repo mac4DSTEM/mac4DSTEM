@@ -18,6 +18,26 @@
 
 ## Unreleased — the v2.6.0 science lane
 
+- **The diffraction origin is measured where the beam is.** The per-pattern
+  centre of mass took one pass in a window of 1.2 × the probe radius around a
+  coarse block centre; on a small beam the window could not reach it and
+  every position read 0.25 px toward the block (WS₂: 63.99 for a beam at
+  63.74, which every radius, Q scale and strain number then carried). The
+  window now recentres on its own estimate and is never smaller than the
+  probe radius plus 1.5 px, so the beam's soft edge is inside it (Gate D
+  and Gate B, `docs/q-calibration-design.md` §9). How far an origin moves
+  depends on where the beam sat in the coarse block grid, not on the disk
+  size: across ten training cubes the mean origin shifts between 0.001 px
+  and 0.77 px, single patterns by up to 1.3 px, and the new values track an
+  independent wide-window reference within 0.02 px on every clean cube.
+  Translating a pattern now moves the measured origin by exactly the
+  translation (it was off by up to 0.65 px).
+- **A legacy py4DSTEM v0.12 `realslices` stack is refused as a datacube.**
+  The string-label rule applied only to `diffractionslices`, so a strain
+  stack stored (R, R, 4) with label strings in `dim3` opened as a cube with a
+  four-pixel detector. The check pinning this had been committed red on
+  2026-09-05 and no gate ran after it; the `peak-overlay-test` harness had
+  also stopped compiling the same day. Both fixed, the gate rerun in full.
 - **Q calibration from a known crystal averages the innermost shell's
   equivalents instead of taking the smallest.** The smallest radius was the
   same spoke almost everywhere — a small origin offset makes one side of the

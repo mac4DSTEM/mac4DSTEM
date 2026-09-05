@@ -159,6 +159,55 @@ let tiledOrigins = try await VirtualDetector.tiledMeasuredOrigins(
 compare(tiledOrigins, expected: residentOrigins,
         caseName: "origin_measurement", path: "forced 1-row tiles")
 
+// Origin measurement against a KNOWN centre (Gate D 2026-09-05). The beam is
+// a smooth blob the size of WS2's — plateau ~2 px, soft 1 px edge — centred
+// 0.26 px off a pixel centre on a 128 px detector, at three scan positions
+// with three different sub-pixel centres. The shipped kernel took a single
+// centre of mass in a 1.2 × r window around a BLOCK-BINNED coarse maximum,
+// which sits up to bin/2 off; the truncated window then pulled the centre
+// toward the block: WS2's 16 384 positions all read 63.986 for a beam at
+// 63.738 (scratchpad origin-experiment-ws2-20260905.log). Truth here is
+// the centre the blob was drawn at. The tolerance is 0.02 px: the kernel
+// reads 0.009 px here, and the Gate B mutation that survived a 0.05 px
+// tolerance — a bounding box that clips one side of the window by a pixel
+// — reads 0.041 px (mutation log, 2026-09-05).
+do {
+    let q = 128
+    let centres: [(x: Double, y: Double)] = [(63.74, 63.74), (40.30, 70.85), (91.12, 21.58)]
+    var beamCube = [Float](repeating: 0, count: centres.count * q * q)
+    for (position, centre) in centres.enumerated() {
+        for y in 0..<q {
+            for x in 0..<q {
+                let r = ((Double(x) - centre.x) * (Double(x) - centre.x)
+                         + (Double(y) - centre.y) * (Double(y) - centre.y)).squareRoot()
+                // flat top to r = 1.5, then a Gaussian shoulder of sigma 0.6
+                let value = r <= 1.5 ? 1.0 : exp(-((r - 1.5) * (r - 1.5)) / (2 * 0.6 * 0.6))
+                beamCube[position * q * q + y * q + x] = Float(value * 1000 + 0.5)
+            }
+        }
+    }
+    guard let beamBuffer = MetalEngine.shared.device.makeBuffer(
+        bytes: beamCube, length: beamCube.count * MemoryLayout<Float>.stride,
+        options: .storageModeShared
+    ) else { fail("could not allocate the synthetic beam cube") }
+    let measured = try MetalEngine.shared.measureOrigins(
+        cube: beamBuffer,
+        params: OriginParams(ry: 1, rx: UInt32(centres.count), qy: UInt32(q), qx: UInt32(q),
+                             r: 1.86, rscale: 1.2)
+    )
+    var worstOffset = 0.0
+    for (position, centre) in centres.enumerated() {
+        let dx = Double(measured[2 * position]) - centre.x
+        let dy = Double(measured[2 * position + 1]) - centre.y
+        worstOffset = max(worstOffset, abs(dx), abs(dy))
+        guard abs(dx) < 0.02, abs(dy) < 0.02 else {
+            fail(String(format: "origin_measurement_truth: position %d measured (%.3f, %.3f) against the drawn centre (%.2f, %.2f) — off by (%.3f, %.3f) px",
+                        position, measured[2 * position], measured[2 * position + 1], centre.x, centre.y, dx, dy))
+        }
+    }
+    print(String(format: "PASS: origin_measurement_truth [three sub-pixel centres within 0.02 px] worst offset %.4f px", worstOffset))
+}
+
 let residentCoM = try MetalEngine.shared.centerOfMass(
     cube: cubeBuffer,
     params: CoMParams(ry: UInt32(d.ry), rx: UInt32(d.rx),

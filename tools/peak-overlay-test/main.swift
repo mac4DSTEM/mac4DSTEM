@@ -28,20 +28,29 @@ for (name, x, y, expected) in cases {
     print("PASS: \(name) center \(actual)")
 }
 
-let fittedRadius = PeakOverlayGeometry.radius(
+// `radius` is optional since 2026-09-05 (UI review): no probe kernel, no
+// invented disk extent — the overlay draws a marker instead.
+guard let fittedRadius = PeakOverlayGeometry.radius(
     probeRadius: 3, patternWidth: 64, patternHeight: 32, box: fitted
-)
+) else { fail("fitted radius is nil for a 3 px probe") }
 guard close(fittedRadius, 30) else { fail("fitted radius \(fittedRadius), expected 30") }
 print("PASS: non_square_fitted_radius \(fittedRadius)")
 
-let squeezedRadius = PeakOverlayGeometry.radius(
+guard let squeezedRadius = PeakOverlayGeometry.radius(
     probeRadius: 3,
     patternWidth: 64,
     patternHeight: 32,
     box: CGSize(width: 640, height: 300)
-)
+) else { fail("squeezed radius is nil for a 3 px probe") }
 guard close(squeezedRadius, 28.125) else {
     fail("squeezed radius \(squeezedRadius), expected 28.125")
 }
 print("PASS: squeezed_box_stays_circular radius \(squeezedRadius)")
+
+for (name, probe) in [("no_kernel", nil), ("nan_probe", Float.nan), ("zero_probe", Float(0))] as [(String, Float?)] {
+    guard PeakOverlayGeometry.radius(
+        probeRadius: probe, patternWidth: 64, patternHeight: 32, box: fitted
+    ) == nil else { fail("\(name): a radius was drawn with no usable probe") }
+    print("PASS: \(name) draws a marker, not a disk")
+}
 print("peak-overlay-test: all passed")

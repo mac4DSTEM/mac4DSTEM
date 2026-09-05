@@ -564,3 +564,69 @@ nothing on that file at defaults — a detection-settings finding, recorded in
 (0.1623 Å⁻¹ = c/2), which a [0001] specimen never shows; item (b) stands. And
 the 0.26 px origin-fit offset on WS₂ is its own open item.
 
+## 9. Gate D, 2026-09-05 — the origin measurement sat 0.26 px off the beam
+
+**Pre-registered** (scratchpad `origin-offset-gate-d-preregistration.md`).
+Observation (the §8 refuter): plane-fitted origin (63.996, 63.996) on
+`polycrystal_2D_WS2` against a beam centre of mass of (63.738, 63.738).
+Three hypotheses — H1 the per-position MEASUREMENT truncates the beam, H2
+the fit moves the mean, H3 the reference is wrong (an asymmetric beam).
+
+| measurement | window | mean x | note |
+|---|---|---|---|
+| app, shipped kernel, rscale 1.2 | 2.23 px | 63.986 | every position's fractional part in 0.9–1.0 |
+| app, rscale 2.0 / 3.0 / 4.0 | 3.7 / 5.6 / 7.4 px | 63.7375 | identical to 4 decimals |
+| numpy CoM, iterated, R 3–12 px | | 63.738 | stable over the whole range |
+| numpy CoM, iterated, R 2.23 px | | 63.714 | the window's own fixed point is 0.024 low |
+
+Logs `scratchpad/origin-experiment-ws2-20260905.log`, the numpy runs in the
+session record. H2 refuted (fitted = measured mean in every row); H3 refuted
+(stable from 3 px to 12 px); H1 confirmed with its mechanism: the coarse
+step is a block centre (bin ≈ r, a recorded DEVIATION) that sits up to
+bin/2 off, and ONE centre of mass in a 1.2 r window around it truncates the
+beam on one side — the window cannot reach the beam from where it starts.
+The fixed point of the same window converges from the block centre in ~5
+passes, but a window that cuts the beam's soft edge stays biased even when
+centred (0.27 px on a synthetic blob, 0.024 on WS₂); r + 1.5 px and wider
+read within 0.009 px on both. **Fix:** `measureOrigin` iterates the centre
+of mass on its own estimate (≤ 4 passes, bounding-box loops) in a window of
+max(r · rscale, r + 1.5 px) — DEVIATION from py4DSTEM's single pass, noted
+in the kernel. Fixture: `tools/virtual-detector-test`
+`origin_measurement_truth`, three sub-pixel centres of a WS₂-sized blob on a
+128 px detector; the shipped kernel failed it by 0.42 px.
+
+**Gate B, the same evening** (refuter's `refute3/` in the session scratchpad;
+the review was cut by a session loss and finished from its logs). A numpy
+twin of both kernels ran over ten training cubes (12 × 12 positions each)
+against py4DSTEM's own `get_origin_single_dp` seed (PY) and an iterated
+3 r centre of mass from that seed (WIDE, the truth proxy):
+
+| cube (r px) | old − wide | new − wide | py − wide |
+|---|---|---|---|
+| WS₂ (1.86) | +0.249 | 0.000 | +0.127 |
+| sim_Au (5.13) | −0.33 / −0.36 | +0.002 | −0.005 |
+| SPED MgO (4.24) | +0.65 / +0.81 | +0.07 / +0.04 | −0.14 / +0.04 |
+| Si-SiGe calibrated (3.70) | −0.59 / −0.49 | −0.015 | −0.06 |
+| 060 STEM SI, DM4 bin 4 (2.52) | −0.31 | −0.01 / −0.02 | +0.06 / +0.03 |
+| twisted bilayer graphene (25.3) | −0.001 | 0.000 | 0.000 |
+
+Corrections applied: the shift is NOT "≤ 0.3 px on small beams" — it is
+set by where the beam sits in the coarse block grid, 0.001 px on graphene
+and 0.77 px on MgO, single patterns to 1.3 px on sim_Au. The three noisy
+cubes (Si-SiGe experimental, Particle_1, COPL) keep the same outlier
+fraction old and new (28/169, 29/195 vs 70/195, 2/169 beyond 1 px of PY):
+those are the block seed landing on the wrong blob, a pre-existing limit the
+window cannot reach. A synthetic run through the real kernel (38 cases, old
+vs new metallib): within 0.01 px on every clean case where the old read
+0.12–0.91 px off (a hard 6 px disk: 0.91 → 0.006); a 30 %-intensity
+neighbour whose edge lies inside r + 1.5 px biases the new window 0.175 px
+(old 0.135) — no training cube has a feature that close; beams cut by the
+detector edge, a window inside a flat plateau (r underestimated), and an
+`inf` pixel behave as before. Mutations of the kernel against the fixture:
+the old kernel 0.42 px, no floor 0.105, a single pass 0.068, floor r + 0.5
+0.196, swapped axes 30.5 — all caught; a bounding box clipping one side of
+the window by a pixel read 0.041 px and SURVIVED the 0.05 px tolerance, now
+0.02 px (the kernel reads 0.009). The two-spec P4 translation check, which
+pinned the old kernel's grid dependence at 0.65 px, measures 9.5e-7 px and
+is tightened to 0.001 px (old kernel 0.61, single pass 0.016 — both fail).
+

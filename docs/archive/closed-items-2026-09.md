@@ -143,3 +143,20 @@ in scan index, reversing the mask rows inside a tile summed rows {0,3} for
 subset sums uniquely) and the region 1 × 2 (an x/y swap cannot cancel);
 the reversal fails (`virtual-detector-mut-i-20260905.log`) and the refuter's
 swap fails the new case alone (`var-B-mut-ix.log`). Ten mutations in all.
+
+---
+
+## The plane origin fit sits 0.26 px off the beam on `polycrystal_2D_WS2` — closed 2026-09-05
+
+> Gate B refuter, 2026-09-05: fitted origin (63.996, 63.996) against the mean
+> pattern's beam centre of mass (63.74, 63.74); the first-shell radius ran
+> 18.51 → 19.20 px around the ring. Every radius-based number downstream
+> carried it until a symmetric set cancelled it.
+
+**Closure.** Gate D the same day (`q-calibration-design.md` §9): the
+per-position measurement, not the fit — one centre of mass in a 1.2 r window
+around a block-binned coarse centre truncated the beam. `measureOrigin` now
+iterates the window on its own estimate in max(r · rscale, r + 1.5 px);
+WS₂ reads 63.738 at the shipped rscale. Pinned by `origin_measurement_truth`
+at 0.02 px (the old kernel failed it by 0.42 px) and by the two-spec
+harness's P4 equivariance check, tightened from 0.65 px to 0.001 px.

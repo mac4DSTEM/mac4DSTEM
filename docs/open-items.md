@@ -50,6 +50,18 @@ quarter of the scan gives 100% kept, 20.6px error; an exactly-bimodal
 residual zeroes the MAD guard). Owner: a design pass — no statistic proposed
 yet distinguishes displacement from contamination. `docs/q-calibration-design.md`.
 
+### The origin's coarse block seed lands on the wrong blob on noisy cubes
+Gate B refuter, 2026-09-05 (`q-calibration-design.md` §9,
+`tools/origin-fit-diagnostics/origin-kernel-twin.py`): against py4DSTEM's
+Gaussian-argmax seed, the app's block-sum seed puts 28/169 positions of
+`downsample_Si_SiGe_exp`, 29/195 of `Particle_1` and 2/169 of `COPL` more
+than 1 px away — unchanged by the iterated window, which cannot leave a
+wrong block (a DEVIATION recorded in the kernel header). Clean cubes: 0.
+Trap: the plane fit's trimming hides most of these, so the fitted origin
+looks fine while `excludedFraction` carries them. Owner: a design pass on
+the coarse step (Gaussian-filtered seed, or a coarse-to-fine window) before
+the origin-fit holes (b)/(c), which it would move.
+
 ### CIF import can silently accept a wrong crystal
 (a) A non-P1 declaration with a PARTIAL ops list still imports the wrong
 cell (`verifyFamily` can pass it — Gate B refuter escape E2, 2026-09-01,
@@ -90,15 +102,6 @@ selects (0002), a reflection a [0001]-zone specimen never shows — predicted
 mis-scale 2.26×, silent. Measured end to end: correlation score HALVES at the
 defective scale and median `reliability` is HIGHER — no fix may lean on
 reliability to choose between scales. Owner: (b) its own design pass.
-
-### The plane origin fit sits 0.26 px off the beam on `polycrystal_2D_WS2`
-Gate B refuter, 2026-09-05 (`scratchpad/qcal-refute/`): fitted origin
-(63.996, 63.996) against the mean pattern's beam centre of mass (63.74,
-63.74) and the Bragg-ring centre from a cos/sin fit (63.76, 63.76); the
-first-shell radius runs 18.51 → 19.20 px around the ring. Every radius-based
-number downstream carries it until a symmetric set cancels it. Not diagnosed:
-whether the per-position measurement or the plane fit is off. Owner: a Gate
-D on `tiledMeasuredOrigins` / `fitOriginTrimmed` with this file.
 
 ### Disk detection at defaults finds only the beam on `polycrystal_2D_WS2`
 Its Bragg disks are ~0.002 of the central beam (numpy, 2026-09-05); the
@@ -609,7 +612,19 @@ the manifest's isolation flags buy visibility, not enforcement).
 A backgrounded `run-tests.sh` reported exit 0 while the gate's own `GATE_EXIT`
 line said 1 (2026-09-04, the fourth time). Redirect to a log, `echo $?` on its
 own line, grep the log. A `| tail` pipe reports `tail`'s status. The same day,
-`git push … | tail` printed `PUSH_EXIT=0` over a failed push.
+`git push … | tail` printed `PUSH_EXIT=0` over a failed push. And a green gate
+row outlives the commit that broke it: on 2026-09-05 `scientific` was red from
+02:09 (a harness check committed against a reader that never satisfied it) and
+from 12:55 (a harness that no longer compiled) until the evening's rerun —
+five commits quoted the morning's 43-harness green. A commit that touches a
+harness's inputs reruns that harness before it quotes any gate.
+
+### Resume a lost session from its scratchpad, not from memory
+A session died mid-Gate B on 2026-09-05. Its scratchpad
+(`/private/tmp/claude-501/<project>/<session-id>/scratchpad`) survived
+with the pre-registration, every log and the refuter's half-run harness; the
+review was finished from those, and the `git diff` was the only other truth.
+Look there first; never re-derive a number a retained log already holds.
 
 ### Count a gate's tests by name, and reconcile against the expected delta
 `run-tests.sh unit` passes `-quiet`, so xcodebuild prints no summary and the

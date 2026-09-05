@@ -395,10 +395,16 @@ package actor H5Reader: FourDDataSource {
             lastAxisName: readStringAttribute("name", onPath: lastAxisDim),
             units: readStringAttribute("units", onPath: path),
             // v0.12 applies this string-label rule only to objects selected
-            // from its `data/diffractionslices` collection. A same-named
+            // from its `data/diffractionslices` and `data/realslices`
+            // collections (`read_v0_12.py:352-388`, get_diffractionslice_from_grp
+            // and get_realslice_from_grp share the dim3 test). A same-named
             // string sibling in an unrelated modern group is metadata, not a
-            // reason to refuse an otherwise genuine cube.
-            legacySliceLabels: path.contains("/data/diffractionslices/")
+            // reason to refuse an otherwise genuine cube. `realslices` was
+            // missing until 2026-09-05: a strain stack (5, 7, 4) opened as a
+            // datacube with a four-pixel detector, and the harness check that
+            // pins it had been red since it was committed.
+            legacySliceLabels: (path.contains("/data/diffractionslices/")
+                                || path.contains("/data/realslices/"))
                 && datasetIsStringTyped(legacyLastDim)
         )
         return Self.datacubeRejection(of: candidate) == nil ? descriptor : nil
