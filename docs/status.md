@@ -98,8 +98,9 @@ agent should say so and start at item 2.
    floods noise). Bullseye disk detection: two of three fixes landed (flat
    measured-kernel mode, the file's probe as a kernel source; parity with
    py4DSTEM's flat route), the probe-size under-read on ring-shaped probes
-   stays open, and the owner's drive of the bullseye maps closes the item;
-   ACOM coverage
+   stays open, and the owner's drive of the bullseye maps closes the item.
+   **Starting 2026-09-06: the learned-detector option, `v3-plan.md` §3a,
+   step 1 (FCU-Net as a Python reference).** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.

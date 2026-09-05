@@ -73,14 +73,53 @@ is its own product").
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
 - **Learned disk candidates** (owner, 2026-09-05; Core ML + MLX preferred) —
-  a net proposes CANDIDATES, the classical correlation keeps the sub-pixel
-  position (strain needs 0.01 px; a box centre is ~0.5 px). py4DSTEM's own is
-  FCU-Net (crystal4D, TensorFlow/Keras, pattern AND probe as inputs, weights
-  fetched from Google Drive by `diskdetection_aiml._get_latest_model`); the
-  owner wants help extracting those weights (Keras → coremltools / MLX; no
-  PyTorch anywhere in the pinned source). Ships only with a pinned weight
-  hash in provenance, a simulated-truth fixture, and a licence check (YOLOv8
-  is AGPL-3.0; the stock `yolov8n.mlpackage` in the tree is not committable).
+  pre-registered below (§3a); the first ML feature, starting 2026-09-06.
+
+### 3a. Learned disk candidates — pre-registration (2026-09-05)
+
+**Shape.** A second detector class beside the classical one: a net proposes
+disk CANDIDATES on a pattern, the existing correlation/centroid refinement
+measures each to sub-pixel precision. No coordinate from the net reaches
+strain or Q calibration — strain needs 0.01 px and a probability map or a
+box centre is ~0.5 px. This is also how py4DSTEM's own ML mode works:
+FCU-Net (Fourier Convolutional U-Net, Munshi et al. 2022; `crystal4D`,
+TensorFlow/Keras) outputs a disk-probability map and `get_maxima_2D` does
+the rest (`braggvectors/diskdetection_aiml.py`). It takes the PROBE as a
+second input, which is why it generalises across probe shapes — the bullseye
+failure class. Core ML is how the app runs a model (Neural Engine, Swift, no
+Python); MLX is for experiments and fine-tuning in Python; an MLX model
+reaches the app through `coremltools` like any other.
+
+**Owner of state.** The kernel's owner today is `AppState.probeKernel`; a
+learned detector adds a `DetectorClass` beside `ProbeKernel`, owned by the
+detection settings, never new `AppState` stored state. Provenance carries
+`detector_class` and the model file's SHA-256 — a result must say which
+weights made it, so weights are pinned and hashed, never fetched "latest" at
+build time (py4DSTEM's loader downloads a zip from Google Drive by a
+`model_metadata.json`; we vendor one copy).
+
+**Steps, in order, each its own session.**
+1. FCU-Net as a reference in Python: `crystal4D` + TensorFlow in the py4DSTEM
+   env, `_get_latest_model()` once, run on the bullseye and WS₂ cubes;
+   compare its peak sets with the classical detector at the settings the
+   2026-09-05 Gate D established. Decides whether the net earns its place.
+2. Convert to Core ML with `coremltools`; check the converted model against
+   Keras pixel for pixel on the same probability maps. The FFT layers are the
+   likely hand-written part. MLX is NOT a Keras loader: the architecture is
+   rewritten in MLX and the exported arrays loaded layer by layer, each
+   layer checked numerically against Keras.
+3. Fixture in `tools/` on SIMULATED truth — patterns drawn with known disk
+   centres, run through net + refinement, checked against the drawn centres.
+   No py4DSTEM parity exists for a Core ML model; simulated truth is the
+   ground. Break it first, as always.
+4. Wire it in as an option with the hash in provenance; Gate B campaign.
+5. Only then MLX fine-tuning on the owner's own probes and cameras; the
+   bullseye probe is the first case.
+
+**Owed to the owner before step 4.** The licence of the FCU-Net weights
+(py4DSTEM's project) before they ship inside a GPL-3.0 app; YOLOv8 code and
+weights are AGPL-3.0, which is why the stock `yolov8n.mlpackage` in the tree
+is a reference, not a dependency, and is not committed.
 
 ## 4. Leave alone; where the app is ahead
 
