@@ -410,3 +410,8 @@ Working method: one feature branch with the per-commit rules loosened and
 the full discipline re-applied at the merge; throughput ceiling 2× the
 classical detector on the same cube (both owner, 2026-09-06 evening).
 `v3-plan.md` §3a is the complete record, long by the owner's instruction.
+*(Amended the same evening: Apple's Core AI — 27.0 OS generation, beta on
+2026-09-06 — is a second door to the Neural Engine and exports from PyTorch
+only, so the PyTorch decision stands with a second reason. The shipping
+runtime, Core ML or Core AI, is an owner decision deferred to step 3 unless
+taken earlier; §3a's Core AI block.)*

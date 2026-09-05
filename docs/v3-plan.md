@@ -85,9 +85,11 @@ number not marked *measured* is a design default to be settled by its step.
 #### The decision, and why
 
 Neural-Engine-native, trained by us, no py4DSTEM model, no py4DSTEM
-fallback. The Neural Engine (ANE, in every Apple Silicon Mac) has exactly
-one public door, Core ML; MLX runs on the GPU and never touches the ANE.
-Core ML has no FFT operation. py4DSTEM's own learned detector, FCU-Net
+fallback. The Neural Engine (ANE, in every Apple Silicon Mac) is reached
+only through Apple's model runtimes — Core ML (macOS 14+) and, new in the
+27.0 OS generation, Core AI (beta on 2026-09-06; its own block below); MLX
+runs on the GPU and never touches the ANE. Core ML has no FFT operation and
+neither runtime puts one on the ANE. py4DSTEM's own learned detector, FCU-Net
 (Fourier Convolutional U-Net, Munshi et al. 2022; `crystal4D`, TF/Keras;
 `braggvectors/diskdetection_aiml.py` in the pinned source), is built on a
 Fourier layer — FFT, multiply, inverse FFT — so it can never compile for the
@@ -137,7 +139,9 @@ is the bullseye failure in one sentence. Our own weights, our own licence:
 no py4DSTEM model, no Google Drive download, no licence question; the weights
 ship in the app, pinned and hashed. The most durable Apple contract: Core ML
 has been stable since 2017 and every new chip runs the same model file
-faster — that is the future-proof part. Fine-tuning stays cheap because we
+faster — that is the future-proof part — and Core AI, Apple's new
+Apple-silicon inference runtime (2026), reads the same PyTorch source, so
+the training investment carries over. Fine-tuning stays cheap because we
 trained it: retraining on the owner's own probe or camera is the same script
 with more data.
 
@@ -193,7 +197,8 @@ is wrong we need more data and a training run.
   at each disk centre — not a segmentation mask. Peak-picking: local maxima
   above a threshold with a minimum separation of about the probe radius.
   Loss: heatmap regression (MSE or a focal variant); settled in step 2.
-- **Serving.** `coremltools` → ML Program `.mlpackage`, float16, compiled by
+- **Serving, Core ML route (macOS 14+).** `coremltools` → ML Program
+  `.mlpackage`, float16, compiled by
   Xcode into the bundle; compute units set to prefer the Neural Engine
   (Core ML falls back to GPU/CPU where no ANE exists, so nothing crashes on
   odd hardware); batched prediction with IOSurface-backed `MLMultiArray` so
@@ -201,6 +206,17 @@ is wrong we need more data and a training run.
   is read from Xcode's Core ML performance report: every op on the ANE, or
   the graph is split and the design has failed its own premise. Every
   Core ML API used must exist on macOS 14, the app's floor.
+- **Serving, Core AI route (macOS 27+, beta on 2026-09-06).** `coreai-torch`
+  → `.aimodel` from the same PyTorch net; in Swift `AIModel(contentsOf:)`
+  (asynchronous — it specialises the model for the device on first load,
+  cached by `AIModelCache`, never in an interactive flow), `loadFunction`,
+  `InferenceFunction.run(inputs:)` on `NDArray` with contiguous mutable
+  views (zero-copy), and `SpecializationOptions(preferredComputeUnitKind:
+  .neuralEngine)` with `allowedComputeUnitKinds` — explicit ANE targeting
+  is a first-class API here. Ahead-of-time: `xcrun coreai-build compile`
+  → one `.aimodelc` per device architecture. Every op's placement is read
+  in Xcode's graph view or Instruments. Batching is not documented on the
+  pages read; measure it. Details and sources in the Core AI block.
 - **Weights.** Ship in the bundle, pinned; never fetched at build or run
   time (py4DSTEM's loader fetches "latest" — we do the opposite). SHA-256 of
   the model file in provenance beside `detector_class`; a result must say
@@ -239,8 +255,9 @@ which it is not. The app gets one `.mlpackage` and one inference class in
 `Core/`.
 
 Contents: `simulate.py` (patterns + truth), `train.py` (PyTorch, MPS
-backend), `export.py` (→ `.mlpackage`), `check_export.py` (Core ML vs
-PyTorch, pixel for pixel),
+backend), `export.py` (→ `.mlpackage` via `coremltools` and → `.aimodel`
+via `coreai-torch`, both from the one PyTorch net), `check_export.py` (each
+export vs PyTorch, pixel for pixel),
 `fixture/` (a small, fully synthetic committed set with expected centres — a
 reader must be able to reproduce it; runs on the owner's real cubes are
 quoted from dated retained logs), `README.md` with pinned versions.
@@ -254,8 +271,10 @@ environment stays as pinned (proposed). Mind the disk floor: run
 #### Training data
 
 The Neural Engine is not trained on; it only runs models. Training is
-PyTorch on the Mac's GPU (the MPS backend); the result is exported to
-Core ML through `coremltools` — decided 2026-09-06, below. The data is ours, generated
+PyTorch on the Mac's GPU (the MPS backend) — decided 2026-09-06, below; the result is
+exported to Core ML through `coremltools` and to Core AI through
+`coreai-torch`, both from the same net (the dual export is the
+recommendation in the Core AI block). The data is ours, generated
 on the fly by our own simulator — nothing stored, nothing downloaded,
 nothing to license:
 
@@ -335,7 +354,9 @@ correlation and drawing; the wall-clock win is unproven.
   kitchen: the app sees one `.mlpackage` either way and runs identically on
   the ANE. MLX stays available for experiments; it is not in this feature's
   loop. The exported model is still checked against PyTorch pixel for pixel
-  on the same inputs before anything else.
+  on the same inputs before anything else. Core AI, read up on the same
+  evening, exports from PyTorch only — the decision stands and gains a
+  second reason.
 - **Where the confirmed/rejected patterns live — decided (owner,
   2026-09-06): the session sidecar.** "Owned by" means the one place a
   remembered value lives and the only thing allowed to change it; everyone
@@ -345,6 +366,60 @@ correlation and drawing; the wall-clock win is unproven.
   fits because a label belongs to one file and one scan position, survives
   reopen, and travels with the sidecar when it is shared; the fine-tuning
   script reads labels out of sidecars.
+
+#### Core AI (the owner's question, 2026-09-06 evening)
+
+**What it is, source-locked** (developer.apple.com/documentation/coreai,
+developer.apple.com/core-ai/, WWDC26 sessions 324 "Meet Core AI", 325
+"Dive into Core AI model authoring and optimization", 326;
+github.com/apple/coreai-models and /coreai-torch; all read 2026-09-06).
+"Run AI models in your app on Apple silicon": a new framework, beta,
+introduced in the 27.0 OS generation on every Apple platform including
+macOS, Xcode 27, Apple silicon (M1 and later for ahead-of-time compiles),
+the Metal Toolchain required to build. Models are `.aimodel` assets. The
+Swift API is `AIModel` / `AIModelAsset` / `InferenceFunction` / `NDArray`
+/ `ComputeStream` / `AIModelCache`; `ComputeUnitKind` is `cpu`, `gpu`,
+`neuralEngine`, chosen through `SpecializationOptions` (`preferred` and
+`allowed` kinds; the default uses everything). Python tooling:
+`pip install coreai-torch` — `torch.export.export(model, example)` →
+`TorchConverter().add_exported_program(...)` → `to_coreai()` →
+`optimize()` → `save_asset("model.aimodel")`; `coreai-opt` casts to
+float16 and quantises (int4/int8/FP4/FP8, palettization); custom Metal
+kernels can be registered and ship inside the asset. Ahead-of-time:
+`xcrun coreai-build compile Model.aimodel --platform macOS
+--min-deployment-version 27.0` → one `.aimodelc` per device architecture.
+Tools: Core AI Debugger app (traces ops back to the Python source), Xcode
+graph inspection and validation, Instruments profiling. The tooling repo
+is BSD-3.
+
+**What Apple's pages do not say**, read the same day: anything about Core
+ML — no deprecation, no migration, no "successor" claim; any batching
+guidance; any MLX path — export is PyTorch, and PyTorch only.
+
+**What it changes here.** (1) The ANE now has two doors, not one; the
+sentence at the top of this section is corrected. (2) The PyTorch decision
+gains a second reason: both exporters read it. (3) Explicit Neural Engine
+targeting is a first-class API in Core AI; in Core ML it is a compute-units
+hint plus a performance report. (4) The developer tooling answers the
+owner's "how do I watch it" question better than Core ML does. (5) A
+custom Metal kernel inside the asset means the Metal cross-correlation
+(channel three) could one day live inside the model and the whole detector
+ship as one asset — noted, not planned. (6) The constraint: macOS 27, beta
+today; the app's floor is 14, nominal (compile-verified, never executed;
+every machine here runs 26 or 27). The classical detector works
+everywhere, so the learned detector can be a macOS-27-only option behind
+an availability check without moving the floor.
+
+**Recommendation (proposed; the owner decides).** The PyTorch net is the
+single source. Step 2 exports both — one extra export target and one extra
+pixel check — and measures both on the ANE. Step 3 chooses the shipping
+runtime on facts that do not exist today: whether 27.0 has shipped by then
+(step 4 is 3–5 weeks out) and which runtime measures at least as fast at
+equal recall. Provenance records the runtime beside the weights hash, since
+float16 numerics may differ between them. The alternative, Core AI only
+from step 2, is the more future-proof line at the price of a beta API
+during steps 2–4 and a macOS-27 floor for the feature. Not recommended:
+shipping both runtimes in the app.
 
 #### The Neural Engine beyond disk detection
 
@@ -398,7 +473,8 @@ Not for the ANE: ptychography, strain, Q calibration, anything where
   GUI. PyTorch's own TensorBoard writer shows the loss curve and sample
   heatmaps in the browser while it runs; Xcode's model viewer opens the
   exported `.mlpackage` (inputs, outputs, per-op placement, the performance
-  report); mac4DSTEM shows the results — the detector option, the
+  report); for a `.aimodel`, Xcode inspects the graph, Instruments profiles
+  it, and the Core AI Debugger app traces ops back to the Python source; mac4DSTEM shows the results — the detector option, the
   disagreement map, the clicks — from step 4. Apple's Create ML app does
   not apply (no custom heatmap task). Training never enters the mac4DSTEM
   GUI.
@@ -418,14 +494,16 @@ Not for the ANE: ptychography, strain, Q calibration, anything where
    proven before any net sees them, independently of any net. A few abTEM
    patterns as the honesty check. Break the fixture first. Classify the
    directory in `run-tests.sh inventory`.
-2. **Net + training in PyTorch; export to Core ML through `coremltools`.**
-   The Core ML model checked against PyTorch pixel for pixel;
-   the performance report shows every op on the ANE; a per-pattern time is
-   stated from a run.
+2. **Net + training in PyTorch; export to Core ML (`coremltools`) and to
+   Core AI (`coreai-torch`) from the one net.** Each export checked against
+   PyTorch pixel for pixel; each shown on the ANE (Core ML's performance
+   report; Core AI's Xcode/Instruments view with `.neuralEngine`
+   preferred); a per-pattern time stated from a run for each.
 3. **Does it earn its place?** Net + refinement against the drawn centres
    (recall, precision, residual after refinement); against the classical
    detector on the bullseye and WS₂ cubes; against the throughput ceiling
-   set before the comparison. The verdict goes to `decisions.md`.
+   set before the comparison. The verdict goes to `decisions.md`, and so
+   does the shipping runtime, chosen here (Core AI block).
 4. **Wire in as an option**: `DetectorClass`, the hash in provenance, the
    disagreement map, the labelled-pattern store in the sidecar. Gate B
    campaign (it is `Core/` and it moves which disks are found); any
