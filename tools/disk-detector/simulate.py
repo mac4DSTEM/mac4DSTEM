@@ -152,13 +152,11 @@ def lattice_points(origin, va, vb, size: int, margin: float):
     """All (h,k) whose position lies inside the render canvas (size + margins)."""
     lo, hi = -margin, size + margin
     n = int(math.ceil((size + 2 * margin) / min(np.linalg.norm(va), np.linalg.norm(vb)))) + 2
-    pts, hk = [], []
-    for h in range(-n, n + 1):
-        for k in range(-n, n + 1):
-            p = np.asarray(origin) + h * va + k * vb
-            if lo <= p[0] < hi and lo <= p[1] < hi:
-                pts.append(p); hk.append((h, k))
-    return np.array(pts).reshape(-1, 2), hk
+    h, k = np.meshgrid(np.arange(-n, n + 1), np.arange(-n, n + 1), indexing="ij")
+    h, k = h.ravel(), k.ravel()
+    p = np.asarray(origin)[None, :] + h[:, None] * va[None, :] + k[:, None] * vb[None, :]
+    inside = (p[:, 0] >= lo) & (p[:, 0] < hi) & (p[:, 1] >= lo) & (p[:, 1] < hi)
+    return p[inside].reshape(-1, 2), [(int(a), int(b)) for a, b in zip(h[inside], k[inside])]
 
 
 def disk_intensities(rng, pts, hk, origin, cfg: SimConfig, falloff, spread, missing):
@@ -175,18 +173,20 @@ def disk_intensities(rng, pts, hk, origin, cfg: SimConfig, falloff, spread, miss
 
 def render_disks(probe_render: np.ndarray, probe_centre, centres, intensities, size: int, margin: int):
     """Sum of shifted copies of `probe_render` at `centres` via one FFT on a wider canvas;
-    the centre `size` x `size` is returned (no periodic wrap into the field of view)."""
+    the centre `size` x `size` is returned (no periodic wrap into the field of view).
+    Exact sub-pixel placement by the Fourier shift theorem; the phase sum over centres is
+    separable, so it is one (R,N)@(N,R) complex product, not a loop."""
     R = size + 2 * margin
     canvas = np.zeros((R, R), dtype=np.float64)
     pr = probe_render
     canvas[: pr.shape[0], : pr.shape[1]] = pr
-    # move the probe centre to the canvas corner, then place at each centre + margin
-    qx, qy = fourier_coords_2d(R, R)
-    F = np.fft.fft2(canvas) * np.exp(2j * np.pi * (probe_centre[0] * qx + probe_centre[1] * qy))
-    phase = np.zeros((R, R), dtype=np.complex128)
-    for (r, c), I in zip(centres, intensities):
-        phase += I * np.exp(-2j * np.pi * ((r + margin) * qx + (c + margin) * qy))
-    img = np.real(np.fft.ifft2(F * phase))
+    q = np.fft.fftfreq(R, 1.0)
+    F = np.fft.fft2(canvas) * np.exp(2j * np.pi * (probe_centre[0] * q[:, None] + probe_centre[1] * q[None, :]))
+    centres = np.asarray(centres, dtype=np.float64).reshape(-1, 2)
+    I = np.asarray(intensities, dtype=np.float64)
+    U = np.exp(-2j * np.pi * np.outer(q, centres[:, 0] + margin)) * I[None, :]   # (R,N)
+    V = np.exp(-2j * np.pi * np.outer(centres[:, 1] + margin, q))                # (N,R)
+    img = np.real(np.fft.ifft2(F * (U @ V)))
     return np.maximum(img[margin:margin + size, margin:margin + size], 0)
 
 
@@ -287,13 +287,14 @@ def simulate_one(rng: np.random.Generator, probe: np.ndarray, probe_centre, cfg:
 
 
 def probe_radius(probe: np.ndarray, centre) -> float:
-    """Radius at which the azimuthal mean falls to 20% of its maximum (outer edge; enough for rendering)."""
+    """Outer edge: the LARGEST radius at which the azimuthal mean is still >= 20% of its maximum.
+    Read from the outside in on purpose — a ring-shaped (bullseye) probe is dim at its centre, and
+    the first-crossing rule reads it at the inner edge of the ring (the open probe-size item)."""
     rr, cc = np.indices(probe.shape, dtype=np.float64)
     r = np.hypot(rr - centre[0], cc - centre[1]).astype(int)
     prof = np.bincount(r.ravel(), probe.ravel()) / np.maximum(np.bincount(r.ravel()), 1)
-    thr = 0.2 * prof.max()
-    below = np.nonzero(prof < thr)[0]
-    return float(below[0]) if len(below) else float(probe.shape[0] / 4)
+    above = np.nonzero(prof >= 0.2 * prof.max())[0]
+    return float(above[-1] + 1) if len(above) else float(probe.shape[0] / 4)
 
 # ----------------------------------------------------------------------------
 # Model inputs and targets (the one normalisation, shared with step 4)
@@ -310,13 +311,17 @@ def model_inputs(pattern: np.ndarray, probe: np.ndarray, correlation: np.ndarray
 
 
 def heatmap_target(centres: np.ndarray, size: int, sigma: float) -> np.ndarray:
-    """(1,S,S) float32: a Gaussian bump of amplitude 1 at every truth centre."""
+    """(1,S,S) float32: a Gaussian bump of amplitude 1 at every truth centre (max over bumps)."""
     out = np.zeros((size, size), dtype=np.float64)
-    if len(centres) == 0:
-        return out[None].astype(np.float32)
-    rr, cc = np.indices((size, size), dtype=np.float64)
-    for r, c in centres:
-        out = np.maximum(out, np.exp(-((rr - r) ** 2 + (cc - c) ** 2) / (2 * sigma ** 2)))
+    w = int(math.ceil(4 * sigma))
+    for r, c in np.asarray(centres, dtype=np.float64).reshape(-1, 2):
+        r0, c0 = int(round(r)), int(round(c))
+        rs, re = max(r0 - w, 0), min(r0 + w + 1, size)
+        cs, ce = max(c0 - w, 0), min(c0 + w + 1, size)
+        if rs >= re or cs >= ce:
+            continue
+        rr, cc = np.mgrid[rs:re, cs:ce]
+        out[rs:re, cs:ce] = np.maximum(out[rs:re, cs:ce], np.exp(-((rr - r) ** 2 + (cc - c) ** 2) / (2 * sigma ** 2)))
     return out[None].astype(np.float32)
 
 # ----------------------------------------------------------------------------
