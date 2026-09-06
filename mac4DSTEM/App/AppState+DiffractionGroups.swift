@@ -49,10 +49,22 @@ extension AppState {
         }
 
         do {
-            guard let result = try await DiffractionEmbedding.compute(
-                data: fourD, descriptor: descriptor, settings: settings,
-                cancellation: cancellation, progress: progressUpdate
-            ) else {
+            // Off the main actor, exactly like the classical full-scan
+            // detection (`AppState.swift:4907`). `DiffractionEmbedding.compute`
+            // is `nonisolated async`, and under SE-0461 a nonisolated async
+            // callee runs on its CALLER's executor — awaited straight from
+            // this `@MainActor` method it ran the whole embedding on the main
+            // thread, so the progress hop above could never be serviced and
+            // the app sat frozen at "0 %  0 s" for ~5 minutes with Cancel
+            // inert (owner's drive 2026-09-06, `drive-groups` defect 1:
+            // 698/698 main-thread samples; Gate D fix-a/gateD-A2.md).
+            let computed = try await Task.detached(priority: .userInitiated) {
+                try await DiffractionEmbedding.compute(
+                    data: fourD, descriptor: descriptor, settings: settings,
+                    cancellation: cancellation, progress: progressUpdate
+                )
+            }.value
+            guard let result = computed else {
                 statusText = "Diffraction groups cancelled"
                 return .cancelled
             }
@@ -62,7 +74,7 @@ extension AppState {
             let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
             publishProduct(
                 kind: "diffraction_groups",
-                displayName: "Diffraction groups (k)",
+                displayName: DiffractionGroupsProduct.groupMapDisplayName(groups: result.groupCount),
                 valueUnits: "group",
                 payload: .scalar(DiffractionEmbedding.groupMap(result)),
                 extraProvenance: [

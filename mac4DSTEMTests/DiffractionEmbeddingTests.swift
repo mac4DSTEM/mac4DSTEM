@@ -8,6 +8,7 @@
 
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// An in-memory `FourDDataSource` over a fixed list of scan-position patterns
@@ -275,5 +276,25 @@ final class DiffractionEmbeddingTests: XCTestCase {
         XCTAssertTrue(result.coordinates.allSatisfy(\.isFinite), "no coordinate may be NaN/Inf")
         XCTAssertTrue(result.mean.allSatisfy(\.isFinite), "no mean-vector entry may be NaN/Inf")
         XCTAssertTrue(result.basis.allSatisfy(\.isFinite), "no basis entry may be NaN/Inf")
+    }
+}
+
+/// A5 (fix-a, `drive-groups` defect 2): every group map was published, saved
+/// and listed as the literal `Diffraction groups (k)`, so a k=4 run and a k=8
+/// run were indistinguishable in Results and in the sidecar (captures
+/// `drive-groups/03-groups-k4.png`, `04-groups-k8.png`, `07-results.png`).
+/// The name must carry the k the run actually used.
+final class DiffractionGroupsNamingTests: XCTestCase {
+
+    func testGroupMapDisplayNameCarriesTheNumberOfGroups() {
+        let four = DiffractionGroupsProduct.groupMapDisplayName(groups: 4)
+        let eight = DiffractionGroupsProduct.groupMapDisplayName(groups: 8)
+        XCTAssertNotEqual(four, eight, "two different k must not publish the same name")
+        XCTAssertTrue(four.contains("4"), "the k=4 name must name 4, got \(four)")
+        XCTAssertTrue(eight.contains("8"), "the k=8 name must name 8, got \(eight)")
+        XCTAssertFalse(
+            four.contains("(k)"),
+            "the literal placeholder must not reach the user, got \(four)"
+        )
     }
 }

@@ -835,3 +835,45 @@ final class PhaseSplitTests: XCTestCase {
         XCTAssertEqual(state.ptychographyMethod, other)
     }
 }
+
+/// A3 (fix-a, diagnosis D3): AI Analysis → Learned disks showed a Detector
+/// picker and then overrode it — pressing Detect All Disks forced
+/// `detectorClass = .learned` regardless of what the visible picker said
+/// (owner's drive, `drive-learned` defect 4), so `Compare with Classical`
+/// could never be enabled without leaving the workspace. The room now runs
+/// the class its own picker names. Bragg disks keeps forcing `.classical`:
+/// that room has no AI control at all, so a learned class left over from an
+/// AI Analysis run must not silently follow the user into it.
+///
+/// No dataset is loaded, so `runDiskDetection` refuses at its first guard —
+/// this test is about which class the action selects, not about a run.
+final class AIAnalysisDetectorChoiceTests: XCTestCase {
+
+    func testAIAnalysisRunsTheDetectorClassItsPickerNames() async {
+        let state = AppState()
+        state.navigation.workspaceArea = .aiAnalysis
+        state.navigation.analysisMode = .learnedDisks
+        state.learnedDetection.detectorClass = .classical
+
+        await state.runPrimaryWorkspaceTask()
+
+        XCTAssertEqual(
+            state.learnedDetection.detectorClass, .classical,
+            "the AI Analysis primary action must not override the visible Detector picker"
+        )
+    }
+
+    func testBraggDisksStillForcesTheClassicalDetector() async {
+        let state = AppState()
+        state.navigation.workspaceArea = .map
+        state.navigation.analysisMode = .disks
+        state.learnedDetection.detectorClass = .learned
+
+        await state.runPrimaryWorkspaceTask()
+
+        XCTAssertEqual(
+            state.learnedDetection.detectorClass, .classical,
+            "Bragg disks is the classical room and carries no AI control"
+        )
+    }
+}

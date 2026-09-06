@@ -43,6 +43,16 @@ package final class DiffractionGroupsProduct {
         referencePosition = nil
     }
 
+    /// The published group map's display name — the pane title, the Session
+    /// row, the Results entry and the sidecar entry all read it, so the k must
+    /// be in it: the literal `Diffraction groups (k)` made a k=4 run and a k=8
+    /// run indistinguishable everywhere they were listed (owner's drive
+    /// 2026-09-06, `drive-groups` defect 2). Extracted here so it is pinned by
+    /// a test rather than by a string in an orchestration method.
+    package nonisolated static func groupMapDisplayName(groups: Int) -> String {
+        "Diffraction groups (k = \(groups))"
+    }
+
     /// Dataset activation: the result and its reference position die with
     /// the dataset; `settings` survives (see above).
     package func clear() {

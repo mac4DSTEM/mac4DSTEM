@@ -172,3 +172,71 @@ final class DiskDetectionContractTests: XCTestCase {
         XCTAssertFalse(DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70).warnings.isEmpty)
     }
 }
+
+/// A1 (fix-a, diagnosis D1): the live per-pattern disk overlay is produced by
+/// `AppState.detectCurrentPattern()` and drawn by `ImagePanes`, and BOTH were
+/// gated on `analysisMode == .disks` alone. AI Analysis → Learned disks runs
+/// in `.learnedDisks`, so the owner's drive saw no rings at any threshold or
+/// scan position (`drive-learned/03a`, `03b`, `03c`) and the label rows then
+/// recorded "0 candidates" off the empty `currentPeaks`.
+///
+/// The test is deliberately at the AppState level and uses the CLASSICAL
+/// detector: it needs neither Core AI nor macOS 27, and it isolates the mode
+/// guard from everything learned-specific. If the guard is the only thing
+/// wrong, `.disks` and `.learnedDisks` must produce the same peaks on the
+/// same pattern.
+final class LiveDetectionModeGateTests: XCTestCase {
+
+    /// A 128 px pattern with three well-separated logistic-edged disks of the
+    /// same radius the kernel is built for.
+    private func syntheticPattern(size n: Int, radius r: Float,
+                                  centres: [(x: Float, y: Float)]) -> DiffractionPattern {
+        var pixels = [Float](repeating: 0.01, count: n * n)
+        for y in 0..<n {
+            for x in 0..<n {
+                var value: Float = 0
+                for c in centres {
+                    let d = hypot(Float(x) - c.x, Float(y) - c.y)
+                    value += 1 / (1 + exp(4 * (d - r) / 2))
+                }
+                pixels[y * n + x] += value
+            }
+        }
+        return DiffractionPattern(qy: n, qx: n, pixels: pixels)
+    }
+
+    private func preparedState() -> AppState {
+        let n = 128
+        let r: Float = 5
+        let state = AppState()
+        state.probeKernel = ProbeKernel.synthetic(radius: r, qy: n, qx: n)
+        state.currentPattern = syntheticPattern(
+            size: n, radius: r,
+            centres: [(64, 64), (94, 64), (64, 94)]
+        )
+        var params = DiskDetectionParams.detectorAdapted(qy: n, qx: n, probeRadius: r)
+        params.minRelativeIntensity = 0.05
+        state.diskParams = params
+        return state
+    }
+
+    func testLiveDiskOverlayRunsInTheLearnedDisksTaskAsWellAsBraggDisks() async {
+        let control = preparedState()
+        control.navigation.analysisMode = .disks
+        await control.detectCurrentPattern()
+        XCTAssertFalse(
+            control.currentPeaks.isEmpty,
+            "the fixture must yield peaks in .disks, or this test proves nothing"
+        )
+        let expected = control.currentPeaks.count
+
+        let state = preparedState()
+        state.navigation.analysisMode = .learnedDisks
+        await state.detectCurrentPattern()
+        XCTAssertEqual(
+            state.currentPeaks.count, expected,
+            "AI Analysis → Learned disks must run the same live detection as Bragg disks; "
+            + "the mode guard cleared currentPeaks instead"
+        )
+    }
+}

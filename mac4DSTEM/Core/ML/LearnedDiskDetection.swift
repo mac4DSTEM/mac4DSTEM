@@ -104,7 +104,7 @@ extension LearnedDiskDetector {
     /// Duplicated from `TiledDiskDetection.swift`'s file-private
     /// `ProgressCoalescer` rather than shared, on purpose (see the type doc
     /// below): the learned stage stays inside Core/ML.
-    private final class ProgressCoalescer: @unchecked Sendable {
+    nonisolated private final class ProgressCoalescer: @unchecked Sendable {
         private let lock = NSLock()
         private var lastBucket = -1
         func admits(_ fraction: Double) -> Bool {
@@ -140,7 +140,17 @@ extension LearnedDiskDetector {
     /// window grid — which are identical across tiles since the window origins
     /// are fixed by `probeCentre` and `probeRadius`, not by scan row) — never
     /// recomputed.
-    package func detectAll(
+    /// `nonisolated` is load-bearing, not decoration (Gate D, fix-a
+    /// `gateD-A2.md`): the project builds with
+    /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, and without the keyword
+    /// this member — declared in an extension in a file OTHER than the
+    /// `nonisolated` class's own — is `@MainActor`, so the `Task.detached`
+    /// in `AppState.runDiskDetection` hopped straight back and
+    /// `concurrentPerform` conscripted the main thread for every batch
+    /// (measured: 5 of 5 progress callbacks on the main thread, and the
+    /// owner's frozen run at 847/847 main-thread samples). The classical twin
+    /// says it too: `TiledDiskDetection.detectAll(data:…)`.
+    package nonisolated func detectAll(
         data: FourDArray, descriptor d: DatasetDescriptor,
         probe: DiffractionPattern, probeCentre: (x: Float, y: Float), probeRadius: Float,
         kernelSource: ProbeKernelSource = .measured, params: DiskDetectionParams,

@@ -210,8 +210,10 @@ struct DiffractionPane: View {
                         )
                     }
 
-                    // Detected Bragg disks for the current pattern (Disks mode).
-                    if appState.navigation.analysisMode == .disks,
+                    // Detected Bragg disks for the current pattern — Bragg
+                    // disks AND AI Analysis → Learned disks (D1: this gate and
+                    // `performLiveDetection`'s now share one predicate).
+                    if appState.navigation.analysisMode.showsLiveDiskOverlay,
                        !appState.currentPeaks.isEmpty {
                         PeakOverlay(
                             peaks: appState.currentPeaks,

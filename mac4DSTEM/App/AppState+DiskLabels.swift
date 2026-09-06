@@ -186,12 +186,21 @@ extension AppState {
 
     // MARK: - Fine-tuning export
 
-    /// Export every recorded label to `~/Documents/mac4DSTEM/disk-labels/` —
-    /// see `DiskLabelStore.exportForFineTuning`'s doc comment for why not
+    /// Export every recorded label to the app's **sandbox container**
+    /// Documents folder,
+    /// `~/Library/Containers/com.mac4dstem.mac4DSTEM/Data/Documents/mac4DSTEM/disk-labels/`.
+    /// The app is sandboxed (`mac4DSTEM.entitlements`), so
+    /// `FileManager.urls(for: .documentDirectory, in: .userDomainMask)`
+    /// resolves inside the container and never to the real `~/Documents` —
+    /// the help text and these comments claimed otherwise until the owner's
+    /// drive read the status line (2026-09-06, `drive-learned` step 7).
+    /// `statusText` below names the full path that was written.
+    ///
+    /// See `DiskLabelStore.exportForFineTuning`'s doc comment for why not
     /// directly into the repo's gitignored `tools/disk-detector/labels/`
     /// (the app has no repo path, and would not be right to assume the
     /// owner's checkout layout even if it did). The owner copies from the
-    /// Documents folder into that tree when a fine-tuning run is ready
+    /// container into that tree when a fine-tuning run is ready
     /// (docs/v3-plan.md §3a).
     @discardableResult
     func exportDiskLabelsForFineTuning() -> AnalysisRunOutcome {

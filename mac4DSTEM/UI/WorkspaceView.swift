@@ -305,7 +305,7 @@ struct PrimaryActionButton: View {
             switch appState.navigation.analysisMode {
             case .precipitates: "Segments the currently displayed virtual image into objects."
             case .diffractionGroups: "Groups every scan position's diffraction pattern by similarity."
-            case .learnedDisks: "Selects the learned detector, then runs full-scan disk detection."
+            case .learnedDisks: "Runs full-scan disk detection with the detector the Detector picker names."
             default: ""
             }
         case .results: "Adds the visible result to the reusable dataset session."

@@ -226,4 +226,73 @@ final class LearnedDiskDetectionScanTests: XCTestCase {
         XCTAssertEqual(countMismatches, 0, "tiled peak counts differ from the resident path at \(countMismatches)/\(positions) positions")
         XCTAssertEqual(positionMisses, 0, "tiled positions: \(positionMisses)/\(total) not within 1e-4 px of the resident path; worst \(worst)")
     }
+
+    /// Gate D, A2 (fix-a/gateD-A2.md): the streamed learned run must not
+    /// execute on the main thread. The owner's drive froze the whole app for
+    /// minutes with `04-mainthread-sample.txt` showing 847/847
+    /// `com.apple.main-thread` samples inside `detectAll` → `dispatch_apply`,
+    /// even though `AppState.swift:4924` already wraps the call in
+    /// `Task.detached` — because the extension member had no `nonisolated`
+    /// and `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` made it `@MainActor`,
+    /// so the detached task hopped straight back.
+    ///
+    /// The discriminator: call it from `Task.detached` — the global concurrent
+    /// executor — and record the thread its own `progress:` callback runs on.
+    /// A nonisolated async callee inherits that caller's executor (SE-0461),
+    /// so a correct build never sees the main thread here; a `@MainActor`
+    /// callee always does.
+    @available(macOS 27, *)
+    func testLearnedFullScanRunsOffTheMainThread() async throws {
+        let f = try loadFixture()
+        let e = f.expected
+        let S = Self.S
+        let learned: LearnedDiskDetector
+        do { learned = try await LearnedDiskDetector.load(assetURL: Self.assetURL) }
+        catch { throw XCTSkip("no Core AI: \(error)") }
+
+        let p = params(e)
+        let scanHeight = 4, scanWidth = 4
+        let source = FixturePatternSource(scanHeight: scanHeight, scanWidth: scanWidth, qy: S, qx: S, patterns: f.patterns)
+        let descriptor = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: descriptor)
+
+        let probeCentre = (x: Float(e.probe_centre[1]), y: Float(e.probe_centre[0]))
+        let probeRadius = Float(e.probe_radius)
+        let probePattern = DiffractionPattern(qy: S, qx: S, pixels: f.probe)
+        let threshold = e.threshold
+
+        let witness = ThreadWitness()
+        let vectors = try await Task.detached(priority: .userInitiated) {
+            try await learned.detectAll(
+                data: data, descriptor: descriptor, probe: probePattern,
+                probeCentre: probeCentre, probeRadius: probeRadius,
+                params: p, threshold: threshold, maximumTileRows: 1,
+                progress: { _ in witness.record(main: Thread.isMainThread) }
+            )
+        }.value
+
+        XCTAssertNotNil(vectors, "the run must complete — this test is about the thread, not the result")
+        XCTAssertGreaterThan(witness.calls, 0, "no progress callback fired, so nothing was observed")
+        XCTAssertFalse(
+            witness.sawMainThread,
+            "the learned full scan ran its progress callback on the main thread "
+            + "(\(witness.mainCalls) of \(witness.calls) calls) even from Task.detached — "
+            + "the detached task hopped back onto the main actor"
+        )
+    }
+}
+
+/// Lock-guarded tally of which thread a `@Sendable` callback ran on.
+/// `@unchecked Sendable` for the same reason `ProgressCoalescer` is: the lock
+/// is the invariant.
+nonisolated private final class ThreadWitness: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _calls = 0
+    private var _mainCalls = 0
+    func record(main: Bool) {
+        lock.withLock { _calls += 1; if main { _mainCalls += 1 } }
+    }
+    var calls: Int { lock.withLock { _calls } }
+    var mainCalls: Int { lock.withLock { _mainCalls } }
+    var sawMainThread: Bool { lock.withLock { _mainCalls > 0 } }
 }

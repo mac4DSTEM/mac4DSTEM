@@ -65,6 +65,14 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
     var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
+
+    /// The tasks that draw the live per-pattern disk overlay: Bragg disks and
+    /// AI Analysis → Learned disks. ONE predicate for the model
+    /// (`AppState.performLiveDetection`) and the view (`ImagePanes`), because
+    /// they drifted apart — both were written as `== .disks`, so the AI
+    /// Analysis room detected nothing and drew nothing (owner's drive
+    /// 2026-09-06, `drive-learned` steps 3 and 6; diagnosis D1).
+    var showsLiveDiskOverlay: Bool { self == .disks || self == .learnedDisks }
 }
 
 enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
@@ -1393,12 +1401,13 @@ final class AppState {
             case .precipitates: await segmentPrecipitates()
             case .diffractionGroups: await runDiffractionGroups()
             case .learnedDisks:
-                // The task's meaning: running it selects the learned detector.
-                // Restores nothing — the picker in Bragg disks binds the same
-                // state, so this is a one-way choice, not a scoped override.
-                if learnedDetection.detectorClass != .learned {
-                    learnedDetection.detectorClass = .learned
-                }
+                // Runs the class the room's OWN picker names — it used to
+                // force `.learned` here, which meant selecting Classical in
+                // the visible picker ran learned anyway and `Compare with
+                // Classical` could never be enabled without leaving the
+                // workspace (owner's drive 2026-09-06, `drive-learned`
+                // defect 4; diagnosis D3). Bragg disks still forces
+                // `.classical` above: that room carries no AI control.
                 await runDiskDetection()
             default: break
             }
@@ -4751,7 +4760,7 @@ final class AppState {
     private func performLiveDetection() async {
         liveDetectionRequest &+= 1
         let request = liveDetectionRequest
-        guard navigation.analysisMode == .disks, let kernel = probeKernel,
+        guard navigation.analysisMode.showsLiveDiskOverlay, let kernel = probeKernel,
               let pattern = displayedPattern else {
             if !currentPeaks.isEmpty { currentPeaks = [] }
             currentDiskDiagnostics = nil
@@ -4786,7 +4795,7 @@ final class AppState {
                                          kernelSource: ref.source, params: params, threshold: threshold)
                 }.value
                 guard epoch == datasetEpoch, request == liveDetectionRequest,
-                      navigation.analysisMode == .disks else { return }
+                      navigation.analysisMode.showsLiveDiskOverlay else { return }
                 currentPeaks = peaks ?? []
                 currentDiskDiagnostics = nil
                 return
@@ -4803,7 +4812,7 @@ final class AppState {
         }.value
         guard epoch == datasetEpoch,
               request == liveDetectionRequest,
-              navigation.analysisMode == .disks else { return }
+              navigation.analysisMode.showsLiveDiskOverlay else { return }
         currentPeaks = result?.peaks ?? []
         currentDiskDiagnostics = result?.diagnostics
     }

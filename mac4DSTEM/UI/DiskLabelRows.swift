@@ -72,6 +72,6 @@ struct DiskLabelRows: View {
         }
         .disabled(labels.labels.isEmpty)
         .accessibilityIdentifier("disk.labels.exportForFineTuning")
-        .help("Write every confirmed/rejected label as one JSON file under ~/Documents/mac4DSTEM/disk-labels/, for copying into tools/disk-detector/labels/ when a fine-tuning run is ready.")
+        .help("Write every confirmed/rejected label as one JSON file into this app's sandbox container, ~/Library/Containers/com.mac4dstem.mac4DSTEM/Data/Documents/mac4DSTEM/disk-labels/. The status line names the exact file; copy it into tools/disk-detector/labels/ when a fine-tuning run is ready.")
     }
 }

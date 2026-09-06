@@ -197,9 +197,12 @@ package final class DiskLabelStore {
     /// `tools/disk-detector/`"). This store never writes into the repo
     /// itself — the app has no repo path, and would not be right to assume
     /// one even if it did (docs/v3-plan.md §3a: "they are the owner's data").
-    /// `AppState.exportDiskLabelsForFineTuning` writes to
-    /// `~/Documents/mac4DSTEM/disk-labels/`; the owner copies from there into
-    /// `tools/disk-detector/labels/` (gitignored) when a run is ready.
+    /// `AppState.exportDiskLabelsForFineTuning` passes the app's SANDBOX
+    /// CONTAINER Documents folder,
+    /// `~/Library/Containers/com.mac4dstem.mac4DSTEM/Data/Documents/mac4DSTEM/disk-labels/`
+    /// — not the user's real `~/Documents`, which a sandboxed app's
+    /// `.documentDirectory` never resolves to; the owner copies from there
+    /// into `tools/disk-detector/labels/` (gitignored) when a run is ready.
     package func exportForFineTuning(to folderURL: URL, datasetName: String) throws -> URL {
         try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
         let stamp = Self.exportStamp.string(from: Date())

@@ -34,10 +34,14 @@ struct AIAnalysisSettings: View {
 /// AI Analysis → Learned disks' own section (extracted from `DiskDetectionRows`
 /// 2026-09-07): the detector picker plus everything specific to running it —
 /// threshold, model identity, the classical comparison, and confirm/reject
-/// labelling. `DiskDetectionRows` keeps its own copy of the Detector picker,
-/// bound to the same `learnedDetection` state, because a strain/ACOM user
-/// runs detection from Bragg disks and should not have to leave it to choose
-/// the detector. Not `private` — `AIAnalysisSettings` inserts it.
+/// labelling. This picker is the app's ONLY detector-class control:
+/// `MapSettings` carries none, by decision — Bragg disks is the classical
+/// room (the doc comment here used to claim `DiskDetectionRows` kept a copy;
+/// it does not, and has not since the 2026-09-07 split). `Compare with
+/// Classical` sits outside the `.learned` branch on purpose: the comparison
+/// needs one run of each class, so it must stay reachable from the picker
+/// position that produces the classical half. Not `private` —
+/// `AIAnalysisSettings` inserts it.
 struct LearnedDiskRows: View {
     @Environment(AppState.self) private var appState
 
@@ -66,16 +70,21 @@ struct LearnedDiskRows: View {
                 .help("The pick threshold on the learned heatmap, 0.3–0.99. Lower accepts more candidates; the classical refinement still filters them.")
 
                 LabeledContent("Model", value: learnedModelStatus(learned))
+            }
 
-                Button {
-                    appState.runDiskDisagreement()
-                } label: {
-                    Label("Compare with Classical", systemImage: "arrow.left.arrow.right")
-                }
-                .disabled(!learned.canCompare)
-                .accessibilityIdentifier("disk.compareDetectors")
-                .help("Runs nothing: publishes the per-position count difference between the last learned and the last classical run on this dataset as a scan map.")
+            // Outside the `.learned` branch (D3): the comparison needs a
+            // learned run AND a classical run, and hiding it while Classical
+            // is selected left the room unable to reach the half it lacked.
+            Button {
+                appState.runDiskDisagreement()
+            } label: {
+                Label("Compare with Classical", systemImage: "arrow.left.arrow.right")
+            }
+            .disabled(!learned.canCompare)
+            .accessibilityIdentifier("disk.compareDetectors")
+            .help("Runs nothing: publishes the per-position count difference between the last learned and the last classical run on this dataset as a scan map.")
 
+            if learned.detectorClass == .learned {
                 DiskLabelRows()   // v3-plan §3a step 5: confirm/reject the learned candidates here
             }
         } else {
