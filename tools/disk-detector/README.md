@@ -167,12 +167,15 @@ width 12, 20 000 steps, 72.8 min, best validation loss 0.0052, recall@2 px
 `heatmap`/`scoremap` B32 assets (`export.json` hashes): ANE 0.138 / 0.173
 ms per pattern from Python, heatmap max |diff| vs PyTorch fp32 0.062 (fp16
 floor 0.009), CPU-only 6.5 ms. `scan-bench` on 2 100 bullseye patterns
-(stride 2): classical `detectAll` 8 cores 0.123 ms/pattern (8.1 s per 65 536,
-3.16 peaks per pattern); `scoremap` asset via CoreAI.framework 0.110
-ms/pattern (7.2 s), load 1.3 s. Evaluation of the exported asset with the
-acceptance rule — bullseye net − classical per position: 0.9 → median 0
-(436 vs 442), 0.6 → +2, 0.3 → +7; fixture 0.967 / 0.244 px refined at every
-threshold, accepted-precision 0.59; WS₂ as stored equals classical.
+(stride 2, Release, `scan-bench-run5…8-gateB.log`): classical `detectAll`
+8 cores 0.105–0.113 ms/pattern (3.16 peaks per pattern); the `heatmap` asset
+via CoreAI.framework, input construction included, 0.13–0.156 ms/pattern,
+load 0.9–1.4 s; the learned `detectAll` end to end 0.212 ms/pattern =
+1.87–1.99× (2.94 peaks per pattern at 0.9). Evaluation of the exported asset
+with the acceptance rule after Gate B — bullseye net − classical per
+position: 0.9 → median 0 (416 vs 442, no pair beyond 0.5 px), 0.6 → median
+0 (501 vs 442); fixture 0.967 / 0.244 px refined at every threshold, 241
+accepted, precision 0.61; WS₂ as stored equals classical.
 
 - **Step 4 slice 1 (Swift).** `fixture/write_swift_fixture.py` writes
   `fixture/swift/` (the 16 patterns as uint16, the probe, Python's model
@@ -181,9 +184,13 @@ threshold, accepted-precision 0.59; WS₂ as stored equals classical.
   `mac4DSTEMTests/LearnedDiskDetectorTests` reproduces all of it through
   `Core/ML/LearnedDiskDetector`. `evaluate.refine` now applies the parabolic
   shift unguarded like py4DSTEM and the app (a non-finite shift is not
-  applied). Trap: after the Swift CoreAI framework has run, the Python
-  runtime fails `load_function` on the ANE with a generic ObjC error until
-  `~/Library/Caches/coreai-cache` is moved aside.
+  applied), and rejects a candidate whose snapped pixel is not a local
+  maximum (Gate B: py4DSTEM's precondition; it fabricated 10 of 255 fixture
+  peaks before). Trap: the Python runtime and the Swift CoreAI framework
+  share `~/Library/Caches/coreai-cache` and each fails to load on the ANE
+  after the other has written it (a generic ObjC error) — move the cache
+  aside whenever switching. `scan-bench` also times `LearnedDiskDetector.
+  detectAll` end to end and, with `SCAN_BENCH_PROFILE=1`, each stage.
 
 abTEM honesty check: skipped 2026-09-06. The existing `abtem` conda env does not
 import (numpy's `libgfortran.5.dylib` missing) and a reinstall would eat the disk.

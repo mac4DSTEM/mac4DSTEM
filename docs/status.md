@@ -95,23 +95,30 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    evaluation now scores the EXPORTED asset (Neural Engine, `--asset`) with an
    acceptance rule after refinement (edge exclusion, non-maximum suppression at
    minPeakSpacing by net score). **Bullseye, 143 positions, net minus classical
-   per position:** at 0.9 median 0 (−10…+4; 436 vs 442 peaks, 350 matched, 1
-   pair beyond 0.5 px, 74/143 positions differ — the PNG shows the net taking
-   disks the 5 % cut drops and skipping the ring side-lobes the classical
-   detector accepts, while missing some faint disks the classical finds); at
-   0.6 median +2; at 0.3 median +7 (was +67 with run2). WS₂ as stored: net
+   per position (re-run after Gate B with the corrected acceptance rule,
+   `run3-evaluate-gateB-thr0.{9,6}.log`):** at 0.9 median 0 (−10…+4; 416 vs
+   442 peaks, 349 matched, NO pair beyond 0.5 px, 70/143 positions differ —
+   the PNG shows the net taking disks the 5 % cut drops and skipping the ring
+   side-lobes the classical detector accepts, while missing some faint disks
+   the classical finds); at 0.6 median 0 (max +5; 501 vs 442); before the fix
+   the same runs read 436 / 1 pair beyond 0.5 px and, at 0.6, +2 median with
+   707 peaks — the difference is the fabricated positions. WS₂ as stored: net
    equals classical exactly (the beam only, both). Fixture after refinement
-   0.967 / 0.244 px at every threshold (refinement decides), precision 0.59.
+   0.967 / 0.244 px at every threshold (refinement decides), accepted 241 for
+   153 eligible, precision 0.61.
    **The ceiling, from Swift on the same 2 100 bullseye patterns
-   (`scan-bench.json`):** classical `detectAll` on 8 cores 0.123 ms/pattern =
-   8.1 s per 65 536; the width-12 `scoremap` asset through the CoreAI framework
-   0.110 ms/pattern = 7.2 s (load 1.3 s) — the net alone 0.89× the classical
-   wall clock, the whole learned path (correlation + net + refinement) ≤ 1.9×
-   with no concurrency claimed. **Owner's decisions now:** the operating
-   threshold (0.6–0.9; a frozen hand-labelled bullseye set would settle it —
-   step 5's tool pulled forward), and whether ≤ 1.9× with a 1.3 s load is
-   inside the spirit of the 2× ceiling. The verdict is still not written to
-   `decisions.md`.
+   (`scan-bench-run5…8-gateB.log`, four Release runs after Gate B):**
+   classical `detectAll` on 8 cores 0.105–0.113 ms/pattern (7–7.4 s per
+   65 536); the width-12 `heatmap` asset through the CoreAI framework,
+   input construction included, 0.13–0.156 ms/pattern; **the learned
+   `detectAll` end to end, double-buffered so the CPU correlation overlaps
+   the Neural Engine, 0.212 ms/pattern = 1.87–1.99× the classical** — at
+   the ceiling, not under it; serial it was 2.3–2.6×. The overnight "0.6×"
+   and the morning "0.89× / ≤ 1.9× by addition" are both withdrawn.
+   **Owner's decisions (2026-09-07 afternoon):** threshold later, the
+   ceiling accepted at "≤ 1.9×" (the measured end-to-end is 1.87–1.99×: the
+   owner should know the accepted number is now the measured edge), the
+   detector before any second model — `decisions.md`.
 3. **On "reuse the platform for other models" (proposed 2026-09-07: precipitate
    segmentation, diffraction embeddings, ACOM shortlists, quality masks,
    PACBED thickness).** What is reusable today is the Python side: simulator
@@ -147,16 +154,40 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    loosened, no snap) and each caught — the loosened peak test slipped past the
    first version, which measured recall only; an extra-picks bound now catches
    it. Unit gate NOT run (exit 69: 6 GB free against the 8 GB floor); the
-   three detector test classes run directly: 15/0
-   (`test-diskdetection-contract-20260907.log`). **Owed:** Gate B on the
-   `Core/` change; the UI option (`DetectorClass`), progress/cancel, the
+   detector test classes run directly, 20/0 before Gate B
+   (`test-diskdetection-contract-20260907.log`), 8/0 for the two learned
+   classes after it (`test-learned-gateB4-20260907.log`).
+   **Gate B ran (refuter's report in `gateB/`; its findings applied, its
+   remedies re-broken by it before adoption):** (1) REAL DEFECT, shared by
+   Swift and the Python reference so the fixture test was green on it — a
+   candidate whose 5×5 snap lands on a correlation flank got py4DSTEM's
+   parabola evaluated off-maximum, fabricating positions up to 28 px off (10
+   of the fixture's 255 accepted peaks); fixed on both sides by py4DSTEM's
+   own precondition (the snapped pixel must be an 8-neighbour maximum, else
+   the candidate is rejected — "refinement rejects" is now a real rule),
+   `fixture/swift/expected.json` regenerated (241 accepted), the bullseye
+   numbers above re-run; (2) `detectAll` had NO test — the refuter's padded,
+   multi-batch scan test is adopted (`LearnedDiskDetectorGateBTests`, four
+   cases: NMS by net score, the cap, the maximum precondition, `detectAll`
+   vs the direct path shifted by the crop origin), each re-mutated and
+   caught; (3) four `DEVIATION` notes vs `get_maxima_2D` added to `refine`;
+   (4) the quoted 0.123/0.110 benchmark numbers had been overwritten by a
+   later run — the bench now stamps every output file; (5) `detectAll` had
+   never been timed: 23× the classical at first (`NDArray(scalars:)` walks
+   the generic Sequence, 83 ms per batch — replaced by memcpy through the
+   views), 2.3–2.6× serial, 1.87–1.99× double-buffered (above).
+   **Owed:** the UI option (`DetectorClass`), progress/cancel, the
    disagreement map, sidecar labels; patterns smaller than 128 px (returns
-   nil); bundling the asset; the Xcode placement view. Two tooling traps:
+   nil) and larger ones reduced to the 128-px window about the probe centre
+   (disks outside it are never proposed — the 250-px bullseye cube included;
+   provenance says so); bundling the asset; the Xcode placement view. Three
+   tooling traps:
    every new `Core/` file must be added to the app target's exception list in
    `project.pbxproj` (the app takes Core through the package, the synchronized
-   group would compile it twice), and the Python Core AI runtime fails to
-   load on the ANE after the Swift framework has written
-   `~/Library/Caches/coreai-cache` — move the cache aside.
+   group would compile it twice); the Python Core AI runtime and the Swift
+   framework each fail to load on the ANE after the OTHER has written
+   `~/Library/Caches/coreai-cache` — move the cache aside whenever switching;
+   and never build an `NDArray` with `init(scalars:shape:)` on the hot path.
 5. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
    and pushed 2026-09-05 in the Sources build phase, referenced by no Swift
    file) is removed from the tree and the project; it stays in public
@@ -212,9 +243,9 @@ agent should say so and start at item 2.
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
    step 3 numbers on the fixture and both real cubes). **Next: step 4 slice 2 on the
-   branch — Gate B on slice 1's `Core/` change, then the detector option in
-   the UI with provenance, progress and the disagreement map, then the
-   sidecar labels; the full discipline returns at the merge. The
+   branch — the detector option in the UI with provenance, progress and the
+   disagreement map, then the sidecar labels (Gate B on slice 1 done
+   2026-09-07); the full discipline returns at the merge. The
    cross-feature direction is `docs/ai-ml/README.md`.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts

@@ -431,10 +431,16 @@ the exported width-12 asset, scored with an acceptance rule after
 refinement, matches the classical detector's per-position count at
 threshold 0.9 (median difference 0 on the bullseye cube) while taking the
 disks the 5 % cut drops and skipping ring side-lobes; from Swift on the
-same 2 100 patterns the net alone is 0.89× the app's 8-core classical wall
-clock and the whole learned path ≤ 1.9×. The owner accepted ≤ 1.9× with a
-1.3 s first load as inside the 2× ceiling ("yes it's ok, let's explore this
-further"). Left open by the owner: the operating threshold (0.6–0.9; a
+same 2 100 patterns the net alone was read as 0.89× the app's 8-core
+classical wall clock and the whole learned path "≤ 1.9×" by addition. The
+owner accepted ≤ 1.9× with a 1.3 s first load as inside the 2× ceiling
+("yes it's ok, let's explore this further"). *Corrected the same afternoon
+by Gate B: those numbers were a summed estimate and the cited file no
+longer held them; the learned `detectAll` measured end to end in Release is
+1.87–1.99× the classical after double-buffering (2.3–2.6× serial) —
+`status.md` handoff. The acceptance stands on the owner's word; the number
+it rests on is now the measured edge of the ceiling, and the owner is told
+so.* Left open by the owner: the operating threshold (0.6–0.9; a
 frozen hand-labelled bullseye set decides it, later). Serving shape
 decided by the evidence: the `heatmap` function with peak-picking and
 non-maximum suppression in Swift — the in-graph top-k's fixed cap and the

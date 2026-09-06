@@ -140,19 +140,32 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     package func heatmaps(inputs: [Float16]) async throws -> [Float16] {
         let S = Self.inputSize
         precondition(inputs.count == batch * 3 * S * S)
-        let x = NDArray(scalars: inputs, shape: [batch, 3, S, S])
+        // NDArray(scalars:shape:) walks the generic Sequence: 83 ms per batch of 32 measured
+        // 2026-09-07 (scan-bench profile), 300x the copy it replaces. Allocate, then memcpy
+        // through the mutable view (0.27 ms); read back the same way (0.02 ms).
+        var x = NDArray(shape: [batch, 3, S, S], scalarType: .float16)
+        do {   // the mutable view must be dead before the array is handed to the runtime
+            var mutable = x.mutableView(as: Float16.self)
+            mutable.withUnsafeMutablePointer { dst, _, _ in
+                inputs.withUnsafeBufferPointer { dst.update(from: $0.baseAddress!, count: inputs.count) }
+            }
+        }
         var outputs = try await function.run(inputs: [inputName: x])
         guard let value = outputs.remove(outputName), let array = value.ndArray else {
             throw LearnedDiskDetectorError.noOutput(outputName)
         }
+        let count = batch * S * S
         let view = array.view(as: Float16.self)
-        guard let span = view.contiguousElements, span.count == batch * S * S else {
+        guard view.isContiguous, view.shape.count == 4, view.shape[0] == batch, view.shape[2] == S, view.shape[3] == S else {
             throw LearnedDiskDetectorError.noOutput(outputName)
         }
-        var out = [Float16](repeating: 0, count: batch * S * S)
-        for i in 0..<out.count { out[i] = span[i] }
+        var out = [Float16](repeating: 0, count: count)
+        out.withUnsafeMutableBufferPointer { dst in view.withUnsafePointer { src, _, _ in dst.baseAddress!.update(from: src, count: count) } }
         return out
     }
+
+    /// Benchmark access to the raw function call (tools/disk-detector/scan-bench profiles the read-back).
+    package func run(_ x: NDArray) async throws -> InferenceFunction.Outputs { try await function.run(inputs: [inputName: x]) }
 
     // MARK: The scan
 
@@ -162,7 +175,9 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// cropped probe's flat kernel is channel three, batches go to the Neural Engine, the
     /// picked candidates are refined by the classical detector and shifted back to the
     /// full detector frame. Provenance carries the classical parameters plus the learned
-    /// stage's identity.
+    /// stage's identity. Residual (2026-09-07): a detector larger than S is reduced to the
+    /// S×S window about the probe centre — disks outside it are never proposed; the
+    /// provenance says so (`learned_input_px`, `learned_crop_origin_*`).
     package func detectAll(
         cube: MTLBuffer, descriptor d: DatasetDescriptor,
         probe: DiffractionPattern, probeCentre: (x: Float, y: Float), probeRadius: Float,
@@ -173,6 +188,9 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     ) async -> BraggVectors? {
         let S = Self.inputSize
         guard d.qy >= S, d.qx >= S, probe.qy == d.qy, probe.qx == d.qx else { return nil }
+        // the classical parameter validation, as DiskDetection.detectAll applies it (at the crop size)
+        guard !params.validationIssues(in: DiskDetectionContext(qy: S, qx: S, probeRadius: probeRadius))
+            .contains(where: { $0.severity == .error }) else { return nil }
         let row0 = min(max(Int(probeCentre.y.rounded()) - S / 2, 0), d.qy - S)
         let col0 = min(max(Int(probeCentre.x.rounded()) - S / 2, 0), d.qx - S)
         var probeCrop = [Float](repeating: 0, count: S * S)
@@ -191,19 +209,15 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         let base = cube.contents().bindMemory(to: Float.self, capacity: positions * patPix)
         var results = [[BraggPeak]](repeating: [], count: positions)
         let n3 = 3 * S * S
-        var inputs = [Float16](repeating: 0, count: batch * n3)
-        var smoothed = [[Float]](repeating: [], count: batch)
         var lastBucket = -1
 
         struct Shared: @unchecked Sendable {
             let base: UnsafePointer<Float>; let inputs: UnsafeMutablePointer<Float16>
             let smoothed: UnsafeMutablePointer<[Float]>; let detectors: [DiskDetector]
         }
-        var start = 0
-        while start < positions {
-            if cancellation?.isCancelled == true { return nil }
-            let count = min(batch, positions - start)
-            // channel three and the inputs, one CPU worker per detector (the classical cost)
+        /// Channel three and the model inputs for `count` patterns from `start`, one CPU worker per
+        /// detector (this is the classical cost); the batch buffer is zero-padded past `count`.
+        func prepare(start: Int, count: Int, inputs: inout [Float16], smoothed: inout [[Float]]) {
             inputs.withUnsafeMutableBufferPointer { ib in
                 smoothed.withUnsafeMutableBufferPointer { sb in
                     let shared = Shared(base: base, inputs: ib.baseAddress!, smoothed: sb.baseAddress!, detectors: detectors)
@@ -221,7 +235,8 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
                 }
             }
             if count < batch { for i in (count * n3)..<(batch * n3) { inputs[i] = 0 } }
-            guard let heat = try? await heatmaps(inputs: inputs) else { return nil }
+        }
+        func finish(start: Int, count: Int, heat: [Float16], smoothed: [[Float]]) {
             heat.withUnsafeBufferPointer { hb in
                 for b in 0..<count {
                     let slice = UnsafeBufferPointer(rebasing: hb[(b * S * S)..<((b + 1) * S * S)])
@@ -231,7 +246,26 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
                     results[start + b] = peaks
                 }
             }
-            start += count
+        }
+
+        // Two batch buffers: while the Neural Engine runs batch k, the CPU prepares batch k+1
+        // (§3a "compute streams"; serial was 2.3-2.6x the classical wall clock on 2026-09-07).
+        var bufA = [Float16](repeating: 0, count: batch * n3), bufB = [Float16](repeating: 0, count: batch * n3)
+        var smA = [[Float]](repeating: [], count: batch), smB = [[Float]](repeating: [], count: batch)
+        var start = 0
+        var count = min(batch, positions)
+        prepare(start: 0, count: count, inputs: &bufA, smoothed: &smA)
+        while start < positions {
+            if cancellation?.isCancelled == true { return nil }
+            let inputsNow = bufA
+            async let heat = heatmaps(inputs: inputsNow)
+            let next = start + count
+            let nextCount = min(batch, positions - next)
+            if nextCount > 0 { prepare(start: next, count: nextCount, inputs: &bufB, smoothed: &smB) }
+            guard let h = try? await heat else { return nil }
+            finish(start: start, count: count, heat: h, smoothed: smA)
+            swap(&bufA, &bufB); swap(&smA, &smB)
+            start = next; count = nextCount
             if let progress {
                 let bucket = start * 1000 / positions
                 if bucket != lastBucket { lastBucket = bucket; progress(Double(start) / Double(positions)) }

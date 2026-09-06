@@ -88,7 +88,10 @@ def pick(heat, thr, top_k=70):
 def refine(cands, cc, sigma):
     """py4DSTEM's 'poly' sub-pixel refinement (get_maxima_2D, preprocess/utils.py) at each candidate's
     pixel on the sigma-smoothed correlation; the candidate is snapped to the correlation's local
-    maximum within 2 px first (the net's peak is not the correlation's peak)."""
+    maximum within 2 px first (the net's peak is not the correlation's), and REJECTED if the snapped
+    pixel is not an 8-neighbour local maximum (Gate B 2026-09-07: py4DSTEM only ever evaluates the
+    parabola at a maximum; on a flank it fabricated positions up to 28 px off, and 10 of the
+    fixture's 255 accepted peaks were such fabrications). Mirrors DiskDetector.refine in the app."""
     from scipy.ndimage import gaussian_filter
     ar = gaussian_filter(cc, sigma) if sigma > 0 else cc
     out = []
@@ -97,6 +100,8 @@ def refine(cands, cc, sigma):
         rs, re = max(r0 - 2, 1), min(r0 + 3, ar.shape[0] - 1); cs, ce = max(c0 - 2, 1), min(c0 + 3, ar.shape[1] - 1)
         if rs >= re or cs >= ce: continue
         w = ar[rs:re, cs:ce]; i, j = np.unravel_index(w.argmax(), w.shape); r0, c0 = rs + i, cs + j
+        if (ar[r0 - 1:r0 + 2, c0 - 1:c0 + 2] > ar[r0, c0]).any():   # not a local maximum: the correlation does not confirm it
+            continue
         Ix1_, Ix0, Ix1 = ar[r0 - 1, c0], ar[r0, c0], ar[r0 + 1, c0]; Iy1_, Iy0, Iy1 = ar[r0, c0 - 1], ar[r0, c0], ar[r0, c0 + 1]
         with np.errstate(divide="ignore", invalid="ignore"):   # unguarded like py4DSTEM's get_maxima_2D and the app
             dx = float(np.float64(Ix1 - Ix1_) / np.float64(4 * Ix0 - 2 * Ix1 - 2 * Ix1_))

@@ -684,14 +684,26 @@ package nonisolated final class DiskDetector {
     /// Refine learned candidates the way the classical maxima are refined, on the
     /// [qy * qx] smoothed correlation from `correlation(pattern:params:)`: snap each
     /// candidate to the correlation's maximum within ±2 px (the net's peak is not the
-    /// correlation's), the same parabolic sub-pixel step and bilinear intensity as the
-    /// classical path (`polyRefine`), then the acceptance rule — the edge boundary on the
-    /// refined position, non-maximum suppression at `minPeakSpacing` by NET score (the
-    /// spacing rule the classical side obeys; a duplicate is two net maxima snapped to one
-    /// correlation peak), and the `maxNumPeaks` cap. No correlation-relative intensity cut:
-    /// that is the cut that drops the faint disks the net is for. Mirrors
+    /// correlation's) and REQUIRE that pixel to be an 8-neighbour local maximum — a
+    /// candidate the correlation does not confirm is rejected (Gate B 2026-09-07: without
+    /// this, py4DSTEM's parabola evaluated on a flank fabricated positions up to 28 px off,
+    /// and the Python reference agreed because it shared the defect); then the same
+    /// parabolic sub-pixel step and bilinear intensity as the classical path (`polyRefine`),
+    /// the edge boundary on the refined position, non-maximum suppression at
+    /// `minPeakSpacing` by NET score, and the `maxNumPeaks` cap. No correlation-relative
+    /// intensity cut: that is the cut that drops the faint disks the net is for. Mirrors
     /// `evaluate.refine` + `evaluate.accept` in tools/disk-detector (the Python reference the
-    /// Swift fixture test compares against).
+    /// Swift fixture test compares against; Python has no cap).
+    ///
+    /// DEVIATION from py4DSTEM `get_maxima_2D` (preprocess/utils.py), on purpose — the
+    /// candidates come from the net, not from an exhaustive maxima search: (1) the maxima
+    /// are the net's picks snapped to the correlation, not every correlation maximum;
+    /// (2) the order is snap → parabola → edge rule → spacing → cap, where py4DSTEM applies
+    /// the edge rule and the spacing on the integer maxima before the parabola; (3) the
+    /// edge rule tests the REFINED position, py4DSTEM the integer pixel; (4) the spacing
+    /// suppression ranks by the net's score, py4DSTEM by correlation intensity. Shared with
+    /// py4DSTEM: the parabola is only evaluated at a local maximum (so |shift| ≤ 0.5 px),
+    /// the `<` spacing test, the cap keeps the highest-ranked.
     package func refine(
         candidates: [Candidate], smoothedCorrelation ar: [Float], params: DiskDetectionParams
     ) -> [BraggPeak] {
@@ -706,10 +718,15 @@ package nonisolated final class DiskDetector {
             guard rs < re, cs < ce else { continue }
             var by = rs, bx = cs, best = -Float.greatestFiniteMagnitude
             for y in rs..<re { for x in cs..<ce where ar[y * qx + x] > best { best = ar[y * qx + x]; by = y; bx = x } }
-            // the classical parabolic step (polyRefine's formula, unguarded like py4DSTEM's
-            // get_maxima_2D): a snapped pixel that is not a correlation peak gets a wild shift,
-            // and the edge rule below drops it — the same order as evaluate.refine + accept
+            // py4DSTEM's precondition: the parabola is evaluated only AT a local maximum
             let c = by * qx + bx
+            var isMaximum = true
+            for dy in -1...1 where isMaximum {
+                for dx in -1...1 where !(dx == 0 && dy == 0) {
+                    if ar[c + dy * qx + dx] > best { isMaximum = false; break }
+                }
+            }
+            guard isMaximum else { continue }
             let ix0 = ar[c], ix1 = ar[c + 1], ix1_ = ar[c - 1], iy1 = ar[c + qx], iy1_ = ar[c - qx]
             let dx = (ix1 - ix1_) / (4 * ix0 - 2 * ix1 - 2 * ix1_)
             let dy = (iy1 - iy1_) / (4 * ix0 - 2 * iy1 - 2 * iy1_)

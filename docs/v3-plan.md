@@ -786,14 +786,18 @@ are `tools/disk-detector/README.md` "2026-09-07 revisions").** Visibility
 targets, textured backgrounds, width 12 (275 k parameters): 20 000 steps in
 73 min, validation recall 0.963 / precision 0.78 against visible disks. The
 exported `heatmap` asset on the Neural Engine, scored with the new
-acceptance rule: bullseye at threshold 0.9 net 436 vs classical 442 peaks,
-count difference median 0 (−10…+4), 74/143 positions differ, 1 matched pair
-beyond 0.5 px; at 0.6 median +2; at 0.3 median +7 (run2: +67). WS₂ as
-stored identical to classical. Fixture 0.967 / 0.244 px after refinement at
-every threshold. From Swift on 2 100 identical bullseye patterns: classical
-`detectAll` (8 cores) 0.123 ms/pattern, the asset 0.110 ms/pattern — net
-alone 0.89×, learned path ≤ 1.9×. Superseded below: the overnight
-recommendation; the verdict is the owner's (`status.md` handoff).
+acceptance rule (corrected by Gate B the same day — a snapped candidate
+must be a correlation maximum, else rejected): bullseye at threshold 0.9
+net 416 vs classical 442 peaks, count difference median 0 (−10…+4), 70/143
+positions differ, no matched pair beyond 0.5 px; at 0.6 median 0 (max +5);
+at 0.3 median +7 before the correction (run2: +67). WS₂ as stored identical
+to classical. Fixture 0.967 / 0.244 px after refinement at every threshold,
+241 accepted for 153 eligible. From Swift on 2 100 identical bullseye
+patterns, Release, four runs: classical `detectAll` (8 cores) 0.105–0.113
+ms/pattern; the learned `detectAll` end to end, double-buffered, 0.212
+ms/pattern = 1.87–1.99× — at the ceiling. Superseded below: the overnight
+recommendation; the verdict is the owner's (`decisions.md` 2026-09-07,
+`status.md` handoff).
 
 **Recommended verdict (the agent's reading of the OVERNIGHT run, superseded
 2026-09-07 — see `status.md`; owner decides).** It earns its

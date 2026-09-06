@@ -4,7 +4,7 @@
 //     strided across workers) on the dumped bullseye patterns at the 2026-09-05 settings — the
 //     number the overnight run should have compared against (it used the SERIAL single-pattern
 //     benchmark, 0.602 ms, and called the net 0.6× of it; the app runs 8 cores).
-// (2) The exported Core AI asset through the CoreAI framework, Neural Engine preferred, batch by
+// (2) The exported Core AI asset through the CoreAI framework, and (3) LearnedDiskDetector.detectAll end to end, Neural Engine preferred, batch by
 //     batch on the same patterns' three-channel inputs — the first Swift-side timing (the Python
 //     runtime timed everything before).
 // Usage: scan-bench <dump dir> [<asset.aimodel> <function>]
@@ -67,8 +67,10 @@ if args.count == 4 {
             var times: [Double] = []; var heatSum: Double = 0; var outName = ""
             var b = 0
             while b + B <= n {
-                let x = NDArray(scalars: inputs[(b * per)..<((b + B) * per)], shape: [B, 3, S, S])
-                let t1 = Date()
+                let t1 = Date()   // the input construction is part of the cost (2026-09-07: NDArray(scalars:) alone was 46-83 ms per batch)
+                var x = NDArray(shape: [B, 3, S, S], scalarType: .float16)
+                do { var mv = x.mutableView(as: Float16.self)
+                     mv.withUnsafeMutablePointer { dst, _, _ in inputs.withUnsafeBufferPointer { dst.update(from: $0.baseAddress! + b * per, count: B * per) } } }
                 var out = try await fn.run(inputs: [inName: x])
                 let dt = Date().timeIntervalSince(t1)
                 if b > 0 { times.append(dt) }
@@ -89,5 +91,73 @@ if args.count == 4 {
     }
     sem.wait()
 }
+// ---- (3) the whole learned path end to end: LearnedDiskDetector.detectAll on the same cube (Release, -O)
+if args.count == 4, #available(macOS 27, *) {
+    let sem = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            let learned = try await LearnedDiskDetector.load(assetURL: URL(fileURLWithPath: args[2]), functionName: args[3])
+            let probePattern = DiffractionPattern(qy: S, qx: S, pixels: probe)
+            var times: [Double] = []; var peaks = 0
+            for rep in 0..<4 {
+                let t0 = Date()
+                guard let v = await learned.detectAll(cube: buffer, descriptor: descriptor, probe: probePattern,
+                                                      probeCentre: (x: Float(col), y: Float(row)), probeRadius: Float(radius),
+                                                      params: params, threshold: 0.9) else { fail("learned detectAll returned nil") }
+                let dt = Date().timeIntervalSince(t0)
+                if rep > 0 { times.append(dt) }
+                peaks = v.peaks.reduce(0) { $0 + $1.count }
+            }
+            let m = median(times)
+            print(String(format: "learned detectAll end to end (threshold 0.9, %d cores + ANE): %d patterns in %.3f s median of 3 -> %.4f ms/pattern, %.1f s per 65 536; %d peaks (%.2f per pattern); %.2fx the classical",
+                         ProcessInfo.processInfo.activeProcessorCount, n, m, m / Double(n) * 1000, m / Double(n) * 65536, peaks, Double(peaks) / Double(n), m / cl))
+            result["learned_detectAll"] = ["seconds_median": m, "ms_per_pattern": m / Double(n) * 1000, "s_per_65536": m / Double(n) * 65536, "peaks": peaks,
+                                           "ratio_to_classical": m / cl, "threshold": 0.9, "repeats": times]
+        } catch { fail("learned detectAll: \(error)") }
+        sem.signal()
+    }
+    sem.wait()
+}
+// ---- (4) stage profile of the learned path (SCAN_BENCH_PROFILE=1): where the end-to-end time goes
+if args.count == 4, ProcessInfo.processInfo.environment["SCAN_BENCH_PROFILE"] == "1", #available(macOS 27, *) {
+    let sem = DispatchSemaphore(value: 0)
+    Task {
+        let learned = try! await LearnedDiskDetector.load(assetURL: URL(fileURLWithPath: args[2]), functionName: args[3])
+        let det = DiskDetector(kernel: kernel)!
+        let N = min(n, 512); let n3 = 3 * S * S
+        var pats: [[Float]] = (0..<N).map { Array(cube[($0 * S * S)..<(($0 + 1) * S * S)]) }
+        func time(_ label: String, _ body: () -> Void) { let t = Date(); body(); print(String(format: "  %@: %.4f ms/pattern", label, Date().timeIntervalSince(t) / Double(N) * 1000)) }
+        var corrs: [(raw: [Float], smoothed: [Float])] = []
+        time("correlation (1 thread)") { corrs = pats.map { p in p.withUnsafeBufferPointer { det.correlation(pattern: $0.baseAddress!, params: params) } } }
+        var mis: [[Float16]] = []
+        time("modelInputs") { mis = (0..<N).map { LearnedDiskDetector.modelInputs(pattern: pats[$0], probe: probe, correlation: corrs[$0].raw) } }
+        var flat = [Float16](repeating: 0, count: 32 * n3)
+        time("copy inputs into the batch buffer (element loop)") { for b in 0..<N { let mi = mis[b % N]; let o = (b % 32) * n3; for i in 0..<n3 { flat[o + i] = mi[i] } } }
+        var heats: [[Float16]] = []
+        let t = Date(); for _ in 0..<(N / 32) { heats.append(try! await learned.heatmaps(inputs: flat)) }; print(String(format: "  heatmaps (ANE, incl. NDArray copies): %.4f ms/pattern", Date().timeIntervalSince(t) / Double(N) * 1000))
+        var cands: [[DiskDetector.Candidate]] = []
+        time("pickPeaks") { cands = (0..<N).map { i in heats[i / 32].withUnsafeBufferPointer { hb in LearnedDiskDetector.pickPeaks(heatmap: UnsafeBufferPointer(rebasing: hb[((i % 32) * S * S)..<((i % 32 + 1) * S * S)]), threshold: 0.9) } } }
+        time("refine") { for i in 0..<N { _ = det.refine(candidates: cands[i], smoothedCorrelation: corrs[i].smoothed, params: params) } }
+        // NDArray construction and output read-back variants (per batch of 32)
+        func tb(_ label: String, _ body: () -> Void) { let t = Date(); for _ in 0..<8 { body() }; print(String(format: "  %@: %.3f ms/batch", label, Date().timeIntervalSince(t) / 8 * 1000)) }
+        tb("NDArray(scalars: Array)") { _ = NDArray(scalars: flat, shape: [32, 3, S, S]) }
+        tb("NDArray(scalars: ArraySlice)") { _ = NDArray(scalars: flat[0..<flat.count], shape: [32, 3, S, S]) }
+        tb("NDArray(shape:scalarType:) + mutableView.withUnsafeMutablePointer memcpy") {
+            var nd = NDArray(shape: [32, 3, S, S], scalarType: .float16)
+            var mv = nd.mutableView(as: Float16.self)
+            mv.withUnsafeMutablePointer { p, _, _ in flat.withUnsafeBufferPointer { p.update(from: $0.baseAddress!, count: flat.count) } }
+        }
+        let x = NDArray(scalars: flat, shape: [32, 3, S, S])
+        var outputs = try! await learned.run(x)
+        let value = outputs.remove("heatmap")!; let arr = value.ndArray!
+        tb("output: span element loop") { let v = arr.view(as: Float16.self); if let sp = v.contiguousElements { var o = [Float16](repeating: 0, count: sp.count); for i in 0..<sp.count { o[i] = sp[i] }; _ = o } }
+        tb("output: view.withUnsafePointer memcpy") { let v = arr.view(as: Float16.self); v.withUnsafePointer { p, _, _ in var o = [Float16](repeating: 0, count: 32 * S * S); o.withUnsafeMutableBufferPointer { $0.baseAddress!.update(from: p, count: 32 * S * S) }; _ = o } }
+        pats.removeAll()
+        sem.signal()
+    }
+    sem.wait()
+}
 let json = try! JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
-try! json.write(to: dir.appendingPathComponent("scan-bench.json")); print("wrote", dir.appendingPathComponent("scan-bench.json").path)
+let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "")
+let outURL = dir.appendingPathComponent("scan-bench-\(stamp).json")
+try! json.write(to: outURL); print("wrote", outURL.path)

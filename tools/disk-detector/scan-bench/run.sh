@@ -2,7 +2,7 @@
 # tools/disk-detector/scan-bench/run.sh — DIAGNOSTIC (owner-local data, macOS 27, Xcode-beta):
 #   run.sh dump  --bullseye <h5> --ingredients <npz> --out <dir> [--stride 2]
 #   run.sh bench <dump dir> [<asset.aimodel> <function>]
-# Compiles main.swift against the production Core sources (the same list as tools/disk-detection-test)
+# Each run writes scan-bench-<timestamp>.json (never overwritten). Compiles main.swift against the production Core sources (the same list as tools/disk-detection-test)
 # plus the CoreAI framework, then times the app's classical scan path and the asset on the same patterns.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -25,6 +25,7 @@ case "$mode" in
       "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \
       "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
       "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
+      "$REPO/mac4DSTEM/Core/ML/LearnedDiskDetector.swift" \
       -framework Accelerate -framework Metal -framework CoreAI
     exec "$WORK/scan-bench" "$@" ;;
   *) echo "usage: $0 dump|bench ..." >&2; exit 64 ;;
