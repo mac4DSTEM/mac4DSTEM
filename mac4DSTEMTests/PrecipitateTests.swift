@@ -130,8 +130,9 @@ final class PrecipitateTests: XCTestCase {
         }
 
         // Needles: filled rotated rectangles, sharp edges, orientation
-        // convention identical to PrecipitateSegmentation.Object
-        // (0 = +x/+col, counter-clockwise in row/col image coordinates).
+        // convention identical to PrecipitateSegmentation.Object: 0 = +x/+col
+        // and the angle increases from +x toward +y (increasing row), which is
+        // CLOCKWISE on screen because the row axis points down.
         let needleAmplitude: Float = 200
         for spec in needleSpecs {
             let theta = spec.orientationDegrees * .pi / 180
@@ -263,6 +264,275 @@ final class PrecipitateTests: XCTestCase {
             }
             XCTAssertTrue(match.touchesEdge, "edge needle \(spec.name) should be flagged touchesEdge")
         }
+    }
+
+    // MARK: - Noise-free needle: the extents and the mask footprint (Gate B, M8/M11)
+
+    /// A single sharp-edged bar on an empty field, so the truth is exact and
+    /// the 15 %/5-degree tolerances of the noisy fixture above are not doing
+    /// the work. `widthPx` and `area` had NO assertion anywhere before this
+    /// test, which is why mutations M8 (measure the extents on the ridge
+    /// RESPONSE instead of the flattened image — the thing the code comment
+    /// forbids) and M11 (a one-third-maximum footprint instead of the
+    /// half-maximum one) both survived the 2026-09-06 Gate B run.
+    ///
+    /// The numbers pinned here are the MEASURED ones, and two of them are
+    /// not the drawn ones — see `fix-c/gateD-C3.md`:
+    ///   * `widthPx` reads ~4 for a drawn 3 because the extents are
+    ///     centre-to-centre spans plus 1, and that +1 is exact only when the
+    ///     object's axis is axis-aligned. The assertion below proves that is
+    ///     the cause by measuring the DRAWN bar's own pixel-centre span.
+    ///   * `area` is the thresholded mask footprint, ~2x the drawn bar.
+    /// Both are open questions recorded for the owner, not silently blessed.
+    func testNoiseFreeNeedleMeasuresItsDrawnExtents() throws {
+        let width = 120, height = 120
+        let drawnLength: Float = 34, drawnWidth: Float = 3
+        let drawnAngle: Float = 37.2      // neither axis-aligned nor 45 deg: sign-discriminating
+        let centre: Float = 60
+        let theta = drawnAngle * .pi / 180
+        let cosT = cos(theta), sinT = sin(theta)
+
+        var pixels = [Float](repeating: 0, count: width * height)
+        var drawnCount = 0
+        var acrossMin = Float.greatestFiniteMagnitude, acrossMax = -Float.greatestFiniteMagnitude
+        for row in 0..<height {
+            for col in 0..<width {
+                let dCol = Float(col) - centre, dRow = Float(row) - centre
+                let along = dCol * cosT + dRow * sinT
+                let across = -dCol * sinT + dRow * cosT
+                guard abs(along) <= drawnLength / 2, abs(across) <= drawnWidth / 2 else { continue }
+                pixels[row * width + col] = 200
+                drawnCount += 1
+                acrossMin = Swift.min(acrossMin, across); acrossMax = Swift.max(acrossMax, across)
+            }
+        }
+        let drawnCentreSpan = acrossMax - acrossMin
+
+        let objects = PrecipitateSegmentation.segment(
+            image: FloatImage(width: width, height: height, pixels: pixels),
+            validity: nil, settings: needleSettings()
+        )
+        XCTAssertEqual(objects.count, 1, "one bar on an empty field must segment as one object")
+        let needle = try XCTUnwrap(objects.first)
+
+        XCTAssertEqual(needle.centroidX, centre, accuracy: 1, "centroid x \(needle.centroidX)")
+        XCTAssertEqual(needle.centroidY, centre, accuracy: 1, "centroid y \(needle.centroidY)")
+        XCTAssertEqual(
+            needle.orientationDegrees, drawnAngle, accuracy: 2,
+            "orientation \(needle.orientationDegrees), drawn \(drawnAngle)"
+        )
+        XCTAssertEqual(
+            needle.lengthPx, drawnLength, accuracy: 1.5,
+            "length \(needle.lengthPx), drawn \(drawnLength)"
+        )
+
+        // The +1 convention, demonstrated rather than asserted from memory:
+        // the measured width is the DRAWN bar's own pixel-centre span across
+        // the axis, plus 1. On this diagonal that span is already ~3.0, so
+        // the measurement reads ~4.0 for a bar drawn 3.0 wide.
+        XCTAssertEqual(
+            needle.widthPx, drawnCentreSpan + 1, accuracy: 0.35,
+            "width \(needle.widthPx) is not the drawn bar's pixel-centre span "
+            + "(\(drawnCentreSpan)) plus the end-to-end +1 — the cause established in "
+            + "fix-c/gateD-C3.md §width no longer explains it"
+        )
+        // OPEN QUESTION (fix-c/gateD-C3.md §width): recorded, not endorsed.
+        XCTAssertGreaterThan(
+            needle.widthPx, drawnWidth,
+            "width \(needle.widthPx) against a drawn \(drawnWidth) — read "
+            + "fix-c/gateD-C3.md §width before changing this"
+        )
+        XCTAssertLessThan(needle.widthPx, drawnWidth + 1.2, "width \(needle.widthPx)")
+
+        // `area` is the mask footprint, not the drawn area (see Object.area).
+        // No ratio is pinned here: on a perfectly empty field the robust
+        // threshold degenerates (median 0, MAD 0, so it collapses to "any
+        // positive ridge response") and the mask runs ~47x the drawn bar — an
+        // artefact of the fixture, recorded in fix-c/gateD-C3.md §threshold.
+        // The realistic ratio is pinned by
+        // `testNeedleMaskFootprintExceedsTheDrawnBar`.
+        XCTAssertEqual(needle.area, needle.pixelIndices.count, "area must be the object's own pixel count")
+        XCTAssertGreaterThan(
+            needle.area, drawnCount,
+            "the detection mask is never smaller than the bar that produced it"
+        )
+    }
+
+    /// The extents are defined as the HALF-maximum footprint of the flattened
+    /// image (`PrecipitateSegmentation.segment`'s own comment). The
+    /// sharp-edged bar above cannot test that definition: it has no pixel
+    /// between one third and one half of its peak, so a third-maximum
+    /// footprint measures exactly the same pixels (mutation M11 survives it —
+    /// measured 2026-09-06). This fixture gives the bar a GAUSSIAN
+    /// cross-section whose full width at half maximum is 3 px, which puts
+    /// pixels at every level and separates the two definitions:
+    ///
+    ///   half-maximum footprint  -> widthPx 3.72   (this assertion)
+    ///   third-maximum footprint -> widthPx 4.43   (M11, fix-c/M11.log)
+    ///
+    /// The measured 3.72 sits ~0.26 below the drawn image's own half-maximum
+    /// footprint plus 1 (2.975 + 1 = 3.975) because background flattening
+    /// lowers the profile before the half-maximum is taken.
+    func testNeedleWidthFollowsTheHalfMaximumFootprint() throws {
+        let width = 120, height = 120
+        let drawnLength: Float = 34, drawnFWHM: Float = 3
+        let drawnAngle: Float = 37.2
+        let centre: Float = 60
+        let sigma = drawnFWHM / (2 * (2 * Float(log(2.0))).squareRoot())
+        let theta = drawnAngle * .pi / 180
+        let cosT = cos(theta), sinT = sin(theta)
+
+        var pixels = [Float](repeating: 0, count: width * height)
+        for row in 0..<height {
+            for col in 0..<width {
+                let dCol = Float(col) - centre, dRow = Float(row) - centre
+                let along = dCol * cosT + dRow * sinT
+                let across = -dCol * sinT + dRow * cosT
+                guard abs(along) <= drawnLength / 2, abs(across) <= 4 * sigma else { continue }
+                pixels[row * width + col] = 200 * exp(-across * across / (2 * sigma * sigma))
+            }
+        }
+
+        let objects = PrecipitateSegmentation.segment(
+            image: FloatImage(width: width, height: height, pixels: pixels),
+            validity: nil, settings: needleSettings()
+        )
+        XCTAssertEqual(objects.count, 1)
+        let needle = try XCTUnwrap(objects.first)
+
+        XCTAssertEqual(
+            needle.widthPx, 3.72, accuracy: 0.3,
+            "width \(needle.widthPx): a third-maximum footprint reads 4.43 on this "
+            + "fixture and a half-maximum one reads 3.72 — see the doc comment"
+        )
+        XCTAssertEqual(
+            needle.lengthPx, 34.18, accuracy: 1.5,
+            "length \(needle.lengthPx)"
+        )
+        XCTAssertEqual(needle.orientationDegrees, drawnAngle, accuracy: 2)
+    }
+
+    /// `Object.area` had NO assertion anywhere. It is the thresholded mask's
+    /// pixel count, and on the realistic (noisy, background-bearing) fixture
+    /// it runs well above the drawn bar because the ridge response spreads
+    /// past the object's edges. This pins the band so the number cannot drift
+    /// unnoticed, and names the open question rather than blessing it —
+    /// `fix-c/gateD-C3.md` §area, and `Object.area`'s doc comment.
+    func testNeedleMaskFootprintExceedsTheDrawnBar() {
+        let image = Self.buildFixture()
+        let objects = PrecipitateSegmentation.segment(image: image, validity: nil, settings: needleSettings())
+
+        for spec in Self.needleSpecs where !spec.expectsEdge {
+            guard let match = nearest(objects, toRow: spec.centerRow, col: spec.centerCol) else {
+                XCTFail("no object found for needle \(spec.name)")
+                continue
+            }
+            XCTAssertEqual(match.area, match.pixelIndices.count, "needle \(spec.name): area must be its own pixel count")
+            let drawn = Self.rasterisedPixelCount(spec)
+            let ratio = Float(match.area) / Float(drawn)
+            XCTAssertGreaterThan(
+                ratio, 1.3,
+                "needle \(spec.name): mask \(match.area) px vs drawn \(drawn) px, ratio \(ratio) "
+                + "— OPEN QUESTION (fix-c/gateD-C3.md §area): `area` is the mask footprint, "
+                + "not the object's drawn area"
+            )
+            XCTAssertLessThan(
+                ratio, 2.9,
+                "needle \(spec.name): mask/drawn ratio \(ratio) has drifted above the band "
+                + "measured on 2026-09-06 (1.59-2.37)"
+            )
+        }
+    }
+
+    /// The number of fixture pixels `buildFixture` actually paints for `spec`
+    /// — the rasterised count, not the nominal `length * width`.
+    private static func rasterisedPixelCount(_ spec: NeedleSpec) -> Int {
+        let theta = spec.orientationDegrees * .pi / 180
+        let cosT = cos(theta), sinT = sin(theta)
+        var count = 0
+        for row in 0..<fixtureHeight {
+            for col in 0..<fixtureWidth {
+                let dRow = Float(row) - spec.centerRow, dCol = Float(col) - spec.centerCol
+                let u = dCol * cosT + dRow * sinT
+                let v = -dCol * sinT + dRow * cosT
+                if abs(u) <= spec.length / 2, abs(v) <= spec.width / 2 { count += 1 }
+            }
+        }
+        return count
+    }
+
+    // MARK: - touchesEdge agrees with the object's own pixels (Gate B, M9)
+
+    /// `touchesEdge` decides which objects the density count excludes
+    /// (`PrecipitateStatistics`), so an off-by-one in its rule silently moves
+    /// a published number. Mutation M9 — `row == 1 || row == height - 2 ||
+    /// col == 1 || col == width - 2` — survived the 2026-09-06 Gate B run,
+    /// because every object in the noisy fixture that reaches row 1 also
+    /// reaches row 0, so the two rules agree there.
+    ///
+    /// This fixture separates them by construction: `validity` withholds row
+    /// 0 under the right-hand blob only, so that object's topmost pixel is
+    /// row 1 and the true rule says "interior" while an off-by-one says
+    /// "edge". The left-hand blob keeps row 0 and must be flagged. The test
+    /// asserts BOTH the property (every object's flag matches its own pixel
+    /// list) and the preconditions that make the fixture discriminating, so
+    /// it cannot silently stop testing anything.
+    func testTouchesEdgeMatchesTheObjectsOwnPixels() throws {
+        let width = 80, height = 80
+        var pixels = [Float](repeating: 0, count: width * height)
+        func addBlob(row: Float, col: Float, sigma: Float, amplitude: Float) {
+            for r in 0..<height {
+                for c in 0..<width {
+                    let dr = Float(r) - row, dc = Float(c) - col
+                    pixels[r * width + c] += amplitude
+                        * Float(exp(-Double(dr * dr + dc * dc) / (2 * Double(sigma * sigma))))
+                }
+            }
+        }
+        addBlob(row: 2, col: 20, sigma: 2.5, amplitude: 300)   // keeps row 0
+        addBlob(row: 2, col: 60, sigma: 2.5, amplitude: 300)   // row 0 withheld below
+
+        var validity = [Bool](repeating: true, count: width * height)
+        for c in 40..<width { validity[c] = false }            // row 0, right half only
+
+        let objects = PrecipitateSegmentation.segment(
+            image: FloatImage(width: width, height: height, pixels: pixels),
+            validity: validity, settings: particleSettings()
+        )
+        XCTAssertEqual(objects.count, 2, "the fixture draws exactly two separated blobs")
+
+        for object in objects {
+            let touches = object.pixelIndices.contains {
+                $0 / width == 0 || $0 / width == height - 1
+                    || $0 % width == 0 || $0 % width == width - 1
+            }
+            XCTAssertEqual(
+                object.touchesEdge, touches,
+                "object #\(object.id) at (\(object.centroidY), \(object.centroidX)): "
+                + "touchesEdge is \(object.touchesEdge) but its own pixel list says \(touches)"
+            )
+        }
+
+        let atRowZero = try XCTUnwrap(nearest(objects, toRow: 2, col: 20))
+        let atRowOne = try XCTUnwrap(nearest(objects, toRow: 2, col: 60))
+        XCTAssertTrue(
+            atRowZero.pixelIndices.contains { $0 / width == 0 },
+            "fixture precondition: the left blob must own a row-0 pixel"
+        )
+        XCTAssertTrue(atRowZero.touchesEdge)
+        XCTAssertFalse(
+            atRowOne.pixelIndices.contains { $0 / width == 0 },
+            "fixture precondition: `validity` must have kept row 0 out of the right blob"
+        )
+        XCTAssertTrue(
+            atRowOne.pixelIndices.contains { $0 / width == 1 },
+            "fixture precondition: the right blob must REACH row 1 — otherwise this "
+            + "test cannot discriminate a row==1 off-by-one"
+        )
+        XCTAssertFalse(
+            atRowOne.touchesEdge,
+            "an object whose topmost pixel is row 1 is interior, not an edge object"
+        )
     }
 
     /// No needles-mode object should appear where nothing was drawn — the

@@ -277,6 +277,292 @@ final class DiffractionEmbeddingTests: XCTestCase {
         XCTAssertTrue(result.mean.allSatisfy(\.isFinite), "no mean-vector entry may be NaN/Inf")
         XCTAssertTrue(result.basis.allSatisfy(\.isFinite), "no basis entry may be NaN/Inf")
     }
+
+    // MARK: - The detector's row/column axes survive binning (Gate B, M1)
+
+    /// The three families above are all symmetric about the detector centre
+    /// under transpose, so swapping the binned pattern's row and column
+    /// indices (`out[bx * b + by] = sum`) leaves every other assertion in
+    /// this file untouched — that mutation (M1 of the 2026-09-06 Gate B run)
+    /// survived the whole suite. This fixture is deliberately ASYMMETRIC:
+    /// two bright blocks, each aligned to exactly one 2x2 bin, at different
+    /// amplitudes, so the mean binned vector's two brightest bins are unique
+    /// and pin both detector axes and both of their signs.
+    ///
+    /// Catches: M1 (x/y transpose in `embed`), a 180-degree rotation of the
+    /// pattern, and a flip of either axis alone — the planted pair
+    /// (row 3, col 13) and (row 10, col 4) lands somewhere else under all of
+    /// them, and neither planted bin is on the detector's diagonal or centre.
+    func testMeanVectorPreservesTheDetectorsRowAndColumnAxes() async throws {
+        let binnedSize = 16
+        let box = detectorSize / binnedSize     // 2
+        // (detector row, detector col, amplitude) -> binned (row / box, col / box)
+        let brightBin = (row: 6 / box, col: 26 / box)      // (3, 13)
+        let dimmerBin = (row: 20 / box, col: 8 / box)      // (10, 4)
+
+        let positions = scanWidth * scanHeight
+        var patterns = [[Float]](repeating: [], count: positions)
+        for p in 0..<positions {
+            var pattern = [Float](repeating: 1, count: detectorSize * detectorSize)
+            for r in 6...7 { for c in 26...27 { pattern[r * detectorSize + c] = 60 } }
+            for r in 20...21 { for c in 8...9 { pattern[r * detectorSize + c] = 40 } }
+            for i in pattern.indices {
+                pattern[i] += deterministicNoise(p * 100_003 + i) * 0.5
+            }
+            patterns[p] = pattern
+        }
+        let source = DiffractionGroupsFixtureSource(
+            scanHeight: scanHeight, scanWidth: scanWidth,
+            qy: detectorSize, qx: detectorSize, patterns: patterns
+        )
+        let descriptor = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: descriptor)
+        let computed = try await DiffractionEmbedding.compute(
+            data: data, descriptor: descriptor,
+            settings: DiffractionEmbedding.Settings(
+                binnedSize: binnedSize, components: 4, groups: 2, seed: 11
+            ),
+            cancellation: nil, progress: nil
+        )
+        let result = try XCTUnwrap(computed)
+        XCTAssertEqual(result.mean.count, binnedSize * binnedSize)
+
+        let ranked = result.mean.indices.sorted { result.mean[$0] > result.mean[$1] }
+        XCTAssertEqual(
+            ranked[0], brightBin.row * binnedSize + brightBin.col,
+            "the brightest binned cell must be (row \(brightBin.row), col \(brightBin.col)); "
+            + "got (row \(ranked[0] / binnedSize), col \(ranked[0] % binnedSize)) — a transpose, "
+            + "rotation or flip of the detector axes moves it"
+        )
+        XCTAssertEqual(
+            ranked[1], dimmerBin.row * binnedSize + dimmerBin.col,
+            "the second-brightest binned cell must be (row \(dimmerBin.row), col \(dimmerBin.col)); "
+            + "got (row \(ranked[1] / binnedSize), col \(ranked[1] % binnedSize))"
+        )
+    }
+
+    // MARK: - C1 (Gate D): the eigensolver returns ACTUAL eigenpairs
+
+    /// The discriminating experiment of
+    /// `References/training_runs/disk-detector-2026-09-06-polish/fix-c/gateD-C1.md`.
+    ///
+    /// Every earlier assertion in this file reads the eigensolver through a
+    /// downstream aggregate (`explainedVariance.prefix(3).sum() > 0.8`, or a
+    /// k-means grouping), which one converged direction is enough to satisfy.
+    /// This one plants a KNOWN spectrum on a KNOWN orthonormal basis and asks
+    /// the solver for it back. The matrix, the basis and the eigenvalues are
+    /// all built here from constants written in this file, so the ground
+    /// truth owes nothing to the code under test.
+    ///
+    /// The planted eigenvalues are deliberately well separated but with
+    /// ratios far from zero (~1.55): a converged solver separates them
+    /// trivially, while one power/subspace step cannot — which is exactly the
+    /// defect this test was written to expose (the subspace iteration's
+    /// convergence test started at `.infinity`, `max(0, .nan) == 0`, so it
+    /// always stopped after one iteration).
+    ///
+    /// Catches: that single-iteration defect; any loss of descending order;
+    /// and a `dsyevd_` call with a transposed argument, a wrong `uplo`, or an
+    /// under-sized workspace (all of which corrupt the returned pairs).
+    func testSymmetricEigenTopReturnsTrueEigenpairs() {
+        let d = 64
+        let planted: [Double] = [100, 64, 41, 26, 17, 11, 7, 4.5]
+        let floorEigenvalue = 0.5
+
+        // A deterministic orthonormal basis: Gram-Schmidt over a fixed
+        // xorshift64* stream (NOT SystemRandomNumberGenerator).
+        var state: UInt64 = 0x9E37_79B9_7F4A_7C15
+        func nextValue() -> Double {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            let mixed = Int64(bitPattern: state &* 0x2545_F491_4F6C_DD1D)
+            return Double(mixed % 20_001) / 10_000.0
+        }
+        var basis = [[Double]]()
+        for _ in 0..<d {
+            var v = (0..<d).map { _ in nextValue() }
+            for u in basis {
+                let projection = zip(v, u).reduce(0.0) { $0 + $1.0 * $1.1 }
+                for t in 0..<d { v[t] -= projection * u[t] }
+            }
+            let norm = v.reduce(0.0) { $0 + $1 * $1 }.squareRoot()
+            XCTAssertGreaterThan(norm, 1e-6, "the fixture's basis must stay full rank")
+            basis.append(v.map { $0 / norm })
+        }
+
+        // C = sum_j lambda_j q_j q_j^T, the planted eigenvalues first.
+        var matrix = [Double](repeating: 0, count: d * d)
+        for j in 0..<d {
+            let lambda = j < planted.count ? planted[j] : floorEigenvalue
+            for r in 0..<d {
+                let scaled = basis[j][r] * lambda
+                for c in 0..<d { matrix[r * d + c] += scaled * basis[j][c] }
+            }
+        }
+
+        let (vectors, values) = DiffractionEmbedding.symmetricEigenTop(
+            matrix: matrix, dimension: d, count: planted.count, cancellation: nil
+        )
+        XCTAssertEqual(values.count, planted.count)
+        XCTAssertEqual(vectors.count, planted.count)
+        XCTAssertEqual(values, values.sorted(by: >), "eigenvalues must be returned descending")
+
+        for c in 0..<min(vectors.count, planted.count) {
+            let v = vectors[c]
+            XCTAssertEqual(v.count, d)
+            var cv = [Double](repeating: 0, count: d)
+            for r in 0..<d {
+                var sum = 0.0
+                for t in 0..<d { sum += matrix[r * d + t] * v[t] }
+                cv[r] = sum
+            }
+            let lambda = zip(v, cv).reduce(0.0) { $0 + $1.0 * $1.1 }
+            let residual = zip(cv, v)
+                .reduce(0.0) { $0 + ($1.0 - lambda * $1.1) * ($1.0 - lambda * $1.1) }
+                .squareRoot()
+            let scale = max(abs(lambda) * v.reduce(0.0) { $0 + $1 * $1 }.squareRoot(), 1e-12)
+            XCTAssertLessThanOrEqual(
+                residual / scale, 1e-6,
+                "component \(c) is not an eigenvector of the matrix it claims to "
+                + "diagonalise: relative residual \(residual / scale)"
+            )
+            XCTAssertEqual(
+                values[c], planted[c], accuracy: 1e-8,
+                "component \(c) eigenvalue \(values[c]), planted \(planted[c])"
+            )
+        }
+    }
+
+    /// The SAME property end to end through `compute`: every published
+    /// `basis` row must be an eigenvector of the MEAN-CENTRED covariance of
+    /// the binned vectors, the rows must be ordered by eigenvalue, and
+    /// `explainedVariance[c]` must be that eigenvalue over the covariance's
+    /// TRACE (not over the retained eigenvalues, and not over an uncentred
+    /// second-moment matrix).
+    ///
+    /// The covariance is rebuilt here by `referenceBinnedVector`, an
+    /// independent re-implementation of the log1p / max-normalise / box-bin
+    /// pipeline — nothing the code under test returns is used as its own
+    /// ground truth.
+    ///
+    /// Catches: M3 (the covariance's mean-centring term dropped — the basis
+    /// then diagonalises the uncentred second moment, whose dominant
+    /// direction is the mean itself); M4 (rows not ordered by eigenvalue);
+    /// and the one-iteration convergence defect, which leaves every component
+    /// past the first an unconverged direction (fix-c/gateD-C1.md).
+    func testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance() async throws {
+        let binnedSize = 16
+        let dims = binnedSize * binnedSize
+        let (data, descriptor, _) = try await makeThreeFamilyFixture()
+        let settings = DiffractionEmbedding.Settings(
+            binnedSize: binnedSize, components: 8, groups: 3, seed: 42
+        )
+        let computed = try await DiffractionEmbedding.compute(
+            data: data, descriptor: descriptor, settings: settings,
+            cancellation: nil, progress: nil
+        )
+        let result = try XCTUnwrap(computed)
+
+        // Reference mean and mean-centred covariance, built in the test.
+        let positions = scanWidth * scanHeight
+        var vectors = [[Double]]()
+        for i in 0..<positions {
+            vectors.append(referenceBinnedVector(
+                syntheticFamilyPattern(family: i % 3, positionSeed: i), binnedSize: binnedSize
+            ))
+        }
+        var mean = [Double](repeating: 0, count: dims)
+        for v in vectors { for i in 0..<dims { mean[i] += v[i] } }
+        for i in 0..<dims { mean[i] /= Double(positions) }
+        var covariance = [Double](repeating: 0, count: dims * dims)
+        for v in vectors {
+            for i in 0..<dims {
+                let di = v[i] - mean[i]
+                for j in 0..<dims { covariance[i * dims + j] += di * (v[j] - mean[j]) }
+            }
+        }
+        for i in covariance.indices { covariance[i] /= Double(positions) }
+        var trace = 0.0
+        for i in 0..<dims { trace += covariance[i * dims + i] }
+        XCTAssertGreaterThan(trace, 0)
+
+        for i in 0..<dims {
+            XCTAssertEqual(
+                Double(result.mean[i]), mean[i], accuracy: 1e-4 * max(abs(mean[i]), 1),
+                "published mean vector disagrees with the reference at bin \(i)"
+            )
+        }
+
+        var previous = Double.greatestFiniteMagnitude
+        for c in 0..<result.componentCount {
+            let v = (0..<dims).map { Double(result.basis[c * dims + $0]) }
+            var cv = [Double](repeating: 0, count: dims)
+            for r in 0..<dims {
+                var sum = 0.0
+                for t in 0..<dims { sum += covariance[r * dims + t] * v[t] }
+                cv[r] = sum
+            }
+            let lambda = zip(v, cv).reduce(0.0) { $0 + $1.0 * $1.1 }
+            let residual = zip(cv, v)
+                .reduce(0.0) { $0 + ($1.0 - lambda * $1.1) * ($1.0 - lambda * $1.1) }
+                .squareRoot()
+            // Normalised by the TRACE, not by this component's own eigenvalue:
+            // the fixture's tail eigenvalues are ~1e-4 of the trace, so a
+            // per-component normalisation would be dominated by the Float
+            // rounding of `basis` itself.
+            XCTAssertLessThanOrEqual(
+                residual / trace, 1e-6,
+                "basis row \(c) is not an eigenvector of the mean-centred covariance: "
+                + "residual/trace \(residual / trace), lambda/trace \(lambda / trace), "
+                + "reported explainedVariance \(result.explainedVariance[c])"
+            )
+            XCTAssertEqual(
+                Double(result.explainedVariance[c]), lambda / trace, accuracy: 1e-5,
+                "explainedVariance[\(c)] must be the eigenvalue over the covariance TRACE"
+            )
+            XCTAssertLessThanOrEqual(
+                lambda, previous + 1e-12,
+                "component \(c) has a LARGER eigenvalue than component \(c - 1): "
+                + "the basis is not ordered by variance"
+            )
+            previous = lambda
+        }
+    }
+
+    /// The test's own copy of `DiffractionEmbedding.embed` — log1p, per-pattern
+    /// max-normalise, box-bin — written from
+    /// `docs/ai-ml/README.md` §6 and this fixture's 32-px detector rather than
+    /// called through the code under test, so
+    /// `testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance` has an
+    /// independent ground truth.
+    private func referenceBinnedVector(_ pattern: [Float], binnedSize: Int) -> [Double] {
+        let size = detectorSize
+        var scaled = [Float](repeating: 0, count: size * size)
+        var maxValue: Float = 0
+        for i in 0..<(size * size) {
+            let v = log1p(Swift.max(pattern[i], 0))
+            scaled[i] = v
+            if v > maxValue { maxValue = v }
+        }
+        if maxValue > 0 {
+            let inverse = 1 / maxValue
+            for i in scaled.indices { scaled[i] *= inverse }
+        }
+        let bins = Swift.min(binnedSize, size)
+        let box = Swift.max(1, size / bins)
+        let offset = (size - box * bins) / 2
+        var out = [Double](repeating: 0, count: binnedSize * binnedSize)
+        for by in 0..<bins {
+            for bx in 0..<bins {
+                var sum: Float = 0
+                for dy in 0..<box {
+                    let rowBase = (offset + by * box + dy) * size
+                    for dx in 0..<box { sum += scaled[rowBase + offset + bx * box + dx] }
+                }
+                out[by * binnedSize + bx] = Double(sum)
+            }
+        }
+        return out
+    }
 }
 
 /// A5 (fix-a, `drive-groups` defect 2): every group map was published, saved

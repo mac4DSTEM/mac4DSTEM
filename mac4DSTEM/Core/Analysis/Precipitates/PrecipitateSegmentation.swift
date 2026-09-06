@@ -49,14 +49,26 @@ package nonisolated enum PrecipitateSegmentation {
         package let id: Int
         /// Row-major pixel indices into the segmented image, ascending.
         package let pixelIndices: [Int]
+        /// Pixel count of the thresholded detection mask — identical to
+        /// `pixelIndices.count`, and NOT the drawn area of the underlying
+        /// object: on the noise-free needle fixture the mask runs ~2x the
+        /// drawn bar, because the ridge response spreads past the object's
+        /// own edges (open question for the owner, recorded in
+        /// `fix-c/gateD-C3.md` §area). `lengthPx`/`widthPx` are measured on
+        /// the narrower half-maximum footprint instead, so `area` is NOT
+        /// `lengthPx * widthPx`.
         package let area: Int
         package let centroidX: Float
         package let centroidY: Float
         package let lengthPx: Float
         package let widthPx: Float
-        /// Orientation of the long axis: 0 = +x, counter-clockwise in image
-        /// coordinates (increasing column = +x, increasing row = +y), folded
-        /// into (-90, 90].
+        /// Orientation of the long axis, folded into (-90, 90]: 0 = +x, and
+        /// the angle increases from +x toward +y. The frame is image
+        /// coordinates — increasing column = +x, increasing row = +y — so +y
+        /// points DOWN the screen and a positive angle is therefore
+        /// mathematically positive in (x, y) but reads CLOCKWISE on screen.
+        /// (The comment here said "counter-clockwise" until 2026-09-06; the
+        /// number never changed, only the description of it.)
         package let orientationDegrees: Float
         package let touchesEdge: Bool
         package let meanIntensity: Float

@@ -22,6 +22,13 @@ let package = Package(
             name: "DSTEMCore",
             path: "mac4DSTEM/Core",
             swiftSettings: [
+                // Accelerate's non-deprecated LAPACK declarations (lapack.h,
+                // `__LAPACK_int`) are behind this C macro; without it the
+                // module exposes only the CLAPACK headers Apple deprecated in
+                // macOS 13.3. DiffractionEmbedding's `dsyevd_` call needs the
+                // new headers. The Xcode targets that compile these same
+                // sources set the same flag in OTHER_SWIFT_FLAGS.
+                .unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"]),
                 .swiftLanguageMode(.v5),
                 .defaultIsolation(MainActor.self),
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),

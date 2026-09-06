@@ -6,23 +6,42 @@
 //        VirtualDetector/TiledDiskDetection: bounded scan-row tiles via
 //        TilePrefetcher, cooperative cancellation, fractional progress.
 //
-//  LAPACK vs iteration (documented per the session brief, since there is no
-//  build available to verify the choice): nothing else in Core/ calls into
-//  Accelerate's LAPACK layer today — DiskDetection, DPC, ParallaxAlignment
-//  and the FFT files use vDSP's vector/FFT primitives only, never a LAPACK
-//  driver routine. `dsyevd_`'s Fortran-ABI calling convention (workspace
-//  query, column-major layout, `!$unsafe` pointer arithmetic) is exactly the
-//  kind of boundary a change should not guess at without a build to catch a
-//  transposed argument or an under-sized workspace. `symmetricEigenTop`
-//  below is instead a deterministic power/subspace (orthogonal) iteration in
-//  plain Swift: seed `components` vectors from a splitmix64 generator keyed
-//  on `Settings.seed`, orthonormalise with modified Gram-Schmidt, repeatedly
-//  multiply by the covariance and re-orthonormalise, then finish with a
-//  Rayleigh-Ritz refinement (a small, cheap Jacobi eigendecomposition of the
-//  ≤32×32 subspace matrix) so the returned vectors are actual eigenvectors in
-//  descending eigenvalue order rather than an arbitrary basis of the
-//  converged subspace. Every step here is arithmetic I can check by
-//  inspection; a future LAPACK swap only needs to replace this one function.
+//  Eigen decomposition: Accelerate's LAPACK `dsyevd_` (divide-and-conquer,
+//  real symmetric), replacing the hand-written subspace iteration this file
+//  used until 2026-09-06. That earlier revision justified avoiding LAPACK by
+//  saying there was no build available to verify the Fortran-ABI boundary.
+//  The reason no longer holds — the branch builds — and the hand-written
+//  loop was WRONG: its convergence test started `previousValues` at
+//  `.infinity`, so `abs(v - .infinity) / .infinity` is NaN, `max(0, .nan)`
+//  is 0 in Swift, and the loop broke after exactly ONE subspace iteration on
+//  every input. Everything past the dominant direction was an unconverged
+//  Ritz pair, and the reported explained variance for those components ran
+//  20-36 % low. Diagnosis, refutation and the discriminating fixture:
+//  References/training_runs/disk-detector-2026-09-06-polish/fix-c/gateD-C1.md.
+//
+//  `dsyevd_` computes the FULL spectrum of the d×d covariance (d = binnedSize²,
+//  ≤ 1024) exactly and deterministically; `symmetricEigenTop` keeps the top
+//  `components` pairs in descending eigenvalue order. The matrix is
+//  symmetric, so the row-major Swift buffer already IS the column-major
+//  Fortran matrix LAPACK expects and no transpose is needed; on return,
+//  eigenvector j is the contiguous slice a[j*d ..< (j+1)*d]. The workspace is
+//  sized by LAPACK's own query (lwork = liwork = -1) rather than a guessed
+//  constant. The non-deprecated declarations (`lapack.h`, `__LAPACK_int`)
+//  are behind `-DACCELERATE_NEW_LAPACK`, set in Package.swift's DSTEMCore
+//  swiftSettings and in the Xcode project's OTHER_SWIFT_FLAGS.
+//
+//  DEVIATION (py4DSTEM parity, PCA): py4DSTEM's classification featurisation
+//  — References/py4DSTEM-dev/py4DSTEM/process/classification/featurization.py
+//  :366-373 — calls sklearn's `PCA`, i.e. an exact, mean-centred,
+//  variance-ordered decomposition (LAPACK underneath). `dsyevd_` on the
+//  mean-centred covariance agrees with that; the subspace iteration it
+//  replaced did not.
+//  DEVIATION (no upstream counterpart, preprocessing): the per-pattern
+//  representation here — log1p, per-pattern max-normalisation, then box
+//  binning to binnedSize² — has NO py4DSTEM equivalent. py4DSTEM featurises
+//  user-supplied maps (Bragg-peak or virtual images), never raw binned
+//  diffraction patterns, so there is no upstream number to check this
+//  representation against; only the PCA that follows it is comparable.
 //
 //  Memory: forming the d×d covariance (d = binnedSize², ≤1024) is a single
 //  streaming pass that also decides whether to CACHE every pattern's binned
@@ -35,6 +54,7 @@
 //  numerical accumulation order.
 //
 
+import Accelerate
 import Foundation
 
 package nonisolated enum DiffractionEmbedding {
@@ -49,8 +69,9 @@ package nonisolated enum DiffractionEmbedding {
         /// k-means group count (may be clamped down when the scan has fewer
         /// positions than requested groups — see `Result.groupCount`).
         package var groups: Int
-        /// Deterministic seed for the PCA subspace-iteration start vectors
-        /// and the k-means++ seeding.
+        /// Deterministic seed for the k-means++ seeding. It no longer
+        /// reaches the PCA: `dsyevd_` is an exact decomposition with no
+        /// random start (2026-09-06).
         package var seed: UInt64
 
         package nonisolated init(
@@ -78,6 +99,12 @@ package nonisolated enum DiffractionEmbedding {
         package let basis: [Float]
         /// Fraction (0...1, not percent) of the total binned-vector variance
         /// each component explains, same order as `basis`'s rows.
+        /// Provenance: eigenvalue ÷ the TRACE of the full mean-centred
+        /// binned-vector covariance — the denominator is the total variance
+        /// of the d = binnedSize² dimensional data, NOT the sum of the
+        /// retained eigenvalues, so these fractions sum to less than 1
+        /// whenever the retained components do not span the data.
+        /// The eigenvalues are exact (LAPACK `dsyevd_`, see the file header).
         package let explainedVariance: [Float]
         /// Per position, 0..<groupCount.
         package let groupOf: [Int]
@@ -243,7 +270,7 @@ package nonisolated enum DiffractionEmbedding {
         guard cancellation?.isCancelled != true else { return nil }
         let (eigenvectors, eigenvalues) = symmetricEigenTop(
             matrix: covariance, dimension: dims, count: componentCount,
-            seed: settings.seed, cancellation: cancellation
+            cancellation: cancellation
         )
         guard cancellation?.isCancelled != true else { return nil }
         let actualComponents = eigenvectors.count
@@ -483,8 +510,8 @@ package nonisolated enum DiffractionEmbedding {
     // MARK: - Deterministic RNG
 
     /// splitmix64 — deterministic given `seed`, independent of any system
-    /// entropy source, so a run's PCA start vectors and k-means++ seeding
-    /// are exactly reproducible.
+    /// entropy source, so a run's k-means++ seeding is exactly reproducible.
+    /// (The PCA has no random start since 2026-09-06.)
     private struct SplitMix64: RandomNumberGenerator {
         private var state: UInt64
         init(seed: UInt64) { state = seed }
@@ -497,162 +524,76 @@ package nonisolated enum DiffractionEmbedding {
         }
     }
 
-    // MARK: - Symmetric eigendecomposition (subspace iteration + Rayleigh-Ritz)
+    // MARK: - Symmetric eigendecomposition (Accelerate LAPACK dsyevd_)
 
-    private static func dot(_ a: [Double], _ b: [Double]) -> Double {
-        var sum = 0.0
-        for i in 0..<a.count { sum += a[i] * b[i] }
-        return sum
-    }
-
-    private static func matVec(_ matrix: [Double], _ vector: [Double], dimension d: Int) -> [Double] {
-        var out = [Double](repeating: 0, count: d)
-        matrix.withUnsafeBufferPointer { m in
-            vector.withUnsafeBufferPointer { v in
-                out.withUnsafeMutableBufferPointer { o in
-                    for i in 0..<d {
-                        var sum = 0.0
-                        let rowBase = i * d
-                        for j in 0..<d { sum += m[rowBase + j] * v[j] }
-                        o[i] = sum
-                    }
-                }
-            }
-        }
-        return out
-    }
-
-    /// Modified Gram-Schmidt. A column that collapses to (near-)zero norm —
-    /// a rank-deficient subspace, or two iterations converging onto the same
-    /// direction — is reseeded to a one-hot vector and re-orthogonalised
-    /// rather than left degenerate, so iteration keeps making progress.
-    private static func orthonormalize(_ vectors: inout [[Double]]) {
-        for i in vectors.indices {
-            for j in 0..<i {
-                let proj = dot(vectors[i], vectors[j])
-                for t in vectors[i].indices { vectors[i][t] -= proj * vectors[j][t] }
-            }
-            var norm = sqrt(dot(vectors[i], vectors[i]))
-            if norm <= 1e-12 {
-                let d = vectors[i].count
-                for t in 0..<d { vectors[i][t] = (d > 0 && t == i % d) ? 1 : 0 }
-                for j in 0..<i {
-                    let proj = dot(vectors[i], vectors[j])
-                    for t in vectors[i].indices { vectors[i][t] -= proj * vectors[j][t] }
-                }
-                norm = sqrt(dot(vectors[i], vectors[i]))
-            }
-            if norm > 1e-12 {
-                for t in vectors[i].indices { vectors[i][t] /= norm }
-            }
-        }
-    }
-
-    /// Classic cyclic Jacobi eigenvalue algorithm for a small (`k` ≤ ~32)
-    /// symmetric matrix (row-major). Returns eigenvectors as the COLUMNS of a
-    /// row-major k×k matrix (column c, row i at index `i*k+c`) and their
-    /// eigenvalues, unsorted — the caller sorts.
-    private static func jacobiEigenDecomposition(matrix: [Double], dimension k: Int) -> (vectors: [Double], values: [Double]) {
-        guard k > 0 else { return ([], []) }
-        var a = matrix
-        var v = [Double](repeating: 0, count: k * k)
-        for i in 0..<k { v[i * k + i] = 1 }
-        guard k > 1 else { return (v, [a[0]]) }
-
-        for _ in 0..<100 {
-            var offDiagonal = 0.0
-            for p in 0..<k { for q in (p + 1)..<k { offDiagonal += a[p * k + q] * a[p * k + q] } }
-            if offDiagonal < 1e-24 { break }
-            for p in 0..<k {
-                for q in (p + 1)..<k {
-                    let apq = a[p * k + q]
-                    guard abs(apq) > 1e-300 else { continue }
-                    let app = a[p * k + p], aqq = a[q * k + q]
-                    let theta = (aqq - app) / (2 * apq)
-                    let t = (theta >= 0 ? 1.0 : -1.0) / (abs(theta) + sqrt(theta * theta + 1))
-                    let c = 1 / sqrt(t * t + 1)
-                    let s = t * c
-                    for i in 0..<k {
-                        let aip = a[i * k + p], aiq = a[i * k + q]
-                        a[i * k + p] = c * aip - s * aiq
-                        a[i * k + q] = s * aip + c * aiq
-                    }
-                    for i in 0..<k {
-                        let api = a[p * k + i], aqi = a[q * k + i]
-                        a[p * k + i] = c * api - s * aqi
-                        a[q * k + i] = s * api + c * aqi
-                    }
-                    for i in 0..<k {
-                        let vip = v[i * k + p], viq = v[i * k + q]
-                        v[i * k + p] = c * vip - s * viq
-                        v[i * k + q] = s * vip + c * viq
-                    }
-                }
-            }
-        }
-        var eigenvalues = [Double](repeating: 0, count: k)
-        for i in 0..<k { eigenvalues[i] = a[i * k + i] }
-        return (v, eigenvalues)
-    }
-
-    /// Deterministic top-`count` eigenpairs of a symmetric `dimension ×
-    /// dimension` matrix (row-major) by subspace iteration + Rayleigh-Ritz.
-    /// See the file header for why this is plain Swift rather than a LAPACK
-    /// call. `cancellation` is checked once per outer iteration so a long
-    /// run on a large `binnedSize` can still be stopped promptly.
-    private static func symmetricEigenTop(
-        matrix: [Double], dimension: Int, count: Int, seed: UInt64,
+    /// Top-`count` eigenpairs of a symmetric `dimension × dimension` matrix
+    /// (row-major), largest eigenvalue first, via LAPACK's divide-and-conquer
+    /// driver `dsyevd_`. Exact and deterministic — there is no iteration, no
+    /// tolerance and no random start. See the file header for why this
+    /// replaced a hand-written subspace iteration, and `fix-c/gateD-C1.md`
+    /// for the defect that iteration carried.
+    ///
+    /// Returns `([], [])` when LAPACK reports failure (`info != 0`, which on
+    /// a finite symmetric input means a non-finite entry reached the
+    /// covariance) or when cancelled; `compute` turns an empty result into a
+    /// typed `EmbeddingError`.
+    ///
+    /// `package` rather than `private` so the Gate D fixture
+    /// (`DiffractionEmbeddingTests.testSymmetricEigenTopReturnsTrueEigenpairs`)
+    /// can plant a KNOWN spectrum and check the returned pairs directly,
+    /// instead of inferring the solver's health from a downstream aggregate.
+    package static func symmetricEigenTop(
+        matrix: [Double], dimension: Int, count: Int,
         cancellation: AnalysisCancellationToken?
     ) -> (vectors: [[Double]], values: [Double]) {
         let d = dimension
+        guard d > 0, matrix.count >= d * d else { return ([], []) }
         let k = max(1, min(count, d))
-        guard d > 0 else { return ([], []) }
+        guard cancellation?.isCancelled != true else { return ([], []) }
 
-        var generator = SplitMix64(seed: seed)
-        var v = (0..<k).map { _ in (0..<d).map { _ in Double.random(in: -1...1, using: &generator) } }
-        orthonormalize(&v)
+        // `a` is overwritten with the eigenvectors, `w` filled with the
+        // eigenvalues in ASCENDING order. The input is symmetric, so the
+        // row-major buffer is already the column-major matrix LAPACK reads;
+        // on return, eigenvector j is the contiguous slice a[j*d ..< (j+1)*d].
+        var a = matrix
+        var w = [Double](repeating: 0, count: d)
+        var jobz = Int8(UInt8(ascii: "V"))   // eigenvalues AND eigenvectors
+        var uplo = Int8(UInt8(ascii: "U"))
+        var n = __LAPACK_int(d)
+        var lda = __LAPACK_int(d)
+        var info = __LAPACK_int(0)
 
-        var previousValues = [Double](repeating: .infinity, count: k)
-        for _ in 0..<200 {
-            guard cancellation?.isCancelled != true else { break }
-            var y = [[Double]](repeating: [], count: k)
-            for c in 0..<k { y[c] = matVec(matrix, v[c], dimension: d) }
-            orthonormalize(&y)
-            var values = [Double](repeating: 0, count: k)
-            for c in 0..<k {
-                let mv = matVec(matrix, y[c], dimension: d)
-                values[c] = dot(y[c], mv)
-            }
-            v = y
-            var maxDelta = 0.0
-            for c in 0..<k {
-                let denom = max(abs(previousValues[c]), 1e-12)
-                maxDelta = max(maxDelta, abs(values[c] - previousValues[c]) / denom)
-            }
-            previousValues = values
-            if maxDelta < 1e-9 { break }
+        // Workspace query (lwork = liwork = -1): LAPACK computes nothing and
+        // writes the optimal sizes into work[0] / iwork[0]. Sizing the
+        // workspace by hand is the classic way to corrupt this call.
+        var lwork = __LAPACK_int(-1)
+        var liwork = __LAPACK_int(-1)
+        var workQuery = [Double](repeating: 0, count: 1)
+        var iworkQuery = [__LAPACK_int](repeating: 0, count: 1)
+        dsyevd_(&jobz, &uplo, &n, &a, &lda, &w,
+                &workQuery, &lwork, &iworkQuery, &liwork, &info)
+        guard info == 0, workQuery[0].isFinite, workQuery[0] >= 1, iworkQuery[0] >= 1 else {
+            return ([], [])
         }
 
-        // Rayleigh-Ritz: rotate the converged subspace basis into actual
-        // eigenvector estimates of `matrix`, ordered by eigenvalue.
-        var m = [Double](repeating: 0, count: k * k)
-        var cv = [[Double]](repeating: [], count: k)
-        for i in 0..<k { cv[i] = matVec(matrix, v[i], dimension: d) }
-        for i in 0..<k {
-            for j in 0..<k { m[i * k + j] = dot(v[j], cv[i]) }
-        }
-        let (ritzVectors, ritzValues) = jacobiEigenDecomposition(matrix: m, dimension: k)
+        lwork = __LAPACK_int(workQuery[0])
+        liwork = iworkQuery[0]
+        var work = [Double](repeating: 0, count: Int(lwork))
+        var iwork = [__LAPACK_int](repeating: 0, count: Int(liwork))
+        dsyevd_(&jobz, &uplo, &n, &a, &lda, &w,
+                &work, &lwork, &iwork, &liwork, &info)
+        guard info == 0 else { return ([], []) }
+        guard cancellation?.isCancelled != true else { return ([], []) }
 
-        var vectors = [[Double]](repeating: [Double](repeating: 0, count: d), count: k)
+        // Descending by eigenvalue: LAPACK's last column is the largest.
+        var vectors = [[Double]](repeating: [], count: k)
+        var values = [Double](repeating: 0, count: k)
         for c in 0..<k {
-            for i in 0..<d {
-                var sum = 0.0
-                for j in 0..<k { sum += v[j][i] * ritzVectors[j * k + c] }
-                vectors[c][i] = sum
-            }
+            let column = d - 1 - c
+            values[c] = w[column]
+            vectors[c] = Array(a[(column * d)..<((column + 1) * d)])
         }
-        let order = (0..<k).sorted { ritzValues[$0] > ritzValues[$1] }
-        return (order.map { vectors[$0] }, order.map { ritzValues[$0] })
+        return (vectors, values)
     }
 
     // MARK: - k-means
