@@ -93,11 +93,14 @@ final class ProductWorkflowTests: XCTestCase {
     func testPrimaryNavigationUsesUserOutcomes() {
         // S22c re-cut: the five steps follow the physics families — Imaging
         // (no prerequisites), Bragg (disks → strain/orientation), Phase
-        // (voltage-only: DPC first, ptychography behind it).
+        // (voltage-only: DPC first, ptychography behind it). A sixth room,
+        // AI Analysis, sits before Results (owner, 2026-09-07, `decisions.md`):
+        // the advanced tools in their own workspace, the main app clean of them.
         XCTAssertEqual(
             WorkspaceArea.allCases.map(\.title),
-            ["Prepare", "Imaging", "Strain & ACOM", "Phase", "Results"]
+            ["Prepare", "Imaging", "Strain & ACOM", "Phase", "AI Analysis", "Results"]
         )
+        XCTAssertEqual(WorkspaceArea.aiAnalysis.defaultAnalysisMode, .precipitates)
         XCTAssertEqual(WorkspaceArea.image.defaultAnalysisMode, .virtualDetector)
         XCTAssertEqual(WorkspaceArea.map.defaultAnalysisMode, .disks)
         XCTAssertEqual(WorkspaceArea.reconstruct.defaultAnalysisMode, .dpc)
