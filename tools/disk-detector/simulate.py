@@ -230,6 +230,47 @@ class Sample:
     centres: np.ndarray                    # (N,2) truth (row, col) inside [0,S)
     intensities: np.ndarray                # (N,) relative disk intensities (max 1 per grain)
     meta: dict = field(default_factory=dict)
+    visibility: np.ndarray | None = None   # (N,) in [0,1]: how observable each disk is (disk_visibility)
+
+
+def disk_visibility(disks: np.ndarray, bg: np.ndarray, pts: np.ndarray, I: np.ndarray, radius: float,
+                    dose: float, readout_sigma: float, render_peak: float, display: np.ndarray,
+                    lo: float = 2.0, hi: float = 8.0, c_lo: float = 0.02, c_hi: float = 0.10) -> np.ndarray:
+    """(N,) in [0,1]: the target amplitude of each disk. 2026-09-07: an extinct or faint reflection is a
+    TRUTH CENTRE but not necessarily an OBSERVABLE one, and a target bump of amplitude 1 at every
+    lattice point taught the net the lattice (the ~65 background proposals per real position).
+    Integrated signal-to-noise over the disk's area, in counts at `dose`: S = the disk's own counts
+    (the render sums to 1, so S = I * scale), N^2 = S + (everything else at the centre pixel) * area
+    + area * readout^2; visibility ramps linearly from 0 at SNR `lo` to 1 at SNR `hi` -- AND the disk
+    must be visible in the image the net and the owner see: `display` is the log-normalised pattern
+    (`model_inputs` channel 0, in [0,1]); the disk's mean there minus the 20th percentile of an
+    annulus around it (1.3-1.9 radii; the percentile, not the median, so that in a dense lattice
+    the reference is the gaps between neighbours, not the neighbours), ramped from 0 at `c_lo` to
+    1 at `c_hi` of the display range; the
+    product of the two. Poisson statistics find a disk of 0.5 counts per pixel on an empty corner
+    at SNR 10; nobody can confirm it on the disagreement map, so it is not a target. The ramps are
+    a judgment, not a measurement; `References/training_runs/disk-detector-2026-09-07/visibility-eye-check.png` is the eye check."""
+    size = disks.shape[0]
+    scale = dose / max((disks + bg).sum(), 1e-12)
+    area = math.pi * max(radius, 1.0) ** 2
+    out = np.zeros(len(pts))
+    R = max(radius, 1.0); w = int(math.ceil(1.9 * R)) + 1
+    yy, xx = np.mgrid[-w:w + 1, -w:w + 1]; rr = np.hypot(yy, xx)
+    in_disk, in_ring = rr <= R, (rr >= 1.3 * R) & (rr <= 1.9 * R)
+    padded = np.pad(display, w, mode="edge")
+    for i, (r, c) in enumerate(pts):
+        r0, c0 = int(round(r)), int(round(c))
+        if not (0 <= r0 < size and 0 <= c0 < size):
+            continue
+        win = padded[r0:r0 + 2 * w + 1, c0:c0 + 2 * w + 1]
+        contrast = float(win[in_disk].mean() - np.percentile(win[in_ring], 20))
+        own = I[i] * scale                                   # the disk's integrated counts
+        own_peak = I[i] * render_peak * scale                # its own density at the centre pixel
+        other = max((disks[r0, c0] + bg[r0, c0]) * scale - own_peak, 0)   # neighbours + background there
+        noise2 = own + other * area + area * readout_sigma ** 2
+        snr = own / math.sqrt(max(noise2, 1e-12))
+        out[i] = min(max((snr - lo) / (hi - lo), 0.0), 1.0) * min(max((contrast - c_lo) / (c_hi - c_lo), 0.0), 1.0)
+    return out
 
 
 def simulate_one(rng: np.random.Generator, probe: np.ndarray, probe_centre, cfg: SimConfig,
@@ -279,11 +320,13 @@ def simulate_one(rng: np.random.Generator, probe: np.ndarray, probe_centre, cfg:
 
     inside = (pts[:, 0] >= 0) & (pts[:, 0] < size) & (pts[:, 1] >= 0) & (pts[:, 1] < size)
     centres, intens = pts[inside], I[inside]
+    disp = model_inputs(pattern, given, np.zeros_like(pattern))[0]
+    vis = disk_visibility(disks, bg, centres, intens, radius, dose, float(np.mean(cfg.readout_sigma)), float(render.max()), disp)
     kernel = flat_kernel(given, gc)
     corr = cross_correlation(pattern, kernel)
     meta = dict(zoom=zoom, ring_mix=mix, tilt=tilt, origin=[float(origin[0]), float(origin[1])], grains=grains,
                 dose=dose, background_level=level, radius_px=float(radius))
-    return Sample(pattern, given, gc, corr, centres, intens, meta)
+    return Sample(pattern, given, gc, corr, centres, intens, meta, vis)
 
 
 def probe_radius(probe: np.ndarray, centre) -> float:
@@ -310,18 +353,23 @@ def model_inputs(pattern: np.ndarray, probe: np.ndarray, correlation: np.ndarray
     return np.stack([p, q, c]).astype(np.float32)
 
 
-def heatmap_target(centres: np.ndarray, size: int, sigma: float) -> np.ndarray:
-    """(1,S,S) float32: a Gaussian bump of amplitude 1 at every truth centre (max over bumps)."""
+def heatmap_target(centres: np.ndarray, size: int, sigma: float, amplitudes: np.ndarray | None = None) -> np.ndarray:
+    """(1,S,S) float32: a Gaussian bump at every truth centre (max over bumps), amplitude `amplitudes[i]`
+    (the disk's visibility, 2026-09-07) or 1 when None (the fixture: every drawn disk is visible)."""
     out = np.zeros((size, size), dtype=np.float64)
     w = int(math.ceil(4 * sigma))
-    for r, c in np.asarray(centres, dtype=np.float64).reshape(-1, 2):
+    cen = np.asarray(centres, dtype=np.float64).reshape(-1, 2)
+    amp = np.ones(len(cen)) if amplitudes is None else np.asarray(amplitudes, dtype=np.float64).reshape(-1)
+    for (r, c), a in zip(cen, amp):
+        if a <= 0:
+            continue
         r0, c0 = int(round(r)), int(round(c))
         rs, re = max(r0 - w, 0), min(r0 + w + 1, size)
         cs, ce = max(c0 - w, 0), min(c0 + w + 1, size)
         if rs >= re or cs >= ce:
             continue
         rr, cc = np.mgrid[rs:re, cs:ce]
-        out[rs:re, cs:ce] = np.maximum(out[rs:re, cs:ce], np.exp(-((rr - r) ** 2 + (cc - c) ** 2) / (2 * sigma ** 2)))
+        out[rs:re, cs:ce] = np.maximum(out[rs:re, cs:ce], a * np.exp(-((rr - r) ** 2 + (cc - c) ** 2) / (2 * sigma ** 2)))
     return out[None].astype(np.float32)
 
 # ----------------------------------------------------------------------------
@@ -353,9 +401,22 @@ def load_ws2_probe(path: str, n: int = 64, seed: int = 0) -> np.ndarray:
     return mean * (0.5 * (1 - np.tanh((r - 1.4 * rad) / 1.0)))
 
 
-def radial_background(pattern: np.ndarray, centre) -> np.ndarray:
-    """A real background from a real pattern: the azimuthal MEDIAN at every radius (disks are
-    a minority of each ring, so the median keeps the halo and diffuse rings and drops the disks)."""
+def radial_background(pattern: np.ndarray, centre, textured: bool = True, kernel: np.ndarray | None = None,
+                      radius: float | None = None) -> np.ndarray:
+    """A real background from a real pattern. The azimuthal MEDIAN at every radius keeps the halo
+    and the diffuse rings and drops the disks (a minority of each ring) -- but it also drops every
+    bit of texture, and a net trained on texture-free backgrounds fired on the real texture
+    (2026-09-07). `textured`: add the pattern's residual about the median back, ring by ring, with
+    the disks cut out: every disk the classical correlation finds (`kernel`, 3x3 maxima above 2 %
+    of the strongest -- deliberately far below any detection threshold) and the central beam are
+    masked to 1.5 `radius`, and the mask plus anything beyond 3 robust sigmas of its ring (1.4826 *
+    MAD: hot pixels, disks the correlation missed) is refilled with the median profile plus
+    Poisson-scale noise, sqrt(profile). The beam is cut out of the PROFILE too (flat inside 1.5
+    `radius`): the simulator draws its own (000) disk at a jittered origin, and a second beam in
+    the background a few pixels away would be a bright blob that is not a truth centre. No disk
+    shape survives, the ring's noise statistics and the diffuse texture do. The first cut
+    (residual clipping alone) left faint disks as ghost rings, which would have taught the net that
+    rings are background (`References/training_runs/disk-detector-2026-09-07/backgrounds-eye-check.png`)."""
     rr, cc = np.indices(pattern.shape, dtype=np.float64)
     r = np.hypot(rr - centre[0], cc - centre[1]).astype(int)
     prof = np.zeros(r.max() + 1)
@@ -366,26 +427,57 @@ def radial_background(pattern: np.ndarray, centre) -> np.ndarray:
     for i in range(r.max() + 1):
         seg = flat_p[bounds[i]:bounds[i + 1]]
         prof[i] = np.median(seg) if len(seg) else 0
-    return prof[r]
+    if kernel is not None and radius:
+        cut = int(1.5 * radius)
+        if cut < len(prof):
+            prof[:cut] = prof[cut]
+    smooth = prof[r]
+    if not textured:
+        return smooth
+    resid = pattern - smooth
+    flat_res = np.abs(resid.ravel()[order])
+    sig = np.zeros_like(prof)
+    for i in range(r.max() + 1):
+        seg = flat_res[bounds[i]:bounds[i + 1]]
+        sig[i] = 1.4826 * np.median(seg) if len(seg) else 0
+    sigma = sig[r]
+    rng = np.random.default_rng(int(abs(pattern.sum())) % (2 ** 32))   # deterministic per pattern
+    bad = np.abs(resid) > 3 * sigma
+    if kernel is not None and radius:
+        cc_map = cross_correlation(pattern, kernel)
+        mx = ndimage.maximum_filter(cc_map, size=3, mode="constant")
+        pr, pc = np.nonzero((cc_map == mx) & (cc_map > 0.02 * cc_map.max()))
+        rr_, cc_ = np.indices(pattern.shape, dtype=np.float64)
+        for a, b in list(zip(pr, pc)) + [tuple(centre)]:
+            bad |= np.hypot(rr_ - a, cc_ - b) <= 1.5 * radius
+    resid = np.where(bad, rng.normal(0, 1, size=resid.shape) * np.sqrt(np.maximum(smooth, 0)), resid)
+    return np.maximum(smooth + resid, 0)
 
 
-def collect_real_backgrounds(bullseye: str, ws2: str, n_each: int = 48, seed: int = 1) -> np.ndarray:
-    """(N,S,S) real radial backgrounds at the model size from both cubes."""
+def collect_real_backgrounds(bullseye: str, ws2: str, n_each: int = 48, seed: int = 1,
+                             probes: dict | None = None) -> np.ndarray:
+    """(N,S,S) real backgrounds at the model size from both cubes. `probes`: {"bullseye": (probe,
+    centre), "ws2": (probe, centre)} at the model size -> textured backgrounds with the disks the
+    probe's correlation finds cut out (2026-09-07); None -> the 2026-09-06 azimuthal medians."""
     import h5py
     rng = np.random.default_rng(seed)
     out = []
+    def kr(name):
+        if not probes:
+            return dict(textured=False)
+        pr, pc = probes[name]; return dict(kernel=flat_kernel(pr, pc), radius=probe_radius(pr, pc))
     with h5py.File(bullseye, "r") as f:
         d = f["4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data"]
         for _ in range(n_each):
             p = d[rng.integers(d.shape[0]), rng.integers(d.shape[1])].astype(np.float64)
             crop, c = centred_crop(p, (124.76, 124.74), S)
-            out.append(radial_background(crop, c))
+            out.append(radial_background(crop, c, **kr("bullseye")))
     with h5py.File(ws2, "r") as f:
         d = f["4DSTEM/datacube/data"]
         for _ in range(n_each):
             p = d[rng.integers(d.shape[0]), rng.integers(d.shape[1])].astype(np.float64)
             c = np.unravel_index(p.argmax(), p.shape)
-            out.append(radial_background(p, c))
+            out.append(radial_background(p, c, **kr("ws2")))
     return np.stack(out)
 
 # ----------------------------------------------------------------------------

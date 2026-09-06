@@ -127,5 +127,52 @@ crop the net marks every visible disk and, at threshold 0.3, ~65 background
 peaks per position (5 at 0.9); WS₂ is float-normalised so `log1p` is linear
 on it — step 4 must scale float cubes into counts first.
 
+## 2026-09-07 revisions (after the morning review; `docs/status.md` handoff)
+
+- **Targets.** `simulate.disk_visibility`: a truth centre's bump amplitude is its
+  visibility in [0, 1] — an integrated Poisson signal-to-noise ramp (0 at SNR 2,
+  1 at 8) times a display-contrast ramp on the net's own log-normalised input
+  (disk mean minus the 20th percentile of a 1.3–1.9 R annulus; 0 at 2 %, 1 at
+  10 % of the range). Extinct and faint reflections stay in `Sample.centres`
+  (the truth) but no longer teach the lattice. The ramps are a judgment,
+  checked by eye on `disk-detector-2026-09-07/visibility-eye-check.png` (owner-local), not a measurement. Validation
+  recall is against visible centres (≥ 0.5). The fixture is unchanged (SHA
+  identical; every drawn disk is amplitude 1).
+- **Backgrounds.** `simulate.radial_background(textured=True, kernel, radius)`:
+  the azimuthal median plus the pattern's own residual texture, with every
+  correlation-detected disk and the beam cut to 1.5 R and refilled with
+  Poisson-scale noise, and the beam cut from the profile too. The 2026-09-06
+  medians were texture-free by construction; the net had never seen the
+  texture it fired on. `collect_real_backgrounds(probes=…)` builds them;
+  `References/training_runs/disk-detector-2026-09-07/ingredients.npz` (192).
+- **Evaluation.** `evaluate.py --asset <.aimodel>` takes the heatmaps from the
+  EXPORTED asset (Neural Engine, subprocess) instead of PyTorch; `accept()`
+  applies an acceptance rule after refinement — edge exclusion and greedy
+  non-maximum suppression at `minPeakSpacing` by net score, the same spacing
+  rule the classical side obeys; no correlation-relative cut — and the fixture
+  is scored at 0.3/0.5/0.7/0.9 in one run (`fixture_by_threshold`).
+- **Width.** Untrained nets timed on the Neural Engine (`scoremap` B32, the
+  serving shape; weights do not change the cost): width 12 (275 k params)
+  0.139 ms/pattern = 9.1 s per 65 536; width 16 (489 k) 0.178 ms = 11.6 s;
+  width 24 (1.1 M) 0.276 ms (2026-09-06 check). run3 trains width 12.
+- **The ceiling, from Swift.** `scan-bench/` (`run.sh dump`, `run.sh bench`)
+  times the app's own scan path (`DiskDetection.detectAll`, all cores) and the
+  exported asset through the CoreAI framework on identical bullseye patterns —
+  the comparison the 2026-09-06 numbers lacked (they used the serial
+  single-pattern benchmark as the baseline).
+
+**run3 numbers (2026-09-07, `References/training_runs/disk-detector-2026-09-07/`):**
+width 12, 20 000 steps, 72.8 min, best validation loss 0.0052, recall@2 px
+0.963 / precision 0.78 (visible truth), fixture recall 1.000. Exported
+`heatmap`/`scoremap` B32 assets (`export.json` hashes): ANE 0.138 / 0.173
+ms per pattern from Python, heatmap max |diff| vs PyTorch fp32 0.062 (fp16
+floor 0.009), CPU-only 6.5 ms. `scan-bench` on 2 100 bullseye patterns
+(stride 2): classical `detectAll` 8 cores 0.123 ms/pattern (8.1 s per 65 536,
+3.16 peaks per pattern); `scoremap` asset via CoreAI.framework 0.110
+ms/pattern (7.2 s), load 1.3 s. Evaluation of the exported asset with the
+acceptance rule — bullseye net − classical per position: 0.9 → median 0
+(436 vs 442), 0.6 → +2, 0.3 → +7; fixture 0.967 / 0.244 px refined at every
+threshold, accepted-precision 0.59; WS₂ as stored equals classical.
+
 abTEM honesty check: skipped 2026-09-06. The existing `abtem` conda env does not
 import (numpy's `libgfortran.5.dylib` missing) and a reinstall would eat the disk.

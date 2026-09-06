@@ -85,16 +85,33 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    heatmaps, not the exported asset; (f) threshold 0.9 keeps fixture raw
    recall 1.000 (`run2/evaluate/evaluate-thr0.9.json`), so "the fixture wants
    0.3" was false and the threshold question is moot: 0.9.
-2. **If the detector continues, the next increment, in order:** a visibility
-   floor on the target and real texture in the backgrounds (patterns with
-   disks masked, not radial medians), retrain (~90 min); an acceptance rule
-   and duplicate suppression after refinement; evaluate the exported
-   `scoremap` asset (peak-picking in Swift avoids the GPU top-k defect and
-   the 70 cap) at 0.9 against a frozen hand-labelled bullseye set — step 5's
-   labelling tool pulled forward; `detectAll` wall clock on the same cube.
-   **Throughput is an owner decision before any retraining:** a narrower net,
-   a smaller input, or restating the ceiling as ANE-concurrent with the CPU.
-   Defer probe-as-state and any larger net.
+2. **The increment ran 2026-09-07 afternoon (run3; logs under
+   `References/training_runs/disk-detector-2026-09-07/`, README "2026-09-07
+   revisions").** Targets now carry each disk's visibility (extinct and faint
+   reflections no longer teach the lattice); real backgrounds keep their
+   texture with the disks and beam cut out; width 12 (275 k parameters, 4×
+   fewer); 20 000 steps in 73 min, the schedule annealed: validation recall
+   0.963 / precision 0.78 against visible disks, fixture recall 1.000. The
+   evaluation now scores the EXPORTED asset (Neural Engine, `--asset`) with an
+   acceptance rule after refinement (edge exclusion, non-maximum suppression at
+   minPeakSpacing by net score). **Bullseye, 143 positions, net minus classical
+   per position:** at 0.9 median 0 (−10…+4; 436 vs 442 peaks, 350 matched, 1
+   pair beyond 0.5 px, 74/143 positions differ — the PNG shows the net taking
+   disks the 5 % cut drops and skipping the ring side-lobes the classical
+   detector accepts, while missing some faint disks the classical finds); at
+   0.6 median +2; at 0.3 median +7 (was +67 with run2). WS₂ as stored: net
+   equals classical exactly (the beam only, both). Fixture after refinement
+   0.967 / 0.244 px at every threshold (refinement decides), precision 0.59.
+   **The ceiling, from Swift on the same 2 100 bullseye patterns
+   (`scan-bench.json`):** classical `detectAll` on 8 cores 0.123 ms/pattern =
+   8.1 s per 65 536; the width-12 `scoremap` asset through the CoreAI framework
+   0.110 ms/pattern = 7.2 s (load 1.3 s) — the net alone 0.89× the classical
+   wall clock, the whole learned path (correlation + net + refinement) ≤ 1.9×
+   with no concurrency claimed. **Owner's decisions now:** the operating
+   threshold (0.6–0.9; a frozen hand-labelled bullseye set would settle it —
+   step 5's tool pulled forward), and whether ≤ 1.9× with a 1.3 s load is
+   inside the spirit of the 2× ceiling. The verdict is still not written to
+   `decisions.md`.
 3. **On "reuse the platform for other models" (proposed 2026-09-07: precipitate
    segmentation, diffraction embeddings, ACOM shortlists, quality masks,
    PACBED thickness).** What is reusable today is the Python side: simulator
@@ -110,9 +127,11 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
 4. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
    and pushed 2026-09-05 in the Sources build phase, referenced by no Swift
    file) is removed from the tree and the project; it stays in public
-   history unless `main` is rewritten. `run-tests.sh benchmark` did not run:
-   1.75 GB free against its 4 GB gate, and `free-space.sh` has nothing to
-   clear. Not done: Xcode's placement view, the Swift runner.
+   history unless `main` is rewritten. The machine (8 GB) crashed once at
+   12:26 when training ran alongside an ANE timing; run one heavy thing at a
+   time. The Swift Core AI runner exists as `tools/disk-detector/scan-bench/`.
+   Not done: Xcode's placement view; `run-tests.sh benchmark` is the serial
+   CPU number and is not the baseline (scan-bench is).
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -160,9 +179,9 @@ agent should say so and start at item 2.
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
    step 3 numbers on the fixture and both real cubes). **Next: the owner's
-   decisions on the corrected verdict (items 1–3 above: throughput first),
-   then the increment in item 2, then step 4 on the branch; the full
-   discipline returns at the merge.** ACOM coverage
+   decisions (item 2: threshold and the ceiling; item 3: one model through
+   step 4 first), then step 4 on the branch; the full discipline returns at
+   the merge. The cross-feature direction is `docs/ai-ml/README.md`.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.

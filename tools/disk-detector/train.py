@@ -4,8 +4,11 @@
 Data is simulated on the fly (simulate.py) from the measured probes and real backgrounds in
 `--ingredients` (an .npz prepared from the owner's cubes; gitignored) plus the drawn bullseye
 probe. Inputs (3,128,128): log pattern, probe, flat-kernel correlation. Target (1,128,128):
-Gaussian bumps (sigma 1.5 px) at the truth centres. Loss: MSE weighted (1 + w*target) so a
-missed bump costs more than a false one (recall over precision). Logs to TensorBoard,
+Gaussian bumps (sigma 1.5 px) at the truth centres, amplitude = the disk's VISIBILITY
+(simulate.disk_visibility, 2026-09-07: an extinct or faint reflection is a truth centre but not a
+target; the 2026-09-06 amplitude-1-everywhere target taught the lattice). Validation truth is the
+visible centres (visibility >= 0.5). Loss: MSE weighted (1 + w*target) so a missed bump costs more
+than a false one (recall over precision). Logs to TensorBoard,
 checkpoints best/last under --out. Time-capped (--max-minutes) so a run ends by morning.
 
     run.sh train --ingredients <npz> --out References/training_runs/disk-detector-<date>/run1 --max-minutes 75
@@ -72,7 +75,7 @@ class SimStream(torch.utils.data.IterableDataset):
             bg = bgs[rng.integers(len(bgs))] if rng.random() < self.real_bg_p else None
             s = sm.simulate_one(rng, probe, centre, self.cfg, background=bg)
             x = sm.model_inputs(s.pattern, s.probe, s.correlation)
-            y = sm.heatmap_target(s.centres, self.cfg.size, self.cfg.heatmap_sigma)
+            y = sm.heatmap_target(s.centres, self.cfg.size, self.cfg.heatmap_sigma, s.visibility)
             yield torch.from_numpy(x), torch.from_numpy(y)
 
 
@@ -84,7 +87,8 @@ def fixed_set(ingredients, cfg, seed, n):
         probe, centre, _ = probes[i % len(probes)]
         bg = bgs[rng.integers(len(bgs))] if rng.random() < 0.7 else None
         s = sm.simulate_one(rng, probe, centre, cfg, background=bg)
-        xs.append(sm.model_inputs(s.pattern, s.probe, s.correlation)); ys.append(sm.heatmap_target(s.centres, cfg.size, cfg.heatmap_sigma)); cens.append(s.centres)
+        xs.append(sm.model_inputs(s.pattern, s.probe, s.correlation)); ys.append(sm.heatmap_target(s.centres, cfg.size, cfg.heatmap_sigma, s.visibility))
+        cens.append(s.centres[s.visibility >= 0.5])   # validation truth: the visible disks
     return torch.from_numpy(np.stack(xs)), torch.from_numpy(np.stack(ys)), cens
 
 # ----------------------------------------------------------------------------- peak-picking (numpy, the reference for the in-graph version)

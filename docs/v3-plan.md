@@ -58,6 +58,10 @@ run functions stay on `AppState` until then (`decisions.md`).
 
 ## 3. Beyond py4DSTEM — the differentiators
 
+Cross-feature product direction and proposed AI workspace: [AI/ML development
+brief, 2026-09-06](ai-ml/README.md). This complements the detector pre-registration;
+live implementation progress remains in `status.md`.
+
 All requested by the owner; all out of v2 by the 2026-08-18 decision ("each
 is its own product").
 
@@ -775,7 +779,24 @@ still finds one; WS₂ scaled into counts: net median +53.5, 63/64
 beams matched. Ceiling with run2: 0.60× the classical stand-in alone,
 ≤ 1.60× for the whole learned path. Total training tonight: 80 + 55 min.
 
-**Recommended verdict (the agent's reading; owner decides).** It earns its
+**run3 — 2026-09-07 afternoon, after the morning review (`run3.log`,
+`run3-check.log`, `run3-evaluate-asset-thr0.{3,6,9}.log`, `scan-bench.log`,
+all under `References/training_runs/disk-detector-2026-09-07/`; the changes
+are `tools/disk-detector/README.md` "2026-09-07 revisions").** Visibility
+targets, textured backgrounds, width 12 (275 k parameters): 20 000 steps in
+73 min, validation recall 0.963 / precision 0.78 against visible disks. The
+exported `heatmap` asset on the Neural Engine, scored with the new
+acceptance rule: bullseye at threshold 0.9 net 436 vs classical 442 peaks,
+count difference median 0 (−10…+4), 74/143 positions differ, 1 matched pair
+beyond 0.5 px; at 0.6 median +2; at 0.3 median +7 (run2: +67). WS₂ as
+stored identical to classical. Fixture 0.967 / 0.244 px after refinement at
+every threshold. From Swift on 2 100 identical bullseye patterns: classical
+`detectAll` (8 cores) 0.123 ms/pattern, the asset 0.110 ms/pattern — net
+alone 0.89×, learned path ≤ 1.9×. Superseded below: the overnight
+recommendation; the verdict is the owner's (`status.md` handoff).
+
+**Recommended verdict (the agent's reading of the OVERNIGHT run, superseded
+2026-09-07 — see `status.md`; owner decides).** It earns its
 place as a candidate stage: under the throughput ceiling on the Neural Engine,
 the classical detector's own sub-pixel numbers after refinement, and on both
 real cubes it proposes the disks the classical cut drops. What it does not yet

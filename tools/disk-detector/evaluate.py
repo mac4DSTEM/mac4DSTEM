@@ -42,12 +42,27 @@ def real_inputs(cube_path, dataset, probe, probe_centre, stride, size=sm.S, scal
 
 
 def stage_net(a):
-    """Detector env: heatmaps for the fixture and the real cubes -> <out>/net-*.npz."""
+    """Detector env: heatmaps for the fixture and the real cubes -> <out>/net-*.npz. With `--asset`
+    the heatmaps come from the EXPORTED Core AI asset (its `heatmap` output, Neural Engine preferred,
+    in a subprocess as check_export does), so that step 3 judges what the app would run, not
+    PyTorch (2026-09-07; the overnight numbers were PyTorch's)."""
     import torch, train as tr, export as ex
     model = ex.load_model(a.run).eval()
-    def heat(xs):
+    def heat_torch(xs):
         with torch.no_grad():
             return np.concatenate([model(torch.from_numpy(np.stack(xs[i:i + 32]))).numpy()[:, 0] for i in range(0, len(xs), 32)])
+    def heat_asset(xs):
+        import check_export as ce
+        x = np.stack(xs).astype(np.float32); B = a.asset_batch; n = len(x)
+        if n % B: x = np.concatenate([x, np.zeros((B - n % B,) + x.shape[1:], np.float32)])
+        work = os.path.join(a.out, "asset-work"); os.makedirs(work, exist_ok=True)
+        xin = os.path.join(work, "x.npz")
+        if os.path.exists(xin): os.remove(xin)          # run_coreai_subprocess reuses x.npz if present
+        r = ce.run_coreai_subprocess(a.asset, x, "ane", a.asset_function, work)
+        h = r["heatmap"]; h = h[:, 0] if h.ndim == 4 else h
+        print(f"asset {os.path.basename(a.asset)} [ane]: load {r['load_s']:.2f} s, {np.median(r['times'][1:] if len(r['times']) > 1 else r['times']) / B * 1000:.3f} ms/pattern", flush=True)
+        return h[:n].astype(np.float32)
+    heat = heat_asset if a.asset else heat_torch
     z = np.load(os.path.join(HERE, "fixture", "fixture.npz")); e = json.load(open(os.path.join(HERE, "fixture", "expected.json")))
     probe = z["probe"].astype(np.float64); c = tuple(e["probe_centre"]); k = sm.flat_kernel(probe, c)
     xs = [sm.model_inputs(p.astype(np.float64), probe, sm.cross_correlation(p.astype(np.float64), k)) for p in z["patterns"]]
@@ -87,8 +102,24 @@ def refine(cands, cc, sigma):
         dy = (Iy1 - Iy1_) / (4 * Iy0 - 2 * Iy1 - 2 * Iy1_) if (4 * Iy0 - 2 * Iy1 - 2 * Iy1_) != 0 else 0.0
         if not (abs(dx) <= 1 and abs(dy) <= 1):   # a flat 3x3 (denominator ~0): keep the pixel, as the app's refinement would
             dx = dy = 0.0
-        out.append((r0 + dx, c0 + dy, float(Ix0)))
-    return np.array(out).reshape(-1, 3)
+        out.append((r0 + dx, c0 + dy, float(Ix0), float(s)))
+    return np.array(out).reshape(-1, 4)
+
+
+def accept(ref, spacing, edge, size=sm.S):
+    """The acceptance rule after refinement (2026-09-07; before it, refinement rejected nothing):
+    (1) drop anything within `edge` px of the border (py4DSTEM's edgeBoundary), (2) greedy
+    non-maximum suppression by NET score: a refined candidate closer than `spacing` px
+    (py4DSTEM's minPeakSpacing, the same rule the classical side obeys) to an already accepted one
+    is a duplicate -- two net maxima snapped to one correlation peak -- and is dropped. The net's
+    own threshold is the only intensity rule; a correlation-relative cut is deliberately NOT
+    reinstated (it is what drops the faint disks the net is for)."""
+    if len(ref) == 0: return ref
+    ok = (ref[:, 0] >= edge) & (ref[:, 0] < size - edge) & (ref[:, 1] >= edge) & (ref[:, 1] < size - edge); ref = ref[ok]
+    order = np.argsort(-ref[:, 3]); keep = []
+    for i in order:
+        if all(np.hypot(ref[i, 0] - ref[j, 0], ref[i, 1] - ref[j, 1]) >= spacing for j in keep): keep.append(i)
+    return ref[sorted(keep)]
 
 
 def match(a_pts, b_pts, tol):
@@ -109,19 +140,25 @@ def stage_compare(a):
     z = np.load(os.path.join(HERE, "fixture", "fixture.npz")); e = json.load(open(os.path.join(HERE, "fixture", "expected.json")))
     probe = z["probe"].astype(np.float64); c = tuple(e["probe_centre"]); k = sm.flat_kernel(probe, c)
     H = np.load(os.path.join(a.out, "net-fixture.npz"))["heat"]
-    edge = SETTINGS["edgeBoundary"] + 2; tot = hit_raw = hit_ref = n_cand = 0; res_raw, res_ref = [], []; fp = 0
-    for i, t in enumerate(e["truth"]):
-        p = z["patterns"][i].astype(np.float64); cc = sm.cross_correlation(p, k)
-        cen = np.array(t["centres"]).reshape(-1, 2); inten = np.array(t["intensities"])
-        elig = (inten >= 0.10 * inten.max()) & (cen.min(1) >= edge) & (cen.max(1) < sm.S - edge); cen = cen[elig]
-        cand = pick(H[i], a.threshold); ref = refine(cand, cc, SETTINGS["sigma_cc"])
-        pr, _, _ = match(cen, cand[:, :2], 1.5); pf, _, unm = match(cen, ref[:, :2], 1.5)
-        tot += len(cen); hit_raw += len(pr); hit_ref += len(pf); n_cand += len(cand); fp += len(unm)
-        res_raw += [d for _, _, d in pr]; res_ref += [d for _, _, d in pf]
-    res["fixture"] = dict(eligible_truth=int(tot), candidates=int(n_cand), recall_raw=hit_raw / tot, recall_refined=hit_ref / tot,
-                          precision_refined=(n_cand - fp) / max(n_cand, 1), residual_raw_median=float(np.median(res_raw)), residual_raw_max=float(np.max(res_raw)),
-                          residual_refined_median=float(np.median(res_ref)), residual_refined_max=float(np.max(res_ref)))
-    print("fixture:", json.dumps(res["fixture"]), flush=True)
+    edge = SETTINGS["edgeBoundary"] + 2
+    res["fixture_by_threshold"] = {}
+    for thr in sorted({a.threshold, 0.3, 0.5, 0.7, 0.9}):
+        tot = hit_raw = hit_ref = n_cand = n_acc = 0; res_raw, res_ref = [], []; fp = 0
+        for i, t in enumerate(e["truth"]):
+            p = z["patterns"][i].astype(np.float64); cc = sm.cross_correlation(p, k)
+            cen = np.array(t["centres"]).reshape(-1, 2); inten = np.array(t["intensities"])
+            elig = (inten >= 0.10 * inten.max()) & (cen.min(1) >= edge) & (cen.max(1) < sm.S - edge); cen = cen[elig]
+            cand = pick(H[i], thr); ref = accept(refine(cand, cc, SETTINGS["sigma_cc"]), SETTINGS["minPeakSpacing"], SETTINGS["edgeBoundary"])
+            pr, _, _ = match(cen, cand[:, :2], 1.5); pf, _, unm = match(cen, ref[:, :2], 1.5)
+            tot += len(cen); hit_raw += len(pr); hit_ref += len(pf); n_cand += len(cand); n_acc += len(ref); fp += len(unm)
+            res_raw += [d for _, _, d in pr]; res_ref += [d for _, _, d in pf]
+        r = dict(eligible_truth=int(tot), candidates=int(n_cand), accepted=int(n_acc), recall_raw=hit_raw / tot, recall_refined=hit_ref / tot,
+                 precision_accepted=(n_acc - fp) / max(n_acc, 1), residual_raw_median=float(np.median(res_raw)) if res_raw else None,
+                 residual_raw_max=float(np.max(res_raw)) if res_raw else None, residual_refined_median=float(np.median(res_ref)) if res_ref else None,
+                 residual_refined_max=float(np.max(res_ref)) if res_ref else None)
+        res["fixture_by_threshold"][str(thr)] = r
+        print(f"fixture @{thr}:", json.dumps(r), flush=True)
+    res["fixture"] = res["fixture_by_threshold"][str(a.threshold)]
     # ---- real cubes: net vs classical
     ing = np.load(a.ingredients)
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -138,7 +175,8 @@ def stage_compare(a):
         for i, (ry, rx, p, _) in enumerate(real_inputs(path, ds, probe, c, a.stride, scale=(a.ws2_scale if ing_key == "ws2" else 1.0))):
             t0 = time.time(); q = find_Bragg_disks(p, k, **settings); t_cl += time.time() - t0
             cl = np.stack([q.data["qx"], q.data["qy"]], 1) if len(q.data) else np.zeros((0, 2))
-            cc = sm.cross_correlation(p, k); cand = pick(H[i], a.threshold); net = refine(cand, cc, settings["sigma_cc"])[:, :2]
+            cc = sm.cross_correlation(p, k); cand = pick(H[i], a.threshold)
+            net = accept(refine(cand, cc, settings["sigma_cc"]), settings["minPeakSpacing"], settings["edgeBoundary"])[:, :2]
             pairs, un_cl, un_net = match(cl, net, 3.0)
             beyond = sum(1 for _, _, d in pairs if d > 0.5)
             counts.append(len(net) - len(cl)); moved.append(beyond); n_net += len(net); n_cl += len(cl); matched += len(pairs)
@@ -172,6 +210,8 @@ def main():
     ap.add_argument("--stride", type=int, default=8); ap.add_argument("--threshold", type=float, default=0.3); ap.add_argument("--examples", type=int, default=6)
     ap.add_argument("--tag", default="", help="suffix for evaluate<tag>.json and the PNGs (a second threshold, say)")
     ap.add_argument("--ws2-scale", type=float, default=1.0, help="multiply the WS2 cube (float, sums to 0.25) into counts; 1e6 puts its beam at ~2e4")
+    ap.add_argument("--asset", help="stage net: a Core AI .aimodel whose `heatmap` output replaces PyTorch's (the exported runtime, ANE preferred)")
+    ap.add_argument("--asset-function", default="heatmap"); ap.add_argument("--asset-batch", type=int, default=32)
     a = ap.parse_args(); os.makedirs(a.out, exist_ok=True)
     stage_net(a) if a.stage == "net" else stage_compare(a)
 
