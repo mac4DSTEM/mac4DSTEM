@@ -36,11 +36,47 @@ package final class DiffractionGroupsProduct {
     /// similarity map it published.
     package var referencePosition: Int?
 
-    /// Publish a computed result. A fresh grouping invalidates any similarity
-    /// map computed against the PREVIOUS result's coordinate space.
-    package func publish(_ newResult: DiffractionEmbedding.Result) {
+    /// The settings the retained `result` was actually computed with — not
+    /// the live `settings`, which the user may have changed since.
+    ///
+    /// Two things read it. The panel's provenance rows, which must name the
+    /// binned size and seed of the RUN (`Result` carries neither). And
+    /// `isStale`: raising Groups from 4 to 8 left the k=4 group sizes on
+    /// screen under `Groups 8` with nothing saying they belonged to an
+    /// earlier run (owner's drive 2026-09-06, `drive-groups` defect 5).
+    package private(set) var lastRunSettings: DiffractionEmbedding.Settings?
+
+    /// Whether the readout describes a run made with settings that have since
+    /// changed — the same "retained, but its inputs moved" verdict
+    /// `TaskProductState.staleDiskSettings` carries for the Bragg-disk chain,
+    /// expressed here against this task's own inputs.
+    package var isStale: Bool {
+        guard let lastRunSettings else { return false }
+        return lastRunSettings != settings
+    }
+
+    /// Publish a computed result.
+    ///
+    /// The similarity reference SURVIVES a rerun on the same scan. It is an
+    /// index into the scan grid, and re-running with a different k does not
+    /// move it; nilling it unconditionally left the published similarity
+    /// product in Results named for a coordinate the panel could no longer
+    /// show (owner's drive 2026-09-06, `drive-groups` defect 4). Only a result
+    /// of a DIFFERENT scan shape can invalidate the index, and that is the one
+    /// case still cleared here.
+    /// `ranWith` is the settings snapshot the RUN took, passed in rather than
+    /// re-read from `settings` here, so a value edited while the run was in
+    /// flight cannot be recorded as the one that produced the result.
+    package func publish(
+        _ newResult: DiffractionEmbedding.Result, ranWith: DiffractionEmbedding.Settings
+    ) {
+        if let previous = result,
+           previous.scanWidth != newResult.scanWidth
+            || previous.scanHeight != newResult.scanHeight {
+            referencePosition = nil
+        }
         result = newResult
-        referencePosition = nil
+        lastRunSettings = ranWith
     }
 
     /// The published group map's display name — the pane title, the Session
@@ -57,6 +93,7 @@ package final class DiffractionGroupsProduct {
     /// the dataset; `settings` survives (see above).
     package func clear() {
         result = nil
+        lastRunSettings = nil
         referencePosition = nil
     }
 }

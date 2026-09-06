@@ -49,7 +49,12 @@ struct DiffractionGroupsSection: View {
             Button {
                 Task { await appState.runDiffractionGroups() }
             } label: {
-                Label("Group patterns", systemImage: "circle.grid.3x3")
+                // "Group Patterns", matching the toolbar's primary action for
+                // this task (`WorkspaceView.primaryActionTitle`) and every
+                // other toolbar verb — "Detect All Disks", "Compute Strain",
+                // "Update Image". The two spellings of one action read as two
+                // actions (owner's drive 2026-09-06, `drive-groups` defect 7).
+                Label("Group Patterns", systemImage: "circle.grid.3x3")
             }
             .disabled(appState.isBusy || appState.descriptor == nil)
             .help("Run PCA and k-means over every scan position's diffraction pattern.")
@@ -65,7 +70,39 @@ struct DiffractionGroupsSection: View {
                   + "selected scan position, against the last grouping result.")
             .accessibilityIdentifier("groups.similarity")
 
+            // The reference the similarity map was computed against, named
+            // where the button that produces it is. `referencePosition` existed
+            // "so the settings panel can name it" and the panel never read it;
+            // only the pane title carried the coordinate, and a rerun used to
+            // nil it while the published similarity product stayed in Results
+            // (owner's drive 2026-09-06, `drive-groups` defect 4).
+            if let position = appState.diffractionGroups.referencePosition,
+               let result = appState.diffractionGroups.result, result.scanWidth > 0 {
+                LabeledContent(
+                    "Reference",
+                    value: "(\(position % result.scanWidth), \(position / result.scanWidth))"
+                )
+                .accessibilityIdentifier("groups.referencePosition")
+            }
+
             if let result = appState.diffractionGroups.result {
+                // The readout describes the LAST RUN, and the controls above it
+                // can have moved since. Saying which run it came from is the
+                // repo's `TaskProductState` verdict expressed in words: a
+                // retained product whose inputs changed is stale, not current
+                // (owner's drive 2026-09-06, `drive-groups` defect 5 — the k=4
+                // group sizes sat under `Groups 8` unmarked).
+                if appState.diffractionGroups.isStale {
+                    Label(
+                        "From an earlier run — the settings above have changed. "
+                            + "Run Group Patterns again.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("groups.staleReadout")
+                }
+
                 let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
                 Text("First 3 components explain \(String(format: "%.1f", firstThreePercent)) % of variance")
                     .font(.caption)
@@ -78,6 +115,38 @@ struct DiffractionGroupsSection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("groups.sizes")
+
+                // The run's own provenance. `publishProduct` writes all of it
+                // into the product and the sidecar, and NOTHING showed it —
+                // not the Settings tab, not Info, not Results (owner's drive
+                // 2026-09-06, `drive-groups` defect 3). Read from the owner
+                // type rather than from `publishedProduct.provenance`, because
+                // the displayed product is whatever was published LAST (the
+                // similarity map, a virtual image) and need not be this run's.
+                if let ran = appState.diffractionGroups.lastRunSettings {
+                    Text("Run: \(ran.binnedSize) × \(ran.binnedSize) binned · "
+                         + "\(result.componentCount) of \(ran.components) components · "
+                         + "k = \(result.groupCount) · seed \(ran.seed)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .help("The settings this readout was computed with: the box-binned "
+                              + "pattern size, the principal components actually kept (clamped "
+                              + "down for a low-rank dataset), the k-means group count, and the "
+                              + "deterministic seed.")
+                        .accessibilityIdentifier("groups.runProvenance")
+                }
+            } else {
+                // The pane's own hint (`ImagePanes.pendingInstruction`) renders
+                // only when NO image is displayed, and a freshly loaded dataset
+                // already shows its annulus dark-field — so a first-time user
+                // saw three unexplained controls and two buttons and no hint at
+                // all (owner's drive 2026-09-06, `drive-groups` defect 6). This
+                // one is in the panel, where the emptiness actually is.
+                Text("No grouping yet. Run Group Patterns to sort every scan "
+                     + "position's diffraction pattern into k groups.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("groups.emptyHint")
             }
         }
     }

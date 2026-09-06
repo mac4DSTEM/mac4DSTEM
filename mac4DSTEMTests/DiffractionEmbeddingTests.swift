@@ -298,3 +298,99 @@ final class DiffractionGroupsNamingTests: XCTestCase {
         )
     }
 }
+
+/// fix-b (owner's drive 2026-09-06, `drive-groups` defects 3, 4 and 5): what
+/// the Diffraction groups panel knows about the run it is describing. The
+/// embedding arithmetic is `DiffractionEmbeddingTests` above and is untouched.
+final class DiffractionGroupsPanelStateTests: XCTestCase {
+
+    /// A minimal result on a `w × h` scan: two components, `k` groups, every
+    /// position in group 0. Only the shape and the counts matter here.
+    private func result(width: Int, height: Int, groups k: Int) -> DiffractionEmbedding.Result {
+        DiffractionEmbedding.Result(
+            scanWidth: width, scanHeight: height,
+            coordinates: [Float](repeating: 0, count: width * height * 2),
+            mean: [0, 0, 0, 0],
+            basis: [1, 0, 0, 0, 0, 1, 0, 0],
+            explainedVariance: [0.6, 0.2],
+            groupOf: [Int](repeating: 0, count: width * height),
+            groupCentroids: [Float](repeating: 0, count: k * 2)
+        )
+    }
+
+    /// Defect 3: the run's provenance is written into the product and shown
+    /// nowhere. `Result` carries neither the binned size nor the seed, so the
+    /// panel can only name them if the owner keeps the settings the run used.
+    func testPublishRecordsTheSettingsTheRunActuallyUsed() {
+        let product = DiffractionGroupsProduct()
+        var ran = DiffractionEmbedding.Settings()
+        ran.binnedSize = 32
+        ran.components = 8
+        ran.groups = 4
+        ran.seed = 7
+
+        product.publish(result(width: 8, height: 8, groups: 4), ranWith: ran)
+
+        XCTAssertEqual(product.lastRunSettings?.binnedSize, 32)
+        XCTAssertEqual(product.lastRunSettings?.seed, 7)
+        XCTAssertEqual(product.lastRunSettings?.groups, 4)
+    }
+
+    /// Defect 5: raising Groups 4 → 8 left the k=4 group sizes on screen under
+    /// `Groups 8` with nothing saying they came from an earlier run.
+    func testTheReadoutIsStaleOnceTheSettingsHaveMoved() {
+        let product = DiffractionGroupsProduct()
+        product.settings.groups = 4
+        product.publish(result(width: 8, height: 8, groups: 4), ranWith: product.settings)
+        XCTAssertFalse(product.isStale, "nothing has changed since the run")
+
+        product.settings.groups = 8
+
+        XCTAssertTrue(product.isStale, "the readout describes the k=4 run, not the live k=8")
+    }
+
+    func testNothingIsStaleBeforeAnyRun() {
+        XCTAssertFalse(DiffractionGroupsProduct().isStale)
+    }
+
+    /// Defect 4: a second grouping run nilled the similarity reference while
+    /// the published similarity product stayed in Results, still named for a
+    /// coordinate the panel could no longer show. The reference is an index
+    /// into the scan grid, and a rerun with a different k does not move it.
+    func testARerunOnTheSameScanKeepsTheSimilarityReference() {
+        let product = DiffractionGroupsProduct()
+        product.publish(result(width: 16, height: 16, groups: 4), ranWith: product.settings)
+        product.referencePosition = 59 * 16 + 3
+
+        product.publish(result(width: 16, height: 16, groups: 8), ranWith: product.settings)
+
+        XCTAssertEqual(product.referencePosition, 59 * 16 + 3,
+                       "same scan, same coordinate space — the reference survives")
+    }
+
+    /// The one case that still invalidates it: a result of a different scan
+    /// shape, where the index no longer means what it meant.
+    func testAResultOfADifferentScanShapeClearsTheReference() {
+        let product = DiffractionGroupsProduct()
+        product.publish(result(width: 16, height: 16, groups: 4), ranWith: product.settings)
+        product.referencePosition = 200
+
+        product.publish(result(width: 8, height: 8, groups: 4), ranWith: product.settings)
+
+        XCTAssertNil(product.referencePosition)
+    }
+
+    /// Dataset activation still takes everything with it.
+    func testClearDropsTheRunSettingsWithTheResult() {
+        let product = DiffractionGroupsProduct()
+        product.publish(result(width: 8, height: 8, groups: 4), ranWith: product.settings)
+        product.referencePosition = 3
+
+        product.clear()
+
+        XCTAssertNil(product.result)
+        XCTAssertNil(product.lastRunSettings)
+        XCTAssertNil(product.referencePosition)
+        XCTAssertFalse(product.isStale)
+    }
+}

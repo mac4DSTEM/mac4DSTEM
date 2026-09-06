@@ -69,7 +69,7 @@ extension AppState {
                 return .cancelled
             }
             guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
-            diffractionGroups.publish(result)
+            diffractionGroups.publish(result, ranWith: settings)
 
             let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
             publishProduct(
