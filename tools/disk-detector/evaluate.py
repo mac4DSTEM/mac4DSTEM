@@ -85,6 +85,8 @@ def refine(cands, cc, sigma):
         Ix1_, Ix0, Ix1 = ar[r0 - 1, c0], ar[r0, c0], ar[r0 + 1, c0]; Iy1_, Iy0, Iy1 = ar[r0, c0 - 1], ar[r0, c0], ar[r0, c0 + 1]
         dx = (Ix1 - Ix1_) / (4 * Ix0 - 2 * Ix1 - 2 * Ix1_) if (4 * Ix0 - 2 * Ix1 - 2 * Ix1_) != 0 else 0.0
         dy = (Iy1 - Iy1_) / (4 * Iy0 - 2 * Iy1 - 2 * Iy1_) if (4 * Iy0 - 2 * Iy1 - 2 * Iy1_) != 0 else 0.0
+        if not (abs(dx) <= 1 and abs(dy) <= 1):   # a flat 3x3 (denominator ~0): keep the pixel, as the app's refinement would
+            dx = dy = 0.0
         out.append((r0 + dx, c0 + dy, float(Ix0)))
     return np.array(out).reshape(-1, 3)
 
@@ -123,16 +125,20 @@ def stage_compare(a):
     # ---- real cubes: net vs classical
     ing = np.load(a.ingredients)
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
-    for name, path, ds, probe, c in [("bullseye", a.bullseye, BULLSEYE, ing["bullseye_probe"].astype(np.float64), tuple(ing["bullseye_centre"])),
-                                     ("ws2", a.ws2, WS2, ing["ws2_probe"].astype(np.float64), tuple(ing["ws2_centre"]))]:
-        N = np.load(os.path.join(a.out, f"net-{name}.npz")); H, pos = N["heat"], N["positions"]
+    # WS2 at minRelativeIntensity 0.05 yields one peak per position (the central beam dwarfs the disks —
+    # the 2026-09-05 measurement in docs/status.md), so it is also compared at the app's 0.005 default.
+    cases = [("bullseye", a.bullseye, BULLSEYE, "bullseye", SETTINGS), ("ws2", a.ws2, WS2, "ws2", SETTINGS),
+             ("ws2-minrel0.005", a.ws2, WS2, "ws2", dict(SETTINGS, minRelativeIntensity=0.005))]
+    for name, path, ds, ing_key, settings in cases:
+        probe, c = ing[f"{ing_key}_probe"].astype(np.float64), tuple(ing[f"{ing_key}_centre"])
+        N = np.load(os.path.join(a.out, f"net-{ing_key}.npz")); H, pos = N["heat"], N["positions"]
         k = sm.flat_kernel(probe, c)
         counts, moved, disagree, examples, t_cl = [], [], 0, [], 0.0
         n_net = n_cl = matched = 0
         for i, (ry, rx, p, _) in enumerate(real_inputs(path, ds, probe, c, a.stride)):
-            t0 = time.time(); q = find_Bragg_disks(p, k, **SETTINGS); t_cl += time.time() - t0
+            t0 = time.time(); q = find_Bragg_disks(p, k, **settings); t_cl += time.time() - t0
             cl = np.stack([q.data["qx"], q.data["qy"]], 1) if len(q.data) else np.zeros((0, 2))
-            cc = sm.cross_correlation(p, k); cand = pick(H[i], a.threshold); net = refine(cand, cc, SETTINGS["sigma_cc"])[:, :2]
+            cc = sm.cross_correlation(p, k); cand = pick(H[i], a.threshold); net = refine(cand, cc, settings["sigma_cc"])[:, :2]
             pairs, un_cl, un_net = match(cl, net, 3.0)
             beyond = sum(1 for _, _, d in pairs if d > 0.5)
             counts.append(len(net) - len(cl)); moved.append(beyond); n_net += len(net); n_cl += len(cl); matched += len(pairs)
@@ -140,7 +146,7 @@ def stage_compare(a):
             disagree += dis
             if dis and len(examples) < a.examples: examples.append((ry, rx, p, cl, net, un_cl, un_net))
         n = len(pos); counts = np.array(counts)
-        res[name] = dict(positions=n, classical_peaks=int(n_cl), net_peaks_refined=int(n_net), matched_within_3px=int(matched),
+        res[name] = dict(positions=n, settings=settings, classical_peaks=int(n_cl), net_peaks_refined=int(n_net), matched_within_3px=int(matched),
                          count_diff_net_minus_classical=dict(min=int(counts.min()), median=float(np.median(counts)), max=int(counts.max()), mean=float(counts.mean())),
                          matched_beyond_0p5px=int(sum(moved)), positions_with_any_disagreement=int(disagree), disagreement_fraction=disagree / n,
                          classical_seconds_py4dstem=t_cl, net_seconds_pytorch_cpu=float(N["seconds"]))
@@ -152,7 +158,8 @@ def stage_compare(a):
                 axx.imshow(np.log1p(np.maximum(p - p.min(), 0)), cmap="gray")
                 if len(cl): axx.scatter(cl[:, 1], cl[:, 0], s=60, facecolors="none", edgecolors="cyan", label=f"classical {len(cl)}")
                 if len(net): axx.scatter(net[:, 1], net[:, 0], s=20, marker="x", c="red", label=f"net+refine {len(net)}")
-                axx.set_title(f"{name} ({ry},{rx}): classical-only {len(un_cl)}, net-only {len(un_net)}", fontsize=8); axx.legend(fontsize=7, loc="lower right"); axx.set_axis_off()
+                axx.set_title(f"{name} ({ry},{rx}): classical-only {len(un_cl)}, net-only {len(un_net)}", fontsize=8); axx.legend(fontsize=7, loc="lower right")
+                axx.set_xlim(-0.5, sm.S - 0.5); axx.set_ylim(sm.S - 0.5, -0.5); axx.set_axis_off()
             fig.tight_layout(); fig.savefig(os.path.join(a.out, f"disagree-{name}.png"), dpi=90); plt.close(fig)
     json.dump(res, open(os.path.join(a.out, "evaluate.json"), "w"), indent=1); print("wrote", os.path.join(a.out, "evaluate.json"))
 

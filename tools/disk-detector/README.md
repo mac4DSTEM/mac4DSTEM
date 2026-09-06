@@ -67,5 +67,48 @@ disks — the failure class the net is for. The fixture's lattice spacing is
 ≥ 2 disk radii and its intensity falloff gentle on purpose: overlapping and
 near-extinct disks are training material, not a proof of geometry.
 
+## Step 2 — the net, the exports, the checks (2026-09-06/07)
+
+`train.py`: U-Net, four levels, width × (1, 2, 4, 8) channels (width 24 →
+1.1 M parameters), conv/BN/SiLU, max-pool, nearest upsample + concat, sigmoid
+head; loss `mean((1 + 20·target)·(pred − target)²)` so a missed bump costs
+more than a false one. On-the-fly simulation (six worker processes) from the
+measured bullseye probe (55 %), the WS₂ stand-in (30 %) and the drawn probe
+(15 %), real radial backgrounds from both cubes 70 % of the time. MPS.
+Validation: 128 held-out simulated samples and the committed fixture, recall
+and precision of numpy peak-picking (3×3 local maxima above 0.3, top 70)
+within 2 px. TensorBoard: `tensorboard --logdir References/training_runs/`.
+
+`export.py`, three function variants per batch size, one `.aimodel` each:
+`detect` (heatmap + in-graph top-K = 70 peaks: `heatmap == maxpool3×3`,
+`> threshold`, `topk`, `(row, col)` from the flat index without a remainder
+op — coreai-torch 0.4.2 has no lowering for `aten.remainder`), `scoremap`
+(heatmap + peak-masked score map, no top-k) and `heatmap` alone. Pipeline:
+`torch.export` → `run_decompositions(get_decomp_table())` → coreai-opt
+`cast_fp32_to_fp16` → `TorchConverter` → `to_coreai()` → `optimize()` →
+`save_asset`. The probe-as-state attempt is a fourth asset: `set_probe`
+writes a model buffer in place, `detect` reads it and takes two channels.
+Core ML insurance: `torch.jit.trace` → `coremltools.convert` (float16,
+macOS 15 target) with the same three outputs. `export.json` carries the
+SHA-256 of every asset — the weights hash provenance will record.
+
+`check_export.py`: the fixture plus simulated inputs through PyTorch float32
+(reference) and float16 (the floor), then every Core AI asset under
+`SpecializationOptions` Neural Engine preferred, CPU only and GPU preferred —
+**each in a subprocess**, because a Neural Engine program-load failure kills
+the process — with first-load specialisation time, per-batch and per-pattern
+time, max |diff| of the heatmap, and whether the in-graph peaks equal numpy's;
+then the `.mlpackage` through coremltools' predict. It runs through
+macOS 27's own runtime (`USE_OS_COREAI=1`; the in-package runtime has no
+compute-unit delegates).
+
+`evaluate.py` (step 3) runs in two stages because torch and py4DSTEM live in
+different environments: `--stage net` (detector env) writes heatmaps for the
+fixture and every stride-th position of the two real cubes; `--stage compare`
+(py4DSTEM env) applies py4DSTEM's `poly` sub-pixel refinement on the
+flat-kernel correlation at each candidate (standing in for the Metal engine),
+matches to the drawn centres (fixture) and to `find_Bragg_disks` at the
+2026-09-05 settings (real cubes), and saves PNGs of disagreeing patterns.
+
 abTEM honesty check: skipped 2026-09-06. The existing `abtem` conda env does not
 import (numpy's `libgfortran.5.dylib` missing) and a reinstall would eat the disk.
