@@ -53,7 +53,16 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         // (owner's drive, 2026-09-07), which cannot be diagnosed.
         let model: AIModel
         do { model = try await AIModel(contentsOf: assetURL, options: options) }
-        catch { throw LearnedDiskDetectorError.runtime(step: "AIModel(contentsOf:) — load + specialise for \(preferNeuralEngine ? "the Neural Engine" : "the default units")", underlying: error) }
+        catch {
+            // The runtime's cache can hold an entry for these same bytes written by
+            // another client — the app's own test host, from a repo path the
+            // sandboxed app cannot read — and then refuses to load with a generic
+            // error (diagnosed with the owner 2026-09-07: clearing the container's
+            // coreai-cache fixed it). Purge once and retry; a second failure is real.
+            try? AIModelCache.default.deleteAll()
+            do { model = try await AIModel(contentsOf: assetURL, options: options) }
+            catch { throw LearnedDiskDetectorError.runtime(step: "AIModel(contentsOf:) — load + specialise for \(preferNeuralEngine ? "the Neural Engine" : "the default units"), after purging the runtime cache once", underlying: error) }
+        }
         let fn: InferenceFunction
         do {
             guard let loaded = try model.loadFunction(named: functionName) else {
@@ -176,6 +185,27 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
 
     /// Benchmark access to the raw function call (tools/disk-detector/scan-bench profiles the read-back).
     package func run(_ x: NDArray) async throws -> InferenceFunction.Outputs { try await function.run(inputs: [inputName: x]) }
+
+    // MARK: One pattern (the live overlay)
+
+    /// The learned candidates for ONE pattern, refined like the scan's: a
+    /// one-position cube through `detectAll(cube:…)`, so the preview on the
+    /// current CBED is exactly what the full scan would find there (owner's
+    /// drive, 2026-09-07: the rings must be checkable before Detect All).
+    /// Returns nil where `detectAll` would (detector < 128 px, invalid params).
+    package func detect(
+        pattern: DiffractionPattern, probe: DiffractionPattern, probeCentre: (x: Float, y: Float),
+        probeRadius: Float, kernelSource: ProbeKernelSource = .measured,
+        params: DiskDetectionParams, threshold: Float = LearnedDiskDetector.defaultThreshold
+    ) async -> [BraggPeak]? {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let buffer = device.makeBuffer(bytes: pattern.pixels, length: pattern.pixels.count * MemoryLayout<Float>.stride,
+                                             options: .storageModeShared) else { return nil }
+        let d = DatasetDescriptor(filePath: "", datasetPath: "live", shape: [1, 1, pattern.qy, pattern.qx],
+                                  dtypeDescription: "float32", chunkShape: nil)
+        return await detectAll(cube: buffer, descriptor: d, probe: probe, probeCentre: probeCentre, probeRadius: probeRadius,
+                               kernelSource: kernelSource, params: params, threshold: threshold)?.peaks.first
+    }
 
     // MARK: The scan
 

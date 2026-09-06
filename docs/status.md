@@ -219,7 +219,33 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    far); sidecar labels (slice 3); the unit gate (disk floor); detectors
    below 128 px (the Al-Si-Mg cube is 64 px — the learned option returns a
    failure there, the classical path is unaffected).
-6. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
+6. **The owner's drive of slice 2 (2026-09-07 17:00–17:17, bullseye cube,
+   file probe flat r = 7.4 px, min relative 5 %, the app's other defaults:
+   spacing 7, edge 10):** the first learned run failed at the asset load
+   with the runtime's generic error. Gate D on it: the sandbox refuted (a
+   sandboxed probe with the same bytes in its bundle loads and runs), a
+   second path in one container refuted (cache hit), and the owner's
+   experiment confirmed the cause — the test host runs inside the app's
+   container and had cached the asset from the repo path, which the
+   sandboxed app cannot read; clearing
+   `~/Library/Containers/com.mac4dstem.mac4DSTEM/Data/Library/Caches/coreai-cache`
+   fixed it. Landed: the load purges that cache once and retries, and every
+   Core AI step is named with its error code (`0cc91de` + this commit).
+   Then: classical 101 289 peaks in 150 s (median 4 per pattern, range 1–70 —
+   positions AT the 70 cap exist), learned 24 026 in 78 s (median 3, range
+   0–11), disagreement 6 023 of 8 400 positions, learned − classical median
+   −1, range −69…+6, the blue blobs on the map being the classical's
+   capped positions. Both runs are IO-bound in the app (the cube streams;
+   the bench's 0.1–0.2 ms/pattern is compute only) — a separate item. Two
+   things the drive decided: (a) the learned detector sees only the central
+   128 px of a 250-px detector, so the outer ring is partly out of reach and
+   the count difference is not a verdict on the net — **owner decision:
+   bin larger detectors 2× (disks shrink below the training range) or tile
+   the crop (4× cost)**; (b) the owner could not judge candidates before a
+   full scan — landed: with Learned selected the live rings on the current
+   CBED come from the learned detector at the current threshold, and the
+   picker and threshold re-run the overlay. Unverified on screen.
+7. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
    run-time strip was cramped — the percentage wrapped to one character per
    line, the message to two lines): the message is one truncating line, the
    percentage has a `LayoutPolicy` slot like the metrics line (the fixed
@@ -280,11 +306,11 @@ agent should say so and start at item 2.
    fixture proven and broken four ways, `run-tests.sh inventory` exit 0 with
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
-   step 3 numbers on the fixture and both real cubes). **Next: the owner drives slice 2
-   on screen; then slice 3 (sidecar labels: confirmed/rejected patterns from
-   the disagreement map), then the merge with its Gate B campaign; the
-   precipitate work starts from the owner's near-beam observation
-   (`docs/ai-ml/README.md` §4, the figure in `docs/images/`). The
+   step 3 numbers on the fixture and both real cubes). **Next: the owner's decision on
+   crop coverage (item 6a) and a second look at the live learned rings; then
+   slice 3 (sidecar labels from the disagreement map), then the merge with
+   its Gate B campaign; the precipitate work starts from the owner's
+   near-beam observation (`docs/ai-ml/README.md` §4). The
    cross-feature direction is `docs/ai-ml/README.md`.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts

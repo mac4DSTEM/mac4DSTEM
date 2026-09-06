@@ -106,8 +106,10 @@ private struct DiskDetectionRows: View {
                     Text(detectorClass.rawValue).tag(detectorClass)
                 }
             }
-            .help("The learned detector proposes candidate positions on the Neural Engine; the classical refinement still measures every one. Needs macOS 27 and a generated probe kernel. The classical detector remains the default.")
+            .help("The learned detector proposes candidate positions on the Neural Engine; the classical refinement still measures every one. Needs macOS 27 and a generated probe kernel. The classical detector remains the default. The rings on the current CBED follow this choice.")
             .accessibilityIdentifier("disk.detectorClass")
+            .onChange(of: learned.detectorClass) { _, _ in Task { await appState.detectCurrentPattern() } }
+            .onChange(of: learned.threshold) { _, _ in Task { await appState.detectCurrentPattern() } }
 
             if learned.detectorClass == .learned {
                 LabeledContent("Learned threshold") {

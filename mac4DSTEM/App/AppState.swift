@@ -4739,6 +4739,31 @@ final class AppState {
             return
         }
         let epoch = datasetEpoch
+        // The overlay follows the Detector picker (owner's drive, 2026-09-07:
+        // with Learned selected the rings still came from the classical
+        // detector, so the candidates could not be judged before a full scan).
+        // The learned preview has no classical acceptance funnel; its own
+        // count is the "Current CBED" row.
+        if learnedDetection.detectorClass == .learned {
+            #if canImport(CoreAI)
+            if #available(macOS 27, *), let ref = learnedDetection.probeReference,
+               let assetURL = LearnedDiskDetector.bundledAssetURL(),
+               let learned = try? await learnedDetection.prepare(assetURL: assetURL) {
+                let threshold = learnedDetection.threshold
+                let peaks = await Task.detached(priority: .userInitiated) {
+                    await learned.detect(pattern: pattern, probe: ref.pattern,
+                                         probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
+                                         kernelSource: ref.source, params: params, threshold: threshold)
+                }.value
+                guard epoch == datasetEpoch, request == liveDetectionRequest,
+                      navigation.analysisMode == .disks else { return }
+                currentPeaks = peaks ?? []
+                currentDiskDiagnostics = nil
+                return
+            }
+            #endif
+            // not preparable here: fall through to the classical rings, as before
+        }
         let result = await Task.detached(priority: .userInitiated) {
             () -> DiskDetectionPatternResult? in
             guard let detector = DiskDetector(kernel: kernel) else { return nil }
