@@ -114,7 +114,8 @@ private struct DatasetCommands: Commands {
             workspaceCommand(.image, key: "2")
             workspaceCommand(.map, key: "3")
             workspaceCommand(.reconstruct, key: "4")
-            workspaceCommand(.results, key: "5")
+            workspaceCommand(.aiAnalysis, key: "5")
+            workspaceCommand(.results, key: "6")
         }
     }
 

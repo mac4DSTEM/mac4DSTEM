@@ -12,6 +12,11 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     case image
     case map
     case reconstruct
+    // 2026-09-07: the owner's "advanced stuff" — precipitates, diffraction
+    // groups, learned disks — pulled out of Imaging/Bragg disks into its own
+    // home (docs/ai-ml/README.md §3). Raw value new; the other cases' raw
+    // values are untouched so old persisted selections keep decoding.
+    case aiAnalysis
     case results
 
     var id: String { rawValue }
@@ -29,6 +34,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         // method's name four times in one sidebar column.
         case .map: "Strain & ACOM"
         case .reconstruct: "Phase"
+        case .aiAnalysis: "AI Analysis"
         case .results: "Results"
         }
     }
@@ -39,6 +45,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .image: "Form BF, ADF, or custom virtual images"
         case .map: "Detect Bragg disks, then strain and orientation"
         case .reconstruct: "DPC, parallax, and ptychography"
+        case .aiAnalysis: "Precipitates, diffraction groups, learned disks — local, inspectable"
         case .results: "Review, save, and export products"
         }
     }
@@ -49,6 +56,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .image: "camera.filters"
         case .map: "map"
         case .reconstruct: "waveform.path.ecg.rectangle"
+        case .aiAnalysis: "sparkles"
         case .results: "square.grid.2x2"
         }
     }
@@ -63,6 +71,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         // The phase-contrast family, together — every member needs only
         // voltage and geometry, none needs Bragg vectors (§3.3 grammar).
         case .reconstruct: [.dpc, .ptychography, .singleslicePtychography]
+        case .aiAnalysis: [.precipitates, .diffractionGroups, .learnedDisks]
         }
     }
 
@@ -172,6 +181,9 @@ extension AnalysisMode {
         case .disks: .producesBraggVectors
         case .strain, .acom: .requiresBraggVectors
         case .virtualDetector, .dpc, .ptychography, .singleslicePtychography: .phaseContrast
+        // AI Analysis has no Bragg-vector dependency chain of its own; the
+        // label never shows anyway (one family, `showsTaskFamilyLabels`).
+        case .precipitates, .diffractionGroups, .learnedDisks: .phaseContrast
         }
     }
 
@@ -183,6 +195,7 @@ extension AnalysisMode {
         // voltage-only contract with parallax/ptychography, not the
         // zero-prerequisite contract of virtual imaging.
         case .dpc, .ptychography, .singleslicePtychography: .reconstruct
+        case .precipitates, .diffractionGroups, .learnedDisks: .aiAnalysis
         }
     }
 
@@ -195,6 +208,9 @@ extension AnalysisMode {
         case .ptychography: "Parallax"
         case .singleslicePtychography: "Single-slice ptychography"
         case .acom: "Orientation"
+        case .precipitates: "Precipitates"
+        case .diffractionGroups: "Diffraction groups"
+        case .learnedDisks: "Learned disks"
         }
     }
 
@@ -207,6 +223,9 @@ extension AnalysisMode {
         case .ptychography: "Align bright-field images, fit aberrations, correct phase, section depth"
         case .singleslicePtychography: "Iterative object and probe reconstruction from the full datacube"
         case .acom: "Match crystal orientation and reliability"
+        case .precipitates: "Segment and count needles or particles from a virtual image"
+        case .diffractionGroups: "Group similar patterns; find more like a position"
+        case .learnedDisks: "Neural Engine candidates, refined classically; compare and label"
         }
     }
 
@@ -219,6 +238,9 @@ extension AnalysisMode {
         case .ptychography: "waveform.path.ecg"
         case .singleslicePtychography: "circle.hexagongrid"
         case .acom: "cube.transparent"
+        case .precipitates: "square.dashed.inset.filled"
+        case .diffractionGroups: "circle.grid.3x3"
+        case .learnedDisks: "cpu"
         }
     }
 }
@@ -287,6 +309,10 @@ enum ProductWorkflow {
         switch mode {
         case .disks, .strain, .acom: true
         case .virtualDetector, .dpc, .ptychography, .singleslicePtychography: false
+        // `.learnedDisks` runs the same disk-detection pass `.disks` does
+        // (with the detector forced to learned) — it PRODUCES the vectors,
+        // like `.disks`, rather than depending on an earlier run of them.
+        case .precipitates, .diffractionGroups, .learnedDisks: false
         }
     }
 
@@ -304,7 +330,7 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [TaskPrerequisite] {
         switch mode {
-        case .virtualDetector, .dpc:
+        case .virtualDetector, .dpc, .precipitates, .diffractionGroups, .learnedDisks:
             return []
         case .disks:
             // v2.5 step 5a: the tools panel's private gate joins the one list,
@@ -408,7 +434,8 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [String] {
         switch mode {
-        case .virtualDetector, .disks, .ptychography, .singleslicePtychography:
+        case .virtualDetector, .disks, .ptychography, .singleslicePtychography,
+             .precipitates, .diffractionGroups, .learnedDisks:
             return []
         case .dpc:
             var missing: [String] = []
@@ -459,7 +486,9 @@ enum ProductWorkflow {
             return readiness.hasBraggVectors
                 ? "Next: review and export in Results."
                 : nil
-        case .reconstruct, .results:
+        // AI Analysis is three independent, opt-in tasks, not a pipeline —
+        // there is no single next step to point at.
+        case .reconstruct, .aiAnalysis, .results:
             return nil
         }
     }

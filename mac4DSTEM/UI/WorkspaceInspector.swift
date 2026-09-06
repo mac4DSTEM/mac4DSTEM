@@ -73,6 +73,7 @@ private struct InspectorSettingsTab: View {
         case .image: ImagingSettings()
         case .map: MapSettings()
         case .reconstruct: PhaseSettings()
+        case .aiAnalysis: AIAnalysisSettings()
         case .results: ResultsSettings()
         }
     }

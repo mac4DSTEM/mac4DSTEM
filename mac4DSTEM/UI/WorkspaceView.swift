@@ -272,6 +272,13 @@ struct PrimaryActionButton: View {
             else if appState.parallaxCorrection == nil { "Correct Phase" }
             else if appState.parallaxSubpixel == nil { "Upsample BF" }
             else { "Reconstruction Ready" }
+        case .aiAnalysis:
+            switch appState.navigation.analysisMode {
+            case .precipitates: "Segment"
+            case .diffractionGroups: "Group Patterns"
+            case .learnedDisks: "Detect All Disks"
+            default: nil
+            }
         case .results:
             nil
         }
@@ -293,6 +300,13 @@ struct PrimaryActionButton: View {
             case .dpc: "Maps beam deflection across the scan and integrates projected phase."
             case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
             default: "Runs the next incomplete parallax stage."
+            }
+        case .aiAnalysis:
+            switch appState.navigation.analysisMode {
+            case .precipitates: "Segments the currently displayed virtual image into objects."
+            case .diffractionGroups: "Groups every scan position's diffraction pattern by similarity."
+            case .learnedDisks: "Selects the learned detector, then runs full-scan disk detection."
+            default: ""
             }
         case .results: "Adds the visible result to the reusable dataset session."
         }

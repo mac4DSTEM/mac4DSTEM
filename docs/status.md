@@ -315,7 +315,28 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    embedding maths; recipe replay for the new runs (`recordReplayStep` is
    private to `AppState.swift`); the ridge measure is not elongation-
    selective (round sharp blobs respond too — the spec's open filter choice).
-9. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
+9. **The AI Analysis workspace (owner, 2026-09-07 night: "the advanced tools in
+   their own room", "make sure the main app is clean").** A sixth sidebar
+   workspace between Phase and Results (`WorkspaceArea.aiAnalysis`, ⌘5;
+   Results is ⌘6 now) with three tasks — Precipitates, Diffraction groups,
+   Learned disks — the same two panes as Imaging, its own inspector
+   (`UI/AIAnalysisSettings.swift`, which also holds `LearnedDiskRows`), and
+   a toolbar action per task (Segment / Group Patterns / Detect All Disks,
+   the last forcing the learned class). The main app is clean of the AI
+   features again: Imaging is back to its pre-AI state, Bragg disks carries
+   no Detector picker and its action always runs the classical detector, and
+   the learned live rings appear only inside AI Analysis. Products still
+   land in Results with their provenance. Build clean; 22/0/0 on the
+   precipitate, embedding, learned and classical-contract classes
+   (`ai-workspace/test2.log`). Original app files touched by the whole
+   AI/ML branch, for the record: `ProductWorkflow.swift`, `AppState.swift`,
+   `mac4DSTEMApp.swift` (the ⌘ numbers), `WorkspaceView/Sidebar/Inspector`,
+   `ImagePanes` (an empty-pane hint), `ResultExport` (fallback metadata for
+   the three product kinds), `BraggVectorEMDWriter` (one preserved
+   attribute), `DiskDetection.swift` (additive), `MapSettings.swift` (a
+   comment), `LayoutPolicy`/`WorkspaceView` (the status bar). Unverified on
+   screen.
+10. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
    run-time strip was cramped — the percentage wrapped to one character per
    line, the message to two lines): the message is one truncating line, the
    percentage has a `LayoutPolicy` slot like the metrics line (the fixed

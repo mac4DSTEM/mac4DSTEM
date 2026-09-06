@@ -57,6 +57,11 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     /// own task — it needs the datacube and calibration, never a parallax stage.
     case singleslicePtychography = "Single-slice ptycho"
     case acom = "ACOM"
+    // 2026-09-07: AI Analysis workspace tasks (docs/ai-ml/README.md §3).
+    // Raw values feed provenance like every other case's — kept stable and short.
+    case precipitates = "Precipitates"
+    case diffractionGroups = "Diffraction groups"
+    case learnedDisks = "Learned disks"
 
     var id: String { rawValue }
     var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
@@ -747,9 +752,9 @@ final class AppState {
 
     var activeResultDomain: ProductDomain {
         switch navigation.analysisMode {
-        case .disks: .detector
+        case .disks, .learnedDisks: .detector
         case .ptychography, .singleslicePtychography: .reconstruction
-        case .virtualDetector, .dpc, .strain, .acom: .scan
+        case .virtualDetector, .dpc, .strain, .acom, .precipitates, .diffractionGroups: .scan
         }
     }
 
@@ -1360,7 +1365,9 @@ final class AppState {
             await runCurrentAnalysis()
         case .map:
             switch navigation.analysisMode {
-            case .disks: await runDiskDetection()
+            case .disks:
+                learnedDetection.detectorClass = .classical   // Bragg disks is the classical room; AI Analysis → Learned disks flips it back
+                await runDiskDetection()
             case .strain: await runStrainMapping()
             case .acom: await runACOM()
             default: break
@@ -1380,6 +1387,20 @@ final class AppState {
                 await correctParallaxPhase()
             } else if parallaxSubpixel == nil {
                 await upsampleParallaxBF()
+            }
+        case .aiAnalysis:
+            switch navigation.analysisMode {
+            case .precipitates: await segmentPrecipitates()
+            case .diffractionGroups: await runDiffractionGroups()
+            case .learnedDisks:
+                // The task's meaning: running it selects the learned detector.
+                // Restores nothing — the picker in Bragg disks binds the same
+                // state, so this is a one-way choice, not a scoped override.
+                if learnedDetection.detectorClass != .learned {
+                    learnedDetection.detectorClass = .learned
+                }
+                await runDiskDetection()
+            default: break
             }
         case .results:
             break
@@ -3064,9 +3085,10 @@ final class AppState {
         switch navigation.analysisMode {
         case .virtualDetector: await runVirtualDetector()
         case .dpc:             await runDPC()
-        case .disks:
+        case .disks, .learnedDisks:
             // Live overlay on the current pattern; the full-scan pass is
-            // explicit (Detect All Disks) because it's expensive.
+            // explicit (Detect All Disks) because it's expensive. Shared with
+            // `.learnedDisks` — it is the same detection pass, from AI Analysis.
             await detectCurrentPattern()
             if let bv = braggVectors, let d = descriptor { showBraggMap(bv, descriptor: d) }
         case .strain:
@@ -3080,6 +3102,8 @@ final class AppState {
             if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
             if acomSession.orientationMap != nil { applyACOMDisplay() }
+        case .precipitates, .diffractionGroups:
+            break   // No lightweight per-position refresh; explicit run only.
         }
     }
 
@@ -4750,7 +4774,7 @@ final class AppState {
         // detector, so the candidates could not be judged before a full scan).
         // The learned preview has no classical acceptance funnel; its own
         // count is the "Current CBED" row.
-        if learnedDetection.detectorClass == .learned {
+        if learnedDetection.detectorClass == .learned, navigation.workspaceArea == .aiAnalysis {
             #if canImport(CoreAI)
             if #available(macOS 27, *), let ref = learnedDetection.probeReference,
                let assetURL = LearnedDiskDetector.bundledAssetURL(),

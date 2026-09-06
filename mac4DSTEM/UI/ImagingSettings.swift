@@ -107,12 +107,6 @@ struct ImagingSettings: View {
                     .foregroundStyle(.secondary)
             }
         }
-
-        // AI/ML brief §4 and §6 (2026-09-07): the precipitate workflow and the classical
-        // diffraction groups, each its own Section; both read the same products this
-        // workspace already makes.
-        PrecipitateSettingsSection()
-        DiffractionGroupsSection()
     }
 
     /// The glyph for each geometry. Lives here rather than on the Core types

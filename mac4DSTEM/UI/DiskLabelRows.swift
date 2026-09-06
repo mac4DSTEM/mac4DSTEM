@@ -1,11 +1,12 @@
 //
 //  DiskLabelRows.swift
-//  Role: v3-plan §3a step 5 — rows for the disk configurator's learned block
-//        (`MapSettings.swift`'s `DiskDetectionRows`, inside its
-//        `if learned.detectorClass == .learned` section) that let the owner
-//        confirm or reject the learned candidates at the currently displayed
-//        scan position, save the running tally into the session sidecar, and
-//        export it for fine-tuning. Not `private` — `DiskDetectionRows`,
+//  Role: v3-plan §3a step 5 — rows for the learned detector's own block
+//        (`MapSettings.swift`'s `LearnedDiskRows`, inside its
+//        `if learned.detectorClass == .learned` section; AI Analysis →
+//        Learned disks since 2026-09-07) that let the owner confirm or
+//        reject the learned candidates at the currently displayed scan
+//        position, save the running tally into the session sidecar, and
+//        export it for fine-tuning. Not `private` — `LearnedDiskRows`,
 //        which inserts it, lives in a different file.
 //
 

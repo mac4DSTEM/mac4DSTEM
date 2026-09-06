@@ -1143,6 +1143,12 @@ struct RealSpacePane: View {
             "Run ACOM after detecting Bragg disks and choosing a material"
         case .ptychography, .singleslicePtychography:
             "Prepare the parallax preview to begin reconstruction"
+        case .precipitates:
+            "Show a virtual image, then Segment to produce precipitate objects"
+        case .diffractionGroups:
+            "Run Group Patterns to produce the group map"
+        case .learnedDisks:
+            "Run Detect All Disks to produce the Bragg vector map"
         }
     }
 }

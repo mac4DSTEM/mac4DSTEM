@@ -103,6 +103,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Readers, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
 | Metal engine, FFTs, multicorr, cancellation | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
+| The AI Analysis workspace's inspector (precipitates, diffraction groups, learned disks; the only UI that shows AI controls) | `mac4DSTEM/UI/AIAnalysisSettings.swift` + `PrecipitateSettings.swift`, `DiffractionGroupsSettings.swift`, `DiskLabelRows.swift` |
 | Precipitate reflections, segmentation, measurements, density (plain Swift, no ML) | `mac4DSTEM/Core/Analysis/Precipitates/` |
 | Diffraction embedding: binning, PCA, k-means, similarity (plain Swift) | `mac4DSTEM/Core/Analysis/DiffractionEmbedding.swift` |
 | Learned inference (Core AI, macOS 27; the learned disk-candidate stage) | `mac4DSTEM/Core/ML/` — every new file also goes on the app target's exception list in `project.pbxproj` |

@@ -1461,8 +1461,12 @@ extension AppState {
             let kind = "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))"
             return (kind, "ACOM \(scope.rawValue.lowercased()) · \(acomSession.display.rawValue)",
                     angular.contains(acomSession.display) ? "rad" : "dimensionless")
-        case .disks:
+        case .disks, .learnedDisks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
+        case .precipitates:
+            return ("precipitate_objects", "Precipitate objects", "object_id")
+        case .diffractionGroups:
+            return ("diffraction_groups", "Diffraction groups", "group")
         case .ptychography, .singleslicePtychography:
             switch parallaxResultProduct {
             case .correctedPhase:

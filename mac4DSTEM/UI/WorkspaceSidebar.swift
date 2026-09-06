@@ -178,6 +178,12 @@ struct WorkspaceSidebar: View {
         case .dpc:
             appState.replay.record.steps.contains { $0.kind == "dpc" }
         case .ptychography, .singleslicePtychography: false
+        case .precipitates: !appState.precipitates.objects.isEmpty
+        case .diffractionGroups: appState.diffractionGroups.result != nil
+        // Its own run, recorded under the learned class specifically — not
+        // just "disks have ever been detected" (that would also light up
+        // from a plain classical run made from Bragg disks).
+        case .learnedDisks: appState.learnedDetection.lastLearned != nil
         }
     }
 

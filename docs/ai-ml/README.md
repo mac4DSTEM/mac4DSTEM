@@ -54,10 +54,12 @@ the detector: implementation and follow-up review are continuing elsewhere.
 
 ## 3. Product direction and placement in the app
 
-Proposed: an optional **AI Analysis** workspace in the existing left sidebar,
-alongside Prepare, Imaging, Strain & ACOM, Phase, and Results. The name, order,
-icon, keyboard shortcut, and internal navigation are undecided. No UI has been
-built or accepted on screen as part of this discussion.
+Built on the branch 2026-09-07 (unverified on screen): an **AI Analysis**
+workspace in the left sidebar between Phase and Results (⌘5), icon
+`sparkles`, tasks Precipitates / Diffraction groups / Learned disks, the
+same two panes as Imaging, its own inspector. The main app carries none of
+the AI controls: Bragg disks runs the classical detector only. The name and
+order remain the owner's to change.
 
 The workspace presents tasks, not model architecture or a chatbot:
 

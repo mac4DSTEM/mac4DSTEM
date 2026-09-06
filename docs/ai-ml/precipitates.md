@@ -58,7 +58,7 @@ from Al-Si-Mg-specific constants.
 ## 3. Proposed screens
 
 Minimal, in the existing workspaces — the owner wants slow, conservative UI
-integration (README §3). No new sidebar workspace in v1.
+integration (README §3). The screens live in the AI Analysis workspace (built 2026-09-07), not in Imaging.
 
 - A "Precipitate reflections" list in the Imaging workspace's virtual-detector
   settings: propose → confirm, same interaction shape as an existing
