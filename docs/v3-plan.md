@@ -607,8 +607,11 @@ them, and (5) once a material's simulation library exists.
    The first v3 feature to land bumps the version to v3.0 (`decisions.md`,
    2026-09-02). Owed before this step is called done: the licence table —
    own weights, none; abTEM GPL-3.0 as a tool; YOLOv8 code and weights
-   AGPL-3.0, which is why the stock `yolov8n.mlpackage` dragged into the
-   Xcode project on 2026-09-05 is a reference only and is never committed.
+   AGPL-3.0. The stock `yolov8n.mlpackage` dragged into the Xcode project
+   on 2026-09-05 WAS committed and pushed with it (`eb3ad23`, in the Sources
+   build phase, referenced by no Swift file); removed from the tree and the
+   project on 2026-09-07 on this branch. It remains in public history unless
+   `main` is rewritten — the owner's call, recorded here rather than done.
 5. **Fine-tuning** on the owner's confirmed patterns, the bullseye probe
    first; retrained weights are a new hash, so old results still say what
    made them.

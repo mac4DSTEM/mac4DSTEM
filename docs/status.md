@@ -59,33 +59,60 @@ The live facts are the Releases table above and `CHANGELOG.md`.
 
 ## Handoff (rewritten 2026-09-07 on the branch `ml/disk-detector`, after the overnight run of §3a steps 1–3)
 
-**Questions for the owner, from the overnight run (branch only, nothing pushed,
-`main` untouched; the numbers are §3a "Step 3 — evidence" in `v3-plan.md`):**
+**Step 3 verdict, corrected 2026-09-07 (morning review of the overnight
+run; branch only, nothing pushed, `main` untouched; numbers are §3a
+"Step 3 — evidence" in `v3-plan.md` and the retained logs it names):**
 
-1. **The step 3 verdict.** Recommended: it earns its place as a *candidate
-   stage* — Neural Engine 0.34–0.36 ms per pattern (run1 / run2, the annealed
-   run2 is the checkpoint of record: validation loss 0.0473, recall 0.82;
-   0.6× the classical stand-in, the whole learned path ≤ 1.6×, under the 2× ceiling), fixture recall 1.000
-   before refinement and the classical detector's own 0.244 px after it, every
-   visible bullseye disk marked including ones the 5 % cut drops. Against it:
-   at threshold 0.3 the net also paints ~65 background peaks per real bullseye
-   position (5 at 0.9) — refinement would prune them but the 70-peak cap
-   truncates first — so **the threshold/cap policy for real data is a
-   decision** (the fixture wants 0.3, the real cube wants ~0.9; the
-   disagreement map was designed for exactly this). Owner decides.
-2. **Serving shape.** The in-graph top-k `detect` asset runs on the ANE, but
-   the GPU-preferred delegate returns half its peaks and the probe-as-state
-   asset segfaults on load: ship `detect` ANE-only with the probe per batch,
-   or the `scoremap` variant with the top-k in Swift? Both are exported and
-   timed.
-3. **Input normalisation for float cubes** (WS₂ sums to 0.25): `log1p` is
-   linear on it and both detectors find one peak per position. Step 4 must
-   scale into counts before the log — by what rule (the load spec's dose?).
-4. **Owner's morning:** Xcode's graph/placement view on
-   `run1/export/disk-detector-detect-b32.aimodel` (the differential is the
-   only placement evidence tonight); the Swift `coreai-runner` was NOT
-   written (the Python runtime in `coreai-core` timed everything);
-   `run-tests.sh benchmark` for the Metal engine's own time on the same cube.
+1. **Step 3 is NOT passed. Last night proved the pipeline, not the detector.**
+   What stands: the simulator and committed fixture (proven, broken four
+   ways), a U-Net trained twice, nine Core AI assets + Core ML insurance
+   pixel-checked against PyTorch, hashed, and timed on the Neural Engine at
+   0.36 ms per pattern. What the overnight verdict got wrong, each checked in
+   the code or a retained log this morning: (a) **the 2× ceiling was measured
+   against the wrong baseline** — the 0.602 ms stand-in is the serial
+   single-core detector on 24 synthetic patterns; the app has no Metal disk
+   detection, its scan path (`DiskDetection.detectAll`) runs that detector on
+   all 8 cores, so on the same cube the classical wall clock is ~5 s per
+   65 536 against the net's 24 s: about 4–5× over, not 0.6× under;
+   (b) **the training target teaches the lattice, not the visible disks** —
+   extinct reflections (rendered at 0–2 %) stay in the truth list and get a
+   full-amplitude bump (`simulate.heatmap_target`), the likely driver of the
+   ~65 background proposals per real position; (c) **refinement rejects
+   nothing** — `evaluate.refine` snaps every candidate and returns it, no
+   acceptance rule, no duplicate merge; (d) the "real" training backgrounds
+   are azimuthal medians, texture-free by construction, so the net never saw
+   the texture it fires on; (e) the step 3 numbers came from PyTorch
+   heatmaps, not the exported asset; (f) threshold 0.9 keeps fixture raw
+   recall 1.000 (`run2/evaluate/evaluate-thr0.9.json`), so "the fixture wants
+   0.3" was false and the threshold question is moot: 0.9.
+2. **If the detector continues, the next increment, in order:** a visibility
+   floor on the target and real texture in the backgrounds (patterns with
+   disks masked, not radial medians), retrain (~90 min); an acceptance rule
+   and duplicate suppression after refinement; evaluate the exported
+   `scoremap` asset (peak-picking in Swift avoids the GPU top-k defect and
+   the 70 cap) at 0.9 against a frozen hand-labelled bullseye set — step 5's
+   labelling tool pulled forward; `detectAll` wall clock on the same cube.
+   **Throughput is an owner decision before any retraining:** a narrower net,
+   a smaller input, or restating the ceiling as ANE-concurrent with the CPU.
+   Defer probe-as-state and any larger net.
+3. **On "reuse the platform for other models" (proposed 2026-09-07: precipitate
+   segmentation, diffraction embeddings, ACOM shortlists, quality masks,
+   PACBED thickness).** What is reusable today is the Python side: simulator
+   pattern, train → export → ANE, the export checks. The app side — model
+   loading, batching, provenance hash, reviewable predictions, sidecar
+   labels — is step 4 and does not exist. Recommended: finish ONE model
+   through step 4 before a second Python prototype, because step 4 is where
+   the shared infrastructure gets built and Gate B'd. Per-pattern uses
+   (embeddings, shortlists, masks) inherit the 0.3 ms-per-pattern cost and
+   need their own ceiling; per-image uses (precipitate segmentation on
+   virtual images) need labels, not the Neural Engine. The precipitate chain
+   is already in `v3-plan.md` ("The precipitate chain"). Owner decides.
+4. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
+   and pushed 2026-09-05 in the Sources build phase, referenced by no Swift
+   file) is removed from the tree and the project; it stays in public
+   history unless `main` is rewritten. `run-tests.sh benchmark` did not run:
+   1.75 GB free against its 4 GB gate, and `free-space.sh` has nothing to
+   clear. Not done: Xcode's placement view, the Swift runner.
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -133,8 +160,9 @@ agent should say so and start at item 2.
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
    step 3 numbers on the fixture and both real cubes). **Next: the owner's
-   verdict (questions above), then step 4 (the app wiring, Gate B) on the
-   branch; the full discipline returns at the merge.** ACOM coverage
+   decisions on the corrected verdict (items 1–3 above: throughput first),
+   then the increment in item 2, then step 4 on the branch; the full
+   discipline returns at the merge.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.
