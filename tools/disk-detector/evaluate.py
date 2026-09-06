@@ -26,7 +26,7 @@ BULLSEYE = "4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data"
 WS2 = "4DSTEM/datacube/data"
 
 
-def real_inputs(cube_path, dataset, probe, probe_centre, stride, size=sm.S):
+def real_inputs(cube_path, dataset, probe, probe_centre, stride, size=sm.S, scale=1.0):
     """Yields (ry, rx, pattern128, given probe, kernel) for every stride-th scan position, the pattern
     centre-cropped to 128 around the probe centre for the bullseye (250 px) and as-is for WS2 (128 px)."""
     import h5py
@@ -35,7 +35,7 @@ def real_inputs(cube_path, dataset, probe, probe_centre, stride, size=sm.S):
         kernel = sm.flat_kernel(probe, probe_centre)
         for ry in range(0, d.shape[0], stride):
             for rx in range(0, d.shape[1], stride):
-                p = d[ry, rx].astype(np.float64)
+                p = d[ry, rx].astype(np.float64) * scale
                 if p.shape[0] != size:
                     p, _ = sm.centred_crop(p, (124.76, 124.74), size)
                 yield ry, rx, p, kernel
@@ -56,7 +56,7 @@ def stage_net(a):
     for name, path, ds, probe, c in [("bullseye", a.bullseye, BULLSEYE, ing["bullseye_probe"].astype(np.float64), tuple(ing["bullseye_centre"])),
                                      ("ws2", a.ws2, WS2, ing["ws2_probe"].astype(np.float64), tuple(ing["ws2_centre"]))]:
         pos, xs = [], []
-        for ry, rx, p, k in real_inputs(path, ds, probe, c, a.stride):
+        for ry, rx, p, k in real_inputs(path, ds, probe, c, a.stride, scale=(a.ws2_scale if name == "ws2" else 1.0)):
             pos.append((ry, rx)); xs.append(sm.model_inputs(p, probe, sm.cross_correlation(p, k)))
         t0 = time.time(); h = heat(xs); dt = time.time() - t0
         np.savez_compressed(os.path.join(a.out, f"net-{name}.npz"), heat=h, positions=np.array(pos), seconds=dt)
@@ -135,7 +135,7 @@ def stage_compare(a):
         k = sm.flat_kernel(probe, c)
         counts, moved, disagree, examples, t_cl = [], [], 0, [], 0.0
         n_net = n_cl = matched = 0
-        for i, (ry, rx, p, _) in enumerate(real_inputs(path, ds, probe, c, a.stride)):
+        for i, (ry, rx, p, _) in enumerate(real_inputs(path, ds, probe, c, a.stride, scale=(a.ws2_scale if ing_key == "ws2" else 1.0))):
             t0 = time.time(); q = find_Bragg_disks(p, k, **settings); t_cl += time.time() - t0
             cl = np.stack([q.data["qx"], q.data["qy"]], 1) if len(q.data) else np.zeros((0, 2))
             cc = sm.cross_correlation(p, k); cand = pick(H[i], a.threshold); net = refine(cand, cc, settings["sigma_cc"])[:, :2]
@@ -160,8 +160,9 @@ def stage_compare(a):
                 if len(net): axx.scatter(net[:, 1], net[:, 0], s=20, marker="x", c="red", label=f"net+refine {len(net)}")
                 axx.set_title(f"{name} ({ry},{rx}): classical-only {len(un_cl)}, net-only {len(un_net)}", fontsize=8); axx.legend(fontsize=7, loc="lower right")
                 axx.set_xlim(-0.5, sm.S - 0.5); axx.set_ylim(sm.S - 0.5, -0.5); axx.set_axis_off()
-            fig.tight_layout(); fig.savefig(os.path.join(a.out, f"disagree-{name}.png"), dpi=90); plt.close(fig)
-    json.dump(res, open(os.path.join(a.out, "evaluate.json"), "w"), indent=1); print("wrote", os.path.join(a.out, "evaluate.json"))
+            fig.tight_layout(); fig.savefig(os.path.join(a.out, f"disagree{a.tag}-{name}.png"), dpi=90); plt.close(fig)
+    res["ws2_scale"] = a.ws2_scale
+    json.dump(res, open(os.path.join(a.out, f"evaluate{a.tag}.json"), "w"), indent=1); print("wrote", os.path.join(a.out, f"evaluate{a.tag}.json"))
 
 
 def main():
@@ -169,6 +170,8 @@ def main():
     ap.add_argument("--run", required=True); ap.add_argument("--out", required=True); ap.add_argument("--ingredients", required=True)
     ap.add_argument("--bullseye", required=True); ap.add_argument("--ws2", required=True)
     ap.add_argument("--stride", type=int, default=8); ap.add_argument("--threshold", type=float, default=0.3); ap.add_argument("--examples", type=int, default=6)
+    ap.add_argument("--tag", default="", help="suffix for evaluate<tag>.json and the PNGs (a second threshold, say)")
+    ap.add_argument("--ws2-scale", type=float, default=1.0, help="multiply the WS2 cube (float, sums to 0.25) into counts; 1e6 puts its beam at ~2e4")
     a = ap.parse_args(); os.makedirs(a.out, exist_ok=True)
     stage_net(a) if a.stage == "net" else stage_compare(a)
 

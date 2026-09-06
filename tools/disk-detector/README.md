@@ -110,5 +110,20 @@ flat-kernel correlation at each candidate (standing in for the Metal engine),
 matches to the drawn centres (fixture) and to `find_Bragg_disks` at the
 2026-09-05 settings (real cubes), and saves PNGs of disagreeing patterns.
 
+**Numbers (2026-09-07, `References/training_runs/disk-detector-2026-09-06/`,
+the full account is `docs/v3-plan.md` §3a "Step 3 — evidence").** run1: 9 500
+steps in 80 min, best validation loss 0.0526, validation recall@2 px 0.80,
+fixture recall 1.000. Neural Engine, `detect` B32: 0.344 ms per pattern
+(22.6 s per 65 536), first load 3.3 s, 98.6 % of numpy's peaks reproduced
+in-graph; CPU-only 14.4 ms, GPU-preferred 1.45 ms (and half the peaks — a
+GPU-delegate top-k defect); the probe-as-state asset segfaults on load; a
+top-k graph failed the ANE program load once inside a torch-importing process
+(hence the subprocess check). Classical stand-in 0.602 ms per pattern
+(`tools/performance-baseline/bench.json`, 2026-08-27): the net alone is 0.57×,
+the whole learned path ≤ 1.57×, under the 2× ceiling. On the real bullseye
+crop the net marks every visible disk and, at threshold 0.3, ~65 background
+peaks per position (5 at 0.9); WS₂ is float-normalised so `log1p` is linear
+on it — step 4 must scale float cubes into counts first.
+
 abTEM honesty check: skipped 2026-09-06. The existing `abtem` conda env does not
 import (numpy's `libgfortran.5.dylib` missing) and a reinstall would eat the disk.

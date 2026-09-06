@@ -34,6 +34,22 @@ def load_inputs(run, batch, n_batches, seed=4242):
         xs.append(sm.model_inputs(s.pattern, s.probe, s.correlation))
     return np.stack(xs[: batch * n_batches]).astype(np.float32)
 
+def peak_agreement(got, ref, tol=1.0):
+    """got/ref: per-input arrays of (row, col[, score]). Fraction of reference peaks with a got peak
+    within tol px, the fraction of got peaks that match nothing, and the count difference."""
+    hit = tot = extra = ntot = 0; diffs = []
+    for g, rf in zip(got, ref):
+        g = np.asarray(g).reshape(-1, g.shape[-1] if len(g) else 2)[:, :2]; rf = np.asarray(rf).reshape(-1, 3)[:, :2]
+        used = np.zeros(len(g), bool)
+        for r, c in rf:
+            tot += 1
+            if len(g):
+                d = np.hypot(g[:, 0] - r, g[:, 1] - c); d[used] = np.inf; j = int(np.argmin(d))
+                if d[j] <= tol: hit += 1; used[j] = True
+        extra += int((~used).sum()); ntot += len(g); diffs.append(len(g) - len(rf))
+    return dict(recall=hit / max(tot, 1), extra=extra / max(ntot, 1), count_diff_median=float(np.median(diffs)) if diffs else 0.0)
+
+
 def report(name, ref, got, scale_note=""):
     d = np.abs(ref.astype(np.float64) - got.astype(np.float64))
     print(f"  {name}: max |diff| {d.max():.3e}, mean {d.mean():.3e}, 99.9th pct {np.percentile(d, 99.9):.3e}{scale_note}")
@@ -116,12 +132,13 @@ def main():
                     print(f"{tag}: load+specialise {r['load_s']:.2f} s; per batch of {bsz}: median {np.median(t) * 1000:.2f} ms, min {t.min() * 1000:.2f} ms -> {np.median(t) / bsz * 1000:.3f} ms/pattern, {np.median(t) / bsz * 65536:.1f} s per 65 536 (input {r['input_dtype']})")
                     d = report("heatmap vs PyTorch float32", heat32, r["heatmap"]); d16 = report("heatmap vs PyTorch float16", heat16, r["heatmap"])
                     res = dict(load_s=float(r["load_s"]), ms_per_batch_median=float(np.median(t) * 1000), ms_per_pattern=float(np.median(t) / bsz * 1000), s_per_65536=float(np.median(t) / bsz * 65536), max_diff_fp32=float(d), max_diff_fp16=float(d16), options=str(r["options"]))
-                    if "coords" in r:
-                        pk = np.mean([set(map(tuple, np.round(r["coords"][i][r["scores"][i] > 0]).astype(int))) == set(map(tuple, npk[i][:, :2].astype(int))) for i in range(len(x))])
-                        print(f"  in-graph top-k peaks == numpy peaks on {pk * 100:.1f}% of inputs"); res["peaks_agree"] = float(pk)
-                    if "scoremap" in r:
-                        pk = np.mean([set(map(tuple, np.argwhere(r["scoremap"][i, 0] > 0))) == set(map(tuple, npk[i][:, :2].astype(int))) for i in range(len(x))])
-                        print(f"  score-map non-zeros == numpy peaks on {pk * 100:.1f}% of inputs"); res["peaks_agree"] = float(pk)
+                    got = None
+                    if "coords" in r: got = [r["coords"][i][r["scores"][i] > 0] for i in range(len(x))]; what = "in-graph top-k peaks"
+                    if "scoremap" in r: got = [np.argwhere(r["scoremap"][i, 0] > 0).astype(np.float32) for i in range(len(x))]; what = "score-map non-zeros"
+                    if got is not None:
+                        pa = peak_agreement(got, npk)
+                        print(f"  {what} vs numpy peaks on the float32 heatmap: {pa['recall'] * 100:.1f}% of numpy peaks found within 1 px, {pa['extra'] * 100:.1f}% extra, count diff median {pa['count_diff_median']:+.0f}")
+                        res["peaks"] = pa
                     results[f"{key}_{prefer}"] = res
                 except Exception as err:
                     print(f"{tag} FAILED: {err}"); results[f"{key}_{prefer}"] = dict(error=str(err)[:400])

@@ -130,10 +130,12 @@ def main():
     json.dump(dict(args=vars(a), params=nparam, config=sm.asdict(cfg)), open(os.path.join(a.out, "config.json"), "w"), indent=1)
     loss_fn = HeatmapLoss(a.miss_weight)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=1e-4)
-    sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=a.lr, total_steps=a.steps, pct_start=0.05)
     step0 = 0; best = float("inf")
     if a.resume:
+        # --steps is absolute; the schedule (warm-up then anneal) covers the steps that remain
         ck = torch.load(a.resume, map_location=dev, weights_only=False); model.load_state_dict(ck["model"]); opt.load_state_dict(ck["opt"]); step0 = ck["step"]; best = ck.get("best", best)
+        for g in opt.param_groups: g["lr"] = a.lr
+    sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=a.lr, total_steps=max(a.steps - step0, 1), pct_start=0.05)
     vx, vy, vcen = fixed_set(a.ingredients, cfg, 999, 128)
     z = np.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture", "fixture.npz"))
     ex = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture", "expected.json")))
@@ -147,7 +149,7 @@ def main():
         x, y = next(it); x, y = x.to(dev), y.to(dev)
         pred = model(x); loss = loss_fn(pred, y)
         opt.zero_grad(set_to_none=True); loss.backward(); opt.step()
-        if step < a.steps: sched.step()
+        if step < a.steps - 1: sched.step()
         if step % 50 == 0:
             tb.add_scalar("train/loss", loss.item(), step); tb.add_scalar("train/lr", sched.get_last_lr()[0], step)
             now = time.time(); tb.add_scalar("train/samples_per_s", 50 * a.batch / max(now - last, 1e-9), step); last = now

@@ -583,20 +583,20 @@ them, and (5) once a material's simulation library exists.
 
 #### Steps, in order, each its own session
 
-1. **Simulator + fixture** in `tools/disk-detector/`: patterns with known
+1. **Simulator + fixture** (DONE on the branch 2026-09-06, `a75a6e3`…; evidence below) in `tools/disk-detector/`: patterns with known
    disk centres, and the classical detector at the 2026-09-05 Gate D
    settings recovers the drawn centres — the simulator and the fixture are
    proven before any net sees them, independently of any net. A few abTEM
    patterns as the honesty check. Break the fixture first. Classify the
    directory in `run-tests.sh inventory`.
-2. **Net + training in PyTorch; export to Core AI (`coreai-torch`); the
+2. (DONE on the branch 2026-09-07 except the probe-as-state function and Xcode's placement view; evidence below) **Net + training in PyTorch; export to Core AI (`coreai-torch`); the
    Core ML export kept as insurance.** The `.aimodel` checked against
    PyTorch pixel for pixel; every op's placement read in Xcode/Instruments
    with `.neuralEngine` preferred; the batch size, the in-graph
    peak-picking and the probe-as-state function verified (Core AI block);
    first-load specialisation timed; a per-pattern and per-scan time stated
    from a run against the 2× ceiling.
-3. **Does it earn its place?** Net + refinement against the drawn centres
+3. (numbers on the branch 2026-09-07, evidence below; verdict owed) **Does it earn its place?** Net + refinement against the drawn centres
    (recall, precision, residual after refinement); against the classical
    detector on the bullseye and WS₂ cubes; against the throughput ceiling
    set before the comparison. The verdict goes to `decisions.md`.
@@ -612,6 +612,124 @@ them, and (5) once a material's simulation library exists.
 5. **Fine-tuning** on the owner's confirmed patterns, the bullseye probe
    first; retrained weights are a new hash, so old results still say what
    made them.
+
+#### Step 3 — evidence (overnight 2026-09-06 → 07, branch `ml/disk-detector`; numbers only, the verdict is the owner's)
+
+Every number below is from a retained, dated log under
+`References/training_runs/disk-detector-2026-09-06/` (owner-local, gitignored;
+the file named in each line). Machine: macOS 27.0 (26A5388g), Xcode 27.0 beta,
+the `disk-detector` conda env of `tools/disk-detector/requirements.txt`
+(torch 2.11.0, coreai-torch 0.4.2, coreai-core 1.0.0b2, coreai-opt 0.2.1,
+coremltools 9.0). The pinned py4DSTEM env (0.14.17) only calls py4DSTEM.
+
+**Step 1 — simulator + fixture (`fixture-verify-20260906-0134-vectorised.log`,
+`run-fixture-step1.log`, `inventory-step1.log`, all exit 0).** The numpy port
+of `get_probe_kernel_flat` + `get_cross_correlation` equals py4DSTEM's own on
+the fixture to a relative difference of 0.0. py4DSTEM's classical detector at
+the 2026-09-05 bullseye settings (flat kernel, minPeakSpacing 8, edgeBoundary 6,
+minRelativeIntensity 0.05, sigma_cc 2, poly) recovers 148/153 = 0.967 of the
+eligible drawn centres within 1.5 px, median matched residual 0.244 px, max
+1.31 px. Four deliberate breaks each fail: truth shifted 3 px → recall 0.000;
+axes swapped → 0.026; three disks dropped from the render → 0.699; probe
+rolled (4, −3) → 0.000. The five misses are the classical detector's own (a
+tilted ring disk pulls its correlation peak ~1 px; ring ridges swallow faint
+disks). abTEM honesty check skipped: the `abtem` env does not import
+(`libgfortran.5.dylib`), a reinstall would eat the disk floor.
+
+**Step 2 — net, training (`run1.log`, `run1-curves.png`).** U-Net width 24
+(1 097 665 parameters), batch 32, on-the-fly simulation from the measured
+bullseye probe, the WS₂ stand-in and the drawn probe with real radial
+backgrounds; MPS. One run, 01:38–03:01, 9 500 steps (≈ 300 k samples), stopped
+by the 80-min cap with the one-cycle schedule sized for 30 000 steps, so the
+learning rate never annealed. best.pt = step 9 000: validation loss 0.0526,
+validation recall@2 px 0.796 / precision 0.59 (numpy peak-picking at
+threshold 0.3 on 128 held-out simulated samples — the hard regime: overlapping
+disks, extinct reflections, doses to 2·10⁴), fixture recall 1.000 from step 500
+on, fixture precision 0.76–0.79. No divergence. A 55-min annealing
+continuation (run2, lr 4·10⁻⁴ → 0) was started at 03:09; its numbers, if it
+finished, are in `run2.log` and below.
+
+**Step 2 — export (`run1-export.log`, `run1/export/export.json`).** Nine Core AI
+assets — three function variants × B ∈ {16, 32, 64}: `detect` (heatmap +
+in-graph top-K = 70 peaks), `scoremap` (heatmap + max-pool peak mask, no
+top-k), `heatmap` — plus the probe-as-state asset and the Core ML
+`.mlpackage` (heatmap + coords + scores converted). SHA-256 of the primary
+`detect`-B32 asset: `c88d26fc840d…`; every asset's hash is in `export.json`.
+Two converter facts: coreai-torch 0.4.2 has no lowering for `aten.remainder`
+(the column index is `idx − rows·S`), and coreai-opt 0.2.1 pins torch ≤ 2.11.0.
+
+**Step 2 — checks and timing (`run1-check.log`, `run1/export/check.json`; idle
+machine, training finished, every Core AI configuration in its own process
+through macOS 27's own runtime).** Inputs: the 16 fixture patterns + 240
+simulated, batch 32. PyTorch float16 vs float32 heatmap: max |diff| 0.0083
+(the floor). Per pattern, median over batches, on the Neural Engine
+(`SpecializationOptions` preferred `.neuralEngine`) / CPU only / GPU
+preferred:
+
+| Asset | first load + specialise | ANE | CPU | GPU | heatmap max diff vs fp32 (ANE / CPU / GPU) | peaks vs numpy (ANE) |
+|---|---|---|---|---|---|---|
+| detect B16 | 2.2 s | 0.423 ms | 15.2 ms | 1.47 ms | 0.056 / 0.031 / 0.028 | 98.6 % within 1 px, 1.7 % extra |
+| detect B32 | 3.3 s | **0.344 ms** (22.6 s per 65 536) | 14.4 ms | 1.45 ms | same | 98.6 %, 1.7 % extra |
+| detect B64 | 3.1 s | 0.334 ms (21.9 s per 65 536) | 21.3 ms | 1.42 ms | same | 98.6 %, 1.7 % extra |
+| heatmap B32 / B64 | 3.2 / 4.0 s | 0.286 / 0.275 ms | 14.1 / 25.9 ms | 1.54 / 1.76 ms | same | — |
+| scoremap B16 / B32 / B64 | 2.0 / 3.3 / 3.1 s | 0.281 / 0.273 / 0.287 ms | 15.9 / 14.1 / 29.6 ms | 1.49 / 1.60 / 1.59 ms | same | 99.1 %, 25 % extra (fp16 plateaus double adjacent maxima) |
+| Core ML `.mlpackage` B32 (coremltools predict, Python overhead) | 0.8 s | 0.338 ms (CPU_AND_NE) | 3.49 ms (CPU only) | — | 0.053 / 0.017 | — |
+
+What the differential says: the same asset is 4× faster with the Neural
+Engine preferred than GPU-preferred and 40× faster than CPU-only — the
+placement evidence tonight; Xcode's graph view is the owner's in the morning.
+Batch 32 vs 64 is 3 %; 16 costs 25 %. Three defects recorded: (1) the
+**GPU-preferred `detect` returns half the peaks** (48.8–55.9 % of numpy's,
+count difference median −16…−22) while its heatmap is the closest to
+PyTorch — a top-k defect in the GPU delegate, not in the net; (2) the
+**probe-as-state asset segfaults on load** (exit −11, both runs) — the probe
+is passed per batch for now, as §3a allowed; (3) earlier in the night the
+`detect` graph **failed the Neural Engine program load** (com.apple.
+appleneuralengine code 6, 0x10004, then an MPSGraph assertion, process
+killed) when loaded inside a process that had imported torch; in a torch-free
+process it loads and runs — hence the subprocess check. Heatmap agreement
+with PyTorch on the ANE is 0.056 max / 0.0013 mean / 0.017 at the 99.9th
+percentile, ~7× the float16 floor at the max, and the in-graph peaks still
+reproduce 98.6 % of numpy's.
+
+**The 2× ceiling.** Best available classical timing: the performance
+baseline's `disk_detection` entry, 14.449 ms for 24 patterns at 128×128
+(sigma_cc 2, poly, Accelerate/vDSP + CPU maxima, recorded 2026-08-27,
+`tools/performance-baseline/bench.json`) = **0.602 ms per pattern** — a
+stand-in: it times the CPU path on synthetic patterns, not the Metal engine on
+the bullseye cube. The net alone on the ANE is 0.344 ms = 0.57× that; the
+learned path as designed (classical correlation still computed for channel 3,
+net on top) is ≤ 0.946 ms = **1.57× the classical stand-in, under the 2×
+ceiling**, and the ANE work overlaps the GPU/CPU work in practice. Not
+measured tonight: the Metal engine's own time on the same cube (the tree's
+`run-tests.sh benchmark` was not run; it would contend with training).
+
+**Step 3 — the fixture (`run1-evaluate.log`, `run1/evaluate/evaluate.json`,
+threshold 0.3).** Net candidates 361 for 153 eligible drawn centres: recall
+before refinement 1.000 (median residual 0.40 px, max 0.85), after py4DSTEM's
+poly refinement on the flat-kernel correlation 0.967 with median residual
+0.244 px, max 1.31 — identical to the classical detector's own numbers,
+because the refinement snaps every candidate to the correlation's local
+maximum and the same five disks sit a pixel off there. Precision after
+refinement 0.41 (the net over-proposes by design).
+
+**Step 3 — the real cubes (same log; stride 8 → 143 bullseye positions on a
+128-px crop about the probe centre, 256 WS₂ positions; the classical detector
+at the 2026-09-05 settings).** Bullseye: classical 442 peaks (median 3 per
+position), net + refinement 9 251 (median 70 — the cap); 380 of the classical
+peaks matched within 3 px, 10 of those beyond 0.5 px; every position
+disagrees. The PNG (`run1/evaluate/disagree-bullseye.png`) shows why: the net
+marks every visible disk, including disks the classical detector drops at its
+5 % cut (e.g. position (0,0): 1 classical, 3 visible), and ALSO paints ~65
+peaks per position over the real background — the simulation-to-reality gap
+on this camera's background texture, threshold 0.3. Per position, net peaks by
+threshold: 0.3 → median 70, 0.5 → 45, 0.7 → 17, 0.9 → 5 (the visible disk
+count). WS₂: the cube is float-normalised (a pattern sums to 0.25, beam
+0.021), so `log1p` is linear on it and the classical detector finds ONE peak
+per position at 0.05 and at 0.005 alike; the net also finds the beam plus a
+fixed spurious spot in 31/256 positions (`disagree-ws2.png`). Both are
+saying the same thing: at this scale the input normalisation is the problem,
+not the detector — step 4 must scale float cubes into counts before the log.
 
 ## 4. Leave alone; where the app is ahead
 
