@@ -113,7 +113,9 @@ matches to the drawn centres (fixture) and to `find_Bragg_disks` at the
 **Numbers (2026-09-07, `References/training_runs/disk-detector-2026-09-06/`,
 the full account is `docs/v3-plan.md` §3a "Step 3 — evidence").** run1: 9 500
 steps in 80 min, best validation loss 0.0526, validation recall@2 px 0.80,
-fixture recall 1.000. Neural Engine, `detect` B32: 0.344 ms per pattern
+fixture recall 1.000; run2 (a 55-min anneal from run1, the checkpoint of
+record, asset `0df112f4f593…`): validation loss 0.0473, recall 0.82, ANE
+0.363 ms per pattern, 98.2 % of numpy's peaks in-graph. Neural Engine, `detect` B32: 0.344 ms per pattern
 (22.6 s per 65 536), first load 3.3 s, 98.6 % of numpy's peaks reproduced
 in-graph; CPU-only 14.4 ms, GPU-preferred 1.45 ms (and half the peaks — a
 GPU-delegate top-k defect); the probe-as-state asset segfaults on load; a

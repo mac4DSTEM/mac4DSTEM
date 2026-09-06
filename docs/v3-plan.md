@@ -646,8 +646,8 @@ validation recall@2 px 0.796 / precision 0.59 (numpy peak-picking at
 threshold 0.3 on 128 held-out simulated samples — the hard regime: overlapping
 disks, extinct reflections, doses to 2·10⁴), fixture recall 1.000 from step 500
 on, fixture precision 0.76–0.79. No divergence. A 55-min annealing
-continuation (run2, lr 4·10⁻⁴ → 0) was started at 03:09; its numbers, if it
-finished, are in `run2.log` and below.
+continuation (run2, lr 4·10⁻⁴ → 0) followed at 03:09 — its numbers are the
+run2 paragraph below, and run2 is the checkpoint of record.
 
 **Step 2 — export (`run1-export.log`, `run1/export/export.json`).** Nine Core AI
 assets — three function variants × B ∈ {16, 32, 64}: `detect` (heatmap +
@@ -748,6 +748,29 @@ visible spot of the lattice — the ring-artefact-free regime where the
 classical relative-intensity cut, not the correlation, is what fails. Net
 PyTorch-CPU time in these logs is contaminated by the concurrent training
 run and is not evidence.
+
+**run2 — the annealing continuation (`run2.log`, `run2-curves.png`,
+`run2-export.log`, `run2-check.log`, `run2-evaluate*.log`; 03:09–04:04, resumed
+from run1's best, lr 4·10⁻⁴ warm-up then anneal over 7 000 steps, stopped by the
+55-min cap at step 15 999).** best.pt = step 14 000: validation loss **0.0473**
+(from 0.0526), validation recall@2 px 0.82 / precision 0.61, fixture recall
+1.000. This is the checkpoint of record; its `detect`-B32 asset is
+`0df112f4f593…`. Idle-machine check: ANE 0.363 ms per pattern
+(23.8 s per 65 536), first load 3.35 s, heatmap max diff vs
+PyTorch float32 0.070 (fp16 floor 0.0188), in-graph peaks
+98.2 % of numpy's with 2.2 % extra; CPU-only 12.7 ms;
+GPU-preferred 1.36 ms with 57.7 % of the peaks (the delegate defect
+again); the stateful asset segfaults again; Core ML CPU_AND_NE
+0.305 ms. Step 3 with run2: fixture recall 1.000 raw →
+0.967 refined at 0.244 px (unchanged — refinement
+decides); bullseye at 0.3: net median +67 per position over classical,
+5 matched pairs beyond 0.5 px; at 0.9: 668 net vs 442
+classical peaks, count difference median +2, 1 pair beyond
+0.5 px, 126/143 positions disagree by count; WS₂ as stored: the annealed
+net now proposes 15 spots per position beyond the beam where py4DSTEM
+still finds one; WS₂ scaled into counts: net median +53.5, 63/64
+beams matched. Ceiling with run2: 0.60× the classical stand-in alone,
+≤ 1.60× for the whole learned path. Total training tonight: 80 + 55 min.
 
 **Recommended verdict (the agent's reading; owner decides).** It earns its
 place as a candidate stage: under the throughput ceiling on the Neural Engine,

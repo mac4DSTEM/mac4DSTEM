@@ -63,8 +63,9 @@ The live facts are the Releases table above and `CHANGELOG.md`.
 `main` untouched; the numbers are §3a "Step 3 — evidence" in `v3-plan.md`):**
 
 1. **The step 3 verdict.** Recommended: it earns its place as a *candidate
-   stage* — Neural Engine 0.344 ms per pattern (0.57× the classical stand-in,
-   the whole learned path ≤ 1.57×, under the 2× ceiling), fixture recall 1.000
+   stage* — Neural Engine 0.34–0.36 ms per pattern (run1 / run2, the annealed
+   run2 is the checkpoint of record: validation loss 0.0473, recall 0.82;
+   0.6× the classical stand-in, the whole learned path ≤ 1.6×, under the 2× ceiling), fixture recall 1.000
    before refinement and the classical detector's own 0.244 px after it, every
    visible bullseye disk marked including ones the 5 % cut drops. Against it:
    at threshold 0.3 the net also paints ~65 background peaks per real bullseye
