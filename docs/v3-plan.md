@@ -604,7 +604,7 @@ them, and (5) once a material's simulation library exists.
    (recall, precision, residual after refinement); against the classical
    detector on the bullseye and WS₂ cubes; against the throughput ceiling
    set before the comparison. The verdict goes to `decisions.md`.
-4. (slice 1 on the branch 2026-09-07: the `Core/ML` class, the classical entry points, the committed asset + Swift fixture test; UI, map and labels owed — `status.md`) **Wire in as an option**: `DetectorClass`, the hash in provenance, the
+4. (slices 1–2 on the branch 2026-09-07: the `Core/ML` class and its Gate B, the classical entry points, the bundled asset, the `Session/` owner, the option in the configurator, provenance on screen, the disagreement map — unverified on screen; the sidecar labels are slice 3 — `status.md`) **Wire in as an option**: `DetectorClass`, the hash in provenance, the
    disagreement map, the labelled-pattern store in the sidecar. Gate B
    campaign (it is `Core/` and it moves which disks are found); any
    real-cube disagreement that looks like a defect enters through Gate D.

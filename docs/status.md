@@ -188,7 +188,38 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    framework each fail to load on the ANE after the OTHER has written
    `~/Library/Caches/coreai-cache` — move the cache aside whenever switching;
    and never build an `NDArray` with `init(scalars:shape:)` on the hot path.
-5. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
+5. **Step 4, slice 2, landed on the branch 2026-09-07 evening (owner: "finish
+   slice 2 first"; three parallel subagents, one build).** The learned
+   detector is an OPTION in the app, off by default, macOS 27 only, and
+   everything learned stays in `Core/ML/` (now two files), `Session/
+   LearnedDetection.swift` (the one owner of the new state: detector class,
+   threshold, the full-size probe image every kernel generation now records,
+   the loaded detector, the last classical and learned runs), `Models/`, and
+   the tests. `AppState` gained the owner handle only and lost a stored
+   property (`braggPeakCount` is derived now); `runDiskDetection` branches on
+   the class inside the same cancellable, detached, epoch-guarded structure
+   (`LearnedDiskDetector.detectAll(data:…)` streams scan-row tiles exactly
+   like the classical orchestrator); the Bragg map's on-screen provenance now
+   carries the detector's own keys (`detector_class`, the weights hash);
+   `runDiskDisagreement()` publishes the per-position count difference
+   (learned − classical, `disk_disagreement`, diverging colormap) with a
+   summary in the status bar. UI: one `Detector` picker in the disk
+   configurator (`disk.detectorClass`), and only when Learned is chosen a
+   threshold field, the model's hash, and `Compare with Classical`. The
+   `.aimodel` is copied into the bundle as a plain folder resource (a
+   synchronized-folder placement triggers Xcode's model compile, which fails
+   for the 14.0 target). Tests: `LearnedDiskDetectionScanTests` (the count
+   map, the IDs, the tiled scan against the resident call on a 4×4 fixture
+   scan); five detector classes 23/0 (`test-slice2.log`); the tiled test
+   broken once for real (tile offset dropped → 1 failed,
+   `mutation-slice2-tile-offset.log`). **Unverified on screen** — the owner's
+   drive: the picker, a learned run on the bullseye cube, the disagreement
+   map, the inspector's provenance. **Owed:** Gate B on slice 2's `Core/ML`
+   additions at the merge (one real mutation and the author's reasoning so
+   far); sidecar labels (slice 3); the unit gate (disk floor); detectors
+   below 128 px (the Al-Si-Mg cube is 64 px — the learned option returns a
+   failure there, the classical path is unaffected).
+6. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
    and pushed 2026-09-05 in the Sources build phase, referenced by no Swift
    file) is removed from the tree and the project; it stays in public
    history unless `main` is rewritten. The machine (8 GB) crashed once at
@@ -242,10 +273,11 @@ agent should say so and start at item 2.
    fixture proven and broken four ways, `run-tests.sh inventory` exit 0 with
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
-   step 3 numbers on the fixture and both real cubes). **Next: step 4 slice 2 on the
-   branch — the detector option in the UI with provenance, progress and the
-   disagreement map, then the sidecar labels (Gate B on slice 1 done
-   2026-09-07); the full discipline returns at the merge. The
+   step 3 numbers on the fixture and both real cubes). **Next: the owner drives slice 2
+   on screen; then slice 3 (sidecar labels: confirmed/rejected patterns from
+   the disagreement map), then the merge with its Gate B campaign; the
+   precipitate work starts from the owner's near-beam observation
+   (`docs/ai-ml/README.md` §4, the figure in `docs/images/`). The
    cross-feature direction is `docs/ai-ml/README.md`.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts

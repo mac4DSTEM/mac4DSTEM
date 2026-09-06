@@ -216,6 +216,11 @@ final class AppState {
     /// (docs/development-process.md §7) — see `App/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
+    /// The learned-vs-classical disk detector option, threshold, probe
+    /// reference and the two runs a disagreement map compares — step 4's
+    /// seam (docs/v3-plan.md §3a) — see `Session/LearnedDetection.swift`.
+    /// Views read `learnedDetection.…`; no forwarding properties.
+    let learnedDetection = LearnedDetectionSession()
     /// The last reciprocal-pixel calibration attempt — S13's seam
     /// (docs/development-process.md §7) — see `App/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
@@ -296,11 +301,14 @@ final class AppState {
     func publishProduct(
         kind: String, displayName: String, valueUnits: String, payload: ProductPayload,
         validityMask: [Bool]? = nil, qualityFields: [ProductQualityField] = [],
-        overlays: [ProductOverlayDescriptor] = []
+        overlays: [ProductOverlayDescriptor] = [], extraProvenance: [String: String] = [:]
     ) {
         let persisted = currentScalarPersistenceMetadata
         let domain = activeResultDomain
         var provenance = persisted.provenance
+        // The compute site's own provenance (e.g. a detector's identity) wins
+        // over the persisted-metadata defaults it is layered on top of.
+        for (key, value) in extraProvenance { provenance[key] = value }
         provenance["display_domain"] = domain.rawValue
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: kind, units: valueUnits)
@@ -399,7 +407,9 @@ final class AppState {
     var probeKernel: ProbeKernel?
     var currentPeaks: [BraggPeak] = []
     private(set) var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
-    var braggPeakCount: Int?
+    /// Owned by `braggVectors` — never written separately, so it cannot go
+    /// stale relative to the vectors it counts.
+    var braggPeakCount: Int? { braggVectors?.totalPeakCount }
     private(set) var braggVectors: BraggVectors?
     private(set) var completedDiskParams: DiskDetectionParams?
     private(set) var completedDiskSummary: DiskDetectionScanSummary?
@@ -2577,9 +2587,11 @@ final class AppState {
         braggVectors = nil
         completedDiskParams = nil
         completedDiskSummary = nil
-        braggPeakCount = nil
         currentPeaks = []
         currentDiskDiagnostics = nil
+        // The learned option and threshold are session-scoped and survive;
+        // the two compared runs and the probe reference are dataset-scoped.
+        learnedDetection.clear()
         // L3 step 3 — "a real-space crop makes existing scan-indexed results
         // AMBIGUOUS, not stale" — is satisfied here rather than by a second
         // mechanism, and deliberately so. Changing the load specification is a
@@ -4579,6 +4591,26 @@ final class AppState {
             return
         }
         probeKernel = kernel
+        // The learned path needs the full-size probe IMAGE, not the kernel —
+        // there is no measured pattern here, so draw one: 1 inside the
+        // reference origin's radius, 0 outside. Same origin call
+        // `generateMeasuredProbeKernel` uses, so both paths agree on centre.
+        let origin = calibrationSession.calibration.referenceOrigin(
+            detectorQX: descriptor.qx, detectorQY: descriptor.qy,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+        ).point
+        var drawnProbe = [Float](repeating: 0, count: descriptor.qy * descriptor.qx)
+        for y in 0..<descriptor.qy {
+            let dy = Float(y) - origin.y
+            for x in 0..<descriptor.qx {
+                let dx = Float(x) - origin.x
+                drawnProbe[y * descriptor.qx + x] = (dx * dx + dy * dy <= radius * radius) ? 1 : 0
+            }
+        }
+        learnedDetection.probeReference = LearnedDetectionSession.ProbeReference(
+            pattern: DiffractionPattern(qy: descriptor.qy, qx: descriptor.qx, pixels: drawnProbe),
+            centreX: origin.x, centreY: origin.y, radius: radius, source: .synthetic
+        )
         statusText = String(format: "Probe kernel ✓  r = %.1f px, trench %.0f–%.0f px",
                             radius, kernel.trenchRadii.inner, kernel.trenchRadii.outer)
         await detectCurrentPattern()
@@ -4605,6 +4637,9 @@ final class AppState {
             return
         }
         probeKernel = kernel
+        learnedDetection.probeReference = LearnedDetectionSession.ProbeReference(
+            pattern: pattern, centreX: origin.x, centreY: origin.y, radius: radius, source: .measured
+        )
         statusText = String(
             format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI, %@", radius,
             mode.rawValue.lowercased()
@@ -4649,6 +4684,9 @@ final class AppState {
             return
         }
         probeKernel = kernel
+        learnedDetection.probeReference = LearnedDetectionSession.ProbeReference(
+            pattern: pattern, centreX: size.x0, centreY: size.y0, radius: size.r, source: .fileProbe
+        )
         let others = candidates.count > 1 ? " (\(candidates.count - 1) more in the file)" : ""
         statusText = String(
             format: "File probe kernel ✓  r = %.1f px, %@, from %@%@", size.r,
@@ -4739,8 +4777,41 @@ final class AppState {
             return .failed(reason)
         }
 
+        // Branch on the detector class BEFORE the cancellable operation
+        // begins: preparing the learned asset (first use only, ~1.3 s) is
+        // its own step, not part of the detection run's own progress.
+        let detectorClass = learnedDetection.detectorClass
+        // `AnyObject`, not `LearnedDiskDetector?` — that type only exists
+        // under `#if canImport(CoreAI)` and macOS 27, and this declaration
+        // must compile unguarded at the app's macOS 26 deployment target
+        // (the same reason `LearnedDetectionSession.detectorBox` is `AnyObject`).
+        var preparedLearnedDetector: AnyObject?
+        if detectorClass == .learned {
+            #if canImport(CoreAI)
+            guard #available(macOS 27, *) else {
+                return .failed("The learned detector needs macOS 27")
+            }
+            guard learnedDetection.probeReference != nil else {
+                return .failed("Generate a probe kernel first — the learned detector needs the probe image")
+            }
+            guard let assetURL = LearnedDiskDetector.bundledAssetURL() else {
+                return .failed("The learned detector's model is not in this build")
+            }
+            statusText = "Preparing the learned detector…"
+            do {
+                preparedLearnedDetector = try await learnedDetection.prepare(assetURL: assetURL)
+            } catch {
+                presentComputeFailure(error)
+                return .failed("The learned detector could not be prepared: \(error.localizedDescription)")
+            }
+            #else
+            return .failed("The learned detector needs macOS 27")
+            #endif
+        }
+
         let cancellation = beginCancellableOperation(
-            "Disk detection", status: "Detecting Bragg disks…",
+            "Disk detection",
+            status: detectorClass == .learned ? "Detecting Bragg disks (learned)…" : "Detecting Bragg disks…",
             totalUnits: descriptor.rx * descriptor.ry
         )
         defer { finishCancellableOperation(cancellation) }
@@ -4763,24 +4834,50 @@ final class AppState {
             // FFT2D.transform, AX ping 7 s, progress unpaintable, Cancel
             // dead. The detached task keeps the worker pool saturated while
             // the runloop stays free. The progress closure already hopped to
-            // the main actor explicitly, so it is unchanged.
+            // the main actor explicitly, so it is unchanged. Both detector
+            // classes share this structure — only the call inside differs.
             let data = fourD
+            let statusPrefix = detectorClass == .learned ? "Detecting Bragg disks (learned)…" : "Detecting Bragg disks…"
             let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
                     self.progress = fraction
-                    self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
+                    self.statusText = "\(statusPrefix) \(Int(fraction * 100)) %"
                 }
             }
-            vectors = try await Task.detached(priority: .userInitiated) {
-                try await DiskDetection.detectAll(
-                    data: data, descriptor: d, kernel: kernel,
-                    params: params, cancellation: cancellation,
-                    progress: progress
-                )
-            }.value
+            switch detectorClass {
+            case .classical:
+                vectors = try await Task.detached(priority: .userInitiated) {
+                    try await DiskDetection.detectAll(
+                        data: data, descriptor: d, kernel: kernel,
+                        params: params, cancellation: cancellation,
+                        progress: progress
+                    )
+                }.value
+            case .learned:
+                #if canImport(CoreAI)
+                guard #available(macOS 27, *), let learned = preparedLearnedDetector as? LearnedDiskDetector,
+                      let ref = learnedDetection.probeReference else {
+                    throw SimpleError("The learned detector is not ready — this is a defect; please report it.")
+                }
+                // Same P1 reason as the classical branch above: `detectAll`
+                // batches work through `DispatchQueue.concurrentPerform`
+                // internally, so it must not run on the main actor's executor.
+                let threshold = learnedDetection.threshold
+                vectors = try await Task.detached(priority: .userInitiated) {
+                    try await learned.detectAll(
+                        data: data, descriptor: d, probe: ref.pattern,
+                        probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
+                        kernelSource: ref.source, params: params, threshold: threshold,
+                        cancellation: cancellation, progress: progress
+                    )
+                }.value
+                #else
+                throw SimpleError("The learned detector needs macOS 27")
+                #endif
+            }
         } catch {
             guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
@@ -4814,6 +4911,7 @@ final class AppState {
             return .failed(reason)
         }
         braggVectors = vectors
+        learnedDetection.record(vectors, as: detectorClass)
         completedDiskParams = params
         // Recipe step (v2 S5): the canonical example of why the record exists
         // separately from per-result controls — detection's own product
@@ -4823,7 +4921,7 @@ final class AppState {
         // recorded against the old peaks would otherwise survive next to the
         // new detection — a recipe that replays neither the saved maps nor a
         // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
-        recordReplayStep(kind: "disk_detection", parameters: [
+        var replayParameters: [String: String] = [
             "corr_power": String(params.corrPower),
             "sigma_dp": String(params.sigmaDP),
             "sigma_cc": String(params.sigmaCC),
@@ -4844,17 +4942,28 @@ final class AppState {
             "kernel_source": kernel.source.provenanceID,
             "kernel_mode": kernel.mode.provenanceID,
             "kernel_probe_path": kernel.probePath ?? "",
-        ], invalidating: ["strain", "acom"], replaying: replaying)
+            "detector_class": detectorClass.provenanceID,
+        ]
+        if detectorClass == .learned {
+            replayParameters["learned_threshold"] = String(learnedDetection.threshold)
+            replayParameters["learned_model_sha256"] = learnedDetection.assetSHA256 ?? ""
+        }
+        recordReplayStep(kind: "disk_detection", parameters: replayParameters,
+                          invalidating: ["strain", "acom"], replaying: replaying)
         completedDiskSummary = DiskDetectionScanSummary(
             vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params
         )
-        braggPeakCount = vectors.totalPeakCount
         showBraggMap(vectors, descriptor: d)
         if vectors.totalPeakCount == 0 {
             // An empty result is a dead end unless it points at the
             // evidence: the live acceptance funnel and scan summary in
             // the Bragg panel show which filter removed everything.
             statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
+        } else if detectorClass == .learned {
+            statusText = String(
+                format: "Disks ✓ (learned) %d peaks, threshold %.2f — Compare with Classical shows where the two detectors differ",
+                vectors.totalPeakCount, learnedDetection.threshold
+            )
         } else {
             statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
         }
@@ -4870,8 +4979,48 @@ final class AppState {
         publishProduct(   // v2.5 step 3e: its own label
             kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
             payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
-                                        pixels: bvm.pixels.map { log10(1 + max($0, 0)) })))
+                                        pixels: bvm.pixels.map { log10(1 + max($0, 0)) })),
+            extraProvenance: vectors.detectionProvenance)
         Task { await ensureScanNavigator() }
+    }
+
+    /// Publish the per-position count difference between the last learned and
+    /// the last classical full-scan run on this dataset, as a scan map. Runs
+    /// nothing — both inputs are already-completed results held by
+    /// `learnedDetection`. // step 4 (docs/v3-plan.md §3a)
+    @discardableResult
+    func runDiskDisagreement() -> AnalysisRunOutcome {
+        guard let classical = learnedDetection.lastClassical,
+              let learned = learnedDetection.lastLearned,
+              descriptor != nil else {
+            return .failed("Run the classical and the learned detector on this dataset first")
+        }
+        guard let (image, summary) = DiskDisagreement.countDifferenceMap(
+            classical: classical, learned: learned
+        ) else {
+            return .failed("The classical and learned runs do not share a comparable scan shape")
+        }
+        // The map is signed (learned − classical), not a magnitude — RdBu is
+        // this app's one diverging colormap; Viridis would visually imply an
+        // ordered, one-sided quantity it is not.
+        resultColormap = .rdbu
+        publishProduct(
+            kind: "disk_disagreement", displayName: "Disk detector disagreement (learned − classical)",
+            valueUnits: "peaks", payload: .scalar(image),
+            extraProvenance: [
+                "detector_class_a": "classical",
+                "detector_class_b": "learned",
+                "learned_threshold": String(learnedDetection.threshold),
+                "learned_model_sha256": learnedDetection.assetSHA256 ?? "",
+                "disagreement_positions": "\(summary.differing)/\(summary.positions)",
+            ]
+        )
+        statusText = String(
+            format: "Disagreement: %d of %d positions differ (learned − classical median %.1f, %d…%d)",
+            summary.differing, summary.positions, summary.medianDifference,
+            summary.minDifference, summary.maxDifference
+        )
+        return .published
     }
 
     /// Raw peaks remain the source of truth; analysis calibration is derived

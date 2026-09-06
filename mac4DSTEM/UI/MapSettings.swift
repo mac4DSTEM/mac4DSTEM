@@ -96,6 +96,43 @@ private struct DiskDetectionRows: View {
             )
         }
 
+        // The learned option is macOS 27+ only (Core AI) — nothing new shows
+        // on an older OS, and nothing shows here besides the picker itself
+        // unless it is switched to Learned.
+        if #available(macOS 27, *) {
+            @Bindable var learned = appState.learnedDetection
+            Picker("Detector", selection: $learned.detectorClass) {
+                ForEach(DetectorClass.allCases) { detectorClass in
+                    Text(detectorClass.rawValue).tag(detectorClass)
+                }
+            }
+            .help("The learned detector proposes candidate positions on the Neural Engine; the classical refinement still measures every one. Needs macOS 27 and a generated probe kernel. The classical detector remains the default.")
+            .accessibilityIdentifier("disk.detectorClass")
+
+            if learned.detectorClass == .learned {
+                LabeledContent("Learned threshold") {
+                    NumericField(
+                        "Learned threshold",
+                        value: learnedThresholdBinding(appState),
+                        format: .number.precision(.fractionLength(2))
+                    )
+                }
+                .accessibilityIdentifier("disk.learnedThreshold")
+                .help("The pick threshold on the learned heatmap, 0.3–0.99. Lower accepts more candidates; the classical refinement still filters them.")
+
+                LabeledContent("Model", value: learnedModelStatus(learned))
+
+                Button {
+                    appState.runDiskDisagreement()
+                } label: {
+                    Label("Compare with Classical", systemImage: "arrow.left.arrow.right")
+                }
+                .disabled(!learned.canCompare)
+                .accessibilityIdentifier("disk.compareDetectors")
+                .help("Runs nothing: publishes the per-position count difference between the last learned and the last classical run on this dataset as a scan map.")
+            }
+        }
+
         parameterSliderRow(
             title: DiskDetectionParameterID.correlationPower.title,
             value: floatBinding(
@@ -914,6 +951,28 @@ private func relativeIntensityPercentBinding(_ appState: AppState) -> Binding<Do
             appState.diskParams = params
         }
     )
+}
+
+/// Clamped to the range `LearnedDiskDetector.defaultThreshold` (0.9) sits in
+/// the middle of; the literal bounds avoid a `#if canImport(CoreAI)` guard
+/// just to name a constant this file never runs learned inference with.
+private func learnedThresholdBinding(_ appState: AppState) -> Binding<Float> {
+    Binding(
+        get: { appState.learnedDetection.threshold },
+        set: { value in
+            let finite = value.isFinite ? value : 0.9
+            appState.learnedDetection.threshold = min(max(finite, 0.3), 0.99)
+        }
+    )
+}
+
+/// The Settings tab's one line on whether the learned asset is usable here:
+/// loading, loaded (its identity hash), failed (why), or not yet attempted.
+private func learnedModelStatus(_ learned: LearnedDetectionSession) -> String {
+    if learned.preparing { return "Loading…" }
+    if let sha = learned.assetSHA256 { return String(sha.prefix(8)) }
+    if let reason = learned.unavailableReason { return reason }
+    return "Not loaded yet"
 }
 
 private func relativePeakRankBinding(_ appState: AppState) -> Binding<Int> {

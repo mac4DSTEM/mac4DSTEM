@@ -59,6 +59,25 @@ package nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Senda
     }
 }
 
+/// Which stage proposes a scan position's peaks (v3-plan §3a). `.learned` is a
+/// CANDIDATE stage only — a heatmap peak-pick, on the Neural Engine — never a
+/// measurement on its own: `DiskDetector.refine` (the classical detector's own
+/// snap-to-maximum, parabola, edge rule, spacing and cap) is what turns either
+/// class's candidates into accepted `BraggPeak`s. `.classical` finds its own
+/// candidates by exhaustive correlation-maxima search and refines those.
+package nonisolated enum DetectorClass: String, Sendable, CaseIterable, Identifiable {
+    case classical = "Classical correlation"
+    case learned = "Learned candidates (Neural Engine)"
+    package var id: String { rawValue }
+
+    package var provenanceID: String {
+        switch self {
+        case .classical: "classical"
+        case .learned: "learned"
+        }
+    }
+}
+
 /// Stable parameter identifiers shared by the numerical detector, UI, tests,
 /// and persisted provenance. UI labels are deliberately defined here so a
 /// control cannot drift away from the quantity consumed by the core.

@@ -88,9 +88,36 @@ Goal: turn a 4D-STEM scan into inspectable individual precipitates and the
 statistics a microscopist needs. Start from virtual images; a learned phase
 classifier is not a prerequisite for a contrast-based first version.
 
+**The dataset and the owner's observation (2026-09-07).**
+`References/training_dataset/Al_SiMg_Precipitates_SI60_preprocessed_unfiltered_bin_4_20260712.h5`:
+330 × 330 scan positions at 1.54 nm, a 64 × 64 detector (binned 4,
+0.046 Å⁻¹ per pixel), Al matrix on a zone axis. The needle precipitates are
+faint in virtual BF and ADF, and plain in two other views the owner found in
+the app: the **Max** diffraction pattern over the scan shows the
+precipitate reflections **close to the central beam, inside the first ring
+of matrix disks** (at 7–10 px of the 64, where the matrix disks sit at
+~18 px), and a virtual detector on that region lights the needles up — an
+annulus of 4–10 px about the beam shows both needle families, a 2.5-px
+circle on ONE of those reflections shows one family only, so the families
+are separable by the reflection they diffract into. Reproduced from the
+cube (every second scan position) in
+`docs/images/precipitates-al-simg-near-beam-2026-09-07.png`:
+
+![Al-Si-Mg needles: max pattern, annulus, one reflection](../images/precipitates-al-simg-near-beam-2026-09-07.png)
+
+What it decides for the design: the segmentation stack's most informative
+channels are **one dark-field image per near-beam reflection** (each
+selects a needle family by orientation), beside BF/ADF; the phase
+classifier's signal (chain step 1) is exactly those reflections; and the
+needles run along two perpendicular in-plane directions, so a
+centre-plus-orientation representation fits. This detector is 64 px, below
+the learned disk detector's 128-px input — irrelevant here, the precipitate
+work is a virtual-image task.
+
 Proposed workflow:
 
-1. Select the analysed region and useful virtual BF/ADF/dark-field images.
+1. Select the analysed region and useful virtual BF/ADF/dark-field images —
+   for this material, the near-beam precipitate reflections first.
 2. Propose individual particle/needle masks, including separation of touching
    objects. A small segmentation model is a candidate, not a settled design.
 3. Let the user add, remove, split, merge, and correct objects.

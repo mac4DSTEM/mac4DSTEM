@@ -30,10 +30,12 @@ and standing directives now live in `docs/decisions.md`.
   three refuter mutations caught; end-to-end 1.87–1.99× the classical
   (at the ceiling). Trap: the fixture proves parity with Python on the
   synthetic fixture; real-cube behaviour is the evaluate.py numbers, not a
-  Swift run on the cube. Residuals: patterns < 128 px unsupported (nil);
-  larger detectors reduced to the 128-px window about the probe centre;
-  asset not yet bundled; the unit gate has not run (disk floor). Owner: the
-  branch's merge.
+  Swift run on the cube. Residuals: patterns < 128 px unsupported (the learned
+  option fails with a message; the Al-Si-Mg cube is 64 px); larger
+  detectors reduced to the 128-px window about the probe centre; slice 2
+  (the app option, `Session/LearnedDetection.swift`, the disagreement map)
+  is unverified on screen and its `Core/ML` additions owe Gate B at the
+  merge; the unit gate has not run (disk floor). Owner: the branch's merge.
 
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
