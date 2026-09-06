@@ -480,11 +480,15 @@ struct StatusBar: View {
     var body: some View {
         @Bindable var navigation = appState.navigation
 
+        // One line, like every macOS status bar: the message truncates, the
+        // output log holds the whole of it. Two lines here made the bar grow
+        // and the cramped run-time strip the owner saw on 2026-09-07.
         HStack(spacing: 12) {
             Text(appState.statusText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .accessibilityIdentifier("status.bar")
 
             Spacer(minLength: 12)
@@ -497,6 +501,8 @@ struct StatusBar: View {
                         Text("\(Int(progress * 100)) %")
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: LayoutPolicy.progressPercentWidth, alignment: .trailing)
                     }
                     // Elapsed, throughput and ETA, beside the bar they
                     // describe (owner, 2026-09-04). They were only in the
@@ -513,7 +519,11 @@ struct StatusBar: View {
                 .accessibilityIdentifier("status.footer.operation")
             }
 
-            if let descriptor = appState.descriptor {
+            // The app/cube/residency facts are context, not progress: while an
+            // operation runs the bar shows the operation alone (the inspector's
+            // Performance block keeps the facts), so the two never compete
+            // for the same width.
+            if let descriptor = appState.descriptor, !appState.isBusy {
                 // NOT `.fixedSize()`. Its app-memory figure moves, and this
                 // body re-runs on every progress update, so a fixed size made
                 // this a second child changing its own minimum while an

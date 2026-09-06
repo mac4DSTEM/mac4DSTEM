@@ -219,7 +219,14 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    far); sidecar labels (slice 3); the unit gate (disk floor); detectors
    below 128 px (the Al-Si-Mg cube is 64 px — the learned option returns a
    failure there, the classical path is unaffected).
-6. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
+6. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
+   run-time strip was cramped — the percentage wrapped to one character per
+   line, the message to two lines): the message is one truncating line, the
+   percentage has a `LayoutPolicy` slot like the metrics line (the fixed
+   widths there are deliberate — the constraint-loop crash in
+   `open-items.md` — and were never the problem; the two texts WITHOUT a
+   width policy absorbed the whole squeeze), and the app/cube/residency facts
+   hide while an operation runs. Presentation only, unverified on screen. the AGPL `yolov8n.mlpackage` (committed
    and pushed 2026-09-05 in the Sources build phase, referenced by no Swift
    file) is removed from the tree and the project; it stays in public
    history unless `main` is rewritten. The machine (8 GB) crashed once at

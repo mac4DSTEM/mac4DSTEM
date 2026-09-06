@@ -62,6 +62,12 @@ enum LayoutPolicy {
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110
 
+    /// The percentage beside that bar: "100 %" in caption2 monospaced digits,
+    /// plus air. A slot, not `.fixedSize()`, for the same reason as the
+    /// metrics line below — and without any width policy the HStack squeezed
+    /// this text first, to one character per line (owner, 2026-09-07).
+    static let progressPercentWidth: CGFloat = 38
+
     /// The status bar's elapsed/throughput/ETA slot, reserved.
     ///
     /// Nothing inside a split's hosted content may repeatedly change its own
