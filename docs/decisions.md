@@ -465,3 +465,21 @@ measurement. Same day, earlier: tiling now, retraining documented, for
 detectors larger than the net's 128-px input; and the precipitate
 workflow derives its reflections from the data, not from a CIF, so it
 survives new samples and crystallographies (`docs/ai-ml/precipitates.md`).
+
+**2026-09-06 (evening) — LAPACK for the eigensolver, and the AI room's
+detector picker.** `DiffractionEmbedding`'s hand-written subspace iteration
+is replaced by Accelerate's `dsyevd_` (`b61ea73`). The file header's stated
+reason for avoiding LAPACK — "no build available to verify the choice" — has
+not been true since the branch built and ran, and the iteration was in fact
+broken: it took ONE power step on every input (`max(0, .nan) == 0` on an
+`.infinity` convergence seed), which no shipped test could see. The check is
+a numpy twin plus an eigenpair-residual assertion, not the code's own
+agreement with itself; `-DACCELERATE_NEW_LAPACK` is now set in
+`Package.swift` and in the project's `OTHER_SWIFT_FLAGS`. Deterministic, no
+random start, and faster (fixture 0.356 s → 0.224 s). Same evening, an
+**owner-reversible default**: the AI Analysis room's Detect All Disks no
+longer forces `detectorClass = .learned`, so the room's own picker decides
+which detector its button runs and `Compare with Classical` is reachable
+from both positions. The force was deliberate and stated twice, so this is
+recorded as a default the owner may put back; Bragg disks still forces
+classical, that room carrying no AI control.

@@ -23,30 +23,37 @@ and standing directives now live in `docs/decisions.md`.
 
 ## Science — Gate D or Gate B owed
 
-- **Precipitates v1 and diffraction groups v1 (branch `ml/disk-detector`,
-  2026-09-07 night): Gate B owed on `Core/Analysis/Precipitates/` and
-  `Core/Analysis/DiffractionEmbedding.swift`.** Evidence: `PrecipitateTests`
-  8/0 on a drawn fixture (the length assertion caught two real measurement
-  defects), `DiffractionEmbeddingTests` 4/0, one k-means mutation caught.
-  Trap: both fixtures are drawn by the tests themselves — no py4DSTEM
-  ground truth exists for either; the real check is the owner's hand count
-  on the Al-Si-Mg cube and ACOM on WS₂ (`docs/ai-ml/precipitates.md` §6).
-  Residuals: the ridge measure is not elongation-selective; no recipe
-  replay for the new runs; unverified on screen. Owner: the merge.
+- **Precipitates and diffraction groups v1 (branch `ml/disk-detector`):
+  Gate B DONE 2026-09-06 evening, findings applied** (`b61ea73`; the
+  eigensolver defect and its LAPACK fix are in `status.md` and
+  `decisions.md`). Live residuals: mutations M2 (projection centring) and
+  M5 (the empty-cluster guard) survived and are still unasserted
+  (`gateB/mutation-summary.txt`; the other six are re-broken,
+  `fix-c/mutation-summary.txt`). `widthPx` reads +33 % on a diagonal needle
+  — the "+1" end-to-end convention, exact only axis-aligned; four options,
+  OWNER's choice (`fix-c/gateD-C3.md`). `area` is the threshold mask's
+  pixel count, ~2× the drawn object: a definition question, owner's.
+  `robustThreshold` collapses where MAD = 0 (noise-free images only, so
+  recorded not fixed). No py4DSTEM truth exists for either fixture; the
+  real checks are the owner's hand count on Al-Si-Mg and ACOM on WS₂. No
+  recipe replay for the three new runs. Owner: the merge.
 
-
-- **Learned disk detector, step 4 slice 1 (branch `ml/disk-detector`,
-  2026-09-07): Gate B passed with findings applied** (`Core/ML/`, the two
-  `DiskDetector` entry points; the classical path untouched). Evidence:
-  8 learned-path cases incl. the refuter's four, three author mutations and
-  three refuter mutations caught; end-to-end 1.87–1.99× the classical
-  (at the ceiling). Trap: the fixture proves parity with Python on the
-  synthetic fixture; real-cube behaviour is the evaluate.py numbers, not a
-  Swift run on the cube. Residuals: patterns < 128 px unsupported (the learned
-  option fails with a message; the Al-Si-Mg cube is 64 px); larger detectors are tiled (3×3 windows at 250 px: 2.81× the classical, over the 2× ceiling — owner decision, `status.md` item 7); slice 2
-  (the app option, `Session/LearnedDetection.swift`, the disagreement map)
-  is unverified on screen and its `Core/ML` additions owe Gate B at the
-  merge; the unit gate has not run (disk floor). Owner: the branch's merge.
+- **Learned disk detector step 4 (branch `ml/disk-detector`): Gate B passed;
+  the drive's defects fixed 2026-09-06 evening** (`73f5eb5`, `c5489ac`,
+  `65fb084`; `status.md`). Live residuals: patterns < 128 px refuse the
+  learned option (Al-Si-Mg is 64 px); above it the scan is tiled, and the app
+  measured ~5× the classical end to end at 250 px on this loaded 8 GB machine
+  against the 2.81× bench (`drive-learned/`). No reflection-marker overlay
+  exists on the diffraction pane (P4) — a new drawing, not polish. **D4, NOT
+  established:** the first drive agent reported four SIGSEGVs (recursion in
+  SwiftUI `AccessibilityNode.accessibilityLabel`) while an AX client read the
+  Bragg-disks Advanced-detection section and the AI inspector, and cited four
+  `.ips` filenames that exist nowhere on disk (a second agent searched); no
+  recorded hypothesis, and the branch adds no AX label semantics — a
+  re-observation with a retained report is owed before any diagnosis.
+  `run-tests.sh unit` has not run (disk floor). The re-drive confirmed the
+  learned-disks fixes on screen (`re-drive/`); its precipitate and groups checks
+  were cut by a zero-byte disk (swap), so those fixes remain unseen. Owner: the merge.
 
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on

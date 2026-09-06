@@ -298,3 +298,90 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    time. The Swift Core AI runner exists as `tools/disk-detector/scan-bench/`.
    Not done: Xcode's placement view; `run-tests.sh benchmark` is the serial
    CPU number and is not the baseline (scan-bench is).
+
+## 2026-09-06 evening — the polish run
+
+**A note on the dates.** The machine clock and git say this work happened on
+**2026-09-06** (`73f5eb5` 22:12, `c5489ac`/`65fb084` 22:35, `b61ea73` 23:27,
+CEST). The docs written the same afternoon — this file's name, the
+"2026-09-07 closeout" it records — are dated a day ahead. Same day, two
+labels; the evening's session is dated 2026-09-06 in the live docs.
+
+Retained logs, owner-local and gitignored,
+`References/training_runs/disk-detector-2026-09-06-polish/`: `drive-learned/`
+(9 steps, bullseye, 16 captures), `drive-precipitates/` (11 steps, Al-Si-Mg,
+22), `drive-groups/` (9 steps, WS₂ polycrystal, 8), `diagnosis-20260906.md`
+(the read-only Gate D pass over D1–D5), `fix-a|b|c/` (the batches, their
+break-first logs and Gate D records), `gateB/` (numpy twins, 13 mutations),
+`core-gate-20260906.log`, and **re-drive: see `re-drive/re-drive.md`** (in
+progress when this was written). The drives were **evidence, not
+acceptance** — an agent drove with CGEvent clicks and per-window
+`screencapture`; the owner's drive stays owed and every fix is unverified on
+screen.
+
+**Learned disks, six defects** (`drive-learned/`): no live rings at 0.90 /
+0.70 / 0.50 at three positions (`03a`–`03c`); labels recording "0 candidates"
+(`06-labels.png`); the full scan freezing the UI at 0 % with the clock stuck
+at 2:04, 847/847 main-thread samples in `detectAll` → `dispatch_apply`
+(`04-mainthread-sample.txt`); the picker overridden, so `Compare with
+Classical` could never be enabled without leaving the room; four SIGSEGVs on
+AX traversal (D4 below); an export help text promising `~/Documents/…` while
+the sandbox writes the container (`07-save-export.png`). Held: the
+disagreement map, the sidecar surviving quit and relaunch
+(`08-after-relaunch.png`), no AI control in the classical rooms (`09-*.png`).
+At Min relative 5 % (not the 0,5 % default): classical 58 236 peaks, learned
+44 745, 6 618 of 8 400 positions differing; 8.2–10.8 against 54.8
+positions/s — **~5× slower end to end** at 250 px on this loaded 8 GB
+machine, where the bench says 2.81× compute-only.
+
+**Precipitates, eleven defects, ten fixed** in `c5489ac` (`drive-precipitates/`):
+the silent refusal before a Max pattern (`03a`); a hint naming a control this
+room lacks (`02`); "24 off the matrix lattice" with no lattice basis (`03d`);
+**P4, no reflection markers on Max / Mean / Current — NOT fixed** (`03c`: no
+overlay exists to widen, so it is a new drawing); "Place detector" flipping
+the task and blanking the inspector (`04`); the objects table's first 23 rows
+rendering as reflection rows (`06a`–`06c`); "0 on edge" against "5 on the
+edge" (`08`); a density outliving its calibration (`07`); Segment segmenting
+its own label image on a second press (`11a`); nothing about the count
+reaching Results (`09b`); cosmetics. Held: the 8.2 px reflection's dark-field
+lit exactly one needle family (`04b`); 44 objects, 5 on edge, ≈ 8 s,
+orientations −33°…−52°; density by hand, 39 / (330 × 330 × 1.53934²) nm⁻² =
+1.511e-4 and 38 → 1.473e-4.
+
+**Diffraction groups, seven defects, all presentation**, fixed in `73f5eb5`
+and `65fb084` (`drive-groups/`): the main-thread freeze (698/698 samples in
+`DiffractionEmbedding.compute`, 155–301 s, Cancel inert); the literal
+"Diffraction groups (k)" name; no provenance shown anywhere; the similarity
+reference never named and silently nilled by a rerun; a stale readout under
+changed controls; a hint that can never render; the button/toolbar verb
+mismatch. Held: k=4 sizes 2455 / 7372 / 4231 / 2326 summing to 16384, their
+polygons reproducing the annulus dark-field taken at load; k=8 splitting the
+7372-position group without disturbing the others at unchanged 79.4 %
+explained variance; an identical rerun reproducing sizes, order and labels
+(`08-rerun-determinism.png`); an honest similarity bar (−0.7738 … 1, cosine).
+
+**The Gate D predictions.** *A2 (learned scan on the main thread) — held*:
+predicted the progress callback would fire on main from inside
+`Task.detached`, measured "5 of 5 calls";
+`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` made `detectAll` MainActor-
+isolated because `nonisolated` on the class does not reach a member declared
+in another file's extension. The groups half has **no experiment of its own**
+— the re-drive's progress bar is its observation. *P6 (the first 23 rows) —
+one account refuted*: id collision predicted the block starts at candidate id
+1 (r37, c49) with objects resuming at #24; "emitted twice" predicted id 0
+(r39, c48) and all 44. The captures show r37, c49 and #24. The refuter's note
+stands — the unit "experiment" asserts the drive's own cardinalities and no
+app-code mutation can move it, so **the captures are the evidence**. *C1 (the
+eigensolver) — held, and too generous*: an eigenpair residual was predicted to
+fail on HEAD and failed on all eight components (0.058–0.568 against 1e-6),
+component 0 included. *C3 (+33 % width on diagonals) — held*: the drawn bar's
+pixel-centre span is 2.9751 px for a 3.0 px bar at 37.2° and `widthPx` gave
+3.7205, so the cause is the "+1" end-to-end convention, not the ridge filter
+or the half-maximum level; four options, the owner's. *D4 (four SIGSEGVs in
+`AccessibilityNode.accessibilityLabel`) — nothing established*: the four
+`.ips` filenames cited exist nowhere on disk (a second agent searched), no
+crash frame has been read, the branch's UI diff against `main` adds only
+`.accessibilityIdentifier`, and the implicated Advanced-detection section is
+pre-existing. No hypothesis is recorded, deliberately; a re-observation with a
+retained report is owed, and the cheap discriminator is a bisect against
+`main`.

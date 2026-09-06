@@ -45,10 +45,12 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | DM4 harnesses | **`dm4-robustness-test` exit 0 (8 checks), `load-spec-test` exit 0 — 2026-09-05**, logs `scratchpad/dm4-robustness-20260905.log`, `scratchpad/load-spec-20260905.log`; four mutants each failed the robustness harness first (`closed-items-2026-09.md`). The full `scientific` gate was not rerun: these two are the harnesses that compile the changed reader. |
 | `run-tests.sh unit` | **485 passed / 0 failed / 1 skipped, 486 cases, SUCCEEDED — 2026-09-05 late evening, bullseye tree**, XcodeBuildMCP `test_macos` (`scratchpad/unit-mcp-flatkernel3-20260905.json`); the script route refuses below 8 GB free. Same day: 479/0/1 detection threshold (`unit-mcp-detection`), 478/0/1 origin kernel (`unit-mcp`), and the earlier `run-tests.sh` runs 478/0/1, 477/0/1, 472/0/1, 463/0/1. Two unit-suite mutations retained (`unit-mutation-M1-20260905.txt`). |
 | `run-tests.sh scientific` | **43 harnesses, exit 0 — 2026-09-05 late evening, the bullseye kernel + probe-source tree**, `scratchpad/scientific-bullseye3-20260905.log`, `PYTHON=$HOME/miniconda3/envs/py4dstem/bin/python`. Two refusals before it on the same tree: exit 69 at 3.9 GB free against the 4 GB science floor (cleared by `free-space.sh --clear`: 1.1 GB of MCP test products), then `calibration-test` failing to compile because the new probe API returned `DiffractionPattern`, a type that harness does not include — narrowed to `[Float]`. Earlier the same evening: 43/exit 0 on the origin kernel (`scientific-origin3`), after two red harnesses fixed (`datacube-discovery-test`, `peak-overlay-test`). |
-| `run-tests.sh core` (both packages) | exit 0 — `b91f5bb`, 2026-09-03 |
-| `run-tests.sh unit` (branch) | **exit 69 — 2026-09-07 closeout: the free-space preflight refused (2.4 GB against the 8 GB floor).** After freeing what was mine (scan-bench binary dumps, stale DerivedData trees, the module cache, cache copies; the remaining large items are a 936 MB GPU-tools stash and third-party caches, left to the owner) the floor was still unreachable, so **the full suite ran through the documented fallback route, `xcodebuild test` directly: 486 passed / 1 failed / 1 skipped, 488 cases (`unit-suite-fallback-20260907.log`; the disk hit 0 GB as it finished)**. The one failure was `ProductWorkflowTests.testPrimaryNavigationUsesUserOutcomes` asserting five workspaces; its expectation now names the sixth (`test-productworkflow-20260907.log`, 27/0). Not the gate: the gate is `run-tests.sh unit` with 8 GB free, still owed. The detector, precipitate, embedding and classical-contract classes ran directly: 22 passed / 0 failed / 0 skipped (`References/training_runs/disk-detector-2026-09-07/ai-workspace/test2.log`); the disk-detector fixture gate exit 0 (`run-fixture-20260907.log`) |
-| `run-tests.sh inventory` (branch) | exit 0 — 2026-09-07 closeout at `0a38efc` (`inventory-closeout-20260907.log`): gated 46, diagnostic 9; after archiving the day's evidence out of the handoff (`inventory-closeout2-20260907.log`): cold-start set 1 794 lines (1 733 at the 2026-09-06 closeout: +61, the plan's run3 evidence paragraph and the compact AI-branch table — the branch's merge trims §3a), live markdown 5 329 (5 238: +91, the owner-requested `docs/ai-ml/` brief and spec) |
-| `run-tests.sh inventory` | exit 0 — 2026-09-06, clean tree at `c2fa3c1` (`scratchpad/inventory-20260906.log`): gated 45, diagnostic 9, cold-start set **1 295** (from 996: the learned-detector pre-registration §3a written at full length by owner instruction, 2026-09-06), live markdown 4 780 (from 4 468, same cause). No new files. Previous: 2026-09-05 late evening, dirty tree, `scratchpad/inventory6-20260905.log`. |
+| `run-tests.sh core` (both packages) | **exit 0 — 2026-09-06 evening, branch `ml/disk-detector` at `b61ea73`** (`core-gate-20260906.log`), after `-DACCELERATE_NEW_LAPACK` was added to `Package.swift`'s `DSTEMCore` swiftSettings for the LAPACK eigensolver. Previous: exit 0 — `b91f5bb`, 2026-09-03 |
+| AI classes (branch, direct `xcodebuild test`) | **2026-09-06 evening, four runs, all exit 0**: build exit 0 (`build-20260906.log`) and the five AI classes 49/0/0 (`test-ai-classes-20260906.log`); fix-a 69/0/0 over eleven classes (`fix-a/postfix-tests-20260906.log`, its four new tests failed first, `prefix-tests-20260906.log` exit 65); fix-b 74/0/0 (`fix-b/test-ai-classes-20260906.log`, each new test broken first); fix-c 65/0/0 (`fix-c/tests.log`). These are classes, not the gate. |
+| `run-tests.sh unit` (branch) | **NOT RUN — 2026-09-06 evening, owed to the owner with the disk.** 1.7 GB free against the 8 GB floor, so the script route refuses; the documented fallback (`xcodebuild test` over the whole suite) drove the disk to 0 GB the last time it was used (2026-09-07 row below), so it was not repeated. Four commits land unmeasured by the unit gate. |
+| `run-tests.sh unit` (branch) | exit 69 — 2026-09-07 closeout (2.4 GB against the 8 GB floor); the fallback `xcodebuild test` over the whole suite gave 486/1/1 of 488 (`unit-suite-fallback-20260907.log`, the disk hit 0 GB as it finished), the one failure fixed the same day (`test-productworkflow-20260907.log`, 27/0); the AI classes 22/0/0 (`ai-workspace/test2.log`); the disk-detector fixture gate exit 0. Not the gate: `run-tests.sh unit` with 8 GB free is still owed |
+| `run-tests.sh inventory` (branch) | **exit 0 — 2026-09-06 evening at `b61ea73` plus this docs commit** (`inventory-20260906.log`): gated 46, diagnostic 9; cold-start set 1 825 lines (1 794 at the 2026-09-07 closeout: +31) and live markdown 5 395 (5 329: +66, of which 49 are this session — `status.md` +26, `open-items.md` +5, `decisions.md` +18 — and the rest predate it, the closeout figure having been read one commit earlier). The three drives, two Gate D records and the Gate B finding had no lines in the live docs before today; their narrative went to the archive. |
+| `run-tests.sh inventory` (earlier) | exit 0 at the 2026-09-07 closeout (`inventory-closeout2-20260907.log`: gated 46, diagnostic 9, cold-start 1 794, live 5 329) and at `c2fa3c1` on 2026-09-06 (`scratchpad/inventory-20260906.log`: gated 45, cold-start 1 295, live 4 780; the §3a pre-registration written at full length by owner instruction) |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-04.** Clean-builds a hardened Release and audits the artefact: nested signatures, sandbox/read-write/bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version `2.5 (4)` with the deployment floor — both DERIVED from the project. The floor assertion and its success message were both literal `26.0` and both wrong after the floor moved; the message said "macOS 26 floor" while passing against 14.0 |
 | `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). The release-tree attempt exited 1 at `real-data-acceptance`; that sidecar instance was diagnosed and closed as a stopgap then, and the wider discovery class was subsequently closed on 2026-09-05. Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
 
@@ -59,43 +61,75 @@ provenance are
 [`docs/archive/v2/release-2026-09-04.md`](archive/v2/release-2026-09-04.md).
 The live facts are the Releases table above and `CHANGELOG.md`.
 
-## Handoff (rewritten 2026-09-07 on the branch `ml/disk-detector`, after the overnight run of §3a steps 1–3)
+## Handoff (branch `ml/disk-detector`; AI table updated 2026-09-06 evening)
 
-**State of the AI/ML branch `ml/disk-detector` at the 2026-09-07 closeout
-(evidence and the day's story:
+**State of the AI/ML branch** (story:
 [`archive/v3-ml-disk-detector-2026-09-07.md`](archive/v3-ml-disk-detector-2026-09-07.md);
-the design: `v3-plan.md` §3a, `docs/ai-ml/README.md`, `docs/ai-ml/precipitates.md`).**
-Everything below is code-complete on the branch, committed, NOT pushed, and
-**nothing is verified on screen** — the owner deferred testing to a later
-session; Gate B is owed at the merge on every new `Core/` piece
-(`open-items.md`).
+design: `v3-plan.md` §3a, `docs/ai-ml/`). Code-complete, committed, NOT pushed.
+**Nothing is accepted on screen:** the three agent drives below are evidence;
+the owner's drive stays owed.
 
 | Piece | State | Where |
 |---|---|---|
 | Learned disk detector, steps 1–3 | pipeline proven; the step 3 verdict is the owner's (`decisions.md` 2026-09-07): candidate stage accepted at ≤ 1.9× measured end to end at 128 px | `tools/disk-detector/`, `Models/DiskDetector/` |
-| Step 4: the app option | `Core/ML/LearnedDiskDetector` + `LearnedDiskDetection` (tiled scan, disagreement map), `Session/LearnedDetection`; Gate B passed on slice 1 with findings applied; the owner's one drive on the bullseye cube worked (classical 101 289 peaks / learned 24 026 at 0.9, 6 023 of 8 400 positions differ) | AI Analysis → Learned disks |
-| Tiling for detectors > 128 px | 3×3 windows at 250 px: 2.81× the classical, over the 2× ceiling — **owner decision**: accept, or a 256-px retrain (README "Retraining") | `Core/ML` |
-| Step 5: labels | `Session/DiskLabelStore` in the sidecar, confirm/reject/export | AI Analysis → Learned disks |
-| Precipitates v1 | reflections off the lattice on the Max pattern, one dark-field per reflection, needle/particle segmentation, per-object measures, density with the refusal rule; `PrecipitateTests` 8/0 | AI Analysis → Precipitates |
-| Diffraction groups v1 (classical) | binned PCA + k-means, similarity map; `DiffractionEmbeddingTests` 4/0 | AI Analysis → Diffraction groups |
+| Step 4 (the app option) and step 5 (labels) | `Core/ML/LearnedDiskDetector` + `LearnedDiskDetection` (tiled scan, disagreement map), `Session/LearnedDetection`, `Session/DiskLabelStore` (confirm / reject / export). Gate B passed on slice 1. Driven 2026-09-06, nine steps (`drive-learned/`): live rings, the main-thread freeze, the forced picker and the export path all FIXED (`73f5eb5`); on the bullseye cube at Min relative 5 %, classical 58 236 / learned 44 745 peaks, 6 618 of 8 400 positions differ | AI Analysis → Learned disks |
+| Tiling for detectors > 128 px | 3×3 windows at 250 px: 2.81× the classical on the bench — **owner decision still open; the run proceeded under the stated default that it stays**. In the app on this loaded 8 GB machine the learned scan measured ~5× the classical end to end (8.2–10.8 against 54.8 positions/s, `drive-learned/`); the bench number is compute only | `Core/ML` |
+| Precipitates v1 | reflections off the lattice on the Max pattern, one dark-field per reflection, needle / particle segmentation, per-object measures, density with the refusal rule. Driven 2026-09-06, eleven steps (`drive-precipitates/`): ten of eleven defects fixed (`c5489ac`), P4 (no reflection markers on the diffraction pane) owed as a new drawing; `PrecipitateTests` 12/0, `PrecipitatePolishTests` 12/0 | AI Analysis → Precipitates |
+| Diffraction groups v1 (classical) | binned PCA + k-means, similarity map. Driven 2026-09-06, nine steps (`drive-groups/`): the run's provenance, the named and kept reference, the stale mark, a visible hint and the k in the product name landed (`73f5eb5`, `65fb084`); Gate B then found the eigensolver (below). `DiffractionEmbeddingTests` 7/0, `DiffractionGroupsPanelStateTests` 6/0 | AI Analysis → Diffraction groups |
 | The AI Analysis workspace | sixth sidebar area (⌘5), its own inspector; the main app carries no AI control (Bragg disks classical only, Imaging unchanged) | `UI/AIAnalysisSettings.swift` |
 
-Facts the next session must not re-derive: the Core AI runtime's cache goes
-stale per sandboxed container — `load()` purges the asset's entry once and
-retries, and the tests load the asset from the bundle (the test host IS the
-app); the Python runtime and the Swift framework break each other through
-`~/Library/Caches/coreai-cache` — move it aside when switching; this 8 GB
-Mac runs ONE heavy job at a time (a training beside an ANE timing crashed
-it); both detectors are streaming-bound in the app (the bench numbers are
-compute only); the precipitate length is measured on the flattened image
-over the half-maximum footprint, never on the ridge response.
+### 2026-09-06 evening — the polish run
 
-**Owed:** the owner's drive of the whole AI Analysis room and the live
-learned rings; the 2.8× decision; the unit gate (exit 69 today, 2.4 GB
-free against the 8 GB floor); Gate B on the precipitate and embedding
-maths; recipe replay for the three new runs; the merge (rebase onto
-`main`, the campaign, `decisions.md`). The cross-feature order after that
-is the brief's §9.
+Three agent drives of the AI Analysis room, then four commits: `73f5eb5`
+(fix-a, five defects), `c5489ac` + `65fb084` (fix-b, thirteen), `b61ea73`
+(fix-c, the Gate B findings). Evidence, owner-local and gitignored:
+`References/training_runs/disk-detector-2026-09-06-polish/`; the drives'
+defect tables and every Gate D prediction are in the archive file above.
+Fixed (the list, one line each, is in the archive file): among them two
+**Gate D** items — the learned full scan on the main thread
+(`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` made the extension's `detectAll`
+MainActor-isolated; the prediction "5 of 5 callbacks on main" was met,
+`nonisolated` fixes it; groups wrapped in `Task.detached`) and the objects
+table's first 23 rows (colliding id namespaces; the refuter notes the unit
+"experiment" is vacuous, the captures are the evidence) — and one
+**owner-reversible default**: the AI room's Detect All Disks runs the class the
+picker names instead of forcing `.learned` (Bragg disks still forces classical).
+**Gate B** (`gateB/`): a numpy twin found the
+PCA eigensolver ran ONE power step — `max(0, .nan) == 0` on the `.infinity`
+seed, the trap this repo recorded 2026-09-02 — so components past c1 were not
+principal axes and explained variance ran 21–36 % low, while all four
+embedding tests passed regardless. LAPACK `dsyevd_` replaces it
+(`decisions.md`): failure predicted on HEAD and observed on all eight
+components (residuals 0.058–0.568), post-fix residual floor 1.67e-8, fixture
+0.356 s → 0.224 s, two DEVIATION notes. Eight of twelve mutations survived;
+six now have assertions each re-broken, M2 and M5 stay open.
+**Owed** (`open-items.md`): the owner's drive of the whole
+room; `run-tests.sh unit`; M2/M5; the P4 reflection overlay; the D4
+accessibility crash, unestablished; recipe replay; the merge with its Gate B
+campaign. Owner questions open: the picker default above, whether Propose
+should compute the Max pattern itself, the width convention, the area
+definition, and re-observing the D4 crash.
+
+**Re-drive after the fixes** (`re-drive/re-drive.md`, the agent's evidence): live
+rings draw and change with threshold and position; the learned scan reports
+`2 %` at 16 s and `10 %` at 1:22 with the window answering, Cancel stops it in ~3 s;
+a classical run starts from the AI room with the picker on Classical and Compare is
+enabled in both picker positions; confirm/reject report 6 and 5 candidates; the
+export help names the container path; Propose refuses aloud before a Max pattern.
+Not reached: the precipitate and groups checks after P1 — the boot volume hit 0
+bytes (swap 5.4 GB under the learned run plus the 1.78 GB cube on 8 GB RAM); start
+any drive of this room with ≥ 3 GB free. Two observations for the owner: Advanced
+detection would not expand for the agent (AXPress "succeeded"), and 0.90 / 0.70 give
+one ring set. `ModuleCache.noindex` was deleted to recover the disk (regenerates).
+
+Facts not to re-derive: the Core AI cache goes stale per sandboxed container
+(`load()` purges once and retries; the tests load from the bundle); the Python
+runtime and the Swift framework break each other through
+`~/Library/Caches/coreai-cache`; this 8 GB Mac runs ONE heavy job at a time;
+both detectors are streaming-bound in the app; the precipitate length is taken
+on the flattened image over the half-maximum footprint, never on the ridge
+response; and under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` a `nonisolated`
+class declaration does NOT reach members declared in another file's extension.
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -137,12 +171,8 @@ agent should say so and start at item 2.
    measured-kernel mode, the file's probe as a kernel source; parity with
    py4DSTEM's flat route), the probe-size under-read on ring-shaped probes
    stays open, and the owner's drive of the bullseye maps closes the item.
-   **The learned detector, `v3-plan.md` §3a: steps 1–3 ran overnight
-   2026-09-06/07 on the branch `ml/disk-detector`** (simulator + committed
-   fixture proven and broken four ways, `run-tests.sh inventory` exit 0 with
-   `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
-   assets + Core ML insurance, pixel-checked and timed on the idle machine;
-   step 3 numbers on the fixture and both real cubes). **Next: the owner's drive of the AI Analysis room (the table above), the 2.8× decision; then the merge with its Gate B campaign; the precipitate work continues from `docs/ai-ml/precipitates.md` on the Al-Si-Mg cube.** ACOM coverage
+   **The learned detector, `v3-plan.md` §3a: steps 1–5 are on the branch
+   `ml/disk-detector`** (steps 1–3 and their numbers are archived). **Next: the owner's drive of the AI Analysis room (the table above); then the merge with its Gate B campaign; the precipitate work continues from `docs/ai-ml/precipitates.md` on the Al-Si-Mg cube.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.
@@ -173,4 +203,6 @@ drives and pastes the result.
 ## Owed to the owner
 
 - **Drive the rebuilt app** (above) — two things unverified on screen.
+- **Drive the AI Analysis room**, and the five questions the polish run put
+  to him (the handoff's polish paragraph).
 - The §10g decisions and plan §8 (sidecar wire format).
