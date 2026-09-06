@@ -98,9 +98,10 @@ def refine(cands, cc, sigma):
         if rs >= re or cs >= ce: continue
         w = ar[rs:re, cs:ce]; i, j = np.unravel_index(w.argmax(), w.shape); r0, c0 = rs + i, cs + j
         Ix1_, Ix0, Ix1 = ar[r0 - 1, c0], ar[r0, c0], ar[r0 + 1, c0]; Iy1_, Iy0, Iy1 = ar[r0, c0 - 1], ar[r0, c0], ar[r0, c0 + 1]
-        dx = (Ix1 - Ix1_) / (4 * Ix0 - 2 * Ix1 - 2 * Ix1_) if (4 * Ix0 - 2 * Ix1 - 2 * Ix1_) != 0 else 0.0
-        dy = (Iy1 - Iy1_) / (4 * Iy0 - 2 * Iy1 - 2 * Iy1_) if (4 * Iy0 - 2 * Iy1 - 2 * Iy1_) != 0 else 0.0
-        if not (abs(dx) <= 1 and abs(dy) <= 1):   # a flat 3x3 (denominator ~0): keep the pixel, as the app's refinement would
+        with np.errstate(divide="ignore", invalid="ignore"):   # unguarded like py4DSTEM's get_maxima_2D and the app
+            dx = float(np.float64(Ix1 - Ix1_) / np.float64(4 * Ix0 - 2 * Ix1 - 2 * Ix1_))
+            dy = float(np.float64(Iy1 - Iy1_) / np.float64(4 * Iy0 - 2 * Iy1 - 2 * Iy1_))
+        if not (np.isfinite(dx) and np.isfinite(dy)):   # the app's rule (DiskDetector.polyRefine): a non-finite shift is not applied
             dx = dy = 0.0
         out.append((r0 + dx, c0 + dy, float(Ix0), float(s)))
     return np.array(out).reshape(-1, 4)

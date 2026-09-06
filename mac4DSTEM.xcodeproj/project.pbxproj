@@ -104,6 +104,7 @@
 				Core/Data/ResultPresentation.swift,
 				Core/Data/SessionReplayRecord.swift,
 				Core/Data/VendorRawReaders.swift,
+				Core/ML/LearnedDiskDetector.swift,
 				Core/Workflow/AnalysisOperationController.swift,
 				Session/ACOMSession.swift,
 				Session/ACOMWorkflow.swift,

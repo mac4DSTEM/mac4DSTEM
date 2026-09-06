@@ -174,5 +174,16 @@ acceptance rule — bullseye net − classical per position: 0.9 → median 0
 (436 vs 442), 0.6 → +2, 0.3 → +7; fixture 0.967 / 0.244 px refined at every
 threshold, accepted-precision 0.59; WS₂ as stored equals classical.
 
+- **Step 4 slice 1 (Swift).** `fixture/write_swift_fixture.py` writes
+  `fixture/swift/` (the 16 patterns as uint16, the probe, Python's model
+  inputs for two patterns, and per pattern the raw picks and the accepted
+  refined peaks from the committed asset `Models/DiskDetector/`); the app's
+  `mac4DSTEMTests/LearnedDiskDetectorTests` reproduces all of it through
+  `Core/ML/LearnedDiskDetector`. `evaluate.refine` now applies the parabolic
+  shift unguarded like py4DSTEM and the app (a non-finite shift is not
+  applied). Trap: after the Swift CoreAI framework has run, the Python
+  runtime fails `load_function` on the ANE with a generic ObjC error until
+  `~/Library/Caches/coreai-cache` is moved aside.
+
 abTEM honesty check: skipped 2026-09-06. The existing `abtem` conda env does not
 import (numpy's `libgfortran.5.dylib` missing) and a reinstall would eat the disk.

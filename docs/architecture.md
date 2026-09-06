@@ -103,6 +103,8 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Readers, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
 | Metal engine, FFTs, multicorr, cancellation | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
+| Learned inference (Core AI, macOS 27; the learned disk-candidate stage) | `mac4DSTEM/Core/ML/` — every new file also goes on the app target's exception list in `project.pbxproj` |
+| Pinned model assets with their hash records (raw `.aimodel`, loaded at runtime; never under `mac4DSTEM/`, where Xcode would compile them for the 14.0 target and fail) | `Models/` |
 | Crystal models, scattering factors, ACOM matching, CIF import | `mac4DSTEM/Core/Crystal/` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |

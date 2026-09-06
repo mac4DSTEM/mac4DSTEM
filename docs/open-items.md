@@ -23,6 +23,16 @@ and standing directives now live in `docs/decisions.md`.
 
 ## Science — Gate D or Gate B owed
 
+- **Learned disk detector, step 4 slice 1 (branch `ml/disk-detector`,
+  2026-09-07): Gate B owed on `Core/ML/LearnedDiskDetector.swift` and the two
+  new `DiskDetector` entry points** (`correlation`, `refine`; the classical
+  path is untouched, `polyRefine` byte-identical). Evidence: 3 unit cases vs
+  the Python reference, three mutations caught; detector classes 15/0 run
+  directly, the unit gate refused (disk floor). Trap: the fixture test proves
+  parity with Python on the synthetic fixture only; real-cube behaviour is
+  the evaluate.py numbers, not a Swift run. Owner: the branch's merge.
+  Residual: patterns < 128 px unsupported (nil); asset not yet bundled.
+
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
 py4DSTEM truth (`tools/bragg-spacing-probe/bullseye-kernel-truth.py`): (1) the

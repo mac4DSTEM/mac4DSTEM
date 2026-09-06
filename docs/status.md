@@ -124,7 +124,40 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    need their own ceiling; per-image uses (precipitate segmentation on
    virtual images) need labels, not the Neural Engine. The precipitate chain
    is already in `v3-plan.md` ("The precipitate chain"). Owner decides.
-4. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
+4. **Step 4, slice 1, landed on the branch 2026-09-07 late afternoon (owner's
+   decisions: ≤ 1.9× accepted, threshold later, the detector before any second
+   model; verdict in `decisions.md`).** `Core/ML/LearnedDiskDetector.swift`
+   (DSTEMCore; macOS 27 behind `#if canImport(CoreAI)` + `@available`): loads
+   the asset with the Neural Engine preferred, hashes it (`export.py`'s
+   `sha256_tree`), normalises the three channels exactly as
+   `simulate.model_inputs`, runs batches of 32, picks 3×3 maxima above the
+   threshold in Swift, and hands candidates to the classical detector's new
+   `correlation()` / `refine()` entry points (snap to the correlation maximum,
+   the parabolic step, edge rule, non-maximum suppression at minPeakSpacing by
+   net score, cap) — `detectAll(cube:…)` returns `BraggVectors` with
+   `detector_class: learned` and the weights hash in provenance. The asset
+   lives in `Models/DiskDetector/` (564 KB + its record) — NOT under
+   `mac4DSTEM/`, where Xcode's automatic model compilation fails for the
+   macOS 14 target; it is loaded as a raw file at runtime, bundling is the
+   next slice. `mac4DSTEMTests/LearnedDiskDetectorTests` (3 cases) proves the
+   normalisation against Python (≤ 2e-3), the committed asset's hash, and the
+   whole Swift path against Python's picks and accepted peaks on the fixture
+   (`tools/disk-detector/fixture/swift/`, 804 KB, from
+   `write_swift_fixture.py`); broken three ways (channels swapped, peak test
+   loosened, no snap) and each caught — the loosened peak test slipped past the
+   first version, which measured recall only; an extra-picks bound now catches
+   it. Unit gate NOT run (exit 69: 6 GB free against the 8 GB floor); the
+   three detector test classes run directly: 15/0
+   (`test-diskdetection-contract-20260907.log`). **Owed:** Gate B on the
+   `Core/` change; the UI option (`DetectorClass`), progress/cancel, the
+   disagreement map, sidecar labels; patterns smaller than 128 px (returns
+   nil); bundling the asset; the Xcode placement view. Two tooling traps:
+   every new `Core/` file must be added to the app target's exception list in
+   `project.pbxproj` (the app takes Core through the package, the synchronized
+   group would compile it twice), and the Python Core AI runtime fails to
+   load on the ANE after the Swift framework has written
+   `~/Library/Caches/coreai-cache` — move the cache aside.
+5. **Housekeeping done 2026-09-07:** the AGPL `yolov8n.mlpackage` (committed
    and pushed 2026-09-05 in the Sources build phase, referenced by no Swift
    file) is removed from the tree and the project; it stays in public
    history unless `main` is rewritten. The machine (8 GB) crashed once at
@@ -178,10 +211,11 @@ agent should say so and start at item 2.
    fixture proven and broken four ways, `run-tests.sh inventory` exit 0 with
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
-   step 3 numbers on the fixture and both real cubes). **Next: the owner's
-   decisions (item 2: threshold and the ceiling; item 3: one model through
-   step 4 first), then step 4 on the branch; the full discipline returns at
-   the merge. The cross-feature direction is `docs/ai-ml/README.md`.** ACOM coverage
+   step 3 numbers on the fixture and both real cubes). **Next: step 4 slice 2 on the
+   branch — Gate B on slice 1's `Core/` change, then the detector option in
+   the UI with provenance, progress and the disagreement map, then the
+   sidecar labels; the full discipline returns at the merge. The
+   cross-feature direction is `docs/ai-ml/README.md`.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.

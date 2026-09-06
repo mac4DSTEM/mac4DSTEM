@@ -423,3 +423,22 @@ peak-picking returning candidates not heatmaps, the probe as model state,
 compute streams; the correlation kernel moves in-graph only after it is
 verified against the Metal engine. The third-party "3.5× faster than
 Core ML" claim is about LLM token loops and is not a reason here.)*
+
+**2026-09-07 — Learned disk detector, step 3 verdict (owner): it earns its
+place as a candidate stage; step 4 proceeds before any second model.** The
+evidence is the corrected `status.md` handoff and `v3-plan.md` §3a run3:
+the exported width-12 asset, scored with an acceptance rule after
+refinement, matches the classical detector's per-position count at
+threshold 0.9 (median difference 0 on the bullseye cube) while taking the
+disks the 5 % cut drops and skipping ring side-lobes; from Swift on the
+same 2 100 patterns the net alone is 0.89× the app's 8-core classical wall
+clock and the whole learned path ≤ 1.9×. The owner accepted ≤ 1.9× with a
+1.3 s first load as inside the 2× ceiling ("yes it's ok, let's explore this
+further"). Left open by the owner: the operating threshold (0.6–0.9; a
+frozen hand-labelled bullseye set decides it, later). Serving shape
+decided by the evidence: the `heatmap` function with peak-picking and
+non-maximum suppression in Swift — the in-graph top-k's fixed cap and the
+GPU-delegate defect are avoided, and the threshold stays a runtime
+parameter instead of an export constant. The overnight "0.6× the
+classical, under the ceiling" is withdrawn: it compared against the serial
+single-pattern benchmark, not the app's scan path.
