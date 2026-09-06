@@ -16,7 +16,14 @@ final class LearnedDiskDetectorTests: XCTestCase {
 
     private static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     private static let fixtureDir = repo.appendingPathComponent("tools/disk-detector/fixture/swift")
-    private static let assetURL = repo.appendingPathComponent("Models/DiskDetector/disk-detector-heatmap-b32.aimodel")
+    /// The bundled copy first: the test host is the app itself, and the Core AI runtime caches
+    /// an asset by content under the URL it was first loaded from — a test loading the repo
+    /// copy while the app loads the bundle copy poisons the app's cache (owner's drive,
+    /// 2026-09-07). Same bytes either way (the hash test proves it).
+    private static var assetURL: URL {
+        if #available(macOS 27, *), let bundled = LearnedDiskDetector.bundledAssetURL() { return bundled }
+        return repo.appendingPathComponent("Models/DiskDetector/disk-detector-heatmap-b32.aimodel")
+    }
     private static let assetMeta = repo.appendingPathComponent("Models/DiskDetector/disk-detector-heatmap-b32.json")
     private static let S = 128
 

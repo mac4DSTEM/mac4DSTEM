@@ -137,8 +137,9 @@ extension LearnedDiskDetector {
     ///
     /// The returned `BraggVectors.detectionProvenance` is the FIRST tile's
     /// provenance (it carries the learned keys — model asset, hash, threshold,
-    /// crop origin — which are identical across tiles since the crop is fixed
-    /// by `probeCentre`, not by scan row) — never recomputed.
+    /// window grid — which are identical across tiles since the window origins
+    /// are fixed by `probeCentre` and `probeRadius`, not by scan row) — never
+    /// recomputed.
     package func detectAll(
         data: FourDArray, descriptor d: DatasetDescriptor,
         probe: DiffractionPattern, probeCentre: (x: Float, y: Float), probeRadius: Float,

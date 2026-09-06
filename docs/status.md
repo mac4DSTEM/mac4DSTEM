@@ -245,7 +245,37 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    full scan — landed: with Learned selected the live rings on the current
    CBED come from the learned detector at the current threshold, and the
    picker and threshold re-run the overlay. Unverified on screen.
-7. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
+7. **Tiling landed (2026-09-07 evening; owner: "tiling for now, retraining
+   in the docs").** A detector larger than 128 px is covered by a grid of
+   128-px windows (overlap one disk diameter, ≥ 24 px; `windowOrigins`), each
+   through the same pipeline, merged per position by refined intensity at
+   minPeakSpacing, capped; provenance `learned_windows`, `learned_window_
+   origins`. Tests: the grid formula and the merge (pure), a 256-px aligned
+   two-pattern cube reaching both corners (exact), and a 232-px 2×2 cube with
+   real content in the overlaps equal to the per-window direct path merged
+   (exact; a first version compared against the isolated patterns and lost
+   15/120 — the U-Net's receptive field reaches past the 24-px strip, so a
+   neighbour's content moves borderline scores: the model, not the tiling).
+   14/0/0 across the three learned classes (`tiling/test-tiling-mine6.log`);
+   the shift-back broken once → 2 failed (`tiling/mutation-shift-rowcol.log`).
+   **The ceiling with tiling, from Swift (`scan-bench-250.log`, 525 bullseye
+   patterns at the full 250 px, 3×3 = 9 windows):** classical `detectAll`
+   0.72 ms/pattern (250-px FFTs), learned end to end 2.03 ms/pattern =
+   **2.81× — over the 2× ceiling at this detector size**, while finding 5.66
+   peaks per pattern against the classical's 3.84 (the whole detector is in
+   reach now; at 128 px it stays 1.90×). **Owner decision:** accept 2.8× for
+   large detectors (both are far under the streaming time in the app), or
+   fund a 256-px retrain (one pass; `README` "Retraining"). Also landed: the
+   Core AI cache clash root cause and its fix — a cached specialisation in a
+   sandboxed container goes stale (the test host wrote it; the app's own
+   entry aged the same way) and then loads instantly but refuses its
+   function; `AIModelCache.default.deleteEntries(for:)` clears it in-process
+   and persists, `deleteAll` did not, and the failed model must be released
+   before the retry; the tests now load the asset from the bundle, the URL
+   the app uses, so app and test host share one entry. The precipitate
+   specification is `docs/ai-ml/precipitates.md`; the retraining recipe is
+   the detector README's "Retraining — when and how".
+8. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
    run-time strip was cramped — the percentage wrapped to one character per
    line, the message to two lines): the message is one truncating line, the
    percentage has a `LayoutPolicy` slot like the metrics line (the fixed
@@ -307,7 +337,8 @@ agent should say so and start at item 2.
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
    step 3 numbers on the fixture and both real cubes). **Next: the owner's decision on
-   crop coverage (item 6a) and a second look at the live learned rings; then
+   the 2.8× tiled cost at 250 px (item 7) and a second look at the live
+   learned rings; then
    slice 3 (sidecar labels from the disagreement map), then the merge with
    its Gate B campaign; the precipitate work starts from the owner's
    near-beam observation (`docs/ai-ml/README.md` §4). The

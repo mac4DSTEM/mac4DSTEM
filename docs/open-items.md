@@ -31,8 +31,7 @@ and standing directives now live in `docs/decisions.md`.
   (at the ceiling). Trap: the fixture proves parity with Python on the
   synthetic fixture; real-cube behaviour is the evaluate.py numbers, not a
   Swift run on the cube. Residuals: patterns < 128 px unsupported (the learned
-  option fails with a message; the Al-Si-Mg cube is 64 px); larger
-  detectors reduced to the 128-px window about the probe centre; slice 2
+  option fails with a message; the Al-Si-Mg cube is 64 px); larger detectors are tiled (3×3 windows at 250 px: 2.81× the classical, over the 2× ceiling — owner decision, `status.md` item 7); slice 2
   (the app option, `Session/LearnedDetection.swift`, the disagreement map)
   is unverified on screen and its `Core/ML` additions owe Gate B at the
   merge; the unit gate has not run (disk floor). Owner: the branch's merge.

@@ -6,7 +6,10 @@
 //     benchmark, 0.602 ms, and called the net 0.6× of it; the app runs 8 cores).
 // (2) The exported Core AI asset through the CoreAI framework, and (3) LearnedDiskDetector.detectAll end to end, Neural Engine preferred, batch by
 //     batch on the same patterns' three-channel inputs — the first Swift-side timing (the Python
-//     runtime timed everything before).
+//     runtime timed everything before). (2) needs dump.py's inputs.f16 (only written for a 128 px
+//     dump) and is skipped, not fatal, on a >128 px dump — (3) calls detectAll directly, which
+//     tiles a >128 px detector itself and computes its own per-window inputs, so it needs no
+//     precomputed file and is the number that actually exercises tiling (2026-09-07).
 // Usage: scan-bench <dump dir> [<asset.aimodel> <function>]
 import Foundation
 import Metal
@@ -50,9 +53,13 @@ print(String(format: "classical detectAll (%d cores): %d patterns in %.3f s medi
 result["classical"] = ["seconds_median": cl, "ms_per_pattern": cl / Double(n) * 1000, "s_per_65536": cl / Double(n) * 65536, "peaks": peakCount, "repeats": classical]
 
 // ---- (2) the exported asset through CoreAI, Neural Engine preferred
-if args.count == 4 {
+// Needs inputs.f16 at the model's own S=128 — dump.py only writes it for a 128 px dump (a
+// tiled, >128 px dump's per-window inputs are computed on the fly by (3)'s detectAll call,
+// not precomputed here). Skipped, not fatal, when the dump is the tiled kind (2026-09-07).
+let inputsURL = dir.appendingPathComponent("inputs.f16")
+if args.count == 4, FileManager.default.fileExists(atPath: inputsURL.path) {
     let assetURL = URL(fileURLWithPath: args[2]); let fnName = args[3]
-    let inputs = readHalf(dir.appendingPathComponent("inputs.f16")); precondition(inputs.count == n * 3 * S * S)
+    let inputs = readHalf(inputsURL); precondition(inputs.count == n * 3 * S * S)
     let sem = DispatchSemaphore(value: 0)
     Task {
         do {

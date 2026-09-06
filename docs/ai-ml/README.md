@@ -205,7 +205,7 @@ does not imply a top-level source folder containing every layer.
 | Home | Responsibility | State |
 |---|---|---|
 | `docs/ai-ml/README.md` | This brief and future specification index | Created for this request |
-| `docs/ai-ml/<feature>.md` | One active feature's scope, inputs, state owner, validation and decisions | Create only when that feature starts |
+| `docs/ai-ml/<feature>.md` | One active feature's scope, inputs, state owner, validation and decisions | Create only when that feature starts; first is `docs/ai-ml/precipitates.md` (design only, unscheduled) |
 | `docs/v3-plan.md` | Cross-feature sequence and existing disk-detector pre-registration | Existing; link rather than duplicate |
 | `docs/status.md`, `docs/open-items.md`, `docs/decisions.md` | Live progress, defects/debt, durable decisions respectively | Existing authorities |
 | `docs/archive/` | Completed investigation and superseded evidence narratives | Existing |

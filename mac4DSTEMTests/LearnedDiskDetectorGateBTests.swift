@@ -17,7 +17,14 @@ final class LearnedDiskDetectorGateBTests: XCTestCase {
 
     private static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     private static let fixtureDir = repo.appendingPathComponent("tools/disk-detector/fixture/swift")
-    private static let assetURL = repo.appendingPathComponent("Models/DiskDetector/disk-detector-heatmap-b32.aimodel")
+    /// The bundled copy first: the test host is the app itself, and the Core AI runtime caches
+    /// an asset by content under the URL it was first loaded from — a test loading the repo
+    /// copy while the app loads the bundle copy poisons the app's cache (owner's drive,
+    /// 2026-09-07). Same bytes either way (the hash test proves it).
+    private static var assetURL: URL {
+        if #available(macOS 27, *), let bundled = LearnedDiskDetector.bundledAssetURL() { return bundled }
+        return repo.appendingPathComponent("Models/DiskDetector/disk-detector-heatmap-b32.aimodel")
+    }
     private static let S = 128
 
     private struct Expected: Decodable {
@@ -147,15 +154,163 @@ final class LearnedDiskDetectorGateBTests: XCTestCase {
         XCTAssertEqual(offMaximum, 0, "\(offMaximum) of \(accepted) accepted peaks are not at a correlation maximum (worst \(worst) px, patterns \(patternsHit.sorted()))")
     }
 
-    // MARK: R4 — detectAll on a padded cube equals the direct path shifted by the crop origin
+    // MARK: R3b — the tiling grid and the merge, pure functions (no Core AI / ANE needed)
 
+    /// `windowOverlap`/`windowOrigins`/`mergeWindows` never touch the model — they run on
+    /// any macOS 27 host regardless of whether the Neural Engine specialises here. Checked
+    /// against the formula in docs/v3-plan.md §3a: `overlap = max(2·⌈r⌉+2, 24)`,
+    /// `n = 1 if q ≤ 128 else ⌈(q−overlap)/(128−overlap)⌉`, origins spread evenly across
+    /// `0...(q−128)`, the one-window case centred on the probe.
     @available(macOS 27, *)
-    func testDetectAllEqualsDirectPathShiftedByCropOrigin() async throws {
+    func testWindowGridFormula() {
+        // overlap: one disk diameter, floored at 24 px
+        XCTAssertEqual(LearnedDiskDetector.windowOverlap(probeRadius: 10), 24, "2·⌈10⌉+2 = 22, below the 24 px floor")
+        XCTAssertEqual(LearnedDiskDetector.windowOverlap(probeRadius: 20), 42, "2·⌈20⌉+2 = 42, above the floor")
+        XCTAssertEqual(LearnedDiskDetector.windowOverlap(probeRadius: 0), 24)
+
+        // q == inputSize: one window, forced to origin 0 regardless of centre (no slack)
+        XCTAssertEqual(LearnedDiskDetector.windowOrigins(q: 128, probeCentreOnAxis: 63.6, overlap: 24), [0])
+
+        // q == 160, overlap 24: n = ceil(136/104) = 2, origins spread across 0...32
+        XCTAssertEqual(LearnedDiskDetector.windowOrigins(q: 160, probeCentreOnAxis: 84, overlap: 24), [0, 32])
+
+        // q == 256, overlap 24: n = ceil(232/104) = 3, origins spread across 0...128
+        XCTAssertEqual(LearnedDiskDetector.windowOrigins(q: 256, probeCentreOnAxis: 64, overlap: 24), [0, 64, 128])
+
+        // q == 250 (the owner's bullseye cube), overlap 24: n = ceil(226/104) = 3
+        XCTAssertEqual(LearnedDiskDetector.windowOrigins(q: 250, probeCentreOnAxis: 125, overlap: 24).count, 3)
+        XCTAssertEqual(LearnedDiskDetector.windowOrigins(q: 250, probeCentreOnAxis: 125, overlap: 24), [0, 61, 122])
+    }
+
+    /// A synthetic three-window overlap at one scan position: window A and window B both
+    /// see the SAME disk (a duplicate — the higher-intensity copy must survive), window C
+    /// sees a disk nobody else does. Expect 2 peaks kept: the brighter duplicate and the
+    /// unique one; capped further if `maxNumPeaks` is tight.
+    @available(macOS 27, *)
+    func testMergeWindowsDedupesByIntensityAndCaps() {
+        var p = DiskDetectionParams(); p.minPeakSpacing = 8; p.maxNumPeaks = 70
+        let dim = BraggPeak(x: 50, y: 50, intensity: 0.6)   // window A's copy of the shared disk
+        let bright = BraggPeak(x: 50.1, y: 49.9, intensity: 0.9) // window B's copy — same disk, higher intensity
+        let unique = BraggPeak(x: 100, y: 100, intensity: 0.4)   // only window C sees this one
+        let merged = LearnedDiskDetector.mergeWindows([[dim], [bright], [unique]], params: p)
+        XCTAssertEqual(merged.count, 2, "the duplicate must collapse to one peak")
+        XCTAssertTrue(merged.contains { $0.intensity == 0.9 }, "the brighter of the two duplicate copies must be the one kept")
+        XCTAssertFalse(merged.contains { $0.intensity == 0.6 }, "the dimmer duplicate must be dropped, not kept alongside")
+        XCTAssertTrue(merged.contains { $0.intensity == 0.4 }, "the peak only one window saw must survive")
+
+        // the cap applies to the MERGED set, same as `refine`'s own cap
+        p.maxNumPeaks = 1
+        let capped = LearnedDiskDetector.mergeWindows([[dim], [bright], [unique]], params: p)
+        XCTAssertEqual(capped.count, 1)
+        XCTAssertEqual(capped.first?.intensity, 0.9, "capped to 1, the highest-intensity peak must be the one kept")
+    }
+
+    // MARK: R4 — a 2×2 window grid with real content in the overlaps equals the per-window direct path, merged
+
+    /// A 232-px detector: overlap 24 px for this fixture's probe, so `windowOrigins` gives
+    /// [0, 104] per axis. Four DIFFERENT fixture patterns sit at the four window origins, so
+    /// every window sees its own pattern plus a 24-px strip of each neighbour — what a real
+    /// detector's windows see. The reference is the DIRECT path run on each window's actual
+    /// 128-px content, shifted by the window origin and merged with `mergeWindows`: that is
+    /// exactly what `detectAll` must compute, so the comparison is exact (0.05 px, equal
+    /// counts) and isolates the tiling plumbing — job order, window origins, the shift back,
+    /// the merge — from the net's own sensitivity to what lies in a window. (A first version
+    /// compared against the ISOLATED patterns' peaks and lost 15 of 120: a U-Net's
+    /// receptive field reaches well past the 24-px strip, so a neighbour's content moves
+    /// borderline scores across the threshold. That is the model, not the tiling.)
+    @available(macOS 27, *)
+    func testTiledWindowsEqualPerWindowDirectPathMerged() async throws {
+        let f = try loadFixture(); let e = f.expected; let det = try detector(f)
+        var p = params(e); p.maxNumPeaks = 1000   // four patterns per position exceed the 70 cap; the cap is R2's test
+        let learned: LearnedDiskDetector
+        do { learned = try await LearnedDiskDetector.load(assetURL: Self.assetURL) } catch { throw XCTSkip("no Core AI: \(error)") }
+        let S = Self.S, n = S * S, n3 = 3 * n
+        let overlap = LearnedDiskDetector.windowOverlap(probeRadius: Float(e.probe_radius))
+        let Q = 128 + (128 - overlap)                       // 232 for overlap 24: origins [0, 104]
+        let origins = LearnedDiskDetector.windowOrigins(q: Q, probeCentreOnAxis: Float(Q) / 2, overlap: overlap)
+        XCTAssertEqual(origins, [0, 128 - overlap])
+        let placements = [(0, 0, 0), (0, 128 - overlap, 1), (128 - overlap, 0, 2), (128 - overlap, 128 - overlap, 3)]   // (row0, col0, pattern)
+        let ry = 1, rx = 2, positions = ry * rx
+        var cube = [Float](repeating: 0, count: positions * Q * Q)
+        for pos in 0..<positions {
+            for (row0, col0, k) in placements {
+                let a = f.patterns[(k + 4 * pos) % 16]
+                for y in 0..<S { for x in 0..<S { cube[pos * Q * Q + (row0 + y) * Q + col0 + x] = a[y * S + x] } }
+            }
+        }
+        // the probe in the middle of the detector, like a real cube's; its 128-px crop is the fixture probe
+        var probe = [Float](repeating: 0, count: Q * Q)
+        let pr0 = (Q - S) / 2
+        for y in 0..<S { for x in 0..<S { probe[(pr0 + y) * Q + pr0 + x] = f.probe[y * S + x] } }
+        // the reference: the direct path on each window's actual content
+        var inputs = [Float16](repeating: 0, count: learned.batch * n3)
+        var smoothed: [[Float]] = []; var jobs: [(pos: Int, oy: Int, ox: Int)] = []
+        for pos in 0..<positions { for oy in origins { for ox in origins {
+            var crop = [Float](repeating: 0, count: n)
+            for y in 0..<S { for x in 0..<S { crop[y * S + x] = cube[pos * Q * Q + (oy + y) * Q + ox + x] } }
+            let corr = crop.withUnsafeBufferPointer { det.correlation(pattern: $0.baseAddress!, params: p) }
+            let j = jobs.count
+            inputs.replaceSubrange((j * n3)..<((j + 1) * n3), with: LearnedDiskDetector.modelInputs(pattern: crop, probe: f.probe, correlation: corr.raw))
+            smoothed.append(corr.smoothed); jobs.append((pos, oy, ox))
+        } } }
+        XCTAssertLessThanOrEqual(jobs.count, learned.batch)
+        let heat = try await learned.heatmaps(inputs: inputs)
+        var perPosition = [[[BraggPeak]]](repeating: [], count: positions)
+        for (j, job) in jobs.enumerated() {
+            let cands = heat.withUnsafeBufferPointer { hb in
+                LearnedDiskDetector.pickPeaks(heatmap: UnsafeBufferPointer(rebasing: hb[(j * n)..<((j + 1) * n)]), threshold: e.threshold) }
+            var peaks = det.refine(candidates: cands, smoothedCorrelation: smoothed[j], params: p)
+            for i in peaks.indices { peaks[i].x += Float(job.ox); peaks[i].y += Float(job.oy) }
+            perPosition[job.pos].append(peaks)
+        }
+        let expected = perPosition.map { LearnedDiskDetector.mergeWindows($0, params: p) }
+        // the tiled scan
+        let buffer = try XCTUnwrap(MetalEngine.shared.device.makeBuffer(bytes: cube, length: cube.count * MemoryLayout<Float>.stride))
+        let d = DatasetDescriptor(filePath: "/tmp/gateB.h5", datasetPath: "/d", shape: [ry, rx, Q, Q], dtypeDescription: "float32", chunkShape: nil)
+        let centre = (x: Float(e.probe_centre[1]) + Float(pr0), y: Float(e.probe_centre[0]) + Float(pr0))
+        let maybe = await learned.detectAll(
+            cube: buffer, descriptor: d, probe: DiffractionPattern(qy: Q, qx: Q, pixels: probe),
+            probeCentre: centre, probeRadius: Float(e.probe_radius), params: p, threshold: e.threshold)
+        let out = try XCTUnwrap(maybe)
+        XCTAssertEqual(out.peaks.count, positions)
+        XCTAssertEqual(out.detectionProvenance["learned_windows"], "2x2")
+        var countMismatches = 0, misses = 0, total = 0, worst: Float = 0, closePairs = 0
+        for pos in 0..<positions {
+            let want = expected[pos], got = out.peaks[pos]
+            if want.count != got.count { countMismatches += 1 }
+            for w in want {
+                total += 1
+                let dmin = got.map { hypot($0.x - w.x, $0.y - w.y) }.min() ?? .infinity
+                if dmin > 0.05 { misses += 1 }
+                worst = max(worst, dmin.isFinite ? dmin : 99)
+            }
+            for i in got.indices { for j in got.indices where j > i {
+                if hypot(got[i].x - got[j].x, got[i].y - got[j].y) < p.minPeakSpacing { closePairs += 1 }
+            } }
+        }
+        XCTAssertGreaterThan(total, 50, "the reference must hold enough peaks to mean anything")
+        XCTAssertEqual(countMismatches, 0, "peak counts differ from the per-window direct path at \(countMismatches)/\(positions) positions")
+        XCTAssertEqual(misses, 0, "\(misses)/\(total) reference peaks not within 0.05 px; worst \(worst)")
+        XCTAssertEqual(closePairs, 0, "\(closePairs) accepted pairs closer than minPeakSpacing — the window merge left duplicates")
+    }
+
+    // MARK: R4b — tiling reaches windows the old single centred crop could not
+
+    /// A 256-px detector: `windowOrigins` grids each axis into 3 windows (⌈(256−24)/(128−24)⌉
+    /// = 3) at origins 0, 64, 128. One fixture pattern sits in the TOP-LEFT window's exact
+    /// footprint, a different one in the BOTTOM-RIGHT window's exact footprint (both
+    /// window-aligned — no boundary interpolation to account for), zeros elsewhere. Before
+    /// tiling, the single probe-centred crop reached only the middle of a detector this
+    /// size — neither corner was ever proposed. Expect the union of both patterns'
+    /// direct-path peaks, each within 0.05 px of its shifted position, and no duplicate
+    /// from the windows that legitimately see parts of both blocks (window (64, 64) sees a
+    /// corner of each).
+    @available(macOS 27, *)
+    func testTiledWindowsReachTheWholeDetector() async throws {
         let f = try loadFixture(); let e = f.expected; let det = try detector(f); let p = params(e)
         let learned: LearnedDiskDetector
         do { learned = try await LearnedDiskDetector.load(assetURL: Self.assetURL) } catch { throw XCTSkip("no Core AI: \(error)") }
         let S = Self.S, n = S * S, n3 = 3 * n
-        // direct path per fixture pattern
         var inputs = [Float16](repeating: 0, count: learned.batch * n3)
         var smoothed: [[Float]] = []
         for i in 0..<e.count {
@@ -170,41 +325,50 @@ final class LearnedDiskDetectorGateBTests: XCTestCase {
                 LearnedDiskDetector.pickPeaks(heatmap: UnsafeBufferPointer(rebasing: hb[(i * n)..<((i + 1) * n)]), threshold: e.threshold) }
             direct.append(det.refine(candidates: cands, smoothedCorrelation: smoothed[i], params: p))
         }
-        // a 5×8 scan of 160×160 patterns: fixture pattern (pos % 13) placed at (row0 = 20, col0 = 7),
-        // another fixture pattern tiled underneath so a wrong crop lands on real-looking data
-        let Q = 160, row0 = 20, col0 = 7, ry = 5, rx = 8, positions = ry * rx
+
+        let Q = 256, ry = 1, rx = 2, positions = ry * rx
+        let topLeft = (row0: 0, col0: 0), bottomRight = (row0: Q - S, col0: Q - S)
         var cube = [Float](repeating: 0, count: positions * Q * Q)
         for pos in 0..<positions {
-            let a = f.patterns[pos % 13], b = f.patterns[(pos + 5) % 16]
-            for y in 0..<Q { for x in 0..<Q { cube[pos * Q * Q + y * Q + x] = b[(y % S) * S + (x % S)] } }
-            for y in 0..<S { for x in 0..<S { cube[pos * Q * Q + (row0 + y) * Q + col0 + x] = a[y * S + x] } }
+            let patA = f.patterns[pos % 13], patB = f.patterns[(pos + 5) % 16]
+            for y in 0..<S { for x in 0..<S {
+                cube[pos * Q * Q + (topLeft.row0 + y) * Q + topLeft.col0 + x] = patA[y * S + x]
+                cube[pos * Q * Q + (bottomRight.row0 + y) * Q + bottomRight.col0 + x] = patB[y * S + x]
+            } }
         }
+        // the probe only needs to be real where the kernel is actually cropped from
+        // (the top-left block, where `probeCentre` below lands): the kernel is one crop
+        // shared by every window, translation-invariant, per `detectAll`'s contract.
         var probe = [Float](repeating: 0, count: Q * Q)
-        for y in 0..<S { for x in 0..<S { probe[(row0 + y) * Q + col0 + x] = f.probe[y * S + x] } }
+        for y in 0..<S { for x in 0..<S { probe[(topLeft.row0 + y) * Q + topLeft.col0 + x] = f.probe[y * S + x] } }
         let buffer = try XCTUnwrap(MetalEngine.shared.device.makeBuffer(bytes: cube, length: cube.count * MemoryLayout<Float>.stride))
-        let d = DatasetDescriptor(filePath: "/tmp/gateB.h5", datasetPath: "/d", shape: [ry, rx, Q, Q], dtypeDescription: "float32", chunkShape: nil)
-        let centre = (x: Float(e.probe_centre[1]) + Float(col0), y: Float(e.probe_centre[0]) + Float(row0))
+        let d = DatasetDescriptor(filePath: "/tmp/gateB-tiled.h5", datasetPath: "/d", shape: [ry, rx, Q, Q], dtypeDescription: "float32", chunkShape: nil)
+        let centre = (x: Float(e.probe_centre[1]), y: Float(e.probe_centre[0]))
         let maybe = await learned.detectAll(
             cube: buffer, descriptor: d, probe: DiffractionPattern(qy: Q, qx: Q, pixels: probe),
             probeCentre: centre, probeRadius: Float(e.probe_radius), params: p, threshold: e.threshold)
         let out = try XCTUnwrap(maybe)
         XCTAssertEqual(out.peaks.count, positions)
-        XCTAssertEqual(out.detectionProvenance["detector_class"], "learned")
-        XCTAssertEqual(out.detectionProvenance["learned_crop_origin_x"], String(col0))
-        XCTAssertEqual(out.detectionProvenance["learned_crop_origin_y"], String(row0))
-        XCTAssertEqual(out.detectionProvenance["learned_model_sha256"], learned.assetSHA256)
-        var countMismatches = 0, positionMisses = 0, total = 0, worst: Float = 0
+        XCTAssertEqual(out.detectionProvenance["learned_windows"], "3x3", "256 px over 128 px windows, overlap 24 px: ⌈(256−24)/(128−24)⌉ = 3 windows per axis")
+
+        var positionMisses = 0, total = 0, worst: Float = 0
         for pos in 0..<positions {
-            let want = direct[pos % 13], got = out.peaks[pos]
-            if want.count != got.count { countMismatches += 1 }
-            for w in want {
+            let patA = pos % 13, patB = (pos + 5) % 16
+            let expected = direct[patA].map { (x: $0.x + Float(topLeft.col0), y: $0.y + Float(topLeft.row0)) }
+                + direct[patB].map { (x: $0.x + Float(bottomRight.col0), y: $0.y + Float(bottomRight.row0)) }
+            let got = out.peaks[pos]
+            for w in expected {
                 total += 1
-                let dmin = got.map { hypot($0.x - (w.x + Float(col0)), $0.y - (w.y + Float(row0))) }.min() ?? .infinity
+                let dmin = got.map { hypot($0.x - w.x, $0.y - w.y) }.min() ?? .infinity
                 if dmin > 0.05 { positionMisses += 1 }
                 worst = max(worst, dmin.isFinite ? dmin : 99)
             }
+            // no duplicates: every kept peak is at or beyond minPeakSpacing from every other
+            for i in got.indices { for j in got.indices where j > i {
+                let sep = hypot(got[i].x - got[j].x, got[i].y - got[j].y)
+                XCTAssertGreaterThanOrEqual(sep, p.minPeakSpacing, "position \(pos): peaks \(i) and \(j) are \(sep) px apart, closer than minPeakSpacing \(p.minPeakSpacing) — a duplicate from window overlap")
+            } }
         }
-        XCTAssertEqual(countMismatches, 0, "detectAll peak counts differ from the direct path at \(countMismatches)/\(positions) positions")
-        XCTAssertEqual(positionMisses, 0, "detectAll positions: \(positionMisses)/\(total) not within 0.05 px of direct + (\(col0), \(row0)); worst \(worst)")
+        XCTAssertEqual(positionMisses, 0, "tiled positions: \(positionMisses)/\(total) direct-path peaks (from both placed patterns) not within 0.05 px of their shifted position; worst \(worst)")
     }
 }

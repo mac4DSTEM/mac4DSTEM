@@ -194,3 +194,45 @@ accepted, precision 0.61; WS₂ as stored equals classical.
 
 abTEM honesty check: skipped 2026-09-06. The existing `abtem` conda env does not
 import (numpy's `libgfortran.5.dylib` missing) and a reinstall would eat the disk.
+
+## Retraining — when and how
+
+Coverage of a larger detector is NOT a reason — the app tiles 128-px windows
+(decided 2026-09-07, `docs/status.md`), so a bigger detector is more tiles.
+Reasons: a disk-size regime outside `SimConfig.zoom` (0.6–1.4× the probe
+radius, ~7–15 px at 128 px — binning a 250-px detector 2× puts the bullseye
+disks at ~3.7 px, below the trained range: widen `zoom` and retrain, don't
+extrapolate); a new probe family (`load_ingredients`'s three-probe mix gets
+a fourth); a larger input (256 px, about four times the pixels, so roughly four times the Neural Engine cost (an estimate, not a measurement) — a new `S`, a new net,
+new assets, not a drop-in); or the owner's confirmed/rejected patterns from
+the app (step 5, `docs/v3-plan.md` §3a) — fine-tune with `--resume`.
+
+### Recipe
+
+```sh
+run.sh train --ingredients <npz> \
+  --out References/training_runs/disk-detector-<date>/runN --width 12 --max-minutes 90
+#   fine-tuning: add --resume runN/best.pt, fold the owner's patterns into <npz>
+#   new regime: widen SimConfig.zoom, add a probe to load_ingredients, or bump S — before running
+
+run.sh export --run … --variants heatmap --batches 32 --threshold 0.9 --skip-coreml --skip-stateful
+run.sh check --run … --prefer ane cpu --skip-coreml
+run.sh evaluate --run … --asset <heatmap .aimodel> --threshold 0.9
+
+fixture/write_swift_fixture.py --asset <heatmap .aimodel> --threshold 0.9
+#   then copy the asset + a regenerated record JSON (Models/DiskDetector/*.json fields) in
+```
+
+One heavy job at a time on this 8 GB Mac — a training run beside an ANE
+timing crashed it. Move `~/Library/Caches/coreai-cache` aside when switching
+between the Python runtime and the Swift framework — each fails to load on
+the ANE after the other has written it.
+
+### Before a new asset ships
+
+The fixture gate green (`run.sh`); `mac4DSTEMTests/LearnedDiskDetector*` and
+`LearnedDiskDetectionScanTests` green against the regenerated Swift fixture;
+the SHA-256 in the record JSON equal to `export.py`'s `sha256_tree` of the
+asset; the numbers in `docs/status.md` re-run (bullseye evaluate at 0.9, the
+scan-bench); Gate B at the merge. Every retrain is a new hash — old results
+keep saying which weights made them (`learned_model_sha256` in provenance).
