@@ -731,6 +731,36 @@ fixed spurious spot in 31/256 positions (`disagree-ws2.png`). Both are
 saying the same thing: at this scale the input normalisation is the problem,
 not the detector — step 4 must scale float cubes into counts before the log.
 
+**Step 3 — the two follow-up variants (`run1-evaluate-thr0.9.log`,
+`run1/evaluate/evaluate-thr0.9.json` + `disagree-thr0.9-bullseye.png`;
+`run1-evaluate-ws2scaled.log`, `run1/evaluate-ws2scaled/`).** Bullseye at
+threshold 0.9, same 143 positions: net + refinement 718 peaks (median 5 per
+position) vs classical 442 (median 3); count difference net − classical
+median +2 (−7 … +7); 358 classical peaks matched within 3 px, ONE of them
+beyond 0.5 px; 125/143 positions still disagree — by count: the PNG shows the
+net marking every visible disk (the faint outer ones the 5 % cut drops; e.g.
+position (0,0) classical 1, net 4 on 4 visible) plus 1–5 background points per
+position. WS₂ scaled by 10⁶ into counts (beam ≈ 2·10⁴), stride 16, 64
+positions: py4DSTEM at the 2026-09-05 settings still finds exactly one peak
+per position at 0.05 AND at 0.005 (with the 2-px stand-in kernel), while the
+net + refinement finds 51–56 per position and the PNG shows them on every
+visible spot of the lattice — the ring-artefact-free regime where the
+classical relative-intensity cut, not the correlation, is what fails. Net
+PyTorch-CPU time in these logs is contaminated by the concurrent training
+run and is not evidence.
+
+**Recommended verdict (the agent's reading; owner decides).** It earns its
+place as a candidate stage: under the throughput ceiling on the Neural Engine,
+the classical detector's own sub-pixel numbers after refinement, and on both
+real cubes it proposes the disks the classical cut drops. What it does not yet
+do: separate real background from disk on this camera below threshold ~0.7,
+so the threshold/cap policy for real data and the count-scaling of float cubes
+are step 4 design decisions, and the fine-tuning loop (step 5) is where the
+owner's clicks on the disagreement map close the background gap. Not
+verified tonight: the probe-as-state function (segfault), Xcode's placement
+view, the Metal engine's own time on the same cube, the GPU-delegate top-k
+defect's cause. **Owner decides.**
+
 ## 4. Leave alone; where the app is ahead
 
 Not chased: py4DSTEM's visualization layer, `utils/` helpers for their own

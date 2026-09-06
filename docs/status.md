@@ -57,7 +57,34 @@ provenance are
 [`docs/archive/v2/release-2026-09-04.md`](archive/v2/release-2026-09-04.md).
 The live facts are the Releases table above and `CHANGELOG.md`.
 
-## Handoff (rewritten 2026-09-05, after the v2.5.0 / v2.5.1 release night and reader gate)
+## Handoff (rewritten 2026-09-07 on the branch `ml/disk-detector`, after the overnight run of §3a steps 1–3)
+
+**Questions for the owner, from the overnight run (branch only, nothing pushed,
+`main` untouched; the numbers are §3a "Step 3 — evidence" in `v3-plan.md`):**
+
+1. **The step 3 verdict.** Recommended: it earns its place as a *candidate
+   stage* — Neural Engine 0.344 ms per pattern (0.57× the classical stand-in,
+   the whole learned path ≤ 1.57×, under the 2× ceiling), fixture recall 1.000
+   before refinement and the classical detector's own 0.244 px after it, every
+   visible bullseye disk marked including ones the 5 % cut drops. Against it:
+   at threshold 0.3 the net also paints ~65 background peaks per real bullseye
+   position (5 at 0.9) — refinement would prune them but the 70-peak cap
+   truncates first — so **the threshold/cap policy for real data is a
+   decision** (the fixture wants 0.3, the real cube wants ~0.9; the
+   disagreement map was designed for exactly this). Owner decides.
+2. **Serving shape.** The in-graph top-k `detect` asset runs on the ANE, but
+   the GPU-preferred delegate returns half its peaks and the probe-as-state
+   asset segfaults on load: ship `detect` ANE-only with the probe per batch,
+   or the `scoremap` variant with the top-k in Swift? Both are exported and
+   timed.
+3. **Input normalisation for float cubes** (WS₂ sums to 0.25): `log1p` is
+   linear on it and both detectors find one peak per position. Step 4 must
+   scale into counts before the log — by what rule (the load spec's dose?).
+4. **Owner's morning:** Xcode's graph/placement view on
+   `run1/export/disk-detector-detect-b32.aimodel` (the differential is the
+   only placement evidence tonight); the Swift `coreai-runner` was NOT
+   written (the Python runtime in `coreai-core` timed everything);
+   `run-tests.sh benchmark` for the Metal engine's own time on the same cube.
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -99,11 +126,14 @@ agent should say so and start at item 2.
    measured-kernel mode, the file's probe as a kernel source; parity with
    py4DSTEM's flat route), the probe-size under-read on ring-shaped probes
    stays open, and the owner's drive of the bullseye maps closes the item.
-   **Next: the learned-detector option, `v3-plan.md` §3a (Core AI,
-   decided 2026-09-06), step 1 (simulator + fixture) — on the branch
-   `ml/disk-detector` (created 2026-09-06 at `a5a0f49`), where §3a's working
-   method applies: commit freely, no docs or gate per commit; the full
-   discipline returns at the merge.** ACOM coverage
+   **The learned detector, `v3-plan.md` §3a: steps 1–3 ran overnight
+   2026-09-06/07 on the branch `ml/disk-detector`** (simulator + committed
+   fixture proven and broken four ways, `run-tests.sh inventory` exit 0 with
+   `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
+   assets + Core ML insurance, pixel-checked and timed on the idle machine;
+   step 3 numbers on the fixture and both real cubes). **Next: the owner's
+   verdict (questions above), then step 4 (the app wiring, Gate B) on the
+   branch; the full discipline returns at the merge.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.
