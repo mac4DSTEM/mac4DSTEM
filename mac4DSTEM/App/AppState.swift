@@ -111,7 +111,7 @@ enum AnalysisRunOutcome: Equatable {
 @Observable
 final class AppState {
     private var reader: (any FourDDataSource)?
-    private var fourD: FourDArray?
+    private(set) var fourD: FourDArray?   // readable by the AppState+*.swift extensions (2026-09-07)
 
     /// The loaded view — the source descriptor, the load specification, and the
     /// descriptor derived from both. Read-only, and deliberately not the array:
@@ -221,6 +221,9 @@ final class AppState {
     /// seam (docs/v3-plan.md §3a) — see `Session/LearnedDetection.swift`.
     /// Views read `learnedDetection.…`; no forwarding properties.
     let learnedDetection = LearnedDetectionSession()
+    let precipitates = PrecipitateProduct()            // docs/ai-ml/precipitates.md §4
+    let diskLabels = DiskLabelStore()                    // v3-plan §3a step 5: the confirmed/rejected patterns
+    let diffractionGroups = DiffractionGroupsProduct()   // docs/ai-ml/README.md §6, classical v1
     /// The last reciprocal-pixel calibration attempt — S13's seam
     /// (docs/development-process.md §7) — see `App/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
@@ -2592,6 +2595,8 @@ final class AppState {
         // The learned option and threshold are session-scoped and survive;
         // the two compared runs and the probe reference are dataset-scoped.
         learnedDetection.clear()
+        precipitates.clear()
+        diffractionGroups.clear()
         // L3 step 3 — "a real-space crop makes existing scan-indexed results
         // AMBIGUOUS, not stale" — is satisfied here rather than by a second
         // mechanism, and deliberately so. Changing the load specification is a
@@ -2665,6 +2670,7 @@ final class AppState {
         if datasetLoadWasCancelled { await discardPartialLoad(); return }
         beginDatasetLoadingStage("Checking for a saved session…")
         let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
+        loadDiskLabelsFromSessionSidecar()   // v3-plan §3a step 5: the labels ride in the sidecar
         beginDatasetLoadingStage("Loading first diffraction pattern…")
         await loadCurrentPattern()
         if let sessionSnapshot {

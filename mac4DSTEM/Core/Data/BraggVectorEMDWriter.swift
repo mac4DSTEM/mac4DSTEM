@@ -308,6 +308,14 @@ package nonisolated enum BraggVectorEMDWriter {
     private static let derivationAttribute = "mac4dstem_derivation"
     private static let minimumReaderAttribute = SessionSidecarFormat.minimumReaderAttribute
     private static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
+    /// The confirmed/rejected disk-detection patterns as one JSON blob
+    /// (`DiskLabelStore.encodedJSON()`) — owned by the session sidecar, not
+    /// this writer (docs/v3-plan.md §3a "Owner of state", decided 2026-09-06).
+    /// Preserved across every rewrite by the exact rule `replayRecordAttribute`
+    /// already uses: the caller's live JSON wins; failing that, whatever the
+    /// existing file already carried survives a save this call knows nothing
+    /// about (a calibration or result save must not silently erase labels).
+    private static let diskLabelsAttribute = "mac4dstem_disk_labels"
     /// Derived, never a literal: "5" famously stayed put across a format
     /// addition (2026-08-18), which is what made the stamp meaningless.
     /// `SessionSidecarFormat.currentSchema` is the one place the number
@@ -658,6 +666,11 @@ package nonisolated enum BraggVectorEMDWriter {
         to destination: URL,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        // Threaded through unchanged to `publish`/`writeFile`; nil (every
+        // existing caller) preserves whatever the file already carries.
+        // `AppState.saveDiskLabelsToSessionSidecar` is the one caller that
+        // passes a value — see `diskLabelsAttribute`'s doc comment.
+        diskLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
@@ -674,6 +687,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
                     loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    diskLabelsJSON: diskLabelsJSON,
                     supportedSchema: supportedSchema,
                     cancellation: cancellation, progress: progress)
     }
@@ -828,6 +842,30 @@ package nonisolated enum BraggVectorEMDWriter {
 
     package static func loadResultMap(from url: URL) throws -> ScalarResultMap? {
         try loadSession(from: url).currentResult
+    }
+
+    /// The confirmed/rejected disk labels JSON (`DiskLabelStore.encodedJSON()`),
+    /// or nil when the sidecar carries none — a lightweight sibling reader to
+    /// `loadResultMap`/`loadInventory` rather than a new field on
+    /// `SessionSidecarSnapshot`, since nothing else in that struct's shape
+    /// needs to change for this one attribute. Same minimum-reader gate as
+    /// every other reader (Gate B-lite F5/F6/F7's rule, applied here too).
+    package static func loadDiskLabelsJSON(
+        from url: URL,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema
+    ) throws -> String? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let h5 = try HDF5WriteLibrary.load()
+        let fileID = url.path.withCString {
+            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
+        }
+        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
+        defer { _ = h5.h5fclose(fileID) }
+        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
+        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
+        defer { _ = h5.h5gclose(root) }
+        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
+        return try readStringAttribute(diskLabelsAttribute, on: root, hdf5: h5)
     }
 
     package static func loadResultMap(
@@ -1282,6 +1320,7 @@ package nonisolated enum BraggVectorEMDWriter {
         removingKind: String? = nil,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        diskLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
@@ -1307,6 +1346,7 @@ package nonisolated enum BraggVectorEMDWriter {
             calibration: calibration, preserving: existing, removingKind: removingKind,
             loadSpecification: loadSpecification,
             replayRecord: replayRecord,
+            diskLabelsJSON: diskLabelsJSON,
             supportedSchema: supportedSchema,
             cancellation: cancellation,
             progress: progress, hdf5: hdf5
@@ -1628,6 +1668,7 @@ package nonisolated enum BraggVectorEMDWriter {
         removingKind: String?,
         loadSpecification: LoadSpecification?,
         replayRecord: SessionReplayRecord?,
+        diskLabelsJSON: String?,
         supportedSchema: Int,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
@@ -1699,6 +1740,23 @@ package nonisolated enum BraggVectorEMDWriter {
                 defer { _ = h5.h5gclose(existingRoot) }
                 preservedReplayJSON = try readStringAttribute(
                     replayRecordAttribute, on: existingRoot, hdf5: h5
+                )
+            }
+        }
+        // Same rule again for the confirmed/rejected disk labels (v3-plan
+        // §3a): a calibration or result save neither knows nor should know
+        // about labelling, so it must not erase what a prior
+        // `saveDiskLabelsToSessionSidecar` wrote. Only that one call site
+        // ever passes a non-nil `diskLabelsJSON`.
+        var preservedDiskLabelsJSON: String?
+        if diskLabelsJSON == nil, let existingID {
+            let existingRoot = rootPath.withCString {
+                h5.h5gopen2(existingID, $0, h5DefaultProperty)
+            }
+            if existingRoot >= 0 {
+                defer { _ = h5.h5gclose(existingRoot) }
+                preservedDiskLabelsJSON = try readStringAttribute(
+                    diskLabelsAttribute, on: existingRoot, hdf5: h5
                 )
             }
         }
@@ -1837,6 +1895,11 @@ package nonisolated enum BraggVectorEMDWriter {
         // record the existing file already carried survives the rewrite.
         if let json = replayRecord?.jsonString ?? preservedReplayJSON {
             try writeStringAttribute(replayRecordAttribute, value: json,
+                                     on: root, hdf5: h5)
+        }
+        // The disk labels: same rule, same reason — see `diskLabelsAttribute`.
+        if let json = diskLabelsJSON ?? preservedDiskLabelsJSON {
+            try writeStringAttribute(diskLabelsAttribute, value: json,
                                      on: root, hdf5: h5)
         }
         if !resultNodeNames.isEmpty {

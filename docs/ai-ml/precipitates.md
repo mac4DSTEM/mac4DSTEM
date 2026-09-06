@@ -1,7 +1,9 @@
 # Precipitate segmentation and counting — feature specification
 
-Status: design only, unscheduled (`docs/ai-ml/README.md` §9 step 3). No code,
-no build, nothing on screen. Format per `docs/ai-ml/README.md` §8.
+Status: v1 code on the branch `ml/disk-detector` (2026-09-07 night:
+`Core/Analysis/Precipitates/`, `Session/PrecipitateProduct.swift`,
+`App/AppState+Precipitates.swift`, `UI/PrecipitateSettings.swift`,
+`PrecipitateTests`), unverified on screen, Gate B owed — `docs/status.md`. Format per `docs/ai-ml/README.md` §8.
 
 ## 1. User outcome / non-goals
 

@@ -275,7 +275,47 @@ run; branch only, nothing pushed, `main` untouched; numbers are §3a
    the app uses, so app and test host share one entry. The precipitate
    specification is `docs/ai-ml/precipitates.md`; the retraining recipe is
    the detector README's "Retraining — when and how".
-8. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
+8. **"Everything code" (owner, 2026-09-07 night; four parallel subagents, one
+   build, my check).** Code-complete on the branch, NONE of it verified on
+   screen, Gate B owed on every new `Core/` piece at the merge:
+   (a) **detector step 5, the labels** — `Session/DiskLabelStore.swift` (the
+   sidecar owns them as one JSON attribute `mac4dstem_disk_labels`, preserved
+   across rewrites by an additive change to `BraggVectorEMDWriter`; loaded on
+   dataset activation), `App/AppState+DiskLabels.swift`, `UI/DiskLabelRows`
+   in the learned block: confirm/reject the learned candidates at the current
+   position, save, export to `~/Documents/mac4DSTEM/disk-labels/` for the
+   fine-tuning loop (the owner copies into the gitignored
+   `tools/disk-detector/labels/`); (b) **precipitates v1**
+   (`docs/ai-ml/precipitates.md`) — `Core/Analysis/Precipitates/`
+   (reflection finder on the Max pattern, off-lattice test when a basis is
+   given; needle/particle segmentation: background flattening, Hessian ridge
+   measure, robust threshold, 8-connected components, per-object length /
+   width / orientation / area, edge flag; density with the refusal rule),
+   `Session/PrecipitateProduct.swift`, `App/AppState+Precipitates.swift`
+   (propose reflections → place the virtual detector on one → segment the
+   shown scan image → density), `UI/PrecipitateSettings` in the Imaging
+   inspector; `PrecipitateTests` 8/0 on a drawn fixture (needles at 37.2° and
+   127.2° among others, edge cases, particles, the 64-px reflection fixture).
+   The first length measure (4·√λ of the moments) read the drawn needles
+   1.5× too long; the extent along the principal axis still read the short
+   ones 8 px long (the ridge filter's spread past the tips); the extents are
+   now taken on the flattened IMAGE over the half-maximum footprint — the
+   test caught both, which is what it is for; (c) **diffraction groups,
+   classical v1** (brief §6) — `Core/Analysis/DiffractionEmbedding.swift`
+   (streamed binning, PCA by deterministic subspace iteration with
+   Rayleigh–Ritz, no LAPACK, k-means++), `Session/DiffractionGroupsProduct`,
+   `App/AppState+DiffractionGroups.swift` (`diffraction_groups` and
+   `diffraction_similarity` products), `UI/DiffractionGroupsSettings` in the
+   Imaging inspector; `DiffractionEmbeddingTests` 4/0 on a three-family
+   fixture, the k-means assignment broken once → 1 failed
+   (`mutation-embedding-groups.log`). Whole run: 45 test cases across the
+   new and the detector classes plus the sidecar/gate classes, 0 failed
+   after the length fix (`test-everything.log`, `test-precipitates3.log`).
+   Owed: the owner's drive of all three; Gate B on the precipitate and
+   embedding maths; recipe replay for the new runs (`recordReplayStep` is
+   private to `AppState.swift`); the ridge measure is not elongation-
+   selective (round sharp blobs respond too — the spec's open filter choice).
+9. **Housekeeping done 2026-09-07:** the status bar (owner's drive, 2026-09-07 evening: the
    run-time strip was cramped — the percentage wrapped to one character per
    line, the message to two lines): the message is one truncating line, the
    percentage has a `LayoutPolicy` slot like the metrics line (the fixed
@@ -336,9 +376,9 @@ agent should say so and start at item 2.
    fixture proven and broken four ways, `run-tests.sh inventory` exit 0 with
    `disk-detector` gated; U-Net trained 80 min + a 55-min anneal; nine Core AI
    assets + Core ML insurance, pixel-checked and timed on the idle machine;
-   step 3 numbers on the fixture and both real cubes). **Next: the owner's decision on
-   the 2.8× tiled cost at 250 px (item 7) and a second look at the live
-   learned rings; then
+   step 3 numbers on the fixture and both real cubes). **Next: the owner's drive of items
+   5–8 (the learned option, tiling, labels, precipitates on the Al-Si-Mg
+   cube, groups on WS₂), the 2.8× decision (item 7); then
    slice 3 (sidecar labels from the disagreement map), then the merge with
    its Gate B campaign; the precipitate work starts from the owner's
    near-beam observation (`docs/ai-ml/README.md` §4). The

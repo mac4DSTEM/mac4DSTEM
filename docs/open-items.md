@@ -23,6 +23,18 @@ and standing directives now live in `docs/decisions.md`.
 
 ## Science — Gate D or Gate B owed
 
+- **Precipitates v1 and diffraction groups v1 (branch `ml/disk-detector`,
+  2026-09-07 night): Gate B owed on `Core/Analysis/Precipitates/` and
+  `Core/Analysis/DiffractionEmbedding.swift`.** Evidence: `PrecipitateTests`
+  8/0 on a drawn fixture (the length assertion caught two real measurement
+  defects), `DiffractionEmbeddingTests` 4/0, one k-means mutation caught.
+  Trap: both fixtures are drawn by the tests themselves — no py4DSTEM
+  ground truth exists for either; the real check is the owner's hand count
+  on the Al-Si-Mg cube and ACOM on WS₂ (`docs/ai-ml/precipitates.md` §6).
+  Residuals: the ridge measure is not elongation-selective; no recipe
+  replay for the new runs; unverified on screen. Owner: the merge.
+
+
 - **Learned disk detector, step 4 slice 1 (branch `ml/disk-detector`,
   2026-09-07): Gate B passed with findings applied** (`Core/ML/`, the two
   `DiskDetector` entry points; the classical path untouched). Evidence:

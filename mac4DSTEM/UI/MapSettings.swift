@@ -132,6 +132,8 @@ private struct DiskDetectionRows: View {
                 .disabled(!learned.canCompare)
                 .accessibilityIdentifier("disk.compareDetectors")
                 .help("Runs nothing: publishes the per-position count difference between the last learned and the last classical run on this dataset as a scan map.")
+
+                DiskLabelRows()   // v3-plan §3a step 5: confirm/reject the learned candidates here
             }
         }
 
