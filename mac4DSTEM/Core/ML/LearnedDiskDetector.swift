@@ -48,10 +48,20 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     ) async throws -> LearnedDiskDetector {
         let sha = try sha256(ofAsset: assetURL)
         let options = preferNeuralEngine ? SpecializationOptions(preferredComputeUnitKind: .neuralEngine) : .default
-        let model = try await AIModel(contentsOf: assetURL, options: options)
-        guard let fn = try model.loadFunction(named: functionName) else {
-            throw LearnedDiskDetectorError.missingFunction(functionName, model.functionNames)
-        }
+        // Each runtime step is named in its error: the runtime's own text is
+        // "The operation couldn't be completed" with no step and no code
+        // (owner's drive, 2026-09-07), which cannot be diagnosed.
+        let model: AIModel
+        do { model = try await AIModel(contentsOf: assetURL, options: options) }
+        catch { throw LearnedDiskDetectorError.runtime(step: "AIModel(contentsOf:) — load + specialise for \(preferNeuralEngine ? "the Neural Engine" : "the default units")", underlying: error) }
+        let fn: InferenceFunction
+        do {
+            guard let loaded = try model.loadFunction(named: functionName) else {
+                throw LearnedDiskDetectorError.missingFunction(functionName, model.functionNames)
+            }
+            fn = loaded
+        } catch let e as LearnedDiskDetectorError { throw e }
+        catch { throw LearnedDiskDetectorError.runtime(step: "loadFunction(\"\(functionName)\")", underlying: error) }
         let desc = fn.descriptor
         guard let inName = desc.inputNames.first, let outName = desc.outputNames.first,
               let inDesc = desc.inputDescriptor(of: inName), case .ndArray(let nd) = inDesc,
@@ -286,18 +296,27 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
 }
 
 @available(macOS 27, *)
-package enum LearnedDiskDetectorError: Error, CustomStringConvertible {
+package enum LearnedDiskDetectorError: Error, CustomStringConvertible, LocalizedError {
     case assetMissing(URL)
     case missingFunction(String, [String])
     case unexpectedSignature([String], [String])
     case noOutput(String)
+    case runtime(step: String, underlying: Error)
     package var description: String {
         switch self {
+        case .runtime(let step, let underlying):
+            let ns = underlying as NSError
+            return "learned detector: \(step) failed — \(ns.domain) \(ns.code): \(ns.localizedDescription)"
+                + (ns.userInfo.isEmpty ? "" : " \(ns.userInfo)")
         case .assetMissing(let u): return "learned detector: no asset at \(u.path)"
         case .missingFunction(let f, let have): return "learned detector: no function '\(f)' (asset has \(have))"
         case .unexpectedSignature(let i, let o): return "learned detector: unexpected signature inputs \(i) outputs \(o)"
         case .noOutput(let n): return "learned detector: no output '\(n)'"
         }
     }
+    /// What the app shows: `localizedDescription` of a plain Swift error is the
+    /// generic "could not be completed", which is exactly the text that hid the
+    /// runtime's failure on 2026-09-07.
+    package var errorDescription: String? { description }
 }
 #endif
