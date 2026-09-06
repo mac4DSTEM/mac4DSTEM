@@ -448,3 +448,20 @@ GPU-delegate defect are avoided, and the threshold stays a runtime
 parameter instead of an export constant. The overnight "0.6× the
 classical, under the ceiling" is withdrawn: it compared against the serial
 single-pattern benchmark, not the app's scan path.
+
+**2026-09-07 (night) — The AI tools live in their own workspace; the main
+app carries no AI control.** The owner: "this is pretty advanced stuff, it
+belongs in its own workspace, like I discussed at the very beginning" and
+"make sure the main app is clean of all the AI features". So: a sixth
+sidebar area, AI Analysis (⌘5, between Phase and Results), with the tasks
+Precipitates, Diffraction groups and Learned disks, its own inspector and
+the same two panes as Imaging; Bragg disks shows no Detector picker and
+always runs the classical detector, Imaging is unchanged, the learned live
+rings appear only inside AI Analysis, and the detector class is set by the
+room's own action. The science stays shared on purpose (the net proposes,
+the classical refinement measures; products land in Results with their
+provenance) — the separation is of controls and code homes, not of the
+measurement. Same day, earlier: tiling now, retraining documented, for
+detectors larger than the net's 128-px input; and the precipitate
+workflow derives its reflections from the data, not from a CIF, so it
+survives new samples and crystallographies (`docs/ai-ml/precipitates.md`).
