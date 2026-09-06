@@ -73,6 +73,19 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     /// Analysis room detected nothing and drew nothing (owner's drive
     /// 2026-09-06, `drive-learned` steps 3 and 6; diagnosis D1).
     var showsLiveDiskOverlay: Bool { self == .disks || self == .learnedDisks }
+
+    /// The tasks that draw — and can edit — the virtual-detector aperture on
+    /// the diffraction pane: Imaging's virtual detector, and AI Analysis →
+    /// Precipitates, which places that same aperture on a chosen reflection.
+    ///
+    /// ONE predicate for the view (`ImagePanes`) and for the two aperture-driven
+    /// re-runs (`scheduleLiveVirtualDetector`, `commitApertureChange`), for the
+    /// reason `showsLiveDiskOverlay` above exists: gates written separately
+    /// drift, and a drawn-but-inert overlay is worse than none. Precipitates
+    /// used to reach the overlay by flipping `analysisMode` to
+    /// `.virtualDetector`, which emptied the room the user was standing in
+    /// (owner's drive 2026-09-06, `drive-precipitates` defects 5 and 11).
+    var showsApertureOverlay: Bool { self == .virtualDetector || self == .precipitates }
 }
 
 enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
@@ -3318,7 +3331,7 @@ final class AppState {
     }
 
     private func scheduleLiveVirtualDetector() {
-        guard navigation.analysisMode == .virtualDetector else { return }
+        guard navigation.analysisMode.showsApertureOverlay else { return }
         if vdInFlight { vdPending = true; return }
         vdInFlight = true
         Task {
@@ -3329,7 +3342,7 @@ final class AppState {
     }
 
     func commitApertureChange() {
-        guard navigation.analysisMode == .virtualDetector else { return }
+        guard navigation.analysisMode.showsApertureOverlay else { return }
         Task { await runVirtualDetector() }   // final pass, with status
     }
 

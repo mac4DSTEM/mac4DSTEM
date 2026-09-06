@@ -29,6 +29,17 @@ package nonisolated enum PrecipitateReflections {
         /// this is false.
         package let onMatrixLattice: Bool
 
+        /// The inspector row's identity, in its OWN namespace.
+        ///
+        /// The reflection list and the object list are two `ForEach`es inside
+        /// one `Section` of the same grouped `Form`, and a SwiftUI container
+        /// identifies its rows by the id value, not per-`ForEach`. Keyed on
+        /// the bare `Int` id the two overlapped — candidates 0…23, objects
+        /// 1…44 — and the objects table drew the reflection rows for 1…23,
+        /// hiding objects #1…#23 (owner's drive 2026-09-06,
+        /// `drive-precipitates` defect 6; `fix-b/gateD-P6.md`).
+        package nonisolated var rowIdentity: String { "precipitate.reflection.\(id)" }
+
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
         package nonisolated init(
             id: Int, row: Int, col: Int, intensity: Float,
@@ -60,6 +71,25 @@ package nonisolated enum PrecipitateReflections {
         // start from the defaults above and mutate the fields they need,
         // matching the API contract this type was specified against.
         package nonisolated init() {}
+    }
+
+    /// The one-line summary of a proposal run, in the app's voice.
+    ///
+    /// `offLatticeCount` is nil when **no matrix basis was available**, in
+    /// which case `find` tagged every candidate `onMatrixLattice == false`
+    /// without testing anything. Reporting "N off the matrix lattice" there
+    /// claims a filter that never ran: the drive read
+    /// "24 reflections proposed, 24 off the matrix lattice" on a run made with
+    /// `matrixBasis: nil`, while ten of the 24 sat on the matrix ring at
+    /// 16.6–19.8 px (owner's drive 2026-09-06, `drive-precipitates` step 3b
+    /// and defect 3). v1 always passes nil — §2 step 1's two-clicked-basis
+    /// input is not built — so this is the string the user actually sees.
+    package nonisolated static func proposalSummary(count: Int, offLatticeCount: Int?) -> String {
+        guard let offLatticeCount else {
+            return "\(count) reflections proposed · no lattice basis: "
+                + "all \(count) listed, none tested against the matrix lattice"
+        }
+        return "\(count) reflections proposed, \(offLatticeCount) off the matrix lattice"
     }
 
     /// Integer combination search bound for the lattice test: h, k in

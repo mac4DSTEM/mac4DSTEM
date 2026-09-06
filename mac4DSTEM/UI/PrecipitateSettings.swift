@@ -30,11 +30,24 @@ struct PrecipitateSettingsSection: View {
             .accessibilityIdentifier("precipitates.proposeReflections")
 
             if appState.precipitates.reflections.isEmpty {
-                Text("Show the Max diffraction pattern, then propose reflections not on the matrix lattice.")
+                // Names WHERE the control lives. The old wording ("Show the Max
+                // diffraction pattern…") sent the user looking for a button
+                // this room does not have: `Compute Mean / Max` is in Prepare
+                // (`PatternStatisticsSection`), and nothing here said so
+                // (owner's drive 2026-09-06, `drive-precipitates` defect 2).
+                // No compute action is offered here — that is the owner's call.
+                Text("Needs the scan's Max pattern: Prepare → \"Compute Mean / Max\". "
+                     + "Then propose reflections not on the matrix lattice.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("precipitates.reflectionsHint")
             } else {
-                ForEach(appState.precipitates.reflections, id: \.id) { candidate in
+                // Keyed on `rowIdentity`, NOT `\.id`: this ForEach and the
+                // objects table below live in one `Section`, a SwiftUI
+                // container identifies rows by id value across both, and the
+                // two `Int` id spaces overlap — the reflection rows claimed
+                // ids 1…23 and hid objects #1…#23 (`fix-b/gateD-P6.md`).
+                ForEach(appState.precipitates.reflections, id: \.rowIdentity) { candidate in
                     reflectionRow(candidate)
                 }
             }
@@ -135,11 +148,19 @@ struct PrecipitateSettingsSection: View {
                     .help("On the matrix lattice — the finder proposed this one, but it is likely a matrix disk.")
             }
             Spacer()
-            Button("Place detector here") {
+            // Short enough to survive the inspector's column: "Place detector
+            // here" truncated to "Place dete…" on every row (owner's drive
+            // 2026-09-06, `drive-precipitates` defect 11). The full sentence is
+            // on `.help`, the choice this repo makes everywhere a row is
+            // narrower than its text. No `.fixedSize()` — a changing label may
+            // not set a column's minimum width (CLAUDE.md / open-items).
+            Button("Place here") {
                 appState.placeVirtualDetector(on: candidate)
             }
             .controlSize(.small)
             .disabled(appState.isBusy)
+            .help("Place the virtual detector on this reflection and recompute "
+                  + "the dark-field image. Stays in the Precipitates task.")
             .accessibilityIdentifier("precipitates.placeDetector.\(candidate.id)")
         }
         .accessibilityIdentifier("precipitates.reflectionRow.\(candidate.id)")
@@ -148,10 +169,14 @@ struct PrecipitateSettingsSection: View {
     @ViewBuilder
     private var objectsTable: some View {
         let shown = appState.precipitates.objects.prefix(200)
-        ForEach(Array(shown), id: \.id) { object in
+        // `rowIdentity`, not `\.id` — see the reflection ForEach above and
+        // `fix-b/gateD-P6.md`.
+        ForEach(Array(shown), id: \.rowIdentity) { object in
             HStack(spacing: 6) {
                 Toggle(isOn: Binding(
-                    get: { appState.precipitates.acceptedIDs.contains(object.id) },
+                    // `countedIDs`, not `acceptedIDs`: the toggle shows whether
+                    // this object is COUNTED, and an edge object never is.
+                    get: { appState.precipitates.countedIDs.contains(object.id) },
                     set: { _ in appState.precipitates.toggleObject(object.id) }
                 )) {
                     EmptyView()
@@ -183,24 +208,22 @@ struct PrecipitateSettingsSection: View {
         }
     }
 
+    /// One string, from the type that owns the numbers
+    /// (`PrecipitateStatistics.densitySummary`): it names the pixel size the
+    /// density was computed AT, and says the readout is stale once the session's
+    /// calibration has moved away from it. Defects 7 and 8 of the 2026-09-06
+    /// drive are both in that sentence.
     @ViewBuilder
     private var densityReadout: some View {
         if let density = appState.precipitates.density {
-            if let areal = density.arealDensity, let unit = density.pixelUnit {
-                LabeledContent(
-                    "Density",
-                    value: String(format: "%.4g /%@² · %d accepted · %d on edge",
-                                  Double(areal), unit as NSString, density.acceptedCount, density.edgeCount)
+            LabeledContent(
+                "Density",
+                value: PrecipitateStatistics.densitySummary(
+                    density,
+                    currentPixelSize: appState.calibrationSession.calibration.rPixelSize
                 )
-                .accessibilityIdentifier("precipitates.densityReadout")
-            } else {
-                LabeledContent(
-                    "Density",
-                    value: "\(density.acceptedCount) accepted, \(density.edgeCount) on edge · "
-                        + "no calibrated pixel size"
-                )
-                .accessibilityIdentifier("precipitates.densityReadout")
-            }
+            )
+            .accessibilityIdentifier("precipitates.densityReadout")
         }
     }
 }

@@ -199,8 +199,12 @@ struct DiffractionPane: View {
                     .frame(width: box.width, height: box.height)
                     .background(Color.black)
 
-                    // Interactive annular aperture (Virtual Detector only).
-                    if appState.navigation.analysisMode == .virtualDetector {
+                    // Interactive annular aperture — Virtual Detector, and
+                    // AI Analysis → Precipitates, which places the same
+                    // aperture on a reflection. One predicate with the two
+                    // re-run gates in `AppState` (`showsApertureOverlay`), so
+                    // the overlay is never drawn where a drag would be inert.
+                    if appState.navigation.analysisMode.showsApertureOverlay {
                         ApertureOverlay(
                             aperture: appState.aperture,
                             shape: appState.virtualShape,

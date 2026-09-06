@@ -27,21 +27,41 @@ extension AppState {
     @discardableResult
     func proposePrecipitateReflections() -> AnalysisRunOutcome {
         guard let maxPattern else {
-            return .failed("Show the Max diffraction pattern once so the scan's maximum is known")
+            // Surfaced, not just returned: the button discarded this string,
+            // so pressing Propose Reflections before a Max pattern existed did
+            // nothing at all — no alert, no status line, no hint change
+            // (owner's drive 2026-09-06, `drive-precipitates` defect 1,
+            // capture `03a-propose-no-max-silent.png`). Writing `statusText`
+            // puts it in the status bar AND the activity log, because
+            // `AppState.statusText`'s `didSet` records it there.
+            let reason = "Show the Max diffraction pattern once so the scan's maximum is known"
+                + " — Prepare → Compute Mean / Max"
+            statusText = reason
+            return .failed(reason)
         }
         let beamCentre = calibrationSession.calibration.referenceOrigin(
             detectorQX: maxPattern.qx, detectorQY: maxPattern.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ).point
+        // Named rather than passed inline so the summary below can say whether
+        // the off-lattice test ran at all. Nil in v1 — §2 step 1's
+        // two-clicked-basis input is not built yet.
+        let matrixBasis: (g1: (x: Float, y: Float), g2: (x: Float, y: Float))? = nil
         let candidates = PrecipitateReflections.find(
             maxPattern: maxPattern.asFloatImage,
             beamCentre: beamCentre,
-            matrixBasis: nil,
+            matrixBasis: matrixBasis,
             settings: precipitates.reflectionSettings
         )
         precipitates.publishReflections(candidates)
-        let offLattice = candidates.filter { !$0.onMatrixLattice }.count
-        statusText = "\(candidates.count) reflections proposed, \(offLattice) off the matrix lattice"
+        statusText = PrecipitateReflections.proposalSummary(
+            count: candidates.count,
+            // Without a basis every candidate is tagged `false` untested, so
+            // counting them as "off the matrix lattice" reports a filter that
+            // never ran (defect 3).
+            offLatticeCount: matrixBasis == nil
+                ? nil : candidates.filter { !$0.onMatrixLattice }.count
+        )
         return .published
     }
 
@@ -62,7 +82,17 @@ extension AppState {
         aperture.inner = 0
         aperture.outer = radius
         virtualShape = .circle
-        if navigation.analysisMode != .virtualDetector { navigation.analysisMode = .virtualDetector }
+        // The task deliberately STAYS on `.precipitates`. `applyDetectorPreset`
+        // flips to `.virtualDetector` because it is pressed from Imaging, where
+        // that is already the task; doing the same from here moved the room out
+        // from under the user — the window title became `Virtual imaging`, the
+        // toolbar `Segment` button vanished and the AI Analysis inspector
+        // rendered blank while the AI Analysis workspace was still selected
+        // (owner's drive 2026-09-06, `drive-precipitates` defect 5, capture
+        // `04-detector-placed-darkfield.png`). `runVirtualDetector` never
+        // consulted the mode; only the aperture overlay and the live-aperture
+        // re-run did, and those now share `AnalysisMode.showsApertureOverlay`
+        // so the circle is drawn and editable in this room too.
         Task { await runVirtualDetector() }
     }
 
@@ -75,11 +105,28 @@ extension AppState {
     @discardableResult
     func segmentPrecipitates() async -> AnalysisRunOutcome {
         guard let product = publishedProduct, product.domain == .scan,
-              case .scalar(let image) = product.payload else {
+              case .scalar(let displayed) = product.payload else {
             return .failed("Show a virtual image first")
         }
+        // Never segment this feature's OWN label image: after a successful run
+        // the object_id map IS the displayed scan product, so a second press
+        // segmented the object outlines — 44 objects became 25, `#1 L 126.0 ·
+        // W 24.9 · A 1900`, replacing the real result with no warning (owner's
+        // drive 2026-09-06, `drive-precipitates` defect 9, capture
+        // `11a-second-segment-of-label-image.png`). The owner type keeps the
+        // image the last run consumed, so a second press on unchanged inputs
+        // reproduces the first result.
+        guard let source = precipitates.segmentationSource(
+            displayedKind: product.kind, displayedName: product.displayName,
+            displayedImage: displayed, displayedValidity: product.validityMask
+        ) else {
+            let reason = "Show the virtual image these objects came from, then Segment"
+            statusText = reason
+            return .failed(reason)
+        }
+        let image = source.image
         let settings = precipitates.segmentationSettings
-        let validity = product.validityMask
+        let validity = source.validity
         let epoch = datasetEpoch
         let cancellation = beginCancellableOperation(
             "Precipitate segmentation", status: "Segmenting precipitates…", totalUnits: 1
@@ -95,18 +142,32 @@ extension AppState {
         let labels = PrecipitateSegmentation.labelImage(
             objects: objects, width: image.width, height: image.height
         )
-        precipitates.publishSegmentation(objects: objects, sourceKind: product.kind, sourceName: product.displayName)
+        precipitates.publishSegmentation(objects: objects, source: source)
         let edgeCount = objects.filter(\.touchesEdge).count
         publishProduct(
-            kind: "precipitate_objects",
+            kind: PrecipitateProduct.objectsProductKind,
             displayName: "Precipitate objects (\(objects.count))",
             valueUnits: "object_id",
             payload: .scalar(labels),
+            // docs/ai-ml/precipitates.md §3 wants the count shown "with its
+            // assumptions … rather than a bare number", and Results showed
+            // none of them: no counts, no criterion, no source (owner's drive
+            // 2026-09-06, `drive-precipitates` defect 10, capture
+            // `09b-results-workspace.png`). They travel with the product, so
+            // the sidecar entry and every export carry them too.
             extraProvenance: [
                 "quantitative_status": "categorical",
-                "source_product_kind": product.kind,
+                "source_product_kind": source.kind,
+                "source_product_name": source.displayName,
                 "segmentation_mode": "\(settings.mode)",
+                "segmentation_ridge_sigma_px": "\(settings.ridgeSigmaPx)",
+                "segmentation_threshold_sigmas": "\(settings.thresholdSigmas)",
+                "segmentation_minimum_length_px": "\(settings.minimumLengthPx)",
+                "segmentation_minimum_area_px": "\(settings.minimumAreaPx)",
                 "object_count": "\(objects.count)",
+                "edge_object_count": "\(edgeCount)",
+                "counting_criterion":
+                    "not rejected by the user and not touching the scan edge",
             ]
         )
         statusText = "\(objects.count) precipitate objects, \(edgeCount) on the edge"
@@ -137,6 +198,35 @@ extension AppState {
             pixelUnit: pixelUnit
         )
         precipitates.publishDensity(density)
+        // The density joins the label image's provenance, so what reaches
+        // Results, the sidecar and every export is the count WITH its
+        // denominator and criterion (§3), not the bare picture of the objects.
+        // Same shape as the ACOM reliability gate's post-publish merge in
+        // `AppState.swift` — republish the same product with more provenance.
+        if product.kind == PrecipitateProduct.objectsProductKind {
+            var densityProvenance: [String: String] = [
+                "accepted_object_count": "\(density.acceptedCount)",
+                "edge_excluded_count": "\(density.edgeCount)",
+                "analysed_pixels": "\(density.analysedPixels)",
+            ]
+            if let areal = density.arealDensity, let unit = density.pixelUnit,
+               let used = density.pixelSize {
+                densityProvenance["areal_density"] = "\(areal)"
+                densityProvenance["areal_density_units"] = "1/\(unit)^2"
+                densityProvenance["r_pixel_size"] = "\(used)"
+                densityProvenance["r_pixel_units"] = unit
+            } else {
+                densityProvenance["areal_density"] = "not computed — no calibrated pixel size"
+            }
+            publishedProduct = DisplayedProduct(
+                origin: product.origin, kind: product.kind, displayName: product.displayName,
+                payload: product.payload, domain: product.domain,
+                validityMask: product.validityMask, qualityFields: product.qualityFields,
+                sampling: product.sampling, valueUnits: product.valueUnits,
+                quantitativeStatus: product.quantitativeStatus,
+                provenance: product.provenance.merging(densityProvenance) { _, density in density },
+                overlays: product.overlays)
+        }
         if let areal = density.arealDensity {
             statusText = String(
                 format: "%d accepted precipitates (%d on the edge) · %.4g / %@²",

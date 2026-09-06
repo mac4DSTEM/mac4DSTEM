@@ -10,6 +10,7 @@
 
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 final class PrecipitateTests: XCTestCase {
@@ -488,5 +489,267 @@ final class PrecipitateTests: XCTestCase {
             settings: .init()
         )
         XCTAssertTrue(candidates.isEmpty, "the beam itself must never be reported as a candidate")
+    }
+}
+
+/// fix-b (owner's drive 2026-09-06, `drive-precipitates`): the polish defects
+/// that are about what the room SAYS and which image it acts on, not about the
+/// segmentation arithmetic — that is `PrecipitateTests` above and is unchanged
+/// by any of this. One test per numbered defect, each named for it.
+final class PrecipitatePolishTests: XCTestCase {
+
+    // MARK: - P1 (defect 1): the refusal must be heard
+
+    /// A fresh `AppState` has no dataset, so `maxPattern` is nil — the exact
+    /// state the drive was in when `Propose Reflections` did nothing at all
+    /// (`03a-propose-no-max-silent.png`). Writing `statusText` puts the reason
+    /// in the status bar and, through its `didSet`, in the activity log.
+    func testProposeReflectionsWithoutAMaxPatternSaysWhyInTheActivityLog() {
+        let state = AppState()
+        XCTAssertNil(state.maxPattern, "precondition: the fixture has no Max pattern")
+
+        let outcome = state.proposePrecipitateReflections()
+
+        guard case .failed(let reason) = outcome else {
+            return XCTFail("expected a refusal, got \(outcome)")
+        }
+        XCTAssertTrue(
+            state.statusText.contains(reason),
+            "the refusal must reach the status line, got \(state.statusText)"
+        )
+        XCTAssertTrue(
+            state.activityLog.messages.contains { $0.contains("Max diffraction pattern") },
+            "the refusal must reach the activity log, got \(state.activityLog.messages)"
+        )
+        // P2's other half: the reason names WHERE the missing control lives.
+        XCTAssertTrue(
+            reason.contains("Compute Mean / Max"),
+            "the refusal must name Prepare's button title verbatim, got \(reason)"
+        )
+    }
+
+    // MARK: - P3 (defect 3): do not report a filter that never ran
+
+    /// v1 always passes `matrixBasis: nil`, so `find` tags every candidate
+    /// `onMatrixLattice == false` WITHOUT testing anything. The drive read
+    /// "24 reflections proposed, 24 off the matrix lattice" while ten of the
+    /// 24 sat on the matrix ring (`drive-precipitates` step 3b).
+    func testProposalSummarySaysNoLatticeBasisWhenTheTestNeverRan() {
+        let summary = PrecipitateReflections.proposalSummary(count: 24, offLatticeCount: nil)
+        XCTAssertTrue(summary.contains("no lattice basis"),
+                      "an untested proposal must say so, got \(summary)")
+        XCTAssertTrue(summary.contains("24"), "it must still name the count, got \(summary)")
+        XCTAssertFalse(summary.contains("off the matrix lattice"),
+                       "it must not claim a filter that never ran, got \(summary)")
+    }
+
+    func testProposalSummaryReportsTheOffLatticeCountWhenABasisWasGiven() {
+        let summary = PrecipitateReflections.proposalSummary(count: 24, offLatticeCount: 6)
+        XCTAssertEqual(summary, "24 reflections proposed, 6 off the matrix lattice")
+    }
+
+    // MARK: - P5 (defect 5): placing the detector must not move the room
+
+    /// Placing the detector used to set `analysisMode = .virtualDetector`,
+    /// which emptied the AI Analysis inspector and hid the toolbar's `Segment`
+    /// while the AI Analysis workspace was still selected
+    /// (`04-detector-placed-darkfield.png`). No dataset is loaded, so the
+    /// virtual-detector run refuses at its first guard — this test is about
+    /// which room the user is left in, not about a run.
+    func testPlacingTheDetectorKeepsThePrecipitatesTask() {
+        let state = AppState()
+        state.navigation.workspaceArea = .aiAnalysis
+        state.navigation.analysisMode = .precipitates
+        let candidate = PrecipitateReflections.Candidate(
+            id: 0, row: 31, col: 40, intensity: 1, radiusFromBeam: 8.2, onMatrixLattice: false
+        )
+
+        state.placeVirtualDetector(on: candidate)
+
+        XCTAssertEqual(state.navigation.analysisMode, .precipitates,
+                       "the task must stay where the user is standing")
+        XCTAssertEqual(state.aperture.centerX, 40)
+        XCTAssertEqual(state.aperture.centerY, 31)
+        XCTAssertEqual(state.virtualShape, .circle)
+    }
+
+    // MARK: - P6 (defect 6): the two row families need disjoint identities
+
+    /// The Gate D discriminator, written before the fix
+    /// (`fix-b/gateD-P6.md` §3). The id-collision account predicts the
+    /// duplicated block starts at candidate id 1 and the object rows resume at
+    /// #24; the "emitted twice" account predicts candidate id 0 and all 44
+    /// objects. `06a-objects-table-shows-reflections.png` shows `r37, c49`
+    /// (candidate 1) and `06c-object-rows-start-at-24.png` shows `#24`.
+    func testInspectorRowIDsCollideExactlyWhereTheDriveShowedThem() {
+        let candidateIDs = Set(0..<24)          // PrecipitateReflections.find: 0-based
+        let objectIDs = Set(1...44)             // PrecipitateSegmentation: 1-based
+        let collided = candidateIDs.intersection(objectIDs)
+
+        XCTAssertEqual(collided.count, 23, "objects #1…#23 were the ones made unreachable")
+        XCTAssertEqual(collided.min(), 1, "the duplicated block starts at candidate id 1 (r37, c49)")
+        XCTAssertEqual(objectIDs.subtracting(candidateIDs).min(), 24,
+                       "the object rows resume at #24")
+    }
+
+    /// The fix: the two families are keyed on `rowIdentity`, in their own
+    /// namespaces, so no id in one can claim a row in the other.
+    func testReflectionAndObjectRowIdentitiesNeverCollide() {
+        let candidates = (0..<24).map {
+            PrecipitateReflections.Candidate(
+                id: $0, row: $0, col: $0, intensity: 1, radiusFromBeam: 10, onMatrixLattice: false)
+        }
+        let objects = (1...44).map { id in
+            PrecipitateSegmentation.Object(
+                id: id, pixelIndices: [id], area: 6, centroidX: 1, centroidY: 1,
+                lengthPx: 5, widthPx: 2, orientationDegrees: 0,
+                touchesEdge: false, meanIntensity: 1)
+        }
+        let identities = Set(candidates.map(\.rowIdentity)) .union(objects.map(\.rowIdentity))
+
+        XCTAssertEqual(
+            identities.count, candidates.count + objects.count,
+            "every reflection row and every object row must have its own identity"
+        )
+        // The pre-fix keying, for contrast: 24 + 44 rows sharing 45 identities.
+        let bareIDs = Set(candidates.map(\.id)).union(objects.map(\.id))
+        XCTAssertEqual(bareIDs.count, 45, "the Int id spaces do overlap — that was the defect")
+    }
+
+    // MARK: - P7 (defect 7): one edge count, not two
+
+    /// `44 precipitate objects, 5 on the edge` beside
+    /// `Density … 39 accepted · 0 on edge` in one inspector
+    /// (`08-density-calibrated.png`). The readout and the summary must count
+    /// the same objects.
+    func testDensityEdgeCountMatchesTheSegmentationSummary() {
+        let objects = (1...8).map { id in
+            PrecipitateSegmentation.Object(
+                id: id, pixelIndices: [id], area: 6, centroidX: 1, centroidY: 1,
+                lengthPx: 5, widthPx: 2, orientationDegrees: 0,
+                touchesEdge: id <= 3, meanIntensity: 1)
+        }
+        let product = PrecipitateProduct()
+        product.publishSegmentation(
+            objects: objects,
+            source: PrecipitateProduct.SegmentationSource(
+                image: FloatImage(width: 1, height: 1, pixels: [0]), validity: [true],
+                kind: "virtual_circle", displayName: "Virtual detector · Circle")
+        )
+
+        let density = PrecipitateStatistics.density(
+            objects: objects, accepted: product.acceptedIDs,
+            analysedPixels: 1000, pixelSize: 0.01, pixelUnit: "nm"
+        )
+
+        let summaryEdgeCount = objects.filter(\.touchesEdge).count
+        XCTAssertEqual(summaryEdgeCount, 3, "fixture: three edge objects")
+        XCTAssertEqual(density.edgeCount, summaryEdgeCount,
+                       "the density readout and the segmentation summary must agree")
+        XCTAssertEqual(density.acceptedCount, 5, "the five interior objects are the counted set")
+        XCTAssertEqual(product.countedIDs, Set(4...8),
+                       "the toggle shows the COUNTED set, which excludes edge objects")
+    }
+
+    // MARK: - P8 (defect 8): a density must name the calibration it used
+
+    func testDensitySummaryNamesThePixelSizeItUsed() {
+        let density = PrecipitateStatistics.Density(
+            acceptedCount: 39, edgeCount: 5, analysedPixels: 108_900,
+            pixelSize: 1.539343, pixelUnit: "nm", arealDensity: 1.511e-4,
+            meanLength: nil, medianLength: nil, meanWidth: nil
+        )
+        let live = PrecipitateStatistics.densitySummary(density, currentPixelSize: 1.539343)
+        XCTAssertTrue(live.contains("1.539"), "the readout must name the pixel size, got \(live)")
+        XCTAssertTrue(live.contains("5 on edge"), "and the edge count, got \(live)")
+        XCTAssertFalse(live.contains("stale"), "nothing has changed, got \(live)")
+    }
+
+    func testDensitySummaryGoesStaleWhenTheCalibrationIsCleared() {
+        let density = PrecipitateStatistics.Density(
+            acceptedCount: 39, edgeCount: 5, analysedPixels: 108_900,
+            pixelSize: 1.539343, pixelUnit: "nm", arealDensity: 1.511e-4,
+            meanLength: nil, medianLength: nil, meanWidth: nil
+        )
+        let cleared = PrecipitateStatistics.densitySummary(density, currentPixelSize: nil)
+        XCTAssertTrue(cleared.contains("stale"),
+                      "a density that outlived its calibration must say so, got \(cleared)")
+        let changed = PrecipitateStatistics.densitySummary(density, currentPixelSize: 2.0)
+        XCTAssertTrue(changed.contains("stale"), "a changed scale is stale too, got \(changed)")
+    }
+
+    // MARK: - P9 (defect 9): Segment never segments its own label image
+
+    /// The first run's objects come from a dark-field; the label image it
+    /// publishes then becomes the displayed scan product, and the second press
+    /// segmented THAT (`11a-second-segment-of-label-image.png`: 44 objects
+    /// became 25, `#1 L 126.0 · W 24.9 · A 1900`). A second segmentation on
+    /// unchanged inputs must reproduce the first result.
+    func testSecondSegmentationOnUnchangedInputsReproducesTheFirst() {
+        let width = 48, height = 48
+        var pixels = [Float](repeating: 0, count: width * height)
+        // Four separated needles, 12 px long, 2 px wide, well inside the edges.
+        for (row, col) in [(8, 6), (18, 6), (28, 6), (38, 6)] {
+            for d in 0..<12 {
+                for w in 0..<2 { pixels[row * width + col + d + w * width] = 1 }
+            }
+        }
+        let image = FloatImage(width: width, height: height, pixels: pixels)
+        let validity = [Bool](repeating: true, count: width * height)
+        var settings = PrecipitateSegmentation.Settings()
+        settings.mode = .particles
+
+        let first = PrecipitateSegmentation.segment(
+            image: image, validity: validity, settings: settings)
+        XCTAssertFalse(first.isEmpty, "precondition: the fixture segments into objects")
+
+        let product = PrecipitateProduct()
+        product.publishSegmentation(
+            objects: first,
+            source: PrecipitateProduct.SegmentationSource(
+                image: image, validity: validity,
+                kind: "virtual_circle", displayName: "Virtual detector · Circle")
+        )
+        let labels = PrecipitateSegmentation.labelImage(
+            objects: first, width: width, height: height)
+
+        // The label image is what is displayed when Segment is pressed again.
+        let source = product.segmentationSource(
+            displayedKind: PrecipitateProduct.objectsProductKind,
+            displayedName: "Precipitate objects (\(first.count))",
+            displayedImage: labels, displayedValidity: validity
+        )
+        XCTAssertEqual(source?.kind, "virtual_circle",
+                       "the second run must take the dark-field, not the label image")
+
+        let second = PrecipitateSegmentation.segment(
+            image: source?.image ?? labels, validity: source?.validity, settings: settings)
+        XCTAssertEqual(second.count, first.count,
+                       "a second Segment on unchanged inputs must return the same object count")
+    }
+
+    /// Any other displayed scan product is segmented as-is — the guard is
+    /// narrow, not a blanket "always re-use the last source".
+    func testAnOrdinaryScanProductIsSegmentedAsShown() {
+        let product = PrecipitateProduct()
+        let image = FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3])
+        let source = product.segmentationSource(
+            displayedKind: "virtual_annulus", displayedName: "Virtual detector · Annulus",
+            displayedImage: image, displayedValidity: [true, true, true, true]
+        )
+        XCTAssertEqual(source?.kind, "virtual_annulus")
+        XCTAssertEqual(source?.image.pixels, [0, 1, 2, 3])
+    }
+
+    /// The label image on screen with no recorded source (a restored sidecar
+    /// result, say) refuses rather than segmenting the labels.
+    func testTheLabelImageWithNoRecordedSourceRefuses() {
+        let product = PrecipitateProduct()
+        let labels = FloatImage(width: 2, height: 2, pixels: [0, 1, 1, 0])
+        XCTAssertNil(product.segmentationSource(
+            displayedKind: PrecipitateProduct.objectsProductKind,
+            displayedName: "Precipitate objects (1)",
+            displayedImage: labels, displayedValidity: [true, true, true, true]
+        ))
     }
 }

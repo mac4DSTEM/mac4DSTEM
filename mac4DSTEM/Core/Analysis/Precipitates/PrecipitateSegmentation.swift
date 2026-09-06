@@ -61,6 +61,14 @@ package nonisolated enum PrecipitateSegmentation {
         package let touchesEdge: Bool
         package let meanIntensity: Float
 
+        /// The inspector row's identity, in its OWN namespace — the object
+        /// half of the pair described on
+        /// `PrecipitateReflections.Candidate.rowIdentity`. The two `Int` id
+        /// spaces overlap, so a shared `ForEach(id: \.id)` inside one
+        /// `Section` let the reflection rows claim ids 1…23 and hide the
+        /// objects with those ids (`fix-b/gateD-P6.md`).
+        package nonisolated var rowIdentity: String { "precipitate.object.\(id)" }
+
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
         package nonisolated init(
             id: Int, pixelIndices: [Int], area: Int, centroidX: Float, centroidY: Float,

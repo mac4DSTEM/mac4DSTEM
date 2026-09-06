@@ -240,3 +240,30 @@ final class LiveDetectionModeGateTests: XCTestCase {
         )
     }
 }
+
+/// fix-b (owner's drive 2026-09-06, `drive-precipitates` defects 5 and 11):
+/// the aperture overlay's mode gate, the sibling of `showsLiveDiskOverlay`
+/// above. Precipitates places the virtual detector on a chosen reflection, so
+/// the circle must be drawn — and editable — in that room too; reaching it by
+/// flipping `analysisMode` to `.virtualDetector` emptied the room the user was
+/// standing in. One predicate serves the view (`ImagePanes`) and the two
+/// aperture-driven re-runs (`scheduleLiveVirtualDetector`,
+/// `commitApertureChange`), so a drawn overlay is never inert.
+final class ApertureOverlayModeGateTests: XCTestCase {
+
+    func testTheApertureOverlayIsDrawnInVirtualDetectorAndPrecipitates() {
+        XCTAssertTrue(AnalysisMode.virtualDetector.showsApertureOverlay)
+        XCTAssertTrue(AnalysisMode.precipitates.showsApertureOverlay,
+                      "Precipitates places this same aperture on a reflection")
+    }
+
+    func testNoOtherTaskDrawsTheApertureOverlay() {
+        let expected: Set<AnalysisMode> = [.virtualDetector, .precipitates]
+        for mode in AnalysisMode.allCases {
+            XCTAssertEqual(
+                mode.showsApertureOverlay, expected.contains(mode),
+                "\(mode.rawValue) must \(expected.contains(mode) ? "" : "not ")draw the aperture"
+            )
+        }
+    }
+}
