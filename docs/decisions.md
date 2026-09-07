@@ -544,3 +544,14 @@ on purpose: whether the previous stage's product exists is pipeline state,
 not a prerequisite the workflow models. "Reconstruction Ready" as a disabled
 prominent button is gone: readiness is shown by readiness text, not by a
 button that cannot be pressed.
+
+**2026-09-07 23:45 — C6's size session, the design as briefed (so a crash
+loses nothing).** `simulate.S` stays 128 by default; every entry point takes
+`--size`; one function `fit_to(pattern, centre, size)` centre-crops or
+zero-pads, never rescales; ingredients probes prepared at the requested size;
+labels recorded in NATIVE pattern coordinates with `frame: "native"` and
+mapped by evaluate through the same offset, so one labels file scores a
+128-px and a 256-px asset; the 128-px fixture stays byte-identical and is
+padded for a 256-px asset's fixture rows; `overnight-256.sh <out>` chains
+ingredients → train (`--size 256 --width 12 --max-minutes 90`) → export →
+check → evaluate, stopping at the first non-zero exit.

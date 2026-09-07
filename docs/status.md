@@ -78,8 +78,12 @@ at the shipped 0.9 the exported asset scores fixture 0.939 / 0.896 against
 the classical 0.900 / 0.866 on the same visible truth, and **validation
 0.679 / 0.939** (0.963 was at 0.3); WS₂ counts-scaled makes the net propose
 ~24 spots per position, unjudged. Owed: your labels, the evaluation with
-`--asset --labels`, the 256-px retrain (needs one agent session first: `S` is
-128 everywhere — evidence file, step 3), the verdict. After that C7 only if
+`--asset --labels`, the 256-px retrain (its enabling session — `--size` on every
+entry point, `fit_to` crop-or-pad, native-frame labels, an overnight chain
+script — started 2026-09-07 23:45 on the branch worktree by a Sonnet agent;
+if no later note says it landed, the next session takes `/pickup C6`
+first: `git -C <worktree> diff` is the state, `run.sh fixture` the gate,
+the design is in the agent brief quoted in `decisions.md`), the verdict. After that C7 only if
 the verdict says so; otherwise C5's next extraction. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
 deleted, `.git` intact); `git checkout -- .` there restored the lock. No
 feature work until C4 and C6 exit. The owner pushes; agents commit when
