@@ -81,9 +81,11 @@ the classical 0.900 / 0.866 on the same visible truth, and **validation
 `--asset --labels`, the 256-px retrain (its enabling session — `--size` on every
 entry point, `fit_to` crop-or-pad, native-frame labels, an overnight chain
 script — started 2026-09-07 23:45 on the branch worktree by a Sonnet agent;
-if no later note says it landed, the next session takes `/pickup C6`
-first: `git -C <worktree> diff` is the state, `run.sh fixture` the gate,
-the design is in the agent brief quoted in `decisions.md`), the verdict. After that C7 only if
+**landed 2026-09-08 00:10 on the worktree, uncommitted: 7 files +286/−104 plus
+`overnight-256.sh`; `run.sh fixture` 148/153 with every break failing
+(`scratchpad/c6-size-fixture.log`); the agent's 256-px training/export/check
+smoke was still running when this was written — the next session verifies
+it from the worktree, then commits on the branch**), the verdict. After that C7 only if
 the verdict says so; otherwise C5's next extraction. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
 deleted, `.git` intact); `git checkout -- .` there restored the lock. No
 feature work until C4 and C6 exit. The owner pushes; agents commit when
