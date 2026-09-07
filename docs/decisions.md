@@ -443,3 +443,18 @@ is executed in order by `/pickup` before any new model, feature or UI room;
 the first v3 feature waits for C4 and C6 to exit. Agents commit when asked
 and never push — the owner pushes every branch (`CLAUDE.md`, the pickup
 skill). Owner, 2026-09-07.
+
+**2026-09-07 — C0 of the consolidation plan is closed (owner).** Four
+answers, in the order the plan asks them. (1) Disk: `tools/free-space.sh
+--clear` was run; the amount freed is not recorded here — each gate's own
+preflight (8 GB unit, 4 GB scientific and benchmark) is the measurement, and
+a refusal names it. (2) The learned detector's throughput at the cube's
+native 250 px, 2.81× the classical path with 3×3 tiling, is ACCEPTED for
+now; a 256-px retrain is owed and recorded as the condition to revisit, not
+a reason to narrow the net. (3) The AGPL `yolov8n.mlpackage` stays in
+`main`'s history; `main` is not rewritten. Its removal from the tree lands
+in C2 with a `NOTICE` line. (4) No `v2.0.0` tag will be created for a past
+event; the six files that call it tagged (`CLAUDE.md`, `status.md`,
+`ROADMAP.md`, `CHANGELOG.md`, `releasing.md`, this file) are corrected in
+C1 to say what happened: v2.0.0 was named, never built, superseded by
+v2.5.0.

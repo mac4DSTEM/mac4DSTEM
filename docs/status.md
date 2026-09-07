@@ -64,9 +64,9 @@ the next target's source until it is archived: `/pickup` takes the first gate
 of its §6 whose exit criterion fails — **today C1 (docs truth)**. C0 is the
 owner's and is partly done: the AI-room work is pushed (`ml/disk-detector` at
 `18bb13b`, 25 commits ahead of `main`, fast-forwardable); the runtime decision
-is inverted to Core ML (`decisions.md`, 2026-09-07). Still owed in C0: disk
-≥ 10 GB, the ceiling, the AGPL history, `v2.0.0`. No feature work until C4 and
-C6 exit. The owner pushes; agents commit when asked and never push.
+is inverted to Core ML (`decisions.md`, 2026-09-07); **C0 closed the same
+day** (`decisions.md`, the C0 entry). No feature work until C4 and C6 exit.
+The owner pushes; agents commit when asked and never push.
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -141,5 +141,4 @@ drives and pastes the result.
 ## Owed to the owner
 
 - **Drive the rebuilt app** (above) — two things unverified on screen.
-- **[`consolidation-plan.md`](consolidation-plan.md) C0**, owner-only, still open: disk ≥ 10 GB, the ceiling, the AGPL history, `v2.0.0`.
 - The §10g decisions and plan §8 (sidecar wire format).

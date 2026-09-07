@@ -475,18 +475,14 @@ moves it on. The owner pushes; agents commit when asked and never push. A
 feature target is refused until this file is archived (`decisions.md`,
 2026-09-07; `CLAUDE.md`; the pickup skill).
 
-**C0 — owner only.** (1) ~~Push every local branch~~ — done 2026-09-07
-evening: `ml/disk-detector` at `18bb13b` carries all of it. (2) Free
-≥ 10 GB on the Mac: the unit gate needs 8, `benchmark` 4, the machine had
-1.75 (`status.md:110-115`, branch); `tools/free-space.sh --clear` first —
-**open**. (3) Decide, in writing in `decisions.md`: ~~Core ML or Core
-AI-exclusive~~ — **Core ML, decided 2026-09-07**; ~~precipitates, groups and
-embeddings paused~~ — **paused by the consolidation-first decision,
-2026-09-07**; the ceiling restated or the net narrowed (§3) — **open**; the
-AGPL package in `main`'s history — rewrite or accept — **open**; `v2.0.0` —
-push the tag or strike the claim — **open**; the 250-px tiling ceiling
-(2.81×, §2a) — accept or retrain — **open**. *Exit:* `decisions.md` carries
-the four remaining lines, dated.
+**C0 — owner only — CLOSED 2026-09-07** (`decisions.md`, the C0 entry).
+(1) Every local branch pushed: `ml/disk-detector` at `18bb13b`. (2)
+`free-space.sh --clear` run; the gates' own preflight is the measurement
+from here on. (3) Decided: Core ML ships; precipitates, groups and
+embeddings paused by consolidation-first; the 250-px ceiling of 2.81×
+accepted with a 256-px retrain owed (C6); the AGPL package stays in
+history, `main` is not rewritten; no `v2.0.0` tag — the claim is struck in
+C1.
 
 **C1 — docs truth, one session, docs only.** Fix every item in §5. Move
 §3a's decision transcript, Core AI notes and evidence block to
@@ -501,7 +497,8 @@ gone; `ROADMAP.md` to the world after 2026-09-04. `architecture.md` floor to
 14; the `.icns` item reopened; the five closed items archived and the six
 stale pins fixed; `py4dstem-pipelines.md` §9.3 marked retired;
 `CLAUDE.md:73` lists the real lanes and its line claim states the real
-number; `v2.0.0` resolved in all six files; `decisions.md`'s header made
+number; the `v2.0.0` tag claim struck in all six files (never built,
+superseded by v2.5.0); `decisions.md`'s header made
 true ("amend by appending") and the three rewritten entries noted as such.
 Decide the py4DSTEM reference version once — 0.14.19 as pinned or 0.14.17
 as installed — and make `fetch-py4dstem.sh`, the env and the `DEVIATION`
@@ -565,7 +562,8 @@ frozen hand-labelled real test set **with disk centres** (a centre mode in
 the label tool, or a 50-line click tool in `tools/disk-detector/`), never
 used for selection; the exported asset evaluated at the shipped 0.9 on it;
 the record JSON and the "marks every visible disk" sentence corrected; the
-py4DSTEM version made one. The frozen test set is labelled with a 50-line
+py4DSTEM version made one; the 256-px retrain the owner accepted the 2.81×
+ceiling against (`decisions.md`, C0 entry). The frozen test set is labelled with a 50-line
 matplotlib click tool in `tools/disk-detector/`, not app work; the labels
 are the owner's data (gitignored) and their SHA-256 and counts are in the
 repo. Retrain once (~90 min). Report the *exported* asset at one
