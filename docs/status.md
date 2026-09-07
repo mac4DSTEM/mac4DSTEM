@@ -83,9 +83,16 @@ entry point, `fit_to` crop-or-pad, native-frame labels, an overnight chain
 script — started 2026-09-07 23:45 on the branch worktree by a Sonnet agent;
 **landed 2026-09-08 00:10 on the worktree, uncommitted: 7 files +286/−104 plus
 `overnight-256.sh`; `run.sh fixture` 148/153 with every break failing
-(`scratchpad/c6-size-fixture.log`); the agent's 256-px training/export/check
-smoke was still running when this was written — the next session verifies
-it from the worktree, then commits on the branch**), the verdict. After that C7 only if
+(`scratchpad/c6-size-fixture.log`); the agent's 256-px smoke ran end to end at
+00:25 (`scratchpad/logs/`): ingredients 256², a 30-step train, export of every
+variant, evaluate exit 0; `check` exits 1 on the known GPU top-k segfault, so
+`overnight-256.sh` records that step without stopping; one real bug fixed on
+the way (`load_ingredients` built the drawn probe at 128 regardless of size);
+read a 256-px fixture row knowing the padded fixture's classical recall is
+0.74 of 308 eligible, not 0.90 of 230, because the edge exclusion is a
+smaller fraction of the padded canvas; `tools/lib/python.sh` now requires
+scipy so a bare conda base is skipped — the next session verifies the
+worktree diff and commits it on the branch**), the verdict. After that C7 only if
 the verdict says so; otherwise C5's next extraction. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
 deleted, `.git` intact); `git checkout -- .` there restored the lock. No
 feature work until C4 and C6 exit. The owner pushes; agents commit when
