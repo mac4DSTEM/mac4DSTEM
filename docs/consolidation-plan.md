@@ -10,50 +10,44 @@ the owner says so. The earlier review the owner pasted the same day is called
 all three and proposes changes to each, the way `archive/v2/v2.5-plan.md` did
 for the v2.5 train. It archives when §7 holds. This session nets positive
 markdown lines by instruction (read-only review); executing §6 C1 nets
-≥ 600 lines negative.
+≥ 600 lines negative. **Revised the same evening** after the owner pushed
+`ml/disk-detector` (`18bb13b`), inverted the runtime decision to Core ML
+and decided consolidation-first (`decisions.md`, 2026-09-07). §1 is revised
+against that tip. **§2 and §3 were verified at `e0e0dc8` and not yet at
+`18bb13b`**, whose commit messages claim to address §2 rows 6 and 10 and §3
+items 1, 3, 4, 5 and 7 — `4489ccd` (visibility targets, textured backgrounds,
+an acceptance rule, exported-asset evaluation, a Swift scan bench),
+`f147544` (rejection off a correlation maximum, both sides), `73f5eb5`,
+`c5489ac`, `65fb084` (the drive-defect fixes). Re-running those two read-only
+checks and editing §2/§3 is the first task of the C1 session, before
+anything else.
 
-## 1. First finding: the work under review is not on GitHub
+## 1. First finding, revised the same evening: the work is now on GitHub
 
-What the remote holds (fetched and unshallowed 2026-09-07):
+When this review began, the remote held `main` (`84b2498`),
+`ml/disk-detector` at `e0e0dc8` (+8 commits, Python tooling only) and a dead
+`s13-q-calibration` (+0 / −134); none of the Swift the earlier review cites
+existed in any pushed ref, and every claim about it was **reported** only.
+The owner pushed that evening. `ml/disk-detector` is now `18bb13b`,
+**25 commits ahead of `main`, merge-base `84b2498`** (a fast-forward), 74
+files, +15 340 / −76 — exactly the tree the earlier review described
+(`AppState.swift` 5 819 lines, `decisions.md` 485). By area:
+`tools/disk-detector/` (19 files: simulator, trainer, export, checks,
+fixture, a run3 with visibility targets), `Core/ML/` (2 files),
+`Core/Analysis/Precipitates/` (3), four new `Session/` owners, a sixth
+"AI Analysis" workspace (4 new `UI/` files), `docs/ai-ml/` (2), five new
+test files, and the removal of the AGPL package. Tags are still `v1.0.0`,
+`v2.5.0`, `v2.5.1` — **no `v2.0.0`**, which `CLAUDE.md` and `status.md:13`
+called tagged.
 
-| Ref | Tip | vs `main` | Content |
-|---|---|---|---|
-| `main` | `84b2498` 2026-09-06 | — | the app; §3a planning text; `yolov8n.mlpackage` (6.36 MB, AGPL, Ultralytics) tracked since `eb3ad23` 2026-09-05, in the Sources build phase, referenced by no Swift |
-| `ml/disk-detector` | `e0e0dc8` 2026-09-06 | +8 / −0 | `tools/disk-detector/` Python (simulate, train, evaluate, export, check), the 16-pattern fixture, one `run-tests.sh` line, `status.md`/`v3-plan.md` text; removes the AGPL package (history keeps it) |
-| `s13-q-calibration` | `bab5e07` 2026-08-29 | +0 / −134 | nothing unique — dead |
-| tags | `v1.0.0`, `v2.5.0`, `v2.5.1` | | **no `v2.0.0`**, which `CLAUDE.md:5` and `status.md:13` call tagged |
-
-The earlier review cites, with line numbers, code that exists in no pushed
-ref: `Core/ML/` (`LearnedDiskDetector.swift`, `LearnedDiskDetection.swift`),
-`Core/Analysis/Precipitates/`, `Session/PrecipitateProduct.swift`,
-`Session/DiffractionGroupsProduct.swift`, `App/AppState+Precipitates.swift`,
-`docs/ai-ml/precipitates.md`, AI modes in `ProductWorkflow`, a
-`detector_class` provenance key, `decisions.md:427` (the file has 425 lines),
-an `AppState.swift` of 5 819 lines (5 593 here). Only
-`tools/disk-detector/{simulate,train,evaluate}.py` exist, on the branch.
-
-It did see a real tree, not an imagined one: everything it says about code
-that IS here checks out — `publishProduct(… validityMask:)`
-(`AppState.swift:296`), replay refusing a `kernel_source` mismatch
-(`ReplayPlan.swift:650-661`), `productState` / `prerequisiteItems` /
-`guidance` (`ProductWorkflow.swift:293,302,406`), the `Advanced detection`
-disclosure (`MapSettings.swift:28,211-226`), zero `UndoManager` in the app.
-So the owner's machine presumably holds roughly `main` + the branch + ~17 commits of
-Swift and docs — the learned detector's step 4, precipitates v1, diffraction
-groups — that were never pushed.
-
-Consequences. (1) No one but the owner can review, refute, gate or merge
-that work; the earlier review's findings on it are **reported**, not
-confirmable, and this violates the repo's own rule (`CLAUDE.md:51`: no claim a
-reader cannot reproduce). (2) The branch's own morning handoff
-(`status.md:66-109`, `ml/disk-detector`) says step 4 "does not exist" and
-recommends finishing ONE model before a second prototype; the plan says
-nothing starts before step 3's verdict (`v3-plan.md:537-540`). If the
-unpushed work is what the earlier review describes, it was built against the
-owner's own sequencing — which is the root cause that review named, seen
-from the other side. (3) Two of the earlier review's central claims
-contradict what the pushed files say (§2, rows 6 and 7). **Push everything,
-as WIP, today — before any of §6.**
+What survives of the afternoon finding: for a day the earlier review
+described work nobody else could see, which the branch's working method
+permits (`v3-plan.md:544-558`) but the plan's own sequencing did not — the
+branch went from step 3's "NOT passed" verdict (`status.md:66`, `e0e0dc8`)
+to step 4, step 5, precipitates and diffraction groups within the same
+day, against `v3-plan.md:537-540` and its own handoff's "finish ONE model
+through step 4 before a second prototype". §2 re-verifies the earlier
+review's claims against `18bb13b`.
 
 ## 2. Verdict on the earlier review
 
@@ -402,16 +396,23 @@ reader can check; this file is archived when §7 holds. **No new model, no
 new feature, no new UI room until C4 and C6 have exited.** Session counts
 are anchored on the repo's measured cadence (`v3-plan.md:576-582`).
 
-**C0 — owner only, today.** (1) Push every local branch as WIP; name the
-branch that holds the step-4 / precipitate / groups work. (2) Free ≥ 10 GB:
-the unit gate needs 8, `benchmark` 4, the owner's machine has 1.75
-(`status.md:110-115`, branch). (3) Decide, in writing in `decisions.md`:
-Core ML or Core AI-exclusive (§3); the ceiling restated or the net narrowed
-(§3); precipitates, groups and embeddings paused until step 4 lands (the
-branch handoff's own recommendation); the AGPL package in `main`'s history —
-rewrite or accept; `v2.0.0` — push the tag or strike the claim.
-*Exit:* `git ls-remote` shows the branch; `decisions.md` carries five dated
-lines.
+**How it is executed.** `/pickup` with no target takes the first gate whose
+exit criterion fails; `status.md`'s handoff names it and each `/closeout`
+moves it on. The owner pushes; agents commit when asked and never push. A
+feature target is refused until this file is archived (`decisions.md`,
+2026-09-07; `CLAUDE.md`; the pickup skill).
+
+**C0 — owner only.** (1) ~~Push every local branch~~ — done 2026-09-07
+evening: `ml/disk-detector` at `18bb13b` carries all of it. (2) Free
+≥ 10 GB on the Mac: the unit gate needs 8, `benchmark` 4, the machine had
+1.75 (`status.md:110-115`, branch); `tools/free-space.sh --clear` first —
+**open**. (3) Decide, in writing in `decisions.md`: ~~Core ML or Core
+AI-exclusive~~ — **Core ML, decided 2026-09-07**; ~~precipitates, groups and
+embeddings paused~~ — **paused by the consolidation-first decision,
+2026-09-07**; the ceiling restated or the net narrowed (§3) — **open**; the
+AGPL package in `main`'s history — rewrite or accept — **open**; `v2.0.0` —
+push the tag or strike the claim — **open**. *Exit:* `decisions.md` carries
+the three remaining lines, dated.
 
 **C1 — docs truth, one session, docs only.** Fix every item in §5. Move
 §3a's decision transcript, Core AI notes and evidence block to
@@ -483,7 +484,9 @@ on `main`. One extraction per month, in §4's order: overlays →
 process doc asks.
 
 **C6 — the detector made honest, on the branch; Python and labels only.**
-The bar in §3, items 1–8. The frozen test set is labelled with a 50-line
+The bar in §3, items 1–8 — first checking which of them `4489ccd` and
+`f147544` already closed (see the header note), so C6 does only what is
+left. The frozen test set is labelled with a 50-line
 matplotlib click tool in `tools/disk-detector/`, not app work; the labels
 are the owner's data (gitignored) and their SHA-256 and counts are in the
 repo. Retrain once (~90 min). Report the *exported* asset at one
@@ -496,8 +499,10 @@ with `disk-detector` gated; the verdict written in `decisions.md`, in the
 owner's words, either way.
 
 **C7 — step 4, only if C6's verdict is "adds disks the classical path misses
-on the real test set".** As pre-registered (`v3-plan.md:603-614`) with the
-§3 corrections: one Core ML inference class in `Core/`, `DetectorClass` in
+on the real test set".** Step 4 already exists on the branch on Core AI
+(`5ca9660`, off by default, macOS 27, per its commit message — unverified
+here), so C7 is a swap and a completion, not a build: one Core ML inference
+class in `Core/` replacing the Core AI one (decided 2026-09-07), `DetectorClass` in
 the detection settings, the asset hash in provenance, replay refusing a
 `detector_class` mismatch like `kernel_source`, `prerequisiteItems` and
 `guidance` filled in for the new mode, the disagreement map matching
@@ -531,7 +536,7 @@ take over — the "once at v3 kickoff" migration the process doc prescribes.
 
 ## 8. What this review could not check
 
-No build, no run, no screen (Linux session); the unpushed tree; every log
-under `References/training_runs/` and the owner's scratchpad; whether any
-number in `status.md:46-51` is what its log says. Everything marked
-**reported** above waits on C0.
+No build, no run, no screen (Linux session); every log under
+`References/training_runs/` and the owner's scratchpad; whether any number
+in `status.md:46-51` is what its log says. The tree itself is no longer a
+gap: `18bb13b` is on the remote and §2–§3 read it.
