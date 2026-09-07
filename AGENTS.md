@@ -7,10 +7,10 @@
 
 mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple
 Silicon, validated against py4DSTEM at one pinned upstream commit
-(`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`). **v2.0.0 is tagged (2026-09-02)**; `main` is on the v2.5
-consolidation train. Rules only here; status and history live elsewhere.
+(`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`). **v2.5.1 is released (2026-09-04)**; `main` consolidates before
+v3 (`docs/consolidation-plan.md`; owner, 2026-09-07: no new feature until it exits). Rules only here; status and history live elsewhere.
 
-## Read, in this order (the whole set is under 500 lines)
+## Read, in this order (about 2 300 lines today; consolidation C1 brings it down)
 
 1. `docs/status.md` — what is live now, one table. Every session starts here.
 2. `docs/v3-plan.md` — the feature plan (draft): the themes, the 2026-08-28
@@ -30,6 +30,9 @@ Skills in `.claude/skills/` — `pickup`, `diagnose` (Gate D), `adversarial-revi
 from here**; read the matching `SKILL.md` as a document before doing that kind
 of work. Session memory lives in Claude Code's per-project memory directory and
 is not loaded here: do not assume a fact is remembered.
+While `docs/consolidation-plan.md` is live, `/pickup` with no target takes the
+first gate of its §6 whose exit criterion fails (named in `docs/status.md`'s
+handoff); a feature target is refused until the plan is archived.
 
 ## Hard rules
 
@@ -72,7 +75,8 @@ is not loaded here: do not assume a fact is remembered.
   the same commit as the code. Every session nets negative markdown lines or
   says why. No new file without saying why an existing home would not do.
   `AGENTS.md` is generated: run `tools/sync-agents-md.sh` after editing this.
-- Commit and push only when asked. Linear `main`.
+- Commit only when asked; never push — the owner pushes (2026-09-07). Linear
+  `main`.
 
 ## Build / test
 

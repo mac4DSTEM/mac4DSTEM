@@ -8,8 +8,10 @@ description: Start the next mac4DSTEM development target from docs/status.md. Us
 `docs/status.md` is the source of truth for what is live and what is next.
 Targets come from three lists: bugs the owner reports (each through
 `/diagnose`), `docs/open-items.md` (defects, debts, open questions), and
-`docs/v3-plan.md` (features, pre-registered before they are built). This
-skill only makes sure you enter them correctly.
+`docs/v3-plan.md` (features, pre-registered before they are built) — and,
+while it is live, `docs/consolidation-plan.md` §6: gates C0–C8, each with an
+exit criterion, executed in order before any feature (owner, 2026-09-07).
+This skill only makes sure you enter them correctly.
 
 1. Read `CLAUDE.md` (if not in context), then `docs/status.md`, then the
    target's own record: its `open-items.md` entry, its `v3-plan.md` section,
@@ -20,6 +22,10 @@ skill only makes sure you enter them correctly.
    decision, a data file — and it is not in the conversation, do the parts
    that don't need it, then stop and say exactly what is needed. Never guess
    the user's answer to keep an unattended run moving.
+   A consolidation gate is a target ("/pickup C1"); its gate is the exit
+   criterion written in the plan, and it is done only when that criterion
+   is met and recorded in `status.md`. Until the plan is archived, a
+   feature target is refused, with the reason.
 3. Before any work, restate in one short block: the target's scope, its gate
    (unit / unit+scientific / Gate D / Gate B), what it deletes, which release
    it lands in (a v2.5.x patch for a bug; no number for a science item; v3.0
@@ -32,4 +38,4 @@ skill only makes sure you enter them correctly.
    what the app draws is stated as unverified on screen until the owner has
    seen it; do NOT set `ResidencyAdmission.measuredWorkingSetFraction`.
 5. One target per conversation. When the work lands, invoke `/closeout`.
-   Commit only if asked.
+   Commit only if asked; never push — the owner pushes.

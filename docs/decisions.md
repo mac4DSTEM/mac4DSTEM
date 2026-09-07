@@ -423,3 +423,23 @@ peak-picking returning candidates not heatmaps, the probe as model state,
 compute streams; the correlation kernel moves in-graph only after it is
 verified against the Metal engine. The third-party "3.5× faster than
 Core ML" claim is about LLM token loops and is not a reason here.)*
+
+**2026-09-07 — The learned detector ships on Core ML; Core AI stays as the
+insurance in the tooling.** Inverts the 2026-09-06 late-evening decision
+above. Reason, from the branch's own step-2 table (`v3-plan.md` §3a
+evidence): Core ML `CPU_AND_NE` 0.305–0.338 ms per pattern against Core AI's
+0.344–0.363 ms on the Neural Engine — no measured speed reason to prefer
+Core AI; Core ML runs on the macOS 14 floor decided 2026-09-04, where Core
+AI is macOS 27 and beta; the branch recorded a segfaulting stateful asset
+and a GPU delegate returning half the peaks, both Core AI. The `.mlpackage`
+export the tooling already produces becomes the shipped asset; the Core AI
+class on `ml/disk-detector` is replaced, not kept beside it. Provenance
+records `runtime: coreml` and the package's SHA-256. Owner, 2026-09-07, on
+the consolidation review (`docs/consolidation-plan.md` §3).
+
+**2026-09-07 — Consolidate before any new feature; the owner pushes.**
+`docs/consolidation-plan.md` §6 (gates C0–C8, each with an exit criterion)
+is executed in order by `/pickup` before any new model, feature or UI room;
+the first v3 feature waits for C4 and C6 to exit. Agents commit when asked
+and never push — the owner pushes every branch (`CLAUDE.md`, the pickup
+skill). Owner, 2026-09-07.

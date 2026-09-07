@@ -57,7 +57,16 @@ provenance are
 [`docs/archive/v2/release-2026-09-04.md`](archive/v2/release-2026-09-04.md).
 The live facts are the Releases table above and `CHANGELOG.md`.
 
-## Handoff (rewritten 2026-09-05, after the v2.5.0 / v2.5.1 release night and reader gate)
+## Handoff (rewritten 2026-09-07: consolidation first)
+
+**Consolidation first (owner, 2026-09-07).** `docs/consolidation-plan.md` is
+the next target's source until it is archived: `/pickup` takes the first gate
+of its §6 whose exit criterion fails — **today C1 (docs truth)**. C0 is the
+owner's and is partly done: the AI-room work is pushed (`ml/disk-detector` at
+`18bb13b`, 25 commits ahead of `main`, fast-forwardable); the runtime decision
+is inverted to Core ML (`decisions.md`, 2026-09-07). Still owed in C0: disk
+≥ 10 GB, the ceiling, the AGPL history, `v2.0.0`. No feature work until C4 and
+C6 exit. The owner pushes; agents commit when asked and never push.
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push
@@ -99,11 +108,9 @@ agent should say so and start at item 2.
    measured-kernel mode, the file's probe as a kernel source; parity with
    py4DSTEM's flat route), the probe-size under-read on ring-shaped probes
    stays open, and the owner's drive of the bullseye maps closes the item.
-   **Next: the learned-detector option, `v3-plan.md` §3a (Core AI,
-   decided 2026-09-06), step 1 (simulator + fixture) — on the branch
-   `ml/disk-detector` (created 2026-09-06 at `a5a0f49`), where §3a's working
-   method applies: commit freely, no docs or gate per commit; the full
-   discipline returns at the merge.** ACOM coverage
+   **Next: nothing here until the consolidation plan's C4 and C6 exit; the
+   learned detector's state is `consolidation-plan.md` §3 and the branch's
+   own `status.md`.** ACOM coverage
    (a) is an owner decision, relabel or convert; Q-calibration (b) and the
    origin-fit holes (b)/(c) as design passes. A landed number change cuts
    v2.6.0.
@@ -134,5 +141,5 @@ drives and pastes the result.
 ## Owed to the owner
 
 - **Drive the rebuilt app** (above) — two things unverified on screen.
-- **Read [`consolidation-plan.md`](consolidation-plan.md)** (2026-09-07 review of the app, the learned detector and the docs): its C0 is owner-only — push the local branches, free disk, five decisions.
+- **[`consolidation-plan.md`](consolidation-plan.md) C0**, owner-only, still open: disk ≥ 10 GB, the ceiling, the AGPL history, `v2.0.0`.
 - The §10g decisions and plan §8 (sidecar wire format).
