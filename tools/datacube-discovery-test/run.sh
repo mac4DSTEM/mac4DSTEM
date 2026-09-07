@@ -5,8 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-SRC="$REPO/mac4DSTEM/Core/Data"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-datacube-discovery-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/python.sh"
@@ -22,17 +21,11 @@ done
 
 "$PYTHON_BIN" reference.py "$WORK/fixtures"
 
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" readers cube calibration
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "$SRC/DatasetDescriptor.swift" \
-  "$SRC/DiffractionPattern.swift" \
-  "$SRC/FourDDataSource.swift" \
-  "$SRC/LoadSpecification.swift" \
-  "$SRC/HDF5Types.swift" \
-  "$SRC/H5Reader.swift" \
-  "$SRC/Calibration.swift" \
-  "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
-  main.swift \
-  -framework Accelerate
+  "${MAC4DSTEM_SOURCES[@]}" main.swift \
+  -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
 MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" "$WORK/harness" "$WORK/fixtures"

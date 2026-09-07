@@ -125,7 +125,9 @@ Today `AppState` (`App/AppState.swift`) owns loading, session state, calibration
 every analysis's parameters and dispatch, product publication, replay and
 recovery; `ContentView` reconstructs workflow rules from it. Extracted seams
 already exist (`DatasetResidency`, `SessionGates`, `WorkspaceNavigation`,
-`StrainProduct`, `ReplayRun`, `QCalibrationRun`, `SessionCalibrationFramePolicy`).
+`StrainProduct`, `ReplayRun`, `QCalibrationRun`, `SessionCalibrationFramePolicy`,
+`FitOverlayPresentation` — C5's first extraction, 2026-09-07: the diffraction
+pane's fit overlays as a value over a snapshot).
 
 The target (`archive/v2/v2.5-plan.md` §4): three local packages — `DSTEMCore` (Data,
 Compute, Analysis, Crystal, Shaders), `DSTEMSession` (calibration, products,
@@ -137,8 +139,10 @@ vocabulary, so live runs and replay share one execution path; `AppState`
 reduced to composition and window coordination.
 
 Rules while migrating: no new stored state in `AppState`; a feature names its
-owner first; adapters carry an expiry condition; numerical code is split only
-at scientifically meaningful boundaries.
+owner first; `AppState.swift` + `Support/ResultExport.swift` never net
+positive lines in a commit (`inventory` measures it against HEAD, or HEAD^ on
+a clean tree — C5, 2026-09-07); adapters carry an expiry condition; numerical
+code is split only at scientifically meaningful boundaries.
 
 ## Presentation contract (owner decision 2026-09-03) — SUPERSEDED
 
@@ -244,16 +248,16 @@ the name the retirement freed.
 
 ## Requirements, build, test
 
-- macOS 26+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 26.0` in every
-  build configuration and `.macOS(.v26)` in `Package.swift`; this line said
-  "macOS 14+" until 2026-09-04, contradicting `README.md`. Xcode 26
-  (synchronized folders, Metal toolchain).
+- macOS 14+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 14.0` in every
+  build configuration and `.macOS(.v14)` in `Package.swift`, lowered from 26
+  on 2026-09-04 (`decisions.md`); 14–25 is compile-verified and has never
+  been executed here. Xcode 26 (synchronized folders, Metal toolchain).
   No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`
   (`DEVELOPER_DIR` wins; the Command Line Tools directory is rejected).
-- Test: `tools/run-tests.sh unit | scientific | all | benchmark | inventory`.
+- Test: `tools/run-tests.sh unit | scientific | all | inventory | core | benchmark | campaign` (seven lanes; the script is the roster).
   The `scientific` array in that script is the harness roster; no count is
   stated anywhere else. On-screen verification is the owner driving the app
   and reporting through `/diagnose` (the checklist was retired 2026-09-03).

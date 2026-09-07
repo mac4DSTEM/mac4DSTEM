@@ -8,8 +8,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-SRC="$REPO/mac4DSTEM/Core/Data"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-preprocess-crop-bin-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/python.sh"
@@ -26,15 +25,11 @@ done
 
 PYTHONPATH="$REPO/References/py4DSTEM-dev" "$PYTHON_BIN" reference.py "$WORK"
 
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" readers calibration
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "$SRC/DatasetDescriptor.swift" \
-  "$SRC/FourDDataSource.swift" \
-  "$SRC/LoadSpecification.swift" \
-  "$SRC/HDF5Types.swift" \
-  "$SRC/H5Reader.swift" \
-  "$SRC/Calibration.swift" \
-  "$SRC/CalibrationReReference.swift" \
-  main.swift
+  "${MAC4DSTEM_SOURCES[@]}" main.swift \
+  -framework Accelerate
 
 codesign -f -s - "$WORK/harness" 2>/dev/null
 

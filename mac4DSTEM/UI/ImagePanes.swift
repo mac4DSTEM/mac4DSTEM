@@ -112,7 +112,7 @@ struct DiffractionPane: View {
             title
             roiSumBadge
             Spacer(minLength: 8)
-            if appState.meanPattern != nil || appState.fitOverlayIsAvailable {
+            if appState.meanPattern != nil || appState.fitOverlays.isAvailable {
                 Menu {
                     if appState.meanPattern != nil {
                         Picker("Pattern source", selection: $appState.patternDisplayMode) {
@@ -122,7 +122,7 @@ struct DiffractionPane: View {
                         }
                         .pickerStyle(.inline)
                     }
-                    if appState.fitOverlayIsAvailable {
+                    if appState.fitOverlays.isAvailable {
                         Toggle("Fit overlay", isOn: $appState.showFitOverlay)
                     }
                 } label: {
@@ -160,7 +160,7 @@ struct DiffractionPane: View {
                 .accessibilityIdentifier("pattern.displayMode")
             }
 
-            if appState.fitOverlayIsAvailable {
+            if appState.fitOverlays.isAvailable {
                 Toggle("Fit overlay", isOn: $appState.showFitOverlay)
                     .toggleStyle(.switch)
                     .controlSize(.small)
@@ -224,10 +224,11 @@ struct DiffractionPane: View {
 
                     // Fit verification: measured peaks against the fitted model
                     // (strain lattice / ACOM template / origin + ellipse).
-                    let fitStrain = appState.strainFitOverlay
-                    let fitTemplate = appState.acomFitOverlay
-                    let fitOrigin = appState.originFitOverlayPoint
-                    let fitEllipse = appState.ellipseFitOverlayPolyline
+                    let fit = appState.fitOverlays
+                    let fitStrain = fit.strain
+                    let fitTemplate = fit.template
+                    let fitOrigin = fit.originPoint
+                    let fitEllipse = fit.ellipse
                     if fitStrain != nil || fitTemplate != nil
                         || fitOrigin != nil || !fitEllipse.isEmpty {
                         PatternFitOverlay(
@@ -236,7 +237,7 @@ struct DiffractionPane: View {
                             originPoint: fitOrigin,
                             ellipse: fitEllipse,
                             measuredPeaks: (fitStrain != nil || fitTemplate != nil)
-                                ? appState.storedPeaksAtSelection : [],
+                                ? fit.storedPeaksAtSelection : [],
                             probeRadius: appState.probeKernel?.probeRadius,
                             patternWidth: qx, patternHeight: qy,
                             box: box

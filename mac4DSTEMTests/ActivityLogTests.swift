@@ -85,6 +85,20 @@ final class ActivityLogTests: XCTestCase {
                        "the oldest lines are the ones dropped")
     }
 
+    // MARK: - Where the output strip scrolls to
+
+    /// The output strip scrolls on `.onChange` of the count, which never
+    /// fires the first time the panel appears — it opens scrolled to its
+    /// top instead of its newest line. The fix reads this pure index on
+    /// `.onAppear` too, so it has to be right for a log with nothing in it
+    /// as well as one already full.
+    func testScrollTargetIsTheLastIndexOrNilWhenEmpty() {
+        XCTAssertNil(ActivityLog.scrollTarget(forCount: 0))
+        XCTAssertEqual(ActivityLog.scrollTarget(forCount: 1), 0)
+        XCTAssertEqual(ActivityLog.scrollTarget(forCount: 5), 4)
+        XCTAssertEqual(ActivityLog.scrollTarget(forCount: ActivityLog.capacity), ActivityLog.capacity - 1)
+    }
+
     /// The stamp is the injected clock's, not the wall clock's.
     func testEachLineCarriesTheTimeItWasRecorded() {
         var now = Date(timeIntervalSinceReferenceDate: 0)

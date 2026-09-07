@@ -1,10 +1,11 @@
 #!/bin/zsh
+# Compiles one UI/ file and no Core/ source; tools/lib/sources.manifest (Core only) has nothing to supply.
 # Pure geometry checks for the non-square Bragg-peak overlay.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-peak-overlay-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/developer-dir.sh"

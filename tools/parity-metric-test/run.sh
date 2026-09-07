@@ -1,4 +1,5 @@
 #!/bin/zsh
+# No Swift is compiled here, so tools/lib/sources.manifest has nothing to supply.
 # Gate the ACOM parity metric itself.
 #
 # The campaign (tools/training-dataset-campaign/run.sh) is deliberately not in

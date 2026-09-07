@@ -12,7 +12,6 @@
 		000000000000000300000003 /* libsz.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000003 /* libsz.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
 		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
-		F6435A00304C984200377C2E /* yolov8n.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = F64359FF304C984200377C2E /* yolov8n.mlpackage */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 /* End PBXBuildFile section */
 
@@ -46,7 +45,6 @@
 		000000000000000200000002 /* libaec.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libaec.0.dylib; sourceTree = "<group>"; };
 		000000000000000200000003 /* libsz.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libsz.2.dylib; sourceTree = "<group>"; };
 		100000000000000000000120 /* mac4DSTEMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F64359FF304C984200377C2E /* yolov8n.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = yolov8n.mlpackage; sourceTree = "<group>"; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,6 +109,7 @@
 				Session/ACOMWorkflow.swift,
 				Session/CalibrationSession.swift,
 				Session/DatasetResidency.swift,
+				Session/FitOverlayPresentation.swift,
 				Session/LoadedView.swift,
 				Session/OperationCenter.swift,
 				Session/QCalibrationRun.swift,
@@ -169,7 +168,6 @@
 				000000000000000000000020 /* Products */,
 				F68E4EE52FF9C43F00135C51 /* README.md */,
 				F68E4F842FF9D7A200135C51 /* Frameworks */,
-				F64359FF304C984200377C2E /* yolov8n.mlpackage */,
 			);
 			sourceTree = "<group>";
 		};
@@ -299,7 +297,6 @@
 		000000000000000120000000 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
-				F6435A00304C984200377C2E /* yolov8n.mlpackage in Sources */,
 			);
 		};
 		100000000000000120000000 /* Sources */ = {

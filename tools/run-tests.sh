@@ -38,13 +38,6 @@ unit_tests() (
   work="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-unit-tests.XXXXXX")"
   trap 'rm -rf "$work"' EXIT
 
-  # CI keeps the result bundle long enough to export S17's sidebar-geometry
-  # attachment. Local runs need no bundle and retain the existing behaviour.
-  local -a result_bundle_args=()
-  if [[ -n "${MAC4DSTEM_XCRESULT_BUNDLE_PATH:-}" ]]; then
-    result_bundle_args=(-resultBundlePath "$MAC4DSTEM_XCRESULT_BUNDLE_PATH")
-  fi
-
   # -only-testing scopes this to the fast unit-test target (the retired
   # UI-test target was deleted 2026-09-02; the flag stays so a future test
   # target cannot silently join every normal run).
@@ -53,7 +46,6 @@ unit_tests() (
       -configuration Debug -destination 'platform=macOS' \
       -derivedDataPath "$work/DerivedData" \
       -only-testing:mac4DSTEMTests \
-      "${result_bundle_args[@]}" \
       CODE_SIGNING_ALLOWED=NO -quiet
 )
 
@@ -101,9 +93,9 @@ campaign=(
 diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
   training-dataset-campaign review-record-check)
-owner_only=(stage-tb1-ws2-fixture ui-smoke-test)
+owner_only=()
 retired=()
-support=(lib release ui-drive)
+support=(lib release)
 
 inventory() {
   local rc=0 name f
@@ -124,6 +116,22 @@ inventory() {
   printf "  %-36s %7s\n" "app Swift+Metal lines" "$(swift_lines "$ROOT/mac4DSTEM")"
   printf "  %-36s %7s\n" "AppState.swift lines" "$(wc -l < "$ROOT/mac4DSTEM/App/AppState.swift" | tr -d ' ')"
   printf "  %-36s %7s\n" "AppState stored properties" "$(grep -cE '^[[:space:]]*(@ObservationIgnored )?(var|let) ' "$ROOT/mac4DSTEM/App/AppState.swift")"
+  # C5 (2026-09-07): AppState.swift + Support/ResultExport.swift never net
+  # positive — the prose rule ("a session that touches AppState moves one
+  # responsibility out") was waived four sessions running, so the count is
+  # read here instead: against HEAD while either file is dirty, against HEAD^
+  # once committed, so the commit being made (or just made) is the one judged.
+  local -a heavy=(mac4DSTEM/App/AppState.swift mac4DSTEM/Support/ResultExport.swift)
+  local base_ref heavy_now=0 heavy_base=0 n
+  if [[ -n "$(git -C "$ROOT" status --porcelain -- "${heavy[@]}")" ]]; then base_ref=HEAD; else base_ref=HEAD^; fi
+  for f in "${heavy[@]}"; do
+    n="$(wc -l < "$ROOT/$f" | tr -d ' ')"; heavy_now=$(( heavy_now + n ))
+    n="$( { git -C "$ROOT" show "$base_ref:$f" 2>/dev/null || true; } | wc -l | tr -d ' ')"; heavy_base=$(( heavy_base + n ))
+  done
+  printf "  %-36s %7s   (%s at %s)\n" "AppState + ResultExport lines" "$heavy_now" "$heavy_base" "$base_ref"
+  if (( heavy_now > heavy_base )); then
+    echo "  ^ AppState.swift + ResultExport.swift grew by $(( heavy_now - heavy_base )) lines (C5: they never net positive)"; rc=1
+  fi
   printf "  %-36s %7s\n" "UI/ Swift lines" "$(cat "$ROOT"/mac4DSTEM/UI/*.swift | wc -l | tr -d ' ')"
   printf "  %-36s %7s\n" "unit-test lines" "$(swift_lines "$ROOT/mac4DSTEMTests")"
   printf "  %-36s %7s\n" "tools/ Swift lines" "$(swift_lines "$ROOT/tools")"
@@ -175,6 +183,14 @@ inventory() {
   if grep -nE '^ *import +AppKit' "$ROOT"/mac4DSTEM/UI/*.swift; then
     echo "  ^ import AppKit in UI (architecture.md 'The UI contract')"; rc=1
   fi
+  # Every harness compiles Core/ through tools/lib/sources.manifest or says
+  # in one comment line why it has nothing to take from it (C2, 2026-09-07).
+  # This is the drift class that broke five harnesses on 2026-08-17.
+  if grep -L 'sources.manifest' "$ROOT"/tools/*/run.sh | grep .; then
+    echo "  ^ a harness that neither sources tools/lib/sources.manifest nor says why"; rc=1
+  fi
+  # AGENTS.md is generated from CLAUDE.md; a stale copy is a wrong document.
+  "$ROOT/tools/sync-agents-md.sh" --check || rc=1
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the
     # word in general — the process doc uses it generically.

@@ -5,7 +5,7 @@ Silicon, validated against py4DSTEM at one pinned upstream commit
 (`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`). **v2.5.1 is released (2026-09-04)**; `main` consolidates before
 v3 (`docs/consolidation-plan.md`; owner, 2026-09-07: no new feature until it exits). Rules only here; status and history live elsewhere.
 
-## Read, in this order (about 2 300 lines today; consolidation C1 brings it down)
+## Read, in this order (about 1 800 lines on 2026-09-07, after C1)
 
 1. `docs/status.md` — what is live now, one table. Every session starts here.
 2. `docs/v3-plan.md` — the feature plan (draft): the themes, the 2026-08-28
@@ -30,8 +30,10 @@ handoff); a feature target is refused until the plan is archived.
 
 - Views describe UI only; loading, parsing and compute live in `Core/`.
   `AppState` is the single source of truth until the plan's stores replace it.
-- No new stored state in `AppState`: a feature names its owner first. A
-  session that touches `AppState` moves one responsibility out of it.
+- No new stored state in `AppState`: a feature names its owner first.
+  `AppState.swift` + `Support/ResultExport.swift` never net positive lines in
+  a commit; `inventory` measures it (C5, 2026-09-07). Extractions follow the
+  plan's §4 order, one at a time, each with a green boundary and a reopen test.
 - **Gate D applies when a change can move a scientific number, or when the
   cause of a defect is not yet established** — not to every change in `Core/`.
   Diagnosis, refuting observation, predicted outcome, then the experiment,
@@ -74,6 +76,6 @@ handoff); a feature target is refused until the plan is archived.
 
 ```sh
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
-tools/run-tests.sh unit | scientific | all | inventory   # inventory = the repo's own review
+tools/run-tests.sh unit | scientific | all | inventory | core | benchmark | campaign   # inventory = the repo's own review
 tools/free-space.sh                                     # exit-69 remedy
 ```

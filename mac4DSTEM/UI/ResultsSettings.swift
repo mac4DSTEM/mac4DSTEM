@@ -93,7 +93,8 @@ struct ResultsSettings: View {
             Label("Remove", systemImage: "trash")
         }
         .controlSize(.small)
-        .disabled(appState.isBusy)
+        // C4(a): removal rebuilds the sidecar too — same gate as the saves.
+        .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
         .help("Remove saved result")
         .accessibilityLabel("Remove \(result.displayName)")
     }

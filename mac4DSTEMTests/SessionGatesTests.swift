@@ -140,6 +140,21 @@ final class SessionGatesTests: XCTestCase {
         XCTAssertNil(gates.sidecarRewriteRefusal())
     }
 
+    /// C4(a): "Save to Results" and the two Remove controls used to be
+    /// `.disabled(appState.isBusy)` only — enabled, then refusing through a
+    /// modal after the click, while Info already said saving was disabled
+    /// (§4 finding 2). This is the one property they now all bind to.
+    func testMayWriteSidecarTracksTheRewriteRefusal() {
+        let gates = SessionGates()
+        XCTAssertTrue(gates.mayWriteSidecar)
+
+        gates.noteSidecarRestoreFailed(.unreadable, message: "EPERM story.")
+        XCTAssertFalse(gates.mayWriteSidecar)
+
+        gates.clearSidecarRestoreFailure()
+        XCTAssertTrue(gates.mayWriteSidecar)
+    }
+
     /// The wiring: with the flag set, every sidecar REWRITE entry point must
     /// refuse before touching the file. A grant is adopted first so that,
     /// under the mutation that deletes a gate check, the save actually writes

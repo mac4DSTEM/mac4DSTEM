@@ -60,3 +60,15 @@ libsz (szip compatibility interface, provided by libaec)
 
 The full license text for each is included alongside the library in the
 distributed bundle.
+
+
+================================================================================
+Machine-learned models
+================================================================================
+
+No third-party model weights are distributed with mac4DSTEM. The stock
+Ultralytics `yolov8n.mlpackage` (AGPL-3.0) that was added to the Xcode project
+on 2026-09-05 as a reference was never part of a shipped build and was removed
+from the tree on 2026-09-07. abTEM (GPL-3.0) is used only as a simulation tool
+during development; nothing from it is distributed. Any detector mac4DSTEM
+ships is trained on its own data with its own weights.

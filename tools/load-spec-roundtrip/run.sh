@@ -7,21 +7,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-SRC="$REPO/mac4DSTEM/Core/Data"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-load-spec-roundtrip.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" replay
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "$SRC/DatasetDescriptor.swift" \
-  "$SRC/DiffractionPattern.swift" \
-  "$SRC/FourDDataSource.swift" \
-  "$SRC/LoadSpecification.swift" \
-  "$SRC/SessionReplayRecord.swift" \
-  "$SRC/Calibration.swift" \
-  "$SRC/CalibrationReReference.swift" \
-  main.swift
+  "${MAC4DSTEM_SOURCES[@]}" main.swift \
+  -framework Accelerate
 
 "$WORK/harness"

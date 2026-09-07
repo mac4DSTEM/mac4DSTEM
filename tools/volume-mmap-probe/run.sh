@@ -1,4 +1,5 @@
 #!/bin/zsh
+# Compiles only its own probe.swift; tools/lib/sources.manifest has nothing to supply.
 #
 # volume-mmap-probe — S9b's evidence, re-runnable.
 #
@@ -46,6 +47,6 @@ C
 fi
 
 (( $# > 0 )) || { echo "Usage: run.sh <file>... | --mounts" >&2; exit 64; }
-WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-volume-mmap-probe.XXXXXX")"; trap 'rm -rf "$WORK"' EXIT
 xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/probe" "$HERE/probe.swift"
 for f in "$@"; do "$WORK/probe" "$f"; echo; done

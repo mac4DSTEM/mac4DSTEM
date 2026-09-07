@@ -5,6 +5,12 @@ from pathlib import Path
 import sys
 
 import h5py
+# The reference is the lock, not whatever py4DSTEM the interpreter has
+# (decisions.md, 2026-09-07): prefer References/py4DSTEM-dev once fetched.
+import pathlib as _pathlib, sys as _sys
+_LOCK = _pathlib.Path(__file__).resolve().parents[2] / "References" / "py4DSTEM-dev"
+if (_LOCK / "py4DSTEM" / "version.py").exists():
+    _sys.path.insert(0, str(_LOCK))
 import py4DSTEM
 from py4DSTEM.braggvectors import BraggVectors
 from py4DSTEM.data import RealSlice

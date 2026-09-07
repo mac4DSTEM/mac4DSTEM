@@ -1,8 +1,11 @@
 # Decisions
 
-Append-only. One paragraph per decision: what, why, when. The evidence
-behind each lives in `docs/archive/`; this file is the index a reader
-checks before re-opening a settled question.
+Amend by appending. One paragraph per decision: what, why, when; a later
+entry supersedes an earlier one by saying so. (The header said "append-only"
+until 2026-09-07 while three entries had been rewritten in place — the C1
+entry at the end names them.) The evidence behind each lives in
+`docs/archive/`; this file is the index a reader checks before re-opening a
+settled question.
 
 **2026-08-17 — The `AppState` seam rule.** Any stage touching `AppState`
 extracts one seam first, at a green test boundary, the extracted type itself
@@ -38,7 +41,7 @@ reduced-view sidecars.
 already imports no UI; one line to move), then `ScientificProduct`, then
 owners, then the registry, then the Phase split. Scope is the 12–16 week
 foundation, not the full 6–9 month proposal; the HDF5 writer is wrapped,
-not decomposed. Full record: `docs/v2.5-plan.md` §4.
+not decomposed. Full record: `docs/archive/v2/v2.5-plan.md` §4 (path corrected 2026-09-07, C1).
 
 **2026-09-02 — Gate ceremony.** Gate D unchanged. Gate B only for changes
 that alter a number in Core. Gate A fleets retired in favour of one
@@ -458,3 +461,86 @@ event; the six files that call it tagged (`CLAUDE.md`, `status.md`,
 `ROADMAP.md`, `CHANGELOG.md`, `releasing.md`, this file) are corrected in
 C1 to say what happened: v2.0.0 was named, never built, superseded by
 v2.5.0.
+
+**2026-09-07 — C1 of the consolidation plan: the docs made true, and three
+housekeeping facts recorded.** (1) This file's header now says "amend by
+appending": three entries were rewritten in place — the macOS-floor entry
+(`a9a0437`, whose message says it amended), the DM4 axis-order entry
+(`8555803`) and MLX → PyTorch (`c2fa3c1`); they stay as they are, and from
+here a correction is a new entry. (2) The py4DSTEM reference is ONE version:
+the lock commit `f050d207` (0.14.19) that `tools/lib/fetch-py4dstem.sh`
+fetches and every gated harness imports through `PYTHONPATH`. The conda
+environment's own `py4DSTEM` package (0.14.17 here) is not the reference;
+four scripts import it directly (`open-items.md`, code hygiene) and the
+branch's detector parity ran against it, which C6 re-runs against the lock.
+(3) `v2.0.0`: a local tag exists on this machine (created 2026-09-02, never
+pushed; `origin` carries v1.0.0, v2.5.0 and v2.5.1 only). No tag will be
+pushed for it; the six files now say "named, never built, superseded by
+v2.5.0". Owner decision C0 (4), executed by C1.
+
+**2026-09-07 — C2 (hygiene): three choices made while pointing every
+harness at `sources.manifest`.** (1) A runner that compiles no `Core/`
+source (five) carries one comment line saying so, and `inventory` fails a
+`tools/*/run.sh` that neither sources the manifest nor mentions it: the rule
+is "every runner is accounted for". (2) Nine groups were added rather than
+per-harness lists (`detection`, `replay`, `ellipse`, `parallax`,
+`ptychography`, `presentation`, `crystal`, `fitoverlays`, and `core` — every
+`Core/` source by glob, for the two diagnostics that touch most of it). A
+gated harness may now compile a superset; `scientific` ran green before and
+after, the check the plan asked for. (3) `acom-groundtruth`'s hand-copied
+`BraggPeak`/`BraggVectors` replicas are gone. The AGPL package left the tree
+(C0 (3)), `NOTICE` says so, and `*.mlpackage`/`*.mlmodel`/`*.aimodel` are
+gitignored.
+
+**2026-09-07 — C5: the `AppState` rule is a number, not a sentence.** "A
+session that touches `AppState` moves one responsibility out" was waived four
+sessions running because nothing measured it. From here `run-tests.sh
+inventory` fails when `App/AppState.swift` + `Support/ResultExport.swift`
+hold more lines than at HEAD (or HEAD^ once the tree is clean), so the commit
+being made is the one judged and CI judges the one just made. Comments and
+blank lines count on purpose: the file's size is the debt, and a rule with a
+carve-out is a rule with a loophole. The first extraction under it is the
+fit-verification overlays (`Session/FitOverlayPresentation.swift`, −93 lines),
+chosen because a value over a snapshot has a boundary a unit test can hold.
+
+**2026-09-07 — C6, the Python side: what "one truth rule" turned out to
+mean.** (1) `simulate.VISIBLE_MIN = 0.5` on `disk_visibility` is the rule the
+NET is trained for and scored against: target amplitude continuous,
+validation, and every evaluation row (fixture and real cubes) take that cut.
+(2) The port proof `verify_fixture.py` keeps its intensity rule on purpose —
+it judges py4DSTEM at its own `minRelativeIntensity`, not the net; tried under
+the visibility rule it recovered 207/230 visible fixture disks = 0.9000,
+exactly its limit, which is now reported as `fixture_classical` beside the
+net's rows rather than used as a gate that passes by rounding. (3) Float cubes
+are scaled into counts by one rule, `simulate.to_counts`: a pattern whose
+maximum is ≤ 1 is a fraction of a nominal 2×10⁴-count beam (the value the
+2026-09-07 WS₂ evaluation passed by hand); the Swift side mirrors it at C7.
+(4) `check_export.py` exits 1 outside a tolerance (0.1 of the heatmap range
+against PyTorch float16), below 0.98 in-graph peak recall, or when nothing was
+checked. (5) A smoke run of that check overwrote `run3/export/check.json`
+under `References/` (owner's data); the real check was rerun the same night to
+regenerate it — logged in `status.md`. (6) The hand-labelled set is labelled
+with `label_centres.py` (matplotlib, ~60 lines), positions drawn once from a
+seeded RNG before any heatmap is looked at, and `evaluate.py --labels` scores
+the net at the shipped threshold and the classical detector against the same
+truth.
+
+**2026-09-07 night — C3 delegated (owner).** "Do it by yourself with a Sonnet
+driver, review the screenshots": the C3 sitting is an agent drive of the
+list in `status.md`'s handoff, with the assistant reviewing every screenshot
+and classifying what it sees; findings still enter through `/diagnose` with
+a reproducing observation, and the rows are marked "agent-verified" rather
+than owner-verified. The owner keeps the right to re-drive anything.
+
+**2026-09-07 night — C4 (a): one enable logic, named.** A run button is
+enabled by `ProductWorkflow.mayRun(mode, readiness:, isBusy:)` and nothing
+else; a sidecar-writing control by `SessionGates.mayWriteSidecar`; every
+parameter control is disabled while its panel's run is in flight through one
+modifier. Ad-hoc `appState.*` conditions that duplicated a prerequisite were
+removed rather than kept "for safety"; a readiness the workflow could not
+express would have been added to `ProductWorkflow.prerequisites`, and none
+was needed. The parallax stage buttons keep their in-memory sequencing checks
+on purpose: whether the previous stage's product exists is pipeline state,
+not a prerequisite the workflow models. "Reconstruction Ready" as a disabled
+prominent button is gone: readiness is shown by readiness text, not by a
+button that cannot be pressed.

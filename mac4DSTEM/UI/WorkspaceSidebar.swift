@@ -433,7 +433,8 @@ struct SessionSection: View {
             } label: {
                 Label("Remove \(result.displayName)", systemImage: "trash")
             }
-            .disabled(appState.isBusy)
+            // C4(a): removal rebuilds the sidecar too — same gate as the saves.
+            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
         }
         .accessibilityIdentifier("sidebar.session.result")
     }

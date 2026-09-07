@@ -139,3 +139,75 @@ covered.
 Decisions for v3 kickoff: adopt the compact task/evidence layout; choose the
 first scientific-result ownership seam; and agree the cadence of owner visual
 reviews. No change to v2 release promises is implied by this proposal.
+
+## Working methods that earned their keep
+
+Moved here from `docs/open-items.md` on 2026-09-07 (C1): these are process,
+not defects. Kept because they changed outcomes, not because they are tidy.
+
+### Read the gate's own exit line, never the wrapper's
+A backgrounded `run-tests.sh` reported exit 0 while the gate's own `GATE_EXIT`
+line said 1 (2026-09-04, the fourth time). Redirect to a log, `echo $?` on its
+own line, grep the log. A `| tail` pipe reports `tail`'s status. The same day,
+`git push … | tail` printed `PUSH_EXIT=0` over a failed push. And a green gate
+row outlives the commit that broke it: on 2026-09-05 `scientific` was red from
+02:09 (a harness check committed against a reader that never satisfied it) and
+from 12:55 (a harness that no longer compiled) until the evening's rerun —
+five commits quoted the morning's 43-harness green. A commit that touches a
+harness's inputs reruns that harness before it quotes any gate.
+
+### Resume a lost session from its scratchpad, not from memory
+A session died mid-Gate B on 2026-09-05. Its scratchpad
+(`/private/tmp/claude-501/<project>/<session-id>/scratchpad`) survived
+with the pre-registration, every log and the refuter's half-run harness; the
+review was finished from those, and the `git diff` was the only other truth.
+Look there first; never re-derive a number a retained log already holds.
+
+### Count a gate's tests by name, and reconcile against the expected delta
+`run-tests.sh unit` passes `-quiet`, so xcodebuild prints no summary and the
+count has to be grepped out of the log. The parallel runners interleave and a
+`Test case '…' passed` line gets CHOPPED mid-name — twice on 2026-09-04, in
+different places. `grep -c` on the whole line undercounts. Counting
+`Class.method` undercounts too when the chop lands in the class name (it did:
+`dedOriginSubtractsTheCropOffset…`). **Count the method alone —
+`grep -oE "[a-zA-Z0-9_]+\(\)' passed" log | sort -u | wc -l` — and then
+reconcile it against what you expected to change (prior total, minus deleted,
+plus added).** When the two disagree, `comm` the two runs' rosters: both times
+the "missing" test was a chopped duplicate of one that ran. Never conclude a
+test vanished from a count alone. Same family as the `| tail` trap: the gate
+was green, the number was wrong.
+
+1. **Cost a UI change before designing it.** Measure the shape change
+   (pt/rows) before choosing between options — makes it a measurement,
+   not taste.
+2. **Adversarially review anything touching the science, and review the
+   diagnosis, not just the code.** Three times a fix has passed every
+   test written for it — including one verified to fail without it — and
+   still been wrong. The refuting evidence was already in a log nobody
+   had re-read.
+3. **Never widen a gate that fails silently.** A miss path that calls
+   `recordError` and continues, or a control hidden behind a disclosure,
+   turns a failure into a finding nobody reads.
+4. **Open the app.** Ten minutes of driving on a day with every harness
+   green has twice found defects the suite could not see. The owner's
+   driving sessions replace the retired checklist because nothing else
+   catches that class.
+5. **A green suite can be green about the wrong thing.** Check what
+   calling convention a suite actually exercises (absolute vs. relative
+   paths, `$0`-relative sourcing after a `cd`) and whether that's the one
+   anyone uses. Search harness runners by basename, never by path prefix
+   — the same path gets spelled multiple ways across `tools/*/run.sh`.
+   A backgrounded pipeline's `${pipestatus[1]}` reports the last
+   command's exit code, not the gate's — put the exit code where you
+   will actually read it.
+6. **A test written for your own fix proves nothing until it fails
+   without it.** In-process SwiftUI `Picker` menus render blank to
+   automation (built lazily for a real assistive client) — a rendering
+   assertion can pass while testing nothing; assert the decision instead,
+   and say why at the call site.
+7. **Do not drive the app while `run-tests.sh unit` is running.** Both
+   suites inject private `AppStorage` into the same defaults domain; a
+   live instance can spuriously redden a layout/sidebar test.
+8. **Break every new test before trusting it.** Confirm each new
+   assertion actually goes red on the mutation it claims to catch —
+   three green-but-worthless suites were caught only this way.

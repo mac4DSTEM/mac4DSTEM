@@ -1,6 +1,8 @@
 #!/bin/zsh
 # tools/lib/sources.manifest — the ONE place a harness's app-source list is
-# written. Created in v2 S2; adopted by docs/development-process.md §1.
+# written. Created in v2 S2; since C2 (2026-09-07) every tools/*/run.sh sources
+# it or says in one line why it has nothing to take, and `run-tests.sh
+# inventory` fails when one does neither.
 #
 # WHY THIS FILE EXISTS. On 2026-08-17 adding one file (Core/Data/ResidentCube.swift)
 # silently broke 5 of 8 standalone harnesses, and the grep that went looking for
@@ -179,6 +181,7 @@ mac4dstem_sources() {
           "$core/Analysis/OrientationResult.swift"
           "$core/Crystal/ScatteringFactors.swift"
           "$core/Crystal/Crystal.swift"
+          "$core/Crystal/CrystalModel.swift"
           "$core/Crystal/OrientationPlan.swift"
           "$core/Crystal/OrientationMatcher.swift"
         )
@@ -201,9 +204,11 @@ mac4dstem_sources() {
           "$core/Crystal/CrystalModel.swift"
         )
         ;;
-      strain)
-        # Mirrors the proven tools/strain-test list (no Metal engine — the
-        # strain solver is CPU-only) plus the S8 presentation-frame rotation.
+      detection)
+        # The CPU disk-detection chain (no Metal engine): the kernel, the
+        # matrix-DFT correlation and the detector. Strain, export and the
+        # parallax chain build on it. Added in C2 (2026-09-07) when the
+        # remaining 46 harnesses adopted this file.
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -212,6 +217,86 @@ mac4dstem_sources() {
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
+        )
+        ;;
+      replay)
+        # A load specification and its calibration round-tripped through the
+        # session replay record (tools/load-spec-roundtrip).
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Data/SessionReplayRecord.swift"
+        )
+        ;;
+      ellipse)
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Analysis/EllipseCalibration.swift"
+        )
+        ;;
+      parallax)
+        # The whole parallax chain; each parallax-*-test compiles all of it.
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Compute/MatrixDFTCorrelation.swift"
+          "$core/Analysis/ParallaxPreprocessing.swift"
+          "$core/Analysis/ParallaxAlignment.swift"
+          "$core/Analysis/ParallaxAberrationFitting.swift"
+          "$core/Analysis/ParallaxAberrationCorrection.swift"
+          "$core/Analysis/ParallaxSubpixelReconstruction.swift"
+          "$core/Analysis/ParallaxDepthSectioning.swift"
+        )
+        ;;
+      ptychography)
+        mac4dstem_sources "$repo" data
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Analysis/SingleslicePtychography.swift"
+        )
+        ;;
+      presentation)
+        # ResultPresentation stands alone (tools/result-presentation-test).
+        want+=("$core/Data/ResultPresentation.swift")
+        ;;
+      crystal)
+        # Crystal models and CIF import, no indexing (cif-symmetry-test,
+        # acom-orientation-test).
+        mac4dstem_sources "$repo" data
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Analysis/OrientationResult.swift"
+          "$core/Crystal/ScatteringFactors.swift"
+          "$core/Crystal/Crystal.swift"
+          "$core/Crystal/CrystalModel.swift"
+          "$core/Crystal/CIFImport.swift"
+        )
+        ;;
+      fitoverlays)
+        # The fitted-overlay geometry over ACOM and strain (fit-overlay-test).
+        mac4dstem_sources "$repo" acom strain
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Analysis/FitOverlays.swift"
+        )
+        ;;
+      core)
+        # Every Core/ source — what `swift build` compiles as DSTEMCore. For
+        # the two diagnostics that touch most of it (bragg-spacing-probe,
+        # training-dataset-campaign); a gated harness names its groups.
+        want+=("$core"/**/*.swift(N))
+        ;;
+      strain)
+        # The strain solver is CPU-only, on the detection chain, plus the
+        # S8 presentation-frame rotation.
+        mac4dstem_sources "$repo" detection
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
           "$core/Analysis/DPC.swift"
           "$core/Analysis/QCalibration.swift"
           "$core/Analysis/StrainMapping.swift"
@@ -223,24 +308,18 @@ mac4dstem_sources() {
         # it stamps, the native reader that verifies the file, and the frame
         # math the export composes with (CalibrationReReference, via the
         # `calibration` group). DiskDetection rides along because the writer's
-        # BraggVectors type lives there, and it pulls the FFT/kernel trio.
-        mac4dstem_sources "$repo" calibration
+        # BraggVectors type lives there (the `detection` group).
+        mac4dstem_sources "$repo" detection replay
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/HDF5Types.swift"
           "$core/Data/H5Reader.swift"
-          "$core/Data/SessionReplayRecord.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
-          "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/FFT2D.swift"
-          "$core/Compute/MatrixDFTCorrelation.swift"
-          "$core/Analysis/ProbeKernel.swift"
-          "$core/Analysis/DiskDetection.swift"
         )
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration strain export" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export" >&2
         exit 64
         ;;
     esac

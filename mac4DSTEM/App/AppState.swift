@@ -125,7 +125,7 @@ final class AppState {
     let residency = DatasetResidency()
 
     /// Which part of the source file is loaded, and what moving the calibration
-    /// into that frame cost. Stage L3's seam — see `App/LoadedView.swift`.
+    /// into that frame cost. Stage L3's seam — see `Session/LoadedView.swift`.
     let loadedView = LoadedView()
 
     /// A strided sample of the open dataset, built during the open so there is
@@ -140,7 +140,7 @@ final class AppState {
     /// S1's seam (docs/development-process.md §7): the one owner of where this
     /// dataset's session sidecar is and whether the app may read it. Replaces a
     /// bare `scopedSessionSidecarURL` that eight call sites derived around in
-    /// two different ways — see `App/SessionSidecarLocator.swift`.
+    /// two different ways — see `Session/SessionSidecarLocator.swift`.
     ///
     /// Injectable for the S1 reason one level up (v2 S7): the locator persists
     /// bookmarks into `UserDefaults`, and the demo dataset's file path is a
@@ -197,27 +197,27 @@ final class AppState {
     var datasets: [DatasetDescriptor] = []
 
     /// The recents list and its location labels. S3's seam
-    /// (docs/development-process.md §7) — see `App/RecentDatasets.swift`.
+    /// (docs/development-process.md §7) — see `Session/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
     let recents = RecentDatasets()
     /// The session's recipe — which analyses ran, with which parameters. S5's
-    /// seam (docs/development-process.md §7) — see `App/SessionReplay.swift`.
+    /// seam (docs/development-process.md §7) — see `Session/SessionReplay.swift`.
     /// No forwarding properties. // v2 S5
     let replay = SessionReplay()
     /// The state of the unattended promote run — S6's seam
-    /// (docs/development-process.md §7) — see `App/ReplayRun.swift`.
+    /// (docs/development-process.md §7) — see `Session/ReplayRun.swift`.
     /// Views read `replayRun.…`; no forwarding properties. // v2 S6
     let replayRun = ReplayRun()
     /// The session's "may I?" policy gates — S7's seam
-    /// (docs/development-process.md §7) — see `App/SessionGates.swift`.
+    /// (docs/development-process.md §7) — see `Session/SessionGates.swift`.
     /// Views read `gates.…`; no forwarding properties. // v2 S7
     let gates = SessionGates()
     /// The strain product and its run controls — S8's seam
-    /// (docs/development-process.md §7) — see `App/StrainProduct.swift`.
+    /// (docs/development-process.md §7) — see `Session/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
     /// The last reciprocal-pixel calibration attempt — S13's seam
-    /// (docs/development-process.md §7) — see `App/QCalibrationRun.swift`.
+    /// (docs/development-process.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
     /// What happened this session, for the output strip — the 2026-09-04
@@ -5477,117 +5477,24 @@ final class AppState {
 
     // MARK: - Fit-verification overlays (diffraction pane)
 
-    /// Fit overlays are only meaningful on the single pattern they were
-    /// measured from: the per-position stored vectors do not describe the
-    /// mean/max pattern or an ROI-summed virtual pattern.
-    private var patternShowsSelectedPosition: Bool {
-        realSpaceShape == .point && patternDisplayMode == .current
-    }
-
-    private var overlayReferenceOrigin: (x: Float, y: Float)? {
-        guard let d = descriptor else { return nil }
-        return calibrationSession.calibration.meanOrigin ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
-    }
-
-    /// Stored (raw detector) Bragg peaks at the selected scan position —
-    /// the measured evidence the strain/ACOM overlays are judged against.
-    var storedPeaksAtSelection: [BraggPeak] {
-        guard let bragg = braggVectors, let d = descriptor,
-              bragg.scanWidth == d.rx, bragg.scanHeight == d.ry,
-              patternShowsSelectedPosition else { return [] }
-        let scan = selectedScan.y * d.rx + selectedScan.x
-        guard bragg.peaks.indices.contains(scan) else { return [] }
-        return bragg.peaks[scan]
-    }
-
-    /// Local fitted lattice vs reference lattice at the selected position,
-    /// mapped back onto the raw pattern.
-    var strainFitOverlay: FitOverlays.StrainOverlay? {
-        guard showFitOverlay, navigation.analysisMode == .strain,
-              patternShowsSelectedPosition,
-              let map = strain.map, let d = descriptor,
-              map.width == d.rx, map.height == d.ry,
-              let origin = overlayReferenceOrigin else { return nil }
-        return FitOverlays.strainOverlay(
-            map: map,
-            scanIndex: selectedScan.y * d.rx + selectedScan.x,
-            calibration: calibrationSession.calibration, referenceOrigin: origin,
-            patternWidth: d.qx, patternHeight: d.qy
+    /// A value over a snapshot (`Session/FitOverlayPresentation.swift`, C5's
+    /// first extraction): gating and the reopen boundary are pinned there.
+    var fitOverlays: FitOverlayPresentation {
+        FitOverlayPresentation(
+            enabled: showFitOverlay,
+            analysis: navigation.analysisMode == .strain ? .strain
+                : navigation.analysisMode == .acom ? .acom : .other,
+            inPrepare: navigation.workspaceArea == .prepare,
+            showsCurrentPattern: patternDisplayMode == .current,
+            pointSelection: realSpaceShape == .point,
+            descriptor: descriptor, selectedX: selectedScan.x, selectedY: selectedScan.y,
+            calibration: calibrationSession.calibration,
+            ellipseFit: calibrationSession.lastEllipseFit,
+            braggVectors: braggVectors, strainMap: strain.map,
+            orientationPlan: acomSession.orientationPlan,
+            orientationMap: acomSession.orientationMap,
+            hasOrientationMap: acomSession.hasOrientationMap,
+            invAngstromPerPixel: acomScale
         )
-    }
-
-    /// The matched template's predicted reflections at the selected position.
-    var acomFitOverlay: FitOverlays.TemplateOverlay? {
-        guard showFitOverlay, navigation.analysisMode == .acom,
-              patternShowsSelectedPosition,
-              let plan = acomSession.orientationPlan, let map = acomSession.orientationMap,
-              let d = descriptor, map.width == d.rx, map.height == d.ry,
-              selectedScan.x >= 0, selectedScan.x < map.width,
-              selectedScan.y >= 0, selectedScan.y < map.height,
-              let origin = overlayReferenceOrigin else { return nil }
-        let result = map[selectedScan.x, selectedScan.y]
-        guard result.templateIndex >= 0 else { return nil }
-        return FitOverlays.acomTemplateOverlay(
-            result: result, plan: plan,
-            invAngstromPerPixel: acomScale,
-            calibration: calibrationSession.calibration, referenceOrigin: origin,
-            scanIndex: selectedScan.y * d.rx + selectedScan.x,
-            scanWidth: d.rx, scanHeight: d.ry,
-            patternWidth: d.qx, patternHeight: d.qy
-        )
-    }
-
-    /// The origin the calibration would use for the displayed pattern:
-    /// per-position fitted origin for the current pattern, mean origin for
-    /// the mean/max pattern.
-    var originFitOverlayPoint: (x: Float, y: Float)? {
-        guard showFitOverlay, navigation.workspaceArea == .prepare,
-              calibrationSession.calibration.hasFittedOrigin, let d = descriptor,
-              realSpaceShape == .point else { return nil }
-        switch patternDisplayMode {
-        case .current:
-            guard let mean = calibrationSession.calibration.meanOrigin else { return nil }
-            return FitOverlays.localOrigin(
-                calibration: calibrationSession.calibration, referenceOrigin: mean,
-                scanIndex: selectedScan.y * d.rx + selectedScan.x,
-                scanWidth: d.rx, scanHeight: d.ry
-            )
-        case .mean, .max:
-            return calibrationSession.calibration.meanOrigin
-        }
-    }
-
-    /// Fitted ellipse sampled in raw detector pixels. Prefers the in-app fit
-    /// (which carries its own center); a session/file ellipse without a center
-    /// is drawn around the mean origin.
-    var ellipseFitOverlayPolyline: [FitOverlays.Marker] {
-        guard showFitOverlay, navigation.workspaceArea == .prepare,
-              descriptor != nil else { return [] }
-        if let fit = calibrationSession.lastEllipseFit {
-            return FitOverlays.ellipsePolyline(
-                centerX: Float(fit.centerQY), centerY: Float(fit.centerQX),
-                a: fit.a, b: fit.b, theta: fit.theta
-            )
-        }
-        guard calibrationSession.calibration.hasEllipse,
-              let a = calibrationSession.calibration.ellipseA, let b = calibrationSession.calibration.ellipseB,
-              let theta = calibrationSession.calibration.ellipseTheta,
-              let mean = calibrationSession.calibration.meanOrigin else { return [] }
-        return FitOverlays.ellipsePolyline(
-            centerX: mean.x, centerY: mean.y, a: a, b: b, theta: theta
-        )
-    }
-
-    /// True when the current mode/state could produce a fit overlay, so the
-    /// toggle only appears where it has an effect.
-    var fitOverlayIsAvailable: Bool {
-        guard descriptor != nil else { return false }
-        switch navigation.analysisMode {
-        case .strain: return strain.map != nil
-        case .acom: return acomSession.hasOrientationMap
-        default:
-            return navigation.workspaceArea == .prepare
-                && (calibrationSession.calibration.hasFittedOrigin || calibrationSession.calibration.hasEllipse)
-        }
     }
 }

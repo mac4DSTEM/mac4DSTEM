@@ -1,25 +1,19 @@
 # Open items
 
-The only maintained status doc: unresolved items after the v2.5
-consolidation (2026-09-03). The four sections are the four lanes
-(2026-09-03, owner): **Science** items are taken one at a time, in the order
-the status handoff names, carry no release number, and when one lands the
-changelog names the number it changes — a landed change to a scientific
-output cuts v2.6.0, everything else ships in the next v2.5.x patch;
-**Verification debt** closes when its run happens; **Known, scoped** items and
-the owner's bug reports are patch work; **Code hygiene** rides with the
-session that touches its file, never its own. Each entry is a live defect, debt, owed run, or open question —
-≤ 12 lines: what is wrong, the pinning evidence, the trap, the owner, any
-live residual. No narrative. Closed and historical material is the verbatim
-pre-cull file,
-[`docs/archive/v2/open-items-2026-09-02.md`](archive/v2/open-items-2026-09-02.md),
-plus [`docs/archive/closed-items-2026-08.md`](archive/closed-items-2026-08.md)
-and [`docs/archive/closed-items-2026-09.md`](archive/closed-items-2026-09.md).
-The finished AppKit UI rework and the v2.5 train are
-[`docs/archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md).
-**[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md)** is the finished consolidation plan — its §3 is
-the merged UI-findings list; point there, do not duplicate. Owner decisions
-and standing directives now live in `docs/decisions.md`.
+Live defects, debts, owed runs and open questions only — status is
+`docs/status.md`, history is `docs/archive/`. Four lanes (owner, 2026-09-03):
+**Science** items are taken one at a time in the order the status handoff
+names, carry no release number, and a landed change to a scientific output
+cuts v2.6.0; **Verification debt** closes when its run happens; **Known,
+scoped** items and the owner's bug reports ship in the next v2.5.x patch;
+**Code hygiene** rides with the session that touches its file. Each entry is
+≤ 12 lines and dated: what is wrong, the pinning evidence, the trap, the
+owner. No narrative. Closed items move to
+[`docs/archive/closed-items-2026-09.md`](archive/closed-items-2026-09.md); the
+file before the 2026-09-07 trim is verbatim in
+[`docs/archive/open-items-2026-09-07.md`](archive/open-items-2026-09-07.md),
+the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
+[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
 ## Science — Gate D or Gate B owed
 
@@ -27,36 +21,30 @@ and standing directives now live in `docs/decisions.md`.
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
 py4DSTEM truth (`tools/bragg-spacing-probe/bullseye-kernel-truth.py`): (1) the
 probe-size estimator reads the ring-shaped probe at 7.4 px where the ring ends
-at ~10–12 (beam brightest at 41 % of positions with a flat disk at r 7, 98 %
-at 11.5); (2) the trench kernel at THOSE radii leaves the beam never brightest
-— at the true radii it works as well as flat, so (2) is (1) in another guise
-and flat side-steps it by needing no radius; (3) correlation noise is 2–5 % of
-the beam peak, so the 0.5 % default keeps ~130 noise peaks/position. LANDED:
-flat mode + Use File's Probe, parity 878/878 and 164/164 with py4DSTEM's flat
-route (status table). OPEN: (1), an outer-edge probe size for structured probes
-(it also feeds the origin window — its own Gate D). Owner: drive Map ▸ Bragg
-disks on the bullseye file with Flat + Use File's Probe at Min relative
-intensity ~0.05; the maps are the closing evidence.
+at ~10–12; (2) the trench kernel at THOSE radii leaves the beam never
+brightest — at the true radii it works as well as flat, so (2) is (1) in
+another guise; (3) correlation noise is 2–5 % of the beam peak, so the 0.5 %
+default keeps ~130 noise peaks/position. LANDED: flat mode + Use File's
+Probe, parity 878/878 and 164/164 with py4DSTEM's flat route (`status.md`).
+OPEN: (1), an outer-edge probe size for structured probes (it also feeds the
+origin window — its own Gate D). Owner: drive Map ▸ Bragg disks on the file
+with Flat + Use File's Probe at Min relative intensity ~0.05.
 
-### Origin-fit gate has two unresolved holes
-(a) closed 2026-09-05: `probeSize` returns nil when no finite pixel is above
-zero or no mass clears the threshold, both `tiledRun` and `run(cube:)` throw
-`OriginCalibrationError.probeNotMeasurable` with a sentence, and a NaN or
-infinite pixel is skipped at every step (the Gate B refuter caught +inf
-passing the masks after the first cut filtered only the maximum; DEVIATION
-inline). The port's median now matches `np.median` for even n (refuter). No
-radius is stored, so "measured" can no longer name an invented one
-(`ProbeSizeTests`; the old pin flipped, two mutants caught).
+### Origin-fit gate has two unresolved holes (2026-09-05)
+(a) closed 2026-09-05: `probeSize` refuses (nil, `probeNotMeasurable`) when
+no finite pixel is above zero or no mass clears the threshold; non-finite
+pixels are skipped at every step; the median matches `np.median` for even n
+(`ProbeSizeTests`; the refuter's +inf escape closed, two mutants caught).
 (b) Which statistic gates `originFitIsSane` is open: full-scan RMS (current)
-can't see bias; the robust/kept-set residual Gate B tried 2026-08-28 was
-reverted — it passes a 15px-displaced fit at 9.94px. (c) The trimmed fit is
-blind to spatially clustered failure and contamination ≥50% (a 40px-off
-quarter of the scan gives 100% kept, 20.6px error; an exactly-bimodal
-residual zeroes the MAD guard). Owner: a design pass — no statistic proposed
-yet distinguishes displacement from contamination. `docs/q-calibration-design.md`.
+cannot see bias; the robust/kept-set residual tried 2026-08-28 was reverted —
+it passes a 15 px-displaced fit at 9.94 px. (c) The trimmed fit is blind to
+spatially clustered failure and contamination ≥ 50 % (a 40 px-off quarter of
+the scan gives 100 % kept, 20.6 px error; an exactly bimodal residual zeroes
+the MAD guard). Owner: a design pass — no statistic proposed yet separates
+displacement from contamination. `docs/q-calibration-design.md`.
 
-### The origin's coarse block seed lands on the wrong blob on noisy cubes
-Gate B refuter, 2026-09-05 (`q-calibration-design.md` §9,
+### The origin's coarse block seed lands on the wrong blob on noisy cubes (2026-09-05)
+Gate B refuter (`q-calibration-design.md` §9,
 `tools/origin-fit-diagnostics/origin-kernel-twin.py`): against py4DSTEM's
 Gaussian-argmax seed, the app's block-sum seed puts 28/169 positions of
 `downsample_Si_SiGe_exp`, 29/195 of `Particle_1` and 2/169 of `COPL` more
@@ -67,271 +55,212 @@ looks fine while `excludedFraction` carries them. Owner: a design pass on
 the coarse step (Gaussian-filtered seed, or a coarse-to-fine window) before
 the origin-fit holes (b)/(c), which it would move.
 
-### CIF import can silently accept a wrong crystal
+### CIF import can silently accept a wrong crystal (2026-09-01)
 (a) A non-P1 declaration with a PARTIAL ops list still imports the wrong
 cell (`verifyFamily` can pass it — Gate B refuter escape E2, 2026-09-01,
-recorded not fixed; missing/identity-only case is already guarded). Trap:
-needs a 230-entry IT-number→group-order table the importer deliberately
-lacks — cheap mitigation, new scope. (b) closed 2026-09-05: the ACOM recipe
-step records `material_fingerprint` (`CrystalModel.contentFingerprint`, FNV-1a
+recorded not fixed; the missing/identity-only case is guarded). Trap: needs
+a 230-entry IT-number→group-order table the importer deliberately lacks —
+cheap mitigation, new scope. (b) closed 2026-09-05: the ACOM recipe step
+records `material_fingerprint` (`CrystalModel.contentFingerprint`, FNV-1a
 over cell, symmetry and basis) for imported models and `resolveMaterial`
-refuses by name when the session's same-named import differs; pre-key records
-still resolve by membership (`ReplayPlanTests`, `CIFImportTests`). Owner: (a)
-unclaimed, Gate B when picked up.
+refuses by name when the session's same-named import differs; pre-key
+records still resolve by membership (`ReplayPlanTests`, `CIFImportTests`).
+Owner: (a) unclaimed, Gate B when picked up.
 
-### ACOM orientation/export coverage gaps
-Found in W4b Gate B, 2026-08-31; the shipping numbers are believed correct
-but nothing gated would catch a regression. (a) Exported Euler angles are
-labelled py4DSTEM/orix-compatible but differ by frame rotation `P` — median
-38.55° misorientation if compared naively; math is right, label is wrong.
-(b) The projection convention (`OrientationPlan.project`) is verified
-correct three independent ways, but every gated ACOM harness builds its
-own peaks through the same function it's testing, so two frame-mutation
-bugs stay green — a real fixture (analytic, non-self-referential) doesn't
-exist yet. (c) The exported orientation matrix can decouple from the
-reported template index unnoticed. (d) Unpinned: an additive radial
-offset, the reliability distinctness test, `intensityPower`. Owner: (a)
-relabel-vs-convert decision then Gate B; (b)–(d) Gate B, unscheduled.
+### ACOM orientation/export coverage gaps (2026-08-31)
+Found in W4b Gate B; the shipping numbers are believed correct but nothing
+gated would catch a regression. (a) Exported Euler angles are labelled
+py4DSTEM/orix-compatible but differ by frame rotation `P` — median 38.55°
+misorientation if compared naively; math right, label wrong. (b) The
+projection convention (`OrientationPlan.project`) is verified three
+independent ways, but every gated ACOM harness builds its own peaks through
+the function it tests, so two frame-mutation bugs stay green — no analytic,
+non-self-referential fixture exists yet. (c) The exported orientation matrix
+can decouple from the reported template index unnoticed. (d) Unpinned: an
+additive radial offset, the reliability distinctness test, `intensityPower`.
+Owner: (a) relabel-vs-convert decision then Gate B; (b)–(d) Gate B.
 
-### Q-calibration scale defects on real crystals
+### Q-calibration scale defects on real crystals (2026-09-02)
 (a) closed 2026-09-05 by Gate D + B (`q-calibration-design.md` §8): the
 per-position minimum was the same spoke at 99 % of WS₂ positions — a 0.26 px
-origin-fit offset, not iid noise, which a symmetric cluster MEAN cancels;
-the cluster reads 18.902 px against 18.901 from the independent 11-20 shell.
-`estimate` now averages the same-shell cluster (`sameShellPeaksPerPosition`
-reports k); 14 mutations, 79 harness checks. Residual, folded into (b): on a
-single crystal with a 2.4 % Friedel-pair asymmetry (sim_Au nanoplatelet) the
-band truncates clusters and neither estimator is shown to be truth. (b) The
-reference-shell pick has no l-filter or visibility filter; on 2H-WS₂ it
-selects (0002), a reflection a [0001]-zone specimen never shows — predicted
-mis-scale 2.26×, silent. Measured end to end: correlation score HALVES at the
-defective scale and median `reliability` is HIGHER — no fix may lean on
-reliability to choose between scales. Owner: (b) its own design pass.
+origin-fit offset, which a symmetric cluster MEAN cancels; the cluster reads
+18.902 px against 18.901 from the independent 11-20 shell; `estimate` now
+averages the same-shell cluster (14 mutations, 79 harness checks). Residual,
+folded into (b): on a single crystal with a 2.4 % Friedel-pair asymmetry
+(sim_Au) the band truncates clusters and neither estimator is shown to be
+truth. (b) The reference-shell pick has no l-filter or visibility filter; on
+2H-WS₂ it selects (0002), which a [0001]-zone specimen never shows —
+predicted mis-scale 2.26×, silent; at that scale the correlation score
+HALVES while median `reliability` RISES, so no fix may lean on reliability
+to choose between scales. Owner: (b) its own design pass.
 
-### Twisted bilayer graphene finds only the beam at defaults, at either reference
-Observed 2026-09-05 (`det-experiment-20260905.log`): 10 201 positions, one
-accepted peak each, with `relativeToPeak` 0 AND 1 — so the relative threshold
-is not what removes the disks; the funnel is one local maximum before any
-threshold (probe r 25.3 px, spacing 16, edge 5 on a 128 px detector). Not
-diagnosed: whether the 25-px synthetic kernel's correlation has a single
-maximum, or the edge boundary/spacing swallow the ring at ~38 px. Owner:
-unclaimed; a Gate D with the per-pattern funnel on one position.
+### Twisted bilayer graphene finds only the beam at defaults, at either reference (2026-09-05)
+Observed (`det-experiment-20260905.log`): 10 201 positions, one accepted
+peak each, with `relativeToPeak` 0 AND 1 — so the relative threshold is not
+what removes the disks; the funnel is one local maximum before any threshold
+(probe r 25.3 px, spacing 16, edge 5 on a 128 px detector). Not diagnosed:
+whether the 25-px synthetic kernel's correlation has a single maximum, or
+the edge boundary/spacing swallow the ring at ~38 px. Owner: unclaimed; a
+Gate D with the per-pattern funnel on one position.
 
-### #18 — training-dataset campaign can't reproduce the app's Si_SiGe strain
-Mechanism resolved: the campaign's fitted mean origin is ~7px off centre
+### #18 — training-dataset campaign can't reproduce the app's Si_SiGe strain (2026-09-02)
+Mechanism resolved: the campaign's fitted mean origin is ~7 px off centre
 (non-quantitative fit), which poisons `estimateLatticeBasis`'s clustering
 scale; the app's own gate rejects that fit and falls back to the true
 detector centre. Latent app-side risk: a genuinely off-centre beam with
-`meanOrigin` nil would fail the same way. Two candidate fixes, neither
-made (science changes, own Gate B): floor `minRadius` at the probe
-radius or scale it with fit quality; or have the campaign adopt the
-app's origin gating. Full diff in the archive.
+`meanOrigin` nil would fail the same way. Two candidate fixes, neither made
+(science changes, own Gate B): floor `minRadius` at the probe radius or
+scale it with fit quality; or have the campaign adopt the app's origin
+gating. Full diff in the archive.
 
-### ACOM omits py4DSTEM's `power_radial` weighting
+### ACOM omits py4DSTEM's `power_radial` weighting (2026-08-28)
 `orientation_plan` applies `power_radial=1.0` to the template side
-(`crystal_ACOM.py:32,810`); `OrientationPlan.buildPolar` doesn't, so outer
-shells are under-weighted by ~r relative to py4DSTEM. Untested materiality
-— apparatus exists (`tools/acom-groundtruth`) but the Python driver that
-built prior test inputs wasn't retained. Also un-DEVIATION-noted (hard
-rule violation): the app subtracts each ring's mean where py4DSTEM leaves
-that line commented out. Owner: S16 successor / whoever next touches ACOM
-weighting.
+(`crystal_ACOM.py:32,810` in the pinned source); `OrientationPlan.buildPolar`
+doesn't, so outer shells are under-weighted by ~r relative to py4DSTEM.
+Untested materiality — apparatus exists (`tools/acom-groundtruth`) but the
+Python driver that built prior test inputs wasn't retained. Also
+un-DEVIATION-noted (hard rule violation): the app subtracts each ring's mean
+where py4DSTEM leaves that line commented out. Owner: whoever next touches
+ACOM weighting.
 
-### UI review (Fable, 2026-09-04) — labels that can misstate a number — fixed in code, drive owed
-Nothing found was a wrong computed value; every finding was a LABEL on a
-correct one. (a) axis order and (c) byte sizes fixed 2026-09-04; (b) pattern
-statistics named for what is on screen, (d) comparison panels carry a
-colorbar with range, units and a zero mark, (e) the cursor readout prints
-four significant digits, (f) one staleness verdict (`TaskProductState`) on
-the sidebar, the inspector and the maps computed from stale disks, plus the
-two minors (no "px" under a physical sampling; no invented disk radius
-without a kernel) — all 2026-09-05, six unit tests, **unverified on
-screen**. Owner: the owner's drive.
 
-## Verification debt
-
-### S17 sidebar intermittent — archived, its test is gone
-`SidebarLayoutTests` and the `ContentView` column publisher the whole
-observation log measured were deleted with the AppKit window (`d5786e2`), so
-the log cannot be extended and the fault cannot recur in the same place. The
-full record — 2 of 5, then 0 of 14, then 3 of 4, and the 810.5 pt against
-786 pt it always failed at — is in [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md). What survives it is the rule in
-the constraint-loop entry below. Kept live only as the name S17, which other
-entries still cite.
-
-### Sidebar drag crash — mechanism found and removed 2026-09-03, owner's drive owed
-Exception (owner, Xcode console): `NSGenericException: The window has been
-marked as needing another Update Constraints in Window pass, but it has
-already had more … passes than there are views in the window`, after a
-sidebar drag; the sidebar at ~60pt with its content laid out at full width.
-Reproduced on the demo fixture with real mouse events: column 92pt, content
-305pt wide at x = −213. Mechanism, measured in-process: SwiftUI's
-`NavigationSplitView` owned the sidebar's split item and rewrote its
-minimum to 140 on every update, while the declared 250 constrained only the
-content; a drag shrank the column under content that could not shrink and
-the loop guard threw. Refuted on the way: the hard frame belt (crash
-reproduced without it), the policy "never applying" (it applied and was
-overwritten). Fix: the columns are AppKit's (`ColumnSplitController`, an
-`NSSplitViewController` with sidebar/inspector items; hosted content with
-`sizingOptions = []` so it never sizes the column). Live drive 2026-09-03:
-drag past the minimum collapses, Show Tools reopens at the old width, a
-560pt sidebar squeezes the inspector first, no exception.
-**2026-09-04: the fix described above no longer exists.** `d5786e2` deleted the
-AppKit shell, `ColumnSplitController` with it; the columns are a SwiftUI
-`NavigationSplitView` now. So the drive this entry asks for cannot be performed
-as written — dragging today exercises different code. What is worth carrying
-forward is the MECHANISM, not the fix: a split rewriting a hosted child's
-minimum under content that cannot shrink, which is the constraint-loop rule
-below. Kept live rather than archived only because the owner has still never
-driven a column divider on the rebuilt window.
-
-### A unit-level column-width gate is not possible — falsified 2026-09-04
-`d5786e2` deleted both width-range gates, so nothing gates a column's width and
-this repo keeps finding truncation defects there. **Refuted before it was
-built.** A probe hosted `PrepareSettings` (250 pt), `WorkspaceSidebar` (190 pt)
-and `WorkspaceInspector` (280 pt) in an `NSHostingView` and measured
-`fittingSize.width` and the worst descendant-`NSView` overflow; then a
-150-character section label — impossible in 250 pt — was injected and it re-ran.
-**Both runs byte-identical**: `fittingWidth=1103.0 worstOverflow=0.0`. SwiftUI
-draws `Text` into layers and makes no `NSView` per label, so only real controls
-appear; the deleted gate had the same hole (`controls(_:)` collected
-`NSControl`s). `fittingSize` is no substitute — 1103 pt for a form that fits,
-0 pt for the sidebar `List`. Anything that catches a long label must rasterise
-or drive the app. Owner: re-open only with a measurement that survives the
-injected-label mutation.
-
-### No automated visual baseline
-Every acceptance run is numeric-only (`--no-screenshots`); the owner
-driving the app is the only evidence anything "looks right" — say who
-drove it and when. Standing: driving has caught defects with every harness
-green (colormap control missing, readiness row self-contradicting, three
-more in the clean-account run); the 2026-09-03 UI hardening and UI
-native shell reset are also not owner-approved. The retired checklist's trap notes are in
+### No automated visual baseline (2026-08-17)
+Every acceptance run is numeric-only; the owner driving the app is the only
+evidence anything "looks right" — say who drove it and when. Driving has
+caught defects with every harness green (colormap control missing, readiness
+row self-contradicting, three more in the clean-account run, five sessions
+running in September). The retired checklist's trap notes are in
 `docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`. Never seen on
-screen: everything from 7c slice 1 on (Results sidebar and inspector, the
-inspector following the focused pane), the clean-account run, the bounded
-promote run, a real load cancel.
+screen: the six `status.md` rows marked unverified, light appearance, every
+divider, a real load cancel, the bounded promote run. Owner: C3, one sitting.
 
-### macOS 14–25 is supported and has never been run there
-Lowered 2026-09-04 (`decisions.md`): `MACOSX_DEPLOYMENT_TARGET` 26.0 → 14.0 in
-all four configurations, `Package.swift` to `.macOS(.v14)`. Two symbols stood
-above the floor, both cosmetic, both now behind `#available`: `ToolbarSpacer`
-and `.pointerStyle(.columnResize)`. macOS 13 is unreachable — `@Observable` is
-14 and the state layer rests on it. Established by building at 15.0, 14.0 and
-13.0 and reading the errors. Published as macOS 14+ from v2.5.1 (owner, 2026-09-04): the counterfactual
-decided it — at 26 those users get nothing at all, and "requires 14 or later"
-is a true statement about the artefact's floor, not a claim every version was
-exercised. That is the distinction the site's earlier "macOS 14+" got wrong,
-where the artefact's floor was an enforced 26. **The live gap: no machine or
-VM here runs below 26**, so 14–25 is compile-verified and never executed; a
-VM would close it and needs ~40 GB this machine has not got. Note
-`tools/package-test`'s floor assertion is now derived, so it no longer flags a
-floor change on its own — the floor is a recorded decision instead.
+### macOS 14–25 is supported and has never been run there (2026-09-04)
+Floor lowered 2026-09-04 (`decisions.md`): `MACOSX_DEPLOYMENT_TARGET` 14.0 in
+all four configurations, `Package.swift` `.macOS(.v14)`; two cosmetic symbols
+behind `#available` (`ToolbarSpacer`, `.pointerStyle(.columnResize)`); macOS
+13 is unreachable (`@Observable`). Established by building at 15.0, 14.0 and
+13.0. Published as macOS 14+ from v2.5.1: a true statement about the
+artefact's floor, not a claim every version was exercised. **The live gap:
+no machine or VM here runs below 26**, so 14–25 is compile-verified and never
+executed; a VM would close it and needs ~40 GB. `tools/package-test`'s floor
+assertion is derived from the project, so it no longer flags a floor change.
 
-### Residency `.automatic` cannot be re-measured without a second machine
-Dropped by decision (v2 S3, 2026-08-19), not dormant — do not set
+### Residency `.automatic` cannot be re-measured without a second machine (2026-08-19)
+Dropped by decision (v2 S3), not dormant — do not set
 `ResidencyAdmission.measuredWorkingSetFraction`. The three checked-in
 training cubes top out at working-set ratio 0.19 on this machine; no knee
 exists in that data. A second-machine sweep is the only thing that could
 reopen it, and if two machines disagree the rule needs a second term.
 
-### Two diagnostic harnesses gate nothing
+### An emptied manual Q field, confirmed, discards the file's calibration (2026-09-07)
+Agent drive, C3 (`scratchpad/drive/shots-c3/b2-qr-unset-bug.png`): on the COPL
+cube (Q pixel scale green "From file 0.156828"), typing `0.2` into Prepare's
+Manual field entered nothing (this locale wants `0,2`; the period was dropped
+silently), and Return on the now-empty field flipped the row to "Not set /
+Reciprocal dimensions remain in pixels" and the scale bar from `0.5 Å⁻¹` to
+`5 px`. `0,25` typed afterwards worked live. Two things to establish before a
+fix (Gate D): why a period is rejected rather than parsed, and whether an empty
+manual entry should clear the file value or restore it. Owner: `/diagnose`.
+
+### The first sidecar save already names the file `.mac4dstem.h5.h5` (2026-09-07)
+Agent drive, C3 (`shots-c3/b3-savepanel.png`, `b3b-sidebar.png`): "Save
+Calibration to Session Sidecar" on the COPL cube proposed the dataset stem and
+wrote `…20240912.mac4dstem.h5.h5`; the sidebar and the reopen both use that
+name, so it works, but the doubled suffix recorded as a repeat-save residual
+below happens on the FIRST save. The owner's own folder already holds
+sidecars of both spellings. Owner: `/diagnose` (the save panel's default name
+vs its allowed extension is the first thing to look at).
+
+### C3 drive leftovers: presentation observations and the owner's four (2026-09-07)
+Presentation (C4, no Gate D): the status bar's `0` / `%` wraps during a run
+(`shots-c3/a5-running.png`); at ~1 080 pt the status text wraps and the bar
+grows (`a3b-narrow.png`); the log opens at its top (`a6-log.png`); a fresh
+open shows the Bragg-vector slot or the automatic pass's Virtual detector
+depending on the previous state (`b1-configurator.png` vs `b3d-reopened.png`);
+"Open with Options…" is reachable only from the empty-state view; "Correlation
+power, 1.00" wraps with a stray comma (`a9-strain.png`); System Events cannot
+resolve the window's content (VoiceOver question). Owner's eyes: light
+appearance (the launch-argument route made a windowless process), the Session
+row's Remove menu (no driver could raise a context menu), a crop → save →
+quit → reopen, the one-peak warning text, staleness (f), and "Fit Detector
+Ellipse" on the demo ending in "residual is too large (0.247)".
+
+### Two diagnostic harnesses gate nothing (2026-09-02)
 `tools/bragg-spacing-probe/` and `tools/residency-sweep/` both need
 gitignored multi-GB data and stay diagnostics only — not a gap to close,
 a standing limit to remember before citing them as coverage.
 
-### #30 — origin calibration over a NAS runs at ~3 MB/s
-Investigation owed.
+### #30 — origin calibration over a NAS runs at ~3 MB/s (2026-08-06)
+Investigation owed; nobody has measured it since.
 
 ## Known, scoped, not blocking
 
-**UI findings** — the merged, trust-ordered list (provenance
-inference, ACOM confidence gating, calibration-state vocabularies, unit
-labels, Phase linearity, inspector layout) lives in
-[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3. Do not duplicate it here and do
-not patch findings 1/4/5/7 on the current facade — they wait on the
-architecture seams.
+**UI findings** — the merged, trust-ordered list (provenance inference, ACOM
+confidence gating, calibration-state vocabularies, unit labels, Phase
+linearity, inspector layout) lives in
+[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3. Do not
+duplicate it here and do not patch findings 1/4/5/7 on the current facade —
+they wait on the architecture seams (C4/C5).
 
-### UI polish list from the same review
-Not trust defects; the Mac-ness gap. Ranked by the reviewer: the log height
+### UI polish list from the same review (2026-09-04)
+Not trust defects; the Mac-ness gap, ranked by the reviewer: the log height
 is per-window `@State` (`@SceneStorage`; the pane divider got it 2026-09-05);
-the Info tab carries seven
-ACTIONS against its own descriptive contract (Reopen, Ignore…, Change…, Remove
-per result, Apply Saved Controls, Release cube); two per-body costs (the output
-log re-diffs every line and scrolls on each append; the validity row reduces
-the whole mask on every AppState change); no `.navigationDocument(url)`, so the
-window has no proxy icon or drag-out; the primary action answers to both ⌘↩ and
-⌘R and arrow-scrubbing needs a focus the user cannot see they must give.
-Un-Mac-like: `TabView` renders a bordered Preferences box in a 280 pt inspector
-(Xcode uses a segmented strip); "Ignore…" opens no dialog; values written into
-their own labels with a comma ("Gamma, 1.00", "Radius, 12 px") — no system
-control does that; Unicode glyphs where SF Symbols exist; "Reconstruction
-Ready" as a disabled prominent button; landing-page copy in the empty window.
-Stale copy: "shown in the tools panel" (no such panel in UI), "Open a 4DSTEM
-.h5 file" (the importer takes dm4/mib/emd/raw), and one action called "Save to
-Session", "Save to Results" and "Save Current Result to Session Sidecar" in
-three places. Two contract leaks: `NSPasteboard` in `ContentView` and an
-`NSString` bridge in `PrepareSettings` (the latter deliberate — it keeps a
-tested helper byte-identical). Owner: a UI polish session, after the owner's
-next drive.
+Info carries seven ACTIONS against its own descriptive contract (Reopen,
+Ignore…, Change…, Remove per result, Apply Saved Controls, Release cube); two
+per-body costs (the log re-diffs every line per append; the validity row
+reduces the whole mask on every `AppState` change); no
+`.navigationDocument(url)`, so no proxy icon; ⌘↩ and ⌘R both fire the primary
+action; `TabView` draws a bordered box in a 280 pt inspector; "Ignore…" opens
+no dialog; values written into their own labels ("Gamma, 1.00"); Unicode
+glyphs where SF Symbols exist; "Reconstruction Ready" as a disabled prominent
+button; stale copy ("tools panel", "Open a 4DSTEM .h5 file", one action named
+three ways); `NSPasteboard` in `ContentView`. Owner: C4 takes most of it.
 
-### Presentation-contract residuals still open on screen
+### Presentation-contract residuals still open on screen (2026-09-04)
 Rules 2 and 5 were wrong as written and are amended in `architecture.md`; the
-finding and its evidence are archived ([`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)). Two of the three "still
-open" items closed with the rebuild: there is no workspace hero header any
-more (`WorkspaceView` says so in as many words), and the pane-centring
-complaint is now `PaneSplit`'s business. What is left, unverified: **~40
-permanent caption `Text`s across the sidebars**, and **nothing has been seen
-in light appearance**. Owner: the owner's drive.
+finding and its evidence are archived ([`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)).
+Two of the three "still open" items closed with the rebuild (no workspace
+hero header; pane centring is `PaneSplit`'s business). What is left,
+unverified: **~40 permanent caption `Text`s across the sidebars**, and
+**nothing has been seen in light appearance**. Owner: the owner's drive (C3).
 
-### The columns' material was diagnosed, and never checked in light
-Gate D 2026-09-03 (archived, [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)): the hosted lists were painting over
-AppKit's column material; `.scrollContentBackground(.hidden)` removed that,
-and the columns still render flat because the OS's column material is
-within-window. The conclusion — the columns look like Xcode 26's, flat on the
-window ground — was reached in dark appearance only. Owner: the owner's drive.
+### The columns' material was diagnosed, and never checked in light (2026-09-03)
+Gate D 2026-09-03 (archived, [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)):
+the hosted lists were painting over AppKit's column material;
+`.scrollContentBackground(.hidden)` removed that, and the columns still render
+flat because the OS's column material is within-window. The conclusion — the
+columns look like Xcode 26's, flat on the window ground — was reached in dark
+appearance only. Owner: the owner's drive (C3).
 
-### Concurrent HDF5 use crashes the process
+### Concurrent HDF5 use crashes the process (2026-08-19)
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb
 within a few dozen iterations; the bundled build is `Threadsafety: OFF`.
 Live latent crash: `loadSession` runs on `Task.detached` while an
 `H5Reader` actor may be working, plus an uncancelled
 `preloadResidentCube`. Unowned.
 
-### Fabricated provenance on pre-2026-08-18 sidecars
-`AppState.swift:2331` does `snapshot.loadSpecification ?? .fullExtent` —
+### Fabricated provenance on pre-2026-08-18 sidecars (2026-09-02)
+`AppState.swift:2854,2867` do `snapshot.loadSpecification ?? .fullExtent` —
 a sidecar saved from a cropped view before that attribute existed is now
 asserted full-extent rather than unknown. Both prior reproducers were
 overwritten by later driving sessions; demonstrating it again needs a
 synthesised sidecar, not a training-set one. Unowned, belongs with the
 trust fixes.
 
-### Cross-frame recipe export refuses rather than composing
-The other half of this entry is CLOSED and archived: `applySessionCalibration`
-no longer adopts a saved calibration verbatim — it asks
-`SessionCalibrationFramePolicy.decide` (`AppState.swift:2887`), added
-2026-09-01, pinned by `SessionCalibrationFramePolicyTests` and
-`SessionCalibrationTranslationTests`. What survives is not a wrong number but a
-feature gap, so it moves out of the Science lane: `ResultExport.exportableRecipe`
-REFUSES, with a reason in the export status line, when the recorded frame is not
-the live view — a three-frame composition (recorded → source → exported) needs a
-transform `ReplayFrameTransform` does not have. Recorded as an S10 decision, not
-a defect. Owner: unclaimed.
-
-### DM4Reader silently reads the whole file into RAM off non-local volumes
-`.mappedIfSafe` (`Core/Data/DM4Reader.swift:64`) declines to map on any
+### DM4Reader silently reads the whole file into RAM off non-local volumes (2026-09-02)
+`.mappedIfSafe` (`Core/Data/DM4Reader.swift:97`) declines to map on any
 volume failing `MNT_LOCAL && !MNT_REMOVABLE` (confirmed by S9b: every
 external disk, every disk image even on internal SSD, all smbfs) and
 silently falls back to a full anonymous-memory read — held for the whole
 session. `H5Reader`/`VendorRawReaders` are immune (hyperslab/seek reads).
 No fix landed; `.alwaysMapped` trades this for a SIGBUS risk if the
-volume disappears mid-read. Needs a CI fixture (disk image on internal
-disk reproduces `MNT_REMOVABLE` with no external hardware). **The
-original 2026-08-18 8GB-machine death that motivated this is still NOT
-explained** — the mechanism is real and worth fixing but not established
-as that incident's cause. Owner: a later session, Gate B.
+volume disappears mid-read. Needs a CI fixture (a disk image on the internal
+disk reproduces `MNT_REMOVABLE` with no external hardware). **The original
+2026-08-18 8 GB-machine death that motivated this is still NOT explained** —
+the mechanism is real and worth fixing but not established as that
+incident's cause. Owner: a later session, Gate B.
 
-### Scan-fastest DM4 detector pair may be transposed — Gate D owed
+### Scan-fastest DM4 detector pair may be transposed — Gate D owed (2026-09-05)
 `Si-SiGe.dm4` stores its scan pair fastest; the reader maps the tags as
 `[Rx, Ry, Qy, Qx]`, a pattern 480 wide × 448 tall. DM's convention, which the
 same code applies to the scan pair (survey `Spectrum Image Rect` 202 × 895 px
@@ -344,60 +273,61 @@ reads the pattern's width and height in GMS. If 448 wide: flip
 checksum from ncempy's raw array on the real file. Residual: honour newer
 GMS's `Meta Data.Data Order Swapped` tag (LiberTEM reads it first).
 
-### The open/promote unwind is sixfold, and Cancel can vanish mid-load
-Corrected 2026-09-04. **Six begin/finish brackets, not three**: `openFileAsync`,
-`commitPendingLoad`, `promoteToFullExtent`, plus `selectDataset`,
-`openManualPath` and `openDemoFixture` with no cancel handling at all.
-**The old hazard 1 is refuted** — there is no suspension point between the last
-cancellation check and `finishDatasetLoading` on any path (`AppState` is
-main-actor isolated, `project.pbxproj:488`, and the calls there are not async).
-**Hazard 2 is worse than recorded**: `finishDatasetLoading`
-(`AppState.swift:2789`) unconditionally nils `datasetLoadCancellation` and
-clears `isLoadingDataset`, both of which `canCancelDatasetLoad` (`:1162`)
-depends on — so with two loads in flight the FIRST tail to finish disarms
-Cancel for the second, and the running load becomes uncancellable. Unification
-alone is not the fix. No fixture exercises these branches; that is the
-precondition. Owner: whichever session next touches any of the six.
+### The open/promote unwind is sixfold, and Cancel can vanish mid-load (2026-09-04)
+Six begin/finish brackets, not three: `openFileAsync`, `commitPendingLoad`,
+`promoteToFullExtent`, plus `selectDataset`, `openManualPath` and
+`openDemoFixture` with no cancel handling at all. The old hazard 1 is
+refuted — no suspension point sits between the last cancellation check and
+`finishDatasetLoading` on any path (`AppState` is main-actor isolated,
+`project.pbxproj:492`). Hazard 2 is worse than recorded:
+`finishDatasetLoading` (`AppState.swift:2800`) unconditionally nils
+`datasetLoadCancellation` and clears `isLoadingDataset`, both of which
+`canCancelDatasetLoad` (`:1162`) depends on — with two loads in flight the
+FIRST tail to finish disarms Cancel for the second. Unification alone is not
+the fix; no fixture exercises these branches, and that is the precondition.
+Owner: whichever session next touches any of the six.
 
-### Promote/replay residuals
-(a) Owner design question, queued TB1: should promote carry the scan
-position across, or land at (0,0) as today? (b) Fitted origin maps are
-crop-sized and dropped by the full-extent restore's shape check, so a
-promoted recipe recorded against "calibrated origins" refuses — expected
-behaviour, not a bug. (c) Parallax/ptychography are deliberately NOT in
-the replay record (not bit-reproducible); folding them in is its own
-post-v2 session. (d) A user-initiated analysis mid-replay steals the
-Cancel control from the replayed step (S18-class polish). (e) Per-kind
-replay contracts live in three places (record/parse/apply) held together
-by tests, not structure — co-locate per-kind when the next kind is added.
+### Promote/replay residuals (2026-09-02)
+(a) Owner design question: should promote carry the scan position across,
+or land at (0,0) as today? (b) Fitted origin maps are crop-sized and dropped
+by the full-extent restore's shape check, so a promoted recipe recorded
+against "calibrated origins" refuses — expected behaviour, not a bug. (c)
+Parallax/ptychography are deliberately NOT in the replay record (not
+bit-reproducible); folding them in is its own session. (d) A user-initiated
+analysis mid-replay steals the Cancel control from the replayed step. (e)
+Per-kind replay contracts live in three places (record/parse/apply) held
+together by tests, not structure — co-locate per kind when the next kind is
+added.
 
-### Recents/window-state edge cases, both low priority
+### Recents/window-state edge cases, both low priority (2026-09-02)
 Each window's `AppState` holds its own `RecentDatasets` snapshot over one
 `UserDefaults` key, so a second window's save can clobber the first's
 entry (single-window use, the shipped reality, is unaffected). Separately,
 `openRecent`'s failure path removes a dead entry from the list but leaves
 "Reopen" dead-ending in "No recoverable dataset." Both unclaimed.
 
-### Legacy `.icns` tops out at 256px — probably moot
-Written against a macOS 14 floor this app no longer declares: the deployment
-target is 26.0 in every build configuration and in `Package.swift` (corrected
-across the docs 2026-09-04). On macOS 26+ Get Info, Quick Look and large Finder
-icon view render from the `.icon` source correctly and the Dock was never
-affected, so the defect can only appear below the supported floor. Close it
-unless a reason to ship a legacy PNG set appears.
+### Legacy `.icns` tops out at 256 px — reopened 2026-09-07 (the floor is 14)
+Called moot on 2026-09-04 because the floor was 26; the floor is 14 since
+v2.5.1 (`decisions.md`, 2026-09-04), so the reasoning inverts. On macOS 26+
+Get Info, Quick Look and large Finder icon views render from the `.icon`
+source; below 26 they render from the legacy `.icns`, whose largest
+representation is 256 px, so a 512/1024 px icon view shows an upscaled icon
+there. Cosmetic; never observed (no machine here runs below 26). Fix: a full
+legacy PNG set (16–1024 px, @1x/@2x) in the `.icns`. Owner: unclaimed;
+verify on the first report from an older system, or in the VM above.
 
-### S1's crop restore is repaired in code and unverified on screen
+### S1's crop restore is repaired in code and unverified on screen (2026-09-04)
 Retitled 2026-09-04: **its three code claims are all false now.**
 `recordedLoadSpecification` reads through `sessionSidecar.location(forSourcePath:)`,
 which takes the security-scoped grant first (`SessionSidecarLocator.swift:144`),
 and the `try?` is gone — a refused read and "no crop recorded" stay different
 facts. What is open is the drive: F1.3h passed on a FULL-EXTENT sidecar, which
 never enters the repaired branch, so a cropped save → quit → reopen has never
-been driven. `SessionSidecarLocatorTests.swift:269` cannot close it either — it
-adopts an in-memory grant and never opens HDF5. Failure mode if still wrong:
-right numbers, wrong region. Owner: the owner's drive.
+been driven. `SessionSidecarLocatorTests` cannot close it either — it adopts
+an in-memory grant and never opens HDF5. Failure mode if still wrong: right
+numbers, wrong region. Owner: the owner's drive (C3).
 
-### Resident/streaming residuals
+### Resident/streaming residuals (2026-09-02)
 `releaseResident()`'s "freed" claim is asserted by a derived byte count,
 never a measured one — a leaked `MTLBuffer` is invisible to every test.
 `TiledDiskDetection.detectAll` still stages each tile into a fresh
@@ -406,127 +336,88 @@ cancellation is 2.5× coarser than streaming (one indivisible dispatch) —
 academic until something under `mac4DSTEM/` requests `.resident`, which
 nothing does today.
 
-### Toolbar Cancel button renders wrong during a run — cosmetic, not blocking
-Owner, 2026-09-04, seen driving a full-scan Bragg detection on
+### Toolbar Cancel button renders wrong during a run — cosmetic, not blocking (2026-09-04)
+Owner, seen driving a full-scan Bragg detection on
 `sim_Au_data_all_binned.h5`. `WorkspaceView.swift:231` is a bare
 `Button("Cancel", role: .cancel)` with no `.buttonStyle`, so it renders as a
 bordered text pill beside three icon-glyph toolbar buttons; `role: .cancel`
-buys nothing in a toolbar. The action WORKS — this is appearance only, and
-the owner called it not a big deal, so it does not block v2.5.0. Note the
-comment above it (`WorkspaceView.swift:224`): the old inline progress bar was
-removed here precisely because it squeezed this label to "C…", so any fix
-must not reintroduce a width contender in that slot. Exact symptom still
-owner's to pin down (style vs. size vs. placement) before anyone changes it.
+buys nothing in a toolbar. The action WORKS — appearance only, and the owner
+called it not a big deal. Note the comment above it (`WorkspaceView.swift:224`):
+the old inline progress bar was removed there precisely because it squeezed
+this label to "C…", so a fix must not reintroduce a width contender in that
+slot. Exact symptom still the owner's to pin down (style vs size vs
+placement) before anyone changes it.
 
-### Sidecar contents moved to the LEFT sidebar — done in code, UNVERIFIED ON SCREEN
-Moved 2026-09-04 (owner asked for it on release night, having earlier deferred
-it). `Section("Saved session sidecar")` is gone from `WorkspaceInspector`; its
-filename row, Calibration, BraggVectors, the saved-result rows, Apply Saved
-Controls and Change…/Ignore… now render in `WorkspaceSidebar`'s
-`Section("Session")`. Info keeps only the unreadable / does-not-fit sections —
-the "full explanation and the way out" half of the split recorded at
-`WorkspaceSidebar.swift`. Builds clean, no warnings, no test names the moved
-identifiers. **The one judgement call, and it is the owner's to overrule:**
-Remove is now each result row's context menu, not a second visible row per
-result as Info had it — two rows per saved result fills this column, and
-right-click is the source-list idiom. Sidebar rows have no width, so one
-caption line survives and the rest is on `.help`. No gate can see any of this.
 
-### Sidecar/session UX residuals
+### Sidecar/session UX residuals (2026-09-02)
 Recents-row location labels unverified on screen (F1.1c). A sidecar
 retarget made before any save survives only until the next dataset
 change. Repeating "Save Session Sidecar As…" can prefill a doubled
 `.h5.h5` suffix. Pre-S4 calibration-only sidecars remain unrecognisable
-(extension/open-panel-filter half is an owner decision, queued TB1). The
-configurator's beam proxy has no "load anyway" override (owner question,
-queued TB1; unifying it with `CalibrationReReference`'s gate is a
-deliberate non-unification, `App/SessionGates.swift`).
+(extension/open-panel-filter half is an owner decision). The configurator's
+beam proxy has no "load anyway" override (owner question; unifying it with
+`CalibrationReReference`'s gate is a deliberate non-unification,
+`Session/SessionGates.swift`).
 
 ### DPC's banner contradicts its badge — entry corrected 2026-09-04
 Three claims here were wrong. **Mechanism:** the fall-through is `.relative`
 (`AppState.swift:761`), not `.quantitative` — only named families are
-quantitative (`:756`). Still true: it pattern-matches strings and consults no
+quantitative (`:759`). Still true: it pattern-matches strings and consults no
 calibration readiness, while `idpcPhysicalCalibration` consults three gates.
-**Carrier:** not XMP (no "xmp" in any Swift file) — the PNG `Description` JSON
-chunk and the status burned into the caption's pixels (`ResultExport.swift`).
-**Headline:** iDPC's badge and banner AGREE; the contradiction is
-`PhaseSettings`' always-shown qualitative banner over `dpc_magnitude` /
-`dpc_angle`, which `quantitativeStatus` calls quantitative.
-Before any fix: status is frozen at publish and at persist and preferred over
-re-derivation on restore, so a change corrects neither existing sidecars nor
-exported PNGs, and there is no version field to migrate on. Owner: the
-trust-fixes session; which way it goes is a judgement call, and the owner's.
+**Carrier:** not XMP — the PNG `Description` JSON chunk and the status burned
+into the caption's pixels (`ResultExport.swift`). **Headline:** iDPC's badge
+and banner AGREE; the contradiction is `PhaseSettings`' always-shown
+qualitative banner over `dpc_magnitude` / `dpc_angle`, which
+`quantitativeStatus` calls quantitative. Before any fix: status is frozen at
+publish and at persist and preferred over re-derivation on restore, so a
+change corrects neither existing sidecars nor exported PNGs, and there is no
+version field to migrate on. Owner: the trust-fixes session; a judgement call.
 
-### Misc unclaimed, low priority
+### Misc unclaimed, low priority (2026-09-02)
 Load-cancel: F1.1d (cancel a real load on screen) never driven; resident
 buffer/cropped-view teardown unpinned. #17a: the wider pane-arrangement
 question (design decision, reverted on sight once). Detector-bounds
 convention sweep: whether other tests use an index convention for
 continuous positions besides the one already fixed, nobody has checked.
 HDF5 multi-dataset axis order is assumed (`[ry,rx,qy,qx]`), not checked —
-weak lead, a scan↔detector swap is obvious on screen, only Ry↔Rx/Qy↔Qx
-transpositions would be silent, and the app does name the dataset it
-picked. `MAC4DSTEM_ACOM_SCALE_OVERRIDE`: the sidecar keeps the estimate
-scale, not the override scale the map was matched at (design call); a
-cubic-dataset override run would compare apples-to-oranges in the parity
-comparator (can't arise for WS₂). Virtual-detector mask boundary
-(`r² < rOut²` vs `<=`) is unpinned against analytic truth. #31
-`validationIssues` is O(n²) in a SwiftUI view body. #32 `isSymmetry`'s
-bijection check has no fixture coverage. (Three UI clauses deleted 2026-09-04,
-each verified obsolete: the launch-screen cards are gone with the welcome
-rebuild; "the 171 pt pane-width floor" — `171` appears nowhere in the tree, the
-floor is `LayoutPolicy.imagePaneMinimum` = 180; and "a saved sidebar divider can
-restore below its 250 pt minimum" — there is no `autosaveName` anywhere in the
-app, and the sidebar is a `NavigationSplitView` with a 190 pt minimum.)
+only Ry↔Rx/Qy↔Qx transpositions would be silent, and the app names the
+dataset it picked. `MAC4DSTEM_ACOM_SCALE_OVERRIDE`: the sidecar keeps the
+estimate scale, not the override scale the map was matched at (design call).
+Virtual-detector mask boundary (`r² < rOut²` vs `<=`) is unpinned against
+analytic truth. #31 `validationIssues` is O(n²) in a SwiftUI view body. #32
+`isSymmetry`'s bijection check has no fixture coverage.
 
-### The constraint-loop crash: nothing in a split may change its own minimum
+### The constraint-loop crash: nothing in a split may change its own minimum (2026-09-04)
 `NSGenericException` from `_postWindowNeedsUpdateConstraints`, through
 `SplitViewChildController.hostingView(_:didUpdateMinSize:maxSize:)`. **The
 rule, demonstrated 2026-09-04: nothing inside a split's hosted content may
 repeatedly change its own minimum size.** SwiftUI's split machinery loops on
 it, and `NavigationSplitView` and `.inspector` are splits too. `.fixedSize()`
 on text whose string changes is the easiest way to do it by accident, and it
-only fires on a dataset big enough for an operation to tick — which is why
-every demo-fixture launch was clean and a real one died. Two sites, both in
-the status bar, both fixed: the metrics line and `status.footer.facts`.
-`PaneSplit` is right and should not be "fixed" — it propagates no minimum at
-all — but it was never the whole story. Full diagnosis, the refuted
-`HSplitView` conjunction that preceded it, and the two probes it made moot:
-commits `e608dbd` and `27de9bb`. Residuals: positive and negative are each
-n=1 against a fault this repo calls intermittent (S17); the inspector's
-Performance rows still tick per second, inside a scroll view rather than a
-size-setting inset. The 12 bare `.fixedSize()` sites left in `UI/` are now
-audited — see the entry below. Owner: unclaimed.
-### `PaneSplit` residuals from the refuter
-(a) header overflow and (c) the divider resetting to centre are closed in
-code 2026-09-05 (`ViewThatFits` headers with an overflow menu; the fraction
-in `@SceneStorage`), **unverified on screen**. (b) **The image floor lapses
+only fires on a dataset big enough for an operation to tick — every
+demo-fixture launch was clean and a real one died. Two sites, both in the
+status bar, both fixed. Full diagnosis and the refuted `HSplitView`
+conjunction: commits `e608dbd`, `27de9bb`; the S17 record is archived.
+Residuals: n=1 each way against a fault once called intermittent; the
+inspector's Performance rows still tick per second. Owner: unclaimed.
+
+### `PaneSplit` residuals from the refuter (2026-09-04)
+(a) header overflow and (c) the divider resetting to centre are closed and
+were seen on screen 2026-09-07 (`shots-c3/a3b-narrow.png`, `a4b-divider-back.png`).
+(b) **The image floor lapses
 below 2× itself**: the fraction saturates at 0.5 under ~360 pt of usable
 width, and UI declares no detail-column minimum where the retired AppKit UI
 had `SplitViewPolicy.detailMinimum` = 360. SwiftUI offers no detail-column
 minimum short of the window's own floor, and announcing one from inside the
 split is the constraint-loop shape; recorded, not made. Owner: with the
-owner's drive.
+owner's drive (C3).
 
-### Status-bar elapsed / throughput / ETA — rebuilt, NOT yet driven
-Owner, 2026-09-04: those three numbers belong beside the progress bar, not
-only in the inspector's Performance tab. Built, reverted the same day for the
-crash above, rebuilt 2026-09-04 in a reserved slot:
-`LayoutPolicy.operationMetricsWidth`, a constant frame the text truncates
-inside, no `.fixedSize()`, held for the whole operation so an appearing rate
-or ETA moves nothing. `OperationMetricsFormat.line` composes it for both
-surfaces. `StatusBarMetricsTests` pins what it says and measures the widest
-line the formatter can produce (an hour elapsed, an hour of ETA, 999.9
-units/s) against the constant in the same font; all four tests were broken
-first. **What is left is the drive**: this is unverified on screen, and only a
-real dataset exercises it — the demo cube finishes faster than the one-second
-tick. Owner: the owner's drive.
 
-### Manual Q and R pixel scale cannot be corrected once entered — fixed in code, drive owed
-Owner, 2026-09-04, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel
-size, the row turns green and the field disappears with it. A wrong R scale
-silently rescales every real-space axis, scale bar and export, so this is a
-trust defect. **Code fix 2026-09-05** (second cut; the first locked a restored
+### Manual Q and R pixel scale cannot be corrected once entered — fixed in code, drive owed (2026-09-04)
+Owner, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel size, the
+row turns green and the field disappears with it. A wrong R scale silently
+rescales every real-space axis, scale bar and export, so this is a trust
+defect. **Code fix 2026-09-05** (second cut; the first locked a restored
 session value and an imported Q, and committed two red tests against
 itself): `PrepareSettings.shouldShowManualScaleEditor` keeps R editable
 always and Q editable for every provenance except measured-in-app, with the
@@ -534,7 +425,7 @@ hover text naming the value an entry replaces; Prepare and ExportSheet share
 it, three unit tests pin it. Owed: the owner drives both surfaces and sees
 the fields stay visible and editable after the row is green.
 
-### `calibration.*` identifiers exist twice while the export sheet is open
+### `calibration.*` identifiers exist twice while the export sheet is open (2026-09-04)
 `ExportSheet` re-renders the readiness rows, so `calibration.readiness`,
 `calibration.item.*`, `calibration.rScale.filenameConflict` and
 `calibration.action.originProbe` are each emitted by both it and
@@ -544,137 +435,51 @@ row by identifier. The old app had the same collision. Owner: unclaimed.
 
 ## Code hygiene
 
-### `tools/free-space.sh` still spells shared path knowledge three times
-Fixed 2026-09-04, the misreporting half: it prints the two volumes the preflight
-gates (`$ROOT`, `$TMPDIR`) instead of `/`, answers "will the gate run?" against
-the 8 GB floor, and surveys the regenerable roots outside its two — Xcode's
-`DerivedData`, the per-project `ModuleCache.noindex`, `CodingAssistant`,
-`.build`. Measured that day: 680 KB clearable against 743 MB it could not see.
-Report-only; `guard_path()` untouched, and `build/release` (notarized, stapled
-images) prints as PROTECTED. Residual: the temp prefix is spelled by producer
-and reaper separately, the MCP root is hardcoded, and ~35 harnesses use
-untagged `mktemp -d`. The proposed `tools/lib/` constants file is deliberately
-NOT taken — every gate sources through `run-tests.sh` under `set -euo
-pipefail`, so a bad line there kills the whole harness. Owner: whoever next
-touches `run-tests.sh`.
+### `tools/free-space.sh` still spells shared path knowledge three times (2026-09-04)
+Fixed 2026-09-04, the misreporting half: it prints the two volumes the
+preflight gates (`$ROOT`, `$TMPDIR`), answers "will the gate run?" against the
+8 GB floor, and surveys the regenerable roots outside its two (DerivedData,
+`ModuleCache.noindex`, `CodingAssistant`, `.build`). Report-only;
+`guard_path()` untouched, and `build/release` (notarized, stapled images)
+prints as PROTECTED. Residual: the temp prefix is spelled by producer and
+reaper separately and the MCP root is hardcoded (the 50 untagged
+`mktemp -d` sites were tagged `mac4dstem-<harness>` in C2, 2026-09-07). A
+`tools/lib/` constants file is deliberately NOT taken — every gate sources
+through `run-tests.sh` under `set -euo pipefail`, so a bad line there kills
+the whole harness. Owner: whoever next touches `run-tests.sh`.
 
-### Acceptance-gate test-infrastructure residuals
-`real-data-acceptance/run.sh` hand-spells 18 source paths instead of
-sourcing `tools/lib/sources.manifest` (the reason a "byte-identical
-inputs" audit once missed a shader file). Its empty-glob SKIP exits 0, so
-a machine with zero datasets passes the gate — whether it should consult
-`expected.json` instead is open. The 15s acceptance budget only gates the
-4 pinned datasets now, not the 4 unpinned ones — pin-or-refuse vs. the
-current advisory `UNPINNED` line is an open call. `abs_tol=1e-3` on
-virtual-image fields exceeds `polycrystal_2D_WS2`'s whole dynamic range
-(5.3e-4) — not tightened, since that risks reddening legitimate runs, but
-the fixture now carries a WS₂-magnitude case so the boundary is testable.
-Comparator residuals: `rel_tol` on `diskProbeRadiusPixels` is inert below
-50px; `if not actual:` is unkillable by any mutation. A `run-tests.sh all`
-`report count` discriminator (does the historical mismatch predate or
-postdate the cube-count growth?) was never run; the owner holds the log.
-Separately: the runner aborts at the first failing harness, so it can't
-report how many are actually red — whether to continue-and-summarise
-instead is open.
+### Acceptance-gate test-infrastructure residuals (2026-09-02)
+`real-data-acceptance/run.sh` sources `tools/lib/sources.manifest` since C2
+(2026-09-07). Its empty-glob SKIP exits 0, so a machine with
+zero datasets passes the gate; whether it should consult `expected.json` is
+open. The 15 s acceptance budget gates the 4 pinned datasets only —
+pin-or-refuse vs the advisory `UNPINNED` line is an open call. `abs_tol=1e-3`
+on virtual-image fields exceeds `polycrystal_2D_WS2`'s whole dynamic range
+(5.3e-4); not tightened, but the fixture carries a WS₂-magnitude case so the
+boundary is testable. Comparator: `rel_tol` on `diskProbeRadiusPixels` is
+inert below 50 px; `if not actual:` is unkillable by any mutation. The runner
+aborts at the first red harness, so it cannot say how many are red.
 
 ### `.fixedSize()` in `UI/`, audited 2026-09-04 — one armed site, contained
 12 bare call sites against the constraint-loop rule above (an unanchored grep
-says 16; four of those are comments *about* `.fixedSize()` — use
-`grep -rn '^\s*\.fixedSize()'`). **One is armed**: `ImagePanes.swift:452`, the
-zoom badge. `liveZoom` is written on every magnify event, the digit count moves
-(×9.9 → ×10.0 → ×100.0), the value is unclamped mid-pinch, and the badge itself
-appears and disappears across ×1.0 — a `.fixedSize()` child inserted and removed
-repeatedly in one gesture. Of the rest, eight are literals and three change once
-per published product (`badge(text:)`, `:413/:418/:437`) — not armed, but the
-ones to re-check if a product ever republishes on a tick.
-**Not fixed, deliberately:** a reserved slot closes the string-width channel and
-NOT the appears/disappears one, so it would ship a green test claiming a closed
-mechanism. **Not urgent:** `PaneSplit` gives each pane `.frame(width:)`, which
-terminates its minimum, and none of the 12 is in the one `.safeAreaInset` in
-`UI/` where both crashing sites lived. Owner: with the pane header's
-compressibility (`PaneSplit` residual (a)) — same header.
-(The `fixedSize(horizontal:vertical:)` set this entry once called "31 sites
-covered by `SplitViewHeightTests`" is 5 sites, that test does not exist, and
-vertical-only `fixedSize` cannot move a width.)
+says 16; four are comments *about* it — use `grep -rn '^\s*\.fixedSize()'`).
+**One is armed**: the zoom badge (`ImagePanes.swift:587`, inside
+`zoomModeBadge`): `ZoomPan.liveZoom` is written on every magnify event, the
+digit count moves (×9.9 → ×10.0 → ×100.0), the value is unclamped mid-pinch,
+and the badge appears and disappears across ×1.0 — a `.fixedSize()` child
+inserted and removed repeatedly in one gesture. The rest are literals or
+change once per published product. **Not fixed, deliberately:** a reserved
+slot closes the string-width channel and NOT the appears/disappears one.
+**Not urgent:** `PaneSplit` gives each pane `.frame(width:)`, which
+terminates its minimum, and none of the 12 is in the one `.safeAreaInset`
+where both crashing sites lived. Owner: with `PaneSplit` residual (a).
 
-### Runner source lists still hand-spelled in places
-`SessionReplayRecord.swift` is patched into seven runners by hand rather
-than through the manifest, after predicted breakage recurred once
-already. `Aperture` is declared in `App/AppState.swift`; scientific
-harnesses carry their own copies that would still compile and pass if the
-app's gained a field — belongs in `Core/`. The app build is the only real
-gate for actor isolation (`tools/load-spec-test` compiles nonisolated;
-the manifest's isolation flags buy visibility, not enforcement).
-
-## Working methods that earned their keep
-
-### Read the gate's own exit line, never the wrapper's
-A backgrounded `run-tests.sh` reported exit 0 while the gate's own `GATE_EXIT`
-line said 1 (2026-09-04, the fourth time). Redirect to a log, `echo $?` on its
-own line, grep the log. A `| tail` pipe reports `tail`'s status. The same day,
-`git push … | tail` printed `PUSH_EXIT=0` over a failed push. And a green gate
-row outlives the commit that broke it: on 2026-09-05 `scientific` was red from
-02:09 (a harness check committed against a reader that never satisfied it) and
-from 12:55 (a harness that no longer compiled) until the evening's rerun —
-five commits quoted the morning's 43-harness green. A commit that touches a
-harness's inputs reruns that harness before it quotes any gate.
-
-### Resume a lost session from its scratchpad, not from memory
-A session died mid-Gate B on 2026-09-05. Its scratchpad
-(`/private/tmp/claude-501/<project>/<session-id>/scratchpad`) survived
-with the pre-registration, every log and the refuter's half-run harness; the
-review was finished from those, and the `git diff` was the only other truth.
-Look there first; never re-derive a number a retained log already holds.
-
-### Count a gate's tests by name, and reconcile against the expected delta
-`run-tests.sh unit` passes `-quiet`, so xcodebuild prints no summary and the
-count has to be grepped out of the log. The parallel runners interleave and a
-`Test case '…' passed` line gets CHOPPED mid-name — twice on 2026-09-04, in
-different places. `grep -c` on the whole line undercounts. Counting
-`Class.method` undercounts too when the chop lands in the class name (it did:
-`dedOriginSubtractsTheCropOffset…`). **Count the method alone —
-`grep -oE "[a-zA-Z0-9_]+\(\)' passed" log | sort -u | wc -l` — and then
-reconcile it against what you expected to change (prior total, minus deleted,
-plus added).** When the two disagree, `comm` the two runs' rosters: both times
-the "missing" test was a chopped duplicate of one that ran. Never conclude a
-test vanished from a count alone. Same family as the `| tail` trap: the gate
-was green, the number was wrong.
-
-
-
-Kept because they changed outcomes, not because they are tidy:
-
-1. **Cost a UI change before designing it.** Measure the shape change
-   (pt/rows) before choosing between options — makes it a measurement,
-   not taste.
-2. **Adversarially review anything touching the science, and review the
-   diagnosis, not just the code.** Three times a fix has passed every
-   test written for it — including one verified to fail without it — and
-   still been wrong. The refuting evidence was already in a log nobody
-   had re-read.
-3. **Never widen a gate that fails silently.** A miss path that calls
-   `recordError` and continues, or a control hidden behind a disclosure,
-   turns a failure into a finding nobody reads.
-4. **Open the app.** Ten minutes of driving on a day with every harness
-   green has twice found defects the suite could not see. The owner's
-   driving sessions replace the retired checklist because nothing else
-   catches that class.
-5. **A green suite can be green about the wrong thing.** Check what
-   calling convention a suite actually exercises (absolute vs. relative
-   paths, `$0`-relative sourcing after a `cd`) and whether that's the one
-   anyone uses. Search harness runners by basename, never by path prefix
-   — the same path gets spelled multiple ways across `tools/*/run.sh`.
-   A backgrounded pipeline's `${pipestatus[1]}` reports the last
-   command's exit code, not the gate's — put the exit code where you
-   will actually read it.
-6. **A test written for your own fix proves nothing until it fails
-   without it.** In-process SwiftUI `Picker` menus render blank to
-   automation (built lazily for a real assistive client) — a rendering
-   assertion can pass while testing nothing; assert the decision instead,
-   and say why at the call site.
-7. **Do not drive the app while `run-tests.sh unit` is running.** Both
-   suites inject private `AppStorage` into the same defaults domain; a
-   live instance can spuriously redden a layout/sidebar test.
-8. **Break every new test before trusting it.** Confirm each new
-   assertion actually goes red on the mutation it claims to catch —
-   three green-but-worthless suites were caught only this way.
+### Harness type replicas of `Aperture` (2026-09-02)
+Every runner sources `tools/lib/sources.manifest` since C2 (2026-09-07; the
+inventory fails one that does not). What remains: `Aperture` is declared in
+`App/AppState.swift`, and scientific harnesses carry their own copies that
+would still compile and pass if the app's gained a field — it belongs in
+`Core/`. The app build is the only real gate for actor isolation
+(`tools/load-spec-test` compiles nonisolated; the manifest's isolation flags
+buy visibility, not enforcement). Owner: the next `AppState` extraction (C5;
+the first, the fit overlays, landed 2026-09-07).

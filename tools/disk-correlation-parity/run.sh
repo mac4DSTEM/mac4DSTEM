@@ -14,7 +14,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-disk-correlation-parity.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/developer-dir.sh"
@@ -22,18 +22,10 @@ resolve_mac4dstem_developer_dir
 
 # -O so the timing reflects a release build. Without it the CPU baseline is
 # unrepresentatively slow and any GPU comparison is flattering by default.
-xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" \
-  main.swift \
-  "$REPO/mac4DSTEM/Core/Data/DatasetDescriptor.swift" \
-  "$REPO/mac4DSTEM/Core/Data/DiffractionPattern.swift" \
-  "$REPO/mac4DSTEM/Core/Data/FourDDataSource.swift" \
-  "$REPO/mac4DSTEM/Core/Data/LoadSpecification.swift" \
-  "$REPO/mac4DSTEM/Core/Data/Calibration.swift" \
-  "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
-  "$REPO/mac4DSTEM/Core/Compute/FFT2D.swift" \
-  "$REPO/mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift" \
-  "$REPO/mac4DSTEM/Core/Analysis/ProbeKernel.swift" \
-  "$REPO/mac4DSTEM/Core/Analysis/DiskDetection.swift" \
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" detection
+xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" main.swift \
+  "${MAC4DSTEM_SOURCES[@]}" \
   -framework Accelerate -framework Metal
 
 # Two detector sizes, both against their own pinned baseline:

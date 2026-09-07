@@ -215,4 +215,12 @@ package final class SessionGates {
             + "the sidecar as a full-extent session and mislabel the results "
             + "it already holds. " + remedy
     }
+
+    /// C4(a): the ONE property every save/remove control that rewrites the
+    /// session sidecar binds `.disabled` to, alongside its own check that the
+    /// thing it would save actually exists. Before this, "Save to Results"
+    /// and the two Remove controls were `.disabled(appState.isBusy)` only —
+    /// enabled, then refusing through a modal after the click — while Info
+    /// already told the user saving was disabled (§4 finding 2).
+    package var mayWriteSidecar: Bool { sidecarRewriteRefusal() == nil }
 }

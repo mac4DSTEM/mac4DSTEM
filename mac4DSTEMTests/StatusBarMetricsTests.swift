@@ -111,6 +111,33 @@ final class StatusBarMetricsTests: XCTestCase {
         )
     }
 
+    /// The companion slot beside it: the bare `Int(progress * 100) %` label.
+    /// It wraps its digit onto its own line the instant the row is tight
+    /// (observed ~1080 pt window width) unless it is reserved a width, the
+    /// same failure `operationMetricsWidth` exists to prevent next to it.
+    func testTheReservedPercentSlotFitsTheLongestLineTheFormatterProduces() {
+        let font = statusBarFont()
+        var widest = (line: "", width: CGFloat(0))
+
+        for percent in 0...100 {
+            let line = "\(percent) %"
+            let width = (line as NSString)
+                .size(withAttributes: [.font: font]).width
+            if width > widest.width { widest = (line, width) }
+        }
+
+        XCTAssertLessThanOrEqual(
+            widest.width, LayoutPolicy.progressPercentWidth,
+            """
+            The widest percentage the formatter can produce is \
+            "\(widest.line)" at \(widest.width) pt, which does not fit \
+            LayoutPolicy.progressPercentWidth \
+            (\(LayoutPolicy.progressPercentWidth) pt). Widen the constant — \
+            do NOT let the text size itself.
+            """
+        )
+    }
+
     /// `.caption2.monospacedDigit()`, which is what the status bar draws in.
     /// Measured rather than assumed: the constant above is only defensible
     /// against the font that actually renders it.

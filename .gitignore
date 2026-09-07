@@ -25,3 +25,10 @@
 # SwiftPM (Package.swift builds DSTEMCore from the shell)
 .build/
 .swiftpm/
+
+# Model assets never live in the tree (consolidation C2, 2026-09-07). The AGPL
+# yolov8n.mlpackage sat in the app target for two days and shipped in nothing;
+# trained detector assets are the owner's data under References/.
+*.mlpackage
+*.mlmodel
+*.aimodel

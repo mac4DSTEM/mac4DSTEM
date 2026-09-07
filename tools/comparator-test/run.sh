@@ -1,4 +1,5 @@
 #!/bin/zsh
+# No Swift is compiled here, so tools/lib/sources.manifest has nothing to supply.
 # Break the real-data-acceptance comparator before trusting it.
 #
 # tools/real-data-acceptance/compare.py decides whether a scientific regression
@@ -24,7 +25,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 COMPARE="$HERE/../real-data-acceptance/compare.py"
 SHIPPED_EXPECTED="$HERE/../real-data-acceptance/expected.json"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-comparator-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 pass=0

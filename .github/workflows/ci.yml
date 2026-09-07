@@ -23,8 +23,6 @@
 #     `tools/real-acom-benchmark`, `tools/training-dataset-campaign`,
 #     `tools/acom-groundtruth` — diagnostics that gate nothing and need
 #     gitignored data or hand-supplied input.
-#   * `tools/ui-smoke-test` — drives the app on screen via AppleScript and
-#     needs an Accessibility (TCC) grant no hosted runner can give.
 #   * `run-tests.sh benchmark` — machine-specific numbers, not pass/fail.
 #   * On-screen verification — the owner drives the app and reports bugs
 #     through /diagnose (CLAUDE.md). No runner can stand in for it; the
@@ -43,11 +41,6 @@
 # the moment Core/ depends on App/, UI/ or Support/.
 #
 # KNOWN CAVEATS, stated so a green run is not made to claim too much:
-#   * S17 formally quarantines uncalibrated Prepare's sidebar height. The old
-#     60pt allowance was justified with one machine's 49pt measurement, not a
-#     stable product invariant. XCTest reports one explicit skip; the step
-#     below exports its measured geometry, display scale, and WindowServer
-#     state on every run. Track B remains the acceptance gate for that screen.
 #   * macos-26 runners are the first automated exercise below the dev Mac's
 #     macOS 27. That is build/numeric evidence only; no Track B pass has driven
 #     the app on macOS 26 (docs/open-items.md).
@@ -92,22 +85,7 @@ jobs:
           fi
           xcrun -sdk macosx metal --version
       - name: Run the unit gate
-        env:
-          MAC4DSTEM_XCRESULT_BUNDLE_PATH: ${{ runner.temp }}/mac4dstem-unit.xcresult
         run: tools/run-tests.sh unit
-      - name: Report the quarantined sidebar geometry
-        if: always()
-        run: |
-          bundle="$RUNNER_TEMP/mac4dstem-unit.xcresult"
-          output="$RUNNER_TEMP/mac4dstem-sidebar-diagnostics"
-          if [[ -d "$bundle" ]]; then
-            xcrun xcresulttool export attachments \
-              --path "$bundle" --output-path "$output" \
-              --filter 'sidebar-s17-*.txt'
-            find "$output" -type f -name '*.txt' -exec sed -n '1,120p' {} \;
-          else
-            echo "No unit xcresult bundle; the build failed before diagnostics existed."
-          fi
 
   scientific:
     name: scientific (py4DSTEM parity)

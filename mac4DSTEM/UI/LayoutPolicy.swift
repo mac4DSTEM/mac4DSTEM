@@ -62,6 +62,16 @@ enum LayoutPolicy {
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110
 
+    /// The status bar's percentage label, reserved. Same failure mode as
+    /// `operationMetricsWidth` beside it: an unbounded `Text` wraps its own
+    /// digit onto a second line the instant the row gets tight (observed
+    /// during a run, screenshot `a5-running.png`), which is a container
+    /// changing shape under a live tick — the constraint-loop family, one
+    /// digit smaller. Sized to the widest string `Int(progress * 100)` can
+    /// produce, "100 %", measured in the same font by
+    /// `StatusBarMetricsTests`.
+    static let progressPercentWidth: CGFloat = 36
+
     /// The status bar's elapsed/throughput/ETA slot, reserved.
     ///
     /// Nothing inside a split's hosted content may repeatedly change its own
@@ -191,5 +201,16 @@ extension View {
     /// A preview image fills its column's width up to the one height cap.
     func thumbnailCapped() -> some View {
         frame(maxWidth: .infinity, maxHeight: LayoutPolicy.thumbnailMaximumHeight)
+    }
+
+    /// C4(a): a whole panel's parameter form disables as one unit while its
+    /// task is running, instead of repeating `appState.isBusy` at each of its
+    /// Sliders, Steppers, TextFields, Pickers and Toggles — none of which
+    /// were disabled mid-run before this (§4 finding 1: "a map can land
+    /// already stale against the controls on screen"). Applied once, to the
+    /// panel body `MapSettings`/`PhaseSettings`/`PrepareSettings`/
+    /// `ImagingSettings` return, not to each control.
+    func disabledWhileRunning(_ appState: AppState) -> some View {
+        disabled(appState.isBusy)
     }
 }

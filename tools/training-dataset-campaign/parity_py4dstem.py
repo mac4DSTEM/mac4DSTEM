@@ -52,6 +52,12 @@ import numpy as np
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "References" / "py4DSTEM-dev"))
 
+# The reference is the lock, not whatever py4DSTEM the interpreter has
+# (decisions.md, 2026-09-07): prefer References/py4DSTEM-dev once fetched.
+import pathlib as _pathlib, sys as _sys
+_LOCK = _pathlib.Path(__file__).resolve().parents[2] / "References" / "py4DSTEM-dev"
+if (_LOCK / "py4DSTEM" / "version.py").exists():
+    _sys.path.insert(0, str(_LOCK))
 import py4DSTEM
 from emdfile import PointList
 from py4DSTEM.process.strain.latticevectors import (

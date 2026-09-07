@@ -57,4 +57,14 @@ final class ActivityLog {
         f.dateFormat = "HH:mm:ss"
         return f
     }()
+
+    /// The row a `ScrollViewReader` should scroll to for a log holding
+    /// `count` lines — the newest one, or none for an empty log. Pulled out
+    /// so the output strip's `.onAppear` (the panel opening scrolled to the
+    /// top instead of the newest line) and its `.onChange` of the count can
+    /// share one rule instead of restating "`count - 1`, unless there is
+    /// nothing" at each call site.
+    static func scrollTarget(forCount count: Int) -> Int? {
+        count > 0 ? count - 1 : nil
+    }
 }

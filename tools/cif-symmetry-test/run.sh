@@ -15,21 +15,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-cif-symmetry-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-SRC="$REPO/mac4DSTEM/Core"
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" crystal
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "$SRC/Data/DiffractionPattern.swift" \
-  "$SRC/Analysis/OrientationResult.swift" \
-  "$SRC/Crystal/ScatteringFactors.swift" \
-  "$SRC/Crystal/Crystal.swift" \
-  "$SRC/Crystal/CrystalModel.swift" \
-  "$SRC/Crystal/CIFImport.swift" \
-  main.swift \
+  "${MAC4DSTEM_SOURCES[@]}" main.swift \
   -framework Accelerate
 
 "$WORK/harness"

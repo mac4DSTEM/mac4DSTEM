@@ -74,6 +74,7 @@ struct PrepareSettings: View {
         @Bindable var session = appState.calibrationSession
         let calibration = session.calibration
 
+        Group {
         PatternStatisticsSection()
 
         Section("Calibration") {
@@ -245,6 +246,8 @@ struct PrepareSettings: View {
                 }
             }
         }
+        }
+        .disabledWhileRunning(appState)
     }
 
     // MARK: - Readiness

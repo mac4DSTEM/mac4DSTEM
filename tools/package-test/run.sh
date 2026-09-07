@@ -1,11 +1,12 @@
 #!/bin/zsh
+# Builds the packages with `swift build`; tools/lib/sources.manifest has nothing to supply.
 # Clean Release packaging audit: embedded HDF5 closure, signatures,
 # sandbox/bookmark entitlements, and a bundle-only HDF5 read smoke test.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-package-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 # Sourced via $REPO, not $(dirname "$0"): this script cd's to its own directory

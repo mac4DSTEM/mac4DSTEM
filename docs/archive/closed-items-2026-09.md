@@ -194,3 +194,129 @@ is itself weak — vacuum-like positions in sim_Au, MgO's dense rings — the
 reference collapses and the cap saturates. The right remedy for WS₂-type
 data is a lower threshold per dataset, which the warning now says; a
 noise-referenced threshold would be a design pass, not a default flip.
+
+---
+
+## Four entries archived 2026-09-07 (C1): closed, refuted, or decisions rather than defects
+
+Each as it last stood in the live file. S17 and the sidebar drag crash lost
+their code and their tests to the AppKit retirement (`d5786e2`) and survive
+only as the constraint-loop rule; the width gate is a refuted approach, not a
+defect; the cross-frame export is a recorded S10 decision. What each asked of
+the owner — driving a divider — is C3 of `consolidation-plan.md`.
+
+### (archived 2026-09-07) S17 sidebar intermittent — archived, its test is gone
+`SidebarLayoutTests` and the `ContentView` column publisher the whole
+observation log measured were deleted with the AppKit window (`d5786e2`), so
+the log cannot be extended and the fault cannot recur in the same place. The
+full record — 2 of 5, then 0 of 14, then 3 of 4, and the 810.5 pt against
+786 pt it always failed at — is in [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md). What survives it is the rule in
+the constraint-loop entry below. Kept live only as the name S17, which other
+entries still cite.
+
+### (archived 2026-09-07) Sidebar drag crash — mechanism found and removed 2026-09-03, owner's drive owed
+Exception (owner, Xcode console): `NSGenericException: The window has been
+marked as needing another Update Constraints in Window pass, but it has
+already had more … passes than there are views in the window`, after a
+sidebar drag; the sidebar at ~60pt with its content laid out at full width.
+Reproduced on the demo fixture with real mouse events: column 92pt, content
+305pt wide at x = −213. Mechanism, measured in-process: SwiftUI's
+`NavigationSplitView` owned the sidebar's split item and rewrote its
+minimum to 140 on every update, while the declared 250 constrained only the
+content; a drag shrank the column under content that could not shrink and
+the loop guard threw. Refuted on the way: the hard frame belt (crash
+reproduced without it), the policy "never applying" (it applied and was
+overwritten). Fix: the columns are AppKit's (`ColumnSplitController`, an
+`NSSplitViewController` with sidebar/inspector items; hosted content with
+`sizingOptions = []` so it never sizes the column). Live drive 2026-09-03:
+drag past the minimum collapses, Show Tools reopens at the old width, a
+560pt sidebar squeezes the inspector first, no exception.
+**2026-09-04: the fix described above no longer exists.** `d5786e2` deleted the
+AppKit shell, `ColumnSplitController` with it; the columns are a SwiftUI
+`NavigationSplitView` now. So the drive this entry asks for cannot be performed
+as written — dragging today exercises different code. What is worth carrying
+forward is the MECHANISM, not the fix: a split rewriting a hosted child's
+minimum under content that cannot shrink, which is the constraint-loop rule
+below. Kept live rather than archived only because the owner has still never
+driven a column divider on the rebuilt window.
+
+### (archived 2026-09-07) A unit-level column-width gate is not possible — falsified 2026-09-04
+`d5786e2` deleted both width-range gates, so nothing gates a column's width and
+this repo keeps finding truncation defects there. **Refuted before it was
+built.** A probe hosted `PrepareSettings` (250 pt), `WorkspaceSidebar` (190 pt)
+and `WorkspaceInspector` (280 pt) in an `NSHostingView` and measured
+`fittingSize.width` and the worst descendant-`NSView` overflow; then a
+150-character section label — impossible in 250 pt — was injected and it re-ran.
+**Both runs byte-identical**: `fittingWidth=1103.0 worstOverflow=0.0`. SwiftUI
+draws `Text` into layers and makes no `NSView` per label, so only real controls
+appear; the deleted gate had the same hole (`controls(_:)` collected
+`NSControl`s). `fittingSize` is no substitute — 1103 pt for a form that fits,
+0 pt for the sidebar `List`. Anything that catches a long label must rasterise
+or drive the app. Owner: re-open only with a measurement that survives the
+injected-label mutation.
+
+### (archived 2026-09-07) Cross-frame recipe export refuses rather than composing
+The other half of this entry is CLOSED and archived: `applySessionCalibration`
+no longer adopts a saved calibration verbatim — it asks
+`SessionCalibrationFramePolicy.decide` (`AppState.swift:2887`), added
+2026-09-01, pinned by `SessionCalibrationFramePolicyTests` and
+`SessionCalibrationTranslationTests`. What survives is not a wrong number but a
+feature gap, so it moves out of the Science lane: `ResultExport.exportableRecipe`
+REFUSES, with a reason in the export status line, when the recorded frame is not
+the live view — a three-frame composition (recorded → source → exported) needs a
+transform `ReplayFrameTransform` does not have. Recorded as an S10 decision, not
+a defect. Owner: unclaimed.
+
+### (archived 2026-09-07) Four Python scripts import py4DSTEM outside the lock (2026-09-07)
+`tools/calibration-test/make_real_fixture.py`, `make_origin_maps_fixture.py`
+and `tools/training-dataset-campaign/{parity_py4dstem,verify_py4dstem}.py`
+import whatever `py4DSTEM` the interpreter has (0.14.17 in the env here)
+instead of the lock `References/py4DSTEM-dev` (0.14.19) that every gated
+`run.sh` puts on `PYTHONPATH`. The reference is the lock (`decisions.md`,
+2026-09-07). Fix: export `PYTHONPATH` in their runners; regenerate no fixture
+until a diff says it matters. Owner: C2 (a `run.sh` touch).
+**Closed 2026-09-07 (C2):** each of the four inserts `References/py4DSTEM-dev`
+at the head of `sys.path` when the lock is fetched, so the script and its
+runner agree without a `PYTHONPATH` export. No fixture regenerated.
+
+### (archived 2026-09-07) UI review (Fable, 2026-09-04) — labels that can misstate a number — fixed in code, drive owed
+Nothing found was a wrong computed value; every finding was a LABEL on a
+correct one. (a) axis order and (c) byte sizes fixed 2026-09-04; (b) pattern
+statistics named for what is on screen, (d) comparison panels carry a
+colorbar with range, units and a zero mark, (e) the cursor readout prints
+four significant digits, (f) one staleness verdict (`TaskProductState`) on
+the sidebar, the inspector and the maps computed from stale disks, plus the
+two minors (no "px" under a physical sampling; no invented disk radius
+without a kernel) — all 2026-09-05, six unit tests, **unverified on
+screen**. Owner: the owner's drive (C3).
+
+## Verification debt
+**Closed 2026-09-07 (C3, agent drive):** (b), (d), (e) and the two minors seen on screen (`shots-c3/a1-launch.png`, `a4b-divider-back.png`); (f) staleness not yet provoked — carried in the C3 leftovers entry.
+
+### (archived 2026-09-07) Sidecar contents moved to the LEFT sidebar — done in code, UNVERIFIED ON SCREEN (2026-09-04)
+Moved 2026-09-04 (owner asked for it on release night).
+`Section("Saved session sidecar")` is gone from `WorkspaceInspector`; its
+filename row, Calibration, BraggVectors, the saved-result rows, Apply Saved
+Controls and Change…/Ignore… render in `WorkspaceSidebar`'s
+`Section("Session")`. Info keeps only the unreadable / does-not-fit sections.
+Builds clean, no test names the moved identifiers. **The one judgement call,
+the owner's to overrule:** Remove is each result row's context menu, not a
+second visible row per result as Info had it — right-click is the
+source-list idiom. Sidebar rows have no width, so one caption line survives
+and the rest is on `.help`. No gate can see any of this; the context menu has
+never been opened by anyone. Owner: the owner's drive (C3).
+**Closed 2026-09-07 (C3, agent drive):** the rows and the reopen seen (`shots-c3/b3b-sidebar.png`, `b3d-reopened.png`); the Remove context menu stays in the C3 leftovers entry.
+
+### (archived 2026-09-07) Status-bar elapsed / throughput / ETA — rebuilt, NOT yet driven (2026-09-04)
+Owner: those three numbers belong beside the progress bar, not only in the
+inspector's Performance tab. Built, reverted the same day for the crash
+above, rebuilt in a reserved slot: `LayoutPolicy.operationMetricsWidth`, a
+constant frame the text truncates inside, no `.fixedSize()`, held for the
+whole operation so an appearing rate or ETA moves nothing.
+`OperationMetricsFormat.line` composes it for both surfaces.
+`StatusBarMetricsTests` pins what it says and measures the widest line the
+formatter can produce against the constant in the same font; all four tests
+were broken first. **What is left is the drive**: only a real dataset
+exercises it — the demo cube finishes faster than the one-second tick.
+Owner: the owner's drive (C3).
+**Closed 2026-09-07 (C3, agent drive):** the slot holds elapsed and the progress bar (`shots-c3/a5-running.png`); the `%` wrap is its own presentation observation.

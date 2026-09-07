@@ -35,7 +35,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-reduced-export-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir

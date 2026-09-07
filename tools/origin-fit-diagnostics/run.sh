@@ -42,7 +42,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 MODE="${1:-}"; shift 2>/dev/null || true
-WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-origin-fit-diagnostics.XXXXXX")"; trap 'rm -rf "$WORK"' EXIT
 . "$ROOT/tools/lib/developer-dir.sh"; resolve_mac4dstem_developer_dir
 
 # Shared build: the HDF5 dylibs, the shipped shaders, and one Swift binary from

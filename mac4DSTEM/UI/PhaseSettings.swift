@@ -30,20 +30,23 @@ struct PhaseSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        switch appState.navigation.analysisMode {
-        case .dpc:
-            PatternStatisticsSection()   // DPC works from the live CBED
-            DPCSettingsSection()
-        case .singleslicePtychography:
-            // v2.5 step 7a: its own task, no parallax stage in front of it.
-            SingleslicePtychographySection()
-        case .ptychography:
-            ParallaxStageSections()
-            ParallaxProductSection()
-            ParallaxRunDetailsSection()
-        default:
-            EmptyView()
+        Group {
+            switch appState.navigation.analysisMode {
+            case .dpc:
+                PatternStatisticsSection()   // DPC works from the live CBED
+                DPCSettingsSection()
+            case .singleslicePtychography:
+                // v2.5 step 7a: its own task, no parallax stage in front of it.
+                SingleslicePtychographySection()
+            case .ptychography:
+                ParallaxStageSections()
+                ParallaxProductSection()
+                ParallaxRunDetailsSection()
+            default:
+                EmptyView()
+            }
         }
+        .disabledWhileRunning(appState)
     }
 }
 
@@ -214,7 +217,13 @@ private struct SingleslicePtychographySection: View {
             } label: {
                 Label("Reconstruct Object", systemImage: "circle.hexagongrid")
             }
-            .disabled(appState.isBusy)
+            // C4(a): was `appState.isBusy` only — this panel button bypassed
+            // the same five-calibration gate the toolbar's primary action
+            // asks for `.singleslicePtychography` (§4 finding 2).
+            .disabled(!ProductWorkflow.mayRun(
+                .singleslicePtychography,
+                readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+            ))
             .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
         }
     }
@@ -242,7 +251,14 @@ private struct ParallaxStageSections: View {
             } label: {
                 Label("Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle")
             }
-            .disabled(appState.isBusy)
+            // C4(a): was `appState.isBusy` only — this entry point bypassed
+            // the same five-calibration gate the toolbar asks for
+            // `.ptychography` (§4 finding 2); every later stage guards on the
+            // previous stage's own in-memory product, which cannot exist
+            // unless this one already ran with calibration satisfied.
+            .disabled(!ProductWorkflow.mayRun(
+                .ptychography, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+            ))
         }
         stageSection(2, "Align bright-field stack") {
             Button {

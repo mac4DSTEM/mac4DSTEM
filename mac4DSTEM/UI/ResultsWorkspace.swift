@@ -101,7 +101,9 @@ struct ResultsWorkspace: View {
                 Label("Save to Results", systemImage: "archivebox")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(appState.isBusy)
+            // C4(a): the sidecar-rewrite gate, beside busy — see
+            // `SaveResultButton` in `WorkspaceView.swift`.
+            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
             .accessibilityIdentifier("result.saveSession")
         }
         .padding()

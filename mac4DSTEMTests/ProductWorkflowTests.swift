@@ -217,6 +217,37 @@ final class ProductWorkflowTests: XCTestCase {
         else { return XCTFail("ACOM material should resolve in its own panel") }
     }
 
+    /// C4(a): the one composition every panel run button binds to instead of
+    /// re-deriving all or part of it — busy always wins, then readiness.
+    /// "Reconstruct Object" and "Prepare Parallax Preview" used to check only
+    /// `isBusy` and ran ahead of the toolbar's own five-calibration gate
+    /// (`docs/consolidation-plan.md` §4 finding 2); this pins the shared
+    /// function both now call.
+    func testMayRunComposesBusyThenReadinessAndNothingElse() {
+        let unmet = ProductWorkflowReadiness()
+        XCTAssertFalse(ProductWorkflow.mayRun(.strain, readiness: unmet, isBusy: false),
+                       "no Bragg vectors yet")
+        XCTAssertFalse(ProductWorkflow.mayRun(.strain, readiness: unmet, isBusy: true))
+
+        let ready = ProductWorkflowReadiness(hasBraggVectors: true)
+        XCTAssertTrue(ProductWorkflow.mayRun(.strain, readiness: ready, isBusy: false))
+        XCTAssertFalse(ProductWorkflow.mayRun(.strain, readiness: ready, isBusy: true),
+                       "busy always wins, however ready the task is")
+
+        let fullCalibration = ProductWorkflowReadiness(
+            hasOriginProbe: true, hasRotation: true, hasQScale: true,
+            hasRScale: true, hasVoltage: true
+        )
+        XCTAssertTrue(ProductWorkflow.mayRun(.singleslicePtychography, readiness: fullCalibration, isBusy: false))
+        XCTAssertFalse(ProductWorkflow.mayRun(.singleslicePtychography, readiness: unmet, isBusy: false),
+                       "missing calibration blocks single-slice ptychography exactly as it blocks parallax")
+        XCTAssertFalse(ProductWorkflow.mayRun(.ptychography, readiness: unmet, isBusy: false))
+
+        // A task with no prerequisites is gated by busy alone.
+        XCTAssertTrue(ProductWorkflow.mayRun(.virtualDetector, readiness: unmet, isBusy: false))
+        XCTAssertFalse(ProductWorkflow.mayRun(.virtualDetector, readiness: unmet, isBusy: true))
+    }
+
     func testRecommendedFlowMovesTowardAReusableResult() {
         XCTAssertEqual(
             ProductWorkflow.recommendedNextArea(calibrationReady: false, hasResult: false),

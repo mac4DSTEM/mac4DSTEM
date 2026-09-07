@@ -137,7 +137,20 @@ struct WorkspaceView: View {
                 .padding(.vertical, 4)
             }
             .onChange(of: appState.activityLog.messages.count) {
-                proxy.scrollTo(appState.activityLog.messages.count - 1, anchor: .bottom)
+                if let target = ActivityLog.scrollTarget(forCount: appState.activityLog.messages.count) {
+                    proxy.scrollTo(target, anchor: .bottom)
+                }
+            }
+            .onAppear {
+                // `.onChange` never fires the first time the panel appears,
+                // so without this the strip opens scrolled to its top. The
+                // rows from `ForEach` may not exist yet on this same tick,
+                // so the scroll is deferred a runloop turn rather than run
+                // inline.
+                guard let target = ActivityLog.scrollTarget(forCount: appState.activityLog.messages.count) else { return }
+                DispatchQueue.main.async {
+                    proxy.scrollTo(target, anchor: .bottom)
+                }
             }
         }
         // No ground of its own: the divider above it and the window's own
@@ -255,7 +268,10 @@ struct PrimaryActionButton: View {
             else if !appState.calibrationSession.calibration.hasRotation { "Measure R–Q Rotation" }
             else { nil }
         case .image:
-            "Update Image"
+            // C4(a): every other task's title is its own verb — "Detect All
+            // Disks", "Compute Strain", "Run DPC" — imaging's was the one
+            // holdover generic label.
+            "Compute Image"
         case .map:
             switch appState.navigation.analysisMode {
             case .disks: "Detect All Disks"
@@ -271,7 +287,11 @@ struct PrimaryActionButton: View {
             else if appState.parallaxHigherOrderFit == nil { "Fit Aberrations" }
             else if appState.parallaxCorrection == nil { "Correct Phase" }
             else if appState.parallaxSubpixel == nil { "Upsample BF" }
-            else { "Reconstruction Ready" }
+            // C4(a): every parallax stage is complete — readiness is already
+            // shown by the stage checklist's own checkmarks
+            // (`ParallaxStageSections`), so the toolbar offers no button
+            // rather than a permanently disabled "Reconstruction Ready" one.
+            else { nil }
         case .results:
             nil
         }
@@ -307,12 +327,10 @@ struct PrimaryActionButton: View {
                 readiness: appState.productWorkflowReadiness
             ) else { return false }
         }
-        if appState.navigation.workspaceArea == .reconstruct,
-           appState.navigation.analysisMode == .ptychography {
-            // Parallax staging gates only its own chain — DPC is a plain run
-            // and must not inherit this.
-            return appState.parallaxCorrection == nil || appState.parallaxSubpixel == nil
-        }
+        // C4(a): the parallax-complete special case that lived here is gone
+        // with "Reconstruction Ready" — `primaryActionTitle` is nil in
+        // exactly that state, so no button reaches this at all, and every
+        // reachable parallax title already implies the chain is unfinished.
         return true
     }
 
@@ -481,10 +499,16 @@ struct StatusBar: View {
         @Bindable var navigation = appState.navigation
 
         HStack(spacing: 12) {
+            // One line, truncating: at ~1080 pt window width this used to
+            // wrap onto a second line and grow the bar's height with it —
+            // the strip has no bar of its own, so the message dictating its
+            // own height is a layout dependency this file otherwise refuses
+            // to take (see `operationMetrics` and the percentage above it).
             Text(appState.statusText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .accessibilityIdentifier("status.bar")
 
             Spacer(minLength: 12)
@@ -494,9 +518,16 @@ struct StatusBar: View {
                     ProgressView(value: appState.progress)
                         .frame(width: LayoutPolicy.inlineProgressWidth)
                     if let progress = appState.progress {
+                        // Reserved, not `.fixedSize()`: a ticking percentage
+                        // is exactly the kind of string that re-measures
+                        // itself into the constraint loop the metrics line
+                        // beside it already guards against (`LayoutPolicy`).
+                        // "100 %" is the widest the formatter produces.
                         Text("\(Int(progress * 100)) %")
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: LayoutPolicy.progressPercentWidth, alignment: .trailing)
                     }
                     // Elapsed, throughput and ETA, beside the bar they
                     // describe (owner, 2026-09-04). They were only in the
@@ -708,7 +739,11 @@ struct SaveResultButton: View {
             } label: {
                 Label("Save to Results", systemImage: "archivebox")
             }
-            .disabled(appState.isBusy)
+            // C4(a): was `appState.isBusy` only, so this was enabled and then
+            // refused through a modal after the click when the session
+            // sidecar could not be rewritten (§4 finding 2). The `if` above
+            // already requires `displayedProduct != nil` — the thing to save.
+            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
             .help("Keeps the displayed result with this dataset, in its session "
                   + "sidecar. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")

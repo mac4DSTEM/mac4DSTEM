@@ -20,19 +20,22 @@ struct MapSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        switch appState.navigation.analysisMode {
-        case .disks:
-            Section("Disk detection") {
-                DiskDetectionRows()
+        Group {
+            switch appState.navigation.analysisMode {
+            case .disks:
+                Section("Disk detection") {
+                    DiskDetectionRows()
+                }
+                AdvancedDiskDetectionSection()
+            case .strain:
+                StrainSection()
+            case .acom:
+                ACOMSections()
+            default:
+                EmptyView()
             }
-            AdvancedDiskDetectionSection()
-        case .strain:
-            StrainSection()
-        case .acom:
-            ACOMSections()
-        default:
-            EmptyView()
         }
+        .disabledWhileRunning(appState)
     }
 }
 
@@ -373,7 +376,12 @@ private struct StrainSection: View {
             } label: {
                 Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
             }
-            .disabled(appState.isBusy || !appState.hasCurrentBraggVectors)
+            // C4(a): was `appState.isBusy || !appState.hasCurrentBraggVectors`
+            // — `hasCurrentBraggVectors` is exactly the readiness this button
+            // now asks for instead, so the two paths cannot drift again.
+            .disabled(!ProductWorkflow.mayRun(
+                .strain, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+            ))
 
             if appState.diskDetectionSettingsAreStale {
                 Text("Detection settings changed — rerun Detect All Disks before strain.")
@@ -810,9 +818,14 @@ private struct ACOMSections: View {
 
 // MARK: - Shared rows and bindings
 
-/// A parameter slider row: the title and current value as the slider's own
-/// label. Not a `LabeledContent` — as a trailing value a slider collapses to
-/// its knob in a narrow column (measured 2026-09-03).
+/// A parameter slider row: the title above, the slider below, and the
+/// current value trailing the title in its own text — not stitched into one
+/// string. `"\(title), \(valueText)"` as the slider's label read "Correlation
+/// power, 1.00" and wrapped mid-label onto a second line at the inspector's
+/// width, with a stray trailing comma once it did. Not a `LabeledContent` —
+/// as a trailing value a slider collapses to its knob in a narrow column
+/// (measured 2026-09-03) — so the value sits beside the title instead, and
+/// the slider keeps the title alone as its accessibility label.
 private func parameterSliderRow(
     title: String,
     value: Binding<Float>,
@@ -820,8 +833,21 @@ private func parameterSliderRow(
     step: Float,
     valueText: String
 ) -> some View {
-    Slider(value: value, in: range, step: step) {
-        Text("\(title), \(valueText)")
+    VStack(alignment: .leading, spacing: 2) {
+        HStack {
+            Text(title)
+            Spacer(minLength: 8)
+            Text(valueText)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .font(.subheadline)
+        Slider(value: value, in: range, step: step) {
+            Text(title)
+        }
+        .labelsHidden()
+        .accessibilityLabel(title)
+        .accessibilityValue(valueText)
     }
 }
 

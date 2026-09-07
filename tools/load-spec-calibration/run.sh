@@ -7,8 +7,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-SRC="$REPO/mac4DSTEM/Core/Data"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-load-spec-calibration.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/developer-dir.sh"
@@ -23,19 +22,10 @@ for source in "$REPO"/mac4DSTEM/Shaders/*.metal; do
 done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" analysis calibration
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "$SRC/DatasetDescriptor.swift" \
-  "$SRC/DiffractionPattern.swift" \
-  "$SRC/FourDDataSource.swift" \
-  "$SRC/LoadSpecification.swift" \
-  "$SRC/Calibration.swift" \
-  "$SRC/CalibrationReReference.swift" \
-  "$SRC/FourDArray.swift" \
-  "$SRC/ResidentCube.swift" \
-  "$REPO/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift" \
-  "$REPO/mac4DSTEM/Core/Compute/MetalEngine.swift" \
-  "$REPO/mac4DSTEM/Core/Analysis/VirtualDetector.swift" \
-  main.swift \
+  "${MAC4DSTEM_SOURCES[@]}" main.swift \
   -framework Accelerate -framework Metal -framework MetalKit
 
 cd "$WORK"

@@ -16,6 +16,7 @@ struct ImagingSettings: View {
     var body: some View {
         @Bindable var appState = appState
 
+        Group {
         Section {
             // Segmented, with the geometry each choice applies as its glyph
             // (owner, 2026-09-04). The old sidebar used a menu because a
@@ -107,6 +108,8 @@ struct ImagingSettings: View {
                     .foregroundStyle(.secondary)
             }
         }
+        }
+        .disabledWhileRunning(appState)
     }
 
     /// The glyph for each geometry. Lives here rather than on the Core types

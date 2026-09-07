@@ -15,6 +15,9 @@
 - **Pane headers compress instead of clipping**, with an overflow menu for
   the controls that no longer fit, and the diffraction/real-space divider
   keeps its position across loads, trips to Results and reopening.
+- **`NOTICE` gains a machine-learned-models section**: no third-party model
+  weights are distributed; the AGPL `yolov8n.mlpackage` briefly in the Xcode
+  project was never in a shipped build and left the tree on 2026-09-07.
 
 ## Unreleased — the v2.6.0 science lane
 
@@ -184,9 +187,8 @@ release night.
 ## v2.5.0 — 2026-09-04
 
 Rehearse an analysis on a cropped or binned view, then promote it to the
-full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was tagged
-2026-09-02 and never built; the consolidation below supersedes it, and the tag
-stays as the pre-consolidation anchor.)
+full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was named
+2026-09-02 and never built; this release supersedes it.)
 
 ### What is new
 
@@ -303,7 +305,7 @@ reopen.
   detectors, dragged live on the diffraction pane.
 - **DPC / iDPC** — beam-deflection mapping and integrated projected phase,
   measured against fitted per-position origins.
-- **Bragg disk detection** — GPU cross-correlation with parabolic, pixel and
+- **Bragg disk detection** — cross-correlation (on the CPU; "GPU" here was never true — corrected 2026-09-07) with parabolic, pixel and
   Fourier (multicorr) subpixel refinement.
 - **Strain mapping** — reference region or whole-scan mean, automatic or manual
   g₁/g₂ basis, with basis consensus, fit residual, indexed fraction and

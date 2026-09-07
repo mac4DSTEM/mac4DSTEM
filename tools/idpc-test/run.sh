@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-idpc-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 . "$(dirname "$0")/../lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir

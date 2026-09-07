@@ -168,6 +168,32 @@ accessibility crash, recipe replay, the merge with its Gate B campaign; the
 picker default, whether Propose computes the Max pattern, the width
 convention, the area definition; the 250-px tiling decision.
 
+**Swift side at `18bb13b` (C1, read-only, 2026-09-07)** — the §2 rows left
+"cannot verify". Row 1 **confirmed**: `computePrecipitateDensity`
+(`AppState+Precipitates.swift:185-190`) counts `publishedProduct.validityMask`,
+the displayed product's mask, not `PrecipitateProduct.sourceValidity` (`:101`),
+so the denominator follows whatever is on screen. Row 2 **confirmed**:
+`isStale` exists on `DiffractionGroupsProduct` (`:53`) and nowhere on
+`PrecipitateProduct`. Row 3 **confirmed**: `ReplayPlan.swift` refuses on
+`kernel_source` (`:650-661`) and never reads `detector_class`, which only
+`AppState.swift:5022` writes. Row 5 **confirmed**:
+`DiskDisagreement.countDifferenceMap` (`AppState.swift:5075`) compares counts
+only. Row 8 **confirmed**: the branch's `decisions.md` step-3 entry
+(2026-09-07) cites "median difference 0 on the bullseye cube" as acceptance
+evidence. Row 10 **refuted in size, confirmed in kind**: the room is four UI
+files (646 lines; eight controls by grep, not ~255), with no overlay and no
+toolbar no-op found; `segmentPrecipitates` and `runDiffractionGroups` go
+through `Task.detached`, the other five run functions are synchronous on the
+main actor; and every `.failed(String)` the seven return is discarded at its
+call site (`PrecipitateSettings.swift:25,117`,
+`DiffractionGroupsSettings.swift:64`, `DiskLabelRows.swift:41,50`,
+`AIAnalysisSettings.swift:79`, `AppState.swift:1414-1415`) with no log call
+inside the three extension files — the C8 checklist stands. The branch's
+"Recommended verdict" and README ceiling sentence are struck by
+`branch-strike-18bb13b.patch` (C1's scratchpad; the owner applies and commits
+it on the branch). One §5 claim corrected: `ZoomPan.liveZoom` exists
+(`UI/ZoomPan.swift:22`); the "zero hits" grep was for the qualified name.
+
 ## 3. The learned disk detector — where the science stands
 
 **Proven on the branch (reproducible by a reader):** the simulator and
@@ -484,7 +510,7 @@ accepted with a 256-px retrain owed (C6); the AGPL package stays in
 history, `main` is not rewritten; no `v2.0.0` tag — the claim is struck in
 C1.
 
-**C1 — docs truth, one session, docs only.** Fix every item in §5. Move
+**C1 — docs truth, one session, docs only — CLOSED 2026-09-07 (`inventory` exit 0 after the owner's two steps; the branch strike is commit `219ae54`).** Fix every item in §5. Move
 §3a's decision transcript, Core AI notes and evidence block to
 `docs/archive/v3/learned-detector-2026-09-06.md` verbatim (nothing is lost;
 the owner's "forget no info" holds in the archive) and leave a ≤ 60-line
@@ -507,7 +533,9 @@ comments (comments only). *Exit:* `run-tests.sh inventory` exit 0 with a
 retained log; live markdown down ≥ 600 lines; no sentence in a live doc
 contradicts another (the list in §5 is the checklist).
 
-**C2 — hygiene, half a session, one build.** Land `e0e0dc8`'s removal of
+**C2 — hygiene — EXECUTED 2026-09-07 (evidence in `status.md`'s gate table;
+`s13-q-calibration` was already gone from both remotes; the harness rewrite
+added nine manifest groups and an inventory rule, `decisions.md`).** Land `e0e0dc8`'s removal of
 the YOLO package and its four pbxproj lines on `main`; a `NOTICE` line for
 the abTEM/YOLO licence table §3a owes; delete `s13-q-calibration`,
 `tools/ui-drive/`, `stage-tb1-ws2-fixture`, `ui-smoke-test`, the
@@ -520,14 +548,14 @@ and `inventory` exit 0 **on `main`'s current tree** — no quoted gate has
 built anything after `c7e2016` — with logs; `git ls-files | grep -c yolov8n`
 is 0.
 
-**C3 — the owner's drive, one sitting, before any UI change.** The six
+**C3 — the owner's drive, one sitting, before any UI change — DELEGATED to an agent drive 2026-09-07 (owner; `decisions.md`); executed except four items that need the owner's hands (`status.md` handoff item 1). C4 may start: the findings are in `open-items.md`.** The six
 `status.md` rows marked unverified on screen, light appearance, every
 divider, the Session context menu's Remove, a cropped save → quit → reopen.
 Findings enter through `/diagnose`; nothing is fixed during the sitting.
 *Exit:* no row in `status.md` says "unverified on screen"; each finding is
 an `open-items.md` entry with a reproducing observation.
 
-**C4 — UI coherence, two to three sessions, presentation only.** The three
+**C4 — UI coherence, two to three sessions, presentation only — STARTED 2026-09-07 night: (a) landed as slice 2 plus the C3 presentation observations as slice 1 (`status.md` rows); (b) and (c) open.** The three
 simplifications in §4, in order: (a) `ProductWorkflow.readiness` plus
 `gates.sidecarRewriteRefusal()` become the *only* enable logic — every
 panel run/save button binds to it or is deleted; "Update Image" and
@@ -544,7 +572,9 @@ strip; Remove and the two Resets confirm or undo. Tests broken first; the
 owner drives at the end. *Exit:* the owner's drive of every panel with no
 new finding of classes 1–8 in §4.
 
-**C5 — a standing rule from C1 on: `AppState` never nets positive.** Replace
+**C5 — EXECUTED 2026-09-07: the rule is in `inventory` and `CLAUDE.md`, and the
+first extraction (overlays, −93 lines) landed; the standing part continues one
+extraction per month (`status.md`).** Replace
 "a session that touches `AppState` moves one responsibility out" (waived
 four times in a row) with a rule `inventory` can measure: the line count of
 `AppState.swift` + `Support/ResultExport.swift` does not grow in any commit
@@ -554,7 +584,10 @@ on `main`. One extraction per month, in §4's order: overlays →
 `Session/`. Each with a green boundary and a save/reopen test, as the
 process doc asks.
 
-**C6 — the detector made honest, on the branch; Python and labels only.**
+**C6 — the detector made honest, on the branch; Python and labels only —
+PYTHON SIDE EXECUTED 2026-09-07 on a worktree (`status.md` handoff: the
+patch, the four owner steps); the labels, the retrain, the table and the
+verdict are the owner's.**
 What §2a leaves open: one truth rule across target, validation and
 evaluation; the textured CLI default and an ingredients builder; a tolerance
 and a non-zero exit in `check_export.py`; count scaling for float cubes; a

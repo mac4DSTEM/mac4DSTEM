@@ -519,8 +519,9 @@ ceiling, S13 measures where to put it rather than picking a round number.
 
 ## 8. Gate D, 2026-09-05 — the per-pattern minimum radius (open item (a))
 
-**Pre-registered** (scratchpad `qcal-gate-d-preregistration.md`, written
-before the run). Diagnosis: `estimate` took `radii.first` at every position;
+**Pre-registered** before the run, in that session's scratchpad; the text is
+not retained in the repo — its content is the diagnosis, refutation and
+prediction that follow. Diagnosis: `estimate` took `radii.first` at every position;
 the innermost shell is k symmetry equivalents of one radius, each with radial
 noise σ, and the minimum of k is biased low by c_k·σ (c_4 1.03, c_6 1.27).
 Refuting observation: a min-versus-cluster shift under 0.3 % on either real
@@ -566,7 +567,8 @@ the 0.26 px origin-fit offset on WS₂ is its own open item.
 
 ## 9. Gate D, 2026-09-05 — the origin measurement sat 0.26 px off the beam
 
-**Pre-registered** (scratchpad `origin-offset-gate-d-preregistration.md`).
+**Pre-registered** before the run, in that session's scratchpad (not
+retained in the repo; its content is H1–H3 and the prediction below).
 Observation (the §8 refuter): plane-fitted origin (63.996, 63.996) on
 `polycrystal_2D_WS2` against a beam centre of mass of (63.738, 63.738).
 Three hypotheses — H1 the per-position MEASUREMENT truncates the beam, H2

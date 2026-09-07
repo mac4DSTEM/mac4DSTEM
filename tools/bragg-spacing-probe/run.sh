@@ -31,7 +31,7 @@ fi
 DATASET="${1:A}"
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-bragg-spacing-probe.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 . "$REPO/tools/lib/developer-dir.sh"
@@ -46,19 +46,10 @@ for source in "$REPO"/mac4DSTEM/Shaders/*.metal; do
 done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
-SRC="$REPO/mac4DSTEM/Core"
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" core
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/probe" \
-  "$SRC/Data/HDF5Types.swift" "$SRC/Data/H5Reader.swift" \
-  "$SRC/Data/DatasetDescriptor.swift" "$SRC/Data/DiffractionPattern.swift" \
-  "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" "$SRC/Data/ResidentCube.swift" "$SRC/Data/LoadSpecification.swift" \
-  "$SRC/Data/Calibration.swift" "$SRC/Data/DisplayedProduct.swift" \
-  "$SRC/Data/BraggVectorEMDWriter.swift" \
-  "$SRC/Data/SessionReplayRecord.swift" \
-  "$SRC/Compute/AnalysisCancellationToken.swift" "$SRC/Compute/FFT1D.swift" \
-  "$SRC/Compute/FFT2D.swift" "$SRC/Compute/MatrixDFTCorrelation.swift" \
-  "$SRC/Compute/MetalEngine.swift" \
-  "$SRC/Analysis/ProbeKernel.swift" "$SRC/Analysis/DiskDetection.swift" \
-  main.swift \
+  "${MAC4DSTEM_SOURCES[@]}" main.swift \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/probe" 2>/dev/null
 

@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-acom-groundtruth.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 . "$(dirname "$0")/../lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
@@ -19,16 +19,10 @@ if (( $# < 1 )); then
 fi
 INPUT="${1:A}"
 
-SRC="$ROOT/mac4DSTEM/Core"
+. "$ROOT/tools/lib/sources.manifest"
+mac4dstem_sources "$ROOT" acom
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "$SRC/Data/DatasetDescriptor.swift" "$SRC/Data/DiffractionPattern.swift" \
-  "$SRC/Compute/AnalysisCancellationToken.swift" "$SRC/Compute/FFT1D.swift" \
-  "$SRC/Compute/MetalEngine.swift" \
-  "$SRC/Analysis/OrientationResult.swift" \
-  "$SRC/Crystal/ScatteringFactors.swift" "$SRC/Crystal/Crystal.swift" \
-  "$SRC/Crystal/OrientationPlan.swift" "$SRC/Crystal/OrientationMatcher.swift" \
-  "$ROOT/tools/acom-groundtruth/BraggTypes.swift" \
-  "$ROOT/tools/acom-groundtruth/main.swift" \
+  "${MAC4DSTEM_SOURCES[@]}" "$ROOT/tools/acom-groundtruth/main.swift" \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null
 

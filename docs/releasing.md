@@ -8,7 +8,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 ## Release contract
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
-- Version/build: `2.5` / `4`. **The v2.5.0 parking is lifted** (owner, 2026-09-04): the UI rework it waited on landed, and v2.5.0 is being cut. Build 3 is the superseded 2026-09-03 artefact, which is why this is 4. A landed science number cuts v2.6.0 instead (`docs/status.md`). v2.0.0 was tagged 2026-09-02 and never built; the tag stays as the pre-consolidation anchor
+- Version/build: `2.5.1` / `5`, shipped 2026-09-04 (v2.5.0 was `2.5` / `4` the same day; build 3 is its superseded 2026-09-03 artefact). A driven bug cuts v2.5.x, a landed science number v2.6.0, the first feature v3.0 (`docs/status.md`). v2.0.0 was named 2026-09-02, never built, superseded by v2.5.0
 - Minimum system: **macOS 14** (`MACOSX_DEPLOYMENT_TARGET = 14.0`,
   `Package.swift: .macOS(.v14)`, lowered from 26 on 2026-09-04 —
   `decisions.md`). Published as the requirement it is; development and testing

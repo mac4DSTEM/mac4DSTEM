@@ -7,8 +7,7 @@
 set -e
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
-SRC="$REPO/mac4DSTEM/Core/Data"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-calibration-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 # The bundled dylibs' signatures don't validate for ad-hoc-built tools; use
@@ -22,9 +21,11 @@ cc make_fixture.c "$WORK/libhdf5.dylib" -Wl,-rpath,"$WORK" -o "$WORK/make_fixtur
 codesign -f -s - "$WORK/make_fixture" 2>/dev/null
 "$WORK/make_fixture" "$WORK/attrs.h5" "$WORK/datasets.h5"
 
+. "$REPO/tools/lib/sources.manifest"
+mac4dstem_sources "$REPO" readers calibration
 xcrun swiftc -package-name mac4DSTEM -o "$WORK/harness" main.swift \
-  "$SRC/HDF5Types.swift" "$SRC/H5Reader.swift" "$SRC/FourDDataSource.swift" "$SRC/LoadSpecification.swift" "$SRC/DatasetDescriptor.swift" \
-  "$SRC/Calibration.swift"
+  "${MAC4DSTEM_SOURCES[@]}" \
+  -framework Accelerate
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
 # H5Reader's last dlopen fallback is the plain name "libhdf5.dylib"; run from

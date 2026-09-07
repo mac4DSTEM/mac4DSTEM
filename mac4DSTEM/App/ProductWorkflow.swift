@@ -381,6 +381,8 @@ enum ProductWorkflow {
     enum TaskReadiness: Equatable {
         case ready
         case unavailable(reason: String)
+
+        var isReady: Bool { self == .ready }
     }
 
     static func readiness(
@@ -389,6 +391,18 @@ enum ProductWorkflow {
         let unmet = prerequisites(for: mode, readiness: readiness)
         return unmet.isEmpty ? .ready
             : .unavailable(reason: unmet.joined(separator: "; "))
+    }
+
+    /// C4(a): the ONE composition every run/compute control binds to — this
+    /// task's readiness, plus "not already running", and nothing else. A
+    /// panel button that checked its own fragment of a prerequisite (or
+    /// skipped the check `PrimaryActionButton` already makes) is the exact
+    /// drift `docs/consolidation-plan.md` §4 finding 2 found between the
+    /// toolbar and "Reconstruct Object" / "Prepare Parallax Preview".
+    static func mayRun(
+        _ mode: AnalysisMode, readiness state: ProductWorkflowReadiness, isBusy: Bool
+    ) -> Bool {
+        !isBusy && readiness(for: mode, readiness: state).isReady
     }
 
     static func prerequisites(

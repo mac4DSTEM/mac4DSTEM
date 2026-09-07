@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-WORK="$(mktemp -d)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-residency-sweep.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 . "$ROOT/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
@@ -35,17 +35,12 @@ for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
 done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
-SRC="$ROOT/mac4DSTEM/Core"
 # No -parse-as-library: main.swift is top-level code with top-level `await`,
 # which that flag forbids (it wants a @main type instead).
+. "$ROOT/tools/lib/sources.manifest"
+mac4dstem_sources "$ROOT" readers analysis calibration
 xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" \
-  "$SRC/Data/HDF5Types.swift" "$SRC/Data/H5Reader.swift" \
-  "$SRC/Data/DatasetDescriptor.swift" "$SRC/Data/DiffractionPattern.swift" \
-  "$SRC/Data/FourDDataSource.swift" "$SRC/Data/FourDArray.swift" \
-  "$SRC/Data/ResidentCube.swift" "$SRC/Data/LoadSpecification.swift" "$SRC/Data/Calibration.swift" \
-  "$SRC/Compute/AnalysisCancellationToken.swift" "$SRC/Compute/MetalEngine.swift" \
-  "$SRC/Analysis/VirtualDetector.swift" \
-  "$ROOT/tools/residency-sweep/main.swift" \
+  "${MAC4DSTEM_SOURCES[@]}" "$ROOT/tools/residency-sweep/main.swift" \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
