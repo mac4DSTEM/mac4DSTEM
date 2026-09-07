@@ -9,7 +9,11 @@ Runs in the pinned py4DSTEM environment. Two claims, both must hold:
      subpixel poly) recovers the drawn centres: >= RECALL_MIN of the eligible truth within TOL px, and the matched
      residual's median is <= RESIDUAL_MEDIAN_MAX px (where a disk is found, it is where the truth says).
 Eligible truth = relative intensity >= ELIGIBLE_MIN and centre >= edgeBoundary + 2 px from every edge
-(the detector's own edge exclusion is not a simulator defect).
+(the detector's own edge exclusion is not a simulator defect). This check judges py4DSTEM at ITS
+settings (minRelativeIntensity 0.05), so it keeps the intensity rule; the net's truth rule is
+simulate.VISIBLE_MIN (C6, 2026-09-07) and is applied where the net is scored (evaluate.py). Measured
+2026-09-07 when this check was tried under the visibility rule: 207/230 visible disks = 0.9000,
+exactly the limit — py4DSTEM at these settings misses one visible fixture disk in ten.
 py4DSTEM is the reference here: no tools/ harness runs the app's detector on an arbitrary H5.
 
 --break <mode> applies a deliberate defect (see simulate.make_fixture) and must make this FAIL.
@@ -19,15 +23,19 @@ import argparse, hashlib, json, os, sys, warnings
 import numpy as np
 warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# The reference is the lock, not whatever py4DSTEM the interpreter has (decisions.md, 2026-09-07).
+_LOCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "References", "py4DSTEM-dev")
+if os.path.exists(os.path.join(_LOCK, "py4DSTEM", "version.py")):
+    sys.path.insert(0, os.path.abspath(_LOCK))
 import simulate as sm
 from py4DSTEM.braggvectors import Probe, find_Bragg_disks
 from py4DSTEM.process.utils import get_cross_correlation
 
 SETTINGS = dict(minPeakSpacing=8, edgeBoundary=6, minRelativeIntensity=0.05, subpixel="poly", sigma_cc=2, maxNumPeaks=70)
 TOL = 1.5          # px, match radius: poly refinement on a sigma-2 smoothed correlation of a tilted ring disk is not a 0.5 px measurement
-ELIGIBLE_MIN = 0.10
 RECALL_MIN = 0.90
 RESIDUAL_MEDIAN_MAX = 0.5   # px, where a disk is found it must be where the truth says
+ELIGIBLE_MIN = 0.10
 PORT_TOL = 1e-9    # relative to the correlation maximum
 
 ap = argparse.ArgumentParser()
@@ -39,7 +47,8 @@ z = np.load(os.path.join(a.fixture, "fixture.npz"))
 ex = json.load(open(os.path.join(a.fixture, "expected.json")))
 patterns, probe, centre, truth = z["patterns"], z["probe"].astype(np.float64), tuple(ex["probe_centre"]), ex["truth"]
 digest = hashlib.sha256(patterns.tobytes()).hexdigest()
-print(f"fixture {patterns.shape} sha256 {digest[:16]} (expected {ex['patterns_sha256'][:16]})")
+import py4DSTEM
+print(f"fixture {patterns.shape} sha256 {digest[:16]} (expected {ex['patterns_sha256'][:16]}); py4DSTEM {py4DSTEM.__version__} from {os.path.dirname(py4DSTEM.__file__)}")
 ok = digest == ex["patterns_sha256"]
 if a.break_mode:
     print(f"BREAK MODE: {a.break_mode} — this run must FAIL")

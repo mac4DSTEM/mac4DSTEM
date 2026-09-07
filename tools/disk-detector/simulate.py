@@ -343,9 +343,35 @@ def probe_radius(probe: np.ndarray, centre) -> float:
 # Model inputs and targets (the one normalisation, shared with step 4)
 # ----------------------------------------------------------------------------
 
-def model_inputs(pattern: np.ndarray, probe: np.ndarray, correlation: np.ndarray) -> np.ndarray:
-    """(3,S,S) float32: log-scaled normalised pattern, normalised probe, normalised correlation."""
+# The ONE truth rule (C6, 2026-09-07): a truth centre counts as a disk the net is asked for, and
+# is scored against, when its visibility (`disk_visibility`) is at least this. The target's bump
+# amplitude is the continuous visibility; validation (train.fixed_set), the fixture check
+# (verify_fixture.py) and evaluation (evaluate.py) all take this same cut. Before C6 three rules
+# coexisted (target: continuous; validation: >= 0.5; evaluation: intensity >= 10 %), and no
+# recall or precision figure could be read against another.
+VISIBLE_MIN = 0.5
+
+# Count scaling for float cubes (C6, 2026-09-07; the Swift side mirrors it at C7). `log1p` is
+# linear on a pattern whose values are fractions (polycrystal_2D_WS2 sums to 0.25), so such a
+# pattern reaches the net with none of the dynamic-range compression it was trained on. Rule: a
+# pattern whose maximum is at most 1 is a FRACTION of a nominal beam of NOMINAL_BEAM_COUNTS, and is
+# scaled so its maximum equals that (WS2: x ~1e6, the value the 2026-09-07 evaluation passed by
+# hand as --ws2-scale). Integer-valued and count-valued patterns (max > 1) are untouched.
+NOMINAL_BEAM_COUNTS = 2e4
+
+
+def to_counts(pattern: np.ndarray) -> np.ndarray:
     p = np.asarray(pattern, dtype=np.float64)
+    mx = float(p.max()) if p.size else 0.0
+    if 0.0 < mx <= 1.0:
+        return p * (NOMINAL_BEAM_COUNTS / mx)
+    return p
+
+
+def model_inputs(pattern: np.ndarray, probe: np.ndarray, correlation: np.ndarray) -> np.ndarray:
+    """(3,S,S) float32: log-scaled normalised pattern, normalised probe, normalised correlation.
+    The pattern goes through `to_counts` first (float cubes)."""
+    p = to_counts(pattern)
     p = np.log1p(np.maximum(p - p.min(), 0))
     p /= max(p.max(), 1e-12)
     q = np.asarray(probe, dtype=np.float64); q = q / max(q.max(), 1e-12)
@@ -530,7 +556,9 @@ def make_fixture(n: int = FIXTURE_N, seed: int = FIXTURE_SEED, break_mode: str |
             cen = cen[:, ::-1]
         patterns.append(np.clip(np.round(pat), 0, 65535).astype(np.uint16))
         truth.append(dict(index=i, centres=[[float(a), float(b)] for a, b in cen],
-                          intensities=[float(v) for v in inten], meta={k: (float(v) if not isinstance(v, list) else v) for k, v in s.meta.items()}))
+                          intensities=[float(v) for v in inten],
+                          visibility=[float(v) for v in s.visibility],   # the one truth rule: >= VISIBLE_MIN counts
+                          meta={k: (float(v) if not isinstance(v, list) else v) for k, v in s.meta.items()}))
     probe_out = probe.astype(np.float32)
     if break_mode == "wrong-probe":
         probe_out = np.roll(np.roll(probe_out, 4, axis=0), -3, axis=1)
@@ -551,12 +579,22 @@ def write_fixture(dirpath: str):
 if __name__ == "__main__":
     import argparse, os
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["fixture", "backgrounds"])
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "fixture"))
-    ap.add_argument("--bullseye"); ap.add_argument("--ws2")
+    ap.add_argument("command", choices=["fixture", "ingredients"])
+    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "fixture"),
+                    help="fixture: the directory; ingredients: the .npz path train.py's --ingredients takes")
+    ap.add_argument("--bullseye"); ap.add_argument("--ws2"); ap.add_argument("--n-each", type=int, default=96)
     a = ap.parse_args()
     if a.command == "fixture":
         write_fixture(a.out)
     else:
-        bg = collect_real_backgrounds(a.bullseye, a.ws2)
-        np.save(a.out, bg.astype(np.float32)); print("backgrounds", bg.shape, "->", a.out)
+        # The ingredients builder (C6, 2026-09-07): before it, no committed command built the npz the
+        # trainer needs, and the old `backgrounds` command built the 2026-09-06 texture-free medians.
+        # Backgrounds are TEXTURED by default: every disk the probe's own correlation finds is cut out.
+        if not (a.bullseye and a.ws2):
+            ap.error("ingredients needs --bullseye <calibrationData_bullseyeProbe.h5> and --ws2 <polycrystal_2D_WS2.h5>")
+        bp, bc = prepare_measured_probe(load_bullseye_probe(a.bullseye))
+        wp, wc = prepare_measured_probe(load_ws2_probe(a.ws2))
+        bg = collect_real_backgrounds(a.bullseye, a.ws2, n_each=a.n_each, probes={"bullseye": (bp, bc), "ws2": (wp, wc)})
+        np.savez_compressed(a.out, bullseye_probe=bp.astype(np.float32), bullseye_centre=np.array(bc), ws2_probe=wp.astype(np.float32),
+                            ws2_centre=np.array(wc), backgrounds=bg.astype(np.float32), textured=True)
+        print(f"ingredients: probes {bp.shape} {wp.shape}, {len(bg)} textured backgrounds -> {a.out}")

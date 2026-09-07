@@ -87,10 +87,20 @@ def run_coreai_subprocess(asset, x, prefer, function, workdir, state_probe=None)
     cmd = [sys.executable, os.path.abspath(__file__), "--worker", asset, prefer, xin, xout, function]
     if state_probe is not None:
         np.save(os.path.join(workdir, "probe.npy"), state_probe); cmd.append(os.path.join(workdir, "probe.npy"))
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
-    if r.returncode != 0 or not os.path.exists(xout):
+    for attempt in (1, 2):
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+        if r.returncode == 0 and os.path.exists(xout): break
         err = [l for l in (r.stderr + r.stdout).splitlines() if "Error" in l or "error" in l or "assertion" in l]
-        raise RuntimeError(f"exit {r.returncode}: " + (err[0][:300] if err else (r.stderr[-300:] or "no output")))
+        msg = err[0][:300] if err else (r.stderr[-300:] or "no output")
+        # The runtime's cache goes stale between processes (~/Library/Caches/coreai-cache: written by
+        # a specialisation in one client, then `load_function` in the next fails with the generic
+        # ObjC error; recorded 2026-09-06/07, seen again 2026-09-07 21:25 one call after a passing
+        # check). The Swift side purges its cache entry once and retries; this is the same remedy.
+        cache = os.path.expanduser("~/Library/Caches/coreai-cache")
+        if attempt == 1 and "GenericObjCError" in msg and os.path.isdir(cache):
+            stale = cache + f".stale-{time.strftime('%Y%m%d-%H%M%S')}"; os.rename(cache, stale)
+            print(f"  coreai cache stale ({msg[:80]}); moved to {stale}, retrying once", flush=True); continue
+        raise RuntimeError(f"exit {r.returncode}: " + msg)
     z = np.load(xout, allow_pickle=False)
     return {k: (z[k] if z[k].ndim else z[k].item()) for k in z.files}
 
@@ -103,6 +113,8 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--run", required=True); ap.add_argument("--batches", type=int, default=8)
     ap.add_argument("--prefer", nargs="+", default=["ane", "cpu", "gpu"])
     ap.add_argument("--skip-coreai", action="store_true"); ap.add_argument("--skip-coreml", action="store_true")
+    ap.add_argument("--tolerance", type=float, default=0.1, help="max |heatmap diff| vs PyTorch float16 any runtime may show (the heatmap is in [0,1]; run3's ANE showed 0.062 against a 0.009 float16 floor)")
+    ap.add_argument("--min-peak-recall", type=float, default=0.98, help="fraction of numpy's peaks an in-graph peak output must reproduce within 1 px")
     a = ap.parse_args()
     meta = json.load(open(os.path.join(a.run, "export", "export.json")))
     B = meta["batch"]; x = load_inputs(a.run, B, a.batches)
@@ -164,8 +176,24 @@ def main():
                 results[f"coreml_{cu[0]}"] = dict(load_s=load_s, ms_per_pattern=float(np.median(t) / B * 1000), max_diff=float(d))
         except Exception as err:
             print(f"Core ML FAILED: {type(err).__name__}: {err}"); results["coreml"] = dict(error=f"{type(err).__name__}: {err}")
+    # The verdict (C6, 2026-09-07): before this the script could not fail. A runtime that raised, a
+    # heatmap beyond --tolerance of the float16 reference, or an in-graph peak output below
+    # --min-peak-recall makes the check exit 1; the JSON records every number either way.
+    failures = []
+    for key, r in results.items():
+        if not isinstance(r, dict): continue
+        if "error" in r: failures.append(f"{key}: {r['error'][:120]}")
+        d = r.get("max_diff_fp16", r.get("max_diff"))
+        if d is not None and d > a.tolerance: failures.append(f"{key}: max |diff| {d:.3f} > tolerance {a.tolerance}")
+        if "peaks" in r and r["peaks"]["recall"] < a.min_peak_recall: failures.append(f"{key}: in-graph peaks reproduce {r['peaks']['recall']:.3f} of numpy's < {a.min_peak_recall}")
+    results["verdict"] = dict(tolerance=a.tolerance, min_peak_recall=a.min_peak_recall, failures=failures, checked=[k for k, v in results.items() if isinstance(v, dict) and "error" not in v and k != "verdict"])
     json.dump(results, open(os.path.join(a.run, "export", "check.json"), "w"), indent=1)
     print("wrote", os.path.join(a.run, "export", "check.json"))
+    if not results["verdict"]["checked"]:
+        print("CHECK INCONCLUSIVE: no exported runtime was checked (every one skipped or failed)"); sys.exit(1)
+    if failures:
+        print("CHECK FAIL:\n  " + "\n  ".join(failures)); sys.exit(1)
+    print(f"CHECK PASS: {len(results['verdict']['checked'])} runtime(s) within tolerance {a.tolerance}")
 
 if __name__ == "__main__":
     main()

@@ -25,3 +25,4 @@
 # SwiftPM (Package.swift builds DSTEMCore from the shell)
 .build/
 .swiftpm/
+tools/disk-detector/labels/

@@ -799,8 +799,7 @@ ms/pattern = 1.87–1.99× — at the ceiling. Superseded below: the overnight
 recommendation; the verdict is the owner's (`decisions.md` 2026-09-07,
 `status.md` handoff).
 
-**Recommended verdict (the agent's reading of the OVERNIGHT run, superseded
-2026-09-07 — see `status.md`; owner decides).** It earns its
+**Recommended verdict — STRUCK 2026-09-07 (C1): the 2× ceiling it rests on was missed at 2.81× on the cube's native 250 px (`status.md` tiling row), no test set existed, and the verdict is written in `decisions.md` only when C6 exits.** The struck text, kept for the record: It earns its
 place as a candidate stage: under the throughput ceiling on the Neural Engine,
 the classical detector's own sub-pixel numbers after refinement, and on both
 real cubes it proposes the disks the classical cut drops. What it does not yet

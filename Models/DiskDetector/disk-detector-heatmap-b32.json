@@ -19,6 +19,8 @@
  "coreai_torch": "0.4.2",
  "coreai_opt": "0.2.1",
  "macos": "27.0",
- "validation": "recall@2px 0.963 / precision 0.78 against visible simulated disks; fixture recall 1.000 (run3.log)",
- "licence": "own weights, trained on the repo simulator with the owner's probes and backgrounds; no third-party weights"
+ "validation": "at the SHIPPED threshold 0.9, exported asset on the Neural Engine, one truth rule (visibility >= 0.5): validation recall 0.679 / precision 0.939 (128 simulated samples, 2 808 visible disks, raw picks 2 px); fixture recall 0.939 / precision 0.896 refined, against the classical 0.900 / 0.866 on the same visible truth (2026-09-07, C6). The earlier 0.963 / 0.78 was at threshold 0.3 from PyTorch. No number on a hand-labelled real set yet (C6 owes it)",
+ "licence": "own weights, trained on the repo simulator with the owner's probes and backgrounds; no third-party weights",
+ "threshold_shipped": 0.9,
+ "threshold_validated": 0.3
 }

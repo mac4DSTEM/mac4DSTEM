@@ -10,7 +10,7 @@ The app gets one asset and one inference class at step 4; nothing here touches
 
 | Environment | Used for | Pinned |
 |---|---|---|
-| `$HOME/miniconda3/envs/py4dstem` (py4DSTEM 0.14.17, python 3.12.4) | the reference detector in `verify_fixture.py` and `evaluate.py` — only to call py4DSTEM | `tools/lib/python.sh` resolves it |
+| `$HOME/miniconda3/envs/py4dstem` (python 3.12.4) with the LOCK `References/py4DSTEM-dev` (py4DSTEM 0.14.19, `tools/lib/fetch-py4dstem.sh`) on `PYTHONPATH` | the reference detector in `verify_fixture.py` and `evaluate.py` — only to call py4DSTEM. The environment's own py4DSTEM (0.14.17) is not the reference (`decisions.md`, 2026-09-07); `run.sh` puts the lock first and both scripts do so themselves when run directly | `tools/lib/python.sh` resolves it |
 | `$HOME/miniconda3/envs/disk-detector` (python 3.12) | `train.py`, `export.py`, `check_export.py` | `requirements.txt` (2026-09-06: torch 2.11.0 — coreai-opt 0.2.1 pins it — numpy 2.3.5, coremltools 9.0, coreai-torch 0.4.2 + coreai-core 1.0.0b2 + coreai-opt 0.2.1, tensorboard 2.21.0) |
 
 `simulate.py` imports in both (numpy + scipy only). Run `tools/free-space.sh`
@@ -35,8 +35,34 @@ tools/disk-detector/run.sh            # fixture — gated, seconds, no real data
 tools/disk-detector/run.sh train …    # diagnostic: on-the-fly simulation on the real probes, MPS
 tools/disk-detector/run.sh export …   # .aimodel via coreai-torch, .mlpackage via coremltools
 tools/disk-detector/run.sh check …    # each export vs PyTorch on the same inputs
-tools/disk-detector/run.sh evaluate … # step 3 numbers: fixture, real cubes vs classical
+tools/disk-detector/run.sh evaluate … # step 3 numbers: fixture, real cubes vs classical, --labels vs truth
+tools/disk-detector/run.sh ingredients --bullseye <h5> --ws2 <h5> --out <npz>   # the trainer's npz
+tools/disk-detector/run.sh label --cube <h5> --dataset <path> --ingredient bullseye --out labels/<name>.json
 ```
+
+**The one truth rule (C6, 2026-09-07).** A truth centre counts when its
+`disk_visibility` is ≥ `simulate.VISIBLE_MIN` (0.5): the target's bump
+amplitude is the continuous visibility, and validation, the fixture check and
+evaluation all take that same cut (before C6: target continuous, validation
+≥ 0.5, evaluation intensity ≥ 10 %, so no figure could be read against
+another). The fixture's `expected.json` carries a `visibility` per centre; its
+patterns are byte-identical to before. `verify_fixture.py` keeps the intensity
+rule on purpose: it judges py4DSTEM at its own `minRelativeIntensity`; under
+the visibility rule it recovers 207/230 = 0.900 (2026-09-07), a number
+`evaluate.py` now reports as `fixture_classical` beside the net's. `check_export.py` exits 1 outside
+`--tolerance` (max |heatmap diff| vs PyTorch float16, default 0.1) or below
+`--min-peak-recall` (0.98), and exits 1 when nothing was checked. The
+hand-labelled test set is the owner's data under `labels/` (gitignored);
+`evaluate.py --labels` scores the net at the shipped threshold AND the
+classical detector against it, so the comparison is against truth.
+
+**Numbers at the shipped 0.9, exported asset, one truth rule (2026-09-07
+night; `main`'s `docs/archive/v3/learned-detector-2026-09-06.md`, "C6 — the
+table"):** fixture net 0.939 / 0.896 refined vs classical 0.900 / 0.866 on the
+same 230 visible disks; validation 0.679 / 0.939 (2 808 visible disks); bullseye
+416 vs 442 peaks, median difference 0; WS₂ counts-scaled 6 566 vs 256 — the
+net proposes ~24 spots per position the classical does not, unjudged. The
+hand-labelled row and the 256-px retrain are owed.
 
 Real ingredients (owner-local, gitignored, read-only, absolute paths):
 `References/training_dataset/calibrationData_bullseyeProbe.h5` (the measured
@@ -122,10 +148,14 @@ GPU-delegate top-k defect); the probe-as-state asset segfaults on load; a
 top-k graph failed the ANE program load once inside a torch-importing process
 (hence the subprocess check). Classical stand-in 0.602 ms per pattern
 (`tools/performance-baseline/bench.json`, 2026-08-27): the net alone is 0.57×,
-the whole learned path ≤ 1.57×, under the 2× ceiling. On the real bullseye
-crop the net marks every visible disk and, at threshold 0.3, ~65 background
-peaks per position (5 at 0.9); WS₂ is float-normalised so `log1p` is linear
-on it — step 4 must scale float cubes into counts first.
+the whole learned path ≤ 1.57× at 128 px — but 2.81× at the cube's native 250 px with 3×3 tiling (`scan-bench`, `docs/status.md`), so the 2× ceiling is NOT met; the owner accepted this on 2026-09-07 with a 256-px retrain owed (`docs/decisions.md`, C0). On the real bullseye
+crop, read by eye from PNGs (no hand-labelled truth existed), the net at
+threshold 0.3 marked the disks the classical path finds plus ~65 background
+peaks per position (5 at 0.9), and run3's own log records it missing some
+faint disks the classical finds; whether it marks every visible disk is what
+the frozen hand-labelled set (C6) measures. WS₂ is float-normalised so
+`log1p` was linear on it — `simulate.to_counts` now scales such cubes into
+counts by one rule (C6), which step 4's Swift side mirrors.
 
 ## 2026-09-07 revisions (after the morning review; `docs/status.md` handoff)
 

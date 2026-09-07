@@ -18,6 +18,10 @@ import argparse, json, os, sys, time, warnings
 import numpy as np
 warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# The reference is the lock, not whatever py4DSTEM the interpreter has (decisions.md, 2026-09-07).
+_LOCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "References", "py4DSTEM-dev")
+if os.path.exists(os.path.join(_LOCK, "py4DSTEM", "version.py")):
+    sys.path.insert(0, os.path.abspath(_LOCK))
 import simulate as sm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -26,19 +30,29 @@ BULLSEYE = "4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data"
 WS2 = "4DSTEM/datacube/data"
 
 
-def real_inputs(cube_path, dataset, probe, probe_centre, stride, size=sm.S, scale=1.0):
-    """Yields (ry, rx, pattern128, given probe, kernel) for every stride-th scan position, the pattern
-    centre-cropped to 128 around the probe centre for the bullseye (250 px) and as-is for WS2 (128 px)."""
+def real_inputs(cube_path, dataset, probe, probe_centre, stride, size=sm.S, positions=None):
+    """Yields (ry, rx, pattern128, kernel) for every stride-th scan position (or the given
+    `positions`), the pattern centre-cropped to 128 around the probe centre for the bullseye (250 px)
+    and as-is for WS2 (128 px), and scaled into counts by the one rule (`simulate.to_counts`; the
+    2026-09-07 runs passed --ws2-scale by hand)."""
     import h5py
     with h5py.File(cube_path, "r") as f:
         d = f[dataset]
         kernel = sm.flat_kernel(probe, probe_centre)
-        for ry in range(0, d.shape[0], stride):
-            for rx in range(0, d.shape[1], stride):
-                p = d[ry, rx].astype(np.float64) * scale
-                if p.shape[0] != size:
-                    p, _ = sm.centred_crop(p, (124.76, 124.74), size)
-                yield ry, rx, p, kernel
+        if positions is None:
+            positions = [(ry, rx) for ry in range(0, d.shape[0], stride) for rx in range(0, d.shape[1], stride)]
+        for ry, rx in positions:
+            p = sm.to_counts(d[ry, rx].astype(np.float64))
+            if p.shape[0] != size:
+                p, _ = sm.centred_crop(p, (124.76, 124.74), size)
+            yield ry, rx, p, kernel
+
+
+def load_labels(path):
+    """The frozen hand-labelled test set (label_centres.py): {cube, dataset, ingredient, positions:
+    [{ry, rx, centres: [[row, col], ...]}]} in the 128-px model frame. Never used for selection."""
+    L = json.load(open(path))
+    return L, [(int(p["ry"]), int(p["rx"])) for p in L["positions"]]
 
 
 def stage_net(a):
@@ -67,15 +81,25 @@ def stage_net(a):
     probe = z["probe"].astype(np.float64); c = tuple(e["probe_centre"]); k = sm.flat_kernel(probe, c)
     xs = [sm.model_inputs(p.astype(np.float64), probe, sm.cross_correlation(p.astype(np.float64), k)) for p in z["patterns"]]
     np.savez_compressed(os.path.join(a.out, "net-fixture.npz"), heat=heat(xs))
+    # the validation set (train.fixed_set, seed 999, 128 samples): the same simulated set the
+    # trainer's recall/precision quote, now scored on the EXPORTED asset at the shipped threshold
+    cfg_path = os.path.join(a.run, "config.json"); cfg = sm.SimConfig(**json.load(open(cfg_path))["config"]) if os.path.exists(cfg_path) else sm.SimConfig()
+    vx, _, vcen = tr.fixed_set(a.ingredients, cfg, 999, 128)
+    vh = heat([x for x in vx.numpy()])
+    np.savez_compressed(os.path.join(a.out, "net-validation.npz"), heat=vh, centres=np.array([c.reshape(-1, 2) for c in vcen], dtype=object), allow_pickle=True)
     ing = np.load(a.ingredients)
-    for name, path, ds, probe, c in [("bullseye", a.bullseye, BULLSEYE, ing["bullseye_probe"].astype(np.float64), tuple(ing["bullseye_centre"])),
-                                     ("ws2", a.ws2, WS2, ing["ws2_probe"].astype(np.float64), tuple(ing["ws2_centre"]))]:
+    cases = [("bullseye", a.bullseye, BULLSEYE, ing["bullseye_probe"].astype(np.float64), tuple(ing["bullseye_centre"]), None),
+             ("ws2", a.ws2, WS2, ing["ws2_probe"].astype(np.float64), tuple(ing["ws2_centre"]), None)]
+    if a.labels:
+        L, lpos = load_labels(a.labels)
+        cases.append(("labels", L["cube"], L["dataset"], ing[f"{L['ingredient']}_probe"].astype(np.float64), tuple(ing[f"{L['ingredient']}_centre"]), lpos))
+    for name, path, ds, probe, c, positions in cases:
         pos, xs = [], []
-        for ry, rx, p, k in real_inputs(path, ds, probe, c, a.stride, scale=(a.ws2_scale if name == "ws2" else 1.0)):
+        for ry, rx, p, k in real_inputs(path, ds, probe, c, a.stride, positions=positions):
             pos.append((ry, rx)); xs.append(sm.model_inputs(p, probe, sm.cross_correlation(p, k)))
         t0 = time.time(); h = heat(xs); dt = time.time() - t0
         np.savez_compressed(os.path.join(a.out, f"net-{name}.npz"), heat=h, positions=np.array(pos), seconds=dt)
-        print(f"net {name}: {len(pos)} positions, {dt:.1f} s PyTorch CPU", flush=True)
+        print(f"net {name}: {len(pos)} positions, {dt:.1f} s", flush=True)
 
 
 def pick(heat, thr, top_k=70):
@@ -147,13 +171,23 @@ def stage_compare(a):
     probe = z["probe"].astype(np.float64); c = tuple(e["probe_centre"]); k = sm.flat_kernel(probe, c)
     H = np.load(os.path.join(a.out, "net-fixture.npz"))["heat"]
     edge = SETTINGS["edgeBoundary"] + 2
+    # the classical detector against the SAME visible truth, so the fixture rows are comparable
+    cl_hit = cl_tot = cl_pred = 0
+    for i, t in enumerate(e["truth"]):
+        p = z["patterns"][i].astype(np.float64)
+        cen = np.array(t["centres"]).reshape(-1, 2); vis = np.array(t["visibility"])
+        cen = cen[(vis >= sm.VISIBLE_MIN) & (cen.min(1) >= edge) & (cen.max(1) < sm.S - edge)]
+        q = find_Bragg_disks(p, k, **SETTINGS); cl = np.stack([q.data["qx"], q.data["qy"]], 1) if len(q.data) else np.zeros((0, 2))
+        pr, _, _ = match(cen, cl, 1.5); cl_hit += len(pr); cl_tot += len(cen); cl_pred += len(cl)
+    res["fixture_classical"] = dict(eligible_truth=int(cl_tot), predicted=int(cl_pred), recall=cl_hit / max(cl_tot, 1), precision=cl_hit / max(cl_pred, 1), settings=SETTINGS)
+    print("fixture classical:", json.dumps(res["fixture_classical"]), flush=True)
     res["fixture_by_threshold"] = {}
     for thr in sorted({a.threshold, 0.3, 0.5, 0.7, 0.9}):
         tot = hit_raw = hit_ref = n_cand = n_acc = 0; res_raw, res_ref = [], []; fp = 0
         for i, t in enumerate(e["truth"]):
             p = z["patterns"][i].astype(np.float64); cc = sm.cross_correlation(p, k)
-            cen = np.array(t["centres"]).reshape(-1, 2); inten = np.array(t["intensities"])
-            elig = (inten >= 0.10 * inten.max()) & (cen.min(1) >= edge) & (cen.max(1) < sm.S - edge); cen = cen[elig]
+            cen = np.array(t["centres"]).reshape(-1, 2); vis = np.array(t["visibility"])
+            elig = (vis >= sm.VISIBLE_MIN) & (cen.min(1) >= edge) & (cen.max(1) < sm.S - edge); cen = cen[elig]   # the one truth rule
             cand = pick(H[i], thr); ref = accept(refine(cand, cc, SETTINGS["sigma_cc"]), SETTINGS["minPeakSpacing"], SETTINGS["edgeBoundary"])
             pr, _, _ = match(cen, cand[:, :2], 1.5); pf, _, unm = match(cen, ref[:, :2], 1.5)
             tot += len(cen); hit_raw += len(pr); hit_ref += len(pf); n_cand += len(cand); n_acc += len(ref); fp += len(unm)
@@ -165,6 +199,18 @@ def stage_compare(a):
         res["fixture_by_threshold"][str(thr)] = r
         print(f"fixture @{thr}:", json.dumps(r), flush=True)
     res["fixture"] = res["fixture_by_threshold"][str(a.threshold)]
+    # ---- validation set: raw picks at the shipped threshold vs the visible centres, 2 px, as train.py scores
+    vpath = os.path.join(a.out, "net-validation.npz")
+    if os.path.exists(vpath):
+        V = np.load(vpath, allow_pickle=True); vh, vcen = V["heat"], V["centres"]
+        hit = tot = pred = 0
+        for i in range(len(vh)):
+            truth = np.asarray(vcen[i], dtype=np.float64).reshape(-1, 2); truth = truth[(truth.min(1) >= 4) & (truth.max(1) < sm.S - 4)]
+            picks = pick(vh[i], a.threshold)[:, :2]; pr, _, _ = match(truth, picks, 2.0)
+            hit += len(pr); tot += len(truth); pred += len(picks)
+        res["validation"] = dict(samples=int(len(vh)), threshold=a.threshold, visible_truth=int(tot), predicted=int(pred), recall=hit / max(tot, 1), precision=hit / max(pred, 1),
+                                 note="raw picks (no refinement), 2 px, edge 4 — train.py's own scoring, on the exported asset when --asset was given")
+        print("validation:", json.dumps(res["validation"]), flush=True)
     # ---- real cubes: net vs classical
     ing = np.load(a.ingredients)
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -178,7 +224,7 @@ def stage_compare(a):
         k = sm.flat_kernel(probe, c)
         counts, moved, disagree, examples, t_cl = [], [], 0, [], 0.0
         n_net = n_cl = matched = 0
-        for i, (ry, rx, p, _) in enumerate(real_inputs(path, ds, probe, c, a.stride, scale=(a.ws2_scale if ing_key == "ws2" else 1.0))):
+        for i, (ry, rx, p, _) in enumerate(real_inputs(path, ds, probe, c, a.stride)):
             t0 = time.time(); q = find_Bragg_disks(p, k, **settings); t_cl += time.time() - t0
             cl = np.stack([q.data["qx"], q.data["qy"]], 1) if len(q.data) else np.zeros((0, 2))
             cc = sm.cross_correlation(p, k); cand = pick(H[i], a.threshold)
@@ -205,7 +251,29 @@ def stage_compare(a):
                 axx.set_title(f"{name} ({ry},{rx}): classical-only {len(un_cl)}, net-only {len(un_net)}", fontsize=8); axx.legend(fontsize=7, loc="lower right")
                 axx.set_xlim(-0.5, sm.S - 0.5); axx.set_ylim(sm.S - 0.5, -0.5); axx.set_axis_off()
             fig.tight_layout(); fig.savefig(os.path.join(a.out, f"disagree{a.tag}-{name}.png"), dpi=90); plt.close(fig)
-    res["ws2_scale"] = a.ws2_scale
+    res["count_scaling"] = dict(rule="simulate.to_counts", nominal_beam_counts=sm.NOMINAL_BEAM_COUNTS)
+    # ---- the frozen hand-labelled test set: net (exported asset at the shipped threshold) AND
+    # classical, each against the same truth, so the comparison is against truth, not against each other
+    if a.labels:
+        L, lpos = load_labels(a.labels)
+        probe, c = ing[f"{L['ingredient']}_probe"].astype(np.float64), tuple(ing[f"{L['ingredient']}_centre"])
+        N = np.load(os.path.join(a.out, "net-labels.npz")); H = N["heat"]; k = sm.flat_kernel(probe, c)
+        tol = a.label_tol; tally = {"net": [0, 0, 0], "classical": [0, 0, 0]}   # hit, truth, predicted
+        for i, ((ry, rx, p, _), lab) in enumerate(zip(real_inputs(L["cube"], L["dataset"], probe, c, 1, positions=lpos), L["positions"])):
+            truth = np.array(lab["centres"], dtype=np.float64).reshape(-1, 2)
+            q = find_Bragg_disks(p, k, **SETTINGS)
+            cl = np.stack([q.data["qx"], q.data["qy"]], 1) if len(q.data) else np.zeros((0, 2))
+            cc = sm.cross_correlation(p, k)
+            net = accept(refine(pick(H[i], a.threshold), cc, SETTINGS["sigma_cc"]), SETTINGS["minPeakSpacing"], SETTINGS["edgeBoundary"])[:, :2]
+            for key, pred in (("net", net), ("classical", cl)):
+                pairs, _, _ = match(truth, pred, tol)
+                tally[key][0] += len(pairs); tally[key][1] += len(truth); tally[key][2] += len(pred)
+        res["labels"] = dict(file=os.path.abspath(a.labels), sha256=L.get("sha256"), positions=len(lpos), truth_centres=tally["net"][1],
+                             match_tol_px=tol, net_threshold=a.threshold, net_source=("asset" if N.get("asset", None) is not None else "see stage net"))
+        for key in ("net", "classical"):
+            hit, tot, pred = tally[key]
+            res["labels"][key] = dict(recall=hit / max(tot, 1), precision=hit / max(pred, 1), predicted=int(pred), matched=int(hit))
+        print("labels:", json.dumps(res["labels"]), flush=True)
     json.dump(res, open(os.path.join(a.out, f"evaluate{a.tag}.json"), "w"), indent=1); print("wrote", os.path.join(a.out, f"evaluate{a.tag}.json"))
 
 
@@ -215,7 +283,8 @@ def main():
     ap.add_argument("--bullseye", required=True); ap.add_argument("--ws2", required=True)
     ap.add_argument("--stride", type=int, default=8); ap.add_argument("--threshold", type=float, default=0.3); ap.add_argument("--examples", type=int, default=6)
     ap.add_argument("--tag", default="", help="suffix for evaluate<tag>.json and the PNGs (a second threshold, say)")
-    ap.add_argument("--ws2-scale", type=float, default=1.0, help="multiply the WS2 cube (float, sums to 0.25) into counts; 1e6 puts its beam at ~2e4")
+    ap.add_argument("--labels", help="the frozen hand-labelled test set (label_centres.py JSON): scores net and classical against it")
+    ap.add_argument("--label-tol", type=float, default=2.0, help="match radius in px against the hand labels")
     ap.add_argument("--asset", help="stage net: a Core AI .aimodel whose `heatmap` output replaces PyTorch's (the exported runtime, ANE preferred)")
     ap.add_argument("--asset-function", default="heatmap"); ap.add_argument("--asset-batch", type=int, default=32)
     a = ap.parse_args(); os.makedirs(a.out, exist_ok=True)

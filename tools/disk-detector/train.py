@@ -88,7 +88,7 @@ def fixed_set(ingredients, cfg, seed, n):
         bg = bgs[rng.integers(len(bgs))] if rng.random() < 0.7 else None
         s = sm.simulate_one(rng, probe, centre, cfg, background=bg)
         xs.append(sm.model_inputs(s.pattern, s.probe, s.correlation)); ys.append(sm.heatmap_target(s.centres, cfg.size, cfg.heatmap_sigma, s.visibility))
-        cens.append(s.centres[s.visibility >= 0.5])   # validation truth: the visible disks
+        cens.append(s.centres[s.visibility >= sm.VISIBLE_MIN])   # validation truth: the one rule (simulate.VISIBLE_MIN)
     return torch.from_numpy(np.stack(xs)), torch.from_numpy(np.stack(ys)), cens
 
 # ----------------------------------------------------------------------------- peak-picking (numpy, the reference for the in-graph version)

@@ -8,7 +8,13 @@
 #                      ways and requires each break to fail. Exit 0 only if all of that holds.
 #   run.sh train | export | check | evaluate   DIAGNOSTIC: machine-local data and GPU time,
 #                      the detector's own PyTorch environment (DETECTOR_PYTHON overrides).
-#                      Extra arguments go to the script.
+#                      Extra arguments go to the script. `check` exits 1 outside its tolerance (C6).
+#   run.sh ingredients --bullseye <h5> --ws2 <h5> --out <npz>   the trainer's npz (textured backgrounds)
+#   run.sh label --cube <h5> --dataset <path> --ingredient bullseye|ws2 --out labels/<name>.json
+#                      the click tool for the frozen hand-labelled test set (owner's data, gitignored;
+#                      the JSON's sha256 and counts go into the evidence file). Both in the py4DSTEM env.
+# py4DSTEM is the LOCK (References/py4DSTEM-dev, fetch-py4dstem.sh), put on PYTHONPATH here;
+# the conda environment's own py4DSTEM (0.14.17) is not the reference (decisions.md, 2026-09-07).
 set -euo pipefail
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
@@ -19,6 +25,7 @@ case "$mode" in
   fixture)
     . "$REPO/tools/lib/python.sh"
     resolve_mac4dstem_python "$REPO"          # the pinned py4DSTEM environment: the reference detector
+    export PYTHONPATH="$REPO/References/py4DSTEM-dev${PYTHONPATH:+:$PYTHONPATH}"
     "$PYTHON_BIN" verify_fixture.py
     for b in shifted-truth swapped-axes dropped-disk wrong-probe; do
       if "$PYTHON_BIN" verify_fixture.py --break "$b" > /dev/null 2>&1; then
@@ -35,6 +42,13 @@ case "$mode" in
     # comparison in the pinned py4DSTEM env (torch is not installed there, py4DSTEM not here).
     . "$REPO/tools/lib/python.sh"; resolve_mac4dstem_python "$REPO"
     "$DETECTOR_PYTHON" evaluate.py --stage net "$@"
+    export PYTHONPATH="$REPO/References/py4DSTEM-dev${PYTHONPATH:+:$PYTHONPATH}"
     exec "$PYTHON_BIN" evaluate.py --stage compare "$@" ;;
-  *) echo "usage: $0 [fixture|train|export|check|evaluate] [args]" >&2; exit 64 ;;
+  ingredients)
+    . "$REPO/tools/lib/python.sh"; resolve_mac4dstem_python "$REPO"
+    exec "$PYTHON_BIN" simulate.py ingredients "$@" ;;
+  label)
+    . "$REPO/tools/lib/python.sh"; resolve_mac4dstem_python "$REPO"
+    exec "$PYTHON_BIN" label_centres.py "$@" ;;
+  *) echo "usage: $0 [fixture|train|export|check|evaluate|ingredients|label] [args]" >&2; exit 64 ;;
 esac

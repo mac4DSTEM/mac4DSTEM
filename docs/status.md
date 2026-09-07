@@ -63,6 +63,16 @@ The live facts are the Releases table above and `CHANGELOG.md`.
 
 ## Handoff (branch `ml/disk-detector`; AI table updated 2026-09-06 evening)
 
+**C6 Python side (main's consolidation plan), 2026-09-07 night, uncommitted
+on this branch:** one truth rule (`simulate.VISIBLE_MIN`), the fixture truth
+carrying visibility (patterns byte-identical, `run.sh fixture` 148/153 before
+and after), `run.sh ingredients` (textured backgrounds), `check_export.py`
+with a tolerance and a non-zero exit, `simulate.to_counts` for float cubes,
+`run.sh label` + `evaluate.py --labels`, the py4DSTEM lock on `PYTHONPATH`,
+the record JSON and README claims corrected. Owed to the owner: the labels,
+the evaluation with `--asset --labels`, the 256-px retrain, the verdict
+(`main`'s `status.md` handoff has the commands).
+
 **State of the AI/ML branch** (story:
 [`archive/v3-ml-disk-detector-2026-09-07.md`](archive/v3-ml-disk-detector-2026-09-07.md);
 design: `v3-plan.md` §3a, `docs/ai-ml/`). Code-complete, committed, NOT pushed.
