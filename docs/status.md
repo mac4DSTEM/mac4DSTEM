@@ -134,4 +134,5 @@ drives and pastes the result.
 ## Owed to the owner
 
 - **Drive the rebuilt app** (above) — two things unverified on screen.
+- **Read [`consolidation-plan.md`](consolidation-plan.md)** (2026-09-07 review of the app, the learned detector and the docs): its C0 is owner-only — push the local branches, free disk, five decisions.
 - The §10g decisions and plan §8 (sidecar wire format).
