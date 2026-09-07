@@ -13,14 +13,10 @@ markdown lines by instruction (read-only review); executing §6 C1 nets
 ≥ 600 lines negative. **Revised the same evening** after the owner pushed
 `ml/disk-detector` (`18bb13b`), inverted the runtime decision to Core ML
 and decided consolidation-first (`decisions.md`, 2026-09-07). §1 is revised
-against that tip. **§2 and §3 were verified at `e0e0dc8` and not yet at
-`18bb13b`**, whose commit messages claim to address §2 rows 6 and 10 and §3
-items 1, 3, 4, 5 and 7 — `4489ccd` (visibility targets, textured backgrounds,
-an acceptance rule, exported-asset evaluation, a Swift scan bench),
-`f147544` (rejection off a correlation maximum, both sides), `73f5eb5`,
-`c5489ac`, `65fb084` (the drive-defect fixes). Re-running those two read-only
-checks and editing §2/§3 is the first task of the C1 session, before
-anything else.
+against that tip; §2a re-verifies the Python side and the runtime swap at
+`18bb13b`. **Still owed: the Swift-side claims** (§2 rows 1–3, 5, 8, 10,
+and the AI room's own §4-class findings) against `18bb13b` — the C1 session
+runs that read-only check first, before anything else.
 
 ## 1. First finding, revised the same evening: the work is now on GitHub
 
@@ -94,6 +90,83 @@ must join `ProductWorkflow`'s readiness and staleness; the docs grew.
   `fetch-py4dstem.sh:12` pins 0.14.19;
 - the AGPL package compiled into every build of `main`, the missing
   `v2.0.0` tag, and the docs drift in §5.
+
+## 2a. Re-verification at `18bb13b` — Python side and the runtime swap
+
+**Closed on the branch since `e0e0dc8`** (each line names the §3 item):
+
+- (1) The target is visibility-scaled: `heatmap_target` takes per-disk
+  amplitudes from `disk_visibility` (`simulate.py:236-273,356-373`), so
+  extinct disks vanish and §2 row 6's mechanism DOES hold at this tip — the
+  earlier review was right about `18bb13b` and wrong only for `e0e0dc8`.
+  Three truth rules now coexist: the target's continuous scale, validation's
+  visibility ≥ 0.5 (`train.py:91`), evaluation's intensity ≥ 10 %
+  (`evaluate.py:156`); "241 accepted for 153 eligible, precision 0.61"
+  (`tools/disk-detector/README.md:177-178`) is uninterpretable until one rule
+  is chosen.
+- (3) Refinement rejects candidates that are not a local correlation maximum
+  and suppresses duplicates, on both sides (`evaluate.py:88-128`,
+  `DiskDetection.swift:726-773`, `LearnedDiskDetector.swift:257-270`, Gate B
+  tests in `LearnedDiskDetectorGateBTests.swift:86-135`).
+- (4) Backgrounds keep real texture with the disks masked
+  (`simulate.py:404-454`); but the committed CLI (`simulate.py:560-562`)
+  still builds the old medians, and no committed command builds the
+  `ingredients.npz` the trainer needs (`README.md:146-147`).
+- (5a) Evaluation runs the exported `.aimodel` through the Python Core AI
+  runtime (`evaluate.py:44-65`); the Swift fixture test binds the same asset
+  through the framework at ≥ 98 % agreement (`LearnedDiskDetectorTests.swift:105-153`).
+- (7) The ceiling is measured from Swift (`scan-bench/main.swift:32-127`,
+  `detectAll` on every core): learned end to end **1.87–1.99×** classical at
+  128 px, **2.81×** at the cube's native 250 px with tiling, **~5×** in the
+  app on the loaded machine. `decisions.md` (branch) records the owner's
+  acceptance "at ≤ 1.9×" with Gate B's correction that this is "the measured
+  edge of the ceiling"; the 250-px decision is open (`status.md` tiling row).
+
+**Still open:**
+
+- (2) No hand-labelled truth exists anywhere; training and validation share
+  probes and backgrounds (`train.py:70,84`); the fixture's probe is training
+  probe 3 (`train.py:60`, `simulate.py:511`). The in-app label tool
+  (`Session/DiskLabelStore.swift:32-66`) records a per-position verdict on
+  the candidate list, not disk centres, so as built it cannot yield per-disk
+  recall or precision; `decisions.md:444` (branch) defers the operating
+  threshold to "a frozen hand-labelled bullseye set, later".
+- (5b) `check_export.py` is byte-identical to `e0e0dc8`: no tolerance, exit 0
+  always — while `docs/ai-ml/README.md:249` states the opposite requirement.
+- (6) No count scaling for float cubes on either side; Swift and Python
+  normalisation match (`LearnedDiskDetector.swift:118-132`,
+  `simulate.py:346-353`).
+- (8) Ships at 0.9 (`LearnedDiskDetector.swift:28`,
+  `Session/LearnedDetection.swift:36`); every quoted recall/precision
+  (0.963 / 0.78) is at 0.3 on simulation (`train.py:95`); the committed record
+  `Models/DiskDetector/disk-detector-heatmap-b32.json` quotes those numbers
+  for an asset shipped at 0.9 without saying so; "marks every visible disk"
+  (`README.md:126`, `v3-plan.md:729,748`) rests on eye-read PNGs and run3's
+  own account contradicts it ("missing some faint disks the classical finds").
+- Reproducibility: the `.aimodel` (568 KB) and its hash record are committed
+  and hash-tested (`LearnedDiskDetectorTests.swift:96-101`); no checkpoint, no
+  `.mlpackage` for the shipping weights (run3 used `--skip-coreml`), no
+  ingredients builder; the env is still py4DSTEM 0.14.17 against the 0.14.19
+  lock.
+
+**The Core ML swap, sized from the code:** 13–15 files, ~300–400 lines —
+`Core/ML/LearnedDiskDetector.swift` (~110 lines of Core AI API: `AIModel`,
+`InferenceFunction`, `NDArray`, cache retry, `learned_runtime`),
+`LearnedDiskDetection.swift`, `Session/LearnedDetection.swift`, the
+`AppState.swift` guards and four "needs macOS 27" strings,
+`UI/AIAnalysisSettings.swift`, the `@available` and skip lines in three test
+files, the 2 826-line Swift fixture regenerated from the Core ML runtime, a
+Core ML re-export of run3 (none exists), the record JSON, `scan-bench`
+re-measured (its 1.87× is Core-AI-specific) and its `run.sh` flags, and
+~40 doc lines. The `.mlpackage` export targets macOS 15
+(`export.py:140-146`): gate at `@available(macOS 15, *)` or re-export for 14.
+
+**Owner questions and the owed list on the branch** (`docs/ai-ml/README.md:257-260`,
+`status.md` handoff): the drive of the whole room ("Nothing is accepted on
+screen"), `run-tests.sh unit`, the P4 reflection overlay, the D4
+accessibility crash, recipe replay, the merge with its Gate B campaign; the
+picker default, whether Propose computes the Max pattern, the width
+convention, the area definition; the 250-px tiling decision.
 
 ## 3. The learned disk detector — where the science stands
 
@@ -411,8 +484,9 @@ AI-exclusive~~ — **Core ML, decided 2026-09-07**; ~~precipitates, groups and
 embeddings paused~~ — **paused by the consolidation-first decision,
 2026-09-07**; the ceiling restated or the net narrowed (§3) — **open**; the
 AGPL package in `main`'s history — rewrite or accept — **open**; `v2.0.0` —
-push the tag or strike the claim — **open**. *Exit:* `decisions.md` carries
-the three remaining lines, dated.
+push the tag or strike the claim — **open**; the 250-px tiling ceiling
+(2.81×, §2a) — accept or retrain — **open**. *Exit:* `decisions.md` carries
+the four remaining lines, dated.
 
 **C1 — docs truth, one session, docs only.** Fix every item in §5. Move
 §3a's decision transcript, Core AI notes and evidence block to
@@ -484,9 +558,14 @@ on `main`. One extraction per month, in §4's order: overlays →
 process doc asks.
 
 **C6 — the detector made honest, on the branch; Python and labels only.**
-The bar in §3, items 1–8 — first checking which of them `4489ccd` and
-`f147544` already closed (see the header note), so C6 does only what is
-left. The frozen test set is labelled with a 50-line
+What §2a leaves open: one truth rule across target, validation and
+evaluation; the textured CLI default and an ingredients builder; a tolerance
+and a non-zero exit in `check_export.py`; count scaling for float cubes; a
+frozen hand-labelled real test set **with disk centres** (a centre mode in
+the label tool, or a 50-line click tool in `tools/disk-detector/`), never
+used for selection; the exported asset evaluated at the shipped 0.9 on it;
+the record JSON and the "marks every visible disk" sentence corrected; the
+py4DSTEM version made one. The frozen test set is labelled with a 50-line
 matplotlib click tool in `tools/disk-detector/`, not app work; the labels
 are the owner's data (gitignored) and their SHA-256 and counts are in the
 repo. Retrain once (~90 min). Report the *exported* asset at one
@@ -499,10 +578,10 @@ with `disk-detector` gated; the verdict written in `decisions.md`, in the
 owner's words, either way.
 
 **C7 — step 4, only if C6's verdict is "adds disks the classical path misses
-on the real test set".** Step 4 already exists on the branch on Core AI
-(`5ca9660`, off by default, macOS 27, per its commit message — unverified
-here), so C7 is a swap and a completion, not a build: one Core ML inference
-class in `Core/` replacing the Core AI one (decided 2026-09-07), `DetectorClass` in
+on the real test set".** Step 4 exists on the branch on Core AI
+(`5ca9660`, off by default, macOS 27), so C7 is the Core ML swap sized in
+§2a plus a completion, not a build: one Core ML inference class in `Core/`
+replacing the Core AI one (decided 2026-09-07), `DetectorClass` in
 the detection settings, the asset hash in provenance, replay refusing a
 `detector_class` mismatch like `kernel_source`, `prerequisiteItems` and
 `guidance` filled in for the new mode, the disagreement map matching
