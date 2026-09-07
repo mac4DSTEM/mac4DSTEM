@@ -548,7 +548,7 @@ and `inventory` exit 0 **on `main`'s current tree** — no quoted gate has
 built anything after `c7e2016` — with logs; `git ls-files | grep -c yolov8n`
 is 0.
 
-**C3 — the owner's drive, one sitting, before any UI change — DELEGATED to an agent drive 2026-09-07 (owner; `decisions.md`); executed except four items that need the owner's hands (`status.md` handoff item 1). C4 may start: the findings are in `open-items.md`.** The six
+**C3 — CLOSED 2026-09-07: an agent drive reviewed screenshot by screenshot (owner's delegation, `decisions.md`) plus the owner's own four checks at 23:33–23:38 (light appearance, Remove, crop restore, the warning). Findings in `open-items.md`.** The six
 `status.md` rows marked unverified on screen, light appearance, every
 divider, the Session context menu's Remove, a cropped save → quit → reopen.
 Findings enter through `/diagnose`; nothing is fixed during the sitting.

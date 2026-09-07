@@ -320,3 +320,33 @@ were broken first. **What is left is the drive**: only a real dataset
 exercises it — the demo cube finishes faster than the one-second tick.
 Owner: the owner's drive (C3).
 **Closed 2026-09-07 (C3, agent drive):** the slot holds elapsed and the progress bar (`shots-c3/a5-running.png`); the `%` wrap is its own presentation observation.
+
+### (archived 2026-09-07) S1's crop restore is repaired in code and unverified on screen (2026-09-04)
+Retitled 2026-09-04: **its three code claims are all false now.**
+`recordedLoadSpecification` reads through `sessionSidecar.location(forSourcePath:)`,
+which takes the security-scoped grant first (`SessionSidecarLocator.swift:144`),
+and the `try?` is gone — a refused read and "no crop recorded" stay different
+facts. What is open is the drive: F1.3h passed on a FULL-EXTENT sidecar, which
+never enters the repaired branch, so a cropped save → quit → reopen has never
+been driven. `SessionSidecarLocatorTests` cannot close it either — it adopts
+an in-memory grant and never opens HDF5. Failure mode if still wrong: right
+numbers, wrong region. Owner: the owner's drive (C3).
+**Closed 2026-09-07 23:33 (owner):** a cropped `sim_Au` session reopened on scan 90×51 at (3, 15), the sidebar naming the view; the whole-file calibration was refused for it, as P2 says.
+
+### (archived 2026-09-07) Presentation-contract residuals still open on screen (2026-09-04)
+Rules 2 and 5 were wrong as written and are amended in `architecture.md`; the
+finding and its evidence are archived ([`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)).
+Two of the three "still open" items closed with the rebuild (no workspace
+hero header; pane centring is `PaneSplit`'s business). What is left,
+unverified: **~40 permanent caption `Text`s across the sidebars**, and
+**nothing has been seen in light appearance**. Owner: the owner's drive (C3).
+**Closed 2026-09-07 23:33 (owner):** four screenshots in light appearance, nothing unreadable; the ~40 caption Texts are C4's exposure slice.
+
+### (archived 2026-09-07) The columns' material was diagnosed, and never checked in light (2026-09-03)
+Gate D 2026-09-03 (archived, [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)):
+the hosted lists were painting over AppKit's column material;
+`.scrollContentBackground(.hidden)` removed that, and the columns still render
+flat because the OS's column material is within-window. The conclusion — the
+columns look like Xcode 26's, flat on the window ground — was reached in dark
+appearance only. Owner: the owner's drive (C3).
+**Closed 2026-09-07 23:33 (owner):** the columns render flat on the window ground in light too.

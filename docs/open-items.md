@@ -171,7 +171,7 @@ below happens on the FIRST save. The owner's own folder already holds
 sidecars of both spellings. Owner: `/diagnose` (the save panel's default name
 vs its allowed extension is the first thing to look at).
 
-### C3 drive leftovers: presentation observations and the owner's four (2026-09-07)
+### C3 drive leftovers: presentation observations (2026-09-07)
 Presentation (C4, no Gate D): the status bar's `0` / `%` wraps during a run
 (`shots-c3/a5-running.png`); at ~1 080 pt the status text wraps and the bar
 grows (`a3b-narrow.png`); the log opens at its top (`a6-log.png`); a fresh
@@ -179,11 +179,11 @@ open shows the Bragg-vector slot or the automatic pass's Virtual detector
 depending on the previous state (`b1-configurator.png` vs `b3d-reopened.png`);
 "Open with Options…" is reachable only from the empty-state view; "Correlation
 power, 1.00" wraps with a stray comma (`a9-strain.png`); System Events cannot
-resolve the window's content (VoiceOver question). Owner's eyes: light
-appearance (the launch-argument route made a windowless process), the Session
-row's Remove menu (no driver could raise a context menu), a crop → save →
-quit → reopen, the one-peak warning text, staleness (f), and "Fit Detector
-Ellipse" on the demo ending in "residual is too large (0.247)".
+resolve the window's content (VoiceOver question); launching with `-NSRequiresAquaSystemAppearance 1` or
+`-AppleInterfaceStyle Light` gives a windowless process. The owner's four
+checks closed 2026-09-07 23:38 (light, Remove, crop restore, the warning).
+Still unprovoked: staleness (f), and "Fit Detector Ellipse" on the demo ending
+in "residual is too large (0.247)".
 
 ### Two diagnostic harnesses gate nothing (2026-09-02)
 `tools/bragg-spacing-probe/` and `tools/residency-sweep/` both need
@@ -215,22 +215,6 @@ no dialog; values written into their own labels ("Gamma, 1.00"); Unicode
 glyphs where SF Symbols exist; "Reconstruction Ready" as a disabled prominent
 button; stale copy ("tools panel", "Open a 4DSTEM .h5 file", one action named
 three ways); `NSPasteboard` in `ContentView`. Owner: C4 takes most of it.
-
-### Presentation-contract residuals still open on screen (2026-09-04)
-Rules 2 and 5 were wrong as written and are amended in `architecture.md`; the
-finding and its evidence are archived ([`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)).
-Two of the three "still open" items closed with the rebuild (no workspace
-hero header; pane centring is `PaneSplit`'s business). What is left,
-unverified: **~40 permanent caption `Text`s across the sidebars**, and
-**nothing has been seen in light appearance**. Owner: the owner's drive (C3).
-
-### The columns' material was diagnosed, and never checked in light (2026-09-03)
-Gate D 2026-09-03 (archived, [`archive/v2/ui-rework-2026-09-03.md`](archive/v2/ui-rework-2026-09-03.md)):
-the hosted lists were painting over AppKit's column material;
-`.scrollContentBackground(.hidden)` removed that, and the columns still render
-flat because the OS's column material is within-window. The conclusion — the
-columns look like Xcode 26's, flat on the window ground — was reached in dark
-appearance only. Owner: the owner's drive (C3).
 
 ### Concurrent HDF5 use crashes the process (2026-08-19)
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb
@@ -315,17 +299,6 @@ representation is 256 px, so a 512/1024 px icon view shows an upscaled icon
 there. Cosmetic; never observed (no machine here runs below 26). Fix: a full
 legacy PNG set (16–1024 px, @1x/@2x) in the `.icns`. Owner: unclaimed;
 verify on the first report from an older system, or in the VM above.
-
-### S1's crop restore is repaired in code and unverified on screen (2026-09-04)
-Retitled 2026-09-04: **its three code claims are all false now.**
-`recordedLoadSpecification` reads through `sessionSidecar.location(forSourcePath:)`,
-which takes the security-scoped grant first (`SessionSidecarLocator.swift:144`),
-and the `try?` is gone — a refused read and "no crop recorded" stay different
-facts. What is open is the drive: F1.3h passed on a FULL-EXTENT sidecar, which
-never enters the repaired branch, so a cropped save → quit → reopen has never
-been driven. `SessionSidecarLocatorTests` cannot close it either — it adopts
-an in-memory grant and never opens HDF5. Failure mode if still wrong: right
-numbers, wrong region. Owner: the owner's drive (C3).
 
 ### Resident/streaming residuals (2026-09-02)
 `releaseResident()`'s "freed" claim is asserted by a derived byte count,
