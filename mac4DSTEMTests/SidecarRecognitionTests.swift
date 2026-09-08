@@ -22,6 +22,36 @@ import DSTEMSession
 
 final class SidecarRecognitionTests: XCTestCase {
 
+    /// `NSSavePanel` appends the extension its `allowedContentTypes` demands,
+    /// so the name it is SEEDED with must not already end in that extension.
+    /// Seeding the full sidecar name produced `<stem>.mac4dstem.h5.h5` on the
+    /// first save of every dataset — reported 2026-09-07 (COPL) and seen again
+    /// on screen 2026-09-09 (`downsample_Si_SiGe_exp`). This pins the seed, not
+    /// AppKit: what the panel does with it is AppKit's business and is not
+    /// unit-testable here, which is why the assertion is on the string we hand
+    /// over. Reverting the call site to `suggested.lastPathComponent` fails the
+    /// first assertion below.
+    func testSavePanelSeedDropsTheExtensionThePanelWillAppend() {
+        let suggested = URL(fileURLWithPath: "/data/cube.mac4dstem.h5")
+        XCTAssertEqual(
+            SessionSidecarFormat.savePanelSeedName(for: suggested), "cube.mac4dstem",
+            "the seed must not carry .h5, or the panel appends a second one"
+        )
+        // Only the LAST extension comes off: a sidecar the owner already has
+        // under the doubled name keeps it rather than being renamed silently.
+        XCTAssertEqual(
+            SessionSidecarFormat.savePanelSeedName(
+                for: URL(fileURLWithPath: "/data/cube.mac4dstem.h5.h5")
+            ),
+            "cube.mac4dstem.h5"
+        )
+        // A source whose own name has no extension still round-trips.
+        XCTAssertEqual(
+            SessionSidecarFormat.savePanelSeedName(for: URL(fileURLWithPath: "/data/cube")),
+            "cube"
+        )
+    }
+
     private var workDirectory: URL!
 
     override func setUpWithError() throws {

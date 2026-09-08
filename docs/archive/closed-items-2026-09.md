@@ -405,10 +405,20 @@ the harness saw nothing. `AcceptanceReport` carries no coordinates, so this
 harness is structurally unable to see it. On a cube whose open item says the
 0.5 % default keeps ~130 noise peaks per position, a swap between two
 near-threshold noise peaks is expected rather than alarming — but the claim
-could not stand. (3) The app's own pipeline was NOT measured: `probeSize` runs
-on `meanDP` at `OriginCalibration.swift:513/570` and `AppState.swift:4562`,
-never on this harness's max-of-three input, so the harness's Δ is not the
-app's Δ and nothing here measures the app's.
+could not stand. (3) The app's own pipeline was not measured at closure time:
+`probeSize` runs on `meanDP` at `OriginCalibration.swift:513/570` and
+`AppState.swift:4562`, never on this harness's max-of-three input.
+**Measured 2026-09-09, and it does not move.** `origin-fit-diagnostics
+probe-size` feeds the real `probeSize` with `meanDP` and prints the shipped
+`app tiledRun probeRadius`; under both median rules it is identical on four
+cubes — Si_SiGe 3.738, WS2 1.858, sim_Au 5.113, bullseye 6.843 px
+(`drift/apppath-{new,old}median-20260909.log`, `apppath-bullseye-{new,old}.log`),
+and bullseye's whole-scan `maxDP` 11.223 px matches too. On a smooth averaged
+pattern no `dr` value falls between the old and the new median, so the trusted
+set is unchanged; the drift lived only in the harness's spikier max-of-three
+input. Caveat: printed at three decimals — the harness deltas were 0.029 and
+0.042 px, 30-80x that resolution, so a real move would have shown — and only
+the probe radius, not the full origin fit or Q-calibration.
 
 **Also refuted, and it was the diagnosis's own reasoning:** that Si_SiGe was
 selected for carrying the smallest probe radius. `polycrystal_2D_WS2` measures

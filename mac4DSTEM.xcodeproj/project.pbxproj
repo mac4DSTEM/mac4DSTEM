@@ -468,6 +468,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = mac4DSTEM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = mac4DSTEM;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Paul Lobpreis.";
@@ -518,6 +519,7 @@
 				ENABLE_PREVIEWS = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = mac4DSTEM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = mac4DSTEM;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Paul Lobpreis.";

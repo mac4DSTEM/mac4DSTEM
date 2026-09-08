@@ -201,6 +201,18 @@ private struct DiskDetectionRows: View {
         } else if let count = appState.braggPeakCount {
             LabeledContent("Peaks found", value: "\(count)")
             if let summary = appState.completedDiskSummary {
+                // Warnings come FIRST. They sat after the two count rows until
+                // 2026-09-09, which put them below the panel's visible edge at
+                // the default window height: WS2 finished with a green
+                // "Disks ✓ 16384 peaks" while the median ≤ 1 warning that
+                // explains it — one peak per pattern, the direct beam only —
+                // was off-screen (`docs/open-items.md`, the drive of that day).
+                // The reader needs the caveat before the number it qualifies.
+                ForEach(Array(summary.warnings.enumerated()), id: \.offset) { _, warning in
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 LabeledContent(
                     "Per pattern",
                     value: String(
@@ -211,11 +223,6 @@ private struct DiskDetectionRows: View {
                     )
                 )
                 .monospacedDigit()
-                ForEach(Array(summary.warnings.enumerated()), id: \.offset) { _, warning in
-                    Label(warning, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
             }
         }
     }

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Base only. GENERATE_INFOPLIST_FILE stays YES and the build injects
+	     CFBundleIdentifier, the versions, LSMinimumSystemVersion (14.0, the
+	     whole point of v2.5.1) and the copyright on top of this. Verified
+	     after the change by reading the BUILT Info.plist, not assumed.
+
+	     The extensions mirror `ContentView.datasetTypes` exactly, minus
+	     `raw` and `xml`: those are too generic to claim, and declaring them
+	     would put mac4DSTEM in the Open With menu of every XML file on the
+	     machine. LSHandlerRank Alternate throughout — the app never takes a
+	     format away from whatever already owns it. Until 2026-09-09 no
+	     document type was declared at all, so a .h5 could not be opened by
+	     double-click, the app was absent from Open With, and the window had
+	     no proxy icon (docs/open-items.md). -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>4D-STEM dataset</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>h5</string>
+				<string>hdf5</string>
+				<string>emd</string>
+				<string>dm4</string>
+				<string>dm3</string>
+				<string>mib</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

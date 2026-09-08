@@ -207,7 +207,7 @@ private struct DatasetInfoSections: View {
                 descriptor.chunkShape.map { $0.map(String.init).joined(separator: " x ") } ?? "contiguous",
                 mono: true
             )
-            inspectorRow("Size (f32)", displayByteString(descriptor.byteCountAsFloat32))
+            inspectorRow("Size as float32", displayByteString(descriptor.byteCountAsFloat32))
         }
     }
 
@@ -285,23 +285,8 @@ private struct DatasetInfoSections: View {
                 }
                 inspectorRow("Source shape", appState.loadedView.sourceShapeString, mono: true)
                 inspectorRow("Loaded shape", descriptor.shapeString, mono: true)
-                inspectorRow("Size (f32)", displayByteString(descriptor.byteCountAsFloat32))
+                inspectorRow("Size as float32", displayByteString(descriptor.byteCountAsFloat32))
 
-                if let source = appState.loadView?.source {
-                    // The configurator prices this same cube, and the two
-                    // surfaces a user compares when deciding to promote must
-                    // not render it differently — so both go through
-                    // `displayByteString`, UI's only byte formatter.
-                    Text("Reloads the whole cube — "
-                         + displayByteString(source.byteCountAsFloat32)
-                         + " as float32. Analyses re-run against the full dataset.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                PromoteRunCaption(
-                    record: appState.replay.record,
-                    frame: appState.replay.parameterFrame
-                )
             }
         }
     }
@@ -436,6 +421,21 @@ private struct DatasetActionSections: View {
                     }
                     .disabled(appState.isBusy || appState.isLoadingDataset || appState.replayRun.isRunning)
                     .accessibilityIdentifier("inspector.promoteToFullExtent")
+                    // The price of the button it sits under. C4(c) emptied Info
+                    // of actions but left this sentence and a SECOND
+                    // PromoteRunCaption behind there, describing a control no
+                    // longer on that tab (`docs/open-items.md`, 2026-09-08).
+                    // Moved here rather than the button moved back: the
+                    // configurator prices the same cube through
+                    // `displayByteString`, UI's only byte formatter, so the two
+                    // surfaces a user compares cannot render it differently.
+                    if let source = appState.loadView?.source {
+                        Text("Reloads the whole cube — "
+                             + displayByteString(source.byteCountAsFloat32)
+                             + " as float32. Analyses re-run against the full dataset.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     PromoteRunCaption(record: appState.replay.record, frame: appState.replay.parameterFrame)
                 }
                 if sessionViewDiffers {

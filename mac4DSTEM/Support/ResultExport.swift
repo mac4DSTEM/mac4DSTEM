@@ -1122,7 +1122,7 @@ extension AppState {
         panel.title = title
         panel.message = message
         panel.directoryURL = suggested.deletingLastPathComponent()
-        panel.nameFieldStringValue = suggested.lastPathComponent
+        panel.nameFieldStringValue = SessionSidecarFormat.savePanelSeedName(for: suggested)
         panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
         _ = url.startAccessingSecurityScopedResource()

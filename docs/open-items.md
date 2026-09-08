@@ -15,27 +15,53 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
-## Code hygiene — added 2026-09-08 by the delegated drive
+## Accessibility — added 2026-09-09 by the delegated drive
 
-### Info's "Loaded view" keeps a caption whose button moved to Settings
-Found by review of the C4(c) diff, 2026-09-08, not yet seen on screen.
-`UI/WorkspaceInspector.swift` `loadedViewSection` (Info tab) still renders the
-"Reloads the whole cube — N GB as float32…" cost sentence and a
-`PromoteRunCaption`, but the "Reopen at Full Extent" button those describe now
-lives in `DatasetActionSections` (Settings tab), where it has no cost caption.
-`PromoteRunCaption` is therefore instantiated from two places whenever the
-view is not at full extent. Presentation only; no scientific number. Trap: the
-fix is to move the caption to the button, not to re-add the button to Info —
-C4(c) deliberately emptied Info of actions. Owner: next session touching
-`WorkspaceInspector.swift`.
+### Reading an accessibility label crashes the app
+Two crash reports, 2026-09-08 22:41:36 and 22:47:48, identical faulting stack
+(`~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-09-08-2241*.ips`,
+`-2247*.ips`): `EXC_BAD_ACCESS`, `KERN_PROTECTION_FAILURE` at a stack guard
+page — a stack overflow in
+`AccessibilityNode.accessibilityLabel()` → `labelsToResolve` →
+`resolvedRole(forPlatformElement:)` → AppKit `_accessibilityFindRoleFromProtocol`.
+Triggered both times by an AX client resolving labels on the front window.
+**VoiceOver does exactly this**, as do Accessibility Inspector and any UI
+automation, so a VoiceOver user very likely cannot use the app at all. Not yet
+narrowed to a view; the recursion is in SwiftUI's own machinery, so the trigger
+is probably one view's accessibility modifiers, not app logic. Repro: walk the
+window's AX tree resolving `AXTitle`/`AXDescription`. Owner: Gate D — cause not
+established, and this is a crash. Blocks a credible accessibility claim at 3.0.0.
+
+### In-body controls report no accessibility label — the same bug
+`Compute Mean / Max`, `Fit Detector Ellipse`, the two image-pane buttons and
+every `Advanced` disclosure come back as bare `AXButton` / `AXDisclosureTriangle`
+with empty title, description and value, while AppKit-backed toolbar items
+(`Hide Sidebar`, `Save to Results`, `Dataset`) and the `Accelerating voltage (kV)`
+field report correctly. **This is NOT missing labels in the source** — checked
+2026-09-09: they are already `Button("Fit Detector Ellipse")`,
+`DisclosureGroup("Ellipse correction")`, `Label("Compute Mean / Max", …)`.
+Adding `.accessibilityLabel()` would restate text that is already there, so it
+was deliberately NOT done. The emptiness and the crash above are almost
+certainly one defect in the same SwiftUI resolution path — the crash happens
+while SwiftUI tries to DERIVE a label, and these are exactly the controls whose
+label never resolves. Treat as one Gate D, not two fixes.
 
 ## Verification debt — added 2026-09-08
 
-### Owed on screen from C4(c): failures and confirmations
-The four failure paths (ROI-sum, sidecar inventory refresh, configurator
-single-pattern preview, "No preview available") reaching the status strip, and
-the Remove / two Reset confirmation dialogs, were not exercised in the
-2026-09-08 drive. Everything else in C4(c) was seen (`status.md`'s C4(c) row).
+### Owed on screen from C4(c) and C7, after the 2026-09-09 drive
+Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh,
+configurator single-pattern preview, "No preview available") reaching the status
+strip, and both Reset confirmations. **Remove IS confirmed** — the 2026-09-09
+drive saw `Remove Saved Result?` with a red destructive button and a working
+Cancel (`archive/v3/drive-2026-09-09.md`, finding 17). **C7's sidecar reopen is
+half-answered**: the calibration round trip works — origin, probe and R–Q
+rotation come back as "From session" / "Restored from session" after quit,
+relaunch and reopen, and fields never set stay "Not set" (finding 10). The
+disk-centre LABEL round trip is still unverified: the rig could not place a
+label on the diffraction pane at all (finding 7), which is a Metal/Canvas view
+that may simply not take synthesised clicks. That one needs the owner's hand, or
+a rig that can. Also unreached, same cause: every `Advanced` disclosure, the
+Strain / Orientation / Parallax / ptychography sub-pages, and the WS2 CIF import.
 
 ## Science — Gate D or Gate B owed
 
@@ -66,6 +92,29 @@ all 36 `downsample_Si_SiGe_exp` peaks shifted 0.005-0.02 px and one
 (`scratchpad/drift/refuter/peak-position-diff.txt`). Likely two near-threshold
 noise peaks trading places (the noise item below), not a defect; the defect is
 that the gate cannot tell. Owner: a checksum needs a tolerance — a design pass.
+
+### The one-peak warning is below the fold, and Strain unlocks without it (2026-09-09)
+Driven on `polycrystal_2D_WS2.h5` (`archive/v3/drive-2026-09-09.md`, finding 16;
+shot `B33-ws2-detect-done.png`). `Detect All Disks` completed to a green status
+strip `Disks ✓ 16384 peaks (Parabolic subpixel)` — exactly one peak per
+position, the direct beam only, which is the documented WS₂ behaviour at the
+shipped 0.5 % (`DiskDetection.swift:290-296` names this cube) and is what
+`expected.json` pins. **The app is not silent**: the acceptance funnel reads
+`45 candidates → 1 accepted · absolute 45 · relative 1 · spacing 1`, an amber
+smoothing warning is shown, and `summary.warnings` — which includes the
+median ≤ 1 text naming Min relative intensity — renders at
+`MapSettings.swift:214`. The defect was placement and gating, not absence:
+that block sat immediately after the `Per pattern median…` row, which at the
+default window height put it **below the visible fold** while the green headline
+sat in the bottom bar. **Placement fixed 2026-09-09** — the warnings now render
+BEFORE the two count rows (`MapSettings.swift`); unverified on screen. Still
+open, and the harder half: `Strain` moved from `!` to enabled on a
+median-1 result, because readiness gates on Bragg vectors EXISTING, not on being
+usable. The driving agent first reported this as "nothing distinguishes it from
+a healthy run"; that overstated it and the review corrected it — recorded so the
+next reader does not re-derive the wrong version. Owner: presentation plus a
+readiness question; no Gate D (mechanism established by reading the two call
+sites, no number moves).
 
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
@@ -212,15 +261,6 @@ Reciprocal dimensions remain in pixels" and the scale bar from `0.5 Å⁻¹` to
 fix (Gate D): why a period is rejected rather than parsed, and whether an empty
 manual entry should clear the file value or restore it. Owner: `/diagnose`.
 
-### The first sidecar save already names the file `.mac4dstem.h5.h5` (2026-09-07)
-Agent drive, C3 (`shots-c3/b3-savepanel.png`, `b3b-sidebar.png`): "Save
-Calibration to Session Sidecar" on the COPL cube proposed the dataset stem and
-wrote `…20240912.mac4dstem.h5.h5`; the sidebar and the reopen both use that
-name, so it works, but the doubled suffix recorded as a repeat-save residual
-below happens on the FIRST save. The owner's own folder already holds
-sidecars of both spellings. Owner: `/diagnose` (the save panel's default name
-vs its allowed extension is the first thing to look at).
-
 ### C3 drive leftovers: presentation observations (2026-09-07)
 Presentation (C4, no Gate D): the status bar's `0` / `%` wraps during a run
 (`shots-c3/a5-running.png`); at ~1 080 pt the status text wraps and the bar
@@ -263,17 +303,21 @@ duplicate it here and do not patch findings 1/4/5/7 on the current facade —
 they wait on the architecture seams (C4/C5).
 
 ### UI polish: six papercuts, all verified live 2026-09-09
-Presentation only, no Gate D. Info renders the "Reloads the whole cube" cost
-sentence and a `PromoteRunCaption` for a button C4(c) moved to Settings
-(`WorkspaceInspector.swift:295,301`; move the caption to the button, do NOT
-re-add the button); `gammaControl` prints "Gamma, 1.00" as one string where
-slice 1 made every other slider two texts; ⌘R (`mac4DSTEMApp.swift:89`) and ⌘↩
-(`WorkspaceView.swift:229`) both run the primary action; no `representedURL`
-anywhere, so no proxy icon; `TabView` (`WorkspaceInspector.swift:32`) unstyled;
+Presentation only, no Gate D. `gammaControl` prints "Gamma, 1.00" as one string
+where slice 1 made every other slider two texts; ⌘R (`mac4DSTEMApp.swift:89`)
+and ⌘↩ (`WorkspaceView.swift:229`) both run the primary action — harmless, the
+owner chose to leave it; `TabView` (`WorkspaceInspector.swift:32`) unstyled;
 log height is `@State` (`WorkspaceView.swift:25`) where eight siblings use
-`@SceneStorage`. Triaged against the drive's findings, fix-now list lands
-before 3.0.0 (`decisions.md` 2026-09-09). Stale claims struck: CUA works, and
-both gates ran at 8.2 GB free.
+`@SceneStorage`. Fixed 2026-09-09, unverified on screen: the document types
+(so `.h5` opens by double-click and the proxy icon returns), the doubled
+sidecar name, Info's orphaned cost caption (moved to its button), and
+`Size (f32)` → `Size as float32`. Still open from the drive: no glossary or `?`
+anywhere for probe kernel, ACOM, R–Q rotation, Fit RMS — the student learns
+WHICH button to press (disabled-state reasons are consistently plain English)
+but never what the term means; owner decided 2026-09-09 NOT to add a glossary
+layer before 3.0.0.
+Triaged against the drive's findings, fix-now list lands before 3.0.0
+(`decisions.md` 2026-09-09).
 
 ### Concurrent HDF5 use crashes the process (2026-08-19)
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb

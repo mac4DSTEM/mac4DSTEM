@@ -2,6 +2,21 @@
 
 ## Unreleased — next v2.5.x patch
 
+- **Datasets open by double-click.** They never could before: the app
+  declared no document types at all, so a `.h5` could not be opened from Finder,
+  mac4DSTEM was absent from "Open With", and the window had no proxy icon.
+  It now declares h5 / hdf5 / emd / dm4 / dm3 / mib, ranked `Alternate` so it
+  never takes a format away from whatever already owns it.
+- **The first session sidecar is no longer named `.mac4dstem.h5.h5`.** The save
+  panel appends the extension it requires, and it was being handed a name that
+  already had one.
+- **A disk-detection warning is no longer below the fold.** When the median
+  pattern keeps at most one peak — the direct beam only, which is what a
+  too-strict relative threshold looks like — the warning explaining it now
+  renders above the peak counts instead of after them.
+- **The Info tab no longer describes a button that is not on it**: the
+  "Reloads the whole cube" cost sentence moved to the Reopen at Full Extent
+  button in Settings, and `Size (f32)` now reads `Size as float32`.
 - **The real-data acceptance goldens are re-pinned, and a fifth cube joins
   them.** `run-tests.sh all` had been red since 2026-09-08 on
   `downsample_Si_SiGe_exp` candidate counts. Gate D established the cause:
