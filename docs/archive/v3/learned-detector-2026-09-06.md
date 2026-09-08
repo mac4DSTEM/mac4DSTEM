@@ -552,7 +552,7 @@ them, and (5) once a material's simulation library exists.
    made them.
 
 
-## C6 — the table (2026-09-07 night, completed 2026-09-08 morning; the verdict is owed)
+## C6 — the table (2026-09-07 night, completed 2026-09-08 morning; verdict in `decisions.md` 2026-09-08)
 
 Every number below is from one run of the EXPORTED asset
 `disk-detector-heatmap-b32.aimodel` (run3, sha `a2794a8a…`) on the Neural
@@ -583,7 +583,7 @@ threshold 0.3, from PyTorch, under a different truth rule.
 
 Where the two detectors disagree with the labels (`scratchpad/c6-overlay.py`, `c6-overlay-256.png`, `-128.png`; the same frame, edge and 2-px match as the table): of the classical's 158 unmatched predictions at 256, 128 lie OUTSIDE the central 128-px window and 30 inside; of the net's 39, 27 outside and 12 inside. Inside that window (126 labels) the net reaches 0.794 and the classical 0.714; outside it (180 labels) the net matches 106 (0.589) and the classical 60 (0.333). In the eight-position grid the classical's unmatched peaks sit on the background of sparse patterns (position (5, 34): 13 classical peaks, 5 labels, 5 net), and the net's misses are the faint outer disks the owner labelled. Whether those labels are disks is the owner's eye; the counts are reproducible from the script and the retained npz.
 
-Steps 1–3 of the four are done (the owner's labels; both assets scored against them; the retrain). **Step 4, the verdict in `decisions.md` in the owner's words, is the one owed line.** The Python tooling (without `scan-bench/` and `fixture/swift/`, the Swift side) is on `main` since 2026-09-08 with `disk-detector` in the `scientific` list.
+All four steps are done (the owner's labels; both assets scored against them; the retrain; the verdict, `decisions.md` 2026-09-08). Threshold sweep on the labels at 256: 0.9 → 0.667 / 0.840, 0.7 → 0.768 / 0.712, 0.5 → 0.791 / 0.589, 0.3 → 0.794 / 0.453 (`scratchpad/c6-compare-256-thr*.log`); 0.7 is the chosen default. The Python tooling (without `scan-bench/` and `fixture/swift/`, the Swift side) is on `main` since 2026-09-08 with `disk-detector` in the `scientific` list.
 
 Export check the same night (`c6-check-real.log`, `run3/export/check.json`
 regenerated): six runtimes within tolerance 0.1 of PyTorch float16 — ANE

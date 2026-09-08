@@ -63,28 +63,25 @@ The live facts are the Releases table above and `CHANGELOG.md`.
 
 **Consolidation first (owner, 2026-09-07).** `docs/consolidation-plan.md` is
 the next target's source until it is archived: `/pickup` takes the first gate
-of its §6 whose exit criterion fails — **next for an agent: C4 (b), staleness
-(item 1's C4 paragraph); C6's verdict is yours.** C0 closed and **C1 (docs truth) and C2
+of its §6 whose exit criterion fails — **next for an agent: C7 (the owner's C6
+decisions, 2026-09-08, `decisions.md`); then C4 (b), staleness (item 1's C4
+paragraph).** C0 closed and **C1 (docs truth) and C2
 (hygiene) were executed 2026-09-07**, C1 and C2 uncommitted together on
 `main` (commit when asked). **Next: C3 is the owner's drive** (item 1 below)
 and C4 waits on it. **C5 executed the same evening** (the rule in
 `inventory` and `CLAUDE.md`; the overlays extracted); its standing part is one
 extraction per month in the plan's §4 order — next the `OperationCenter`
-forwarders. **C6 is executed but for its verdict (2026-09-08 morning).** The owner
-labelled the frozen bullseye set (40 positions, 306 centres, native frame);
-the 256-px retrain ran unattended 00:30–02:13 and its exported asset was
-scored beside the shipped 128-px one, both against those labels and the
-classical detector on the same frame — the table is
-`archive/v3/learned-detector-2026-09-06.md` "C6 — the table". Headline, 2 px
-match at 0.9: on the 126 labels a 128-px frame can reach, the shipped asset
-0.810 recall / 0.903 precision against the classical 0.659 / 0.735; on all
-306 at 256 px, the retrained asset 0.667 / 0.840 against the classical
-0.487 / 0.485, and the classical's unmatched peaks are 128-to-30 outside the
-central window (its overlay grid is in the scratchpad). The branch is at
-`f057545` (unpushed); the Python tooling is on `main` with `disk-detector`
-in `scientific`. **Owed: the verdict, step 4, in `decisions.md` in your
-words.** Then C7 only if it says the net adds disks the classical path
-misses; otherwise C5's next extraction. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
+forwarders. **C6 CLOSED 2026-09-08.** The owner labelled the frozen bullseye set (40
+positions, 306 centres); the 256-px retrain ran unattended 00:30–02:13; both
+assets were scored beside the classical detector on the same frame — the
+table is `archive/v3/learned-detector-2026-09-06.md` "C6 — the table"
+(256 px, all 306 labels: net 0.667 / 0.840, classical 0.487 / 0.485). The
+verdict and the four decisions are the `decisions.md` entry of 2026-09-08:
+the net earns its place; **C7 ships the 256-px model on Core ML with a
+"Detector" picker and its threshold row in the Disk detection section of
+Strain & ACOM (the AI room's disk section retired), default threshold 0.7;
+no relabelling first.** Branch `ml/disk-detector` at `f057545`, `main` at
+`afe1b8c`, both committed by the owner. C7's scope is the plan's §6 entry. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
 deleted, `.git` intact); `git checkout -- .` there restored the lock. No
 feature work until C4 and C6 exit. The owner pushes; agents commit when
 asked and never push.
@@ -162,5 +159,5 @@ never a wrapper's; reconcile the unit count against `func test` in source.
 
 ## Owed to the owner
 
-- Nothing on screen: C3 closed 2026-09-07. C6's verdict (step 4); the push of `ml/disk-detector` `f057545` and of `main`.
+- Nothing on screen: C3 closed 2026-09-07, C6 closed 2026-09-08. The push of `ml/disk-detector` `f057545` and of `main`.
 - The §10g decisions and plan §8 (sidecar wire format).

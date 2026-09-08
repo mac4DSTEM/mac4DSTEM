@@ -585,9 +585,9 @@ on `main`. One extraction per month, in §4's order: overlays →
 process doc asks.
 
 **C6 — the detector made honest, on the branch; Python and labels only —
-EXECUTED 2026-09-07/08 (the owner's labels, the 256-px retrain, the table in
-the archive, the tooling on `main` and in `scientific`); the verdict in
-`decisions.md` is the owner's and is the one open line.**
+CLOSED 2026-09-08 (the owner's labels, the 256-px retrain, the table in
+the archive, the tooling on `main` and in `scientific`, the verdict in
+`decisions.md`: earns its place).**
 What §2a leaves open: one truth rule across target, validation and
 evaluation; the textured CLI default and an ingredients builder; a tolerance
 and a non-zero exit in `check_export.py`; count scaling for float cubes; a
@@ -608,12 +608,16 @@ table in the archived evidence file with those numbers; `scientific` exit 0
 with `disk-detector` gated; the verdict written in `decisions.md`, in the
 owner's words, either way.
 
-**C7 — step 4, only if C6's verdict is "adds disks the classical path misses
-on the real test set".** Step 4 exists on the branch on Core AI
+**C7 — step 4; C6's verdict says the net earns its place (2026-09-08,
+`decisions.md`): the 256-px model, exported to Core ML, a "Detector"
+picker with its threshold row in the Disk detection section of Strain &
+ACOM (the AI room's disk section retired), default threshold 0.7. NEXT.** Step 4 exists on the branch on Core AI
 (`5ca9660`, off by default, macOS 27), so C7 is the Core ML swap sized in
 §2a plus a completion, not a build: one Core ML inference class in `Core/`
 replacing the Core AI one (decided 2026-09-07), `DetectorClass` in
-the detection settings, the asset hash in provenance, replay refusing a
+the detection settings (`MapSettings`'s Disk detection section, not the AI
+room), the model input size 256 with `fit_to`'s pad-or-crop rule in Swift
+and windows only above 256, the Swift fixture regenerated at 256, the asset hash in provenance, replay refusing a
 `detector_class` mismatch like `kernel_source`, `prerequisiteItems` and
 `guidance` filled in for the new mode, the disagreement map matching
 positions as well as counts, labels in the sidecar. Opt-in, off by default,

@@ -132,11 +132,11 @@ restates (the 2× target was missed at 2.81× with 3×3 tiling; accepted for
 now, a 256-px retrain owed — C0 (2)). (4) Wire in as an option: Gate B
 campaign, the drive, v3.0 (C7). (5) Fine-tuning on the owner's clicks.
 
-**Verdict (step 3): not passed** — the branch's numbers were PyTorch heatmaps
-on a lattice target with no test set (`consolidation-plan.md` §3). The test
-set, both assets' numbers on it and the 256-px retrain exist since 2026-09-08
-(`archive/v3/learned-detector-2026-09-06.md`, "C6 — the table"); the verdict
-is written in `decisions.md`, in the owner's words, either way.
+**Verdict (step 3): passed 2026-09-08** — on the frozen hand-labelled set
+the net finds the same real disks with far fewer inventions (256 px: 0.667 /
+0.840 against the classical 0.487 / 0.485; `archive/v3/learned-detector-2026-09-06.md`,
+"C6 — the table"). The owner's decisions are the `decisions.md` entry of
+2026-09-08: the 256-px model, the picker in Disk detection, default 0.7.
 
 ## 4. Leave alone; where the app is ahead
 

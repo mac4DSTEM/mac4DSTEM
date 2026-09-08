@@ -555,3 +555,31 @@ mapped by evaluate through the same offset, so one labels file scores a
 padded for a 256-px asset's fixture rows; `overnight-256.sh <out>` chains
 ingredients → train (`--size 256 --width 12 --max-minutes 90`) → export →
 check → evaluate, stopping at the first non-zero exit.
+
+**2026-09-08 — C6 verdict (owner, in chat): the learned disk detector earns
+its place; the 256-px model; one picker in Disk detection; default
+threshold 0.7; the labels are good enough for now.** Judged on the frozen
+hand-labelled bullseye set (40 positions, 306 centres, 2 px match,
+`archive/v3/learned-detector-2026-09-06.md` "C6 — the table"): at 256 px
+the net 0.667 / 0.840 against the classical 0.487 / 0.485; inside the 128-px
+square the shipped asset sees, 0.810 / 0.903 against 0.659 / 0.735. The
+net does not add disks the classical misses; it finds the same real disks
+with far fewer inventions (the classical's unmatched peaks are 128-to-30
+outside the central window, on the background of sparse patterns), and its
+misses are the faint outer disks. The owner's words: "overall the net earns
+its place"; "we keep it simple stupid and macOS-like"; "we take the 256
+model"; "why not use a lower number per default, the user can change it
+anyways"; "discs are labelled good enough for now, maybe we retrain in the
+end but let's first get a clean app". Consequences: (1) C7 ships the
+256-px model (whole 250-px pattern in one pass, padding below 256, windows
+only above), exported to Core ML per the 2026-09-07 decision, with a
+several-shape export tried first and 256 + windows the fallback. (2) The
+2026-09-07 "no AI code in the classical configurator" rule is overruled for
+disk detection: a "Detector" picker (Classical | Neural net) and, when the
+net is chosen, its threshold row live in the Disk detection section of
+Strain & ACOM, because the net's output is the candidate list the classical
+refinement measures either way; the AI Analysis room keeps precipitates and
+groups. (3) Default threshold 0.7 — the knee measured on the labels
+(0.9: 0.67 / 0.84; 0.7: 0.77 / 0.71; 0.5: 0.79 / 0.59; 0.3: 0.79 / 0.45;
+`scratchpad/c6-compare-256-thr*.log`). (4) No relabelling before C7.
+
