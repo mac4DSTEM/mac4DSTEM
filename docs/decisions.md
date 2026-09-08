@@ -719,3 +719,11 @@ anchor for detectors above 256 px. Held: the Python parity of `modelInputs`,
 exit 0), the replay rules, the preserve-on-nil sidecar write, the Neural
 Engine per-shape trap re-measured at 0.036. Process: `-only-testing` with a
 FILE name that is not a class runs nothing and exits 0.
+
+**2026-09-08 — C8: the four pure engines stay on the branch (owner, in chat:
+"leave").** `Core/Analysis/Precipitates/*` and `DiffractionEmbedding.swift` on
+`ml/disk-detector` are not ported unwired; they re-enter with their product
+and UI layers through the §1.5 design session, whose four questions may
+change their contracts. Why: 1 400 lines of Core and 1 700 of tests that never
+met a compiler would sit dead in the tree about to become v3.0.0. C8 is closed
+as a triage (`archive/v3/c8-triage-2026-09-08.md`).
