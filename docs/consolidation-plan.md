@@ -611,7 +611,13 @@ owner's words, either way.
 **C7 — step 4; C6's verdict says the net earns its place (2026-09-08,
 `decisions.md`): the 256-px model, exported to Core ML, a "Detector"
 picker with its threshold row in the Disk detection section of Strain &
-ACOM (the AI room's disk section retired), default threshold 0.7. NEXT.** Step 4 exists on the branch on Core AI
+ACOM (the AI room's disk section retired), default threshold 0.7.
+STARTED 2026-09-08 — session 1 landed the runtime on `main` (the Core ML
+package and its record, `Core/ML/` on Core ML at 256 px with the pad-or-crop
+rule and windows above 256, the fixture at 256, 19 tests; `status.md` row);
+next session: the Session owner, the picker and threshold row, provenance
+on screen, replay refusing a `detector_class` mismatch, then the
+position-matched disagreement map, sidecar labels, the scan-bench on Core ML.** Step 4 exists on the branch on Core AI
 (`5ca9660`, off by default, macOS 27), so C7 is the Core ML swap sized in
 §2a plus a completion, not a build: one Core ML inference class in `Core/`
 replacing the Core AI one (decided 2026-09-07), `DetectorClass` in

@@ -1,0 +1,23 @@
+{
+ "asset": "disk-detector-heatmap-256.mlpackage",
+ "runtime": "coreml",
+ "sha256": "0f53d270a6b9cfbe070fda162726ac5b465cafb534750f265d896b651db641ab",
+ "input": "x [B,3,256,256] float16, B flexible 1...64 (default 32; the app always sends 32, zero-padded)",
+ "output": "heatmap [B,1,256,256] float16",
+ "minimum_deployment_target": "macOS 14",
+ "compute_precision": "float16",
+ "size": 256,
+ "width": 12,
+ "params": 275377,
+ "steps": 20000,
+ "trained": "2026-09-08 00:30-02:05, References/training_runs/disk-detector-2026-09-08/run (overnight-256.sh, --size 256 --width 12 --max-minutes 90)",
+ "exported": "2026-09-08 10:11, export.py --skip-coreai --skip-stateful --skip-coreml (the Core ML heatmap route; the run's export.json carries this hash)",
+ "torch": "2.11.0",
+ "coremltools": "9.0",
+ "macos": "27.0",
+ "threshold_shipped": 0.7,
+ "threshold_evidence": "the knee on the frozen hand-labelled bullseye set (40 positions, 306 centres, 2 px): 0.9 recall 0.667 / precision 0.840, 0.7 0.768 / 0.712, 0.5 0.79 / 0.59; classical 0.487 / 0.485 on the same truth (decisions.md 2026-09-08; archive/v3/learned-detector-2026-09-06.md, C6 — the table)",
+ "fixture": "tools/disk-detector/fixture/swift at 256 px from this package through coremltools (compute units all): 354 picks, 295 accepted at 0.7 on the 16 fixture patterns; the run's own evaluation at 0.7: 355 candidates, 295 accepted, recall 0.773 / precision 0.807 refined",
+ "several_shape_attempt": "disk-detector-heatmap-shapes.mlpackage (enumerated 256 and 512) converted on 2026-09-08; not shipped — the app uses this fixed-size package with windows above 256 (decisions.md 2026-09-08)",
+ "licence": "own weights, trained on the repo simulator with the owner's probes and backgrounds; no third-party weights"
+}

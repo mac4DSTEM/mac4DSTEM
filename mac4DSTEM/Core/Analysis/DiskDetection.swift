@@ -59,6 +59,25 @@ package nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Senda
     }
 }
 
+/// Which stage proposes a scan position's peaks (v3-plan §3a). `.learned` is a
+/// CANDIDATE stage only — a heatmap peak-pick, on the Neural Engine — never a
+/// measurement on its own: `DiskDetector.refine` (the classical detector's own
+/// snap-to-maximum, parabola, edge rule, spacing and cap) is what turns either
+/// class's candidates into accepted `BraggPeak`s. `.classical` finds its own
+/// candidates by exhaustive correlation-maxima search and refines those.
+package nonisolated enum DetectorClass: String, Sendable, CaseIterable, Identifiable {
+    case classical = "Classical correlation"
+    case learned = "Learned candidates (Neural Engine)"
+    package var id: String { rawValue }
+
+    package var provenanceID: String {
+        switch self {
+        case .classical: "classical"
+        case .learned: "learned"
+        }
+    }
+}
+
 /// Stable parameter identifiers shared by the numerical detector, UI, tests,
 /// and persisted provenance. UI labels are deliberately defined here so a
 /// control cannot drift away from the quantity consumed by the core.
@@ -648,6 +667,109 @@ package nonisolated final class DiskDetector {
         return pattern.withUnsafeBufferPointer {
             detectWithDiagnostics(pattern: $0.baseAddress!, params: params)
         }
+    }
+
+    // MARK: Learned candidates (v3-plan §3a step 4, 2026-09-07)
+
+    /// A disk-centre proposal from the learned detector: a pixel and the net's score.
+    package struct Candidate: Sendable {
+        package let x: Int, y: Int, score: Float
+        package init(x: Int, y: Int, score: Float) { self.x = x; self.y = y; self.score = score }
+    }
+
+    /// Stage 1 alone, on the [qy * qx] detector grid: the real cross-correlation
+    /// (`max(Re(IFFT), 0)`, the learned detector's third input channel — it must
+    /// equal `simulate.cross_correlation`) and its sigmaCC-smoothed copy (the
+    /// surface the classical maxima are found and refined on).
+    package func correlation(
+        pattern: UnsafePointer<Float>, params: DiskDetectionParams
+    ) -> (raw: [Float], smoothed: [Float]) {
+        crossCorrelate(pattern: pattern, corrPower: params.corrPower, sigmaDP: params.sigmaDP,
+                       retainComplexCorrelation: false)
+        if params.sigmaCC > 0 {
+            gaussianBlur(src: cc, dst: &smooth, sigma: params.sigmaCC)
+        } else {
+            smooth = cc
+        }
+        func cropped(_ a: [Float]) -> [Float] {
+            if px == qx && py == qy { return a }
+            var out = [Float](repeating: 0, count: qy * qx)
+            for y in 0..<qy { for x in 0..<qx { out[y * qx + x] = a[y * px + x] } }
+            return out
+        }
+        return (cropped(cc), cropped(smooth))
+    }
+
+    /// Refine learned candidates the way the classical maxima are refined, on the
+    /// [qy * qx] smoothed correlation from `correlation(pattern:params:)`: snap each
+    /// candidate to the correlation's maximum within ±2 px (the net's peak is not the
+    /// correlation's) and REQUIRE that pixel to be an 8-neighbour local maximum — a
+    /// candidate the correlation does not confirm is rejected (Gate B 2026-09-07: without
+    /// this, py4DSTEM's parabola evaluated on a flank fabricated positions up to 28 px off,
+    /// and the Python reference agreed because it shared the defect); then the same
+    /// parabolic sub-pixel step and bilinear intensity as the classical path (`polyRefine`),
+    /// the edge boundary on the refined position, non-maximum suppression at
+    /// `minPeakSpacing` by NET score, and the `maxNumPeaks` cap. No correlation-relative
+    /// intensity cut: that is the cut that drops the faint disks the net is for. Mirrors
+    /// `evaluate.refine` + `evaluate.accept` in tools/disk-detector (the Python reference the
+    /// Swift fixture test compares against; Python has no cap).
+    ///
+    /// DEVIATION from py4DSTEM `get_maxima_2D` (preprocess/utils.py), on purpose — the
+    /// candidates come from the net, not from an exhaustive maxima search: (1) the maxima
+    /// are the net's picks snapped to the correlation, not every correlation maximum;
+    /// (2) the order is snap → parabola → edge rule → spacing → cap, where py4DSTEM applies
+    /// the edge rule and the spacing on the integer maxima before the parabola; (3) the
+    /// edge rule tests the REFINED position, py4DSTEM the integer pixel; (4) the spacing
+    /// suppression ranks by the net's score, py4DSTEM by correlation intensity. Shared with
+    /// py4DSTEM: the parabola is only evaluated at a local maximum (so |shift| ≤ 0.5 px),
+    /// the `<` spacing test, the cap keeps the highest-ranked.
+    package func refine(
+        candidates: [Candidate], smoothedCorrelation ar: [Float], params: DiskDetectionParams
+    ) -> [BraggPeak] {
+        precondition(ar.count == qy * qx)
+        let eb = Float(params.edgeBoundary)
+        var accepted: [(peak: BraggPeak, score: Float)] = []
+        accepted.reserveCapacity(candidates.count)
+        for cand in candidates {
+            // snap: the maximum of the 5x5 window, clipped one pixel inside the grid
+            let rs = max(cand.y - 2, 1), re = min(cand.y + 3, qy - 1)
+            let cs = max(cand.x - 2, 1), ce = min(cand.x + 3, qx - 1)
+            guard rs < re, cs < ce else { continue }
+            var by = rs, bx = cs, best = -Float.greatestFiniteMagnitude
+            for y in rs..<re { for x in cs..<ce where ar[y * qx + x] > best { best = ar[y * qx + x]; by = y; bx = x } }
+            // py4DSTEM's precondition: the parabola is evaluated only AT a local maximum
+            let c = by * qx + bx
+            var isMaximum = true
+            for dy in -1...1 where isMaximum {
+                for dx in -1...1 where !(dx == 0 && dy == 0) {
+                    if ar[c + dy * qx + dx] > best { isMaximum = false; break }
+                }
+            }
+            guard isMaximum else { continue }
+            let ix0 = ar[c], ix1 = ar[c + 1], ix1_ = ar[c - 1], iy1 = ar[c + qx], iy1_ = ar[c - qx]
+            let dx = (ix1 - ix1_) / (4 * ix0 - 2 * ix1 - 2 * ix1_)
+            let dy = (iy1 - iy1_) / (4 * ix0 - 2 * iy1 - 2 * iy1_)
+            let x = Float(bx) + (dx.isFinite ? dx : 0), y = Float(by) + (dy.isFinite ? dy : 0)
+            guard x >= eb, x < Float(qx) - eb, y >= eb, y < Float(qy) - eb else { continue }
+            // bilinear intensity at the refined position (as polyRefine reports it)
+            let x0 = Int(x.rounded(.down)), y0 = Int(y.rounded(.down))
+            let x1 = min(x0 + 1, qx - 1), y1 = min(y0 + 1, qy - 1)
+            let fx = x - Float(x0), fy = y - Float(y0)
+            let intensity = (1 - fx) * (1 - fy) * ar[y0 * qx + x0] + fx * (1 - fy) * ar[y0 * qx + x1]
+                + (1 - fx) * fy * ar[y1 * qx + x0] + fx * fy * ar[y1 * qx + x1]
+            accepted.append((BraggPeak(x: x, y: y, intensity: intensity), cand.score))
+        }
+        accepted.sort { $0.score > $1.score }
+        var kept: [(peak: BraggPeak, score: Float)] = []
+        outer: for a in accepted {
+            for k in kept {
+                let dx = a.peak.x - k.peak.x, dy = a.peak.y - k.peak.y
+                if (dx * dx + dy * dy).squareRoot() < params.minPeakSpacing { continue outer }
+            }
+            kept.append(a)
+            if kept.count >= params.maxNumPeaks { break }
+        }
+        return kept.map(\.peak)
     }
 
     // MARK: Stage 1 — hybrid cross correlation

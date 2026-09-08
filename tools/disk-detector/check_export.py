@@ -6,7 +6,7 @@ Inputs: the committed fixture (16 patterns) plus simulated samples, run through
   (b) the Core AI asset through coreai-core's Python runtime (coreai.runtime), per compute-unit
       preference — neural engine, cpu only, gpu — with the first-load specialisation and per-batch
       times, and
-  (c) the Core ML package through coremltools' predict (insurance route).
+  (c) every Core ML package through coremltools' predict — the shipping heatmap package first of all (C7).
 Reports max |diff| of the heatmap in float16 terms (the float16 reference's own error against float32
 is printed beside it) and whether the in-graph peaks equal the numpy peak-picking.
 
@@ -170,20 +170,33 @@ def main():
                 results["coreai_stateful"] = dict(max_diff=float(d), probe_spread=float(spread), load_s=float(r["load_s"]))
             except Exception as err:
                 print(f"Core AI stateful FAILED: {err}"); results["coreai_stateful"] = dict(error=str(err)[:400])
-    if not a.skip_coreml and meta.get("coreml"):
-        try:
-            import coremltools as ct
+    if not a.skip_coreml:
+        import coremltools as ct
+        def predict(m, xb):
+            try: return m.predict({"x": xb})["heatmap"]
+            except Exception: return m.predict({"x": xb.astype(np.float16)})["heatmap"]   # a float16-input package (C7 heatmap)
+        # every Core ML package the export wrote: the detect variant (macOS 15), the shipping heatmap
+        # package and the several-shape attempt (C7). The flexible-batch ones are also run at batch 1.
+        for key in ("coreml", "coreml_heatmap", "coreml_heatmap_shapes"):
+            if not meta.get(key): continue
             for cu in [("all", ct.ComputeUnit.ALL), ("cpu_and_ne", ct.ComputeUnit.CPU_AND_NE), ("cpu_only", ct.ComputeUnit.CPU_ONLY)]:
-                t0 = time.perf_counter(); m = ct.models.MLModel(meta["coreml"], compute_units=cu[1]); load_s = time.perf_counter() - t0
-                heats, times = [], []
-                for b in range(0, len(x), B):
-                    t0 = time.perf_counter(); out = m.predict({"x": x[b:b + B]}); times.append(time.perf_counter() - t0); heats.append(out["heatmap"])
-                h = np.concatenate(heats); t = np.array(times[1:]) if len(times) > 1 else np.array(times)
-                print(f"Core ML [{cu[0]}]: load {load_s:.2f} s; per batch median {np.median(t) * 1000:.2f} ms -> {np.median(t) / B * 1000:.3f} ms/pattern (coremltools predict, includes Python overhead)")
-                d = report("heatmap vs PyTorch float32", heat32, h); report("heatmap vs PyTorch float16", heat16, h)
-                results[f"coreml_{cu[0]}"] = dict(load_s=load_s, ms_per_pattern=float(np.median(t) / B * 1000), max_diff=float(d))
-        except Exception as err:
-            print(f"Core ML FAILED: {type(err).__name__}: {err}"); results["coreml"] = dict(error=f"{type(err).__name__}: {err}")
+                tag = f"{key} [{cu[0]}]"
+                try:
+                    t0 = time.perf_counter(); m = ct.models.MLModel(meta[key], compute_units=cu[1]); load_s = time.perf_counter() - t0
+                    heats, times = [], []
+                    for b in range(0, len(x), B):
+                        t0 = time.perf_counter(); out = predict(m, x[b:b + B]); times.append(time.perf_counter() - t0); heats.append(np.asarray(out, np.float32))
+                    h = np.concatenate(heats); t = np.array(times[1:]) if len(times) > 1 else np.array(times)
+                    print(f"Core ML {tag}: load {load_s:.2f} s; per batch median {np.median(t) * 1000:.2f} ms -> {np.median(t) / B * 1000:.3f} ms/pattern (coremltools predict, includes Python overhead)")
+                    d = report("heatmap vs PyTorch float32", heat32, h); d16 = report("heatmap vs PyTorch float16", heat16, h)
+                    res = dict(load_s=load_s, ms_per_pattern=float(np.median(t) / B * 1000), max_diff=float(d), max_diff_fp16=float(d16))
+                    if key != "coreml":   # flexible batch: one pattern alone must give the same heatmap as inside a batch
+                        h1 = np.asarray(predict(m, x[:1]), np.float32)
+                        res["batch1_vs_batched_max_diff"] = float(np.abs(h1[0] - h[0]).max())
+                        print(f"  batch 1 vs batched, pattern 0: max |diff| {res['batch1_vs_batched_max_diff']:.4f}")
+                    results[f"{key}_{cu[0]}"] = res
+                except Exception as err:
+                    print(f"Core ML {tag} FAILED: {type(err).__name__}: {err}"); results[f"{key}_{cu[0]}"] = dict(error=f"{type(err).__name__}: {err}"[:400])
     # The verdict (C6, 2026-09-07): before this the script could not fail. A runtime that raised, a
     # heatmap beyond --tolerance of the float16 reference, or an in-graph peak output below
     # --min-peak-recall makes the check exit 1; the JSON records every number either way.

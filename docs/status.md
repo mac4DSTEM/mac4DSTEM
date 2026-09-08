@@ -25,6 +25,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Step | State | What it left behind |
 |---|---|---|
+| C7 session 1: the learned detector's runtime on `main`, Core ML at 256 px | done 2026-09-08, no Gate D (neither trigger: no defect, an opt-in path pinned to the Python reference), Gate B owed at C7's end per the plan; 19 tests in three files, six mutations of `LearnedDiskDetector` each caught by the test aimed at it (`scratchpad/test-learned-mut.log`: count scaling, fit offset, the 256 branch, the window copy, the hash's paths, the shift back), revert byte-verified; learned classes 19/0 (`test-learned-2.log` exit 0); export check every Core ML row within 0.075 of PyTorch float16 (`check-c7.log`, tolerance 0.1; its exit 1 is the pre-existing Core AI GPU and stateful rows); `disk-detector` harness exit 0; **nothing on screen yet — no UI in this session** | `Models/DiskDetector/disk-detector-heatmap-256.mlpackage` (float16 in/out, batch flexible, macOS 14 target, sha `0f53d270…`) with its record JSON, the one `.gitignore` exception; `Core/ML/LearnedDiskDetector.swift` on Core ML (compile at load, `.all` compute units), `inputSize` 256, `defaultThreshold` 0.7, `toCounts`, `fitOffset`/`window` = `simulate.fit_to` (pad below 256, as is at 256, windows above), `LearnedDiskDetection.swift` streaming + count map; `DiskDetector.Candidate`/`correlation`/`refine` and `DetectorClass` from the branch; `export.py` Core ML heatmap route (+ the several-shape attempt, recorded not shipped), `check_export.py` checks every package, `write_swift_fixture.py --coreml --batch 32`; the Swift fixture at 256 px. `AppState` untouched |
 | C4 slice 2: one enable logic | done 2026-09-07 night by a Sonnet agent, wiring only, no Gate D; two tests broken first (`scratchpad/pw-fail.log`, `sg-fail.log` exit 65 → `test-productworkflow-after.log`, `test-gates-nav-demo.log` exit 0), `xcodebuild build` exit 0 (`build1.log`); unit 495/0/1 (gate table); **unverified on screen** | `ProductWorkflow.mayRun(_:readiness:isBusy:)` is what every run button binds to (Compute Strain Map, Reconstruct Object, Prepare Parallax Preview, the toolbar action); `SessionGates.mayWriteSidecar` gates the five sidecar save/remove controls; `View.disabledWhileRunning(appState)` on the four settings panels disables every parameter while a run is in flight; "Update Image" is "Compute Image" and the dead "Reconstruction Ready" button is gone. 56 survey rows classified in the agent's report; the parallax stage buttons keep their in-memory sequencing checks, which `ProductWorkflow` does not model. `AppState` untouched |
 | C4 slice 1: the four C3 presentation observations | done 2026-09-07 night by a Sonnet agent, presentation only, no Gate D; two new tests broken first (`scratchpad/statusbar-before.log` exit 65 → `-after.log` exit 0; `activitylog-before.log` → `-after.log`); unit 493/0/1 (gate table); **unverified on screen** | `LayoutPolicy.progressPercentWidth` (36 pt, measured against "100 %") reserves the status bar's percentage; the status message is one line, tail-truncated; the output log scrolls to its newest line on appear through `ActivityLog.scrollTarget(forCount:)`; `MapSettings.parameterSliderRow` shows title and value as two texts, which also fixes the two sigma sliders that shared it. `AppState` untouched. Not testable in the unit target, said plainly: the one-line truncation and the slider layout |
 | C5, first extraction: the fit-verification overlays out of `AppState` | done 2026-09-07, unit + `core` green, six tests broken first (five mutations, all caught); **owner-verified on screen 2026-09-07 23:33** (light appearance, `sim_Au`: the fitted-origin cross on the central disk) (`scratchpad/drive/shots/`): on the demo fixture the red fitted-origin cross draws on the central disk in Prepare, the toggle removes it and brings it back, and it draws on the Mean pattern too; the yellow ring and dot that stay with the toggle off are the aperture control, not the overlay; no fit ellipse was drawn because the demo carries none; strain and ACOM overlays not reached (nothing computed) | `Session/FitOverlayPresentation.swift`: the origin/ellipse/strain-lattice/ACOM-template overlays as a value over a snapshot; `AppState.fitOverlays` builds the snapshot, `ImagePanes` reads the value. `AppState` 5 593 → 5 500 lines. The reopen boundary is pinned: a calibration restored through `SessionCalibrationTranslation` draws the same origin and ellipse as the live one. Not exercised: the ACOM template path beyond its gating (no `OrientationPlan` fixture in the unit target). The rule itself: `inventory` fails when `AppState.swift` + `ResultExport.swift` exceed their count at HEAD (HEAD^ on a clean tree) — broken first by a 100-line append (`inventory-c5-broken.log`) |
@@ -45,11 +46,11 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **exit 0 — 2026-09-07 night, the C4 slice-2 tree** (`scratchpad/unit-c4s2-20260907.log`): **495 passed / 0 failed / 1 skipped, 496 cases** (496 `func test` in source). Earlier the same night: 493/0/1 on the slice-1 tree (`unit-c4s1-20260907.log`); 491/0/1 on the C5 tree (`unit-c5-20260907.log`), 485/0/1 on the C2 tree (`unit-20260907.log`). The script's own `xcodebuild test` line run directly because the 8 GB preflight refuses at ~4 GB free. |
-| `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scratchpad/scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line): the script's own loop (`fetch-py4dstem.sh`, then `run_harnesses` over its `scientific` array, read from the script) run directly because the 4 GB preflight refuses at 3.9 GB free — the same practice the `unit` row records. Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
-| `run-tests.sh core` (both packages) | **exit 0 — 2026-09-07 late evening, the C5 tree** with `Session/FitOverlayPresentation.swift` (`scratchpad/core-c5-20260907.log`). Previous: `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-08 morning, `main` with `tools/disk-detector` on it** (`scratchpad/inventory-c6-final-20260908.log`, the docs final): gated 46, diagnostic 9, owner-only 0, support 2; `AppState` + `ResultExport` 7 531 (7 531 at HEAD^); live markdown 4 693; cold-start set 869; `AGENTS.md` in sync. Previous: exit 0 on 2026-09-07 night after the owner deleted the stray `__pycache__` (`inventory-owner-20260907.log`), gated 45, live markdown 4 677, cold-start 884. |
-| `tools/package-test/run.sh` | **exit 0 — 2026-09-04.** Clean-builds a hardened Release and audits the artefact: nested signatures, sandbox/read-write/bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version `2.5 (4)` with the deployment floor — both DERIVED from the project. The floor assertion and its success message were both literal `26.0` and both wrong after the floor moved; the message said "macOS 26 floor" while passing against 14.0 |
+| `run-tests.sh unit` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`scratchpad/unit-c7-20260908.log`, `GATE_EXIT=0` on its own line): **514 passed / 0 failed / 1 skipped, 515 cases** (515 `func test` in source). The script's own `xcodebuild test` line run against the standard DerivedData because the 8 GB preflight refuses at < 1 GB free. Earlier: 495/0/1 on the C4 slice-2 tree (`unit-c4s2-20260907.log`). |
+| `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scratchpad/scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line); the C7 session-1 tree re-ran the one harness it touched, `disk-detector`, exit 0 (`disk-detector-fixture-c7.log`), not the full set (< 1 GB free; the Swift changes are outside every harness's source list). Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
+| `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-1 tree** with `Core/ML/` (`scratchpad/core-c7-20260908.log`). Previous: `b91f5bb`, 2026-09-03 |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`scratchpad/inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. Previous: exit 0 on 2026-09-07 night after the owner deleted the stray `__pycache__` (`inventory-owner-20260907.log`), gated 45, live markdown 4 677, cold-start 884. |
+| `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`scratchpad/inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). The release-tree attempt exited 1 at `real-data-acceptance`; that sidecar instance was diagnosed and closed as a stopgap then, and the wider discovery class was subsequently closed on 2026-09-05. Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
 
 ## The v2.5.0 / v2.5.1 release night
@@ -63,28 +64,20 @@ The live facts are the Releases table above and `CHANGELOG.md`.
 
 **Consolidation first (owner, 2026-09-07).** `docs/consolidation-plan.md` is
 the next target's source until it is archived: `/pickup` takes the first gate
-of its §6 whose exit criterion fails — **next for an agent: C7 (the owner's C6
-decisions, 2026-09-08, `decisions.md`); then C4 (b), staleness (item 1's C4
-paragraph).** C0 closed and **C1 (docs truth) and C2
-(hygiene) were executed 2026-09-07**, C1 and C2 uncommitted together on
-`main` (commit when asked). **Next: C3 is the owner's drive** (item 1 below)
-and C4 waits on it. **C5 executed the same evening** (the rule in
-`inventory` and `CLAUDE.md`; the overlays extracted); its standing part is one
-extraction per month in the plan's §4 order — next the `OperationCenter`
-forwarders. **C6 CLOSED 2026-09-08.** The owner labelled the frozen bullseye set (40
-positions, 306 centres); the 256-px retrain ran unattended 00:30–02:13; both
-assets were scored beside the classical detector on the same frame — the
-table is `archive/v3/learned-detector-2026-09-06.md` "C6 — the table"
-(256 px, all 306 labels: net 0.667 / 0.840, classical 0.487 / 0.485). The
-verdict and the four decisions are the `decisions.md` entry of 2026-09-08:
-the net earns its place; **C7 ships the 256-px model on Core ML with a
-"Detector" picker and its threshold row in the Disk detection section of
-Strain & ACOM (the AI room's disk section retired), default threshold 0.7;
-no relabelling first.** Branch `ml/disk-detector` at `f057545`, `main` at
-`afe1b8c`, both committed by the owner. C7's scope is the plan's §6 entry. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
-deleted, `.git` intact); `git checkout -- .` there restored the lock. No
-feature work until C4 and C6 exit. The owner pushes; agents commit when
-asked and never push.
+of its §6 whose exit criterion fails — **next for an agent: C7 session 2 (the
+Session owner, the Detector picker with its threshold row in Disk detection,
+provenance on screen, replay refusing a `detector_class` mismatch; the plan's
+C7 entry lists the rest); then C4 (b), staleness (item 1's C4 paragraph).**
+C0–C3 and C6 are closed, C5's rule stands (one extraction per month, next the
+`OperationCenter` forwarders), C4 has (b) and (c) open. **C7 started
+2026-09-08: session 1 put the runtime on `main`** (the table's first row): the
+256-px model on Core ML, the fixture and tests; no UI yet, so nothing to
+drive. C6's evidence is `archive/v3/learned-detector-2026-09-06.md` "C6 — the
+table" and the `decisions.md` entry of 2026-09-08 (the net earns its place;
+default 0.7; no relabelling first). Branch `ml/disk-detector` at `f057545`
+still carries the AI room (C8) and `scan-bench`; the disk-detector Swift on
+`main` is the Core ML port, not a merge. The owner pushes; agents commit
+when asked and never push.
 
 v2.5.1 is published and verified from its own download link. Both repos are
 pushed; the site says macOS 14+ and serves the build that can honour it. Push

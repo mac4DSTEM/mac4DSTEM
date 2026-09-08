@@ -1,13 +1,15 @@
 # tools/disk-detector — the learned disk detector's tooling
 
-On `main` since 2026-09-08 (C6): the Python tooling and the 128-px fixture only. The Swift side —
-`scan-bench/` and `fixture/swift/`, referenced below — lives on `ml/disk-detector`.
+On `main` since 2026-09-08: the Python tooling, the 128-px fixture (C6) and, since C7 the same day,
+`fixture/swift/` at 256 px with the shipping Core ML package `Models/DiskDetector/` and the app's
+`Core/ML/LearnedDiskDetector` behind it. `scan-bench/`, referenced below, still lives on `ml/disk-detector`
+(it times the Core AI runtime; re-measuring on Core ML is a later C7 session).
 
 `docs/v3-plan.md` §3a. Python that never ships: a simulator with known disk
-centres, a plain-conv U-Net trainer, exports to Core AI (`.aimodel`) and Core ML
-(`.mlpackage`, insurance), the export checks, and a committed synthetic fixture.
-The app gets one asset and one inference class at step 4; nothing here touches
-`Core/`, `UI/` or `AppState`.
+centres, a plain-conv U-Net trainer, exports to Core ML (`.mlpackage`, the
+shipping route since C7) and Core AI (`.aimodel`), the export checks, and a
+committed synthetic fixture. The app gets one asset and one inference class;
+nothing here touches `UI/` or `AppState`.
 
 ## Environments (two, on purpose)
 
@@ -154,9 +156,20 @@ op — coreai-torch 0.4.2 has no lowering for `aten.remainder`), `scoremap`
 `cast_fp32_to_fp16` → `TorchConverter` → `to_coreai()` → `optimize()` →
 `save_asset`. The probe-as-state attempt is a fourth asset: `set_probe`
 writes a model buffer in place, `detect` reads it and takes two channels.
-Core ML insurance: `torch.jit.trace` → `coremltools.convert` (float16,
-macOS 15 target) with the same three outputs. `export.json` carries the
-SHA-256 of every asset — the weights hash provenance will record.
+Core ML, the shipping route (C7, 2026-09-08): `disk-detector-heatmap-<size>.mlpackage`
+— `torch.jit.trace` of the U-Net alone → `coremltools.convert`, float16 in and
+out, the batch a flexible dimension 1…64 (default 32), macOS 14 target (the
+app's floor), no in-graph programme (the app peak-picks on the CPU). A
+several-shape package (enumerated 256 and 512 px) is exported beside it and
+checked, not shipped — the app uses the fixed-size one with windows above 256.
+The older `detect` package (macOS 15, heatmap + in-graph peaks) stays as a
+comparison. `export.json` carries the SHA-256 of every asset — the weights
+hash provenance records (`sha256_tree`, mirrored by `LearnedDiskDetector.sha256`).
+Measured on the 2026-09-08 run (`check.json`): every Core ML package within
+0.075 of PyTorch float16 on the Neural Engine (tolerance 0.1), 0.017 on the
+CPU; on the flexible-batch package the Neural Engine's batch-1 heatmap differs
+from the batched one by up to 0.035 (the enumerated-shape package: 0.000), so
+the app always sends the default batch of 32, zero-padded.
 
 `check_export.py`: the fixture plus simulated inputs through PyTorch float32
 (reference) and float16 (the floor), then every Core AI asset under
@@ -164,9 +177,9 @@ SHA-256 of every asset — the weights hash provenance will record.
 **each in a subprocess**, because a Neural Engine program-load failure kills
 the process — with first-load specialisation time, per-batch and per-pattern
 time, max |diff| of the heatmap, and whether the in-graph peaks equal numpy's;
-then the `.mlpackage` through coremltools' predict. It runs through
-macOS 27's own runtime (`USE_OS_COREAI=1`; the in-package runtime has no
-compute-unit delegates).
+then every `.mlpackage` through coremltools' predict (all, CPU+NE, CPU only;
+the flexible-batch ones at batch 1 too). It runs through macOS 27's own Core AI
+runtime (`USE_OS_COREAI=1`; the in-package runtime has no compute-unit delegates).
 
 `evaluate.py` (step 3) runs in two stages because torch and py4DSTEM live in
 different environments: `--stage net` (detector env) writes heatmaps for the
@@ -247,12 +260,15 @@ position: 0.9 → median 0 (416 vs 442, no pair beyond 0.5 px), 0.6 → median
 0 (501 vs 442); fixture 0.967 / 0.244 px refined at every threshold, 241
 accepted, precision 0.61; WS₂ as stored equals classical.
 
-- **Step 4 slice 1 (Swift).** `fixture/write_swift_fixture.py` writes
-  `fixture/swift/` (the 16 patterns as uint16, the probe, Python's model
-  inputs for two patterns, and per pattern the raw picks and the accepted
-  refined peaks from the committed asset `Models/DiskDetector/`); the app's
+- **Step 4 slice 1 (Swift), on Core ML since C7.** `fixture/write_swift_fixture.py
+  --coreml <package> --threshold 0.7` writes `fixture/swift/` (the 16 native
+  128-px patterns as uint16, the native probe, Python's model inputs for two
+  patterns in the 256-px frame, the fit offset, and per pattern the raw picks
+  and the accepted refined peaks from the committed package
+  `Models/DiskDetector/`, all in the 256 frame); the app's
   `mac4DSTEMTests/LearnedDiskDetectorTests` reproduces all of it through
-  `Core/ML/LearnedDiskDetector`. `evaluate.refine` now applies the parabolic
+  `Core/ML/LearnedDiskDetector`, the zero-padding included (`simulate.fit_to`
+  = `LearnedDiskDetector.window`). `evaluate.refine` applies the parabolic
   shift unguarded like py4DSTEM and the app (a non-finite shift is not
   applied), and rejects a candidate whose snapped pixel is not a local
   maximum (Gate B: py4DSTEM's precondition; it fabricated 10 of 255 fixture
@@ -285,12 +301,13 @@ run.sh train --ingredients <npz> \
 #   fine-tuning: add --resume runN/best.pt, fold the owner's patterns into <npz>
 #   new regime: widen SimConfig.zoom, add a probe to load_ingredients, or bump S — before running
 
-run.sh export --run … --variants heatmap --batches 32 --threshold 0.9 --skip-coreml --skip-stateful
-run.sh check --run … --prefer ane cpu --skip-coreml
-run.sh evaluate --run … --asset <heatmap .aimodel> --threshold 0.9
+run.sh export --run … --threshold 0.7            # Core ML heatmap package (shipping) + the Core AI assets
+run.sh check --run …                             # exits 1 outside tolerance; check.json records every runtime
+run.sh evaluate --run … --asset <heatmap .aimodel> --threshold 0.7 --labels labels/<name>.json
 
-fixture/write_swift_fixture.py --asset <heatmap .aimodel> --threshold 0.9
-#   then copy the asset + a regenerated record JSON (Models/DiskDetector/*.json fields) in
+fixture/write_swift_fixture.py --coreml <run>/export/disk-detector-heatmap-256.mlpackage --threshold 0.7
+#   then copy the package to Models/DiskDetector/ (the .gitignore exception names it) and regenerate
+#   the record JSON beside it (its sha256 = export.json's); the Swift tests pin both
 ```
 
 One heavy job at a time on this 8 GB Mac — a training run beside an ANE
@@ -303,6 +320,6 @@ the ANE after the other has written it.
 The fixture gate green (`run.sh`); `mac4DSTEMTests/LearnedDiskDetector*` and
 `LearnedDiskDetectionScanTests` green against the regenerated Swift fixture;
 the SHA-256 in the record JSON equal to `export.py`'s `sha256_tree` of the
-asset; the numbers in `docs/status.md` re-run (bullseye evaluate at 0.9, the
-scan-bench); Gate B at the merge. Every retrain is a new hash — old results
+package; the numbers in `docs/status.md` re-run (the labels evaluate at 0.7,
+the scan-bench); Gate B at the merge. Every retrain is a new hash — old results
 keep saying which weights made them (`learned_model_sha256` in provenance).

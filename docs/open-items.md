@@ -190,6 +190,19 @@ in "residual is too large (0.247)".
 gitignored multi-GB data and stay diagnostics only — not a gap to close,
 a standing limit to remember before citing them as coverage.
 
+### C7's learned runtime: ceiling unmeasured on Core ML, nothing on screen (2026-09-08)
+Session 1 put `Core/ML/LearnedDiskDetector` (Core ML, 256 px) on `main`
+with no UI, so no drive is possible yet; the picker is session 2. The 2.81×
+ceiling (`consolidation-plan.md` §2a) was measured on Core AI at 128 px by
+`tools/disk-detector/scan-bench/`, which still lives on `ml/disk-detector`
+and times that runtime: port it and re-measure on Core ML at 256 px before
+the number is quoted for v3.0. Trap: the Neural Engine specialises per input
+shape — the flexible-batch package's batch-1 heatmap differs from the batched
+one by up to 0.035 (`check.json`), so the app and the fixture both use batch
+32, zero-padded; a fixture predicted at another batch flips picks at the
+threshold (cost one test iteration on 2026-09-08). `check_export.py` leaves
+2.4 GB of regenerable `check-work` under the run's `export/` (owner's data).
+
 ### #30 — origin calibration over a NAS runs at ~3 MB/s (2026-08-06)
 Investigation owed; nobody has measured it since.
 

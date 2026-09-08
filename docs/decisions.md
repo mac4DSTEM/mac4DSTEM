@@ -583,3 +583,26 @@ groups. (3) Default threshold 0.7 — the knee measured on the labels
 (0.9: 0.67 / 0.84; 0.7: 0.77 / 0.71; 0.5: 0.79 / 0.59; 0.3: 0.79 / 0.45;
 `scratchpad/c6-compare-256-thr*.log`). (4) No relabelling before C7.
 
+**2026-09-08 — C7 session 1: the Core ML runtime on `main`, and four
+choices made in-step.** (1) The asset ships VERBATIM: the `.mlpackage` is a
+folder resource in the bundle (`Models/DiskDetector/`, the one `.gitignore`
+exception), compiled by `MLModel.compileModel(at:)` at first load. Why: the
+hash in provenance is then `export.py`'s `sha256_tree` of the package, the
+same number the run's `export.json` and the record JSON carry; an Xcode-time
+compile would ship an `.mlmodelc` whose bytes depend on the compiler, so no
+reader could reproduce the hash from the Python side. Load is once per
+launch, outside any run. (2) The app always sends the package's default
+batch of 32, zero-padded, although the package accepts 1…64: on the Neural
+Engine a batch-1 heatmap differs from the batched one by up to 0.035
+(`check.json`), enough to move a pick across the threshold, and the fixture
+is written at that same shape for the same reason. (3) The several-shape
+export the owner asked to try first (enumerated 256 and 512 px) converts and
+passes the check; it is not shipped — nothing above 250 px has truth, and
+one model frame with windows above it keeps the science to what was
+measured. (4) The frame rule in Swift is `simulate.fit_to`'s: a detector
+below 256 is one frame at `fit_offset` (round-half-to-even, never clamped —
+the frame hangs over the detector and the overhang is zero), exactly 256 is
+used as is, above 256 is windows. The branch's `DetectorClass`, `Candidate`,
+`correlation` and `refine` came to `main` unchanged (Gate B 2026-09-07 on the
+branch); the Core AI class is not ported, `#if canImport(CoreAI)` is gone.
+

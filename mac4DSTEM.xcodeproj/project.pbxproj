@@ -13,6 +13,7 @@
 		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
 		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
+		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +47,7 @@
 		000000000000000200000003 /* libsz.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libsz.2.dylib; sourceTree = "<group>"; };
 		100000000000000000000120 /* mac4DSTEMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		F6A1D0DE0001000000000001 /* DiskDetector */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiskDetector; path = Models/DiskDetector; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -104,6 +106,8 @@
 				Core/Data/ResultPresentation.swift,
 				Core/Data/SessionReplayRecord.swift,
 				Core/Data/VendorRawReaders.swift,
+				Core/ML/LearnedDiskDetection.swift,
+				Core/ML/LearnedDiskDetector.swift,
 				Core/Workflow/AnalysisOperationController.swift,
 				Session/ACOMSession.swift,
 				Session/ACOMWorkflow.swift,
@@ -167,6 +171,7 @@
 				100000000000000000000010 /* mac4DSTEMTests */,
 				000000000000000000000020 /* Products */,
 				F68E4EE52FF9C43F00135C51 /* README.md */,
+				F6A1D0DE0001000000000001 /* DiskDetector */,
 				F68E4F842FF9D7A200135C51 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -284,6 +289,7 @@
 			isa = PBXResourcesBuildPhase;
 			files = (
 				F68E4EE62FF9C43F00135C51 /* README.md in Resources */,
+				F6A1D0DE0001000000000002 /* DiskDetector in Resources */,
 			);
 		};
 		100000000000000140000000 /* Resources */ = {

@@ -32,5 +32,8 @@
 *.mlpackage
 *.mlmodel
 *.aimodel
+# the one exception (C7, 2026-09-08): the shipping learned disk detector, own weights, pinned by
+# its record JSON beside it and hashed into provenance (Models/DiskDetector/README in the record)
+!Models/DiskDetector/disk-detector-heatmap-256.mlpackage
 # the frozen hand-labelled test set is the owner's data (C6); its sha256 and counts are in the evidence file
 tools/disk-detector/labels/
