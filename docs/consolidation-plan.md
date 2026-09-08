@@ -555,7 +555,7 @@ Findings enter through `/diagnose`; nothing is fixed during the sitting.
 *Exit:* no row in `status.md` says "unverified on screen"; each finding is
 an `open-items.md` entry with a reproducing observation.
 
-**C4 — UI coherence, two to three sessions, presentation only — STARTED 2026-09-07 night: (a) landed as slice 2 plus the C3 presentation observations as slice 1 (`status.md` rows); (b) landed 2026-09-08; (c) implemented and warm-tested; the delegated screenshot drive is blocked (status row).** The three
+**C4 — UI coherence, two to three sessions, presentation only — STARTED 2026-09-07 night: (a) landed as slice 2 plus the C3 presentation observations as slice 1 (`status.md` rows); (b) landed 2026-09-08; (c) landed at `1eb49c5` and driven 2026-09-08 evening; two screens still owed (the four failure paths and the Remove/Reset confirmations), everything else in (c) seen.** The three
 simplifications in §4, in order: (a) `ProductWorkflow.readiness` plus
 `gates.sidecarRewriteRefusal()` become the *only* enable logic — every
 panel run/save button binds to it or is deleted; "Update Image" and

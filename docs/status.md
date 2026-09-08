@@ -62,37 +62,63 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`scratchpad/inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 69 — 2026-09-08 C4(c)**, 2 GB free against 8 GB required (`scratchpad/c4c/all-20260908.log`). No aggregate pass on the release candidate. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses, on the post-v2.5.1 tree. |
 
-## Handoff — C4(c), then the delegated drive, then v3.0.0
+## Handoff — the last two screens, then v3.0.0
 
-Owner, 2026-09-08: C0–C3, C6 and C8 are closed; C7 is closed apart
-from the owner's sidecar-reopen check. C4(b) is on `main` at `d8e6153`.
+Owner, 2026-09-08: C0–C3, C6 and C8 are closed; C7 is closed apart from the
+owner's sidecar-reopen check. **C4(c) is committed at `1eb49c5` and driven.**
 C5's measured line rule remains in force; its next monthly extraction is
 `OperationCenter` forwarders, a separate session. No new science feature
 before the consolidation plan exits.
 
-**Resume checkpoint — 2026-09-08, owner stopped at 10% usage.**
-C4(c) is implemented and warm-tested, **uncommitted on `f401250`**;
-17 tracked files are modified. Do not redo the implementation or its passed
-checks. `scratchpad/c4c/` is untracked evidence: preserve it, do not blindly
-stage the directory. `source.patch` captures the final app changes;
-`source.sha256` starts `dfbd3214dc55` (docs excluded).
+**Resume checkpoint — 2026-09-08 evening, owner stopped at 10% usage.**
+Nothing is uncommitted. `main` is at `1eb49c5`, **not pushed** — the owner
+pushes. C4(c) was reviewed clause by clause against the plan's §6 (c): all six
+clauses implemented, `AppState` + `ResultExport` **7509**, exactly HEAD's count
+(C5 holds at net zero), no new stored state on `AppState`, and **no scientific
+number moves** — neither Gate D trigger applies. Do not re-review it.
 
-Warm MCP unit fallback: 570 passed / 0 failed / 1 skipped; signed Debug
-build and signature verification passed. The build additionally covers the
-final `onChange(initial: true)` status-reporting modifier added after tests.
-Both owed C4(b) harnesses passed. Inventory passed at 7,509 AppState/export
-lines, unchanged. Logs and tool-result JSON are in `scratchpad/c4c/`.
-No new tests, Core changes, scientific-number changes, commit or push.
+**The disk blocker is gone.** The owner moved five unused cubes to
+`/Volumes/PL_SSD_2TB/4D_STEM_Datacubes/` and deleted a byte-identical
+`twisted_bilayer_graphene.hdf5` duplicate: **8.7 GB free, preflight says yes on
+both paths.** The six cubes the gated harnesses read are still in
+`References/training_dataset/` and must stay —
+`calibrationData_bullseyeProbe.h5`, `downsample_Si_SiGe_exp.h5`,
+`polycrystal_2D_WS2.h5`, `Si-SiGe.dm4`, `sim_Au_data_all_binned.h5`,
+`Particle_1_Stack_1_…bin8.h5`. Four of those are pinned by name in
+`tools/real-data-acceptance/expected.json`, and `compare.py` turns the gate red
+if a pinned cube is missing; unpinned extras are allowed by design. The moved
+cubes feed only diagnostic runners, which never gate.
 
-**Next:** free enough disk for the full gate (8 GB required; last 2 GB,
-`all-20260908.log` exit 69; cleanup script found only empty targets), then
-restore native app control. CUA repeatedly returned "Sky Computer Use native
-pipe closed before response", even after reset and a successful build.
-No screenshot or panel acceptance is claimed. Debug app:
-`~/Library/Developer/Xcode/DerivedData/mac4DSTEM-futuuibqqfwctegihoqqcwibkabk/Build/Products/Debug/mac4DSTEM.app`.
-The owner explicitly delegated the screenshot drive; no renewed permission
-is needed. His sidecar-reopen result remains owed. Do not archive the plan
-or bump/tag/release 3.0.0 / 6 before those gates close.
+**A `run-tests.sh all` run was started at 19:2x and its result was never read.**
+Log: `scratchpad/v3-gate/all-20260908.log`, with `GATE_EXIT=` appended on its
+own line. **Read that line first.** If the file has no `GATE_EXIT` line the run
+was killed with the session — rerun it. Never read a gate's status through a
+pipe. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses.
+
+**Native app control works from this session** — the previous session's
+"native pipe closed" CUA failure did not reproduce. Request access to
+`mac4DSTEM`, launch
+`~/Library/Developer/Xcode/DerivedData/mac4DSTEM-futuuibqqfwctegihoqqcwibkabk/Build/Products/Debug/mac4DSTEM.app`,
+`Try Demo Data`. The owner delegated the drive; no renewed permission is needed.
+
+**The trap this session paid, do not repeat it:** a stale Debug binary showed
+no Dataset menu and the pre-C4(c) File-menu names, *although its mtime was
+newer than the source's*. mtime does not prove freshness. Rebuild before
+concluding anything from a drive, and never edit correct source on stale
+evidence. A second near-miss: the Advanced disclosure read "collapsed" after a
+focus change and was actually fine — re-test any negative before filing it.
+
+**What is left for 3.0.0, in order:**
+
+1. **Two screens, both cheap.** The four failure paths reaching the status
+   strip (ROI-sum, sidecar inventory refresh, configurator single-pattern
+   preview, "No preview available") and the Remove / two Reset confirmation
+   dialogs. Everything else in C4(c) is seen — the C4(c) row lists it. Do not
+   drive the app while a gate is running.
+2. **The owner's sidecar-reopen check** for C7 (labels returning after reopen).
+3. Then archive `consolidation-plan.md`, run the release gate, cut **3.0.0 / 6**.
+
+Findings enter through `/diagnose`; nothing is fixed during a sitting.
 
 1. **Finish C4(c)'s verification and the delegated drive.** Remembered
    Advanced disclosures; display controls and actions in Settings; sidecar
