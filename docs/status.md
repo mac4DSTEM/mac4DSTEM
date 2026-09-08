@@ -84,7 +84,7 @@ extraction per month, next the `OperationCenter` forwarders — 146 call sites,
 a session of its own), C4 has (b) and (c) open. **C7 started 2026-09-08: sessions 1–4 put the runtime, the
 picker, the disagreement map and the centre labels on `main`** (the table's
 first four rows); the owner drove the picker and the map's Provenance rows on
-the demo at 13:03–13:06 (the session-2 row); **sessions 3–4 are unseen.**
+the demo at 13:03–13:06 (the session-2 row); **sessions 3–4 driven by the owner the same night (buttons work; the sidecar reopen round trip not yet reported).**
 The ceiling is now measured on the shipping runtime: ≈ 1.5× at 256 px on
 Core ML (session-3 row; 1.44–1.64× is run-to-run noise). C6's evidence is `archive/v3/learned-detector-2026-09-06.md` "C6 — the
 table" and the `decisions.md` entry of 2026-09-08 (the net earns its place;
@@ -161,5 +161,5 @@ never a wrapper's; reconcile the unit count against `func test` in source.
 
 ## Owed to the owner
 
-- C7 sessions 3–4 on screen: "Compare Detectors" after a classical and a neural-net Detect All Disks on the demo, the scan map and its `disagreement_*` Provenance rows; then "Label centres on click", a few clicks on the diffraction pane (cyan crosses; a second click within 3 px removes), Save to Sidecar, reopen the dataset and see the labels return, Export Labels… and read the JSON. Four session-4 choices to overrule on sight: labels save only with the calibration save; the click catcher exists only in Disks mode; `isDataSourceFailure` now lives on `SessionGates`; the export names the file in the status line. C4 slices 1–2 remain undriven. The push of `ml/disk-detector` `f057545` and of `main`.
+- **Driven by the owner 2026-09-08 night:** Compare Detectors, centres placed by hand, Export Labels… — the buttons work (the owner's words; the centres' correctness is his eye). Not yet reported: the map's `disagreement_*` Provenance rows, Save to Sidecar and the labels returning after a reopen. Four session-4 choices to overrule on sight: labels save only with the calibration save; the click catcher exists only in Disks mode; `isDataSourceFailure` now lives on `SessionGates`; the export names the file in the status line. C4 slices 1–2 remain undriven. The push of `ml/disk-detector` `f057545` and of `main`.
 - C8's one decision: port the four pure `Core/Analysis` engines from the branch unwired now (their tests never met a compiler — a build is the first gate), or leave the room whole until the §1.5 design session. The §10g decisions and plan §8 (sidecar wire format).
