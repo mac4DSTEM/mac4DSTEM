@@ -66,23 +66,6 @@ private struct DatasetCommands: Commands {
                 .disabled(appState?.displayedPattern == nil)
             Button("Preprocess & Export DataCube…") { appState?.requestPreprocessingExport() }
                 .disabled(appState?.hasDataset != true || appState?.isBusy == true)
-            Divider()
-            Button("Save Current Result to Session Sidecar") {
-                appState?.saveCurrentResultToSessionSidecar()
-            }
-            .disabled((appState?.resultImage == nil && appState?.resultRGBA == nil)
-                      || appState?.isBusy == true)
-            Button("Save Calibration to Session Sidecar") {
-                appState?.saveCalibrationToSessionSidecar()
-            }
-            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
-            // The way to rename or relocate the companion once a grant exists.
-            // Without it the save panel never reappears and a misplaced
-            // sidecar is misplaced forever (Track B F1.3i, 2026-08-19). // v2 S4
-            Button("Save Session Sidecar As…") {
-                appState?.saveSessionSidecarAs()
-            }
-            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
         }
         CommandGroup(replacing: .sidebar) {
             Button(appState?.navigation.showToolsPane == true ? "Hide Tools" : "Show Tools") {
@@ -108,6 +91,38 @@ private struct DatasetCommands: Commands {
             Button("Cancel Analysis") { appState?.cancelActiveOperation() }
                 .keyboardShortcut(.cancelAction)
                 .disabled(appState?.canCancelActiveOperation != true)
+        }
+        CommandMenu("Dataset") {
+            Button("Save Current Result to Session Sidecar") {
+                appState?.saveCurrentResultToSessionSidecar()
+            }
+            .disabled((appState?.resultImage == nil && appState?.resultRGBA == nil)
+                      || appState?.isBusy == true
+                      || appState?.gates.mayWriteSidecar != true)
+            Button("Save Calibration to Session Sidecar") {
+                appState?.saveCalibrationToSessionSidecar()
+            }
+            .disabled(appState?.hasDataset != true
+                      || appState?.isBusy == true
+                      || appState?.gates.mayWriteSidecar != true)
+            Divider()
+            Button("Change Session Sidecar…") {
+                appState?.saveSessionSidecarAs()
+            }
+            .disabled(appState?.hasDataset != true
+                      || appState?.isBusy == true)
+            Button("Ignore Session Sidecar…") {
+                appState?.reopenIgnoringSessionSidecar()
+            }
+            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+            if let controls = appState?.selectedSavedControlRehydration {
+                Divider()
+                Button("Apply Saved Controls") {
+                    appState?.applySelectedSavedControls()
+                }
+                .disabled(appState?.isBusy == true)
+                .help("Apply \(controls.summary). This does not rerun or restore transient arrays.")
+            }
         }
         CommandMenu("Workspace") {
             workspaceCommand(.prepare, key: "1")

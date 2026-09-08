@@ -25,8 +25,10 @@ import DSTEMSession
 ///   available for manual provenance alongside its crystal route.
 struct PrepareSettings: View {
     @Environment(AppState.self) private var appState
-    @State private var showsDiagnostics = false
-    @State private var showsEllipse = false
+    // Advanced disclosures are presentation state, remembered per window so
+    // returning to Prepare does not reopen a wall of py4DSTEM kwargs.
+    @SceneStorage("prepare.settings.advancedCorrection.isExpanded") private var showsDiagnostics = false
+    @SceneStorage("prepare.settings.ellipseCorrection.isExpanded") private var showsEllipse = false
 
     /// core-data-05 (S22a ride-along): the excluded-fraction disclosure obeys
     /// the shared policy floor, not the retired 0.5% — readiness and the
@@ -114,7 +116,8 @@ struct PrepareSettings: View {
         // path. Physical Q/R values are intentionally edited only in the
         // readiness rows, so the same value, unit, provenance and consequence
         // cannot drift between duplicate controls.
-        Section("Fit diagnostics & advanced correction", isExpanded: $showsDiagnostics) {
+        Section {
+            DisclosureGroup("Fit diagnostics & advanced correction", isExpanded: $showsDiagnostics) {
             LabeledContent("Aperture center", value: calibration.originProvenance.displayName)
                 .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
 
@@ -190,8 +193,10 @@ struct PrepareSettings: View {
                 .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
             }
         }
+        }
 
-        Section("Ellipse correction", isExpanded: $showsEllipse) {
+        Section {
+            DisclosureGroup("Ellipse correction", isExpanded: $showsEllipse) {
             // Value, unit: one row per radius, because two fields beside one
             // label do not fit the column's minimum width.
             LabeledContent("Fit annulus inner") {
@@ -245,6 +250,7 @@ struct PrepareSettings: View {
                     }
                 }
             }
+        }
         }
         }
         .disabledWhileRunning(appState)

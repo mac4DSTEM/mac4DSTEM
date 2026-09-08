@@ -137,32 +137,6 @@ private struct DiskDetectionRows: View {
 
         DiskCentreLabelsRows()
 
-        parameterSliderRow(
-            title: DiskDetectionParameterID.correlationPower.title,
-            value: floatBinding(
-                appState, \.corrPower, in: floatEditorRange(.correlationPower)
-            ),
-            range: floatEditorRange(.correlationPower),
-            step: Float(DiskDetectionParameterID.correlationPower.editorStep!),
-            valueText: String(format: "%.2f", appState.diskParams.corrPower)
-        )
-        .help(DiskDetectionParameterID.correlationPower.explanation)
-
-        Picker(
-            DiskDetectionParameterID.subpixel.title,
-            selection: parameterBinding(appState, \.subpixel)
-        ) {
-            ForEach(SubpixelMode.allCases) { mode in
-                Text(mode.rawValue).tag(mode)
-            }
-        }
-        .help(DiskDetectionParameterID.subpixel.explanation)
-
-        Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
-            Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskParams.maxNumPeaks)")
-        }
-        .help(DiskDetectionParameterID.maximumPeaks.explanation)
-
         if appState.probeKernel != nil {
             LabeledContent("Current CBED", value: "\(appState.currentPeaks.count) peaks")
                 .monospacedDigit()
@@ -309,7 +283,8 @@ private struct DiskCentreLabelsRows: View {
 /// section — a sibling of the basic rows, not a child of them.
 private struct AdvancedDiskDetectionSection: View {
     @Environment(AppState.self) private var appState
-    @State private var showsAdvanced = false
+    @SceneStorage("map.settings.advancedDetection.isExpanded") private var showsAdvanced = false
+    @State private var showsResetConfirmation = false
 
     private var detectorMinimum: Int {
         guard let descriptor = appState.descriptor else { return 1 }
@@ -322,7 +297,36 @@ private struct AdvancedDiskDetectionSection: View {
     }
 
     var body: some View {
-        Section("Advanced detection", isExpanded: $showsAdvanced) {
+        Section {
+        DisclosureGroup("Advanced detection", isExpanded: $showsAdvanced) {
+            // These are py4DSTEM algorithm kwargs without a physical unit:
+            // keep them together behind the remembered Advanced disclosure.
+            parameterSliderRow(
+                title: DiskDetectionParameterID.correlationPower.title,
+                value: floatBinding(
+                    appState, \.corrPower, in: floatEditorRange(.correlationPower)
+                ),
+                range: floatEditorRange(.correlationPower),
+                step: Float(DiskDetectionParameterID.correlationPower.editorStep!),
+                valueText: String(format: "%.2f", appState.diskParams.corrPower)
+            )
+            .help(DiskDetectionParameterID.correlationPower.explanation)
+
+            Picker(
+                DiskDetectionParameterID.subpixel.title,
+                selection: parameterBinding(appState, \.subpixel)
+            ) {
+                ForEach(SubpixelMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .help(DiskDetectionParameterID.subpixel.explanation)
+
+            Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
+                Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskParams.maxNumPeaks)")
+            }
+            .help(DiskDetectionParameterID.maximumPeaks.explanation)
+
             // Signal conditioning.
             parameterSliderRow(
                 title: DiskDetectionParameterID.patternSigma.title,
@@ -413,14 +417,27 @@ private struct AdvancedDiskDetectionSection: View {
                 .foregroundStyle(.secondary)
 
             Button {
-                appState.resetDiskDetectionParams()
+                showsResetConfirmation = true
             } label: {
                 Label("Reset Recommended Settings", systemImage: "arrow.counterclockwise")
             }
             .disabled(appState.isBusy)
             .accessibilityIdentifier("disk.resetParameters")
         }
+        }
         .accessibilityIdentifier("disk.advancedDisclosure")
+        .confirmationDialog(
+            "Reset recommended detection settings?",
+            isPresented: $showsResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset Recommended Settings", role: .destructive) {
+                appState.resetDiskDetectionParams()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The current disk detection parameters will be replaced with the recommended defaults.")
+        }
     }
 }
 
@@ -625,7 +642,7 @@ private struct ManualBasisRow: View {
 private struct ACOMSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
-    @State private var showsEngine = false
+    @SceneStorage("map.settings.acomEngine.isExpanded") private var showsEngine = false
 
     /// Nothing on a stock macOS declares `.cif`, so this resolves to the
     /// dynamic type `dyn.ah62d4rv4ge80g4pg` — which is also what a `.cif` file
@@ -723,9 +740,11 @@ private struct ACOMSections: View {
             }
         }
 
-        Section("Engine & Q scale", isExpanded: $showsEngine) {
-            engineControls
-            qScaleControls
+        Section {
+            DisclosureGroup("Engine & Q scale", isExpanded: $showsEngine) {
+                engineControls
+                qScaleControls
+            }
         }
 
         Section("Result") {

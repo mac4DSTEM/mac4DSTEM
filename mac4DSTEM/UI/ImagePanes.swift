@@ -56,10 +56,6 @@ struct DiffractionPane: View {
         // instead of overprinting the divider and its neighbour.
         .clipped()
         .contentShape(Rectangle())
-        // `activePane` is the ROI direction's storage, and clicking a pane is
-        // how the user chooses it. UI has no pane focus model at all — the
-        // retired one was an inspector-routing rule, not this.
-        .onTapGesture { appState.activePane = .diffraction }
         .overlay { ActivePaneOutline(pane: .diffraction) }
     }
 
@@ -242,9 +238,7 @@ struct DiffractionPane: View {
                             // `.simultaneousGesture`, not `.gesture`: this
                             // view sits inside the same ZStack `.zoomPan`
                             // attaches to (pinch/pan/double-tap-to-reset),
-                            // and the pane's own single-tap (`activePane`)
-                            // is on an ancestor further out — an exclusive
-                            // gesture here would swallow both.
+                            // so labelling must coexist with those gestures.
                             Color.clear
                                 .frame(width: box.width, height: box.height)
                                 .contentShape(Rectangle())
@@ -410,7 +404,6 @@ struct RealSpacePane: View {
         // instead of overprinting the divider and its neighbour.
         .clipped()
         .contentShape(Rectangle())
-        .onTapGesture { appState.activePane = .realSpace }
         .overlay { ActivePaneOutline(pane: .realSpace) }
         // Arrow-key scan stepping is NOT here. It has exactly one owner —
         // `WorkspaceView`, on the container holding both panes, which is where

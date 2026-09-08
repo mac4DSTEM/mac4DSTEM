@@ -52,6 +52,9 @@ private struct InspectorSettingsTab: View {
                 RequirementsSection()
                 GuidanceSection()
                 workspaceSettings
+                DisplaySettingsSections()
+                DatasetActionSections()
+                SessionProductsSections()
             }
             .formStyle(.grouped)
             // The grouped Form draws no ground over the column's material.
@@ -163,7 +166,6 @@ private struct InspectorInfoTab: View {
             Form {
                 DatasetInfoSections(descriptor: descriptor)
                 ProductInfoSections()
-                SessionProductsSections()
                 InspectorDiagnosticsSections()
             }
             .formStyle(.grouped)
@@ -191,8 +193,6 @@ private struct DatasetInfoSections: View {
         loadedViewSection
         currentScanPositionSection
         apertureSection
-        realSpaceHistogramSection
-        diffractionHistogramSection
     }
 
     @ViewBuilder
@@ -287,17 +287,6 @@ private struct DatasetInfoSections: View {
                 inspectorRow("Loaded shape", descriptor.shapeString, mono: true)
                 inspectorRow("Size (f32)", displayByteString(descriptor.byteCountAsFloat32))
 
-                // THE PROMOTE CONTROL. It lives in this section because the
-                // section exists exactly when promotion is meaningful: a
-                // reduced view is loaded. Promotion reopens the SOURCE at full
-                // extent — never re-derives from reduced data — so the cost
-                // stated is the whole cube's.
-                Button("Reopen at Full Extent") {
-                    Task { await appState.promoteAndReplayRecipe() }
-                }
-                .disabled(appState.isLoadingDataset
-                          || appState.replayRun.isRunning)
-                .accessibilityIdentifier("inspector.promoteToFullExtent")
                 if let source = appState.loadView?.source {
                     // The configurator prices this same cube, and the two
                     // surfaces a user compares when deciding to promote must
@@ -347,6 +336,48 @@ private struct DatasetInfoSections: View {
         }
     }
 
+    /// One preview thumbnail. LETTERBOXED: `MetalImageView` maps the image to
+    /// normalized view UVs, so a height-only frame stretches it to the
+    /// column's full width — a 128x128 mean pattern drawn 2.5x wider than
+    /// tall renders every Bragg disk as a horizontal ellipse, in the app that
+    /// has an ellipse-calibration feature for measuring exactly that.
+    @ViewBuilder
+    private func previewImage(
+        _ label: String, pixels: [Float], width: Int, height: Int,
+        colormap: ColormapKind
+    ) -> some View {
+        Text(label).font(.caption2).foregroundStyle(.secondary)
+        MetalImageView(
+            pixels: pixels, width: width, height: height,
+            // `datasetPreview` is written exactly once per open, so the
+            // dataset epoch IS this image's version — it changes precisely
+            // when the preview does, including a same-shape swap, and it is
+            // O(1) in a body that re-evaluates on every AppState change.
+            contentVersion: appState.datasetEpoch,
+            colormap: colormap
+        )
+        .aspectRatio(
+            CGFloat(width) / CGFloat(max(height, 1)), contentMode: .fit
+        )
+        .thumbnailCapped()
+        .clipShape(.rect(cornerRadius: 4))
+        .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
+    }
+}
+
+private struct DisplaySettingsSections: View {
+    @Environment(AppState.self) private var appState
+    @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
+
+    var body: some View {
+        Section {
+            DisclosureGroup("Display", isExpanded: $showsDisplay) {
+                realSpaceHistogramSection
+                diffractionHistogramSection
+            }
+        }
+    }
+
     @ViewBuilder
     private var realSpaceHistogramSection: some View {
         if let image = appState.resultImage {
@@ -390,32 +421,40 @@ private struct DatasetInfoSections: View {
         .accessibilityValue(String(format: "%.2f", value.wrappedValue))
     }
 
-    /// One preview thumbnail. LETTERBOXED: `MetalImageView` maps the image to
-    /// normalized view UVs, so a height-only frame stretches it to the
-    /// column's full width — a 128x128 mean pattern drawn 2.5x wider than
-    /// tall renders every Bragg disk as a horizontal ellipse, in the app that
-    /// has an ellipse-calibration feature for measuring exactly that.
-    @ViewBuilder
-    private func previewImage(
-        _ label: String, pixels: [Float], width: Int, height: Int,
-        colormap: ColormapKind
-    ) -> some View {
-        Text(label).font(.caption2).foregroundStyle(.secondary)
-        MetalImageView(
-            pixels: pixels, width: width, height: height,
-            // `datasetPreview` is written exactly once per open, so the
-            // dataset epoch IS this image's version — it changes precisely
-            // when the preview does, including a same-shape swap, and it is
-            // O(1) in a body that re-evaluates on every AppState change.
-            contentVersion: appState.datasetEpoch,
-            colormap: colormap
-        )
-        .aspectRatio(
-            CGFloat(width) / CGFloat(max(height, 1)), contentMode: .fit
-        )
-        .thumbnailCapped()
-        .clipShape(.rect(cornerRadius: 4))
-        .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
+}
+
+private struct DatasetActionSections: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        if !appState.loadedView.isFullExtent || appState.residency.isResident
+            || sessionViewDiffers {
+            Section("Dataset") {
+                if !appState.loadedView.isFullExtent {
+                    Button("Reopen at Full Extent") {
+                        Task { await appState.promoteAndReplayRecipe() }
+                    }
+                    .disabled(appState.isBusy || appState.isLoadingDataset || appState.replayRun.isRunning)
+                    .accessibilityIdentifier("inspector.promoteToFullExtent")
+                    PromoteRunCaption(record: appState.replay.record, frame: appState.replay.parameterFrame)
+                }
+                if sessionViewDiffers {
+                    Button("Reopen Without This Session") { appState.reopenIgnoringSessionSidecar() }
+                        .disabled(appState.isBusy)
+                        .help("Reopen without restoring the saved session; its file stays on disk.")
+                        .accessibilityIdentifier("inspector.reopenWithoutSession")
+                }
+                if appState.residency.isResident {
+                    Button("Release cube") { Task { await appState.releaseResidentCube() } }
+                        .disabled(appState.isBusy)
+                        .accessibilityIdentifier("performance.releaseCube")
+                }
+            }
+        }
+    }
+
+    private var sessionViewDiffers: Bool {
+        appState.sessionLoadSpecification.map { $0 != appState.loadedView.specification } ?? false
     }
 }
 
@@ -701,15 +740,7 @@ private struct InspectorDiagnosticsSections: View {
                 Text("Restored results describe the session's view, not the one loaded now.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                // The way OUT — a clean reopen with the session skipped. The
-                // sidecar file is untouched.
-                Button("Reopen Without This Session") {
-                    appState.reopenIgnoringSessionSidecar()
-                }
-                .help("Reopens this dataset without restoring the saved session. "
-                      + "The sidecar file stays on disk; results you save afterwards "
-                      + "still go to the same sidecar.")
-                .accessibilityIdentifier("inspector.reopenWithoutSession")
+
             }
             .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
         }
@@ -813,12 +844,7 @@ private struct PerformanceRows: View {
             // streaming produce identical numbers, so nothing else on screen
             // would tell the user which one they are on.
             labeled("Cube memory", appState.residency.summary)
-            if appState.residency.isResident {
-                Button("Release cube") {
-                    Task { await appState.releaseResidentCube() }
-                }
-                .accessibilityIdentifier("performance.releaseCube")
-            }
+
         }
         labeled("GPU", SystemMonitor.gpuName)
         // The configurator's row carries this name too; the two surfaces a

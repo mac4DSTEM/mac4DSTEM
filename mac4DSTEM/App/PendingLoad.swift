@@ -33,6 +33,19 @@ import DSTEMSession
 @Observable
 final class PendingLoad: Identifiable {
 
+    static func makePreview(
+        data: FourDArray, descriptor: DatasetDescriptor,
+        cancellation: AnalysisCancellationToken?,
+        progress: @Sendable @escaping (Double) -> Void
+    ) async -> Result<DatasetPreview, Error> {
+        do {
+            return .success(try await DatasetPreviewBuilder.make(
+                data: data, descriptor: descriptor,
+                cancellation: cancellation, progress: progress
+            ))
+        } catch { return .failure(error) }
+    }
+
     /// One display-ready image: normalized pixels plus the version
     /// `MetalImageView` keys its texture upload on. Computed ONCE when the
     /// data lands — never in a view body (#31's class of defect) — so a crop
@@ -116,6 +129,11 @@ final class PendingLoad: Identifiable {
     private(set) var maxDPDisplay: DisplayImage?
     private(set) var singleDPDisplay: DisplayImage?
 
+    /// A preview is optional, but a failed build is different from one that
+    /// was not attempted. Keep the reason beside the pending load so the
+    /// configurator can explain why its panes are absent.
+    var previewFailure: String?
+
     private func previewDidLand() {
         guard let preview else {
             realSpaceDisplay = nil
@@ -157,6 +175,10 @@ final class PendingLoad: Identifiable {
     /// pattern follows when the read completes.
     private(set) var singleDPPosition: (ry: Int, rx: Int)?
 
+    /// The single-position pane is fetched on demand. A read failure must
+    /// replace its spinner with an explanation; cancellation remains quiet.
+    private(set) var singleDPFailure: String?
+
     private var singleDPFetch: Task<Void, Never>?
 
     /// Fetch the pattern at a source scan position (clamped into the scan).
@@ -166,13 +188,22 @@ final class PendingLoad: Identifiable {
         let y = max(0, min(source.ry - 1, ry))
         let x = max(0, min(source.rx - 1, rx))
         singleDPPosition = (y, x)
+        singleDP = nil
+        singleDPFailure = nil
         singleDPFetch?.cancel()
         let array = data
         singleDPFetch = Task {
             guard !Task.isCancelled else { return }
-            let pattern = try? await array.pattern(ry: y, rx: x)
-            guard !Task.isCancelled else { return }
-            self.singleDP = pattern
+            do {
+                let pattern = try await array.pattern(ry: y, rx: x)
+                guard !Task.isCancelled else { return }
+                self.singleDP = pattern
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.singleDPFailure = error.localizedDescription
+            }
         }
     }
 

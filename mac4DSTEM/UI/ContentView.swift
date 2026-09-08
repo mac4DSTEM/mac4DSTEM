@@ -178,9 +178,6 @@ struct ContentView: View {
                     Divider()
                     Button("Preprocess & Export…") { appState.requestPreprocessingExport() }
                         .disabled(appState.isBusy)
-                    Button("Save Calibration") { appState.saveCalibrationToSessionSidecar() }
-                        // C4(a): the sidecar-rewrite gate, beside busy.
-                        .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
                     Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
                         .disabled(appState.displayedPattern == nil)
                 }

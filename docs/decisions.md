@@ -727,3 +727,13 @@ and UI layers through the §1.5 design session, whose four questions may
 change their contracts. Why: 1 400 lines of Core and 1 700 of tests that never
 met a compiler would sit dead in the tree about to become v3.0.0. C8 is closed
 as a triage (`archive/v3/c8-triage-2026-09-08.md`).
+
+**2026-09-08 — C4(c)'s final drive delegated (owner, in chat).** The owner
+asks the agent to drive every panel and report screenshots, then exit the
+consolidation plan and cut v3.0.0. This supersedes the owner-only driver
+restriction for this sitting; observations remain agent-verified and do
+not assert the owner's outstanding sidecar-reopen check. C4(c) keeps
+physical controls and workflow choices visible, remembers Advanced
+algorithm settings per window, moves sidecar actions into Dataset, and
+uses native confirmation for Remove and the two Resets. The recovery
+command Change Session Sidecar stays usable when the write gate refuses.

@@ -15,6 +15,28 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Code hygiene — added 2026-09-08 by the delegated drive
+
+### Info's "Loaded view" keeps a caption whose button moved to Settings
+Found by review of the C4(c) diff, 2026-09-08, not yet seen on screen.
+`UI/WorkspaceInspector.swift` `loadedViewSection` (Info tab) still renders the
+"Reloads the whole cube — N GB as float32…" cost sentence and a
+`PromoteRunCaption`, but the "Reopen at Full Extent" button those describe now
+lives in `DatasetActionSections` (Settings tab), where it has no cost caption.
+`PromoteRunCaption` is therefore instantiated from two places whenever the
+view is not at full extent. Presentation only; no scientific number. Trap: the
+fix is to move the caption to the button, not to re-add the button to Info —
+C4(c) deliberately emptied Info of actions. Owner: next session touching
+`WorkspaceInspector.swift`.
+
+## Verification debt — added 2026-09-08
+
+### Owed on screen from C4(c): failures and confirmations
+The four failure paths (ROI-sum, sidecar inventory refresh, configurator
+single-pattern preview, "No preview available") reaching the status strip, and
+the Remove / two Reset confirmation dialogs, were not exercised in the
+2026-09-08 drive. Everything else in C4(c) was seen (`status.md`'s C4(c) row).
+
 ## Science — Gate D or Gate B owed
 
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
@@ -212,19 +234,16 @@ linearity, inspector layout) lives in
 duplicate it here and do not patch findings 1/4/5/7 on the current facade —
 they wait on the architecture seams (C4/C5).
 
-### UI polish list from the same review (2026-09-04)
-Not trust defects; the Mac-ness gap, ranked by the reviewer: the log height
-is per-window `@State` (`@SceneStorage`; the pane divider got it 2026-09-05);
-Info carries seven ACTIONS against its own descriptive contract (Reopen,
-Ignore…, Change…, Remove per result, Apply Saved Controls, Release cube); two
-per-body costs (the log re-diffs every line per append; the validity row
-reduces the whole mask on every `AppState` change); no
-`.navigationDocument(url)`, so no proxy icon; ⌘↩ and ⌘R both fire the primary
-action; `TabView` draws a bordered box in a 280 pt inspector; "Ignore…" opens
-no dialog; values written into their own labels ("Gamma, 1.00"); Unicode
-glyphs where SF Symbols exist; "Reconstruction Ready" as a disabled prominent
-button; stale copy ("tools panel", "Open a 4DSTEM .h5 file", one action named
-three ways); `NSPasteboard` in `ContentView`. Owner: C4 takes most of it.
+### UI polish and C4(c) verification (updated 2026-09-08)
+C4(c)'s placement, exposure, confirmation and error-reporting changes are
+implemented in the working tree, not yet screen-verified. Native CUA app
+attachment disconnects even after reset; the owner delegated the screenshot
+sitting, but no panel has been accepted by this run. The unit script refuses
+at 3 GB free (exit 69); the warm fallback passed 2026-09-08 (status row).
+The full release gate still refuses at 2 GB free; signed Debug build passed.
+Residual polish: log height per-window state, log/mask per-body work,
+no document proxy icon, duplicate Run shortcuts, tab styling, Gamma's value
+in its label and old wording. See `status.md` for the gate and drive results.
 
 ### Concurrent HDF5 use crashes the process (2026-08-19)
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb

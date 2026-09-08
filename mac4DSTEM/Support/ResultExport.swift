@@ -16,6 +16,17 @@ import UniformTypeIdentifiers
 
 extension AppState {
 
+    private func refreshSessionInventory(from url: URL, isCurrent: () -> Bool) async -> String? {
+        do {
+            let inventory = try await Task.detached(priority: .utility) {
+                try BraggVectorEMDWriter.loadInventory(from: url)
+            }.value
+            guard isCurrent() else { return nil }
+            sessionInventory = inventory
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
     /// Export a calibrated, optionally cropped/Q-binned py4DSTEM DataCube.
     /// Publication is atomic and the source dataset is never opened for write.
     func exportCalibratedDataCube(options: CalibratedDataCubeExportOptions) {
@@ -825,16 +836,14 @@ extension AppState {
                     }
                 }.value
                 guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
-                let inventoryTask = Task.detached(priority: .utility) {
-                    try BraggVectorEMDWriter.loadInventory(from: url)
+                let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
+                    self.isCurrentOperation(token) && self.datasetEpoch == epoch
                 }
-                if let inventory = try? await inventoryTask.value {
-                    guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
-                    self.sessionInventory = inventory
-                }
-                // The writer atomically published the target, so it now exists
-                // and can safely back a persistent security bookmark.
-                self.statusText = "Saved \(metadata.displayName) → \(url.lastPathComponent)"
+                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                // The published target now exists and can back a bookmark.
+                self.statusText = inventoryRefreshError.map {
+                    "Saved \(metadata.displayName), but Results could not be refreshed: \($0)"
+                } ?? "Saved \(metadata.displayName) → \(url.lastPathComponent)"
                 self.rememberSidecarGrant(url, for: descriptor, what: metadata.displayName)
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }
@@ -1208,14 +1217,16 @@ extension AppState {
         // from the seam — re-read it from the NEW location so a failed copy
         // shows an empty section rather than the old file's results under the
         // new file's name (a tree describing a file that does not exist).
-        let target = url
+        let epoch = datasetEpoch
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let inventory = try? await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadInventory(from: target)
-            }.value
-            guard self.descriptor?.filePath == descriptor.filePath else { return }
-            self.sessionInventory = inventory ?? .empty
+            let isCurrent = { self.datasetEpoch == epoch && self.sessionSidecar.location(for: descriptor) == url }
+            let inventoryRefreshError = await self.refreshSessionInventory(from: url, isCurrent: isCurrent)
+            guard isCurrent() else { return }
+            if let inventoryRefreshError {
+                self.sessionInventory = .empty
+                self.statusText = "Session sidecar location changed, but Results could not be read: \(inventoryRefreshError)"
+            }
         }
     }
 
@@ -1271,14 +1282,13 @@ extension AppState {
                     )
                 }.value
                 guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
-                let inventoryTask = Task.detached(priority: .utility) {
-                    try BraggVectorEMDWriter.loadInventory(from: url)
+                let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
+                    self.isCurrentOperation(token) && self.datasetEpoch == epoch
                 }
-                if let inventory = try? await inventoryTask.value {
-                    guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
-                    self.sessionInventory = inventory
-                }
-                self.statusText = "Saved calibration → \(url.lastPathComponent)"
+                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                self.statusText = inventoryRefreshError.map {
+                    "Saved calibration, but Results could not be refreshed: \($0)"
+                } ?? "Saved calibration → \(url.lastPathComponent)"
                 self.rememberSidecarGrant(url, for: descriptor, what: "Calibration")
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }

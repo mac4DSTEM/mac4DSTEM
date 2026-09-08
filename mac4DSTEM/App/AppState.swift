@@ -1517,33 +1517,31 @@ final class AppState {
                     accessedSecurityScope: accessed,
                     fileByteCount: size?.intValue
                 )
-                // The preview is built against a full-extent view of the source:
-                // it is what the user drags ON, so it must show the whole file
-                // regardless of what they have configured so far. It reads
-                // through the pending load's own array, so the single-DP pane's
-                // first fetch hits a warm pattern cache instead of the disk.
-                // Same determinate progress as `buildDatasetPreview` — L1's
-                // rule: no phase of an open reports indeterminately when the
-                // work is countable. This call site used to omit the
-                // `progress:` argument the normal open path passes, so the
-                // same phase was determinate on one path and a bare spinner
-                // on the other. // v2 S4
+                let pendingEpoch = datasetEpoch
+                // Sample the full source through the pending array's shared cache.
+                // Both open paths report determinate progress for the same epoch.
                 beginDatasetLoadingStage("Sampling a preview…")
-                pending.preview = try? await DatasetPreviewBuilder.make(
+                let previewResult = await PendingLoad.makePreview(
                     data: pending.data, descriptor: source,
                     cancellation: datasetLoadCancellation,
                     progress: previewProgressHandler(
-                        rows: DatasetPreviewBuilder.sampledRowCount(for: source),
-                        epoch: datasetEpoch
+                        rows: DatasetPreviewBuilder.sampledRowCount(for: source), epoch: pendingEpoch
                     )
                 )
-                guard !datasetLoadWasCancelled else {
+                guard datasetEpoch == pendingEpoch, !datasetLoadWasCancelled else {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                     return
                 }
-                // Only after the cancellation guard: a cancelled open must not
-                // leave a detached pattern read running against a URL whose
-                // security scope the lines above just released.
+                switch previewResult {
+                case .success(let preview): pending.preview = preview
+                case .failure(let error):
+                    if error is CancellationError {
+                        if accessed { url.stopAccessingSecurityScopedResource() }
+                        return
+                    }
+                    pending.previewFailure = error.localizedDescription
+                    statusText = "Preview unavailable: \(error.localizedDescription)"
+                }
                 pending.fetchDefaultSingleDP()
                 pendingLoad = pending
                 finishDatasetLoading()
@@ -1554,18 +1552,8 @@ final class AppState {
         }
     }
 
-    /// The determinate "Sampling a preview · row N of M" reporter, shared by
-    /// BOTH open paths (the plain open's `buildDatasetPreview` and the
-    /// configurator's open) so the wording and the clamp cannot drift apart —
-    /// drift is exactly the determinate-on-one-path defect S4 fixed. Built in
-    /// a method so `[weak self]` is the closure's first capture — inline
-    /// inside the open Task, the weak capture fights the Task's implicit
-    /// strong self (#ImplicitStrongCapture, the warning class the S3 rider
-    /// cleared).
-    /// BOTH guards are load-bearing: `datasetEpoch` stops a cancelled open's
-    /// late ticks from writing a stale row counter over the *next* open's
-    /// progress (the next open sets `isLoadingDataset` back to true, so that
-    /// guard alone cannot tell the two apart). // v2 S4
+    /// Shared progress for both open paths. Weak capture avoids retaining the
+    /// window; epoch AND loading state reject late ticks from a previous open.
     private func previewProgressHandler(rows: Int, epoch: Int) -> @Sendable (Double) -> Void {
         { [weak self] fraction in
             Task { @MainActor [weak self] in
@@ -2660,23 +2648,25 @@ final class AppState {
     /// Sample a cheap preview before the expensive passes, so the open shows
     /// something real early. Bounded by a byte budget rather than a fixed grid,
     /// so the wait is roughly the same on a 64² and a 512² detector.
-    /// Failure is not fatal and not reported: a preview is a convenience, and an
-    /// error dialog for one would interrupt an open that is otherwise fine. It
-    /// simply stays nil and no preview section appears.
+    /// Failure is not fatal; the status strip records why it was unavailable.
     private func buildDatasetPreview() async {
         guard let fourD, let d = descriptor, d.is4D else { return }
         let epoch = datasetEpoch
         beginDatasetLoadingStage("Sampling a preview…")
-        let preview = try? await DatasetPreviewBuilder.make(
-            data: fourD, descriptor: d,
-            cancellation: datasetLoadCancellation,
+        let previewResult = await PendingLoad.makePreview(
+            data: fourD, descriptor: d, cancellation: datasetLoadCancellation,
             progress: previewProgressHandler(
-                rows: DatasetPreviewBuilder.sampledRowCount(for: d),
-                epoch: epoch
+                rows: DatasetPreviewBuilder.sampledRowCount(for: d), epoch: epoch
             )
         )
         guard datasetEpoch == epoch else { return }
-        datasetPreview = preview
+        switch previewResult {
+        case .success(let preview): datasetPreview = preview
+        case .failure(let error):
+            if !(error is CancellationError) {
+                statusText = "Preview unavailable: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// Hold the cube in memory when this machine admits it, before the first
@@ -3262,7 +3252,6 @@ final class AppState {
     /// streams the single pattern; a region ROI streams the summed pattern.
     func scrubTo(x: Int, y: Int) {
         guard let d = descriptor else { return }
-        activePane = .realSpace
         if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
             acomSession.regionSelectionActive = true
         }
@@ -3278,7 +3267,6 @@ final class AppState {
     /// Re-run whichever real-space product matches the current region shape
     /// (called when the shape or radius changes).
     func updateRealSpaceRegion() {
-        activePane = .realSpace
         if realSpaceShape == .point {
             virtualDiffractionPattern = nil
             patternVersion &+= 1
@@ -3313,8 +3301,8 @@ final class AppState {
         guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
         let region = DetectorShape.realSpaceRegion(
             shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
+        let epoch = datasetEpoch
         do {
-            let epoch = datasetEpoch
             let pattern = try await VirtualDetector.tiledDiffraction(
                 data: fourD, descriptor: d, region: region
             )
@@ -3322,8 +3310,10 @@ final class AppState {
             virtualDiffractionPattern = pattern
             patternVersion &+= 1
             await detectCurrentPattern()
+        } catch is CancellationError {
+            // Cancellation during a drag is expected.
         } catch {
-            // Quiet during live drag.
+            if epoch == datasetEpoch { presentComputeFailure(error) }
         }
     }
 

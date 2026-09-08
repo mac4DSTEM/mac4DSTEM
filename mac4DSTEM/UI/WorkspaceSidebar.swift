@@ -4,17 +4,17 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The left column: navigation and nothing else. Every control that used to
+/// The left column: navigation and session context only. Controls that used to
 /// share this column with the workspace/task lists (v1's `PrepareSidebar`,
 /// `ImageSidebar`, `MapSidebar`, `PhaseSidebar`, `ResultsSidebar`, and the
-/// dataset action menu) has moved into `WorkspaceInspector` — this view composes
-/// none of them.
+/// sidecar actions) now live in their owning inspector or the Dataset menu.
 ///
 /// A source list, not a settings pane: selection, hover, the row capsule and
 /// `AXOutlineRow` all come from the `List` itself, tagged with `WorkspaceRoute` so
 /// selection binds straight onto `appState.workspaceRoute`.
 struct WorkspaceSidebar: View {
     @Environment(AppState.self) private var appState
+    @State private var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
         List(selection: appState.workspaceRoute) {
@@ -76,7 +76,7 @@ struct WorkspaceSidebar: View {
                 }
             }
 
-            SessionSection()
+            SessionSection(pendingResultRemoval: $pendingResultRemoval)
         }
         .listStyle(.sidebar)
         // One material per column, and it is AppKit's — a `.sidebar` List
@@ -88,6 +88,23 @@ struct WorkspaceSidebar: View {
         // Bounce only when there is something to scroll, so elastic
         // overscroll can never park the clip origin above the top.
         .scrollBounceBehavior(.basedOnSize)
+        .confirmationDialog(
+            "Remove Saved Result?",
+            isPresented: Binding(
+                get: { pendingResultRemoval != nil },
+                set: { if !$0 { pendingResultRemoval = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingResultRemoval
+        ) { result in
+            Button("Remove \(result.displayName)", role: .destructive) {
+                pendingResultRemoval = nil
+                Task { await appState.removeSavedSessionResult(result) }
+            }
+            Button("Cancel", role: .cancel) { pendingResultRemoval = nil }
+        } message: { result in
+            Text("This removes \(result.displayName) from the session sidecar.")
+        }
     }
 
     /// A source-list row: a `Label`, and a count as macOS carries one — a
@@ -212,6 +229,7 @@ struct WorkspaceSidebar: View {
 /// `LabeledContent` would lay them out on one line and truncate.
 struct SessionSection: View {
     @Environment(AppState.self) private var appState
+    @Binding var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
         if let descriptor = appState.descriptor, descriptor.is4D {
@@ -281,8 +299,8 @@ struct SessionSection: View {
         .accessibilityIdentifier(identifier)
     }
 
-    /// What the sidecar holds, and the actions on it. Moved here from the
-    /// Info panel on 2026-09-04 (owner): after loading a dataset the user
+    /// What the sidecar holds. Moved here from the Info panel on 2026-09-04
+    /// (owner): after loading a dataset the user
     /// should see on the LEFT what came with it. Info keeps the two sections
     /// that explain a sidecar the app could not read or could not fit — that
     /// is the half of the split the comment above deliberately kept there.
@@ -340,46 +358,6 @@ struct SessionSection: View {
                     result, isCurrent: result.id == appState.sessionInventory.currentResultID
                 )
             }
-            if let controls = appState.selectedSavedControlRehydration {
-                Button {
-                    appState.applySelectedSavedControls()
-                } label: {
-                    Label("Apply Saved Controls", systemImage: "slider.horizontal.3")
-                        .font(.caption)
-                        .imageScale(.small)
-                        .lineLimit(1)
-                }
-                .buttonStyle(.plain)
-                .disabled(appState.isBusy)
-                .help("Apply \(controls.summary). This does not rerun or restore transient arrays.")
-                .accessibilityIdentifier("sidebar.session.applySavedControls")
-            }
-            // Rename/relocate, offered where the user is already looking at
-            // the filename — once a grant exists the save panel never
-            // reappears on its own.
-            Button {
-                appState.saveSessionSidecarAs()
-            } label: {
-                Label("Change…", systemImage: "pencil")
-                    .font(.caption)
-                    .imageScale(.small)
-                    .lineLimit(1)
-            }
-            .buttonStyle(.plain)
-            .disabled(appState.isBusy)
-            .help("Choose a new name or location for the session sidecar. Existing saved results are copied across.")
-            .accessibilityIdentifier("sidebar.session.changeSidecar")
-            Button {
-                appState.reopenIgnoringSessionSidecar()
-            } label: {
-                Label("Ignore…", systemImage: "eye.slash")
-                    .font(.caption)
-                    .imageScale(.small)
-                    .lineLimit(1)
-            }
-            .buttonStyle(.plain)
-            .help("Reopen this dataset without restoring the saved session; the sidecar file stays on disk")
-            .accessibilityIdentifier("sidebar.session.reopenWithoutSession")
         } else {
             Text("Nothing saved with this dataset yet.")
                 .font(.caption)
@@ -427,7 +405,7 @@ struct SessionSection: View {
         .help(resultHelp(result))
         .contextMenu {
             Button(role: .destructive) {
-                Task { await appState.removeSavedSessionResult(result) }
+                pendingResultRemoval = result
             } label: {
                 Label("Remove \(result.displayName)", systemImage: "trash")
             }

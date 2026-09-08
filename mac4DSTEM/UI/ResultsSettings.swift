@@ -12,6 +12,7 @@ import DSTEMSession
 /// caller's `Form`.
 struct ResultsSettings: View {
     @Environment(AppState.self) private var appState
+    @State private var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
         Section("Saved products") {
@@ -31,10 +32,26 @@ struct ResultsSettings: View {
                 Text(controls.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Button("Apply Saved Controls") { appState.applySelectedSavedControls() }
-                    .disabled(appState.isBusy)
-                    .help("Apply \(controls.summary). This does not rerun or restore transient arrays.")
+                Text("Choose Dataset → Apply Saved Controls to use these settings.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
+        }
+        .confirmationDialog(
+            "Remove Saved Result?",
+            isPresented: Binding(
+                get: { pendingResultRemoval != nil },
+                set: { if !$0 { pendingResultRemoval = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingResultRemoval
+        ) { result in
+            Button("Remove \(result.displayName)", role: .destructive) {
+                pendingResultRemoval = nil
+                Task { await appState.removeSavedSessionResult(result) }
+            }
+            Button("Cancel", role: .cancel) { pendingResultRemoval = nil }
+        } message: { result in
+            Text("This removes \(result.displayName) from the session sidecar.")
         }
     }
 
@@ -88,7 +105,7 @@ struct ResultsSettings: View {
         // 250pt capture (2026-09-03) — three bordered controls do not fit
         // one Compare row at the column minimum.
         Button(role: .destructive) {
-            Task { await appState.removeSavedSessionResult(result) }
+            pendingResultRemoval = result
         } label: {
             Label("Remove", systemImage: "trash")
         }

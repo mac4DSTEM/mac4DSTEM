@@ -143,6 +143,7 @@ private struct DPCSettingsSection: View {
 
 private struct SingleslicePtychographySection: View {
     @Environment(AppState.self) private var appState
+    @SceneStorage("phase.settings.ptychographyAdvanced.isExpanded") private var showsAdvanced = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -153,6 +154,17 @@ private struct SingleslicePtychographySection: View {
                     Text(method.rawValue).tag(method)
                 }
             }
+            Button {
+                Task { await appState.runSingleslicePtychography() }
+            } label: {
+                Label("Reconstruct Object", systemImage: "circle.hexagongrid")
+            }
+            .disabled(!ProductWorkflow.mayRun(
+                .singleslicePtychography,
+                readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+            ))
+            .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
+            DisclosureGroup("Advanced ptychography", isExpanded: $showsAdvanced) {
             LabeledContent("Iterations") {
                 NumericField(
                     "Iterations",
@@ -212,19 +224,7 @@ private struct SingleslicePtychographySection: View {
                     }
                 }
             }
-            Button {
-                Task { await appState.runSingleslicePtychography() }
-            } label: {
-                Label("Reconstruct Object", systemImage: "circle.hexagongrid")
-            }
-            // C4(a): was `appState.isBusy` only — this panel button bypassed
-            // the same five-calibration gate the toolbar's primary action
-            // asks for `.singleslicePtychography` (§4 finding 2).
-            .disabled(!ProductWorkflow.mayRun(
-                .singleslicePtychography,
-                readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
-            ))
-            .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
+        }
         }
     }
 }
@@ -242,6 +242,9 @@ private struct SingleslicePtychographySection: View {
 /// absent: no gate is loosened by showing it.
 private struct ParallaxStageSections: View {
     @Environment(AppState.self) private var appState
+    @State private var showsResetAlignmentConfirmation = false
+    @SceneStorage("phase.settings.parallaxAdvancedReconstruction.isExpanded") private var showsAdvancedReconstruction = false
+    @SceneStorage("phase.settings.parallaxAdvancedDepth.isExpanded") private var showsAdvancedDepth = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -275,7 +278,7 @@ private struct ParallaxStageSections: View {
 
             if appState.parallaxAlignment != nil {
                 Button("Reset Alignment") {
-                    appState.resetParallaxAlignment()
+                    showsResetAlignmentConfirmation = true
                 }
                 .disabled(appState.isBusy)
                 .help("Discard completed alignment levels and return to the immutable preprocessed preview.")
@@ -320,40 +323,43 @@ private struct ParallaxStageSections: View {
         }
         stageSection(4, "Inspect or reconstruct products") {
             if appState.parallaxAlignment?.isComplete == true {
-                LabeledContent("Auto factor") {
-                    NumericField(
-                        "Auto factor",
-                        value: $appState.parallaxKDEUpsampleFactor,
-                        format: .number.precision(.fractionLength(0...3))
-                    )
-                }
                 LabeledContent("KDE σ") {
                     NumericField(
                         "KDE σ",
                         value: $appState.parallaxKDESigmaPixels,
-                        format: .number.precision(.fractionLength(0...3))
+                        format: .number.precision(.fractionLength(0...3)),
+                        unit: "px"
                     )
                 }
-                LabeledContent("Lanczos (0=off)") {
-                    NumericField(
-                        "Lanczos (0=off)",
-                        value: $appState.parallaxKDELanczosOrder,
-                        format: .number
-                    )
-                }
-                LabeledContent("Position iters") {
-                    NumericField(
-                        "Position iters",
-                        value: $appState.parallaxPositionCorrectionIterations,
-                        format: .number
-                    )
-                }
-                Toggle("Sinc low-pass", isOn: $appState.parallaxKDELowpass)
-                if appState.parallaxPositionCorrectionIterations > 0 {
-                    Toggle(
-                        "Checkerboard position steps",
-                        isOn: $appState.parallaxPositionCorrectionCheckerboard
-                    )
+                DisclosureGroup("Advanced reconstruction", isExpanded: $showsAdvancedReconstruction) {
+                    LabeledContent("Auto factor") {
+                        NumericField(
+                            "Auto factor",
+                            value: $appState.parallaxKDEUpsampleFactor,
+                            format: .number.precision(.fractionLength(0...3))
+                        )
+                    }
+                    LabeledContent("Lanczos (0=off)") {
+                        NumericField(
+                            "Lanczos (0=off)",
+                            value: $appState.parallaxKDELanczosOrder,
+                            format: .number
+                        )
+                    }
+                    LabeledContent("Position iters") {
+                        NumericField(
+                            "Position iters",
+                            value: $appState.parallaxPositionCorrectionIterations,
+                            format: .number
+                        )
+                    }
+                    Toggle("Sinc low-pass", isOn: $appState.parallaxKDELowpass)
+                    if appState.parallaxPositionCorrectionIterations > 0 {
+                        Toggle(
+                            "Checkerboard position steps",
+                            isOn: $appState.parallaxPositionCorrectionCheckerboard
+                        )
+                    }
                 }
                 Button {
                     Task { await appState.upsampleParallaxBF() }
@@ -380,13 +386,6 @@ private struct ParallaxStageSections: View {
                         unit: "Å"
                     )
                 }
-                LabeledContent("Planes") {
-                    NumericField(
-                        "Planes",
-                        value: $appState.parallaxDepthPlaneCount,
-                        format: .number
-                    )
-                }
                 LabeledContent("Info limit") {
                     NumericField(
                         "Info limit",
@@ -395,14 +394,23 @@ private struct ParallaxStageSections: View {
                         unit: "Å⁻¹"
                     )
                 }
-                LabeledContent("Power") {
-                    NumericField(
-                        "Power",
-                        value: $appState.parallaxDepthInformationPower,
-                        format: .number.precision(.fractionLength(0...2))
-                    )
+                DisclosureGroup("Advanced depth settings", isExpanded: $showsAdvancedDepth) {
+                    LabeledContent("Planes") {
+                        NumericField(
+                            "Planes",
+                            value: $appState.parallaxDepthPlaneCount,
+                            format: .number
+                        )
+                    }
+                    LabeledContent("Power") {
+                        NumericField(
+                            "Power",
+                            value: $appState.parallaxDepthInformationPower,
+                            format: .number.precision(.fractionLength(0...2))
+                        )
+                    }
+                    Toggle("Use full fitted CTF", isOn: $appState.parallaxDepthUseFullFit)
                 }
-                Toggle("Use full fitted CTF", isOn: $appState.parallaxDepthUseFullFit)
                 Button {
                     Task { await appState.computeParallaxDepthSections() }
                 } label: {
@@ -410,6 +418,18 @@ private struct ParallaxStageSections: View {
                 }
                 .disabled(appState.isBusy)
             }
+        }
+        .confirmationDialog(
+            "Reset alignment?",
+            isPresented: $showsResetAlignmentConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset Alignment", role: .destructive) {
+                appState.resetParallaxAlignment()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The completed alignment levels will be discarded and the prepared preview retained.")
         }
     }
 
@@ -516,11 +536,12 @@ private struct ParallaxProductSection: View {
 
 private struct ParallaxRunDetailsSection: View {
     @Environment(AppState.self) private var appState
-    @State private var showsRunDetails = false
+    @SceneStorage("phase.settings.runDetails.isExpanded") private var showsRunDetails = false
 
     var body: some View {
         if let preview = appState.parallaxPreprocess {
-            Section("Run details", isExpanded: $showsRunDetails) {
+            Section {
+                DisclosureGroup("Run details", isExpanded: $showsRunDetails) {
                 LabeledContent("BF detector pixels",
                                value: "\(preview.brightFieldPixelCount)")
                 LabeledContent(
@@ -546,6 +567,7 @@ private struct ParallaxRunDetailsSection: View {
                 if let alignment = appState.parallaxAlignment {
                     ParallaxAlignmentDetails(alignment: alignment)
                 }
+            }
             }
         } else {
             // R27 (owner, 2026-09-01): stateful and SPECIFIC. The generic

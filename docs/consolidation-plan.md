@@ -555,7 +555,7 @@ Findings enter through `/diagnose`; nothing is fixed during the sitting.
 *Exit:* no row in `status.md` says "unverified on screen"; each finding is
 an `open-items.md` entry with a reproducing observation.
 
-**C4 — UI coherence, two to three sessions, presentation only — STARTED 2026-09-07 night: (a) landed as slice 2 plus the C3 presentation observations as slice 1 (`status.md` rows); (b) and (c) open.** The three
+**C4 — UI coherence, two to three sessions, presentation only — STARTED 2026-09-07 night: (a) landed as slice 2 plus the C3 presentation observations as slice 1 (`status.md` rows); (b) landed 2026-09-08; (c) implemented and warm-tested; the delegated screenshot drive is blocked (status row).** The three
 simplifications in §4, in order: (a) `ProductWorkflow.readiness` plus
 `gates.sidecarRewriteRefusal()` become the *only* enable logic — every
 panel run/save button binds to it or is deleted; "Update Image" and
@@ -568,8 +568,8 @@ rule — a py4DSTEM kwarg without a physical unit lives in a default-collapsed
 gamma and the four actions leave Info for Settings; the sidecar actions
 leave the sidebar for the Dataset menu; the pane-tap side effect on the
 Imaging inspector goes; the four silent failures in §4 (4) reach the status
-strip; Remove and the two Resets confirm or undo. Tests broken first; the
-owner drives at the end. *Exit:* the owner's drive of every panel with no
+strip; Remove and the two Resets confirm or undo. Tests broken first when added; the owner delegated the end-to-end drive
+and screenshot report to the agent on 2026-09-08. That sitting is still owed. *Exit:* the delegated drive of every panel, reviewed by the owner, with no
 new finding of classes 1–8 in §4.
 
 **C5 — EXECUTED 2026-09-07: the rule is in `inventory` and `CLAUDE.md`, and the

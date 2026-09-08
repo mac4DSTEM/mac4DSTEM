@@ -27,6 +27,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Step | State | What it left behind |
 |---|---|---|
+| C4 (c): exposure, action placement and explicit failures | implemented 2026-09-08, **screen verification blocked**; no Gate D trigger (presentation, error reporting and mechanical preview/inventory deduplication; no Core change). Three lower-tier slices reviewed and corrected here. Script unit/all **exit 69** (3/2 GB free); documented warm MCP fallback **570 passed / 0 failed / 1 skipped**, signed Debug build succeeded (`scratchpad/c4c/warm-test-final-20260908.{log,json}`, `build-signed-20260908.{log,json}`); no new tests. Final build additionally enables initial delivery of an already-failed configurator preview to the status strip; that one-line modifier is compile-verified after the unit run. C4(b)'s owed `virtual-detector-test` and `two-spec-analysis-test` each **exit 0** (`c4c/*-retry-20260908.log`; initial sandbox attempts could not write the Metal cache). Inventory exit 0, AppState + ResultExport **7509**, unchanged | Default-collapsed Advanced disclosures persist per window; dimensionless disk/parallax/ptychography knobs moved inside them. Contrast/gamma, retained-product actions, promote/reopen/release moved from Info to Settings; Dataset menu owns sidecar actions, Change remains the refusal recovery path. Pane clicks and scrubbing no longer select Imaging Direction. Both Remove entry points and both Resets confirm. Preview/ROI/inventory failures report reasons; PendingLoad owns preview error capture, inventory refresh is shared, cancellation/epoch guards retained. Budget partly paid by replacing historical comments in these touched paths with present-tense invariants, not an OperationCenter extraction. Native app control **works from this session** (the previous session's CUA failure did not reproduce): the delegated drive ran 2026-09-08 evening on `mac4DSTEM Demo.h5`, screenshots retained in `scratchpad/c4c-drive/`. **Seen on screen and holding:** Info is metadata only (contrast, gamma and the retained-product actions are gone from it); Prepare, Imaging, Bragg disks, Phase and Results each expose one primary action bound to readiness (`Compute Mean / Max`, `Compute Image`, `Detect All Disks`, `Run DPC`, `Save to Results`) with no "Update Image" or "Reconstruction Ready" anywhere; the collapsed `Advanced detection` disclosure opens to `Pattern smoothing s` and **is still expanded after leaving to Prepare and returning** (the remembered-across-visits clause, verified by re-test after a focus-loss confound produced a false collapse); Phase's Parallax and ptychography stages carry `Advanced` badges; the C7 `Detector: Classical` picker sits in Disk detection. the Dataset menu carries all four sidecar actions under their C4(c) names (`Save Current Result to Session Sidecar`, `Save Calibration to Session Sidecar`, `Change Session Sidecar…`, `Ignore Session Sidecar…`) and the sidebar no longer does. **Trap paid here:** the first drive showed no Dataset menu and the pre-C4(c) File-menu names although the binary's mtime was newer than the source's — mtime does not prove freshness; a rebuild (`scratchpad/c4c-drive/rebuild-20260908.log`, exit 0) settled it, and no source was edited on the stale evidence. **Still unverified on screen:** the four failure paths and the Remove/Reset confirmations. No new tracked file; this row is the evidence home. |
 | C4 (b): staleness generalised — one verdict from the recipe | done 2026-09-08 night (a Sonnet slice in a worktree from the read-only plan `scratchpad/s4/c4b-staleness-plan.md`, patch applied to `main` and gated here), no Gate D (neither trigger: verdict/presentation logic, argued in the plan §6); unit **570 / 0 / 1, 571 cases** exit 0 (`scratchpad/c4b/unit-c4b-main-20260908.log`, 571 `func test` in source); core exit 0 (`c4b/core-c4b-main.log`); inventory exit 0 (`c4b/inventory-c4b-main.log`, `AppState` + `ResultExport` **7509**); six new tests each broken by a named mutation in the worktree (`c4b/mut1…6.log`; mutation 6 crashed the process on the force-unwrap the guard prevents), reverts `cmp`-verified; the worktree's `virtual-detector-test` and `two-spec-analysis-test` could not run there (no `References/py4DSTEM-dev` in the worktree) and were NOT re-run on `main` — owed; **unseen on screen** | `ProductWorkflow.stalenessVerdict(recordedStep:currentSignature:hasProduct:)` → `.current` / `.stale(changedKeys:)` / `.unknown`: the recipe step a product was made from against the signature the current settings would record, restricted to the signature's keys; a kind with no signature builder is never stale; a product whose step the recipe invalidated is stale. Builders on the owners: `Aperture.replayParameters(shape:aperture:)`, the dpc origin one-liner, `StrainProduct` (the two input keys, never `resolved_g*`), `ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved` (nil without a model), disk detection = `DiskDetectionParams.replayParameters(kernel:)` + the learned class/threshold/hash (the old flag missed all three). `TaskProductState.staleDiskSettings` → `.stale(reason:)` with a generated reason naming the keys; the three UI surfaces read `staleReason`. `diskDetectionSettingsAreStale` keeps its name and delegates; `completedDiskParams` deleted; `realSpaceRegionShape()` inlined |
 | C7 Gate B campaign over sessions 1–4 | done 2026-09-08 — a fresh high-tier refuter on the uncommitted tree (`archive/v3/c7-gate-b-2026-09-08.md`), 17 mutations, 5 survived, one claim refuted; its eight remedies adopted only after each was broken by re-applying its own mutation: `scratchpad/gateB/remedies-real.log` 48/48 on the real code, `remedies-mut1.log` exactly the four aimed tests fail (M3 rounding, M7 axis swap, M11 nearest, G4 export folder; 24/28), `remedies-mut2.log` exactly the other four (dotfile rule, refusal order, bounds guard, ingredient; 31/35); files restored `cmp`-identical; unit **564 / 0 / 1, 565 cases** exit 0 (`scratchpad/gateB/unit-c7-gateb-20260908.log`, 565 `func test` in source); core exit 0 (`gateB/core-gateb-20260908.log`); the Python fixture gate exit 0 (`disk-detector-fixture-gateb-20260908.log`); signed build exit 0 (`build-signed-gateb-20260908.log`) | Refuted and fixed: `evaluate.py` could not read an app export (`KeyError: app_probe`) — the store carries `ingredient`/`seed` through a round trip and `evaluate.py --ingredient` names the npz key. Blind spots closed with one assertion each: the matcher's diagonal-only fixtures (an axis swap in one input was invisible), `fitOffset`'s vacuous half-to-even check, `removeNearest`'s nearer-was-last test, the export destination, a border click stored off-detector (now refused). Changed on findings: a refused learned replay leaves the picker and threshold alone; the asset hash and `export.py`'s `sha256_tree` share one dotfile rule; `scan-bench` records the crop origin under the detector's keys. Held: Python parity of the learned path (fixture gate exit 0, worst diff 0), the replay rules, preserve-on-nil, the Neural Engine per-shape trap re-measured at 0.036. Corrected in the docs: the ceiling is ≈ 1.5× with a noise band and the 250² vs 256² FFT caveat. Opened: the probe channel's anchor above 256 px (`open-items.md`). Process finding: `-only-testing` with a file name that is not a class runs nothing and exits 0. **What Gate B could not test:** the >256-px path against external truth, the hash rule on the real package, anything on screen, the full `scientific` set |
 | C7 session 4: hand-clicked disk-centre labels in the session sidecar (owner: centres, one attribute) | done 2026-09-08 (a Sonnet slice briefed from and gated here), no Gate D (neither trigger: new storage and UI, four stateless relocations pinned by existing tests); Gate B owed at C7's end, in scope; unit **557 / 0 / 1, 558 cases** exit 0 (`scratchpad/s4/unit-c7s4-20260908.log`, 558 `func test` in source); core exit 0 (`s4/core-final.log`); inventory exit 0 (`s4/inventory-final.log`, `AppState` + `ResultExport` **7 505**); signed build exit 0 (`s4/build-signed-c7s4-20260908.log`); the six harnesses that compile `BraggVectorEMDWriter.swift` and five of the seven that compile `VirtualDetector.swift` each exit 0 (`s4/<name>.log`; `residency-sweep` needs a cube path, `performance-baseline` is a benchmark); 18 new tests, of which **4 were broken first** by real mutations (row/col swapped in the encoder → the schema test; nil erasing → the preserve test; the remove radius unbounded → the radius test; the no-dataset guard returning published → the refusal test; `s4/mutA…D.log`, reverts `cmp`-verified) — **the other 14 were not individually broken; the Gate B campaign owes them a look**; the agent reported the disk at 0 bytes twice and cleared Xcode's DerivedData; **unseen on screen** | `Session/DiskCentreLabels.swift` (`DiskCentreLabelStore`: the `labelling` toggle, positions of `[row, col]` centres in the native frame, add / removeNearest / clear / reset, `encodedJSON` in `label_centres.py`'s schema — cube, dataset, frame "native", positions, a SHA-256 over positions — `load(from:expecting:)` refusing another cube, `exportForFineTuning`); `BraggVectorEMDWriter`: root attribute `mac4dstem_disk_centre_labels`, `mergeCalibration(diskCentreLabelsJSON:)` preserving on nil, `loadDiskCentreLabelsJSON`; `AppState` holds the store, restores it on activation (a status line on failure, never a modal); `saveCalibrationToSessionSidecar` carries the labels; `exportDiskCentreLabels` (the container's Documents/mac4DSTEM/disk-labels/); `toggleDiskCentre(atPatternRow:col:)` (within 3 px removes, else adds; refuses without a dataset, off Current, or with the toggle off); "Disk centre labels" rows in Disk detection (toggle, This position, Labelled, Clear This Position, Save to Sidecar, Export Labels…); `CentreLabelOverlay` (cyan crosses) and a tap catcher on the diffraction pane while labelling, in Disks mode; the budget paid by `DetectorShape.realSpaceRegion`, `SessionGates.isDataSourceFailure`, `ReplayRecordFrameMap.exportableRecipe`, `SessionSidecarLocator.copySidecarFile` |
@@ -54,81 +55,54 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **exit 0 — 2026-09-08 night, the C7 tree after Gate B's remedies** (`scratchpad/gateB/unit-c7-gateb-20260908.log`, `GATE_EXIT=0` on its own line): **564 passed / 0 failed / 1 skipped, 565 cases** (565 `func test` in source). The script's own `xcodebuild test` line run directly because the 8 GB preflight refuses at < 3 GB free. Earlier the same day: 557/0/1 (session 4), 539/0/1 (session 3), 534/0/1 (session 2). |
+| `run-tests.sh unit` | **exit 69 — 2026-09-08 C4(c)**, free-space preflight (`scratchpad/c4c/unit-20260908.log`). Documented warm MCP fallback: **570 / 0 / 1**, retained `c4c/warm-test-final-20260908.{log,json}`. Signed final build passed; one final UI status modifier is build-verified after the warm unit run (C4(c) row). |
 | `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scratchpad/scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line); the C7 session-1 tree re-ran the one harness it touched, `disk-detector`, exit 0 (`disk-detector-fixture-c7.log`), not the full set (< 1 GB free; the Swift changes are outside every harness's source list). Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`scratchpad/s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-08 night, the C7 tree at its commit** (`scratchpad/gateB/inventory-c7-closeout-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` **7 509** (7 530 at HEAD; the Gate B bounds guard cost 4 of session 4's 25); live markdown **4 881**, up 100 from 4 781 across sessions 3–4, the C8 triage and the Gate B campaign — four evidence rows, four append-only decisions entries and one science open item, against a deleted open item, a compacted C3 paragraph and the folded release-night section; cold-start set **868**, down 5 from 873 (858 before the Gate B row and the open item). Previous: session 4 at closeout (`s4/inventory-c7s4-closeout-20260908.log`) 7 505, 4 843, 858. |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-08 C4(c)** (`scratchpad/c4c/inventory-final-20260908.log`); AppState + ResultExport **7509**, equal to HEAD. Live markdown and cold-start set reduced by removing the obsolete C4(b) landing instructions and updating the active handoff. |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`scratchpad/inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
-| `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). The release-tree attempt exited 1 at `real-data-acceptance`; that sidecar instance was diagnosed and closed as a stopgap then, and the wider discovery class was subsequently closed on 2026-09-05. Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
+| `run-tests.sh all` | **exit 69 — 2026-09-08 C4(c)**, 2 GB free against 8 GB required (`scratchpad/c4c/all-20260908.log`). No aggregate pass on the release candidate. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses, on the post-v2.5.1 tree. |
 
-## Handoff (rewritten 2026-09-07: consolidation first)
+## Handoff — C4(c), then the delegated drive, then v3.0.0
 
-**Consolidation first (owner, 2026-09-07).** `docs/consolidation-plan.md` is
-the next target's source until it is archived: `/pickup` takes the first gate
-of its §6 whose exit criterion fails — **next for an agent: C4 (c), the one exposure rule (item 1's C4 paragraph), then the owner's drive of every panel = the plan's exit, then v3.0.0.** C4 (b) landed 2026-09-08 night (its row). The paragraph below is history of how it was landed: A Sonnet slice was left running on 2026-09-08 night in the
-worktree `<this session's scratchpad>/c4b-wt` (branch `c4b-work`; its HEAD
-`7fab4d1` mirrors the pre-Gate-B tree, never merge it), built from the plan
-`scratchpad/s4/c4b-staleness-plan.md` (120 lines, file:line, Gate D argued
-not to apply). To land it: `git -C <worktree> diff HEAD > c4b.patch`, apply
-to `main` at `89586b7` with `git apply --3way`, re-run the gates (unit via the
-script's own `xcodebuild test` line, core, inventory ≤ 7 509 for AppState +
-ResultExport, the harnesses of any Core file it touched), read its report
-(the agent's final message; mutation logs under `scratchpad/c4b/`), write the
-row here, commit, then `git worktree remove` and `git branch -D c4b-work`. If
-the worktree is gone, rebuild the slice from the plan. C7 is done except the
-owner's drive of sessions 3–4 (the Gate B row); then C4 (c), then the drive
-of every panel = the plan's exit, then v3.0.0 (2.5.1/5 → 3.0.0/6).
-C0–C3, C6 and C8 (closed 2026-09-08: triage, then the owner's "leave") are closed, C5's rule stands (one
-extraction per month, next the `OperationCenter` forwarders — 146 call sites,
-a session of its own), C4 has (b) and (c) open. **C7 started 2026-09-08: sessions 1–4 put the runtime, the
-picker, the disagreement map and the centre labels on `main`** (the table's
-first four rows); the owner drove the picker and the map's Provenance rows on
-the demo at 13:03–13:06 (the session-2 row); **sessions 3–4 driven by the owner the same night (buttons work; the sidecar reopen round trip not yet reported).**
-The ceiling is now measured on the shipping runtime: ≈ 1.5× at 256 px on
-Core ML (session-3 row; 1.44–1.64× is run-to-run noise). C6's evidence is `archive/v3/learned-detector-2026-09-06.md` "C6 — the
-table" and the `decisions.md` entry of 2026-09-08 (the net earns its place;
-default 0.7; no relabelling first). Branch `ml/disk-detector` at `f057545`
-still carries the AI room (C8) and the Core AI `scan-bench`; the disk-detector
-Swift on `main` is the Core ML port, not a merge. The owner pushes; agents
-commit when asked and never push.
+Owner, 2026-09-08: C0–C3, C6 and C8 are closed; C7 is closed apart
+from the owner's sidecar-reopen check. C4(b) is on `main` at `d8e6153`.
+C5's measured line rule remains in force; its next monthly extraction is
+`OperationCenter` forwarders, a separate session. No new science feature
+before the consolidation plan exits.
 
-v2.5.1 is published and verified from its own download link. Both repos are
-pushed; the site says macOS 14+ and serves the build that can honour it. Push
-state is not recorded here — it went stale twice in two commits; ask git.
+**Resume checkpoint — 2026-09-08, owner stopped at 10% usage.**
+C4(c) is implemented and warm-tested, **uncommitted on `f401250`**;
+17 tracked files are modified. Do not redo the implementation or its passed
+checks. `scratchpad/c4c/` is untracked evidence: preserve it, do not blindly
+stage the directory. `source.patch` captures the final app changes;
+`source.sha256` starts `dfbd3214dc55` (docs excluded).
 
-**Read this first: item 1 is the owner's and `/pickup` cannot take it.** An
-agent should say so and start at item 2.
+Warm MCP unit fallback: 570 passed / 0 failed / 1 skipped; signed Debug
+build and signature verification passed. The build additionally covers the
+final `onChange(initial: true)` status-reporting modifier added after tests.
+Both owed C4(b) harnesses passed. Inventory passed at 7,509 AppState/export
+lines, unchanged. Logs and tool-result JSON are in `scratchpad/c4c/`.
+No new tests, Core changes, scientific-number changes, commit or push.
 
-1. **Your drive. (OWNER ONLY.)** Nothing beyond Prepare, Imaging and Strain &
-   ACOM has been looked at since the AppKit retirement, and five sessions
-   running have found defects by driving that every gate was green through.
-   Bugs enter via `/diagnose`. Worth going at first: Phase's stages, the load
-   configurator's crop drags, the Results comparison row, the colorbar popover,
-   and every divider — the pane split is hand-built and **no gate can see a
-   column's width** (falsified, `open-items.md`). **C3 is closed** (an agent
-   drive plus the owner's four `sim_Au` screenshots, 2026-09-07; `decisions.md`,
-   findings in `open-items.md`).
-   **C4 started 2026-09-07 night, slice 1 (presentation only, no Gate D):
-   the C3 observations — the status bar's `%` wrap and its text wrapping at
-   narrow widths, the log opening at its top, the "Correlation power," label —
-   landed and gated (the table row). Slice 2 in flight the same night: one
-   enable logic (`ProductWorkflow.readiness` for every run button, parameters
-   disabled while their run is in flight, "Update Image" and "Reconstruction
-   Ready" gone) landed too (its row). **Next slices, in the plan's order:**
-   (b) staleness generalised — the map is `scratchpad/c4-staleness-map.md`
-   (Haiku, 2026-09-07): one verdict engine already exists
-   (`ProductWorkflow.productState`, `.staleDiskSettings` for the three
-   disk-dependent modes, three UI surfaces reading it, one test); every task
-   already records its parameters in a replay step and every product carries
-   a provenance dictionary, so the signature to compare is "the replay step
-   this product was made from" against "the step the current parameters would
-   record" — build that comparison beside `productState`, not in `AppState`
-   (its seven publish sites must not grow: pay each added line there with a
-   deletion); (c) the one
-   exposure rule (Advanced sections, contrast/gamma and the four actions to
-   Settings, sidecar actions to a Dataset menu, the Imaging pane-tap side
-   effect, the four silent failures to the status strip, Remove and the two
-   Resets confirming). Then your drive of every panel is C4's exit.**
+**Next:** free enough disk for the full gate (8 GB required; last 2 GB,
+`all-20260908.log` exit 69; cleanup script found only empty targets), then
+restore native app control. CUA repeatedly returned "Sky Computer Use native
+pipe closed before response", even after reset and a successful build.
+No screenshot or panel acceptance is claimed. Debug app:
+`~/Library/Developer/Xcode/DerivedData/mac4DSTEM-futuuibqqfwctegihoqqcwibkabk/Build/Products/Debug/mac4DSTEM.app`.
+The owner explicitly delegated the screenshot drive; no renewed permission
+is needed. His sidecar-reopen result remains owed. Do not archive the plan
+or bump/tag/release 3.0.0 / 6 before those gates close.
+
+1. **Finish C4(c)'s verification and the delegated drive.** Remembered
+   Advanced disclosures; display controls and actions in Settings; sidecar
+   actions in the Dataset menu; pane taps/scrubbing do not change Imaging's
+   Direction; four failure paths report reasons; Remove and both Resets
+   confirm. The full-window screenshot sitting must cover every workspace,
+   every Phase stage, the load configurator, comparison, colorbar and
+   dividers. Findings enter through diagnosis. C7's labels returning after
+   the owner's sidecar reopen is still owed. Only then archive the plan,
+   run the full release gate and cut **3.0.0 / 6**. No release is claimed.
 2. **Two owner observations, both on `Si-SiGe.dm4` and Prepare**
    (`open-items.md`): open the file in GMS and read the pattern's width and
    height (the detector-pair Gate D item), and drive the manual Q/R fields

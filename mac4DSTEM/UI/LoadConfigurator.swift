@@ -57,6 +57,11 @@ struct LoadConfigurator: View {
             Divider()
             footer
         }
+        .onChange(of: pending.singleDPFailure, initial: true) { _, failure in
+            if let failure, appState.pendingLoad?.id == pending.id {
+                appState.statusText = "Pattern preview unavailable: \(failure)"
+            }
+        }
         // A band, not a fixed size: the 2026-08-18 fixed 900x760 sheet
         // overflowed a display shorter than ~790pt and pushed its own footer
         // off screen.
@@ -179,8 +184,17 @@ struct LoadConfigurator: View {
                             Text(singlePatternCaption)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                            ProgressView()
-                                .controlSize(.small)
+                            Group {
+                            if let failure = pending.singleDPFailure {
+                                Text("Could not load this pattern: \(failure)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            }
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .frame(
                                     minHeight: LayoutPolicy.imagePaneMinimum,
@@ -203,7 +217,8 @@ struct LoadConfigurator: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         } else {
-            Text("No preview available for this dataset. The sizes below are still exact.")
+            let reason = pending.previewFailure.map { " (\($0))" } ?? ""
+            Text("No preview available for this dataset.\(reason) The sizes below are still exact.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
