@@ -64,10 +64,20 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 **Consolidation first (owner, 2026-09-07).** `docs/consolidation-plan.md` is
 the next target's source until it is archived: `/pickup` takes the first gate
-of its §6 whose exit criterion fails — **next for an agent: C4 (b), staleness
-generalised (item 1's C4 paragraph; plan `scratchpad/s4/c4b-staleness-plan.md`,
-a Sonnet slice in flight in a worktree on 2026-09-08 evening); C7 is done
-except the owner's drive of sessions 3–4 (the Gate B row).**
+of its §6 whose exit criterion fails — **next for an agent: land C4 (b), staleness
+generalised.** A Sonnet slice was left running on 2026-09-08 night in the
+worktree `<this session's scratchpad>/c4b-wt` (branch `c4b-work`; its HEAD
+`7fab4d1` mirrors the pre-Gate-B tree, never merge it), built from the plan
+`scratchpad/s4/c4b-staleness-plan.md` (120 lines, file:line, Gate D argued
+not to apply). To land it: `git -C <worktree> diff HEAD > c4b.patch`, apply
+to `main` at `89586b7` with `git apply --3way`, re-run the gates (unit via the
+script's own `xcodebuild test` line, core, inventory ≤ 7 509 for AppState +
+ResultExport, the harnesses of any Core file it touched), read its report
+(the agent's final message; mutation logs under `scratchpad/c4b/`), write the
+row here, commit, then `git worktree remove` and `git branch -D c4b-work`. If
+the worktree is gone, rebuild the slice from the plan. C7 is done except the
+owner's drive of sessions 3–4 (the Gate B row); then C4 (c), then the drive
+of every panel = the plan's exit, then v3.0.0 (2.5.1/5 → 3.0.0/6).
 C0–C3, C6 and C8 (as a triage, 2026-09-08 — its row; owner decision owed on
 porting the four pure engines unwired) are closed, C5's rule stands (one
 extraction per month, next the `OperationCenter` forwarders — 146 call sites,
