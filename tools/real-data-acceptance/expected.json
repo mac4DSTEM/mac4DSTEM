@@ -22,10 +22,10 @@
     "shape": [50, 200, 128, 128],
     "dtype": "uint64",
     "finitePatternFraction": 1.0,
-    "diskProbeRadiusPixels": 1.9782125,
-    "diskSampleCandidateCounts": [91, 116, 97],
-    "diskSampleAfterAbsoluteCounts": [91, 116, 97],
-    "diskSampleAfterRelativeCounts": [25, 29, 23],
+    "diskProbeRadiusPixels": 2.0076249,
+    "diskSampleCandidateCounts": [93, 118, 98],
+    "diskSampleAfterAbsoluteCounts": [93, 118, 98],
+    "diskSampleAfterRelativeCounts": [25, 28, 23],
     "diskSampleAfterSpacingCounts": [12, 14, 10],
     "diskSamplePeakCounts": [12, 14, 10],
     "virtualImageMinimum": 2359.0,
@@ -66,5 +66,22 @@
     "virtualImageMaximum": 555840.0,
     "virtualImageMean": 383697.1630952381,
     "virtualImageChecksum": 414133653412.0
+    },
+  {
+    "file": "calibrationData_bullseyeProbe.h5",
+    "datasetPath": "/4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data",
+    "shape": [100, 84, 250, 250],
+    "dtype": "uint16",
+    "finitePatternFraction": 1.0,
+    "diskProbeRadiusPixels": 7.1286273,
+    "diskSampleCandidateCounts": [196, 207, 193],
+    "diskSampleAfterAbsoluteCounts": [196, 207, 193],
+    "diskSampleAfterRelativeCounts": [22, 7, 20],
+    "diskSampleAfterSpacingCounts": [11, 3, 10],
+    "diskSamplePeakCounts": [11, 3, 10],
+    "virtualImageMinimum": 155510.0,
+    "virtualImageMaximum": 549980.0,
+    "virtualImageMean": 345558.71166666667,
+    "virtualImageChecksum": 369678288288.0
   }
 ]

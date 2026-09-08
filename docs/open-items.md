@@ -39,28 +39,33 @@ the Remove / two Reset confirmation dialogs, were not exercised in the
 
 ## Science — Gate D or Gate B owed
 
-### `all` is red: downsample_Si_SiGe_exp candidate counts drifted +2/+2/+1
-Reproducing observation, 2026-09-08, `scratchpad/v3-gate/all-20260908.log:1523`,
-`GATE_EXIT=1` (the only FAIL in the run):
-`FAIL: downsample_Si_SiGe_exp.h5 diskSampleCandidateCounts: [93, 118, 98] != [91, 116, 97]`.
-The other three pinned cubes passed, including their golden and time budgets.
-**Cause NOT established — do not fix, and do not re-pin the golden.** The last
-aggregate pass was 2026-09-04 (458/0/0); C1, C2, C3, C4(a), C4(b), C5's overlay
-extraction, C6, C7 sessions 1–4, C8 and C4(c) all landed since, so this run is
-the first to exercise the number and any of them could own it. C7 (disk
-detection, Core ML) and C4(b) (disk-detection signature) are the plausible
-suspects; C4(c) is presentation-only and its review found no scientific-number
-change, so it is not the default suspect merely for being last.
-The counts moved UP, and `expected.json` was last touched by the old `codex`
-commits, so this is drift in the app, not a stale re-pin.
-**Unknown, and worth establishing first:** whether `diskSamplePeakCounts` (the
-final science output) also moved — the comparison reported the candidate field
-and stopped, so a green peak count must NOT be assumed.
-*The experiment:* re-run `tools/real-data-acceptance/run.sh` at `d8e6153`
-(pre-C4(c)) and then bisect across the range above; each run is ~1 minute once
-the harness is built. Owner: next session, before 3.0.0 is cut.
+### A red real-data gate names the symptom, not the cause (2026-09-09)
+`compare.py`'s `fail()` raises `SystemExit`, so a run stops at the first
+mismatching field of the first mismatching file. On 2026-09-08 it printed
+`diskSampleCandidateCounts` and never reached `diskProbeRadiusPixels`, where
+the change was, nor the cubes after it — and the one golden verdict in the log
+was read as three, because the harness's own `PASS: <file> <shape> in <t> s`
+lines look like verdicts. Wanted: collect every mismatch, fail once. Confirmed
+by the Gate D refuter. `comparator-test` gates this file too. Owner: cheap.
 
+### Real-data numbers are pinned by one harness only `all` reaches (2026-09-09)
+`tools/real-data-acceptance/run.sh` says `all` "is the only one that reaches
+this harness at all". `ba6360d` moved a measured probe radius on 2026-09-05,
+`scientific` stayed green three days, and by the time `all` ran, 43 commits
+stood between change and symptom — the entry written from it blamed two
+innocent ones. Options, uncosted: add the harness to `scientific` (which
+already reads the cubes), or gate science-lane commits on it by hand.
+Main-only: `ba6360d` postdates v2.5.1, so no shipped build carried it.
 
+### The acceptance harness pins peak COUNTS, never positions (2026-09-09)
+Gate D refuter: `AcceptanceReport` (`main.swift:6-22`) has no coordinates, so a
+change moving every peak while preserving the count is invisible. On `ba6360d`
+all 36 `downsample_Si_SiGe_exp` peaks shifted 0.005-0.02 px and one
+`calibrationData_bullseyeProbe` peak was SUBSTITUTED — (114.2198, 194.8632) ->
+(140.6368, 196.8596), ~26 px — count unchanged at 11, harness silent
+(`scratchpad/drift/refuter/peak-position-diff.txt`). Likely two near-threshold
+noise peaks trading places (the noise item below), not a defect; the defect is
+that the gate cannot tell. Owner: a checksum needs a tolerance — a design pass.
 
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
@@ -257,16 +262,18 @@ linearity, inspector layout) lives in
 duplicate it here and do not patch findings 1/4/5/7 on the current facade —
 they wait on the architecture seams (C4/C5).
 
-### UI polish and C4(c) verification (updated 2026-09-08)
-C4(c)'s placement, exposure, confirmation and error-reporting changes are
-implemented in the working tree, not yet screen-verified. Native CUA app
-attachment disconnects even after reset; the owner delegated the screenshot
-sitting, but no panel has been accepted by this run. The unit script refuses
-at 3 GB free (exit 69); the warm fallback passed 2026-09-08 (status row).
-The full release gate still refuses at 2 GB free; signed Debug build passed.
-Residual polish: log height per-window state, log/mask per-body work,
-no document proxy icon, duplicate Run shortcuts, tab styling, Gamma's value
-in its label and old wording. See `status.md` for the gate and drive results.
+### UI polish: six papercuts, all verified live 2026-09-09
+Presentation only, no Gate D. Info renders the "Reloads the whole cube" cost
+sentence and a `PromoteRunCaption` for a button C4(c) moved to Settings
+(`WorkspaceInspector.swift:295,301`; move the caption to the button, do NOT
+re-add the button); `gammaControl` prints "Gamma, 1.00" as one string where
+slice 1 made every other slider two texts; ⌘R (`mac4DSTEMApp.swift:89`) and ⌘↩
+(`WorkspaceView.swift:229`) both run the primary action; no `representedURL`
+anywhere, so no proxy icon; `TabView` (`WorkspaceInspector.swift:32`) unstyled;
+log height is `@State` (`WorkspaceView.swift:25`) where eight siblings use
+`@SceneStorage`. Triaged against the drive's findings, fix-now list lands
+before 3.0.0 (`decisions.md` 2026-09-09). Stale claims struck: CUA works, and
+both gates ran at 8.2 GB free.
 
 ### Concurrent HDF5 use crashes the process (2026-08-19)
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb

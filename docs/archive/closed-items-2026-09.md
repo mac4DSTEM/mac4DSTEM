@@ -350,3 +350,75 @@ flat because the OS's column material is within-window. The conclusion — the
 columns look like Xcode 26's, flat on the window ground — was reached in dark
 appearance only. Owner: the owner's drive (C3).
 **Closed 2026-09-07 23:33 (owner):** the columns render flat on the window ground in light too.
+
+---
+
+## `all` is red: downsample_Si_SiGe_exp candidate counts drifted — closed 2026-09-09
+
+### ~~`all` is red: downsample_Si_SiGe_exp candidate counts drifted +2/+2/+1~~ — **CLOSED 2026-09-09, the golden was stale**
+
+> Reproducing observation, 2026-09-08, `scratchpad/v3-gate/all-20260908.log:1523`,
+> `GATE_EXIT=1`: `FAIL: downsample_Si_SiGe_exp.h5 diskSampleCandidateCounts:
+> [93, 118, 98] != [91, 116, 97]`. Cause NOT established — do not fix, and do
+> not re-pin the golden. C7 and C4(b) named as the plausible suspects.
+
+**Closure — Gate D, 2026-09-09.** Neither suspect, and neither was in the
+entry's own list of what had landed: the 2026-09-05 science lane was missing
+from it. The cause is `ba6360d` (2026-09-05, "Science lane: probe refusal…"),
+which corrected `OriginCalibration.probeSize`'s median from `sorted[n/2]` to
+numpy's even-count rule, matching py4DSTEM's `np.median(dr_dtheta)`
+(`process/calibration/probe.py:54`, `N = 100`). Because
+`sorted[n/2] >= (sorted[n/2-1] + sorted[n/2]) / 2` always, the old rule's
+`2 * median` band was never wider than the correct one and systematically
+truncated the trusted threshold set — here 74 → 75 on Si_SiGe and 86 → 87 on
+bullseye, one index added and none removed. **The app is the correct side and
+the pinned golden was three days stale.** `expected.json`'s Si_SiGe fields are
+re-pinned to the measured values, `calibrationData_bullseyeProbe.h5` is now
+pinned too, and **no code changed**. The commit announced the effect at the
+time (`CHANGELOG.md` at `ba6360d`: "the probe radius can move by a fraction of
+a pixel on some patterns"); measured, +0.0294 px and −0.0425 px.
+
+**Evidence**, retained in the session scratchpad `drift/`: HEAD twice,
+identical field for field (`e1-run{1,2}.log`) — deterministic; the bisect
+`ba6360d^` **exit 0** / `ba6360d` **exit 1**, the two reports identical on
+every field of all five cubes, so none of the 43 later commits contributes
+anything; the causal control — reverting only the median line returns both
+radii bit-for-bit and the gate to **exit 0**, revert `cmp`-verified; and an
+independent numpy transcription of py4DSTEM's algorithm
+(`e4-probe-truth-20260909.log`) giving 2.0076250 and 7.1286265 in float64,
+matching HEAD to 1.3e-7 and 8e-7 where the goldens are ~7000× `compare.py`'s
+tolerance away. Gate D's refuter reproduced every link independently and wrote
+its own twin.
+
+**What the refuter overturned, recorded because the first account was wrong.**
+(1) *Scope*: **two of five cubes drifted, not one of four.**
+`calibrationData_bullseyeProbe.h5` moved as well (radius 7.171119 →
+7.1286273, candidates [192,205,187] → [196,207,193]) and was invisible
+because it is unpinned — and the session's own `fulldiff.py` iterated over
+`expected.json`, so it shared the gate's blind spot exactly. That is why the
+cube is pinned now. (2) *"The final science output does not move" is refuted.*
+The counts this golden pins are unchanged apart from those listed, but peak
+POSITIONS move on both drifting cubes — ~0.005–0.02 px on all 36 Si_SiGe
+peaks, and on bullseye position 0 one peak is substituted, (114.2198,
+194.8632) → (140.6368, 196.8596), ~26 px away, while the count stayed 11 so
+the harness saw nothing. `AcceptanceReport` carries no coordinates, so this
+harness is structurally unable to see it. On a cube whose open item says the
+0.5 % default keeps ~130 noise peaks per position, a swap between two
+near-threshold noise peaks is expected rather than alarming — but the claim
+could not stand. (3) The app's own pipeline was NOT measured: `probeSize` runs
+on `meanDP` at `OriginCalibration.swift:513/570` and `AppState.swift:4562`,
+never on this harness's max-of-three input, so the harness's Δ is not the
+app's Δ and nothing here measures the app's.
+
+**Also refuted, and it was the diagnosis's own reasoning:** that Si_SiGe was
+selected for carrying the smallest probe radius. `polycrystal_2D_WS2` measures
+1.8664341, smaller, and did not move. What selects a cube is whether one of its
+100 `dr` values falls between the old and the new median — left unexplained
+rather than patched over.
+
+**Guard added:** `ProbeSizeTests.testProbeSizeUsesNumpysEvenCountMedianForTheTrustedBand`
+pins the even-count rule on a soft-edged fixture where the two rules differ by
+0.144 px, both values derived in numpy and retained before the test was
+written. Broken first by a `sorted[n/2]` mutant — exit 65, and it is the ONLY
+test that fails, so the six pre-existing `ProbeSizeTests` were blind to the
+rule. Until 2026-09-09 nothing below `run-tests.sh all` pinned it at all.

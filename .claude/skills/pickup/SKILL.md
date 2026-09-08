@@ -26,6 +26,11 @@ This skill only makes sure you enter them correctly.
    criterion written in the plan, and it is done only when that criterion
    is met and recorded in `status.md`. Until the plan is archived, a
    feature target is refused, with the reason.
+   **A red gate outranks a verification gate** (2026-09-09): when the plan's
+   first failing exit criterion needs the owner's eye and the handoff also
+   names a defect blocking the release, take the defect — it is the one a
+   session can finish alone, and diagnosing it runs gates, which forbids
+   driving anyway. Say which you took and why.
 3. Before any work, restate in one short block: the target's scope, its gate
    (unit / unit+scientific / Gate D / Gate B), what it deletes, which release
    it lands in (a v2.5.x patch for a bug; no number for a science item; v3.0

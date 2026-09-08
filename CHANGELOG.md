@@ -2,6 +2,16 @@
 
 ## Unreleased — next v2.5.x patch
 
+- **The real-data acceptance goldens are re-pinned, and a fifth cube joins
+  them.** `run-tests.sh all` had been red since 2026-09-08 on
+  `downsample_Si_SiGe_exp` candidate counts. Gate D established the cause:
+  the 2026-09-05 correction of the probe estimator's threshold-slope median to
+  `np.median`'s even-count rule moved the measured radius on two cubes, and the
+  goldens — reachable only from `all`, which had not run in three days — were
+  stale. **No behaviour changed**; the app already matched py4DSTEM. The
+  even-count rule is now pinned by a unit test rather than by one harness in
+  one gate, and `calibrationData_bullseyeProbe.h5` is pinned in
+  `expected.json`, having drifted invisibly because nothing compared it.
 - **Labels that could misstate a number, from the 2026-09-04 UI review.** The
   inspector's pattern statistics say "Mean pattern", "Max pattern" or
   "ROI-sum pattern" when that is what is on screen; the A/B/A−B comparison

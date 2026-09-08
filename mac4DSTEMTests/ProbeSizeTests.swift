@@ -86,6 +86,54 @@ final class ProbeSizeTests: XCTestCase {
         }
     }
 
+    /// py4DSTEM's `get_probe_size` takes `np.median(dr_dtheta)` with `N = 100`
+    /// (`process/calibration/probe.py:54`), and numpy's median for an EVEN
+    /// count is the mean of the two middle values. The port took
+    /// `sorted[n/2]` — the upper middle value alone — until 2026-09-05.
+    /// Because `sorted[n/2] >= (sorted[n/2-1] + sorted[n/2]) / 2` always, the
+    /// old rule's `2 * median` band was never wider than the correct one, so
+    /// it systematically truncated the trusted threshold set; the mean radius
+    /// over that set can then move in either direction.
+    ///
+    /// Nothing pinned this rule below the `all` gate until 2026-09-09, and
+    /// `all` reaches `tools/real-data-acceptance/` alone: the corrected radius
+    /// sat unnoticed against a stale golden for three days
+    /// (`docs/archive/closed-items-2026-09.md`). This is that pin.
+    ///
+    /// The pattern is a flat core of radius 6 with a Gaussian shoulder
+    /// (sigma 2) — a step-edged disk gives an all-zero `dr` on which BOTH
+    /// rules agree, so a soft edge is the point, not decoration. Both
+    /// expected values come from an independent numpy transcription of
+    /// py4DSTEM's algorithm, retained before this test was written, NOT from
+    /// this implementation: np.median -> 8.2733669 over 77 thresholds,
+    /// sorted[n/2] -> 8.4174433 over 67.
+    func testProbeSizeUsesNumpysEvenCountMedianForTheTrustedBand() throws {
+        let q = 64
+        var dp = [Float](repeating: 0, count: q * q)
+        for y in 0..<q {
+            for x in 0..<q {
+                let dx = Double(x) - 31.5, dy = Double(y) - 31.5
+                let rr = (dx * dx + dy * dy).squareRoot()
+                let v = rr <= 6 ? 1 : exp(-((rr - 6) * (rr - 6)) / 8)
+                dp[y * q + x] = Float(v * 1000)
+            }
+        }
+        let r = try XCTUnwrap(
+            OriginCalibration.probeSize(dp: dp, qy: q, qx: q)
+        ).r
+        XCTAssertEqual(
+            r, 8.2733669, accuracy: 0.01,
+            "probeSize must match np.median's even-count rule, got \(r)"
+        )
+        // The discriminator, stated separately so a failure names the cause:
+        // reverting to `sorted[n/2]` lands on 8.4174433, 0.144 px away.
+        XCTAssertGreaterThan(
+            abs(r - 8.4174433), 0.1,
+            "probeSize took the upper middle value alone (the pre-2026-09-05 "
+                + "rule), got \(r)"
+        )
+    }
+
     func testProbeSizeRecoversACleanDiskRadius() throws {
         var dp = [Float](repeating: 0, count: Self.q * Self.q)
         Self.drawDisk(into: &dp, cx: 31.5, cy: 31.5, radius: 6, intensity: 100)

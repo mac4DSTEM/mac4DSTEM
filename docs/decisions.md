@@ -737,3 +737,36 @@ physical controls and workflow choices visible, remembers Advanced
 algorithm settings per window, moves sidecar actions into Dataset, and
 uses native confirmation for Remove and the two Resets. The recovery
 command Change Session Sidecar stays usable when the write gate refuses.
+
+**2026-09-09 — 3.0.0 ships a UI that has been looked at (owner, in chat).**
+The objection: a published v3.0.0 must be a decent, usable product, not merely
+a green one. The gap is not known ugliness — it is that C4 slices 1 and 2 have
+never been seen on screen at all and two C4(c) screens are owed, so a third of
+the UI coherence work is unverified, and no test can tell you whether an app is
+presentable. Decided, in order: the delegated drive covers every workspace,
+every Phase stage, the load configurator, comparison, colorbar and dividers and
+produces screenshots and a findings list; the owner triages those together with
+the six papercuts verified live on 2026-09-09 (Info's orphaned "Reloads the
+whole cube" caption, Gamma's value-in-label, the duplicate Run shortcuts, the
+missing document proxy icon, tab styling, per-window log height) into
+fix-before-3.0.0 and after; one presentation-only session fixes the fix-now
+list. NOT reopened: the deeper UI findings list, which `open-items.md` holds
+against the C5 extractions and which would pull architecture into the release.
+Findings still enter through `/diagnose`.
+
+**2026-09-09 — the even-count median is pinned below the `all` gate, and
+`calibrationData_bullseyeProbe.h5` is pinned at all.** Gate D on the
+2026-09-08 red gate found `ba6360d`'s `np.median` parity correction, not a
+regression: the goldens were stale and no code changed. Two consequences the
+refuter argued for and this session adopted. (1) A unit test now pins the
+even-count rule on a fixture where the two rules differ by 0.144 px; until
+2026-09-09 the ONLY thing standing behind it was one harness reachable solely
+from `run-tests.sh all`, which is how a corrected number sat against a stale
+golden for three days. `ba6360d`'s own entry in this file records its refusal
+decision and says nothing about the median — only `CHANGELOG.md` did. (2) The
+bullseye cube is pinned in `expected.json`. It had drifted invisibly because
+`compare.py` only compares what is pinned and prints an `UNPINNED:` line
+otherwise. The cost is accepted knowingly: bullseye's counts sit on ~130 noise
+peaks per position (`open-items.md`), so future noise-handling work will turn
+the gate red and need a re-pin with evidence. That is the gate working. One
+line to reverse if the owner disagrees.
