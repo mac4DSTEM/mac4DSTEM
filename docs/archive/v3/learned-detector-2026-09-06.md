@@ -552,7 +552,7 @@ them, and (5) once a material's simulation library exists.
    made them.
 
 
-## C6 — the table (started 2026-09-07 night; rows the owner owes are marked)
+## C6 — the table (2026-09-07 night, completed 2026-09-08 morning; the verdict is owed)
 
 Every number below is from one run of the EXPORTED asset
 `disk-detector-heatmap-b32.aimodel` (run3, sha `a2794a8a…`) on the Neural
@@ -569,8 +569,21 @@ threshold 0.3, from PyTorch, under a different truth rule.
 | Validation set (128 simulated, seed 999) | 2 808 | **0.679 / 0.939** (raw picks, 2 px) | — | the number the record JSON now states; 0.963 was at 0.3 |
 | Bullseye cube, 143 positions (stride 8) | none (no labels yet) | 416 peaks vs classical 442; count difference median 0, 49 % of positions differ somewhere | — | unchanged from the branch's 2026-09-07 evening run |
 | WS₂ cube, 256 positions, **counts-scaled by `to_counts`** | none | 6 566 peaks vs classical 256 (one per position at either `minRelativeIntensity`); net − classical median +24 per position | — | NEW: with the count-scaling rule the net proposes ~24 spots per position where it saw nothing before; whether they are disks is the owner's eye, then the labels |
-| **Frozen hand-labelled bullseye set** | owner's labels | *owed* (`run.sh label`, then `evaluate --labels`) | *owed* (same run) | the row the verdict rests on |
-| **256-px retrain** | — | *owed* (~90 min) | — | C0's accepted condition |
+| **Frozen hand-labelled bullseye set** — 40 positions, 306 centres, labelled by the owner 2026-09-08 00:20–00:30 in the native 250-px frame (`label_centres.py`, seed 1; JSON sha256 `3c43e89d…3aec`, gitignored) | 306, of which **126 are reachable by a 128-px frame** (the shipped asset sees the central 128 px of the 250-px pattern; a label outside that frame or inside its 6-px edge is unreachable by either detector — `truth_eligible` in the labels block, 2026-09-08) | **0.333 / 0.903** over all 306; **0.810** over the 126 reachable (113 predicted, 102 matched) | **0.271 / 0.735**; 0.659 over the 126 (113 predicted, 83 matched) | the same 128-px frame for both, 2 px match; `scratchpad/c6-eval-run3-labels.log`, `c6-compare-128-eligible.log` (C6 session, 2026-09-08) |
+
+**The 256-px retrain (C0's accepted condition) ran unattended 2026-09-08 00:30–02:13** — `overnight-256.sh` on the branch worktree, output `References/training_runs/disk-detector-2026-09-08/` (`01-…05-*.log`, `overnight.log`): ingredients at 256 (192 textured backgrounds), a 90-minute train at width 12 (6 500 steps, best val loss 0.002 94, in-loop native-128 fixture 1.000 / 0.697 in PyTorch at the cap), every export variant, `check` recorded not fatal (heatmap-b32 on the Neural Engine max |diff| 0.075 against PyTorch float32 with a float16 floor of 0.006, tolerance 0.1; the GPU `detect-b16` and the stateful asset segfault as recorded 2026-09-07, and the GPU `detect` b32/b64 top-k returns 6.6 % / 2.7 % of numpy's peaks where ANE and CPU return 98.9–99.4 %), `evaluate --asset --labels` exit 0. Rows below: the EXPORTED `disk-detector-heatmap-b32.aimodel` of that run (sha `f4cd741f…`) on the Neural Engine at 0.9, 0.45 ms per pattern; `05-evaluate.log`, `evaluate/evaluate.json`, and the rerun with the eligible counts `evaluate/evaluate-eligible.json` (`scratchpad/c6-compare-256-eligible.log`, numbers identical).
+
+| Set, 256 px | Truth (visible) | Net at 0.9: recall / precision | Classical: recall / precision | Note |
+|---|---|---|---|---|
+| Fixture, the 16 native-128 patterns PADDED to 256 | 308 eligible (230 at 128: the padding brings the disks the 128 border cut into the eligible set, and both detectors lose them) | **0.714 / 0.978** (raw 0.740; refined residual median 0.28 px) | **0.744 / 0.774** | not comparable with the 128 rows above; comparable between its own two columns |
+| Validation set (128 simulated at 256, seed 999) | 5 689 | **0.476 / 0.995** (raw picks, 2 px) | — | the 256 simulator draws twice the disks per pattern; at 0.9 the net is precise and misses half |
+| Bullseye cube, 143 positions, the whole 250-px pattern | none | 799 peaks vs classical 1 392; net − classical median +1, mean −4.1 (min −64); 87 % of positions differ | — | the classical's extra peaks are the outer-region ones the next row scores against labels |
+| WS₂ cube, 256 positions, 128 padded to 256, counts-scaled | none | 5 671 vs classical 256; +21 median per position | — | same picture as at 128 (+24) |
+| **Frozen hand-labelled bullseye set, all 306 reachable** | 306 | **0.667 / 0.840** (243 predicted, 204 matched) | **0.487 / 0.485** (307 predicted, 149 matched) | **the row the verdict rests on**, with the 128 row above |
+
+Where the two detectors disagree with the labels (`scratchpad/c6-overlay.py`, `c6-overlay-256.png`, `-128.png`; the same frame, edge and 2-px match as the table): of the classical's 158 unmatched predictions at 256, 128 lie OUTSIDE the central 128-px window and 30 inside; of the net's 39, 27 outside and 12 inside. Inside that window (126 labels) the net reaches 0.794 and the classical 0.714; outside it (180 labels) the net matches 106 (0.589) and the classical 60 (0.333). In the eight-position grid the classical's unmatched peaks sit on the background of sparse patterns (position (5, 34): 13 classical peaks, 5 labels, 5 net), and the net's misses are the faint outer disks the owner labelled. Whether those labels are disks is the owner's eye; the counts are reproducible from the script and the retained npz.
+
+Steps 1–3 of the four are done (the owner's labels; both assets scored against them; the retrain). **Step 4, the verdict in `decisions.md` in the owner's words, is the one owed line.** The Python tooling (without `scan-bench/` and `fixture/swift/`, the Swift side) is on `main` since 2026-09-08 with `disk-detector` in the `scientific` list.
 
 Export check the same night (`c6-check-real.log`, `run3/export/check.json`
 regenerated): six runtimes within tolerance 0.1 of PyTorch float16 — ANE
@@ -584,28 +597,4 @@ Labels-stage smoke test: three positions labelled with the CLASSICAL peaks
 (not truth) ran end to end — net 4/5, classical 5/5 — proving the stage,
 nothing about the detector.
 
-**Where the work is and the owner's four steps.** Worktree
-`/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/fc84678a-9c17-46c2-909a-0d4274668d4f/scratchpad/ml-wt` (branch `ml/disk-detector` at `18bb13b`, uncommitted), patch
-`/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/fc84678a-9c17-46c2-909a-0d4274668d4f/scratchpad/c6-python-18bb13b.patch` (12 files: `simulate.py`, `train.py`,
-`verify_fixture.py`, `evaluate.py`, `check_export.py`, `run.sh`,
-`label_centres.py`, `fixture/expected.json`, `README.md`, the record JSON,
-`.gitignore`, the branch's `status.md`). Gate logs beside it:
-`c6-fixture-before.log` and `c6-fixture-after2.log` (148/153 both, every
-break fails), `c6-check-real.log`, `c6-evaluate-asset-0.9.log`. Steps:
-
-1. Label the frozen set (matplotlib window; left click adds, right click
-   removes the nearest, n/p, w writes, q writes and quits):
-   `tools/disk-detector/run.sh label --cube References/training_dataset/calibrationData_bullseyeProbe.h5 --dataset 4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data --ingredient bullseye --out tools/disk-detector/labels/bullseye-2026-09-08.json --n 40`
-2. Score both detectors against it:
-   `tools/disk-detector/run.sh evaluate --run References/training_runs/disk-detector-2026-09-07/run3 --out <out> --ingredients References/training_runs/disk-detector-2026-09-07/ingredients.npz --bullseye References/training_dataset/calibrationData_bullseyeProbe.h5 --ws2 References/training_dataset/polycrystal_2D_WS2.h5 --threshold 0.9 --asset Models/DiskDetector/disk-detector-heatmap-b32.aimodel --labels tools/disk-detector/labels/bullseye-2026-09-08.json`
-   — its `labels` block is the table row; the JSON's sha256 and counts go
-   in the table.
-3. The 256-px retrain — NOT push-button yet (noted 2026-09-07 night): the
-   simulator's model size `S` is 128 (`simulate.py`), and the fixture, the
-   ingredients' probes and the export shapes are all at that size, so a
-   256-px run needs one agent session first (bump `S`, regenerate the
-   ingredients at 256 with `run.sh ingredients`, keep the 128-px fixture as
-   the port proof, re-export, `check`). After that the chain
-   `train → export → check → evaluate --asset --labels` runs unattended
-   (~90 min training). A 128-px retrain tonight would only reproduce run3.
-4. The verdict in `decisions.md`, in your words, either way.
+**Where the work is.** Branch `ml/disk-detector` at `f057545` (2026-09-08: the size session — `--size` on every entry point, `fit_to` crop-or-pad, native-frame labels, `overnight-256.sh`, `truth_eligible`), on top of `219ae54` (the C6 Python side). Worktree `/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/fc84678a-9c17-46c2-909a-0d4274668d4f/scratchpad/ml-wt`; the labels file lives there (gitignored). Gate logs: `c6-fixture-before.log`/`c6-fixture-after2.log` (2026-09-07), `c6-fixture-wt-20260908.log` and `c6-fixture-main-20260908.log` (148/153, every break fails, both trees). The verdict (step 4) is the owner's, in `decisions.md`, either way; C7 only if it says the net adds disks the classical path misses.

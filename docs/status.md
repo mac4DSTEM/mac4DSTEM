@@ -46,9 +46,9 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | Gate | Result |
 |---|---|
 | `run-tests.sh unit` | **exit 0 — 2026-09-07 night, the C4 slice-2 tree** (`scratchpad/unit-c4s2-20260907.log`): **495 passed / 0 failed / 1 skipped, 496 cases** (496 `func test` in source). Earlier the same night: 493/0/1 on the slice-1 tree (`unit-c4s1-20260907.log`); 491/0/1 on the C5 tree (`unit-c5-20260907.log`), 485/0/1 on the C2 tree (`unit-20260907.log`). The script's own `xcodebuild test` line run directly because the 8 GB preflight refuses at ~4 GB free. |
-| `run-tests.sh scientific` | **43 harnesses, exit 0 — three runs on 2026-09-07 (C2)**: the tree before the harness rewrite (`scratchpad/scientific-before-20260907.log`), after every runner was pointed at `sources.manifest` (`scientific-after-…`), and after the `mktemp` tagging (`scientific-final-…`); each 43/43, `GATE_EXIT=0` on its own line. `PYTHON` resolved by `tools/lib/python.sh`. The six diagnostics that are not in the gate were type-checked against their new groups (`typecheck-*.err`, all empty). Previous: 43/exit 0 on 2026-09-05 (`scientific-bullseye3-20260905.log`). |
+| `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scratchpad/scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line): the script's own loop (`fetch-py4dstem.sh`, then `run_harnesses` over its `scientific` array, read from the script) run directly because the 4 GB preflight refuses at 3.9 GB free — the same practice the `unit` row records. Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-07 late evening, the C5 tree** with `Session/FitOverlayPresentation.swift` (`scratchpad/core-c5-20260907.log`). Previous: `b91f5bb`, 2026-09-03 |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-07 night, after the owner deleted the stray `tools/disk-detector/__pycache__`** (`scratchpad/inventory-owner-20260907.log`): every runner classified or explained, `AGENTS.md` in sync, `AppState` + `ResultExport` 7 531 against 7 624 at HEAD (the rule fired on a 100-line probe, `inventory-c5-broken.log`). Counts: gated 45, diagnostic 9, owner-only 0, support 2; live markdown 4 677 (4 620 at C1's end, the append-only decision entries; 5 701 at the morning baseline); cold-start set 884 (888). Previous: exit 1 on the same cache directory through C1, C2 and C5 the same day. |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-08 morning, `main` with `tools/disk-detector` on it** (`scratchpad/inventory-c6-final-20260908.log`, the docs final): gated 46, diagnostic 9, owner-only 0, support 2; `AppState` + `ResultExport` 7 531 (7 531 at HEAD^); live markdown 4 693; cold-start set 869; `AGENTS.md` in sync. Previous: exit 0 on 2026-09-07 night after the owner deleted the stray `__pycache__` (`inventory-owner-20260907.log`), gated 45, live markdown 4 677, cold-start 884. |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-04.** Clean-builds a hardened Release and audits the artefact: nested signatures, sandbox/read-write/bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version `2.5 (4)` with the deployment floor — both DERIVED from the project. The floor assertion and its success message were both literal `26.0` and both wrong after the floor moved; the message said "macOS 26 floor" while passing against 14.0 |
 | `run-tests.sh all` | **exit 0 — 2026-09-04, post-release tree** (458 passed / 0 failed / 0 skipped, 44 harnesses, `real-data-acceptance` and `package-test` included). The release-tree attempt exited 1 at `real-data-acceptance`; that sidecar instance was diagnosed and closed as a stopgap then, and the wider discovery class was subsequently closed on 2026-09-05. Two recorded traps hit again: the background task's exit code was 0 while the gate's own `GATE_EXIT` line said 1, and the unit count read one short because an xcodebuild timestamp interleaved mid-test-name — reconciled against the source file's method count, never assumed |
 
@@ -64,36 +64,27 @@ The live facts are the Releases table above and `CHANGELOG.md`.
 **Consolidation first (owner, 2026-09-07).** `docs/consolidation-plan.md` is
 the next target's source until it is archived: `/pickup` takes the first gate
 of its §6 whose exit criterion fails — **next for an agent: C4 (b), staleness
-(item 1's C4 paragraph); C6's four steps are yours.** C0 closed and **C1 (docs truth) and C2
+(item 1's C4 paragraph); C6's verdict is yours.** C0 closed and **C1 (docs truth) and C2
 (hygiene) were executed 2026-09-07**, C1 and C2 uncommitted together on
 `main` (commit when asked). **Next: C3 is the owner's drive** (item 1 below)
 and C4 waits on it. **C5 executed the same evening** (the rule in
 `inventory` and `CLAUDE.md`; the overlays extracted); its standing part is one
 extraction per month in the plan's §4 order — next the `OperationCenter`
-forwarders. **C6's Python side was executed the same night on a worktree of
-`ml/disk-detector`** (uncommitted; patch and worktree path, the gate logs,
-the numbers and your four steps with their commands are in
-`archive/v3/learned-detector-2026-09-06.md`, "C6 — the table"). Headline:
-at the shipped 0.9 the exported asset scores fixture 0.939 / 0.896 against
-the classical 0.900 / 0.866 on the same visible truth, and **validation
-0.679 / 0.939** (0.963 was at 0.3); WS₂ counts-scaled makes the net propose
-~24 spots per position, unjudged. Owed: your labels, the evaluation with
-`--asset --labels`, the 256-px retrain (its enabling session — `--size` on every
-entry point, `fit_to` crop-or-pad, native-frame labels, an overnight chain
-script — started 2026-09-07 23:45 on the branch worktree by a Sonnet agent;
-**landed 2026-09-08 00:10 on the worktree, uncommitted: 7 files +286/−104 plus
-`overnight-256.sh`; `run.sh fixture` 148/153 with every break failing
-(`scratchpad/c6-size-fixture.log`); the agent's 256-px smoke ran end to end at
-00:25 (`scratchpad/logs/`): ingredients 256², a 30-step train, export of every
-variant, evaluate exit 0; `check` exits 1 on the known GPU top-k segfault, so
-`overnight-256.sh` records that step without stopping; one real bug fixed on
-the way (`load_ingredients` built the drawn probe at 128 regardless of size);
-read a 256-px fixture row knowing the padded fixture's classical recall is
-0.74 of 308 eligible, not 0.90 of 230, because the edge exclusion is a
-smaller fraction of the padded canvas; `tools/lib/python.sh` now requires
-scipy so a bare conda base is skipped — the next session verifies the
-worktree diff and commits it on the branch**), the verdict. After that C7 only if
-the verdict says so; otherwise C5's next extraction. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
+forwarders. **C6 is executed but for its verdict (2026-09-08 morning).** The owner
+labelled the frozen bullseye set (40 positions, 306 centres, native frame);
+the 256-px retrain ran unattended 00:30–02:13 and its exported asset was
+scored beside the shipped 128-px one, both against those labels and the
+classical detector on the same frame — the table is
+`archive/v3/learned-detector-2026-09-06.md` "C6 — the table". Headline, 2 px
+match at 0.9: on the 126 labels a 128-px frame can reach, the shipped asset
+0.810 recall / 0.903 precision against the classical 0.659 / 0.735; on all
+306 at 256 px, the retrained asset 0.667 / 0.840 against the classical
+0.487 / 0.485, and the classical's unmatched peaks are 128-to-30 outside the
+central window (its overlay grid is in the scratchpad). The branch is at
+`f057545` (unpushed); the Python tooling is on `main` with `disk-detector`
+in `scientific`. **Owed: the verdict, step 4, in `decisions.md` in your
+words.** Then C7 only if it says the net adds disks the classical path
+misses; otherwise C5's next extraction. **C1 closed by the owner the same night:** the stray cache directory deleted (`inventory` exit 0) and the branch commit `219ae54` on `ml/disk-detector` carrying the C1 strike and C6's Python side (unpushed). `References/py4DSTEM-dev` had lost its working tree (220 files
 deleted, `.git` intact); `git checkout -- .` there restored the lock. No
 feature work until C4 and C6 exit. The owner pushes; agents commit when
 asked and never push.
@@ -171,5 +162,5 @@ never a wrapper's; reconcile the unit count against `func test` in source.
 
 ## Owed to the owner
 
-- Nothing on screen: C3 closed 2026-09-07. C6's four steps and the commit/push of what lands next.
+- Nothing on screen: C3 closed 2026-09-07. C6's verdict (step 4); the push of `ml/disk-detector` `f057545` and of `main`.
 - The §10g decisions and plan §8 (sidecar wire format).

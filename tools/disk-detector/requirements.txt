@@ -1,0 +1,17 @@
+# tools/disk-detector — the detector's OWN environment ($HOME/miniconda3/envs/disk-detector, python 3.12),
+# separate from the pinned py4DSTEM environment, which stays untouched and is used only to call py4DSTEM.
+# Installed and pinned 2026-09-06 (References/training_runs/disk-detector-2026-09-06/env-freeze.txt).
+# torch: first 2.14.0 (untested by coreai-torch), then 2.13.0 (its validated ceiling), then 2.11.0 —
+# coreai-opt 0.2.1 pins torch<=2.11.0 and numpy<2.4. The main training run (run1) was started under
+# 2.13.0 and its checkpoints load under 2.11.0 (state_dict only).
+torch==2.11.0
+torchao==0.17.0
+numpy==2.3.5
+scipy==1.18.1
+h5py==3.16.0
+tensorboard==2.21.0
+matplotlib==3.11.0
+coremltools==9.0
+coreai-torch==0.4.2
+coreai-core==1.0.0b2
+coreai-opt==0.2.1

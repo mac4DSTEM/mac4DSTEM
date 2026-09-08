@@ -78,6 +78,7 @@ scientific=(
   parallax-aberration-test parallax-subpixel-test parallax-depth-test
   singleslice-ptychography-test result-presentation-test
   scientific-bundle-test
+  disk-detector
 )
 campaign=(
   parallax-preprocessing-test parallax-alignment-test parallax-aberration-test

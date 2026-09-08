@@ -585,9 +585,9 @@ on `main`. One extraction per month, in §4's order: overlays →
 process doc asks.
 
 **C6 — the detector made honest, on the branch; Python and labels only —
-PYTHON SIDE EXECUTED 2026-09-07 on a worktree (`status.md` handoff: the
-patch, the four owner steps); the labels, the retrain, the table and the
-verdict are the owner's.**
+EXECUTED 2026-09-07/08 (the owner's labels, the 256-px retrain, the table in
+the archive, the tooling on `main` and in `scientific`); the verdict in
+`decisions.md` is the owner's and is the one open line.**
 What §2a leaves open: one truth rule across target, validation and
 evaluation; the textured CLI default and an ingredients builder; a tolerance
 and a non-zero exit in `check_export.py`; count scaling for float cubes; a

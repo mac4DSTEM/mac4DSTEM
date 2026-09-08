@@ -32,3 +32,5 @@
 *.mlpackage
 *.mlmodel
 *.aimodel
+# the frozen hand-labelled test set is the owner's data (C6); its sha256 and counts are in the evidence file
+tools/disk-detector/labels/
