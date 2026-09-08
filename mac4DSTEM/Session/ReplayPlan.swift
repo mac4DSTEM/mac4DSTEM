@@ -502,6 +502,18 @@ package enum ReplayStepPlan: Equatable {
             return p
         }
 
+        /// C4(b): the same parameters, guarded for the staleness check, which
+        /// has no run to have already required a resolved model — an
+        /// unresolved crystal selection is "no signature yet", not "stale".
+        /// A distinct name (not an overload of `recordedParameters`) because
+        /// a `model: CrystalModel?` overload of the same name is ambiguous
+        /// against the non-optional one even at an unwrapped call site.
+        package static func currentSignatureIfResolved(model: CrystalModel?, scale: Double, backend: String,
+                                       scope: ACOMRunScope, quality: ACOMQualityPreset) -> [String: String]? {
+            guard let model else { return nil }
+            return recordedParameters(model: model, scale: scale, backend: backend, scope: scope, quality: quality)
+        }
+
         package enum MaterialResolution: Equatable {
             case library(String)
             case imported(String)

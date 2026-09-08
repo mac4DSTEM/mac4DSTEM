@@ -175,6 +175,21 @@ extension AnalysisMode {
         }
     }
 
+    /// The `SessionReplayRecord.Step.kind` this task's product is recorded
+    /// under (C4(b)) — nil for the two kinds with no recorder (ptychography,
+    /// parallax): a mode with no kind here is never judged stale, whatever
+    /// its retained product.
+    var replayKind: String? {
+        switch self {
+        case .virtualDetector: "virtual_detector"
+        case .dpc: "dpc"
+        case .disks: "disk_detection"
+        case .strain: "strain"
+        case .acom: "acom"
+        case .ptychography, .singleslicePtychography: nil
+        }
+    }
+
     var workspaceArea: WorkspaceArea {
         switch self {
         case .virtualDetector: .image
@@ -279,28 +294,116 @@ enum TaskProductState: Equatable, Sendable {
     case none
     /// Retained, and its inputs have not changed since.
     case current
-    /// Retained, but computed from Bragg disks whose detection settings have
-    /// since changed and not been re-run.
-    case staleDiskSettings
+    /// Retained, but computed from settings (this task's own, or an upstream
+    /// task's — disk detection re-run invalidates strain/ACOM) that have
+    /// since changed, or whose recorded step no longer exists at all.
+    case stale(reason: String)
 
     var isProduced: Bool { self != .none }
+
+    /// The reason text when stale, nil otherwise — lets a caller ask "is this
+    /// stale, and if so why" without repeating the pattern match at each of
+    /// the three surfaces that render it.
+    var staleReason: String? {
+        if case .stale(let reason) = self { reason } else { nil }
+    }
+}
+
+/// C4(b): generalized staleness, beside `productState` below. `.stale`'s
+/// `changedKeys` names exactly the keys that differ (sorted, for a stable
+/// UI string) — never the keys `currentSignature` does not carry, so a
+/// recorded step's own output-only keys (strain's `resolved_g*`) never
+/// participate.
+enum StalenessVerdict: Equatable, Sendable {
+    /// No signature builder exists for this kind (ptychography, parallax),
+    /// or the recorded step matches current settings on every key it names.
+    case current
+    /// The recorded step is missing keys current settings would record, or
+    /// the recorded step itself is gone though the product survives it
+    /// (an upstream re-run invalidated it).
+    case stale(changedKeys: [String])
+    /// No product and no recorded step: the question does not apply.
+    case unknown
 }
 
 enum ProductWorkflow {
-    /// The tasks whose product depends on the full-scan Bragg disks: the
-    /// disks themselves, and the two maps computed from them.
-    static func dependsOnBraggDisks(_ mode: AnalysisMode) -> Bool {
-        switch mode {
-        case .disks, .strain, .acom: true
-        case .virtualDetector, .dpc, .ptychography, .singleslicePtychography: false
+    /// Compare the recipe step a product was computed from against the
+    /// signature current settings would record, restricted to the keys
+    /// `currentSignature` names.
+    static func stalenessVerdict(
+        recordedStep: SessionReplayRecord.Step?,
+        currentSignature: [String: String]?,
+        hasProduct: Bool
+    ) -> StalenessVerdict {
+        guard let currentSignature else { return .current }
+        guard let recordedStep else {
+            return hasProduct ? .stale(changedKeys: []) : .unknown
         }
+        let changedKeys = currentSignature.keys
+            .filter { recordedStep.parameters[$0] != currentSignature[$0] }
+            .sorted()
+        return changedKeys.isEmpty ? .current : .stale(changedKeys: changedKeys)
+    }
+
+    /// The UI-facing sentence for a stale verdict — replaces the fixed
+    /// `staleDiskSettingsHelp` string with one naming what changed. Empty
+    /// `changedKeys` is the "recorded step is gone" case: there is nothing to
+    /// name, the recipe moved on without this task.
+    static func staleReason(changedKeys: [String]) -> String {
+        changedKeys.isEmpty
+            ? "Computed from a step that is no longer part of the recipe. Run this task again to bring it up to date."
+            : "Computed with different \(changedKeys.joined(separator: ", ")). Run this task again to bring it up to date."
     }
 
     static func productState(
-        for mode: AnalysisMode, hasProduct: Bool, diskSettingsStale: Bool
+        for mode: AnalysisMode, hasProduct: Bool,
+        recordedStep: SessionReplayRecord.Step?, currentSignature: [String: String]?
     ) -> TaskProductState {
         guard hasProduct else { return .none }
-        return diskSettingsStale && dependsOnBraggDisks(mode) ? .staleDiskSettings : .current
+        switch stalenessVerdict(recordedStep: recordedStep, currentSignature: currentSignature, hasProduct: hasProduct) {
+        case .current, .unknown: return .current
+        case .stale(let changedKeys): return .stale(reason: staleReason(changedKeys: changedKeys))
+        }
+    }
+
+    /// The recorded step this mode's product came from, by kind — nil if
+    /// never recorded, or removed by a later analysis's own invalidation
+    /// (disk re-detection invalidates strain/ACOM).
+    static func recordedReplayStep(for mode: AnalysisMode, in steps: [SessionReplayRecord.Step]) -> SessionReplayRecord.Step? {
+        guard let kind = mode.replayKind else { return nil }
+        return steps.first { $0.kind == kind }
+    }
+
+    /// What current settings would record for this mode right now, mirroring
+    /// exactly what each kind's own `recordReplayStep` call writes — nil for
+    /// a kind with no recorder, or (ACOM) no resolved signature yet. Pure:
+    /// AppState gathers the live ingredients (probe kernel, aperture, the
+    /// resolved crystal model, …); this only decides which of them applies
+    /// to `mode`, so it is testable with synthetic values, no `AppState`.
+    static func currentReplaySignature(
+        for mode: AnalysisMode,
+        virtualDetectorShape: String, aperture: Aperture,
+        dpcOriginReference: String,
+        diskKernel: ProbeKernel?, diskParams: DiskDetectionParams, learnedDetectorParameters: [String: String],
+        strainSignature: [String: String],
+        acomSignature: [String: String]?
+    ) -> [String: String]? {
+        switch mode {
+        case .virtualDetector:
+            return Aperture.replayParameters(shape: virtualDetectorShape, aperture: aperture)
+        case .dpc:
+            return ["origin_reference": dpcOriginReference]
+        case .disks:
+            guard let diskKernel else { return nil }
+            return diskParams.replayParameters(kernel: diskKernel)
+                .merging(learnedDetectorParameters) { _, new in new }
+        case .strain:
+            return strainSignature
+        case .acom:
+            return acomSignature
+        case .ptychography, .singleslicePtychography:
+            return nil
+        }
     }
 
     /// The full requirement list for a task — met and unmet — in the same

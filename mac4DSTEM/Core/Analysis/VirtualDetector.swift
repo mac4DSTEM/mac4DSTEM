@@ -33,6 +33,19 @@ package struct Aperture: Equatable {
         self.inner = inner
         self.outer = outer
     }
+
+    /// The recipe step's parameters for a `virtual_detector` run — mirrors
+    /// `DiskDetectionParams.replayParameters(kernel:)` (C4(b)). `shape` is a
+    /// `VirtualShapeMode.rawValue`: that enum is a Session-layer recipe
+    /// vocabulary type and Core does not depend on Session, so the caller
+    /// passes the already-live string instead of the enum.
+    package nonisolated static func replayParameters(shape: String, aperture: Aperture) -> [String: String] {
+        [
+            "shape": shape,
+            "center_x": String(aperture.centerX), "center_y": String(aperture.centerY),
+            "inner": String(aperture.inner), "outer": String(aperture.outer),
+        ]
+    }
 }
 
 

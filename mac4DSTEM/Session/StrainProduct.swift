@@ -113,6 +113,18 @@ package final class StrainProduct {
         basisMode == .manual ? (g1: (x: g1X, y: g1Y), g2: (x: g2X, y: g2Y)) : nil
     }
 
+    /// C4(b): the replay signature current settings would record — only the
+    /// two INPUT keys the run's `recordReplayStep(kind: "strain", ...)` also
+    /// writes. `resolved_g1/g2_*` are fit OUTPUTS, deliberately excluded: a
+    /// staleness check that compared them would call a map stale for having
+    /// been computed at all.
+    package var currentReplaySignature: [String: String] {
+        [
+            "reference_mode": referenceMode == .wholeScan ? "whole-scan" : "selected-region",
+            "basis_mode": basisMode == .manual ? "manual" : "consensus",
+        ]
+    }
+
     /// Publish a computed map. An automatic run adopts its resolved basis into
     /// the manual fields so switching the basis picker to Manual starts from
     /// the lattice that actually fit.

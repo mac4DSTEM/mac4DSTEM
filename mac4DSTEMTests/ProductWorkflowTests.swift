@@ -597,21 +597,139 @@ final class ProductWorkflowTests: XCTestCase {
     }
 
     /// UI review 2026-09-04, finding (f): the sidebar's check and the
-    /// inspector's rows must give ONE verdict on stale disk settings, and the
-    /// maps computed from the disks inherit it.
+    /// inspector's rows must give ONE verdict on staleness, and the maps
+    /// computed from the disks inherit it. C4(b) generalized the source of
+    /// truth from a disks-only bool to (recorded step, current signature).
     func testProductStateIsOneVerdictAcrossSurfaces() {
-        XCTAssertEqual(ProductWorkflow.productState(for: .disks, hasProduct: false, diskSettingsStale: true), .none,
-                       "no product is no product, whatever the settings did")
-        XCTAssertEqual(ProductWorkflow.productState(for: .disks, hasProduct: true, diskSettingsStale: false), .current)
-        XCTAssertEqual(ProductWorkflow.productState(for: .disks, hasProduct: true, diskSettingsStale: true), .staleDiskSettings)
-        XCTAssertEqual(ProductWorkflow.productState(for: .strain, hasProduct: true, diskSettingsStale: true), .staleDiskSettings,
-                       "a strain map computed from stale disks must not stay green")
-        XCTAssertEqual(ProductWorkflow.productState(for: .acom, hasProduct: true, diskSettingsStale: true), .staleDiskSettings)
-        XCTAssertEqual(ProductWorkflow.productState(for: .virtualDetector, hasProduct: true, diskSettingsStale: true), .current,
-                       "a virtual image does not depend on the disks")
-        XCTAssertEqual(ProductWorkflow.productState(for: .dpc, hasProduct: true, diskSettingsStale: true), .current)
+        let matching = SessionReplayRecord.Step(kind: "disk_detection", parameters: ["corr_power": "1"], recorded: Date())
+        let mismatched = SessionReplayRecord.Step(kind: "disk_detection", parameters: ["corr_power": "9"], recorded: Date())
+        let currentSignature = ["corr_power": "1"]
+
+        XCTAssertEqual(
+            ProductWorkflow.productState(for: .disks, hasProduct: false, recordedStep: matching, currentSignature: currentSignature),
+            .none, "no product is no product, whatever the settings did")
+        XCTAssertEqual(
+            ProductWorkflow.productState(for: .disks, hasProduct: true, recordedStep: matching, currentSignature: currentSignature),
+            .current)
+        XCTAssertEqual(
+            ProductWorkflow.productState(for: .disks, hasProduct: true, recordedStep: mismatched, currentSignature: currentSignature),
+            .stale(reason: ProductWorkflow.staleReason(changedKeys: ["corr_power"])))
+        // The invalidation case, generalized: disk re-detection deletes
+        // strain/ACOM's own recorded step (`invalidating: ["strain",
+        // "acom"]`), so a retained map outlives it — recordedStep nil,
+        // hasProduct true, is stale with nothing to name.
+        XCTAssertEqual(
+            ProductWorkflow.productState(for: .strain, hasProduct: true, recordedStep: nil, currentSignature: currentSignature),
+            .stale(reason: ProductWorkflow.staleReason(changedKeys: [])),
+            "a strain map whose recorded step was invalidated by disk re-detection must not stay green")
+        XCTAssertEqual(
+            ProductWorkflow.productState(for: .acom, hasProduct: true, recordedStep: nil, currentSignature: currentSignature),
+            .stale(reason: ProductWorkflow.staleReason(changedKeys: [])))
+        // Kinds with no signature builder (ptychography/parallax) are never
+        // judged stale, whatever the recorded step says.
+        XCTAssertEqual(
+            ProductWorkflow.productState(for: .ptychography, hasProduct: true, recordedStep: mismatched, currentSignature: nil),
+            .current, "no recorder for this kind — never stale")
         XCTAssertFalse(TaskProductState.none.isProduced)
-        XCTAssertTrue(TaskProductState.staleDiskSettings.isProduced)
+        XCTAssertTrue(TaskProductState.stale(reason: "x").isProduced)
+    }
+
+    // MARK: - C4(b): the generalized staleness verdict
+
+    /// Plan §4 test 1: a recorded step matching the current signature is
+    /// current; one changed value must flip the verdict to stale.
+    func testStalenessVerdictComparesRecordedAgainstCurrentSignature() {
+        let recorded = SessionReplayRecord.Step(
+            kind: "disk_detection", parameters: ["corr_power": "1", "sigma_dp": "0"], recorded: Date())
+        XCTAssertEqual(
+            ProductWorkflow.stalenessVerdict(
+                recordedStep: recorded, currentSignature: ["corr_power": "1", "sigma_dp": "0"], hasProduct: true),
+            .current)
+        XCTAssertEqual(
+            ProductWorkflow.stalenessVerdict(
+                recordedStep: recorded, currentSignature: ["corr_power": "2", "sigma_dp": "0"], hasProduct: true),
+            .stale(changedKeys: ["corr_power"]))
+    }
+
+    /// Plan §4 test 2: `.stale` names only the keys that actually changed —
+    /// two changed keys are both named, and a third, unchanged key never
+    /// appears (which is also what keeps strain's output-only `resolved_g*`
+    /// out of the picture, since they are simply absent from a signature
+    /// that only ever carries `reference_mode`/`basis_mode`).
+    func testStalenessVerdictNamesOnlyTheChangedKeys() {
+        let recorded = SessionReplayRecord.Step(
+            kind: "disk_detection", parameters: ["a": "1", "b": "2", "c": "3"], recorded: Date())
+        let verdict = ProductWorkflow.stalenessVerdict(
+            recordedStep: recorded, currentSignature: ["a": "9", "b": "8", "c": "3"], hasProduct: true)
+        guard case .stale(let changedKeys) = verdict else {
+            return XCTFail("two changed values must report stale, not \(verdict)")
+        }
+        XCTAssertEqual(Set(changedKeys), ["a", "b"])
+        XCTAssertFalse(changedKeys.contains("c"), "an unchanged key must never be named")
+    }
+
+    /// Plan §4 test 3: a product that survives its own recorded step being
+    /// removed — the disk-re-detection invalidation case — is stale even
+    /// though there is no recorded step to diff against.
+    func testStalenessVerdictTreatsAnInvalidatedStepAsStale() {
+        XCTAssertEqual(
+            ProductWorkflow.stalenessVerdict(
+                recordedStep: nil, currentSignature: ["reference_mode": "whole-scan"], hasProduct: true),
+            .stale(changedKeys: []))
+    }
+
+    /// Plan §4 test 4: a kind with no signature builder (ptychography,
+    /// parallax) is never stale, regardless of what the recorded step says —
+    /// there is nothing to compare it against.
+    func testStalenessVerdictNeverStaleWithNoSignatureBuilder() {
+        let recorded = SessionReplayRecord.Step(kind: "ptychography", parameters: ["anything": "1"], recorded: Date())
+        XCTAssertEqual(
+            ProductWorkflow.stalenessVerdict(recordedStep: recorded, currentSignature: nil, hasProduct: true), .current)
+        XCTAssertEqual(
+            ProductWorkflow.stalenessVerdict(recordedStep: nil, currentSignature: nil, hasProduct: true), .current)
+    }
+
+    /// Plan §4 test 5, the §1 coverage gap this slice closes: the disk
+    /// detection signature moves when the learned detector's threshold
+    /// changes, even though `diskParams` itself never did — the old
+    /// `completedDiskParams != diskParams` compare could not see this.
+    func testDiskDetectionSignatureIncludesTheLearnedDetectorThreshold() throws {
+        let state = AppState()
+        state.probeKernel = try XCTUnwrap(ProbeKernel.synthetic(radius: 4, qy: 32, qx: 32))
+        state.learnedDetection.detectorClass = .learned
+        state.learnedDetection.threshold = 0.5
+        let recordedAtHalf = SessionReplayRecord.Step(
+            kind: "disk_detection",
+            parameters: try XCTUnwrap(state.currentReplaySignature(for: .disks)),
+            recorded: Date())
+
+        state.learnedDetection.threshold = 0.9
+        let verdict = ProductWorkflow.stalenessVerdict(
+            recordedStep: recordedAtHalf,
+            currentSignature: state.currentReplaySignature(for: .disks),
+            hasProduct: true)
+        guard case .stale(let changedKeys) = verdict else {
+            return XCTFail("a changed learned threshold, with diskParams unchanged, must be stale, not \(verdict)")
+        }
+        XCTAssertEqual(changedKeys, ["learned_threshold"])
+    }
+
+    /// Plan §4 test 6: with no resolved crystal model, ACOM's current
+    /// signature is nil (never a mismatch to force-unwrap or misreport) —
+    /// the guard `ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved`
+    /// adds around the model-required `recordedParameters`.
+    func testACOMSignatureIsNilUntilAModelIsResolved() {
+        let state = AppState()
+        XCTAssertNil(state.resolvedACOMModel)
+        XCTAssertNil(state.currentReplaySignature(for: .acom),
+                     "no resolved crystal model means no signature yet, never a mismatch")
+        XCTAssertEqual(
+            ProductWorkflow.stalenessVerdict(
+                recordedStep: SessionReplayRecord.Step(kind: "acom", parameters: ["material": "au_fcc"], recorded: Date()),
+                currentSignature: state.currentReplaySignature(for: .acom),
+                hasProduct: true),
+            .current,
+            "a nil signature must never be reported stale, even with a recorded step present")
     }
 
     /// Finding (b): "Pattern min" under "Current scan position" must name a

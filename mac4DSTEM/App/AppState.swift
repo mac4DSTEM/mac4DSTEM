@@ -395,7 +395,6 @@ final class AppState {
     private(set) var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
     var braggPeakCount: Int?
     private(set) var braggVectors: BraggVectors?
-    private(set) var completedDiskParams: DiskDetectionParams?
     private(set) var completedDiskSummary: DiskDetectionScanSummary?
     @ObservationIgnored private var liveDetectionRequest: UInt64 = 0
     var diskParams = DiskDetectionParams() {
@@ -463,11 +462,12 @@ final class AppState {
     }
 
     /// Full-scan vectors remain available for comparison, but downstream
-    /// analysis must not silently imply that newly previewed settings produced
-    /// them.
+    /// analysis must not silently imply that newly previewed settings
+    /// produced them. C4(b): now also catches kernel/learned-detector drift.
     var diskDetectionSettingsAreStale: Bool {
-        guard braggVectors != nil, let completedDiskParams else { return false }
-        return completedDiskParams != diskParams
+        guard braggVectors != nil else { return false }
+        return ProductWorkflow.stalenessVerdict(recordedStep: recordedReplayStep(for: .disks),
+            currentSignature: currentReplaySignature(for: .disks), hasProduct: true) != .current
     }
 
     var hasCurrentBraggVectors: Bool {
@@ -1020,6 +1020,21 @@ final class AppState {
             wantsLearnedDetector: learnedDetection.detectorClass == .learned,
             hasLearnedDetectorAsset: LearnedDiskDetector.bundledAssetURL() != nil
         )
+    }
+
+    /// C4(b): AppState gathers the live ingredients; `ProductWorkflow` dispatches by mode.
+    func recordedReplayStep(for mode: AnalysisMode) -> SessionReplayRecord.Step? {
+        ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
+    }
+
+    func currentReplaySignature(for mode: AnalysisMode) -> [String: String]? {
+        let acomSignature = ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved(
+            model: resolvedACOMModel, scale: acomScaleSemantics.invAngstromPerPixel,
+            backend: effectiveACOMBackend.rawValue, scope: acomSession.scope, quality: acomSession.quality)
+        return ProductWorkflow.currentReplaySignature(for: mode, virtualDetectorShape: virtualShape.rawValue, aperture: aperture,
+            dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
+            diskParams: diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
+            strainSignature: strain.currentReplaySignature, acomSignature: acomSignature)
     }
 
     /// Increments whenever a (new) dataset is activated. Long-running detached
@@ -2556,7 +2571,6 @@ final class AppState {
             }
         }
         braggVectors = nil
-        completedDiskParams = nil
         completedDiskSummary = nil
         braggPeakCount = nil
         currentPeaks = []
@@ -3297,7 +3311,8 @@ final class AppState {
     /// Sum the patterns over the current real-space region into the CBED pane.
     private func computeVirtualDiffraction() async {
         guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
-        let region = realSpaceRegionShape()
+        let region = DetectorShape.realSpaceRegion(
+            shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
         do {
             let epoch = datasetEpoch
             let pattern = try await VirtualDetector.tiledDiffraction(
@@ -3312,25 +3327,15 @@ final class AppState {
         }
     }
 
-    /// The current real-space region as a scan-space DetectorShape (centered
-    /// on the selected scan position). Geometry moved to `DetectorShape.
-    /// realSpaceRegion` (Core/Analysis/VirtualDetector.swift, C7 session 4,
-    /// budget relocation); this wrapper just supplies AppState's own state.
-    private func realSpaceRegionShape() -> DetectorShape {
-        DetectorShape.realSpaceRegion(
-            shape: realSpaceShape, radius: realSpaceRadius,
-            scanX: selectedScan.x, scanY: selectedScan.y
-        )
-    }
-
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
     /// visible real-space ROI. Used as the unstrained strain reference.
     /// Derived from the same DetectorShape as virtual diffraction so both
     /// consumers select the identical pixel set (the previous hand-written
     /// circle predicate diverged from the ROI by half a pixel).
     private func realSpaceRegionMask(_ d: DatasetDescriptor) -> [Bool] {
-        VirtualDetector.makeMask(shape: realSpaceRegionShape(), qy: d.ry, qx: d.rx)
-            .map { $0 != 0 }
+        let shape = DetectorShape.realSpaceRegion(
+            shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
+        return VirtualDetector.makeMask(shape: shape, qy: d.ry, qx: d.rx).map { $0 != 0 }
     }
 
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
@@ -3472,11 +3477,9 @@ final class AppState {
             // "counts too" — refuted: it runs with defaults and would
             // overwrite an adopted recipe; `recordReplayStep` suppresses it.)
             // // v2 S5
-            recordReplayStep(kind: "virtual_detector", parameters: [
-                "shape": shapeMode.rawValue,
-                "center_x": String(ap.centerX), "center_y": String(ap.centerY),
-                "inner": String(ap.inner), "outer": String(ap.outer),
-            ], replaying: replaying)
+            recordReplayStep(kind: "virtual_detector",
+                              parameters: Aperture.replayParameters(shape: shapeMode.rawValue, aperture: ap),
+                              replaying: replaying)
             return .published
         } catch {
             if cancellation?.isCancelled == true {
@@ -4320,9 +4323,7 @@ final class AppState {
             // recorded the aperture here; refuted by the function 45 lines up
             // (Gate B-lite F2) — recording values the computation never used
             // is false precision a replay would faithfully reproduce wrongly.
-            recordReplayStep(kind: "dpc", parameters: [
-                "origin_reference": ref,
-            ], replaying: replaying)
+            recordReplayStep(kind: "dpc", parameters: ["origin_reference": ref], replaying: replaying)
             return .published
         } catch {
             if cancellation.isCancelled {
@@ -4781,7 +4782,6 @@ final class AppState {
         }
         braggVectors = vectors
         learnedDetection.record(vectors, as: detectorClass)
-        completedDiskParams = params
         // Recipe step (v2 S5): the canonical example of why the record exists
         // separately from per-result controls — detection's own product
         // (BraggVectors) is often never saved as a result, but strain's is,

@@ -123,10 +123,10 @@ struct WorkspaceSidebar: View {
                 Image(systemName: mode.systemImage)
             }
             Spacer()
-            if state == .staleDiskSettings {
+            if let reason = state.staleReason {
                 Image(systemName: "clock.arrow.circlepath")
                     .foregroundStyle(Color.orange)
-                    .help(Self.staleDiskSettingsHelp)
+                    .help(reason)
                     .accessibilityIdentifier("task.\(mode.id).stale")
             } else {
                 Image(systemName: produced
@@ -137,7 +137,7 @@ struct WorkspaceSidebar: View {
                         : (unmet == 0 ? Color.secondary : Color.orange))
             }
         }
-        .help(state == .staleDiskSettings ? Self.staleDiskSettingsHelp : mode.productSubtitle)
+        .help(state.staleReason ?? mode.productSubtitle)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
@@ -149,18 +149,16 @@ struct WorkspaceSidebar: View {
         ).count
     }
 
-    /// The one sentence the sidebar, the inspector and the result pane agree
-    /// on for a product computed with disk settings that have since changed.
-    static let staleDiskSettingsHelp =
-        "Computed with earlier disk-detection settings. Run Detect All Disks again to bring it up to date."
-
     /// The state of this task's retained product — the same rule the
     /// inspector's "Computed this session" rows apply, so the two surfaces
-    /// cannot give different verdicts on stale disk settings.
+    /// cannot give different verdicts on staleness (C4(b): generalized past
+    /// disk settings — any task's own recipe step, compared to what current
+    /// settings would record).
     private func taskProductState(_ mode: AnalysisMode) -> TaskProductState {
         ProductWorkflow.productState(
             for: mode, hasProduct: taskHasProduct(mode),
-            diskSettingsStale: appState.diskDetectionSettingsAreStale)
+            recordedStep: appState.recordedReplayStep(for: mode),
+            currentSignature: appState.currentReplaySignature(for: mode))
     }
 
     /// Whether this task has produced its product in this session — only for
@@ -187,7 +185,7 @@ struct WorkspaceSidebar: View {
     private func taskAccessibilityLabel(_ mode: AnalysisMode) -> String {
         switch taskProductState(mode) {
         case .current: return "\(mode.productTitle), computed"
-        case .staleDiskSettings: return "\(mode.productTitle), computed with earlier disk-detection settings"
+        case .stale: return "\(mode.productTitle), computed with earlier settings"
         case .none: break
         }
         let unmet = taskUnmetCount(mode)

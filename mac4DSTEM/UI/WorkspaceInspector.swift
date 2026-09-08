@@ -524,13 +524,14 @@ private struct SessionProductsSections: View {
         Section("Computed this session") {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
-            let stale = appState.diskDetectionSettingsAreStale
+            let disksState = ProductWorkflow.productState(
+                for: .disks, hasProduct: appState.braggVectors != nil,
+                recordedStep: appState.recordedReplayStep(for: .disks),
+                currentSignature: appState.currentReplaySignature(for: .disks))
             product(
                 "Bragg disks",
-                state: ProductWorkflow.productState(
-                    for: .disks, hasProduct: appState.braggVectors != nil,
-                    diskSettingsStale: stale),
-                detail: stale
+                state: disksState,
+                detail: disksState.staleReason != nil
                     ? "settings changed · rerun"
                     : appState.braggPeakCount.map { "\($0) peaks" }
             )
@@ -551,18 +552,17 @@ private struct SessionProductsSections: View {
     ) -> some View {
         let state = ProductWorkflow.productState(
             for: mode, hasProduct: done,
-            diskSettingsStale: appState.diskDetectionSettingsAreStale)
+            recordedStep: appState.recordedReplayStep(for: mode),
+            currentSignature: appState.currentReplaySignature(for: mode))
         if done {
             Button {
                 appState.showComputedProduct(kind)
             } label: {
                 product(kind.displayName, state: state,
-                        detail: state == .staleDiskSettings ? "earlier disk settings · show" : "show")
+                        detail: state.staleReason != nil ? "earlier settings · show" : "show")
             }
             .buttonStyle(.plain)
-            .help(state == .staleDiskSettings
-                  ? WorkspaceSidebar.staleDiskSettingsHelp
-                  : "Display this result again — it is still in memory, nothing is recomputed")
+            .help(state.staleReason ?? "Display this result again — it is still in memory, nothing is recomputed")
             .accessibilityIdentifier("computed.\(kind.rawValue)")
         } else {
             product(kind.displayName, done: false)
@@ -586,10 +586,10 @@ private struct SessionProductsSections: View {
                 Label(name, systemImage: "circle").foregroundStyle(Color.secondary)
             case .current:
                 Label(name, systemImage: "checkmark.circle.fill").foregroundStyle(Color.green)
-            case .staleDiskSettings:
+            case .stale(let reason):
                 Label(name, systemImage: "clock.arrow.circlepath")
                     .foregroundStyle(Color.orange)
-                    .help(WorkspaceSidebar.staleDiskSettingsHelp)
+                    .help(reason)
             }
         }
     }
