@@ -40,6 +40,43 @@ tools/disk-detector/run.sh ingredients --bullseye <h5> --ws2 <h5> --out <npz>   
 tools/disk-detector/run.sh label --cube <h5> --dataset <path> --ingredient bullseye --out labels/<name>.json
 ```
 
+## Model size (C7, 2026-09-07)
+
+`simulate.S = 128` stays the default everywhere. Every entry point takes `--size`
+(`simulate.py ingredients --size`, `train.py --size` → `SimConfig(size=…)`, saved in
+`config.json`; `export.py`, `check_export.py` and `evaluate.py` read it back from the run's
+`config.json`, `--size` overriding on `evaluate.py`) so a run can train and serve at 256 px instead
+— the 250-px bullseye pattern then goes through the model WHOLE, padded, instead of being tiled
+into 3×3 windows of 128. **`simulate.fit_to(pattern, centre, size)`** is the one function that fits
+a pattern to the model size: centre-crop when the native pattern is larger than `size` (the old
+`centred_crop`, kept as an alias), zero-pad when smaller, returning the pattern and `centre`'s
+position in the new frame — native pixels are never rescaled. `evaluate.py` and `label_centres.py`
+use it (via `real_inputs`/`fit_offset`) instead of the old hardcoded bullseye crop; ingredient
+probes (`prepare_measured_probe`) and the fixture (`fit_fixture_to`, when a run's size differs from
+the fixture's native 128) go through the same function.
+
+**Labels are native.** `label_centres.py` shows the FULL native pattern (no crop) and writes centres
+in native `(row, col)` — `frame: "native"` in the JSON — so one hand-labelled set scores a 128-px
+and a 256-px asset: `evaluate.py --labels` maps native → the model frame being scored with
+`simulate.fit_offset` (the same translation `fit_to` applies to the pattern). A labels file still
+carrying the old `frame: "128-px model crop, (row, col)"` is refused with a clear message rather
+than guessed at.
+
+**The fixture stays 128** (`run.sh fixture` unchanged, 148/153, every break fails) and IS the port
+proof; it is never regenerated at another size. When a run's model size differs from 128,
+`evaluate.py`'s fixture stage pads the 16 fixture patterns to that size through `fit_to`
+(`fit_fixture_to`) and reports the SAME recall/precision numbers as before — the printed rows say
+so explicitly (they are padded-fixture rows, not the native 128 fixture).
+
+**The overnight chain**, unattended, one Mac, ~90 minutes of training dominating the wall clock:
+
+```sh
+tools/disk-detector/overnight-256.sh <outdir>
+#   ingredients --size 256 -> train --size 256 --width 12 --max-minutes 90 -> export -> check
+#   -> evaluate --asset <exported heatmap .aimodel> --threshold 0.9 --labels <owner's frozen set>
+# logs each step to <outdir>, stops at the first non-zero exit, prints <outdir>/evaluate/evaluate.json.
+```
+
 **The one truth rule (C6, 2026-09-07).** A truth centre counts when its
 `disk_visibility` is ≥ `simulate.VISIBLE_MIN` (0.5): the target's bump
 amplitude is the continuous visibility, and validation, the fixture check and

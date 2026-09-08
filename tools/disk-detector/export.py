@@ -25,7 +25,15 @@ import numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import simulate as sm, train as tr
 
-S = sm.S
+S = sm.S  # the historical 128 default; run_size() below is what export/check/evaluate actually use
+
+
+def run_size(run: str) -> int:
+    """The model size THIS run trained at (config.json's SimConfig.size, C7 2026-09-07); falls back
+    to sm.S for a run recorded before --size existed."""
+    cfg = json.load(open(os.path.join(run, "config.json")))
+    return int(cfg.get("config", {}).get("size", sm.S))
+
 
 def load_model(run: str) -> nn.Module:
     cfg = json.load(open(os.path.join(run, "config.json")))
@@ -38,16 +46,19 @@ def load_model(run: str) -> nn.Module:
 
 
 class Detector(nn.Module):
-    """heatmap + in-graph peak-picking. Plain ops only: max-pool, compare, multiply, top-k, integer div/mod."""
-    def __init__(self, unet: nn.Module, threshold: float = 0.3, top_k: int = 70):
-        super().__init__(); self.unet, self.threshold, self.top_k = unet, threshold, top_k
+    """heatmap + in-graph peak-picking. Plain ops only: max-pool, compare, multiply, top-k, integer div/mod.
+    `size` (the model's own spatial size, from the run's config.json -- C7 2026-09-07) is a plain
+    Python int, baked into the exported graph as a constant exactly as the old module-level `S` was."""
+    def __init__(self, unet: nn.Module, threshold: float = 0.3, top_k: int = 70, size: int = S):
+        super().__init__(); self.unet, self.threshold, self.top_k, self.size = unet, threshold, top_k, size
     def forward(self, x):
-        heat = self.unet(x)                                        # [B,1,S,S]
+        size = self.size
+        heat = self.unet(x)                                        # [B,1,size,size]
         mx = F.max_pool2d(heat, 3, stride=1, padding=1)
         peak = (heat >= mx) & (heat > self.threshold)
-        score = (heat * peak.to(heat.dtype)).flatten(1)            # [B,S*S], 0 off-peak
+        score = (heat * peak.to(heat.dtype)).flatten(1)            # [B,size*size], 0 off-peak
         vals, idx = torch.topk(score, self.top_k, dim=1)           # brightest first, zero-padded
-        rows = torch.div(idx, S, rounding_mode="floor"); cols = idx - rows * S      # no remainder op: coreai-torch 0.4.2 has no lowering for aten.remainder
+        rows = torch.div(idx, size, rounding_mode="floor"); cols = idx - rows * size      # no remainder op: coreai-torch 0.4.2 has no lowering for aten.remainder
         rows, cols = rows.to(torch.float32), cols.to(torch.float32)
         return heat, torch.stack([rows, cols], dim=-1), vals
 
@@ -76,10 +87,12 @@ VARIANTS = {"detect": (Detector, ["heatmap", "coords", "scores"]), "scoremap": (
 class StatefulDetector(nn.Module):
     """The probe as model state: `probe` is a buffer; detect reads it and takes only two channels."""
     def __init__(self, det: Detector):
-        super().__init__(); self.det = det; self.register_buffer("probe", torch.zeros(1, 1, S, S))
-    def forward(self, x2):                                          # [B,2,S,S]: pattern, correlation
+        size = det.size
+        super().__init__(); self.det, self.size = det, size; self.register_buffer("probe", torch.zeros(1, 1, size, size))
+    def forward(self, x2):                                          # [B,2,size,size]: pattern, correlation
+        size = self.size
         self.probe.mul_(1.0)                                        # a mutation so the exporter keeps it as state
-        x = torch.cat([x2[:, :1], self.probe.expand(x2.shape[0], 1, S, S), x2[:, 1:]], dim=1)
+        x = torch.cat([x2[:, :1], self.probe.expand(x2.shape[0], 1, size, size), x2[:, 1:]], dim=1)
         return self.det(x)
 
 
@@ -98,10 +111,10 @@ def sha256_tree(path: str) -> str:
     return h.hexdigest()
 
 
-def export_coreai(module: nn.Module, outputs: list, entry: str, batch: int, out: Path, log: dict):
+def export_coreai(module: nn.Module, outputs: list, entry: str, batch: int, out: Path, log: dict, size: int = S):
     from coreai_torch import TorchConverter, get_decomp_table
     from coreai_opt.casting import cast_fp32_to_fp16
-    example = (torch.rand(batch, 3, S, S),)
+    example = (torch.rand(batch, 3, size, size),)
     ep = torch.export.export(module, args=example).run_decompositions(get_decomp_table())
     ep16 = cast_fp32_to_fp16(ep)
     conv = TorchConverter().add_exported_program(ep16, input_names=["x"], output_names=outputs, entrypoint_name=entry)
@@ -120,9 +133,10 @@ def _op_summary(ep):
 def export_coreai_stateful(det: Detector, batch: int, out: Path):
     from coreai_torch import TorchConverter, get_decomp_table
     from coreai_opt.casting import cast_fp32_to_fp16
+    size = det.size
     sd = StatefulDetector(det); sp = SetProbe(sd.probe)
-    ep_det = torch.export.export(sd, args=(torch.rand(batch, 2, S, S),)).run_decompositions(get_decomp_table())
-    ep_set = torch.export.export(sp, args=(torch.rand(1, 1, S, S),)).run_decompositions(get_decomp_table())
+    ep_det = torch.export.export(sd, args=(torch.rand(batch, 2, size, size),)).run_decompositions(get_decomp_table())
+    ep_set = torch.export.export(sp, args=(torch.rand(1, 1, size, size),)).run_decompositions(get_decomp_table())
     conv = TorchConverter()
     conv.add_exported_program(cast_fp32_to_fp16(ep_set), input_names=["probe"], output_names=["checksum"], state_names=["probe"], entrypoint_name="set_probe")
     conv.add_exported_program(cast_fp32_to_fp16(ep_det), input_names=["x2"], output_names=["heatmap", "coords", "scores"], state_names=["probe"], entrypoint_name="detect")
@@ -132,7 +146,7 @@ def export_coreai_stateful(det: Detector, batch: int, out: Path):
 
 def export_coreml(det: Detector, batch: int, out: Path, log: dict):
     import coremltools as ct
-    example = torch.rand(batch, 3, S, S)
+    example = torch.rand(batch, 3, det.size, det.size)
     try:
         traced = torch.jit.trace(det, example)
         m = ct.convert(traced, inputs=[ct.TensorType(name="x", shape=example.shape, dtype=np.float32)],
@@ -156,9 +170,10 @@ def main():
     ap.add_argument("--variants", nargs="+", default=["detect", "scoremap", "heatmap"], choices=list(VARIANTS))
     a = ap.parse_args()
     out = Path(a.run) / "export"; out.mkdir(exist_ok=True)
-    model = load_model(a.run); det = Detector(model, a.threshold, a.top_k).eval()
+    size = run_size(a.run)   # the run's own model size (config.json), NOT the module default (C7 2026-09-07)
+    model = load_model(a.run); det = Detector(model, a.threshold, a.top_k, size=size).eval()
     import coreai_torch, coremltools
-    meta = dict(run=a.run, batch=a.primary, threshold=a.threshold, top_k=a.top_k, size=S, params=sum(p.numel() for p in model.parameters()),
+    meta = dict(run=a.run, batch=a.primary, threshold=a.threshold, top_k=a.top_k, size=size, params=sum(p.numel() for p in model.parameters()),
                 date=time.strftime("%Y-%m-%d %H:%M"), macos=platform.mac_ver()[0], torch=torch.__version__, coreai_torch=coreai_torch.__version__,
                 coremltools=coremltools.__version__, coreai=None, coreai_batches={}, sha256={}, failures={})
     try:
@@ -168,10 +183,10 @@ def main():
     for b in a.batches:
         for variant in a.variants:
             cls, outputs = VARIANTS[variant]
-            module = (cls(model, a.threshold, a.top_k) if variant == "detect" else cls(model, a.threshold) if variant == "scoremap" else cls(model)).eval()
+            module = (cls(model, a.threshold, a.top_k, size=size) if variant == "detect" else cls(model, a.threshold) if variant == "scoremap" else cls(model)).eval()
             p = out / f"disk-detector-{variant}-b{b}.aimodel"; t0 = time.time(); log = {}
             try:
-                export_coreai(module, outputs, variant, b, p, log); dt = time.time() - t0
+                export_coreai(module, outputs, variant, b, p, log, size=size); dt = time.time() - t0
                 meta["coreai_assets"][f"{variant}-b{b}"] = str(p); meta["sha256"][p.name] = sha256_tree(str(p))
                 if variant == "detect": meta["ops"] = log.get("ops")
                 print(f"Core AI {variant} B={b}: {p} ({dt:.1f} s) sha256 {meta['sha256'][p.name][:16]}")

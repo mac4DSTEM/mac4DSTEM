@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 """label_centres.py — the click tool for the frozen hand-labelled test set (C6, 2026-09-07).
 
-Shows one scan position at a time in the 128-px model frame (the crop evaluate.py scores), log
-display. Left click adds a disk CENTRE, right click removes the nearest, n/p next/previous
-position, w writes, q writes and quits. Positions are drawn once from a seeded RNG so the set is
-frozen before anyone looks at a heatmap; it is NEVER used for selection. Output JSON: cube,
-dataset, ingredient, positions [{ry, rx, centres [[row, col], ...]}], and its own sha256 over the
-positions — the number that goes into the evidence file with the counts. The file is the
-owner's data (tools/disk-detector/labels/ is gitignored).
+Shows one scan position at a time in its NATIVE frame (the full stored pattern, e.g. 250x250 for
+the bullseye cube, 128x128 for WS2 — C7 2026-09-07: labels are recorded in native pattern
+coordinates, not a model-size crop, so one labels file scores any model size), log display. Left
+click adds a disk CENTRE, right click removes the nearest, n/p next/previous position, w writes, q
+writes and quits. Positions are drawn once from a seeded RNG so the set is frozen before anyone
+looks at a heatmap; it is NEVER used for selection. Output JSON: cube, dataset, ingredient,
+frame: "native", positions [{ry, rx, centres [[row, col], ...]}], and its own sha256 over the
+positions — the number that goes into the evidence file with the counts. evaluate.py --labels maps
+these native centres into whatever model frame it is scoring (`simulate.fit_offset`). The file is
+the owner's data (tools/disk-detector/labels/ is gitignored).
 
     run.sh label --cube <h5> --dataset 4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data \\
                  --ingredient bullseye --out labels/bullseye-2026-09-08.json [--n 40] [--seed 1]
@@ -25,18 +28,24 @@ a = ap.parse_args()
 
 if os.path.exists(a.out):
     L = json.load(open(a.out))
+    if L.get("frame") != "native":
+        raise SystemExit(f"{a.out} has frame {L.get('frame')!r}, not 'native' — it was started by an "
+                          f"older label_centres.py in the model-frame crop convention; this tool only "
+                          f"continues a 'native'-frame labels file (C7 2026-09-07). Start a new --out.")
 else:
     with h5py.File(a.cube, "r") as f:
         sh = f[a.dataset].shape
     rng = np.random.default_rng(a.seed)
     pos = sorted({(int(y), int(x)) for y, x in zip(rng.integers(sh[0], size=4 * a.n), rng.integers(sh[1], size=4 * a.n))})[: a.n]
-    L = dict(cube=os.path.abspath(a.cube), dataset=a.dataset, ingredient=a.ingredient, frame="128-px model crop, (row, col)",
+    L = dict(cube=os.path.abspath(a.cube), dataset=a.dataset, ingredient=a.ingredient, frame="native",
              seed=a.seed, positions=[dict(ry=y, rx=x, centres=[]) for y, x in pos])
 
 def pattern(i):
+    # the NATIVE pattern, no crop or pad (C7 2026-09-07): centres are clicked and stored in this
+    # frame directly, so the same labels file scores a 128-px and a 256-px model (evaluate.py maps
+    # native -> whichever model frame it is scoring, via simulate.fit_offset).
     with h5py.File(a.cube, "r") as f:
-        p = sm.to_counts(f[a.dataset][L["positions"][i]["ry"], L["positions"][i]["rx"]].astype(np.float64))
-    return p if p.shape[0] == sm.S else sm.centred_crop(p, (124.76, 124.74), sm.S)[0]
+        return sm.to_counts(f[a.dataset][L["positions"][i]["ry"], L["positions"][i]["rx"]].astype(np.float64))
 
 def save():
     L["sha256"] = hashlib.sha256(json.dumps(L["positions"], sort_keys=True).encode()).hexdigest()

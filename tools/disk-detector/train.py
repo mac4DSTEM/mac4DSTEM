@@ -55,9 +55,16 @@ class HeatmapLoss(nn.Module):
 # ----------------------------------------------------------------------------- data
 def load_ingredients(path):
     z = np.load(path)
+    # The drawn probe is native 128 (simulate.drawn_bullseye_probe's own default); fit it to the
+    # ingredients' own size (C7 2026-09-07 -- an ingredients npz built at --size 256 otherwise mixed
+    # a 128x128 drawn probe into a 256-sized run and simulate_one's broadcast failed outright). fit_to
+    # is a no-op at size == 128 (the r0/c0 offset is exactly zero), so an ingredients npz built before
+    # this field existed (no "size" key) keeps its exact old behaviour.
+    size = int(z["size"]) if "size" in z.files else sm.S
+    drawn, drawn_centre = sm.fit_to(sm.drawn_bullseye_probe(), (63.6, 64.3), size)
     probes = [(z["bullseye_probe"].astype(np.float64), tuple(z["bullseye_centre"]), 0.55),
               (z["ws2_probe"].astype(np.float64), tuple(z["ws2_centre"]), 0.30),
-              (sm.drawn_bullseye_probe(), (63.6, 64.3), 0.15)]
+              (drawn, drawn_centre, 0.15)]
     return probes, z["backgrounds"].astype(np.float64)
 
 
@@ -101,9 +108,9 @@ def pick_peaks(heat: np.ndarray, threshold=0.3, top_k=70):
     return np.stack([rows[order], cols[order], sc[order]], 1) if len(order) else np.zeros((0, 3))
 
 
-def recall_precision(peaks, truth, tol=2.0, edge=4):
+def recall_precision(peaks, truth, tol=2.0, edge=4, size=sm.S):
     truth = np.asarray(truth).reshape(-1, 2)
-    keep = (truth.min(1) >= edge) & (truth.max(1) < sm.S - edge); truth = truth[keep]
+    keep = (truth.min(1) >= edge) & (truth.max(1) < size - edge); truth = truth[keep]
     if len(truth) == 0: return np.nan, np.nan
     used = np.zeros(len(peaks), bool); hit = 0
     for r, c in truth:
@@ -121,6 +128,7 @@ def main():
     ap.add_argument("--workers", type=int, default=6); ap.add_argument("--miss-weight", type=float, default=20.0)
     ap.add_argument("--val-every", type=int, default=500); ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--resume"); ap.add_argument("--device", default="mps"); ap.add_argument("--width", type=int, default=24)
+    ap.add_argument("--size", type=int, default=sm.S, help="the model input size (default 128, sm.S); saved in config.json, read back by export/check/evaluate")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     from torch.utils.tensorboard import SummaryWriter
@@ -130,7 +138,7 @@ def main():
     model = UNet(width=a.width).to(dev)
     nparam = sum(p.numel() for p in model.parameters())
     print(f"UNet params {nparam:,} device {dev}", flush=True)
-    cfg = sm.SimConfig()
+    cfg = sm.SimConfig(size=a.size)
     json.dump(dict(args=vars(a), params=nparam, config=sm.asdict(cfg)), open(os.path.join(a.out, "config.json"), "w"), indent=1)
     loss_fn = HeatmapLoss(a.miss_weight)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=1e-4)
@@ -144,6 +152,9 @@ def main():
     z = np.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture", "fixture.npz"))
     ex = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture", "expected.json")))
     fk = sm.flat_kernel(z["probe"].astype(np.float64), tuple(ex["probe_centre"]))
+    # ALWAYS the fixture's own native 128, regardless of --size: a fully-convolutional net takes any
+    # HxW, so this in-loop check stays the cheap, unpadded port-proof signal every run reports; a
+    # 256-px run's SCORED fixture number (padded through fit_to) is evaluate.py's job, not this one.
     fx = torch.from_numpy(np.stack([sm.model_inputs(p.astype(np.float64), z["probe"], sm.cross_correlation(p.astype(np.float64), fk)) for p in z["patterns"]]))
     fcen = [np.array(t["centres"]) for t in ex["truth"]]
     loader = torch.utils.data.DataLoader(SimStream(a.ingredients, cfg, a.seed), batch_size=a.batch, num_workers=a.workers,
@@ -163,7 +174,7 @@ def main():
                 vp = torch.cat([model(vx[i:i + 32].to(dev)).cpu() for i in range(0, len(vx), 32)])
                 vloss = loss_fn(vp, vy).item()
                 fp = model(fx.to(dev)).cpu()
-            rp = [recall_precision(pick_peaks(vp[i, 0].numpy()), vcen[i]) for i in range(len(vx))]
+            rp = [recall_precision(pick_peaks(vp[i, 0].numpy()), vcen[i], size=cfg.size) for i in range(len(vx))]
             rf = [recall_precision(pick_peaks(fp[i, 0].numpy()), fcen[i]) for i in range(len(fx))]
             vr, vpp = np.nanmean([r for r, _ in rp]), np.nanmean([p for _, p in rp]); fr, fpp = np.nanmean([r for r, _ in rf]), np.nanmean([p for _, p in rf])
             tb.add_scalar("val/loss", vloss, step); tb.add_scalar("val/recall@2px", vr, step); tb.add_scalar("val/precision", vpp, step)

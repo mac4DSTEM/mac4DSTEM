@@ -13,7 +13,7 @@ resolve_mac4dstem_python() {
     "$HOME/anaconda3/envs/py4dstem/bin/python"
   do
     if [ -n "$candidate" ] && [ -x "$candidate" ] \
-      && "$candidate" -c 'import numpy' >/dev/null 2>&1; then
+      && "$candidate" -c 'import numpy, scipy' >/dev/null 2>&1; then   # scipy too: a bare conda base has numpy only (2026-09-08)
       PYTHON_BIN=$candidate
       export PYTHON_BIN
       return 0

@@ -19,18 +19,25 @@ import numpy as np, torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import simulate as sm, train as tr, export as ex
 
-def load_inputs(run, batch, n_batches, seed=4242):
-    """Fixture first, then simulated samples with real ingredients (the run's own npz)."""
+def load_inputs(run, batch, n_batches, seed=4242, size=None):
+    """Fixture first (fitted to `size` through fit_to when it differs from the fixture's native 128
+    -- C7 2026-09-07), then simulated samples at `size` with real ingredients (the run's own npz).
+    `size` defaults to the run's own config.json (falls back to sm.S for an older run)."""
+    cfg = json.load(open(os.path.join(run, "config.json")))
+    size = size if size is not None else int(cfg.get("config", {}).get("size", sm.S))
     z = np.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture", "fixture.npz"))
     e = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture", "expected.json")))
-    fk = sm.flat_kernel(z["probe"].astype(np.float64), tuple(e["probe_centre"]))
-    xs = [sm.model_inputs(p.astype(np.float64), z["probe"], sm.cross_correlation(p.astype(np.float64), fk)) for p in z["patterns"]]
-    cfg = json.load(open(os.path.join(run, "config.json")))
+    probe_centre = tuple(e["probe_centre"])
+    xs = []
+    for p in z["patterns"]:
+        pf, probef, cf = sm.fit_fixture_to(p.astype(np.float64), z["probe"].astype(np.float64), probe_centre, size)
+        fk = sm.flat_kernel(probef, cf)
+        xs.append(sm.model_inputs(pf, probef, sm.cross_correlation(pf, fk)))
     probes, bgs = tr.load_ingredients(cfg["args"]["ingredients"])
     rng = np.random.default_rng(seed)
     while len(xs) < batch * n_batches:
         probe, centre, _ = probes[rng.integers(len(probes))]
-        s = sm.simulate_one(rng, probe, centre, sm.SimConfig(), background=bgs[rng.integers(len(bgs))] if rng.random() < 0.7 else None)
+        s = sm.simulate_one(rng, probe, centre, sm.SimConfig(size=size), background=bgs[rng.integers(len(bgs))] if rng.random() < 0.7 else None)
         xs.append(sm.model_inputs(s.pattern, s.probe, s.correlation))
     return np.stack(xs[: batch * n_batches]).astype(np.float32)
 
@@ -117,14 +124,15 @@ def main():
     ap.add_argument("--min-peak-recall", type=float, default=0.98, help="fraction of numpy's peaks an in-graph peak output must reproduce within 1 px")
     a = ap.parse_args()
     meta = json.load(open(os.path.join(a.run, "export", "export.json")))
-    B = meta["batch"]; x = load_inputs(a.run, B, a.batches)
-    print(f"inputs {x.shape} (fixture 16 + simulated), batch {B}")
+    B = meta["batch"]; size = meta.get("size", ex.run_size(a.run))
+    x = load_inputs(a.run, B, a.batches, size=size)
+    print(f"inputs {x.shape} (fixture 16 + simulated), batch {B}, size {size}")
     model = ex.load_model(a.run).eval()
-    det = ex.Detector(model, threshold=meta["threshold"], top_k=meta["top_k"]).eval()
+    det = ex.Detector(model, threshold=meta["threshold"], top_k=meta["top_k"], size=size).eval()
     with torch.no_grad():
         ref = [det(torch.from_numpy(x[b:b + B])) for b in range(0, len(x), B)]
         heat32 = torch.cat([r[0] for r in ref]).numpy(); coords32 = torch.cat([r[1] for r in ref]).numpy(); scores32 = torch.cat([r[2] for r in ref]).numpy()
-        det16 = ex.Detector(ex.load_model(a.run).eval().half(), threshold=meta["threshold"], top_k=meta["top_k"]).eval()
+        det16 = ex.Detector(ex.load_model(a.run).eval().half(), threshold=meta["threshold"], top_k=meta["top_k"], size=size).eval()
         heat16 = torch.cat([det16(torch.from_numpy(x[b:b + B]).half())[0].float() for b in range(0, len(x), B)]).numpy()
     print("PyTorch float16 vs float32 (the floor any float16 runtime can reach):")
     fp16_floor = report("heatmap", heat32, heat16)

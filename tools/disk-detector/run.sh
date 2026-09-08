@@ -13,6 +13,7 @@
 #   run.sh label --cube <h5> --dataset <path> --ingredient bullseye|ws2 --out labels/<name>.json
 #                      the click tool for the frozen hand-labelled test set (owner's data, gitignored;
 #                      the JSON's sha256 and counts go into the evidence file). Both in the py4DSTEM env.
+# Nothing to take from tools/lib/sources.manifest: this harness is Python only, it compiles no Swift.
 # py4DSTEM is the LOCK (References/py4DSTEM-dev, fetch-py4dstem.sh), put on PYTHONPATH here;
 # the conda environment's own py4DSTEM (0.14.17) is not the reference (decisions.md, 2026-09-07).
 set -euo pipefail

@@ -70,16 +70,47 @@ def centre_of_mass(img: np.ndarray) -> tuple[float, float]:
     return float((img * rr).sum() / s), float((img * cc).sum() / s)
 
 
-def centred_crop(img: np.ndarray, centre: tuple[float, float], size: int = S) -> tuple[np.ndarray, tuple[float, float]]:
-    """Crop `size`x`size` around `centre` (row, col), zero-padded; returns the crop and
-    the centre's position inside it (fractional part preserved)."""
-    r0 = int(round(centre[0])) - size // 2
-    c0 = int(round(centre[1])) - size // 2
+def fit_offset(centre: tuple[float, float], size: int) -> tuple[int, int]:
+    """The integer (row, col) origin fit_to would place a `size`x`size` frame at, for `centre` to
+    land at the frame's own centre. Exposed separately so a POINT (a label, a truth centre) can be
+    translated between a native frame and a model frame without touching the array it came from --
+    same formula fit_to uses internally."""
+    return int(round(centre[0])) - size // 2, int(round(centre[1])) - size // 2
+
+
+def offset_point(point: tuple[float, float], centre: tuple[float, float], size: int) -> tuple[float, float]:
+    """A point in the NATIVE frame -> its position in the `size`x`size` frame fit_to(_, centre, size)
+    produces (same translation fit_to applies to the whole array; no rescale, ever)."""
+    r0, c0 = fit_offset(centre, size)
+    return point[0] - r0, point[1] - c0
+
+
+def fit_to(img: np.ndarray, centre: tuple[float, float], size: int = S) -> tuple[np.ndarray, tuple[float, float]]:
+    """Fit `img` to `size`x`size` around `centre` (row, col): centre-CROP when `img` is larger than
+    `size`, zero-PAD when smaller -- one operation, since both are "copy the overlap between `img`
+    and a size x size canvas placed so `centre` lands at the same fractional position in the new
+    frame". Native pixels are never rescaled. Returns (fitted, centre-in-the-new-frame)."""
+    r0, c0 = fit_offset(centre, size)
     out = np.zeros((size, size), dtype=np.float64)
     rs, re = max(r0, 0), min(r0 + size, img.shape[0])
     cs, ce = max(c0, 0), min(c0 + size, img.shape[1])
     out[rs - r0:re - r0, cs - c0:ce - c0] = img[rs:re, cs:ce]
     return out, (centre[0] - r0, centre[1] - c0)
+
+
+centred_crop = fit_to  # back-compat name: scan-bench/dump.py (Swift-side fixture export, C7) still
+                       # calls sm.centred_crop directly and is out of this change's scope.
+
+
+def fit_fixture_to(pattern: np.ndarray, probe: np.ndarray, probe_centre: tuple[float, float], size: int):
+    """Fit ONE fixture pattern + its probe (both native 128, sharing `probe_centre` in that frame) to
+    `size`x`size`, using the SAME anchor for both so they stay aligned (their offset is identical
+    since fit_offset depends only on the anchor and `size`, not on the array). Returns
+    (pattern_fit, probe_fit, probe_centre_fit) -- the fixture stays 128 on disk; this is applied only
+    when a run's model size differs from it (evaluate.py's fixture stage, check_export.py)."""
+    pattern_fit, _ = fit_to(pattern, probe_centre, size)
+    probe_fit, probe_centre_fit = fit_to(probe, probe_centre, size)
+    return pattern_fit, probe_fit, probe_centre_fit
 
 
 def drawn_bullseye_probe(size: int = S, centre: tuple[float, float] = (63.6, 64.3),
@@ -96,8 +127,9 @@ def drawn_bullseye_probe(size: int = S, centre: tuple[float, float] = (63.6, 64.
 
 
 def prepare_measured_probe(probe: np.ndarray, size: int = S) -> tuple[np.ndarray, tuple[float, float]]:
-    """Centre-crop a measured probe (any size) to the model size around its centre of mass."""
-    crop, centre = centred_crop(np.asarray(probe, dtype=np.float64), centre_of_mass(probe), size)
+    """Fit a measured probe (any native size) to the model size around its centre of mass --
+    crops when the probe is larger, pads when smaller (`fit_to`, C7)."""
+    crop, centre = fit_to(np.asarray(probe, dtype=np.float64), centre_of_mass(probe), size)
     return crop, centre
 
 
@@ -481,10 +513,17 @@ def radial_background(pattern: np.ndarray, centre, textured: bool = True, kernel
 
 
 def collect_real_backgrounds(bullseye: str, ws2: str, n_each: int = 48, seed: int = 1,
-                             probes: dict | None = None) -> np.ndarray:
-    """(N,S,S) real backgrounds at the model size from both cubes. `probes`: {"bullseye": (probe,
-    centre), "ws2": (probe, centre)} at the model size -> textured backgrounds with the disks the
-    probe's correlation finds cut out (2026-09-07); None -> the 2026-09-06 azimuthal medians."""
+                             probes: dict | None = None, size: int = S,
+                             ws2_native_centre: tuple[float, float] | None = None) -> np.ndarray:
+    """(N,size,size) real backgrounds at the model size from both cubes. `probes`: {"bullseye":
+    (probe, centre), "ws2": (probe, centre)} at the model size -> textured backgrounds with the
+    disks the probe's correlation finds cut out (2026-09-07); None -> the 2026-09-06 azimuthal
+    medians. `size` fits every raw pattern to the model size (`fit_to`, C7 2026-09-07): the bullseye
+    cube's native frame is fit around its known centre (124.76, 124.74, the probe's own centre of
+    mass); WS2's native frame is fit around `ws2_native_centre` when given (the one canonical value
+    also used to place the WS2 probe, so every WS2 background lands on the same offset) and, only
+    when it is not given (an older caller), around that one pattern's own argmax -- the 2026-09-06
+    behaviour, harmless while WS2's native size already equals `size`."""
     import h5py
     rng = np.random.default_rng(seed)
     out = []
@@ -496,13 +535,17 @@ def collect_real_backgrounds(bullseye: str, ws2: str, n_each: int = 48, seed: in
         d = f["4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data"]
         for _ in range(n_each):
             p = d[rng.integers(d.shape[0]), rng.integers(d.shape[1])].astype(np.float64)
-            crop, c = centred_crop(p, (124.76, 124.74), S)
+            crop, c = fit_to(p, (124.76, 124.74), size)
             out.append(radial_background(crop, c, **kr("bullseye")))
     with h5py.File(ws2, "r") as f:
         d = f["4DSTEM/datacube/data"]
         for _ in range(n_each):
             p = d[rng.integers(d.shape[0]), rng.integers(d.shape[1])].astype(np.float64)
-            c = np.unravel_index(p.argmax(), p.shape)
+            if p.shape[0] != size:
+                centre = ws2_native_centre if ws2_native_centre is not None else np.unravel_index(p.argmax(), p.shape)
+                p, c = fit_to(p, centre, size)
+            else:
+                c = np.unravel_index(p.argmax(), p.shape)
             out.append(radial_background(p, c, **kr("ws2")))
     return np.stack(out)
 
@@ -583,6 +626,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "fixture"),
                     help="fixture: the directory; ingredients: the .npz path train.py's --ingredients takes")
     ap.add_argument("--bullseye"); ap.add_argument("--ws2"); ap.add_argument("--n-each", type=int, default=96)
+    ap.add_argument("--size", type=int, default=S, help="ingredients: the model size probes/backgrounds are fitted to (default 128, S)")
     a = ap.parse_args()
     if a.command == "fixture":
         write_fixture(a.out)
@@ -590,11 +634,21 @@ if __name__ == "__main__":
         # The ingredients builder (C6, 2026-09-07): before it, no committed command built the npz the
         # trainer needs, and the old `backgrounds` command built the 2026-09-06 texture-free medians.
         # Backgrounds are TEXTURED by default: every disk the probe's own correlation finds is cut out.
+        # --size (2026-09-07): probes and backgrounds are fitted to it (fit_to: crop if the native
+        # frame is larger, pad if smaller -- the 250-px bullseye pattern pads into a 256 model, it
+        # does not tile). The NATIVE centre of each probe (its centre of mass before any fit) is
+        # recorded too, so downstream tools (evaluate.py, label_centres.py) can fit a raw pattern or
+        # translate a native-frame label into this run's model frame without re-deriving it.
         if not (a.bullseye and a.ws2):
             ap.error("ingredients needs --bullseye <calibrationData_bullseyeProbe.h5> and --ws2 <polycrystal_2D_WS2.h5>")
-        bp, bc = prepare_measured_probe(load_bullseye_probe(a.bullseye))
-        wp, wc = prepare_measured_probe(load_ws2_probe(a.ws2))
-        bg = collect_real_backgrounds(a.bullseye, a.ws2, n_each=a.n_each, probes={"bullseye": (bp, bc), "ws2": (wp, wc)})
-        np.savez_compressed(a.out, bullseye_probe=bp.astype(np.float32), bullseye_centre=np.array(bc), ws2_probe=wp.astype(np.float32),
-                            ws2_centre=np.array(wc), backgrounds=bg.astype(np.float32), textured=True)
-        print(f"ingredients: probes {bp.shape} {wp.shape}, {len(bg)} textured backgrounds -> {a.out}")
+        braw = load_bullseye_probe(a.bullseye); bc_native = centre_of_mass(braw)
+        bp, bc = prepare_measured_probe(braw, a.size)
+        wraw = load_ws2_probe(a.ws2); wc_native = centre_of_mass(wraw)
+        wp, wc = prepare_measured_probe(wraw, a.size)
+        bg = collect_real_backgrounds(a.bullseye, a.ws2, n_each=a.n_each, probes={"bullseye": (bp, bc), "ws2": (wp, wc)},
+                                      size=a.size, ws2_native_centre=wc_native)
+        np.savez_compressed(a.out, size=a.size,
+                            bullseye_probe=bp.astype(np.float32), bullseye_centre=np.array(bc), bullseye_native_centre=np.array(bc_native),
+                            ws2_probe=wp.astype(np.float32), ws2_centre=np.array(wc), ws2_native_centre=np.array(wc_native),
+                            backgrounds=bg.astype(np.float32), textured=True)
+        print(f"ingredients: probes {bp.shape} {wp.shape} at size {a.size}, {len(bg)} textured backgrounds -> {a.out}")
