@@ -39,6 +39,29 @@ the Remove / two Reset confirmation dialogs, were not exercised in the
 
 ## Science — Gate D or Gate B owed
 
+### `all` is red: downsample_Si_SiGe_exp candidate counts drifted +2/+2/+1
+Reproducing observation, 2026-09-08, `scratchpad/v3-gate/all-20260908.log:1523`,
+`GATE_EXIT=1` (the only FAIL in the run):
+`FAIL: downsample_Si_SiGe_exp.h5 diskSampleCandidateCounts: [93, 118, 98] != [91, 116, 97]`.
+The other three pinned cubes passed, including their golden and time budgets.
+**Cause NOT established — do not fix, and do not re-pin the golden.** The last
+aggregate pass was 2026-09-04 (458/0/0); C1, C2, C3, C4(a), C4(b), C5's overlay
+extraction, C6, C7 sessions 1–4, C8 and C4(c) all landed since, so this run is
+the first to exercise the number and any of them could own it. C7 (disk
+detection, Core ML) and C4(b) (disk-detection signature) are the plausible
+suspects; C4(c) is presentation-only and its review found no scientific-number
+change, so it is not the default suspect merely for being last.
+The counts moved UP, and `expected.json` was last touched by the old `codex`
+commits, so this is drift in the app, not a stale re-pin.
+**Unknown, and worth establishing first:** whether `diskSamplePeakCounts` (the
+final science output) also moved — the comparison reported the candidate field
+and stopped, so a green peak count must NOT be assumed.
+*The experiment:* re-run `tools/real-data-acceptance/run.sh` at `d8e6153`
+(pre-C4(c)) and then bisect across the range above; each run is ~1 minute once
+the harness is built. Owner: next session, before 3.0.0 is cut.
+
+
+
 ### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
 Owner playthrough 2026-09-01 (`calibrationData_bullseyeProbe.h5`). Gate D on
 py4DSTEM truth (`tools/bragg-spacing-probe/bullseye-kernel-truth.py`): (1) the

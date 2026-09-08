@@ -60,7 +60,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`scratchpad/s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
 | `run-tests.sh inventory` | **exit 0 — 2026-09-08 C4(c)** (`scratchpad/c4c/inventory-final-20260908.log`); AppState + ResultExport **7509**, equal to HEAD. Live markdown and cold-start set reduced by removing the obsolete C4(b) landing instructions and updating the active handoff. |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`scratchpad/inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
-| `run-tests.sh all` | **exit 69 — 2026-09-08 C4(c)**, 2 GB free against 8 GB required (`scratchpad/c4c/all-20260908.log`). No aggregate pass on the release candidate. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses, on the post-v2.5.1 tree. |
+| `run-tests.sh all` | **exit 1 — 2026-09-08 evening** (`scratchpad/v3-gate/all-20260908.log`, `GATE_EXIT=1`), the first run to clear preflight since 2026-09-04, after the owner moved five unused cubes to the external SSD (8.7 GB free). **One FAIL**, line 1523: `downsample_Si_SiGe_exp.h5 diskSampleCandidateCounts: [93, 118, 98] != [91, 116, 97]`; the other three pinned cubes passed with their golden and time budgets. Cause not established — `open-items.md`. **3.0.0 cannot be cut on this.** The background-task wrapper reported "exit code 0" for this very run while the gate exited 1: read the gate's own `GATE_EXIT` line, never a caller's status. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses, on the post-v2.5.1 tree. |
 
 ## Handoff — the last two screens, then v3.0.0
 
@@ -91,9 +91,10 @@ cubes feed only diagnostic runners, which never gate.
 
 **A `run-tests.sh all` run was started at 19:2x and its result was never read.**
 Log: `scratchpad/v3-gate/all-20260908.log`, with `GATE_EXIT=` appended on its
-own line. **Read that line first.** If the file has no `GATE_EXIT` line the run
-was killed with the session — rerun it. Never read a gate's status through a
-pipe. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses.
+own line. **It came back `GATE_EXIT=1`** on one real-data candidate-count drift, and
+that is now the single thing between the repo and 3.0.0 (`open-items.md`, the
+first Science entry). Never read a gate's status through a caller or a pipe:
+the background-task wrapper reported "exit code 0" for this very run. Last aggregate pass: 2026-09-04, 458/0/0, 44 harnesses.
 
 **Native app control works from this session** — the previous session's
 "native pipe closed" CUA failure did not reproduce. Request access to
