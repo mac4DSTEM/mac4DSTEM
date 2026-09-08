@@ -122,6 +122,35 @@ final class LearnedDiskDetectorTests: XCTestCase {
 
     // MARK: 1. The fit and the normalisation equal simulate.fit_to + simulate.model_inputs
 
+    /// Gate B 2026-09-08: the fixture's probe centre (63.6, 64.3) never lands on
+    /// a half, so the fixture cannot tell half-to-even from half-up — Python's
+    /// `round` is half-to-even, and a centre of mass lands on .5 often enough.
+    func testFitOffsetRoundsHalfToEvenLikePython() {
+        let half = LearnedDiskDetector.inputSize / 2
+        let even = LearnedDiskDetector.fitOffset(probeCentre: (x: 64.5, y: 64.5))
+        XCTAssertEqual([even.row0, even.col0], [64 - half, 64 - half], "64.5 rounds to 64 (even)")
+        let odd = LearnedDiskDetector.fitOffset(probeCentre: (x: 65.5, y: 65.5))
+        XCTAssertEqual([odd.row0, odd.col0], [66 - half, 66 - half], "65.5 rounds to 66 (even), not 65")
+        XCTAssertEqual(LearnedDiskDetector.windowOrigins(q: 128, probeCentreOnAxis: 64.5, overlap: 24), [64 - half])
+    }
+
+    /// Gate B 2026-09-08: the asset hash skips any path component starting with
+    /// "." at every depth, the rule `export.py`'s `sha256_tree` now shares — a
+    /// Finder `.DS_Store` inside the package must not change `learned_model_sha256`.
+    func testAssetHashIgnoresDotfilesAtEveryDepth() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("hash-\(UUID().uuidString)")
+        let nested = root.appendingPathComponent("Data/inner", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try Data("manifest".utf8).write(to: root.appendingPathComponent("Manifest.json"))
+        try Data("weights".utf8).write(to: nested.appendingPathComponent("weight.bin"))
+        let clean = try LearnedDiskDetector.sha256(ofAsset: root)
+        try Data("finder".utf8).write(to: root.appendingPathComponent(".DS_Store"))
+        try Data("finder".utf8).write(to: nested.appendingPathComponent(".DS_Store"))
+        XCTAssertEqual(try LearnedDiskDetector.sha256(ofAsset: root), clean, "a dotfile at the root or nested must not move the hash")
+        try Data("changed".utf8).write(to: nested.appendingPathComponent("weight.bin"))
+        XCTAssertNotEqual(try LearnedDiskDetector.sha256(ofAsset: root), clean, "real content must")
+    }
+
     func testFitOffsetMatchesPython() throws {
         let f = try LearnedSwiftFixture.load()
         let o = LearnedDiskDetector.fitOffset(probeCentre: f.probeCentre)

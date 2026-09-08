@@ -1,6 +1,7 @@
 //
 //  LearnedDiskDetection.swift
-//  Role: The learned candidate stage's disagreement diagnostics and its
+//  Role: The learned candidate stage's disagreement diagnostics (position-
+//        matched, C7 session 3) and its
 //        full-scan streaming orchestration (Core ML, the macOS 14 floor —
 //        C7 2026-09-08; docs/v3-plan.md §3a, step 4 slice 2).
 //
@@ -10,82 +11,149 @@ import Metal
 
 // MARK: - Disagreement diagnostics (no availability gate: pure Swift over BraggVectors)
 
-/// Where the classical and learned detectors disagree on how MANY peaks a
-/// scan position holds (v3-plan §3a): a coarse first cut, count against
-/// count, not peak against peak. A matched-position residual map — which
-/// peak moved where — is a later refinement once the two detectors' peaks
-/// can be paired up; this stage only says where the counts disagree.
+/// Where the classical and learned detectors disagree at each scan position,
+/// peak against peak (v3-plan §3a; C7 session 3, 2026-09-08). The two peak
+/// lists at a position are paired greedily by distance within `matchRadius`
+/// — closest pair first, each peak used once — and whatever is left unpaired
+/// on either side is the disagreement. Two lists of equal length at different
+/// positions therefore no longer pass as agreement, which the count-only
+/// first cut of sessions 1–2 (`countDifferenceMap`, deleted) let through.
 package nonisolated enum DiskDisagreement {
 
-    /// Aggregate statistics over one count-difference map.
+    /// The pairing distance in detector pixels. C6's evaluation matched a
+    /// prediction to a labelled centre within 2 px (`evaluate.py`), and both
+    /// detectors here end in the same classical refinement, so a shared disk
+    /// lands well inside it. A session-3 choice, recorded in `decisions.md`.
+    package static let defaultMatchRadius: Float = 2
+
+    /// Aggregate statistics over one position-matched map.
     package struct Summary: Sendable, Equatable {
         package let positions: Int
+        /// Positions with at least one unpaired peak on either side.
         package let differing: Int
+        package let matched: Int
+        package let classicalOnly: Int
+        package let learnedOnly: Int
         package let classicalPeaks: Int
         package let learnedPeaks: Int
-        package let minDifference: Int
-        package let medianDifference: Double
-        package let maxDifference: Int
+        /// Median distance of the paired peaks, or nil when nothing paired.
+        package let medianResidualPx: Double?
+        package let matchRadiusPx: Float
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
-        package nonisolated init(positions: Int, differing: Int, classicalPeaks: Int, learnedPeaks: Int, minDifference: Int, medianDifference: Double, maxDifference: Int) {
+        package nonisolated init(
+            positions: Int, differing: Int, matched: Int, classicalOnly: Int, learnedOnly: Int,
+            classicalPeaks: Int, learnedPeaks: Int, medianResidualPx: Double?, matchRadiusPx: Float
+        ) {
             self.positions = positions
             self.differing = differing
+            self.matched = matched
+            self.classicalOnly = classicalOnly
+            self.learnedOnly = learnedOnly
             self.classicalPeaks = classicalPeaks
             self.learnedPeaks = learnedPeaks
-            self.minDifference = minDifference
-            self.medianDifference = medianDifference
-            self.maxDifference = maxDifference
+            self.medianResidualPx = medianResidualPx
+            self.matchRadiusPx = matchRadiusPx
+        }
+
+        /// The map's own provenance rows: the statistics, both classes as a
+        /// list, and the compared learned run's identity (its threshold and
+        /// model hash, from `learned.detectionProvenance`).
+        package func provenance(learnedRun learned: [String: String]) -> [String: String] {
+            [
+                "source_product": "disk_disagreement", "coordinate_space": "real",
+                "detector_class": "classical,learned",
+                "learned_threshold": learned["learned_threshold"] ?? "",
+                "learned_model_sha256": learned["learned_model_sha256"] ?? "",
+                "disagreement_match_radius_px": String(matchRadiusPx),
+                "disagreement_matched": String(matched),
+                "disagreement_classical_only": String(classicalOnly),
+                "disagreement_learned_only": String(learnedOnly),
+                "disagreement_positions": "\(differing)/\(positions)",
+                "disagreement_median_residual_px": medianResidualPx.map { String(format: "%.2f", $0) } ?? "n/a",
+            ]
+        }
+
+        /// The status-bar sentence, in the app's voice.
+        package var statusLine: String {
+            String(format: "Disagreement: %d of %d positions differ — %d peaks paired within %.0f px, %d classical-only, %d neural-net-only",
+                   differing, positions, matched, matchRadiusPx, classicalOnly, learnedOnly)
         }
     }
 
-    /// learned.count − classical.count at every scan position as a scan-domain
-    /// `FloatImage` (width = scanWidth, height = scanHeight, row-major like
-    /// `BraggVectors.peaks`). `nil` when the scan sizes differ. The
-    /// disagreement map of v3-plan §3a: where the two detectors disagree by
-    /// count; a matched-position residual map is a later refinement.
-    package static func countDifferenceMap(
-        classical: BraggVectors, learned: BraggVectors
+    /// The unpaired peaks at every scan position — classical-only plus
+    /// learned-only — as a scan-domain `FloatImage` (width = scanWidth,
+    /// height = scanHeight, row-major like `BraggVectors.peaks`), with the
+    /// pooled statistics. `nil` when the scan shapes differ.
+    package static func positionMatchedMap(
+        classical: BraggVectors, learned: BraggVectors,
+        matchRadius: Float = defaultMatchRadius
     ) -> (image: FloatImage, summary: Summary)? {
         guard classical.scanWidth == learned.scanWidth,
               classical.scanHeight == learned.scanHeight,
               classical.peaks.count == learned.peaks.count else { return nil }
 
-        var differences = [Int](repeating: 0, count: classical.peaks.count)
-        var classicalTotal = 0
-        var learnedTotal = 0
+        var unmatched = [Float](repeating: 0, count: classical.peaks.count)
+        var matched = 0, classicalOnly = 0, learnedOnly = 0
+        var classicalTotal = 0, learnedTotal = 0
+        var residuals: [Float] = []
         for i in classical.peaks.indices {
-            let c = classical.peaks[i].count
-            let l = learned.peaks[i].count
-            differences[i] = l - c
-            classicalTotal += c
-            learnedTotal += l
+            let c = classical.peaks[i], l = learned.peaks[i]
+            let pairs = pair(c, l, radius: matchRadius)
+            matched += pairs.count
+            residuals.append(contentsOf: pairs)
+            classicalOnly += c.count - pairs.count
+            learnedOnly += l.count - pairs.count
+            classicalTotal += c.count
+            learnedTotal += l.count
+            unmatched[i] = Float(c.count + l.count - 2 * pairs.count)
         }
 
-        let sorted = differences.sorted()
-        let median: Double
-        if sorted.isEmpty {
-            median = 0
-        } else if sorted.count.isMultiple(of: 2) {
-            median = Double(sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
+        let median: Double?
+        if residuals.isEmpty {
+            median = nil
         } else {
-            median = Double(sorted[sorted.count / 2])
+            let sorted = residuals.sorted()
+            median = sorted.count.isMultiple(of: 2)
+                ? Double(sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
+                : Double(sorted[sorted.count / 2])
         }
-
         let summary = Summary(
-            positions: differences.count,
-            differing: differences.filter { $0 != 0 }.count,
-            classicalPeaks: classicalTotal,
-            learnedPeaks: learnedTotal,
-            minDifference: sorted.first ?? 0,
-            medianDifference: median,
-            maxDifference: sorted.last ?? 0
+            positions: unmatched.count,
+            differing: unmatched.filter { $0 != 0 }.count,
+            matched: matched, classicalOnly: classicalOnly, learnedOnly: learnedOnly,
+            classicalPeaks: classicalTotal, learnedPeaks: learnedTotal,
+            medianResidualPx: median, matchRadiusPx: matchRadius
         )
-        let image = FloatImage(
-            width: classical.scanWidth, height: classical.scanHeight,
-            pixels: differences.map(Float.init)
-        )
+        let image = FloatImage(width: classical.scanWidth, height: classical.scanHeight, pixels: unmatched)
         return (image, summary)
+    }
+
+    /// Greedy one-to-one pairing of two peak lists: every cross pair within
+    /// `radius`, closest first (ties broken by index order, so the result is
+    /// deterministic), each peak taken at most once. Returns the paired
+    /// distances. Lists are at most `maxNumPeaks` long, so the quadratic
+    /// candidate set is small.
+    static func pair(_ a: [BraggPeak], _ b: [BraggPeak], radius: Float) -> [Float] {
+        let r2 = radius * radius
+        var candidates: [(d: Float, i: Int, j: Int)] = []
+        for i in a.indices {
+            for j in b.indices {
+                let dx = a[i].x - b[j].x, dy = a[i].y - b[j].y
+                let d2 = dx * dx + dy * dy
+                if d2 <= r2 { candidates.append((d2.squareRoot(), i, j)) }
+            }
+        }
+        candidates.sort { $0.d != $1.d ? $0.d < $1.d : ($0.i != $1.i ? $0.i < $1.i : $0.j < $1.j) }
+        var usedA = [Bool](repeating: false, count: a.count)
+        var usedB = [Bool](repeating: false, count: b.count)
+        var distances: [Float] = []
+        for c in candidates where !usedA[c.i] && !usedB[c.j] {
+            usedA[c.i] = true
+            usedB[c.j] = true
+            distances.append(c.d)
+        }
+        return distances
     }
 }
 

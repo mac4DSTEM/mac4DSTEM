@@ -2,8 +2,8 @@
 
 On `main` since 2026-09-08: the Python tooling, the 128-px fixture (C6) and, since C7 the same day,
 `fixture/swift/` at 256 px with the shipping Core ML package `Models/DiskDetector/` and the app's
-`Core/ML/LearnedDiskDetector` behind it. `scan-bench/`, referenced below, still lives on `ml/disk-detector`
-(it times the Core AI runtime; re-measuring on Core ML is a later C7 session).
+`Core/ML/LearnedDiskDetector` behind it, and `scan-bench/` on Core ML (C7 session 3; the Core AI
+version stays on `ml/disk-detector`).
 
 `docs/v3-plan.md` §3a. Python that never ships: a simulator with known disk
 centres, a plain-conv U-Net trainer, exports to Core ML (`.mlpackage`, the
@@ -201,7 +201,7 @@ GPU-delegate top-k defect); the probe-as-state asset segfaults on load; a
 top-k graph failed the ANE program load once inside a torch-importing process
 (hence the subprocess check). Classical stand-in 0.602 ms per pattern
 (`tools/performance-baseline/bench.json`, 2026-08-27): the net alone is 0.57×,
-the whole learned path ≤ 1.57× at 128 px — but 2.81× at the cube's native 250 px with 3×3 tiling (`scan-bench`, `docs/status.md`), so the 2× ceiling is NOT met; the owner accepted this on 2026-09-07 with a 256-px retrain owed (`docs/decisions.md`, C0). On the real bullseye
+the whole learned path ≤ 1.57× at 128 px — but 2.81× at the cube's native 250 px with 3×3 tiling on Core AI, so the owner accepted a missed 2× ceiling on 2026-09-07 with a 256-px retrain owed (`docs/decisions.md`, C0); **the 256-px Core ML build meets it: 1.44–1.64× on the same 525 patterns, one frame, no tiling (2026-09-08, below).** On the real bullseye
 crop, read by eye from PNGs (no hand-labelled truth existed), the net at
 threshold 0.3 marked the disks the classical path finds plus ~65 background
 peaks per position (5 at 0.9), and run3's own log records it missing some
@@ -239,10 +239,22 @@ counts by one rule (C6), which step 4's Swift side mirrors.
   0.139 ms/pattern = 9.1 s per 65 536; width 16 (489 k) 0.178 ms = 11.6 s;
   width 24 (1.1 M) 0.276 ms (2026-09-06 check). run3 trains width 12.
 - **The ceiling, from Swift.** `scan-bench/` (`run.sh dump`, `run.sh bench`)
-  times the app's own scan path (`DiskDetection.detectAll`, all cores) and the
-  exported asset through the CoreAI framework on identical bullseye patterns —
+  times the app's own scan path (`DiskDetection.detectAll`, all cores) and
+  `LearnedDiskDetector.detectAll` end to end on identical bullseye patterns —
   the comparison the 2026-09-06 numbers lacked (they used the serial
-  single-pattern benchmark as the baseline).
+  single-pattern benchmark as the baseline). **On Core ML at 256 px (C7 session
+  3, 2026-09-08; `References/training_runs/disk-detector-2026-09-08/scan-bench-250/`,
+  two runs, `scan-bench-2026-09-08T13*.json`): 525 native 250-px patterns
+  (stride 4), the shipped package `0f53d270…`, one frame, no tiling —
+  classical 0.76–0.83 ms/pattern (2 017 peaks); learned end to end
+  **≈ 1.5× the classical** — 1.44–1.64× over three runs at both 0.7 (4 544
+  peaks) and 0.9 (3 086 peaks); Gate B's re-run gave 1.48× at both, so the
+  band is run-to-run noise on an 8-core machine, not a threshold effect. Peak
+  counts identical in every run. Caveat (Gate B): the classical path
+  correlates on a 250² FFT and the learned path on the padded 256² frame, a
+  power of two — a bias in the learned side's favour. The 2.81× figure was
+  Core AI at 128 px with 3×3 tiling on the same dump geometry
+  (`disk-detector-2026-09-07/scan-bench-250/`).**
 
 **run3 numbers (2026-09-07, `References/training_runs/disk-detector-2026-09-07/`):**
 width 12, 20 000 steps, 72.8 min, best validation loss 0.0052, recall@2 px

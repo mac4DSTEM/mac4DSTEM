@@ -684,6 +684,38 @@ struct PeakOverlay: View {
     }
 }
 
+/// Hand-clicked disk-centre labels (C7 session 4) — one cyan cross per centre,
+/// in a colour distinct from `PeakOverlay`'s green rings so a labelled and a
+/// detected centre are never mistaken for each other. Uses the same
+/// `PeakOverlayGeometry` box map as `PeakOverlay`; centres are stored as
+/// (row, col) = (y, x) in detector pixels.
+struct CentreLabelOverlay: View {
+    let centres: [DiskCentreLabelStore.Centre]
+    let patternWidth: Int
+    let patternHeight: Int
+    let box: CGSize
+
+    private static let halfSize: CGFloat = 5
+
+    var body: some View {
+        Path { path in
+            for c in centres {
+                let center = PeakOverlayGeometry.center(
+                    x: c.col, y: c.row,
+                    patternWidth: patternWidth, patternHeight: patternHeight, box: box
+                )
+                let h = Self.halfSize
+                path.move(to: CGPoint(x: center.x - h, y: center.y))
+                path.addLine(to: CGPoint(x: center.x + h, y: center.y))
+                path.move(to: CGPoint(x: center.x, y: center.y - h))
+                path.addLine(to: CGPoint(x: center.x, y: center.y + h))
+            }
+        }
+        .stroke(Color.cyan, lineWidth: 1.5)
+        .accessibilityLabel("\(centres.count) hand-clicked disk-centre labels at this scan position")
+    }
+}
+
 // MARK: - Fit-verification overlay
 
 /// Draws fit-verification overlays on the diffraction pane — measured peaks vs

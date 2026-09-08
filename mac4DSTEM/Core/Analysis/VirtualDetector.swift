@@ -49,6 +49,40 @@ package enum DetectorShape: Equatable {
     case point(x: Int, y: Int)
 }
 
+/// Real-space region shape for virtual diffraction. A point is plain scrubbing
+/// (one position); a region sums its positions' patterns. Moved from
+/// `App/AppState.swift` (C7 session 4, budget relocation) — pure geometry
+/// selector, no AppState dependency.
+package enum RegionShape: String, CaseIterable, Identifiable {
+    case point     = "Point"
+    case rectangle = "Rectangle"
+    case circle    = "Circle"
+    package var id: String { rawValue }
+}
+
+extension DetectorShape {
+    /// The current real-space region as a scan-space `DetectorShape`,
+    /// centered on the selected scan position. Moved from `AppState.
+    /// realSpaceRegionShape` (C7 session 4, budget relocation) — pure
+    /// geometry over the shape choice, the region radius, and the scan
+    /// position, none of which need AppState.
+    package static func realSpaceRegion(
+        shape: RegionShape, radius: Float, scanX: Int, scanY: Int
+    ) -> DetectorShape {
+        let r = Int(radius.rounded())
+        switch shape {
+        case .point:
+            return .point(x: scanX, y: scanY)
+        case .rectangle:
+            return .rectangle(xMin: scanX - r, xMax: scanX + r + 1,
+                              yMin: scanY - r, yMax: scanY + r + 1)
+        case .circle:
+            return .circle(centerX: Float(scanX) + 0.5, centerY: Float(scanY) + 0.5,
+                           radius: radius + 0.5)
+        }
+    }
+}
+
 // MARK: - Detector presets
 
 /// Standard virtual-detector geometries. Radii are expressed as fractions of

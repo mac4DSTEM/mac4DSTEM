@@ -210,9 +210,10 @@ package final class LearnedDetectionSession {
     /// when `runDiskDetection` auto-generates the kernel, which happens
     /// after this check.
     package func replayRefusal(for recorded: ReplayStepPlan.DiskDetectorReplay) async -> String? {
-        detectorClass = recorded.detectorClass
-        guard recorded.detectorClass == .learned else { return nil }
-        if let recordedThreshold = recorded.learnedThreshold { threshold = recordedThreshold }
+        guard recorded.detectorClass == .learned else { detectorClass = .classical; return nil }
+        // The class and threshold are applied only once the replay may proceed:
+        // a refused learned step must not leave the picker switched to Neural
+        // net at the recorded threshold (Gate B, 2026-09-08).
         guard let assetURL = LearnedDiskDetector.bundledAssetURL() else {
             return "the neural-net model is not in this build — choose Classical under Detector in Disk detection, then run detection by hand"
         }
@@ -226,6 +227,8 @@ package final class LearnedDetectionSession {
             let want = String((recorded.learnedModelSHA256 ?? "").prefix(8))
             return "it detected disks with the neural net at model \(want)…, and this build ships \(have)… — run detection by hand"
         }
+        detectorClass = .learned
+        if let recordedThreshold = recorded.learnedThreshold { threshold = recordedThreshold }
         return nil
     }
 }

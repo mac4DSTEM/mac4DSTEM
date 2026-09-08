@@ -1,6 +1,7 @@
 //
 //  LearnedDiskDetectionScanTests.swift
-//  Step 4 slice 2 (C7, 2026-09-08, Core ML): the disagreement map, the
+//  Step 4 slice 2 (C7, 2026-09-08, Core ML): the disagreement map (position-
+//  matched since session 3), the
 //  `DetectorClass` provenance IDs, and the streamed learned orchestration
 //  (`LearnedDiskDetector.detectAll(data:…)`) checked against the resident
 //  path on the same cube — and the resident path, on the NATIVE 128-px
@@ -70,50 +71,92 @@ private actor FixturePatternSource: FourDDataSource {
 
 final class LearnedDiskDetectionScanTests: XCTestCase {
 
-    // MARK: DiskDisagreement.countDifferenceMap
+    // MARK: DiskDisagreement.positionMatchedMap (C7 session 3)
 
-    /// Hand-built vectors on a 2-row, 3-column scan (row-major position order
-    /// 0…5). `learned − classical` at each position is, IN POSITION ORDER,
-    /// `[2, −3, 5, 0, −1, 1]` — deliberately NOT already sorted, so a bug that
-    /// takes `min`/`max` off the unsorted array (instead of sorting first)
-    /// reads the wrong values (first/last of the position order: 2 and 1,
-    /// instead of the true −3 and 5). One position ties (index 3: 4 − 4 = 0),
-    /// so `differing` (5) is strictly less than `positions` (6), and the
-    /// median lands on the even-count average-of-two-middles branch (sorted
-    /// differences −3,−1,0,1,2,5 → the middle pair is 0 and 1 → 0.5, which a
-    /// mutation using the odd-count "middle element" formula would report as
-    /// the wrong value 1).
-    func testCountDifferenceMap() throws {
-        func vectors(counts: [Int], scanWidth: Int, scanHeight: Int) -> BraggVectors {
-            let peaks = counts.map { c in (0..<c).map { i in BraggPeak(x: Float(i), y: Float(i), intensity: 1) } }
-            return BraggVectors(scanWidth: scanWidth, scanHeight: scanHeight, peaks: peaks)
-        }
-        // classical, learned  ->  learned - classical
-        //   3,  5              ->   2
-        //   5,  2              ->  -3
-        //   0,  5              ->   5
-        //   4,  4              ->   0
-        //   3,  2              ->  -1
-        //   2,  3              ->   1
-        let classical = vectors(counts: [3, 5, 0, 4, 3, 2], scanWidth: 3, scanHeight: 2)
-        let learned = vectors(counts: [5, 2, 5, 4, 2, 3], scanWidth: 3, scanHeight: 2)
+    private func vectors(_ positions: [[(Float, Float)]], scanWidth: Int, scanHeight: Int) -> BraggVectors {
+        BraggVectors(scanWidth: scanWidth, scanHeight: scanHeight,
+                     peaks: positions.map { $0.map { BraggPeak(x: $0.0, y: $0.1, intensity: 1) } })
+    }
 
-        let result = try XCTUnwrap(DiskDisagreement.countDifferenceMap(classical: classical, learned: learned))
-        XCTAssertEqual(result.image.width, 3)
+    /// A 2×2 scan built so every branch shows in one map (row-major positions):
+    ///   0: two shared disks, 0.5 px and 1.5 px apart → 2 paired, nothing unpaired;
+    ///   1: EQUAL counts (2 and 2) at different places — one pair 1 px apart, the
+    ///      other 3 px apart → 1 paired, 1 classical-only, 1 learned-only; the
+    ///      case the deleted count-only map reported as agreement;
+    ///   2: classical 1, learned 0 → 1 classical-only;
+    ///   3: classical 0, learned 2 → 2 learned-only.
+    /// Pooled residuals 0.5, 1.5, 1.0 → median 1.0 (the odd-count branch).
+    func testPositionMatchedMapPairsWithinTheRadiusAndCountsTheRest() throws {
+        let classical = vectors([[(10, 10), (30, 30)], [(10, 10), (50, 50)], [(20, 20)], []],
+                                scanWidth: 2, scanHeight: 2)
+        let learned = vectors([[(10.5, 10), (30, 31.5)], [(10, 11), (53, 50)], [], [(5, 5), (40, 40)]],
+                              scanWidth: 2, scanHeight: 2)
+        let result = try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: classical, learned: learned))
+        XCTAssertEqual(result.image.width, 2)
         XCTAssertEqual(result.image.height, 2)
-        XCTAssertEqual(result.image.pixels, [2, -3, 5, 0, -1, 1].map(Float.init))
+        XCTAssertEqual(result.image.pixels, [0, 2, 1, 2])
         XCTAssertEqual(result.summary, DiskDisagreement.Summary(
-            positions: 6, differing: 5, classicalPeaks: 17, learnedPeaks: 21,
-            minDifference: -3, medianDifference: 0.5, maxDifference: 5
+            positions: 4, differing: 3, matched: 3, classicalOnly: 2, learnedOnly: 3,
+            classicalPeaks: 5, learnedPeaks: 6, medianResidualPx: 1.0, matchRadiusPx: 2
         ))
+    }
 
-        // Same total peak count (6 zero-length lists either way) but a
-        // TRANSPOSED shape — isolates the scanWidth/scanHeight guard from the
-        // peaks.count guard, which a mismatch built from different counts
-        // would not do (that would be refused by the count check alone even
-        // if the dimension check were missing).
-        let mismatched = vectors(counts: [0, 0, 0, 0, 0, 0], scanWidth: 2, scanHeight: 3)
-        XCTAssertNil(DiskDisagreement.countDifferenceMap(classical: classical, learned: mismatched))
+    /// Two learned peaks inside the radius of ONE classical peak, the farther
+    /// one listed first: the closer pairs (residual 0.5), the other is
+    /// learned-only. A pairing that let a peak be used twice would report 2
+    /// paired and nothing unpaired; one that paired in list order would report
+    /// the 1.5-px residual. Then the MIRROR (two classical near one learned):
+    /// the two sides are guarded separately in the pairing loop, and the
+    /// first case alone passed with the learned-side guard removed (mutation
+    /// round B, 2026-09-08).
+    func testPositionMatchedMapPairsEachPeakAtMostOnceClosestFirst() throws {
+        let one = vectors([[(10, 10)]], scanWidth: 1, scanHeight: 1)
+        let two = vectors([[(11.5, 10), (10, 10.5)]], scanWidth: 1, scanHeight: 1)
+        let result = try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: one, learned: two))
+        XCTAssertEqual(result.image.pixels, [1])
+        XCTAssertEqual(result.summary.matched, 1)
+        XCTAssertEqual(result.summary.learnedOnly, 1)
+        XCTAssertEqual(result.summary.classicalOnly, 0)
+        XCTAssertEqual(result.summary.medianResidualPx, 0.5)
+
+        let mirrored = try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: two, learned: one))
+        XCTAssertEqual(mirrored.image.pixels, [1])
+        XCTAssertEqual(mirrored.summary.matched, 1)
+        XCTAssertEqual(mirrored.summary.classicalOnly, 1)
+        XCTAssertEqual(mirrored.summary.learnedOnly, 0)
+        XCTAssertEqual(mirrored.summary.medianResidualPx, 0.5)
+    }
+
+    /// Gate B 2026-09-08: every earlier fixture put the classical peaks ON the
+    /// diagonal (x == y), where a pairing that swaps one input's axes computes
+    /// the same distance — blind by construction. One off-diagonal pair pins
+    /// the axes: under the swap its distance becomes √(37² + 37²) and it vanishes.
+    func testPositionMatchedMapPairsOnMatchingAxesOffTheDiagonal() throws {
+        let classical = vectors([[(3, 40)]], scanWidth: 1, scanHeight: 1)
+        let learned = vectors([[(3.5, 40)]], scanWidth: 1, scanHeight: 1)
+        let result = try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: classical, learned: learned))
+        XCTAssertEqual(result.summary.matched, 1)
+        XCTAssertEqual(result.summary.medianResidualPx, 0.5)
+        XCTAssertEqual(result.image.pixels, [0])
+    }
+
+    /// The radius is inclusive (exactly 2 px pairs; 2.01 px does not), a custom
+    /// radius is honoured, nothing paired means no residual, and the same peak
+    /// count on a transposed scan shape is refused by the dimension guard.
+    func testPositionMatchedMapHonoursTheRadiusAndRefusesMismatchedShapes() throws {
+        let classical = vectors([[(10, 10)]], scanWidth: 1, scanHeight: 1)
+        let atRadius = vectors([[(12, 10)]], scanWidth: 1, scanHeight: 1)
+        let beyond = vectors([[(12.01, 10)]], scanWidth: 1, scanHeight: 1)
+        XCTAssertEqual(try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: classical, learned: atRadius)).summary.matched, 1)
+        let far = try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: classical, learned: beyond))
+        XCTAssertEqual(far.summary.matched, 0)
+        XCTAssertNil(far.summary.medianResidualPx)
+        XCTAssertEqual(far.image.pixels, [2])
+        XCTAssertEqual(try XCTUnwrap(DiskDisagreement.positionMatchedMap(classical: classical, learned: beyond, matchRadius: 3)).summary.matched, 1)
+
+        let oneByTwo = BraggVectors(scanWidth: 2, scanHeight: 1, peaks: [[], []])
+        let twoByOne = BraggVectors(scanWidth: 1, scanHeight: 2, peaks: [[], []])
+        XCTAssertNil(DiskDisagreement.positionMatchedMap(classical: twoByOne, learned: oneByTwo))
     }
 
     // MARK: DetectorClass

@@ -1,7 +1,7 @@
 //
 //  SidecarRelocationTests.swift
 //  Pins the file half of "Save Session Sidecar As…" (v2 S4):
-//  `AppState.copySidecarFile(from:to:)`. The panel and the seam retarget are
+//  `SessionSidecarLocator.copySidecarFile(from:to:)`. The panel and the seam retarget are
 //  thin wiring around this; the copy decisions are what can silently lose a
 //  session, so they are what gets pinned.
 //
@@ -35,7 +35,7 @@ final class SidecarRelocationTests: XCTestCase {
     func testAnExistingSidecarIsCopiedAndTheOriginalIsLeftInPlace() throws {
         let source = try write("session-content", to: "old.mac4dstem.h5")
         let destination = workDirectory.appendingPathComponent("new.mac4dstem.h5")
-        XCTAssertEqual(AppState.copySidecarFile(from: source, to: destination), .copied)
+        XCTAssertEqual(SessionSidecarLocator.copySidecarFile(from: source, to: destination), .copied)
         XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "session-content")
         // Copy, never move: deleting the previous companion would be the one
         // destructive step in an otherwise reversible gesture.
@@ -47,7 +47,7 @@ final class SidecarRelocationTests: XCTestCase {
         // half-surviving under the new name would be worse than either answer.
         let source = try write("current", to: "old.mac4dstem.h5")
         let destination = try write("stale", to: "new.mac4dstem.h5")
-        XCTAssertEqual(AppState.copySidecarFile(from: source, to: destination), .copied)
+        XCTAssertEqual(SessionSidecarLocator.copySidecarFile(from: source, to: destination), .copied)
         XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "current")
     }
 
@@ -56,13 +56,13 @@ final class SidecarRelocationTests: XCTestCase {
         // that must not read as an error.
         let source = workDirectory.appendingPathComponent("never-written.mac4dstem.h5")
         let destination = workDirectory.appendingPathComponent("new.mac4dstem.h5")
-        XCTAssertEqual(AppState.copySidecarFile(from: source, to: destination), .nothingToCopy)
+        XCTAssertEqual(SessionSidecarLocator.copySidecarFile(from: source, to: destination), .nothingToCopy)
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
     }
 
     func testChoosingTheSameFileCopiesNothing() throws {
         let source = try write("content", to: "same.mac4dstem.h5")
-        XCTAssertEqual(AppState.copySidecarFile(from: source, to: source), .nothingToCopy)
+        XCTAssertEqual(SessionSidecarLocator.copySidecarFile(from: source, to: source), .nothingToCopy)
         XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "content")
     }
 
@@ -80,7 +80,7 @@ final class SidecarRelocationTests: XCTestCase {
         let alias = linkDirectory.appendingPathComponent("session.mac4dstem.h5")
         XCTAssertNotEqual(alias.path, source.path,
                           "the fixture needs two spellings of one file")
-        XCTAssertEqual(AppState.copySidecarFile(from: source, to: alias), .nothingToCopy)
+        XCTAssertEqual(SessionSidecarLocator.copySidecarFile(from: source, to: alias), .nothingToCopy)
         XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "the only copy",
                        "an aliased 'copy onto itself' must never remove the file")
     }
@@ -94,7 +94,7 @@ final class SidecarRelocationTests: XCTestCase {
             try? FileManager.default.setAttributes([.posixPermissions: 0o644],
                                                    ofItemAtPath: source.path)
         }
-        guard case .failed = AppState.copySidecarFile(from: source, to: destination) else {
+        guard case .failed = SessionSidecarLocator.copySidecarFile(from: source, to: destination) else {
             return XCTFail("An unreadable source must surface as .failed — the caller's message depends on knowing the copy did not happen")
         }
     }

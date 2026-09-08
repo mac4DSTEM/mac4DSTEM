@@ -349,6 +349,28 @@ package enum ReplayRecordFrameMap {
         let described = value.map { "'\($0)'" } ?? "missing"
         return ReplayRefusal(reason: "its recorded parameter '\(key)' is \(described), which this app cannot read")
     }
+
+    /// The recipe-selection decision for a calibrated-cube export: the record
+    /// to stamp (already re-expressed in the exported file's frame) or the
+    /// omission reason. Moved from `AppState.exportableRecipe` (C7 session 4,
+    /// budget relocation) — pure, and it already called straight into this
+    /// type's own `mapForExport`.
+    package static func exportableRecipe(
+        record: SessionReplayRecord?,
+        recordedFrame: ReplayParameterFrame?,
+        currentSpecification: LoadSpecification,
+        exportBin: Int
+    ) -> (record: SessionReplayRecord?, omission: String?) {
+        guard let record else { return (nil, nil) }
+        let currentFrame = ReplayParameterFrame.of(currentSpecification)
+        guard (recordedFrame ?? .unknown) == currentFrame else {
+            return (nil, "the recipe's detector-pixel parameters were recorded on a different detector frame than this view (a promoted or restored session) — re-run the analyses on this view to record an exportable recipe")
+        }
+        switch mapForExport(record, exportBin: exportBin) {
+        case .success(let mapped): return (mapped, nil)
+        case .failure(let refusal): return (nil, refusal.reason)
+        }
+    }
 }
 
 /// A step the replay cannot run, with the reason a person can act on.

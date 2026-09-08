@@ -110,7 +110,9 @@ class SetProbe(nn.Module):
 
 def sha256_tree(path: str) -> str:
     h = hashlib.sha256(); p = Path(path)
-    files = sorted(f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p]
+    # no path component may start with "." (a Finder .DS_Store is not model content) — the same rule
+    # as the app's LearnedDiskDetector.sha256(ofAsset:), so both hash the same files (Gate B 2026-09-08)
+    files = sorted(f for f in p.rglob("*") if f.is_file() and not any(part.startswith(".") for part in f.relative_to(p).parts)) if p.is_dir() else [p]
     for f in files:
         h.update(str(f.relative_to(p) if p.is_dir() else f.name).encode()); h.update(f.read_bytes())
     return h.hexdigest()

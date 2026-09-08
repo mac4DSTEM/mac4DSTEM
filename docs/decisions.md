@@ -627,3 +627,95 @@ wiring (about 50 lines) was paid by `ACOMSession.resetForDataset` (the
 activation block), one probe-radius prologue, and 41 blank `///` / `//`
 separator lines removed file-wide — that last payment is cosmetic and is
 said so here; the next one should be §4's `OperationCenter` forwarders.
+
+**2026-09-08 — C7 session 3: the disagreement map pairs peaks, the ceiling
+on Core ML, and four choices made in-step by an agent (overrule on sight).**
+(1) The disagreement map pairs peaks position by position — greedy, closest
+pair first, each peak once — within 2 px, C6's evaluation radius
+(`evaluate.py`); both detectors end in the same classical refinement, so a
+shared disk lands well inside it. The map's value is the UNPAIRED peaks at a
+position (classical-only plus learned-only); the summary carries both
+directions, the pooled median residual and the counts. The count-only
+`countDifferenceMap` of sessions 1–2 is deleted: equal counts at different
+places read as agreement there, and the new summary reports counts too.
+(2) The map is a product with its own domain (scan, not Disk detection's
+detector domain) and its own provenance keys, so `publishProduct` gained a
+domain override and per-product keys rather than a second publish path; it
+records no recipe step — it is derived from two completed runs and a replay
+reproduces it by re-running both. (3) AppState's new lines are paid twice over
+by two relocations of stateless code, each pinned by existing or new tests:
+the classical replay dictionary into Core as
+`DiskDetectionParams.replayParameters(kernel:)` (a record → parse round
+trip), and `count`/`scanProgressStatus` onto `SystemMonitor` in `Session/`,
+beside the `byteString` they embed (the three progress tests follow them);
+the first payment alone left the pair 26 lines up and `inventory` said so.
+The `OperationCenter` forwarders named last session have 146 call sites and
+are a session of their own. (4) The ceiling is re-measured on
+the runtime that ships: `scan-bench` on Core ML, same 525-pattern 250-px
+geometry as the 2.81× run, one 256-px frame, no tiling — 1.44–1.64× (two
+runs; `tools/disk-detector/README.md`). The 2026-09-07 acceptance "at the
+measured edge of the ceiling" is therefore no longer a waiver; the number
+quoted for v3.0 is this one. Not decided here: which labels the sidecar
+holds (`open-items.md`).
+
+**2026-09-08 — Labels in the sidecar: centres, as one attribute (owner, in
+chat).** A sidecar label is a set of hand-clicked disk CENTRES at one scan
+position in the detector's native frame — the format the C6 verdict was
+measured against (`label_centres.py`), not the branch's confirmed/rejected
+verdict per position, which cannot score a detector per disk. They live as
+one JSON attribute on the session sidecar's root group, beside the
+calibration, so they survive reopen and travel with the file; a proper HDF5
+group is not opened now. The click mode lives in the app on the diffraction
+pane; the export writes the click tool's JSON so `evaluate.py` and the
+fine-tuning step read app labels and tool labels alike. The branch's
+`DiskLabelStore` is superseded, not ported. Why now: this is C7's last
+completion item; the owner wants C7 closed so the AI room (C8) and v3.0 can
+follow.
+
+**2026-09-08 — C7 session 4: the centre labels built, and six choices made
+in-step by an agent (overrule on sight).** (1) Labels are written only by
+the calibration save: `saveCalibrationToSessionSidecar` carries the store's
+JSON, and "Save to Sidecar" in the labels rows calls that same function —
+one rewrite path, one gate, no second save routine. A save with nothing to
+say about labels (an empty store) preserves what the file holds; the writer
+never erases labels. (2) A click within 3 px of an existing centre removes
+it, otherwise it adds one — the click tool's add/right-click-remove folded
+into one gesture, since a secondary click is awkward inside a zoomable pane.
+(3) The click catcher and the crosses exist only in Disks mode and only for
+the Current pattern; Mean and Max have no single position to label. (4) The
+JSON's `sha256` is the app's own canonical encoding of `positions` (sorted
+keys), not byte-identical to Python's `json.dumps`; `evaluate.py` records the
+value and recomputes nothing from it. (5) The AppState budget was paid by
+four stateless relocations, two beyond the brief: `realSpaceRegionShape` →
+`DetectorShape.realSpaceRegion` (Core), `isDataSourceFailure` →
+`SessionGates` (the harness lists rule out `TiledDiskDetection.swift`; a
+data-source failure classifier on the gates type is a stretch of that type's
+role and is said so here), `exportableRecipe` → `ReplayRecordFrameMap`,
+`copySidecarFile` → `SessionSidecarLocator`. (6) Of 18 new tests, 4 were
+broken by mutation; the rest were not individually broken — recorded, and
+handed to the Gate B campaign rather than claimed.
+
+**2026-09-08 — C7's Gate B campaign (sessions 1–4): one claim refuted, five
+surviving mutations closed, one design gap opened.** Refuted: "`evaluate.py`
+reads app labels and tool labels alike" — the app wrote `ingredient: "app"`,
+and `evaluate.py` keys the probe on that name in the ingredients npz
+(`KeyError: 'app_probe'`); now the store carries `ingredient`/`seed` through
+a round trip and `evaluate.py --ingredient` names the npz key for an app
+export. Closed with an assertion each, every one broken by the refuter's
+own mutation before being trusted: the disagreement matcher's tests all sat
+on the diagonal x == y (an axis swap in one input was invisible — one
+off-diagonal pair pins it); `fitOffset`'s half-to-even rounding was vacuous
+on the fixture's centre (63.6, 64.3); `removeNearest`'s test had the nearer
+centre added last; the export's destination was untested; a border click
+stored a centre off the detector (refused now). Changed on the findings: a
+refused learned replay no longer switches the picker or applies the
+recorded threshold; the asset hash and `export.py`'s `sha256_tree` now
+share one rule (no path component starting with "."); `scan-bench` records
+the crop origin under the keys the detector writes. Corrected in the docs:
+the ceiling is ≈ 1.5×, the 1.44–1.64× band being run-to-run noise, with the
+250² vs 256² FFT caveat stated. Opened (`open-items.md`): the probe channel's
+anchor for detectors above 256 px. Held: the Python parity of `modelInputs`,
+`toCounts`, peak picking and the shift back (17 mutations, `fixture` gate
+exit 0), the replay rules, the preserve-on-nil sidecar write, the Neural
+Engine per-shape trap re-measured at 0.036. Process: `-only-testing` with a
+FILE name that is not a class runs nothing and exits 0.

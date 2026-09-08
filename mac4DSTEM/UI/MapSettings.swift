@@ -124,6 +124,19 @@ private struct DiskDetectionRows: View {
             LabeledContent("Model", value: learnedModelStatus(learned))
         }
 
+        if learned.canCompare {
+            Button {
+                appState.runDiskDisagreement()
+            } label: {
+                Label("Compare Detectors", systemImage: "arrow.left.arrow.right")
+            }
+            .disabled(appState.isBusy)
+            .accessibilityIdentifier("disk.compareDetectors")
+            .help("Publish a scan map of the peaks the neural net and the classical detector do not share at each position, paired within 2 px. Appears once Detect All Disks has run with each detector on this dataset.")
+        }
+
+        DiskCentreLabelsRows()
+
         parameterSliderRow(
             title: DiskDetectionParameterID.correlationPower.title,
             value: floatBinding(
@@ -231,6 +244,64 @@ private struct DiskDetectionRows: View {
                 }
             }
         }
+    }
+}
+
+/// Hand-clicked disk-centre labels (C7 session 4): the click-mode toggle,
+/// this position's and the dataset's counts, and the three actions that read
+/// or write them. State lives in `AppState.diskCentreLabels`
+/// (`DiskCentreLabelStore`); every effect here goes back through an AppState
+/// method, per the view/Core split.
+private struct DiskCentreLabelsRows: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var labels = appState.diskCentreLabels
+        let ry = appState.selectedScan.y, rx = appState.selectedScan.x
+        let thisPosition = labels.centres(ry: ry, rx: rx).count
+
+        Toggle("Label centres on click", isOn: $labels.labelling)
+            .disabled(appState.descriptor == nil || appState.patternDisplayMode != .current)
+            .accessibilityIdentifier("disk.labels.toggle")
+            .help("While on, click the diffraction pane to add a hand-clicked disk centre at the current scan position, or click near an existing one to remove it. Only available on the Current pattern display, where there is one scan position to label.")
+
+        LabeledContent("This position", value: "\(thisPosition) centres")
+            .monospacedDigit()
+            .accessibilityIdentifier("disk.labels.thisPosition")
+
+        LabeledContent(
+            "Labelled",
+            value: "\(labels.labelledPositionCount) positions · \(labels.centreCount) centres"
+        )
+        .monospacedDigit()
+        .accessibilityIdentifier("disk.labels.total")
+
+        Button {
+            labels.clear(ry: ry, rx: rx)
+        } label: {
+            Label("Clear This Position", systemImage: "xmark.circle")
+        }
+        .disabled(thisPosition == 0)
+        .accessibilityIdentifier("disk.labels.clearPosition")
+        .help("Remove every hand-clicked centre at the current scan position.")
+
+        Button {
+            appState.saveCalibrationToSessionSidecar()
+        } label: {
+            Label("Save to Sidecar", systemImage: "square.and.arrow.down")
+        }
+        .disabled(labels.isEmpty)
+        .accessibilityIdentifier("disk.labels.save")
+        .help("Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration.")
+
+        Button {
+            _ = appState.exportDiskCentreLabels()
+        } label: {
+            Label("Export Labels…", systemImage: "square.and.arrow.up")
+        }
+        .disabled(labels.isEmpty)
+        .accessibilityIdentifier("disk.labels.export")
+        .help("Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in the JSON tools/disk-detector/label_centres.py writes.")
     }
 }
 

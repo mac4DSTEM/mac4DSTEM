@@ -62,7 +62,7 @@ extension AppState {
         // and everything else refuses by name. Composing across three
         // frames is real math for a session that wants it; recorded in
         // docs/open-items.md, not improvised here.
-        let (mappedRecipe, recipeOmission) = Self.exportableRecipe(
+        let (mappedRecipe, recipeOmission) = ReplayRecordFrameMap.exportableRecipe(
             record: replay.recordForSaving,
             recordedFrame: replay.parameterFrame,
             currentSpecification: loadedView.specification,
@@ -1099,55 +1099,9 @@ extension AppState {
 
     // MARK: - Save Session Sidecar As… (v2 S4)
 
-    /// How moving the sidecar file itself went. `nothingToCopy` is a normal
-    /// outcome (no sidecar has been written yet), not a failure.
-    nonisolated enum SidecarCopyOutcome: Equatable {
-        case copied
-        case nothingToCopy
-        case failed(String)
-    }
-
-    /// Copy the existing sidecar to the newly chosen URL, replacing what the
-    /// user agreed to replace in the save panel. Copy, never move: the
-    /// original stays where it was, because silently deleting the previous
-    /// companion would be the one destructive step in an otherwise reversible
-    /// gesture. Pure file work, separated so the tests can pin it.
-    nonisolated static func copySidecarFile(from current: URL, to url: URL) -> SidecarCopyOutcome {
-        let manager = FileManager.default
-        guard current != url, manager.fileExists(atPath: current.path) else {
-            return .nothingToCopy
-        }
-        // Same-FILE guard by filesystem identity, not by path string: a
-        // case-insensitive APFS volume or a symlink alias spells one file two
-        // ways, and a string comparison here would REMOVE the only sidecar and
-        // then fail to copy it — the user asked for a rename and got a
-        // deletion. Identity is unreadable only when `url` does not exist yet,
-        // which is exactly the case where removing nothing is safe.
-        if let currentIdentity = try? current.resourceValues(
-               forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
-           let chosenIdentity = try? url.resourceValues(
-               forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
-           currentIdentity.isEqual(chosenIdentity) {
-            return .nothingToCopy
-        }
-        var replacedDestination = false
-        do {
-            if manager.fileExists(atPath: url.path) {
-                try manager.removeItem(at: url)
-                replacedDestination = true
-            }
-            try manager.copyItem(at: current, to: url)
-            return .copied
-        } catch {
-            // Honest split: if the replace already removed the destination,
-            // the caller's message must not imply the old destination file
-            // still exists.
-            let removal = replacedDestination
-                ? " The file previously at the chosen destination was removed before the copy failed."
-                : ""
-            return .failed(error.localizedDescription + removal)
-        }
-    }
+    // `SidecarCopyOutcome` and `copySidecarFile` moved to
+    // `SessionSidecarLocator` (C7 session 4, budget relocation) — pure
+    // Foundation file work with no AppState dependency.
 
     /// The one sidecar save panel, shared by the first-save path
     /// (`writableSessionSidecarURL`) and Save As — the S1 lesson in panel
@@ -1194,7 +1148,7 @@ extension AppState {
     /// the file the inspector will now be describing. Internal so the wiring
     /// is testable — the S1 lesson about tests that cannot reach the call site.
     func adoptSessionSidecar(at url: URL, movingFrom current: URL, for descriptor: DatasetDescriptor) {
-        let outcome = Self.copySidecarFile(from: current, to: url)
+        let outcome = SessionSidecarLocator.copySidecarFile(from: current, to: url)
         // Same-file detection by the SAME identity test `copySidecarFile`
         // uses, not by path string: a symlink or case-differing spelling of
         // one file would otherwise skip the re-grant below while the copy
@@ -1291,6 +1245,16 @@ extension AppState {
         // The recipe travels with every publish, captured on the MainActor
         // before the detached write. // v2 S5
         let recipe = replay.recordForSaving
+        // Labels ride along the same way (C7 session 4); nil (an empty
+        // store) tells `mergeCalibration` to preserve what the sidecar has.
+        let labelsJSON: String?
+        do {
+            labelsJSON = diskCentreLabels.isEmpty
+                ? nil : String(decoding: try diskCentreLabels.encodedJSON(), as: UTF8.self)
+        } catch {
+            present(error)
+            return
+        }
         let token = beginCancellableOperation(
             "Session calibration", status: "Saving calibration…"
         )
@@ -1302,7 +1266,8 @@ extension AppState {
                     try BraggVectorEMDWriter.mergeCalibration(
                         snapshot, qWidth: descriptor.qx, qHeight: descriptor.qy,
                         to: url, loadSpecification: specification,
-                        replayRecord: recipe, cancellation: token
+                        replayRecord: recipe, diskCentreLabelsJSON: labelsJSON,
+                        cancellation: token
                     )
                 }.value
                 guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
@@ -1325,28 +1290,65 @@ extension AppState {
         }
     }
 
-    /// The recipe-selection decision for a calibrated-cube export, extracted
-    /// from behind the save panel so it is testable — S10's one confirmed
-    /// Gate B defect lived exactly in this decision while it was inline (the
-    /// S1 wiring lesson). Pure: record + frames + export bin in, the record
-    /// to stamp (already in the exported file's frame) or the omission
-    /// reason out.
-    static func exportableRecipe(
-        record: SessionReplayRecord?,
-        recordedFrame: ReplayParameterFrame?,
-        currentSpecification: LoadSpecification,
-        exportBin: Int
-    ) -> (record: SessionReplayRecord?, omission: String?) {
-        guard let record else { return (nil, nil) }
-        let currentFrame = ReplayParameterFrame.of(currentSpecification)
-        guard (recordedFrame ?? .unknown) == currentFrame else {
-            return (nil, "the recipe's detector-pixel parameters were recorded on a different detector frame than this view (a promoted or restored session) — re-run the analyses on this view to record an exportable recipe")
+    /// Write the current labels to Documents/mac4DSTEM/disk-labels/ (C7
+    /// session 4) as a standalone file — `label_centres.py`'s own JSON, for
+    /// moving into `tools/disk-detector/labels/`. Distinct from "Save to
+    /// Sidecar", which keeps the labels beside the dataset.
+    func exportDiskCentreLabels() -> AnalysisRunOutcome {
+        guard let descriptor else {
+            return .failed("No dataset is open.")
         }
-        switch ReplayRecordFrameMap.mapForExport(record, exportBin: exportBin) {
-        case .success(let mapped): return (mapped, nil)
-        case .failure(let refusal): return (nil, refusal.reason)
+        guard !diskCentreLabels.isEmpty else {
+            return .failed("No disk-centre labels yet — click some centres first")
+        }
+        guard let documentsURL = FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask
+        ).first else {
+            return .failed("Could not locate this app's Documents folder")
+        }
+        let folder = documentsURL.appendingPathComponent("mac4DSTEM/disk-labels", isDirectory: true)
+        let datasetName = URL(fileURLWithPath: descriptor.filePath)
+            .deletingPathExtension().lastPathComponent
+        do {
+            let url = try diskCentreLabels.exportForFineTuning(to: folder, datasetName: datasetName)
+            statusText = "Exported disk-centre labels → \(url.lastPathComponent)"
+            return .published
+        } catch {
+            return .failed("Could not export disk-centre labels: \(error.localizedDescription)")
         }
     }
+
+    /// The diffraction pane's click while "Label centres on click" is on:
+    /// add a centre, or remove the nearest one within 3 px. Refuses outside
+    /// `.current` display (Mean/Max have no single scan position) and while
+    /// the toggle is off.
+    func toggleDiskCentre(atPatternRow row: Float, col: Float) -> AnalysisRunOutcome {
+        guard let descriptor else {
+            return .failed("No dataset is open.")
+        }
+        // The pane's tap catcher maps its border to −0.5 / q − 0.5 (Gate B, 2026-09-08).
+        guard row >= 0, col >= 0, row < Float(descriptor.qy), col < Float(descriptor.qx) else {
+            return .failed("That click landed outside the pattern")
+        }
+        guard patternDisplayMode == .current else {
+            return .failed("Switch the pattern display to Current — Mean and Max have no single scan position to label")
+        }
+        guard diskCentreLabels.labelling else {
+            return .failed("Turn on \"Label centres on click\" in Disk detection first")
+        }
+        let centre = DiskCentreLabelStore.Centre(row: row, col: col)
+        let rx = selectedScan.x, ry = selectedScan.y
+        if !diskCentreLabels.removeNearest(to: centre, within: 3, ry: ry, rx: rx) {
+            diskCentreLabels.add(centre, ry: ry, rx: rx)
+        }
+        let n = diskCentreLabels.centres(ry: ry, rx: rx).count
+        statusText = "Scan (\(ry), \(rx)): \(n) centre\(n == 1 ? "" : "s")"
+        return .published
+    }
+
+    // `exportableRecipe` moved to `ReplayRecordFrameMap` in
+    // `Session/ReplayPlan.swift` (C7 session 4, budget relocation) — it was
+    // already pure and already called straight into that type.
 
     /// Construct the py4DSTEM-axis calibration snapshot. This is the sole save
     /// boundary where app detector x/y becomes py4DSTEM qy/qx.

@@ -86,7 +86,12 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         if isDir.boolValue {
             let base = url.standardizedFileURL.path
             var files: [String] = []
-            if let e = fm.enumerator(atPath: base) { for case let rel as String in e where !rel.hasPrefix(".") {
+            // No path COMPONENT may start with "." — a Finder `.DS_Store` at any depth
+            // is not model content; `export.py`'s `sha256_tree` applies the same rule,
+            // so both sides hash the same files (Gate B 2026-09-08: the root-only
+            // filter here and no filter there could disagree on a nested dotfile).
+            if let e = fm.enumerator(atPath: base) { for case let rel as String in e
+                where !rel.split(separator: "/").contains(where: { $0.hasPrefix(".") }) {
                 var d: ObjCBool = false
                 if fm.fileExists(atPath: base + "/" + rel, isDirectory: &d), !d.boolValue { files.append(rel) }
             } }

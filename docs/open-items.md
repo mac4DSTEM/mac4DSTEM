@@ -190,19 +190,15 @@ in "residual is too large (0.247)".
 gitignored multi-GB data and stay diagnostics only — not a gap to close,
 a standing limit to remember before citing them as coverage.
 
-### C7's learned runtime: ceiling unmeasured on Core ML (2026-09-08)
-Session 1 put `Core/ML/LearnedDiskDetector` (Core ML, 256 px) on `main`;
-session 2's picker and the map's Provenance rows were driven by the owner
-on the demo the same day (`status.md` row). The 2.81×
-ceiling (`consolidation-plan.md` §2a) was measured on Core AI at 128 px by
-`tools/disk-detector/scan-bench/`, which still lives on `ml/disk-detector`
-and times that runtime: port it and re-measure on Core ML at 256 px before
-the number is quoted for v3.0. Trap: the Neural Engine specialises per input
-shape — the flexible-batch package's batch-1 heatmap differs from the batched
-one by up to 0.035 (`check.json`), so the app and the fixture both use batch
-32, zero-padded; a fixture predicted at another batch flips picks at the
-threshold (cost one test iteration on 2026-09-08). `check_export.py` leaves
-2.4 GB of regenerable `check-work` under the run's `export/` (owner's data).
+### Learned detector above 256 px: the probe channel's anchor (Gate B, 2026-09-08)
+`LearnedDiskDetector.detectAll` crops the probe channel clamped-centred for
+every window while the pattern windows sit at `windowOrigins`, so on a
+detector above 256 px the probe and the pattern do not share one anchor —
+the opposite of every training input (`simulate.py` "the SAME anchor for
+both"). The >256-px path has no Python reference (`evaluate.py` never tiles);
+its tests are Swift against Swift. Nothing shipped is above 250 px. Owed: one
+synthetic >256-px detector scored under clamped-centred vs per-window-anchored
+probe placement before the windowed path is quoted as measured.
 
 ### #30 — origin calibration over a NAS runs at ~3 MB/s (2026-08-06)
 Investigation owed; nobody has measured it since.

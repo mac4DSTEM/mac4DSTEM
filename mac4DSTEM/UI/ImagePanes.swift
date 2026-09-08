@@ -222,6 +222,44 @@ struct DiffractionPane: View {
                         .allowsHitTesting(false)
                     }
 
+                    // Hand-clicked disk-centre labels (C7 session 4, Disks
+                    // mode only — labelling is one scan position at a time).
+                    // Shown once there is something to show, or while the
+                    // click-mode toggle is on so the owner can see where a
+                    // click would land.
+                    if appState.navigation.analysisMode == .disks {
+                        let labels = appState.diskCentreLabels
+                        let centres = labels.centres(
+                            ry: appState.selectedScan.y, rx: appState.selectedScan.x
+                        )
+                        if labels.labelling || !centres.isEmpty {
+                            CentreLabelOverlay(
+                                centres: centres, patternWidth: qx, patternHeight: qy, box: box
+                            )
+                            .allowsHitTesting(false)
+                        }
+                        if labels.labelling {
+                            // `.simultaneousGesture`, not `.gesture`: this
+                            // view sits inside the same ZStack `.zoomPan`
+                            // attaches to (pinch/pan/double-tap-to-reset),
+                            // and the pane's own single-tap (`activePane`)
+                            // is on an ancestor further out — an exclusive
+                            // gesture here would swallow both.
+                            Color.clear
+                                .frame(width: box.width, height: box.height)
+                                .contentShape(Rectangle())
+                                .simultaneousGesture(
+                                    SpatialTapGesture().onEnded { value in
+                                        let px = PeakOverlayGeometry.pixel(
+                                            at: value.location,
+                                            patternWidth: qx, patternHeight: qy, box: box
+                                        )
+                                        _ = appState.toggleDiskCentre(atPatternRow: px.y, col: px.x)
+                                    }
+                                )
+                        }
+                    }
+
                     // Fit verification: measured peaks against the fitted model
                     // (strain lattice / ACOM template / origin + ellipse).
                     let fit = appState.fitOverlays

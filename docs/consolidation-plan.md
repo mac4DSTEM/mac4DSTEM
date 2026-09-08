@@ -617,8 +617,16 @@ package and its record, `Core/ML/` at 256 px, the fixture, 19 tests);
 session 2 the Session owner, the picker with its threshold and Model rows
 in Disk detection, the detector's identity in the map's provenance, replay
 refusing a `detector_class` mismatch, the readiness rows (`status.md`);
-next session: the position-matched disagreement map, sidecar labels, the
-scan-bench on Core ML, then the Gate B campaign and the drive.** Step 4 exists on the branch on Core AI
+session 3 (the same day) the position-matched disagreement map as a product
+("Compare Detectors" in Disk detection), `scan-bench` on Core ML with the
+ceiling re-measured at 256 px — **≈ 1.5× (1.44–1.64× over three runs, the
+band is noise), under the 2× target** the 2026-09-07 acceptance had waived at
+2.81× (`tools/disk-detector/README.md`);
+session 4 (the same evening) the hand-clicked centre labels as one sidecar
+attribute in `label_centres.py`'s schema (owner: centres, attribute);
+the Gate B campaign over sessions 1–4 ran the same night (one claim
+refuted and fixed, five blind spots closed, `archive/v3/c7-gate-b-2026-09-08.md`);
+**still open: the owner's drive of sessions 3–4, then v3.0.** Step 4 exists on the branch on Core AI
 (`5ca9660`, off by default, macOS 27), so C7 is the Core ML swap sized in
 §2a plus a completion, not a build: one Core ML inference class in `Core/`
 replacing the Core AI one (decided 2026-09-07), `DetectorClass` in
@@ -631,14 +639,19 @@ positions as well as counts, labels in the sidecar. Opt-in, off by default,
 `heatmap` asset plus CPU peak-picking; no in-graph programme. Gate B
 campaign; the drive; v3.0. Four to six sessions, per §3a's own estimate.
 
-**C8 — the unpushed AI-room work, one triage session after C0.** Once
-visible: whatever depends on the detector waits for C7; precipitates and
-groups wait for the §1.5 design session (`v3-plan.md:35-41`) and re-enter
-through it; nothing merges to `main` before. The earlier review's fixes —
+**C8 — the unpushed AI-room work, one triage session after C0. DONE
+2026-09-08 as the triage (`status.md` row; `archive/v3/c8-triage-2026-09-08.md`):
+of the five checklist items one is met with a caveat, one partly, three not;
+the four pure `Core/Analysis` engines depend on neither detector and could
+land unwired (owner decision owed); the product, orchestration and UI layers
+of precipitates and diffraction groups wait for the §1.5 design session
+(`v3-plan.md:35-41`) and re-enter through it; the verdict label store is
+dropped (centre labels, `decisions.md` 2026-09-08); nothing merges to `main`
+before.** The earlier review's fixes —
 density reads `sourceValidity` or refuses; `isStale` on every product;
 edge objects counted consistently; discarded failure strings surfaced; the
-four blocking operations detached with Cancel — are the acceptance checklist
-for that branch, not work to do now.
+four blocking operations detached with Cancel — remain the acceptance
+checklist for whatever re-enters.
 
 ## 7. Done when
 

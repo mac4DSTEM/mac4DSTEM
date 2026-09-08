@@ -57,7 +57,7 @@ final class DatasetLoadingProgressTests: XCTestCase {
 
     func testScanStatusNamesBothPatternsAndBytes() {
         let descriptor = DemoFourDDataSource.descriptor
-        let status = AppState.scanProgressStatus(
+        let status = SystemMonitor.scanProgressStatus(
             "Scanning patterns", processed: 72, total: 144, descriptor: descriptor
         )
         XCTAssertTrue(status.contains("72"), status)
@@ -72,9 +72,9 @@ final class DatasetLoadingProgressTests: XCTestCase {
     /// twice and decimal point once, in one line. Observed on the real app
     /// 2026-08-06.
     func testPatternCountsGroupIndependentlyOfTheSystemLocale() {
-        XCTAssertEqual(AppState.count(1_378), "1,378")
-        XCTAssertEqual(AppState.count(16_218), "16,218")
-        let status = AppState.scanProgressStatus(
+        XCTAssertEqual(SystemMonitor.count(1_378), "1,378")
+        XCTAssertEqual(SystemMonitor.count(16_218), "16,218")
+        let status = SystemMonitor.scanProgressStatus(
             "Scanning patterns", processed: 1_378, total: 16_218,
             descriptor: DemoFourDDataSource.descriptor
         )
@@ -94,7 +94,7 @@ final class DatasetLoadingProgressTests: XCTestCase {
             shape: [4, 4, 64, 64], dtypeDescription: "uint16", chunkShape: nil
         )
         // 16 patterns x 64 x 64 x 4 bytes = 256 KB working, vs 128 KB on disk.
-        let status = AppState.scanProgressStatus(
+        let status = SystemMonitor.scanProgressStatus(
             "Scanning patterns", processed: 16, total: 16, descriptor: uint16Cube
         )
         XCTAssertTrue(

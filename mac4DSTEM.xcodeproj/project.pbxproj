@@ -113,6 +113,7 @@
 				Session/ACOMWorkflow.swift,
 				Session/CalibrationSession.swift,
 				Session/DatasetResidency.swift,
+				Session/DiskCentreLabels.swift,
 				Session/FitOverlayPresentation.swift,
 				Session/LearnedDetection.swift,
 				Session/LoadedView.swift,

@@ -308,6 +308,14 @@ package nonisolated enum BraggVectorEMDWriter {
     private static let derivationAttribute = "mac4dstem_derivation"
     private static let minimumReaderAttribute = SessionSidecarFormat.minimumReaderAttribute
     private static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
+    /// The hand-clicked disk-centre labels (C7 session 4, 2026-09-08), as the
+    /// same JSON `tools/disk-detector/label_centres.py` writes — one
+    /// attribute on the session root, beside calibration. Additive content,
+    /// like the replay record: absent on a file that predates it, and a
+    /// calibration save with nothing new to say about labels must carry the
+    /// existing value forward rather than erase it (see `writeFile`'s
+    /// `preservedLabelsJSON`).
+    private static let diskCentreLabelsAttribute = "mac4dstem_disk_centre_labels"
     /// Derived, never a literal: "5" famously stayed put across a format
     /// addition (2026-08-18), which is what made the stamp meaningless.
     /// `SessionSidecarFormat.currentSchema` is the one place the number
@@ -658,6 +666,13 @@ package nonisolated enum BraggVectorEMDWriter {
         to destination: URL,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        // C7 session 4: nil PRESERVES whatever the sidecar already holds
+        // under `diskCentreLabelsAttribute` (this writer rebuilds the file on
+        // every rewrite, so "say nothing" must mean "carry it forward," the
+        // same rule `replayRecord` already follows two lines up) — a
+        // calibration save must never be the thing that erases hand-clicked
+        // labels. A non-nil value replaces it.
+        diskCentreLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
@@ -674,6 +689,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
                     loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    diskCentreLabelsJSON: diskCentreLabelsJSON,
                     supportedSchema: supportedSchema,
                     cancellation: cancellation, progress: progress)
     }
@@ -876,6 +892,28 @@ package nonisolated enum BraggVectorEMDWriter {
             return nil
         }
         return try readRGBAResultMap(nodeName: id, from: root, hdf5: h5)
+    }
+
+    /// The hand-clicked disk-centre labels JSON (C7 session 4), or nil when
+    /// the sidecar carries none — a missing file, a file with no such
+    /// attribute, and a file that predates this feature all read as nil, the
+    /// same "absence is absence" rule `loadSession` applies to the load
+    /// specification and replay record. Deliberately NOT part of
+    /// `SessionSidecarSnapshot`: this attribute is read on dataset
+    /// activation only, never alongside a result restore.
+    package static func loadDiskCentreLabelsJSON(from url: URL) throws -> String? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let h5 = try HDF5WriteLibrary.load()
+        let fileID = url.path.withCString {
+            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
+        }
+        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
+        defer { _ = h5.h5fclose(fileID) }
+        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
+        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
+        defer { _ = h5.h5gclose(root) }
+        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: SessionSidecarFormat.currentSchema)
+        return try readStringAttribute(diskCentreLabelsAttribute, on: root, hdf5: h5)
     }
 
     /// Deterministic, HDF5-safe node name. The hash avoids collisions when two
@@ -1282,6 +1320,7 @@ package nonisolated enum BraggVectorEMDWriter {
         removingKind: String? = nil,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        diskCentreLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
@@ -1307,6 +1346,7 @@ package nonisolated enum BraggVectorEMDWriter {
             calibration: calibration, preserving: existing, removingKind: removingKind,
             loadSpecification: loadSpecification,
             replayRecord: replayRecord,
+            diskCentreLabelsJSON: diskCentreLabelsJSON,
             supportedSchema: supportedSchema,
             cancellation: cancellation,
             progress: progress, hdf5: hdf5
@@ -1628,6 +1668,7 @@ package nonisolated enum BraggVectorEMDWriter {
         removingKind: String?,
         loadSpecification: LoadSpecification?,
         replayRecord: SessionReplayRecord?,
+        diskCentreLabelsJSON: String?,
         supportedSchema: Int,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
@@ -1699,6 +1740,22 @@ package nonisolated enum BraggVectorEMDWriter {
                 defer { _ = h5.h5gclose(existingRoot) }
                 preservedReplayJSON = try readStringAttribute(
                     replayRecordAttribute, on: existingRoot, hdf5: h5
+                )
+            }
+        }
+        // Preserve existing disk-centre labels the same way, for the same
+        // reason (C7 session 4): a calibration save is not a labelling
+        // session, and a caller that passes nil here is saying nothing about
+        // labels, not "there are none."
+        var preservedLabelsJSON: String?
+        if diskCentreLabelsJSON == nil, let existingID {
+            let existingRoot = rootPath.withCString {
+                h5.h5gopen2(existingID, $0, h5DefaultProperty)
+            }
+            if existingRoot >= 0 {
+                defer { _ = h5.h5gclose(existingRoot) }
+                preservedLabelsJSON = try readStringAttribute(
+                    diskCentreLabelsAttribute, on: existingRoot, hdf5: h5
                 )
             }
         }
@@ -1837,6 +1894,13 @@ package nonisolated enum BraggVectorEMDWriter {
         // record the existing file already carried survives the rewrite.
         if let json = replayRecord?.jsonString ?? preservedReplayJSON {
             try writeStringAttribute(replayRecordAttribute, value: json,
+                                     on: root, hdf5: h5)
+        }
+        // Same rule as the replay record immediately above: the caller's
+        // live value wins, otherwise the labels already on the file survive
+        // the rewrite. // C7 session 4
+        if let json = diskCentreLabelsJSON ?? preservedLabelsJSON {
+            try writeStringAttribute(diskCentreLabelsAttribute, value: json,
                                      on: root, hdf5: h5)
         }
         if !resultNodeNames.isEmpty {

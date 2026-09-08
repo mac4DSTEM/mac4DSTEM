@@ -59,6 +59,18 @@ def native_centre_for(ing, key):
     return tuple(ing[k]) if k in ing.files else None
 
 
+def label_ingredient(L, ing, fallback):
+    """The ingredients-npz key the labels' probe lives under. A labels file written by the app
+    (DiskCentreLabelStore, C7 session 4) carries ingredient "app", which no npz has — `--ingredient`
+    names the key then; a tool file's own ingredient wins when the npz has it (Gate B, 2026-09-08)."""
+    key = L.get("ingredient")
+    if f"{key}_probe" in ing:
+        return key
+    if fallback and f"{fallback}_probe" in ing:
+        return fallback
+    raise SystemExit(f"labels ingredient {key!r} is not in the ingredients npz — pass --ingredient bullseye|ws2")
+
+
 def load_labels(path):
     """The frozen hand-labelled test set (label_centres.py): {cube, dataset, ingredient, frame:
     "native", positions: [{ry, rx, centres: [[row, col], ...]}]} in NATIVE pattern coordinates (C7
@@ -114,7 +126,8 @@ def stage_net(a):
              ("ws2", a.ws2, WS2, ing["ws2_probe"].astype(np.float64), tuple(ing["ws2_centre"]), None, "ws2")]
     if a.labels:
         L, lpos = load_labels(a.labels)
-        cases.append(("labels", L["cube"], L["dataset"], ing[f"{L['ingredient']}_probe"].astype(np.float64), tuple(ing[f"{L['ingredient']}_centre"]), lpos, L["ingredient"]))
+        lk = label_ingredient(L, ing, a.ingredient)
+        cases.append(("labels", L["cube"], L["dataset"], ing[f"{lk}_probe"].astype(np.float64), tuple(ing[f"{lk}_centre"]), lpos, lk))
     for name, path, ds, probe, c, positions, ing_key in cases:
         native = native_centre_for(ing, ing_key)
         pos, xs = [], []
@@ -293,8 +306,9 @@ def stage_compare(a):
     # both a 128-px and a 256-px asset.
     if a.labels:
         L, lpos = load_labels(a.labels)
-        probe, c = ing[f"{L['ingredient']}_probe"].astype(np.float64), tuple(ing[f"{L['ingredient']}_centre"])
-        native = native_centre_for(ing, L['ingredient'])
+        lk = label_ingredient(L, ing, a.ingredient)
+        probe, c = ing[f"{lk}_probe"].astype(np.float64), tuple(ing[f"{lk}_centre"])
+        native = native_centre_for(ing, lk)
         N = np.load(os.path.join(a.out, "net-labels.npz")); H = N["heat"]
         size = H.shape[-1]
         k = sm.flat_kernel(probe, c)
@@ -331,6 +345,7 @@ def main():
     ap.add_argument("--stride", type=int, default=8); ap.add_argument("--threshold", type=float, default=0.3); ap.add_argument("--examples", type=int, default=6)
     ap.add_argument("--tag", default="", help="suffix for evaluate<tag>.json and the PNGs (a second threshold, say)")
     ap.add_argument("--labels", help="the frozen hand-labelled test set (label_centres.py JSON): scores net and classical against it")
+    ap.add_argument("--ingredient", default=None, help="the npz key for a labels file whose own ingredient is not in the npz (an app export says \"app\"): bullseye|ws2")
     ap.add_argument("--label-tol", type=float, default=2.0, help="match radius in px against the hand labels")
     ap.add_argument("--asset", help="stage net: a Core AI .aimodel whose `heatmap` output replaces PyTorch's (the exported runtime, ANE preferred)")
     ap.add_argument("--asset-function", default="heatmap"); ap.add_argument("--asset-batch", type=int, default=32)

@@ -83,14 +83,8 @@ enum ActivePane {
     case realSpace     // region ROI → diffraction pattern (virtual diffraction)
 }
 
-/// Real-space region shape for virtual diffraction. A point is plain scrubbing
-/// (one position); a region sums its positions' patterns.
-enum RegionShape: String, CaseIterable, Identifiable {
-    case point     = "Point"
-    case rectangle = "Rectangle"
-    case circle    = "Circle"
-    var id: String { rawValue }
-}
+// `RegionShape` moved to `Core/Analysis/VirtualDetector.swift` (C7 session 4,
+// budget relocation) — a placement change, not a policy change.
 
 enum ComparisonSlot: Equatable { case a, b }
 
@@ -289,15 +283,18 @@ final class AppState {
 
     /// v2.5 step 3e: a compute site publishes its product with ITS OWN
     /// kind/name/units — condition 2 of plan §9d, one site at a time. Sampling
-    /// and provenance still come from the per-mode persistence metadata.
+    /// and provenance still come from the per-mode persistence metadata; a
+    /// product that is not the mode's own (the disagreement map published from
+    /// Disk detection, C7 session 3) passes its domain and its own keys.
     func publishProduct(
         kind: String, displayName: String, valueUnits: String, payload: ProductPayload,
         validityMask: [Bool]? = nil, qualityFields: [ProductQualityField] = [],
-        overlays: [ProductOverlayDescriptor] = []
+        overlays: [ProductOverlayDescriptor] = [],
+        domain: ProductDomain? = nil, extraProvenance: [String: String] = [:]
     ) {
         let persisted = currentScalarPersistenceMetadata
-        let domain = activeResultDomain
-        var provenance = persisted.provenance
+        let domain = domain ?? activeResultDomain
+        var provenance = persisted.provenance.merging(extraProvenance) { _, new in new }
         provenance["display_domain"] = domain.rawValue
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: kind, units: valueUnits)
@@ -488,6 +485,9 @@ final class AppState {
     /// Learned-vs-classical detector option and state; no forwarding
     /// properties — see `Session/LearnedDetection.swift`.
     let learnedDetection = LearnedDetectionSession()
+
+    /// Hand-clicked disk-centre labels (C7 session 4) — see `Session/DiskCentreLabels.swift`.
+    let diskCentreLabels = DiskCentreLabelStore()
 
     /// Automatic is an explicit, inspectable policy rather than a claim that
     /// the GPU is active. Real-data benchmarking may revise this policy, but
@@ -2214,27 +2214,11 @@ final class AppState {
     /// session, so it escalates to the modal path regardless of which stage
     /// surfaced it.
     func presentComputeFailure(_ error: Error) {
-        if isDataSourceFailure(error) {
+        if SessionGates.isDataSourceFailure(error) {   // moved here, C7 session 4 (budget)
             present(error)
             return
         }
         statusText = "Error: \(error.localizedDescription)"
-    }
-
-    private func isDataSourceFailure(_ error: Error) -> Bool {
-        // A tile-read failure WRAPS its data-source error (v2 S7's typed
-        // attribution) — judge the wrapped error, or a mid-scan HDF5 failure
-        // would stay off the modal path precisely because S7 gave it a type
-        // (Gate B, 2026-08-25).
-        if case DiskDetection.FullScanError.tileRead(_, let underlying) = error {
-            return isDataSourceFailure(underlying)
-        }
-        if error is H5Error || error is DM4Error || error is VendorRawError
-            || error is FourDError {
-            return true
-        }
-        let ns = error as NSError
-        return ns.domain == NSCocoaErrorDomain || ns.domain == NSPOSIXErrorDomain
     }
 
     private func openFileAsync(url: URL) async {
@@ -2553,6 +2537,24 @@ final class AppState {
         comField = nil
         probeKernel = nil
         learnedDetection.clear()
+        // Labels are dataset-scoped (C7 session 4): drop the old, bind to the
+        // new, restore from the sidecar if there is one. A restore failure is
+        // status-line only, the same non-blocking treatment every other
+        // restore below gets — never a modal, never a refusal.
+        diskCentreLabels.reset(filePath: descriptor.filePath, datasetPath: descriptor.datasetPath)
+        let labelsURL = sessionSidecar.location(for: descriptor)
+        let labelsEpoch = datasetEpoch
+        do {
+            if let json = try await Task.detached(priority: .utility, operation: {
+                try BraggVectorEMDWriter.loadDiskCentreLabelsJSON(from: labelsURL)
+            }).value, labelsEpoch == datasetEpoch {
+                try diskCentreLabels.load(from: Data(json.utf8), expecting: descriptor.filePath)
+            }
+        } catch {
+            if labelsEpoch == datasetEpoch {
+                statusText = "Could not restore disk-centre labels: \(error.localizedDescription)"
+            }
+        }
         braggVectors = nil
         completedDiskParams = nil
         completedDiskSummary = nil
@@ -2685,7 +2687,7 @@ final class AppState {
             )
             self.reportDatasetLoadingProgress(
                 fraction,
-                Self.scanProgressStatus(
+                SystemMonitor.scanProgressStatus(
                     "Loading into memory", processed: processed,
                     total: totalPatterns, descriptor: d
                 )
@@ -3295,7 +3297,7 @@ final class AppState {
     /// Sum the patterns over the current real-space region into the CBED pane.
     private func computeVirtualDiffraction() async {
         guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
-        let region = realSpaceRegionShape(d)
+        let region = realSpaceRegionShape()
         do {
             let epoch = datasetEpoch
             let pattern = try await VirtualDetector.tiledDiffraction(
@@ -3310,21 +3312,15 @@ final class AppState {
         }
     }
 
-    /// The current real-space region as a scan-space DetectorShape (centered on
-    /// the selected scan position).
-    private func realSpaceRegionShape(_ d: DatasetDescriptor) -> DetectorShape {
-        let r = Int(realSpaceRadius.rounded())
-        switch realSpaceShape {
-        case .point:
-            return .point(x: selectedScan.x, y: selectedScan.y)
-        case .rectangle:
-            return .rectangle(xMin: selectedScan.x - r, xMax: selectedScan.x + r + 1,
-                              yMin: selectedScan.y - r, yMax: selectedScan.y + r + 1)
-        case .circle:
-            return .circle(centerX: Float(selectedScan.x) + 0.5,
-                           centerY: Float(selectedScan.y) + 0.5,
-                           radius: realSpaceRadius + 0.5)
-        }
+    /// The current real-space region as a scan-space DetectorShape (centered
+    /// on the selected scan position). Geometry moved to `DetectorShape.
+    /// realSpaceRegion` (Core/Analysis/VirtualDetector.swift, C7 session 4,
+    /// budget relocation); this wrapper just supplies AppState's own state.
+    private func realSpaceRegionShape() -> DetectorShape {
+        DetectorShape.realSpaceRegion(
+            shape: realSpaceShape, radius: realSpaceRadius,
+            scanX: selectedScan.x, scanY: selectedScan.y
+        )
     }
 
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
@@ -3333,9 +3329,8 @@ final class AppState {
     /// consumers select the identical pixel set (the previous hand-written
     /// circle predicate diverged from the ROI by half a pixel).
     private func realSpaceRegionMask(_ d: DatasetDescriptor) -> [Bool] {
-        VirtualDetector.makeMask(
-            shape: realSpaceRegionShape(d), qy: d.ry, qx: d.rx
-        ).map { $0 != 0 }
+        VirtualDetector.makeMask(shape: realSpaceRegionShape(), qy: d.ry, qx: d.rx)
+            .map { $0 != 0 }
     }
 
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
@@ -3349,32 +3344,6 @@ final class AppState {
         }
         if navigation.analysisMode != .virtualDetector { navigation.analysisMode = .virtualDetector }
         Task { await runVirtualDetector() }
-    }
-
-    /// Status line for a whole-cube pass, in the two quantities a user can
-    /// check against their own file: patterns read, and bytes read.
-    /// Bytes are the **float32 working size** — what is actually streamed —
-    /// not the on-disk size, which differs whenever the file's dtype is not
-    /// float32 (a uint16 cube streams at twice its file size). Reporting the
-    /// file size here would be the more flattering number and the wrong one.
-    nonisolated static func count(_ value: Int) -> String {
-        value.formatted(.number.locale(Locale(identifier: "en_US")))
-    }
-
-    nonisolated static func scanProgressStatus(
-        _ verb: String, processed: Int, total: Int, descriptor d: DatasetDescriptor
-    ) -> String {
-        let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
-        // Fixed grouping rather than the user's locale, because the byte string
-        // beside it is itself unlocalized (`SystemMonitor.byteString` always
-        // formats "3.96 GB" with a period decimal point). Locale grouping put
-        // two meanings of "." in one line — on a German system this read
-        // "1.378 / 16.218 patterns · 3.96 GB", where the first two periods
-        // group and the third is a decimal point. One convention per line.
-        let patterns = "\(Self.count(processed)) / \(Self.count(total)) patterns"
-        let bytes = "\(SystemMonitor.byteString(processed * bytesPerPattern))"
-            + " of \(SystemMonitor.byteString(total * bytesPerPattern))"
-        return "\(verb) \(patterns) · \(bytes)"
     }
 
     private func virtualDetectorProgressTileRows(for descriptor: DatasetDescriptor) -> Int {
@@ -3397,7 +3366,7 @@ final class AppState {
         let scanVerb = isLoadingDataset ? "Scanning patterns" : "Computing virtual detector…"
         let cancellation = quiet ? nil : beginCancellableOperation(
             "Virtual detector",
-            status: Self.scanProgressStatus(
+            status: SystemMonitor.scanProgressStatus(
                 scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor
             ),
             totalUnits: totalPatterns
@@ -3426,7 +3395,7 @@ final class AppState {
                         self.updateCancellableOperation(
                             token,
                             progress: clipped,
-                            status: Self.scanProgressStatus(
+                            status: SystemMonitor.scanProgressStatus(
                                 scanVerb, processed: processed,
                                 total: totalPatterns, descriptor: d
                             )
@@ -4821,28 +4790,7 @@ final class AppState {
         // recorded against the old peaks would otherwise survive next to the
         // new detection — a recipe that replays neither the saved maps nor a
         // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
-        var replayParameters: [String: String] = [
-            "corr_power": String(params.corrPower),
-            "sigma_dp": String(params.sigmaDP),
-            "sigma_cc": String(params.sigmaCC),
-            "subpixel": params.subpixel.provenanceID,
-            "upsample_factor": String(params.upsampleFactor),
-            "min_absolute_intensity": String(params.minAbsoluteIntensity),
-            "min_relative_intensity": String(params.minRelativeIntensity),
-            "relative_to_peak": String(params.relativeToPeak),
-            "min_peak_spacing": String(params.minPeakSpacing),
-            "edge_boundary": String(params.edgeBoundary),
-            "max_peaks": String(params.maxNumPeaks),
-            // The kernel class is a detection parameter even though
-            // `DiskDetectionParams` does not carry it: the thresholds above
-            // were tuned against ITS correlation response, and a replay that
-            // regenerated a different class of kernel would silently move
-            // every peak (Gate A finding C3, 2026-08-25). Vocabulary shared
-            // with result provenance ("synthetic" / "measured_roi").
-            "kernel_source": kernel.source.provenanceID,
-            "kernel_mode": kernel.mode.provenanceID,
-            "kernel_probe_path": kernel.probePath ?? "",
-        ]
+        var replayParameters = params.replayParameters(kernel: kernel)
         replayParameters.merge(learnedDetection.replayParameters(for: detectorClass)) { _, new in new }
         recordReplayStep(kind: "disk_detection", parameters: replayParameters,
                           invalidating: ["strain", "acom"], replaying: replaying)
@@ -4875,6 +4823,35 @@ final class AppState {
             payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
                                         pixels: bvm.pixels.map { log10(1 + max($0, 0)) })))
         Task { await ensureScanNavigator() }
+    }
+
+    /// Publish where the last neural-net and the last classical full-scan run
+    /// on this dataset disagree, peak against peak, as a scan map (C7 session
+    /// 3; docs/v3-plan.md §3a — "a product like any other"). Runs nothing and
+    /// records no recipe step: both inputs are completed results held by
+    /// `learnedDetection`, which clears them on dataset activation, so the pair
+    /// is always one dataset's; a replay reproduces it by re-running both.
+    @discardableResult
+    func runDiskDisagreement() -> AnalysisRunOutcome {
+        guard let classical = learnedDetection.lastClassical,
+              let learned = learnedDetection.lastLearned else {
+            return .failed("Run Detect All Disks with each detector on this dataset first")
+        }
+        guard let (image, summary) = DiskDisagreement.positionMatchedMap(
+            classical: classical, learned: learned
+        ) else {
+            return .failed("The classical and neural-net runs do not share a scan shape")
+        }
+        resultColormap = .viridis
+        // The mode's own metadata describes the current Bragg vectors; the
+        // product overrides what differs (domain, source, both classes, the
+        // compared learned run's identity, the statistics).
+        publishProduct(
+            kind: "disk_disagreement", displayName: "Detector disagreement (unmatched peaks)",
+            valueUnits: "peaks", payload: .scalar(image), domain: .scan,
+            extraProvenance: summary.provenance(learnedRun: learned.detectionProvenance))
+        statusText = summary.statusLine
+        return .published
     }
 
     /// Raw peaks remain the source of truth; analysis calibration is derived

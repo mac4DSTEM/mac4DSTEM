@@ -223,4 +223,32 @@ package final class SessionGates {
     /// enabled, then refusing through a modal after the click — while Info
     /// already told the user saving was disabled (§4 finding 2).
     package var mayWriteSidecar: Bool { sidecarRewriteRefusal() == nil }
+
+    // MARK: - May a compute failure stay on the status bar, or does it escalate?
+
+    /// A data-source failure (corrupted or vanished file mid-scan) reaching a
+    /// compute catch block is not an ordinary compute failure — it
+    /// invalidates the session, so `AppState.presentComputeFailure` escalates
+    /// it to the modal path regardless of which analysis stage surfaced it.
+    /// Moved here from `AppState` (C7 session 4, a stateless predicate with
+    /// no AppState dependency) to pay down the `AppState` + `ResultExport`
+    /// budget (CLAUDE.md) — a placement change only, not a policy change.
+    /// No harness compiles this file, so it is not subject to the
+    /// small-single-module-list constraint the sibling `Core/Analysis`
+    /// relocation would have hit.
+    package static func isDataSourceFailure(_ error: Error) -> Bool {
+        // A tile-read failure WRAPS its data-source error (v2 S7's typed
+        // attribution) — judge the wrapped error, or a mid-scan HDF5 failure
+        // would stay off the modal path precisely because S7 gave it a type
+        // (Gate B, 2026-08-25).
+        if case DiskDetection.FullScanError.tileRead(_, let underlying) = error {
+            return isDataSourceFailure(underlying)
+        }
+        if error is H5Error || error is DM4Error || error is VendorRawError
+            || error is FourDError {
+            return true
+        }
+        let ns = error as NSError
+        return ns.domain == NSCocoaErrorDomain || ns.domain == NSPOSIXErrorDomain
+    }
 }

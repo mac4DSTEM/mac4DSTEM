@@ -351,4 +351,57 @@ extension SessionSidecarLocator {
             return .recorded(specification)
         }
     }
+
+    /// How moving the sidecar file itself went. `nothingToCopy` is a normal
+    /// outcome (no sidecar has been written yet), not a failure. Moved from
+    /// `AppState.SidecarCopyOutcome` (C7 session 4, budget relocation) — pure
+    /// Foundation file work with no AppState dependency.
+    package nonisolated enum SidecarCopyOutcome: Equatable {
+        case copied
+        case nothingToCopy
+        case failed(String)
+    }
+
+    /// Copy the existing sidecar to the newly chosen URL, replacing what the
+    /// user agreed to replace in the save panel. Copy, never move: the
+    /// original stays where it was, because silently deleting the previous
+    /// companion would be the one destructive step in an otherwise reversible
+    /// gesture. Moved from `AppState.copySidecarFile` (C7 session 4, budget
+    /// relocation).
+    package nonisolated static func copySidecarFile(from current: URL, to url: URL) -> SidecarCopyOutcome {
+        let manager = FileManager.default
+        guard current != url, manager.fileExists(atPath: current.path) else {
+            return .nothingToCopy
+        }
+        // Same-FILE guard by filesystem identity, not by path string: a
+        // case-insensitive APFS volume or a symlink alias spells one file two
+        // ways, and a string comparison here would REMOVE the only sidecar and
+        // then fail to copy it — the user asked for a rename and got a
+        // deletion. Identity is unreadable only when `url` does not exist yet,
+        // which is exactly the case where removing nothing is safe.
+        if let currentIdentity = try? current.resourceValues(
+               forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           let chosenIdentity = try? url.resourceValues(
+               forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           currentIdentity.isEqual(chosenIdentity) {
+            return .nothingToCopy
+        }
+        var replacedDestination = false
+        do {
+            if manager.fileExists(atPath: url.path) {
+                try manager.removeItem(at: url)
+                replacedDestination = true
+            }
+            try manager.copyItem(at: current, to: url)
+            return .copied
+        } catch {
+            // Honest split: if the replace already removed the destination,
+            // the caller's message must not imply the old destination file
+            // still exists.
+            let removal = replacedDestination
+                ? " The file previously at the chosen destination was removed before the copy failed."
+                : ""
+            return .failed(error.localizedDescription + removal)
+        }
+    }
 }

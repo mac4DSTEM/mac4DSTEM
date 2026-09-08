@@ -107,6 +107,35 @@ final class ReplayPlanTests: XCTestCase {
         XCTAssertEqual(detector.detectorClass, .classical, "diskStep carries no detector_class key")
     }
 
+    /// C7 session 3 moved the recorded classical parameters out of
+    /// `AppState.runDiskDetection` into `DiskDetectionParams.replayParameters
+    /// (kernel:)`. This pins the exact key set the planner reads and that a
+    /// record → parse round trip returns the parameters it was given.
+    func testClassicalReplayParametersRoundTripThroughThePlanner() throws {
+        let kernel = try XCTUnwrap(ProbeKernel.synthetic(radius: 4, qy: 32, qx: 32))
+        let params = DiskDetectionParams(
+            corrPower: 0.5, sigmaDP: 1, sigmaCC: 2.5, subpixel: .multicorr, upsampleFactor: 8,
+            minAbsoluteIntensity: 0.25, minRelativeIntensity: 0.01, relativeToPeak: 1,
+            minPeakSpacing: 12, edgeBoundary: 3, maxNumPeaks: 42)
+        let recorded = params.replayParameters(kernel: kernel)
+        XCTAssertEqual(Set(recorded.keys), [
+            "corr_power", "sigma_dp", "sigma_cc", "subpixel", "upsample_factor",
+            "min_absolute_intensity", "min_relative_intensity", "relative_to_peak",
+            "min_peak_spacing", "edge_boundary", "max_peaks",
+            "kernel_source", "kernel_mode", "kernel_probe_path",
+        ])
+        XCTAssertEqual(recorded["kernel_source"], "synthetic")
+        XCTAssertEqual(recorded["kernel_probe_path"], "")
+
+        let step = SessionReplayRecord.Step(kind: "disk_detection", parameters: recorded,
+                                            recorded: Date(timeIntervalSince1970: 0))
+        guard case .diskDetection(let parsed, let detector) = try ReplayPlanner.parse(step).get() else {
+            return XCTFail("Wrong plan kind")
+        }
+        XCTAssertEqual(parsed, params)
+        XCTAssertEqual(detector.detectorClass, .classical)
+    }
+
     func testDiskDetectionRefusesAnUnknownSubpixelMode() {
         var step = diskStep
         step.parameters["subpixel"] = "cubic"
@@ -771,7 +800,7 @@ final class ReplayPlanTests: XCTestCase {
         record.record(kind: "virtual_detector",
                       parameters: virtualDetectorStep.parameters,
                       at: Date(timeIntervalSince1970: 0))
-        let (carried, omission) = AppState.exportableRecipe(
+        let (carried, omission) = ReplayRecordFrameMap.exportableRecipe(
             record: record,
             recordedFrame: .detectorReduced(bin: 2, crop: nil),
             currentSpecification: LoadSpecification(),
@@ -785,7 +814,7 @@ final class ReplayPlanTests: XCTestCase {
         var record = SessionReplayRecord()
         record.record(kind: "dpc", parameters: ["origin_reference": "global center"],
                       at: Date(timeIntervalSince1970: 0))
-        let (carried, omission) = AppState.exportableRecipe(
+        let (carried, omission) = ReplayRecordFrameMap.exportableRecipe(
             record: record, recordedFrame: nil,
             currentSpecification: LoadSpecification(), exportBin: 1)
         XCTAssertNil(carried,
@@ -802,7 +831,7 @@ final class ReplayPlanTests: XCTestCase {
         record.record(kind: "virtual_detector",
                       parameters: virtualDetectorStep.parameters,
                       at: Date(timeIntervalSince1970: 0))
-        let (carried, omission) = AppState.exportableRecipe(
+        let (carried, omission) = ReplayRecordFrameMap.exportableRecipe(
             record: record,
             recordedFrame: .detectorReduced(bin: 2, crop: nil),
             currentSpecification: spec,
@@ -812,7 +841,7 @@ final class ReplayPlanTests: XCTestCase {
     }
 
     func testExportableRecipeWithNoRecordCarriesNothingSilently() {
-        let (carried, omission) = AppState.exportableRecipe(
+        let (carried, omission) = ReplayRecordFrameMap.exportableRecipe(
             record: nil, recordedFrame: nil,
             currentSpecification: LoadSpecification(), exportBin: 2)
         XCTAssertNil(carried)

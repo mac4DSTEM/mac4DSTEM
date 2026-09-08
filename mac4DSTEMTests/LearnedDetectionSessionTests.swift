@@ -130,5 +130,52 @@ final class LearnedDetectionSessionTests: XCTestCase {
         let reason2 = try XCTUnwrap(reason, "a hash mismatch must refuse")
         XCTAssertTrue(reason2.contains(String(wrongHash.prefix(8))), "reason was: \(reason2)")
         XCTAssertTrue(reason2.contains(String(f.expected.asset_sha256.prefix(8))), "reason was: \(reason2)")
+        // Gate B 2026-09-08: a refused replay leaves the picker where it was.
+        XCTAssertEqual(session.detectorClass, .classical, "a refused learned step must not switch the picker")
+        XCTAssertEqual(session.threshold, LearnedDiskDetector.defaultThreshold, "nor apply the recorded threshold")
+    }
+
+    // MARK: AppState.runDiskDisagreement (C7 session 3)
+
+    func testRunDiskDisagreementRefusesUntilBothClassesHaveRun() {
+        let state = AppState()
+        let refusal = AnalysisRunOutcome.failed("Run Detect All Disks with each detector on this dataset first")
+        XCTAssertEqual(state.runDiskDisagreement(), refusal)
+        state.learnedDetection.record(vectors(count: 1), as: .classical)
+        XCTAssertEqual(state.runDiskDisagreement(), refusal)
+        XCTAssertNil(state.displayedProduct)
+    }
+
+    /// Classical peaks at x 0 and 1; learned at (0.2, 0) and (9, 9): the first
+    /// classical pairs (0.2 px), the second is classical-only, (9, 9) is
+    /// learned-only. The product is a SCAN map (not the Disk detection mode's
+    /// detector domain) carrying the statistics and the compared learned
+    /// run's identity.
+    func testRunDiskDisagreementPublishesAScanMapWithItsStatistics() throws {
+        let state = AppState()
+        state.learnedDetection.record(vectors(count: 2), as: .classical)
+        state.learnedDetection.record(BraggVectors(
+            scanWidth: 1, scanHeight: 1,
+            peaks: [[BraggPeak(x: 0.2, y: 0, intensity: 1), BraggPeak(x: 9, y: 9, intensity: 1)]],
+            detectionProvenance: ["learned_threshold": "0.7", "learned_model_sha256": "abc123"]
+        ), as: .learned)
+
+        XCTAssertEqual(state.runDiskDisagreement(), .published)
+        let product = try XCTUnwrap(state.displayedProduct)
+        XCTAssertEqual(product.kind, "disk_disagreement")
+        XCTAssertEqual(product.domain, .scan)
+        guard case .scalar(let image) = product.payload else { return XCTFail("scalar payload expected") }
+        XCTAssertEqual(image.pixels, [2])
+        XCTAssertEqual(product.provenance["display_domain"], "scan")
+        XCTAssertEqual(product.provenance["detector_class"], "classical,learned")
+        XCTAssertEqual(product.provenance["disagreement_matched"], "1")
+        XCTAssertEqual(product.provenance["disagreement_classical_only"], "1")
+        XCTAssertEqual(product.provenance["disagreement_learned_only"], "1")
+        XCTAssertEqual(product.provenance["disagreement_positions"], "1/1")
+        XCTAssertEqual(product.provenance["disagreement_match_radius_px"], "2.0")
+        XCTAssertEqual(product.provenance["disagreement_median_residual_px"], "0.20")
+        XCTAssertEqual(product.provenance["learned_model_sha256"], "abc123")
+        XCTAssertEqual(product.provenance["learned_threshold"], "0.7")
+        XCTAssertTrue(state.statusText.hasPrefix("Disagreement: 1 of 1 positions differ"), state.statusText)
     }
 }

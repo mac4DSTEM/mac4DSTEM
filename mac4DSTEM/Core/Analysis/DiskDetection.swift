@@ -482,6 +482,35 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
         ]
     }
 
+    /// The recipe step's parameters for a classical `disk_detection` run —
+    /// exactly the keys `ReplayPlan` reads back (`ReplayPlanTests` pins the
+    /// set). Moved out of `AppState.runDiskDetection` in C7 session 3; the
+    /// learned class appends its own keys (`LearnedDetectionSession`).
+    package func replayParameters(kernel: ProbeKernel) -> [String: String] {
+        [
+            "corr_power": String(corrPower),
+            "sigma_dp": String(sigmaDP),
+            "sigma_cc": String(sigmaCC),
+            "subpixel": subpixel.provenanceID,
+            "upsample_factor": String(upsampleFactor),
+            "min_absolute_intensity": String(minAbsoluteIntensity),
+            "min_relative_intensity": String(minRelativeIntensity),
+            "relative_to_peak": String(relativeToPeak),
+            "min_peak_spacing": String(minPeakSpacing),
+            "edge_boundary": String(edgeBoundary),
+            "max_peaks": String(maxNumPeaks),
+            // The kernel class is a detection parameter even though this
+            // struct does not carry it: the thresholds above were tuned
+            // against ITS correlation response, and a replay that regenerated
+            // a different class of kernel would silently move every peak
+            // (Gate A finding C3, 2026-08-25). Vocabulary shared with result
+            // provenance ("synthetic" / "measured_roi").
+            "kernel_source": kernel.source.provenanceID,
+            "kernel_mode": kernel.mode.provenanceID,
+            "kernel_probe_path": kernel.probePath ?? "",
+        ]
+    }
+
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.005, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
         self.corrPower = corrPower
