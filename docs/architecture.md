@@ -104,7 +104,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Metal engine, FFTs, multicorr, cancellation | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
 | Crystal models, scattering factors, ACOM matching, CIF import | `mac4DSTEM/Core/Crystal/` |
-| Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `Models/DiskDetector/` (a folder resource, compiled at load) |
+| Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `Models/DiskDetector/` (a folder resource, compiled at load); its session owner `Session/LearnedDetection.swift` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |
 | SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |

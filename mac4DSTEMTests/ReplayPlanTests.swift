@@ -93,7 +93,7 @@ final class ReplayPlanTests: XCTestCase {
     }
 
     func testDiskDetectionParsesEveryRecordedParameter() throws {
-        guard case .diskDetection(let params) = try ReplayPlanner.parse(diskStep).get() else {
+        guard case .diskDetection(let params, let detector) = try ReplayPlanner.parse(diskStep).get() else {
             return XCTFail("Wrong plan kind")
         }
         XCTAssertEqual(params.corrPower, 1.0)
@@ -104,6 +104,7 @@ final class ReplayPlanTests: XCTestCase {
         XCTAssertEqual(params.minPeakSpacing, 10.0)
         XCTAssertEqual(params.edgeBoundary, 4)
         XCTAssertEqual(params.maxNumPeaks, 70)
+        XCTAssertEqual(detector.detectorClass, .classical, "diskStep carries no detector_class key")
     }
 
     func testDiskDetectionRefusesAnUnknownSubpixelMode() {
@@ -134,6 +135,72 @@ final class ReplayPlanTests: XCTestCase {
             return XCTFail("An absent kernel class is an unknown detection parameter, not a default")
         }
         XCTAssertTrue(refusal.reason.contains("kernel_source"))
+    }
+
+    // MARK: - Disk detection: detector class (C7 session 2)
+
+    func testDiskDetectionWithoutADetectorClassParsesToClassical() throws {
+        // Every recipe written before C7 session 2 (2026-09-08) has no such
+        // key, and every one of them ran the classical detector.
+        guard case .diskDetection(_, let detector) = try ReplayPlanner.parse(diskStep).get() else {
+            return XCTFail("Wrong plan kind")
+        }
+        XCTAssertEqual(detector, .init(detectorClass: .classical))
+    }
+
+    func testDiskDetectionDetectorClassClassicalParsesExplicitly() throws {
+        var step = diskStep
+        step.parameters["detector_class"] = "classical"
+        guard case .diskDetection(_, let detector) = try ReplayPlanner.parse(step).get() else {
+            return XCTFail("Wrong plan kind")
+        }
+        XCTAssertEqual(detector, .init(detectorClass: .classical))
+    }
+
+    func testDiskDetectionLearnedWithoutAThresholdRefusesByName() {
+        var step = diskStep
+        step.parameters["detector_class"] = "learned"
+        step.parameters["learned_model_sha256"] = "abc123"
+        guard case .failure(let refusal) = ReplayPlanner.parse(step) else {
+            return XCTFail("learned without a threshold cannot replay")
+        }
+        XCTAssertTrue(refusal.reason.contains("learned_threshold"), "reason was: \(refusal.reason)")
+    }
+
+    func testDiskDetectionLearnedWithoutAModelHashRefusesByName() {
+        var step = diskStep
+        step.parameters["detector_class"] = "learned"
+        step.parameters["learned_threshold"] = "0.7"
+        guard case .failure(let refusal) = ReplayPlanner.parse(step) else {
+            return XCTFail("learned without a model hash cannot replay")
+        }
+        XCTAssertTrue(refusal.reason.contains("learned_model_sha256"), "reason was: \(refusal.reason)")
+    }
+
+    func testDiskDetectionLearnedWithThresholdAndHashParsesBoth() throws {
+        var step = diskStep
+        step.parameters["detector_class"] = "learned"
+        step.parameters["learned_threshold"] = "0.65"
+        step.parameters["learned_model_sha256"] = "abc123"
+        guard case .diskDetection(_, let detector) = try ReplayPlanner.parse(step).get() else {
+            return XCTFail("Wrong plan kind")
+        }
+        XCTAssertEqual(detector, .init(detectorClass: .learned, learnedThreshold: 0.65, learnedModelSHA256: "abc123"))
+    }
+
+    func testDiskDetectionUnknownDetectorClassRefusesByName() {
+        var step = diskStep
+        step.parameters["detector_class"] = "quantum"
+        guard case .failure(let refusal) = ReplayPlanner.parse(step) else {
+            return XCTFail("An unknown detector class must refuse, never default to another")
+        }
+        XCTAssertTrue(refusal.reason.contains("detector_class"), "reason was: \(refusal.reason)")
+    }
+
+    func testDetectorClassKeysAreInvariantAcrossFrames() {
+        for key in ["detector_class", "learned_threshold", "learned_model_sha256"] {
+            XCTAssertEqual(ReplayRecordFrameMap.role(kind: "disk_detection", key: key), .invariant, key)
+        }
     }
 
     // MARK: - Strain

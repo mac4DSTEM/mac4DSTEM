@@ -237,6 +237,12 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     var hasACOMMaterial = false
     var hasSupportedACOMMaterial = false
     var hasPhysicalACOMScale = false
+    /// C7 session 2: the Disk detection picker has the neural net selected.
+    var wantsLearnedDetector = false
+    /// Whether the bundled learned-detector asset is present in this build.
+    /// Default true so a caller that never sets it (most readiness states)
+    /// does not manufacture a missing-asset prerequisite out of nowhere.
+    var hasLearnedDetectorAsset = true
 }
 
 /// One requirement of a task, with its live status and where the satisfying
@@ -308,20 +314,29 @@ enum ProductWorkflow {
             return []
         case .disks:
             // v2.5 step 5a: the tools panel's private gate joins the one list,
-            // so the header's primary action and the panel button agree. The
+            // so the header's primary action and the panel button agree. A
             // row exists only while unmet: a satisfied "fix the settings" row
             // is noise, and the Strain & ACOM sidebar has no height to spare
-            // (SidebarLayoutTests measures it).
-            guard !readiness.hasValidDiskDetectionSettings else { return [] }
-            return [
-                TaskPrerequisite(
+            // (SidebarLayoutTests measures it). C7 session 2 adds a second,
+            // independent row for the learned asset — both may appear.
+            var items: [TaskPrerequisite] = []
+            if !readiness.hasValidDiskDetectionSettings {
+                items.append(TaskPrerequisite(
                     id: "diskSettings", title: "Fix the disk-detection settings",
                     isSatisfied: false,
                     resolution: .taskPanel(
                         "Resolve the errors listed in the Bragg disk controls in the tools panel."
                     )
-                )
-            ]
+                ))
+            }
+            if readiness.wantsLearnedDetector, !readiness.hasLearnedDetectorAsset {
+                items.append(TaskPrerequisite(
+                    id: "learnedAsset", title: "The neural-net model is not in this build",
+                    isSatisfied: false,
+                    resolution: .taskPanel("Choose Classical under Detector in the Disk detection section.")
+                ))
+            }
+            return items
         case .ptychography, .singleslicePtychography:   // shared calibration list, separate state
             return [
                 TaskPrerequisite(
@@ -422,8 +437,12 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [String] {
         switch mode {
-        case .virtualDetector, .disks, .ptychography, .singleslicePtychography:
+        case .virtualDetector, .ptychography, .singleslicePtychography:
             return []
+        case .disks:
+            return readiness.wantsLearnedDetector
+                ? ["Candidates come from the neural net; the classical refinement still measures each one."]
+                : []
         case .dpc:
             var missing: [String] = []
             if !readiness.hasOriginProbe { missing.append("origin") }

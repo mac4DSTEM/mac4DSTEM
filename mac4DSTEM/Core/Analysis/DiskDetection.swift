@@ -66,8 +66,8 @@ package nonisolated enum SubpixelMode: String, CaseIterable, Identifiable, Senda
 /// class's candidates into accepted `BraggPeak`s. `.classical` finds its own
 /// candidates by exhaustive correlation-maxima search and refines those.
 package nonisolated enum DetectorClass: String, Sendable, CaseIterable, Identifiable {
-    case classical = "Classical correlation"
-    case learned = "Learned candidates (Neural Engine)"
+    case classical = "Classical"
+    case learned = "Neural net"
     package var id: String { rawValue }
 
     package var provenanceID: String {
@@ -459,6 +459,8 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package func provenance(kernel: ProbeKernel, qy: Int, qx: Int) -> [String: String] {
         [
             "detection_algorithm": Self.algorithmID,
+            // The learned path overwrites this with its own class (C7 session 2).
+            "detector_class": DetectorClass.classical.provenanceID,
             DiskDetectionParameterID.correlationPower.rawValue: String(corrPower),
             DiskDetectionParameterID.patternSigma.rawValue: String(sigmaDP),
             DiskDetectionParameterID.correlationSigma.rawValue: String(sigmaCC),

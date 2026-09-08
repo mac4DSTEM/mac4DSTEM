@@ -190,9 +190,9 @@ in "residual is too large (0.247)".
 gitignored multi-GB data and stay diagnostics only — not a gap to close,
 a standing limit to remember before citing them as coverage.
 
-### C7's learned runtime: ceiling unmeasured on Core ML, nothing on screen (2026-09-08)
-Session 1 put `Core/ML/LearnedDiskDetector` (Core ML, 256 px) on `main`
-with no UI, so no drive is possible yet; the picker is session 2. The 2.81×
+### C7's learned runtime: ceiling unmeasured on Core ML, the picker undriven (2026-09-08)
+Session 1 put `Core/ML/LearnedDiskDetector` (Core ML, 256 px) on `main`;
+session 2 put the Detector picker in Disk detection, undriven. The 2.81×
 ceiling (`consolidation-plan.md` §2a) was measured on Core AI at 128 px by
 `tools/disk-detector/scan-bench/`, which still lives on `ml/disk-detector`
 and times that runtime: port it and re-measure on Core ML at 256 px before

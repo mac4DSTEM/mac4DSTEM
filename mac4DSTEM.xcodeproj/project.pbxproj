@@ -114,6 +114,7 @@
 				Session/CalibrationSession.swift,
 				Session/DatasetResidency.swift,
 				Session/FitOverlayPresentation.swift,
+				Session/LearnedDetection.swift,
 				Session/LoadedView.swift,
 				Session/OperationCenter.swift,
 				Session/QCalibrationRun.swift,

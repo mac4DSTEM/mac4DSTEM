@@ -55,6 +55,8 @@ private struct DiskDetectionRows: View {
     @State private var measuredKernelMode: ProbeKernelMode = .flat
 
     var body: some View {
+        @Bindable var learned = appState.learnedDetection
+
         Button {
             Task { await appState.generateProbeKernel() }
         } label: {
@@ -97,6 +99,29 @@ private struct DiskDetectionRows: View {
                     kernel.mode.rawValue.lowercased(), kernel.probeRadius
                 )
             )
+        }
+
+        Picker("Detector", selection: $learned.detectorClass) {
+            ForEach(DetectorClass.allCases) { detectorClass in
+                Text(detectorClass.rawValue).tag(detectorClass)
+            }
+        }
+        .accessibilityIdentifier("disk.detectorClass")
+        .help("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.")
+        .onChange(of: learned.detectorClass) { _, _ in Task { await appState.detectCurrentPattern() } }
+        .onChange(of: learned.threshold) { _, _ in Task { await appState.detectCurrentPattern() } }
+
+        if learned.detectorClass == .learned {
+            LabeledContent("Threshold") {
+                NumericField(
+                    "Threshold", value: learnedThresholdBinding(appState),
+                    format: .number.precision(.fractionLength(2))
+                )
+            }
+            .accessibilityIdentifier("disk.learnedThreshold")
+            .help("The pick threshold on the neural net's heatmap, 0.3–0.99. Lower accepts more candidates; the classical refinement still filters them.")
+
+            LabeledContent("Model", value: learnedModelStatus(learned))
         }
 
         parameterSliderRow(
@@ -914,6 +939,26 @@ private func intBinding(
             appState.diskParams = params
         }
     )
+}
+
+/// Clamped to the range around `LearnedDiskDetector.defaultThreshold` (0.7).
+private func learnedThresholdBinding(_ appState: AppState) -> Binding<Float> {
+    Binding(
+        get: { appState.learnedDetection.threshold },
+        set: { value in
+            let finite = value.isFinite ? value : LearnedDiskDetector.defaultThreshold
+            appState.learnedDetection.threshold = min(max(finite, 0.3), 0.99)
+        }
+    )
+}
+
+/// The "Model" row's one line: loading, loaded (its identity hash), failed
+/// (why), or not yet attempted.
+private func learnedModelStatus(_ learned: LearnedDetectionSession) -> String {
+    if learned.preparing { return "Loading…" }
+    if let sha = learned.assetSHA256 { return String(sha.prefix(8)) }
+    if let reason = learned.unavailableReason { return reason }
+    return "Loads on the first run"
 }
 
 private func maximumPeaksBinding(_ appState: AppState) -> Binding<Int> {

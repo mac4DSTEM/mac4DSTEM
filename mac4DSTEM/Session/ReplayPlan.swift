@@ -210,7 +210,7 @@ package enum ReplayFrameTransform: Equatable {
 /// frames is a fabrication waiting for a reader. // v2 S10
 package enum ReplayRecordFrameMap {
 
-    package enum Role {
+    package enum Role: Equatable {
         case invariant
         case positionX, positionY
         case length
@@ -241,7 +241,8 @@ package enum ReplayRecordFrameMap {
             switch key {
             case "corr_power", "subpixel", "upsample_factor",
                  "min_relative_intensity", "relative_to_peak", "max_peaks",
-                 "kernel_source", "kernel_mode", "kernel_probe_path": .invariant
+                 "kernel_source", "kernel_mode", "kernel_probe_path",
+                 "detector_class", "learned_threshold", "learned_model_sha256": .invariant
             case "sigma_dp", "sigma_cc", "min_peak_spacing": .length
             case "edge_boundary": .lengthInt
             case "min_absolute_intensity": .absoluteIntensity
@@ -370,9 +371,29 @@ package enum ReplayStepPlan: Equatable {
     /// run against the same origin class or refuse — silently substituting the
     /// other one would be a parameter change the summary never states.
     case dpc(wantsFittedOrigin: Bool)
-    case diskDetection(DiskDetectionParams)
+    case diskDetection(DiskDetectionParams, detector: DiskDetectorReplay)
     case strain(StrainReplayPlan)
     case acom(ACOMReplayPlan)
+
+    /// The recorded detector class for a `diskDetection` step, and, for
+    /// `.learned`, the threshold and model identity it ran against — session
+    /// 2 (C7, 2026-09-08). `LearnedDetectionSession.replayRefusal(for:)`
+    /// applies this and compares the hash against the running build's.
+    package struct DiskDetectorReplay: Equatable, Sendable {
+        package var detectorClass: DetectorClass
+        package var learnedThreshold: Float?
+        package var learnedModelSHA256: String?
+
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
+        package nonisolated init(
+            detectorClass: DetectorClass, learnedThreshold: Float? = nil,
+            learnedModelSHA256: String? = nil
+        ) {
+            self.detectorClass = detectorClass
+            self.learnedThreshold = learnedThreshold
+            self.learnedModelSHA256 = learnedModelSHA256
+        }
+    }
 
     package struct StrainReplayPlan: Equatable {
         /// Manual g-vectors when the recorded basis was manual; nil replays the
@@ -660,6 +681,25 @@ package enum ReplayPlanner {
             default:
                 return refused(step, key: "kernel_source", value: p["kernel_source"])
             }
+            // Absent `detector_class` means classical: every recipe written
+            // before C7 session 2 (2026-09-08) has no such key, and every
+            // one of them ran the classical detector — the only one that
+            // existed then.
+            let detector: ReplayStepPlan.DiskDetectorReplay
+            switch p["detector_class"] {
+            case nil, "classical":
+                detector = .init(detectorClass: .classical)
+            case "learned":
+                guard let learnedThreshold = finiteFloat(p["learned_threshold"]) else {
+                    return refused(step, key: "learned_threshold", value: p["learned_threshold"])
+                }
+                guard let sha = p["learned_model_sha256"], !sha.isEmpty else {
+                    return refused(step, key: "learned_model_sha256", value: p["learned_model_sha256"])
+                }
+                detector = .init(detectorClass: .learned, learnedThreshold: learnedThreshold, learnedModelSHA256: sha)
+            default:
+                return refused(step, key: "detector_class", value: p["detector_class"])
+            }
             var params = DiskDetectionParams()
             guard let corrPower = finiteFloat(p["corr_power"]) else { return refused(step, key: "corr_power", value: p["corr_power"]) }
             guard let sigmaDP = finiteFloat(p["sigma_dp"]) else { return refused(step, key: "sigma_dp", value: p["sigma_dp"]) }
@@ -686,7 +726,7 @@ package enum ReplayPlanner {
             params.minPeakSpacing = spacing
             params.edgeBoundary = edge
             params.maxNumPeaks = maxPeaks
-            return .success(.diskDetection(params))
+            return .success(.diskDetection(params, detector: detector))
 
         case "strain":
             // Vocabulary shared with result provenance (Gate B-lite F10):

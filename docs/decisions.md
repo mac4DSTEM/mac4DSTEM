@@ -606,3 +606,24 @@ used as is, above 256 is windows. The branch's `DetectorClass`, `Candidate`,
 `correlation` and `refine` came to `main` unchanged (Gate B 2026-09-07 on the
 branch); the Core AI class is not ported, `#if canImport(CoreAI)` is gone.
 
+**2026-09-08 — C7 session 2: the picker in Disk detection, and five
+choices made in-step by an agent (overrule on sight).** (1) A recorded
+`disk_detection` step without `detector_class` replays as classical: every
+recipe written before this session has no such key, and every one of them
+ran the only class that existed — the one absent key that is a fact, not a
+default (`ReplayPlanTests`). A step recorded as learned replays only when
+this build's model hash equals the recorded `learned_model_sha256` and the
+recorded threshold parses; a mismatch refuses naming both prefixes, the
+`kernel_source` rule again (a substituted model would move candidates with
+no summary line saying so). (2) The live rings on the current CBED follow
+the picker — the owner's 2026-09-07 drive on the branch found them still
+classical with Learned selected. (3) The picker's labels are the owner's
+words, "Classical" and "Neural net"; the provenance IDs are unchanged.
+(4) Both classes name themselves: `detector_class` joins the classical
+provenance and, with `learned_threshold` and `learned_model_sha256`, the
+Bragg vector map's Provenance rows — until now the inspector read nothing
+of the detector; only the EMD writer did. (5) The line budget: AppState's
+wiring (about 50 lines) was paid by `ACOMSession.resetForDataset` (the
+activation block), one probe-radius prologue, and 41 blank `///` / `//`
+separator lines removed file-wide — that last payment is cosmetic and is
+said so here; the next one should be §4's `OperationCenter` forwarders.

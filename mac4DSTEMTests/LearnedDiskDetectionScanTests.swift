@@ -118,6 +118,13 @@ final class LearnedDiskDetectionScanTests: XCTestCase {
 
     // MARK: DetectorClass
 
+    /// C7 session 2: both classes name themselves, so a map's provenance row
+    /// never has to infer "classical" from an absent key.
+    func testClassicalDetectionProvenanceNamesItsClass() throws {
+        let kernel = try XCTUnwrap(ProbeKernel.synthetic(radius: 4, qy: 32, qx: 32))
+        XCTAssertEqual(DiskDetectionParams().provenance(kernel: kernel, qy: 32, qx: 32)["detector_class"], "classical")
+    }
+
     func testDetectorClassProvenanceIDs() {
         XCTAssertEqual(DetectorClass.classical.provenanceID, "classical")
         XCTAssertEqual(DetectorClass.learned.provenanceID, "learned")

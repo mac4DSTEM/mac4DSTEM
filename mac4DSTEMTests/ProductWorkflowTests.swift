@@ -165,7 +165,9 @@ final class ProductWorkflowTests: XCTestCase {
             ProductWorkflowReadiness(
                 hasBraggVectors: true, hasACOMMaterial: true,
                 hasSupportedACOMMaterial: false
-            )
+            ),
+            // C7 session 2: the learned detector wanted but not built in.
+            ProductWorkflowReadiness(wantsLearnedDetector: true, hasLearnedDetectorAsset: false)
         ]
         for mode in AnalysisMode.allCases {
             for readiness in syntheticStates {
@@ -397,6 +399,25 @@ final class ProductWorkflowTests: XCTestCase {
         state.publishProduct(kind: "bragg_vector_map", displayName: "Bragg vector map",
                              valueUnits: "log_intensity", payload: .scalar(FloatImage(width: 1, height: 1, pixels: [3])))
         XCTAssertEqual(state.displayedProduct?.domain, .detector)
+    }
+
+    /// C7 session 2: the inspector's Provenance rows read the published
+    /// product, and until this the Bragg vector map carried nothing of the
+    /// detector that made it — the class, threshold and model hash lived
+    /// only in `BraggVectors.detectionProvenance`, which the EMD writer alone
+    /// read. The app's real classical path on the demo cube, so the call
+    /// site is what is tested, not a seam beside it.
+    func testBraggVectorMapProvenanceCarriesTheDetectorIdentity() async throws {
+        let state = AppState()
+        await state.openDemoFixture(calibrated: false)
+        state.navigation.analysisMode = .disks
+        await state.runDiskDetection()
+        XCTAssertNotNil(state.braggVectors, "Demo disk detection published no Bragg vectors")
+        let provenance = try XCTUnwrap(state.publishedProduct).provenance
+        XCTAssertEqual(provenance["source_product"], "bragg_vector_map")
+        XCTAssertEqual(provenance["detector_class"], "classical")
+        XCTAssertNil(provenance["learned_model_sha256"], "a classical map names no model")
+        XCTAssertNil(provenance["kernel_source"], "only the detector's identity joins the map's rows")
     }
 
     func testDPCScalarAnglePublishesRadianEncodingProvenance() {
@@ -822,6 +843,44 @@ final class TaskReadinessTests: XCTestCase {
         }
         XCTAssertEqual(reason, "Fix the disk-detection settings")
         XCTAssertEqual(ProductWorkflow.prerequisites(for: .disks, readiness: readiness(diskSettingsValid: false)), [reason])
+    }
+
+    // MARK: - C7 session 2: the learned-detector asset prerequisite and guidance
+
+    func testLearnedDetectorWantedWithoutTheAssetAddsAPrerequisite() {
+        var wanted = ProductWorkflowReadiness()
+        wanted.wantsLearnedDetector = true
+        wanted.hasLearnedDetectorAsset = false
+        let items = ProductWorkflow.prerequisiteItems(for: .disks, readiness: wanted)
+        XCTAssertEqual(items.map(\.id), ["learnedAsset"])
+        XCTAssertFalse(items[0].isSatisfied)
+
+        var satisfied = wanted
+        satisfied.hasLearnedDetectorAsset = true
+        XCTAssertEqual(ProductWorkflow.prerequisiteItems(for: .disks, readiness: satisfied), [])
+
+        var notWanted = ProductWorkflowReadiness()
+        notWanted.hasLearnedDetectorAsset = false
+        XCTAssertEqual(ProductWorkflow.prerequisiteItems(for: .disks, readiness: notWanted), [],
+                       "the classical room never gates on an asset it does not need")
+    }
+
+    func testBothDiskPrerequisitesCanAppearTogether() {
+        var readiness = ProductWorkflowReadiness()
+        readiness.hasValidDiskDetectionSettings = false
+        readiness.wantsLearnedDetector = true
+        readiness.hasLearnedDetectorAsset = false
+        XCTAssertEqual(
+            ProductWorkflow.prerequisiteItems(for: .disks, readiness: readiness).map(\.id),
+            ["diskSettings", "learnedAsset"]
+        )
+    }
+
+    func testDiskGuidanceIsNonEmptyOnlyWhenTheLearnedDetectorIsWanted() {
+        XCTAssertEqual(ProductWorkflow.guidance(for: .disks, readiness: ProductWorkflowReadiness()), [])
+        var wanted = ProductWorkflowReadiness()
+        wanted.wantsLearnedDetector = true
+        XCTAssertFalse(ProductWorkflow.guidance(for: .disks, readiness: wanted).isEmpty)
     }
 
     func testAReplayedStepRefusesForTheChecklistsReason() {

@@ -130,7 +130,6 @@ final class AppState {
 
     /// A strided sample of the open dataset, built during the open so there is
     /// something real on screen before the first whole-cube pass.
-    ///
     /// **Not a result** (invariant I4). It is deliberately its own type, which
     /// no product, export or session path accepts, and every view that draws it
     /// must show `summary` — which states the stride.
@@ -141,7 +140,6 @@ final class AppState {
     /// dataset's session sidecar is and whether the app may read it. Replaces a
     /// bare `scopedSessionSidecarURL` that eight call sites derived around in
     /// two different ways — see `Session/SessionSidecarLocator.swift`.
-    ///
     /// Injectable for the S1 reason one level up (v2 S7): the locator persists
     /// bookmarks into `UserDefaults`, and the demo dataset's file path is a
     /// CONSTANT — so a test that saves a sidecar for the demo through the real
@@ -231,7 +229,6 @@ final class AppState {
     /// fresh session holds — DEFAULTS — and recording it would overwrite an
     /// adopted colleague's step with them. Merely opening a file must never
     /// mutate its recipe (Gate B-lite refutation F1, 2026-08-24). // v2 S5
-    ///
     /// Also suppressed when the run was replay-initiated (`replaying`, passed
     /// down from the executor through the entry point): replaying a recipe
     /// must not mutate the recipe. Without this, a replayed disk detection's
@@ -427,14 +424,12 @@ final class AppState {
     }
 
     /// Re-derive the disk-detection defaults once a probe radius is known.
-    ///
     /// `diskParams` is seeded at dataset load, before any calibration has run,
     /// so its minimum spacing is the detector-scaled placeholder rather than a
     /// probe-scaled value. Measuring the probe is what makes the real default
     /// computable — see `DiskDetectionParams.detectorAdapted`, where the
     /// detector-scaled value is shown to suppress the shortest g-vectors on
     /// two of the four training datasets.
-    ///
     /// Only replaces the spacing if the user has not chosen one: it is
     /// compared against the placeholder's spacing *alone*, not the whole
     /// parameter struct. Whole-struct equality looks safer and is worse — a
@@ -489,6 +484,10 @@ final class AppState {
     let acomSession = ACOMSession()
     @ObservationIgnored private var acomLastMeasuredTemplateCount: Int?
     @ObservationIgnored private var acomLastMeasuredBackend: ACOMMatchingBackend?
+
+    /// Learned-vs-classical detector option and state; no forwarding
+    /// properties — see `Session/LearnedDetection.swift`.
+    let learnedDetection = LearnedDetectionSession()
 
     /// Automatic is an explicit, inspectable policy rather than a claim that
     /// the GPU is active. Real-data benchmarking may revise this policy, but
@@ -561,7 +560,6 @@ final class AppState {
     /// A full scan this cheap is offered as one click instead of leaving the
     /// user on a 32×32 preview. Measured motivation: sim_Au's full 84×100 scan
     /// against 200 templates ran in 0.7 s while the panel estimated ~2 s.
-    ///
     /// 5 s is the ceiling because the run is already cancellable and reports
     /// progress, so the cost of accepting is bounded and visible; and the
     /// estimate is only offered at all once it is grounded (a measured
@@ -784,12 +782,10 @@ final class AppState {
     }
 
     /// Whether the real-space ROI must be drawn on the scan image.
-    ///
     /// This is now simply "is an ROI in force", because `displayedPattern`
     /// substitutes the ROI-summed pattern for the current one whenever
     /// `realSpaceShape != .point` — in *every* task, not just the ones that
     /// nominally use a region.
-    ///
     /// The old rule listed the tasks where an ROI was *intended* (virtual
     /// detector, strain-from-region, ACOM-from-region), which meant that after
     /// setting a rectangle in Image, Bragg disks and Strain kept showing a
@@ -1020,7 +1016,9 @@ final class AppState {
             hasBraggVectors: hasCurrentBraggVectors,
             hasACOMMaterial: acomSession.modelSelection != .none,
             hasSupportedACOMMaterial: resolvedACOMModel != nil,
-            hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical
+            hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical,
+            wantsLearnedDetector: learnedDetection.detectorClass == .learned,
+            hasLearnedDetectorAsset: LearnedDiskDetector.bundledAssetURL() != nil
         )
     }
 
@@ -1130,7 +1128,6 @@ final class AppState {
     /// automatic first-result generation can update `statusText` before loading
     /// has visibly finished, which made the file-open progress disappear into a
     /// generic operation indicator.
-    ///
     /// `datasetLoadingProgress` is **nil during phases whose duration is not
     /// knowable** (opening the file, parsing metadata, reading a sidecar). Those
     /// get a named spinner instead of an invented percentage — a bar that steps
@@ -1147,7 +1144,6 @@ final class AppState {
 
     /// Cancels the open in progress. Non-nil exactly while a dataset load is
     /// running, which is what the Cancel affordance binds its visibility to.
-    ///
     /// **Why an open needs this at all** (release owner, 2026-08-18): picking
     /// the wrong file left quitting the app as the only exit, and the open is
     /// the longest uninterruptible wait in the product — worst on the slow
@@ -1378,12 +1374,10 @@ final class AppState {
     }
 
     /// The load specification a previous session recorded for this file, if any.
-    ///
     /// Read BEFORE the load, because it decides what gets read. Reopening a
     /// session reopens the **source** file and re-applies the specification to
     /// it — it never re-derives from reduced data, which is the property that
     /// makes a crop a view rather than a new dataset.
-    ///
     /// A specification that no longer fits the file — the dataset was replaced,
     /// or a sidecar was copied next to a different cube — is dropped rather than
     /// clamped, with the reason said out loud. Loading a *different* region than
@@ -1478,7 +1472,6 @@ final class AppState {
     var configureOnOpen = false
 
     /// Open far enough to look at, then **stop and ask**.
-    ///
     /// Reached only from "Open with options…" — `openFile` still loads the whole
     /// file with no interruption, which is the entry point almost every open
     /// uses. Everything done here is cheap: open the reader, discover the
@@ -1514,7 +1507,6 @@ final class AppState {
                 // regardless of what they have configured so far. It reads
                 // through the pending load's own array, so the single-DP pane's
                 // first fetch hits a warm pattern cache instead of the disk.
-                //
                 // Same determinate progress as `buildDatasetPreview` — L1's
                 // rule: no phase of an open reports indeterminately when the
                 // work is countable. This call site used to omit the
@@ -1555,7 +1547,6 @@ final class AppState {
     /// inside the open Task, the weak capture fights the Task's implicit
     /// strong self (#ImplicitStrongCapture, the warning class the S3 rider
     /// cleared).
-    ///
     /// BOTH guards are load-bearing: `datasetEpoch` stops a cancelled open's
     /// late ticks from writing a stale row counter over the *next* open's
     /// progress (the next open sets `isLoadingDataset` back to true, so that
@@ -1623,13 +1614,11 @@ final class AppState {
     /// Promotion is *removing* the load specification — `.fullExtent` is the
     /// identity — never re-deriving anything from the reduced data
     /// (docs/v2-release.md §1, commitment 2).
-    ///
     /// Deliberately NOT `openFileAsync`: that path re-applies the sidecar's
     /// recorded specification, which is exactly the crop being promoted away.
     /// The reader and the security scope are the ones the rehearsal already
     /// holds, so this is `commitPendingLoad`'s shape with the one
     /// specification the configurator never needs to validate.
-    ///
     /// The source is `loadView`'s own — the descriptor the loaded view
     /// declares it was cut from — never `datasets.first`. The two are equal on
     /// every shipped path, but the button's caption prices `loadView`'s
@@ -1638,14 +1627,12 @@ final class AppState {
     /// the wrong cube while the caption describes the right one. A LoadView
     /// source is 4D by construction (its init throws otherwise), so no
     /// separate rank check is needed.
-    ///
     /// What the reopened dataset shows is decided by machinery that already
     /// exists: `activate` re-references calibration into the full-extent view,
     /// and a session result restored from the sidecar is labelled with the
     /// view it was computed on when that differs (L6 item 3). Cancelling
     /// unwinds to the welcome screen like any cancelled open — the rehearsal
     /// view is a specification, not state worth half-restoring.
-    ///
     /// Internal rather than private so the WIRING can be tested — the S1
     /// lesson: a test that cannot reach the call site pins the pure decision
     /// and not the path the app takes. // v2 S3
@@ -1730,7 +1717,6 @@ final class AppState {
     /// extent, then replay the recorded pipeline sequentially, unattended,
     /// with the machine held awake. With an empty recipe this is exactly the
     /// S3 promote, re-establishing pass included.
-    ///
     /// The record and its frame are captured BEFORE the reopen: the replay
     /// executes the recipe the user promoted, not whatever `activate`'s
     /// sidecar restore re-adopts mid-flight.
@@ -1887,8 +1873,9 @@ final class AppState {
             if let reason = replayRefusal(for: .dpc) { return .refused(reason) }
             return .ran(await runDPC(replaying: true))
 
-        case .diskDetection(let params):
+        case .diskDetection(let params, let detector):
             diskParams = params
+            if let reason = await learnedDetection.replayRefusal(for: detector) { return .refused(reason) }
             if let reason = replayRefusal(for: .disks) { return .refused(reason) }
             return .ran(await runDiskDetection(replaying: true))
 
@@ -1974,7 +1961,6 @@ final class AppState {
     /// imported-phase-model list and selecting it. Reading/parsing is Core's
     /// job even though it is triggered from a picker — `CIFImport` does the
     /// parsing, this just owns the file access and the resulting state.
-    ///
     /// Failure here is routed like opening a dataset (`present`, the
     /// window-modal path), not `presentComputeFailure`: a bad CIF is a fresh
     /// file that never entered analysis state, so there is nothing mid-step
@@ -2003,7 +1989,6 @@ final class AppState {
     /// Deterministic in-memory dataset shared by UI automation, repeatable
     /// design walkthroughs, and the welcome screen's Try Demo Data path —
     /// every workspace works without a file and nothing on disk is touched.
-    ///
     /// `specification` exists for tests that need a *reduced* view without a
     /// file on disk (the promote wiring, v2 S3). The app's own callers pass
     /// nothing and open the demo whole.
@@ -2189,7 +2174,6 @@ final class AppState {
                 // gated on `isLoadingDataset`, so without this the whole open
                 // runs in silence while `activate` reports "Loaded …" with the
                 // bar at 1.0 — #36's stall, one layer down.
-                //
                 // **Unreachable today**: nothing calls `openManualPath`. Fixed
                 // anyway, because the trap is laid for whoever wires it to a
                 // control, and at that point the silence would look like a new
@@ -2225,7 +2209,6 @@ final class AppState {
     /// whose preconditions are not met, e.g. no strain basis found): surfaces
     /// on the existing non-blocking status bar + log pane only, so the rest
     /// of the window stays usable (docs/ui-workflow-backlog.md #9).
-    ///
     /// A data-source failure that reaches a compute catch block (corrupted or
     /// vanished file mid-scan) is NOT a compute failure — it invalidates the
     /// session, so it escalates to the modal path regardless of which stage
@@ -2362,7 +2345,6 @@ final class AppState {
         // EVERYTHING BELOW USES THE VIEW, and the parameter is deliberately
         // named `sourceDescriptor` so that reaching for the file's own extent is
         // something you have to type on purpose.
-        //
         // The two are identical on every shipped path today, which is exactly
         // why this needed saying: an adversarial review on 2026-08-18 found four
         // detector-frame defaults still derived from the source, and a fifth —
@@ -2395,7 +2377,6 @@ final class AppState {
         // THE VIEW'S detector, not the source's. These four are lengths and a
         // position in DETECTOR PIXELS, and a binned or cropped view has fewer
         // of them.
-        //
         // They sat on `descriptor` — the source — until an adversarial review
         // found it on 2026-08-18. Unreachable then, because `activate` only ever
         // built a full-extent view, and a trap set for L5: on a 256 px detector
@@ -2403,7 +2384,6 @@ final class AppState {
         // at 64 px on a 64 px detector, and `ellipseFitOuterRadius` at 115 px
         // entirely off it. Both are plausible-looking numbers, which is the
         // failure mode that matters here.
-        //
         // `CalibrationReReference` takes the aperture CENTRE as a parameter on
         // the principle that every detector-frame rule belongs in one file.
         // These are defaults rather than re-referenced values — there is no
@@ -2518,13 +2498,11 @@ final class AppState {
 
         // MOVE THE CALIBRATION INTO THE LOADED FRAME, or lose the values that
         // cannot make the trip — with a named reason for each.
-        //
         // Everything above read the file at its SOURCE extent, because that is
         // what the file describes. This is the single point where those values
         // become values *about the view*. At full extent it is the identity, so
         // the shipped path is unchanged; it stops being the identity the moment
         // L5's configurator hands `activate` a real specification.
-        //
         // The rules are in `CalibrationReReference`, deliberately not here: they
         // are pure geometry and they are testable without an AppState.
         let reReferenced = CalibrationReReference.apply(
@@ -2574,6 +2552,7 @@ final class AppState {
         inspectQualityField = false
         comField = nil
         probeKernel = nil
+        learnedDetection.clear()
         braggVectors = nil
         completedDiskParams = nil
         completedDiskSummary = nil
@@ -2591,25 +2570,11 @@ final class AppState {
         // (Strain cleared earlier, before the calibration reset — see the
         // Gate B finding 3 comment above the `calibration = Calibration()`
         // line.)
-        acomSession.orientationPlan = nil
-        acomSession.orientationMap = nil
-        acomSession.hasOrientationPlan = false
-        acomSession.hasOrientationMap = false
-        acomSession.modelSelection = .none
-        acomSession.lastRunScope = nil
-        acomSession.lastRunQuality = nil
-        acomSession.lastRunSemantics = nil
-        acomSession.lastMatchedPositionCount = nil
-        acomSession.lastPositionsPerSecond = nil
-        acomSession.lastEndToEndDuration = nil
+        acomSession.resetForDataset(rx: descriptor.rx, ry: descriptor.ry)
         acomLastMeasuredTemplateCount = nil
         acomLastMeasuredBackend = nil
-        acomSession.regionSelectionActive = false
-        acomSession.scope = .preview
-        acomSession.displayIsUserChosen = false
         realSpaceDisplayOrientation = .identity
         realSpaceDisplayMirrored = false
-        acomSession.regionRadius = max(8, min(descriptor.rx, descriptor.ry) / 12)
         activePane = .diffraction
         realSpaceShape = .point
         virtualDiffractionPattern = nil
@@ -2679,7 +2644,6 @@ final class AppState {
     /// Sample a cheap preview before the expensive passes, so the open shows
     /// something real early. Bounded by a byte budget rather than a fixed grid,
     /// so the wait is roughly the same on a 64² and a 512² detector.
-    ///
     /// Failure is not fatal and not reported: a preview is a convenience, and an
     /// error dialog for one would interrupt an open that is otherwise fine. It
     /// simply stays nil and no preview section appears.
@@ -2701,14 +2665,12 @@ final class AppState {
 
     /// Hold the cube in memory when this machine admits it, before the first
     /// whole-cube pass so that pass benefits from it.
-    ///
     /// Reported in the same two quantities L1 established — patterns and MB —
     /// because on a multi-gigabyte cube this read is the longest single phase
     /// of the whole open. A silent preload would reintroduce the stall L1 just
     /// removed, one layer down (invariant I5). It is a *distinct* phase from
     /// the one L1 wired: L1 routes the first analysis pass, this is the read
     /// into the buffer that happens before it.
-    ///
     /// Does nothing visible when the cube is not admitted, which today is
     /// always — the shipped default request is `.streamed` (`.automatic` was
     /// dropped, v2 S3), and nothing in the UI requests `.resident` yet.
@@ -2738,13 +2700,11 @@ final class AppState {
     }
 
     /// Unwind a cancelled open back to the welcome screen.
-    ///
     /// **The failure mode this is written against is a half-loaded dataset that
     /// LOOKS loaded** — an inspector showing dimensions and a calibration for a
     /// cube whose pixels were never read. That would be worse than having no
     /// cancel at all, because every number computed afterwards would be about
     /// data the app never finished reading.
-    ///
     /// The invariant that makes it tractable: `hasDataset` is
     /// `descriptor?.is4D == true`, and every workspace view is gated on the
     /// descriptor. So clearing the descriptor is what returns the app to the
@@ -3393,7 +3353,6 @@ final class AppState {
 
     /// Status line for a whole-cube pass, in the two quantities a user can
     /// check against their own file: patterns read, and bytes read.
-    ///
     /// Bytes are the **float32 working size** — what is actually streamed —
     /// not the on-disk size, which differs whenever the file's dtype is not
     /// float32 (a uint16 cube streams at twice its file size). Reporting the
@@ -4431,7 +4390,6 @@ final class AppState {
     /// Derive the displayed image from the cached CoM field per `dpcDisplay`.
     /// The calibrated R–Q rotation/transpose is applied first so the field is
     /// in the scan frame. Cheap enough (scan-sized) to run on the main actor.
-    ///
     /// Returns the failure reason when the derivation could not produce an
     /// image (today: an iDPC integration refusal), nil on success — so a
     /// caller that writes its own "✓" status line can withhold it. The first
@@ -4519,13 +4477,11 @@ final class AppState {
     }
 
     /// Why physical iDPC specifically REFUSES the fitted origin, or nil.
-    ///
     /// Distinct from "not yet calibrated" (missing origin, rotation or pixel
     /// sizes — the generic requirements note in the DPC controls): this is
     /// non-nil only when an origin fit EXISTS and the gate judges it
     /// non-quantitative, so the controls can say the true reason instead of
     /// listing requirements that are all met. // v2 S7
-    ///
     /// Same JUDGEMENT as the gate (non-nil exactly when
     /// `gates.originQuantitativeRefusal` is), but with iDPC's own remedy:
     /// the Q-surface's "or enter the scale manually" cannot move this
@@ -4564,21 +4520,30 @@ final class AppState {
 
     // MARK: - Disk detection
 
+    /// Runs origin calibration if the radius is unknown; nil on failure.
+    /// Shared by the two generators below that need a calibrated radius.
+    private func ensureProbeRadius() async -> Float? {
+        if calibrationSession.calibration.probeRadius == nil { await calibrateOrigin() }
+        return calibrationSession.calibration.probeRadius
+    }
+
     /// Build the synthetic probe kernel from the calibrated probe radius,
     /// running origin calibration first if needed.
     func generateProbeKernel() async {
         guard let descriptor else { return }
-        if calibrationSession.calibration.probeRadius == nil {
-            await calibrateOrigin()
-            guard calibrationSession.calibration.probeRadius != nil else { return }
-        }
-        guard let radius = calibrationSession.calibration.probeRadius else { return }
+        guard let radius = await ensureProbeRadius() else { return }
 
         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
             presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
             return
         }
         probeKernel = kernel
+        // The learned path needs the full probe IMAGE; draw one (no measured pattern here).
+        let origin = calibrationSession.calibration.referenceOrigin(
+            detectorQX: descriptor.qx, detectorQY: descriptor.qy, apertureCentre: (x: aperture.centerX, y: aperture.centerY)).point
+        learnedDetection.probeReference = .init(
+            pattern: LearnedDetectionSession.syntheticProbe(qy: descriptor.qy, qx: descriptor.qx, centre: (x: origin.x, y: origin.y), radius: radius),
+            centreX: origin.x, centreY: origin.y, radius: radius, source: .synthetic)
         statusText = String(format: "Probe kernel ✓  r = %.1f px, trench %.0f–%.0f px",
                             radius, kernel.trenchRadii.inner, kernel.trenchRadii.outer)
         await detectCurrentPattern()
@@ -4588,12 +4553,8 @@ final class AppState {
     /// rectangle/circle real-space ROI this is its summed vacuum pattern;
     /// normalization makes sum versus mean immaterial.
     func generateMeasuredProbeKernel(mode: ProbeKernelMode = .sigmoidTrench) async {
-        guard descriptor != nil, let pattern = displayedPattern else { return }
-        if calibrationSession.calibration.probeRadius == nil {
-            await calibrateOrigin()
-            guard calibrationSession.calibration.probeRadius != nil else { return }
-        }
-        guard let radius = calibrationSession.calibration.probeRadius, let d = descriptor else { return }
+        guard let d = descriptor, let pattern = displayedPattern else { return }
+        guard let radius = await ensureProbeRadius() else { return }
         let origin = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
             detectorQX: d.qx, detectorQY: d.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
@@ -4605,6 +4566,7 @@ final class AppState {
             return
         }
         probeKernel = kernel
+        learnedDetection.probeReference = .init(pattern: pattern, centreX: origin.x, centreY: origin.y, radius: radius, source: .measured)
         statusText = String(
             format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI, %@", radius,
             mode.rawValue.lowercased()
@@ -4649,6 +4611,7 @@ final class AppState {
             return
         }
         probeKernel = kernel
+        learnedDetection.probeReference = .init(pattern: pattern, centreX: size.x0, centreY: size.y0, radius: size.r, source: .fileProbe)
         let others = candidates.count > 1 ? " (\(candidates.count - 1) more in the file)" : ""
         statusText = String(
             format: "File probe kernel ✓  r = %.1f px, %@, from %@%@", size.r,
@@ -4701,6 +4664,13 @@ final class AppState {
             return
         }
         let epoch = datasetEpoch
+        // Detector-picker overlay: the net's own candidates are the rings (no classical funnel).
+        if let peaks = await learnedDetection.livePeaks(pattern: pattern, params: params) {
+            guard epoch == datasetEpoch, request == liveDetectionRequest,
+                  navigation.analysisMode == .disks else { return }
+            currentPeaks = peaks; currentDiskDiagnostics = nil
+            return
+        }
         let result = await Task.detached(priority: .userInitiated) {
             () -> DiskDetectionPatternResult? in
             guard let detector = DiskDetector(kernel: kernel) else { return nil }
@@ -4739,9 +4709,20 @@ final class AppState {
             return .failed(reason)
         }
 
+        // Prepare the learned asset (first use only) before the cancellable operation begins.
+        let detectorClass = learnedDetection.detectorClass
+        let statusPrefix = detectorClass == .learned ? "Detecting Bragg disks (neural net)…" : "Detecting Bragg disks…"
+        var preparedLearned: LearnedDiskDetector?
+        if detectorClass == .learned {
+            statusText = "Preparing the neural-net detector…"
+            switch await learnedDetection.prepareForRun() {
+            case .failure(let reason): presentComputeFailure(SimpleError(reason)); return .failed(reason)
+            case .success(let loaded): preparedLearned = loaded
+            }
+        }
+
         let cancellation = beginCancellableOperation(
-            "Disk detection", status: "Detecting Bragg disks…",
-            totalUnits: descriptor.rx * descriptor.ry
+            "Disk detection", status: statusPrefix, totalUnits: descriptor.rx * descriptor.ry
         )
         defer { finishCancellableOperation(cancellation) }
 
@@ -4765,22 +4746,38 @@ final class AppState {
             // the runloop stays free. The progress closure already hopped to
             // the main actor explicitly, so it is unchanged.
             let data = fourD
+            // Read on the main actor, before the detach below.
+            let (learnedRef, learnedThreshold) = (learnedDetection.probeReference, learnedDetection.threshold)
             let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
                     self.progress = fraction
-                    self.statusText = "Detecting Bragg disks… \(Int(fraction * 100)) %"
+                    self.statusText = "\(statusPrefix) \(Int(fraction * 100)) %"
                 }
             }
-            vectors = try await Task.detached(priority: .userInitiated) {
-                try await DiskDetection.detectAll(
-                    data: data, descriptor: d, kernel: kernel,
-                    params: params, cancellation: cancellation,
-                    progress: progress
-                )
-            }.value
+            switch detectorClass {
+            case .classical:
+                vectors = try await Task.detached(priority: .userInitiated) {
+                    try await DiskDetection.detectAll(
+                        data: data, descriptor: d, kernel: kernel,
+                        params: params, cancellation: cancellation,
+                        progress: progress
+                    )
+                }.value
+            case .learned:
+                guard let learned = preparedLearned, let ref = learnedRef else {
+                    throw SimpleError("The learned detector is not ready — this is a defect; please report it.") }
+                vectors = try await Task.detached(priority: .userInitiated) {
+                    try await learned.detectAll(
+                        data: data, descriptor: d, probe: ref.pattern,
+                        probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
+                        kernelSource: ref.source, params: params, threshold: learnedThreshold,
+                        cancellation: cancellation, progress: progress
+                    )
+                }.value
+            }
         } catch {
             guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
@@ -4814,6 +4811,7 @@ final class AppState {
             return .failed(reason)
         }
         braggVectors = vectors
+        learnedDetection.record(vectors, as: detectorClass)
         completedDiskParams = params
         // Recipe step (v2 S5): the canonical example of why the record exists
         // separately from per-result controls — detection's own product
@@ -4823,7 +4821,7 @@ final class AppState {
         // recorded against the old peaks would otherwise survive next to the
         // new detection — a recipe that replays neither the saved maps nor a
         // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
-        recordReplayStep(kind: "disk_detection", parameters: [
+        var replayParameters: [String: String] = [
             "corr_power": String(params.corrPower),
             "sigma_dp": String(params.sigmaDP),
             "sigma_cc": String(params.sigmaCC),
@@ -4844,7 +4842,10 @@ final class AppState {
             "kernel_source": kernel.source.provenanceID,
             "kernel_mode": kernel.mode.provenanceID,
             "kernel_probe_path": kernel.probePath ?? "",
-        ], invalidating: ["strain", "acom"], replaying: replaying)
+        ]
+        replayParameters.merge(learnedDetection.replayParameters(for: detectorClass)) { _, new in new }
+        recordReplayStep(kind: "disk_detection", parameters: replayParameters,
+                          invalidating: ["strain", "acom"], replaying: replaying)
         completedDiskSummary = DiskDetectionScanSummary(
             vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params
         )
@@ -4855,6 +4856,8 @@ final class AppState {
             // evidence: the live acceptance funnel and scan summary in
             // the Bragg panel show which filter removed everything.
             statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
+        } else if detectorClass == .learned {
+            statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (neural net, \(params.subpixel.rawValue) subpixel)"
         } else {
             statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
         }
@@ -5052,7 +5055,6 @@ final class AppState {
     }
 
     /// Bring a retained product back to the viewer.
-    ///
     /// Deliberately an **explicit action**, not a side effect of `changeMode`:
     /// navigating between tasks must never silently relabel the visible
     /// result, which `testNavigationDoesNotRelabelTheVisibleScientificResult`
@@ -5132,7 +5134,6 @@ final class AppState {
         // size came out 2.56× too large — labelled `.measuredInApp`, which is
         // the string that travels into export, reopen and the QC log while the
         // warning stayed behind in the Origin row.
-        //
         // The gate is asked through `SessionGates` (S7's seam), which answers
         // it from `Calibration.originFitRefusal` — the same predicate the
         // readiness row renders, so there is one owner. It is
@@ -5141,7 +5142,6 @@ final class AppState {
         // not a known-bad number, which is a different question (#29) and not
         // this defect. The manual Q field stays rendered either way, so
         // refusing here is never a dead end.
-        //
         // It runs *before* the input guards on purpose: the verdict does not
         // depend on having Bragg vectors, and re-detecting disks against a bad
         // origin is wasted work, so naming the origin first is the more useful

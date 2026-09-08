@@ -96,6 +96,31 @@ package final class ACOMSession {
         invalidateResult()
     }
 
+    /// Dataset activation's ACOM reset (moved out of `AppState.activate`,
+    /// C7 session 2, to hold the line budget in `AppState.swift`/
+    /// `ResultExport.swift`): every plan/result/run fact plus the region
+    /// controls, back to their just-opened defaults. `scope` and
+    /// `regionRadius` fire their AppState-owned hooks like any other write,
+    /// unchanged from when these assignments lived in `AppState`. Order
+    /// preserved exactly from the original block.
+    package func resetForDataset(rx: Int, ry: Int) {
+        orientationPlan = nil
+        orientationMap = nil
+        hasOrientationPlan = false
+        hasOrientationMap = false
+        modelSelection = .none
+        lastRunScope = nil
+        lastRunQuality = nil
+        lastRunSemantics = nil
+        lastMatchedPositionCount = nil
+        lastPositionsPerSecond = nil
+        lastEndToEndDuration = nil
+        regionSelectionActive = false
+        scope = .preview
+        displayIsUserChosen = false
+        regionRadius = max(8, min(rx, ry) / 12)
+    }
+
     package func invalidateResult() {
         orientationMap = nil
         hasOrientationMap = false

@@ -1603,15 +1603,14 @@ extension AppState {
             )
         }
         if navigation.analysisMode == .disks {
-            return (
-                calibrationSession.calibration.qPixelSize, calibrationSession.calibration.qPixelSize,
-                calibrationSession.calibration.qPixelUnits,
-                [
-                    "analysis_mode": navigation.analysisMode.rawValue,
-                    "source_product": "bragg_vector_map",
-                    "coordinate_space": "reciprocal",
-                ]
-            )
+            var provenance = ["analysis_mode": navigation.analysisMode.rawValue,
+                              "source_product": "bragg_vector_map", "coordinate_space": "reciprocal"]
+            // C7: the detector's identity travels with the map; the Model row shows the same hash.
+            for key in ["detector_class", "learned_threshold", "learned_model_sha256"] {
+                provenance[key] = braggVectors?.detectionProvenance[key]
+            }
+            let q = calibrationSession.calibration
+            return (q.qPixelSize, q.qPixelSize, q.qPixelUnits, provenance)
         }
         guard navigation.analysisMode == .ptychography else {
             return (
