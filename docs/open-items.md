@@ -190,10 +190,10 @@ in "residual is too large (0.247)".
 gitignored multi-GB data and stay diagnostics only — not a gap to close,
 a standing limit to remember before citing them as coverage.
 
-### C7's learned runtime: ceiling unmeasured on Core ML, Provenance rows unseen (2026-09-08)
+### C7's learned runtime: ceiling unmeasured on Core ML (2026-09-08)
 Session 1 put `Core/ML/LearnedDiskDetector` (Core ML, 256 px) on `main`;
-session 2's picker was driven by the owner on the demo the same day
-(`status.md` row); the map's Provenance rows after a net run are unseen. The 2.81×
+session 2's picker and the map's Provenance rows were driven by the owner
+on the demo the same day (`status.md` row). The 2.81×
 ceiling (`consolidation-plan.md` §2a) was measured on Core AI at 128 px by
 `tools/disk-detector/scan-bench/`, which still lives on `ml/disk-detector`
 and times that runtime: port it and re-measure on Core ML at 256 px before
