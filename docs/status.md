@@ -86,13 +86,12 @@ C5's measured line rule remains in force; its next monthly extraction is
 before the consolidation plan exits.
 
 **Resume checkpoint — 2026-09-09 evening, after the review session. Read
-this first.** The tree is uncommitted and the owner has not committed it. What
-is in it: `.gitignore`, `NOTICE`, `CLAUDE.md` + generated `AGENTS.md`,
-`.github/workflows/ci.yml`, `mac4DSTEM.xcodeproj/project.pbxproj`,
-`tools/run-tests.sh`, five docs, two new `Licenses/*.txt`, the staged
-`model.mlmodel`, and the new `docs/archive/2026-09-09-review/`. **They commit
-together or not at all**: status.md and open-items.md link to the register, and
-the inventory gate fails on a clone that has the links without the files.
+this first.** The review fixes are committed at `5d08c7d`, 17 files, and are
+**not pushed** — the owner pushes. That commit is the first one whose clone
+carries the Core ML model spec, so it is also the first that can reproduce
+`0f53d270…b641ab` and pass the `unit` job on CI. It landed as one commit on
+purpose: status.md and open-items.md link to the register, and the inventory
+gate fails on a clone that has the links without the files.
 
 **What the next session must not do.** Do not fix from the register. Its 113
 new rows are unverified claims — the review's adversarial pass never ran — and
