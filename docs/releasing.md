@@ -17,7 +17,14 @@ notary-service credentials. Those secrets do not belong in the repository.
   the v2.5.1 artefact
 - Hardened runtime and App Sandbox enabled
 - User-selected read/write access plus app-scoped security bookmarks
-- HDF5, sz, and aec libraries embedded, nested-signed, and free of Homebrew paths
+- HDF5, sz, and aec libraries embedded and nested-signed. Their load commands
+  carry no absolute path — `@rpath`, `@loader_path` and `/usr/lib` only, held
+  by `run-tests.sh inventory` since 2026-09-09. "Free of Homebrew paths" was
+  too strong: `libhdf5.dylib` still contains two Homebrew *strings*, the build
+  stamp and HDF5's compiled-in default plugin search path
+  `/opt/homebrew/Cellar/hdf5/2.1.1/lib/plugin`. Neither affects linking or
+  signing; the second means that on a machine which happens to have that path,
+  HDF5 would search it for filter plugins. `NOTICE` records the binaries' hashes
 
 ## Before using credentials
 

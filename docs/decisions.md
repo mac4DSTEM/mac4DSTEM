@@ -386,7 +386,7 @@ have put three panels on the right. Beside strain, orientation and Phase
 products both panes carry the product's descriptor (7b's rule, F1.59).
 
 **2026-09-02 — Live doc set.** `CLAUDE.md` (rules), `docs/status.md`,
-`docs/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
+`docs/archive/v2/v2.5-plan.md`, `docs/open-items.md`, `docs/development-process.md`,
 `docs/architecture.md`, this file, plus the reference docs and Track B
 checklist. Everything else moved to `docs/archive/v2/` unchanged. The
 former `v2.5-contract.md` from the plan's §6 was dropped: the plan is the
@@ -581,7 +581,7 @@ Strain & ACOM, because the net's output is the candidate list the classical
 refinement measures either way; the AI Analysis room keeps precipitates and
 groups. (3) Default threshold 0.7 — the knee measured on the labels
 (0.9: 0.67 / 0.84; 0.7: 0.77 / 0.71; 0.5: 0.79 / 0.59; 0.3: 0.79 / 0.45;
-`scratchpad/c6-compare-256-thr*.log`). (4) No relabelling before C7.
+`c6-compare-256-thr*.log`). (4) No relabelling before C7.
 
 **2026-09-08 — C7 session 1: the Core ML runtime on `main`, and four
 choices made in-step.** (1) The asset ships VERBATIM: the `.mlpackage` is a

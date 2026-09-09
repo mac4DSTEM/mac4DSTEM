@@ -33,8 +33,13 @@
 *.mlmodel
 *.aimodel
 # the one exception (C7, 2026-09-08): the shipping learned disk detector, own weights, pinned by
-# its record JSON beside it and hashed into provenance (Models/DiskDetector/README in the record)
+# its record JSON beside it and hashed into provenance (Models/DiskDetector/README in the record).
+# The `/**` is load-bearing: re-including the .mlpackage directory lets git descend into it, but
+# every file beneath is still matched on its own, so `*.mlmodel` swallowed the model spec and it
+# was never committed. A clone hashed 62b0215f where the record says 0f53d270, the unit gate went
+# red on that number, and the app bundled a package with weights and no graph (found 2026-09-09).
 !Models/DiskDetector/disk-detector-heatmap-256.mlpackage
+!Models/DiskDetector/disk-detector-heatmap-256.mlpackage/**
 # the frozen hand-labelled test set is the owner's data (C6); its sha256 and counts are in the evidence file
 tools/disk-detector/labels/
 

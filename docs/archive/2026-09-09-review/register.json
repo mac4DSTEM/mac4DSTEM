@@ -1,0 +1,1745 @@
+{
+ "reviewDate": "2026-09-09",
+ "source": "REVIEWINTERIM.md (3 passes, 59 agent scopes)",
+ "rawRecords": 259,
+ "defectRecords": 174,
+ "defectClusters": 156,
+ "judgmentRecords": 85,
+ "verified": false,
+ "clusters": [
+  {
+   "sev": "CRITICAL",
+   "title": "The shipped learned detector's model spec is gitignored: every fresh clone gets a broken .mlpackage, a different provenance hash, and a red unit gate",
+   "file": ".gitignore",
+   "lines": [
+    16,
+    32,
+    40,
+    48,
+    56,
+    312
+   ],
+   "n": 6,
+   "disp": "fixed 2026-09-09",
+   "id": "D001"
+  },
+  {
+   "sev": "CRITICAL",
+   "title": "Ptychography scan positions ignore the calibrated R\u2013Q rotation and transpose",
+   "file": "mac4DSTEM/Core/Analysis/PtychographyPreparation.swift",
+   "lines": [
+    1470
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D002"
+  },
+  {
+   "sev": "CRITICAL",
+   "title": "H5Reader's three attribute readers read the whole attribute into a fixed-size scalar buffer \u2014 a multi-element HDF5 attribute overruns it",
+   "file": "mac4DSTEM/Core/Data/H5Reader.swift",
+   "lines": [
+    24
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D003"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Learned detector: the edge-exclusion rule is applied to each 256 px model window, so on detectors > 256 px there are blind bands at every window seam where no window will accept a peak",
+   "file": "mac4DSTEM/Core/Analysis/DiskDetection.swift",
+   "lines": [
+    64,
+    344
+   ],
+   "n": 2,
+   "disp": "new",
+   "id": "D004"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The parallax aberration fit silently ignores the app's own calibrated detector transpose; the code path that would apply it is unreachable",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxAberrationFitting.swift",
+   "lines": [
+    232,
+    1771
+   ],
+   "n": 2,
+   "disp": "repeat of `core-analysis-physics-02` (2026-08-31)",
+   "id": "D005"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A multi-`data_` CIF is silently merged into one crystal: cell parameters from the last block, atom sites and symmetry operations concatenated from all of them",
+   "file": "mac4DSTEM/Core/Crystal/CIFImport.swift",
+   "lines": [
+    144,
+    1561
+   ],
+   "n": 2,
+   "disp": "possible repeat of `core-crystal-02` \u2014 check",
+   "id": "D006"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The CI `inventory` job cannot pass: on a shallow checkout `HEAD^` does not resolve, so the C5 heavy-file check reports the whole 7 509 lines as growth",
+   "file": "tools/run-tests.sh",
+   "lines": [
+    248,
+    328
+   ],
+   "n": 2,
+   "disp": "fixed 2026-09-09",
+   "id": "D007"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The shipped detector's public record claims 20 000 training steps; the retained training log shows the 90-minute cap fired at step 6 500",
+   "file": "Models/DiskDetector/disk-detector-heatmap-256.json",
+   "lines": [
+    320
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D008"
+  },
+  {
+   "sev": "HIGH",
+   "title": "NOTICE claims the bundled HDF5/libaec licence texts ship inside the app; they are absent from the released v2.5.1 artefact and from the repo entirely",
+   "file": "NOTICE",
+   "lines": [
+    120
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D009"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The triage's own port recipe for DiffractionEmbedding omits its build prerequisite, which exists only on the branch",
+   "file": "docs/archive/v3/c8-triage-2026-09-08.md",
+   "lines": [
+    272
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D010"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The C8 decision to strand the four pure engines rests on a claim the branch's own files and gate rows contradict",
+   "file": "docs/decisions.md",
+   "lines": [
+    264
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D011"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The accessibility open item's reason for dropping `.accessibilityLabel()` is contradicted by its own data \u2014 the one in-body control that reports a label is the one that restates it",
+   "file": "docs/open-items.md",
+   "lines": [
+    96
+   ],
+   "n": 1,
+   "disp": "tracked in open-items",
+   "id": "D012"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The accessibility crash \u2014 the one finding status.md names as able to block v3.0.0 \u2014 rests on two crash reports that do not exist on this machine",
+   "file": "docs/open-items.md",
+   "lines": [
+    128
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D013"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Three prebuilt Homebrew dylibs are committed and shipped with no recorded provenance, version, hash or rebuild path \u2014 and no automated gate ever inspects them",
+   "file": "mac4DSTEM.xcodeproj/project.pbxproj",
+   "lines": [
+    304
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D014"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A file- or sidecar-supplied probe radius permanently freezes `minPeakSpacing`: the later measured radius is never adopted, because the \"user has not chosen one\" guard cannot tell an app-seeded value from a user edit",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    72
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D015"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A replayed DPC step reports `.published` while publishing nothing \u2014 the promote run's summary attests to a result that was never produced",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1540
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D016"
+  },
+  {
+   "sev": "HIGH",
+   "title": "`publishProduct` takes the product's pixel size from the CURRENT analysis mode, so the scan-domain detector-disagreement map is published and exported with the Bragg map's reciprocal \u00c5\u207b\u00b9/px",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1547
+   ],
+   "n": 1,
+   "disp": "possible repeat of `core-data-02` \u2014 check",
+   "id": "D017"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Disk-detection staleness signature and recipe omit the probe kernel's identity, so a Bragg map made with a different kernel is reported as current",
+   "file": "mac4DSTEM/Core/Analysis/DiskDetection.swift",
+   "lines": [
+    152
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D018"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A single non-finite pixel in a diffraction pattern silently returns zero peaks for that whole pattern",
+   "file": "mac4DSTEM/Core/Analysis/DiskDetection.swift",
+   "lines": [
+    1491
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D019"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Hexagonal IPF colour key labels \u27e810-1\u03040\u27e9 and \u27e811-2\u03040\u27e9 the wrong way round \u2014 green and blue are swapped against the crystallography",
+   "file": "mac4DSTEM/Core/Analysis/OrientationResult.swift",
+   "lines": [
+    136
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D020"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Float32 running sum saturates: whole-stack mean collapses on ordinary-sized datasets",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxPreprocessing.swift",
+   "lines": [
+    1568
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D021"
+  },
+  {
+   "sev": "HIGH",
+   "title": "`RotationCalibration` \u2014 the R/Q rotation AND transpose solver \u2014 has zero gated coverage; its only non-app caller is a diagnostic harness that never runs in any gate",
+   "file": "mac4DSTEM/Core/Analysis/RotationCalibration.swift",
+   "lines": [
+    280
+   ],
+   "n": 1,
+   "disp": "repeat of `tools-gates-05` (2026-08-31)",
+   "id": "D022"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Empty scan positions inject Float.greatestFiniteMagnitude into the clustering-scale median",
+   "file": "mac4DSTEM/Core/Analysis/StrainMapping.swift",
+   "lines": [
+    1512
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D023"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Every full-cube VirtualDetector pass runs on the main actor: AppState never wraps them in Task.detached, and `nonisolated async` inherits the caller's actor under this project's settings",
+   "file": "mac4DSTEM/Core/Analysis/VirtualDetector.swift",
+   "lines": [
+    184
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D024"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Selected-area diffraction circle mask is half a pixel off-centre from the ROI drawn on screen",
+   "file": "mac4DSTEM/Core/Analysis/VirtualDetector.swift",
+   "lines": [
+    1533
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D025"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Matrix-DFT upsampling assigns the wrong Fourier frequency to one bin on every odd-length axis, biasing every parallax subpixel shift on odd-sized grids",
+   "file": "mac4DSTEM/Core/Compute/MatrixDFTCorrelation.swift",
+   "lines": [
+    224
+   ],
+   "n": 1,
+   "disp": "repeat of `core-compute-shaders-01` (2026-08-31)",
+   "id": "D026"
+  },
+  {
+   "sev": "HIGH",
+   "title": "CIF importer applies whatever symmetry-operation list the file happens to contain, with no completeness or consistency check",
+   "file": "mac4DSTEM/Core/Crystal/CIFImport.swift",
+   "lines": [
+    1554
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D027"
+  },
+  {
+   "sev": "HIGH",
+   "title": "ACOM CPU matching silently returns an unmatched or partially unmatched orientation map when a per-worker matcher cannot be built \u2014 no failure flag, unlike its DiskDetection twin",
+   "file": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+   "lines": [
+    192
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D028"
+  },
+  {
+   "sev": "HIGH",
+   "title": "BraggVectorEMDWriter.readStringAttribute assumes every string attribute is variable-length; a fixed-length one is read as a pointer and then free()d",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    168
+   ],
+   "n": 1,
+   "disp": "repeat of `core-data-01` (2026-08-31)",
+   "id": "D029"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Exported dim vectors pair a defaulted step of 1 with a real physical unit, manufacturing a calibration that was never measured",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    1498
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D030"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A session save silently publishes a stripped sidecar when the existing file cannot be opened, destroying BraggVectors, saved results, the replay record and the labels",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    1505
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D031"
+  },
+  {
+   "sev": "HIGH",
+   "title": "`hasEllipse` admits a non-positive semi-axis, so a degenerate ellipse is applied to every Bragg vector while readiness reports \"No detector-distortion correction\"",
+   "file": "mac4DSTEM/Core/Data/Calibration.swift",
+   "lines": [
+    1526
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D032"
+  },
+  {
+   "sev": "HIGH",
+   "title": "DM4 parsing has unguarded trapping Int conversions and an unbounded field loop \u2014 a corrupt or desynchronised tag tree kills or hangs the process",
+   "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+   "lines": [
+    176
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D033"
+  },
+  {
+   "sev": "HIGH",
+   "title": "DM4 tag parser converts file-supplied UInt64/Double counts to Int without validating them: a malformed .dm4 traps or hangs",
+   "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+   "lines": [
+    1477
+   ],
+   "n": 1,
+   "disp": "repeat of `core-data-06` (2026-08-31)",
+   "id": "D034"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Scan-fastest DM4 reads the detector pair in the opposite order from the detector-fastest branch, and the only test covering it is circular",
+   "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+   "lines": [
+    1484
+   ],
+   "n": 1,
+   "disp": "possible repeat of `core-data-07` \u2014 check",
+   "id": "D035"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The unit gate's end-to-end fixture and every gated `probeSize` fixture are square and centre-symmetric, so an rx/ry or qx/qy swap is undetectable",
+   "file": "mac4DSTEM/Core/Data/DemoFourDDataSource.swift",
+   "lines": [
+    296
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D036"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A detector smaller than 256 px whose beam is off-centre is silently truncated by the learned frame \u2014 part of the detector is never searched",
+   "file": "mac4DSTEM/Core/ML/LearnedDiskDetector.swift",
+   "lines": [
+    200
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D037"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A learned-inference failure on the live overlay is silently answered with CLASSICAL rings while the picker still says Neural net",
+   "file": "mac4DSTEM/Core/ML/LearnedDiskDetector.swift",
+   "lines": [
+    208
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D038"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The tracked >256-px probe-anchor item understates it: nothing gates, warns, or flags a run on a detector larger than 256 px",
+   "file": "mac4DSTEM/Core/ML/LearnedDiskDetector.swift",
+   "lines": [
+    216
+   ],
+   "n": 1,
+   "disp": "tracked in open-items",
+   "id": "D039"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Hand-clicked disk-centre labels are written with `frame: \"native\"` but are captured in the loaded view's frame, so labels clicked on a cropped or binned view name the wrong detector pixels and scan positions",
+   "file": "mac4DSTEM/Session/DiskCentreLabels.swift",
+   "lines": [
+    160
+   ],
+   "n": 1,
+   "disp": "possible repeat of `support-export-08` \u2014 check",
+   "id": "D040"
+  },
+  {
+   "sev": "HIGH",
+   "title": "CBED PNG export burns a guessed \"1/nm\" scale-bar label when the file gave a Q pixel size with no units",
+   "file": "mac4DSTEM/Support/ResultExport.swift",
+   "lines": [
+    1519
+   ],
+   "n": 1,
+   "disp": "repeat of `support-export-04` (2026-08-31)",
+   "id": "D041"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Candidate views for the AX stack overflow, ranked \u2014 the three `.contain` containers that wrap an NSViewRepresentable, and the two labels applied to non-elements",
+   "file": "mac4DSTEM/UI/ImagePanes.swift",
+   "lines": [
+    104
+   ],
+   "n": 1,
+   "disp": "tracked in open-items",
+   "id": "D042"
+  },
+  {
+   "sev": "HIGH",
+   "title": "ApertureOverlay's accessibility representation builds a Slider whose ClosedRange can be inverted, trapping the process",
+   "file": "mac4DSTEM/UI/PaneOverlays.swift",
+   "lines": [
+    88
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D043"
+  },
+  {
+   "sev": "HIGH",
+   "title": "Pan clamp is still the dead Metal shader's rule, so a zoomed pane can only pan 1/zoom of the way to the image edge",
+   "file": "mac4DSTEM/UI/ZoomPan.swift",
+   "lines": [
+    80
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D044"
+  },
+  {
+   "sev": "HIGH",
+   "title": "A DPC unit test turns a total DPC failure into a skip, on the always-available in-memory demo fixture",
+   "file": "mac4DSTEMTests/SessionCalibrationTranslationTests.swift",
+   "lines": [
+    288
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D045"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The ACOM Metal-vs-CPU parity gate compares in-plane angles modulo \u03c0, so a 180\u00b0 divergence in the user-selectable \"Metal GPU\" backend passes while printing \"Metal choices exact\"",
+   "file": "tools/acom-matching-test/main.swift",
+   "lines": [
+    240
+   ],
+   "n": 1,
+   "disp": "possible repeat of `core-crystal-03` \u2014 check",
+   "id": "D046"
+  },
+  {
+   "sev": "HIGH",
+   "title": "`run-tests.sh inventory` exits 1 on the current clean tree \u2014 tripped by status.md's own \"Nothing is uncommitted\" sentence \u2014 while status.md's gate table claims exit 0",
+   "file": "tools/run-tests.sh",
+   "lines": [
+    112
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D047"
+  },
+  {
+   "sev": "HIGH",
+   "title": "The \"AppState never net positive\" rule measures two file paths, so AppState growth in any additional `extension AppState` file is invisible \u2014 and 630 such lines already exist on ml/disk-detector",
+   "file": "tools/run-tests.sh",
+   "lines": [
+    256
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D048"
+  },
+  {
+   "sev": "HIGH",
+   "title": "`strain-frame-test` generates its golden from whichever py4DSTEM is installed (0.14.17 here) while asserting source-locks against the 0.14.19 pin; its own error text claims a PYTHONPATH that run.sh never sets",
+   "file": "tools/strain-frame-test/run.sh",
+   "lines": [
+    336
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D049"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The AGPL yolov8n weights are still distributed by the public repository \u2014 reachable from `main` \u2014 while NOTICE says no third-party weights are distributed",
+   "file": "NOTICE",
+   "lines": [
+    480,
+    608
+   ],
+   "n": 2,
+   "disp": "tracked in open-items",
+   "id": "D050"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Most of the retained logs and screenshot sets status.md cites as its evidence no longer exist; one row's \"screenshots retained in scratchpad/c4c-drive/\" is demonstrably false",
+   "file": "docs/status.md",
+   "lines": [
+    376,
+    616
+   ],
+   "n": 2,
+   "disp": "fixed 2026-09-09",
+   "id": "D051"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`ProbeKernel.synthetic` and the trench in `ProbeKernel.measured` use `y < py/2` for the wrapped (fftfreq) coordinate, where the flat route and NumPy use `(py+1)/2` \u2014 one row and one column carry the wrong radius on odd-sized detectors",
+   "file": "mac4DSTEM/Core/Analysis/ProbeKernel.swift",
+   "lines": [
+    352,
+    1799
+   ],
+   "n": 2,
+   "disp": "new",
+   "id": "D052"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "BraggVectorEMDWriter's scalar dataset readers use H5S_ALL into a single stack value with no dataspace check",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    440,
+    1610
+   ],
+   "n": 2,
+   "disp": "repeat of `core-data-01` (2026-08-31)",
+   "id": "D053"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Disk-centre labels written by a branch build are silently erased by any main build, and vice versa \u2014 the two designs use different sidecar attribute names",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    576,
+    1617
+   ],
+   "n": 2,
+   "disp": "new",
+   "id": "D054"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "There is no HDF5 serialisation anywhere, and H5Reader.deinit closes the file off the actor's executor \u2014 an entry point the tracked crash item does not name",
+   "file": "mac4DSTEM/Core/Data/H5Reader.swift",
+   "lines": [
+    448,
+    712
+   ],
+   "n": 2,
+   "disp": "tracked in open-items",
+   "id": "D055"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The CoM kernels clamp negative intensities to zero \u2014 an undocumented py4DSTEM deviation that moves every DPC/iDPC and origin number on background-subtracted data",
+   "file": "mac4DSTEM/Shaders/CenterOfMass.metal",
+   "lines": [
+    504,
+    528
+   ],
+   "n": 2,
+   "disp": "repeat of `core-compute-shaders-02` (2026-08-31)",
+   "id": "D056"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`ml/disk-detector` is 26 commits BEHIND main as well as 27 ahead; its `tools/` tree would resurrect three harnesses main deleted and a 105-line-stale `sources.manifest`",
+   "file": "(none)",
+   "lines": [
+    648
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D057"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`.github/workflows/ci.yml`'s own description of the inventory job states the opposite of what the script now does \u2014 a reader triaging the red job is told size cannot be the cause",
+   "file": ".github/workflows/ci.yml",
+   "lines": [
+    536
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D058"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "CONTRIBUTING.md tells public contributors every Core/ change needs a parity fixture; CLAUDE.md explicitly says the opposite, and recent Core/ sessions followed CLAUDE.md",
+   "file": "CONTRIBUTING.md",
+   "lines": [
+    384
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D059"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`Package.swift`'s header says the app target still compiles Core/ and Session/ directly; the project file says it does not, and the 78-path exception list that makes that true is hand-maintained and ungated",
+   "file": "Package.swift",
+   "lines": [
+    544
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D060"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Consolidation gate C3 is marked CLOSED but its stated exit criterion fails again on the current status.md, so `/pickup` with no target would re-take a closed gate",
+   "file": "docs/consolidation-plan.md",
+   "lines": [
+    392
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D061"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The crash reports that are the sole evidence for the repo's top open item are not on this machine",
+   "file": "docs/open-items.md",
+   "lines": [
+    368
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D062"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The tracked entry \"Two diagnostic harnesses gate nothing\" is wrong: nine harnesses gate nothing, and one of them is the sole non-app exerciser of a science port",
+   "file": "docs/open-items.md",
+   "lines": [
+    600
+   ],
+   "n": 1,
+   "disp": "tracked in open-items",
+   "id": "D063"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "arm64-only HDF5 with no ARCHS pin: the prescribed Archive release path can produce an x86_64 slice that launches and then fails on every data file",
+   "file": "mac4DSTEM.xcodeproj/project.pbxproj",
+   "lines": [
+    624
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D064"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "A promote-and-replay from a detector-cropped or binned rehearsal refuses its own strain/ACOM steps: the executor writes re-referenced disk parameters, the staleness check compares them against the un-re-referenced recipe",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1722
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D065"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "iDPC integration and the Bragg-vector-map histogram run on the MainActor, the same shape as the P1 freeze this repo already diagnosed one layer up",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1729
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D066"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "CIF import runs the whole parse, symmetry expansion and O(n\u00b2) family verification synchronously on the main actor, with no cancellation",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1736
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D067"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "No staleness signature carries any calibration value, so a re-fitted origin (or a rotation/Q edit) never marks a displayed map stale \u2014 the C4(b) plan required exactly this",
+   "file": "mac4DSTEM/App/ProductWorkflow.swift",
+   "lines": [
+    432
+   ],
+   "n": 1,
+   "disp": "tracked in open-items",
+   "id": "D068"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "A signature that cannot be built is reported as \"not stale\", the same verdict as \"matches on every key\"",
+   "file": "mac4DSTEM/App/ProductWorkflow.swift",
+   "lines": [
+    1659
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D069"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "DPC colour-wheel traps (hard crash) on a single non-finite centre-of-mass value",
+   "file": "mac4DSTEM/Core/Analysis/DPC.swift",
+   "lines": [
+    1715
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D070"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Learned-detector runs record min_absolute_intensity, subpixel and upsample_factor in provenance although refine() applies none of them",
+   "file": "mac4DSTEM/Core/Analysis/DiskDetection.swift",
+   "lines": [
+    1596
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D071"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Parabolic subpixel refinement runs in Float32 where py4DSTEM explicitly upcasts to float64, with no DEVIATION note",
+   "file": "mac4DSTEM/Core/Analysis/DiskDetection.swift",
+   "lines": [
+    1603
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D072"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "fit1D reports didNotConverge when the seed is already at (or reaches) the optimum",
+   "file": "mac4DSTEM/Core/Analysis/EllipseCalibration.swift",
+   "lines": [
+    1631
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D073"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Ellipse calibration cannot be cancelled; the cancellation token only discards the finished result",
+   "file": "mac4DSTEM/Core/Analysis/EllipseCalibration.swift",
+   "lines": [
+    1645
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D074"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "normalizedResidual carries two incommensurable definitions in one field, gated by near-identical thresholds",
+   "file": "mac4DSTEM/Core/Analysis/EllipseCalibration.swift",
+   "lines": [
+    1652
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D075"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Higher-order aberration gradients are sampled at a different angular origin than py4DSTEM",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxAberrationFitting.swift",
+   "lines": [
+    1757
+   ],
+   "n": 1,
+   "disp": "repeat of `core-analysis-physics-06` (2026-08-31)",
+   "id": "D076"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Default alignment schedule drops py4DSTEM's repeat pass at the smallest bin",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxAlignment.swift",
+   "lines": [
+    1764
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D077"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Alignment working-memory guard counts three stacks; six are live",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxAlignment.swift",
+   "lines": [
+    1778
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D078"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Parallax and ptychography use the raw aperture centre as the diffraction origin, bypassing `Calibration.referenceOrigin` \u2014 the one derivation the type says every caller must use",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxPreprocessing.swift",
+   "lines": [
+    408
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D079"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Parallax and ptychography refuse to run without an R\u2013Q rotation calibration that neither pipeline ever reads",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxPreprocessing.swift",
+   "lines": [
+    496
+   ],
+   "n": 1,
+   "disp": "possible repeat of `core-analysis-physics-02` \u2014 check",
+   "id": "D080"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`docs/q-calibration-design.md` documents a probe-radius shell check as the replacement guard, but `KnownCrystalQCalibration.estimate` takes `probeRadiusPixels` and never reads it",
+   "file": "mac4DSTEM/Core/Analysis/QCalibration.swift",
+   "lines": [
+    400
+   ],
+   "n": 1,
+   "disp": "repeat of `core-analysis-detect-02` (2026-08-31)",
+   "id": "D081"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "probeRadiusPixels is a required argument that no code reads, while its doc comment claims it gates a check",
+   "file": "mac4DSTEM/Core/Analysis/QCalibration.swift",
+   "lines": [
+    1638
+   ],
+   "n": 1,
+   "disp": "repeat of `core-analysis-detect-02` (2026-08-31)",
+   "id": "D082"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`StrainMapping.compute` scores a manual basis over a different observation population than an automatic one (`minRadius: 0` vs the default 2), so the exported `basis_support_fraction` means two different things",
+   "file": "mac4DSTEM/Core/Analysis/StrainMapping.swift",
+   "lines": [
+    360
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D083"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`MetalEngine`'s six compute pipelines are unsynchronized `lazy var`s on a nonisolated process-wide singleton",
+   "file": "mac4DSTEM/Core/Compute/MetalEngine.swift",
+   "lines": [
+    464
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D084"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The azimuthal blur width is a plan-generation parameter but a hard-coded literal in the matcher, so template and experimental images can be built with different kernels",
+   "file": "mac4DSTEM/Core/Crystal/OrientationMatcher.swift",
+   "lines": [
+    1743
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D085"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Polar deposition converts a radius to an Int bin index with no finiteness or magnitude guard \u2014 a runtime trap on a bad Q calibration",
+   "file": "mac4DSTEM/Core/Crystal/OrientationPlan.swift",
+   "lines": [
+    1750
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D086"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "writeCalibration silently discards per-position origin maps that fail its validity test, while the export path refuses on the same condition",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    1624
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D087"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Re-referencing wipes `originProvenance` to `.geometricDefault` while a valid recorded mean origin survives and silently becomes the reference origin",
+   "file": "mac4DSTEM/Core/Data/CalibrationReReference.swift",
+   "lines": [
+    1708
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D088"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "DM4 scan shape and voltage are chosen by unscoped substring match over a Dictionary, so which tag wins varies between runs",
+   "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+   "lines": [
+    1589
+   ],
+   "n": 1,
+   "disp": "repeat of `core-data-07` (2026-08-31)",
+   "id": "D089"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The demo fixture is square on every axis and declares a symmetric origin, so nothing built on it can catch a scan- or detector-axis transposition",
+   "file": "mac4DSTEM/Core/Data/DemoFourDDataSource.swift",
+   "lines": [
+    1687
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D090"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Synthetic demo calibration is stamped .importedFile, so fabricated numbers are labelled as read from a file",
+   "file": "mac4DSTEM/Core/Data/DemoFourDDataSource.swift",
+   "lines": [
+    1694
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D091"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Log-scale contrast turns non-finite pixels into a real intensity of 0, breaking the file's own \"no data stays distinguishable\" invariant",
+   "file": "mac4DSTEM/Core/Data/DiffractionPattern.swift",
+   "lines": [
+    1666
+   ],
+   "n": 1,
+   "disp": "repeat of `core-data-09` (2026-08-31)",
+   "id": "D092"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The whole resident-cube path in FourDArray/ResidentCube is unreachable in the shipping app \u2014 no caller ever requests .resident",
+   "file": "mac4DSTEM/Core/Data/FourDArray.swift",
+   "lines": [
+    1673
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D093"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The diffraction-pattern LRU is bounded by pattern COUNT, not bytes, and nothing in the app ever clears it",
+   "file": "mac4DSTEM/Core/Data/FourDArray.swift",
+   "lines": [
+    1680
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D094"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "H5Reader.readProbe materialises the entire probe dataset from file-declared dims, then discards all but slice 0",
+   "file": "mac4DSTEM/Core/Data/H5Reader.swift",
+   "lines": [
+    1575
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D095"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Rehydrated upsample_factor from a sidecar has no upper bound and reaches an Int(Double) conversion that traps",
+   "file": "mac4DSTEM/Core/Data/ResultPresentation.swift",
+   "lines": [
+    1701
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D096"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "EMPAD and MIB whole-cube reads open, seek, read and close a fresh FileHandle for every single diffraction pattern",
+   "file": "mac4DSTEM/Core/Data/VendorRawReaders.swift",
+   "lines": [
+    1582
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D097"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`to_counts` is applied to the cropped window in Swift and to the whole native pattern in Python \u2014 an unmarked deviation that gives each >256-px window its own dose scale",
+   "file": "mac4DSTEM/Core/ML/LearnedDiskDetector.swift",
+   "lines": [
+    472
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D098"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Strain staleness ignores the manual g-vector basis, which is an input to the computation",
+   "file": "mac4DSTEM/Session/StrainProduct.swift",
+   "lines": [
+    424
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D099"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The GPU threadgroup argmax and the CPU argmax break ties in different directions, contradicting the shader's own \"identical to the reference path\" claim",
+   "file": "mac4DSTEM/Shaders/ACOMMatching.metal",
+   "lines": [
+    520
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D100"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The app's CoM component order is transposed relative to py4DSTEM, so the R\u2013Q rotation it reports and exports is the negative of py4DSTEM's \u2014 and of its own parallax-fitted rotation",
+   "file": "mac4DSTEM/Shaders/CenterOfMass.metal",
+   "lines": [
+    512
+   ],
+   "n": 1,
+   "disp": "possible repeat of `core-analysis-physics-06` \u2014 check",
+   "id": "D101"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Exported figures burn a scale bar with a fabricated unit when the calibration carries a size but no units \u2014 the on-screen bar was fixed for this case, the exported one was not",
+   "file": "mac4DSTEM/Support/ResultExport.swift",
+   "lines": [
+    416
+   ],
+   "n": 1,
+   "disp": "repeat of `support-export-04` (2026-08-31)",
+   "id": "D102"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The main-thread regression guard exists only for the learned detector; the classical full-scan path \u2014 the shipped default and the one that actually froze the app \u2014 has none, and the build cannot catch a lost `nonisolated`",
+   "file": "mac4DSTEMTests/LearnedDiskDetectionScanTests.swift",
+   "lines": [
+    456
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D103"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The learned parity gate skips rather than fails on any Core ML load error, and falls back to the repo copy of the asset so a bundle-packaging regression is invisible",
+   "file": "mac4DSTEMTests/LearnedDiskDetectorTests.swift",
+   "lines": [
+    488
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D104"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Every learned-detector parity test silently XCTSkips when the asset cannot load, because the guard tests only that the .mlpackage DIRECTORY exists",
+   "file": "mac4DSTEMTests/LearnedDiskDetectorTests.swift",
+   "lines": [
+    568
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D105"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The frozen hand-labelled test set that is the sole evidence for the shipped 0.7 threshold exists only in a `/private/tmp` worktree",
+   "file": "tools/disk-detector/overnight-256.sh",
+   "lines": [
+    640
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D106"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The py4DSTEM source lock is verified by HEAD only \u2014 a dirty or de-gitted `References/py4DSTEM-dev` is accepted as \"lock present\"",
+   "file": "tools/lib/fetch-py4dstem.sh",
+   "lines": [
+    584
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D107"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "`fetch-py4dstem.sh` verifies nothing once the checkout exists: no content check without `.git`, and no check at all when HEAD already equals the lock",
+   "file": "tools/lib/fetch-py4dstem.sh",
+   "lines": [
+    632
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D108"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The inventory's \"AppState stored properties\" metric counts function-local `let`/`var` and computed properties \u2014 it reports 491 where the type declares ~123, and status.md quotes the number as evidence of progress",
+   "file": "tools/run-tests.sh",
+   "lines": [
+    552
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D109"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "Merging ml/disk-detector today red-lines main's own inventory gate, and taking the branch's tools/run-tests.sh would silently delete three of its checks",
+   "file": "tools/run-tests.sh",
+   "lines": [
+    560
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D110"
+  },
+  {
+   "sev": "MEDIUM",
+   "title": "The C5 AppState/ResultExport growth gate is blind whenever HEAD is a docs-only commit, which is this repo's normal closeout shape",
+   "file": "tools/run-tests.sh",
+   "lines": [
+    592
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D111"
+  },
+  {
+   "sev": "LOW",
+   "title": "Three stale pointers in live docs: an owed push that already happened, a line reference three lines off, and a file path from before the Session/ split",
+   "file": "docs/status.md",
+   "lines": [
+    664,
+    768
+   ],
+   "n": 2,
+   "disp": "fixed 2026-09-09",
+   "id": "D112"
+  },
+  {
+   "sev": "LOW",
+   "title": "`LearnedDiskDetector.heatmaps` reads the Core ML output as densely packed and never checks its strides or channel count",
+   "file": "mac4DSTEM/Core/ML/LearnedDiskDetector.swift",
+   "lines": [
+    704,
+    720
+   ],
+   "n": 2,
+   "disp": "new",
+   "id": "D113"
+  },
+  {
+   "sev": "LOW",
+   "title": "docs/releasing.md claims the embedded libraries are \"free of Homebrew paths\"; libhdf5.dylib carries a compiled-in /opt/homebrew plugin search path that the audit does not look for",
+   "file": "docs/releasing.md",
+   "lines": [
+    784
+   ],
+   "n": 1,
+   "disp": "fixed 2026-09-09",
+   "id": "D114"
+  },
+  {
+   "sev": "LOW",
+   "title": "The shaders are compiled with -fmetal-math-mode=fast, which voids the NaN reasoning written into OriginMeasure.metal and the NaN robustness OriginCalibration claims for the statistics it consumes",
+   "file": "mac4DSTEM.xcodeproj/project.pbxproj",
+   "lines": [
+    728
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D115"
+  },
+  {
+   "sev": "LOW",
+   "title": "ActivityLog's two drop rules are textual heuristics that can silently discard a real event",
+   "file": "mac4DSTEM/App/ActivityLog.swift",
+   "lines": [
+    1890
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D116"
+  },
+  {
+   "sev": "LOW",
+   "title": "`AppState.sessionInventory` carries an orphaned doc comment describing a property that was deleted, contradicting the comment directly below it",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    760
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D117"
+  },
+  {
+   "sev": "LOW",
+   "title": "productWorkflowReadiness probes the app bundle on the filesystem every time a view body reads it",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1904
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D118"
+  },
+  {
+   "sev": "LOW",
+   "title": "`calibrateEllipse` still hand-rolls the origin fallback that the v2 S13 comment says was eliminated, and centres the fit annulus on the aperture unconditionally",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1960
+   ],
+   "n": 1,
+   "disp": "repeat of `app-appstate-05` (2026-08-31)",
+   "id": "D119"
+  },
+  {
+   "sev": "LOW",
+   "title": "`publishRestoredProduct` is the one publish site that does not bump `resultVersion`, and every display cache is keyed on it",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1967
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D120"
+  },
+  {
+   "sev": "LOW",
+   "title": "`applyDPCDisplay` returns nil for two different facts \u2014 \"the display was published\" and \"this did not run\"",
+   "file": "mac4DSTEM/App/AppState.swift",
+   "lines": [
+    1974
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D121"
+  },
+  {
+   "sev": "LOW",
+   "title": "Colormaps.lutRGBA traps (not returns garbage) for count <= 1",
+   "file": "mac4DSTEM/App/Colormaps.swift",
+   "lines": [
+    1883
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D122"
+  },
+  {
+   "sev": "LOW",
+   "title": "PendingLoad owns a security-scoped URL and a live read Task but has no deinit; release depends entirely on two AppState call sites",
+   "file": "mac4DSTEM/App/PendingLoad.swift",
+   "lines": [
+    1897
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D123"
+  },
+  {
+   "sev": "LOW",
+   "title": "Quantitative iDPC forces a square scan step even when the two scan axes are sampled differently",
+   "file": "mac4DSTEM/Core/Analysis/DPC.swift",
+   "lines": [
+    1953
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D124"
+  },
+  {
+   "sev": "LOW",
+   "title": "The sampled-preview label the file's own invariant I4 calls load-bearing prints \"every 32th position\"",
+   "file": "mac4DSTEM/Core/Analysis/DatasetPreview.swift",
+   "lines": [
+    1806
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D125"
+  },
+  {
+   "sev": "LOW",
+   "title": "DatasetPreview.make reports two non-allocation failures as FourDError.allocationFailed",
+   "file": "mac4DSTEM/Core/Analysis/DatasetPreview.swift",
+   "lines": [
+    1813
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D126"
+  },
+  {
+   "sev": "LOW",
+   "title": "Full-scan progress fractions can be delivered out of order, and the tile coalescer admits the regression",
+   "file": "mac4DSTEM/Core/Analysis/DiskDetection.swift",
+   "lines": [
+    1820
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D127"
+  },
+  {
+   "sev": "LOW",
+   "title": "fit2D and fitOrigin(included:) index by width*height without checking the array actually has that many elements",
+   "file": "mac4DSTEM/Core/Analysis/OriginCalibration.swift",
+   "lines": [
+    1855
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D128"
+  },
+  {
+   "sev": "LOW",
+   "title": "OriginCalibration.run is dead in the app and duplicates tiledRun's calibration logic",
+   "file": "mac4DSTEM/Core/Analysis/OriginCalibration.swift",
+   "lines": [
+    1869
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D129"
+  },
+  {
+   "sev": "LOW",
+   "title": "Q high-pass envelope is applied although py4DSTEM's aberration_correct ignores it",
+   "file": "mac4DSTEM/Core/Analysis/ParallaxAberrationCorrection.swift",
+   "lines": [
+    1995
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D130"
+  },
+  {
+   "sev": "LOW",
+   "title": "ProbeKernel.measured traps on a non-finite origin where its sibling .flat returns nil",
+   "file": "mac4DSTEM/Core/Analysis/ProbeKernel.swift",
+   "lines": [
+    1827
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D131"
+  },
+  {
+   "sev": "LOW",
+   "title": "RotationCalibration.solve reads 2*width*height floats from com without checking its length",
+   "file": "mac4DSTEM/Core/Analysis/RotationCalibration.swift",
+   "lines": [
+    1862
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D132"
+  },
+  {
+   "sev": "LOW",
+   "title": "Analytic aperture kernel and the mask path disagree on the exact-centre detector pixel when inner radius is 0",
+   "file": "mac4DSTEM/Core/Analysis/VirtualDetector.swift",
+   "lines": [
+    1946
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D133"
+  },
+  {
+   "sev": "LOW",
+   "title": "Blocking whole-cube compute and the on-screen MTKView renders share one MTLCommandQueue, so a long dispatch serialises ahead of the display command buffers",
+   "file": "mac4DSTEM/Core/Compute/MetalEngine.swift",
+   "lines": [
+    736
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D134"
+  },
+  {
+   "sev": "LOW",
+   "title": "The CIF importer's family-classification tolerance is 1000\u00d7 looser than the model validation it feeds, so a band of cells is rejected with a generic message that hides the real reason",
+   "file": "mac4DSTEM/Core/Crystal/CIFImport.swift",
+   "lines": [
+    1981
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D135"
+  },
+  {
+   "sev": "LOW",
+   "title": "A singular metric tensor silently yields latInv = latReal \u2014 a reciprocal lattice in \u00c5 instead of \u00c5\u207b\u00b9, with no error",
+   "file": "mac4DSTEM/Core/Crystal/Crystal.swift",
+   "lines": [
+    1988
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D136"
+  },
+  {
+   "sev": "LOW",
+   "title": "ACOM's radial coordinate is the projected radius on a continuous kMax/nRadial axis where py4DSTEM uses discrete |g| shells \u2014 a second un-DEVIATION-noted port difference in the same function",
+   "file": "mac4DSTEM/Core/Crystal/OrientationPlan.swift",
+   "lines": [
+    672
+   ],
+   "n": 1,
+   "disp": "repeat of `core-crystal-05` (2026-08-31)",
+   "id": "D137"
+  },
+  {
+   "sev": "LOW",
+   "title": "Restoring an RGBA result map computes width*height*4 after a guard that only bounds width*height",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    688
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D138"
+  },
+  {
+   "sev": "LOW",
+   "title": "Preserved results are re-keyed by kind, so two saved results whose kind attribute is missing collapse into one and the second is dropped without a word",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    1834
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D139"
+  },
+  {
+   "sev": "LOW",
+   "title": "An orphaned result_* node is copied as an opaque 'external object' and then collides with a new result of the same kind, wedging every future save",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    1841
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D140"
+  },
+  {
+   "sev": "LOW",
+   "title": "Result and calibration array sizes are taken from the file with no upper bound, so a damaged sidecar traps on allocation instead of erroring",
+   "file": "mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift",
+   "lines": [
+    1848
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D141"
+  },
+  {
+   "sev": "LOW",
+   "title": "`originFitIsSane` passes vacuously when no probe radius is set, and the reciprocal-metrology gate does not require one",
+   "file": "mac4DSTEM/Core/Data/Calibration.swift",
+   "lines": [
+    1939
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D142"
+  },
+  {
+   "sev": "LOW",
+   "title": "`CalibrationInvalidation.Field.probeRadius` and `.ellipse` are never produced, so two session-restore guards can never fire",
+   "file": "mac4DSTEM/Core/Data/CalibrationReReference.swift",
+   "lines": [
+    1925
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D143"
+  },
+  {
+   "sev": "LOW",
+   "title": "DM4Error.unsupportedDataType is never thrown; an unsupported pixel type is reported to the user as \"no datacube found\"",
+   "file": "mac4DSTEM/Core/Data/DM4Reader.swift",
+   "lines": [
+    1785
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D144"
+  },
+  {
+   "sev": "LOW",
+   "title": "FourDArray.scanTile validates only the tile's element count and row range, not its declared scan/detector extents",
+   "file": "mac4DSTEM/Core/Data/FourDArray.swift",
+   "lines": [
+    1911
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D145"
+  },
+  {
+   "sev": "LOW",
+   "title": "H5 EMD dim-vector calibration infers pixel size from the first two samples only, with no uniformity check and a silent drop for descending axes",
+   "file": "mac4DSTEM/Core/Data/H5Reader.swift",
+   "lines": [
+    1792
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D146"
+  },
+  {
+   "sev": "LOW",
+   "title": "A sidecar with no recorded ptychography method is rehydrated as gradient-descent and reported as an applied setting",
+   "file": "mac4DSTEM/Core/Data/ResultPresentation.swift",
+   "lines": [
+    1918
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D147"
+  },
+  {
+   "sev": "LOW",
+   "title": "cancelCurrent() cannot distinguish \"already cancelling\" from \"nothing was running\", and the controller keeps reporting a live operation after cancel",
+   "file": "mac4DSTEM/Core/Workflow/AnalysisOperationController.swift",
+   "lines": [
+    1876
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D148"
+  },
+  {
+   "sev": "LOW",
+   "title": "`LearnedDetectionSession.prepare` has a check-then-await gap that can load and compile the Core ML model twice",
+   "file": "mac4DSTEM/Session/LearnedDetection.swift",
+   "lines": [
+    696
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D149"
+  },
+  {
+   "sev": "LOW",
+   "title": "A session with no recorded origin makes `apply` invent an aperture centre in the wrong frame and can emit a false \"beam is not inside this diffraction crop\" refusal",
+   "file": "mac4DSTEM/Session/SessionCalibrationFramePolicy.swift",
+   "lines": [
+    1932
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D150"
+  },
+  {
+   "sev": "LOW",
+   "title": "The Bragg-peak CSV export carries no units, no calibration and no frame, so a CSV from a cropped or binned view is indistinguishable from a full-extent one",
+   "file": "mac4DSTEM/Support/ResultExport.swift",
+   "lines": [
+    680
+   ],
+   "n": 1,
+   "disp": "possible repeat of `support-export-08` \u2014 check",
+   "id": "D151"
+  },
+  {
+   "sev": "LOW",
+   "title": "Region-radius Slider forms an inverted range on a scan whose larger axis is a single pixel",
+   "file": "mac4DSTEM/UI/ImagingSettings.swift",
+   "lines": [
+    656
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D152"
+  },
+  {
+   "sev": "LOW",
+   "title": "A full-pattern log10 transform runs on the main thread inside a SwiftUI view body, for a histogram that is inside a DisclosureGroup collapsed by default",
+   "file": "mac4DSTEM/UI/WorkspaceInspector.swift",
+   "lines": [
+    752
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D153"
+  },
+  {
+   "sev": "LOW",
+   "title": "TB1StallProbeTests is inert everywhere: every test in the file skips on a hard-coded absolute path inside the owner's home directory",
+   "file": "mac4DSTEMTests/TB1StallProbeTests.swift",
+   "lines": [
+    776
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D154"
+  },
+  {
+   "sev": "LOW",
+   "title": "`tools/lib/python.sh`'s last-resort fallback accepts a `python3` with numpy but no scipy, contradicting the candidate loop it comments",
+   "file": "tools/lib/python.sh",
+   "lines": [
+    792
+   ],
+   "n": 1,
+   "disp": "new",
+   "id": "D155"
+  },
+  {
+   "sev": "LOW",
+   "title": "A Metal parameter struct governed by the byte-identity hard rule is duplicated in a tools/ harness, outside the one file the rule names",
+   "file": "tools/origin-fit-diagnostics/coarse-cost.swift",
+   "lines": [
+    744
+   ],
+   "n": 1,
+   "disp": "tracked in open-items",
+   "id": "D156"
+  }
+ ]
+}

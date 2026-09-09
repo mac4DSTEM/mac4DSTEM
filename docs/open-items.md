@@ -15,6 +15,33 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Repository review 2026-09-09 — added 2026-09-09
+
+### 119 unverified defect claims, and the adversarial pass that never ran
+The whole-repo review produced 259 records and stopped mid-run; the
+verification pass was still in flight. Deduplicated to 156 clusters in
+[`docs/archive/2026-09-09-review/register.md`](archive/2026-09-09-review/register.md).
+Three are fixed, 16 repeat and 8 may repeat the 2026-08-31 review, 8 are
+already tracked here, **119 are new and none is verified**. They are claims
+with a file and a line, not defects. Do not fix from the register: each one
+that can move a scientific number is a Gate D of its own, and this repo has
+shipped three confident wrong diagnoses. Triage before v3.0.0 should verify
+the release-blocking ones only — a number moves, a clone breaks, the process
+dies — and leave the rest listed. Owner: triage order.
+
+### The three redistributed dylibs have no rebuild path
+`libhdf5.dylib`, `libaec.0.dylib` and `libsz.2.dylib` are committed binaries.
+As of 2026-09-09 `NOTICE` states each one's SHA-256, byte size and declared
+`LC_ID_DYLIB` version, the licence texts are in `Licenses/` and ship at
+`Contents/Resources/Licenses/` (verified in a built bundle, not assumed), and
+`run-tests.sh inventory` fails if a dylib is unnamed in NOTICE or its hash
+moves. What is still missing is a way to *make* them: they came from Homebrew
+`hdf5 2.1.1` / `libaec 1.1.7` on one machine, and nothing in the repo rebuilds
+them. Two consequences the hashes do not fix — a security update means hand
+work, and the arm64-only build has no `ARCHS` pin, so the Archive path can
+still produce an x86_64 slice that launches and fails on every data file
+(register `D064`, unverified). Owner: whether v3.0.0 needs a script.
+
 ## Accessibility — added 2026-09-09 by the delegated drive
 
 ### Reading an accessibility label crashes the app
@@ -89,7 +116,7 @@ change moving every peak while preserving the count is invisible. On `ba6360d`
 all 36 `downsample_Si_SiGe_exp` peaks shifted 0.005-0.02 px and one
 `calibrationData_bullseyeProbe` peak was SUBSTITUTED — (114.2198, 194.8632) ->
 (140.6368, 196.8596), ~26 px — count unchanged at 11, harness silent
-(`scratchpad/drift/refuter/peak-position-diff.txt`). Likely two near-threshold
+(`drift/refuter/peak-position-diff.txt`). Likely two near-threshold
 noise peaks trading places (the noise item below), not a defect; the defect is
 that the gate cannot tell. Owner: a checksum needs a tolerance — a design pass.
 
@@ -103,7 +130,7 @@ shipped 0.5 % (`DiskDetection.swift:290-296` names this cube) and is what
 `45 candidates → 1 accepted · absolute 45 · relative 1 · spacing 1`, an amber
 smoothing warning is shown, and `summary.warnings` — which includes the
 median ≤ 1 text naming Min relative intensity — renders at
-`MapSettings.swift:214`. The defect was placement and gating, not absence:
+`MapSettings.swift:211`. The defect was placement and gating, not absence:
 that block sat immediately after the `Per pattern median…` row, which at the
 default window height put it **below the visible fold** while the green headline
 sat in the bottom bar. **Placement fixed 2026-09-09** — the warnings now render
@@ -252,7 +279,7 @@ exists in that data. A second-machine sweep is the only thing that could
 reopen it, and if two machines disagree the rule needs a second term.
 
 ### An emptied manual Q field, confirmed, discards the file's calibration (2026-09-07)
-Agent drive, C3 (`scratchpad/drive/shots-c3/b2-qr-unset-bug.png`): on the COPL
+Agent drive, C3 (`drive/shots-c3/b2-qr-unset-bug.png`): on the COPL
 cube (Q pixel scale green "From file 0.156828"), typing `0.2` into Prepare's
 Manual field entered nothing (this locale wants `0,2`; the period was dropped
 silently), and Return on the now-empty field flipped the row to "Not set /

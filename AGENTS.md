@@ -55,8 +55,12 @@ handoff); a feature target is refused until the plan is archived.
   mechanism is already proven by a reproducing observation. State which of the
   two triggers applies, or say that neither does and proceed.
 - Break every new test before trusting it. Do not drive the app during the
-  unit gate. Quote test numbers only from a retained log, dated;
-  `tools/run-tests.sh` is the only thing that knows the harness count.
+  unit gate. Quote test numbers only from a dated run, named by its log;
+  `tools/run-tests.sh` is the only thing that knows the harness count. A log
+  name is a name, not a path — session logs are gitignored and not retained
+  (2026-09-09: all 24 cited `scratchpad/` paths were already gone). Evidence a
+  reader must open is committed under `docs/archive/`; the inventory gate fails
+  on a repo-rooted path a truth doc cites and does not have.
   **Never read a gate's exit code through a pipe** — `run-tests.sh … | tail`
   reports `tail`'s status, not the gate's. Redirect to a log, `echo $?` on
   its own line, then grep the log. This has swallowed a failing gate three

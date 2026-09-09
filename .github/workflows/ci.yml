@@ -31,12 +31,14 @@
 #
 # ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
 # on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
-# and on a live doc claiming uncommitted work. It only PRINTS the size metrics
-# (live markdown, cold-start set, AppState): they set no return code, so no
-# number rising can turn this red — the "must not go up" rule is the closeout
-# skill's, enforced by a person. Note also that the uncommitted-claim check is
-# skipped on a dirty tree, so locally it is nearly always inert; here, on a
-# fresh checkout, it actually runs. And
+# on a live doc claiming uncommitted work, on an untracked file inside a
+# bundled folder reference, on a truth doc citing a repo path that is not
+# there, and on AppState.swift + ResultExport.swift growing against their base
+# commit (C5). The other size metrics (live markdown, cold-start set) only
+# PRINT: their "must not go up" rule is the closeout skill's, enforced by a
+# person. Note that the uncommitted-claim check is skipped on a dirty tree, so
+# locally it is nearly always inert; here, on a fresh checkout, it actually
+# runs. And
 # `tools/run-tests.sh core` — Core/ and Session/ as standalone packages; fails
 # the moment Core/ depends on App/, UI/ or Support/.
 #
@@ -133,6 +135,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The C5 growth rule reads HEAD^ on a clean tree. The default depth
+          # of 1 does not have it, and the read used to fall through to zero,
+          # so this job could never pass (found 2026-09-09).
+          fetch-depth: 2
       - name: Run the inventory
         run: tools/run-tests.sh inventory
 

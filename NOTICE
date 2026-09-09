@@ -50,16 +50,42 @@ HDF5
     https://www.hdfgroup.org/
     Copyright (C) The HDF Group and the Board of Trustees of the University of
     Illinois. Distributed under the HDF5 BSD-style license.
+    License text: `Licenses/HDF5-LICENSE.txt`.
 
 libaec (Adaptive Entropy Coding library)
     https://gitlab.dkrz.de/k202009/libaec
     Copyright (C) Deutsches Klimarechenzentrum GmbH. BSD 2-Clause license.
+    License text: `Licenses/libaec-LICENSE.txt`.
 
 libsz (szip compatibility interface, provided by libaec)
-    See libaec above.
+    Covered by the libaec license above.
 
-The full license text for each is included alongside the library in the
-distributed bundle.
+The full license text for each ships in the application bundle at
+`Contents/Resources/Licenses/`, from the `Licenses/` directory in this
+repository. Verified in a built bundle on 2026-09-09, not assumed.
+
+Identity of the three committed binaries, so that what is redistributed is
+stated rather than described. SHA-256, byte size, and the `LC_ID_DYLIB` current
+version each binary declares:
+
+    libhdf5.dylib   c374776deeb3e4b12874ca8d5e7aad1837a70d9363885cc742302f9d98283c64
+                    4 285 968 B, current version 320.1.1; the binary's own
+                    version string reads "HDF5 library version: 2.1.1"
+    libaec.0.dylib  166a8041fb067358993cd456f1d189631e2fd7931371e46a22d191bcc461b8a5
+                    52 848 B, current version 2.7.0; the binary retains the
+                    build path `libaec-v1.1.7`
+    libsz.2.dylib   6ebc2e1c15e432564acdb33875ab14d977c63589402929f5c274de1b46d4774b
+                    53 280 B, current version 3.1.0; built with libaec above
+
+They were built by Homebrew on the maintainer's machine and committed on
+2026-08-25; `libhdf5.dylib` still carries its build stamp
+`Installation point: /opt/homebrew/Cellar/hdf5/2.1.1` and HDF5's compiled-in
+default plugin search path under the same prefix, which is how the version is
+established from the binary rather than from a note. No load command in any of
+the three names an absolute path. The license texts here were taken
+from those two Homebrew installations. There is no automated rebuild path: the
+binaries are what the hashes above name, and nothing in the repository can
+reproduce them from source (`docs/open-items.md`).
 
 
 ================================================================================

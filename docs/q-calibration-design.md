@@ -182,7 +182,7 @@ and §1 says why that would be wrong anyway: on Particle_1 the number being
 thresholded is contaminated, so no threshold on it is meaningful.
 
 **The design is two predicates over one policy owner**, on the seam S7 already
-built (`App/SessionGates.swift`) — S11 found this exact question answered four
+built (`Session/SessionGates.swift`) — S11 found this exact question answered four
 different ways at four call sites, which is the S7 class, so the split must not
 create a fifth.
 
@@ -533,7 +533,7 @@ dataset. Prediction: shift ≈ c_k·σ̂/r within ±30 %.
 | `polycrystal_2D_WS2` (`ws2_2h`, min-relative 5e-4) | 6 | 0.294 | 18.502 | 18.902 | +2.12 % | +1.97 % |
 | `sim_Au_data_all_binned` (`au_fcc`) | 4 | 0.553 | 21.298 | 21.828 | +2.43 % | +2.61 % |
 
-Logs: `scratchpad/qcal-experiment-{ws2c,au}-20260905.log`. The shift is in the
+Logs: `qcal-experiment-{ws2c,au}-20260905.log`. The shift is in the
 predicted direction and within 8 % of the predicted size on both datasets,
 and the refuting observation did not occur — but **the Gate B refuter showed
 the mechanism was misattributed.** On WS₂ the within-cluster spread is mostly
@@ -581,7 +581,7 @@ the fit moves the mean, H3 the reference is wrong (an asymmetric beam).
 | numpy CoM, iterated, R 3–12 px | | 63.738 | stable over the whole range |
 | numpy CoM, iterated, R 2.23 px | | 63.714 | the window's own fixed point is 0.024 low |
 
-Logs `scratchpad/origin-experiment-ws2-20260905.log`, the numpy runs in the
+Logs `origin-experiment-ws2-20260905.log`, the numpy runs in the
 session record. H2 refuted (fitted = measured mean in every row); H3 refuted
 (stable from 3 px to 12 px); H1 confirmed with its mechanism: the coarse
 step is a block centre (bin ≈ r, a recorded DEVIATION) that sits up to
