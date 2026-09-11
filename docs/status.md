@@ -96,20 +96,20 @@ rebasing** — the branch is 27 commits ahead and **41 behind**, its merge base 
 **What is unmerged and wanted** (verified 2026-09-11 with
 `comm -23 <(git ls-tree -r --name-only ml/disk-detector|sort) <(git ls-tree -r --name-only main|sort)`):
 `Core/Analysis/Precipitates/{PrecipitateSegmentation,PrecipitateReflections,PrecipitateStatistics}.swift`
-(388/176/140 lines), `Core/Analysis/DiffractionEmbedding.swift` (708),
+(388/176/140 lines), DiffractionEmbedding.swift (708, under Core/Analysis on the branch),
 `Session/{PrecipitateProduct,DiffractionGroupsProduct}.swift`,
 `App/AppState+{Precipitates,DiffractionGroups}.swift`,
 `UI/{AIAnalysisSettings,PrecipitateSettings,DiffractionGroupsSettings}.swift`,
 `mac4DSTEMTests/{PrecipitateTests,DiffractionEmbeddingTests}.swift`,
 `docs/ai-ml/{README,precipitates}.md`, and a second model
-`Models/DiskDetector/disk-detector-heatmap-b32.aimodel`.
+disk-detector-heatmap-b32.aimodel (branch only, under Models/DiskDetector).
 Read the branch WITHOUT checking it out: `git show ml/disk-detector:<path>`.
 
 **Four known problems, none of them solved yet:**
 
 1. **Disk labels exist twice, in different shapes.** The branch has
-   `App/AppState+DiskLabels.swift` + `Session/DiskLabelStore.swift` +
-   `UI/DiskLabelRows.swift`; `main` has `Session/DiskCentreLabels.swift` +
+   AppState+DiskLabels.swift + DiskLabelStore.swift +
+   DiskLabelRows.swift (branch only); `main` has `Session/DiskCentreLabels.swift` +
    `DiskCentreLabelTests.swift`, which **shipped in v3.0.0**. Owner's decision:
    **main's wins.** Not established: whether the ported features call into the
    branch's store, and what the equivalent on `DiskCentreLabels` is. Check every
