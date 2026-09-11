@@ -94,34 +94,20 @@ line here said "not pushed" and `origin/main` had already moved; `main` and
 the Core ML model spec, so the first that can reproduce `0f53d270…b641ab` and
 pass the CI `unit` job.
 
-**What the next session must not do.** Do not fix from the register. Its 113
-new rows are unverified claims — the review's adversarial pass never ran — and
-each one that can move a scientific number is a Gate D of its own. Do not
-re-review the 16 rows marked as repeats: the 2026-08-31 review already
-dispositioned them under the IDs given. Before any next review pass, hand the
-agents `docs/open-items.md` plus `docs/archive/2026-08-31-review/findings.json`
-as an exclusion list — running without one is what produced 24 repeats and five
-independent reports of one `.gitignore` line.
+**The 2026-09-09 register: 111 claims remain unverified, and none may be fixed
+from the register.** The rules for touching it — the exclusion list, what triage
+is for, why D002/D003 are closed and what Gate B found on the D002 port — are
+one entry in `open-items.md` and the evidence at
+[`archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md).
 
-**What triage should be.** Verify only what changes the v3.0.0 cut: a number
-moves, a clone breaks, or the process dies. The rest stay listed as claims with
-a file and a line. `D002` and `D003` are **CLOSED** (2026-09-09: Gate D on
-both, refuter ran and overturned one claim, fixed and gated —
-[`archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md)),
-so **111** new claims remain unverified, not 113. Nothing else in the register
-was touched. **Gate B on the D002 port is DONE (2026-09-11)** and `all` is
-green with it; what it found, and the two limits it recorded rather than fixed,
-are in [`archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md).
+**Gates, 2026-09-11:** `all` ran in full and is green (gate table).
+**`ARCHS = arm64` does NOT hold everywhere, corrected today:** D064 verified it
+with `lipo` on a Release *build*, and the *archive* still compiled an x86_64
+slice (`open-items.md`, the release blocker). Debug and Release build; the
+archive does not. C4(c) was reviewed clause by clause on 2026-09-08 and is
+committed at `1eb49c5`; do not re-review it.
 
-**Gates, 2026-09-11:** `all` ran in full and is green (gate table) — the
-2026-09-09 "not re-run, do not quote as current" warning is retired. The
-pbxproj's `Licenses` folder reference and `ARCHS = arm64` stand; Debug and
-Release both build and the Release binary is arm64 alone. The 2026-09-08 drift
-was closed under Gate D as a stale golden, no code changed
-(`archive/closed-items-2026-09.md`). C4(c) was reviewed clause by clause on
-2026-09-08 and is committed at `1eb49c5`; do not re-review it.
-
-**Disk:** 8.2 GB free after this session; `all` needs 8. The six cubes the
+**Disk:** ~7.8 GB free after this session; `all` needs 8 and refused three times today. The six cubes the
 gated harnesses read must stay in `References/training_dataset/` —
 `calibrationData_bullseyeProbe.h5`, `downsample_Si_SiGe_exp.h5`,
 `polycrystal_2D_WS2.h5`, `Si-SiGe.dm4`, `sim_Au_data_all_binned.h5`,

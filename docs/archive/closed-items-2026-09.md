@@ -432,3 +432,60 @@ pins the even-count rule on a soft-edged fixture where the two rules differ by
 written. Broken first by a `sorted[n/2]` mutant — exit 65, and it is the ONLY
 test that fails, so the six pre-existing `ProbeSizeTests` were blind to the
 rule. Until 2026-09-09 nothing below `run-tests.sh all` pinned it at all.
+
+## Closed at the v3.0.0 closeout, 2026-09-11
+
+### The bundle's duplicate Info.plist — FIXED 2026-09-11
+Fixed by one `membershipExceptions` entry (the app group is a folder-sync
+group, which swept `Info.plist` into Copy Bundle Resources). **Verified in
+the rebuilt bundle:** `Contents/Resources/Info.plist` gone, every generated
+key still present, `LSMinimumSystemVersion` **14.0**, document types intact,
+and the build warning at 0 occurrences. Commit `70642ba`. The original
+entry, including what was and was not established before the fix, follows.
+
+### D002 and D003 are CLOSED, and the register's count is now 111 (2026-09-09)
+Both CRITICALs were taken through Gate D, refuted by an independent agent, and
+fixed the same day. Evidence:
+[`docs/archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md).
+Two hypotheses were **refuted** there and must not be re-walked: (a) that the
+D003 overrun crashes `H5Reader` on open — it crashed one prebuilt binary 40/40
+and a fresh build of the same sources survives 40/40, so the SIGTRAP is
+allocator-layout luck, not a reproducible property; (b) that the ptychography
+transpose result was proven by the demo cube — that cube is square with equal
+row/column object sampling, so transpose was a geometric no-op there and the
+finding was re-run on a non-square crop. Still unproven and stated as such:
+that any real instrument writes a multi-element `units`/`name`.
+### The app bundle ships a duplicate Info.plist (2026-09-11)
+Every build warns *"The Copy Bundle Resources build phase contains this target's
+Info.plist file"*, and **the duplicate is real — confirmed in the built bundle,
+not inferred**: `Contents/Resources/Info.plist` is **1 497 bytes** (the raw
+source file) beside the real merged `Contents/Info.plist` at **2 798 bytes**.
+macOS reads the latter, so nothing malfunctions; what ships is a misleading
+partial copy that anyone inspecting the app can read instead of the real one.
+**Cause, established statically:** `Info.plist` is NOT listed in
+`PBXResourcesBuildPhase` — the app group is a `PBXFileSystemSynchronizedRootGroup`,
+so folder sync sweeps every file under `mac4DSTEM/` into the target, Info.plist
+included. **The fix is one line:** add `Info.plist` to the existing
+`membershipExceptions` of `300000000000000000000001`.
+**Verification it must carry, because this is exactly what `a8b13c6` was for:**
+rebuild and confirm the BUILT `Contents/Info.plist` still has every generated
+key and `LSMinimumSystemVersion 14.0` — the macOS-14 floor is the whole point of
+v2.5.1 and must survive. `package-test` passes either way and will not catch a
+regression here. Owner: do it before the v3.0.0 artefact is built.
+### UI polish: six papercuts, all verified live 2026-09-09
+Presentation only, no Gate D. `gammaControl` prints "Gamma, 1.00" as one string
+where slice 1 made every other slider two texts; ⌘R (`mac4DSTEMApp.swift:89`)
+and ⌘↩ (`WorkspaceView.swift:229`) both run the primary action — harmless, the
+owner chose to leave it; `TabView` (`WorkspaceInspector.swift:32`) unstyled;
+log height is `@State` (`WorkspaceView.swift:25`) where eight siblings use
+`@SceneStorage`. Fixed 2026-09-09, unverified on screen: the document types
+(so `.h5` opens by double-click and the proxy icon returns), the doubled
+sidecar name, Info's orphaned cost caption (moved to its button), and
+`Size (f32)` → `Size as float32`. Still open from the drive: no glossary or `?`
+anywhere for probe kernel, ACOM, R–Q rotation, Fit RMS — the student learns
+WHICH button to press (disabled-state reasons are consistently plain English)
+but never what the term means; owner decided 2026-09-09 NOT to add a glossary
+layer before 3.0.0.
+Triaged against the drive's findings, fix-now list lands before 3.0.0
+(`decisions.md` 2026-09-09).
+

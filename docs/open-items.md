@@ -17,19 +17,6 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Repository review 2026-09-09 — added 2026-09-09
 
-### D002 and D003 are CLOSED, and the register's count is now 111 (2026-09-09)
-Both CRITICALs were taken through Gate D, refuted by an independent agent, and
-fixed the same day. Evidence:
-[`docs/archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md).
-Two hypotheses were **refuted** there and must not be re-walked: (a) that the
-D003 overrun crashes `H5Reader` on open — it crashed one prebuilt binary 40/40
-and a fresh build of the same sources survives 40/40, so the SIGTRAP is
-allocator-layout luck, not a reproducible property; (b) that the ptychography
-transpose result was proven by the demo cube — that cube is square with equal
-row/column object sampling, so transpose was a geometric no-op there and the
-finding was re-run on a non-square crop. Still unproven and stated as such:
-that any real instrument writes a multi-element `units`/`name`.
-
 ### 119 unverified defect claims, and the adversarial pass that never ran
 The whole-repo review produced 259 records and stopped mid-run; the
 verification pass was still in flight. Deduplicated to 156 clusters in
@@ -97,47 +84,23 @@ label never resolves. Treat as one Gate D, not two fixes.
 
 ### The v3.0.0 archive failed on an x86_64 slice — RELEASE BLOCKER (2026-09-11)
 `tools/release/build-developer-id.sh` **exit 65**, 20 compile errors, all in
-`mac4DSTEM/Core/ML/LearnedDiskDetector.swift` (lines 124, 127, 134-136, 143,
-149, 156, 257, 278, 285, 287, 378, 386, 405, 407, 424): `'Float16' is
-unavailable in macOS`, plus the type errors that follow from it.
-
-**What is ESTABLISHED, from the archive log:**
-- The archive compiled for Intel. The log contains `-target
-  x86_64-apple-macos14.0` (and an `x86_64-apple-macos27.0`) beside
-  `-target arm64-apple-macos14.0`. `Float16` does not exist on x86_64 macOS.
-- `ARCHS = arm64` is present **twice at project level** in the pbxproj (added
-  2026-09-09 as D064, because the bundled HDF5/sz/aec dylibs are arm64-only).
-  It did not prevent the x86_64 compile in this run.
-- The gate cannot see this. `tools/package-test/run.sh` builds with
-  `-destination 'platform=macOS'` — the concrete machine, arm64 — while the
-  archive uses `-destination 'generic/platform=macOS'`. A green
-  `run-tests.sh all` therefore says nothing about whether the archive builds.
-- No partial artefact was left: the script removes the archive path before
-  building, and `build/release/` still holds only the v1.0/v2.5.x releases.
-
-**What is NOT established, and must not be written down as if it were:**
-- *Why* the project-level `ARCHS = arm64` was not honoured. The hypothesis on
-  the table — that the `DSTEMCore` Swift package target does not inherit it for
-  a generic destination — is **unverified**. It was not tested.
-- That adding `ARCHS=arm64` to the archive invocation fixes it. **Untested.**
-- How long this has been true. It is NOT the case that every past green gate hid
-  a broken archive: **the v2.5.1 archive succeeded on 2026-09-04**. The Float16
-  code arrived with the learned detector (C7) afterwards, so the plausible window
-  is "since the Core ML work landed" — plausible, not established, because no
-  archive was attempted between then and now.
-
-**Judgement, offered as judgement:** `Float16` looks correct here — it is the
-ANE half-precision path, and the app is Apple-Silicon-only by design with
-arm64-only bundled dylibs, so the Intel slice is a target that was never
-supported rather than a platform that regressed. That argues for making the
-archive build only what the project declares, not for making the detector
-compile on Intel. The owner has NOT decided this; he deferred the fix to a fresh
-session (2026-09-11) and no fix was applied.
-
-Owner: **this blocks the v3.0.0 cut.** Everything else for the cut is done and
-gated.
-
-
+`Core/ML/LearnedDiskDetector.swift`: `'Float16' is unavailable in macOS`.
+**Established, from the archive log:** it compiled for Intel — the log carries
+`-target x86_64-apple-macos14.0` beside the arm64 one, and `Float16` does not
+exist there. `ARCHS = arm64` is present **twice at project level** (D064,
+2026-09-09, because the bundled dylibs are arm64-only) and did not prevent it.
+**The gate cannot see this:** `package-test` builds `-destination
+'platform=macOS'` — the concrete machine — while the archive builds
+`generic/platform=macOS`. A green `all` says nothing about the archive.
+**NOT established, do not write these down as fact:** why the project-level
+`ARCHS` was not honoured (the "the package target does not inherit it"
+hypothesis is untested); that pinning `ARCHS` on the archive fixes it
+(untested); and how long this has been true — **the v2.5.1 archive SUCCEEDED on
+2026-09-04**, so this is not ancient; the Float16 code arrived with C7 after it.
+**Judgement, offered as judgement, not decided:** `Float16` looks correct — it
+is the ANE half-precision path and the app is Apple-Silicon-only by design — so
+the Intel slice is a target never supported, not a platform that regressed.
+Owner deferred the fix to a fresh session; **no fix applied**. Blocks the cut.
 ### Owed on screen from C4(c) and C7, after the 2026-09-09 drive
 Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh,
 configurator single-pattern preview, "No preview available") reaching the status
@@ -156,41 +119,22 @@ Strain / Orientation / Parallax / ptychography sub-pages, and the WS2 CIF import
 ## Science — Gate D or Gate B owed
 
 ### The Quantitative badge consults no origin gate at all (2026-09-11)
-`AppState.quantitativeStatus(for:units:)` is a pure lookup on a product's kind
-and units strings: a `kind` in `["strain", "local_lattice", "dpc", "idpc",
-"virtual_detector", "disk_detection", "matched_template"]` returns
-`.quantitative` unconditionally, with **zero** references to `originFitIsSane`,
-`originSupportsReciprocalMetrology` or `origin_reference_is_measured`.
-Observed on the owner's drive: a strain map badged **Quantitative** on the same
-screen where Prepare badged its origin **Not quantitative** (RMS 9.72 px against
-a 3.74 px probe), computed against `origin_reference = apertureCentre`.
-`Calibration.originFitIsSane`'s doc claims to be "the single owner of that
-decision" (`Calibration.swift:550-570`); it is not consulted.
-
-**A fix was written 2026-09-11, REJECTED by Gate B, and reverted** —
+`AppState.quantitativeStatus(for:units:)` decides the badge from a product's
+kind and units alone — verified: **zero** references to `originFitIsSane`,
+`originSupportsReciprocalMetrology` or `origin_reference_is_measured`. Observed
+on the owner's drive: a strain map badged **Quantitative** on the same screen
+where Prepare badged its origin **Not quantitative**, computed against
+`origin_reference = apertureCentre`.
+**The real defect is larger:** products do not carry the origin they were
+computed against. Strain snapshots it and nothing reads it (one consumer,
+`ResultExport.swift:516`); DPC snapshots nothing; **ACOM alone is wired**
+(`ACOMWorkflow.swift:145-150`). A badge gate cannot work until that is true.
+**A fix was written 2026-09-11, REJECTED by Gate B, and reverted** — it changed
+no behaviour while five tests passed. Four assumptions it made are false and
+must not be repeated. All of it, including the mutation table:
 [`archive/2026-09-11-drive/quantitative-badge-gate-b.md`](archive/2026-09-11-drive/quantitative-badge-gate-b.md).
-It recorded the verdict in provenance and gated the badge on it, and it changed
-nothing: `publishProduct` composes provenance from
-`currentScalarPersistenceMetadata`, whose strain branch never merges
-`strain.originProvenance` — that snapshot has exactly ONE consumer in the tree
-(`ResultExport.swift:516`, `scientificBundleMaps()`). Five tests passed and two
-mutations that disabled the whole mechanism survived all of them, because every
-test called the decision function directly and none asserted on
-`publishedProduct?.quantitativeStatus`.
-
-**The real defect is larger and is the thing to fix:** products do not carry the
-origin they were computed against. Strain snapshots it and nothing reads it; DPC
-snapshots nothing; **ACOM alone is correctly wired** (`ACOMWorkflow.swift:145-150`).
-A gate on the badge cannot work until the products carry the fact.
-**Four assumptions to not repeat**, each checked: `local_lattice`,
-`matched_template` and `disk_detection` are overlay/replay kinds, never product
-kinds; the app publishes `virtual_circle`/`virtual_annulus` with units
-`"intensity"`, never `virtual_detector`; ACOM must be IN the gated set, not out;
-and a restored sidecar already carries `quantitative_status`, which wins.
-**Ships in v3.0.0 as a stated known limitation** (owner, 2026-09-11), because a
-fix that looks like one and is not is worse than the open defect. Gate D and
-Gate B both owed on the real fix.
-
+Ships in v3.0.0 as a stated limitation (owner, 2026-09-11), because a fix that
+looks like one and is not is worse than the open defect. Gate D and Gate B owed.
 ### A radius-only aperture drag destroys the fitted origin (2026-09-11)
 Latent, found by the Gate D refuter, and **not** what happened on the owner's
 drive. `ApertureOverlay.emit` rounds the centre to whole pixels and hands the
@@ -484,41 +428,6 @@ The owner has postponed testing them to a machine with more memory; blocking a
 release on hardware he does not have is open-ended, so this is scoped, not
 blocking (owner, 2026-09-11).
 
-
-### The app bundle ships a duplicate Info.plist (2026-09-11)
-Every build warns *"The Copy Bundle Resources build phase contains this target's
-Info.plist file"*, and **the duplicate is real — confirmed in the built bundle,
-not inferred**: `Contents/Resources/Info.plist` is **1 497 bytes** (the raw
-source file) beside the real merged `Contents/Info.plist` at **2 798 bytes**.
-macOS reads the latter, so nothing malfunctions; what ships is a misleading
-partial copy that anyone inspecting the app can read instead of the real one.
-**Cause, established statically:** `Info.plist` is NOT listed in
-`PBXResourcesBuildPhase` — the app group is a `PBXFileSystemSynchronizedRootGroup`,
-so folder sync sweeps every file under `mac4DSTEM/` into the target, Info.plist
-included. **The fix is one line:** add `Info.plist` to the existing
-`membershipExceptions` of `300000000000000000000001`.
-**Verification it must carry, because this is exactly what `a8b13c6` was for:**
-rebuild and confirm the BUILT `Contents/Info.plist` still has every generated
-key and `LSMinimumSystemVersion 14.0` — the macOS-14 floor is the whole point of
-v2.5.1 and must survive. `package-test` passes either way and will not catch a
-regression here. Owner: do it before the v3.0.0 artefact is built.
-
-### UI polish: six papercuts, all verified live 2026-09-09
-Presentation only, no Gate D. `gammaControl` prints "Gamma, 1.00" as one string
-where slice 1 made every other slider two texts; ⌘R (`mac4DSTEMApp.swift:89`)
-and ⌘↩ (`WorkspaceView.swift:229`) both run the primary action — harmless, the
-owner chose to leave it; `TabView` (`WorkspaceInspector.swift:32`) unstyled;
-log height is `@State` (`WorkspaceView.swift:25`) where eight siblings use
-`@SceneStorage`. Fixed 2026-09-09, unverified on screen: the document types
-(so `.h5` opens by double-click and the proxy icon returns), the doubled
-sidecar name, Info's orphaned cost caption (moved to its button), and
-`Size (f32)` → `Size as float32`. Still open from the drive: no glossary or `?`
-anywhere for probe kernel, ACOM, R–Q rotation, Fit RMS — the student learns
-WHICH button to press (disabled-state reasons are consistently plain English)
-but never what the term means; owner decided 2026-09-09 NOT to add a glossary
-layer before 3.0.0.
-Triaged against the drive's findings, fix-now list lands before 3.0.0
-(`decisions.md` 2026-09-09).
 
 ### Concurrent HDF5 use crashes the process (2026-08-19)
 `EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb
