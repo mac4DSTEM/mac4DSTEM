@@ -988,3 +988,56 @@ before it and a saving is never bankable. What step 1 does buy is permanent and
 different: the new `AnalysisMode` cases land in `ProductWorkflow.swift`, outside
 both budgeted files. Step 6 still pays for itself inside its own commit, and
 step 9 has no lever named yet.
+
+**2026-09-11 — precipitate density is measured by CLASSIFYING diffraction
+patterns, not by segmenting a virtual image (owner, in chat: "i approve").**
+Supersedes `v3-plan.md`:64 ("per-object, real-space segmentation", 2026-08-06,
+re-requested 2026-08-26) and stands in for the §1.5 design session, which was
+skipped when the 2026-09-11 port reversed the 2026-09-08 "leave" decision — the
+design session existed to question exactly these contracts, and porting to the
+branch's design dropped it.
+
+Why, and the owner reached it himself: the shipped route collapses each
+diffraction pattern — 4096 numbers on the Al-Si-Mg cube — to ONE number, the
+aperture sum, before any decision is made, and every later step tries to
+recover structure already discarded. His two arguments, both correct: a virtual
+dark-field image is *as an image* worse than HAADF, because a small aperture
+collects few electrons; and the 4D dataset is far richer than any image formed
+from it.
+
+Three measured failures this session are all downstream of that one choice: a
+shape filter deleted the end-on needle variant (17 counted where there were 35,
+low by 2.1x); the ridge filter's own pre-registered baseline came out a TIE,
+with both arms reporting every round particle the ridge filter exists to
+reject; and the route has no upstream counterpart, so no parity harness is
+possible for it — established 2026-09-11 and unchanged.
+
+The decisive argument is verifiable rather than aesthetic:
+`References/py4DSTEM-dev/py4DSTEM/process/classification/` already ships
+`Featurization` (PCA, ICA, NMF, GMM, `spatial_separation`, `consensus`) and
+`BraggVectorClassification` (NMF refine, split, merge) — including
+`spatial_separation`, which is the segmentation step done on CLASSES rather
+than pixels. **So the classification route can have a py4DSTEM parity harness
+and the image route provably cannot.** The owner's own library carries the
+method papers (Thronsen 2024 on SPED phase mapping of precipitates; Vogl 2024
+on classifying fine beta-precipitates in AA6061; Ånes 2018; Bruefach 2023).
+
+Pre-registered before any code in `docs/v3-precipitate-classification.md`, with
+a symmetric ship gate: the new route must beat the image route on the owner's
+adjudicated count, a tie passing, **or it does not ship and the image route
+stands**. Five decisions are recorded there as still owed, including PCA vs NMF
+and whether this retires the ridge filter.
+
+**2026-09-11 — the AI work is NOT consolidated into one folder (owner asked;
+explained and declined).** Only ONE file in the repository imports CoreML
+(`Core/ML/LearnedDiskDetector.swift`); `DiffractionEmbedding` and
+`Precipitates/*` call themselves "classical" in their own headers and are PCA,
+k-means and image processing. `Core/` is organised by subject —
+Analysis/Data/Crystal/Compute/Workflow — with `ML/` earning its place as the
+repo's only strict framework boundary. An `AI/` folder would group by
+technique, which is the mistake D1 (2026-09-01) forbade when it renamed Bragg
+to "Strain & ACOM", and would mislabel two files that are not AI. One known
+wrinkle, left alone deliberately: `Core/ML/LearnedDiskDetection.swift` is
+orchestration and imports no CoreML, so it would strictly belong in `Analysis/`
+beside `DiskDetection` — splitting two files about one feature costs more
+cohesion than the taxonomy gains.
