@@ -39,6 +39,22 @@ hardened Release package audit. The `real-data-acceptance` step needs the
 gitignored `References/training_dataset` acquisitions: without them it cannot
 run, which is why CI does not.
 
+**A green `all` does NOT mean the archive builds — learned 2026-09-11.** The
+gate's `package-test` builds `-destination 'platform=macOS'`, the concrete
+machine; `build-developer-id.sh` builds `-destination 'generic/platform=macOS'`.
+On 2026-09-11 the archive compiled an x86_64 slice and failed on 20 `Float16`
+errors an hour after `all` went green. So run the archive BEFORE touching
+credentials and before updating any doc with a version:
+
+```sh
+export DEVELOPER_ID_APPLICATION='Developer ID Application: … (TEAMID)'
+tools/release/build-developer-id.sh
+```
+
+It is local and reversible, it needs no notary credentials, and it is the step
+most likely to fail. Failing it early costs nothing; failing it after
+notarization costs a submission.
+
 ## Developer ID archive
 
 Install the certificate in the login keychain, then use its full name:

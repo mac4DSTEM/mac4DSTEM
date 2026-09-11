@@ -11,7 +11,11 @@ Done means the repo tells the next reader the truth. In order:
    the relevant `scientific` harnesses too. **A session that changed nothing
    under `mac4DSTEM/` owes no gate** — say so and name the last run that
    covers this tree, with its date and commit; running one for form proves
-   nothing about the session and spends the disk this machine does not have. Put exit codes where you read
+   nothing about the session and spends the disk this machine does not have.
+   **The same applies when the tree HAS changed but a gate already ran green on
+   it** (2026-09-11): prove it rather than assert it — `git diff --stat
+   <gate-commit>..HEAD -- mac4DSTEM/ mac4DSTEMTests/ mac4DSTEM.xcodeproj/
+   Package.swift` empty — and paste that emptiness, not an assurance. Put exit codes where you read
    them — a `| tail` pipe has already swallowed a failing gate here once
    (twice: S4's scientific run and S8's first aggregate both lost the
    harness count the same way — retain the full log, grep it after).
