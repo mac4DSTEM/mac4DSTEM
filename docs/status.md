@@ -104,6 +104,17 @@ leaving AI Analysis and returning does **not** re-show a computed group map
 PCA + k-means must never be a default action — strain and ACOM do re-show, and
 whether grouping should is his call).
 
+**The counting sheet was rebuilt 2026-09-11 after the owner said the first one
+was not clear enough. He was right, and the cause was not contrast.** The first
+sheet's dark field was formed on two single-pixel detector SPIKES that
+peak-finding on the MAX pattern had selected as reflections. The real
+superlattice reflections are three Friedel pairs at r = 9.1-10.7 px, found with
+a spike-insensitive statistic (how often a detector pixel exceeds mean + 4
+sigma across the scan, ~0.9 % of positions each) — three pairs being exactly
+the three <100>Al needle variants of beta-double-prime. Summing each pair took
+peak z from 9.2 to 31.1. Full record:
+[`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
+
 **NEXT, and it is one thing: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject

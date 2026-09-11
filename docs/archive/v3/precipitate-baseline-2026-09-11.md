@@ -90,9 +90,29 @@ The Al-Si-Mg hand count on a frozen region. The real image has what this
 fixture lacks — touching needles, faint needles, mottled elongated background.
 A counting sheet was prepared 2026-09-11 from
 `References/training_dataset/060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5`
-(330x330 scan, 1.539 nm/px, 508 nm field; precipitate reflections at 8.1 and
-8.5 px, matrix ring ~18 px, two needle variants at near-perpendicular
-orientations). **One hand count completes this gate.** Nothing else is owed.
+(330x330 scan, 1.539 nm/px, 508 nm field). **The first attempt at this sheet
+identified the wrong reflections** and is corrected here: peak-finding on the
+MAX diffraction pattern selected two single-pixel detector spikes at r = 8.1
+and 8.5 px, not superlattice reflections. Proof: at the (40,31) candidate only
+ONE scan position of 108 900 exceeds 20 sigma, while a quiet background pixel
+at the same radius has MORE positions above 3 sigma (2.35 % vs 0.58 %). A real
+reflection is elevated at MANY positions, not one.
+
+Re-found with a spike-insensitive statistic — the fraction of scan positions
+where a detector pixel exceeds mean + 4 sigma — the real reflections are three
+Friedel pairs, each hot at ~0.9 % of positions: (35,23)/(29,41), (40,39)/(24,25)
+and (33,22)/(31,41), at r = 9.1-10.7 px against a matrix ring at ~18 px. Three
+pairs is what beta-double-prime in Al-Mg-Si gives: three needle variants along
+the three <100>Al directions, and the combined image shows needles running in
+three distinct directions.
+
+Summing each Friedel pair improves the dark field about fourfold: peak z goes
+from 9.2 to 31.1 and the 99.9th percentile from 4.9 to 21.6 sigma. A plain
+5-sigma threshold now finds 34 objects of >= 6 px where the old image gave 18.
+Background subtraction in diffraction space was tried and REJECTED — measured,
+it made the image slightly worse (z(p99.9) 4.91 -> 4.21), because the
+real-space background flattening already removes the beam tail and the
+reference aperture only adds shot noise.. **One hand count completes this gate.** Nothing else is owed.
 
 Sharpening the fixture now — adding touching or faint needles because this
 comparison could not separate the arms — would be re-registering after peeking,
