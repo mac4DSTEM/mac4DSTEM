@@ -93,7 +93,7 @@ campaign=(
 # missing runner, or on a live doc claiming work is uncommitted on a clean tree.
 diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
-  training-dataset-campaign review-record-check)
+  training-dataset-campaign review-record-check precipitate-handcount)
 owner_only=()
 retired=()
 support=(lib release)

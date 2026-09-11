@@ -115,6 +115,16 @@ the three <100>Al needle variants of beta-double-prime. Summing each pair took
 peak z from 9.2 to 31.1. Full record:
 [`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
 
+**Candidates are now marked for him**, three criteria with every detection
+numbered, at
+[`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)
+(reproduce with `tools/precipitate-handcount/run.py`). On-axis counts 12 / 17 /
+24; the recommendation is balanced = **17**. This is **not** the hand count and
+cannot replace it — an algorithmic count cannot score an algorithm, and
+threshold-plus-components IS the baseline arm, so it would let the baseline
+score itself. It becomes ground truth when the owner confirms or corrects the
+marks, which is now a check rather than a count.
+
 **NEXT, and it is one thing: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject
