@@ -118,8 +118,12 @@ peak z from 9.2 to 31.1. Full record:
 **Candidates are now marked for him**, three criteria with every detection
 numbered, at
 [`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)
-(reproduce with `tools/precipitate-handcount/run.py`). On-axis counts 12 / 17 /
-24; the recommendation is balanced = **17**. This is **not** the hand count and
+(reproduce with `tools/precipitate-handcount/run.py`). **Corrected the same day after the owner's
+objection**: the shape and angle filters optimised purity when a density needs
+completeness, discarding 56 % of real signal, and the aspect cut deleted
+precisely the end-on needles the crystallography requires. The count is **35
+precipitates** (39 bright objects less 4 raster artefacts), density 135.6 µm⁻²
+— the filtered figure was low by 2.1x. This is **not** the hand count and
 cannot replace it — an algorithmic count cannot score an algorithm, and
 threshold-plus-components IS the baseline arm, so it would let the baseline
 score itself. It becomes ground truth when the owner confirms or corrects the

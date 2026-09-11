@@ -69,9 +69,50 @@ the most complete.
    be complete. If green marks are missing from streaks that are obviously
    needles, the threshold is too high for the count that matters.
 
-## Recommendation
+## CORRECTION, same day — the three counts above are all too low
 
-**Balanced, on-axis: 17.** Strict is the most defensible per object but is
-visibly conservative; inclusive is 38 % contamination. Whichever the owner
-picks — or corrects — the number he confirms is the ground truth, and step 4's
-real-data half can then be scored against it.
+The owner's objection: the image is formed by putting a detector **on a
+precipitate reflection**, so brightness *is* the evidence of a precipitate;
+why filter on shape at all? He is right, and the numbers above are wrong for a
+number density.
+
+Filters 3 and 4 (minimum length, minimum aspect ratio) and the 20° angle cut
+are assumptions imposed by this analysis, not required by the contrast
+mechanism. They optimise **purity** when a density needs **completeness**. Cost,
+measured at 5 σ: 39 bright objects of area ≥ 4 px, of which the aspect filter
+removed 16 and the angle cut a further 6, leaving the 17 recommended above —
+**56 % discarded**. At 4 σ it is 74 %.
+
+The discarded population is not noise. Pure Gaussian noise above 5 σ predicts
+**0.03 pixels** in a 108 900-pixel scan; 39 objects is entirely real signal.
+
+Worse, the aspect filter deleted exactly the population the crystallography
+predicts must exist. Classified rather than filtered, the 39 are:
+
+| class | n | median length | reading |
+|---|---|---|---|
+| elongated, aspect ≥ 2.5 | 23 | **37.5 nm** | β″ needles lying in the foil plane |
+| short, 1.5–2.5 | 9 | 9.2 nm | short or inclined needles |
+| compact, < 1.5 | 7 | **4.9 nm** | needles seen **end-on** |
+| raster signature | 4 | 3–4.6 nm | exactly 0°, ≤ 2 px wide — artefact |
+
+β″ in Al-Mg-Si is roughly 4 nm across and 20–50 nm long. A 37.5 nm median for
+the in-plane needles and 4.9 nm for the compact objects — the cross-section —
+is the signature of the same particle seen two ways. A needle viewed end-on has
+aspect ≈ 1, and `aspect ≥ 2.5` deletes it by construction.
+
+**The only defensible exclusion is the raster artefact**, identified by its own
+signature (exactly axis-aligned, ≤ 2 px wide, 3–5 nm long) rather than by a
+general rule about angle.
+
+## Corrected count
+
+**35 precipitates** at z > 5 σ, area ≥ 4 px: 39 bright objects less 4 raster
+artefacts. Areal density **135.6 µm⁻²**, against the 65.9 the filtered count
+gave — low by a factor of 2.1.
+
+Still for the owner to adjudicate, and still not a substitute for his eye: the
+threshold (5 σ) is a choice, merged parallel needles remain a real undercount
+(the longest object reads 177 nm), and whether the compact objects are end-on
+needles or something else is a crystallographic judgement, not one this
+analysis can make.
