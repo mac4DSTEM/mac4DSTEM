@@ -195,6 +195,32 @@ margin over the runner-up. Each is its own measurement. **And the clustering
 step he called "slop" is back in play**, because the class-average difference
 pattern is where the signal survives.
 
+**Read 2026-09-11 at the owner's direction: `elisathr/SPED-phase-mapping`**, the
+code behind Thronsen et al. (2023), the SPED phase-mapping paper in his library.
+Findings: [`archive/v3/sped-phase-mapping-reference-2026-09-11.md`](archive/v3/sped-phase-mapping-reference-2026-09-11.md).
+It **independently corroborates this session's refutation on real data** — they
+score four methods against a common ground truth and template matching is the
+worst (1.75 % mislabelled, against ANN 0.96 %, NMF 1.50 %, vector 1.54 %) — and
+their notebook says why in our own terms: "Al has overlapping reflections with
+the precipitates". Their accommodations are the remedy our measurement pointed
+to: mask the matrix reflections and direct beam out of every pattern, leave the
+matrix out of the template library, assign it by exclusion.
+
+Three things worth acting on. **A real validation target exists** — their Zenodo
+dataset ships a three-person ground-truth phase map with four scored methods,
+which is a stronger parity opportunity than any synthetic fixture. **Their
+ground truth is the VDF-and-segment route under human oversight**, prepared
+independently by three people and compared — which says our marked-candidate
+approach is right in kind and should have at least two preparers. **Their
+accuracy metric** — fraction of mislabelled scan positions — is a better
+acceptance number than anything pre-registered here.
+
+**Licence: there is none**, so default copyright applies. No code, notebook
+fragment or CIF may be copied into this GPL-3.0 public repo; method and
+published results are citable, the implementation is not ours to take. Their
+CIFs are Al/T1/θ′ (Al-Cu-Li) and contain no β″, so they would not have solved
+the CIF blocker anyway.
+
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject
