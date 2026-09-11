@@ -221,6 +221,28 @@ published results are citable, the implementation is not ours to take. Their
 CIFs are Al/T1/θ′ (Al-Cu-Li) and contain no β″, so they would not have solved
 the CIF blocker anyway.
 
+**Their masking transfers, and it is measured, not assumed.** Implemented
+independently from the published description — their repo has no licence, so
+nothing is copied and the mask radius is ours. **The mixing flip moves from
+f = 0.60 to f = 0.05**, a twelvefold improvement, stable at radii 2/4/6 px.
+Three limits bound that claim and are in the record: the mask used here is
+PERFECT (exact reference positions, so an upper bound); **the score floor
+survives masking** — the matrix plan still scores 0.826 on a pattern holding
+none of its reflections, a contrast of ~0.11 — so masking fixes the mixing
+problem and **not** the wrong-phase problem; and masking cannot separate phases
+whose reflections overlap, since masking Al would mask Au with it. It works here
+because Si sits 218 % of a radial bin from Al, as a superlattice ring does from
+Al's first ring.
+
+**On porting: the two cases are not analogous.** py4DSTEM is GPL-3.0, which
+grants derivative works provided we license alike — which `NOTICE` records and
+is why our port is legitimate, source-level, with `DEVIATION` notes citing
+source lines. SPED-phase-mapping carries **no licence**, so default copyright
+applies and no derivative may be made of its code. What is usable is the
+**published method**, implemented from the paper and cited — with parameters
+derived here rather than lifted, which is better practice anyway since theirs
+were tuned to their microscope and sample.
+
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject

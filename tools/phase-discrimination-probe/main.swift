@@ -90,6 +90,69 @@ enum Probe {
                          f, rm.score, rp.score, winner))
         }
 
+        // ---- DOES MATRIX MASKING RESCUE IT? -----------------------------
+        // Thronsen et al. (2023) mask the matrix reflections and the direct
+        // beam out of every pattern before template matching, and leave the
+        // matrix out of the template library entirely, "because Al has
+        // overlapping reflections with the precipitates". Their method, not
+        // their code -- no licence, so nothing is copied; the parameter below
+        // is ours and is derived here rather than taken from their notebook.
+        //
+        // Our peak-list analogue: drop any peak lying within `maskRadius` of a
+        // reflection of the MATRIX reference pattern. Everything surviving is
+        // what is not matrix.
+        //
+        // PREDICTION, written before the run: if masking transfers, the flip
+        // moves well below the unmasked 0.60 and ideally under the
+        // pre-registered 0.30.
+        let matrixRef = peaks(sm, 1.0)
+        func maskMatrix(_ ps: [BraggPeak], radius: Float) -> [BraggPeak] {
+            ps.filter { p in
+                !matrixRef.contains { m in
+                    (m.x - p.x) * (m.x - p.x) + (m.y - p.y) * (m.y - p.y) <= radius * radius
+                }
+            }
+        }
+        for radius in [Float(2), 4, 6] {
+            var maskedFlip: Double?
+            var rows: [String] = []
+            for i in 0...20 {
+                let f = Double(i) / 20
+                let all = maskMatrix(peaks(sm, 1 - f) + peaks(sp, f), radius: radius)
+                let rm = matcherM.match(peaks: all, originX: originX, originY: originY,
+                                        invAngstromPerPixel: 1 / pxPerInvA)
+                let rp = matcherP.match(peaks: all, originX: originX, originY: originY,
+                                        invAngstromPerPixel: 1 / pxPerInvA)
+                if maskedFlip == nil, rp.score > rm.score { maskedFlip = f }
+                if i % 4 == 0 {
+                    rows.append(String(format: "      f=%.2f  matrix %.5f  precip %.5f  peaks %d",
+                                       f, rm.score, rp.score, all.count))
+                }
+            }
+            print("\n  MASKED, matrix-reflection radius \(Int(radius)) px:")
+            rows.forEach { print($0) }
+            if let maskedFlip {
+                print(String(format: "    -> flip at f = %.2f   (unmasked was 0.60)", maskedFlip))
+                print("    Scores are f-INDEPENDENT above the flip, and that is correct, not a")
+                print("    bug: with the matrix masked away the surviving pattern is pure")
+                print("    precipitate, and the matcher L2-normalises, so scaling every intensity")
+                print("    leaves the normalised pattern identical.")
+                print("    THREE LIMITS THIS MEASUREMENT DOES NOT ESCAPE:")
+                print("     - the mask here is PERFECT, built from the exact reference peak")
+                print("       positions. A real mask comes from a real matrix region through")
+                print("       background removal and thresholding, and is not.")
+                print("     - the score FLOOR survives masking: the matrix plan still scores 0.826")
+                print("       on a pattern holding none of its reflections, so the contrast is")
+                print("       ~0.11, not ~1. Masking fixes the MIXING problem, not the")
+                print("       wrong-phase problem.")
+                print("     - masking cannot separate phases whose reflections OVERLAP: masking Al")
+                print("       would mask Au with it. It works here because Si sits 218% of a radial")
+                print("       bin from Al -- as does a superlattice ring against Al's first ring.")
+            } else {
+                print("    -> NO FLIP: masking did not rescue it at this radius.")
+            }
+        }
+
         // ---- THE SCORE FLOOR, and it may be the whole story -------------
         // The f = 0.00 row shows the precipitate plan scoring high on a
         // pattern containing NONE of its reflections. If an unrelated phase
