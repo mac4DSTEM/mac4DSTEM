@@ -101,11 +101,37 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
 `Featurization` (PCA, ICA, NMF, GMM, `spatial_separation`, `consensus`) and
 `BraggVectorClassification` (NMF refine, `split`, `merge`).
 
-1. **Parity harness against py4DSTEM** — `tools/` gated, joins
-   `run-tests.sh scientific`. Same cube, same featurisation, compare class
-   assignment and class-average patterns against `Featurization`. Deviations get
-   inline `DEVIATION` notes. **This is the acceptance gate the image route could
-   never have.**
+1. **Parity harness against py4DSTEM — BUILT 2026-09-11**,
+   `tools/embedding-pca-parity`, in the `scientific` gate, 8 checks green.
+   **It is narrower than this section first claimed, and the claim is corrected
+   rather than quietly met.** As written it promised "same cube, same
+   featurisation, compare class assignment and class-average patterns against
+   `Featurization`". None of those three is deliverable, established by
+   measurement:
+   - **Not the featurisation.** py4DSTEM's only shipped featuriser is
+     `from_braggvectors`; it has no binned-pattern representation. Both sides
+     therefore consume the matrix `embed` produced, which is why negative
+     control NC6 (log1p → identity) stays green.
+   - **Not class assignment.** `grep -rin "kmeans|k_means|KMeans"` over the
+     pinned tree returns **nothing** — py4DSTEM clusters with `GaussianMixture`.
+     Any k-means number is an sklearn reference, never a py4DSTEM parity, so it
+     is printed and never gated.
+   - **Not a real cube.** py4DSTEM passes neither `svd_solver` nor
+     `random_state`, so sklearn's `auto` flips to the randomized solver above
+     500 rows. Measured: n=500 → 0.0 run-to-run drift in
+     `explained_variance_ratio_`, n=501 → 5.9e-4. The fixture is capped at 400.
+
+   **What it does check, and this is still the first upstream-checkable number
+   on the app's AI side:** PCA decomposition against py4DSTEM's *own*
+   `Featurization.PCA` (which does accept an arbitrary positions × dims matrix,
+   verified — its scores equal sklearn's to 9.8e-15), and `symmetricEigenTop`
+   against `numpy.linalg.eigh`. The second is the one that would have caught the
+   2026-09-06 subspace-iteration defect; the PCA checks alone cannot, because
+   explained-variance *ratios* hide a uniform eigenvalue error.
+
+   This correction is a factual one — the registration described a capability
+   py4DSTEM does not have — not a goalpost moved after seeing a result. §6's
+   rule stands for results.
 2. **Synthetic fixture** — patterns with known class membership per position,
    built so a wrong assignment cannot pass. Broken before trusted.
 3. **The Al-Si-Mg cube** — the class map's precipitate classes must recover the
@@ -142,15 +168,22 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
    - `Core/Crystal/OrientationMatcher.swift:324` hardcodes `phaseID: 0`. The
      field exists; only one phase is ever written. Multi-phase means carrying N
      `CrystalModel`s and reporting which one won, with its score.
-   - `ACOMCrystalSymmetry` (`Core/Analysis/OrientationResult.swift:489`) covers
-     **cubic, hexagonal, identity** only. β″ is monoclinic, so it falls to
-     `.identity` — "Unreduced".
+   - **`CIFImport` refuses a monoclinic cell outright** — the real blocker, and
+     not the one this section first named. `CIFImport.swift:798-810` has exactly
+     three paths: cubic, hexagonal, `throw unsupportedPointGroup`. There is no
+     fourth return, so **`.identity` is unreachable from the importer** and a β″
+     CIF cannot be loaded at all today. The earlier text here said β″ "falls to
+     `.identity`"; that was wrong.
 
-   **Untested hypothesis that de-risks the second one, and it must be tested
-   before it is relied on:** point-group coverage is needed to REPORT an
-   orientation (IPF colour, disorientation), not to decide WHICH PHASE a pattern
-   is. Phase identification compares against a predicted pattern; `.identity`
-   only means a larger orientation search — slower, not wrong. If that holds,
+   **SETTLED 2026-09-11 by line-level trace, and favourably** — it was flagged
+   untested when first written: point-group coverage is needed to REPORT an
+   orientation, not to decide WHICH PHASE a pattern is. Template *generation* is
+   symmetry-agnostic (`Crystal.swift:76-105` builds the general triclinic metric
+   tensor from arbitrary a,b,c,α,β,γ; `reflections(kMax:)` tiles hkl with no
+   family assumption), and symmetry is read in exactly two places:
+   `OrientationPlan.swift:120` (which zone axes are sampled) and
+   `OrientationMatcher.swift:319` (`symmetry.reduce`, which runs AFTER the argmax
+   at :287-290). So `.identity` costs sampling density, not correctness. Since
    precipitate phase labelling does not wait for monoclinic point groups, and
    `v3-plan.md`:22's "multi-phase needs point-group coverage" applies to the
    orientation half only. It also does not need grain segmentation: the plan

@@ -144,6 +144,15 @@ mac4dstem_sources() {
           "$core/Compute/MetalEngine.swift"
         )
         ;;
+      embedding)
+        mac4dstem_sources "$repo" analysis
+        want+=("${MAC4DSTEM_SOURCES[@]}")
+        mac4dstem_sources "$repo" calibration
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Analysis/DiffractionEmbedding.swift"
+        )
+        ;;
       analysis)
         mac4dstem_sources "$repo" cube
         want+=(
@@ -330,7 +339,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export embedding" >&2
         exit 64
         ;;
     esac

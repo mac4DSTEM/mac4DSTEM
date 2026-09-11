@@ -129,7 +129,40 @@ threshold-plus-components IS the baseline arm, so it would let the baseline
 score itself. It becomes ground truth when the owner confirms or corrects the
 marks, which is now a check rather than a count.
 
-**NEXT, and it is one thing: the Al-Si-Mg hand count.** Precipitates are
+**Landed — piece A, the py4DSTEM parity harness.** `tools/embedding-pca-parity`,
+in the `scientific` gate, **8 checks green in 9 s**. This is the first number on
+the app's AI side that can be checked against anything upstream. Our PCA agrees
+with py4DSTEM's own `Featurization.PCA` (coordinates to 1.9e-6 of its scores),
+and `symmetricEigenTop` agrees with `numpy.linalg.eigh` to 6.6e-16 on
+eigenvalues and exactly on eigenvectors. Evidence and the seven negative
+controls: `tools/embedding-pca-parity/run.sh`'s header.
+
+**It is narrower than the pre-registration promised, and §4.1 is corrected
+rather than quietly met** — py4DSTEM has no binned-pattern featuriser, ships no
+k-means at all (it clusters with `GaussianMixture`), and its PCA goes
+nondeterministic above 500 rows because it passes no `svd_solver` or
+`random_state` (measured: n=500 → 0.0 drift, n=501 → 5.9e-4). The fixture is
+capped at 400 positions for that reason.
+
+**Two facts settled on the way to B:** phase identification does **not** need
+monoclinic point groups — template generation is symmetry-agnostic and symmetry
+is read only in zone-axis sampling and in orientation *reporting*, after the
+argmax. But **`CIFImport.swift:798-810` refuses a monoclinic cell outright**
+(cubic, hexagonal, `throw` — no fourth path), so a β″ CIF cannot be loaded at
+all today. That is the real blocker for B, and the pre-registration named the
+wrong one; both corrected.
+
+**NEXT: B, and its order changed on evidence.** `phaseID` is dead code —
+write-only, six sites, zero reads — so carrying N phases is cheap and moves no
+number. The risk is elsewhere and nothing has measured it: **does the best-score
+argmax discriminate PHASE on a pattern containing both phases?** Templates are
+L2-normalised, every precipitate pattern also contains Al matrix reflections,
+and no fixture anywhere tests two phases against one pattern. That measurement
+needs no CIF and no importer change (Al fcc + Si diamond suffice) and is the
+cheapest thing that can kill the template-matched route, so it comes **second**,
+before the importer work.
+
+**Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject
 round particles at all — its whole purpose. Full table:
