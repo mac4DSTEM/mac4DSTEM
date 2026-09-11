@@ -84,11 +84,36 @@ This is the first acceptance test in the precipitate programme that does not
 depend on the owner's eye.
 
 ### 4 — Apply to Al-Mg-Si  *(the actual goal)*
-Needs a β″ CIF — **not from their repo**, which has none: Andersen et al. 1998
-(*Acta Mater.* 46(9):3283) or Materials Project mp-31404 (CC BY 4.0, DFT-relaxed
-and therefore ~1 % off on d-spacings, which needs its own note). Plus the β″/Al
-orientation relationship, which is published. Then: phase map → connected
-components → count ÷ calibrated area.
+
+**The β″ structure is no longer a blocker — found 2026-09-11.** The owner already
+had the canonical source: **Andersen et al., *Acta Materialia* 46(9), 3283-3298
+(1998)**, in his own library. Table 3, set 3 is the C2/m refinement (R = 3.16 %
+over 377 reflections, seven data sets):
+
+| | |
+|---|---|
+| space group | **C2/m** (No. 12), C-centred monoclinic |
+| cell | a = 15.16, b = 4.05, c = 6.74 Å, β = 105.3° |
+| sites (all y = 0) | Mg1 (0, 0, 0) · Mg2 (0.3459, 0, 0.089) · Mg3 (0.430, 0, 0.652) · Si1 (0.0565, 0, 0.649) · Si2 (0.1885, 0, 0.224) · Si3 (0.2171, 0, 0.617) |
+
+`tools/crystal-structures/make_beta_double_prime.py` writes the CIF into
+`References/` (gitignored), and **asserts** that expanding the six sites under
+C2/m gives Mg₁₀Si₁₂ = 2 × Mg₅Si₆ = 22 atoms — the cell content the paper states.
+A misread coordinate or the wrong axis setting fails that assertion, which is
+the check worth having, because sources disagree on the axis setting: some
+publish a = 15.16, b = 6.74, c = 4.05 with γ = 105.3° instead.
+
+**Not Materials Project mp-31404** (same phase, CC BY 4.0) — it is DFT-relaxed,
+and relaxed volumes run a few percent high, roughly 1 % on d-spacings. That is a
+systematic error in exactly the quantity this method matches on. The
+Crystallography Open Database has **no** Mg₅Si₆ entry (checked).
+
+**The orientation relationship comes free from the same paper:** β″ is coherent
+along its needle direction — its **b-axis — with a ⟨100⟩ Al direction**, and
+b = 0.405 nm *is* Al's lattice parameter. That is the prior knowledge the vector
+matching method leans on.
+
+Then: phase map → connected components → count ÷ calibrated area.
 
 ### 5 — UI
 The AI Analysis room grows a phase-mapping task beside diffraction grouping.
@@ -111,8 +136,8 @@ Stated now so it is not discovered later. Their implementation:
 
 1. **`.identity` symmetry:** accept a phase labelled without an IPF orientation
    colour? Blocks step 0.
-2. **A β″ CIF** — author from Andersen 1998, or take mp-31404 and carry the
-   DFT-relaxation note? Blocks step 4, not steps 0-3.
+2. ~~A β″ CIF~~ — **resolved 2026-09-11.** Generated from Andersen et al. 1998,
+   verified against the published cell content. No decision needed.
 3. **Zenodo download** — no longer a licence question (CC BY 4.0, checked), only
    a disk one: preprocessed `datasetA` is ~7.4 GB against a machine sitting at
    9 GB free with an 8 GB gate floor. The ground truth itself is 37 kB.

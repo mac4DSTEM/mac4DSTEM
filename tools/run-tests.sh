@@ -97,7 +97,7 @@ diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   phase-discrimination-probe)
 owner_only=()
 retired=()
-support=(lib release)
+support=(lib release crystal-structures)
 
 inventory() {
   local rc=0 name f
