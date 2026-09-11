@@ -80,274 +80,44 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — porting the AI pipeline onto `main` (step 1 of 9 landed)
+## Handoff — the AI port landed steps 1-4 and 8-9; precipitates are not wired
 
-**The task.** Move the unmerged AI work from `ml/disk-detector` onto `main` by
-porting files forward, never by rebasing or merging: the branch is 27 ahead and
-**45 behind**, merge base 2026-09-06, and `main` has since shipped v3.0.0. The
-branch stays at `origin` as the record — `ml/disk-detector` is identical to
-`origin/ml/disk-detector` (`f057545`), verified 2026-09-11, so no work can be
-lost. Plan, file-by-file disposition and evidence:
-[`archive/2026-09-11-ai-port-analysis.md`](archive/2026-09-11-ai-port-analysis.md).
+**State.** The AI pipeline is on `main`, in seven commits (`0f56e08`..`d6ebbb9`),
+ported forward by hand and never merged. `ml/disk-detector` stays at `origin`
+as the record — it is unchanged, so nothing was lost. The step-by-step record
+is [`archive/v3/ai-port-2026-09-11.md`](archive/v3/ai-port-2026-09-11.md); the
+plan is [`archive/2026-09-11-ai-port-analysis.md`](archive/2026-09-11-ai-port-analysis.md);
+the five owner decisions are the 2026-09-11 entries in `decisions.md`.
 
-**Decided 2026-09-11, owner in chat** (`decisions.md`, four dated entries —
-read them before acting; the first reverses a standing decision):
+**What is live.** A sixth workspace, **AI Analysis** (Cmd-5; Results moved to
+Cmd-6), containing **diffraction grouping** — PCA + k-means over box-binned
+patterns, wired end to end and exporting a group map. The three precipitate
+engines and `DiffractionEmbedding` are in `Core/`, gated, with
+`tools/run-tests.sh all` green at **602 passed / 0 failed**.
 
-1. The port happens, superseding 2026-09-08's "the engines stay on the branch".
-2. The UI gets a **sixth workspace, "AI Analysis"** — not Sections mounted in
-   existing rooms, which was the analysis's recommendation. Costs eight files,
-   the five-title pin at `mac4DSTEMTests/ProductWorkflowTests.swift`, and
-   Results off Cmd-5.
-3. **Precipitates ship only if the pre-registered baseline is built and beaten
-   on both the fixture and a hand count.** Neither waived nor reduced to the
-   fixture alone. That is step 4, and it may end the precipitate half. The
-   Al-Si-Mg hand count is owed by the owner; everything around it is not.
-4. `.unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"])` is accepted, with the
-   cost that DSTEMCore can never resolve as a versioned remote dependency.
+**UNVERIFIED ON SCREEN.** No part of the new room has been seen running. That
+is the owner's drive (`CLAUDE.md`; Track B retired 2026-09-03), and a defect he
+finds enters through `/diagnose`. Worth his eye: the room's position and icon;
+Cmd-5/Cmd-6 having moved; the Group Patterns button and its progress; and that
+leaving AI Analysis and returning does **not** re-show a computed group map
+(`runCurrentAnalysis` returns `break` for this task, because a whole-scan
+PCA + k-means must never be a default action — strain and ACOM do re-show, and
+whether grouping should is his call).
 
-**Landed this session — step 1, the C5 down payment.** `AnalysisMode` moved
-from `mac4DSTEM/App/AppState.swift` to `mac4DSTEM/App/ProductWorkflow.swift`,
-beside `WorkspaceArea` and the `extension AnalysisMode` tables already there.
-Pure placement: **neither Gate D trigger applies** — no scientific number moves
-and no defect is in play. AppState + ResultExport **7492**, down from 7509 flat.
-**This banks no credit, and the plan says otherwise twice** (§3 step 1, §5):
-`tools/run-tests.sh:135` measures each commit against its *immediate*
-predecessor — `HEAD` while a budgeted file is dirty, `HEAD^` when clean — so
-every commit must be <= the one before it and a past saving is never spendable.
-What the move actually buys is permanent and different: the two new
-`AnalysisMode` cases and `showsApertureOverlay` now land in
-`ProductWorkflow.swift`, outside both budgeted files. Step 6 must still pay for
-its own growth inside its own commit (Lever 2, §1), and **step 9 has no lever
-named at all** — name one before starting it.
-Gates: `xcodebuild build` exit 0; `unit` exit 0, 573 passed / 0 failed
-(`unit-step1-20260911.log`); `inventory` exit 0 (`inventory-step1b-20260911.log`).
-The first `inventory` run was **red** and caught a fresh `decisions.md`
-citation of a branch-only path — the same class as `cb48a99`, one commit old.
+**NEXT, and it is one thing: the Al-Si-Mg hand count.** Precipitates are
+deliberately **not wired**. Their pre-registered ship gate is unmet, and the
+synthetic half of it is a TIE that reveals the ridge filter does not reject
+round particles at all — its whole purpose. Full table:
+[`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
+One hand count on the frozen region completes step 4 and unlocks steps 5-7.
+Nothing else is owed. Two measured defects also block wiring the segmentation
+engine — see `open-items.md`.
 
-**Landed — step 2, the LAPACK flag, ahead of the file that needs it.**
-`.unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"])` on DSTEMCore only
-(`Package.swift`); DSTEMSession compiles no LAPACK. Verified here rather than
-taken from the plan: `xcrun swiftc -typecheck` on a file using `__LAPACK_int`
-fails "cannot find '__LAPACK_int' in scope" without the flag and is clean with
-it. The two `diagnostic` harnesses that compile `Core/**` themselves with a bare
-`swiftc` — `tools/bragg-spacing-probe/run.sh` and
-`tools/training-dataset-campaign/run.sh` — got the flag on their own swiftc
-lines, since no gate would ever report them broken.
-
-**DEVIATION from the plan §2, deliberate.** The plan also adds two pbxproj
-`OTHER_SWIFT_FLAGS`. Not done, and it should not be: all **75** `Core/` +
-`Session/` Swift files are in `membershipExceptions` (measured — 76 entries =
-75 .swift + Info.plist, set-equal to disk in both directions), so the app target
-never compiles LAPACK-using code. The flag there would be a no-op that changes
-how every `App/`, `UI/` and `Support/` file compiles. `Package.swift` is the
-operative line, as the plan itself says.
-
-Step 2's stated gate was "run both harnesses by hand once". That is not a safe
-unattended instruction — `bragg-spacing-probe` exits 2 before its swiftc line
-without a datacube path and a probe radius nobody has named, and
-`training-dataset-campaign` with no arguments globs ~7 GB of
-`References/training_dataset` onto a volume with no margin. The only thing the
-flag can break in either is the compile, so the compile is what was proved:
-`swiftc -typecheck` over the manifest's `core` group (55 sources) with the flag,
-exit 0, clean.
-
-Gates: `core` exit 0 (DSTEMCore + DSTEMSession built); `all` exit 0 — 573
-passed / 0 failed, every scientific harness passed, `comparator-test` 46/0,
-`package-test` all passed (`all-step2.log`).
-
-**Landed — step 3, the three precipitate Core engines, UNWIRED.**
-`Core/Analysis/Precipitates/{PrecipitateSegmentation,PrecipitateReflections,PrecipitateStatistics}.swift`
-plus `mac4DSTEMTests/PrecipitateTests.swift` (first class only). No production
-caller exists — every call site is in the tests, verified by grep. The four
-Gate D memos the branch cited but neither tree held are now committed under
-[`archive/v3/ai-gateD-2026-09-06/`](archive/v3/ai-gateD-2026-09-06/):
-`References/training_runs/` is gitignored but **retained**, unlike `scratchpad/`,
-so the port analysis's "the evidence is gone" was wrong here.
-
-**Gate D — the non-finite guard.** Trigger 2 discharged by reading: `main`
-writes `Float.nan` into scan-domain scalar arrays at `StrainMapping.swift`:77,
-:81 and `StrainFrame.swift`:113. Measured before the fix on a six-needle
-fixture: `.needles` with ONE NaN pixel returns 1 object of 65.2 px (a plausible
-wrong answer), `.particles` returns 0 (a refusal). Remedy: impute the finite
-median, mark those pixels invalid. Gate B attacked the no-op claim five ways
-and could not move a digit on any NaN-free fixture.
-
-**Gate B refuted four of this session's own claims, and they were corrected
-before the commit:** the blur truncates at FOUR sigma (48 px, not the "~36 px"
-the comment claimed — the right number was six lines below it in the same
-file); "a plausible wrong answer, not a refusal" is true of `.needles` only;
-the `[1, 3, 10]` dose sweep could not fail and is now a sentinel sweep over
-`.nan`/`.infinity`/`-.infinity`; and ten dead citations survived in the test
-file because the inventory gate covers truth docs, not `.swift` sources.
-**Gate B also found two wrong-science limits that are NOT fixed** — contiguous
-invalid regions fabricate objects (23 where 6 were drawn at 31 % masked) and
-non-finite pixels on a feature erase it silently. Both are in
-`open-items.md`, and the first **blocks wiring this engine**. The candidate
-remedy was itself refuted: it breaks the caller-validity contract unless it
-excludes non-finite rather than invalid pixels, so it needs its own Gate D.
-
-Gates: `unit` exit 0, **589 passed / 0 failed**; `core` exit 0; `inventory`
-exit 0, C5 flat at 7492. Every new test was broken before it was trusted —
-the guard-off, impute-0, impute-max, `valid[i]` and `.isNaN`-narrowing and
-scan-transpose mutants each kill the test that claims them.
-
-**Landed — step 4, the pre-registered baseline, committed UNSCORED.** Full
-table: [`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
-It needed no new engine code: `PrecipitateSegmentation.Mode.particles` **is**
-the pre-registered baseline (flatten, smooth, threshold, connected components)
-and `.needles` is the same path with `ridgeMeasure` inserted.
-
-**Result on the half that could be scored: a TIE, therefore a PASS** under the
-owner's criterion (recall and precision decide, a tie passes). Both arms: 9
-objects, **6/6 needles**, **3/3 round particles reported**, precision 6/9,
-length error identical to two decimals (+0.6 / +1.4 / +2.1 / +1.9 %).
-
-**What the tie reveals matters more than the verdict: the ridge filter does not
-reject the round particles, which is its entire purpose.** The only measurable
-difference is ~20 % smaller mask `area` on round objects — and `area` reaches
-an export through `arealDensity`. The fixture's own design note concedes the
-mechanism ("the literal ridge measure … is not itself elongation-selective"),
-so the fixture was built knowing this and made the particles easy enough not to
-matter. **A pass obtained this way is not evidence the ridge filter earns its
-place.** Sharpening the fixture now would be re-registering after peeking, and
-is refused.
-
-**The gate as a whole stays UNMET**, so precipitates remain unwired. One thing
-is owed and only one: the Al-Si-Mg hand count. A counting sheet was prepared
-from `References/training_dataset/060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5`
-(330x330 scan, 1.539 nm/px; precipitate reflections measured at 8.1 and 8.5 px,
-matrix ring ~18 px, two needle variants near-perpendicular). **One hand count
-completes step 4 and unlocks steps 5-7.**
-
-Gate: `unit` exit 0, **590 passed / 0 failed**. The test's own first version was
-wrong and the engine was not — a 6 px match window scored the two deliberately
-edge-clipped needles MISSED and reported a false 4/6 for both arms.
-
-**Landed — step 8, `DiffractionEmbedding` Core + its tests, UNWIRED.** PCA on
-box-binned patterns then k-means, 708 lines. **No functional edit was made** —
-citation rewrites and one header correction only, so **neither Gate D trigger
-applies**. The branch header claimed "this session could not build, so nothing
-here was run against a compiler"; true at `a97e920`, false by `b61ea73`, and
-false here, so it is gone. The second and third test classes stay on the branch
-— they construct `DiffractionGroupsProduct`, which lands with the wiring. All 7
-ported tests run, including the two that are genuine independent ground truth
-(a planted spectrum recovered to 1e-8, and the covariance rebuilt through an
-independent re-implementation).
-
-The four Gate D memos moved from `archive/v3/precipitate-gateD-2026-09-06/` to
-[`archive/v3/ai-gateD-2026-09-06/`](archive/v3/ai-gateD-2026-09-06/): only two
-of the four are about precipitates — C1 is the PCA eigen solver, A2 is
-learned-detection threading — so the name committed at step 3 was misleading.
-
-**Gate B found a crash, and it changes what step 9 may do.** One NaN or +Inf
-detector pixel kills the process: `dsyevd_` returns `info == 0` on a NaN
-covariance at the shipped default (`dims` 256 — the apparent guard is
-dimension-dependent and only fires at `dims` 16), `explainedVariance` then
-publishes a plausible **0.0**, and `kMeans` reaches
-`Double.random(in: 0..<.infinity)`, which traps. Verified standalone: exit
-**133**, and under `-O` the process prints nothing at all. The doc comment
-claiming this was guarded is corrected in the same commit — it asserted a
-protection the experiment shows does not exist. Gate B also showed the suite
-makes exactly ONE statement about `coordinates` (that it is finite), so
-dropping the mean-centring or reversing the projection columns leaves all 7
-tests green while moving every exported number. Both in `open-items.md`; the
-crash **blocks wiring**.
-
-**Landed — the non-finite guard, its own Gate D.** The crash Gate B found is
-fixed before anything wires the engine, so it never reached a user; the item
-moved to
-[`archive/closed-items-2026-09.md`](archive/closed-items-2026-09.md).
-Two guards: `compute()` refuses a non-finite covariance with the typed
-`EmbeddingError.invalidDataset` the caller already handles, and `kMeans` takes
-`!total.isFinite || total <= 0` so an infinite total falls into the
-deterministic branch instead of `Double.random(in: 0..<.infinity)`. Both pinned
-by fixtures broken before they were trusted — `guard true` turns the first red
-(and informatively: it publishes a result rather than trapping, so the fixture
-catches "published instead of refused"), and reverting the second to
-`total <= 0` turns the other red. `kMeans` was widened `private` → `package`
-to make guard 2 testable at all, the same reason and precedent as
-`symmetricEigenTop` in the same file. A separate fixture pins that `-Inf` — the
-one sentinel that was always safe, because `embed` clamps it — still produces a
-full result, so the guard has not over-fired.
-
-Gate: `unit` exit 0, **600 passed / 0 failed**. The gate refused with exit 69 at
-7 GB twice during step 8; both times that is a disk event, not a test failure,
-and the owner's authorised remedy (delete `DerivedData`, retry) restored 8 GB
-and the gate passed.
-
-**Landed — step 9: the AI Analysis workspace, with diffraction grouping in it.**
-The sixth room ships **with its occupant**, never empty. `WorkspaceArea`
-gains `.aiAnalysis` ("AI Analysis", `sparkles`, "Group scan positions by
-diffraction similarity"), `AnalysisMode` gains `.diffractionGroups` — in
-`ProductWorkflow.swift`, outside both budgeted files, which is what step 1
-bought. `Session/DiffractionGroupsProduct.swift` owns the state;
-`App/AppState+DiffractionGroups.swift` is its only writer; `UI/
-DiffractionGroupsSettings.swift` mounts under a freshly written
-`UI/AIAnalysisSettings.swift`.
-
-**`AIAnalysisSettings` was written, not ported.** The branch's version hosted a
-learned-disks case that v3.0.0 retired into the Disks room, and a precipitates
-section that does not ship this run. Porting it would have re-landed a panel
-for a capability that lives elsewhere and one that has not met its gate.
-
-**`fourD` was NOT widened.** The branch takes `private` → `private(set)`, which
-is net-zero lines and exactly what `AppState.swift`'s own comment forbids
-("deliberately not the array … exposing them separately is what let three
-readers ignore the descriptor"). Instead a narrow `cubeAndDescriptor` accessor
-returns the PAIR, which is what that comment prescribes.
-
-**C5: 7492 → 7407.** Paid with the pre-registered Lever 2 —
-`currentScalarResultMetadata` moved from `Support/ResultExport.swift` to a new
-`Support/ResultMetadata.swift`. That is a **file-placement move, not the
-consolidation it resembles**: it stays an `extension AppState` because it reads
-`virtualShape`, `dpcDisplay`, `strain.component`, `acomSession` and more, so it
-cannot join the `extension AnalysisMode` tables the way `AnalysisMode` did.
-`Results` moves off Cmd-5 to Cmd-6, the cost the owner accepted.
-
-Gates: `xcodebuild build` exit 0; `unit` exit 0, **602 passed / 0 failed**;
-`core` exit 0; `inventory` exit 0. Both new tests broken before trusted —
-routing grouping into Imaging kills the ownership test, and giving it a
-prerequisite kills the other.
-
-**UNVERIFIED ON SCREEN.** Nothing here has been seen running. On-screen
-verification is the owner driving the app (`CLAUDE.md`; Track B retired
-2026-09-03), and any defect he finds enters through `/diagnose`, never as an
-app change made to satisfy a checklist. Specifically worth his eye: the new
-room's position and icon in the sidebar; Cmd-5/Cmd-6 having moved; the Group
-Patterns button and its progress; and that switching away from AI Analysis and
-back does **not** re-show a computed group map — `runCurrentAnalysis` returns
-`break` for this task, because a whole-scan PCA + k-means must never be a
-default action. Strain and ACOM do re-show. Whether grouping should too is his
-call, not a guess made without seeing it.
-
-**The port is complete for this run.** Steps 5-7 (precipitates wired) did not
-happen and are blocked on one thing: the Al-Si-Mg hand count. See
-`archive/v3/precipitate-baseline-2026-09-11.md`.
-
-**Two things that stay true however cleanly the files move:**
-
-- **The precipitate science is original work, not a py4DSTEM port** — zero
-  `DEVIATION` notes, no upstream counterpart, and the segmentation abandoned
-  skimage's `regionprops` convention deliberately because it read the fixture
-  needles ~1.5x too long. **No parity harness is possible.** Gate D applies:
-  `lengthPx`, `widthPx`, `orientationDegrees`, `area` and `arealDensity` all
-  reach an export, and the ridge mask runs ~2x the drawn bar by its own note.
-- **No ported gating travels.** The branch's `unit` gate never ran (exit 69 on
-  the disk floor), every log it cites is a gone scratchpad name, and the port
-  adds science-affecting edits the branch never saw. Re-run; never re-cite.
-
-**Correction owed at step 3** (established 2026-09-11): this file and
-`archive/v3/c8-triage-2026-09-08.md` both say the branch's tests "never met a
-compiler". That caveat is on the embedding tests only — `PrecipitateTests`
-compiled and ran 12/0. Fix the sentence, re-run the suite, cite a new log.
-
-**Do NOT port:** the branch's disk-label trio (main's
-`mac4DSTEM/Session/DiskCentreLabels.swift` won and shipped in v3.0.0), its
-`mac4DSTEM/Session/LearnedDetection.swift` (main is a strict superset; the
-branch's 0.9 threshold literal would move a number against
-`LearnedDiskDetector.defaultThreshold` 0.7), its `BraggVectorEMDWriter` hunks,
-its `LearnedDiskRows`, any branch build file, and the `source-copy/**` tree of
-63 duplicated Swift sources.
+**Standing truths this port did not change.** The precipitate science is
+original work, not a py4DSTEM port: zero `DEVIATION` notes, no upstream
+counterpart, and the segmentation abandoned skimage's convention deliberately.
+**No parity harness is possible.** And no gating travelled from the branch —
+its `unit` gate never ran, and every log it cited is a gone scratchpad name.
 
 ## Closed 2026-09-11 — v3.0.0 is cut and pushed
 
