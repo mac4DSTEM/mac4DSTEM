@@ -139,13 +139,30 @@ and whether its branch tests are Swift-against-Swift with no reference — in
 which case the science is unverified no matter how cleanly the files move.
 **Answer that before quoting any number from these features.**
 
-**The analysis mostly completed and is salvaged** — six area maps and 19
-verifications, in
+**The analysis COMPLETED, including its port plan** — six area maps, 19
+verifications and a step-by-step plan whose every step ends at a green
+`run-tests.sh`, in
 [`archive/2026-09-11-ai-port-analysis.md`](archive/2026-09-11-ai-port-analysis.md).
-Only the synthesis did not run, so that file is evidence, not a plan; the next
-session writes the plan from it. **Rows not marked with a Verifier line are
-leads, not facts.** What it already establishes, and what it turns into owner
-decisions:
+**Read its first section before anything else — three findings there change the
+shape of the task, and one says this port is already covered by a standing
+decision:**
+
+- **`decisions.md` 2026-09-08 already ruled on this.** "C8: the four pure
+  engines stay on the branch (owner, in chat: 'leave')" — not ported *unwired*;
+  they re-enter *with their product and UI layers* through the §1.5 design
+  session. The reason given (dead Core in a tree about to become v3.0.0) has
+  lapsed. The condition has not. **A port needs a new dated entry reversing it.**
+- **The science is ORIGINAL, not a py4DSTEM port** — no DEVIATION notes, no
+  reference implementation, and the segmentation deliberately abandoned
+  skimage's convention. **No parity harness is possible.** Gate D applies:
+  `lengthPx`, `widthPx`, `orientationDegrees`, `area` and `arealDensity` all
+  reach an export.
+- **Its own pre-registered ship gate is unmet** — the design doc demands a
+  baseline without the ridge filter that the ridge filter must beat "or it does
+  not ship". Never written; the hand count was never made.
+
+The rest of that file is evidence and a proposed plan. **Rows without a
+Verifier line are leads, not facts.** Also established:
 
 - **`main` has no AI Analysis workspace.** `WorkspaceArea` is
   prepare/image/map/reconstruct/results (`App/ProductWorkflow.swift:10-15`); the
