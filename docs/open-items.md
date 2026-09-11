@@ -127,8 +127,15 @@ Eight dimensions audited by delegated readers, every finding then attacked by an
 independent refuter; these are the ones that survived and that **I confirmed
 myself from source**. Full dossier is this session's workflow transcript, which
 is not retained — so each entry below carries its own evidence and does not
-depend on it. The review also refuted one of its own refuters, which had cited a
-`website/index.html` that does not exist in this repository at any commit.
+depend on it. **One correction to that review, made 2026-09-11 after the fact:**
+its synthesis dismissed a refuter for citing a `website/index.html` "that does
+not exist". It does exist — in the sibling `mac4DSTEM/website` repo, where
+`index.html:732` does carry the GPL source offer the refuter described. The
+synthesis had searched only this repository and said so too strongly, and this
+file repeated it. The licence fix still stands on its own ground: GPL-3 wants
+the licence text to accompany the binary, which is a different requirement from
+the source offer a website can satisfy, and the bundle carried neither before
+today.
 
 ### The hexagonal IPF colour key is labelled the wrong way round (2026-09-11)
 `OrientationResult.swift:477-479` sets green `sqrt(tilt * (1 - fraction))`,
