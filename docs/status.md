@@ -137,14 +137,21 @@ background-task wrapper reported "exit code 0" for a run whose own line said
 caller's. (3) 2026-09-09: a diff tool that iterates over the EXPECTED entries
 is blind to exactly the data no one pinned, which is where drift hides.
 
-**What is left for 3.0.0, in order:**
+**What is left for 3.0.0 — ONE thing, and it is a blocker:**
 
-1. **The Gate B verdict on the Quantitative-badge fix**, then `run-tests.sh all`
-   and the commit. The fix is written and builds; five tests, each broken by a
-   named mutation before it was trusted. This is the last gate owed.
-2. **The `Info.plist` in Copy Bundle Resources** (`open-items.md`) — five
-   minutes, and it must happen before the artefact is built, because
-   `package-test` passes either way.
+1. **The archive does not build.** `tools/release/build-developer-id.sh` exits
+   65 on an x86_64 slice compiling `Float16` (`open-items.md`, the full entry
+   with what is and is not established). Everything else for the cut is done and
+   gated; the release stops here until this is settled. The owner deferred the
+   fix to a fresh session on 2026-09-11 rather than take it at the end of a long
+   one — **read the open item before proposing anything**, because the obvious
+   fix is untested and the reason `ARCHS = arm64` was not honoured is unknown.
+
+**Done, and not to be redone:**
+- Gate B on the Quantitative-badge fix: **rejected, fix reverted**, defect ships
+  as a stated limitation (`archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
+- The `Info.plist` duplicate: **fixed and verified in the built bundle** — gone
+  from `Contents/Resources/`, `LSMinimumSystemVersion` still 14.0.
 3. **Set the version to `3.0.0` / `6`** in the project, then `docs/releasing.md`
    end to end: build, notarize, staple, `spctl`, record the hashes. `README.md`
    and `docs/releasing.md` are deliberately NOT updated yet — they assert

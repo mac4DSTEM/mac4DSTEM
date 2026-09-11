@@ -95,6 +95,49 @@ label never resolves. Treat as one Gate D, not two fixes.
 
 ## Verification debt — added 2026-09-08
 
+### The v3.0.0 archive failed on an x86_64 slice — RELEASE BLOCKER (2026-09-11)
+`tools/release/build-developer-id.sh` **exit 65**, 20 compile errors, all in
+`mac4DSTEM/Core/ML/LearnedDiskDetector.swift` (lines 124, 127, 134-136, 143,
+149, 156, 257, 278, 285, 287, 378, 386, 405, 407, 424): `'Float16' is
+unavailable in macOS`, plus the type errors that follow from it.
+
+**What is ESTABLISHED, from the archive log:**
+- The archive compiled for Intel. The log contains `-target
+  x86_64-apple-macos14.0` (and an `x86_64-apple-macos27.0`) beside
+  `-target arm64-apple-macos14.0`. `Float16` does not exist on x86_64 macOS.
+- `ARCHS = arm64` is present **twice at project level** in the pbxproj (added
+  2026-09-09 as D064, because the bundled HDF5/sz/aec dylibs are arm64-only).
+  It did not prevent the x86_64 compile in this run.
+- The gate cannot see this. `tools/package-test/run.sh` builds with
+  `-destination 'platform=macOS'` — the concrete machine, arm64 — while the
+  archive uses `-destination 'generic/platform=macOS'`. A green
+  `run-tests.sh all` therefore says nothing about whether the archive builds.
+- No partial artefact was left: the script removes the archive path before
+  building, and `build/release/` still holds only the v1.0/v2.5.x releases.
+
+**What is NOT established, and must not be written down as if it were:**
+- *Why* the project-level `ARCHS = arm64` was not honoured. The hypothesis on
+  the table — that the `DSTEMCore` Swift package target does not inherit it for
+  a generic destination — is **unverified**. It was not tested.
+- That adding `ARCHS=arm64` to the archive invocation fixes it. **Untested.**
+- How long this has been true. It is NOT the case that every past green gate hid
+  a broken archive: **the v2.5.1 archive succeeded on 2026-09-04**. The Float16
+  code arrived with the learned detector (C7) afterwards, so the plausible window
+  is "since the Core ML work landed" — plausible, not established, because no
+  archive was attempted between then and now.
+
+**Judgement, offered as judgement:** `Float16` looks correct here — it is the
+ANE half-precision path, and the app is Apple-Silicon-only by design with
+arm64-only bundled dylibs, so the Intel slice is a target that was never
+supported rather than a platform that regressed. That argues for making the
+archive build only what the project declares, not for making the detector
+compile on Intel. The owner has NOT decided this; he deferred the fix to a fresh
+session (2026-09-11) and no fix was applied.
+
+Owner: **this blocks the v3.0.0 cut.** Everything else for the cut is done and
+gated.
+
+
 ### Owed on screen from C4(c) and C7, after the 2026-09-09 drive
 Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh,
 configurator single-pattern preview, "No preview available") reaching the status
