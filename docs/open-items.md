@@ -57,6 +57,13 @@ still produce an x86_64 slice that launches and fails on every data file
 
 ## Accessibility — added 2026-09-09 by the delegated drive
 
+**Does NOT block v3.0.0** (owner, 2026-09-11; `decisions.md`). Deferred to a
+far-future release. Kept here in full because it is a live defect, not a closed
+one, and because it is not VoiceOver-only: any AX client resolving labels on the
+front window trips it, so it blocks any automated driving rig and it crashed the
+owner's own session twice on 2026-09-08.
+
+
 ### Reading an accessibility label crashes the app
 Two crash reports, 2026-09-08 22:41:36 and 22:47:48, identical faulting stack
 (`~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-09-08-2241*.ips`,

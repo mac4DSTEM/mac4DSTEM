@@ -144,9 +144,11 @@ is blind to exactly the data no one pinned, which is where drift hides.
    ptychography, every `Advanced` section, the CIF import, disk-centre
    labelling (C7's last check), the four failure paths and both Resets. Also
    unverified: the four fixes of 2026-09-09.
-2. **Gate D on the accessibility defect** — the crash and the empty in-body
-   labels, treated as ONE bug in SwiftUI's label resolution. The owner's call
-   whether it blocks the cut; it is the only finding that would.
+2. ~~Gate D on the accessibility defect.~~ **Does NOT block** (owner,
+   2026-09-11, `decisions.md`): deferred to a far-future release, the crash
+   stays open in `open-items.md` and no release note claims accessibility
+   support. Nothing else on this list is a blocker, so **the drive is the only
+   thing standing between here and the cut.**
 3. Then archive `consolidation-plan.md`, run the release gate, cut **3.0.0 / 6**.
 
 **Deliberately not doing before 3.0.0** (owner, 2026-09-09, against bloat): a

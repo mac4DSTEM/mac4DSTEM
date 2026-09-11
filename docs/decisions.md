@@ -770,3 +770,27 @@ otherwise. The cost is accepted knowingly: bullseye's counts sit on ~130 noise
 peaks per position (`open-items.md`), so future noise-handling work will turn
 the gate red and need a re-pin with evidence. That is the gate working. One
 line to reverse if the owner disagrees.
+
+## 2026-09-11 — the accessibility crash does not block v3.0.0 (owner)
+
+Asked directly whether the `accessibilityLabel()` stack overflow blocks the
+cut, the owner: *"i dont care about VoiceOver, it is not part of the
+consideration... we care about something like this in v8.0.0 or whenever, if it
+has no other practical meaning we don't care about it until the distant
+future."* So: **3.0.0 is cut with the crash open**, and it leaves the v3.0.0
+blocker list.
+
+Recorded with the caveat the owner's condition asks for, because the condition
+is not fully met. The defect is **not** VoiceOver-only: `open-items.md` records
+that it fires when any AX client resolves labels on the front window, which
+includes Accessibility Inspector and any UI automation. Both crash reports
+(2026-09-08 22:41:36 and 22:47:48) are from the owner's own driving session, so
+it has already cost him a running app twice, and it is a hard blocker on ever
+restoring an automated driving rig — which matters because agent driving was
+retired on 2026-09-09 for unrelated reasons and may be revisited. None of that
+overrides the decision; it is written down so the next person to propose an
+automation rig knows what they will hit.
+
+Consequence for the release: the README and CHANGELOG say nothing that claims
+accessibility support, and the crash stays in `open-items.md` as a known defect
+rather than being quietly dropped. One line to reverse if the owner disagrees.
