@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$(dirname "$0")/../lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
+. "$(dirname "$0")/../lib/release-arch.sh"
 : "${DEVELOPER_ID_APPLICATION:?Set DEVELOPER_ID_APPLICATION to the full Developer ID Application certificate name}"
 
 OUT="${1:-$ROOT/build/release}"
@@ -13,11 +14,17 @@ mkdir -p "$OUT"
 
 xcodebuild archive \
   -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
-  -configuration Release -destination 'generic/platform=macOS' \
+  -configuration Release -destination "$MAC4DSTEM_RELEASE_DESTINATION" \
   -archivePath "$ARCHIVE" \
+  "$MAC4DSTEM_ARCH_PIN" \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$DEVELOPER_ID_APPLICATION" \
   OTHER_CODE_SIGN_FLAGS="--timestamp" \
   archive
+
+# Measured on the product, not inferred from the setting above: the pin could
+# be dropped, and a future "fix" that made Float16 compile on x86_64 would
+# restore the universal binary v2.5.1 shipped without failing anything else.
+assert_mac4dstem_bundle_arm64_only "$APP"
 
 codesign --verify --deep --strict --verbose=2 "$APP"
 codesign -d --entitlements :- "$APP" > "$OUT/entitlements.plist" 2>/dev/null

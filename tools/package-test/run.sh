@@ -13,13 +13,23 @@ trap 'rm -rf "$WORK"' EXIT
 # above, so a $0-relative path would resolve against the wrong directory.
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
+. "$REPO/tools/lib/release-arch.sh"
 
+# The destination and the architecture pin come from release-arch.sh so that
+# this audit builds the way build-developer-id.sh builds. It did NOT until
+# 2026-09-11: it used 'platform=macOS', the concrete machine, which filters the
+# architectures itself, while the archive uses a generic destination and does
+# not. That difference is the whole reason `run-tests.sh all` was green on
+# 2026-09-11 an hour before the release archive failed to compile at all, and
+# the reason v2.5.1 shipped universal. A gate that does not build the way the
+# release builds is not covering the release.
 xcodebuild \
   -project "$REPO/mac4DSTEM.xcodeproj" \
   -scheme mac4DSTEM \
   -configuration Release \
-  -destination 'platform=macOS' \
+  -destination "$MAC4DSTEM_RELEASE_DESTINATION" \
   -derivedDataPath "$WORK/DerivedData" \
+  "$MAC4DSTEM_ARCH_PIN" \
   CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
   build -quiet
 
@@ -56,6 +66,16 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO")" = "
 ICON_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$INFO")"
 test -n "$ICON_NAME"
 test -f "$APP/Contents/Resources/$ICON_NAME.icns"
+# The program's OWN licence, not just its dependencies' (2026-09-11). The bundle
+# shipped `Licenses/` — HDF5 and libaec — and the README that points at
+# `LICENSE` and `NOTICE`, while neither was in the project at all: a GPL-3.0
+# binary conveyed with no copy of the GPL and two dead relative links. Asserted
+# non-empty because an empty file would satisfy `-f`.
+for document in LICENSE NOTICE; do
+  test -s "$APP/Contents/Resources/$document" \
+    || { echo "FAIL: bundle is missing $document" >&2; exit 1; }
+done
+grep -q 'GNU GENERAL PUBLIC LICENSE' "$APP/Contents/Resources/LICENSE"
 
 for library in libhdf5.dylib libsz.2.dylib libaec.0.dylib; do
   test -f "$FRAMEWORKS/$library"
@@ -71,6 +91,11 @@ if otool -L "$EXECUTABLE" | grep -Eq '/opt/homebrew|/usr/local'; then
   echo "FAIL: app executable retains a machine-local dependency" >&2
   exit 1
 fi
+# Asserted on the built Mach-Os, not on the build setting: a change that made
+# Float16 compile on x86_64 would turn the red build above green and ship the
+# universal binary anyway. lipo is the only thing that cannot be talked round.
+assert_mac4dstem_bundle_arm64_only "$APP"
+
 codesign --verify --deep --strict "$APP"
 codesign -d --entitlements :- "$APP" > "$WORK/entitlements.plist" 2>/dev/null
 for entitlement in \
@@ -93,5 +118,7 @@ env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
 
 echo "PASS: hardened sandbox entitlements and nested signatures"
 echo "PASS: identity, version $MARKETING ($BUILD) and macOS $FLOOR floor as the project declares, and app icon"
+echo "PASS: the GPL text and NOTICE ship inside the bundle"
 echo "PASS: no Homebrew/local dylib dependency in the Release product"
+echo "PASS: executable and embedded libraries are arm64 alone, built the way the archive builds"
 echo "package-test: all passed"

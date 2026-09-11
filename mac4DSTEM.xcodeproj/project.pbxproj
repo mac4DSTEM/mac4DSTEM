@@ -15,6 +15,8 @@
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 		F6A1D0DE0001000000000004 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000003 /* Licenses */; };
+		F6A1D0DE0001000000000006 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000005 /* LICENSE */; };
+		F6A1D0DE0001000000000008 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000007 /* NOTICE */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +52,8 @@
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000001 /* DiskDetector */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiskDetector; path = Models/DiskDetector; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Licenses; path = Licenses; sourceTree = "<group>"; };
+		F6A1D0DE0001000000000005 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		F6A1D0DE0001000000000007 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -178,6 +182,8 @@
 				F68E4EE52FF9C43F00135C51 /* README.md */,
 				F6A1D0DE0001000000000001 /* DiskDetector */,
 				F6A1D0DE0001000000000003 /* Licenses */,
+				F6A1D0DE0001000000000005 /* LICENSE */,
+				F6A1D0DE0001000000000007 /* NOTICE */,
 				F68E4F842FF9D7A200135C51 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -297,6 +303,8 @@
 				F68E4EE62FF9C43F00135C51 /* README.md in Resources */,
 				F6A1D0DE0001000000000002 /* DiskDetector in Resources */,
 				F6A1D0DE0001000000000004 /* Licenses in Resources */,
+				F6A1D0DE0001000000000006 /* LICENSE in Resources */,
+				F6A1D0DE0001000000000008 /* NOTICE in Resources */,
 			);
 		};
 		100000000000000140000000 /* Resources */ = {

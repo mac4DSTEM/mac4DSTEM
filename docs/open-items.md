@@ -38,9 +38,10 @@ As of 2026-09-09 `NOTICE` states each one's SHA-256, byte size and declared
 moves. What is still missing is a way to *make* them: they came from Homebrew
 `hdf5 2.1.1` / `libaec 1.1.7` on one machine, and nothing in the repo rebuilds
 them. Two consequences the hashes do not fix — a security update means hand
-work, and the arm64-only build has no `ARCHS` pin, so the Archive path can
-still produce an x86_64 slice that launches and fails on every data file
-(register `D064`, unverified). Owner: whether v3.0.0 needs a script.
+work, and their arm64-only-ness is now load-bearing: it is half the reason the
+release is pinned to `arm64` (`tools/lib/release-arch.sh`). The `ARCHS` half of
+register `D064` is closed — the pin landed 2026-09-09 and the release path is
+gated since 2026-09-11. Owner: whether v3.0.0 needs a rebuild script.
 
 ## Accessibility — added 2026-09-09 by the delegated drive
 
@@ -82,25 +83,29 @@ label never resolves. Treat as one Gate D, not two fixes.
 
 ## Verification debt — added 2026-09-08
 
-### The v3.0.0 archive failed on an x86_64 slice — RELEASE BLOCKER (2026-09-11)
-`tools/release/build-developer-id.sh` **exit 65**, 20 compile errors, all in
-`Core/ML/LearnedDiskDetector.swift`: `'Float16' is unavailable in macOS`.
-**Established, from the archive log:** it compiled for Intel — the log carries
-`-target x86_64-apple-macos14.0` beside the arm64 one, and `Float16` does not
-exist there. `ARCHS = arm64` is present **twice at project level** (D064,
-2026-09-09, because the bundled dylibs are arm64-only) and did not prevent it.
-**The gate cannot see this:** `package-test` builds `-destination
-'platform=macOS'` — the concrete machine — while the archive builds
-`generic/platform=macOS`. A green `all` says nothing about the archive.
-**NOT established, do not write these down as fact:** why the project-level
-`ARCHS` was not honoured (the "the package target does not inherit it"
-hypothesis is untested); that pinning `ARCHS` on the archive fixes it
-(untested); and how long this has been true — **the v2.5.1 archive SUCCEEDED on
-2026-09-04**, so this is not ancient; the Float16 code arrived with C7 after it.
-**Judgement, offered as judgement, not decided:** `Float16` looks correct — it
-is the ANE half-precision path and the app is Apple-Silicon-only by design — so
-the Intel slice is a target never supported, not a platform that regressed.
-Owner deferred the fix to a fresh session; **no fix applied**. Blocks the cut.
+### The published v2.5.1 artefact is universal, and Intel users get a broken app
+**Not a v3.0.0 blocker — a live defect in what users can download today**
+(found 2026-09-11 while closing the archive blocker, which is now fixed;
+`archive/closed-items-2026-09.md`). `lipo -archs` on the shipped
+`build/release/mac4DSTEM-2.5.1-pre-notarization.zip` executable is
+`x86_64 arm64`, while all three embedded libraries are `arm64` alone, and
+`Info.plist` invites every macOS 14 machine. `H5Reader.swift:167` **dlopens**
+libhdf5 rather than linking it, so an Intel Mac runs the x86_64 slice, launches
+normally; DM4/DM3, MIB and EMPAD data still load, because those readers never
+touch libhdf5, while every `.h5`/`.emd` open — and every EMD export and sidecar
+save (`BraggVectorEMDWriter.swift:2769`) — fails with the named modal alert
+"Could not load the bundled HDF5 library" (`H5Reader.swift:44`). **Cause,
+corrected by the refuters 2026-09-11:** NOT an incomplete `D064` fix. The
+commit the artefact was built from, `a9a0437`, contains **no `ARCHS` setting at
+all** — `git show a9a0437:mac4DSTEM.xcodeproj/project.pbxproj | grep -c 'ARCHS'`
+is 0 — so Release simply fell through to `ARCHS_STANDARD`. The pin landed five
+days later at `5d08c7d`. An app-target pin would have *removed* this hazard, so
+the two defects point in opposite directions and neither is evidence of the
+other. **Not established:** the runtime behaviour above is derived from Mach-O
+headers and source; no mac4DSTEM build has ever been run on Intel hardware, and
+nobody has reported it. v3.0.0 is arm64 alone and gated, so this ends with
+v2.5.1. **Owner decision owed:** withdraw or annotate the v2.5.1 download.
+
 ### Owed on screen from C4(c) and C7, after the 2026-09-09 drive
 Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh,
 configurator single-pattern preview, "No preview available") reaching the status
@@ -115,6 +120,62 @@ label on the diffraction pane at all (finding 7), which is a Metal/Canvas view
 that may simply not take synthesised clicks. That one needs the owner's hand, or
 a rig that can. Also unreached, same cause: every `Advanced` disclosure, the
 Strain / Orientation / Parallax / ptychography sub-pages, and the WS2 CIF import.
+
+## Release-readiness review 2026-09-11 — added 2026-09-11
+
+Eight dimensions audited by delegated readers, every finding then attacked by an
+independent refuter; these are the ones that survived and that **I confirmed
+myself from source**. Full dossier is this session's workflow transcript, which
+is not retained — so each entry below carries its own evidence and does not
+depend on it. The review also refuted one of its own refuters, which had cited a
+`website/index.html` that does not exist in this repository at any commit.
+
+### The hexagonal IPF colour key is labelled the wrong way round (2026-09-11)
+`OrientationResult.swift:477-479` sets green `sqrt(tilt * (1 - fraction))`,
+maximal at azimuth 0, and blue `sqrt(tilt * fraction)`, maximal at 30°.
+`Crystal.swift:94` builds `latReal[0] = (a, 0, 0)` at γ = 120°, so +x is a₁ =
+⟨11-20⟩ and 30° is ⟨10-10⟩. `PaneOverlays.swift:1021/1023` prints `11-20` then
+`10-10` across the key, and `:1031` says "0001 red, 10-10 green, 11-20 blue" —
+both read as the opposite assignment. **Established:** the colour function and
+the two label strings, quoted above. **Not established:** which corner of the
+drawn triangle each label sits under, and therefore whether the fix is to swap
+the labels or to leave them; that needs the triangle geometry read against the
+azimuth convention, and the maps themselves are not in question. If it is a
+swap, a reader takes a 30° texture error off a correct map with nothing on
+screen disagreeing, on WS₂, MoS₂, graphite, Ti, Zn and Mg. Reported twice before
+(register `D020`). **Owner: presentation only, so no Gate D — but it must be
+settled against the convention, not by eye, and pinned by a unit test asserting
+`ipfColor` at +x names the index the key prints.**
+
+### Single-slice ptychography publishes under a mode its export guard misses
+`ResultExport.swift:1627` guards `analysisMode == .ptychography` alone, while
+`:1478` handles `.ptychography, .singleslicePtychography` together —
+established by reading both. If `runSingleslicePtychography` publishes under
+`.singleslicePtychography`, the four iterative branches returning
+`objectSamplingRow/ColumnAngstrom`, `engine`, `iterations` and `final_error` are
+unreachable, and the phase image gets the scan step as its scale bar instead of
+the object sampling — physically independent quantities
+(`PtychographyPreparation.swift:110-112`). **Not established:** that the publish
+path really uses the distinct case; verify before fixing. No test publishes a
+ptychography product. Feature is `Advanced` and refuses on the owner's cube for
+memory, so a smaller cube reaches it first. **Owner: Gate D — a scale bar is a
+scientific number, and the cause is not yet established.**
+
+### Two dataset windows call a non-thread-safe HDF5 from two threads
+`mac4DSTEMApp.swift:50` ships `New Dataset Window` on ⌘N against
+`WindowGroup(id: "dataset")`, and `:20-22` gives each window its own
+`AppState`, hence its own `H5Reader` over one process-wide `dlopen`'d libhdf5
+(`H5Reader.swift:159-190`, `:254` is a per-instance actor). `nm -m` on the
+bundled `libhdf5.dylib` shows `_H5E_stack_g` as `(__DATA,__common) external` —
+a plain global, no TLS — so the build really is `Threadsafety: OFF`, as
+`BraggVectorEMDWriter.swift:2719-2727` already records. No global actor or lock
+serialises it. This is the existing "Concurrent HDF5 use crashes the process"
+item (2026-08-19) with the reachable user gesture named. **Not established:** a
+hit rate — it is undefined behaviour observed under a stress harness, and the
+2026-09-09 drive did not surface it. There is no autosave behind it. **Owner:
+either the cheap guard — refuse a second load while one is in flight, disable
+the menu item — or disclose it. Shipping it silently is the one thing
+`CHANGELOG.md:7-8` says this project will not do.**
 
 ## Science — Gate D or Gate B owed
 

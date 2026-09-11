@@ -855,3 +855,34 @@ from this file and `archive/consolidation-plan.md` §4(5) rather than guessed.
 whether the tap composes cleanly with the detector drag and the scan scrub,
 which no unit test can establish.
 
+
+## 2026-09-11 — mac4DSTEM ships arm64 only, and the artefact proves it
+
+**Decision.** The release artefact contains one architecture, `arm64`, and the
+release path measures that on the built Mach-Os rather than trusting a build
+setting. The alternative — making `Core/ML/LearnedDiskDetector.swift` compile on
+x86_64 so the universal build succeeds — is rejected.
+
+**Why.** The app is Apple-Silicon-only by design and `README.md` has always said
+so. Two independent things in the tree enforce it: the embedded HDF5 stack is
+arm64-only, and the ANE path uses `Float16`, which does not exist on x86_64
+macOS. An Intel slice therefore cannot work even when it compiles: `H5Reader`
+dlopens libhdf5 at runtime, so such a build launches and then fails every
+dataset open. Making `Float16` compile would convert a loud build failure into a
+silent shipping defect, which is what v2.5.1 already is.
+
+**What was established first** (Gate D, because the cause was not established).
+Project-level `ARCHS` does not reach the SwiftPM package targets where `Core/`
+and `Session/` are compiled; nor does project-level `EXCLUDED_ARCHS`, measured
+rather than assumed. A command-line `ARCHS=arm64` does. The `archive` action is
+not special — a plain `build` with a generic destination reproduces the failure
+with no credentials. Full record: `archive/closed-items-2026-09.md`.
+
+**Consequence for v2.5.1.** It shipped universal on 2026-09-04 and is broken on
+Intel Macs. It is recorded as a live item rather than quietly superseded, and
+whether to withdraw or annotate that download is the owner's call.
+
+**The rule this leaves.** A gate that does not build the way the release builds
+is not covering the release. `package-test` was green while the archive could
+not compile, because it used the concrete-machine destination; it now uses the
+release destination and the release pin.

@@ -34,7 +34,6 @@ enum PatternScaleUnit: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-
 enum DPCDisplayMode: String, CaseIterable, Identifiable {
     case magnitude = "Magnitude (detector px)"
     case magnitudeMrad = "Magnitude (mrad)"
@@ -1001,7 +1000,6 @@ final class AppState {
     }
     func requestPreprocessingExport() { preprocessingExportRequest &+= 1 }
 
-
     var productWorkflowReadiness: ProductWorkflowReadiness {
         let readyKinds = Set(calibrationSession.readiness.items.compactMap { item in
             item.status.isReady ? item.kind : nil
@@ -1384,7 +1382,9 @@ final class AppState {
         }
     }
 
+    /// One load at a time: the bundled HDF5 is not thread-safe (`ConcurrentOpenRefusalTests`).
     func openFile(url: URL) {
+        if isLoadingDataset { statusText = "Already opening a dataset — wait for that one to finish, or cancel it."; return }
         Task { await openFileAsync(url: url) }
     }
 

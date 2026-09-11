@@ -19,6 +19,22 @@
 //  fixture test compares both against the Python reference.
 //
 
+// mac4DSTEM is Apple-Silicon-only, and this is the one place a compiler can say
+// so. `Float16` below is the Neural Engine's half-precision path and does not
+// exist on x86_64 macOS; the embedded HDF5 libraries are arm64-only Mach-Os
+// besides. This guard exists because the project-level `ARCHS = arm64` does NOT
+// reach the SwiftPM package targets where this file is compiled (2026-09-11):
+// the pin has to travel on the xcodebuild command line, and the paths that
+// cannot carry one - Xcode's Product > Archive, a bare `swift build`, CI's
+// `core` job - would otherwise fail here with nineteen confusing diagnostics
+// instead of one that names the cause. It is NOT `#if arch(arm64)` around the
+// code: that would ship a second, different program in an x86_64 slice beside
+// arm64-only HDF5, which is the artefact v2.5.1 already was. This refuses to
+// build one. With the pin in place it never fires.
+#if !arch(arm64)
+#error("mac4DSTEM Core is arm64-only: LearnedDiskDetector uses Float16, which does not exist on x86_64 macOS, and the embedded HDF5 libraries are arm64-only. Pass ARCHS=arm64 on the xcodebuild command line - a project-level setting does not reach the SwiftPM package targets. See tools/lib/release-arch.sh.")
+#endif
+
 import Foundation
 import Metal
 import CryptoKit

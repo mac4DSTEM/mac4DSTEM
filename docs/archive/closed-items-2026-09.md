@@ -489,3 +489,62 @@ layer before 3.0.0.
 Triaged against the drive's findings, fix-now list lands before 3.0.0
 (`decisions.md` 2026-09-09).
 
+
+---
+
+## The v3.0.0 archive failed on an x86_64 slice — closed 2026-09-11
+
+### ~~The v3.0.0 archive failed on an x86_64 slice — RELEASE BLOCKER~~ — **CLOSED 2026-09-11**
+
+> `tools/release/build-developer-id.sh` exit 65, 20 compile errors, all in
+> `Core/ML/LearnedDiskDetector.swift`: `'Float16' is unavailable in macOS`.
+> The archive compiled for Intel. `ARCHS = arm64` is present twice at project
+> level (D064) and did not prevent it. Why the project-level `ARCHS` was not
+> honoured was NOT established, nor that pinning it on the archive fixes it.
+
+**Gate D, 2026-09-11.** Cause established, then the fix, then the fixture.
+
+**Established, each reproducible.** The `archive` action is not implicated:
+a plain `xcodebuild build -configuration Release -destination
+'generic/platform=macOS'` — no archive, no credentials — reproduces it exactly
+(exit 65). Every x86_64 build task in that log names `(in target 'DSTEMCore'
+... at path .../Package.swift)`: the failing compiles belong to the **SwiftPM
+package targets**, not the app target. That follows from the project file —
+`Core/` and `Session/` are listed under the app target's
+`membershipExceptions`, so only `DSTEMCore` and `DSTEMSession` ever compile
+them — and `xcodebuild -showBuildSettings archive` prints `ARCHS = arm64` for
+target `mac4DSTEM` and **no settings block at all** for the package targets.
+Project-level settings do not reach them: adding `EXCLUDED_ARCHS = x86_64`
+beside the existing `ARCHS` at project level still produced four x86_64 tasks
+and exit 65, so there is no fix inside the project file. `ARCHS=arm64` on the
+xcodebuild **command line** does reach them: exit 0, zero x86_64 tasks. The
+full `archive` action, ad-hoc signed, then succeeded with zero x86_64 tasks and
+`lipo -archs` on the archived product reporting `arm64` for the executable and
+all three embedded libraries, at version 3.0.0 (6) and floor 14.0.
+
+**Judgement, offered as judgement.** `Float16` is correct — it is the ANE
+half-precision path and the app is Apple-Silicon-only by design, with
+arm64-only embedded HDF5. The Intel slice is a target never supported, so the
+fix is to stop building it, not to make it compile. Making `Float16` compile on
+x86_64 would have turned a red build into a silently universal one.
+
+**Fix.** `tools/lib/release-arch.sh` spells the pin, the release destination
+and an arm64-only assertion once; `build-developer-id.sh` and
+`tools/package-test/run.sh` both source it.
+
+**Fixture, and why it could not be fooled the way the old one was.**
+`package-test` built `-destination 'platform=macOS'`, the concrete machine,
+which filters the architectures itself — structurally unable to see this, which
+is how a green `all` and a broken archive coexisted. It now builds
+`generic/platform=macOS` with the same pin, so it fails the way the archive
+failed, and it asserts `lipo -archs` on the **built** executable and every
+embedded dylib, so the tempting wrong fix above goes red too.
+
+**Two traps paid writing the fixture, both caught by breaking it first.** The
+bundle assertion ended on its dylib loop, so a universal executable printed
+`FAIL` and returned 0 — found by running it against the real v2.5.1 bundle,
+which is genuinely universal. And the accumulator was first called `status`,
+which in zsh is a special parameter aliased to `$?`.
+
+**What it exposed.** v2.5.1 shipped universal on 2026-09-04 with arm64-only
+HDF5 — the live entry in `open-items.md`.

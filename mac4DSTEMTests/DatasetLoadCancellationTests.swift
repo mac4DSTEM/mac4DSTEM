@@ -123,3 +123,54 @@ final class DatasetLoadCancellationTests: XCTestCase {
         XCTAssertTrue(token.isCancelled, "cancellation never un-cancels")
     }
 }
+
+// MARK: - Concurrent opens (2026-09-11)
+
+/// Why `AppState.openFile` refuses a second load, recorded here because
+/// `AppState.swift` is under the C5 line budget and this file is not.
+///
+/// The bundled HDF5 is built `Threadsafety: OFF`: `nm -m libhdf5.dylib` shows
+/// `_H5E_stack_g` as `(__DATA,__common) external` — a plain process global with
+/// no thread-local storage. It is the same global `BraggVectorEMDWriter` names
+/// in its note on why concurrent use crashes rather than racing benignly. Two
+/// loads in flight reach that one non-reentrant library from two tasks.
+///
+/// This guard is the CHEAP half. It removes the gestures that reach the hazard
+/// fastest — a second open, and "New Dataset Window" during a load — and it
+/// does NOT make concurrent HDF5 safe: two windows both computing still can.
+/// The real fix is one actor owning the library handle (`docs/open-items.md`,
+/// 2026-09-11). So this is not a UX nicety and must not be tidied away as one;
+/// deleting it re-arms a process abort with no autosave behind it.
+///
+/// Broken before it was trusted: with the guard removed the first test below
+/// failed and the second still passed (negative control, 2026-09-11).
+@MainActor
+final class ConcurrentOpenRefusalTests: XCTestCase {
+
+    func testASecondOpenIsRefusedWhileOneIsInFlight() {
+        let state = AppState()
+        state.isLoadingDataset = true
+        let before = state.statusText
+
+        state.openFile(url: URL(fileURLWithPath: "/nonexistent/second.h5"))
+
+        XCTAssertNotEqual(state.statusText, before,
+                          "the refusal must say something; a silent no-op looks like a hang")
+        XCTAssertTrue(state.statusText.contains("Already opening"),
+                      "the status line must name the reason, got: \(state.statusText)")
+    }
+
+    func testAnOpenIsAllowedWhenNothingIsLoading() {
+        let state = AppState()
+        XCTAssertFalse(state.isLoadingDataset)
+        let before = state.statusText
+
+        state.openFile(url: URL(fileURLWithPath: "/nonexistent/first.h5"))
+
+        // The load is allowed through: it fails later, on the missing file,
+        // which is a different message than the refusal above.
+        XCTAssertFalse(state.statusText.contains("Already opening"),
+                       "a first open must not be refused as a duplicate")
+        _ = before
+    }
+}

@@ -78,7 +78,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
 | `run-tests.sh inventory` | **exit 0 — 2026-09-09, after the review fixes** (`inventory-final-20260909.log`); AppState + ResultExport **7509**, equal to HEAD. Six checks were added that day and the gate was red on arrival: it caught the untracked model spec, the dead link to the archived v2.5 plan, the missing licence texts, and — three times — this file's own prose, which is the check working: a doc may not write a repo path it does not have, not even to describe one. Metric renamed: `AppState.swift type-scope decls` **166**, not the old "stored properties 491", which counted function locals. **Markdown went UP, and the reason is stated as the rule requires: live 5 054 → 5 133 (+79), cold-start 965 → 1 037 (+72). The +72 is this handoff and the three open items the review left standing; the register itself is 192 archive lines that replace a 2 014-line file outside the repo. Nothing was deleted to pay for it because nothing live was found stale enough to delete — the next session that touches these files owes the trim.** |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
-| `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate** (`all-cut2-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 571 passed / 0 failed / 2 skipped = 573**, reconciled against 573 `func test` in source. Covers the pane-click change and the project-file change (version 3.0.0 / 6, `Info.plist` out of Copy Bundle Resources). Ran at **8.1 GB free, exactly the floor**, and ended at 7.8 — the margin held, and a green result is trustworthy at that level because a near-full disk fakes failures, not passes. **It took three refusals to get here:** exit 69 twice (5 GB, then 6 GB) with the background wrapper reporting "exit code 0" every time — read `GATE_EXIT`, never the caller. Space came from app caches, stale session scratchpads, leftover Instruments traces in TMPDIR (434 MB), quitting the app, and finally Xcode's `DerivedData`. Previously NOT RUN — exit 69, The background wrapper reported "exit code 0" for it; `GATE_EXIT=69` on its own line is what caught that. What DID run on the prepared tree: `tools/package-test/run.sh` **exit 0 2026-09-11** (`package-test-v3.log`), which is the gate that validates the project-file change — it asserts **version 3.0.0 (6) and the macOS 14.0 floor as the project declares**, the hardened entitlements and no Homebrew dylib path; and `inventory` exit 0. **No Swift source changed since the last green `all`** — the two commits between are docs-only and the badge fix was reverted byte-identical to `HEAD` — so the unit and scientific harnesses are unaffected by anything done since. **A green `all` is still owed before the artefact is built** and the release run needs the disk freed for it. Previous: **exit 0 — 2026-09-11, after Gate B on the D002 port** (`all-gateb-20260911.log`, `GATE_EXIT=0` on its own line), 46 harnesses, zero `FAIL` lines, unit **571 passed / 0 failed / 2 skipped = 573**, reconciled against 573 `func test` in source. The two skips are the known benign pair (`TB1StallProbeTests` needs a WS2 sidecar the owner deleted; `BookmarkResolutionLatencyTests` needs an unmounted volume). New in this run's log, not a failure: the Xcode warning that Copy Bundle Resources contains the target's own `Info.plist` (`open-items.md`). Previous: exit 0 — 2026-09-09, after the four fixes** (`v3-gate/all-fixes-20260909.log`, `GATE_EXIT=0` on its own line), 46 harnesses, zero `FAIL` lines, five golden verdicts, unit 571/0/2 = 573 = `func test` in source. **Reconciliation trap, new one:** a naive `passed on` grep reports 570, because xcodebuild concatenated its timing line onto one result line — count `^Test case '` lines by status, not by that phrase. Earlier the same day, exit 0 on the re-pinned goldens (`all-20260909.log`). Previous: exit 1 2026-09-08 on the candidate-count drift, closed. The background wrapper says "exit code 0" for red and green alike — read `GATE_EXIT`. |
+| `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
 ## Handoff — the last gate, then cut v3.0.0
 
@@ -123,15 +123,67 @@ background-task wrapper reported "exit code 0" for a run whose own line said
 caller's. (3) 2026-09-09: a diff tool that iterates over the EXPECTED entries
 is blind to exactly the data no one pinned, which is where drift hides.
 
-**What is left for 3.0.0 — ONE thing, and it is a blocker:**
+**What is left for 3.0.0 — the credentialed run, and nothing else:**
 
-1. **The archive does not build.** `tools/release/build-developer-id.sh` exits
-   65 on an x86_64 slice compiling `Float16` (`open-items.md`, the full entry
-   with what is and is not established). Everything else for the cut is done and
-   gated; the release stops here until this is settled. The owner deferred the
-   fix to a fresh session on 2026-09-11 rather than take it at the end of a long
-   one — **read the open item before proposing anything**, because the obvious
-   fix is untested and the reason `ARCHS = arm64` was not honoured is unknown.
+1. **The archive blocker is CLOSED** (2026-09-11, Gate D, both triggers absent
+   for the fix itself but the cause was not established, so the protocol ran).
+   The cause: project-level `ARCHS = arm64` does not reach the SwiftPM package
+   targets `DSTEMCore`/`DSTEMSession`, where every `Core/` and `Session/` source
+   is compiled; a generic destination therefore built `ARCHS_STANDARD` and
+   `Float16` does not exist on x86_64. The pin travels on the xcodebuild command
+   line, spelled once in `tools/lib/release-arch.sh`. **The concrete destination
+   `platform=macOS` constrains the package targets on its own** — measured by a
+   refuter, Release with `Float16` present and no pin, exit 0 and arm64-only —
+   which is exactly why the old gate could not see this.
+   **Verified on the real `archive` action**, ad-hoc signed: ARCHIVE SUCCEEDED,
+   zero x86_64 tasks, `lipo -archs` = `arm64` on the executable and all three
+   embedded dylibs, version 3.0.0 (6), floor 14.0, no duplicate `Info.plist`.
+   Evidence and the two traps paid: `archive/closed-items-2026-09.md`.
+2. **The gate now covers the archive.** `package-test` built the concrete
+   machine and was structurally blind; it builds `generic/platform=macOS` with
+   the same pin and asserts `lipo` on the built Mach-Os, so the tempting wrong
+   fix — making `Float16` compile on x86_64 — goes red too. Broken before it was
+   trusted: the assertion first printed FAIL and returned 0, and its accumulator
+   was named `status`, which zsh aliases to `$?`.
+3. **Version is already `3.0.0` / `6`** in the project — `package-test` asserts
+   it from the project file and printed it, 2026-09-11.
+4. **Remaining: the credentialed run only**, which needs the owner's Developer
+   ID certificate and notary profile. `docs/releasing.md` end to end: archive,
+   notarize, staple, DMG, notarize the DMG, `spctl`, record the hashes. Then
+   flip `README.md`'s "New in v2.5.1" to v3.0.0 and fill `releasing.md`'s
+   version line from the real run — deliberately not done before the artefact
+   exists.
+
+**A readiness review ran the same day and found more than the blocker did.**
+Eight dimensions, each finding then attacked by an independent refuter; the
+survivors I re-confirmed from source myself. Landed this session, each gated:
+the app now ships the **GPL text and `NOTICE` inside the bundle** (it shipped
+its dependencies' licences and not its own, and the bundled README pointed at
+two files that were not there — `package-test` asserts both, non-empty, and that
+LICENSE really is the GPL); **double-click actually opens a dataset**
+(`CFBundleDocumentTypes` was declared 2026-09-09 with no URL handler, so Finder
+launched the app to an empty window while `CHANGELOG` claimed the feature —
+`.onOpenURL` added, **unverified on screen**); **a second dataset open is
+refused while one is in flight** and "New Dataset Window" is disabled during a
+load, with a test that fails without the guard (negative control run: exit 65,
+`ConcurrentOpenRefusalTests.testASecondOpenIsRefusedWhileOneIsInFlight` failed
+with the guard removed, the sibling still passing); and the learned detector's
+**recall/precision now quotes the shipped threshold** — 0.768 / 0.712 at
+confidence 0.7, not the 0.9 row's 0.667 / 0.840 that `CHANGELOG` had been
+printing beside a build that ships 0.7. Three findings are disclosed rather than
+fixed and are live in `open-items.md`: the hexagonal IPF key's labels, the
+single-slice ptychography export guard, and the real fix for concurrent HDF5.
+
+**Found while closing the blocker, and it is about what users have now:** the published
+v2.5.1 executable is `x86_64 arm64` against arm64-only HDF5, which `H5Reader`
+dlopens — so on an Intel Mac it launches and then fails every dataset open.
+Register `D064` predicted that artefact and was marked fixed on 2026-09-09; the
+fix pinned the app target only. Live entry in `open-items.md`; the owner decides
+whether to withdraw or annotate that download.
+
+**Also corrected:** `docs/releasing.md` recommended archiving from Xcode's
+Organizer, which cannot carry the pin and is the most likely way v2.5.1 became
+universal. It now says not to.
 
 **Done, and not to be redone:**
 - Gate B on the Quantitative-badge fix: **rejected, fix reverted**, defect ships

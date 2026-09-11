@@ -14,23 +14,30 @@ section rather than left for a user to discover.
   the learned path runs as Core ML on the Apple Neural Engine. The model is a
   256-px detector, default confidence 0.7 (owner's decisions, 2026-09-08).
 - **It earns its place on a frozen, hand-labelled test set**, never used for
-  selection: recall / precision **0.667 / 0.840** against the classical
-  detector's **0.487 / 0.485** on the same set — it finds the same real disks
-  with far fewer inventions. Speed on the same cube is **1.44–1.64x** the
-  classical path. Pre-registered before it was built, verdict recorded in
-  `docs/decisions.md`; the evidence is
+  selection. **At the shipped default confidence of 0.7**, recall / precision is
+  **0.768 / 0.712** against the classical detector's **0.487 / 0.485** on the
+  same set. Raising the threshold to 0.9 trades recall for precision —
+  **0.667 / 0.840** — and the whole sweep is in the evidence. Speed on the same
+  cube is **1.44–1.64x** the classical path. Pre-registered before it was built,
+  verdict recorded in `docs/decisions.md`; the evidence is
   `docs/archive/v3/learned-detector-2026-09-06.md`.
 - **No third-party model weights are distributed.** The model spec ships in the
-  repository and its asset tree is hashed by the `inventory` gate, so a clone
-  reproduces the shipped model exactly.
+  repository and its asset tree is hashed by the `unit` gate
+  (`LearnedDiskDetectorTests.testCommittedAssetHashMatchesItsRecordAndTheFixture`),
+  so a clone reproduces the shipped model exactly.
+- **The app ships the GNU GPL v3 text and `NOTICE` inside the bundle**, beside
+  the HDF5 and libaec licences that were already there. Until now the README
+  inside the app pointed at two files the download did not contain.
 
 ### Fixes and robustness
 
-- **Datasets open by double-click.** They never could before: the app
-  declared no document types at all, so a `.h5` could not be opened from Finder,
-  mac4DSTEM was absent from "Open With", and the window had no proxy icon.
-  It now declares h5 / hdf5 / emd / dm4 / dm3 / mib, ranked `Alternate` so it
-  never takes a format away from whatever already owns it.
+- **mac4DSTEM now appears in Finder's "Open With" for h5 / hdf5 / emd / dm4 /
+  dm3 / mib**, ranked `Alternate` so it never takes a format away from whatever
+  already owns it. **Double-clicking a dataset launches the app but does not yet
+  load the file** — the document types are declared, the URL handler that would
+  receive them is not written. Open from the app instead. Listed again under
+  Known limitations, because a declaration without a handler is exactly the kind
+  of half-feature a user discovers the hard way.
 - **The first session sidecar is no longer named `.mac4dstem.h5.h5`.** The save
   panel appends the extension it requires, and it was being handed a name that
   already had one.
@@ -64,6 +71,20 @@ section rather than left for a user to discover.
 - **Pane headers compress instead of clipping**, with an overflow menu for
   the controls that no longer fit, and the diffraction/real-space divider
   keeps its position across loads, trips to Results and reopening.
+- **3.0.0 ships as Apple Silicon only, which is what the app has always said it
+  requires.** v2.5.1's executable was a universal binary — `lipo -archs` reports
+  `x86_64 arm64` — while the three HDF5 libraries inside it are arm64-only and
+  are loaded at runtime rather than linked. On an Intel Mac running macOS 14 or
+  later that build launches, and DM4, MIB and EMPAD data still load, but every
+  `.h5`/`.emd` open and every EMD export fails with "Could not load the bundled
+  HDF5 library". **That behaviour is predicted, not observed: no mac4DSTEM build
+  has ever been run on Intel hardware.** The cause was simply that the v2.5.1
+  project file pinned no architecture at all, so Release fell through to
+  `ARCHS_STANDARD`. 3.0.0's executable, all three embedded libraries and its
+  dSYM are `arm64` alone, measured with `lipo` on the archive's own product —
+  and the packaging gate now builds the way the release builds and measures the
+  result, instead of trusting a build setting that was already saying `arm64`
+  while the archive compiled Intel.
 - **`NOTICE` gains a machine-learned-models section**: no third-party model
   weights are distributed; the AGPL `yolov8n.mlpackage` briefly in the Xcode
   project was never in a shipped build and left the tree on 2026-09-07.
@@ -225,6 +246,32 @@ Stated here because a user should not have to find them.
   (`docs/archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
 - **macOS 14–25 is compile-verified, never executed.** Every machine here runs
   26. The first report from an older system is the test.
+- **Opening a dataset by double-click is new and has not been driven on screen.**
+  The URL handler landed with this release and is covered by the build, not by a
+  human opening a file from Finder. If it misbehaves, File ▸ Open Dataset is the
+  path every other release used.
+- **Only one dataset can be loading at a time, and one window is the supported
+  way to work.** The bundled HDF5 is built without thread safety, so the app now
+  refuses a second open while one is in flight and disables "New Dataset Window"
+  during a load. That removes the gesture that reached the hazard fastest; it
+  does **not** make concurrent HDF5 safe. Two windows both computing can still
+  abort the process. There is no autosave behind that, so save to a sidecar
+  before starting a long run.
+- **The hexagonal IPF colour key may be labelled the wrong way round.** The
+  orientation *maps* are not in question; the small colour triangle beside them
+  prints `11-20` and `10-10`, and the colour function makes green maximal along
+  a₁ and blue along the 30° direction, which reads as the opposite assignment.
+  Until it is settled against the convention, do not take crystal directions off
+  the key — read them from the exported orientation data.
+- **Single-slice ptychography's scale bar may report the scan step instead of
+  the object sampling**, and its reconstruction parameters may be missing from
+  the export. The two are physically independent. Treat a phase image's scale as
+  unverified until this is resolved; the reconstruction itself is unaffected.
+- **Intel Macs are not supported, and v2.5.1 offered them a slice by accident.**
+  3.0.0 and later are arm64-only and will not launch on Intel hardware.
+  mac4DSTEM has required Apple Silicon since v1.0.0 (`README.md`); if you are on
+  an Intel Mac, v2.5.1 is the last build that starts at all, and HDF5 does not
+  work in it. No one has reported hitting this.
 
 ## v2.5.1 — 2026-09-04
 
