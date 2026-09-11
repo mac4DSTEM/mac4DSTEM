@@ -129,8 +129,34 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
    non-convex optimisation with a random start, so two runs differ unless
    seeded, and it has no explained-variance equivalent to justify a component
    count. PCA is deterministic, fast, already gated.
-2. **Unsupervised or template-matched.** Superseded §2 step 4, and the owner's
-   objection is the reason: unsupervised clustering returns unlabelled groups
+2. **SETTLED 2026-09-11: template-matched, and material-general** (owner: "yes
+   that is a great idea! make it scientifically more reliable, and more
+   versatile for different samples not just al"). The class identity comes from
+   matching an imported CIF, never from a hardcoded Al-Mg-Si assumption — which
+   also discharges `docs/ai-ml/README.md` §2's standing requirement to "derive
+   everything from the data, not from Al-Si-Mg-specific constants".
+
+   **This is MULTI-PHASE IDENTIFICATION**, which `v3-plan.md`:20 already ranks
+   immediately before precipitates ("multi-phase → precipitates → EDX"). Two
+   blockers, both measured 2026-09-11:
+   - `Core/Crystal/OrientationMatcher.swift:324` hardcodes `phaseID: 0`. The
+     field exists; only one phase is ever written. Multi-phase means carrying N
+     `CrystalModel`s and reporting which one won, with its score.
+   - `ACOMCrystalSymmetry` (`Core/Analysis/OrientationResult.swift:489`) covers
+     **cubic, hexagonal, identity** only. β″ is monoclinic, so it falls to
+     `.identity` — "Unreduced".
+
+   **Untested hypothesis that de-risks the second one, and it must be tested
+   before it is relied on:** point-group coverage is needed to REPORT an
+   orientation (IPF colour, disorientation), not to decide WHICH PHASE a pattern
+   is. Phase identification compares against a predicted pattern; `.identity`
+   only means a larger orientation search — slower, not wrong. If that holds,
+   precipitate phase labelling does not wait for monoclinic point groups, and
+   `v3-plan.md`:22's "multi-phase needs point-group coverage" applies to the
+   orientation half only. It also does not need grain segmentation: the plan
+   pairs those for polycrystal work, and a precipitate is not a grain.
+
+   The superseded alternative, and the owner's objection that killed it: unsupervised clustering returns unlabelled groups
    that a human must interpret, which is soft. Template matching against an
    imported β″ CIF returns a labelled class with a score, and the app already
    owns the engine (`Core/Crystal/*`, what ACOM runs on). **Recommendation:

@@ -1096,3 +1096,25 @@ particle. Elongation selectivity requires comparing the two curvatures. It
 should not be retired on a tie it lost for a correctable reason: if
 classification wins, it is moot; if classification loses, fix the comparison and
 re-run the baseline.
+
+**2026-09-11 — class identification is TEMPLATE-MATCHED and MATERIAL-GENERAL
+(owner, in chat: "yes that is a great idea! … more versatile for different
+samples not just al").** Approves the recommendation recorded above. Identity
+comes from an imported CIF, never a hardcoded Al-Mg-Si assumption — which also
+discharges `docs/ai-ml/README.md` §2's standing requirement to "derive
+everything from the data, not from Al-Si-Mg-specific constants".
+
+**What that makes it: multi-phase identification**, already ranked immediately
+before precipitates in `v3-plan.md`:20. Two blockers, measured rather than
+assumed: `Core/Crystal/OrientationMatcher.swift:324` hardcodes `phaseID: 0`
+(the field exists, one phase is ever written), and `ACOMCrystalSymmetry`
+(`Core/Analysis/OrientationResult.swift:489`) covers cubic, hexagonal and
+identity only, so monoclinic β″ falls back to "Unreduced".
+
+**One hypothesis, explicitly untested, that would de-risk the second:** point
+groups are needed to REPORT an orientation, not to decide WHICH PHASE a pattern
+is — so `.identity` may cost search time rather than correctness, and
+`v3-plan.md`:22's "multi-phase needs point-group coverage" may apply to the
+orientation half alone. **Test it before relying on it.** Multi-phase for
+precipitates also does not need grain segmentation; the plan pairs those for
+polycrystal work and a precipitate is not a grain.
