@@ -22,6 +22,23 @@ let package = Package(
             name: "DSTEMCore",
             path: "mac4DSTEM/Core",
             swiftSettings: [
+                // Accelerate's CURRENT LAPACK interface, which is what
+                // `__LAPACK_int` lives behind (DiffractionEmbedding's
+                // `dsyevd_` workspace query). Verified 2026-09-11, not
+                // inferred: `xcrun swiftc -typecheck` on a file using
+                // `__LAPACK_int` fails "cannot find '__LAPACK_int' in scope"
+                // without it and is clean with it; `dsyevd_` alone compiles
+                // either way, with a deprecation warning.
+                //
+                // `.unsafeFlags` is the only way to pass `-Xcc` from a package
+                // manifest, and its cost is exact: SwiftPM will refuse to
+                // resolve DSTEMCore as a VERSIONED remote dependency for as
+                // long as this line exists. Nothing consumes it that way --
+                // it is an `XCLocalSwiftPackageReference "."` -- and the owner
+                // accepted that cost (`docs/decisions.md`, 2026-09-11). If
+                // publishing DSTEMCore ever matters, the way back is a small C
+                // target using `cSettings: [.define(...)]`, not this line.
+                .unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"]),
                 .swiftLanguageMode(.v5),
                 .defaultIsolation(MainActor.self),
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),

@@ -124,12 +124,41 @@ Gates: `xcodebuild build` exit 0; `unit` exit 0, 573 passed / 0 failed
 The first `inventory` run was **red** and caught a fresh `decisions.md`
 citation of a branch-only path — the same class as `cb48a99`, one commit old.
 
-**NEXT: step 2 — the build flag, ahead of the file that needs it.**
-`Package.swift`, two pbxproj `OTHER_SWIFT_FLAGS`, and **the two harness swiftc
-lines**: `tools/bragg-spacing-probe/run.sh` and
-`tools/training-dataset-campaign/run.sh` compile `Core/**` with a bare `swiftc`
-and are classed `diagnostic`, so nothing goes red when the flag breaks them.
-Run both by hand once. Gate: `core`, `all`.
+**Landed — step 2, the LAPACK flag, ahead of the file that needs it.**
+`.unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"])` on DSTEMCore only
+(`Package.swift`); DSTEMSession compiles no LAPACK. Verified here rather than
+taken from the plan: `xcrun swiftc -typecheck` on a file using `__LAPACK_int`
+fails "cannot find '__LAPACK_int' in scope" without the flag and is clean with
+it. The two `diagnostic` harnesses that compile `Core/**` themselves with a bare
+`swiftc` — `tools/bragg-spacing-probe/run.sh` and
+`tools/training-dataset-campaign/run.sh` — got the flag on their own swiftc
+lines, since no gate would ever report them broken.
+
+**DEVIATION from the plan §2, deliberate.** The plan also adds two pbxproj
+`OTHER_SWIFT_FLAGS`. Not done, and it should not be: all **75** `Core/` +
+`Session/` Swift files are in `membershipExceptions` (measured — 76 entries =
+75 .swift + Info.plist, set-equal to disk in both directions), so the app target
+never compiles LAPACK-using code. The flag there would be a no-op that changes
+how every `App/`, `UI/` and `Support/` file compiles. `Package.swift` is the
+operative line, as the plan itself says.
+
+Step 2's stated gate was "run both harnesses by hand once". That is not a safe
+unattended instruction — `bragg-spacing-probe` exits 2 before its swiftc line
+without a datacube path and a probe radius nobody has named, and
+`training-dataset-campaign` with no arguments globs ~7 GB of
+`References/training_dataset` onto a volume with no margin. The only thing the
+flag can break in either is the compile, so the compile is what was proved:
+`swiftc -typecheck` over the manifest's `core` group (55 sources) with the flag,
+exit 0, clean.
+
+Gates: `core` exit 0 (DSTEMCore + DSTEMSession built); `all` exit 0 — 573
+passed / 0 failed, every scientific harness passed, `comparator-test` 46/0,
+`package-test` all passed (`all-step2.log`).
+
+**NEXT: step 3 — the three precipitate Core engines, unwired.** Gate D's first
+trigger applies to the `isFinite` guard. Then step 4 (the baseline, committed
+UNSCORED), the `aiAnalysis` workspace, and steps 8-9. Steps 5-7 do not happen
+this run: see the second-round decisions in `decisions.md`.
 
 **Two things that stay true however cleanly the files move:**
 

@@ -18,9 +18,13 @@ xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
 . "$ROOT/tools/lib/sources.manifest"
 mac4dstem_sources "$ROOT" core
+# -Xcc -DACCELERATE_NEW_LAPACK: Core/ compiles against Accelerate's current
+# LAPACK interface (DiffractionEmbedding's `__LAPACK_int`). This harness is
+# `diagnostic`, so no gate reports it if this line and Package.swift drift apart.
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   "${MAC4DSTEM_SOURCES[@]}" "$ROOT/tools/training-dataset-campaign/main.swift" \
-  -framework Accelerate -framework Metal -framework MetalKit
+  -framework Accelerate -framework Metal -framework MetalKit \
+  -Xcc -DACCELERATE_NEW_LAPACK
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
 if (( $# > 0 )); then
