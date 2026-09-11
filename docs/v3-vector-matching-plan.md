@@ -10,7 +10,7 @@ incorporated. Method choice and its reasoning:
 |---|---|---|
 | the **paper** | **CC BY 4.0** | the method, and **Table 2's structures** (space groups, lattice parameters, atomic positions for Al, T1, θ′) — reusable with attribution |
 | their **GitHub repo** | **none** | nothing. Default copyright: no code, no notebook fragment, no CIF file |
-| their **Zenodo dataset** | to be checked before use | the 4D data and the published ground-truth phase map |
+| their **Zenodo dataset** | **CC BY 4.0** (checked 2026-09-11) | the 4D data, the published ground-truth phase map, their four phase maps, and their trained ANN |
 | py4DSTEM | GPL-3.0 | source-level, as today |
 
 **The distinction that unlocks the plan: the repo and the paper are not the same
@@ -70,7 +70,10 @@ applies: it is new Core that moves a scientific number.
 
 ### 3 — Validate against their published ground truth  ← **the point of all this**
 - Author `Al`, `T1`, `θ′` CIFs from the paper's Table 2, attributed CC BY 4.0.
-- Fetch their Zenodo dataset (**licence checked first**).
+- Fetch their Zenodo dataset — **licence checked 2026-09-11: Creative Commons
+  Attribution 4.0 International**, so this is usable today with attribution.
+  The record is 451 GB in total, but the parts that matter are small:
+  `ground_truth.hspy` is **37.3 kB** and the preprocessed `datasetA` is ~7.4 GB.
 - Run our matcher; compare to their ground truth by their own metric.
 - **Acceptance, pre-registered here:** our mislabelled fraction must land within
   the band their four methods occupy (they report 98.5 % ± 0.5 % and say the
@@ -110,5 +113,7 @@ Stated now so it is not discovered later. Their implementation:
    colour? Blocks step 0.
 2. **A β″ CIF** — author from Andersen 1998, or take mp-31404 and carry the
    DFT-relaxation note? Blocks step 4, not steps 0-3.
-3. **Zenodo download** — their dataset is a few GB and this machine sits near
-   the 8 GB gate floor. Blocks step 3.
+3. **Zenodo download** — no longer a licence question (CC BY 4.0, checked), only
+   a disk one: preprocessed `datasetA` is ~7.4 GB against a machine sitting at
+   9 GB free with an 8 GB gate floor. The ground truth itself is 37 kB.
+   Blocks step 3.
