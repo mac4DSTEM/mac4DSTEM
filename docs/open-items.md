@@ -45,24 +45,6 @@ imputation strategy recovers this; the information is gone from the input. The
 honest fix is to report the imputed count, not to hide it. Owner: report or
 refuse.
 
-### One non-finite detector pixel kills the process — blocks wiring
-`Core/Analysis/DiffractionEmbedding.swift`, found by Gate B 2026-09-11 and
-reproduced independently. Chain, each link executed: a NaN or +Inf detector
-pixel → NaN binned entry → NaN covariance → **`dsyevd_` returns `info == 0`**
-at the shipped default (`binnedSize` 16 → `dims` 256; at `dims` 16 it returns 0
-components, so the apparent guard is dimension-dependent) → NaN basis →
-`totalVariance > 0` is false so `explainedVariance` publishes **0.0 for every
-component**, a plausible-looking "0 % explained" rather than an error → NaN
-coordinates → `kMeans` :629-646: `minDistances` start at `.infinity`,
-`dist < minDistances[i]` is false for NaN so they stay infinite, `total <= 0`
-does not catch it, and **`Double.random(in: 0..<.infinity)` traps**. Verified
-standalone: exit **133** (SIGTRAP) and under `-O` the process prints nothing at
-all — stdout never flushes, so it dies with no message. `-Inf` alone is safe
-(`embed`'s `max(buf, 0)` clamps it; NaN and +Inf are not clamped).
-`DPC.swift`, `DiskDetection.swift` and `FitOverlays.swift` all guard `.isFinite`
-on their inputs; this file guards only LAPACK's workspace query. **Do not wire
-diffraction grouping until this is fixed** — wiring is what makes it reachable.
-
 ### The embedding suite says almost nothing about `coordinates`
 Same Gate B. `coordinates` is the array BOTH exported quantities (cosine
 similarity, k-means groups) are built from, and

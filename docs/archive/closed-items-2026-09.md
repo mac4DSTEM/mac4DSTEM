@@ -548,3 +548,52 @@ which in zsh is a special parameter aliased to `$?`.
 
 **What it exposed.** v2.5.1 shipped universal on 2026-09-04 with arm64-only
 HDF5 — the live entry in `open-items.md`.
+
+
+## Closed 2026-09-11 — the embedding's non-finite crash
+
+### One non-finite detector pixel killed the process — FIXED
+Found by Gate B at step 8 of the AI port, fixed the same session before the
+engine was wired, so it never reached a user. The original entry, verbatim:
+
+> ### One non-finite detector pixel kills the process — blocks wiring
+> `Core/Analysis/DiffractionEmbedding.swift`, found by Gate B 2026-09-11 and
+> reproduced independently. Chain, each link executed: a NaN or +Inf detector
+> pixel → NaN binned entry → NaN covariance → **`dsyevd_` returns `info == 0`**
+> at the shipped default (`binnedSize` 16 → `dims` 256; at `dims` 16 it returns 0
+> components, so the apparent guard is dimension-dependent) → NaN basis →
+> `totalVariance > 0` is false so `explainedVariance` publishes **0.0 for every
+> component**, a plausible-looking "0 % explained" rather than an error → NaN
+> coordinates → `kMeans` :629-646: `minDistances` start at `.infinity`,
+> `dist < minDistances[i]` is false for NaN so they stay infinite, `total <= 0`
+> does not catch it, and **`Double.random(in: 0..<.infinity)` traps**. Verified
+> standalone: exit **133** (SIGTRAP) and under `-O` the process prints nothing at
+> all — stdout never flushes, so it dies with no message. `-Inf` alone is safe
+> (`embed`'s `max(buf, 0)` clamps it; NaN and +Inf are not clamped).
+> `DPC.swift`, `DiskDetection.swift` and `FitOverlays.swift` all guard `.isFinite`
+> on their inputs; this file guards only LAPACK's workspace query. **Do not wire
+> diffraction grouping until this is fixed** — wiring is what makes it reachable.
+
+**The fix, with Gate D.** Two guards, both pinned by fixtures that were broken
+before they were trusted:
+1. `compute()` refuses after forming the covariance —
+   `guard totalVariance.isFinite, covariance.allSatisfy(\.isFinite)` — with the
+   typed `EmbeddingError.invalidDataset` the caller already handles. Mutation
+   `guard true`: `testNonFiniteDetectorValuesAreRefusedNotPublishedAndNever‐
+   Trap` goes red, and informatively — it publishes a result instead of
+   trapping, so the test catches "published instead of refused".
+2. `kMeans` takes `if !total.isFinite || total <= 0`, so an infinite total falls
+   into the deterministic-by-index branch instead of
+   `Double.random(in: 0..<.infinity)`. Mutation back to `total <= 0`:
+   `testKMeansNeverTrapsOnNonFiniteCoordinates` goes red.
+
+`kMeans` was widened from `private` to `package` to make guard 2 testable at
+all — the same reason and the same precedent as `symmetricEigenTop` in the same
+file. `compute` refuses upstream, so guard 2 is unreachable through the public
+path, and an unreachable guard with no fixture is one nobody can prove works.
+
+**What did NOT change, checked rather than assumed:** `-Inf` was always safe
+(`embed` clamps with `max(buf, 0)`) and still is — a separate fixture pins that
+a `-Inf` pixel still produces a full result with finite, non-negative explained
+variance, so the guard has not over-fired and turned working datasets into
+refusals.

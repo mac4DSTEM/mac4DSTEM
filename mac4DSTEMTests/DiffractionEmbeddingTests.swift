@@ -140,6 +140,119 @@ final class DiffractionEmbeddingTests: XCTestCase {
         return (data, descriptor, families)
     }
 
+    /// The three-family fixture with ONE detector pixel set to `sentinel`.
+    private func makeFixtureWithBadPixel(_ sentinel: Float) async throws -> (
+        data: FourDArray, descriptor: DatasetDescriptor
+    ) {
+        let positions = scanWidth * scanHeight
+        var patterns = [[Float]](repeating: [], count: positions)
+        for i in 0..<positions {
+            patterns[i] = syntheticFamilyPattern(family: i % 3, positionSeed: i)
+        }
+        // Dead centre of one pattern, well inside every binning box.
+        patterns[positions / 2][(detectorSize / 2) * detectorSize + detectorSize / 2] = sentinel
+        let source = DiffractionGroupsFixtureSource(
+            scanHeight: scanHeight, scanWidth: scanWidth,
+            qy: detectorSize, qx: detectorSize, patterns: patterns
+        )
+        let descriptor = try await source.discoverPrimaryDataset()
+        return (FourDArray(reader: source, descriptor: descriptor), descriptor)
+    }
+
+    // MARK: - Non-finite detector values (Gate D, 2026-09-11)
+
+    /// ONE NaN or +Inf detector pixel used to KILL THE PROCESS, and this test
+    /// exists because the failure was silent. Measured before the guard, with a
+    /// standalone binary rather than argued: `binnedSize` 16 — the shipped
+    /// default, `dims` 256 — exits **133** (SIGTRAP) on NaN and on +Inf, and
+    /// under `-O` prints nothing at all, because stdout never flushes before
+    /// the trap.
+    ///
+    /// The chain, each link measured: NaN pixel → NaN binned entry → NaN
+    /// covariance → `dsyevd_` returns `info == 0` and eigenvalues
+    /// `[1, nan × 7]` (at `dims` 16 it returns none, so the apparent
+    /// protection is dimension-dependent and a small fixture never sees it
+    /// fail) → `totalVariance > 0` false → every `explainedVariance` publishes
+    /// a plausible **0.0** → NaN coordinates → `kMeans` :629-646, where
+    /// `minDistances` stay `.infinity` because `dist < .infinity` is FALSE for
+    /// NaN, `total <= 0` does not catch it, and
+    /// `Double.random(in: 0..<.infinity)` traps.
+    ///
+    /// Mutations that must break this: remove the `covariance.allSatisfy`
+    /// guard (the NaN arms crash the test process outright); drop
+    /// `totalVariance.isFinite` from it; and, for `kMeans`, revert
+    /// `!total.isFinite || total <= 0` to `total <= 0`.
+    func testNonFiniteDetectorValuesAreRefusedNotPublishedAndNeverTrap() async throws {
+        for sentinel in [Float.nan, .infinity] {
+            let (data, descriptor) = try await makeFixtureWithBadPixel(sentinel)
+            do {
+                _ = try await DiffractionEmbedding.compute(
+                    data: data, descriptor: descriptor,
+                    settings: DiffractionEmbedding.Settings(
+                        binnedSize: 16, components: 8, groups: 3, seed: 7
+                    ),
+                    cancellation: nil, progress: nil
+                )
+                XCTFail("a \(sentinel) detector pixel must be refused, not embedded")
+            } catch let error as DiffractionEmbedding.EmbeddingError {
+                guard case .invalidDataset(let message) = error else {
+                    return XCTFail("expected .invalidDataset, got \(error)")
+                }
+                XCTAssertTrue(
+                    message.contains("non-finite"),
+                    "the refusal must name the cause; got: \(message)"
+                )
+            }
+        }
+    }
+
+    /// `-Inf` is the one sentinel that was always safe — `embed` clamps it with
+    /// `max(buf, 0)` — and it must STAY safe: a guard that refuses it too would
+    /// have over-fired, turning working datasets into refusals.
+    func testNegativeInfinityIsStillClampedAndStillProducesAResult() async throws {
+        let (data, descriptor) = try await makeFixtureWithBadPixel(-.infinity)
+        let computed = try await DiffractionEmbedding.compute(
+            data: data, descriptor: descriptor,
+            settings: DiffractionEmbedding.Settings(
+                binnedSize: 16, components: 8, groups: 3, seed: 7
+            ),
+            cancellation: nil, progress: nil
+        )
+        let result = try XCTUnwrap(computed, "-Inf is clamped, so this must still compute")
+        XCTAssertTrue(result.coordinates.allSatisfy(\.isFinite))
+        XCTAssertTrue(result.explainedVariance.allSatisfy { $0.isFinite && $0 >= 0 })
+    }
+
+    /// The `kMeans` trap, pinned directly. `compute` refuses non-finite data
+    /// before `kMeans` ever sees it, so this guard is unreachable through the
+    /// public path — which is exactly why it needs a fixture of its own rather
+    /// than an argument that it cannot be hit.
+    ///
+    /// Before the fix this call did not return: `minDistances` start at
+    /// `.infinity`, `dist < .infinity` is FALSE for NaN so they stay there,
+    /// `total <= 0` does not catch an infinite total, and
+    /// `Double.random(in: 0..<.infinity)` traps — exit 133, silent under `-O`.
+    ///
+    /// Mutation that must break this: revert the guard to `if total <= 0 {`.
+    /// The test process then dies rather than failing, which is the point.
+    func testKMeansNeverTrapsOnNonFiniteCoordinates() {
+        for sentinel in [Float.nan, .infinity, -.infinity] {
+            let coordinates = [Float](repeating: sentinel, count: 12 * 2)
+            let (assignment, _) = DiffractionEmbedding.kMeans(
+                coordinates: coordinates, positions: 12, dimension: 2,
+                requestedGroups: 3, seed: 7, cancellation: nil
+            )
+            XCTAssertEqual(
+                assignment.count, 12,
+                "kMeans must return an assignment for every position on \(sentinel) input"
+            )
+            XCTAssertTrue(
+                assignment.allSatisfy { (0..<3).contains($0) },
+                "every assignment must name a real group on \(sentinel) input"
+            )
+        }
+    }
+
     // MARK: - PCA explains the family separation
 
     /// Breaks under: `totalVariance` computed from the wrong source (e.g.

@@ -253,10 +253,30 @@ dropping the mean-centring or reversing the projection columns leaves all 7
 tests green while moving every exported number. Both in `open-items.md`; the
 crash **blocks wiring**.
 
-**NEXT: the non-finite guard as its own Gate D, then the `aiAnalysis` workspace
-+ step 9.** Wiring is what makes the crash reachable, so the guard comes first.
-Steps 5-7 do not happen this run: see the second-round decisions in
-`decisions.md`.
+**Landed — the non-finite guard, its own Gate D.** The crash Gate B found is
+fixed before anything wires the engine, so it never reached a user; the item
+moved to
+[`archive/closed-items-2026-09.md`](archive/closed-items-2026-09.md).
+Two guards: `compute()` refuses a non-finite covariance with the typed
+`EmbeddingError.invalidDataset` the caller already handles, and `kMeans` takes
+`!total.isFinite || total <= 0` so an infinite total falls into the
+deterministic branch instead of `Double.random(in: 0..<.infinity)`. Both pinned
+by fixtures broken before they were trusted — `guard true` turns the first red
+(and informatively: it publishes a result rather than trapping, so the fixture
+catches "published instead of refused"), and reverting the second to
+`total <= 0` turns the other red. `kMeans` was widened `private` → `package`
+to make guard 2 testable at all, the same reason and precedent as
+`symmetricEigenTop` in the same file. A separate fixture pins that `-Inf` — the
+one sentinel that was always safe, because `embed` clamps it — still produces a
+full result, so the guard has not over-fired.
+
+Gate: `unit` exit 0, **600 passed / 0 failed**. The gate refused with exit 69 at
+7 GB twice during step 8; both times that is a disk event, not a test failure,
+and the owner's authorised remedy (delete `DerivedData`, retry) restored 8 GB
+and the gate passed.
+
+**NEXT: the `aiAnalysis` workspace + step 9**, now unblocked. Steps 5-7 do not
+happen this run: see the second-round decisions in `decisions.md`.
 
 **Two things that stay true however cleanly the files move:**
 

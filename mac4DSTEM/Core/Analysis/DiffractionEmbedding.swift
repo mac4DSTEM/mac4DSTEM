@@ -267,6 +267,28 @@ package nonisolated enum DiffractionEmbedding {
         var totalVariance = 0.0
         for i in 0..<dims { totalVariance += covariance[i * dims + i] }
 
+        // Non-finite guard (Gate D, 2026-09-11). A NaN or +Inf detector pixel
+        // reaches the covariance through the binned vectors, and LAPACK does
+        // NOT reject it: `dsyevd_` returns info == 0 on a NaN covariance at the
+        // shipped default (binnedSize 16 -> dims 256), returning eigenvalues
+        // [1, nan x 7]. At dims 16 it returns nothing, so the apparent
+        // protection is dimension-dependent and a small fixture never sees it
+        // fail. Downstream, `totalVariance > 0` is false for a NaN trace, so
+        // every explainedVariance publishes a plausible 0.0 instead of an
+        // error, and the NaN coordinates then reach `kMeans`, where
+        // `Double.random(in: 0..<.infinity)` TRAPS — measured exit 133, and
+        // under -O the process prints nothing at all before dying.
+        //
+        // -Inf alone never gets here (`embed` clamps with max(buf, 0)); NaN and
+        // +Inf are not clamped. Refuse with the typed error the caller already
+        // handles rather than publishing a number or dying.
+        guard totalVariance.isFinite, covariance.allSatisfy(\.isFinite) else {
+            throw EmbeddingError.invalidDataset(
+                "This dataset has non-finite detector values, so a diffraction "
+                + "embedding cannot be computed. Preprocess or mask them first."
+            )
+        }
+
         guard cancellation?.isCancelled != true else { return nil }
         let (eigenvectors, eigenvalues) = symmetricEigenTop(
             matrix: covariance, dimension: dims, count: componentCount,
@@ -611,7 +633,12 @@ package nonisolated enum DiffractionEmbedding {
     /// iterates positions in index order, and re-seeds any cluster that ends
     /// an iteration with no assigned point at the point currently farthest
     /// from its own (pre-update) centroid, rather than letting it vanish.
-    private static func kMeans(
+    /// `package` rather than `private` for the same reason
+    /// `symmetricEigenTop` is: a Gate D fixture must be able to hand it the
+    /// input that used to trap. `compute` now refuses non-finite data upstream,
+    /// so the guard inside is unreachable through the public path — and an
+    /// unreachable guard with no fixture is a guard nobody can prove works.
+    package static func kMeans(
         coordinates: [Float], positions: Int, dimension: Int, requestedGroups: Int,
         seed: UInt64, cancellation: AnalysisCancellationToken?
     ) -> (assignment: [Int], centroids: [Float]) {
@@ -643,7 +670,14 @@ package nonisolated enum DiffractionEmbedding {
                 if dist < minDistances[i] { minDistances[i] = dist }
             }
             let total = minDistances.reduce(0, +)
-            if total <= 0 {
+            // `!total.isFinite` is load-bearing, not defensive tidiness: a NaN
+            // distance leaves `minDistances[i]` at its initial `.infinity`
+            // (because `dist < .infinity` is FALSE for NaN), so `total` becomes
+            // infinite, `total <= 0` does not catch it, and the
+            // `Double.random(in: 0..<total)` below traps — exit 133, silently
+            // under -O. `compute` now refuses such data upstream, but `kMeans`
+            // is `package` and must not trap on any input it is handed.
+            if !total.isFinite || total <= 0 {
                 // Every remaining point coincides with a chosen centroid:
                 // fill deterministically by index rather than loop forever.
                 for i in 0..<positions where !centroidIndices.contains(i) {
