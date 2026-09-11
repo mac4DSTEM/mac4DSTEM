@@ -279,6 +279,44 @@ monoclinic (cubic, hexagonal, throw), so β″ cannot be loaded at all — that 
 the first thing to fix — plus a β″ CIF, and the β″/Al orientation relationship,
 which is published.
 
+**The incorporation plan:** [`v3-vector-matching-plan.md`](v3-vector-matching-plan.md).
+Six steps, and the licence distinction that unlocks it: their **repo** has no
+licence (nothing usable), their **paper is CC BY 4.0**, so its Table 2 —
+structures for Al, T1 and θ′ — is reusable with attribution. Those are
+different artefacts.
+
+**The biggest thing it buys is an external ground truth.** Every validation
+problem this programme has hit comes from having nothing to check against: the
+precipitate maths has no py4DSTEM counterpart, the synthetic fixture cannot
+discriminate the arms, and the Al-Si-Mg hand count does not exist. Their dataset
+ships a ground-truth phase map built independently by **three people**, with
+four published maps scored against it, and a metric simple enough to adopt
+verbatim. So the plan **validates the method on their material, where truth
+exists, before applying it to ours, where it does not** — the first acceptance
+test in this programme that does not depend on the owner's eye.
+
+Order: (0) admit `.identity` to `CIFImport` so a monoclinic cell loads at all;
+(1) reference vectors from a CIF, composing `Crystal.reflections` and
+`OrientationPlan.project`; (2) the matcher — matrix removal in vector space,
+per-pattern reference subset, mean-distance score with an explicit "not indexed"
+— Gate D and Gate B both apply; (3) **validate against their published ground
+truth**, acceptance pre-registered as landing inside the band their four methods
+occupy; (4) apply to Al-Mg-Si, which needs a β″ CIF; (5) UI, deferred until 3
+passes.
+
+**Inherited weaknesses, stated now:** zone-axis only; cannot handle phases
+overlapping along the beam (which is an argument for keeping
+`DiffractionEmbedding` as the exploratory tool rather than replacing it); and
+confused by strain shifting Bragg positions — which they name as the main cause
+of their interface errors. This app measures strain, so it may do better there,
+but that is a hypothesis and is labelled as one.
+
+**Three decisions owed:** `.identity` symmetry means a phase labelled with no
+IPF orientation colour — acceptable? A β″ CIF, authored from Andersen 1998 or
+taken from mp-31404 with its DFT-relaxation note. And whether to download their
+Zenodo dataset, which is several GB against a machine sitting near the 8 GB gate
+floor.
+
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject
