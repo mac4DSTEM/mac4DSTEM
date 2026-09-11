@@ -297,6 +297,16 @@ mac4dstem_sources() {
           "$core/Crystal/CIFImport.swift"
         )
         ;;
+      phasevectors)
+        # Vector-matched phase mapping: the reference library and the matcher,
+        # on top of the ACOM stack they compose (phase-vector-matching).
+        mac4dstem_sources "$repo" acom
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Crystal/PhaseReferenceLibrary.swift"
+          "$core/Crystal/PhaseVectorMatching.swift"
+        )
+        ;;
       fitoverlays)
         # The fitted-overlay geometry over ACOM and strain (fit-overlay-test).
         mac4dstem_sources "$repo" acom strain
@@ -339,7 +349,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export embedding" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
         exit 64
         ;;
     esac

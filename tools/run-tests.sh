@@ -82,6 +82,7 @@ scientific=(
   virtual-detector-residency
   resident-cropped-view
   disk-detection-test embedding-pca-parity disk-correlation-parity peak-overlay-test fit-overlay-test
+  phase-vector-matching
   acom-orientation-test acom-matching-test acom-convention-test parity-metric-test cif-symmetry-test
   ws2-crystal-test
   idpc-test cancellation-test
