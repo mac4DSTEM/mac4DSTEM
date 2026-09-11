@@ -80,7 +80,69 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — v3.0.0 is cut; the owner pushes
+## Handoff — NEXT: port the AI pipeline onto main (started, not done)
+
+**State on arrival, 2026-09-11 end of session.** v3.0.0 is released and pushed
+(release row above). `main` is `9b9949b`, clean. An empty branch
+**`ai/precipitates-embedding`** exists at that same commit — created as the
+home for the work below; nothing has been written to it. Delete it and start
+again if you prefer.
+
+**The task, decided by the owner:** move the unmerged AI-pipeline work from
+`ml/disk-detector` onto current `main` by **porting files forward, NOT by
+rebasing** — the branch is 27 commits ahead and **41 behind**, its merge base is
+2026-09-06, and `main` has since shipped v3.0.0.
+
+**What is unmerged and wanted** (verified 2026-09-11 with
+`comm -23 <(git ls-tree -r --name-only ml/disk-detector|sort) <(git ls-tree -r --name-only main|sort)`):
+`Core/Analysis/Precipitates/{PrecipitateSegmentation,PrecipitateReflections,PrecipitateStatistics}.swift`
+(388/176/140 lines), `Core/Analysis/DiffractionEmbedding.swift` (708),
+`Session/{PrecipitateProduct,DiffractionGroupsProduct}.swift`,
+`App/AppState+{Precipitates,DiffractionGroups}.swift`,
+`UI/{AIAnalysisSettings,PrecipitateSettings,DiffractionGroupsSettings}.swift`,
+`mac4DSTEMTests/{PrecipitateTests,DiffractionEmbeddingTests}.swift`,
+`docs/ai-ml/{README,precipitates}.md`, and a second model
+`Models/DiskDetector/disk-detector-heatmap-b32.aimodel`.
+Read the branch WITHOUT checking it out: `git show ml/disk-detector:<path>`.
+
+**Four known problems, none of them solved yet:**
+
+1. **Disk labels exist twice, in different shapes.** The branch has
+   `App/AppState+DiskLabels.swift` + `Session/DiskLabelStore.swift` +
+   `UI/DiskLabelRows.swift`; `main` has `Session/DiskCentreLabels.swift` +
+   `DiskCentreLabelTests.swift`, which **shipped in v3.0.0**. Owner's decision:
+   **main's wins.** Not established: whether the ported features call into the
+   branch's store, and what the equivalent on `DiskCentreLabels` is. Check every
+   call site before dropping the branch trio — this is the highest-risk part.
+2. **`Session/LearnedDetection.swift` diverged by 159 lines**, both sides
+   independently. Main's is the shipped one and is the default to keep; port
+   forward only hunks the new features actually require, hunk by hunk.
+3. **The AppState rule almost certainly bites.** The branch adds three
+   `AppState+*` extension files. CLAUDE.md forbids new stored state in AppState
+   and `inventory` fails if `AppState.swift` + `ResultExport.swift` net positive
+   (today they are **7509, exactly flat** — there is no slack). The compliant
+   shape is main's own: a `Session/` type that owns the state, held by AppState
+   as one property with no forwarding — see the role comments at the top of
+   `Session/DiskCentreLabels.swift` and `Session/StrainProduct.swift`.
+4. **Build integration.** Every new file under `mac4DSTEM/Core/` and
+   `Session/` must be added to the pbxproj `membershipExceptions` list — they
+   compile through the SwiftPM package targets, not the app target. And a
+   `.aimodel` must never live under `mac4DSTEM/` (MLAssetCompile fails for the
+   macOS 14 target); the b32 model's placement is undecided.
+
+**Do NOT port** `docs/archive/2026-08-31-review/test-evidence/.../source-copy/**`
+— ~60 duplicated Swift sources that exist only on the branch.
+
+**The open question nobody has answered:** whether the precipitate and
+embedding science is a py4DSTEM port (needs a parity harness) or original work,
+and whether its branch tests are Swift-against-Swift with no reference — in
+which case the science is unverified no matter how cleanly the files move.
+**Answer that before quoting any number from these features.**
+
+**An analysis workflow was running when the session ended and its result was
+not read.** Don't wait for it; re-run or do the analysis directly.
+
+## Closed 2026-09-11 — v3.0.0 is cut and pushed
 
 Owner, 2026-09-09: C0–C3, C6 and C8 are closed; C7 is closed apart from the
 owner's sidecar-reopen check; the `all` gate is green. **C4(c) is committed at `1eb49c5` and driven.**
