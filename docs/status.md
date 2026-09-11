@@ -317,6 +317,39 @@ taken from mp-31404 with its DFT-relaxation note. And whether to download their
 Zenodo dataset, which is several GB against a machine sitting near the 8 GB gate
 floor.
 
+**Landed — plan step 0 (`ee2221c`), the importer unblocked.** A monoclinic cell
+now imports as `.identity` ("Unreduced") instead of being refused, and
+`CrystalModel.supportsOrientationMapping` is false for it, so
+`AppState.resolvedACOMModel` declines and `acomModelSelectionIssue` says why.
+**Two changes that are one change**: without the second,
+`ACOMCrystalSymmetry.identity.ipfColor` returns |x|,|y|,|z| as RGB — not a
+wrong IPF key but no key at all, wearing the look of one.
+
+Verified on the real β″ CIF through the app's own code: a=15.160 b=4.050
+c=6.740, β=105.3°, symmetry Unreduced, **22 atoms = Mg₁₀Si₁₂ = 2 × Mg₅Si₆**,
+`isUsable` true with zero validation issues, orientation mapping refused with a
+reason, and **3420 reflections at kMax 1.6** — which is what phase
+identification needs. The 22-atom expansion independently confirms the CIF
+generator, since the app's own symmetry code reproduces the cell content the
+paper states.
+
+**A design error caught before it shipped**: the first attempt recorded the
+limit as a validation issue, which cannot work — `CIFImport.crystalModel` throws
+`.invalidModel` on any validation issue, so the structure would never have
+loaded and the change would have achieved nothing but a better error message. It
+is a capability limit, not a structural defect.
+
+> **THE UNIT GATE IS OWED, and it is a DISK event, not a test result.** Free
+> space is 6-7 GB against `run-tests.sh`'s hard 8 GB floor. The authorised
+> remedy (delete `DerivedData`) was applied twice and is **exhausted** — it was
+> already empty the second time — and clearing this session's own build
+> artefacts recovered 1 GB, still short. Time Machine local snapshots are
+> already gone. The volume holds 190 GB of 228, the owner's own data. What did
+> run: `xcodebuild build` 0, `core` 0, `inventory` 0 (C5 flat at 7407), and a
+> standalone probe on the real CIF. **No test count is quoted anywhere, because
+> none was run.** First thing on the owner's return: free a couple of GB and run
+> `tools/run-tests.sh unit`.
+
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject
