@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased — next v2.5.x patch
+## v3.0.0 — unreleased
+
+The first release with a machine-learned feature, and the first major version
+since the SwiftUI rebuild. Everything below shipped through the repo's gates;
+what is **not** verified is said so in "Known limitations" at the end of this
+section rather than left for a user to discover.
+
+### Learned disk detection on the Neural Engine — the first ML feature
+
+- **Bragg disks can now be found by a trained model instead of template
+  matching.** Disk detection gains a `Detector` picker (Classical / learned);
+  the learned path runs as Core ML on the Apple Neural Engine. The model is a
+  256-px detector, default confidence 0.7 (owner's decisions, 2026-09-08).
+- **It earns its place on a frozen, hand-labelled test set**, never used for
+  selection: recall / precision **0.667 / 0.840** against the classical
+  detector's **0.487 / 0.485** on the same set — it finds the same real disks
+  with far fewer inventions. Speed on the same cube is **1.44–1.64x** the
+  classical path. Pre-registered before it was built, verdict recorded in
+  `docs/decisions.md`; the evidence is
+  `docs/archive/v3/learned-detector-2026-09-06.md`.
+- **No third-party model weights are distributed.** The model spec ships in the
+  repository and its asset tree is hashed by the `inventory` gate, so a clone
+  reproduces the shipped model exactly.
+
+### Fixes and robustness
 
 - **Datasets open by double-click.** They never could before: the app
   declared no document types at all, so a `.h5` could not be opened from Finder,
@@ -44,7 +68,7 @@
   weights are distributed; the AGPL `yolov8n.mlpackage` briefly in the Xcode
   project was never in a shipped build and left the tree on 2026-09-07.
 
-## Unreleased — the v2.6.0 science lane
+### Science — measured numbers that moved
 
 - **A flat measured kernel, and the file's own probe as a kernel source.**
   py4DSTEM's `Probe.get_kernel` recommends the FLAT mode — the probe
@@ -169,6 +193,38 @@
   real-space pixel size and found no Q size; it now reads the scan axis and the
   detector axis. Found by the Gate B refuter on the change above; only files
   with rank-3 data and EMD dim vectors are affected.
+
+### Known limitations at 3.0.0
+
+Stated here because a user should not have to find them.
+
+- **Parallax and single-slice ptychography are untested on real data.** Both
+  are marked `Advanced`. On the owner's machine they refuse a 268 MB cube,
+  asking for 8.2 GB and 11.6 GB of working set against a 1.07 GB limit — the
+  refusal is correct and names its remedy (crop or bin first), but whether
+  those estimates are right has not been established, and no run on a machine
+  with more memory has happened. `docs/open-items.md`.
+- **VoiceOver is not supported.** Resolving an accessibility label crashes the
+  app (a stack overflow inside SwiftUI's own label resolution). It affects any
+  client that reads the accessibility tree, including UI automation. Deferred
+  by the owner's decision of 2026-09-11, recorded in `docs/decisions.md`.
+- **Session sidecars written before 2026-09-11 keep the quantitative badge they
+  were saved with.** The origin verdict that badge should depend on was not
+  recorded before then and cannot be reconstructed, so older results are left
+  as they are rather than re-judged on a guess.
+- **The `Quantitative` badge does not check the origin a result was computed
+  from.** It is decided from the product's kind and units alone, so a strain,
+  DPC or iDPC map can read `Quantitative` even when the beam centre it was
+  computed against was never measured — including on the same screen where
+  Prepare reports that origin as `Not quantitative`. The provenance shipped
+  beside every result is honest about this: check `origin_reference` and
+  `origin_reference_is_measured` in the Info panel or the exported keys before
+  relying on the badge. A fix was written for 3.0.0 and **rejected by the
+  project's own adversarial review** — it changed no behaviour — so it was
+  reverted rather than shipped looking like a fix
+  (`docs/archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
+- **macOS 14–25 is compile-verified, never executed.** Every machine here runs
+  26. The first report from an older system is the test.
 
 ## v2.5.1 — 2026-09-04
 

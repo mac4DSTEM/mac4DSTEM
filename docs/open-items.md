@@ -113,38 +113,40 @@ Strain / Orientation / Parallax / ptychography sub-pages, and the WS2 CIF import
 ## Science — Gate D or Gate B owed
 
 ### The Quantitative badge consults no origin gate at all (2026-09-11)
-`AppState.quantitativeStatus(for:units:)` (`AppState.swift:741-760`) is a pure
-lookup on the product's kind and units strings: a `kind` in
-`["strain", "local_lattice", "dpc", "idpc", "virtual_detector",
-"disk_detection", "matched_template"]` returns `.quantitative` unconditionally.
-**Verified 2026-09-11: zero references to `originFitIsSane`,
-`originSupportsReciprocalMetrology`, `referenceOrigin(...).kind
-.isMeasuredBeamCentre` or the `origin_reference_is_measured` flag it ships
-beside itself.** `SessionGates.reciprocalMetrologyRefusal` has exactly one
-production caller, `AppState.swift:5128` (`calibrateQFromCrystal`); strain, ACOM
-and DPC pass through no origin gate.
+`AppState.quantitativeStatus(for:units:)` is a pure lookup on a product's kind
+and units strings: a `kind` in `["strain", "local_lattice", "dpc", "idpc",
+"virtual_detector", "disk_detection", "matched_template"]` returns
+`.quantitative` unconditionally, with **zero** references to `originFitIsSane`,
+`originSupportsReciprocalMetrology` or `origin_reference_is_measured`.
 Observed on the owner's drive: a strain map badged **Quantitative** on the same
 screen where Prepare badged its origin **Not quantitative** (RMS 9.72 px against
-a 3.74 px probe, so `originFitIsSane` is false), computed against
-`origin_reference = apertureCentre`, `origin_reference_is_measured = false`.
-`Calibration.originFitIsSane`'s own doc (`Calibration.swift:550-570`) claims to
-be *"the single owner of that decision"* so that *"the badge the user sees, the
-calibration the app is willing to perform, and the parity records cannot
-disagree."* They disagree; this is a fourth hand-rolled surface of the kind that
-comment forbids.
-**Why it is not merely cosmetic, and why "a constant offset cancels" does not
-rescue it:** the per-position fit solves `[origin, g1, g2]`
-(`StrainMapping.swift:617-661`), so a displacement is absorbed into the free
-origin term and g1/g2 are untouched — but only *after* indexing, and indexing is
-`round(beta^-1 * (peak - origin))` accepted at
-`residual <= max(0.5, 0.18*min(|g1|,|g2|))` (`:202-226`). A 10.88 px origin
-displacement shifts every `peak - origin` before that rounding: unless it is
-near an integer lattice combination it mis-indexes or drops the position.
-Strain is therefore not a smooth function of origin error — it survives intact
-or collapses — and nothing distinguishes the two. Evidence:
-[`docs/archive/2026-09-11-drive/origin-cleared-gate-d.md`](archive/2026-09-11-drive/origin-cleared-gate-d.md).
-Owner: **this is the one finding from the 2026-09-11 drive that is a candidate
-release blocker.** Gate D owed on the fix; the diagnosis above is established.
+a 3.74 px probe), computed against `origin_reference = apertureCentre`.
+`Calibration.originFitIsSane`'s doc claims to be "the single owner of that
+decision" (`Calibration.swift:550-570`); it is not consulted.
+
+**A fix was written 2026-09-11, REJECTED by Gate B, and reverted** —
+[`archive/2026-09-11-drive/quantitative-badge-gate-b.md`](archive/2026-09-11-drive/quantitative-badge-gate-b.md).
+It recorded the verdict in provenance and gated the badge on it, and it changed
+nothing: `publishProduct` composes provenance from
+`currentScalarPersistenceMetadata`, whose strain branch never merges
+`strain.originProvenance` — that snapshot has exactly ONE consumer in the tree
+(`ResultExport.swift:516`, `scientificBundleMaps()`). Five tests passed and two
+mutations that disabled the whole mechanism survived all of them, because every
+test called the decision function directly and none asserted on
+`publishedProduct?.quantitativeStatus`.
+
+**The real defect is larger and is the thing to fix:** products do not carry the
+origin they were computed against. Strain snapshots it and nothing reads it; DPC
+snapshots nothing; **ACOM alone is correctly wired** (`ACOMWorkflow.swift:145-150`).
+A gate on the badge cannot work until the products carry the fact.
+**Four assumptions to not repeat**, each checked: `local_lattice`,
+`matched_template` and `disk_detection` are overlay/replay kinds, never product
+kinds; the app publishes `virtual_circle`/`virtual_annulus` with units
+`"intensity"`, never `virtual_detector`; ACOM must be IN the gated set, not out;
+and a restored sidecar already carries `quantitative_status`, which wins.
+**Ships in v3.0.0 as a stated known limitation** (owner, 2026-09-11), because a
+fix that looks like one and is not is worse than the open defect. Gate D and
+Gate B both owed on the real fix.
 
 ### A radius-only aperture drag destroys the fitted origin (2026-09-11)
 Latent, found by the Gate D refuter, and **not** what happened on the owner's
@@ -418,25 +420,45 @@ Investigation owed; nobody has measured it since.
 
 ## Known, scoped, not blocking
 
-### Copy Bundle Resources contains the target's own Info.plist (2026-09-11)
-Every build in the 2026-09-11 `all` log prints: *"The Copy Bundle Resources
-build phase contains this target's Info.plist file"*. It arrived with `a8b13c6`,
-which set `INFOPLIST_FILE` on both app configurations while the file was also
-listed as a resource. **What is established:** the warning, reproducible on any
-build. **What is NOT:** whether the built bundle actually carries a duplicate at
-`Contents/Resources/Info.plist` — `package-test` builds to a temp directory that
-is gone by the time anyone looks, and no Release product was retained on
-2026-09-11. Check that first; if there is a duplicate it ships in the DMG.
-`package-test` passes either way, so the gate will not tell you. Owner: cheap,
-but do it before the v3.0.0 artefact is built.
+### Parallax and ptychography are unrunnable on the owner's Mac (2026-09-11)
+Owner drive, `051_STEM_SI_preprocessed_unfiltered_bin_4_20260629.h5` — a
+128x128 scan of 64x64 patterns, **268.4 MB** as f32. Both Advanced Phase
+features refuse:
+`Parallax KDE needs about 8,16 GB, above the 1,07 GB working limit` and
+`Single-slice ptychography needs about 11,55 GB, above its 1,07 GB limit`.
+**The refusals are correct behaviour** — they name the number, the limit and the
+remedy ("Reduce the factor or crop/bin the dataset first"), and nothing was
+computed against a bad budget. Two of the app's failure paths are therefore
+driven and good.
+**What is NOT established** is whether the estimates are right: 8-11 GB of
+working set for a 268 MB cube is a 30-40x ratio, and nobody has checked whether
+that is the algorithm's true cost or an over-estimate that refuses work the
+machine could do. That is a Gate D of its own (a number governs whether a
+feature runs at all), not a tuning knob to raise.
+Consequence for the release: Parallax and single-slice ptychography ship
+**undriven on real data** and must be described that way in the release notes.
+The owner has postponed testing them to a machine with more memory; blocking a
+release on hardware he does not have is open-ended, so this is scoped, not
+blocking (owner, 2026-09-11).
 
 
-**UI findings** — the merged, trust-ordered list (provenance inference, ACOM
-confidence gating, calibration-state vocabularies, unit labels, Phase
-linearity, inspector layout) lives in
-[`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3. Do not
-duplicate it here and do not patch findings 1/4/5/7 on the current facade —
-they wait on the architecture seams (C4/C5).
+### The app bundle ships a duplicate Info.plist (2026-09-11)
+Every build warns *"The Copy Bundle Resources build phase contains this target's
+Info.plist file"*, and **the duplicate is real — confirmed in the built bundle,
+not inferred**: `Contents/Resources/Info.plist` is **1 497 bytes** (the raw
+source file) beside the real merged `Contents/Info.plist` at **2 798 bytes**.
+macOS reads the latter, so nothing malfunctions; what ships is a misleading
+partial copy that anyone inspecting the app can read instead of the real one.
+**Cause, established statically:** `Info.plist` is NOT listed in
+`PBXResourcesBuildPhase` — the app group is a `PBXFileSystemSynchronizedRootGroup`,
+so folder sync sweeps every file under `mac4DSTEM/` into the target, Info.plist
+included. **The fix is one line:** add `Info.plist` to the existing
+`membershipExceptions` of `300000000000000000000001`.
+**Verification it must carry, because this is exactly what `a8b13c6` was for:**
+rebuild and confirm the BUILT `Contents/Info.plist` still has every generated
+key and `LSMinimumSystemVersion 14.0` — the macOS-14 floor is the whole point of
+v2.5.1 and must survive. `package-test` passes either way and will not catch a
+regression here. Owner: do it before the v3.0.0 artefact is built.
 
 ### UI polish: six papercuts, all verified live 2026-09-09
 Presentation only, no Gate D. `gammaControl` prints "Gamma, 1.00" as one string

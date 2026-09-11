@@ -438,10 +438,10 @@ and a GPU delegate returning half the peaks, both Core AI. The `.mlpackage`
 export the tooling already produces becomes the shipped asset; the Core AI
 class on `ml/disk-detector` is replaced, not kept beside it. Provenance
 records `runtime: coreml` and the package's SHA-256. Owner, 2026-09-07, on
-the consolidation review (`docs/consolidation-plan.md` §3).
+the consolidation review (`docs/archive/consolidation-plan.md` §3).
 
 **2026-09-07 — Consolidate before any new feature; the owner pushes.**
-`docs/consolidation-plan.md` §6 (gates C0–C8, each with an exit criterion)
+`docs/archive/consolidation-plan.md` §6 (gates C0–C8, each with an exit criterion)
 is executed in order by `/pickup` before any new model, feature or UI room;
 the first v3 feature waits for C4 and C6 to exit. Agents commit when asked
 and never push — the owner pushes every branch (`CLAUDE.md`, the pickup
@@ -794,3 +794,25 @@ automation rig knows what they will hit.
 Consequence for the release: the README and CHANGELOG say nothing that claims
 accessibility support, and the crash stays in `open-items.md` as a known defect
 rather than being quietly dropped. One line to reverse if the owner disagrees.
+
+## 2026-09-11 — the consolidation plan is archived and v3.0.0 is the next cut
+
+Every §7 criterion was checked rather than assumed, and the checks are in the
+archived file's own header. The one that needed measuring: `AppState` +
+`ResultExport` went **7 624 → 7 508 lines** (−116) between `84b2498`
+(2026-09-06) and today, so C5's "smaller than on 2026-09-06" holds on the
+number, not on the intention.
+
+The feature freeze the plan carried ("no new feature until it exits") lapses
+with it. `CLAUDE.md` and both copies of the `/pickup` skill are updated so a
+feature target is no longer refused.
+
+**The number is v3.0.0, not v2.7.0.** Asked directly on 2026-09-11, the owner
+chose to go for it. The reasoning: the learned disk detector is a FEATURE and it
+is in the build with a passed verdict, and `releasing.md`'s rule is that a
+feature cuts a major version. Cutting the same work as v2.7.0 would be the same
+release under a number that hides its largest change. Three things remained
+undriven at the decision — Parallax and ptychography on real data, the four
+Phase E failure paths, both Resets — and none blocks: they are named in
+CHANGELOG's "Known limitations at 3.0.0" instead of being discovered by a user.
+

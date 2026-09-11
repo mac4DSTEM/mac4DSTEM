@@ -82,7 +82,7 @@ here until 2026-09-07 are verbatim in
 [`docs/archive/v3/learned-detector-2026-09-06.md`](archive/v3/learned-detector-2026-09-06.md).
 This is the registration the work is checked against; nothing is merged to
 `main` — the work is `ml/disk-detector` (`18bb13b`), reviewed in
-`docs/consolidation-plan.md` §3 and gated by C6/C7 there.
+`docs/archive/consolidation-plan.md` §3 and gated by C6/C7 there.
 
 **What it is.** A second `DetectorClass` beside the classical one: a small
 plain-convolution U-Net (fp16, fixed 128×128 input, no FFT, no custom layers)
@@ -118,7 +118,7 @@ Licences: own weights; abTEM GPL-3.0 as a tool only; the stock AGPL
 `yolov8n.mlpackage` WAS committed (C0 (3)) and left the tree in C2 (2026-09-07;
 `NOTICE` says so).
 
-**Gates, in order, each its own session; the bar is `consolidation-plan.md`
+**Gates, in order, each its own session; the bar is `archive/consolidation-plan.md`
 §3 "The minimum bar".** (1) Simulator + fixture proven and broken before any
 net — met on the branch, the one reproducible item. (2) Net trained; the
 exported asset checked against PyTorch with a stated tolerance and a

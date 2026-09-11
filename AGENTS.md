@@ -7,10 +7,13 @@
 
 mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple
 Silicon, validated against py4DSTEM at one pinned upstream commit
-(`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`). **v2.5.1 is released (2026-09-04)**; `main` consolidates before
-v3 (`docs/consolidation-plan.md`; owner, 2026-09-07: no new feature until it exits). Rules only here; status and history live elsewhere.
+(`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`).
+**v2.5.1 is the released artefact (2026-09-04); v3.0.0 is prepared and not yet
+cut.** The consolidation plan **exited 2026-09-11**
+(`docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature
+freeze it carried lapsed with it. Rules only here; status and history elsewhere.
 
-## Read, in this order (about 1 800 lines on 2026-09-07, after C1)
+## Read, in this order (2451 lines on 2026-09-11, after the plan was archived)
 
 1. `docs/status.md` — what is live now, one table. Every session starts here.
 2. `docs/v3-plan.md` — the feature plan (draft): the themes, the 2026-08-28
@@ -30,9 +33,8 @@ Skills in `.claude/skills/` — `pickup`, `diagnose` (Gate D), `adversarial-revi
 from here**; read the matching `SKILL.md` as a document before doing that kind
 of work. Session memory lives in Claude Code's per-project memory directory and
 is not loaded here: do not assume a fact is remembered.
-While `docs/consolidation-plan.md` is live, `/pickup` with no target takes the
-first gate of its §6 whose exit criterion fails (named in `docs/status.md`'s
-handoff); a feature target is refused until the plan is archived.
+A feature target is no longer refused — `docs/v3-plan.md` §6 says how a v3
+feature is pre-registered and built.
 
 ## Hard rules
 

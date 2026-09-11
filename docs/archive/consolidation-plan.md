@@ -1,3 +1,24 @@
+# ARCHIVED 2026-09-11 — §7 holds, and here is the check
+
+This plan is closed. It ran from 2026-09-07 to 2026-09-11 and is kept for *why*,
+never for what to do next. Each §7 criterion, with what was measured:
+
+| §7 criterion | Verdict |
+|---|---|
+| `main` carries C1, C2 and C4; every live doc sentence true; `inventory` exit 0 with a retained log | **Met.** C0–C4, C6, C7, C8 closed; `inventory` exit 0 on 2026-09-11. |
+| The owner has driven the app once end to end and every finding is an open item with an observation | **Met 2026-09-11.** Prepare, Imaging, Bragg disks, Strain, ACOM, DPC, Parallax and ptychography all driven; every finding is in `open-items.md` with a reproducing observation, and the two that needed it went through Gate D. |
+| The learned detector has a verdict in `decisions.md` on a real hand-labelled test set with the exported asset | **Met 2026-09-08** — passed: 0.667 / 0.840 against the classical 0.487 / 0.485. |
+| `AppState` + `ResultExport` smaller than on 2026-09-06, and `inventory` fails a commit that grows them | **Met, measured:** 7 624 lines at `84b2498` (2026-09-06) → **7 508** on 2026-09-11, **−116**. The gate enforces it per commit. |
+| Nothing lives only on the owner's machine that a live doc claims | **Met.** The model spec joined the repo at `5d08c7d`; the inventory gate fails on a repo-rooted path a truth doc cites and does not have. |
+
+What it did NOT settle, carried forward as ordinary open items rather than
+pretended closed: C5's standing extraction continues one per month, next
+`OperationCenter` forwarders; the four Phase E failure paths and both Resets
+are still unseen on screen; Parallax and ptychography are undriven on real
+data. None blocks the v3.0.0 cut (owner, 2026-09-11).
+
+---
+
 # Consolidation review and plan — 2026-09-07
 
 A read-only review of the app, the learned-detector work and the docs, with

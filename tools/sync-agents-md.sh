@@ -36,7 +36,7 @@ require() {
 }
 
 A1='# CLAUDE.md — start here'
-A2='Skills: `/pickup` takes the next step from `docs/status.md`; `/diagnose` is'
+A2='Skills: `/pickup` takes the next step from `docs/status.md`'"'"'s handoff;'
 A3='## Hard rules'
 for anchor in "$A1" "$A2" "$A3"; do require "$anchor"; done
 
@@ -61,8 +61,8 @@ text = text.replace(
 # 2. The skills are Claude Code skills. A Codex (or any other) agent cannot
 #    invoke them — telling it to type `/pickup` is a claim that does not hold.
 old_skills = (
-    "Skills: `/pickup` takes the next step from `docs/status.md`; `/diagnose` is\n"
-    "Gate D; `/adversarial-review` is Gate B; `/closeout`.\n")
+    "Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;\n"
+    "`/diagnose` is Gate D; `/adversarial-review` is Gate B; `/closeout`.\n")
 new_skills = (
     "Skills in `.claude/skills/` — `pickup`, `diagnose` (Gate D), `adversarial-review`\n"
     "(Gate B), `closeout` — are **Claude Code skills and cannot be invoked\n"

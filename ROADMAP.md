@@ -6,15 +6,23 @@ The feature plan is [`docs/v3-plan.md`](docs/v3-plan.md); live status is
 intentionally short: completed implementation history belongs in Git, and a passing
 workflow is not automatically a validated scientific claim.
 
-## Phase status (2026-09-07)
+## Phase status (2026-09-11)
 
 **v2.5.1 (2026-09-04) is the current release** — macOS 14 or later, and the
 first artefact able to claim `run-tests.sh all` exit 0; v1.0.0 (2026-08-06)
 preceded it. v2.0.0 was named on 2026-09-02, never built, and superseded by
 v2.5.0 the same week; v2.5.0's artefact carries an enforced macOS 26 floor,
-which is why v2.5.1 exists. `main` consolidates before v3
-([`docs/consolidation-plan.md`](docs/consolidation-plan.md), gates C0–C8;
-owner, 2026-09-07: no new feature until C4 and C6 exit). Live status is
+which is why v2.5.1 exists.
+
+**v3.0.0 is prepared and not yet cut.** It is the first release with a
+machine-learned feature — Bragg disks found by a Core ML model on the Neural
+Engine, which beats the classical detector on a frozen hand-labelled test set
+(0.667 / 0.840 against 0.487 / 0.485) and runs 1.44–1.64x faster. What it does
+and what it does NOT yet do is `CHANGELOG.md`, including a "Known limitations"
+section. The consolidation train that preceded it closed on 2026-09-11 with its
+own §7 checked line by line
+([`docs/archive/consolidation-plan.md`](docs/archive/consolidation-plan.md),
+gates C0–C8), and the feature freeze it carried lapsed with it. Live status is
 [`docs/status.md`](docs/status.md); the v2.5 train is archived in
 [`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md). The three
 priorities below are standing — they are how work is judged, not a task list.

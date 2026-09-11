@@ -22,6 +22,7 @@ path a truth doc cites and does not have. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | named 2026-09-02, never built, superseded by v2.5.0; a local tag exists on this machine and was never pushed, and none will be (C0 (4), `decisions.md` 2026-09-07) | `CHANGELOG.md` |
+| v3.0.0 | **not yet cut — ready pending the release gate** (owner, 2026-09-11: go for 3.0.0, not v2.7.0, because the learned disk detector is a feature and is in the build with a passed verdict; `decisions.md`). Version/build will be `3.0.0` / `6`. Consolidation plan archived 2026-09-11 with §7 checked line by line. Known limitations are stated in `CHANGELOG.md` rather than left to be found: Parallax and ptychography undriven on real data, VoiceOver unsupported, pre-2026-09-11 sidecars keep their saved badge, macOS 14–25 compile-verified only | `CHANGELOG.md` |
 | v2.5.1 | released 2026-09-04, version/build 2.5.1 / 5 — macOS floor down to 14 and the sidecar-reader fix. Artefact built from `a9a0437`; app notarization `fb693c50`, DMG `f3d05e79`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `30282206…31af`, 6 157 051 bytes; the app inside the image declares `LSMinimumSystemVersion 14.0`, verified by mounting it. First release able to claim `run-tests.sh all` exit 0 (458/0/0, 44 harnesses). v2.5.0's artefact cannot launch below macOS 26, so this is the build that reaches older systems | `CHANGELOG.md` |
 | v2.5.0 | released 2026-09-04, version/build 2.5 / 4 — the first shipped build of the SwiftUI rebuild. Gated on `unit` (457/0/0) + `package-test`, both exit 0; **`run-tests.sh all` was attempted and exited 1** on a pre-existing sidecar defect (`open-items.md`), and the notes say so. Artefact: built from `3c0a3eb`, app notarization `af7cc0f4`, DMG notarization `f4aa1d12`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `d55821a1…4c75`, 6 074 038 bytes. Build 3 (`df80e8e`) is superseded, kept as `mac4DSTEM-2.5-build3-superseded.dmg` | `CHANGELOG.md` |
 
@@ -76,15 +77,15 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
 | `run-tests.sh inventory` | **exit 0 — 2026-09-09, after the review fixes** (`inventory-final-20260909.log`); AppState + ResultExport **7509**, equal to HEAD. Six checks were added that day and the gate was red on arrival: it caught the untracked model spec, the dead link to the archived v2.5 plan, the missing licence texts, and — three times — this file's own prose, which is the check working: a doc may not write a repo path it does not have, not even to describe one. Metric renamed: `AppState.swift type-scope decls` **166**, not the old "stored properties 491", which counted function locals. **Markdown went UP, and the reason is stated as the rule requires: live 5 054 → 5 133 (+79), cold-start 965 → 1 037 (+72). The +72 is this handoff and the three open items the review left standing; the register itself is 192 archive lines that replace a 2 014-line file outside the repo. Nothing was deleted to pay for it because nothing live was found stale enough to delete — the next session that touches these files owes the trim.** |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
-| `run-tests.sh all` | **exit 0 — 2026-09-11, after Gate B on the D002 port** (`all-gateb-20260911.log`, `GATE_EXIT=0` on its own line), 46 harnesses, zero `FAIL` lines, unit **571 passed / 0 failed / 2 skipped = 573**, reconciled against 573 `func test` in source. The two skips are the known benign pair (`TB1StallProbeTests` needs a WS2 sidecar the owner deleted; `BookmarkResolutionLatencyTests` needs an unmounted volume). New in this run's log, not a failure: the Xcode warning that Copy Bundle Resources contains the target's own `Info.plist` (`open-items.md`). Previous: exit 0 — 2026-09-09, after the four fixes** (`v3-gate/all-fixes-20260909.log`, `GATE_EXIT=0` on its own line), 46 harnesses, zero `FAIL` lines, five golden verdicts, unit 571/0/2 = 573 = `func test` in source. **Reconciliation trap, new one:** a naive `passed on` grep reports 570, because xcodebuild concatenated its timing line onto one result line — count `^Test case '` lines by status, not by that phrase. Earlier the same day, exit 0 on the re-pinned goldens (`all-20260909.log`). Previous: exit 1 2026-09-08 on the candidate-count drift, closed. The background wrapper says "exit code 0" for red and green alike — read `GATE_EXIT`. |
+| `run-tests.sh all` | **NOT RUN for the v3.0.0 preparation — exit 69, the disk preflight refused (5 GB against the 8 GB floor) and the gate never started.** The background wrapper reported "exit code 0" for it; `GATE_EXIT=69` on its own line is what caught that. What DID run on the prepared tree: `tools/package-test/run.sh` **exit 0 2026-09-11** (`package-test-v3.log`), which is the gate that validates the project-file change — it asserts **version 3.0.0 (6) and the macOS 14.0 floor as the project declares**, the hardened entitlements and no Homebrew dylib path; and `inventory` exit 0. **No Swift source changed since the last green `all`** — the two commits between are docs-only and the badge fix was reverted byte-identical to `HEAD` — so the unit and scientific harnesses are unaffected by anything done since. **A green `all` is still owed before the artefact is built** and the release run needs the disk freed for it. Previous: **exit 0 — 2026-09-11, after Gate B on the D002 port** (`all-gateb-20260911.log`, `GATE_EXIT=0` on its own line), 46 harnesses, zero `FAIL` lines, unit **571 passed / 0 failed / 2 skipped = 573**, reconciled against 573 `func test` in source. The two skips are the known benign pair (`TB1StallProbeTests` needs a WS2 sidecar the owner deleted; `BookmarkResolutionLatencyTests` needs an unmounted volume). New in this run's log, not a failure: the Xcode warning that Copy Bundle Resources contains the target's own `Info.plist` (`open-items.md`). Previous: exit 0 — 2026-09-09, after the four fixes** (`v3-gate/all-fixes-20260909.log`, `GATE_EXIT=0` on its own line), 46 harnesses, zero `FAIL` lines, five golden verdicts, unit 571/0/2 = 573 = `func test` in source. **Reconciliation trap, new one:** a naive `passed on` grep reports 570, because xcodebuild concatenated its timing line onto one result line — count `^Test case '` lines by status, not by that phrase. Earlier the same day, exit 0 on the re-pinned goldens (`all-20260909.log`). Previous: exit 1 2026-09-08 on the candidate-count drift, closed. The background wrapper says "exit code 0" for red and green alike — read `GATE_EXIT`. |
 
-## Handoff — the drive, then v3.0.0
+## Handoff — the last gate, then cut v3.0.0
 
 Owner, 2026-09-09: C0–C3, C6 and C8 are closed; C7 is closed apart from the
 owner's sidecar-reopen check; the `all` gate is green. **C4(c) is committed at `1eb49c5` and driven.**
 C5's measured line rule remains in force; its next monthly extraction is
-`OperationCenter` forwarders, a separate session. No new science feature
-before the consolidation plan exits.
+`OperationCenter` forwarders, a separate session. The plan is archived
+(2026-09-11) and the feature freeze it carried has lapsed.
 
 **The review fixes are at `5d08c7d` and PUSHED** (corrected 2026-09-11: the
 line here said "not pushed" and `origin/main` had already moved; `main` and
@@ -137,19 +138,33 @@ is blind to exactly the data no one pinned, which is where drift hides.
 
 **What is left for 3.0.0, in order:**
 
-1. **The owner drives.** Agent driving is retired for now (owner, 2026-09-09):
-   synthesised clicks never actuated SwiftUI disclosures, sidebar sub-pages or
-   the Metal diffraction pane, and no macOS simulator exists to do it properly.
-   Never seen by anyone: the Strain map, Orientation/ACOM, Parallax,
-   ptychography, every `Advanced` section, the CIF import, disk-centre
-   labelling (C7's last check), the four failure paths and both Resets. Also
-   unverified: the four fixes of 2026-09-09.
-2. ~~Gate D on the accessibility defect.~~ **Does NOT block** (owner,
-   2026-09-11, `decisions.md`): deferred to a far-future release, the crash
-   stays open in `open-items.md` and no release note claims accessibility
-   support. Nothing else on this list is a blocker, so **the drive is the only
-   thing standing between here and the cut.**
-3. Then archive `consolidation-plan.md`, run the release gate, cut **3.0.0 / 6**.
+1. **The Gate B verdict on the Quantitative-badge fix**, then `run-tests.sh all`
+   and the commit. The fix is written and builds; five tests, each broken by a
+   named mutation before it was trusted. This is the last gate owed.
+2. **The `Info.plist` in Copy Bundle Resources** (`open-items.md`) — five
+   minutes, and it must happen before the artefact is built, because
+   `package-test` passes either way.
+3. **Set the version to `3.0.0` / `6`** in the project, then `docs/releasing.md`
+   end to end: build, notarize, staple, `spctl`, record the hashes. `README.md`
+   and `docs/releasing.md` are deliberately NOT updated yet — they assert
+   properties of an artefact that does not exist (the DMG, its size, its
+   notarization ticket), and this repo does not write a claim before it is
+   true. Flip README's "New in v2.5.1" to v3.0.0 and fill `releasing.md`'s
+   version line at that point, from the real run.
+
+**Driven 2026-09-11 and good** (the owner, on `downsample_Si_SiGe_exp.h5` and
+`051_STEM_SI_…bin_4`): Strain (ε_xx and ε_yy, 100 % indexed, median RMS
+0.778 px), Orientation/ACOM preview and full scan correctly badged Exploratory,
+DPC & iDPC correctly badged qualitative, Bragg disks (248 111 peaks, median 24.0,
+range 16–42), the CIF import control, and `Size as float32` in Info — which
+verifies one of the four fixes of 2026-09-09 on screen. Three refusals behaved
+exactly as they should, naming the number and the remedy: the ellipse fit
+("ring signal covers only 9 angular bins") and both Advanced memory refusals.
+
+**Still unseen on screen, and NOT blocking** (owner, 2026-09-11): Parallax and
+single-slice ptychography on real data (they refuse this machine's memory —
+`open-items.md`), the four Phase E failure paths, both Resets, and disk-centre
+labelling. Each is named in `CHANGELOG.md`'s "Known limitations at 3.0.0".
 
 **Deliberately not doing before 3.0.0** (owner, 2026-09-09, against bloat): a
 glossary or tooltip layer; the WS2 display-contrast problem (disks sit at 0.19 %
@@ -167,7 +182,8 @@ the duplicate ⌘R / ⌘↩; and any further driving rigs.
   label findings, the two minors, the compressible headers and the remembered
   divider all landed 2026-09-05 with tests and no screen time. The drive above
   covers them.
-- **The science lane, one item at a time — nothing here until the plan exits.**
+- **The science lane, one item at a time.** The plan is archived, so this is
+  open again; take one item, in the order below.
   What landed 2026-09-05 through Gate B is in `closed-items-2026-09.md` and
   `q-calibration-design.md` §8–9. Still open: the probe-size under-read on
   ring-shaped probes and the owner's drive of the bullseye maps; ACOM coverage

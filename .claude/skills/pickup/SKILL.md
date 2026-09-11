@@ -9,7 +9,7 @@ description: Start the next mac4DSTEM development target from docs/status.md. Us
 Targets come from three lists: bugs the owner reports (each through
 `/diagnose`), `docs/open-items.md` (defects, debts, open questions), and
 `docs/v3-plan.md` (features, pre-registered before they are built) — and,
-while it is live, `docs/consolidation-plan.md` §6: gates C0–C8, each with an
+the consolidation plan closed 2026-09-11 (`docs/archive/consolidation-plan.md` §6: gates C0–C8, each with an
 exit criterion, executed in order before any feature (owner, 2026-09-07).
 This skill only makes sure you enter them correctly.
 
@@ -22,10 +22,10 @@ This skill only makes sure you enter them correctly.
    decision, a data file — and it is not in the conversation, do the parts
    that don't need it, then stop and say exactly what is needed. Never guess
    the user's answer to keep an unattended run moving.
-   A consolidation gate is a target ("/pickup C1"); its gate is the exit
-   criterion written in the plan, and it is done only when that criterion
-   is met and recorded in `status.md`. Until the plan is archived, a
-   feature target is refused, with the reason.
+   The consolidation plan closed 2026-09-11, so a feature target is no
+   longer refused: a v3 feature is a target, pre-registered and built the
+   way `docs/v3-plan.md` §6 says. A closed consolidation gate ("/pickup C1")
+   is history now — read it in `docs/archive/consolidation-plan.md`.
    **A red gate outranks a verification gate** (2026-09-09): when the plan's
    first failing exit criterion needs the owner's eye and the handoff also
    names a defect blocking the release, take the defect — it is the one a
