@@ -158,7 +158,7 @@ final class CIFImportTests: XCTestCase {
 
     // MARK: - Rejected point group
 
-    func testOrthorhombicCellImportsUnreducedAndRefusesOrientationMapping() {
+    func testOrthorhombicCellImportsUnreducedAndRefusesOrientationMapping() throws {
         let cif = """
         data_orthorhombic
         _cell_length_a 5.0

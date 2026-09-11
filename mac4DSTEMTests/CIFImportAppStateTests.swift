@@ -98,21 +98,46 @@ final class CIFImportAppStateTests: XCTestCase {
 
     // MARK: - Error routing: specific CIFImportError message, modal path
 
-    func testRejectedPointGroupSurfacesSpecificMessageOnTheModalPath() throws {
+    /// BEHAVIOUR CHANGED 2026-09-11/12. This used to assert that a
+    /// non-cubic/non-hexagonal CIF was REFUSED at import with a modal error.
+    /// It now imports as `.identity` — "Unreduced" — because phase
+    /// identification needs a structure, not a point group, and β″ in Al-Mg-Si
+    /// is monoclinic C2/m (`docs/v3-vector-matching-plan.md` step 0).
+    ///
+    /// What replaces the refusal is a REFUSAL FURTHER ALONG, and this test now
+    /// pins that instead: the model loads and appears in the picker, but it
+    /// cannot drive ACOM, and the app says why. Without that second half,
+    /// `ACOMCrystalSymmetry.identity.ipfColor` would return |x|,|y|,|z| as RGB
+    /// — not a wrong IPF key but no key at all, wearing the look of one.
+    func testUnreducedCellImportsButCannotDriveOrientationMapping() throws {
         let state = AppState()
         let url = try writeTempCIF(orthorhombicCIF, named: "ortho")
 
         state.importCrystalModel(from: url)
 
-        XCTAssertTrue(state.acomSession.importedCrystalModels.isEmpty,
-                       "a rejected import must not be added to the picker")
-        XCTAssertEqual(state.acomSession.modelSelection, .none,
-                        "a failed import must not change the current selection")
-        let message = try XCTUnwrap(state.errorMessage,
-            "a bad CIF is a file-open failure, which uses the modal path (present), not the status-bar-only compute-failure path")
-        XCTAssertTrue(message.contains("not cubic or hexagonal"),
-                       "the point-group rejection must name the reason, not read as a generic failure: \(message)")
-        XCTAssertTrue(state.statusText.contains(message))
+        XCTAssertNil(state.errorMessage, "an Unreduced cell is no longer a file-open failure")
+        let model = try XCTUnwrap(
+            state.acomSession.importedCrystalModels.first,
+            "the structure must load — phase identification needs it"
+        )
+        XCTAssertEqual(model.symmetry, .identity)
+        XCTAssertTrue(model.isUsable, "the crystal itself is valid")
+
+        // The refusal that replaces the import-time one.
+        XCTAssertFalse(model.supportsOrientationMapping)
+        state.acomSession.modelSelection = .imported(model.id)
+        XCTAssertNil(
+            state.resolvedACOMModel,
+            "ACOM must not accept a model whose orientation it cannot reduce"
+        )
+        let issue = try XCTUnwrap(
+            state.acomModelSelectionIssue,
+            "and it must say why, rather than silently offering nothing"
+        )
+        XCTAssertTrue(
+            issue.contains("cubic nor hexagonal"),
+            "the refusal must name the reason: \(issue)"
+        )
     }
 
     func testUnreadableFileAlsoRoutesToTheModalPath() {
