@@ -292,6 +292,8 @@ struct PrimaryActionButton: View {
             // (`ParallaxStageSections`), so the toolbar offers no button
             // rather than a permanently disabled "Reconstruction Ready" one.
             else { nil }
+        case .aiAnalysis:
+            "Group Patterns"
         case .results:
             nil
         }
@@ -314,6 +316,8 @@ struct PrimaryActionButton: View {
             case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
             default: "Runs the next incomplete parallax stage."
             }
+        case .aiAnalysis:
+            "Runs PCA and k-means over every scan position's diffraction pattern."
         case .results: "Adds the visible result to the reusable dataset session."
         }
     }

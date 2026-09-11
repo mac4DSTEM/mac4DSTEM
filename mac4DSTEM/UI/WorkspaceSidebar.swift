@@ -192,6 +192,7 @@ struct WorkspaceSidebar: View {
             appState.replay.record.steps.contains { $0.kind == "virtual_detector" }
         case .dpc:
             appState.replay.record.steps.contains { $0.kind == "dpc" }
+        case .diffractionGroups: appState.diffractionGroups.result != nil
         case .ptychography, .singleslicePtychography: false
         }
     }

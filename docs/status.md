@@ -275,8 +275,54 @@ Gate: `unit` exit 0, **600 passed / 0 failed**. The gate refused with exit 69 at
 and the owner's authorised remedy (delete `DerivedData`, retry) restored 8 GB
 and the gate passed.
 
-**NEXT: the `aiAnalysis` workspace + step 9**, now unblocked. Steps 5-7 do not
-happen this run: see the second-round decisions in `decisions.md`.
+**Landed — step 9: the AI Analysis workspace, with diffraction grouping in it.**
+The sixth room ships **with its occupant**, never empty. `WorkspaceArea`
+gains `.aiAnalysis` ("AI Analysis", `sparkles`, "Group scan positions by
+diffraction similarity"), `AnalysisMode` gains `.diffractionGroups` — in
+`ProductWorkflow.swift`, outside both budgeted files, which is what step 1
+bought. `Session/DiffractionGroupsProduct.swift` owns the state;
+`App/AppState+DiffractionGroups.swift` is its only writer; `UI/
+DiffractionGroupsSettings.swift` mounts under a freshly written
+`UI/AIAnalysisSettings.swift`.
+
+**`AIAnalysisSettings` was written, not ported.** The branch's version hosted a
+learned-disks case that v3.0.0 retired into the Disks room, and a precipitates
+section that does not ship this run. Porting it would have re-landed a panel
+for a capability that lives elsewhere and one that has not met its gate.
+
+**`fourD` was NOT widened.** The branch takes `private` → `private(set)`, which
+is net-zero lines and exactly what `AppState.swift`'s own comment forbids
+("deliberately not the array … exposing them separately is what let three
+readers ignore the descriptor"). Instead a narrow `cubeAndDescriptor` accessor
+returns the PAIR, which is what that comment prescribes.
+
+**C5: 7492 → 7407.** Paid with the pre-registered Lever 2 —
+`currentScalarResultMetadata` moved from `Support/ResultExport.swift` to a new
+`Support/ResultMetadata.swift`. That is a **file-placement move, not the
+consolidation it resembles**: it stays an `extension AppState` because it reads
+`virtualShape`, `dpcDisplay`, `strain.component`, `acomSession` and more, so it
+cannot join the `extension AnalysisMode` tables the way `AnalysisMode` did.
+`Results` moves off Cmd-5 to Cmd-6, the cost the owner accepted.
+
+Gates: `xcodebuild build` exit 0; `unit` exit 0, **602 passed / 0 failed**;
+`core` exit 0; `inventory` exit 0. Both new tests broken before trusted —
+routing grouping into Imaging kills the ownership test, and giving it a
+prerequisite kills the other.
+
+**UNVERIFIED ON SCREEN.** Nothing here has been seen running. On-screen
+verification is the owner driving the app (`CLAUDE.md`; Track B retired
+2026-09-03), and any defect he finds enters through `/diagnose`, never as an
+app change made to satisfy a checklist. Specifically worth his eye: the new
+room's position and icon in the sidebar; Cmd-5/Cmd-6 having moved; the Group
+Patterns button and its progress; and that switching away from AI Analysis and
+back does **not** re-show a computed group map — `runCurrentAnalysis` returns
+`break` for this task, because a whole-scan PCA + k-means must never be a
+default action. Strain and ACOM do re-show. Whether grouping should too is his
+call, not a guess made without seeing it.
+
+**The port is complete for this run.** Steps 5-7 (precipitates wired) did not
+happen and are blocked on one thing: the Al-Si-Mg hand count. See
+`archive/v3/precipitate-baseline-2026-09-11.md`.
 
 **Two things that stay true however cleanly the files move:**
 

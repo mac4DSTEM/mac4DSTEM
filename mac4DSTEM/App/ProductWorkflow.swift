@@ -12,6 +12,11 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     case image
     case map
     case reconstruct
+    // The sixth room (owner, 2026-09-11, `docs/decisions.md`). The five above
+    // are named by OUTCOME (D1, 2026-09-01); this one is named by its method,
+    // against that rule and knowingly — the owner chose it because the
+    // capability with no py4DSTEM equivalent should be findable as what it is.
+    case aiAnalysis
     case results
 
     var id: String { rawValue }
@@ -29,6 +34,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         // method's name four times in one sidebar column.
         case .map: "Strain & ACOM"
         case .reconstruct: "Phase"
+        case .aiAnalysis: "AI Analysis"
         case .results: "Results"
         }
     }
@@ -39,6 +45,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .image: "Form BF, ADF, or custom virtual images"
         case .map: "Detect Bragg disks, then strain and orientation"
         case .reconstruct: "DPC, parallax, and ptychography"
+        case .aiAnalysis: "Group scan positions by diffraction similarity"
         case .results: "Review, save, and export products"
         }
     }
@@ -49,6 +56,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .image: "camera.filters"
         case .map: "map"
         case .reconstruct: "waveform.path.ecg.rectangle"
+        case .aiAnalysis: "sparkles"
         case .results: "square.grid.2x2"
         }
     }
@@ -63,6 +71,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         // The phase-contrast family, together — every member needs only
         // voltage and geometry, none needs Bragg vectors (§3.3 grammar).
         case .reconstruct: [.dpc, .ptychography, .singleslicePtychography]
+        case .aiAnalysis: [.diffractionGroups]
         }
     }
 
@@ -108,6 +117,9 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     /// own task — it needs the datacube and calibration, never a parallax stage.
     case singleslicePtychography = "Single-slice ptycho"
     case acom = "ACOM"
+    /// Classical PCA + k-means over box-binned diffraction patterns — the
+    /// baseline grouping, with no learned component.
+    case diffractionGroups = "Diffraction groups"
 
     var id: String { rawValue }
     var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
@@ -196,7 +208,8 @@ extension AnalysisMode {
         switch self {
         case .disks: .producesBraggVectors
         case .strain, .acom: .requiresBraggVectors
-        case .virtualDetector, .dpc, .ptychography, .singleslicePtychography: .phaseContrast
+        case .virtualDetector, .dpc, .ptychography, .singleslicePtychography,
+             .diffractionGroups: .phaseContrast
         }
     }
 
@@ -211,6 +224,7 @@ extension AnalysisMode {
         case .disks: "disk_detection"
         case .strain: "strain"
         case .acom: "acom"
+        case .diffractionGroups: "diffraction_groups"
         case .ptychography, .singleslicePtychography: nil
         }
     }
@@ -223,6 +237,7 @@ extension AnalysisMode {
         // voltage-only contract with parallax/ptychography, not the
         // zero-prerequisite contract of virtual imaging.
         case .dpc, .ptychography, .singleslicePtychography: .reconstruct
+        case .diffractionGroups: .aiAnalysis
         }
     }
 
@@ -235,6 +250,7 @@ extension AnalysisMode {
         case .ptychography: "Parallax"
         case .singleslicePtychography: "Single-slice ptychography"
         case .acom: "Orientation"
+        case .diffractionGroups: "Diffraction groups"
         }
     }
 
@@ -247,6 +263,7 @@ extension AnalysisMode {
         case .ptychography: "Align bright-field images, fit aberrations, correct phase, section depth"
         case .singleslicePtychography: "Iterative object and probe reconstruction from the full datacube"
         case .acom: "Match crystal orientation and reliability"
+        case .diffractionGroups: "Group scan positions by diffraction-pattern similarity"
         }
     }
 
@@ -259,6 +276,7 @@ extension AnalysisMode {
         case .ptychography: "waveform.path.ecg"
         case .singleslicePtychography: "circle.hexagongrid"
         case .acom: "cube.transparent"
+        case .diffractionGroups: "circle.grid.3x3.fill"
         }
     }
 }
@@ -418,6 +436,11 @@ enum ProductWorkflow {
             return Aperture.replayParameters(shape: virtualDetectorShape, aperture: aperture)
         case .dpc:
             return ["origin_reference": dpcOriginReference]
+        case .diffractionGroups:
+            // The run is reproducible from its own Settings alone: it reads
+            // the raw cube and needs no calibration, no origin and no Bragg
+            // vectors, so nothing outside this task can make it stale.
+            return nil
         case .disks:
             guard let diskKernel else { return nil }
             return diskParams.replayParameters(kernel: diskKernel)
@@ -438,7 +461,9 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [TaskPrerequisite] {
         switch mode {
-        case .virtualDetector, .dpc:
+        case .virtualDetector, .dpc, .diffractionGroups:
+            // Needs the cube and nothing else: no origin, no rotation, no
+            // Bragg vectors. The empty list is the whole contract.
             return []
         case .disks:
             // v2.5 step 5a: the tools panel's private gate joins the one list,
@@ -565,7 +590,8 @@ enum ProductWorkflow {
         readiness: ProductWorkflowReadiness
     ) -> [String] {
         switch mode {
-        case .virtualDetector, .ptychography, .singleslicePtychography:
+        case .virtualDetector, .ptychography, .singleslicePtychography,
+             .diffractionGroups:
             return []
         case .disks:
             return readiness.wantsLearnedDetector
@@ -620,7 +646,7 @@ enum ProductWorkflow {
             return readiness.hasBraggVectors
                 ? "Next: review and export in Results."
                 : nil
-        case .reconstruct, .results:
+        case .reconstruct, .aiAnalysis, .results:
             return nil
         }
     }

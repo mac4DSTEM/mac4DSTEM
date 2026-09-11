@@ -90,13 +90,44 @@ final class ProductWorkflowTests: XCTestCase {
         }
     }
 
+    // MARK: - The sixth room (owner, 2026-09-11)
+
+    /// `AI Analysis` exists, carries exactly one task, and that task is routed
+    /// only here. `testEveryAnalysisHasOneProductWorkspace` above already
+    /// guarantees every mode is routed to exactly one area; this pins WHICH,
+    /// so moving diffraction grouping into another room is a deliberate edit
+    /// rather than a silent one.
+    func testAIAnalysisOwnsDiffractionGroupingAndNothingElse() {
+        XCTAssertEqual(WorkspaceArea.aiAnalysis.analysisModes, [.diffractionGroups])
+        XCTAssertEqual(AnalysisMode.diffractionGroups.workspaceArea, .aiAnalysis)
+        XCTAssertEqual(WorkspaceArea.aiAnalysis.defaultAnalysisMode, .diffractionGroups)
+        for area in WorkspaceArea.allCases where area != .aiAnalysis {
+            XCTAssertFalse(
+                area.analysisModes.contains(.diffractionGroups),
+                "\(area.title) must not also claim diffraction grouping"
+            )
+        }
+    }
+
+    /// Grouping needs the cube and nothing else — no origin, no R–Q rotation,
+    /// no Bragg vectors. A prerequisite appearing here would gate a task that
+    /// has none, and the room would look broken on a freshly opened dataset.
+    func testDiffractionGroupingHasNoPrerequisites() {
+        XCTAssertTrue(
+            ProductWorkflow.prerequisites(
+                for: .diffractionGroups, readiness: ProductWorkflowReadiness()
+            ).isEmpty,
+            "grouping needs only the cube; a default (nothing calibrated) readiness must gate nothing"
+        )
+    }
+
     func testPrimaryNavigationUsesUserOutcomes() {
         // S22c re-cut: the five steps follow the physics families — Imaging
         // (no prerequisites), Bragg (disks → strain/orientation), Phase
         // (voltage-only: DPC first, ptychography behind it).
         XCTAssertEqual(
             WorkspaceArea.allCases.map(\.title),
-            ["Prepare", "Imaging", "Strain & ACOM", "Phase", "Results"]
+            ["Prepare", "Imaging", "Strain & ACOM", "Phase", "AI Analysis", "Results"]
         )
         XCTAssertEqual(WorkspaceArea.image.defaultAnalysisMode, .virtualDetector)
         XCTAssertEqual(WorkspaceArea.map.defaultAnalysisMode, .disks)

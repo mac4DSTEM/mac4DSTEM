@@ -1177,6 +1177,8 @@ struct RealSpacePane: View {
             "Run ACOM after detecting Bragg disks and choosing a material"
         case .ptychography, .singleslicePtychography:
             "Prepare the parallax preview to begin reconstruction"
+        case .diffractionGroups:
+            "Run Group Patterns to sort scan positions by diffraction similarity"
         }
     }
 }

@@ -95,6 +95,16 @@ final class AppState {
     /// exposing them separately is what let three readers ignore the descriptor.
     var loadView: LoadView? { fourD?.view }
 
+    /// The cube and the descriptor it must be read with, TOGETHER — never
+    /// separately, for the reason `loadView` above gives. The alternative was
+    /// widening `fourD` to `private(set)`, which is net-zero lines and exactly
+    /// what that comment forbids. `AppState+DiffractionGroups` is the only
+    /// consumer outside this file.
+    var cubeAndDescriptor: (FourDArray, DatasetDescriptor)? {
+        guard let fourD, let descriptor else { return nil }
+        return (fourD, descriptor)
+    }
+
     /// Whether the open cube is held in memory, and the preload's progress.
     /// Owned by its own type, with no forwarding properties on `AppState` —
     /// see `DatasetResidency.swift` for why. Views read `residency.…`.
@@ -190,6 +200,7 @@ final class AppState {
     /// (docs/development-process.md §7) — see `Session/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
+    let diffractionGroups = DiffractionGroupsProduct()
     /// The last reciprocal-pixel calibration attempt — S13's seam
     /// (docs/development-process.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
@@ -716,7 +727,7 @@ final class AppState {
         switch navigation.analysisMode {
         case .disks: .detector
         case .ptychography, .singleslicePtychography: .reconstruction
-        case .virtualDetector, .dpc, .strain, .acom: .scan
+        case .virtualDetector, .dpc, .strain, .acom, .diffractionGroups: .scan
         }
     }
 
@@ -1360,6 +1371,8 @@ final class AppState {
             } else if parallaxSubpixel == nil {
                 await upsampleParallaxBF()
             }
+        case .aiAnalysis:
+            await runDiffractionGroups()
         case .results:
             break
         }
@@ -2386,6 +2399,9 @@ final class AppState {
         // under this reset's "rotation not calibrated" claim (Gate B finding 3,
         // 2026-08-25).
         strain.clear()
+        // Same reasoning again: a group map is scan-indexed, so dataset A's
+        // groups must not survive into dataset B's Results slot.
+        diffractionGroups.clear()
         // Same reasoning as `strain.clear()` above, one layer simpler: a Q
         // estimate and its self-check verdict describe dataset A's shells and
         // must not survive into dataset B's panel. // v2 S13
@@ -3011,6 +3027,8 @@ final class AppState {
             if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
             if acomSession.orientationMap != nil { applyACOMDisplay() }
+        case .diffractionGroups:
+            break   // whole-scan PCA + k-means is explicit, never the default action
         }
     }
 
