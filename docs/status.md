@@ -139,8 +139,43 @@ and whether its branch tests are Swift-against-Swift with no reference — in
 which case the science is unverified no matter how cleanly the files move.
 **Answer that before quoting any number from these features.**
 
-**An analysis workflow was running when the session ended and its result was
-not read.** Don't wait for it; re-run or do the analysis directly.
+**The analysis mostly completed and is salvaged** — six area maps and 19
+verifications, in
+[`archive/2026-09-11-ai-port-analysis.md`](archive/2026-09-11-ai-port-analysis.md).
+Only the synthesis did not run, so that file is evidence, not a plan; the next
+session writes the plan from it. **Rows not marked with a Verifier line are
+leads, not facts.** What it already establishes, and what it turns into owner
+decisions:
+
+- **`main` has no AI Analysis workspace.** `WorkspaceArea` is
+  prepare/image/map/reconstruct/results (`App/ProductWorkflow.swift:10-15`); the
+  branch's UI hangs off a `.aiAnalysis` area that does not exist here, and the
+  branch gates live learned rings on it. **Owner decision: does v3.1 add a sixth
+  workspace, or do precipitates and grouping live inside Map?** Nothing can be
+  ported until this is answered — it decides where the UI lands.
+- **The embedding needs LAPACK, and the branch bought it with `.unsafeFlags`**
+  (`-Xcc -DACCELERATE_NEW_LAPACK` in `Package.swift`). That flag changes how ALL
+  of DSTEMCore compiles and **permanently forbids the package being consumed as
+  a dependency**. It also silently breaks `tools/bragg-spacing-probe/run.sh`,
+  which nothing gates. **Owner decision, and it is a policy one, not a patch.**
+- **Dropping the branch's disk-label trio is clean.** Verified: `main` has zero
+  occurrences of `DiskLabelStore` / `diskLabels` / `mac4dstem_disk_labels`, and
+  nothing in the port scope references them. Neither Gate D trigger applies.
+  But **confirm the dropped capability is unwanted first** — main's store cannot
+  express a rejection verdict on a machine-proposed candidate *set*, which is
+  exactly what fine-tuning on your clicks would want. That is the one thing
+  worth re-adding deliberately rather than losing by omission.
+- **The AppState rule bites, measured:** the branch's `AppState.swift` diff is
+  **+280 lines** against a rule that allows zero. Its bodies must be rewritten
+  into `Session/` owners before anything lands.
+- **Do not port:** the branch's `LearnedDiskRows` (duplicates what main shipped
+  at `UI/MapSettings.swift:104-138`), its `BraggVectorEMDWriter` hunks (main has
+  the identical mechanism under `diskCentreLabelsJSON`), and the
+  `source-copy/**` tree. Keep `LearnedDiskDetector.defaultThreshold` (0.7) —
+  never hardcode the branch's literal.
+- **One branch test is worth porting even though its implementation is not:**
+  `mac4DSTEMTests/ProductWorkflowTests.swift:850-878`
+  (`AIAnalysisDetectorChoiceTests`).
 
 ## Closed 2026-09-11 — v3.0.0 is cut and pushed
 
