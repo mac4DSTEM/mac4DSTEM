@@ -1118,3 +1118,30 @@ is — so `.identity` may cost search time rather than correctness, and
 orientation half alone. **Test it before relying on it.** Multi-phase for
 precipitates also does not need grain segmentation; the plan pairs those for
 polycrystal work and a precipitate is not a grain.
+
+**2026-09-12 — the `unit` free-space floor drops 8 GB → 4 GB, on a
+measurement (owner asked: "lower the floor to 6 GB?").** Not to 6, and not by
+guess. Sampling free space every 3 s through a full
+`-only-testing:mac4DSTEMTests` run measured **peak consumption 1245 MB**, and
+the suite completed **602 passed / 0 failed with 7 GB free** — below the floor
+that had been refusing to start it. The floor was blocking work it did not need
+to block, and `run-tests.sh`'s own comment already admitted the floors were
+"deliberately margin, not measurement".
+
+4 GB is 3.2x the measured peak and is the value `scientific` and `benchmark`
+already use, so this aligns the floors rather than inventing a weaker one. The
+failure mode the floor exists for — a near-full disk producing varied spurious
+failures, three different failure sets in three runs on 2026-08-06 — needs the
+disk to actually fill during a run, which 4 GB against a 1.2 GB peak prevents.
+
+**`all` and `campaign` keep 8 GB.** They add the scientific harnesses,
+package-test and real-data-acceptance on top of the unit suite and nobody has
+measured their peak. Lowering an unmeasured floor is exactly the guess this
+change is refusing to make.
+
+**What was NOT done, and why.** Moving `References/training_dataset` (7.1 GB)
+off the internal disk would free far more, and nothing gated depends on it —
+`real-data-acceptance` skips cleanly when it is absent and every other consumer
+is `diagnostic`. It was not proposed as a destination because the only mounted
+volume is the Time Machine backup drive, and working data does not belong on a
+backup destination.

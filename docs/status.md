@@ -339,16 +339,22 @@ limit as a validation issue, which cannot work — `CIFImport.crystalModel` thro
 loaded and the change would have achieved nothing but a better error message. It
 is a capability limit, not a structural defect.
 
-> **THE UNIT GATE IS OWED, and it is a DISK event, not a test result.** Free
-> space is 6-7 GB against `run-tests.sh`'s hard 8 GB floor. The authorised
-> remedy (delete `DerivedData`) was applied twice and is **exhausted** — it was
-> already empty the second time — and clearing this session's own build
-> artefacts recovered 1 GB, still short. Time Machine local snapshots are
-> already gone. The volume holds 190 GB of 228, the owner's own data. What did
-> run: `xcodebuild build` 0, `core` 0, `inventory` 0 (C5 flat at 7407), and a
-> standalone probe on the real CIF. **No test count is quoted anywhere, because
-> none was run.** First thing on the owner's return: free a couple of GB and run
-> `tools/run-tests.sh unit`.
+**The owed gate has RUN: `unit` exit 0, 602 passed / 0 failed.** It exposed
+that `ee2221c` was committed with the test target broken — `xcodebuild build`
+compiles the APP target, not the tests, so a `try` left in a non-throwing test
+function was invisible to it. Two tests that pinned the old import refusal now
+pin the refusal that replaced it, renamed to match what they assert.
+
+**The `unit` free-space floor is 4 GB, measured (2026-09-12).** The owner asked
+whether to lower it to 6. Answered with a measurement instead: sampling free
+space every 3 s through a full run gives a **peak consumption of 1245 MB**, and
+the suite completed **602/0 with 7 GB free** — below the 8 GB floor that had
+been refusing to start it. The floor was blocking work it did not need to
+block, and `run-tests.sh`'s own comment already called the floors "deliberately
+margin, not measurement". 4 GB is 3.2x the measured peak and is what
+`scientific` and `benchmark` already use, so this aligns them. **`all` and
+`campaign` keep 8** — they add harnesses nobody has measured, and lowering an
+unmeasured floor is the guess this change refuses to make.
 
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
