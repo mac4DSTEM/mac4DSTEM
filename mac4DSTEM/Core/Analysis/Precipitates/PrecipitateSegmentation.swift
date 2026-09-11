@@ -54,7 +54,7 @@ package nonisolated enum PrecipitateSegmentation {
         /// object: on the noise-free needle fixture the mask runs ~2x the
         /// drawn bar, because the ridge response spreads past the object's
         /// own edges (open question for the owner, recorded in
-        /// `docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md` §area). `lengthPx`/`widthPx` are measured on
+        /// `docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md` §area). `lengthPx`/`widthPx` are measured on
         /// the narrower half-maximum footprint instead, so `area` is NOT
         /// `lengthPx * widthPx`.
         package let area: Int
@@ -78,7 +78,7 @@ package nonisolated enum PrecipitateSegmentation {
         /// `PrecipitateReflections.Candidate.rowIdentity`. The two `Int` id
         /// spaces overlap, so a shared `ForEach(id: \.id)` inside one
         /// `Section` let the reflection rows claim ids 1…23 and hide the
-        /// objects with those ids (`docs/archive/v3/precipitate-gateD-2026-09-06/gateD-P6.md`).
+        /// objects with those ids (`docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
         package nonisolated var rowIdentity: String { "precipitate.object.\(id)" }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

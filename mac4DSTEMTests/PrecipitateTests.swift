@@ -278,7 +278,7 @@ final class PrecipitateTests: XCTestCase {
     /// half-maximum one) both survived the 2026-09-06 Gate B run.
     ///
     /// The numbers pinned here are the MEASURED ones, and two of them are
-    /// not the drawn ones — see `docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md`:
+    /// not the drawn ones — see `docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md`:
     ///   * `widthPx` reads ~4 for a drawn 3 because the extents are
     ///     centre-to-centre spans plus 1, and that +1 is exact only when the
     ///     object's axis is axis-aligned. The assertion below proves that is
@@ -335,13 +335,13 @@ final class PrecipitateTests: XCTestCase {
             needle.widthPx, drawnCentreSpan + 1, accuracy: 0.35,
             "width \(needle.widthPx) is not the drawn bar's pixel-centre span "
             + "(\(drawnCentreSpan)) plus the end-to-end +1 — the cause established in "
-            + "docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md §width no longer explains it"
+            + "docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md §width no longer explains it"
         )
-        // OPEN QUESTION (docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md §width): recorded, not endorsed.
+        // OPEN QUESTION (docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md §width): recorded, not endorsed.
         XCTAssertGreaterThan(
             needle.widthPx, drawnWidth,
             "width \(needle.widthPx) against a drawn \(drawnWidth) — read "
-            + "docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md §width before changing this"
+            + "docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md §width before changing this"
         )
         XCTAssertLessThan(needle.widthPx, drawnWidth + 1.2, "width \(needle.widthPx)")
 
@@ -349,7 +349,7 @@ final class PrecipitateTests: XCTestCase {
         // No ratio is pinned here: on a perfectly empty field the robust
         // threshold degenerates (median 0, MAD 0, so it collapses to "any
         // positive ridge response") and the mask runs ~47x the drawn bar — an
-        // artefact of the fixture, recorded in docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md §threshold.
+        // artefact of the fixture, recorded in docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md §threshold.
         // The realistic ratio is pinned by
         // `testNeedleMaskFootprintExceedsTheDrawnBar`.
         XCTAssertEqual(needle.area, needle.pixelIndices.count, "area must be the object's own pixel count")
@@ -418,7 +418,7 @@ final class PrecipitateTests: XCTestCase {
     /// it runs well above the drawn bar because the ridge response spreads
     /// past the object's edges. This pins the band so the number cannot drift
     /// unnoticed, and names the open question rather than blessing it —
-    /// `docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md` §area, and `Object.area`'s doc comment.
+    /// `docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md` §area, and `Object.area`'s doc comment.
     func testNeedleMaskFootprintExceedsTheDrawnBar() {
         let image = Self.buildFixture()
         let objects = PrecipitateSegmentation.segment(image: image, validity: nil, settings: needleSettings())
@@ -434,7 +434,7 @@ final class PrecipitateTests: XCTestCase {
             XCTAssertGreaterThan(
                 ratio, 1.3,
                 "needle \(spec.name): mask \(match.area) px vs drawn \(drawn) px, ratio \(ratio) "
-                + "— OPEN QUESTION (docs/archive/v3/precipitate-gateD-2026-09-06/gateD-C3.md §area): `area` is the mask footprint, "
+                + "— OPEN QUESTION (docs/archive/v3/ai-gateD-2026-09-06/gateD-C3.md §area): `area` is the mask footprint, "
                 + "not the object's drawn area"
             )
             XCTAssertLessThan(

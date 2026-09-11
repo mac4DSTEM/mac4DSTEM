@@ -37,7 +37,7 @@ package nonisolated enum PrecipitateReflections {
         /// the bare `Int` id the two overlapped — candidates 0…23, objects
         /// 1…44 — and the objects table drew the reflection rows for 1…23,
         /// hiding objects #1…#23 (owner's drive 2026-09-06,
-        /// `drive-precipitates` defect 6; `docs/archive/v3/precipitate-gateD-2026-09-06/gateD-P6.md`).
+        /// `drive-precipitates` defect 6; `docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
         package nonisolated var rowIdentity: String { "precipitate.reflection.\(id)" }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

@@ -45,6 +45,40 @@ imputation strategy recovers this; the information is gone from the input. The
 honest fix is to report the imputed count, not to hide it. Owner: report or
 refuse.
 
+### One non-finite detector pixel kills the process — blocks wiring
+`Core/Analysis/DiffractionEmbedding.swift`, found by Gate B 2026-09-11 and
+reproduced independently. Chain, each link executed: a NaN or +Inf detector
+pixel → NaN binned entry → NaN covariance → **`dsyevd_` returns `info == 0`**
+at the shipped default (`binnedSize` 16 → `dims` 256; at `dims` 16 it returns 0
+components, so the apparent guard is dimension-dependent) → NaN basis →
+`totalVariance > 0` is false so `explainedVariance` publishes **0.0 for every
+component**, a plausible-looking "0 % explained" rather than an error → NaN
+coordinates → `kMeans` :629-646: `minDistances` start at `.infinity`,
+`dist < minDistances[i]` is false for NaN so they stay infinite, `total <= 0`
+does not catch it, and **`Double.random(in: 0..<.infinity)` traps**. Verified
+standalone: exit **133** (SIGTRAP) and under `-O` the process prints nothing at
+all — stdout never flushes, so it dies with no message. `-Inf` alone is safe
+(`embed`'s `max(buf, 0)` clamps it; NaN and +Inf are not clamped).
+`DPC.swift`, `DiskDetection.swift` and `FitOverlays.swift` all guard `.isFinite`
+on their inputs; this file guards only LAPACK's workspace query. **Do not wire
+diffraction grouping until this is fixed** — wiring is what makes it reachable.
+
+### The embedding suite says almost nothing about `coordinates`
+Same Gate B. `coordinates` is the array BOTH exported quantities (cosine
+similarity, k-means groups) are built from, and
+`grep -n "\.coordinates" mac4DSTEMTests/DiffractionEmbeddingTests.swift`
+returns exactly ONE line: an `allSatisfy(\.isFinite)` check. Two mutations
+leave all 7 tests green while moving every exported number: dropping the
+mean-centring in the projection (PC1 score moves 77 %; cosine similarity
+-0.5946 → -0.0406) and reversing the projection column order (the column an
+export labels "PC1" carries PC8). The k-means and cosine tests are invariant
+under an additive offset, a column permutation and a uniform scale, which is
+why both sail through. Fix: `testPublishedBasisAreEigenpairsOfTheMeanCentred‐
+Covariance` already owns an independent `referenceBinnedVector` — assert
+`coordinates[p*k+c] == dot(referenceBinnedVector(p) - mean, basis[c])` for
+several (p, c). Proof obligation: BOTH mutations must go red, not just the
+mean-centring one.
+
 ### The robust-sigma constant and the fill statistic are unpinned
 Pre-existing, inherited with the port, found by Gate B. `1.4826 * mad`
 (`PrecipitateSegmentation.swift:305`) can be changed to `3.0 * mad` — a +102 %

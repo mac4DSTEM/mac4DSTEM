@@ -160,7 +160,7 @@ passed / 0 failed, every scientific harness passed, `comparator-test` 46/0,
 plus `mac4DSTEMTests/PrecipitateTests.swift` (first class only). No production
 caller exists — every call site is in the tests, verified by grep. The four
 Gate D memos the branch cited but neither tree held are now committed under
-[`archive/v3/precipitate-gateD-2026-09-06/`](archive/v3/precipitate-gateD-2026-09-06/):
+[`archive/v3/ai-gateD-2026-09-06/`](archive/v3/ai-gateD-2026-09-06/):
 `References/training_runs/` is gitignored but **retained**, unlike `scratchpad/`,
 so the port analysis's "the evidence is gone" was wrong here.
 
@@ -223,9 +223,40 @@ Gate: `unit` exit 0, **590 passed / 0 failed**. The test's own first version was
 wrong and the engine was not — a 6 px match window scored the two deliberately
 edge-clipped needles MISSED and reported a false 4/6 for both arms.
 
-**NEXT: the `aiAnalysis` workspace, then steps 8-9** (DiffractionEmbedding and
-diffraction grouping). Steps 5-7 do not happen this run: see the second-round
-decisions in `decisions.md`.
+**Landed — step 8, `DiffractionEmbedding` Core + its tests, UNWIRED.** PCA on
+box-binned patterns then k-means, 708 lines. **No functional edit was made** —
+citation rewrites and one header correction only, so **neither Gate D trigger
+applies**. The branch header claimed "this session could not build, so nothing
+here was run against a compiler"; true at `a97e920`, false by `b61ea73`, and
+false here, so it is gone. The second and third test classes stay on the branch
+— they construct `DiffractionGroupsProduct`, which lands with the wiring. All 7
+ported tests run, including the two that are genuine independent ground truth
+(a planted spectrum recovered to 1e-8, and the covariance rebuilt through an
+independent re-implementation).
+
+The four Gate D memos moved from `archive/v3/precipitate-gateD-2026-09-06/` to
+[`archive/v3/ai-gateD-2026-09-06/`](archive/v3/ai-gateD-2026-09-06/): only two
+of the four are about precipitates — C1 is the PCA eigen solver, A2 is
+learned-detection threading — so the name committed at step 3 was misleading.
+
+**Gate B found a crash, and it changes what step 9 may do.** One NaN or +Inf
+detector pixel kills the process: `dsyevd_` returns `info == 0` on a NaN
+covariance at the shipped default (`dims` 256 — the apparent guard is
+dimension-dependent and only fires at `dims` 16), `explainedVariance` then
+publishes a plausible **0.0**, and `kMeans` reaches
+`Double.random(in: 0..<.infinity)`, which traps. Verified standalone: exit
+**133**, and under `-O` the process prints nothing at all. The doc comment
+claiming this was guarded is corrected in the same commit — it asserted a
+protection the experiment shows does not exist. Gate B also showed the suite
+makes exactly ONE statement about `coordinates` (that it is finite), so
+dropping the mean-centring or reversing the projection columns leaves all 7
+tests green while moving every exported number. Both in `open-items.md`; the
+crash **blocks wiring**.
+
+**NEXT: the non-finite guard as its own Gate D, then the `aiAnalysis` workspace
++ step 9.** Wiring is what makes the crash reachable, so the guard comes first.
+Steps 5-7 do not happen this run: see the second-round decisions in
+`decisions.md`.
 
 **Two things that stay true however cleanly the files move:**
 
