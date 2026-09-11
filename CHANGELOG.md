@@ -1,6 +1,6 @@
 # Changelog
 
-## v3.0.0 — unreleased
+## v3.0.0 — 2026-09-11
 
 The first release with a machine-learned feature, and the first major version
 since the SwiftUI rebuild. Everything below shipped through the repo's gates;

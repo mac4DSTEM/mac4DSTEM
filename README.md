@@ -25,25 +25,30 @@ live view, so you see what a choice does while you make it.
 Algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
 gated against it, so results trace back to the reference implementation.
 
-## New in v2.5.1 (2026-09-04)
+## New in v3.0.0 (2026-09-11)
 
-- **macOS 14 or later.** v2.5.0 shipped the same day with an enforced macOS 26
-  floor; v2.5.1 is the build that reaches older systems. And the
-  session-sidecar reader names a file it cannot use instead of returning its
-  contents as data.
-- **Rehearse, then promote** (v2.5.0). Work out an analysis on a cropped or
-  binned view, then replay it on the full cube unattended. Detector-pixel
-  parameters are re-referenced into the full frame; the reduced-file export
-  carries the recipe.
-- **Streaming residency** for cubes larger than memory.
-- **The window is rebuilt in SwiftUI** — five workspaces, and a Session section
-  in the sidebar showing what was saved beside your dataset and restored with it.
-- **Speed.** An exact Bluestein FFT for any detector size: Detect All Disks on
-  a 250 px cube (8 400 patterns, 83 929 peaks) took 14 m 09 s in the owner's
-  Debug run of 2026-09-01 and 15.0 s in Release on 2026-09-02, same peak
-  count; the record is `docs/archive/v2/s22-ux-design.md`.
-- **Refusals over guesses.** A calibration fit that fails its gate reports "not
-  quantitative" instead of a number. CIF import refuses what it cannot expand.
+- **Bragg disks can be found by a trained model.** Disk detection gains a
+  `Detector` picker; the learned path runs as Core ML on the Apple Neural
+  Engine. On a frozen, hand-labelled test set never used for selection, at the
+  shipped confidence of 0.7 it scores recall / precision **0.768 / 0.712**
+  against the classical detector's **0.487 / 0.485**, at **1.44–1.64x** the
+  speed. No third-party model weights are distributed.
+- **A flat measured kernel, and the file's own probe as a kernel source** — the
+  mode py4DSTEM recommends for bullseye and other structured probes, which the
+  app could not do before. On `calibrationData_bullseyeProbe` it reproduces
+  py4DSTEM's flat route peak for peak.
+- **Datasets are offered in Finder's "Open With"**, and the app ships the GNU
+  GPL text and `NOTICE` inside the bundle.
+- **Apple Silicon only, and now checked at build time.** The release gate
+  measures the architecture of the shipped executable and every embedded
+  library and refuses anything but arm64. v2.5.1 shipped an Intel slice by
+  accident against Apple-Silicon-only HDF5; **if you are on an Intel Mac, do
+  not use v2.5.1 — its HDF5 support is broken.**
+- **Known limitations are stated, not left to be found.** Parallax and
+  ptychography are untested on real data; VoiceOver is unsupported; the
+  `Quantitative` badge does not check the origin a result was computed from;
+  macOS 14–25 is compile-verified but never executed. All of them, and more,
+  are listed at the end of the v3.0.0 notes.
 
 Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 

@@ -22,7 +22,7 @@ path a truth doc cites and does not have. The per-increment log of
 |---|---|---|
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | named 2026-09-02, never built, superseded by v2.5.0; a local tag exists on this machine and was never pushed, and none will be (C0 (4), `decisions.md` 2026-09-07) | `CHANGELOG.md` |
-| v3.0.0 | **not yet cut — ready pending the release gate** (owner, 2026-09-11: go for 3.0.0, not v2.7.0, because the learned disk detector is a feature and is in the build with a passed verdict; `decisions.md`). Version/build will be `3.0.0` / `6`. Consolidation plan archived 2026-09-11 with §7 checked line by line. Known limitations are stated in `CHANGELOG.md` rather than left to be found: Parallax and ptychography undriven on real data, VoiceOver unsupported, pre-2026-09-11 sidecars keep their saved badge, macOS 14–25 compile-verified only | `CHANGELOG.md` |
+| v3.0.0 | **released 2026-09-11**, version/build 3.0.0 / 6 — the learned disk detector, the flat/file probe kernel, and the first build that is arm64 alone. Built from `3c4b82c` with `Developer ID Application: Paul Lobpreis (3B8SMSSAX4)`; app notarization `e9a64b93-c63f-462f-a423-fa2ef56eeb31`, DMG `5205d722-712c-4c5a-bbbc-35d117dbb0f7`, both **Accepted** and stapled, `spctl` accepted on both, `source=Notarized Developer ID`. DMG SHA-256 `cf2259a3016db7d32f9805db724b358cf23b153bab2d547839dcd9e9bd651b89`, **5 030 916 bytes** — *smaller* than v2.5.1's 6 157 051 because the Intel slice is gone. Verified by mounting the image: the app inside is `arm64` alone across the executable and all three embedded dylibs, 3.0.0 (6), `LSMinimumSystemVersion 14.0`, `LICENSE` and `NOTICE` both present, stapled ticket validates. **Record the post-staple hash, not the one `make-dmg.sh` prints** — stapling rewrites the image, and the pre-staple hash was `95b53779…fb1e`. Gated on `all` exit 0 (46 harnesses, 573/0/2 = 575) and `inventory` exit 0 on the same tree. Known limitations are stated in `CHANGELOG.md` rather than left to be found | `CHANGELOG.md` |
 | v2.5.1 | released 2026-09-04, version/build 2.5.1 / 5 — macOS floor down to 14 and the sidecar-reader fix. Artefact built from `a9a0437`; app notarization `fb693c50`, DMG `f3d05e79`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `30282206…31af`, 6 157 051 bytes; the app inside the image declares `LSMinimumSystemVersion 14.0`, verified by mounting it. First release able to claim `run-tests.sh all` exit 0 (458/0/0, 44 harnesses). v2.5.0's artefact cannot launch below macOS 26, so this is the build that reaches older systems | `CHANGELOG.md` |
 | v2.5.0 | released 2026-09-04, version/build 2.5 / 4 — the first shipped build of the SwiftUI rebuild. Gated on `unit` (457/0/0) + `package-test`, both exit 0; **`run-tests.sh all` was attempted and exited 1** on a pre-existing sidecar defect (`open-items.md`), and the notes say so. Artefact: built from `3c0a3eb`, app notarization `af7cc0f4`, DMG notarization `f4aa1d12`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `d55821a1…4c75`, 6 074 038 bytes. Build 3 (`df80e8e`) is superseded, kept as `mac4DSTEM-2.5-build3-superseded.dmg` | `CHANGELOG.md` |
 
@@ -80,7 +80,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — the last gate, then cut v3.0.0
+## Handoff — v3.0.0 is cut; the owner pushes
 
 Owner, 2026-09-09: C0–C3, C6 and C8 are closed; C7 is closed apart from the
 owner's sidecar-reopen check; the `all` gate is green. **C4(c) is committed at `1eb49c5` and driven.**
@@ -123,7 +123,24 @@ background-task wrapper reported "exit code 0" for a run whose own line said
 caller's. (3) 2026-09-09: a diff tool that iterates over the EXPECTED entries
 is blind to exactly the data no one pinned, which is where drift hides.
 
-**What is left for 3.0.0 — the credentialed run, and nothing else:**
+**v3.0.0 SHIPPED 2026-09-11.** Archive, notarization, stapling, DMG, the second
+notarization of the DMG, `spctl` on both, and verification by mounting the image
+are all done and recorded in the release row above. **What is left is the
+owner's alone:** push `main` (the release commit and this one), tag `v3.0.0` and
+push the tag — GitHub Desktop does not push tags — upload
+`build/release/mac4DSTEM-3.0.0.dmg` to the GitHub release, and paste the
+prepared Intel note at the top of the **v2.5.1** release's notes (owner's
+decision 2026-09-11: annotate, do not withdraw).
+
+**Two things learned in the credentialed run, both cheap to forget:**
+(1) `make-dmg.sh` prints a SHA-256 **before** stapling, and stapling rewrites
+the image — publish the hash `notarize.sh` prints at the end, not that one.
+(2) `notarytool store-credentials` writes to the **data-protection** keychain,
+which `security find-generic-password` cannot see; a check built on that tool
+reports "no profile stored" for a profile that exists and works. Do not gate a
+release step on it.
+
+**What was left before the run, now done:**
 
 1. **The archive blocker is CLOSED** (2026-09-11, Gate D, both triggers absent
    for the fix itself but the cause was not established, so the protocol ran).
