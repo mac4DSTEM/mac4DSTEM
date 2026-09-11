@@ -162,6 +162,39 @@ needs no CIF and no importer change (Al fcc + Si diamond suffice) and is the
 cheapest thing that can kill the template-matched route, so it comes **second**,
 before the importer work.
 
+**B, first measurement — the template-matched route is REFUTED as
+pre-registered, before the importer work was paid for.**
+[`archive/v3/phase-discrimination-2026-09-11.md`](archive/v3/phase-discrimination-2026-09-11.md);
+`tools/phase-discrimination-probe/run.sh`. Two findings, the second decisive:
+
+1. **Mixing flip at f = 0.60**, against a pre-registered ceiling of 0.30. The
+   matrix wins until the precipitate supplies 60 % of the pattern.
+2. **The score picks the wrong phase.** On a pattern containing only aluminium,
+   **gold fcc scores 0.98758 against aluminium's 0.97949** — contrast −0.008.
+   A bare argmax over phases returns the wrong one, confidently.
+
+**Why: a sampling limit, not a bug.** One radial bin is `kMax/nRadial` = 0.05
+Å⁻¹ at defaults; Al–Au (111) differ by 0.0030 Å⁻¹, **6 % of one bin**, so they
+are the same pattern to the score. Al–Cu differ by 103 % of a bin and separate
+correctly (0.500).
+
+**Shipped ACOM is not condemned** — it matches orientation for a phase the user
+chose, is single-phase by design, `phaseID` is write-only, and no shipped number
+is wrong. What is condemned is building phase identification on a bare
+`bestScore` argmax, which is what the pre-registration proposed.
+
+**The order paid off**: this cost one diagnostic harness and no CIF, no importer
+change and no owner input, and it stopped B4's monoclinic-import work before it
+started.
+
+**NEXT — the owner decides, because the route needs redesigning, not patching.**
+Three candidate remedies, none measured: score only the reflections unique to a
+candidate phase (β″'s superlattice ring is ~9-10 px against Al's ~18 px, many
+bins apart); score the difference from a matrix reference; or require a contrast
+margin over the runner-up. Each is its own measurement. **And the clustering
+step he called "slop" is back in play**, because the class-average difference
+pattern is where the signal survives.
+
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject

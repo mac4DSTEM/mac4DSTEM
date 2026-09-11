@@ -155,7 +155,40 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
    non-convex optimisation with a random start, so two runs differ unless
    seeded, and it has no explained-variance equivalent to justify a component
    count. PCA is deterministic, fast, already gated.
-2. **SETTLED 2026-09-11: template-matched, and material-general** (owner: "yes
+2. **REFUTED 2026-09-11 AS PRE-REGISTERED — per-position template matching does
+   not work, measured before the importer work was paid for.** Full record:
+   [`archive/v3/phase-discrimination-2026-09-11.md`](archive/v3/phase-discrimination-2026-09-11.md);
+   reproduce with `tools/phase-discrimination-probe/run.sh`.
+   - **The mixing flip is at f = 0.60**, against a pre-registered ceiling of
+     0.30. The matrix wins until the precipitate supplies 60 % of the pattern.
+   - **Worse: the score picks the wrong phase.** On a pattern containing only
+     aluminium, **gold fcc scores 0.98758 against aluminium's 0.97949** —
+     contrast −0.008. A bare argmax over phases returns the wrong one,
+     confidently.
+   - **Why: a sampling limit, not a bug.** The polar template has `nRadial` bins
+     over `kMax`; at defaults one bin is 0.05 Å⁻¹, and Al–Au (111) differ by
+     0.0030 Å⁻¹ — **6 % of one bin**. Al–Cu differ by 103 % of a bin and are
+     correctly separated (0.500). Phases closer than one bin are the same
+     pattern to this score.
+
+   **This does not condemn shipped ACOM** — it matches orientation for a phase
+   the user chose, is single-phase by design, and no shipped number is wrong.
+   It condemns building phase identification on a bare `bestScore` argmax.
+
+   **What survives, and none of it is measured yet:** the discriminating signal
+   must come from what is NOT matrix — score only the reflections unique to the
+   candidate phase (β″'s superlattice reflections sit at r ≈ 9-10 px where Al's
+   first ring is ~18 px, many bins apart), or score the difference from a matrix
+   reference, or require a contrast margin over the runner-up rather than a bare
+   argmax. And the radial sampling must resolve the phases at all, which is a
+   settable parameter nobody has costed.
+
+   **Consequence the owner should see: the unsupervised clustering step he
+   called "slop" is back in play**, because the class-average difference
+   pattern, not the per-position pattern, is where the signal survives.
+
+   The superseded approval, kept for the record — **template-matched, and
+   material-general** (owner: "yes
    that is a great idea! make it scientifically more reliable, and more
    versatile for different samples not just al"). The class identity comes from
    matching an imported CIF, never from a hardcoded Al-Mg-Si assumption — which
