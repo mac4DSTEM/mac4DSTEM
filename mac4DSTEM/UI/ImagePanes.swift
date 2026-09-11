@@ -57,6 +57,7 @@ struct DiffractionPane: View {
         .clipped()
         .contentShape(Rectangle())
         .overlay { ActivePaneOutline(pane: .diffraction) }
+        .selectsPaneOnClick(.diffraction)
     }
 
     /// Everything here is single-line on purpose: a wrapping title or readout
@@ -405,6 +406,7 @@ struct RealSpacePane: View {
         .clipped()
         .contentShape(Rectangle())
         .overlay { ActivePaneOutline(pane: .realSpace) }
+        .selectsPaneOnClick(.realSpace)
         // Arrow-key scan stepping is NOT here. It has exactly one owner —
         // `WorkspaceView`, on the container holding both panes, which is where
         // the old window had it and which is what lets the keys work while
@@ -1190,6 +1192,41 @@ struct RealSpacePane: View {
 /// already asks: which of the two panes does dragging act on. It therefore
 /// appears only in Imaging, the one workspace where that choice exists;
 /// elsewhere `activePane` decides nothing and an outline would be noise.
+/// Click a pane to select it — the outline moves and the Settings tab follows.
+///
+/// Restored 2026-09-11 on the owner's call, reversing two recorded decisions:
+/// 2026-09-04 retired the pane focus model, and C4(c) cut the click path as
+/// consolidation finding #5, "clicking the image rewrites the inspector".
+/// The owner's reason, driving 060_STEM_SI on 2026-09-11: clicking a picture
+/// doing nothing is not how a Mac app behaves, and the accent outline already
+/// looks exactly like a selection. Selection driving the inspector is the
+/// Xcode/Keynote idiom, not a violation of it — what made the old behaviour
+/// confusing was that nothing showed WHAT had been selected, and
+/// `ActivePaneOutline` (which the owner asked for the same week) now does.
+///
+/// `simultaneousGesture` so it composes with the detector drag, the scan
+/// scrub and the ROI handles rather than swallowing them; `TapGesture` so a
+/// drag that merely passes over a pane does not steal the selection. Writing
+/// `activePane` directly is the same idiom the ROI handles already use, and
+/// keeps this out of `AppState`, whose line budget `inventory` measures.
+private struct SelectsPaneOnClick: ViewModifier {
+    @Environment(AppState.self) private var appState
+    let pane: ActivePane
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(TapGesture().onEnded {
+            guard appState.hasDataset, appState.activePane != pane else { return }
+            appState.activePane = pane
+        })
+    }
+}
+
+extension View {
+    func selectsPaneOnClick(_ pane: ActivePane) -> some View {
+        modifier(SelectsPaneOnClick(pane: pane))
+    }
+}
+
 struct ActivePaneOutline: View {
     @Environment(AppState.self) private var appState
     let pane: ActivePane

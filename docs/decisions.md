@@ -816,3 +816,42 @@ undriven at the decision — Parallax and ptychography on real data, the four
 Phase E failure paths, both Resets — and none blocks: they are named in
 CHANGELOG's "Known limitations at 3.0.0" instead of being discovered by a user.
 
+## 2026-09-11 — clicking a pane selects it again, reversing two earlier calls
+
+Owner, driving `060_STEM_SI_…bin_4`: clicking the real-space image does nothing,
+only the Direction buttons move the accent outline. *"Why did we lose this
+feature? We need to keep things simple, stupid macOS."*
+
+**Nothing was lost by accident.** Two recorded decisions removed it. 2026-09-04
+retired the pane focus model, leaving `AppState.activePane` "surviving only as
+the ROI direction's storage behind an explicit Direction picker". C4(c) then cut
+the click path as consolidation finding #5, *"Clicking the image rewrites the
+inspector"* — tapping a pane set `activePane`, which swaps the Settings tab
+between Detector and Region, and the review called that a pane focus model the
+contract says does not exist.
+
+**Reversed, because the review's premise was wrong about the platform.**
+Selection driving the inspector IS the Mac idiom — Xcode, Keynote, Sketch and
+Figma all do it. What made the old behaviour confusing was not that the
+inspector followed the selection; it was that nothing showed WHAT had been
+selected. The owner identified that himself in the same week and asked for the
+indicator that became `ActivePaneOutline` ("the app needs an indicator which the
+active plane is because the settings plane changes and it is confusing when
+setting the detector", recorded in that view's doc comment). With the outline in
+place the objection no longer holds, and the accent outline already looks
+exactly like a selection — so refusing to let a click move it is the surprising
+behaviour, not the other way round.
+
+Implementation: a `simultaneousGesture(TapGesture())` on each pane in
+`UI/ImagePanes.swift`, so it composes with the detector drag, the scan scrub and
+the ROI handles instead of swallowing them, and a `TapGesture` rather than a
+zero-distance drag so a drag passing over a pane does not steal the selection.
+It writes `activePane` directly, the idiom the ROI handles already use, which
+keeps it out of `AppState` and its measured line budget.
+
+Neither Gate D trigger applies: presentation only, and the cause was established
+from this file and `archive/consolidation-plan.md` §4(5) rather than guessed.
+**Unverified on screen until the owner drives it** — and the thing to watch is
+whether the tap composes cleanly with the detector drag and the scan scrub,
+which no unit test can establish.
+
