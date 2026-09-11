@@ -878,6 +878,74 @@ final class PrecipitateTests: XCTestCase {
         )
     }
 
+    // MARK: - The pre-registered baseline (step 4, 2026-09-11)
+
+    /// `ml/disk-detector:docs/ai-ml/precipitates.md` §6 pre-registered a
+    /// baseline — "threshold + connected components without the ridge filter" —
+    /// that the ridge filter "must beat ... or it does not ship". It was never
+    /// written. It needs no new engine code: `.particles` mode IS that baseline
+    /// (background flatten, Gaussian smooth, threshold, connected components),
+    /// and `.needles` is the same pipeline with `ridgeMeasure` inserted.
+    ///
+    /// The owner's criterion (`docs/decisions.md`, 2026-09-11, second round):
+    /// recall and precision decide, and a TIE PASSES.
+    ///
+    /// The fixture's truth is six drawn needles. It also draws three round
+    /// particles, which a needle counter must REJECT — so recall is where the
+    /// arms tie and precision is where they can separate.
+    ///
+    /// This test pins only what the fixture can decide. The real-data half of
+    /// the pre-registration — the Al-Si-Mg hand count — does not exist, so the
+    /// ship gate as a whole is UNMET and precipitates are not wired. The full
+    /// measured table is committed at
+    /// `docs/archive/v3/precipitate-baseline-2026-09-11.md`.
+    func testRidgeFilterVersusThePreRegisteredBaseline() {
+        let image = Self.buildFixture()
+        var ridge = PrecipitateSegmentation.Settings(); ridge.mode = .needles
+        var baseline = PrecipitateSegmentation.Settings(); baseline.mode = .particles
+        let ridgeObjects = PrecipitateSegmentation.segment(image: image, validity: nil, settings: ridge)
+        let baselineObjects = PrecipitateSegmentation.segment(image: image, validity: nil, settings: baseline)
+
+        /// Nearest-object match. The tolerance is 15 px, not 6, because E and F
+        /// are drawn deliberately clipped by the frame edge (centreRow 1 and
+        /// centreCol 198), so their detected centroids sit 10-13 px inside the
+        /// drawn centre. A 6 px window scores them MISSED and reports a false
+        /// 4/6 recall for both arms — measured 2026-09-11, and it was this
+        /// test's own first bug, not the engine's.
+        func needlesFound(_ objects: [PrecipitateSegmentation.Object]) -> Int {
+            var used = Set<Int>(), found = 0
+            for spec in Self.needleSpecs {
+                var best: (Int, Float)?
+                for (k, o) in objects.enumerated() where !used.contains(k) {
+                    let d = hypot(o.centroidX - spec.centerCol, o.centroidY - spec.centerRow)
+                    if best == nil || d < best!.1 { best = (k, d) }
+                }
+                if let best, best.1 < 15 { used.insert(best.0); found += 1 }
+            }
+            return found
+        }
+        let rNeedles = needlesFound(ridgeObjects), bNeedles = needlesFound(baselineObjects)
+
+        // Recall: both arms must find every drawn needle.
+        XCTAssertEqual(rNeedles, Self.needleSpecs.count, "the ridge filter lost a drawn needle")
+        XCTAssertEqual(bNeedles, Self.needleSpecs.count, "the baseline lost a drawn needle")
+
+        // Precision: the fixture also draws three ROUND particles that a needle
+        // counter should reject. Measured 2026-09-11: BOTH arms report all
+        // three, so precision ties at 6/9 and the ridge filter demonstrates no
+        // elongation selectivity on this fixture. That is a tie, and the
+        // owner's criterion passes a tie (docs/decisions.md, 2026-09-11) — but
+        // it means the fixture cannot show the ridge filter earning its place.
+        // Pinned so that a change which makes either arm WORSE goes red.
+        XCTAssertEqual(ridgeObjects.count, 9, "ridge arm object count moved")
+        XCTAssertEqual(baselineObjects.count, 9, "baseline arm object count moved")
+        XCTAssertLessThanOrEqual(
+            ridgeObjects.count - rNeedles, baselineObjects.count - bNeedles,
+            "the ridge filter reported more non-needle objects than the plain-threshold "
+            + "baseline — it loses the half of its own pre-registered gate this fixture can score"
+        )
+    }
+
     // MARK: - Non-square scan (Gate B, 2026-09-11)
 
     /// Every other segmentation fixture in this file is SQUARE — 200x200,

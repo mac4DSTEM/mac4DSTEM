@@ -191,9 +191,41 @@ exit 0, C5 flat at 7492. Every new test was broken before it was trusted —
 the guard-off, impute-0, impute-max, `valid[i]` and `.isNaN`-narrowing and
 scan-transpose mutants each kill the test that claims them.
 
-**NEXT: step 4 — the baseline, committed UNSCORED.** Then the `aiAnalysis`
-workspace and steps 8-9. Steps 5-7 do not happen this run: see the
-second-round decisions in `decisions.md`.
+**Landed — step 4, the pre-registered baseline, committed UNSCORED.** Full
+table: [`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
+It needed no new engine code: `PrecipitateSegmentation.Mode.particles` **is**
+the pre-registered baseline (flatten, smooth, threshold, connected components)
+and `.needles` is the same path with `ridgeMeasure` inserted.
+
+**Result on the half that could be scored: a TIE, therefore a PASS** under the
+owner's criterion (recall and precision decide, a tie passes). Both arms: 9
+objects, **6/6 needles**, **3/3 round particles reported**, precision 6/9,
+length error identical to two decimals (+0.6 / +1.4 / +2.1 / +1.9 %).
+
+**What the tie reveals matters more than the verdict: the ridge filter does not
+reject the round particles, which is its entire purpose.** The only measurable
+difference is ~20 % smaller mask `area` on round objects — and `area` reaches
+an export through `arealDensity`. The fixture's own design note concedes the
+mechanism ("the literal ridge measure … is not itself elongation-selective"),
+so the fixture was built knowing this and made the particles easy enough not to
+matter. **A pass obtained this way is not evidence the ridge filter earns its
+place.** Sharpening the fixture now would be re-registering after peeking, and
+is refused.
+
+**The gate as a whole stays UNMET**, so precipitates remain unwired. One thing
+is owed and only one: the Al-Si-Mg hand count. A counting sheet was prepared
+from `References/training_dataset/060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5`
+(330x330 scan, 1.539 nm/px; precipitate reflections measured at 8.1 and 8.5 px,
+matrix ring ~18 px, two needle variants near-perpendicular). **One hand count
+completes step 4 and unlocks steps 5-7.**
+
+Gate: `unit` exit 0, **590 passed / 0 failed**. The test's own first version was
+wrong and the engine was not — a 6 px match window scored the two deliberately
+edge-clipped needles MISSED and reported a false 4/6 for both arms.
+
+**NEXT: the `aiAnalysis` workspace, then steps 8-9** (DiffractionEmbedding and
+diffraction grouping). Steps 5-7 do not happen this run: see the second-round
+decisions in `decisions.md`.
 
 **Two things that stay true however cleanly the files move:**
 
