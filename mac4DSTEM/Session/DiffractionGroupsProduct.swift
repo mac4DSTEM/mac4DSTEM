@@ -1,7 +1,7 @@
 //
 //  DiffractionGroupsProduct.swift
 //  Role: owns the classical diffraction-grouping result and its run controls
-//        (ml/disk-detector:docs/ai-ml/README.md §6 — PCA + k-means on box-binned patterns,
+//        (docs/ai-ml/README.md §6 — PCA + k-means on box-binned patterns,
 //        the baseline before any learned encoder). Mirrors StrainProduct's
 //        seam: `AppState+DiffractionGroups.swift` is the only writer; views
 //        read `diffractionGroups.…` directly, with no forwarding properties

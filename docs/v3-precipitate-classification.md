@@ -40,13 +40,41 @@ objects on the class map.
    bin — the existing `DiffractionEmbedding` front end, already on `main`).
 2. **Decompose** — PCA today; NMF pre-registered as the comparison (§4).
 3. **Cluster** into classes.
-4. **Identify precipitate classes** from each class's **average diffraction
-   pattern**: a precipitate class shows the superlattice reflections, the matrix
-   class does not. This is the step that replaces a brightness threshold.
+4. **Identify precipitate classes.** Two routes, and the owner's objection —
+   "the user has to check by hand anyway, are we running into slop here?" — is
+   what separates them:
+   - **Unsupervised (weak).** Read each class's average diffraction pattern and
+     decide by eye which show the superlattice reflections. This is the slop he
+     named: k-means returns k *unlabelled* groups, and nothing makes them
+     "matrix + 3 variants" rather than "thin + thick + bent + oxide".
+   - **Template-matched (strong, and preferred).** We KNOW the structure. Import
+     β″ as a CIF, predict its diffraction for each variant orientation, and
+     match each class average — or each position directly — against those
+     templates. The class comes back **labelled, with a score**, not as a group
+     awaiting interpretation.
+
+   **The app already has this machinery**: `Core/Crystal/CIFImport.swift`,
+   `CrystalModel.swift`, `OrientationMatcher.swift`, `OrientationPlan.swift`,
+   `ScatteringFactors.swift` — the template matching ACOM runs on. It is not a
+   new capability, it is an existing engine pointed at a second structure.
+   Decision 2 in §5 is now "unsupervised or template-matched", and the
+   recommendation is template-matched with clustering as the fallback for
+   whatever the templates do not explain.
 5. **Separate spatially** — connected components on the class map.
-6. **Density** = accepted count ÷ calibrated analysed area, with the criterion
-   in provenance. Unchanged from the current rule, and still areal, never
-   volumetric without foil thickness.
+6. **Density.** Areal = accepted count ÷ calibrated analysed area, criterion in
+   provenance. **Areal is a way-station, not the goal.** The goal is a
+   VOLUMETRIC number density, and the route to it was designed before this
+   registration existed: `docs/ai-ml/README.md` §5, "Thickness and the path to
+   number density" — PACBED-based foil-thickness estimation, then volumetric =
+   count ÷ (area-weighted thickness × area). That design was **not lost and
+   never coded**; it was marked a v1 non-goal in `precipitates.md`:15 and is
+   unbuilt on both branches (no Swift file on either side mentions thickness).
+   It is out of scope here only because thickness is its own feature with its
+   own validation — §5 is explicit that thickness needs a stated material,
+   orientation, convergence angle, detector sampling, valid range and failure
+   behaviour, and that one must "not silently turn an areal count into a
+   volumetric claim". This registration must therefore **report areal and say
+   so**, and must not be read as settling the density question.
 
 **No brightness threshold. No shape filter. No ridge filter.** An end-on needle
 classifies correctly because its *pattern* is precipitate-like even though its
@@ -92,21 +120,53 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
 
 ## 5. Decisions owed to the owner
 
-1. **PCA or NMF.** Upstream offers both. NMF's non-negativity is physically
-   right for intensities and is what `BraggVectorClassification` uses; PCA is
-   already implemented and gated. Proposal: keep PCA, add NMF, let the parity
-   harness decide. **Owner's call.**
-2. **How many classes, and who picks.** k is a user control today. A precipitate
-   map probably wants "matrix + N variants" chosen from the data, not a slider.
-   **Owner's call.**
-3. **Does this retire the ridge filter, or do both ship?** Proposal: keep both
-   until §4.4 decides, then retire the loser rather than carrying two.
-4. **Per-object export.** Still open from §1.5 and still unanswered: a per-object
-   list has no home in a per-scan-position data model, and `clear()` drops it on
-   dataset change with nothing written. This route does not fix it.
-5. **Multi-dataset density.** The owner asked (2026-09-11) for density over
-   several cubes for accuracy. Not in this registration; it is a separate
-   aggregation feature and needs its own.
+1. **PCA or NMF. SETTLED 2026-09-11: keep PCA for now** (owner). NMF stays a
+   named comparison, not a prerequisite: it is physically righter for
+   intensities (a pattern is a non-negative SUM of contributions, and NMF models
+   exactly that, while a negative PCA coefficient means "subtract this pattern",
+   which photon counts cannot do) and its components look like indexable
+   patterns rather than signed difference-patterns. Against it: NMF is a
+   non-convex optimisation with a random start, so two runs differ unless
+   seeded, and it has no explained-variance equivalent to justify a component
+   count. PCA is deterministic, fast, already gated.
+2. **Unsupervised or template-matched.** Superseded §2 step 4, and the owner's
+   objection is the reason: unsupervised clustering returns unlabelled groups
+   that a human must interpret, which is soft. Template matching against an
+   imported β″ CIF returns a labelled class with a score, and the app already
+   owns the engine (`Core/Crystal/*`, what ACOM runs on). **Recommendation:
+   template-matched, clustering as the fallback for what templates do not
+   explain.** Needs from the owner: a β″ CIF, or agreement to fetch one.
+3. **The ridge filter.** Owner, 2026-09-11: "maybe it has to go, or come back
+   later — maybe we were too fast and didn't think it through." A third option
+   exists and was not visible when the question was first put: **it is
+   fixable**. `PrecipitateSegmentation.swift:389` computes both Hessian
+   curvatures and then keeps only the most negative one
+   (`max(0, -lambdaMin)`) — so a round blob, curved downward in EVERY
+   direction, scores at least as high as a needle. It is not measuring
+   elongation at all; it measures "is this a bump". That is why its own
+   pre-registered baseline came out a tie with both arms reporting every round
+   particle. Elongation selectivity requires COMPARING the two curvatures.
+   Proposal: do not retire it on a tie it lost for a correctable reason. Park
+   it; if the classification route wins §4.4 it is moot, and if it loses, fix
+   the eigenvalue comparison and re-run the baseline.
+4. **Per-object results — storage AND presentation.** Still open from §1.5. A
+   per-object list has no home in a per-scan-position data model, and `clear()`
+   drops it on dataset change with nothing written, so a save/reopen loses every
+   measured number. Owner, 2026-09-11: "an endlessly long table doesn't seem to
+   be the solution" — agreed, and the two halves are separable. **Storage** is
+   settled by a sidecar table plus CSV export, which costs nothing in the UI and
+   is what statistics and plotting need. **Presentation** is the open question:
+   the useful on-screen object is almost certainly a length/orientation
+   HISTOGRAM and a labelled map you can click, with the table as export only.
+   Not designed here.
+5. **Multi-dataset density, and VOLUMETRIC density.** Two separate features,
+   both out of scope here, both named so they are not lost again:
+   - Several cubes combined as total count ÷ total area (never the mean of
+     per-cube densities, which weights a small field like a large one). The app
+     is one-dataset-at-a-time throughout.
+   - **Volumetric number density via thickness** — `docs/ai-ml/README.md` §5,
+     designed and never built. This is the owner's actual goal; areal is the
+     way-station. Needs its own pre-registration.
 
 ## 6. What this does not claim
 

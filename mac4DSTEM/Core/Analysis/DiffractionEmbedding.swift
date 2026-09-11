@@ -1,6 +1,6 @@
 //
 //  DiffractionEmbedding.swift
-//  Role: the classical v1 baseline ml/disk-detector:docs/ai-ml/README.md §6 calls for before
+//  Role: the classical v1 baseline docs/ai-ml/README.md §6 calls for before
 //        any learned encoder — PCA on box-binned diffraction patterns, then
 //        k-means on the resulting coordinates. Streams the cube exactly like
 //        VirtualDetector/TiledDiskDetection: bounded scan-row tiles via

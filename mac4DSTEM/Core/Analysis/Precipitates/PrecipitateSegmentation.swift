@@ -1,6 +1,6 @@
 //
 //  PrecipitateSegmentation.swift
-//  Role: Step 3 of the precipitate chain (ml/disk-detector:docs/ai-ml/precipitates.md §2) —
+//  Role: Step 3 of the precipitate chain (docs/ai-ml/precipitates.md §2) —
 //        classical real-space segmentation of one dark-field / BF / ADF image
 //        into precipitate objects. Background flattening, a ridge filter for
 //        needles (an oriented second-derivative measure, via the Hessian —

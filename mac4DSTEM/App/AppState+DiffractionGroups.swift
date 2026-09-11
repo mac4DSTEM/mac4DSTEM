@@ -1,6 +1,6 @@
 //
 //  AppState+DiffractionGroups.swift
-//  Role: ml/disk-detector:docs/ai-ml/README.md §6's orchestration — run the classical
+//  Role: docs/ai-ml/README.md §6's orchestration — run the classical
 //        PCA + k-means baseline (`DiffractionEmbedding.compute`) over the
 //        streamed cube and publish its group map, then let the user ask for
 //        a similarity map against the currently selected scan position.

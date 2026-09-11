@@ -917,7 +917,7 @@ this entry's first draft missed: the `WorkspaceArea` switch at
 `AppState.swift:1331`, which is exhaustive with no default.
 
 **2026-09-11 — precipitates ship only if the pre-registered baseline is
-built and beaten (owner, in chat).** `ml/disk-detector:docs/ai-ml/precipitates.md` §6
+built and beaten (owner, in chat).** `docs/ai-ml/precipitates.md` §6
 (open it with `git show`; it is not on `main`) demands a baseline — threshold plus connected components with
 the ridge filter disabled — that the ridge filter must beat on both the
 synthetic fixture and an Al-Si-Mg hand count, "or it does not ship". It
@@ -1041,3 +1041,58 @@ wrinkle, left alone deliberately: `Core/ML/LearnedDiskDetection.swift` is
 orchestration and imports no CoreML, so it would strictly belong in `Analysis/`
 beside `DiskDetection` — splitting two files about one feature costs more
 cohesion than the taxonomy gains.
+
+**2026-09-11 — the `docs/ai-ml/` design brief is ported to `main`; it should
+have been ported at step 3 and was not.** The handoff listed
+`docs/ai-ml/{README,precipitates}.md` under "what is unmerged and wanted", and
+the port repointed every source citation to `ml/disk-detector:docs/ai-ml/…`
+instead of bringing the documents across. The app therefore cited a design
+brief that was not in the repository, and the inventory gate could not see it
+because that gate judges truth docs, not `.swift` sources. Both files are now
+under `docs/ai-ml/` and all nine citing files are repointed to plain paths the
+gate can check.
+
+**What that miss cost, and the owner caught it, not a gate.** README §5 is
+"Thickness and the path to number density" — PACBED foil-thickness estimation
+and the explicit chain to a VOLUMETRIC number density, which is the owner's
+actual goal; areal is a way-station. §6 is "Diffraction clustering, similarity
+and discovery", which the 2026-09-11 classification pre-registration partly
+reinvented. **No code was lost — thickness was never implemented on either
+branch, and `precipitates.md`:15 marks volumetric density a v1 non-goal — but
+the design was, and writing a pre-registration without reading it was the
+error.**
+
+**2026-09-11 — PCA stays for now (owner, in chat).** NMF remains a named
+comparison, not a prerequisite. For: a diffraction pattern is a non-negative
+SUM of contributions and NMF models exactly that, while a negative PCA
+coefficient means "subtract this pattern", which photon counts cannot do; NMF
+components are indexable patterns rather than signed difference-patterns.
+Against: NMF is non-convex with a random start, so runs differ unless seeded,
+and it has no explained-variance equivalent for choosing a component count. PCA
+is deterministic, fast and already gated.
+
+**2026-09-11 — class identification should be TEMPLATE-MATCHED, not
+unsupervised (owner's objection; recommendation recorded, not yet approved).**
+He asked: "the user has to check by hand anyway what each class really is — can
+we feed information beforehand? maybe we are running into slop here." He is
+right that it is slop: k-means returns k *unlabelled* groups and nothing makes
+them "matrix + 3 variants" rather than "thin + thick + bent + oxide". Since the
+β″ structure is known, the classes can be labelled by matching against
+predicted diffraction from an imported CIF — and **the app already owns that
+engine**: `Core/Crystal/{CIFImport,CrystalModel,OrientationMatcher,Orientation‐
+Plan,ScatteringFactors}.swift`, what ACOM runs on. Pointing an existing engine
+at a second structure, not a new capability. Clustering becomes the fallback
+for what templates do not explain. Owner owes a β″ CIF or agreement to fetch.
+
+**2026-09-11 — the ridge filter is PARKED, not retired (owner: "maybe it has to
+go, or come back later — maybe we were too fast").** A third option was not
+visible when the question was first put: it is fixable.
+`PrecipitateSegmentation.swift:389` computes both Hessian curvatures and keeps
+only the most negative (`max(0, -lambdaMin)`), so a round blob — curved
+downward in every direction — scores at least as high as a needle. It does not
+measure elongation; it measures "is this a bump", which is exactly why its own
+pre-registered baseline came out a TIE with both arms reporting every round
+particle. Elongation selectivity requires comparing the two curvatures. It
+should not be retired on a tie it lost for a correctable reason: if
+classification wins, it is moot; if classification loses, fix the comparison and
+re-run the baseline.

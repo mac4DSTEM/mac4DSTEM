@@ -1,6 +1,6 @@
 # The pre-registered precipitate baseline — measured 2026-09-11, UNSCORED
 
-`ml/disk-detector:docs/ai-ml/precipitates.md` §6 pre-registered, before the
+`docs/ai-ml/precipitates.md` §6 pre-registered, before the
 code was written:
 
 > A baseline: threshold + connected components without the ridge filter. The

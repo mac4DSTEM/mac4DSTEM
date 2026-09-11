@@ -1,6 +1,6 @@
 //
 //  PrecipitateStatistics.swift
-//  Role: Step 5 of the precipitate chain (ml/disk-detector:docs/ai-ml/precipitates.md §2) —
+//  Role: Step 5 of the precipitate chain (docs/ai-ml/precipitates.md §2) —
 //        areal number density from an accepted object set. The refusal rule
 //        (§5): no calibration, no density — `arealDensity` is nil whenever
 //        `pixelSize` is nil or non-positive, never a value computed against

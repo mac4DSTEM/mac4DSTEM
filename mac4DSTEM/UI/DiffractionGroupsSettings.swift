@@ -1,6 +1,6 @@
 //
 //  DiffractionGroupsSettings.swift
-//  Role: the classical diffraction-grouping panel (ml/disk-detector:docs/ai-ml/README.md §6) —
+//  Role: the classical diffraction-grouping panel (docs/ai-ml/README.md §6) —
 //        run controls for `DiffractionEmbedding`'s PCA + k-means baseline,
 //        and a readout of what the last run found. A bare `Section` for the
 //        caller's grouped `Form`, matching `ImagingSettings`'/`MapSettings`'
