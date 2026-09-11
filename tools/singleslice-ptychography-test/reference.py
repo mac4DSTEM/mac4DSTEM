@@ -187,6 +187,122 @@ def reconstruct(iterations=3, step_size=0.5, normalization_min=0.7,
 obj, probe, errors, crop = reconstruct()
 constrained_obj, constrained_probe, constrained_errors, _ = reconstruct(constrained=True)
 dm_obj, dm_probe, dm_errors, dm_crop = reconstruct(method="DM_AP", alpha=0.8)
+
+# ---- D002: scan positions in pixels (Gate D, 2026-09-09) --------------------
+# `PtychographyPreparer.prepare` accepted `rotationRad`/`transpose` and never
+# read them, so a 0 deg and a 30 deg calibration produced bit-identical
+# positions. Source-lock the five steps of py4DSTEM's
+# `_calculate_scan_positions_in_pixels` so a change upstream fails loudly here.
+for contract in (
+    "tf = AffineTransform(angle=rotation_angle)",
+    "positions = tf(positions, positions.mean(0))",
+    "positions = np.flip(positions, 1)",
+    "sampling = sampling[::-1]",
+    "positions -= np.min(positions, axis=0).clip(-np.inf, 0)",
+    "positions[:, 0] /= sampling[0]",
+    "positions[:, 1] /= sampling[1]",
+):
+    if contract not in base:
+        raise SystemExit(f"py4DSTEM scan-position contract changed: {contract}")
+# and the row-vector form of the rotation it uses
+utils = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/utils.py").read_text()
+for contract in (
+    "return ((x - origin) @ tf_matrix) + tf_translation",
+    "[+cosx, -sinx],",
+    "[+sinx, +cosx],",
+):
+    if contract not in utils:
+        raise SystemExit(f"py4DSTEM AffineTransform contract changed: {contract}")
+
+
+def scan_positions(ry, rx, qy, qx, scan_sampling, q_sampling, rotation_rad,
+                   transpose, variant="reference"):
+    """py4DSTEM's convention in this app's axis order.
+
+    This app's `cx` (COLUMN) is py4DSTEM's x / axis 0 — its rotation solver
+    rotates `_com_normalized_x/_y` with the same expressions
+    RotationCalibration.objective uses for cx/cy. So column is axis 0.
+
+    `variant` plants one wrong convention each, for the negative controls.
+    """
+    row_sampling = 1.0 / (q_sampling * qy)
+    column_sampling = 1.0 / (q_sampling * qx)
+    r, c = np.meshgrid(np.arange(ry) * scan_sampling,
+                       np.arange(rx) * scan_sampling, indexing="ij")
+    # axis 0 = column, axis 1 = row
+    p = np.stack((c.ravel(), r.ravel()), axis=-1).astype(np.float64)
+
+    if variant != "no_rotation":
+        angle = -rotation_rad if variant == "wrong_sign" else rotation_rad
+        m = p.mean(0)
+        cos, sin = np.cos(angle), np.sin(angle)
+        # row-vector: (p - m) @ [[cos, -sin], [sin, cos]] + m
+        p = (p - m) @ np.array([[cos, -sin], [sin, cos]]) + m
+
+    s0, s1 = column_sampling, row_sampling
+    if transpose:
+        p = np.flip(p, 1)
+        if variant != "transpose_keeps_sampling":
+            s0, s1 = s1, s0
+
+    if variant != "no_clip":
+        p = p - np.min(p, axis=0).clip(-np.inf, 0)
+
+    p[:, 0] /= s0
+    p[:, 1] /= s1
+    # This app pads each axis by its own half-extent; py4DSTEM pads both by
+    # axis 0's (documented DEVIATION in PtychographyPreparation.swift).
+    p[:, 0] += qx / 2.0
+    p[:, 1] += qy / 2.0
+    # emit as (row, column) pairs, this app's order
+    return np.stack((p[:, 1], p[:, 0]), axis=-1).ravel().tolist()
+
+
+# The demo cube is 12x12x64x64 — SQUARE, with equal row/column object
+# sampling, which makes transpose a no-op by geometry and hides a wrong
+# convention. Every case below that matters is therefore NON-square, taken as
+# a crop of the demo cube. Case 0 is the square one, kept only as a control.
+POSITION_CASES = [
+    dict(ry=12, rx=12, qy=64, qx=64, rotationDeg=0.0, transpose=False),
+    dict(ry=12, rx=12, qy=64, qx=64, rotationDeg=30.0, transpose=False),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=0.0, transpose=False),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=30.0, transpose=False),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=30.0, transpose=True),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=-17.5, transpose=True),
+    dict(ry=7, rx=3, qy=48, qx=16, rotationDeg=73.25, transpose=False),
+    # Gate B, 2026-09-11. The seven cases above all ran at scan 1.0 and q 0.05,
+    # and positions scale LINEARLY in both — so any transformation that is the
+    # identity at those values was invisible. Three mutations proved it: the
+    # scan step hard-coded to 1.0, the scan step SQUARED, and the reciprocal
+    # sampling hard-coded to 0.05 each deleted a calibrated input from the
+    # port and the gate stayed green over all seven cases and 17 controls.
+    # This case is the one that discriminates: both samplings differ from
+    # every other case, on a non-square scan, at a sign-discriminating angle
+    # that is not a multiple of 45 deg, with transpose on.
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=37.2, transpose=True,
+         scanSamplingAngstrom=0.37, qSamplingInvAngstrom=0.0213),
+]
+# Defaults, not constants: a case may override either, and case 7 does.
+SCAN_SAMPLING = 1.0
+Q_SAMPLING = 0.05
+position_cases = []
+for case in POSITION_CASES:
+    scan_sampling = case.get("scanSamplingAngstrom", SCAN_SAMPLING)
+    q_sampling = case.get("qSamplingInvAngstrom", Q_SAMPLING)
+    args = (case["ry"], case["rx"], case["qy"], case["qx"], scan_sampling,
+            q_sampling, np.deg2rad(case["rotationDeg"]), case["transpose"])
+    entry = dict(case)
+    entry["scanSamplingAngstrom"] = scan_sampling
+    entry["qSamplingInvAngstrom"] = q_sampling
+    entry["expected"] = scan_positions(*args)
+    # Negative controls: each is a specific wrong convention. The harness
+    # demands the real code MISMATCH every one that is distinguishable here.
+    entry["controls"] = {
+        name: scan_positions(*args, variant=name)
+        for name in ("no_rotation", "wrong_sign", "transpose_keeps_sampling", "no_clip")
+    }
+    position_cases.append(entry)
+
 json.dump({
     "scanShape": [2, 2], "probeShape": list(probe_shape),
     "objectShape": list(object_shape), "positions": positions.ravel().tolist(),
@@ -215,5 +331,6 @@ json.dump({
     "dmProbeImag": dm_probe.imag.astype(np.float32).ravel().tolist(),
     "dmCropPhase": np.angle(dm_crop).astype(np.float32).ravel().tolist(),
     "dmCropAmplitude": np.abs(dm_crop).astype(np.float32).ravel().tolist(),
+    "positionCases": position_cases,
 }, sys.stdout, separators=(",", ":"))
 print()

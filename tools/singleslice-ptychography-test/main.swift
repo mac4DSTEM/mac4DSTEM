@@ -1,5 +1,17 @@
 import Foundation
 
+/// D002 (Gate D, 2026-09-09): one scan-position case and the wrong
+/// conventions it must NOT match.
+struct PositionCase: Decodable {
+    let ry: Int, rx: Int, qy: Int, qx: Int
+    let rotationDeg: Double
+    let transpose: Bool
+    let scanSamplingAngstrom: Double
+    let qSamplingInvAngstrom: Double
+    let expected: [Double]
+    let controls: [String: [Double]]
+}
+
 struct Fixture: Decodable {
     let scanShape: [Int]
     let probeShape: [Int]
@@ -35,6 +47,7 @@ struct Fixture: Decodable {
     let dmProbeImag: [Float]
     let dmCropPhase: [Float]
     let dmCropAmplitude: [Float]
+    let positionCases: [PositionCase]
 }
 
 func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
@@ -63,7 +76,7 @@ func maximumPhaseError(
 
 @main
 struct Harness {
-    static func main() throws {
+    static func main() async throws {
         let fixture = try JSONDecoder().decode(
             Fixture.self,
             from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -200,6 +213,149 @@ struct Harness {
             try require(false, "mid-reconstruction cancellation was ignored")
         } catch SingleslicePtychography.ReconstructionError.cancelled {}
         print("PASS: immutable input, invalid options, memory, and cancellation")
+
+        // D002 — the preparer's scan positions against py4DSTEM's
+        // `_calculate_scan_positions_in_pixels`. Before the fix the preparer
+        // built an axis-aligned raster and never read `rotationRad` or
+        // `transpose`, so a 0 deg and a 30 deg calibration were bit-identical.
+        //
+        // Every case is a crop of the demo cube. The 12x12x64x64 full extent is
+        // SQUARE with equal row/column object sampling, which makes transpose a
+        // no-op by geometry and hides a wrong convention — it is here only as a
+        // control, and the cases that decide anything are non-square.
+        let source = DemoFourDDataSource()
+        let fullDescriptor = try await source.discoverPrimaryDataset()
+        var controlsThatBit = 0
+        for (index, testCase) in fixture.positionCases.enumerated() {
+            let specification = LoadSpecification(
+                scanCrop: AxisCrop(yOffset: 0, xOffset: 0,
+                                   height: testCase.ry, width: testCase.rx),
+                detectorCrop: AxisCrop(yOffset: 0, xOffset: 0,
+                                       height: testCase.qy, width: testCase.qx)
+            )
+            let view = try LoadView(source: fullDescriptor, specification: specification)
+            try require(view.descriptor.ry == testCase.ry && view.descriptor.rx == testCase.rx
+                        && view.descriptor.qy == testCase.qy && view.descriptor.qx == testCase.qx,
+                        "position case \(index): the crop is \(view.descriptor.ry)x\(view.descriptor.rx)x\(view.descriptor.qy)x\(view.descriptor.qx), not the case's shape")
+            let wavelength = ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: 80_000)
+            let calibration = ParallaxPhysicalCalibration(
+                scanSamplingAngstrom: testCase.scanSamplingAngstrom,
+                reciprocalSamplingInvAngstrom: testCase.qSamplingInvAngstrom,
+                energyEV: 80_000, wavelengthAngstrom: wavelength,
+                originQX: 0, originQY: 0,
+                rotationRad: testCase.rotationDeg * .pi / 180,
+                transpose: testCase.transpose
+            )
+            let prepared = try await PtychographyPreparer.prepare(
+                source: source, view: view, calibration: calibration, probeRadiusPixels: 8
+            )
+            var actual = [Double]()
+            actual.reserveCapacity(prepared.positions.count * 2)
+            for position in prepared.positions {
+                actual.append(Double(position.row))
+                actual.append(Double(position.column))
+            }
+            try require(actual.count == testCase.expected.count,
+                        "position case \(index): \(actual.count) values, expected \(testCase.expected.count)")
+            func maximumDifference(_ other: [Double]) -> Double {
+                zip(actual, other).reduce(0.0) { max($0, abs($1.0 - $1.1)) }
+            }
+            // Float positions built from Double arithmetic: 1e-3 object pixels
+            // is far below the smallest control here (1.73 px) and far above
+            // Float rounding on values of order 100.
+            let tolerance = 1e-3
+            let delta = maximumDifference(testCase.expected)
+            try require(delta < tolerance,
+                        "position case \(index) (rot \(testCase.rotationDeg) deg, transpose \(testCase.transpose), q \(testCase.qy)x\(testCase.qx)): max |delta| = \(delta) object px against py4DSTEM's convention")
+            // Anti-vacuity: every control that is itself distinguishable from
+            // the reference must be distinguishable from the real code too.
+            for (name, control) in testCase.controls.sorted(by: { $0.key < $1.key }) {
+                let separation = zip(testCase.expected, control)
+                    .reduce(0.0) { max($0, abs($1.0 - $1.1)) }
+                guard separation > tolerance else { continue }
+                controlsThatBit += 1
+                try require(maximumDifference(control) > tolerance,
+                            "position case \(index): the preparer matches the WRONG convention `\(name)`")
+            }
+        }
+        // A reference.py that emitted controls identical to the reference would
+        // make every check above vacuous.
+        try require(controlsThatBit >= 12,
+                    "only \(controlsThatBit) negative controls were distinguishable — the position controls have gone vacuous")
+        print("PASS: scan positions match py4DSTEM's rotate/transpose/clip convention over \(fixture.positionCases.count) cases; \(controlsThatBit) planted wrong conventions each rejected")
+
+        // Gate B, 2026-09-11. `calibration.originQX`/`originQY` shift the
+        // detector resample (PtychographyPreparation.swift:70, :76) and NOTHING
+        // asserted them: the only thing this harness read from `prepare` was
+        // `positions`, which the origin does not touch, so deleting both fields
+        // left the whole gate green. A position case cannot close that — the
+        // origin moves AMPLITUDES — so this is an analytic invariant instead.
+        // At an INTEGER shift the bilinear resample reduces exactly to a
+        // circular shift (`rowFraction`/`columnFraction` are 0), so the shifted
+        // amplitudes must equal the unshifted ones rolled by that many rows
+        // (originQX) or columns (originQY). Ground truth is the arithmetic, not
+        // the code's own output.
+        //
+        // It also pins, in an executable place, the naming trap in that file:
+        // `originQX` is added to the ROW and `originQY` to the COLUMN, which is
+        // correct — `ParallaxPreprocessing.swift:98-99` sets
+        // `originQX: Double(apertureCenterY)` — but it is the opposite sense to
+        // the `cx` = COLUMN convention documented a few lines below it. Anyone
+        // who "corrects" the naming must fail here.
+        do {
+            let shiftRows = 2
+            let shiftColumns = 3
+            let specification = LoadSpecification(
+                scanCrop: AxisCrop(yOffset: 0, xOffset: 0, height: 3, width: 4),
+                detectorCrop: AxisCrop(yOffset: 0, xOffset: 0, height: 16, width: 24)
+            )
+            let view = try LoadView(source: fullDescriptor, specification: specification)
+            let descriptor = view.descriptor
+            let wavelength = ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: 80_000)
+            func amplitudes(originQX: Double, originQY: Double) async throws -> [Float] {
+                let calibration = ParallaxPhysicalCalibration(
+                    scanSamplingAngstrom: 1.0,
+                    reciprocalSamplingInvAngstrom: 0.05,
+                    energyEV: 80_000, wavelengthAngstrom: wavelength,
+                    originQX: originQX, originQY: originQY,
+                    rotationRad: 0, transpose: false
+                )
+                return try await PtychographyPreparer.prepare(
+                    source: source, view: view, calibration: calibration,
+                    probeRadiusPixels: 8
+                ).amplitudes
+            }
+            let base = try await amplitudes(originQX: 0, originQY: 0)
+            let shifted = try await amplitudes(originQX: Double(shiftRows),
+                                               originQY: Double(shiftColumns))
+            let detectorCount = descriptor.qy * descriptor.qx
+            try require(base.count == detectorCount * descriptor.ry * descriptor.rx
+                        && shifted.count == base.count,
+                        "origin-shift invariant: unexpected amplitude count")
+            var maximumDelta: Float = 0
+            var maximumSeparation: Float = 0
+            for pattern in 0..<(descriptor.ry * descriptor.rx) {
+                for row in 0..<descriptor.qy {
+                    for column in 0..<descriptor.qx {
+                        let sourceRow = (row + shiftRows) % descriptor.qy
+                        let sourceColumn = (column + shiftColumns) % descriptor.qx
+                        let here = pattern * detectorCount + row * descriptor.qx + column
+                        let there = pattern * detectorCount
+                            + sourceRow * descriptor.qx + sourceColumn
+                        maximumDelta = max(maximumDelta, abs(shifted[here] - base[there]))
+                        maximumSeparation = max(maximumSeparation,
+                                                abs(base[there] - base[here]))
+                    }
+                }
+            }
+            // Anti-vacuity: on patterns flat along these axes the roll would be
+            // a no-op and the assertion below would pass on anything at all.
+            try require(maximumSeparation > 1e-3,
+                        "the origin-shift invariant is VACUOUS: rolling by (\(shiftRows), \(shiftColumns)) moves the amplitudes by only \(maximumSeparation)")
+            try require(maximumDelta < 1e-5,
+                        "an integer origin shift is not a circular shift of the resampled amplitudes: max |delta| = \(maximumDelta) against a separation of \(maximumSeparation) — originQX must roll ROWS and originQY COLUMNS")
+            print("PASS: an integer origin shift equals a circular shift of the resampled amplitudes (rows by \(shiftRows), columns by \(shiftColumns); separation \(maximumSeparation))")
+        }
         print("singleslice-ptychography-test: all passed")
     }
 }

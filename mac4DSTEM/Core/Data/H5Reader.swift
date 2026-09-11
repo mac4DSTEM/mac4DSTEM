@@ -112,6 +112,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     package typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
     package typealias H5Aclose = @convention(c) (hid_t) -> herr_t
     package typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5AgetSpace = @convention(c) (hid_t) -> hid_t
     package typealias H5Literate = @convention(c)
         (hid_t, UnsafePointer<CChar>?, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t
     package typealias H5Lvisit2 = @convention(c)
@@ -149,6 +150,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     package let h5aopen: H5Aopen
     package let h5aclose: H5Aclose
     package let h5aread: H5Aread
+    package let h5agetSpace: H5AgetSpace
     package let h5lvisit2: H5Lvisit2
     package let nativeFloat: hid_t
     package let nativeDouble: hid_t
@@ -228,6 +230,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
             h5aopen: try symbol("H5Aopen", as: H5Aopen.self),
             h5aclose: try symbol("H5Aclose", as: H5Aclose.self),
             h5aread: try symbol("H5Aread", as: H5Aread.self),
+            h5agetSpace: try symbol("H5Aget_space", as: H5AgetSpace.self),
             h5lvisit2: try symbol("H5Lvisit2", as: H5Lvisit2.self),
             nativeFloat: try global("H5T_NATIVE_FLOAT_g", as: hid_t.self),
             nativeDouble: try global("H5T_NATIVE_DOUBLE_g", as: hid_t.self),
@@ -866,6 +869,24 @@ package actor H5Reader: FourDDataSource {
         return dims.reduce(1) { $0 * Int($1) }
     }
 
+    /// True when the attribute holds exactly one element.
+    ///
+    /// `H5Aread` reads the WHOLE attribute into the caller's buffer and cannot
+    /// know its size, so a multi-element attribute read into a one-value
+    /// buffer overruns it — measured against the bundled library on
+    /// 2026-09-09: 3 doubles wrote 24 bytes into 8, and a 4-element
+    /// fixed-length string attribute wrote 32 into 9 and corrupted the malloc
+    /// metadata, crashing at the next unrelated allocation. `H5Aread` returns
+    /// success in every one of those cases, so this is the only signal there
+    /// is. Every DATASET reader below already refuses a non-scalar the same
+    /// way; the three attribute readers did not. // D003, Gate D 2026-09-09
+    private func attributeIsScalar(_ attributeID: hid_t) -> Bool {
+        let space = hdf5.h5agetSpace(attributeID)
+        guard space >= 0 else { return false }
+        defer { _ = hdf5.h5sclose(space) }
+        return elementCount(spaceID: space) == 1
+    }
+
     private func readScalarDouble(_ path: String) -> Double? {
         readDoubleVector(path, maxCount: 1)?.first
     }
@@ -948,6 +969,7 @@ package actor H5Reader: FourDDataSource {
         let attr = name.withCString { hdf5.h5aopen(obj, $0, h5DefaultProperty) }
         guard attr >= 0 else { return nil }
         defer { _ = hdf5.h5aclose(attr) }
+        guard attributeIsScalar(attr) else { return nil }
         var value: Int32 = 0
         let status = withUnsafeMutableBytes(of: &value) {
             hdf5.h5aread(attr, hdf5.nativeInt, $0.baseAddress)
@@ -963,6 +985,7 @@ package actor H5Reader: FourDDataSource {
         let attr = name.withCString { hdf5.h5aopen(obj, $0, h5DefaultProperty) }
         guard attr >= 0 else { return nil }
         defer { _ = hdf5.h5aclose(attr) }
+        guard attributeIsScalar(attr) else { return nil }
         let fileType = hdf5.h5agetType(attr)
         defer { _ = hdf5.h5tclose(fileType) }
         return readStringValue(fileType: fileType) { memType, buf in
@@ -1004,6 +1027,7 @@ package actor H5Reader: FourDDataSource {
         let attributeID = name.withCString { hdf5.h5aopen(objectID, $0, h5DefaultProperty) }
         guard attributeID >= 0 else { return nil }
         defer { _ = hdf5.h5aclose(attributeID) }
+        guard attributeIsScalar(attributeID) else { return nil }
 
         var value = 0.0
         let status = withUnsafeMutableBytes(of: &value) {

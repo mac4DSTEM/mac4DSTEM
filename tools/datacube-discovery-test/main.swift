@@ -202,6 +202,25 @@ func fail(_ message: String) -> Never {
             print("PASS: origin maps survive a later described sibling (anchor path AND shape)")
         }
 
+        // d1 — D003 (Gate D, 2026-09-09). A multi-element attribute must be
+        // REFUSED, not read into a one-value buffer. The cube still opens and
+        // still reads its pixels: the reader degrades to "no units", it does
+        // not overrun. The scalar attributes beside them must still be read,
+        // so a guard that refuses every attribute cannot pass this.
+        do {
+            let (reader, d1) = await discover("d1_multielement_attributes.h5")
+            expect(d1.datasetPath == "/cube_root/cube/data" && d1.shape == [3, 4, 6, 5],
+                   "d1 chose \(d1.datasetPath) \(d1.shape)")
+            // flat index of (ry 1, rx 2, 0, 0) in (3,4,6,5) = (1*4 + 2) * 30
+            expect(await firstPixel(reader, d1, ry: 1, rx: 2) == 180, "d1 pixels are not the cube's")
+            let cal = await reader.pixelCalibration()
+            expect(cal?.rSize == 3.0 && cal?.rUnits == "nm",
+                   "d1: the SCALAR calibration attributes must still read, got \(String(describing: cal))")
+            expect(cal?.qSize == nil && cal?.qUnits == nil && cal?.qrFlip == nil,
+                   "d1: a multi-element attribute must be refused, not read: \(String(describing: cal))")
+            print("PASS: multi-element attributes are refused; a genuine cube whose dim3 `name` starts with `_labels_` still opens; pixels and the scalar calibration are unaffected")
+        }
+
         // Controls — what must keep opening exactly as before, with the right calibration.
         do {
             let (_, c1) = await discover("c1_rank4_only.h5")

@@ -252,12 +252,23 @@ mac4dstem_sources() {
         )
         ;;
       ptychography)
-        mac4dstem_sources "$repo" data
+        # `calibration` (not `data`) and the preparer joined 2026-09-09 with
+        # D002: PtychographyPreparation.swift had zero gated harness and zero
+        # unit test (2026-08-31 review, tools-gates-05) while being the only
+        # bridge from app data into the engine, and that is where the dropped
+        # R-Q rotation lived. ParallaxPreprocessing carries
+        # ParallaxPhysicalCalibration; DemoFourDDataSource is the cube the
+        # position cases crop.
+        mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/FFT2D.swift"
+          "$core/Compute/MatrixDFTCorrelation.swift"
+          "$core/Data/DemoFourDDataSource.swift"
+          "$core/Analysis/ParallaxPreprocessing.swift"
           "$core/Analysis/SingleslicePtychography.swift"
+          "$core/Analysis/PtychographyPreparation.swift"
         )
         ;;
       presentation)

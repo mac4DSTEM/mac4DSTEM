@@ -332,3 +332,31 @@ with h5py.File(root / "y4_file_root_mark_canonical_name.h5", "w") as f:
     f.create_group("4DSTEM_experiment/data/datacubes/datacube_0").create_dataset(
         "data", data=cube((5, 6, 5))
     )
+
+# d1 — D003 (Gate D, 2026-09-09): MULTI-ELEMENT attributes where the readers
+# expect one value. `H5Aread` reads the whole attribute into the caller's
+# buffer and cannot know its size, so before the fix each of these wrote past a
+# buffer sized for a single value — measured against the bundled library:
+# 3 doubles wrote 24 bytes into 8, 3 int32 wrote 12 into 4, and a 4-element
+# fixed-length string wrote 32 into 9, corrupting the malloc metadata. HDF5
+# returns SUCCESS in every one of those cases, so refusing a non-scalar
+# attribute is the only available signal. Each multi-element attribute here is
+# paired with a scalar one the reader must still read, so a guard that simply
+# refuses everything cannot pass.
+with h5py.File(root / "d1_multielement_attributes.h5", "w") as f:
+    g = f.create_group("cube_root/cube")
+    d = g.create_dataset("data", data=cube((3, 4, 6, 5)))
+    d.attrs.create("units", np.array([b"counts", b"counts", b"1/A", b"1/A"], dtype="S8"))
+    # ONE value, so the EMD dim-vector fallback cannot supply a Q size and the
+    # refusal above is what the assertion actually sees. Its `name` attribute is
+    # multi-element and its FIRST element is `_labels_`: read as a single string
+    # it declares this genuine rank-4 cube a label stack and discovery refuses
+    # the file outright — so the guard is what lets the cube open at all.
+    d3 = g.create_dataset("dim3", data=np.arange(1, dtype=np.float64))
+    d3.attrs.create("name", np.array([b"_labels_", b"kx", b"ky"], dtype="S9"))
+    cal = f.create_group("cube_root/metadatabundle/calibration")
+    cal.attrs.create("Q_pixel_size", np.array([0.25, 0.5, 0.75], dtype="f8"))   # 3 doubles
+    cal.attrs.create("QR_flip", np.array([1, 0, 1], dtype="i4"))                # 3 int32
+    cal.attrs.create("Q_pixel_units", np.array([b"1/A", b"1/nm"], dtype="S8"))  # 2 strings
+    cal.attrs.create("R_pixel_size", np.float64(3.0))                           # scalar, must read
+    cal.attrs.create("R_pixel_units", "nm")                                     # scalar, must read

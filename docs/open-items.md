@@ -17,6 +17,19 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Repository review 2026-09-09 — added 2026-09-09
 
+### D002 and D003 are CLOSED, and the register's count is now 111 (2026-09-09)
+Both CRITICALs were taken through Gate D, refuted by an independent agent, and
+fixed the same day. Evidence:
+[`docs/archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md).
+Two hypotheses were **refuted** there and must not be re-walked: (a) that the
+D003 overrun crashes `H5Reader` on open — it crashed one prebuilt binary 40/40
+and a fresh build of the same sources survives 40/40, so the SIGTRAP is
+allocator-layout luck, not a reproducible property; (b) that the ptychography
+transpose result was proven by the demo cube — that cube is square with equal
+row/column object sampling, so transpose was a geometric no-op there and the
+finding was re-run on a non-square crop. Still unproven and stated as such:
+that any real instrument writes a multi-element `units`/`name`.
+
 ### 119 unverified defect claims, and the adversarial pass that never ran
 The whole-repo review produced 259 records and stopped mid-run; the
 verification pass was still in flight. Deduplicated to 156 clusters in
@@ -322,6 +335,19 @@ Investigation owed; nobody has measured it since.
 
 ## Known, scoped, not blocking
 
+### Copy Bundle Resources contains the target's own Info.plist (2026-09-11)
+Every build in the 2026-09-11 `all` log prints: *"The Copy Bundle Resources
+build phase contains this target's Info.plist file"*. It arrived with `a8b13c6`,
+which set `INFOPLIST_FILE` on both app configurations while the file was also
+listed as a resource. **What is established:** the warning, reproducible on any
+build. **What is NOT:** whether the built bundle actually carries a duplicate at
+`Contents/Resources/Info.plist` — `package-test` builds to a temp directory that
+is gone by the time anyone looks, and no Release product was retained on
+2026-09-11. Check that first; if there is a duplicate it ships in the DMG.
+`package-test` passes either way, so the gate will not tell you. Owner: cheap,
+but do it before the v3.0.0 artefact is built.
+
+
 **UI findings** — the merged, trust-ordered list (provenance inference, ACOM
 confidence gating, calibration-state vocabularies, unit labels, Phase
 linearity, inspector layout) lives in
@@ -373,6 +399,27 @@ disk reproduces `MNT_REMOVABLE` with no external hardware). **The original
 2026-08-18 8 GB-machine death that motivated this is still NOT explained** —
 the mechanism is real and worth fixing but not established as that
 incident's cause. Owner: a later session, Gate B.
+
+### The sidecar reader has D003's missing guard too — not fixed (2026-09-09)
+`BraggVectorEMDWriter.swift`'s attribute reads carry the same defect D003 fixed
+in `H5Reader.swift`: `H5Aread` reads a whole attribute into a buffer sized for
+one value. This is the 2026-08-31 review's `core-data-01` (**confirmed, high**
+— "assume scalar variable-length storage without checking the file type or
+extent"), which D003 has now supplied the runtime evidence for, and the new
+register's `D029`/`D053`. Left alone deliberately: the owner scoped this
+session to D002 and D003 only. The fix is the same three lines —
+`H5Aget_space` plus `elementCount(spaceID:) == 1` — and the measurement is
+already done (24 bytes into 8; 32 into 9). Owner: a v2.5.x patch session.
+
+### Ptychography pads both object axes unlike py4DSTEM — deliberate (2026-09-09)
+py4DSTEM's `_calculate_scan_positions_in_pixels` pads BOTH position axes by
+`region_of_interest_shape[0]/2` (`object_padding_px = (float_padding,
+float_padding)`, then `[0][0]` and `[1][0]` — both index 0). This app pads each
+axis by its own half-extent, which differs only on a non-square detector. Kept
+as it was when D002 ported the rest of that function, and carried as an inline
+`DEVIATION`: correcting py4DSTEM's quirk was outside D002's scope and would
+have moved a number nobody asked about. Open question, not a defect: whether
+py4DSTEM intends it. Owner: decide when ptychography is next driven.
 
 ### Scan-fastest DM4 detector pair may be transposed — Gate D owed (2026-09-05)
 `Si-SiGe.dm4` stores its scan pair fastest; the reader maps the tags as
