@@ -15,6 +15,47 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Precipitate engines, landed unwired 2026-09-11 — added 2026-09-11
+
+### Contiguous invalid regions fabricate precipitates — blocks wiring
+`PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite
+median. That survives scattered NaN and **not** a large contiguous invalid
+region — the shape `Core/Analysis/StrainMapping.swift:81` actually writes. The
+imputed region is a synthetic constant with ~0 ridge response; past a share of
+the frame it dominates the median *and* the MAD of `filtered` and collapses the
+robust threshold until background noise clears it. Measured on a six-needle
+fixture with a masked column band (truth is 6 at every step): 6 objects to 18 %
+masked, then **9 at 25 %, 23 at 31 %, 25 at 37 %** — eighteen fabricated
+objects at 31 %, each carrying an area and a length, and `area` reaches an
+export through `arealDensity`. `valid[i] = false` cannot help: every fabricated
+object lies wholly in valid territory. **Do not wire this engine to a product
+until this is resolved.** Gate D of its own; the obvious remedy (threshold
+statistics over the finite subset) silently breaks the caller-validity contract
+at `PrecipitateSegmentation.swift:104-107` unless it excludes non-finite rather
+than invalid pixels. Owner: whether to fix or to refuse above a bound.
+
+### Non-finite pixels ON a feature erase it silently
+Same engine, same guard, different placement — and `StrainMap.component()`
+writes NaN where indexing failed, which is *on* the second phase. Marking a
+needle's own pixels invalid deletes it from the result with no signal: 1 needle
+marked → 5 objects, 6 marked (126 px, 0.77 % of the scan) → **0 objects**.
+Worse at partial coverage: 7 invalid pixels (0.04 %) leave a reassuring count
+of 6 while one needle reads **21.6 px instead of 8.2** — wrong by 2.6x. No
+imputation strategy recovers this; the information is gone from the input. The
+honest fix is to report the imputed count, not to hide it. Owner: report or
+refuse.
+
+### The robust-sigma constant and the fill statistic are unpinned
+Pre-existing, inherited with the port, found by Gate B. `1.4826 * mad`
+(`PrecipitateSegmentation.swift:305`) can be changed to `3.0 * mad` — a +102 %
+error in the constant that gives `Settings.thresholdSigmas` its documented
+meaning — with every test green, moving mask footprints **-22 %**,
+`meanIntensity` **-36 %** and one object's orientation by **23°**. Separately
+`medianOf(finite)` can become the arithmetic mean with every test green. Both
+are one-token mutants. Fix: one fixture asserting `robustThreshold` lands near
+`median + 3 x sigma_known` on known Gaussian noise, and one assertion that
+distinguishes median from mean. Not blocking — the engine is unwired.
+
 ## Repository review 2026-09-09 — added 2026-09-09
 
 ### 119 unverified defect claims, and the adversarial pass that never ran

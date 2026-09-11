@@ -155,10 +155,45 @@ Gates: `core` exit 0 (DSTEMCore + DSTEMSession built); `all` exit 0 — 573
 passed / 0 failed, every scientific harness passed, `comparator-test` 46/0,
 `package-test` all passed (`all-step2.log`).
 
-**NEXT: step 3 — the three precipitate Core engines, unwired.** Gate D's first
-trigger applies to the `isFinite` guard. Then step 4 (the baseline, committed
-UNSCORED), the `aiAnalysis` workspace, and steps 8-9. Steps 5-7 do not happen
-this run: see the second-round decisions in `decisions.md`.
+**Landed — step 3, the three precipitate Core engines, UNWIRED.**
+`Core/Analysis/Precipitates/{PrecipitateSegmentation,PrecipitateReflections,PrecipitateStatistics}.swift`
+plus `mac4DSTEMTests/PrecipitateTests.swift` (first class only). No production
+caller exists — every call site is in the tests, verified by grep. The four
+Gate D memos the branch cited but neither tree held are now committed under
+[`archive/v3/precipitate-gateD-2026-09-06/`](archive/v3/precipitate-gateD-2026-09-06/):
+`References/training_runs/` is gitignored but **retained**, unlike `scratchpad/`,
+so the port analysis's "the evidence is gone" was wrong here.
+
+**Gate D — the non-finite guard.** Trigger 2 discharged by reading: `main`
+writes `Float.nan` into scan-domain scalar arrays at `StrainMapping.swift`:77,
+:81 and `StrainFrame.swift`:113. Measured before the fix on a six-needle
+fixture: `.needles` with ONE NaN pixel returns 1 object of 65.2 px (a plausible
+wrong answer), `.particles` returns 0 (a refusal). Remedy: impute the finite
+median, mark those pixels invalid. Gate B attacked the no-op claim five ways
+and could not move a digit on any NaN-free fixture.
+
+**Gate B refuted four of this session's own claims, and they were corrected
+before the commit:** the blur truncates at FOUR sigma (48 px, not the "~36 px"
+the comment claimed — the right number was six lines below it in the same
+file); "a plausible wrong answer, not a refusal" is true of `.needles` only;
+the `[1, 3, 10]` dose sweep could not fail and is now a sentinel sweep over
+`.nan`/`.infinity`/`-.infinity`; and ten dead citations survived in the test
+file because the inventory gate covers truth docs, not `.swift` sources.
+**Gate B also found two wrong-science limits that are NOT fixed** — contiguous
+invalid regions fabricate objects (23 where 6 were drawn at 31 % masked) and
+non-finite pixels on a feature erase it silently. Both are in
+`open-items.md`, and the first **blocks wiring this engine**. The candidate
+remedy was itself refuted: it breaks the caller-validity contract unless it
+excludes non-finite rather than invalid pixels, so it needs its own Gate D.
+
+Gates: `unit` exit 0, **589 passed / 0 failed**; `core` exit 0; `inventory`
+exit 0, C5 flat at 7492. Every new test was broken before it was trusted —
+the guard-off, impute-0, impute-max, `valid[i]` and `.isNaN`-narrowing and
+scan-transpose mutants each kill the test that claims them.
+
+**NEXT: step 4 — the baseline, committed UNSCORED.** Then the `aiAnalysis`
+workspace and steps 8-9. Steps 5-7 do not happen this run: see the
+second-round decisions in `decisions.md`.
 
 **Two things that stay true however cleanly the files move:**
 
