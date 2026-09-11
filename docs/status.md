@@ -80,119 +80,81 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — NEXT: port the AI pipeline onto main (started, not done)
+## Handoff — porting the AI pipeline onto `main` (step 1 of 9 landed)
 
-**State on arrival, 2026-09-11 end of session.** v3.0.0 is released and pushed
-(release row above). `main` is `9b9949b`, clean. An empty branch
-**`ai/precipitates-embedding`** exists at that same commit — created as the
-home for the work below; nothing has been written to it. Delete it and start
-again if you prefer.
-
-**The task, decided by the owner:** move the unmerged AI-pipeline work from
-`ml/disk-detector` onto current `main` by **porting files forward, NOT by
-rebasing** — the branch is 27 commits ahead and **41 behind**, its merge base is
-2026-09-06, and `main` has since shipped v3.0.0.
-
-**What is unmerged and wanted** (verified 2026-09-11 with
-`comm -23 <(git ls-tree -r --name-only ml/disk-detector|sort) <(git ls-tree -r --name-only main|sort)`):
-`Core/Analysis/Precipitates/{PrecipitateSegmentation,PrecipitateReflections,PrecipitateStatistics}.swift`
-(388/176/140 lines), DiffractionEmbedding.swift (708, under Core/Analysis on the branch),
-`Session/{PrecipitateProduct,DiffractionGroupsProduct}.swift`,
-`App/AppState+{Precipitates,DiffractionGroups}.swift`,
-`UI/{AIAnalysisSettings,PrecipitateSettings,DiffractionGroupsSettings}.swift`,
-`mac4DSTEMTests/{PrecipitateTests,DiffractionEmbeddingTests}.swift`,
-`docs/ai-ml/{README,precipitates}.md`, and a second model
-disk-detector-heatmap-b32.aimodel (branch only, under Models/DiskDetector).
-Read the branch WITHOUT checking it out: `git show ml/disk-detector:<path>`.
-
-**Four known problems, none of them solved yet:**
-
-1. **Disk labels exist twice, in different shapes.** The branch has
-   AppState+DiskLabels.swift + DiskLabelStore.swift +
-   DiskLabelRows.swift (branch only); `main` has `Session/DiskCentreLabels.swift` +
-   `DiskCentreLabelTests.swift`, which **shipped in v3.0.0**. Owner's decision:
-   **main's wins.** Not established: whether the ported features call into the
-   branch's store, and what the equivalent on `DiskCentreLabels` is. Check every
-   call site before dropping the branch trio — this is the highest-risk part.
-2. **`Session/LearnedDetection.swift` diverged by 159 lines**, both sides
-   independently. Main's is the shipped one and is the default to keep; port
-   forward only hunks the new features actually require, hunk by hunk.
-3. **The AppState rule almost certainly bites.** The branch adds three
-   `AppState+*` extension files. CLAUDE.md forbids new stored state in AppState
-   and `inventory` fails if `AppState.swift` + `ResultExport.swift` net positive
-   (today they are **7509, exactly flat** — there is no slack). The compliant
-   shape is main's own: a `Session/` type that owns the state, held by AppState
-   as one property with no forwarding — see the role comments at the top of
-   `Session/DiskCentreLabels.swift` and `Session/StrainProduct.swift`.
-4. **Build integration.** Every new file under `mac4DSTEM/Core/` and
-   `Session/` must be added to the pbxproj `membershipExceptions` list — they
-   compile through the SwiftPM package targets, not the app target. And a
-   `.aimodel` must never live under `mac4DSTEM/` (MLAssetCompile fails for the
-   macOS 14 target); the b32 model's placement is undecided.
-
-**Do NOT port** `docs/archive/2026-08-31-review/test-evidence/.../source-copy/**`
-— ~60 duplicated Swift sources that exist only on the branch.
-
-**The open question nobody has answered:** whether the precipitate and
-embedding science is a py4DSTEM port (needs a parity harness) or original work,
-and whether its branch tests are Swift-against-Swift with no reference — in
-which case the science is unverified no matter how cleanly the files move.
-**Answer that before quoting any number from these features.**
-
-**The analysis COMPLETED, including its port plan** — six area maps, 19
-verifications and a step-by-step plan whose every step ends at a green
-`run-tests.sh`, in
+**The task.** Move the unmerged AI work from `ml/disk-detector` onto `main` by
+porting files forward, never by rebasing or merging: the branch is 27 ahead and
+**45 behind**, merge base 2026-09-06, and `main` has since shipped v3.0.0. The
+branch stays at `origin` as the record — `ml/disk-detector` is identical to
+`origin/ml/disk-detector` (`f057545`), verified 2026-09-11, so no work can be
+lost. Plan, file-by-file disposition and evidence:
 [`archive/2026-09-11-ai-port-analysis.md`](archive/2026-09-11-ai-port-analysis.md).
-**Read its first section before anything else — three findings there change the
-shape of the task, and one says this port is already covered by a standing
-decision:**
 
-- **`decisions.md` 2026-09-08 already ruled on this.** "C8: the four pure
-  engines stay on the branch (owner, in chat: 'leave')" — not ported *unwired*;
-  they re-enter *with their product and UI layers* through the §1.5 design
-  session. The reason given (dead Core in a tree about to become v3.0.0) has
-  lapsed. The condition has not. **A port needs a new dated entry reversing it.**
-- **The science is ORIGINAL, not a py4DSTEM port** — no DEVIATION notes, no
-  reference implementation, and the segmentation deliberately abandoned
-  skimage's convention. **No parity harness is possible.** Gate D applies:
+**Decided 2026-09-11, owner in chat** (`decisions.md`, four dated entries —
+read them before acting; the first reverses a standing decision):
+
+1. The port happens, superseding 2026-09-08's "the engines stay on the branch".
+2. The UI gets a **sixth workspace, "AI Analysis"** — not Sections mounted in
+   existing rooms, which was the analysis's recommendation. Costs eight files,
+   the five-title pin at `mac4DSTEMTests/ProductWorkflowTests.swift`, and
+   Results off Cmd-5.
+3. **Precipitates ship only if the pre-registered baseline is built and beaten
+   on both the fixture and a hand count.** Neither waived nor reduced to the
+   fixture alone. That is step 4, and it may end the precipitate half. The
+   Al-Si-Mg hand count is owed by the owner; everything around it is not.
+4. `.unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"])` is accepted, with the
+   cost that DSTEMCore can never resolve as a versioned remote dependency.
+
+**Landed this session — step 1, the C5 down payment.** `AnalysisMode` moved
+from `mac4DSTEM/App/AppState.swift` to `mac4DSTEM/App/ProductWorkflow.swift`,
+beside `WorkspaceArea` and the `extension AnalysisMode` tables already there.
+Pure placement: **neither Gate D trigger applies** — no scientific number moves
+and no defect is in play. AppState + ResultExport **7492**, down from 7509 flat.
+**This banks no credit, and the plan says otherwise twice** (§3 step 1, §5):
+`tools/run-tests.sh:135` measures each commit against its *immediate*
+predecessor — `HEAD` while a budgeted file is dirty, `HEAD^` when clean — so
+every commit must be <= the one before it and a past saving is never spendable.
+What the move actually buys is permanent and different: the two new
+`AnalysisMode` cases and `showsApertureOverlay` now land in
+`ProductWorkflow.swift`, outside both budgeted files. Step 6 must still pay for
+its own growth inside its own commit (Lever 2, §1), and **step 9 has no lever
+named at all** — name one before starting it.
+Gates: `xcodebuild build` exit 0; `unit` exit 0, 573 passed / 0 failed
+(`unit-step1-20260911.log`); `inventory` exit 0 (`inventory-step1b-20260911.log`).
+The first `inventory` run was **red** and caught a fresh `decisions.md`
+citation of a branch-only path — the same class as `cb48a99`, one commit old.
+
+**NEXT: step 2 — the build flag, ahead of the file that needs it.**
+`Package.swift`, two pbxproj `OTHER_SWIFT_FLAGS`, and **the two harness swiftc
+lines**: `tools/bragg-spacing-probe/run.sh` and
+`tools/training-dataset-campaign/run.sh` compile `Core/**` with a bare `swiftc`
+and are classed `diagnostic`, so nothing goes red when the flag breaks them.
+Run both by hand once. Gate: `core`, `all`.
+
+**Two things that stay true however cleanly the files move:**
+
+- **The precipitate science is original work, not a py4DSTEM port** — zero
+  `DEVIATION` notes, no upstream counterpart, and the segmentation abandoned
+  skimage's `regionprops` convention deliberately because it read the fixture
+  needles ~1.5x too long. **No parity harness is possible.** Gate D applies:
   `lengthPx`, `widthPx`, `orientationDegrees`, `area` and `arealDensity` all
-  reach an export.
-- **Its own pre-registered ship gate is unmet** — the design doc demands a
-  baseline without the ridge filter that the ridge filter must beat "or it does
-  not ship". Never written; the hand count was never made.
+  reach an export, and the ridge mask runs ~2x the drawn bar by its own note.
+- **No ported gating travels.** The branch's `unit` gate never ran (exit 69 on
+  the disk floor), every log it cites is a gone scratchpad name, and the port
+  adds science-affecting edits the branch never saw. Re-run; never re-cite.
 
-The rest of that file is evidence and a proposed plan. **Rows without a
-Verifier line are leads, not facts.** Also established:
+**Correction owed at step 3** (established 2026-09-11): this file and
+`archive/v3/c8-triage-2026-09-08.md` both say the branch's tests "never met a
+compiler". That caveat is on the embedding tests only — `PrecipitateTests`
+compiled and ran 12/0. Fix the sentence, re-run the suite, cite a new log.
 
-- **`main` has no AI Analysis workspace.** `WorkspaceArea` is
-  prepare/image/map/reconstruct/results (`App/ProductWorkflow.swift:10-15`); the
-  branch's UI hangs off a `.aiAnalysis` area that does not exist here, and the
-  branch gates live learned rings on it. **Owner decision: does v3.1 add a sixth
-  workspace, or do precipitates and grouping live inside Map?** Nothing can be
-  ported until this is answered — it decides where the UI lands.
-- **The embedding needs LAPACK, and the branch bought it with `.unsafeFlags`**
-  (`-Xcc -DACCELERATE_NEW_LAPACK` in `Package.swift`). That flag changes how ALL
-  of DSTEMCore compiles and **permanently forbids the package being consumed as
-  a dependency**. It also silently breaks `tools/bragg-spacing-probe/run.sh`,
-  which nothing gates. **Owner decision, and it is a policy one, not a patch.**
-- **Dropping the branch's disk-label trio is clean.** Verified: `main` has zero
-  occurrences of `DiskLabelStore` / `diskLabels` / `mac4dstem_disk_labels`, and
-  nothing in the port scope references them. Neither Gate D trigger applies.
-  But **confirm the dropped capability is unwanted first** — main's store cannot
-  express a rejection verdict on a machine-proposed candidate *set*, which is
-  exactly what fine-tuning on your clicks would want. That is the one thing
-  worth re-adding deliberately rather than losing by omission.
-- **The AppState rule bites, measured:** the branch's `AppState.swift` diff is
-  **+280 lines** against a rule that allows zero. Its bodies must be rewritten
-  into `Session/` owners before anything lands.
-- **Do not port:** the branch's `LearnedDiskRows` (duplicates what main shipped
-  at `UI/MapSettings.swift:104-138`), its `BraggVectorEMDWriter` hunks (main has
-  the identical mechanism under `diskCentreLabelsJSON`), and the
-  `source-copy/**` tree. Keep `LearnedDiskDetector.defaultThreshold` (0.7) —
-  never hardcode the branch's literal.
-- **One branch test is worth porting even though its implementation is not:**
-  `mac4DSTEMTests/ProductWorkflowTests.swift:850-878`
-  (`AIAnalysisDetectorChoiceTests`).
+**Do NOT port:** the branch's disk-label trio (main's
+`mac4DSTEM/Session/DiskCentreLabels.swift` won and shipped in v3.0.0), its
+`mac4DSTEM/Session/LearnedDetection.swift` (main is a strict superset; the
+branch's 0.9 threshold literal would move a number against
+`LearnedDiskDetector.defaultThreshold` 0.7), its `BraggVectorEMDWriter` hunks,
+its `LearnedDiskRows`, any branch build file, and the `source-copy/**` tree of
+63 duplicated Swift sources.
 
 ## Closed 2026-09-11 — v3.0.0 is cut and pushed
 

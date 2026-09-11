@@ -88,6 +88,31 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var showsTaskFamilyLabels: Bool { taskFamilyGroups.count > 1 }
 }
 
+/// The scientific algorithm a task runs. `WorkspaceArea` above names the
+/// outcome the user is reaching for; this names the method that gets there —
+/// the distinction this file's header draws.
+///
+/// Declared here rather than in `AppState.swift` (moved 2026-09-11): it holds
+/// no `AppState` dependency, every presentation table over it already lives
+/// below in `extension AnalysisMode`, and `AppState.swift` is one of the two
+/// files the C5 line budget caps (`tools/run-tests.sh`).
+enum AnalysisMode: String, CaseIterable, Identifiable {
+    case virtualDetector = "Virtual Det"
+    case dpc = "DPC"
+    case disks = "Disks"
+    case strain = "Strain"
+    /// Parallax (the staged bright-field reconstruction). Raw value kept —
+    /// it is written into export provenance as `analysis_mode`.
+    case ptychography = "Ptycho"
+    /// v2.5 step 7a (plan §11b): single-slice iterative ptychography is its
+    /// own task — it needs the datacube and calibration, never a parallax stage.
+    case singleslicePtychography = "Single-slice ptycho"
+    case acom = "ACOM"
+
+    var id: String { rawValue }
+    var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
+}
+
 /// Display-only orientation of the **real-space** image (backlog #17b).
 ///
 /// Quarter turns only: a multiple of 90° is exact and needs no interpolation,

@@ -886,3 +886,105 @@ whether to withdraw or annotate that download is the owner's call.
 is not covering the release. `package-test` was green while the archive could
 not compile, because it used the concrete-machine destination; it now uses the
 release destination and the release pin.
+
+**2026-09-11 — the AI pipeline is ported onto `main`, reversing "leave"
+(owner, in chat).** The 2026-09-08 entry above ("C8: the four pure engines
+stay on the branch") is superseded, not silently overridden. Its stated
+reason — 1 400 lines of dead Core sitting in a tree about to become
+v3.0.0 — lapsed when v3.0.0 shipped. Its condition, that the engines
+re-enter *with* their product and UI layers, is kept: the three decisions
+below are the design session it demanded. The port is by hand-applied
+forward port, never a rebase or merge: `ml/disk-detector` is 27 ahead and
+45 behind, merge base 2026-09-06. The branch stays at `origin` as the
+record; nothing is deleted. Plan and evidence:
+`archive/2026-09-11-ai-port-analysis.md`.
+
+**2026-09-11 — the AI work gets a sixth workspace, "AI Analysis" (owner,
+in chat).** `WorkspaceArea` gains a sixth case. Considered and rejected:
+mounting the two Sections in Imaging and Map, which is smaller and was the
+analysis's recommendation. Why the owner overruled it: the five rooms are
+named by outcome (D1, 2026-09-01), and precipitate density and
+diffraction-pattern grouping are neither "form virtual images" nor "strain
+and orientation" nor "phase" — a Form section inside a room whose own
+subtitle describes something else hides the one capability that has no
+py4DSTEM equivalent. Discoverability was the deciding argument. The name
+states the method rather than the outcome, against D1; the owner chose it
+knowing that. Costs, all accepted: eight files, the five-title pin in
+`ProductWorkflowTests`'s `testPrimaryNavigationUsesUserOutcomes` updated
+deliberately, and `Results` moves off Cmd-5 (shortcuts are hand-written
+literals at `mac4DSTEMApp.swift:145-149`). A ninth site both the analysis and
+this entry's first draft missed: the `WorkspaceArea` switch at
+`AppState.swift:1331`, which is exhaustive with no default.
+
+**2026-09-11 — precipitates ship only if the pre-registered baseline is
+built and beaten (owner, in chat).** `ml/disk-detector:docs/ai-ml/precipitates.md` §6
+(open it with `git show`; it is not on `main`) demands a baseline — threshold plus connected components with
+the ridge filter disabled — that the ridge filter must beat on both the
+synthetic fixture and an Al-Si-Mg hand count, "or it does not ship". It
+was never written and the hand count was never made. The owner declined
+both the waiver and the fixture-only variant. It is a live comparison, not
+a formality: the segmentation's own doc comment records the ridge mask
+running ~2x the drawn bar, so `area` — which reaches the export through
+`arealDensity` — is systematically inflated in a way a plain threshold is
+not. This is step 4 of the plan and it may end the precipitate half. The
+hand count is owed by the owner; everything around it is not.
+
+**2026-09-11 — `.unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"])` is
+accepted in `Package.swift` (owner, in chat).** `DiffractionEmbedding`
+needs `__LAPACK_int`, which only exists behind Apple's new Accelerate
+LAPACK interface; verified empirically, `dsyevd_` alone compiles without
+the macro but `__LAPACK_int` is a hard error. The cost is that SwiftPM
+will refuse to resolve DSTEMCore as a versioned remote dependency for as
+long as the flag is there — nothing consumes it that way today, and it is
+an `XCLocalSwiftPackageReference "."`. Considered and not taken: Apple's
+deprecated legacy interface (keeps publishability, adopts a deprecated
+API, needs its own proof the eigenvalues are unchanged), and a C shim
+target using `cSettings: [.define(...)]` (keeps both, unverified, would
+need a spike). If publishing DSTEMCore ever matters, the shim is the path
+back. **Landing the flag silently breaks two harnesses** —
+`tools/bragg-spacing-probe/run.sh` and
+`tools/training-dataset-campaign/run.sh` compile `Core/**` themselves with
+a bare `swiftc` and are classed `diagnostic`, so no gate reports it. Their
+two swiftc lines get the flag in the same commit as `Package.swift`.
+
+**2026-09-11 (second round) — how the unattended port behaves where it cannot
+be scored (owner, in chat, before an unattended run).** Four answers, given
+together with the run's shape in front of him:
+
+1. **The Al-Si-Mg hand count is not made** ("no time"). Step 4 computes the
+   baseline comparison and commits **the full metric table, explicitly
+   UNSCORED**, under `archive/v3/`. No winner is declared. Precipitates are
+   **not wired**: steps 5-7 do not happen this run.
+2. **"Beats" means recall and precision, and a tie passes.** Consequence,
+   stated to him before he chose: on the synthetic fixture both arms detect
+   all six needles (amplitude 200 on sigma≈2 noise is a >70-sigma signal
+   against a 3-sigma threshold), so the fixture half is a **tie, and therefore
+   a pass**. The fixture cannot discriminate the arms at all — it contains no
+   touching needles, no faint needles and no elongated background, which are
+   the failure modes the ridge filter exists for. Sharpening it now would be
+   re-registering after peeking and is refused. **The real-data half is the
+   only half that can decide, and it is unscored.** One hand count on the
+   frozen target unlocks steps 5-7 with no other work owed.
+3. **If precipitates never ship, the AI Analysis room ships anyway**, for
+   diffraction grouping alone, and the run continues to steps 8-9. The
+   embedding half shares only step 1 and step 2 with the precipitate half.
+4. **One commit per step; never push.**
+5. **Exit 69 is recoverable: delete `~/Library/Developer/Xcode/DerivedData`
+   and retry, once per refusal.** Asked again after free space fell to exactly
+   8 GB mid-session against `run-tests.sh`'s hard 8 GB floor (`have < need`, so
+   8 passes and 7 refuses) while `tools/free-space.sh` reclaims 0 bytes. The
+   cache is ~921 MB of regenerable build product outside the repo; the cost is
+   one slower rebuild. **Not** authorised, and so never done: thinning the
+   Time Machine local snapshot made 18:38 today, which is probably the larger
+   consumer. A refusal is always reported as a disk event, never as a test
+   failure.
+
+**Correction the same session, to a claim this file and `status.md` both
+carried.** The port analysis says twice (§3 step 1, §5) that step 1 "creates
+the headroom every later step spends". It does not. `tools/run-tests.sh:135`
+measures each commit against its *immediate* predecessor — `HEAD` while a
+budgeted file is dirty, `HEAD^` when clean — so every commit must be <= the one
+before it and a saving is never bankable. What step 1 does buy is permanent and
+different: the new `AnalysisMode` cases land in `ProductWorkflow.swift`, outside
+both budgeted files. Step 6 still pays for itself inside its own commit, and
+step 9 has no lever named yet.

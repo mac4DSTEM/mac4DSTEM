@@ -44,23 +44,6 @@ enum DPCDisplayMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum AnalysisMode: String, CaseIterable, Identifiable {
-    case virtualDetector = "Virtual Det"
-    case dpc = "DPC"
-    case disks = "Disks"
-    case strain = "Strain"
-    /// Parallax (the staged bright-field reconstruction). Raw value kept —
-    /// it is written into export provenance as `analysis_mode`.
-    case ptychography = "Ptycho"
-    /// v2.5 step 7a (plan §11b): single-slice iterative ptychography is its
-    /// own task — it needs the datacube and calibration, never a parallax stage.
-    case singleslicePtychography = "Single-slice ptycho"
-    case acom = "ACOM"
-
-    var id: String { rawValue }
-    var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
-}
-
 enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
     case preprocess = "Preprocessed BF"
     case alignment = "Aligned BF"
