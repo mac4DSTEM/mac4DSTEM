@@ -243,6 +243,42 @@ applies and no derivative may be made of its code. What is usable is the
 derived here rather than lifted, which is better practice anyway since theirs
 were tuned to their microscope and sample.
 
+**Method choice evaluated against the paper itself, 2026-09-11:**
+[`v3-phase-mapping-method-choice.md`](v3-phase-mapping-method-choice.md).
+**Recommendation: vector matching**, because its single hardest dependency is
+this app's largest existing investment — the paper calls accurate peak finding
+"perhaps most challenging" and "the most computationally intensive step", and
+that is `DiskDetection` + `TiledDiskDetection` with sub-pixel refinement plus
+C7's Neural Engine detector, on calibration that is already gated.
+
+**The deviation worth making: for them peak finding is the bottleneck; for us it
+is already paid for.** `BraggVectors` is computed once per scan and already
+shared by strain and ACOM, so vector matching is a post-processing pass over
+data the app has, not a new pipeline. Their image-space matrix masking also
+becomes trivial in vector space — drop experimental vectors near the Al
+reference vectors — and their "not indexed above 0.07" verdict fits this app's
+refusal culture where an argmax does not.
+
+Not template matching: their own numbers show 86.24 % on basic pre-processing
+against 98.24 % with background subtraction, a twelve-point swing decided by
+pre-processing, plus a per-phase `max{s}` they say "reduces the ease of use …
+and also the objectiveness". Not ANN yet: the Core ML infrastructure exists and
+it is the fastest at run time, but it needs ~10 000 simulated patterns per phase
+and the simulation machinery vector matching would build anyway. NMF stays the
+exploratory tool, which is roughly what `DiffractionEmbedding` already is.
+
+**A correction this reading forced:** an earlier note here called template
+matching "the worst of their four methods". The paper says all four reach
+98.5 % ± 0.5 % and that "the small differences in accuracies are not
+significant". The numbers are real, the ranking is not; corrected in the
+reference doc. This session's own refutation of per-position template matching
+stands on its own measurement and never needed their table.
+
+**Blocking vector matching, unchanged:** `CIFImport.swift:798-810` refuses
+monoclinic (cubic, hexagonal, throw), so β″ cannot be loaded at all — that is
+the first thing to fix — plus a β″ CIF, and the β″/Al orientation relationship,
+which is published.
+
 **Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
 deliberately **not wired**. Their pre-registered ship gate is unmet, and the
 synthetic half of it is a TIE that reveals the ridge filter does not reject

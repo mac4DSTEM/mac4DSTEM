@@ -47,20 +47,49 @@ On a pattern containing **only aluminium** reflections:
 phase and the best wrong phase is **−0.008**: negative. An argmax over phases
 would confidently return the wrong one.
 
-## Why, quantitatively — it is a sampling limit, not a bug
+## Why — MY FIRST EXPLANATION WAS WRONG, and the sweep below refutes it
 
-The polar template is sampled on `nRadial` bins over `kMax`, so two phases whose
-reflections differ by less than one bin are the same pattern to the score. At
-the defaults (`nRadial` 32, `kMax` 1.6), one bin is **0.05 Å⁻¹**:
+**Corrected 2026-09-11, prompted by the owner asking whether the confusion was a
+property of his strongly-binned cube.** It is not — the peaks in this probe are
+analytic, generated at exact positions with no detector and no binning — but
+testing that refuted the explanation I had published here, so it is replaced
+rather than defended.
 
-| pair | Δg (111) | fraction of one bin | score on Al |
-|---|---|---|---|
-| Al–Au | 0.0030 Å⁻¹ | **6 %** — same bin | 0.988, wins |
-| Al–Cu | 0.0514 Å⁻¹ | 103 % — resolved | 0.500 |
-| Al–Si | 0.1088 Å⁻¹ | 218 % — resolved | 0.795 |
+**The claim was:** the polar template is sampled on `nRadial` bins over `kMax`,
+so phases differing by less than one bin are indistinguishable; Al–Au (111)
+differ by 0.0030 Å⁻¹ = 6 % of one bin at the defaults.
 
-Al and Au are 0.7 % apart in lattice parameter and land in the same radial bin.
-Nothing in the scoring can separate them.
+**The measurement:** raise `nRadial` from 32 to 1024, taking the bin width from
+0.05 Å⁻¹ to 0.00156 Å⁻¹ — far *below* the Al–Au separation, so the arithmetic
+predicts they should separate.
+
+| nRadial | bin width | Al | Au | Au−Al |
+|---|---|---|---|---|
+| 32 | 0.05000 | 0.97949 | 0.98758 | +0.00809 |
+| 256 | 0.00625 | 0.97899 | 0.98691 | +0.00792 |
+| 1024 | 0.00156 | 0.97895 | 0.98684 | +0.00789 |
+
+**Au still wins, by essentially the same margin.** Radial sampling is not the
+cause. The arithmetic was right and the conclusion drawn from it was not — which
+is the failure mode this repo keeps hitting, and it survived one commit.
+
+**The cause is not established.** The next candidate, untested: the radial
+kernel (`radialKernelInvAngstrom`, default 0.08 Å⁻¹, py4DSTEM's
+`corr_kernel_size`) deliberately smears every reflection by a *fixed* width
+regardless of bin count — 27× the Al–Au separation. Another candidate is the
+scattering-factor weighting, since Au (Z 79) and Al (Z 13) give different
+relative intensities. **Neither is measured, and this section should not be
+quoted as if the cause were known.**
+
+**And it is moot for the route we are taking** — see below.
+
+## Why it is moot under Thronsen et al.'s design
+
+Their pipeline never matches the matrix at all: the matrix is masked out of
+every pattern, left out of the template library, and assigned by exclusion. A
+contest between Al and Au templates therefore never happens. The Al/Au finding
+bounds a *general multi-phase argmax* — which is what the pre-registration
+proposed — and not the design we are adopting.
 
 ## What this does and does not condemn
 

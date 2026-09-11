@@ -21,11 +21,17 @@ common ground truth by the fraction of mislabelled pixels:
 | vector analysis | 1.54 % |
 | **template matching** | **1.75 %** — worst of the four |
 
+**CORRECTED 2026-09-11 after reading the paper itself: this is NOT a ranking,
+and reporting it as one was wrong.** The paper states all four reach
+98.5 % ± 0.5 % and that "the small differences in accuracies are not
+significant", because the ground truth was made manually. The numbers are real;
+the ordering is not meaningful. An earlier version of this file called template
+matching "the worst of the four" — it is not established to be worse than any
+other.
+
 Our own measurement (`phase-discrimination-2026-09-11.md`) refuted per-position
-template matching on a synthetic mixture. This is the same conclusion reached
-independently, peer-reviewed, on a real cube. **Caveat, stated because it
-matters: the spread is 0.96–1.75 % on one dataset.** Template matching is worst,
-not useless.
+template matching *as we would have built it*, on a synthetic mixture. That
+stands on its own evidence, and does not need their table to support it.
 
 ## 2. They hit our exact problem and say so in the notebook
 

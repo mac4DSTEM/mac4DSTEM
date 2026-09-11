@@ -187,6 +187,32 @@ enum Probe {
             }
         }
 
+        // ---- IS THE FLOOR A PARAMETER LIMIT? ----------------------------
+        // The owner asked whether the Al/Au confusion is a property of his
+        // strongly-binned (bin_4) cube. It cannot be: these peaks are analytic,
+        // generated at exact positions with no detector and no binning, and
+        // `nRadial` is a free parameter of OrientationPlan, not something
+        // derived from the detector. So the limit should move when nRadial
+        // moves. Bin width is kMax/nRadial; Al-Au (111) differ by 0.0030 A^-1,
+        // so separating them predicts nRadial > 1.6/0.0030 = 533.
+        print("\n  nRadial SWEEP -- scores on the PURE ALUMINIUM pattern:")
+        print("    nRadial   binWidth      Al       Au    Au-Al   verdict")
+        for nR in [32, 64, 128, 256, 512, 1024] {
+            var s: [String: Float] = [:]
+            for (nm, c) in [("Al", matrix), ("Au", Crystal.gold)] {
+                guard let pl = try? OrientationPlan.generate(
+                        crystal: c, kMax: kMax, nRadial: nR, zoneAxisCount: 300,
+                        symmetry: .cubic),
+                      let mt = OrientationMatcher(plan: pl, symmetry: .cubic) else { continue }
+                s[nm] = mt.match(peaks: peaks(sm, 1.0), originX: originX, originY: originY,
+                                 invAngstromPerPixel: 1 / pxPerInvA).score
+            }
+            guard let al = s["Al"], let au = s["Au"] else { continue }
+            let verdict = al > au ? "Al wins (correct)" : "Au WINS (wrong)"
+            print(String(format: "    %5d   %8.5f  %7.5f  %7.5f  %+7.5f   %@",
+                         nR, kMax / Double(nR), al, au, au - al, verdict))
+        }
+
         // ---- WHY, quantitatively ----------------------------------------
         // The polar template is sampled on nRadial bins over kMax, so two
         // phases whose reflections differ by less than one bin are the SAME
