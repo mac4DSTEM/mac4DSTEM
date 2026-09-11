@@ -112,6 +112,82 @@ Strain / Orientation / Parallax / ptychography sub-pages, and the WS2 CIF import
 
 ## Science — Gate D or Gate B owed
 
+### The Quantitative badge consults no origin gate at all (2026-09-11)
+`AppState.quantitativeStatus(for:units:)` (`AppState.swift:741-760`) is a pure
+lookup on the product's kind and units strings: a `kind` in
+`["strain", "local_lattice", "dpc", "idpc", "virtual_detector",
+"disk_detection", "matched_template"]` returns `.quantitative` unconditionally.
+**Verified 2026-09-11: zero references to `originFitIsSane`,
+`originSupportsReciprocalMetrology`, `referenceOrigin(...).kind
+.isMeasuredBeamCentre` or the `origin_reference_is_measured` flag it ships
+beside itself.** `SessionGates.reciprocalMetrologyRefusal` has exactly one
+production caller, `AppState.swift:5128` (`calibrateQFromCrystal`); strain, ACOM
+and DPC pass through no origin gate.
+Observed on the owner's drive: a strain map badged **Quantitative** on the same
+screen where Prepare badged its origin **Not quantitative** (RMS 9.72 px against
+a 3.74 px probe, so `originFitIsSane` is false), computed against
+`origin_reference = apertureCentre`, `origin_reference_is_measured = false`.
+`Calibration.originFitIsSane`'s own doc (`Calibration.swift:550-570`) claims to
+be *"the single owner of that decision"* so that *"the badge the user sees, the
+calibration the app is willing to perform, and the parity records cannot
+disagree."* They disagree; this is a fourth hand-rolled surface of the kind that
+comment forbids.
+**Why it is not merely cosmetic, and why "a constant offset cancels" does not
+rescue it:** the per-position fit solves `[origin, g1, g2]`
+(`StrainMapping.swift:617-661`), so a displacement is absorbed into the free
+origin term and g1/g2 are untouched — but only *after* indexing, and indexing is
+`round(beta^-1 * (peak - origin))` accepted at
+`residual <= max(0.5, 0.18*min(|g1|,|g2|))` (`:202-226`). A 10.88 px origin
+displacement shifts every `peak - origin` before that rounding: unless it is
+near an integer lattice combination it mis-indexes or drops the position.
+Strain is therefore not a smooth function of origin error — it survives intact
+or collapses — and nothing distinguishes the two. Evidence:
+[`docs/archive/2026-09-11-drive/origin-cleared-gate-d.md`](archive/2026-09-11-drive/origin-cleared-gate-d.md).
+Owner: **this is the one finding from the 2026-09-11 drive that is a candidate
+release blocker.** Gate D owed on the fix; the diagnosis above is established.
+
+### A radius-only aperture drag destroys the fitted origin (2026-09-11)
+Latent, found by the Gate D refuter, and **not** what happened on the owner's
+drive. `ApertureOverlay.emit` rounds the centre to whole pixels and hands the
+WHOLE `Aperture` to `updateAperture`, which tests
+`newAperture.centerX != aperture.centerX` (`AppState.swift:3112`). After any
+origin fit or restore the live centre is fractional — (69.3133, 54.5009) on
+`downsample_Si_SiGe_exp`. So dragging an inner/outer RADIUS handle, never
+touching the centre, rounds it by up to 0.5 px, trips the centre-change branch
+and destroys `calibration.origin` and `recordedOriginX/Y`. Distinguished from
+the owner's incident by magnitude: rounding moves <= 0.5 px, his centre moved
+10.884 px. The pinning test the refuter proposes is a hypothesis and must be
+broken before it is trusted: restore a calibration holding the sidecar's origin
+maps, set the aperture to `meanOrigin`, drive `emit` with an outer-radius-only
+change, assert `calibration.origin` survives. Owner: cheap, Gate D (a number
+can move).
+
+### "Computed this session" reports what EXISTS, not what was computed (2026-09-11)
+This is what the owner actually reported. The two rows are bare predicates —
+`product("Origin calibration", done: ...calibration.hasFittedOrigin)` and
+`done: ...hasRotation` (`WorkspaceInspector.swift:563-565`) — so a session
+restored from a sidecar shows both green having computed nothing. The owner's
+session WAS restored (the sidecar reproduces his 9.72 px and 3.74 px exactly),
+so his green ticks were restored, not computed, and the tick went grey because
+the origin was cleared, not because a computation was undone. The label is the
+defect. Owner: presentation only, neither Gate D trigger applies.
+
+### Moving the detector destroys the origin fit with no durable warning (2026-09-11)
+Gate D closed: `updateAperture`'s centre-change branch is doing exactly what it
+was designed to do (Gate B note, 2026-08-28), and the design is the problem. The
+aperture centre silently IS the calibration, and after a fit the aperture sits
+on the fitted mean — 10.9 px from the pattern's visual middle on this dataset —
+which is precisely what invites a user in an imaging workspace to "correct" it.
+The only notice is a transient `statusText`; the undo (`canRestoreFittedOrigin`)
+is real but sits inside `DisclosureGroup("Fit diagnostics & advanced
+correction")` with `@SceneStorage showsDiagnostics = false`
+(`PrepareSettings.swift:30,120-128`) — collapsed by default and the last row of
+a different workspace's sidebar, as the 2026-09-01 drive already recorded. The
+app gives no indication that moving the detector destroys the origin fit until
+after it has. Owner: decide whether a confirmation, a non-transient banner, or
+refusing to clear without consent.
+
+
 ### A red real-data gate names the symptom, not the cause (2026-09-09)
 `compare.py`'s `fail()` raises `SystemExit`, so a run stops at the first
 mismatching field of the first mismatching file. On 2026-09-08 it printed
