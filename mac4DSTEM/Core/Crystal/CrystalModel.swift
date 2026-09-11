@@ -106,6 +106,11 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
                 add("hexagonal_symmetry_mismatch", "Hexagonal 6/mmm symmetry requires a = b, α = β = 90°, and γ = 120°.")
             }
         case .identity:
+            // Structurally fine. What it cannot do is stated by
+            // `supportsOrientationMapping` below, NOT here: a validation issue
+            // would make `CIFImport.crystalModel` throw `.invalidModel` and the
+            // structure would never load at all, which is the bug this comment
+            // replaced (caught by probe, 2026-09-11).
             break
         }
         return issues
@@ -192,6 +197,33 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     }
 
     package var isUsable: Bool { validationIssues.isEmpty }
+
+    /// Whether this model may drive ACOM orientation mapping.
+    ///
+    /// Separate from `isUsable` on purpose, and the distinction is the whole
+    /// point: an `.identity` model is a perfectly good CRYSTAL — cell, basis and
+    /// structure factors all valid, and that is everything phase
+    /// IDENTIFICATION needs — but the app implements orientation reduction for
+    /// cubic and hexagonal only. Mapping one anyway would publish an unreduced
+    /// orientation and call `ACOMCrystalSymmetry.identity.ipfColor`, which
+    /// returns |x|,|y|,|z| as RGB: not a wrong IPF key, but no key at all
+    /// wearing the look of one.
+    ///
+    /// It is NOT a validation issue, because `CIFImport.crystalModel` throws
+    /// `.invalidModel` on any validation issue — so recording it there would
+    /// refuse the structure at import and defeat the purpose.
+    package var supportsOrientationMapping: Bool { symmetry != .identity }
+
+    /// Why orientation mapping is unavailable, or nil when it is available.
+    /// `AppState.acomModelSelectionIssue` surfaces this so ACOM refuses with a
+    /// reason rather than silently offering nothing.
+    package var orientationMappingIssue: String? {
+        supportsOrientationMapping ? nil
+            : "This phase is \(symmetry.displayName.lowercased()): its cell is neither "
+              + "cubic nor hexagonal, and orientation reduction is implemented for those "
+              + "two families only. The structure can still be used to identify the phase, "
+              + "but it cannot produce an orientation map or an IPF colour."
+    }
 
     /// In-memory identity used to reject a completion when editable model
     /// values changed while a plan was being generated.

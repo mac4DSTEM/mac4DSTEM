@@ -807,7 +807,7 @@ final class AppState {
         case .imported(let id):
             model = acomSession.importedCrystalModels.first { $0.id == id }
         }
-        guard let model, model.isUsable else { return nil }
+        guard let model, model.isUsable, model.supportsOrientationMapping else { return nil }
         return model
     }
 
@@ -835,7 +835,7 @@ final class AppState {
                 // resets to `.none` on every dataset (re)activation.
                 return "The imported phase model is no longer available in this session — import the CIF again."
             }
-            return model.validationIssues.first?.message
+            return model.validationIssues.first?.message ?? model.orientationMappingIssue
         }
     }
 
