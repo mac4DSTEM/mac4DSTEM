@@ -108,6 +108,11 @@ package final class PhaseMappingProduct {
     // MARK: Result
 
     package private(set) var map: PhaseMap?
+    /// The top few zone-axis fits from the last `findMatrixZoneAxis`, so the
+    /// panel can show the runners-up. A tie across a symmetry-equivalent
+    /// family is what says the fit is real rather than arbitrary, and only the
+    /// runners-up show it. Cleared with the dataset, like the map.
+    package var zoneAxisFits: [PhaseVectorMatcher.ZoneAxisFit] = []
     /// Everything needed to say what produced `map`, and to tell whether the
     /// live controls have moved since.
     package private(set) var lastRun: RunRecord?
@@ -205,5 +210,6 @@ package final class PhaseMappingProduct {
     package func clear() {
         map = nil
         lastRun = nil
+        zoneAxisFits = []
     }
 }

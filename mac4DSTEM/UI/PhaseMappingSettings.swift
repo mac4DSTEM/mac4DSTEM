@@ -61,6 +61,38 @@ struct PhaseMappingSections: View {
                      + "from every pattern and it is the answer where too little is left.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+
+                // Which AXIS it is viewed down is not stated — it is measured.
+                // A matrix viewed down an axis it is not on presents no
+                // reflections to remove, so nothing is removed and every
+                // position comes back "not indexed", which looks exactly like
+                // a method that does not work (the owner's run, 2026-09-12).
+                Button {
+                    Task { await appState.findMatrixZoneAxis() }
+                } label: {
+                    Label("Find Matrix Zone Axis", systemImage: "scope")
+                }
+                .disabled(appState.isBusy || appState.braggVectors == nil)
+                .accessibilityIdentifier("phaseMapping.findZoneAxis")
+
+                ForEach(Array(product.zoneAxisFits.enumerated()), id: \.offset) { rank, fit in
+                    LabeledContent {
+                        Text(String(format: "%.0f %% · %.4f Å⁻¹",
+                                    100 * fit.explainedFraction, fit.meanDistance))
+                            .monospacedDigit()
+                            .foregroundStyle(rank == 0 ? .primary : .secondary)
+                    } label: {
+                        Text("[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)]")
+                            .monospacedDigit()
+                            .foregroundStyle(rank == 0 ? .primary : .secondary)
+                    }
+                }
+                if product.zoneAxisFits.count > 1 {
+                    Text("Symmetry-equivalent axes should tie exactly. They are "
+                         + "shown so a fit can be told from a coin toss.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             addPhaseMenu
         }

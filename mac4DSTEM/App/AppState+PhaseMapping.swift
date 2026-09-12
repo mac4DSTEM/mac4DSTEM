@@ -277,6 +277,68 @@ extension AppState {
                             phaseMapping.matching.pairRadiusInvAngstrom)
     }
 
+    /// Ask the DATA which beam direction the matrix is on, and set it.
+    ///
+    /// The app's own diagnosis tells a user to check the matrix zone axis when
+    /// nothing was removed as matrix. Telling someone to check something and
+    /// giving them no way to answer it is half a feature — this is the other
+    /// half. The owner hit exactly this on 2026-09-12 with Al on [001] and a
+    /// matrix verdict count of zero.
+    ///
+    /// Reports the top three, because a tie across a symmetry-equivalent
+    /// family is the sign the sweep is behaving (all five sampled ⟨110⟩ tied
+    /// at 39.0 % on his cube) and a user who sees only the winner cannot tell
+    /// a fit from a coin toss.
+    func findMatrixZoneAxis() async -> AnalysisRunOutcome {
+        guard let descriptor else { return .failed("Open a dataset first.") }
+        guard let matrixIndex = phaseMapping.phases.firstIndex(where: \.isMatrix) else {
+            return .failed("Mark one phase as the matrix first.")
+        }
+        guard let rawVectors = braggVectors else {
+            return .failed("Detect Bragg disks first — this fits the axis to the "
+                           + "peaks disk detection found.")
+        }
+        let slot = phaseMapping.phases[matrixIndex]
+        let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
+        let origin = calibrated.origin.point
+        let scale = acomScaleSemantics
+        let reference = phaseMapping.reference
+        let matching = phaseMapping.matching
+        let crystal = slot.model.crystal
+        let vectors = calibrated.vectors
+
+        let cancellation = beginCancellableOperation(
+            "Matrix zone axis",
+            status: "Fitting \(slot.model.displayName) against every low-index zone axis…")
+        defer { finishCancellableOperation(cancellation) }
+
+        let fits = await Task.detached(priority: .userInitiated) {
+            PhaseVectorMatcher.fitZoneAxis(
+                bragg: vectors, crystal: crystal,
+                referenceSettings: reference, settings: matching,
+                originX: origin.x, originY: origin.y,
+                invAngstromPerPixel: scale.invAngstromPerPixel,
+                cancellation: cancellation)
+        }.value
+
+        guard !cancellation.isCancelled else { return .cancelled }
+        guard let winner = fits.first else {
+            return .failed("No low-index zone axis of \(slot.model.displayName) "
+                           + "presents any reflection this detector can reach.")
+        }
+        guard phaseMapping.phases.indices.contains(matrixIndex) else { return .cancelled }
+        phaseMapping.phases[matrixIndex].u = winner.zoneAxis.x
+        phaseMapping.phases[matrixIndex].v = winner.zoneAxis.y
+        phaseMapping.phases[matrixIndex].w = winner.zoneAxis.z
+        phaseMapping.zoneAxisFits = Array(fits.prefix(3))
+
+        statusText = "\(slot.model.displayName) best fits "
+            + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
+            + String(format: "explaining %.0f %% of the measured vectors at %.4f Å⁻¹",
+                     100 * winner.explainedFraction, winner.meanDistance)
+        return .published
+    }
+
     /// What a finished map says about itself when it found nothing, or nil.
     var phaseMappingDiagnosis: String? {
         guard let map = phaseMapping.map else { return nil }

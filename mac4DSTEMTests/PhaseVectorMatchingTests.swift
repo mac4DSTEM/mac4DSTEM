@@ -885,3 +885,96 @@ final class PhaseVectorResolutionTests: XCTestCase {
                                                     resolution: coarse))
     }
 }
+
+/// Asking the data which beam direction the specimen is on. This is the half
+/// of the diagnosis that was missing: the app told the owner to check his
+/// matrix zone axis and gave him no way to answer it.
+final class ZoneAxisFitTests: XCTestCase {
+
+    /// Planted truth: patterns built from aluminium's own ⟨110⟩ projection,
+    /// at a sign-discriminating in-plane rotation. The fit must recover the
+    /// FAMILY, and — because fcc is cubic — every sampled ⟨110⟩ equivalent
+    /// must tie EXACTLY. The tie is the real assertion: it is what cubic
+    /// symmetry requires, so a sweep that returns a winner without it is
+    /// returning something rather than measuring something.
+    ///
+    /// Mutation: ranking by `meanDistance` alone instead of matched count
+    /// first — the trap the source comment names, where one vector at
+    /// 0.001 Å⁻¹ beats nine at 0.01.
+    func testTheFitRecoversThePlantedFamilyAndTiesAcrossIt() throws {
+        let al = Crystal.aluminum
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 1.2
+        let planted = SIMD3(1, 1, 0)
+        let rotation = 37.2 * Double.pi / 180
+
+        let base = PhaseReferenceLibrary.projectedVectors(
+            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            zoneAxis: planted, settings: reference)
+        XCTAssertGreaterThan(base.count, 4)
+        let turned = PhaseReferenceLibrary.rotate(base, by: rotation)
+
+        let scale = 0.008
+        let originX: Float = 128, originY: Float = 128
+        let peaks: [[BraggPeak]] = (0..<64).map { _ in
+            [BraggPeak(x: originX, y: originY, intensity: 10)]
+                + turned.map { v in
+                    BraggPeak(x: originX + Float(v.q.x / scale),
+                              y: originY + Float(v.q.y / scale), intensity: 1)
+                }
+        }
+        let bragg = BraggVectors(scanWidth: 8, scanHeight: 8, peaks: peaks)
+
+        let fits = PhaseVectorMatcher.fitZoneAxis(
+            bragg: bragg, crystal: al, referenceSettings: reference,
+            settings: PhaseVectorSettings(), originX: originX, originY: originY,
+            invAngstromPerPixel: scale, inPlaneStepDeg: 2)
+        let winner = try XCTUnwrap(fits.first)
+
+        func isOneOneZeroFamily(_ a: SIMD3<Int>) -> Bool {
+            let m = [abs(a.x), abs(a.y), abs(a.z)].sorted()
+            return m == [0, 1, 1]
+        }
+        XCTAssertTrue(isOneOneZeroFamily(winner.zoneAxis),
+                      "fitted [\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
+                      + "not a ⟨110⟩")
+        XCTAssertEqual(winner.explainedFraction, 1.0, accuracy: 0.001)
+
+        // THE TIE. Every ⟨110⟩ in the candidate list must score identically.
+        let family = fits.filter { isOneOneZeroFamily($0.zoneAxis) }
+        XCTAssertGreaterThanOrEqual(family.count, 3, "too few ⟨110⟩ axes to test the tie")
+        for fit in family {
+            XCTAssertEqual(fit.matchedVectors, winner.matchedVectors,
+                           "[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)] "
+                           + "broke the cubic tie")
+        }
+        // And a non-equivalent axis must NOT reach the same score, or the
+        // sweep is not discriminating at all.
+        let other = fits.first { !isOneOneZeroFamily($0.zoneAxis) }
+        XCTAssertLessThan(try XCTUnwrap(other).matchedVectors, winner.matchedVectors)
+    }
+
+    /// Mutation: the `pairs > 0` guard dropped, or an axis with no reachable
+    /// reflection admitted — it would divide by zero or report a perfect fit
+    /// for a direction that presents nothing.
+    func testAnAxisThatPresentsNothingIsNotRanked() {
+        let al = Crystal.aluminum
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 1.2
+        let bragg = BraggVectors(scanWidth: 2, scanHeight: 2,
+                                 peaks: Array(repeating: [], count: 4))
+        XCTAssertTrue(PhaseVectorMatcher.fitZoneAxis(
+            bragg: bragg, crystal: al, referenceSettings: reference,
+            settings: PhaseVectorSettings(), originX: 0, originY: 0,
+            invAngstromPerPixel: 0.008).isEmpty,
+            "a scan with no peaks produced a zone-axis ranking")
+        for fit in PhaseVectorMatcher.fitZoneAxis(
+            bragg: BraggVectors(scanWidth: 1, scanHeight: 1,
+                                peaks: [[BraggPeak(x: 90, y: 0, intensity: 1)]]),
+            crystal: al, referenceSettings: reference, settings: PhaseVectorSettings(),
+            originX: 0, originY: 0, invAngstromPerPixel: 0.008) {
+            XCTAssertTrue(fit.meanDistance.isFinite, "an unranked axis leaked a NaN")
+            XCTAssertGreaterThan(fit.totalVectors, 0)
+        }
+    }
+}

@@ -377,6 +377,122 @@ package nonisolated enum PhaseVectorMatcher {
         return (sum / Double(scratch.touched.count), matched, scratch.touched.count)
     }
 
+    // MARK: Which zone axis is the specimen on?
+
+    /// One candidate beam direction, scored against the scan's own peaks.
+    package nonisolated struct ZoneAxisFit: Sendable, Equatable {
+        package let zoneAxis: SIMD3<Int>
+        package let inPlaneRotationRad: Double
+        /// Experimental vectors this axis accounts for, across the sample.
+        package let matchedVectors: Int
+        /// Experimental vectors in the sample, total.
+        package let totalVectors: Int
+        /// Mean |u − v| over the pairs it made, Å⁻¹.
+        package let meanDistance: Double
+
+        package var explainedFraction: Double {
+            totalVectors > 0 ? Double(matchedVectors) / Double(totalVectors) : 0
+        }
+        package var inPlaneDegrees: Double { inPlaneRotationRad * 180 / .pi }
+    }
+
+    /// Rank beam directions by how much of the scan's measured peaks each one
+    /// explains — the question "what orientation is this specimen on?", asked
+    /// of the data instead of assumed.
+    ///
+    /// WHY IT EXISTS. A matrix viewed down an axis it is not on presents no
+    /// reflections to remove, nothing is removed, and every position comes
+    /// back "not indexed" — which on screen is indistinguishable from a method
+    /// that does not work. The owner hit exactly that on 2026-09-12: Al set to
+    /// [001], matrix verdict count **zero** across 108 900 positions. Measured
+    /// afterwards by `tools/phase-map-probe`, his specimen is on **⟨110⟩**, and
+    /// all five sampled ⟨110⟩ equivalents tied at 39.0 % — an exact tie across
+    /// the family being what cubic symmetry requires, and therefore a check
+    /// that the sweep is behaving rather than merely returning something.
+    ///
+    /// Ranked by explained fraction, tie-broken on the lower mean distance.
+    /// NOT by mean distance alone, for the same reason `fitMatrixOrientation`
+    /// is not: an axis explaining one vector at 0.001 Å⁻¹ would beat one
+    /// explaining nine at 0.01.
+    package static func fitZoneAxis(bragg: BraggVectors,
+                                    crystal: Crystal,
+                                    referenceSettings: PhaseReferenceSettings,
+                                    settings: PhaseVectorSettings,
+                                    originX: Float, originY: Float,
+                                    invAngstromPerPixel: Double,
+                                    candidateAxes: [SIMD3<Int>]
+                                        = PhaseReferenceLibrary.lowIndexZoneAxes,
+                                    inPlaneStepDeg: Double = 5,
+                                    sampleLimit: Int = 400,
+                                    cancellation: AnalysisCancellationToken? = nil)
+        -> [ZoneAxisFit] {
+        guard !bragg.peaks.isEmpty, !candidateAxes.isEmpty else { return [] }
+
+        // A subsample, spread across the scan: this answers a question about
+        // the GRAIN, and a grain does not change between neighbouring probe
+        // positions. Sampling is what keeps a 62-axis sweep interactive.
+        let step = max(1, bragg.peaks.count / max(1, sampleLimit))
+        var sample: [[SIMD2<Double>]] = []
+        var index = 0
+        while index < bragg.peaks.count {
+            let v = experimentalVectors(
+                peaks: bragg.peaks[index], originX: originX, originY: originY,
+                invAngstromPerPixel: invAngstromPerPixel,
+                directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom)
+            if !v.isEmpty { sample.append(v) }
+            index += step
+        }
+        guard !sample.isEmpty else { return [] }
+        let totalVectors = sample.reduce(0) { $0 + $1.count }
+
+        var reference = referenceSettings
+        reference.inPlaneStepDeg = inPlaneStepDeg
+        let reflections = crystal.reflections(kMax: reference.kMaxInvAngstrom)
+        let rotations = PhaseReferenceLibrary.inPlaneSteps(reference)
+        let scratch = Scratch(capacity: max(1, reference.maximumVectorsPerEntry))
+
+        var out: [ZoneAxisFit] = []
+        for axis in candidateAxes {
+            if cancellation?.isCancelled == true { break }
+            let base = PhaseReferenceLibrary.projectedVectors(
+                reflections: reflections, crystal: crystal,
+                zoneAxis: axis, settings: reference)
+            guard !base.isEmpty else { continue }
+            var best: ZoneAxisFit?
+            for theta in rotations {
+                let entry = PhaseOrientationReference(
+                    phaseIndex: 0, zoneAxis: axis, inPlaneRotationRad: theta,
+                    vectors: PhaseReferenceLibrary.rotate(base, by: theta))
+                var matched = 0, pairs = 0
+                var total = 0.0
+                for vectors in sample {
+                    guard let sc = score(vectors: vectors, against: entry,
+                                         pairRadius: settings.matrixToleranceInvAngstrom,
+                                         scratch: scratch) else { continue }
+                    matched += sc.matched
+                    total += sc.score * Double(sc.uniqueReferences)
+                    pairs += sc.uniqueReferences
+                }
+                guard pairs > 0 else { continue }
+                let fit = ZoneAxisFit(zoneAxis: axis, inPlaneRotationRad: theta,
+                                      matchedVectors: matched, totalVectors: totalVectors,
+                                      meanDistance: total / Double(pairs))
+                if best == nil || fit.matchedVectors > best!.matchedVectors
+                    || (fit.matchedVectors == best!.matchedVectors
+                        && fit.meanDistance < best!.meanDistance) {
+                    best = fit
+                }
+            }
+            if let best { out.append(best) }
+        }
+        out.sort {
+            $0.matchedVectors != $1.matchedVectors
+                ? $0.matchedVectors > $1.matchedVectors
+                : $0.meanDistance < $1.meanDistance
+        }
+        return out
+    }
+
     // MARK: The matrix orientation, fitted once
 
     /// The single matrix entry that best explains the whole scan.
