@@ -2995,7 +2995,7 @@ final class AppState {
             guard epoch == datasetEpoch else { return }
             currentPattern = pattern
             patternVersion &+= 1
-            statusText = "Pattern x \(selectedScan.x), y \(selectedScan.y) from \(descriptor.fileName)"
+            showReadout("Pattern x \(selectedScan.x), y \(selectedScan.y)")   // a readout, not an event
             await detectCurrentPattern()
         } catch {
             present(error)

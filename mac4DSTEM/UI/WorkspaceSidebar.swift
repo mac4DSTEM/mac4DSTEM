@@ -243,6 +243,19 @@ struct SessionSection: View {
                     Text("\(descriptor.rx) × \(descriptor.ry) scan · \(descriptor.qx) × \(descriptor.qy) detector")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                    // Residency moved here from the status strip, 2026-09-12.
+                    // The other two facts that stood beside it — app resident
+                    // memory and the cube's byte count — were deleted: one is a
+                    // debugger readout, the other a static property of the file,
+                    // and Info › Performance carries both. This one is not
+                    // telemetry. Resident and streaming produce IDENTICAL
+                    // numbers, so nothing else on screen tells a user which
+                    // path their analyses took — which makes it provenance, and
+                    // provenance belongs beside the dataset it describes rather
+                    // than four interactions deep in a collapsible inspector.
+                    Text(appState.residency.summary)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
                 .help(descriptor.fileName)
                 .accessibilityElement(children: .combine)

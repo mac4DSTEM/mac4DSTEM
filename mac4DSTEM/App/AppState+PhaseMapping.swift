@@ -250,6 +250,39 @@ extension AppState {
         return out
     }
 
+    /// What the phase-mapping tolerances mean on the detector currently open.
+    ///
+    /// The settings are in Å⁻¹ and the measurement is on a pixel grid; the Q
+    /// calibration is the only thing that joins them, and until 2026-09-12
+    /// nothing showed the user the conversion. On the owner's own cube the
+    /// shipped 0.020 Å⁻¹ tolerances are 0.44 of one detector pixel, matrix
+    /// removal removed nothing at all, and the map came back empty.
+    ///
+    /// Nil when there is no Q scale to convert through — an exploratory scale
+    /// is a slider value, and a pixel count derived from one would be a number
+    /// wearing the look of a measurement.
+    var phaseVectorResolution: PhaseVectorResolution? {
+        let scale = acomScaleSemantics
+        guard scale.provenance.isPhysical, scale.invAngstromPerPixel > 0 else { return nil }
+        return PhaseVectorResolution(settings: phaseMapping.matching,
+                                     invAngstromPerPixel: scale.invAngstromPerPixel)
+    }
+
+    /// Put the three matching tolerances onto this detector's own grid.
+    func scalePhaseMatchingToDetector() {
+        guard let resolution = phaseVectorResolution else { return }
+        phaseMapping.matching = resolution.scaledToDetector(phaseMapping.matching)
+        statusText = String(format: "Phase matching scaled to this detector: "
+                            + "pair radius %.4f Å⁻¹, one detector pixel",
+                            phaseMapping.matching.pairRadiusInvAngstrom)
+    }
+
+    /// What a finished map says about itself when it found nothing, or nil.
+    var phaseMappingDiagnosis: String? {
+        guard let map = phaseMapping.map else { return nil }
+        return PhaseMapPresentation.diagnosis(map, resolution: phaseVectorResolution)
+    }
+
     /// The evidence for the scan position the user is looking at, in one line.
     /// Nil when there is no map, or the position is outside it.
     var phaseMappingEvidenceLine: String? {

@@ -752,3 +752,136 @@ final class PhaseVectorGateBTests: XCTestCase {
                        + "because one distant peak widened the chance expectation")
     }
 }
+
+/// The two things the owner's 2026-09-12 run needed the app to say and it
+/// said neither: what a tolerance in Å⁻¹ means on the detector in front of
+/// you, and why a map came back empty.
+final class PhaseVectorResolutionTests: XCTestCase {
+
+    /// The owner's own cube: 0.045741 Å⁻¹ per detector pixel after 4× binning.
+    /// The shipped 0.020 Å⁻¹ tolerances are 0.44 of one pixel there, matrix
+    /// removal removed nothing at all, and 108 899 of 108 900 positions came
+    /// back "not indexed".
+    ///
+    /// Mutation: `pairRadiusPixels` computed as `scale / setting` (inverted),
+    /// which is the easiest way to get a unit conversion backwards and would
+    /// read as a comfortable 2.29 px instead of a hopeless 0.44.
+    func testTolerancesAreReportedInDetectorPixels() {
+        let resolution = PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                               invAngstromPerPixel: 0.045741477608680726)
+        XCTAssertEqual(resolution.pairRadiusPixels, 0.437, accuracy: 0.001)
+        XCTAssertEqual(resolution.matrixRemovalPixels, 0.437, accuracy: 0.001)
+        XCTAssertEqual(resolution.notIndexedAbovePixels, 0.219, accuracy: 0.001)
+        // A finer detector meets the same settings comfortably, which is what
+        // makes the number worth showing rather than the setting worth banning.
+        let fine = PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                         invAngstromPerPixel: 0.008)
+        XCTAssertEqual(fine.pairRadiusPixels, 2.5, accuracy: 1e-9)
+        XCTAssertNil(fine.advice, "a detector that can meet the tolerance was warned about")
+    }
+
+    /// Mutation: the `pairRadiusPixels < 1` guard removed or inverted. A
+    /// warning that fires on every dataset is one nobody reads.
+    func testAdviceFiresOnlyWhenTheToleranceIsUnderOnePixel() {
+        func advice(_ scale: Double) -> String? {
+            PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                  invAngstromPerPixel: scale).advice
+        }
+        XCTAssertNotNil(advice(0.045741477608680726))
+        XCTAssertNotNil(advice(0.0201))
+        XCTAssertNil(advice(0.0199), "0.02 Å⁻¹ over a 0.0199 Å⁻¹ pixel is 1.005 px")
+        XCTAssertNil(advice(0.008))
+        XCTAssertNil(advice(0), "an uncalibrated detector has no pixel to compare against")
+        XCTAssertTrue(advice(0.045741477608680726)?.contains("0.44") ?? false,
+                      "the advice must carry the number: \(advice(0.045741477608680726) ?? "nil")")
+    }
+
+    /// Mutation: `scaledToDetector` setting the verdict distance equal to the
+    /// pair radius rather than half of it. The pair radius says what COULD be
+    /// the same reflection; the verdict distance says what is close enough to
+    /// call — equal values collapse the distinction and index everything the
+    /// pair radius admits.
+    func testScalingToTheDetectorKeepsTheShippedRatio() {
+        let scale = 0.045741477608680726
+        let scaled = PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                           invAngstromPerPixel: scale)
+            .scaledToDetector(PhaseVectorSettings())
+        XCTAssertEqual(scaled.pairRadiusInvAngstrom, scale, accuracy: 1e-12)
+        XCTAssertEqual(scaled.matrixToleranceInvAngstrom, scale, accuracy: 1e-12)
+        XCTAssertEqual(scaled.notIndexedAboveInvAngstrom, scale / 2, accuracy: 1e-12)
+        XCTAssertLessThan(scaled.notIndexedAboveInvAngstrom, scaled.pairRadiusInvAngstrom)
+        // The direct beam is only ever widened, never narrowed: a user who set
+        // it wide for a big probe must not have it cut by a scaling action.
+        var wide = PhaseVectorSettings()
+        wide.directBeamRadiusInvAngstrom = 0.5
+        let keptWide = PhaseVectorResolution(settings: wide, invAngstromPerPixel: scale)
+            .scaledToDetector(wide)
+        XCTAssertEqual(keptWide.directBeamRadiusInvAngstrom, 0.5, accuracy: 1e-12)
+        // And a run with no Q calibration changes nothing at all.
+        let uncalibrated = PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                                 invAngstromPerPixel: 0)
+            .scaledToDetector(PhaseVectorSettings())
+        XCTAssertEqual(uncalibrated, PhaseVectorSettings())
+    }
+
+    /// The map explains ITSELF when it found nothing. Mutation: the
+    /// `matrix == 0` branch removed, so an empty map blames the candidate
+    /// phases when the real cause is that the frame never worked at all.
+    func testAnEmptyMapNamesTheMostSpecificCauseFirst() {
+        func map(noData: Int, notIndexed: Int, matrix: Int, indexed: Int) -> PhaseMap {
+            let total = noData + notIndexed + matrix + indexed
+            var m = PhaseMap(width: total, height: 1, matrixEntryIndex: 0,
+                             phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+            var i = 0
+            for _ in 0..<noData { m.results[i].verdict = .noData; i += 1 }
+            for _ in 0..<notIndexed { m.results[i].verdict = .notIndexed; i += 1 }
+            for _ in 0..<matrix { m.results[i].verdict = .matrix; i += 1 }
+            for _ in 0..<indexed { m.results[i].verdict = .indexed; i += 1 }
+            return m
+        }
+        let coarse = PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                           invAngstromPerPixel: 0.045741477608680726)
+
+        // The owner's run, in proportion: no matrix at all.
+        let owners = PhaseMapPresentation.diagnosis(map(noData: 0, notIndexed: 999,
+                                                        matrix: 0, indexed: 1),
+                                                    resolution: coarse)
+        XCTAssertNotNil(owners)
+        XCTAssertTrue(owners?.contains("Nothing was removed as matrix") ?? false, owners ?? "nil")
+        XCTAssertTrue(owners?.contains("0.44") ?? false,
+                      "the pixel number is what makes it actionable: \(owners ?? "nil")")
+
+        // Same shape on a detector the tolerance fits: the cause must be the
+        // zone axis, not the tolerance.
+        let fine = PhaseVectorResolution(settings: PhaseVectorSettings(),
+                                         invAngstromPerPixel: 0.008)
+        let axis = PhaseMapPresentation.diagnosis(map(noData: 0, notIndexed: 999,
+                                                      matrix: 0, indexed: 1),
+                                                  resolution: fine)
+        XCTAssertTrue(axis?.contains("zone axis") ?? false, axis ?? "nil")
+        XCTAssertFalse(axis?.contains("detector pixel") ?? true, axis ?? "nil")
+
+        // No peaks beats every other explanation.
+        let empty = PhaseMapPresentation.diagnosis(map(noData: 900, notIndexed: 100,
+                                                       matrix: 0, indexed: 0),
+                                                   resolution: coarse)
+        XCTAssertTrue(empty?.contains("no usable peaks") ?? false, empty ?? "nil")
+
+        // The matrix WAS found: then it is the candidates that do not match.
+        let candidates = PhaseMapPresentation.diagnosis(map(noData: 0, notIndexed: 500,
+                                                            matrix: 499, indexed: 1),
+                                                        resolution: coarse)
+        XCTAssertTrue(candidates?.contains("candidate phases") ?? false, candidates ?? "nil")
+
+        // And a map that found things says nothing at all.
+        XCTAssertNil(PhaseMapPresentation.diagnosis(map(noData: 0, notIndexed: 200,
+                                                        matrix: 400, indexed: 400),
+                                                    resolution: coarse))
+        // Nor does a clean all-matrix result: a precipitate-free region is an
+        // answer, not a failure, and telling its user to check their zone axes
+        // would be the app second-guessing a correct measurement.
+        XCTAssertNil(PhaseMapPresentation.diagnosis(map(noData: 0, notIndexed: 0,
+                                                        matrix: 1000, indexed: 0),
+                                                    resolution: coarse))
+    }
+}

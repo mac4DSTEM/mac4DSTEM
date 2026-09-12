@@ -1226,3 +1226,39 @@ matched. What replaced it has a number behind it: an entry must beat its own
 `chanceMatchFraction` expectation by 5×. Removing it takes random-vector
 accuracy from 99.2 % to 5.5 %, which is the measurement that says it is
 load-bearing.
+
+## 2026-09-12 — throughput leaves the status strip, which narrows a 2026-09-04 decision
+
+On 2026-09-04 the owner asked for elapsed, throughput and ETA beside the
+progress bar rather than "only one tab away" in the inspector. On 2026-09-12 he
+called the same strip not "simple, stupid, macOS". Both are right, and the
+resolution keeps the half that carries the decision.
+
+**Elapsed and ETA stay in the strip. Throughput does not.** Three reasons, in
+descending weight. Apple's own chrome carries units-per-second nowhere — the
+HIG asks a progress indicator for "a description that provides additional
+context", and rate belongs to Activity Monitor. It was the longest token in the
+line by a wide margin: the widest string the formatter could produce with it is
+180.9 pt against 113.6 without, so it alone was most of a 190 pt reservation in
+a bar now called cluttered. And it is the one of the three a user can infer
+from what remains — the bar and the elapsed time give it — whereas neither
+elapsed nor ETA is derivable from anything else on screen.
+
+It survives in Info › Performance, which is where it was before 2026-09-04. The
+part of that decision this does NOT reverse is the part that mattered: the
+numbers a user waits on are still beside the bar they are waiting at.
+
+## 2026-09-12 — a readout is not an event
+
+`ActivityLog` now has a one-shot suppression, and the scan-position line uses
+it. The rule it encodes: the status line has two jobs — reporting what
+happened, and showing where you are — and only the first belongs in a log.
+
+Measured, on the owner's screen: every click on the scan image wrote
+"Pattern x 154, y 152 from <filename>" through `statusText.didSet`, the
+consecutive-repeat rule never fired because the coordinates differ every time,
+and a 330 × 330 scan offers 108 900 of them against a 300-line capacity. Cursor
+movement was evicting the run's real events — the detection, the import, the
+phase map — from the record kept to explain them. The filename went too: it is
+in the window subtitle, the sidebar and the toolbar, and repeating it in a line
+that truncates is what truncated it.

@@ -761,6 +761,15 @@ this label to "C…", so a fix must not reintroduce a width contender in that
 slot. Exact symptom still the owner's to pin down (style vs size vs
 placement) before anyone changes it.
 
+**Amended 2026-09-12.** The status bar's own Cancel was a `.controlSize(.mini)`
+version of the same mistake and is now a borderless `xmark.circle.fill`, so
+this toolbar item is the ONLY Cancel left with a rendering complaint against
+it. What that fix established and this entry can now use: `.mini` sets a 9 pt
+label (measured) and a `Text`-labelled button is a flexible child that a tight
+row squeezes — the `C…` collapse was reproduced at 1080 pt. The remedy that
+worked there is the same glyph-plus-`.help()` pair; the owner's call on whether
+the toolbar wants it is still owed, and is now a smaller question than it was.
+
 
 ### Sidecar/session UX residuals (2026-09-02)
 Recents-row location labels unverified on screen (F1.1c). A sidecar

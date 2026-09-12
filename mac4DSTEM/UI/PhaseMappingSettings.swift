@@ -101,6 +101,33 @@ struct PhaseMappingSections: View {
             parameterField("Not indexed above",
                            value: $product.matching.notIndexedAboveInvAngstrom,
                            units: "Å⁻¹", format: "%.3f")
+
+            // These are set in Å⁻¹ and met on a pixel grid, and until
+            // 2026-09-12 nothing on screen joined the two. On the owner's own
+            // cube the defaults are 0.44 of one detector pixel; matrix removal
+            // removed nothing and the map came back empty.
+            if let resolution = appState.phaseVectorResolution {
+                LabeledContent("On this detector") {
+                    Text(String(format: "%.2f · %.2f · %.2f px",
+                                resolution.pairRadiusPixels,
+                                resolution.matrixRemovalPixels,
+                                resolution.notIndexedAbovePixels))
+                        .monospacedDigit()
+                        .foregroundStyle(resolution.advice == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
+                }
+                if let advice = resolution.advice {
+                    Label(advice, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Button {
+                        appState.scalePhaseMatchingToDetector()
+                    } label: {
+                        Label("Scale to This Detector", systemImage: "arrow.left.and.right")
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("phaseMapping.scaleToDetector")
+                }
+            }
         }
 
         Section {
@@ -161,6 +188,14 @@ struct PhaseMappingSections: View {
                         Text(row.label)
                     }
                 }
+            }
+
+            if let diagnosis = appState.phaseMappingDiagnosis {
+                // A map that found nothing is a result about the SETTINGS, and
+                // on screen it looks exactly like a result about the specimen.
+                Label(diagnosis, systemImage: "questionmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
 
             if let evidence = appState.phaseMappingEvidenceLine {

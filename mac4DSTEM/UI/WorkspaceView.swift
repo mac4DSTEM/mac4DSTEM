@@ -510,61 +510,81 @@ struct StatusBar: View {
             // the strip has no bar of its own, so the message dictating its
             // own height is a layout dependency this file otherwise refuses
             // to take (see `operationMetrics` and the percentage above it).
+            // One line, truncating: at ~1080 pt window width this used to
+            // wrap onto a second line and grow the bar's height with it —
+            // the strip has no bar of its own, so the message dictating its
+            // own height is a layout dependency this file otherwise refuses
+            // to take. `.help` is the remedy for the truncation itself: the
+            // owner's screenshot of 2026-09-12 shows this line cut mid-file
+            // name with no way to read the rest, and the sidebar's dataset
+            // row already answers that with exactly this modifier.
             Text(appState.statusText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .help(appState.statusText)
                 .accessibilityIdentifier("status.bar")
 
             Spacer(minLength: 12)
 
-            if appState.isBusy {
+            if showsOperationProgress {
                 HStack(spacing: 8) {
+                    // The percentage that used to sit beside this bar is gone
+                    // (2026-09-12) and reaches VoiceOver here instead, where
+                    // it cannot wrap and is not a second drawing of the bar.
                     ProgressView(value: appState.progress)
                         .frame(width: LayoutPolicy.inlineProgressWidth)
-                    if let progress = appState.progress {
-                        // Reserved, not `.fixedSize()`: a ticking percentage
-                        // is exactly the kind of string that re-measures
-                        // itself into the constraint loop the metrics line
-                        // beside it already guards against (`LayoutPolicy`).
-                        // "100 %" is the widest the formatter produces.
-                        Text("\(Int(progress * 100)) %")
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .frame(width: LayoutPolicy.progressPercentWidth, alignment: .trailing)
-                    }
-                    // Elapsed, throughput and ETA, beside the bar they
-                    // describe (owner, 2026-09-04). They were only in the
-                    // inspector's Performance rows, which is a tab away from
-                    // the progress a user is actually watching. Same source
-                    // and same wording as those rows.
-                    operationMetrics
+                        .accessibilityLabel(appState.activeOperation ?? "Progress")
+                        .accessibilityValue(appState.progress
+                            .map { "\(Int($0 * 100)) percent" } ?? "")
+                    operationReadout
                     if appState.canCancelActiveOperation {
-                        Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
-                            .controlSize(.mini)
+                        // A BORDERLESS GLYPH, not `Button("Cancel").controlSize(.mini)`.
+                        //
+                        // `.mini` sets a button's label to 9 pt — measured —
+                        // against this strip's own 10 pt `caption2`, so the one
+                        // control a user must be able to hit was the smallest
+                        // thing in the bar. Worse, its label was the only
+                        // FLEXIBLE child left in the busy group once the bar
+                        // and the readout took constant widths, so a tight row
+                        // squeezed it to "C…" — reproduced at 1080 pt, and the
+                        // identical symptom is already recorded for the toolbar
+                        // copy at `PrimaryActionButton.operationProgress`.
+                        //
+                        // Apple ships `NSImage.stopProgressFreestandingTemplateName`
+                        // for precisely this — its own documentation says "you
+                        // can use this image to implement a borderless button"
+                        // — and Finder's copy sheet and Safari's downloads
+                        // popover both stop work with a borderless glyph
+                        // attached to the progress it stops. The repo's own
+                        // Remove-from-Recents row forty lines above is the
+                        // same idiom. A glyph has an intrinsic size, so it
+                        // cannot truncate; the HIG's answer to losing the word
+                        // is the tooltip below.
+                        //
+                        // `.secondary`, not the Recents row's `.tertiary`: the
+                        // faintest thing in the strip is the wrong weight for
+                        // the control that stops a forty-minute compute.
+                        Button {
+                            appState.cancelActiveOperation()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Stop \(appState.activeOperation ?? "this operation")")
+                        .accessibilityLabel("Cancel \(appState.activeOperation ?? "operation")")
+                        .accessibilityIdentifier("status.footer.cancel")
                     }
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("status.footer.operation")
-            }
-
-            if let descriptor = appState.descriptor {
-                // NOT `.fixedSize()`. Its app-memory figure moves, and this
-                // body re-runs on every progress update, so a fixed size made
-                // this a second child changing its own minimum while an
-                // operation ran — the same loop as the metrics line above,
-                // and live here before that line was ever written. Truncating
-                // is the right trade: the inspector's Performance block holds
-                // the full detail, and this is the glanceable subset.
-                Text(footerFacts(descriptor))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(1)
-                    .accessibilityIdentifier("status.footer.facts")
+                // NO `.accessibilityElement(children: .combine)` here. It used
+                // to merge the Cancel button out of the accessibility tree as
+                // a button — the control was unreachable to VoiceOver, which
+                // is the opposite of what combining was for. And with no
+                // element of its own the group must carry no identifier
+                // either, or the bar, the readout and the button would all
+                // answer to it.
             }
 
             if appState.hasDataset && !appState.isLoadingDataset {
@@ -587,8 +607,24 @@ struct StatusBar: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Elapsed · throughput · ETA while an operation runs, on the same
-    /// one-second tick the inspector uses.
+    /// Whether the strip draws a progress bar of its own.
+    ///
+    /// `isBusy` alone was not the right question. During a dataset OPEN it is
+    /// true, `activeOperationMetrics` is nil outright, and `canCancel` is
+    /// false — so the strip drew an indeterminate bar and a guaranteed-blank
+    /// readout slot beside a loading column that has its own spinner and its
+    /// own Cancel. A load that has started an analysis inside its bracket
+    /// (`AppState.runCurrentAnalysis` within the open) still qualifies,
+    /// because that pass is cancellable and this is the only visible control
+    /// that stops it.
+    private var showsOperationProgress: Bool {
+        appState.isBusy && (!appState.isLoadingDataset || appState.activeOperation != nil)
+    }
+
+    /// Elapsed, and an ETA once the run can estimate one, beside the bar they
+    /// describe (owner, 2026-09-04: the numbers belong beside the progress,
+    /// not only one tab away). Throughput left this line on 2026-09-12 and is
+    /// the inspector's alone — the reasoning is on `OperationMetricsFormat.line`.
     ///
     /// **The frame is the point.** The first version of this line was
     /// `Text(...).fixedSize()`, whose width changed with the string on every
@@ -597,30 +633,25 @@ struct StatusBar: View {
     /// disk detection (`open-items.md`). Here the slot is a constant width
     /// from `LayoutPolicy`, wide enough for the longest line the formatter
     /// produces, and the text truncates inside it rather than resizing it.
-    /// It is reserved for the whole operation, so an appearing rate or ETA
-    /// moves nothing either. Trailing-aligned: the numbers stay against the
-    /// Cancel button instead of drifting away from it as the line shortens.
+    /// It is reserved for the whole operation, so an appearing ETA moves
+    /// nothing either. Trailing-aligned: the numbers stay against the stop
+    /// control instead of drifting away from it as the line shortens.
     @ViewBuilder
-    private var operationMetrics: some View {
+    private var operationReadout: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            // `activeOperationMetrics` is nil until the run has measured
-            // something; an empty string holds the slot until then.
+            // Nil while a dataset loads, which `showsOperationProgress` now
+            // keeps off screen; an empty string holds the slot otherwise.
             Text(appState.activeOperationMetrics(at: context.date)
                     .map { OperationMetricsFormat.line($0, for: appState.activeOperation) } ?? "")
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .frame(width: LayoutPolicy.operationMetricsWidth, alignment: .trailing)
+                .frame(width: LayoutPolicy.operationReadoutWidth, alignment: .trailing)
                 .accessibilityIdentifier("status.footer.metrics")
         }
     }
 
-    private func footerFacts(_ descriptor: DatasetDescriptor) -> String {
-        let app = String(format: "%.0f MB app", SystemMonitor.residentMemoryMB())
-        let cube = displayByteString(descriptor.byteCountAsFloat32) + " cube"
-        return "\(app) · \(cube) · \(appState.residency.summary.lowercased())"
-    }
 }
 
 // MARK: - The two-pane split

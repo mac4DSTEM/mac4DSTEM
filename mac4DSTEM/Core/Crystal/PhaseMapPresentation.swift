@@ -132,6 +132,62 @@ package nonisolated enum PhaseMapPresentation {
         return rows
     }
 
+    /// What a finished map says about ITSELF, when the answer is "nothing
+    /// matched" — or nil when the map found something.
+    ///
+    /// A map that is 99 % "not indexed" with zero matrix positions is not a
+    /// result about the specimen; it is a result about the settings, and the
+    /// two look identical on screen. Measured on the owner's run, 2026-09-12:
+    /// β″ 1, matrix 0, not indexed 108 899. The cause was a matrix tolerance
+    /// smaller than the detector pixel, and nothing said so.
+    ///
+    /// The ORDER of the tests is the point — the most specific explanation
+    /// first, so the user is not told "check your tolerances" when the real
+    /// answer is "there were no peaks".
+    package static func diagnosis(_ map: PhaseMap,
+                                  resolution: PhaseVectorResolution?) -> String? {
+        let total = map.results.count
+        guard total > 0 else { return nil }
+        let noData = map.count(of: .noData)
+        let notIndexed = map.count(of: .notIndexed)
+        let matrix = map.count(of: .matrix)
+        let indexed = map.count(of: .indexed)
+
+        if noData >= total / 2 {
+            return "Over half the scan has no usable peaks. Detect Bragg disks "
+                + "with settings that find peaks at every position first."
+        }
+        // The trigger is "almost nothing was INDEXED, and a lot was refused" —
+        // not "almost everything was refused", which the first version asked
+        // for and which no map with a healthy matrix can ever satisfy. Caught
+        // by its own test, 2026-09-12: a map of 499 matrix, 500 not indexed
+        // and 1 indexed is the clearest possible case of "the frame works and
+        // the candidates do not", and the first rule returned nil for it.
+        //
+        // Both halves are needed. A scan that is ALL matrix and nothing else
+        // is a clean result about a precipitate-free region, not a failure,
+        // and must say nothing.
+        guard indexed * 100 <= total, notIndexed + noData >= total / 2 else { return nil }
+
+        if matrix == 0 {
+            var text = "Nothing was removed as matrix, anywhere. Every experimental "
+                + "vector stayed further from every matrix reference vector than the "
+                + "matrix-removal tolerance allows."
+            if let resolution, resolution.matrixRemovalPixels < 1 {
+                text += String(format: " That tolerance is %.2f of one detector pixel "
+                               + "here — smaller than the grid the peaks were measured on.",
+                               resolution.matrixRemovalPixels)
+            } else {
+                text += " Check the matrix phase and its zone axis: a matrix viewed "
+                    + "down an axis it is not on presents no reflections to remove."
+            }
+            return text
+        }
+        return "Almost nothing was indexed. The matrix was found, so the frame and "
+            + "the tolerances are working — it is the candidate phases that do not "
+            + "match. Check each one's zone axis."
+    }
+
     /// The argument for one position's label, in one line, in physical units.
     ///
     /// This is the point of keeping every count on `PhaseVectorResult`. A

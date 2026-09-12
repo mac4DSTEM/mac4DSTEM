@@ -119,6 +119,69 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     package nonisolated init() {}
 }
 
+/// What the tolerances mean on a PARTICULAR detector, and whether they can be
+/// met on it.
+///
+/// WHY THIS EXISTS. The settings are in Å⁻¹ because that is the physics; the
+/// measurement is on a detector grid. The two only meet through the Q
+/// calibration, and nothing showed the user the conversion. Measured on the
+/// owner's own run, 2026-09-12: on a 4x-binned cube at 0.045741 Å⁻¹ per
+/// detector pixel, the shipped 0.020 Å⁻¹ tolerances are **0.44 of one pixel**.
+/// Matrix removal then removed NOTHING — 802 752 detected peaks across
+/// 108 900 patterns, matrix verdict count **zero** — and 108 899 of 108 900
+/// positions came back "not indexed". The app had every number needed to say
+/// so before the run and said none of them.
+///
+/// It is arithmetic, not a threshold anyone tuned, and it lives in Core so it
+/// is testable and so the panel and any future refusal read the same numbers.
+package nonisolated struct PhaseVectorResolution: Sendable, Equatable {
+    package let invAngstromPerPixel: Double
+    package let pairRadiusPixels: Double
+    package let matrixRemovalPixels: Double
+    package let notIndexedAbovePixels: Double
+
+    /// A sentence for the user when a tolerance is smaller than the detector
+    /// grid it will be measured on, else nil.
+    ///
+    /// Deliberately worded as DEMANDING and not as impossible: sub-pixel
+    /// refinement genuinely beats one pixel on a well-sampled disk, and this
+    /// app measures it doing so. What it cannot do is beat one pixel on a
+    /// heavily binned detector whose disks are two or three pixels across —
+    /// which is the case that produced the run above. The number is given so
+    /// the user can judge; the app does not refuse on it.
+    package var advice: String? {
+        guard invAngstromPerPixel > 0, pairRadiusPixels.isFinite else { return nil }
+        guard pairRadiusPixels < 1 else { return nil }
+        return String(
+            format: "Pair radius is %.2f of one detector pixel (%.4f Å⁻¹ each). "
+            + "Matching that tightly needs sub-pixel peak positions AND an "
+            + "accurate Q scale; on a binned detector it will match nothing.",
+            pairRadiusPixels, invAngstromPerPixel)
+    }
+
+    /// The same settings expressed on this detector: one pixel for the two
+    /// tolerances, half a pixel for the verdict distance — the shipped ratio
+    /// (0.02 / 0.02 / 0.01), carried onto the grid the data is on.
+    package func scaledToDetector(_ settings: PhaseVectorSettings) -> PhaseVectorSettings {
+        guard invAngstromPerPixel > 0 else { return settings }
+        var out = settings
+        out.pairRadiusInvAngstrom = invAngstromPerPixel
+        out.matrixToleranceInvAngstrom = invAngstromPerPixel
+        out.notIndexedAboveInvAngstrom = invAngstromPerPixel / 2
+        out.directBeamRadiusInvAngstrom = max(settings.directBeamRadiusInvAngstrom,
+                                              3 * invAngstromPerPixel)
+        return out
+    }
+
+    package init(settings: PhaseVectorSettings, invAngstromPerPixel: Double) {
+        self.invAngstromPerPixel = invAngstromPerPixel
+        let scale = invAngstromPerPixel > 0 ? invAngstromPerPixel : .nan
+        pairRadiusPixels = settings.pairRadiusInvAngstrom / scale
+        matrixRemovalPixels = settings.matrixToleranceInvAngstrom / scale
+        notIndexedAbovePixels = settings.notIndexedAboveInvAngstrom / scale
+    }
+}
+
 // MARK: - Result
 
 package nonisolated enum PhaseVerdict: UInt8, Sendable, CaseIterable {
