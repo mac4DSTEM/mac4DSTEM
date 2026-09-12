@@ -201,6 +201,7 @@ final class AppState {
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
+    let phaseMapping = PhaseMappingProduct()
     /// The last reciprocal-pixel calibration attempt — S13's seam
     /// (docs/development-process.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
@@ -727,7 +728,7 @@ final class AppState {
         switch navigation.analysisMode {
         case .disks: .detector
         case .ptychography, .singleslicePtychography: .reconstruction
-        case .virtualDetector, .dpc, .strain, .acom, .diffractionGroups: .scan
+        case .virtualDetector, .dpc, .strain, .acom, .diffractionGroups, .phaseMapping: .scan
         }
     }
 
@@ -765,13 +766,7 @@ final class AppState {
     }
 
     var selectedEulerText: String? {
-        guard let map = acomSession.orientationMap,
-              selectedScan.x >= 0, selectedScan.x < map.width,
-              selectedScan.y >= 0, selectedScan.y < map.height else { return nil }
-        let result = map[selectedScan.x, selectedScan.y]
-        guard result.templateIndex >= 0 else { return nil }
-        let degrees = result.euler.degrees
-        return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
+        acomSession.orientationMap?.eulerText(x: selectedScan.x, y: selectedScan.y)
     }
 
     /// Whether the real-space ROI must be drawn on the scan image.
@@ -1372,7 +1367,10 @@ final class AppState {
                 await upsampleParallaxBF()
             }
         case .aiAnalysis:
-            await runDiffractionGroups()
+            switch navigation.analysisMode {
+            case .phaseMapping: await runPhaseMapping()
+            default: await runDiffractionGroups()
+            }
         case .results:
             break
         }
@@ -2402,6 +2400,7 @@ final class AppState {
         // Same reasoning again: a group map is scan-indexed, so dataset A's
         // groups must not survive into dataset B's Results slot.
         diffractionGroups.clear()
+        phaseMapping.clear()
         // Same reasoning as `strain.clear()` above, one layer simpler: a Q
         // estimate and its self-check verdict describe dataset A's shells and
         // must not survive into dataset B's panel. // v2 S13
@@ -3027,8 +3026,8 @@ final class AppState {
             if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
             if acomSession.orientationMap != nil { applyACOMDisplay() }
-        case .diffractionGroups:
-            break   // whole-scan PCA + k-means is explicit, never the default action
+        case .diffractionGroups, .phaseMapping:
+            break   // a whole-scan run is explicit, never the default action
         }
     }
 
@@ -4848,7 +4847,7 @@ final class AppState {
     /// Raw peaks remain the source of truth; analysis calibration is derived
     /// on demand so imported or newly fitted origin/ellipse values immediately
     /// affect Bragg maps, strain, and ACOM without re-running detection.
-    private func calibratedBraggVectors(
+    func calibratedBraggVectors(          // internal since 2026-09-12: AppState+PhaseMapping
         _ vectors: BraggVectors,
         descriptor d: DatasetDescriptor,
         positions: [Int]? = nil

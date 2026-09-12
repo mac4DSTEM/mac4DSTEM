@@ -193,6 +193,7 @@ struct WorkspaceSidebar: View {
         case .dpc:
             appState.replay.record.steps.contains { $0.kind == "dpc" }
         case .diffractionGroups: appState.diffractionGroups.result != nil
+        case .phaseMapping: appState.phaseMapping.map != nil
         case .ptychography, .singleslicePtychography: false
         }
     }

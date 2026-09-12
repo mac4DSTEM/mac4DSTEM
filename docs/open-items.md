@@ -15,6 +15,87 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
+
+### Step 3 has not run: no external validation exists — added 2026-09-12
+
+**Science.** Vector-matched phase mapping ships with `validation: "none"` in
+every product's provenance. Scoring it against Thronsen et al.'s published
+ground truth needs their preprocessed `datasetA`, ~7.4 GB, against a machine
+that ended 2026-09-12 at 5.7 GB free. Their `ground_truth.hspy` is 37 kB and
+its HyperSpy schema is already among `H5Reader`'s candidate paths, so the only
+obstacle is size. Acceptance is pre-registered in
+`docs/v3-vector-matching-plan.md` §3: the mislabelled fraction must land inside
+the band their four methods occupy. **Until it runs, a phase fraction off this
+map is not a measurement.** Owner: needs an external drive or ~8 GB freed.
+
+### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
+
+**Science.** On `060_STEM SI_…bin_4`, only **39 %** of detected vectors are
+explained by the best-fitting Al orientation at one-pixel tolerance, on a
+specimen whose matrix is aluminium. Measured by `tools/phase-map-probe` with a
+synthetic 2.5 px kernel and default spacing on a 4×-binned 64 px detector, so
+this is a statement about the DETECTION, not the matcher. The app's own path —
+a measured probe kernel, a fitted origin map, the ellipse — is what the probe
+skips. Evidence: `docs/archive/v3/phase-mapping-2026-09-12.md` §"Step 4".
+Not blocking: the matcher refuses (99.0 % "not indexed") rather than inventing.
+
+### The β″ zone axis for ⟨110⟩Al data is not chosen — added 2026-09-12
+
+**Known, scoped.** β″ is coherent along its b-axis with a ⟨100⟩Al direction, so
+with the beam on ⟨110⟩Al — which is where this cube sits, measured — no variant
+is viewed down its needle axis and a [010]β″ library cannot match. Which β″
+zone axes a ⟨110⟩Al beam DOES present is a crystallographic question nobody has
+answered here; until it is, the UI lets the user type one and the method
+refuses when it is wrong, which is the correct behaviour but not the answer.
+
+### The phase-mapping gate shares its in-plane frame with the code — added 2026-09-12
+
+**Verification debt.** `tools/phase-vector-matching` generates its synthetic
+patterns through `ACOMOrientation.detectorBasis`, the same call
+`PhaseReferenceLibrary.projectedVectors` makes — so a handedness flip there
+(`simd_cross(e1, n)` for `simd_cross(n, e1)`) mirrors both sides and **all 27
+checks stay green**, measured by Gate B 2026-09-12. This is the L3 trap. An
+x/y swap or a y flip on the experimental side alone IS caught (P2 falls to
+31.8 %); only the shared frame is blind. `tools/acom-convention-test` builds
+its own frame from a seed and does cover it, but nothing links the two gates
+except this entry. Remedy: generate Part B's peaks from a harness-built frame,
+as acom-convention-test does — β″ [010] is a chiral net, so P2 would then pin
+the handedness.
+
+### `Crystal.reflections` under-tiles oblique monoclinic cells — added 2026-09-12
+
+**Science, Gate D owed.** `numTile = ceil(kMax / kMin)` with kMin the shortest
+of ten reciprocal test directions, but the true bound is `|h| ≤ kMax·a`. For a
+b-unique monoclinic, kMin ≤ a* = 1/(a sin β), so the tiling can fall short and
+reflections are **silently missing**. Measured by Gate B on a β″-shaped cell
+(a = 15.16, b = 4.05, c = 6.74): β = 105.3° (the shipped β″) loses **0** at
+either kMax; β = 110° loses 6 at kMax 1.6; β = 115° loses 48; β = 125° loses
+198. Pre-existing `Crystal` code, but phase mapping is the first feature to
+drive it with arbitrary imported cells — which its own header says is the case
+it exists for. Not urgent: β″ itself is unaffected.
+
+### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12
+
+**Known, scoped.** Measured by Gate B on the harness's own plant: halving
+`notIndexedAboveInvAngstrom` (0.010 → 0.005) takes β″ from 100 % to 0 %, and
+doubling `pairRadiusInvAngstrom` (0.020 → 0.040) does the same. The header
+calls 0.02 a budget that "covers those with room"; the room is a factor of two,
+in one direction, on noise-free synthetic data. Separately, the two settings
+are both 0.02, so conflating `matrixToleranceInvAngstrom` with
+`pairRadiusInvAngstrom` is invisible to every check — Gate B's mutation E
+produced a log identical to the baseline. A fixture with the two deliberately
+different would close the second half.
+
+### Phase mapping has never been driven — added 2026-09-12
+
+**Verification debt.** No part of the task has been seen on screen. Worth the
+owner's eye: the new task row and that ⌘5 still lands on grouping; adding a
+phase from the built-in menu and from a CIF; the zone-axis field accepting
+`[010]`, `0 1 0` and `0-12`; the phase list reading as the legend after a run;
+the `Evidence` line following the cursor; and that "not indexed" is visibly
+hatched rather than a colour. Closes when he reports.
+
 ## Precipitate engines, landed unwired 2026-09-11 — added 2026-09-11
 
 ### Contiguous invalid regions fabricate precipitates — blocks wiring

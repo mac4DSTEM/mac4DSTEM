@@ -87,6 +87,22 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// that expectation by this multiple, so a dense library has to clear a
     /// proportionally higher bar — which is the honest way to let one phase
     /// carry forty reflections and another two.
+    ///
+    /// **WHEN IT ACTUALLY BINDS — corrected 2026-09-12, after Gate B refuted
+    /// the first claim made for it.** The bar is `multiple · V · ρ² · n / R²`,
+    /// which at the shipped settings crosses `minimumMatchedVectors` only
+    /// above about **45 surviving vectors per pattern** — and the repo's own
+    /// real cube has a median of **7**. So on typical SPED data the
+    /// matched-vector floor is the binding constraint and this is inert.
+    /// Measured, and printed by the gate (M3): removing this guard ALONE
+    /// leaves random-vector accuracy at 99.2 %, unchanged; removing the FLOOR
+    /// alone takes it to 48.8 %; removing both takes it to 5.5 %. The note
+    /// that stood here read the 99.2 → 5.5 collapse as this guard's doing,
+    /// and it is the floor's.
+    ///
+    /// It is kept rather than deleted as dead weight, because it is what
+    /// bounds a dense library on a pattern rich enough to need bounding —
+    /// exactly the case a fixed `maximumVectorsPerEntry` cannot see.
     package var chanceMatchMultiple: Double = 5
     /// Best mean distance above this → "not indexed" rather than a forced
     /// label. Å⁻¹. Well under `pairRadiusInvAngstrom`: the pair radius says
@@ -409,8 +425,20 @@ package nonisolated enum PhaseVectorMatcher {
         // not the library's kMax: if every surviving vector sits inside
         // 0.7 Å⁻¹, references beyond it cannot be hit by accident and must not
         // dilute the estimate.
-        var accessibleRadius = 0.0
-        for u in surviving { accessibleRadius = max(accessibleRadius, simd_length(u)) }
+        // The radius is the SECOND largest |u|, not the largest. Measured
+        // 2026-09-12 (Gate B finding 6): with `max`, one spurious maximum far
+        // out inflates the area the chance expectation is computed over,
+        // weakens the guard for every other vector in the pattern, and took a
+        // 1024-pattern false-positive rate from 0 to 10. Second-largest costs
+        // nothing, is exact whenever the outermost peak is real, and cannot be
+        // moved by a single outlier.
+        var largest = 0.0, accessibleRadius = 0.0
+        for u in surviving {
+            let r = simd_length(u)
+            if r > largest { accessibleRadius = largest; largest = r }
+            else if r > accessibleRadius { accessibleRadius = r }
+        }
+        if accessibleRadius <= 0 { accessibleRadius = largest }
         var bestPerPhase: [Int: (entryIndex: Int, score: Double, matched: Int)] = [:]
         for entryIndex in candidateEntryIndices {
             let entry = library.entries[entryIndex]

@@ -305,6 +305,7 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Crystal/PhaseReferenceLibrary.swift"
           "$core/Crystal/PhaseVectorMatching.swift"
+          "$core/Crystal/PhaseMapPresentation.swift"
         )
         ;;
       fitoverlays)

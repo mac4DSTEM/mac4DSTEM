@@ -80,486 +80,142 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — the AI port landed steps 1-4 and 8-9; precipitates are not wired
+## Handoff — vector-matched phase mapping is live in AI Analysis, and unvalidated
 
-**State.** The AI pipeline is on `main`, in seven commits (`0f56e08`..`d6ebbb9`),
-ported forward by hand and never merged. `ml/disk-detector` stays at `origin`
-as the record — it is unchanged, so nothing was lost. The step-by-step record
-is [`archive/v3/ai-port-2026-09-11.md`](archive/v3/ai-port-2026-09-11.md); the
-plan is [`archive/2026-09-11-ai-port-analysis.md`](archive/2026-09-11-ai-port-analysis.md);
-the five owner decisions are the 2026-09-11 entries in `decisions.md`.
+**State.** The AI Analysis room now holds **two** tasks: diffraction grouping
+(PCA + k-means, landed 2026-09-11) and **phase mapping** (vector matching,
+landed 2026-09-12). Steps 1, 2, 4 and 5 of
+[`v3-vector-matching-plan.md`](v3-vector-matching-plan.md) are done; **step 3,
+the validation, is deliberately deferred**. Full record:
+[`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md).
+The earlier AI-port handoff this replaces is
+[`archive/v3/ai-port-2026-09-11.md`](archive/v3/ai-port-2026-09-11.md), and the
+v3.0.0 closeout it sat beside is
+[`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md).
 
-**What is live.** A sixth workspace, **AI Analysis** (Cmd-5; Results moved to
-Cmd-6), containing **diffraction grouping** — PCA + k-means over box-binned
-patterns, wired end to end and exporting a group map. The three precipitate
-engines and `DiffractionEmbedding` are in `Core/`, gated, with
-`tools/run-tests.sh all` green at **602 passed / 0 failed**.
+**UNVALIDATED, and the app says so in four places.** Step 3 — scoring against
+Thronsen et al.'s published ground truth — needs their ~7.4 GB preprocessed
+`datasetA` against a machine that ended this session at 5.7 GB free. The owner
+chose to land the rest labelled rather than block on a download. Every product
+carries `validation: "none"` in provenance, the task's guidance line says it,
+the panel repeats it above the legend, and the run's status line ends
+"— unvalidated". **A phase fraction read off this map is not a measurement.**
+The precedent is this repo's own: the precipitate engines are on `main`
+unwired with their ship gate openly unmet.
 
-**UNVERIFIED ON SCREEN.** No part of the new room has been seen running. That
-is the owner's drive (`CLAUDE.md`; Track B retired 2026-09-03), and a defect he
-finds enters through `/diagnose`. Worth his eye: the room's position and icon;
-Cmd-5/Cmd-6 having moved; the Group Patterns button and its progress; and that
-leaving AI Analysis and returning does **not** re-show a computed group map
-(`runCurrentAnalysis` returns `break` for this task, because a whole-scan
-PCA + k-means must never be a default action — strain and ACOM do re-show, and
-whether grouping should is his call).
+**What is live.** `PhaseReferenceLibrary` (reference vectors for a phase at a
+beam direction and an in-plane rotation, from any CIF or a built-in),
+`PhaseVectorMatcher` (matrix removal in vector space, a mean-distance score
+over unique references, and an explicit "not indexed"), `PhaseMapPresentation`
+(an Okabe-Ito phase map, a distance companion, and one line of evidence per
+position), and β″ (Mg₅Si₆) as a built-in `Crystal` from Andersen et al. 1998.
+Method: **Thronsen et al., Ultramicroscopy 255 (2024) 113861, CC BY 4.0** — the
+paper only. Their repository has **no licence** and nothing from it is here.
 
-**The counting sheet was rebuilt 2026-09-11 after the owner said the first one
-was not clear enough. He was right, and the cause was not contrast.** The first
-sheet's dark field was formed on two single-pixel detector SPIKES that
-peak-finding on the MAX pattern had selected as reflections. The real
-superlattice reflections are three Friedel pairs at r = 9.1-10.7 px, found with
-a spike-insensitive statistic (how often a detector pixel exceeds mean + 4
-sigma across the scan, ~0.9 % of positions each) — three pairs being exactly
-the three <100>Al needle variants of beta-double-prime. Summing each pair took
-peak z from 9.2 to 31.1. Full record:
-[`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
+**The 2026-09-11 refutation is answered.** On a pattern containing only
+aluminium, with gold and aluminium both candidates, the template route returned
+GOLD at contrast −0.008. Vector matching returns aluminium **200/200**, contrast
+**+0.00618 Å⁻¹**, and at 2 px of position noise it **refuses** 136 of 200 rather
+than guessing.
 
-**Candidates are now marked for him**, three criteria with every detection
-numbered, at
-[`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)
-(reproduce with `tools/precipitate-handcount/run.py`). **Corrected the same day after the owner's
-objection**: the shape and angle filters optimised purity when a density needs
-completeness, discarding 56 % of real signal, and the aspect cut deleted
-precisely the end-on needles the crystallography requires. The count is **35
-precipitates** (39 bright objects less 4 raster artefacts), density 135.6 µm⁻²
-— the filtered figure was low by 2.1x. This is **not** the hand count and
-cannot replace it — an algorithmic count cannot score an algorithm, and
-threshold-plus-components IS the baseline arm, so it would let the baseline
-score itself. It becomes ground truth when the owner confirms or corrects the
-marks, which is now a check rather than a count.
+**Two pre-registered criteria failed on the first run and both were real.**
+Random-vector positions were labelled β″ 100 % of the time, because a β″ entry's
+130 reference vectors covered a THIRD of the plane at the pair radius first
+chosen — fixed by a density cap and a pair radius derived from a stated error
+budget, with `chanceMatchFraction` now reporting the coverage. And the fitted
+in-plane rotation came out 284.0° against a planted 13.7° — that was the TEST
+being wrong, because an fcc [001] projection is 4-fold symmetric. **An in-plane
+angle from this matcher is meaningful only modulo the projected symmetry**, and
+is never presented as an absolute orientation.
 
-**Landed — piece A, the py4DSTEM parity harness.** `tools/embedding-pca-parity`,
-in the `scientific` gate, **8 checks green in 9 s**. This is the first number on
-the app's AI side that can be checked against anything upstream. Our PCA agrees
-with py4DSTEM's own `Featurization.PCA` (coordinates to 1.9e-6 of its scores),
-and `symmetricEigenTop` agrees with `numpy.linalg.eigh` to 6.6e-16 on
-eigenvalues and exactly on eigenvectors. Evidence and the seven negative
-controls: `tools/embedding-pca-parity/run.sh`'s header.
+**Step 4, on `060_STEM SI_…bin_4`, and what it actually says.** The probe
+(`tools/phase-map-probe`, diagnostic) reports three numbers before drawing
+anything, and they are the result:
+- **β″ IS resolvable on this detector** — the pre-registered prediction that
+  a* = 1.50 px would make it unresolvable was WRONG. C2/m's h + k even
+  extinguishes odd h in the k = 0 zone, so the closest kept pair is 2a* =
+  **2.99 px**. The extinction is itself a check on the structure.
+- **The specimen is on ⟨110⟩Al, not ⟨100⟩** — every low-index axis fitted, and
+  all five sampled ⟨110⟩ equivalents tie at 39.0 %, exactly as cubic symmetry
+  requires.
+- **So the [010]β″ library was probably the wrong one.** β″ is coherent along
+  its b-axis with ⟨100⟩Al, so on a ⟨110⟩Al beam no variant is viewed down its
+  needle axis. The run returned 99.0 % "not indexed".
+- **But that conclusion is over-determined, and Gate B caught it.** At
+  0.045741 Å⁻¹ per pixel, **half a detector pixel is 0.0229 Å⁻¹ — larger than
+  the whole 0.02 Å⁻¹ pair radius** — so at default settings nothing on this
+  cube could be indexed for any library at any zone axis. The crystallography
+  may be right; this measurement does not isolate it.
 
-**It is narrower than the pre-registration promised, and §4.1 is corrected
-rather than quietly met** — py4DSTEM has no binned-pattern featuriser, ships no
-k-means at all (it clusters with `GaussianMixture`), and its PCA goes
-nondeterministic above 500 rows because it passes no `svd_solver` or
-`random_state` (measured: n=500 → 0.0 drift, n=501 → 5.9e-4). The fixture is
-capped at 400 positions for that reason.
+**And the honest limit:** only 39 % of detected vectors are explained by the
+best Al orientation at one-pixel tolerance. On an aluminium matrix that is a
+statement about the PEAK SET, not the matcher — a synthetic 2.5 px kernel on a
+4×-binned 64 px detector finds maxima that are not all Bragg disks. Phase
+mapping on this cube needs the app's own calibrated detection (a measured probe
+kernel, a fitted origin map, the ellipse), which is the path the UI takes and
+the probe does not.
 
-**Two facts settled on the way to B:** phase identification does **not** need
-monoclinic point groups — template generation is symmetry-agnostic and symmetry
-is read only in zone-axis sampling and in orientation *reporting*, after the
-argmax. But **`CIFImport.swift:798-810` refuses a monoclinic cell outright**
-(cubic, hexagonal, `throw` — no fourth path), so a β″ CIF cannot be loaded at
-all today. That is the real blocker for B, and the pre-registration named the
-wrong one; both corrected.
+**Gate B ran and was not a formality: 13 mutations, 11 survived.** Four
+defects fixed in Core, each with a regression test broken first — the β″ C2/m
+expansion was pinned by nothing (an I-centred cell passed every check while
+changing half of β″'s reference vectors); `gcd(0, 0)` returned 1, so `[0 0 2]`
+never reduced and the zone-axis list held 50 entries for 49 directions; one
+distant spurious peak widened the chance expectation enough to turn refusals
+into labels (10 false positives in 1024 random patterns); and the chance-match
+percentage shown to the user was computed at a different radius from the one
+the guard used. Four more assertions added, each verified to fail under the
+mutation it names. **One of its remedies was broken before it was trusted and
+rejected** — restricting `chanceMatchFraction`'s numerator made the guard
+weaker in exactly the case it exists for, and the new test caught it. **And one
+claim of mine was refuted and is corrected rather than defended:** the
+"99.2 % → 5.5 %" collapse credited to the chance guard is entirely the
+matched-vector floor — removing the guard alone changes nothing at shipped
+settings, because it binds only above ~45 surviving vectors per pattern and the
+real cube's median is 7. Full list:
+[`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md)
+§"Gate B".
 
-**NEXT: B, and its order changed on evidence.** `phaseID` is dead code —
-write-only, six sites, zero reads — so carrying N phases is cheap and moves no
-number. The risk is elsewhere and nothing has measured it: **does the best-score
-argmax discriminate PHASE on a pattern containing both phases?** Templates are
-L2-normalised, every precipitate pattern also contains Al matrix reflections,
-and no fixture anywhere tests two phases against one pattern. That measurement
-needs no CIF and no importer change (Al fcc + Si diamond suffice) and is the
-cheapest thing that can kill the template-matched route, so it comes **second**,
-before the importer work.
+**UNSEEN ON SCREEN.** No part of phase mapping has been driven. That is the
+owner's (`CLAUDE.md`; Track B retired 2026-09-03), and a defect he finds enters
+through `/diagnose`. Worth his eye: the new task row under AI Analysis and that
+⌘5 still lands on grouping; adding a phase from the built-in menu and from a
+CIF; the zone-axis field accepting `[010]`, `0 1 0` and `0-12`; the phase list
+reading as the legend after a run; the `Evidence` line following the cursor;
+and that "not indexed" is visibly hatched rather than a colour.
 
-**B, first measurement — the template-matched route is REFUTED as
-pre-registered, before the importer work was paid for.**
-[`archive/v3/phase-discrimination-2026-09-11.md`](archive/v3/phase-discrimination-2026-09-11.md);
-`tools/phase-discrimination-probe/run.sh`. Two findings, the second decisive:
+**NEXT, in order.**
+1. **Drive it** (owner). Nothing else here is blocked on code.
+2. **Step 3, when there is room** — an external drive, or ~8 GB freed. Their
+   `ground_truth.hspy` is 37 kB and its HyperSpy schema
+   (`/Experiments/__unnamed__/data`) is already among `H5Reader`'s candidate
+   paths, so the only obstacle is `datasetA`'s size. Acceptance is
+   pre-registered in the plan: land inside the band their four methods occupy.
+3. **Then Al-Mg-Si properly** — through the app, on a ⟨110⟩Al-appropriate β″
+   zone axis, with a measured probe kernel and a fitted origin.
 
-1. **Mixing flip at f = 0.60**, against a pre-registered ceiling of 0.30. The
-   matrix wins until the precipitate supplies 60 % of the pattern.
-2. **The score picks the wrong phase.** On a pattern containing only aluminium,
-   **gold fcc scores 0.98758 against aluminium's 0.97949** — contrast −0.008.
-   A bare argmax over phases returns the wrong one, confidently.
+**Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
+remain deliberately **not wired**; one hand count on the frozen region completes
+step 4 of that programme and unlocks steps 5-7
+([`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md),
+candidates marked at
+[`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)).
 
-**Why: a sampling limit, not a bug.** One radial bin is `kMax/nRadial` = 0.05
-Å⁻¹ at defaults; Al–Au (111) differ by 0.0030 Å⁻¹, **6 % of one bin**, so they
-are the same pattern to the score. Al–Cu differ by 103 % of a bin and separate
-correctly (0.500).
-
-**Shipped ACOM is not condemned** — it matches orientation for a phase the user
-chose, is single-phase by design, `phaseID` is write-only, and no shipped number
-is wrong. What is condemned is building phase identification on a bare
-`bestScore` argmax, which is what the pre-registration proposed.
-
-**The order paid off**: this cost one diagnostic harness and no CIF, no importer
-change and no owner input, and it stopped B4's monoclinic-import work before it
-started.
-
-**NEXT — the owner decides, because the route needs redesigning, not patching.**
-Three candidate remedies, none measured: score only the reflections unique to a
-candidate phase (β″'s superlattice ring is ~9-10 px against Al's ~18 px, many
-bins apart); score the difference from a matrix reference; or require a contrast
-margin over the runner-up. Each is its own measurement. **And the clustering
-step he called "slop" is back in play**, because the class-average difference
-pattern is where the signal survives.
-
-**Read 2026-09-11 at the owner's direction: `elisathr/SPED-phase-mapping`**, the
-code behind Thronsen et al. (2023), the SPED phase-mapping paper in his library.
-Findings: [`archive/v3/sped-phase-mapping-reference-2026-09-11.md`](archive/v3/sped-phase-mapping-reference-2026-09-11.md).
-It **independently corroborates this session's refutation on real data** — they
-score four methods against a common ground truth and template matching is the
-worst (1.75 % mislabelled, against ANN 0.96 %, NMF 1.50 %, vector 1.54 %) — and
-their notebook says why in our own terms: "Al has overlapping reflections with
-the precipitates". Their accommodations are the remedy our measurement pointed
-to: mask the matrix reflections and direct beam out of every pattern, leave the
-matrix out of the template library, assign it by exclusion.
-
-Three things worth acting on. **A real validation target exists** — their Zenodo
-dataset ships a three-person ground-truth phase map with four scored methods,
-which is a stronger parity opportunity than any synthetic fixture. **Their
-ground truth is the VDF-and-segment route under human oversight**, prepared
-independently by three people and compared — which says our marked-candidate
-approach is right in kind and should have at least two preparers. **Their
-accuracy metric** — fraction of mislabelled scan positions — is a better
-acceptance number than anything pre-registered here.
-
-**Licence: there is none**, so default copyright applies. No code, notebook
-fragment or CIF may be copied into this GPL-3.0 public repo; method and
-published results are citable, the implementation is not ours to take. Their
-CIFs are Al/T1/θ′ (Al-Cu-Li) and contain no β″, so they would not have solved
-the CIF blocker anyway.
-
-**Their masking transfers, and it is measured, not assumed.** Implemented
-independently from the published description — their repo has no licence, so
-nothing is copied and the mask radius is ours. **The mixing flip moves from
-f = 0.60 to f = 0.05**, a twelvefold improvement, stable at radii 2/4/6 px.
-Three limits bound that claim and are in the record: the mask used here is
-PERFECT (exact reference positions, so an upper bound); **the score floor
-survives masking** — the matrix plan still scores 0.826 on a pattern holding
-none of its reflections, a contrast of ~0.11 — so masking fixes the mixing
-problem and **not** the wrong-phase problem; and masking cannot separate phases
-whose reflections overlap, since masking Al would mask Au with it. It works here
-because Si sits 218 % of a radial bin from Al, as a superlattice ring does from
-Al's first ring.
-
-**On porting: the two cases are not analogous.** py4DSTEM is GPL-3.0, which
-grants derivative works provided we license alike — which `NOTICE` records and
-is why our port is legitimate, source-level, with `DEVIATION` notes citing
-source lines. SPED-phase-mapping carries **no licence**, so default copyright
-applies and no derivative may be made of its code. What is usable is the
-**published method**, implemented from the paper and cited — with parameters
-derived here rather than lifted, which is better practice anyway since theirs
-were tuned to their microscope and sample.
-
-**Method choice evaluated against the paper itself, 2026-09-11:**
-[`v3-phase-mapping-method-choice.md`](v3-phase-mapping-method-choice.md).
-**Recommendation: vector matching**, because its single hardest dependency is
-this app's largest existing investment — the paper calls accurate peak finding
-"perhaps most challenging" and "the most computationally intensive step", and
-that is `DiskDetection` + `TiledDiskDetection` with sub-pixel refinement plus
-C7's Neural Engine detector, on calibration that is already gated.
-
-**The deviation worth making: for them peak finding is the bottleneck; for us it
-is already paid for.** `BraggVectors` is computed once per scan and already
-shared by strain and ACOM, so vector matching is a post-processing pass over
-data the app has, not a new pipeline. Their image-space matrix masking also
-becomes trivial in vector space — drop experimental vectors near the Al
-reference vectors — and their "not indexed above 0.07" verdict fits this app's
-refusal culture where an argmax does not.
-
-Not template matching: their own numbers show 86.24 % on basic pre-processing
-against 98.24 % with background subtraction, a twelve-point swing decided by
-pre-processing, plus a per-phase `max{s}` they say "reduces the ease of use …
-and also the objectiveness". Not ANN yet: the Core ML infrastructure exists and
-it is the fastest at run time, but it needs ~10 000 simulated patterns per phase
-and the simulation machinery vector matching would build anyway. NMF stays the
-exploratory tool, which is roughly what `DiffractionEmbedding` already is.
-
-**A correction this reading forced:** an earlier note here called template
-matching "the worst of their four methods". The paper says all four reach
-98.5 % ± 0.5 % and that "the small differences in accuracies are not
-significant". The numbers are real, the ranking is not; corrected in the
-reference doc. This session's own refutation of per-position template matching
-stands on its own measurement and never needed their table.
-
-**Blocking vector matching, unchanged:** `CIFImport.swift:798-810` refuses
-monoclinic (cubic, hexagonal, throw), so β″ cannot be loaded at all — that is
-the first thing to fix — plus a β″ CIF, and the β″/Al orientation relationship,
-which is published.
-
-**The incorporation plan:** [`v3-vector-matching-plan.md`](v3-vector-matching-plan.md).
-Six steps, and the licence distinction that unlocks it: their **repo** has no
-licence (nothing usable), their **paper is CC BY 4.0**, so its Table 2 —
-structures for Al, T1 and θ′ — is reusable with attribution. Those are
-different artefacts.
-
-**The biggest thing it buys is an external ground truth.** Every validation
-problem this programme has hit comes from having nothing to check against: the
-precipitate maths has no py4DSTEM counterpart, the synthetic fixture cannot
-discriminate the arms, and the Al-Si-Mg hand count does not exist. Their dataset
-ships a ground-truth phase map built independently by **three people**, with
-four published maps scored against it, and a metric simple enough to adopt
-verbatim. So the plan **validates the method on their material, where truth
-exists, before applying it to ours, where it does not** — the first acceptance
-test in this programme that does not depend on the owner's eye.
-
-Order: (0) admit `.identity` to `CIFImport` so a monoclinic cell loads at all;
-(1) reference vectors from a CIF, composing `Crystal.reflections` and
-`OrientationPlan.project`; (2) the matcher — matrix removal in vector space,
-per-pattern reference subset, mean-distance score with an explicit "not indexed"
-— Gate D and Gate B both apply; (3) **validate against their published ground
-truth**, acceptance pre-registered as landing inside the band their four methods
-occupy; (4) apply to Al-Mg-Si, which needs a β″ CIF; (5) UI, deferred until 3
-passes.
-
-**Inherited weaknesses, stated now:** zone-axis only; cannot handle phases
-overlapping along the beam (which is an argument for keeping
-`DiffractionEmbedding` as the exploratory tool rather than replacing it); and
-confused by strain shifting Bragg positions — which they name as the main cause
-of their interface errors. This app measures strain, so it may do better there,
-but that is a hypothesis and is labelled as one.
-
-**Three decisions owed:** `.identity` symmetry means a phase labelled with no
-IPF orientation colour — acceptable? A β″ CIF, authored from Andersen 1998 or
-taken from mp-31404 with its DFT-relaxation note. And whether to download their
-Zenodo dataset, which is several GB against a machine sitting near the 8 GB gate
-floor.
-
-**Landed — plan step 0 (`ee2221c`), the importer unblocked.** A monoclinic cell
-now imports as `.identity` ("Unreduced") instead of being refused, and
-`CrystalModel.supportsOrientationMapping` is false for it, so
-`AppState.resolvedACOMModel` declines and `acomModelSelectionIssue` says why.
-**Two changes that are one change**: without the second,
-`ACOMCrystalSymmetry.identity.ipfColor` returns |x|,|y|,|z| as RGB — not a
-wrong IPF key but no key at all, wearing the look of one.
-
-Verified on the real β″ CIF through the app's own code: a=15.160 b=4.050
-c=6.740, β=105.3°, symmetry Unreduced, **22 atoms = Mg₁₀Si₁₂ = 2 × Mg₅Si₆**,
-`isUsable` true with zero validation issues, orientation mapping refused with a
-reason, and **3420 reflections at kMax 1.6** — which is what phase
-identification needs. The 22-atom expansion independently confirms the CIF
-generator, since the app's own symmetry code reproduces the cell content the
-paper states.
-
-**A design error caught before it shipped**: the first attempt recorded the
-limit as a validation issue, which cannot work — `CIFImport.crystalModel` throws
-`.invalidModel` on any validation issue, so the structure would never have
-loaded and the change would have achieved nothing but a better error message. It
-is a capability limit, not a structural defect.
-
-**The owed gate has RUN: `unit` exit 0, 602 passed / 0 failed.** It exposed
-that `ee2221c` was committed with the test target broken — `xcodebuild build`
-compiles the APP target, not the tests, so a `try` left in a non-throwing test
-function was invisible to it. Two tests that pinned the old import refusal now
-pin the refusal that replaced it, renamed to match what they assert.
-
-**The `unit` free-space floor is 4 GB, measured (2026-09-12).** The owner asked
-whether to lower it to 6. Answered with a measurement instead: sampling free
-space every 3 s through a full run gives a **peak consumption of 1245 MB**, and
-the suite completed **602/0 with 7 GB free** — below the 8 GB floor that had
-been refusing to start it. The floor was blocking work it did not need to
-block, and `run-tests.sh`'s own comment already called the floors "deliberately
-margin, not measurement". 4 GB is 3.2x the measured peak and is what
-`scientific` and `benchmark` already use, so this aligns them. **`all` and
-`campaign` keep 8** — they add harnesses nobody has measured, and lowering an
-unmeasured floor is the guess this change refuses to make.
-
-**Still owed by the owner: the Al-Si-Mg hand count.** Precipitates are
-deliberately **not wired**. Their pre-registered ship gate is unmet, and the
-synthetic half of it is a TIE that reveals the ridge filter does not reject
-round particles at all — its whole purpose. Full table:
-[`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md).
-One hand count on the frozen region completes step 4 and unlocks steps 5-7.
-Nothing else is owed. Two measured defects also block wiring the segmentation
-engine — see `open-items.md`.
-
-**Standing truths this port did not change.** The precipitate science is
-original work, not a py4DSTEM port: zero `DEVIATION` notes, no upstream
-counterpart, and the segmentation abandoned skimage's convention deliberately.
-**No parity harness is possible.** And no gating travelled from the branch —
-its `unit` gate never ran, and every log it cited is a gone scratchpad name.
-
-## Closed 2026-09-11 — v3.0.0 is cut and pushed
-
-Owner, 2026-09-09: C0–C3, C6 and C8 are closed; C7 is closed apart from the
-owner's sidecar-reopen check; the `all` gate is green. **C4(c) is committed at `1eb49c5` and driven.**
-C5's measured line rule remains in force; its next monthly extraction is
-`OperationCenter` forwarders, a separate session. The plan is archived
-(2026-09-11) and the feature freeze it carried has lapsed.
-
-**The review fixes are at `5d08c7d` and PUSHED** (corrected 2026-09-11: the
-line here said "not pushed" and `origin/main` had already moved; `main` and
-`origin/main` are both `72e6ccd`). It is the first commit whose clone carries
-the Core ML model spec, so the first that can reproduce `0f53d270…b641ab` and
-pass the CI `unit` job.
-
-**The 2026-09-09 register: 111 claims remain unverified, and none may be fixed
-from the register.** The rules for touching it — the exclusion list, what triage
-is for, why D002/D003 are closed and what Gate B found on the D002 port — are
-one entry in `open-items.md` and the evidence at
-[`archive/2026-09-09-review/d002-d003-gate-d.md`](archive/2026-09-09-review/d002-d003-gate-d.md).
-
-**Gates, 2026-09-11:** `all` ran in full and is green (gate table).
-**`ARCHS = arm64` does NOT hold everywhere, corrected today:** D064 verified it
-with `lipo` on a Release *build*, and the *archive* still compiled an x86_64
-slice (`open-items.md`, the release blocker). Debug and Release build; the
-archive does not. C4(c) was reviewed clause by clause on 2026-09-08 and is
-committed at `1eb49c5`; do not re-review it.
-
-**Disk:** ~7.8 GB free after this session; `all` needs 8 and refused three times today. The six cubes the
-gated harnesses read must stay in `References/training_dataset/` —
-`calibrationData_bullseyeProbe.h5`, `downsample_Si_SiGe_exp.h5`,
-`polycrystal_2D_WS2.h5`, `Si-SiGe.dm4`, `sim_Au_data_all_binned.h5`,
-`Particle_1_…bin8.h5`. **Five** are now pinned by name in
-`tools/real-data-acceptance/expected.json` (bullseye joined them 2026-09-09),
-and `compare.py` turns the gate red if a pinned cube is missing.
-
-**Three traps, each paid here.** (1) A stale Debug binary showed the pre-C4(c)
-menus *although its mtime was newer than the source's* — mtime does not prove
-freshness; rebuild before concluding anything from a drive. (2) The
-background-task wrapper reported "exit code 0" for a run whose own line said
-`GATE_EXIT=1`, and again for the green one — read the gate's own line, never a
-caller's. (3) 2026-09-09: a diff tool that iterates over the EXPECTED entries
-is blind to exactly the data no one pinned, which is where drift hides.
-
-**v3.0.0 SHIPPED 2026-09-11.** Archive, notarization, stapling, DMG, the second
-notarization of the DMG, `spctl` on both, and verification by mounting the image
-are all done and recorded in the release row above. **What is left is the
-owner's alone:** push `main` (the release commit and this one), tag `v3.0.0` and
-push the tag — GitHub Desktop does not push tags — upload
+**Also still the owner's alone, from the v3.0.0 cut:** push `main`, tag
+`v3.0.0` and push the tag (GitHub Desktop does not push tags), upload
 `build/release/mac4DSTEM-3.0.0.dmg` to the GitHub release, and paste the
-prepared Intel note at the top of the **v2.5.1** release's notes (owner's
-decision 2026-09-11: annotate, do not withdraw).
+prepared Intel note at the top of the **v2.5.1** release's notes (his decision
+2026-09-11: annotate, do not withdraw). Detail in the archived closeout.
 
-**Two things learned in the credentialed run, both cheap to forget:**
-(1) `make-dmg.sh` prints a SHA-256 **before** stapling, and stapling rewrites
-the image — publish the hash `notarize.sh` prints at the end, not that one.
-(2) `notarytool store-credentials` writes to the **data-protection** keychain,
-which `security find-generic-password` cannot see; a check built on that tool
-reports "no profile stored" for a profile that exists and works. Do not gate a
-release step on it.
-
-**What was left before the run, now done:**
-
-1. **The archive blocker is CLOSED** (2026-09-11, Gate D, both triggers absent
-   for the fix itself but the cause was not established, so the protocol ran).
-   The cause: project-level `ARCHS = arm64` does not reach the SwiftPM package
-   targets `DSTEMCore`/`DSTEMSession`, where every `Core/` and `Session/` source
-   is compiled; a generic destination therefore built `ARCHS_STANDARD` and
-   `Float16` does not exist on x86_64. The pin travels on the xcodebuild command
-   line, spelled once in `tools/lib/release-arch.sh`. **The concrete destination
-   `platform=macOS` constrains the package targets on its own** — measured by a
-   refuter, Release with `Float16` present and no pin, exit 0 and arm64-only —
-   which is exactly why the old gate could not see this.
-   **Verified on the real `archive` action**, ad-hoc signed: ARCHIVE SUCCEEDED,
-   zero x86_64 tasks, `lipo -archs` = `arm64` on the executable and all three
-   embedded dylibs, version 3.0.0 (6), floor 14.0, no duplicate `Info.plist`.
-   Evidence and the two traps paid: `archive/closed-items-2026-09.md`.
-2. **The gate now covers the archive.** `package-test` built the concrete
-   machine and was structurally blind; it builds `generic/platform=macOS` with
-   the same pin and asserts `lipo` on the built Mach-Os, so the tempting wrong
-   fix — making `Float16` compile on x86_64 — goes red too. Broken before it was
-   trusted: the assertion first printed FAIL and returned 0, and its accumulator
-   was named `status`, which zsh aliases to `$?`.
-3. **Version is already `3.0.0` / `6`** in the project — `package-test` asserts
-   it from the project file and printed it, 2026-09-11.
-4. **Remaining: the credentialed run only**, which needs the owner's Developer
-   ID certificate and notary profile. `docs/releasing.md` end to end: archive,
-   notarize, staple, DMG, notarize the DMG, `spctl`, record the hashes. Then
-   flip `README.md`'s "New in v2.5.1" to v3.0.0 and fill `releasing.md`'s
-   version line from the real run — deliberately not done before the artefact
-   exists.
-
-**A readiness review ran the same day and found more than the blocker did.**
-Eight dimensions, each finding then attacked by an independent refuter; the
-survivors I re-confirmed from source myself. Landed this session, each gated:
-the app now ships the **GPL text and `NOTICE` inside the bundle** (it shipped
-its dependencies' licences and not its own, and the bundled README pointed at
-two files that were not there — `package-test` asserts both, non-empty, and that
-LICENSE really is the GPL); **double-click actually opens a dataset**
-(`CFBundleDocumentTypes` was declared 2026-09-09 with no URL handler, so Finder
-launched the app to an empty window while `CHANGELOG` claimed the feature —
-`.onOpenURL` added, **unverified on screen**); **a second dataset open is
-refused while one is in flight** and "New Dataset Window" is disabled during a
-load, with a test that fails without the guard (negative control run: exit 65,
-`ConcurrentOpenRefusalTests.testASecondOpenIsRefusedWhileOneIsInFlight` failed
-with the guard removed, the sibling still passing); and the learned detector's
-**recall/precision now quotes the shipped threshold** — 0.768 / 0.712 at
-confidence 0.7, not the 0.9 row's 0.667 / 0.840 that `CHANGELOG` had been
-printing beside a build that ships 0.7. Three findings are disclosed rather than
-fixed and are live in `open-items.md`: the hexagonal IPF key's labels, the
-single-slice ptychography export guard, and the real fix for concurrent HDF5.
-
-**Found while closing the blocker, and it is about what users have now:** the published
-v2.5.1 executable is `x86_64 arm64` against arm64-only HDF5, which `H5Reader`
-dlopens — so on an Intel Mac it launches and then fails every dataset open.
-Register `D064` predicted that artefact and was marked fixed on 2026-09-09; the
-fix pinned the app target only. Live entry in `open-items.md`; the owner decides
-whether to withdraw or annotate that download.
-
-**Also corrected:** `docs/releasing.md` recommended archiving from Xcode's
-Organizer, which cannot carry the pin and is the most likely way v2.5.1 became
-universal. It now says not to.
-
-**Done, and not to be redone:**
-- Gate B on the Quantitative-badge fix: **rejected, fix reverted**, defect ships
-  as a stated limitation (`archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
-- The `Info.plist` duplicate: **fixed and verified in the built bundle** — gone
-  from `Contents/Resources/`, `LSMinimumSystemVersion` still 14.0.
-3. **Set the version to `3.0.0` / `6`** in the project, then `docs/releasing.md`
-   end to end: build, notarize, staple, `spctl`, record the hashes. `README.md`
-   and `docs/releasing.md` are deliberately NOT updated yet — they assert
-   properties of an artefact that does not exist (the DMG, its size, its
-   notarization ticket), and this repo does not write a claim before it is
-   true. Flip README's "New in v2.5.1" to v3.0.0 and fill `releasing.md`'s
-   version line at that point, from the real run.
-
-**Driven 2026-09-11 and good** (the owner, on `downsample_Si_SiGe_exp.h5` and
-`051_STEM_SI_…bin_4`): Strain (ε_xx and ε_yy, 100 % indexed, median RMS
-0.778 px), Orientation/ACOM preview and full scan correctly badged Exploratory,
-DPC & iDPC correctly badged qualitative, Bragg disks (248 111 peaks, median 24.0,
-range 16–42), the CIF import control, and `Size as float32` in Info — which
-verifies one of the four fixes of 2026-09-09 on screen. Three refusals behaved
-exactly as they should, naming the number and the remedy: the ellipse fit
-("ring signal covers only 9 angular bins") and both Advanced memory refusals.
-
-**Still unseen on screen, and NOT blocking** (owner, 2026-09-11): Parallax and
-single-slice ptychography on real data (they refuse this machine's memory —
-`open-items.md`), the four Phase E failure paths, both Resets, and disk-centre
-labelling. Each is named in `CHANGELOG.md`'s "Known limitations at 3.0.0".
-
-**Deliberately not doing before 3.0.0** (owner, 2026-09-09, against bloat): a
-glossary or tooltip layer; the WS2 display-contrast problem (disks sit at 0.19 %
-of the beam and are invisible at default scaling — real, but the fix is a
-thought about display scaling, not a patch); re-deciding when `Strain` unlocks;
-the duplicate ⌘R / ⌘↩; and any further driving rigs.
-
-**Owed alongside, not blocking the cut:**
-
-- **Two owner observations, both on `Si-SiGe.dm4` and Prepare**
-  (`open-items.md`): open the file in GMS and read the pattern's width and
-  height (the detector-pair Gate D item), and drive the manual Q/R fields after
-  their rows turn green, in Prepare and in the export sheet.
-- **The UI-review fixes and the pane headers** (`open-items.md`): the four
-  label findings, the two minors, the compressible headers and the remembered
-  divider all landed 2026-09-05 with tests and no screen time. The drive above
-  covers them.
-- **The science lane, one item at a time.** The plan is archived, so this is
-  open again; take one item, in the order below.
-  What landed 2026-09-05 through Gate B is in `closed-items-2026-09.md` and
-  `q-calibration-design.md` §8–9. Still open: the probe-size under-read on
-  ring-shaped probes and the owner's drive of the bullseye maps; ACOM coverage
-  (a) is an owner decision, relabel or convert; Q-calibration (b) and the
-  origin-fit holes (b)/(c) as design passes. A landed number change cuts
-  v2.6.0.
-
-**macOS 14–25 is compile-verified, never executed** (every machine here is
-26; a VM needs ~40 GB); the first report from an older system is the test.
-
-**The rule bought the hard way** (`open-items.md`, the constraint-loop entry):
-nothing inside a split column may repeatedly change its own minimum size.
-`.fixedSize()` on text whose string changes is the easiest way to do it by
-accident, and it only shows on a dataset big enough for an operation to tick.
-All 12 bare `.fixedSize()` sites in `UI/` are audited and contained.
-
-**Two traps (hit again 2026-09-07):** read the gate's own `GATE_EXIT` line,
-never a wrapper's; reconcile the unit count against `func test` in source.
-
-**Driving:** `open -n <Debug app> --args --demo-fixture`; per-window `screencapture -x -o -l <id>`.
+**A trap paid this session.** `tools/run-tests.sh` was edited **while a gate
+was running**; the running `inventory` re-read the half-written file and died
+with `parse error near ';;'` on a line that was fine before and after. It read
+as a failure of the tree. Do not edit the gate script, or any source it
+compiles, while a gate is in flight — the same rule `/adversarial-review`
+already states for committing during a refuter's mutation window.
 
 ## Owed to the owner
 
-- **Driven by the owner 2026-09-08 night:** Compare Detectors, centres placed by hand, Export Labels… — the buttons work (the owner's words; the centres' correctness is his eye). Not yet reported: the map's `disagreement_*` Provenance rows, Save to Sidecar and the labels returning after a reopen. Four session-4 choices to overrule on sight: labels save only with the calibration save; the click catcher exists only in Disks mode; `isDataSourceFailure` now lives on `SessionGates`; the export names the file in the status line. C4 slices 1–2 remain undriven. (Both branches were at `origin` on 2026-09-09; `main` is `72e6ccd` at `origin` on 2026-09-11, `ml/disk-detector` `f057545`.)
-- The §10g decisions and plan §8 (sidecar wire format). (C8's engines question settled 2026-09-08: leave, `decisions.md`.)
+- The §10g decisions and plan §8 (sidecar wire format). C8's engines question
+  was settled 2026-09-08: leave (`decisions.md`).
+- Four session-4 choices to overrule on sight, and the C4 slices 1-2 drive —
+  both carried in [`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md).

@@ -1,0 +1,261 @@
+//
+//  AppState+PhaseMapping.swift
+//  Role: the only writer of `PhaseMappingProduct` — build the reference
+//        library, run the matcher over the detected Bragg vectors, publish the
+//        phase map and its distance companion.
+//
+//  Why this is a post-processing pass and not a pipeline: `BraggVectors` is
+//  computed once per scan and already shared by strain and ACOM. Thronsen et
+//  al. call accurate peak finding "perhaps most challenging" and "the most
+//  computationally intensive step" of vector matching; here it is already paid
+//  for, gated, and sub-pixel refined. That is the deviation worth making
+//  (`docs/v3-phase-mapping-method-choice.md`).
+//
+//  UNVALIDATED. Every product published here carries `validation: "none"` and
+//  an exploratory quantitative status until step 3 of
+//  `docs/v3-vector-matching-plan.md` has run against Thronsen et al.'s
+//  published ground truth. A phase map you can look at is worth having; a
+//  density taken off one is not a measurement yet.
+//
+
+import Foundation
+#if canImport(DSTEMCore)
+import DSTEMCore
+import DSTEMSession
+#endif
+import simd
+
+extension AppState {
+
+    /// The phase list as Core's own definitions, or nil if the list is not
+    /// runnable. Kept separate from `runPhaseMapping` so the settings panel can
+    /// size the library without starting one.
+    func phaseDefinitions() -> [PhaseDefinition]? {
+        guard phaseMapping.runRefusal == nil else { return nil }
+        return phaseMapping.phases.map { slot in
+            PhaseDefinition(
+                id: slot.model.id, displayName: slot.model.displayName,
+                crystal: slot.model.crystal,
+                role: slot.isMatrix ? .matrix : .candidate,
+                zoneAxes: [slot.zoneAxis]
+            )
+        }
+    }
+
+    /// Human-readable reason a `PhaseReferenceLibrary.Failure` happened.
+    /// Every arm names a number or a phase, because "could not build the
+    /// library" tells a user nothing they can act on.
+    static func phaseLibraryFailureMessage(_ failure: PhaseReferenceLibrary.Failure) -> String {
+        switch failure {
+        case .unsupportedElements(let phase, let z):
+            let symbols = z.map { ScatteringFactors.symbols[$0] ?? "Z\($0)" }
+            return "\(phase) contains \(symbols.joined(separator: ", ")), "
+                + "for which this app has no electron scattering factors."
+        case .degenerateZoneAxis(let phase):
+            return "\(phase)'s zone axis is [0 0 0], which names no direction."
+        case .noVisibleReflections(let phase):
+            return "\(phase) has no reflection above the visibility cut at any "
+                + "sampled orientation. Raise Max |q| or lower the minimum intensity."
+        case .libraryTooLarge(let requested, let limit):
+            return "That would build \(requested) reference orientations against a "
+                + "limit of \(limit). Increase the in-plane step, or raise the limit."
+        case .matrixPhaseNotUnique(let count):
+            return count == 0 ? "Mark one phase as the matrix."
+                              : "Exactly one phase can be the matrix; \(count) are marked."
+        case .noCandidatePhases:
+            return "Add a candidate phase to look for."
+        }
+    }
+
+    /// Map every scan position to a phase, or to "not indexed".
+    func runPhaseMapping() async -> AnalysisRunOutcome {
+        guard let descriptor else { return .failed("Open a dataset first.") }
+        if let refusal = phaseMapping.runRefusal { return .failed(refusal) }
+        guard let rawVectors = braggVectors else {
+            return .failed("Detect Bragg disks first — phase mapping matches the "
+                           + "peaks disk detection finds, it does not find its own.")
+        }
+        guard let definitions = phaseDefinitions() else {
+            return .failed(phaseMapping.runRefusal ?? "The phase list is not runnable.")
+        }
+
+        let referenceSettings = phaseMapping.reference
+        let matchSettings = phaseMapping.matching
+        let phaseSignature = phaseMapping.phaseSignature
+
+        let library: PhaseReferenceLibrary
+        do {
+            library = try PhaseReferenceLibrary.build(phases: definitions,
+                                                      settings: referenceSettings)
+        } catch let failure as PhaseReferenceLibrary.Failure {
+            return .failed(Self.phaseLibraryFailureMessage(failure))
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+
+        let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
+        let origin = calibrated.origin.point
+        let scale = acomScaleSemantics
+
+        let cancellation = beginCancellableOperation(
+            "Phase mapping",
+            status: "Matching \(calibrated.vectors.peaks.count) patterns against "
+                  + "\(library.entries.count) reference orientations…",
+            totalUnits: calibrated.vectors.peaks.count
+        )
+        defer { finishCancellableOperation(cancellation) }
+        let epoch = datasetEpoch
+
+        let progress: @Sendable (Double) -> Void = { [weak self] fraction in
+            Task { @MainActor in
+                guard let self, self.isCurrentOperation(cancellation) else { return }
+                self.updateCancellableOperation(
+                    cancellation, progress: fraction,
+                    status: String(format: "Matching patterns… %.0f %%", 100 * fraction))
+            }
+        }
+
+        // Detached for the same reason `runDiffractionGroups` is: the matcher
+        // is `nonisolated` but not `async`, and calling it inline would run a
+        // whole-scan nearest-neighbour search on the main actor.
+        let vectors = calibrated.vectors
+        let result = await Task.detached(priority: .userInitiated) {
+            PhaseVectorMatcher.map(
+                bragg: vectors, library: library, settings: matchSettings,
+                originX: origin.x, originY: origin.y,
+                invAngstromPerPixel: scale.invAngstromPerPixel,
+                cancellation: cancellation, progress: progress
+            )
+        }.value
+
+        guard epoch == datasetEpoch else {
+            return .failed("The dataset changed while phase mapping was running.")
+        }
+        guard let map = result else { return .cancelled }
+
+        let worstChance = library.candidateEntryIndices
+            .map {
+                library.entries[$0].chanceMatchFraction(
+                    pairRadius: matchSettings.pairRadiusInvAngstrom,
+                    accessibleRadius: referenceSettings.kMaxInvAngstrom)
+            }
+            .max() ?? 0
+        let matrixDegrees = map.matrixEntryIndex >= 0
+            ? library.entries[map.matrixEntryIndex].inPlaneRotationRad * 180 / .pi : .nan
+
+        phaseMapping.publish(map, ranWith: PhaseMappingProduct.RunRecord(
+            phaseSignature: phaseSignature,
+            reference: referenceSettings,
+            matching: matchSettings,
+            libraryEntryCount: library.entries.count,
+            matrixEntryIndex: map.matrixEntryIndex,
+            matrixInPlaneDegrees: matrixDegrees,
+            worstChanceMatchPercent: 100 * worstChance,
+            invAngstromPerPixel: scale.invAngstromPerPixel,
+            qScaleIsPhysical: scale.provenance.isPhysical,
+            peakCount: rawVectors.totalPeakCount
+        ))
+
+        publishPhaseMapProduct()
+        let counts = map.phaseCounts
+        let indexed = counts.enumerated()
+            .filter { $0.offset != map.matrixPhaseIndex && $0.element > 0 }
+            .map { "\(map.phaseNames[$0.offset]) \($0.element)" }
+            .joined(separator: ", ")
+        statusText = "Phase map: \(indexed.isEmpty ? "no candidate phase found" : indexed)"
+            + ", matrix \(map.count(of: .matrix)), not indexed \(map.count(of: .notIndexed))"
+            + " — unvalidated"
+        return .published
+    }
+
+    /// The phase map itself: an RGBA image, categorical, with the legend and
+    /// the numbers that produced it in provenance.
+    func publishPhaseMapProduct() {
+        guard let map = phaseMapping.map, let run = phaseMapping.lastRun else { return }
+        let candidates = max(0, map.phaseNames.count - 1)
+        publishProduct(
+            kind: "phase_map",
+            displayName: PhaseMappingProduct.mapDisplayName(candidatePhases: candidates),
+            valueUnits: "phase",
+            payload: .rgba(PhaseMapPresentation.image(map)),
+            domain: .scan,
+            extraProvenance: phaseProvenance(map: map, run: run).merging(
+                ["quantitative_status": "categorical"], uniquingKeysWith: { a, _ in a })
+        )
+    }
+
+    /// The distance companion: how far, in Å⁻¹, the winning phase's reference
+    /// vectors sat from the measured peaks. The map says which phase; this
+    /// says how well, and it is the one a reader can argue with.
+    func publishPhaseDistanceProduct() {
+        guard let map = phaseMapping.map, let run = phaseMapping.lastRun else { return }
+        publishProduct(
+            kind: "phase_match_distance",
+            displayName: PhaseMappingProduct.distanceDisplayName,
+            valueUnits: "inv_angstrom",
+            payload: .scalar(PhaseMapPresentation.distanceImage(map)),
+            validityMask: PhaseMapPresentation.distanceValidity(map),
+            domain: .scan,
+            extraProvenance: phaseProvenance(map: map, run: run).merging(
+                ["quantitative_status": "relative"], uniquingKeysWith: { a, _ in a })
+        )
+    }
+
+    /// Provenance both phase products share.
+    ///
+    /// `validation: "none"` is the load-bearing key. It is what stops a phase
+    /// fraction read off this map from being quoted as a measurement before
+    /// the acceptance test of `v3-vector-matching-plan.md` step 3 has run.
+    private func phaseProvenance(map: PhaseMap,
+                                 run: PhaseMappingProduct.RunRecord) -> [String: String] {
+        var out: [String: String] = [
+            "method": "vector_matching",
+            "method_citation": "Thronsen et al., Ultramicroscopy 255 (2024) 113861",
+            "validation": "none",
+            "phases": map.phaseNames.joined(separator: "|"),
+            "matrix_phase": map.phaseNames.indices.contains(map.matrixPhaseIndex)
+                ? map.phaseNames[map.matrixPhaseIndex] : "?",
+            "library_entries": String(run.libraryEntryCount),
+            "in_plane_step_deg": String(format: "%.3g", run.reference.inPlaneStepDeg),
+            "k_max_inv_angstrom": String(format: "%.4g", run.reference.kMaxInvAngstrom),
+            "max_vectors_per_entry": String(run.reference.maximumVectorsPerEntry),
+            "pair_radius_inv_angstrom": String(format: "%.4g", run.matching.pairRadiusInvAngstrom),
+            "matrix_tolerance_inv_angstrom":
+                String(format: "%.4g", run.matching.matrixToleranceInvAngstrom),
+            "not_indexed_above_inv_angstrom":
+                String(format: "%.4g", run.matching.notIndexedAboveInvAngstrom),
+            // Named for its radius: this is computed at the library's full
+            // reach, while the guard itself uses each position's own
+            // outermost vectors, so the two are not the same number and
+            // the key must not pretend they are (Gate B finding 5).
+            "worst_chance_match_percent_at_k_max":
+                String(format: "%.2f", run.worstChanceMatchPercent),
+            "q_scale_inv_angstrom_per_pixel": String(format: "%.6g", run.invAngstromPerPixel),
+            "q_scale_provenance": run.qScaleIsPhysical ? "physical" : "exploratory",
+            "peaks_matched": String(run.peakCount),
+        ]
+        if run.matrixInPlaneDegrees.isFinite {
+            // Recorded with what it means: the in-plane angle is determined
+            // only modulo the projected symmetry of the phase, which the gated
+            // harness demonstrates on fcc [001] (P5a).
+            out["matrix_in_plane_deg_mod_symmetry"] =
+                String(format: "%.1f", run.matrixInPlaneDegrees)
+        }
+        for (index, name) in map.phaseNames.enumerated() {
+            let counts = map.phaseCounts
+            out["count_\(index)_\(name)"] = String(index < counts.count ? counts[index] : 0)
+        }
+        out["count_not_indexed"] = String(map.count(of: .notIndexed))
+        out["count_no_peaks"] = String(map.count(of: .noData))
+        return out
+    }
+
+    /// The evidence for the scan position the user is looking at, in one line.
+    /// Nil when there is no map, or the position is outside it.
+    var phaseMappingEvidenceLine: String? {
+        guard let map = phaseMapping.map else { return nil }
+        let x = selectedScan.x, y = selectedScan.y
+        guard x >= 0, y >= 0, x < map.width, y < map.height else { return nil }
+        return PhaseMapPresentation.evidenceLine(map.results[y * map.width + x], map: map)
+    }
+}

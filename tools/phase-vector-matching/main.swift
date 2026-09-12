@@ -10,12 +10,22 @@
 //   • Part A checks the reference vectors against ARITHMETIC — |g| for fcc
 //     {200}/{220} is 2/a and 2√2/a, and |g(h0l)| for a monoclinic cell comes
 //     from the reciprocal metric, both computed here in closed form.
-//   • Part B generates synthetic patterns from an INDEPENDENT projection
-//     written in this file (`harnessProject`) straight off `Crystal`, never
-//     through `PhaseReferenceLibrary`. Part A asserts the two agree, so a
-//     disagreement turns the gate red instead of cancelling out. The L3 lesson
-//     — a harness that passed a transposed decode because both sides
-//     transposed together — is exactly what this structure is avoiding.
+//   • Part B generates synthetic patterns from a projection written in this
+//     file (`harnessProject`) straight off `Crystal`, never through
+//     `PhaseReferenceLibrary`, and Part A asserts the two agree.
+//
+//     **HOW FAR THAT INDEPENDENCE GOES, corrected 2026-09-12 after Gate B.**
+//     It is independent in the SELECTION and the SCALING, and it catches a
+//     frame error local to `projectedVectors` — an x/y swap or a y flip on the
+//     experimental side drives P2 to 31.8 % and fails P5a and P5b. It is NOT
+//     independent in the in-plane frame: both sides call
+//     `ACOMOrientation.detectorBasis`, so a handedness flip there (e2 =
+//     cross(e1, n) instead of cross(n, e1)) mirrors both together and every
+//     gated check stays green. That is the L3 trap, still open here. What
+//     covers it is `tools/acom-convention-test`, which builds its own frame
+//     from a seed and never passes positions through production
+//     `project()`/`detectorBasis()` — a separate gate, not this one, and the
+//     link between them is prose rather than code (`open-items.md`).
 //
 //  PRE-REGISTERED PASS CRITERIA (written before the first run):
 //    P1  ≥ 95 % of matrix-only positions verdict .matrix
@@ -136,11 +146,23 @@ enum Harness {
     print("== Part A — the reference vectors against arithmetic")
     // ============================================================================
 
+    // The SHIPPED library defaults except the two the synthetic detector
+    // fixes (kMax and the slab). Gate B finding 8 (2026-09-12): the first
+    // version also overrode `minimumIntensityFraction` to 0.02 against a
+    // shipped 0.05, so the gate never ran the value the app uses.
     var settings = PhaseReferenceSettings()
     settings.kMaxInvAngstrom = kMax
     settings.excitationSlabInvAngstrom = sgMax
-    settings.minimumIntensityFraction = 0.02
     settings.inPlaneStepDeg = 2
+    // The LITERALS are the pin, not a comparison against the defaults — the
+    // first version of this check compared `settings.x` to
+    // `PhaseReferenceSettings().x`, which is the same value on both sides and
+    // could not fail for any default. Moving either number is then a
+    // deliberate edit to this line, which is the point.
+    check("A0 the library runs the shipped visibility cut and density cap",
+          settings.minimumIntensityFraction == 0.05 && settings.maximumVectorsPerEntry == 48,
+          String(format: "min intensity %.3f (shipped 0.050), cap %d (shipped 48)",
+                 settings.minimumIntensityFraction, settings.maximumVectorsPerEntry))
 
     // A1 — aluminium fcc down [001]. |g(200)| = 2/a, |g(220)| = 2√2/a, and the
     // forbidden 100/110 must be absent: fcc extinguishes mixed-parity hkl.
@@ -175,6 +197,29 @@ enum Harness {
           && beta.sites.filter({ $0.z == 14 }).count == 12,
           "\(beta.sites.count) sites, Mg \(beta.sites.filter { $0.z == 12 }.count), "
           + "Si \(beta.sites.filter { $0.z == 14 }.count) — Andersen et al. 1998 states Mg₁₀Si₁₂")
+
+    // A1e/A2c — THE EXTINCTION CONDITIONS, whose ground truth is the space
+    // group and not this code. Gate B finding 1 (2026-09-12): changing β″'s
+    // C-centring translation from (½,½,0) to (½,½,½) left all 22 atoms, both
+    // element counts, every cell parameter, the shortest interatomic contact
+    // (2.2700 Å, unchanged, because the shortest pair is in-layer) and all 21
+    // gated checks passing — while changing the reflection condition from
+    // h + k even to h + k + l even, which is a different lattice and half of
+    // β″'s reference vectors. Nothing pinned it, because every other check
+    // reads the CELL and this reads where the atoms sit in it.
+    let betaAll = beta.reflections(kMax: kMax)
+    check("A2c β″ obeys the C-centring condition h + k even",
+          !betaAll.isEmpty && betaAll.allSatisfy { ($0.h + $0.k) % 2 == 0 },
+          "\(betaAll.count) reflections, "
+          + "\(betaAll.filter { ($0.h + $0.k) % 2 != 0 }.count) with h + k odd "
+          + "(C2/m, No. 12); an I- or A-centred cell would fail here")
+    let alAll = al.reflections(kMax: kMax)
+    check("A1e fcc obeys h, k, l all even or all odd",
+          !alAll.isEmpty && alAll.allSatisfy {
+              let parity = [$0.h % 2 != 0, $0.k % 2 != 0, $0.l % 2 != 0]
+              return parity.allSatisfy { $0 } || parity.allSatisfy { !$0 }
+          },
+          "\(alAll.count) reflections, none of mixed parity")
 
     let betaRad = beta.betaDeg * .pi / 180
     let aStar = 1 / (beta.a * sin(betaRad))
@@ -393,7 +438,10 @@ enum Harness {
     }
     let plantedDistance = setDistance(alPlane)
     // A 2° step against a 13.7° plant leaves 0.3° of residual, which at the
-    // outermost |q| here is ~0.004 Å⁻¹. 0.01 admits that and nothing else.
+    // outermost |q| here (√20/a = 1.104 Å⁻¹) is 0.0058 Å⁻¹ — the number the
+    // check itself prints. An earlier version of this comment said ~0.004,
+    // understating its own measurement by 45 % (Gate B, 2026-09-12). 0.01
+    // admits it and nothing else.
     check("P5a the fitted matrix entry reproduces the planted vector set",
           plantedDistance < 0.01,
           String(format: "worst nearest-neighbour %.5f Å⁻¹; fitted angle %.1f°, planted 13.7° "
@@ -403,6 +451,13 @@ enum Harness {
     let flipped = harnessProject(al, zone: SIMD3(0, 0, 1), kMax: kMax, sgMax: sgMax)
         .map { rotated($0.q, -plantedMatrixRotation) }
     let flippedDistance = setDistance(flipped)
+    // Gate B finding 11: the modulo line was PRINTED and not asserted, so a
+    // transposed rotation printed 62.3° instead of 0.3° and still passed.
+    var modulo = abs((fittedRotation - 13.7).truncatingRemainder(dividingBy: 90))
+    modulo = min(modulo, 90 - modulo)
+    check("P5c and the angle reconciles modulo the projected symmetry",
+          modulo <= settings.inPlaneStepDeg,
+          String(format: "%.1f° residual against a %.1f° step", modulo, settings.inPlaneStepDeg))
     check("P5b and a SIGN-FLIPPED plant does not satisfy it",
           flippedDistance > 0.05,
           String(format: "worst nearest-neighbour %.5f Å⁻¹ at −13.7° — the check has teeth",
@@ -464,6 +519,15 @@ enum Harness {
     }
 
     let clean = classifyPureAl(noise: 0, seed: 0x1234_5678, library: metals, settings: matchSettings)
+    // The contrast must be POSITIVE, not merely non-zero. Gate B finding 4
+    // (2026-09-12): ranking phases by matched count instead of by distance
+    // leaves P6 green and makes the reported contrast NEGATIVE (−0.00045 Å⁻¹
+    // at σ = 2 px) — the winner then has a WORSE mean distance than the
+    // runner-up, and the number shown to the user means nothing.
+    check("P6b the reported contrast over the runner-up is positive",
+          clean.meanContrast > 0,
+          String(format: "%+.5f Å⁻¹ — a negative contrast means the winner scored "
+                 + "worse than the phase it beat", clean.meanContrast))
     check("P6 pure aluminium is labelled aluminium, not gold",
           clean.alWins == 200 && clean.auWins == 0,
           "Al \(clean.alWins)/200, Au \(clean.auWins)/200, neither \(clean.other)/200; "
@@ -492,6 +556,11 @@ enum Harness {
     let dense = try buildLibrary(minimumIntensityFraction: 0, maximumVectorsPerEntry: 0)
     let denseChance = dense.entries[dense.candidateEntryIndices[0]]
         .chanceMatchFraction(pairRadius: matchSettings.pairRadiusInvAngstrom, accessibleRadius: kMax)
+    // Both halves together, and the reason is that they are NOT independent:
+    // at the shipped cap of 48, `minimumIntensityFraction` changes nothing
+    // between 0 and 0.05 on this fixture — the cap removes more than the
+    // intensity cut does (Gate B finding 8, 2026-09-12). The intensity cut
+    // starts to matter only when the cap is off, which is what this measures.
     measure("M2 visibility cut AND density cap removed",
             "vectors per β″ entry \(library.entries[library.candidateEntryIndices[0]].vectors.count) "
             + "→ \(dense.entries[dense.candidateEntryIndices[0]].vectors.count), "
@@ -508,18 +577,42 @@ enum Harness {
 
     // N2 — the completeness requirement. A pure mean-distance score lets a phase
     // explaining one vector out of ten beat one explaining nine.
-    var noCompleteness = matchSettings
-    noCompleteness.chanceMatchMultiple = 0
-    noCompleteness.minimumMatchedVectors = 1
-    if let m = PhaseVectorMatcher.map(bragg: bragg, library: library, settings: noCompleteness,
-                                      originX: originX, originY: originY,
-                                      invAngstromPerPixel: invAngstromPerPixel) {
+    // M3 — TWO measurements, not one, and the first version conflated them.
+    // Gate B finding 2 (2026-09-12) measured that removing the chance guard
+    // ALONE changes nothing at any multiple from 0 to 12: the 99.2 % → 5.5 %
+    // collapse the docs credited to it is entirely the matched-vector floor.
+    // At the shipped settings the guard's bar is ~0.9 matched vectors against
+    // a floor of 3, so it binds only above ~31 surviving vectors per pattern
+    // — and the repo's own real cube has a median of 7. Printing them apart is
+    // what stops the wrong one being credited again.
+    for (label, mutate) in [
+        ("chance guard alone", { (s: inout PhaseVectorSettings) in s.chanceMatchMultiple = 0 }),
+        ("matched-vector floor alone", { (s: inout PhaseVectorSettings) in s.minimumMatchedVectors = 1 }),
+        ("both", { (s: inout PhaseVectorSettings) in
+            s.chanceMatchMultiple = 0; s.minimumMatchedVectors = 1 }),
+    ] {
+        var relaxed = matchSettings
+        mutate(&relaxed)
+        guard let m = PhaseVectorMatcher.map(bragg: bragg, library: library, settings: relaxed,
+                                             originX: originX, originY: originY,
+                                             invAngstromPerPixel: invAngstromPerPixel)
+        else { continue }
         let d = accuracy(m)
-        measure("M3 chance guard and matched-vector floor removed",
-                String(format: "matrix %.1f %% (was %.1f), β″ %.1f %% (was %.1f), random %.1f %% (was %.1f)",
-                       100 * d.matrix, 100 * acc.matrix, 100 * d.beta, 100 * acc.beta,
-                       100 * d.random, 100 * acc.random))
+        measure("M3 \(label) removed",
+                String(format: "matrix %.1f %%, β″ %.1f %%, random %.1f %% (baseline %.1f / %.1f / %.1f)",
+                       100 * d.matrix, 100 * d.beta, 100 * d.random,
+                       100 * acc.matrix, 100 * acc.beta, 100 * acc.random))
     }
+    // And the binding condition itself, which is the thing worth knowing.
+    let shippedEntry = library.entries[library.candidateEntryIndices[0]]
+    let perVector = shippedEntry.chanceMatchFraction(
+        pairRadius: matchSettings.pairRadiusInvAngstrom, accessibleRadius: kMax)
+    measure("M3b when the chance guard starts to bind",
+            String(format: "%.1f surviving vectors — below that the %d-vector floor is "
+                   + "the binding constraint, not the guard",
+                   Double(matchSettings.minimumMatchedVectors)
+                   / (matchSettings.chanceMatchMultiple * perVector),
+                   matchSettings.minimumMatchedVectors))
 
     // N3 — the not-indexed threshold. With it removed, a random pattern must be
     // forced into a phase; if it is not, the threshold is not what refuses them.
@@ -570,6 +663,31 @@ enum Harness {
     }
     check("P8 the length-band prune is exact", pruneMismatch == 0,
           "\(pruneComparisons) random probes against brute force, \(pruneMismatch) mismatches")
+
+    // P8b — CLOSEST, not merely inside the radius. Gate B finding 11
+    // (2026-09-12): returning the FIRST reference within the radius instead of
+    // the nearest passed all 60 000 probes above, because no two references in
+    // either shipped library lie within one pair DIAMETER — β″'s h0l spacing
+    // is 0.137 Å⁻¹ against 2ρ = 0.04 — so the two rules coincide on that
+    // fixture. They diverge for a long-axis cell, where a* falls below ρ. This
+    // fixture is that case, built deliberately.
+    let crowded = (0..<5).map {
+        ReferenceVector(h: $0, k: 0, l: 0, q: SIMD2(0.5 + Double($0) * 0.008, 0),
+                        length: 0.5 + Double($0) * 0.008, relativeIntensity: 1)
+    }
+    var closestWins = true
+    for step in 0...40 {
+        let u = SIMD2(0.49 + Double(step) * 0.0015, 0.0)
+        guard let hit = PhaseVectorMatcher.nearest(u, in: crowded, radius: 0.02),
+              let truth = bruteNearest(u, crowded, 0.02) else { continue }
+        if hit.index != truth.index || abs(hit.distance - truth.distance) > 1e-15 {
+            closestWins = false
+        }
+    }
+    check("P8b and it returns the CLOSEST reference, not the first in range",
+          closestWins,
+          "5 references 0.008 Å⁻¹ apart inside a 0.02 Å⁻¹ radius — "
+          + "first-in-range and nearest differ here and agree in the shipped libraries")
 
     // N5 — the refusals a library must make.
     do {

@@ -85,6 +85,17 @@ extension AppState {
             return ("diffraction_groups",
                     DiffractionGroupsProduct.groupMapDisplayName(groups: k),
                     "group")
+        case .phaseMapping:
+            // A phase INDEX per scan position, not a physical quantity — and
+            // the candidate count is in the name for the same reason k is in
+            // the group map's: two runs over different phase lists are
+            // otherwise indistinguishable in Results and in the sidecar
+            // (`drive-groups` defect 5). Same helper the run itself publishes
+            // through, so the fallback and the real product cannot drift.
+            let candidates = max(0, (phaseMapping.map?.phaseNames.count ?? 1) - 1)
+            return ("phase_map",
+                    PhaseMappingProduct.mapDisplayName(candidatePhases: candidates),
+                    "phase")
         case .acom:
             let angular: Set<ACOMDisplayMode> = [.inPlane, .phi1, .Phi, .phi2, .disorientation]
             let baseKind: String

@@ -80,7 +80,9 @@ package nonisolated struct PhaseOrientationReference: Sendable {
     /// cover at a given pair radius — an upper bound on how often a vector
     /// pointing NOWHERE IN PARTICULAR matches this entry by chance.
     ///
-    /// `V·ρ²/R²` by the union bound, exact while the discs do not overlap.
+    /// `V·ρ²/R²` by the union bound over EVERY reference — an upper bound,
+    /// not an estimate. See the body for why restricting it to the references
+    /// the data can reach was tried, measured, and reverted.
     /// It is the number that says whether a match carries information: an
     /// entry covering a third of the plane explains a third of any random set,
     /// and its "match" means nothing. Reported in provenance rather than
@@ -89,6 +91,28 @@ package nonisolated struct PhaseOrientationReference: Sendable {
     /// would be a guess where a printed number is a measurement.
     package func chanceMatchFraction(pairRadius: Double, accessibleRadius: Double) -> Double {
         guard accessibleRadius > 0, pairRadius > 0 else { return 0 }
+        // EVERY reference counts, including the ones outside the data's reach,
+        // and that is deliberate — it is what makes this an UPPER BOUND rather
+        // than an estimate.
+        //
+        // Gate B (2026-09-12) called the whole count against a restricted area
+        // a 12x overestimate and proposed restricting the numerator to match.
+        // That remedy was implemented and MEASURED, and it made the guard
+        // weaker in exactly the case the guard exists for: with the numerator
+        // restricted, `testOneDistantSpuriousPeakDoesNotWeakenTheChanceGuard`
+        // went red on its FIRST assertion — random vectors in a narrow annulus
+        // were indexed with no outlier at all — because a lower chance
+        // estimate is a lower bar for eligibility. Reverted.
+        //
+        // The reason the whole count is the right conservative choice: the
+        // uniform-disc model puts most of its area at large r, while real and
+        // spurious peaks cluster at small r where a reference set is densest,
+        // so the model UNDERSTATES the true chance for the distributions that
+        // matter. Counting every reference pushes the other way. An
+        // overestimate of chance demands more evidence, which is the safe
+        // direction for a guard whose whole job is refusing uninformative
+        // matches. It is not a probability and this comment does not call it
+        // one.
         let p = Double(vectors.count) * pairRadius * pairRadius
             / (accessibleRadius * accessibleRadius)
         return min(1, p)
@@ -226,7 +250,13 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
             for v in -2...2 {
                 for w in -2...2 {
                     if u == 0 && v == 0 && w == 0 { continue }
-                    let g = gcd(gcd(abs(u), abs(v)), abs(w))
+                    // max(1, …) at the END, not inside `gcd`: a `gcd`
+                    // that floors itself at 1 returns gcd(0, 0) = 1, so
+                    // [0 0 2] never reduced and the list held it beside
+                    // [0 0 1] — 50 entries for 49 directions, and 180
+                    // redundant library entries per phase at the default
+                    // step (Gate B finding 9, 2026-09-12).
+                    let g = max(1, gcd(gcd(abs(u), abs(v)), abs(w)))
                     let r = SIMD3(u / g, v / g, w / g)
                     // One of each ±pair: [uvw] and [-u-v-w] are the same axis
                     // viewed from opposite sides, and the projected vector set
@@ -242,10 +272,11 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
         return out
     }()
 
+    /// A true gcd: `gcd(0, 0)` is 0, not 1. Callers floor the RESULT.
     private static func gcd(_ a: Int, _ b: Int) -> Int {
         var a = a, b = b
         while b != 0 { (a, b) = (b, a % b) }
-        return max(a, 1)
+        return a
     }
 
     // MARK: Build
@@ -356,6 +387,19 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
         let sgMax = settings.excitationSlabInvAngstrom
         let sgWidth = max(settings.excitationWidthInvAngstrom, 1e-9)
 
+        // MEASURED 2026-09-12 (Gate B finding 7), and it changes how the two
+        // excitation settings should be read: with a flat sphere
+        // s_g = g·n = (hu + kv + lw)/|r_uvw|, which is EXACTLY 0 for every
+        // zone-law reflection and at least 1/|r_uvw| otherwise. For every axis
+        // in play that spacing is 0.066 Å⁻¹ or more — above
+        // `excitationSlabInvAngstrom` — so no non-ZOLZ reflection is admitted
+        // and the Gaussian is identically 1 on everything that is. The slab is
+        // therefore a ZONE SELECTOR here, not a weighting, and
+        // `excitationWidthInvAngstrom` cannot change any output until the
+        // Ewald curvature is restored or the slab is widened past a Laue-zone
+        // spacing. Both settings are kept because that is exactly what changes
+        // for a long-axis cell, where 1/|r_uvw| falls below the slab.
+        //
         // Flat Ewald sphere: s_g = g·n. Deliberately flat, and NOT the
         // curvature-corrected form `OrientationPlan.project` offers. The
         // curvature term exists there to break a 180° ambiguity in an

@@ -1145,3 +1145,84 @@ off the internal disk would free far more, and nothing gated depends on it —
 is `diagnostic`. It was not proposed as a destination because the only mounted
 volume is the Time Machine backup drive, and working data does not belong on a
 backup destination.
+
+## 2026-09-12 — vector matching lands unvalidated, deliberately
+
+The owner asked whether step 3 of `v3-vector-matching-plan.md` — scoring
+against Thronsen et al.'s published ground truth — could be deferred and done
+later. It can, and it was, on one condition: **the output is labelled
+unvalidated everywhere it appears.** It is, in four places — `validation:
+"none"` in every product's provenance, the task's guidance line, a banner above
+the panel's legend, and the run's own status line.
+
+The precedent is this repo's: the precipitate engines are on `main` unwired
+with their ship gate openly unmet, and that has held up. The cost of deferring
+is rework risk, not correctness — if step 3 later fails, steps 1 and 2 need
+fixing and anything built on them was premature. That is bounded, and it would
+be found before anything is published. The blocker is disk, not licence: their
+`datasetA` is ~7.4 GB against a machine that ended the session at 5.7 GB free,
+and the owner has already deleted everything he is willing to delete.
+
+## 2026-09-12 — β″ becomes a built-in structure, not an import-only CIF
+
+The same reasoning as WS₂ on 2026-08-31: an `.imported` model does not survive
+into a new session, so a recipe recorded against an imported CIF cannot replay.
+A built-in entry is what makes an Al-Mg-Si workflow reproducible at all. The
+values are Andersen et al., *Acta Materialia* 46(9) 3283 (1998), Table 3 set 3
+— experimental, and deliberately not Materials Project mp-31404, which is the
+same phase under a compatible licence but DFT-relaxed, and relaxed volumes run
+a few percent high in exactly the quantity this method matches on.
+
+The C2/m expansion is written out in source rather than stored pre-expanded, so
+it can be read, and it is asserted at Mg₁₀Si₁₂ = 22 atoms — the cell content
+the paper states. Sources disagree on the axis setting (some publish a = 15.16,
+b = 6.74, c = 4.05 with γ = 105.3°), which is what makes that assertion worth
+having.
+
+## 2026-09-12 — the matrix is stated by the user, never inferred
+
+Which phase is the bulk is knowledge about the specimen, not about the data.
+`PhaseDefinition.Role` carries it, exactly one phase may be the matrix, and a
+library without one is refused rather than defaulting to the first in the list
+— because a default there would make the verdict depend on the order the user
+happened to add phases. This is also what makes "assign the matrix by
+exclusion" possible, which is the part of Thronsen et al.'s method that lets a
+precipitate be found without the matrix competing with it for the label.
+
+## 2026-09-12 — an in-plane angle is reported modulo the projected symmetry
+
+The gated harness demonstrates it on fcc [001]: 13.7° and 283.7° produce the
+same spots, so no method that looks at spots can separate them. The matcher's
+in-plane rotation is therefore recorded as
+`matrix_in_plane_deg_mod_symmetry`, is shown in the panel as "(mod symmetry)",
+and is never presented as an absolute orientation. The first version of the
+harness check asserted the ANGLE and failed at 89.7° — the test was wrong, not
+the code, and the check is now on the vector set with a sign-flipped plant
+shown not to satisfy it.
+
+## 2026-09-12 — the chance guard stays although it is inert at shipped settings
+
+Gate B refuted the claim first made for it: removing it changes nothing at the
+shipped settings, because its bar crosses `minimumMatchedVectors` only above
+~45 surviving vectors per pattern and real SPED patterns here carry ~7. The
+99.2 % → 5.5 % collapse credited to it is the matched-vector floor's.
+
+It is kept rather than deleted, and the reason is not sentiment: a fixed
+`maximumVectorsPerEntry` bounds a library's SIZE, and nothing else bounds what
+that size costs on a pattern rich enough for the size to matter. The guard is
+the only thing that scales with the pattern. What changed is the honesty of the
+record — the gate now prints the three conditions apart, and the source names
+the threshold at which the guard starts to bind, so the wrong one cannot be
+credited again.
+
+## 2026-09-12 — completeness is a chance-level test, not a fraction
+
+A minimum matched FRACTION is the obvious guard against a phase explaining one
+vector in ten beating one explaining nine. It was implemented, and it failed on
+real geometry: the reference library is capped at `maximumVectorsPerEntry`, so
+a pattern showing more spots than the library holds can never reach any
+fraction — the harness's β″ positions went to 0 % indexed while being perfectly
+matched. What replaced it has a number behind it: an entry must beat its own
+`chanceMatchFraction` expectation by 5×. Removing it takes random-vector
+accuracy from 99.2 % to 5.5 %, which is the measurement that says it is
+load-bearing.

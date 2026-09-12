@@ -38,6 +38,11 @@ enum LayoutPolicy {
     /// About six digits. A numeric field is never as wide as its row.
     static let numericFieldWidth: CGFloat = 72
 
+    /// A colour key square, beside a legend row or a phase in a list. Square
+    /// and small on purpose: it identifies a colour, it is not a preview, and
+    /// growing it with the column would make the list read as a palette.
+    static let legendSwatch: CGFloat = 12
+
     /// A ceiling, not a size: a thumbnail grows with its column and stops
     /// here, so a square preview in a wide inspector is bounded by the
     /// column, not by this.

@@ -92,21 +92,57 @@ final class ProductWorkflowTests: XCTestCase {
 
     // MARK: - The sixth room (owner, 2026-09-11)
 
-    /// `AI Analysis` exists, carries exactly one task, and that task is routed
-    /// only here. `testEveryAnalysisHasOneProductWorkspace` above already
-    /// guarantees every mode is routed to exactly one area; this pins WHICH,
-    /// so moving diffraction grouping into another room is a deliberate edit
-    /// rather than a silent one.
-    func testAIAnalysisOwnsDiffractionGroupingAndNothingElse() {
-        XCTAssertEqual(WorkspaceArea.aiAnalysis.analysisModes, [.diffractionGroups])
+    /// `AI Analysis` carries exactly its two tasks, in this order, and both
+    /// are routed only here. `testEveryAnalysisHasOneProductWorkspace` above
+    /// already guarantees every mode is routed to exactly one area; this pins
+    /// WHICH, so moving either into another room is a deliberate edit rather
+    /// than a silent one.
+    ///
+    /// The ORDER is pinned too, because `defaultAnalysisMode` is
+    /// `analysisModes.first` and that is where ⌘-5 lands: grouping needs only
+    /// the cube, phase mapping needs Bragg vectors, so opening the room on
+    /// phase mapping would greet a freshly loaded dataset with a refusal.
+    func testAIAnalysisOwnsItsTwoTasksAndNothingElse() {
+        XCTAssertEqual(WorkspaceArea.aiAnalysis.analysisModes,
+                       [.diffractionGroups, .phaseMapping])
         XCTAssertEqual(AnalysisMode.diffractionGroups.workspaceArea, .aiAnalysis)
+        XCTAssertEqual(AnalysisMode.phaseMapping.workspaceArea, .aiAnalysis)
         XCTAssertEqual(WorkspaceArea.aiAnalysis.defaultAnalysisMode, .diffractionGroups)
         for area in WorkspaceArea.allCases where area != .aiAnalysis {
-            XCTAssertFalse(
-                area.analysisModes.contains(.diffractionGroups),
-                "\(area.title) must not also claim diffraction grouping"
-            )
+            for mode in [AnalysisMode.diffractionGroups, .phaseMapping] {
+                XCTAssertFalse(
+                    area.analysisModes.contains(mode),
+                    "\(area.title) must not also claim \(mode.rawValue)"
+                )
+            }
         }
+    }
+
+    /// Phase mapping matches the peaks disk detection finds and looks for none
+    /// of its own, so it must carry the Bragg prerequisite. Without this the
+    /// task would offer an enabled button on a dataset with no peaks, run, and
+    /// report an empty map as a result.
+    func testPhaseMappingRequiresBraggVectors() {
+        XCTAssertEqual(AnalysisMode.phaseMapping.prerequisiteFamily, .requiresBraggVectors)
+        let unmet = ProductWorkflow.prerequisiteItems(
+            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: false))
+        XCTAssertEqual(unmet.map(\.id), ["braggVectors"])
+        XCTAssertEqual(unmet.first?.isSatisfied, false)
+        let met = ProductWorkflow.prerequisiteItems(
+            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: true))
+        XCTAssertEqual(met.first?.isSatisfied, true)
+    }
+
+    /// The task states that it is unvalidated wherever guidance is shown.
+    /// Not decoration: this method has never been scored against an external
+    /// ground truth in this app (`docs/v3-vector-matching-plan.md` step 3), and
+    /// a phase fraction read off the map is not a measurement until it has.
+    func testPhaseMappingGuidanceSaysItIsUnvalidated() {
+        let guidance = ProductWorkflow.guidance(
+            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: true))
+        XCTAssertFalse(guidance.isEmpty)
+        XCTAssertTrue(guidance.contains { $0.lowercased().contains("unvalidated") },
+                      "guidance is \(guidance)")
     }
 
     /// Grouping needs the cube and nothing else — no origin, no R–Q rotation,

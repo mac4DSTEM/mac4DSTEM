@@ -293,7 +293,7 @@ struct PrimaryActionButton: View {
             // rather than a permanently disabled "Reconstruction Ready" one.
             else { nil }
         case .aiAnalysis:
-            "Group Patterns"
+            appState.navigation.analysisMode == .phaseMapping ? "Map Phases" : "Group Patterns"
         case .results:
             nil
         }
@@ -317,7 +317,9 @@ struct PrimaryActionButton: View {
             default: "Runs the next incomplete parallax stage."
             }
         case .aiAnalysis:
-            "Runs PCA and k-means over every scan position's diffraction pattern."
+            appState.navigation.analysisMode == .phaseMapping
+                ? "Matches every position's peaks against the phases you named. Unvalidated."
+                : "Runs PCA and k-means over every scan position's diffraction pattern."
         case .results: "Adds the visible result to the reusable dataset session."
         }
     }

@@ -18,7 +18,14 @@ import DSTEMSession
 /// So this holds exactly what the room actually contains today. When
 /// precipitates earn their gate, their section is added here beside it.
 struct AIAnalysisSettings: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
-        DiffractionGroupsSection()
+        switch appState.navigation.analysisMode {
+        case .phaseMapping: PhaseMappingSections()
+        // Grouping is the room's default task, and anything that is not phase
+        // mapping arrives here only by landing on that default.
+        default: DiffractionGroupsSection()
+        }
     }
 }

@@ -1,5 +1,11 @@
 # Vector-matching phase mapping — the plan, 2026-09-11
 
+> **Where it stands, 2026-09-12.** Steps **0, 1, 2, 4 and 5 are done**; step 3
+> is **deferred on disk, not abandoned**, and everything the app produces is
+> labelled unvalidated until it runs. The record of what landed, what two
+> pre-registered predictions got wrong, and what the Al-Mg-Si cube actually
+> said is [`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md).
+
 How Thronsen et al. (Ultramicroscopy 255 (2024) 113861, **CC BY 4.0**) gets
 incorporated. Method choice and its reasoning:
 [`v3-phase-mapping-method-choice.md`](v3-phase-mapping-method-choice.md).
@@ -45,7 +51,15 @@ admitting `.identity` means a phase whose orientation cannot be reduced, so its
 IPF colour must be withheld. `CIFImport.swift:10-17` argues for refusing rather
 than half-reporting.
 
-### 1 — Reference vectors from a CIF  *(Core, no UI)*
+### 1 — Reference vectors from a CIF  *(Core, no UI)*  — **DONE 2026-09-12**
+`Core/Crystal/PhaseReferenceLibrary.swift`. Gated by
+`tools/phase-vector-matching` against arithmetic: fcc |g| = 2/a and 2√2/a to
+1e-9, and the monoclinic reciprocal metric to 2.2e-16. **What the plan did not
+anticipate:** a visibility cut is not optional. A library holding every
+kinematically allowed reflection gives every experimental vector a near
+neighbour for every phase; `maximumVectorsPerEntry` is the control and
+`chanceMatchFraction` is the number that makes the trade visible.
+
 Reciprocal lattice → rotate to a zone axis → keep points in a thin slab about
 z = 0 → apply the matrix's in-plane rotation. `Crystal.reflections(kMax:)`
 already handles arbitrary cells and `OrientationPlan.project` already does the
@@ -54,7 +68,13 @@ thicknesses (0.030 / 0.300 Å⁻¹) are phase-dependent; ours get derived.
 **Gate:** unit tests against hand-computed vectors for a cubic case where the
 answer is known by arithmetic.
 
-### 2 — The matcher  *(Core; Gate D and Gate B both apply)*
+### 2 — The matcher  *(Core; Gate D and Gate B both apply)*  — **DONE 2026-09-12**
+`Core/Crystal/PhaseVectorMatching.swift`. **One deviation from the score below,
+and it was the second thing tried:** the "mean |u − v| over unique reference
+vectors" needs a completeness requirement, and a minimum matched FRACTION
+cannot be it — a capped library can never explain every spot a pattern shows.
+An entry must instead beat its own chance-match expectation by 5×.
+
 Three parts, each small:
 - **Matrix removal in vector space** — drop experimental vectors lying close to
   the matrix reference vectors; fewer than two survivors means matrix. This is
@@ -68,7 +88,15 @@ Three parts, each small:
 Gate D applies: the output is a phase label that reaches an export. Gate B
 applies: it is new Core that moves a scientific number.
 
-### 3 — Validate against their published ground truth  ← **the point of all this**
+### 3 — Validate against their published ground truth  ← **DEFERRED 2026-09-12, on disk**
+Not abandoned and not skipped: their `datasetA` is ~7.4 GB against a machine
+at 5.7 GB free, and the owner has deleted everything he is willing to delete.
+The decision and its condition are in `decisions.md` (2026-09-12): the rest
+lands **labelled unvalidated** in four places, and no density or phase fraction
+leaves the app as a quantitative claim until this passes. `ground_truth.hspy`
+is 37 kB and its HyperSpy schema (`/Experiments/__unnamed__/data`) is already
+among `H5Reader`'s candidate paths, so the only obstacle is size.
+
 - Author `Al`, `T1`, `θ′` CIFs from the paper's Table 2, attributed CC BY 4.0.
 - Fetch their Zenodo dataset — **licence checked 2026-09-11: Creative Commons
   Attribution 4.0 International**, so this is usable today with attribution.
@@ -83,7 +111,22 @@ applies: it is new Core that moves a scientific number.
 This is the first acceptance test in the precipitate programme that does not
 depend on the owner's eye.
 
-### 4 — Apply to Al-Mg-Si  *(the actual goal)*
+### 4 — Apply to Al-Mg-Si  *(the actual goal)*  — **RUN 2026-09-12, and it refused**
+`tools/phase-map-probe` (diagnostic). Three results, and the refusal is the
+useful one:
+- **β″ IS resolvable** on this 4×-binned detector — the pre-registered
+  prediction that a* = 1.50 px would make it unresolvable was WRONG, because
+  C2/m's h + k even extinguishes odd h in the k = 0 zone and the closest kept
+  pair is 2a* = 2.99 px. The extinction checks the structure.
+- **The specimen is on ⟨110⟩Al**, not ⟨100⟩ — all five sampled ⟨110⟩
+  equivalents tie at 39.0 %, as cubic symmetry requires.
+- **So the [010]β″ library was the wrong one**, and the run said so: 99.0 %
+  "not indexed". With the beam on ⟨110⟩Al no β″ variant is viewed down its
+  needle axis.
+The honest limit alongside: only 39 % of detected vectors are explained by the
+best Al orientation, which is a statement about the peak set — a synthetic
+kernel on a binned detector — not about the matcher.
+
 
 **The β″ structure is no longer a blocker — found 2026-09-11.** The owner already
 had the canonical source: **Andersen et al., *Acta Materialia* 46(9), 3283-3298
@@ -115,10 +158,17 @@ matching method leans on.
 
 Then: phase map → connected components → count ÷ calibrated area.
 
-### 5 — UI
-The AI Analysis room grows a phase-mapping task beside diffraction grouping.
-Deferred until 3 has passed — there is no point designing screens for a method
-that has not met its acceptance test.
+### 5 — UI  — **DONE 2026-09-12**, ahead of 3 and labelled for it
+The plan said to defer this until 3 passed. It was brought forward with 3
+deferred instead, on the owner's decision, because a method you cannot look at
+is a method you cannot judge — and the labelling is what makes that safe.
+Two choices in it carry more than presentation: **the phase list IS the
+legend** (one row per phase, carrying the swatch the map is drawn with and the
+fraction it claimed, so there is no second legend to fall out of step), and
+**every position can be taken apart** (`Evidence` names the phase, the matched
+count, the mean distance in Å⁻¹, the matrix removals and the runner-up, for the
+position under the cursor). "Not indexed" is hatched rather than coloured, so
+it can never be read as one more phase.
 
 ## What we inherit that is not good
 
@@ -134,11 +184,10 @@ Stated now so it is not discovered later. Their implementation:
 
 ## Decisions owed by the owner
 
-1. **`.identity` symmetry:** accept a phase labelled without an IPF orientation
-   colour? Blocks step 0.
+1. ~~**`.identity` symmetry**~~ — **resolved 2026-09-11**, accepted; step 0
+   landed at `ee2221c`.
 2. ~~A β″ CIF~~ — **resolved 2026-09-11.** Generated from Andersen et al. 1998,
    verified against the published cell content. No decision needed.
-3. **Zenodo download** — no longer a licence question (CC BY 4.0, checked), only
-   a disk one: preprocessed `datasetA` is ~7.4 GB against a machine sitting at
-   9 GB free with an 8 GB gate floor. The ground truth itself is 37 kB.
-   Blocks step 3.
+3. **Zenodo download** — **deferred 2026-09-12**, a disk question only
+   (CC BY 4.0, checked). Reopens when there is an external drive or ~8 GB free.
+   Blocks step 3 and nothing else.

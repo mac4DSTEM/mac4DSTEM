@@ -12,6 +12,7 @@
 import XCTest
 import simd
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 final class PhaseVectorMatchingTests: XCTestCase {
@@ -525,5 +526,229 @@ final class PhaseVectorMatchingTests: XCTestCase {
     private func smallLibrary() throws -> PhaseReferenceLibrary {
         try PhaseReferenceLibrary.build(phases: [matrixAluminium(), candidateBeta()],
                                         settings: coarseSettings())
+    }
+}
+
+/// The presentation layer of the phase map, and the one piece of ACOM
+/// presentation that moved into Core to pay for this feature's AppState lines.
+final class PhaseMapPresentationTests: XCTestCase {
+
+    /// Mutation: `color(phaseIndex:matrixPhaseIndex:)` indexing the palette by
+    /// `phaseIndex` directly. The map would then recolour every precipitate
+    /// when the user marks a different phase as the matrix — which is a
+    /// presentation change that looks exactly like a science change.
+    func testCandidateColoursDoNotDependOnWhereTheMatrixSitsInTheList() {
+        let first = PhaseMapPresentation.color(phaseIndex: 1, matrixPhaseIndex: 0)
+        let second = PhaseMapPresentation.color(phaseIndex: 0, matrixPhaseIndex: 2)
+        XCTAssertEqual(first.r, second.r)
+        XCTAssertEqual(first.g, second.g)
+        XCTAssertEqual(first.b, second.b)
+        // And the matrix keeps its neutral whatever its index.
+        for index in 0..<4 {
+            let matrix = PhaseMapPresentation.color(phaseIndex: index, matrixPhaseIndex: index)
+            XCTAssertEqual(matrix.r, PhaseMapPresentation.matrixColor.r)
+            XCTAssertEqual(matrix.b, PhaseMapPresentation.matrixColor.b)
+        }
+    }
+
+    /// Mutation: `.noData` drawn with alpha 255, or `.notIndexed` drawn as a
+    /// flat grey. "No peaks here" and "peaks I cannot explain" are different
+    /// facts and must not share an appearance — nor may either be mistakable
+    /// for a phase.
+    func testNoDataIsTransparentAndNotIndexedIsHatched() {
+        var map = PhaseMap(width: 6, height: 2, matrixEntryIndex: 0,
+                           phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+        for x in 0..<6 { map.results[x].verdict = .notIndexed }        // row 0
+        for x in 0..<6 { map.results[6 + x].verdict = .noData }        // row 1
+        let image = PhaseMapPresentation.image(map)
+        for x in 0..<6 {
+            XCTAssertEqual(image.rgba[x * 4 + 3], 255, "not-indexed must be opaque")
+            XCTAssertEqual(image.rgba[(6 + x) * 4 + 3], 0, "no-data must be transparent")
+        }
+        // The hatch really alternates along the row, rather than being one grey.
+        let greys = (0..<6).map { image.rgba[$0 * 4] }
+        XCTAssertGreaterThan(Set(greys).count, 1, "the not-indexed hatch is a flat fill")
+    }
+
+    /// Mutation: `distanceImage` writing 0 rather than NaN at a matrix or
+    /// no-data position. Zero reads as a PERFECT match — the most misleading
+    /// value available — and would drag every colour scale to it.
+    func testDistanceIsNotANumberWhereNothingWasMatched() {
+        var map = PhaseMap(width: 3, height: 1, matrixEntryIndex: 0,
+                           phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+        map.results[0].verdict = .matrix
+        map.results[1].verdict = .indexed; map.results[1].score = 0.004
+        map.results[2].verdict = .noData
+        let image = PhaseMapPresentation.distanceImage(map)
+        XCTAssertTrue(image.pixels[0].isNaN)
+        XCTAssertEqual(image.pixels[1], 0.004, accuracy: 1e-7)
+        XCTAssertTrue(image.pixels[2].isNaN)
+        XCTAssertEqual(PhaseMapPresentation.distanceValidity(map), [false, true, false])
+    }
+
+    /// Mutation: `evidenceLine` dropping the counts, or naming the phase
+    /// without the distance. The line IS the argument for the colour under the
+    /// cursor; a line that says only "β″" is a label, not evidence.
+    func testEvidenceLineCarriesTheNumbersBehindTheLabel() {
+        let map = PhaseMap(width: 1, height: 1, matrixEntryIndex: 0,
+                           phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+        var result = PhaseVectorResult()
+        result.verdict = .indexed
+        result.phaseIndex = 1
+        result.matchedCount = 7
+        result.survivingCount = 9
+        result.removedCount = 12
+        result.score = 0.0043
+        result.runnerUpPhaseIndex = 0
+        result.runnerUpScore = 0.019
+        let line = PhaseMapPresentation.evidenceLine(result, map: map)
+        XCTAssertTrue(line.contains("β″"), line)
+        XCTAssertTrue(line.contains("7 of 9"), line)
+        XCTAssertTrue(line.contains("0.0043"), line)
+        XCTAssertTrue(line.contains("12 matrix removed"), line)
+        XCTAssertTrue(line.contains("0.0190"), line)
+
+        var none = PhaseVectorResult()
+        none.verdict = .noData
+        XCTAssertEqual(PhaseMapPresentation.evidenceLine(none, map: map),
+                       "No peaks at this position.")
+    }
+
+    /// Mutation: `OrientationMap.eulerText` dropping the `templateIndex >= 0`
+    /// guard. An unindexed position has an `euler` of (0, 0, 0), which renders
+    /// as a perfectly plausible "0.0°, 0.0°, 0.0°" — a read-out that is not a
+    /// measurement, wearing the look of one. This is the ACOM read-out that
+    /// moved out of `AppState` into Core with this feature, and it had no test
+    /// of its own there.
+    func testEulerTextRefusesAnUnindexedPositionAndOneOffTheMap() {
+        var map = OrientationMap(width: 2, height: 2, matchingBackend: .cpu,
+                                 symmetry: .cubic, templateCount: 1)
+        map.results[0].templateIndex = -1
+        map.results[1].templateIndex = 0
+        map.results[1].euler = .zero
+        XCTAssertNil(map.eulerText(x: 0, y: 0), "an unindexed position produced angles")
+        XCTAssertEqual(map.eulerText(x: 1, y: 0), "0.0°, 0.0°, 0.0°")
+        XCTAssertNil(map.eulerText(x: -1, y: 0))
+        XCTAssertNil(map.eulerText(x: 2, y: 0))
+        XCTAssertNil(map.eulerText(x: 0, y: 2))
+    }
+}
+
+/// The zone-axis field's parser. A crystallographer types [010] or 0 1 0 or
+/// 0,1,0, and every one of those must reach the same direction — while
+/// anything that is NOT three integers must be refused rather than rounded
+/// into [0 0 0], which names no direction and would silently change the map.
+final class ZoneAxisParsingTests: XCTestCase {
+
+    /// Mutation: the single-token branch removed, or `-` handled as a
+    /// separator rather than a sign. `0-12` is 0, −1, 2 — a real zone axis —
+    /// and reading it as 0, 1, 2 is a wrong answer, not a parse failure.
+    func testEveryWayOfWritingTheSameAxisReachesIt() {
+        for text in ["0 1 0", "0,1,0", "[010]", "[0 1 0]", " 010 ", "0, 1, 0"] {
+            XCTAssertEqual(PhaseMappingSlot.parseZoneAxis(text), SIMD3(0, 1, 0),
+                           "\(text) did not parse to [0 1 0]")
+        }
+        XCTAssertEqual(PhaseMappingSlot.parseZoneAxis("0 -1 2"), SIMD3(0, -1, 2))
+        XCTAssertEqual(PhaseMappingSlot.parseZoneAxis("0-12"), SIMD3(0, -1, 2))
+        XCTAssertEqual(PhaseMappingSlot.parseZoneAxis("[1-10]"), SIMD3(1, -1, 0))
+    }
+
+    /// Mutation: the `fields.count == 3` guard relaxed, or a failed `Int.init`
+    /// defaulted to 0. Either turns a typo into a silently different zone axis,
+    /// which changes every reference vector in the library.
+    func testAnythingThatIsNotThreeIntegersIsRefused() {
+        for text in ["", "0 1", "0 1 0 1", "a b c", "0 1 x", "0.5 1 0", "--1 0 0", "[]"] {
+            XCTAssertNil(PhaseMappingSlot.parseZoneAxis(text),
+                         "\(text) was accepted as a zone axis")
+        }
+    }
+}
+
+/// The two Gate B findings that were fixed in Core rather than only recorded
+/// (2026-09-12). Both were invisible to every check that existed at the time.
+final class PhaseVectorGateBTests: XCTestCase {
+
+    /// Gate B finding 9. `gcd` floored itself at 1, so `gcd(0, 0)` returned 1
+    /// and `[0 0 2]` never reduced — the list held it beside `[0 0 1]`, 50
+    /// entries for 49 directions, and 180 redundant library entries per phase
+    /// at the default step. Redundant entries are not merely wasted work: each
+    /// is one more comparison in the best-of-N search every scan position runs.
+    ///
+    /// Mutation: `return a` in `gcd` put back to `return max(a, 1)`.
+    func testLowIndexZoneAxesAreReducedAndDistinct() {
+        let axes = PhaseReferenceLibrary.lowIndexZoneAxes
+        XCTAssertFalse(axes.isEmpty)
+        func gcd(_ a: Int, _ b: Int) -> Int {
+            var a = abs(a), b = abs(b)
+            while b != 0 { (a, b) = (b, a % b) }
+            return a
+        }
+        for axis in axes {
+            let g = gcd(gcd(axis.x, axis.y), axis.z)
+            XCTAssertEqual(g, 1, "[\(axis.x) \(axis.y) \(axis.z)] is reducible by \(g)")
+        }
+        // No two entries name the same direction, in either sense.
+        for i in axes.indices {
+            for j in (i + 1)..<axes.count {
+                let a = axes[i], b = axes[j]
+                let parallel = a.x * b.y == a.y * b.x
+                    && a.y * b.z == a.z * b.y && a.x * b.z == a.z * b.x
+                XCTAssertFalse(parallel,
+                               "[\(a.x) \(a.y) \(a.z)] and [\(b.x) \(b.y) \(b.z)] are the same axis")
+            }
+        }
+    }
+
+    /// Gate B finding 6. The chance expectation is computed over the area the
+    /// DATA occupies, and that radius used to be `max |u|` — so one spurious
+    /// maximum far from the others inflated the area, weakened the guard for
+    /// every other vector in the same pattern, and turned refusals into
+    /// labels. Measured by the reviewer at 10 false positives in 1024
+    /// patterns; second-largest makes it 0.
+    ///
+    /// Mutation: `accessibleRadius` put back to the running maximum.
+    func testOneDistantSpuriousPeakDoesNotWeakenTheChanceGuard() throws {
+        let library = try PhaseReferenceLibrary.build(phases: [
+            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                            role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+                            role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
+        ], settings: {
+            var s = PhaseReferenceSettings()
+            s.kMaxInvAngstrom = 1.2
+            s.inPlaneStepDeg = 2
+            return s
+        }())
+        let settings = PhaseVectorSettings()
+        let scratch = PhaseVectorMatcher.Scratch(
+            capacity: library.entries.map(\.vectors.count).max() ?? 1)
+
+        // Deterministic: a gate that is not reproducible is not a gate.
+        var state: UInt64 = 0xD1B5_4A32_D192_ED03
+        func uniform() -> Double {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            return Double((state &* 2685821657736338717) >> 11) * (1.0 / 9007199254740992.0)
+        }
+        var indexedWithOutlier = 0, indexedWithout = 0
+        for _ in 0..<1024 {
+            var vectors: [SIMD2<Double>] = []
+            for _ in 0..<8 {
+                let r = 0.25 + 0.15 * uniform(), a = 2 * Double.pi * uniform()
+                vectors.append(SIMD2(r * cos(a), r * sin(a)))
+            }
+            func verdict(_ v: [SIMD2<Double>]) -> PhaseVerdict {
+                PhaseVectorMatcher.classify(
+                    vectors: v, library: library, settings: settings, matrixEntry: nil,
+                    candidateEntryIndices: library.candidateEntryIndices, scratch: scratch
+                ).verdict
+            }
+            if verdict(vectors) == .indexed { indexedWithout += 1 }
+            if verdict(vectors + [SIMD2(1.15, 0)]) == .indexed { indexedWithOutlier += 1 }
+        }
+        XCTAssertEqual(indexedWithout, 0,
+                       "random vectors were indexed even without an outlier")
+        XCTAssertEqual(indexedWithOutlier, 0,
+                       "\(indexedWithOutlier) of 1024 random patterns became a phase "
+                       + "because one distant peak widened the chance expectation")
     }
 }

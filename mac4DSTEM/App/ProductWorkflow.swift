@@ -71,7 +71,12 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         // The phase-contrast family, together — every member needs only
         // voltage and geometry, none needs Bragg vectors (§3.3 grammar).
         case .reconstruct: [.dpc, .ptychography, .singleslicePtychography]
-        case .aiAnalysis: [.diffractionGroups]
+        // Grouping first: it needs nothing but the cube, and it is what a
+        // user reaches for before they know which phases to name. Phase
+        // mapping needs Bragg vectors, so it is also the later of the two in
+        // prerequisite order — the sidebar groups them by family and would
+        // separate them anyway.
+        case .aiAnalysis: [.diffractionGroups, .phaseMapping]
         }
     }
 
@@ -120,6 +125,12 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     /// Classical PCA + k-means over box-binned diffraction patterns — the
     /// baseline grouping, with no learned component.
     case diffractionGroups = "Diffraction groups"
+    /// Vector-matched phase mapping (Thronsen et al. 2024, CC BY 4.0 — the
+    /// method, from the paper). Sits beside grouping rather than replacing it:
+    /// grouping finds structure without being told what to look for, this
+    /// answers a question the user asks with a CIF. UNVALIDATED, and the panel
+    /// says so — `docs/v3-vector-matching-plan.md` step 3.
+    case phaseMapping = "Phase mapping"
 
     var id: String { rawValue }
     var isAdvanced: Bool { self == .ptychography || self == .singleslicePtychography }
@@ -210,6 +221,9 @@ extension AnalysisMode {
         case .strain, .acom: .requiresBraggVectors
         case .virtualDetector, .dpc, .ptychography, .singleslicePtychography,
              .diffractionGroups: .phaseContrast
+        // Phase mapping consumes `BraggVectors` and finds none of its own, so
+        // it is in the Bragg family although it lives in another room.
+        case .phaseMapping: .requiresBraggVectors
         }
     }
 
@@ -225,6 +239,7 @@ extension AnalysisMode {
         case .strain: "strain"
         case .acom: "acom"
         case .diffractionGroups: "diffraction_groups"
+        case .phaseMapping: "phase_mapping"
         case .ptychography, .singleslicePtychography: nil
         }
     }
@@ -237,7 +252,7 @@ extension AnalysisMode {
         // voltage-only contract with parallax/ptychography, not the
         // zero-prerequisite contract of virtual imaging.
         case .dpc, .ptychography, .singleslicePtychography: .reconstruct
-        case .diffractionGroups: .aiAnalysis
+        case .diffractionGroups, .phaseMapping: .aiAnalysis
         }
     }
 
@@ -251,6 +266,7 @@ extension AnalysisMode {
         case .singleslicePtychography: "Single-slice ptychography"
         case .acom: "Orientation"
         case .diffractionGroups: "Diffraction groups"
+        case .phaseMapping: "Phase mapping"
         }
     }
 
@@ -264,6 +280,7 @@ extension AnalysisMode {
         case .singleslicePtychography: "Iterative object and probe reconstruction from the full datacube"
         case .acom: "Match crystal orientation and reliability"
         case .diffractionGroups: "Group scan positions by diffraction-pattern similarity"
+        case .phaseMapping: "Match peaks to phases you name with a structure file"
         }
     }
 
@@ -277,6 +294,7 @@ extension AnalysisMode {
         case .singleslicePtychography: "circle.hexagongrid"
         case .acom: "cube.transparent"
         case .diffractionGroups: "circle.grid.3x3.fill"
+        case .phaseMapping: "square.grid.3x3.topleft.filled"
         }
     }
 }
@@ -451,6 +469,14 @@ enum ProductWorkflow {
             return acomSignature
         case .ptychography, .singleslicePtychography:
             return nil
+        case .phaseMapping:
+            // `PhaseMappingProduct.isStale` compares the phase LIST and both
+            // settings structs, which no `[String: String]` signature can
+            // carry (a CIF's content fingerprint is part of the identity).
+            // Returning nil here keeps the generalised verdict out of its way
+            // rather than giving it half the inputs, exactly as diffraction
+            // grouping does above.
+            return nil
         }
     }
 
@@ -517,6 +543,13 @@ enum ProductWorkflow {
                 )
             ]
         case .strain:
+            return [
+                TaskPrerequisite(
+                    id: "braggVectors", title: "Detect Bragg disks first",
+                    isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
+                )
+            ]
+        case .phaseMapping:
             return [
                 TaskPrerequisite(
                     id: "braggVectors", title: "Detect Bragg disks first",
@@ -593,6 +626,10 @@ enum ProductWorkflow {
         case .virtualDetector, .ptychography, .singleslicePtychography,
              .diffractionGroups:
             return []
+        case .phaseMapping:
+            return ["Unvalidated: this method has not been scored against an "
+                    + "external ground truth here. Read the map; do not quote a "
+                    + "phase fraction from it."]
         case .disks:
             return readiness.wantsLearnedDetector
                 ? ["Candidates come from the neural net; the classical refinement still measures each one."]

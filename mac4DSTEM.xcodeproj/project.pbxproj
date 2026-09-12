@@ -133,6 +133,7 @@
 				Session/LearnedDetection.swift,
 				Session/LoadedView.swift,
 				Session/OperationCenter.swift,
+				Session/PhaseMappingProduct.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
 				Session/ReplayPlan.swift,
