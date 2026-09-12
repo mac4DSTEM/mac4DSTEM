@@ -87,6 +87,27 @@ are both 0.02, so conflating `matrixToleranceInvAngstrom` with
 produced a log identical to the baseline. A fixture with the two deliberately
 different would close the second half.
 
+### A stale DerivedData test bundle fakes both a pass and a surviving mutation — added 2026-09-12
+
+**Code hygiene, and it is a trap not a defect.** Twice on 2026-09-12 a newly
+added test method was **not discovered by XCTest at all**: eight of nine cases
+ran, the ninth never appeared, and the suite reported success. An `XCTFail`
+planted in its first line never fired. In the same state a real mutation of the
+code under test "survived" — which reads exactly like a blind spot in the test
+and sends you looking for a missing assertion that is not missing.
+
+The cause was a stale test bundle:
+`Testing failed: … Failed to create a bundle instance representing …`. After
+`rm -rf ~/Library/Developer/Xcode/DerivedData` the method was discovered
+immediately and the same mutation turned the suite red.
+
+**The rule this buys:** reconcile the case count against `func test` **per
+file** when adding tests, not only for the whole suite — `cases: 8 declared: 9`
+is the signature. And a mutation that survives on an incremental build is not
+evidence until it survives on a clean one. This is the same family as the
+2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
+0: the harness reporting success while doing nothing.
+
 ### Phase mapping has never been driven — added 2026-09-12
 
 **Verification debt.** No part of the task has been seen on screen. Worth the

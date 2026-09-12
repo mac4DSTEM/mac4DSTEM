@@ -43,7 +43,7 @@ extension AppState {
                 let clipped = min(1, max(0, fraction))
                 self.updateCancellableOperation(
                     cancellation, progress: clipped,
-                    status: "Grouping diffraction patterns… \(Int((clipped * 100).rounded()))%"
+                    status: "Grouping diffraction patterns…"
                 )
             }
         }

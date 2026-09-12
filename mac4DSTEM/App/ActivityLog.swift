@@ -59,11 +59,24 @@ final class ActivityLog {
 
     /// Record one status event.
     ///
-    /// Three things never reach the log. Progress spam — every "… 42 %" tick
-    /// of an operation — because it would bury the events worth reading. An
-    /// immediate repeat of the last message, because a status written twice is
-    /// one thing happening, not two. And a readout, per
-    /// `suppressNextRecordOnce` above.
+    /// Three things never reach the log. A readout, per
+    /// `suppressNextRecordOnce` above — **which is how progress is kept out
+    /// now**, because `AppState.updateCancellableOperation` is the one funnel
+    /// every operation's progress passes through and it calls `showReadout`.
+    /// An immediate repeat of the last message, because a status written twice
+    /// is one thing happening, not two. And any message ending in "%", which
+    /// is the backstop the funnel replaced.
+    ///
+    /// **That suffix rule was never sufficient and the owner's screenshot
+    /// showed it**, 2026-09-12: `SystemMonitor.scanProgressStatus` returns
+    /// "Computing virtual detector… 100,980 / 108,900 patterns · 1.54 GB of
+    /// 1.66 GB", which ends in "GB", so a whole-cube pass wrote a line here
+    /// every tick and buried the run's real events. Filtering progress by what
+    /// a string happens to end with is a rule the next status message can
+    /// break without anyone noticing; the funnel cannot be broken that way.
+    /// The suffix rule is kept as a second line of defence and is no longer
+    /// the reason any status string carries a percentage — they have all
+    /// dropped theirs, because the progress bar beside them draws it.
     func record(_ message: String) {
         let suppressed = suppressNextRecord
         suppressNextRecord = false

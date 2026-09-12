@@ -132,6 +132,43 @@ against a **300-line** capacity. Cursor movement was evicting the run's real
 events from the record kept to explain them. `ActivityLog` gained a one-shot
 suppression and the rule that says why, and the filename went with it.
 
+## The progress percentage was in the status string all along
+
+The owner drove the new bar and asked whether it should look like this. It
+read `Detecting Bragg disks… 11 %` — so the percentage was still on screen,
+one layer down, and the progress bar beside it was drawing the same fact.
+
+**Why every operation was appending a percentage to its own status line:** to
+be filtered out of the log. `ActivityLog.record` dropped any message ending in
+`%`, so "… 42 %" was how progress stayed out of the event record. Filtering
+progress by what a string happens to end with is a rule the next status message
+can break without anyone noticing — **and it was already broken**.
+`SystemMonitor.scanProgressStatus` returns "Computing virtual detector…
+100,980 / 108,900 patterns · 1.54 GB of 1.66 GB", which ends in "GB". The
+owner's first screenshot shows a whole-cube pass writing one of those per tick,
+burying the run's real events.
+
+Both are one fix. `AppState.updateCancellableOperation` is the single funnel
+every operation's progress passes through, and it now calls `showReadout` — so
+progress is kept out of the log **by construction**, not by string shape. Ten
+status strings then dropped their percentage, because the bar draws it. The
+suffix rule stays as a backstop and is no longer load-bearing.
+
+## A trap paid twice: a stale test bundle fakes a pass AND a surviving mutation
+
+While pinning the above, a new test method was **not discovered by XCTest** —
+eight of nine cases ran, the ninth never appeared, and the suite reported
+success. An `XCTFail` in its first line never fired. In the same state the
+mutation it was written for "survived", which reads exactly like a blind spot
+in the test.
+
+It was a stale bundle: `Failed to create a bundle instance representing …`.
+After clearing DerivedData the method was discovered and the mutation turned
+the suite red on the first try. Recorded in `open-items.md`, because the
+signature — `cases: 8 declared: 9` — is only visible if you reconcile the count
+**per file**, and because a mutation that survives on an incremental build is
+not evidence until it survives on a clean one.
+
 ## Gate
 
 Neither Gate D trigger applies: no scientific number moves, and both mechanisms

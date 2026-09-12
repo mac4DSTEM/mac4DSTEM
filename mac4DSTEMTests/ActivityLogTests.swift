@@ -50,7 +50,37 @@ final class ActivityLogTests: XCTestCase {
 
     // MARK: - What it records, and what it refuses
 
+    /// Extended 2026-09-12 with the FUNNEL half of the rule.
+    ///
+    /// The old rule was "a message ending in %", which forced every operation
+    /// to append a percentage to its status line purely to be filtered — the
+    /// same fact the progress bar beside it already drew — and did not even
+    /// work: `SystemMonitor.scanProgressStatus` ends in "GB", so a whole-cube
+    /// pass wrote a line here every tick and buried the run's real events
+    /// (seen in the owner's screenshot, 2026-09-12). The status string in the
+    /// second half below is that exact shape.
+    ///
+    /// Mutation: `updateCancellableOperation` writing `statusText` directly
+    /// again instead of `showReadout`.
     func testProgressSpamAndEmptyMessagesNeverReachTheLog() {
+        let appState = AppState()
+        let token = appState.beginCancellableOperation(
+            "Virtual detector", status: "Computing virtual detector…", totalUnits: 50)
+        let afterStart = appState.activityLog.messages.count
+        XCTAssertGreaterThan(afterStart, 0, "beginning an operation IS an event")
+        for i in 1...50 {
+            appState.updateCancellableOperation(
+                token, progress: Double(i) / 50,
+                status: "Computing virtual detector… \(i) / 50 patterns · 1.54 GB of 1.66 GB")
+        }
+        XCTAssertEqual(
+            appState.activityLog.messages.count, afterStart,
+            "progress reached the log: 50 ticks wrote "
+            + "\(appState.activityLog.messages.count - afterStart) lines")
+        // The status LINE still shows it — suppression is about the log only.
+        XCTAssertTrue(appState.statusText.hasSuffix("1.66 GB"), appState.statusText)
+        appState.finishCancellableOperation(token)
+
         let log = ActivityLog(now: { Date(timeIntervalSinceReferenceDate: 0) })
         log.record("")
         log.record("Detecting disks… 42 %")

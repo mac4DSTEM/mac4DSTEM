@@ -111,7 +111,7 @@ extension AppState {
                 guard let self, self.isCurrentOperation(cancellation) else { return }
                 self.updateCancellableOperation(
                     cancellation, progress: fraction,
-                    status: String(format: "Matching patterns… %.0f %%", 100 * fraction))
+                    status: "Matching patterns…")
             }
         }
 

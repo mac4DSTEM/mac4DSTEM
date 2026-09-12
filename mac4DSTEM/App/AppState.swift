@@ -1209,7 +1209,7 @@ final class AppState {
         _ token: AnalysisCancellationToken, progress fraction: Double, status: String
     ) {
         guard operationCenter.update(token, progress: fraction) else { return }
-        statusText = status
+        showReadout(status)   // progress is a readout; see ActivityLog.record
         // While the dataset is still opening, this operation IS the load: mirror
         // its measured progress into the welcome card rather than leaving that
         // card parked on its last named stage while work is visibly happening.
@@ -3515,7 +3515,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Preparing virtual-BF stack… \(Int(fraction * 100)) %"
+                        status: "Preparing virtual-BF stack…"
                     )
                 }
             }
@@ -3590,7 +3590,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Aligning bin \(bin) virtual-BF groups… \(Int(fraction * 100)) %"
+                        status: "Aligning bin \(bin) virtual-BF groups…"
                     )
                 }
             }
@@ -3691,7 +3691,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Upsampling aligned virtual-BF images… \(Int(fraction * 100)) %"
+                        status: "Upsampling aligned virtual-BF images…"
                     )
                 }
             }
@@ -3765,7 +3765,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Computing depth planes… \(Int(fraction * 100)) %"
+                        status: "Computing depth planes…"
                     )
                 }
             }
@@ -3822,7 +3822,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction * 0.3,
-                        status: "Preparing diffraction amplitudes… \(Int(fraction * 100)) %"
+                        status: "Preparing diffraction amplitudes…"
                     )
                 }
             }
@@ -3848,7 +3848,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: 0.3 + fraction * 0.7,
-                        status: "Reconstructing object/probe… \(Int(fraction * 100)) %"
+                        status: "Reconstructing object/probe…"
                     )
                 }
             }
@@ -4005,7 +4005,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     guard let self, self.isCurrentOperation(cancellation) else { return }
                     self.progress = fraction
-                    self.statusText = "Computing DP mean/max… \(Int(fraction * 100)) %"
+                    self.statusText = "Computing DP mean/max…"
                 }
             }
             let (maxDP, meanDP) = statistics
@@ -4046,7 +4046,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     guard let self, self.isCurrentOperation(cancellation) else { return }
                     self.progress = fraction
-                    self.statusText = "Calibrating origin… \(Int(fraction * 100)) %"
+                    self.statusText = "Calibrating origin…"
                 }
             }
             guard epoch == datasetEpoch else { return }
@@ -4714,7 +4714,7 @@ final class AppState {
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
                     self.progress = fraction
-                    self.statusText = "\(statusPrefix) \(Int(fraction * 100)) %"
+                    self.showReadout(statusPrefix)   // the bar draws the fraction
                 }
             }
             switch detectorClass {
@@ -5328,9 +5328,8 @@ final class AppState {
                     guard let self,
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
-                    let shown = max(self.progress ?? 0, fraction)
-                    self.progress = shown
-                    self.statusText = "\(operationName)… \(Int(shown * 100)) %"
+                    self.progress = max(self.progress ?? 0, fraction)
+                    self.showReadout("\(operationName)…")   // the bar draws the fraction
                 }
             }
         }.value
