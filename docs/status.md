@@ -166,6 +166,15 @@ for a position where the matrix had matched 6 of them. Also worth his eye: a
 phase map of the demo cube now shows the [011] grain as matrix rather than β″,
 and the matrix fraction moves 51 % → 74 % because of it.
 
+**The largest live crash risk, sharpened 2026-09-15 and unowned.** HDF5 is
+entered from two unserialised paths: `H5Reader` is a per-instance actor, and
+`BraggVectorEMDWriter` is a nonisolated enum with its own `dlopen` and no guard
+at all. `AppState` runs `loadSession` detached while the reader actor may be
+mid-read, so **one window is enough** — the "refuse a second window" guard the
+owner was offered does not close it. The fix is named in the app's own source
+twice: one actor owning the library handle. Nothing would catch a regression.
+`open-items.md`.
+
 **Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
 remain deliberately not wired
 ([`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md),

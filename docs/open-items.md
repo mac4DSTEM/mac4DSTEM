@@ -557,23 +557,44 @@ ptychography product. Feature is `Advanced` and refuses on the owner's cube for
 memory, so a smaller cube reaches it first. **Owner: Gate D — a scale bar is a
 scientific number, and the cause is not yet established.**
 
-### Two dataset windows call a non-thread-safe HDF5 from two threads
-`mac4DSTEMApp.swift:50` ships `New Dataset Window` on ⌘N against
-`WindowGroup(id: "dataset")`, and `:20-22` gives each window its own
-`AppState`, hence its own `H5Reader` over one process-wide `dlopen`'d libhdf5
-(`H5Reader.swift:159-190`, `:254` is a per-instance actor). `nm -m` on the
-bundled `libhdf5.dylib` shows `_H5E_stack_g` as `(__DATA,__common) external` —
-a plain global, no TLS — so the build really is `Threadsafety: OFF`, as
-`BraggVectorEMDWriter.swift:2719-2727` already records. No global actor or lock
-serialises it. This is the existing "Concurrent HDF5 use crashes the process"
-item (2026-08-19) with the reachable user gesture named. **Not established:** a
-hit rate — it is undefined behaviour observed under a stress harness, and the
-2026-09-09 drive did not surface it. There is no autosave behind it. **Owner:
-either the cheap guard — refuse a second load while one is in flight, disable
-the menu item — or disclose it. Shipping it silently is the one thing
-`CHANGELOG.md:7-8` says this project will not do.**
-
-## Science — Gate D or Gate B owed
+### HDF5 is entered from two unserialised paths, and a second window is not the worst of it — sharpened 2026-09-15
+**Known, a latent crash, unowned.** Reviewed by reading 2026-09-15; the earlier
+framing ("two dataset windows") understates it and points the owner at a guard
+that would not fix it.
+**What serialises HDF5 today: two mechanisms, neither global.** `H5Reader` is a
+`package actor` (`Core/Data/H5Reader.swift:254`), so it serialises calls to ONE
+INSTANCE. `BraggVectorEMDWriter` is a `nonisolated enum`
+(`Core/Data/BraggVectorEMDWriter.swift:292`) whose every static method is
+nonisolated and whose HDF5 handle comes from a **separate type with its own
+`dlopen`** (`HDF5WriteLibrary`, `:2605`, `:2769`). Nothing guards the writer at
+all. Both resolve to the same process image.
+**So a SINGLE window can race it.** `AppState` runs `loadSession` on
+`Task.detached` (`AppState.swift:1423`, `:2797`) — nonisolated writer code on a
+background thread — while `preloadResidentCube` (`:2671`) is driving
+`reader.readScanTile` on the reader actor. That is the 2026-08-19 crash
+(`EXC_BAD_ACCESS` in `H5SL_search`, reproduced under lldb within a few dozen
+iterations), and **the cheap guard the owner was offered — refuse a second
+load, or disable ⌘N — does not address it.** Two windows make it likelier, not
+possible.
+**Thread-safety is not established programmatically.** `H5is_library_threadsafe`
+is called nowhere; `NOTICE:60-69` records the binary's provenance and SHA-256
+but says nothing about threading. The `Threadsafety: OFF` conclusion rests on
+one `nm` inspection and a two-thread probe from 2026-08-19 that was never
+checked in. That absence is itself a finding: nothing would notice if a future
+Homebrew rebuild changed it either way.
+**The fix is named in the code twice, independently** —
+`App/mac4DSTEMApp.swift:64` and `mac4DSTEMTests/DatasetLoadCancellationTests.swift:141`
+both say "the real fix is one actor owning the library handle". Structurally
+that means collapsing `HDF5Library` and `HDF5WriteLibrary` behind one
+process-wide actor every reader instance and every writer static routes
+through. It cannot live on `AppState` (C5). It is a real refactor of the load
+path, not an afternoon.
+**Nothing would catch a regression.** `ConcurrentOpenRefusalTests`
+(`DatasetLoadCancellationTests.swift:127`) tests the reentrancy guard against a
+nonexistent path and never touches libhdf5, and says so itself at `:138`;
+`DatasetResidencyTests` uses a fake actor. The lldb repro exists in no runnable
+form. **Owner:** this is the largest live crash risk in the app and the cheap
+guard does not close it.
 
 ### The Quantitative badge consults no origin gate at all (2026-09-11)
 `AppState.quantitativeStatus(for:units:)` decides the badge from a product's
@@ -874,13 +895,6 @@ The owner has postponed testing them to a machine with more memory; blocking a
 release on hardware he does not have is open-ended, so this is scoped, not
 blocking (owner, 2026-09-11).
 
-
-### Concurrent HDF5 use crashes the process (2026-08-19)
-`EXC_BAD_ACCESS` in `libhdf5.dylib`\`H5SL_search`, reproduced under lldb
-within a few dozen iterations; the bundled build is `Threadsafety: OFF`.
-Live latent crash: `loadSession` runs on `Task.detached` while an
-`H5Reader` actor may be working, plus an uncancelled
-`preloadResidentCube`. Unowned.
 
 ### Fabricated provenance on pre-2026-08-18 sidecars (2026-09-02)
 `AppState.swift:2854,2867` do `snapshot.loadSpecification ?? .fullExtent` —
