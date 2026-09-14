@@ -119,7 +119,10 @@ inside β″ [001]'s references at a 1 px pair radius and nothing asks whether
 the matrix itself explains those vectors better. Remedy candidates: score the
 matrix's other zone axes as a candidate of last resort, or require the winner
 to beat a matrix-family entry; both are Gate D. Truth for the experiment is
-`truth.json`; the probe's confusion is in the 2026-09-14 status entry.
+`truth.json`; the probe's confusion is in the 2026-09-14 status entry. **Seen
+on screen by the owner the same evening** with the ellipse cleared: matrix
+51 %, needles β″ [001], the [011] grain solid β″, the [111] grain refused,
+the end-on squares refused because [010] was not in the list — as the probe said.
 
 ### The zone-axis fit has no chance floor — added 2026-09-14
 **Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
