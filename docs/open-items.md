@@ -209,11 +209,20 @@ how OFTEN but not how BADLY, and makes two axes worse); the azimuthal blur
 interpolation of the correlation peak (changes almost nothing — which is what
 proved the sampling is not at fault); and py4DSTEM's own `power_radial`, whose
 default is measurably worse.
-**What is left, untested:** the whole-image L2 normalisation. Templates are
-unit-normalised over the entire polar image and correlated against an
-unnormalised experimental one, so a template covering more of the image pays
-for coverage the data may not have — which is a scoring effect of exactly the
-size observed. That is the next Gate D, and it is the last cheap idea.
+**NINE HYPOTHESES SPENT. The whole-image L2 normalisation was the last cheap
+idea and it is refuted too:** per-ring L2 on both sides makes the total worse
+(⟨122⟩ 12.82° → 12.93°, ⟨112⟩ 0.00° → 2.51°, ⟨013⟩ 1.56° → 2.93°). Reverted.
+**So the next step is not another knob, and anyone who reaches for one should
+read this list first.** What has never been done is to LOOK at the two polar
+images for a failing case: dump the experimental image and both templates —
+the winner's and the true axis's — for ⟨122⟩ at a rotation where it fails, and
+find what the winner has that the truth does not. The score is a number over
+those two pictures; nine attempts to guess the difference have failed, and the
+pictures are three lines of harness away (`plan.templates` and the matcher's
+`expRe`/`expIm` are already `package`). Until someone does that, a fix is a
+guess. The honest statement for a user today is that ACOM's orientation is
+good to a few degrees and occasionally much worse, and that nothing in the app
+says so.
 
 ### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
 **Science, live, in shipped code, found by the refuter of the entry above.**
