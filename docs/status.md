@@ -249,7 +249,14 @@ What is unpushed is everything since: `origin/main` sits at `6cb31a3`, **32
 commits behind** local `main` (the AI port, phase mapping, and this audit).
 **Pushed 2026-09-14 to the remote branch `ai-analysis`** (`main:ai-analysis`,
 the owner's decision after the audit: the AI room stays off the public `main`
-until step 3 has run). `origin/main` stays at v3.0.0.
+until step 3 has run). `origin/main` stays at v3.0.0. **Merging it, when step
+3 says so:** the PR is [mac4DSTEM/mac4DSTEM#1](https://github.com/mac4DSTEM/mac4DSTEM/pull/1),
+green on both runs of `181cf99` (unit, scientific, core, inventory); `main`
+has not moved since the branch point, so the merge is a fast-forward and
+keeps `main` linear — `git push origin ai-analysis:main`, never GitHub's
+merge button, which adds a merge commit. Conditions, in order: step 3 inside
+Thronsen's band; one on-screen drive of phase mapping; then the docs commit
+that retires this paragraph and the board's push line. Auto-merge is off.
 
 **A trap paid this session.** `tools/run-tests.sh` was edited **while a gate
 was running**; the running `inventory` re-read the half-written file and died
