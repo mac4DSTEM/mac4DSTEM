@@ -87,22 +87,7 @@ struct ContentView: View {
             allowedContentTypes: datasetTypes,
             allowsMultipleSelection: false
         ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    // One importer, two destinations: "Open Dataset…" loads
-                    // straight through, and only "Open with Options…" stops
-                    // to ask.
-                    if appState.configureOnOpen {
-                        appState.openFileForConfiguration(url: url)
-                    } else {
-                        appState.openFile(url: url)
-                    }
-                }
-            case .failure(let error):
-                appState.present(error)
-            }
-            appState.configureOnOpen = false
+            handleImport(result)
         }
         .sheet(item: Binding(
             get: { appState.pendingLoad },
@@ -200,6 +185,29 @@ struct ContentView: View {
             .help(appState.navigation.showInspectorPane
                   ? "Hide the inspector" : "Show the inspector")
         }
+    }
+
+    /// The importer's completion, as a method rather than an inline closure:
+    /// Xcode 26.6's type checker times out on the closure form ("unable to
+    /// type-check this expression in reasonable time", CI 2026-09-14) while
+    /// Xcode 27 compiles it. Nothing here changed but the shape.
+    private func handleImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            if let url = urls.first {
+                // One importer, two destinations: "Open Dataset…" loads
+                // straight through, and only "Open with Options…" stops
+                // to ask.
+                if appState.configureOnOpen {
+                    appState.openFileForConfiguration(url: url)
+                } else {
+                    appState.openFile(url: url)
+                }
+            }
+        case .failure(let error):
+            appState.present(error)
+        }
+        appState.configureOnOpen = false
     }
 
     private func copyToPasteboard(_ text: String) {
