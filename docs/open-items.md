@@ -97,9 +97,15 @@ spots at several true radii inside the fitting annulus and the fit draws one
 ellipse through the mixture; a 10 % stretch is 4 px at Al {200} on this
 detector, above the 1.67 px tolerance. Refuting observation: clear the
 ellipse and re-run the fit — if ⟨221⟩ persists, the cause is elsewhere.
-Prediction: ⟨100⟩ near 25–45 %, matrix > 0. Also seen: R–Q rotation
+Prediction, written first: ⟨100⟩ near 25–45 %. **Run by the owner the same
+evening: ⟨100⟩ family tied at 38 %, 0.0177 Å⁻¹.** The diagnosis stands; the
+fix is the fit's, not the matcher's — it must see that its annulus holds more
+than one ring (a residual test, or a refusal) before calling a 10 % ellipse
+"Measured". Gate D done, Gate B and the fix owed. Also seen: R–Q rotation
 "measured" −67.5° on a cube with no physical rotation; not applied by phase
-mapping, relevant to ACOM. Owner: run the one-click experiment.
+mapping, relevant to ACOM. **And a UI gap found on the way:** a measured
+calibration cannot be cleared in the app — the owner had to reload the file
+to get "Not set" back. Known, scoped; the Prepare panel owes a clear control.
 
 ### A second matrix grain is labelled as a candidate phase, not refused — added 2026-09-14
 **Science.** Found by the synthetic demo cube (`tools/demo-dataset`, output
