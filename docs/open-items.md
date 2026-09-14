@@ -86,6 +86,21 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
+### The ellipse fit measures a 10 % ellipse on an isotropic multi-grain detector — added 2026-09-14
+**Science, Gate D owed — hypothesis with its experiment attached.** On the
+demo cube (three Al grains, detector rendered isotropic by construction) the
+owner's Fit Detector Ellipse reported a = 43.68, b = 39.72, θ = 122.5°, and
+everything downstream followed: Find Matrix Zone Axis returned a ⟨221⟩
+family at 19 % where the ellipse-free probe got ⟨100⟩ at 44.6 %, and the map
+came back matrix 0. Diagnosis: the mean pattern of a multi-grain scan has
+spots at several true radii inside the fitting annulus and the fit draws one
+ellipse through the mixture; a 10 % stretch is 4 px at Al {200} on this
+detector, above the 1.67 px tolerance. Refuting observation: clear the
+ellipse and re-run the fit — if ⟨221⟩ persists, the cause is elsewhere.
+Prediction: ⟨100⟩ near 25–45 %, matrix > 0. Also seen: R–Q rotation
+"measured" −67.5° on a cube with no physical rotation; not applied by phase
+mapping, relevant to ACOM. Owner: run the one-click experiment.
+
 ### A second matrix grain is labelled as a candidate phase, not refused — added 2026-09-14
 **Science.** Found by the synthetic demo cube (`tools/demo-dataset`, output
 under gitignored `References/demo-dataset/`): with Al [001] fitted as the one
