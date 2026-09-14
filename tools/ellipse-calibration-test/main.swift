@@ -4,6 +4,20 @@ struct Fixture: Decodable {
     let cases: [RingCase]
     let profileCases: [ProfileCase]
     let overlapCase: ProfileCase
+    let spotCases: [SpotCase]
+}
+struct SpotCase: Decodable {
+    let name: String
+    let height: Int
+    let width: Int
+    let centerQX: Double
+    let centerQY: Double
+    let innerRadius: Double
+    let outerRadius: Double
+    /// "fit" or "refuse" — what this fixture's geometry entitles it to.
+    let expect: String
+    let why: String
+    let pixels: [Float]
 }
 struct RingCase: Decodable {
     let name: String
@@ -147,4 +161,35 @@ do {
     fail("four-spot degeneracy unexpectedly fitted")
 } catch EllipseCalibration.FitError.insufficientAngularCoverage {}
 print("PASS: angularly degenerate input rejected")
+// Spots, rings, and what an ellipse fitted to them is entitled to claim.
+// Every pattern here is CIRCULAR by construction, so any a/b a fit reports is
+// a statement about the arrangement of the diffracting grains, not about the
+// detector. See `EllipseCalibration.fit1D`'s coverage bound for why the rule
+// is degeneracy and not a statistic; `reference.py` carries each case's reason.
+for test in fixture.spotCases {
+    let pattern = DiffractionPattern(qy: test.height, qx: test.width, pixels: test.pixels)
+    do {
+        let fit = try EllipseCalibration.fitBestAvailable(
+            pattern: pattern, centerQX: test.centerQX, centerQY: test.centerQY,
+            innerRadius: test.innerRadius, outerRadius: test.outerRadius)
+        guard test.expect == "fit" else {
+            fail("\(test.name) was fitted (a/b \(fit.a / fit.b)) when it should be "
+                 + "refused — \(test.why)")
+        }
+        // AND THE ANSWER MUST BE THE DETECTOR'S. Every fixture here is
+        // circular; a fit that reports distortion has measured the grains.
+        guard abs(fit.a / fit.b - 1) < 0.02 else {
+            fail("\(test.name) reported a/b \(fit.a / fit.b) on a detector with no "
+                 + "distortion in it")
+        }
+        print(String(format: "PASS: %@ fitted isotropic (a/b %.4f, %d of 36 bins)",
+                     test.name, fit.a / fit.b, fit.occupiedAngularBins))
+    } catch let error as EllipseCalibration.FitError {
+        guard test.expect == "refuse" else {
+            fail("\(test.name) was refused (\(error)) when it should fit — \(test.why)")
+        }
+        print("PASS: \(test.name) refused — \(test.why)")
+    }
+}
+
 print("ellipse-calibration-test: all passed")

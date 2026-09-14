@@ -86,33 +86,35 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
-### The ellipse fit measures a 10 % ellipse on an isotropic detector — OPEN, two remedies refuted 2026-09-14
-**Science, Gate D done by the owner's experiment; a fix was written, refuted by
-Gate B and REVERTED.** The fit reported a = 43.68, b = 39.72 on a detector that
-is isotropic by construction. Measured on a synthetic three-grain annulus: the
-fit returns a/b = **1.84** with a profile residual of 0.081 and 16 of 36 angular
-bins, passing every check it has. Three remedies were tried; all three fail:
-- **Empty-arc guard** — the grains are well spread, largest gap 60°. Refuted.
-- **On-ellipse residual** (median |ρ−1|) — legitimate broad rings reach 0.088
-  and the defect 0.310, but the many-grain cases fall to 0.046-0.050. Refuted.
-- **Azimuthal contrast** (90th-percentile bin over median, bar at 4) — shipped,
-  then reverted the same session. Gate B measured it wrong in BOTH directions:
-  it refuses legitimate nanocrystalline data (an amorphous halo with sharp
-  crystallite reflections on it, contrast 6.6-29.5, where the fit is exactly
-  right at a/b = 1.000), and it stops working on the very case it targets as
-  the specimen gets more polycrystalline — 3 grains contrast 2 120 (refused),
-  6 grains 3.17 (**fits, reporting 26.6 % distortion**), 12 grains 1.13 (fits,
-  27.5 %). It is a bright-bin-count test in disguise.
-**The one measurement that still looks promising and was NOT tried:** the
-existing `normalizedResidual`, already computed and already gated at 0.22, reads
-≤ 0.039 on every legitimate ring and 0.081-0.165 on every fiction — but it also
-refuses the nanocrystalline halo (0.083-0.108), so it inherits the same
-over-refusal and needs its own Gate D. **Do not reach for a refusal again
-without a fixture that contains a legitimate SPOTTY single-radius ring**, which
-is what every attempt so far has lacked: py4DSTEM's own `fit_ellipse_1D` is
-documented for "a Bragg vector map" and this repo's `py4dstem-pipelines.md`
-says "an isolated ring of Bragg peaks", so refusing spots refuses a documented
-use. Owner: pick the behaviour (refuse, flag, or leave) before the next attempt.
+### The ellipse fit measures a 10 % ellipse on an isotropic detector — REFUSED 2026-09-14, flag owed
+**Science, Gate D done by the owner's experiment; refusal landed on his
+decision ("refuse it for now, add the flag later").** The fit reported
+a = 43.68, b = 39.72 on a detector isotropic by construction, and everything
+downstream followed. **Four statistics were measured and three refuted:**
+- *Azimuthal contrast* (90th-percentile bin over median) — shipped, reverted,
+  then refuted again by a new fixture: a LEGITIMATE six-azimuth ring whose fit
+  is exactly right reads 81, against the defect's 2 777. No bar separates them.
+- *The fit's own `normalizedResidual`* — inverted: the legitimate spotty ring
+  reads 0.149 and the defect 0.082.
+- *Radial multiplicity* on the fitted ellipse — blind, because the ellipse the
+  defect produces threads the three radii so every sample sits on it (1.000).
+**Why none of them works, and it is not a missing idea:** a three-grain
+annulus and a legitimate six-azimuth ring occupy the same 12 of 36 bins and
+differ in nothing a statistic can read — only in the answer. An ellipse has
+five free parameters; spots at a dozen azimuths determine it no better than
+the three radii they lie on. They are the same measurement.
+**So the guard is a degeneracy bound**, not a separation: `fit1D`'s coverage
+requirement goes from a third of the azimuthal bins to five sixths. Measured
+across a fixture sweep now in `tools/ellipse-calibration-test` (7 new gated
+checks, every pattern circular by construction so a reported a/b is a defect):
+3 grains refused (it was reporting a/b 1.685), 6 grains refused (its answer
+would have been right — the stated cost), 12 grains fitted isotropic, a
+9-azimuth spotty single ring fitted isotropic, a nanocrystalline halo fitted
+isotropic. Marked `DEVIATION`: py4DSTEM's `fit_ellipse_1D` has no guard at all
+and answers degeneracy with `constrain_degenerate_ellipse` instead.
+**Owed: the flag.** A sparse legitimate ring is now refused outright; the
+owner wants a flag path for it later. Also still open from that run: R–Q
+rotation reads "measured" −67.5° on a cube with no physical rotation.
 
 ### A second matrix grain is labelled as a candidate phase — FIXED 2026-09-14
 **Science. Gate D done, Gate B done and two of its findings fixed.** With Al

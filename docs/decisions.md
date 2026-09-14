@@ -1312,3 +1312,24 @@ or leave — and `open-items.md` carries the three refuted remedies, the one
 untried lead, and the fixture that is missing. Recording the withdrawal here
 rather than deleting the paragraph: the argument for refusing over warning is
 worth keeping, and so is the evidence that a good argument is not a test.
+
+## 2026-09-14 (later) — the ellipse refusal is a degeneracy bound, on the owner's decision
+
+He chose: refuse for now, flag later. What changed between the withdrawal above
+and this is not the decision but the TEST. Three statistics were measured
+against a fixture sweep and all three failed — azimuthal contrast (a
+legitimate six-azimuth ring reads 81 against the defect's 2 777), the fit's own
+residual (inverted: 0.149 legitimate against 0.082 for the defect), and radial
+multiplicity (blind, because the ellipse the defect produces threads its three
+radii). The sweep shows why, and it is not a missing idea: a three-grain
+annulus and a legitimate sparse ring occupy the same twelve bins and differ in
+nothing measurable except the answer. Five parameters cannot be decided by
+spots at a dozen azimuths.
+
+So the guard refuses wherever the data cannot decide, whether or not the answer
+would have been right — five sixths of the azimuthal bins instead of a third.
+It costs a legitimate sparse ring, and the message says what to do instead
+(one continuous ring in the annulus, or an amorphous standard). The flag the
+owner wants is for exactly that case and is owed. Marked `DEVIATION`:
+py4DSTEM's `fit_ellipse_1D` has no guard and answers degeneracy by adding a
+constraint, which this app has no place to disclose.

@@ -82,7 +82,10 @@ package nonisolated enum EllipseCalibration {
             case .insufficientSignal:
                 return "Cannot fit detector ellipse: the selected annulus has no resolved ring signal."
             case .insufficientAngularCoverage(let bins):
-                return "Cannot fit detector ellipse: ring signal covers only \(bins) angular bins."
+                return "Cannot fit detector ellipse: ring signal covers only \(bins) of 36 "
+                    + "angular bins. An ellipse fitted to spots is decided by where the "
+                    + "grains happen to be as much as by the detector — select an annulus "
+                    + "holding one continuous ring, or use an amorphous standard."
             case .didNotConverge:
                 return "Detector ellipse fitting did not converge."
             case .invalidEllipse:
@@ -143,8 +146,41 @@ package nonisolated enum EllipseCalibration {
             throw FitError.insufficientSignal
         }
 
-        // Reject spot-only/partial rings before optimization. This is stricter
-        // than scipy.leastsq and prevents a plausible conic from four peaks.
+        // Reject spot-only/partial rings before optimization.
+        //
+        // DEVIATION from py4DSTEM, deliberate and now the stricter of two.
+        // `fit_ellipse_1D` (`process/calibration/ellipse.py`) has no guard at
+        // all: it least-squares whatever it is handed and returns five numbers.
+        // Its answer to the degenerate case is `constrain_degenerate_ellipse`,
+        // which adds a constraint rather than refusing. This port refuses,
+        // because the app has no place to carry "these numbers came from a
+        // constraint you did not choose" and the numbers go straight into
+        // Bragg coordinates, strain and ACOM.
+        //
+        // WHY FIVE SIXTHS AND NOT A THIRD (2026-09-14). A third was written to
+        // stop "a plausible conic from four peaks", and it does. It does not
+        // stop one from several GRAINS: on the demo cube the owner's fit
+        // reported a = 43.68, b = 39.72 — 10 % distortion — on a detector that
+        // is isotropic by construction, because grains at different radii in
+        // different azimuthal sectors let one ellipse thread through them.
+        //
+        // Three statistics were measured against a fixture sweep and all three
+        // were refuted (`docs/open-items.md`): azimuthal contrast, the fit's
+        // own residual, and radial multiplicity. The reason none of them works
+        // is visible in the sweep: a three-grain annulus and a LEGITIMATE
+        // six-azimuth ring on a distorted detector occupy the same 12 bins,
+        // carry residuals of 0.082 and 0.118, and differ in nothing a
+        // statistic can read — only in the answer. They are the same
+        // measurement. An ellipse has five free parameters, and spots at a
+        // dozen azimuths determine it no better than the three radii they
+        // happen to lie on.
+        //
+        // So this is a DEGENERACY bound, not a separation: the fit is refused
+        // wherever the data cannot decide, whether or not the answer would
+        // have been right. It costs the sparse legitimate case, and the
+        // message says what to do instead. What it buys is that a 10 %
+        // distortion measured from the arrangement of three grains can no
+        // longer reach a strain map.
         let angularBinCount = 36
         let strongThreshold = minimum + 0.2 * dynamicRange
         var occupied = [Bool](repeating: false, count: angularBinCount)
@@ -155,7 +191,7 @@ package nonisolated enum EllipseCalibration {
             occupied[index] = true
         }
         let occupiedCount = occupied.filter { $0 }.count
-        guard occupiedCount >= angularBinCount / 3 else {
+        guard occupiedCount >= angularBinCount * 5 / 6 else {
             throw FitError.insufficientAngularCoverage(occupiedCount)
         }
 

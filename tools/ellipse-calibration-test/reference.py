@@ -107,6 +107,110 @@ for qx in range(overlap_case["height"]):
         overlap_case["pixels"][index] += profile_value(qx, qy, second)
 
 
+def spot_pattern(name, height, width, qx0, qy0, rings, inner, outer,
+                 sigma=2.2, halo=None, background=0.0, expect="fit", why=""):
+    """A pattern built from DISCRETE Bragg disks, optionally on an amorphous halo.
+
+    `rings` is a list of (radius_px, start_deg, count) — each entry places
+    `count` spots evenly around the circle from `start_deg`, and every spot is
+    paired with its -g partner, so the pattern carries the 2-fold symmetry a
+    real one does. Each ring is CIRCULAR: there is no detector distortion in
+    any of these by construction, so any ellipse a fit reports here is a
+    statement about the arrangement of the diffracting grains.
+
+    `halo` is (radius_px, sigma_px, intensity) for a continuous amorphous ring
+    underneath — the legitimate nanocrystalline case, where the ellipse fit is
+    exactly right and must NOT be refused.
+    """
+    spots = []
+    for radius, start_deg, count in rings:
+        for index in range(count):
+            angle = math.radians(start_deg + index * 360.0 / count)
+            spots.append((radius * math.cos(angle), radius * math.sin(angle)))
+            spots.append((-radius * math.cos(angle), -radius * math.sin(angle)))
+    values = []
+    for qx in range(height):
+        for qy in range(width):
+            dx, dy = qx - qx0, qy - qy0
+            total = background
+            if halo is not None:
+                hr, hs, hi = halo
+                dr = math.hypot(dx, dy) - hr
+                total += hi * math.exp(-(dr * dr) / (2 * hs * hs))
+            for sx, sy in spots:
+                d2 = (dx - sx) ** 2 + (dy - sy) ** 2
+                if d2 < 36 * sigma * sigma:
+                    total += math.exp(-d2 / (2 * sigma * sigma))
+            values.append(total)
+    return {
+        "name": name, "height": height, "width": width,
+        "centerQX": qx0, "centerQY": qy0,
+        "innerRadius": inner, "outerRadius": outer,
+        "expect": expect, "why": why,
+        "pixels": values,
+    }
+
+
+# The demo cube's own radii in detector pixels (Al {200} at 41.2 px and {220}
+# at 58.2 px on a 0.012 A^-1 pixel). Grain counts 3 -> 18: Gate B measured the
+# azimuthal-contrast guard firing at 3 and going silent by 6, so the sweep is
+# the fixture, not one case.
+def grains_at(n):
+    rings = []
+    for index in range(n):
+        radius = [41.2, 58.2, 36.6][index % 3]
+        rings.append((radius, 12.0 + index * 180.0 / n, 2))
+    return rings
+
+
+spot_cases = [
+    # THE DEFECT: three grains at three radii in one annulus, on a detector
+    # with no distortion in it. One ellipse threads through them and reports
+    # a/b = 1.685. It must be refused.
+    spot_pattern("grains_3_one_annulus", 128, 128, 63.5, 63.5, grains_at(3), 30, 70,
+                 expect="refuse", why="3 radii, 12 of 36 bins: the fit reports a/b 1.685"),
+    # Degenerate but LUCKY: the answer it would give is right, and it is still
+    # refused, because nothing in the data says which it is. The cost is
+    # recorded here rather than discovered later.
+    spot_pattern("grains_6_one_annulus", 128, 128, 63.5, 63.5, grains_at(6), 30, 70,
+                 expect="refuse", why="24 of 36 bins; a/b would be 1.000, but undecidable"),
+    # Enough azimuths to decide: it fits, and the answer must be isotropic.
+    spot_pattern("grains_12_one_annulus", 128, 128, 63.5, 63.5, grains_at(12), 30, 70,
+                 expect="fit", why="36 of 36 bins"),
+    # LEGITIMATE, and the two cases every previous attempt lacked. A coarse
+    # polycrystal's Debye-Scherrer ring is spots at ONE |g|, and py4DSTEM's own
+    # fit_ellipse_1D is documented for "a Bragg vector map"; a nanocrystalline
+    # halo carrying sharp reflections is the intermediate case. The fit is
+    # right on both and must not be refused.
+    # LEGITIMATE and the case every earlier attempt lacked: a coarse
+    # polycrystal's Debye-Scherrer ring is spots at ONE |g|, and py4DSTEM's own
+    # fit_ellipse_1D is documented for "a Bragg vector map".
+    spot_pattern("spotty_single_ring", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 9)], 30, 52, expect="fit", why="one radius, full coverage"),
+    # The nanocrystalline case at four spot-to-halo ratios. This is the one
+    # Gate B says a refusal must not take: the halo is continuous, its radius
+    # is the detector's answer, and the fit gets it right. The ratio decides
+    # whether the halo survives the strong-sample threshold at all.
+    # A halo 50x fainter than the spots on it never reaches the strong-sample
+    # threshold, so only the spots are seen and the fit is refused on 8 bins —
+    # that is SHIPPED behaviour, unchanged by the bound above, and it is here
+    # so a reader does not attribute it to the bound.
+    spot_pattern("halo_spots_50to1", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 4)], 30, 52, halo=(41.2, 3.0, 0.02), background=0.001,
+                 expect="refuse", why="halo below the strong-sample threshold: 8 bins"),
+    # Bring the halo within a factor of two of the spots and it is a ring
+    # again: full coverage, and the fit must find the detector isotropic.
+    spot_pattern("halo_spots_2to1", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 4)], 30, 52, halo=(41.2, 3.0, 0.50), background=0.001,
+                 expect="fit", why="continuous halo, 36 bins"),
+    # THE COST, stated: a legitimate single-radius ring at six azimuths is
+    # refused, because it is the same measurement as grains_3_one_annulus and
+    # nothing in it says which.
+    spot_pattern("spotty_ring_6_azimuths", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 6)], 30, 52,
+                 expect="refuse", why="legitimate, but 12 bins cannot decide five parameters"),
+]
+
 json.dump({
     "cases": [
         ring("non_square_rotated", 72, 110, 34.5, 58.25, 24, 17, 0.42, 1.1),
@@ -117,5 +221,6 @@ json.dump({
         profile_case("noisy_asymmetric", 68, 94, profile_two, 10, 28, noisy=True),
     ],
     "overlapCase": overlap_case,
+    "spotCases": spot_cases,
 }, fp=__import__("sys").stdout, separators=(",", ":"))
 print()

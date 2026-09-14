@@ -77,11 +77,11 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **649 passed / 0 failed / 1 skipped — 2026-09-14 evening** (`unit-final-20260914.log`, `UNIT_EXIT=0` on its own line in `gates-final-20260914.txt`), reconciled exactly against **650** `func test` in source: 643 at HEAD plus the 7 this session added. The one skip is `BookmarkResolutionLatencyTests.testClickingARecentOnAnUnmountedVolumeKeepsTheEntry` |
+| `run-tests.sh unit` | **649 passed / 0 failed / 1 skipped — 2026-09-14 evening** (`unit-e3-20260914.log`, `UNIT_EXIT=0` on its own line in `gates-e3-20260914.txt`), reconciled exactly against **650** `func test` in source: 643 at the session's start plus the 7 it added. The one skip is `BookmarkResolutionLatencyTests.testClickingARecentOnAnUnmountedVolumeKeepsTheEntry` |
 | GitHub CI on `ai-analysis` (181cf99, both runs) | **Green on the runner, 2026-09-14** — the first green CI since the v3.0.0 cut, and it covers every source change of the day: unit **637 / 0 / 5 = 642** (the parity test skips there: no Neural Engine, `open-items.md`), scientific **46 harnesses, zero FAIL**, core and inventory exit 0, on both the push and the pull-request run. Runner is `macos-26` with Xcode 26.6; two fixes got it there, both on the branch (`ContentView`'s importer closure as a method; the parity gate, refuted-and-held). Commits after 181cf99 are docs only (`git diff --stat 181cf99..HEAD -- mac4DSTEM/ mac4DSTEMTests/ tools/` empty at closeout). Closeout `inventory` exit 0 (`inventory-closeout-20260914.log`): AppState + ResultExport **7405 = HEAD^**, live markdown **6 138** — up from 6 076 at the day's start: three closed items moved to the archive, five findings recorded, two decisions written, the CI and merge paragraphs; nothing live was found stale enough to delete. |
-| `run-tests.sh scientific` | **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-14 evening** (`scientific-final-20260914.log`, `SCI_EXIT=0` on its own line). `phase-vector-matching` is now **32 gated checks**, up from 27: Part E gates the matrix challenge, which Gate B found the gate had never exercised |
+| `run-tests.sh scientific` | **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-14 evening** (`scientific-e3-20260914.log`, `SCI_EXIT=0` on its own line). `phase-vector-matching` is **32 gated checks**, up from 27 — Part E gates the matrix challenge, which Gate B found the gate had never exercised — and `ellipse-calibration-test` carries 7 new spot-pattern checks |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-14 evening** (`inventory-final-20260914.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic 13; AppState + ResultExport **7 405, equal to HEAD**; live markdown **6 167, down from 6 193**; cold-start set 1 471, down from 1 531 |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-14 evening** (`inventory-e3-20260914.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic 13; AppState + ResultExport **7 405, equal to base**; live markdown 6 192 against 6 193 at the session's start, and **up 25 on the second commit** — the ellipse entry now records four statistics and why three of them fail, which is the thing that stops a fourth attempt repeating them |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
@@ -124,14 +124,17 @@ them, and it changed the answer on two.** Nothing is verified on screen.
    search then stole 26.5 % of three-vector precipitates). It is gated by a new
    Part E in `tools/phase-vector-matching`, whose first check reproduces the
    defect so the second cannot be vacuous.
-2. **The ellipse fit's 10 % ellipse — STILL OPEN, and better understood.** A
-   refusal on azimuthal contrast was written, gated, and then **reverted the
-   same session**: Gate B measured it refusing legitimate nanocrystalline data
-   where the fit is exactly right, and failing on the target case as the
-   specimen becomes more polycrystalline (3 grains refused, 6 grains fits and
-   reports 26.6 % distortion). Three remedies are now refuted with numbers, and
-   `open-items.md` names the one measurement that still looks promising and the
-   fixture every attempt has lacked.
+2. **The ellipse fit's 10 % ellipse — REFUSED, on the owner's decision.** Four
+   statistics were measured; three were refuted, including the azimuthal
+   contrast that had shipped earlier the same session. The reason none works is
+   not a missing idea: a three-grain annulus and a legitimate six-azimuth ring
+   occupy the same 12 of 36 bins and differ in nothing a statistic can read,
+   only in the answer. The guard is therefore a **degeneracy bound** — `fit1D`
+   needs five sixths of the azimuthal bins, not a third — and it refuses the
+   sparse legitimate case too, which is stated rather than hidden. Seven new
+   gated checks, every fixture circular by construction so a reported a/b is a
+   defect: 3 grains refused (a/b 1.685), 12 grains and two spotty rings fitted
+   isotropic. **A flag for the sparse case is owed**, at the owner's direction.
 3. **The zone-axis chance floor — PARTLY.** The expectation is now computed from
    the same definition the matcher's guard uses and shown in the panel. **It
    does not mark the ⟨112⟩ at 8 % that motivated it:** Al's ⟨112⟩ entries carry
@@ -173,10 +176,9 @@ A worktree agent branches from where the worktree was cut — this session's was
 33 commits behind, and its patch needed a three-way apply.
 
 **NEXT, in order** (rewritten 2026-09-14 evening; `/pickup` takes 1).
-1. **The ellipse fit's 10 % ellipse** — still the defect that poisons everything
-   downstream, and now the best-characterised item in the file: three remedies
-   refuted with numbers, one untried lead, and a named gap in the fixtures. The
-   owner picks refuse / flag / leave before the next attempt.
+1. **The ellipse fit's flag** — the refusal landed; a sparse legitimate ring is
+   now refused outright and the owner wants it flagged instead. Needs a place
+   in the UI to carry "this fit is degenerate" without it reading as a number.
 2. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.
