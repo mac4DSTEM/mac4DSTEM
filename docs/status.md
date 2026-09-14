@@ -145,6 +145,17 @@ them, and it changed the answer on two.** Nothing is verified on screen.
    ("maps you have already computed are kept" — the orientation map and parallax
    are discarded); the dialog now says what actually happens.
 
+**Overnight 2026-09-14/15, diagnosis only, nothing in `Core/` touched.** Two
+Gate D diagnoses ran with their experiments and independent refuters. The R–Q
+rotation one survived, with two of its numbers corrected and one of its
+arguments demoted. **The ACOM one was refuted outright:** I blamed py4DSTEM's
+intensity power, and the cause is that the demo cube exports reflections at
+kMax 0.9 while the plan is built at 1.2, so the bank predicts rings the data
+cannot contain and the matcher rationally infers a tilt. That refuter also
+found a separate live defect — 26 of 200 templates fail to recover themselves
+at an off-grid rotation — and four undocumented py4DSTEM deviations. Nothing
+was fixed, by choice: a fix is not a thing to leave unreviewed.
+
 **UNSEEN ON SCREEN, and the owner's to see.** **Driving was attempted this
 session and the app-control grant was declined,** so nothing here has been
 looked at. Three things changed what the app draws: the "at chance" marker and
@@ -175,7 +186,7 @@ after. Never edit the gate script, or a source it compiles, while a gate runs.
 A worktree agent branches from where the worktree was cut — this session's was
 33 commits behind, and its patch needed a three-way apply.
 
-**NEXT, in order** (rewritten 2026-09-14 evening; `/pickup` takes 1).
+**NEXT, in order** (rewritten 2026-09-14 night; `/pickup` takes 1).
 1. **The ellipse fit's flag** — the refusal landed; a sparse legitimate ring is
    now refused outright and the owner wants it flagged instead.
    `open-items.md` carries the spec: where the guard is, what carries the mark,
@@ -184,14 +195,23 @@ A worktree agent branches from where the worktree was cut — this session's was
    single-radius annulus, or sit behind an explicit "fit anyway" after one? An
    unattended session should put that question in its report and take 2
    meanwhile, rather than guess; `/pickup` says which it took and why.
-2. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
+2. **R–Q rotation reports "Measured" from pure shot noise** — Gate D is DONE
+   (2026-09-14 night, refuted and corrected by an independent reader); the fix
+   is owed. It also writes a coin-flip `transposeQR` that strain, ACOM and DPC
+   consume. `open-items.md` names the test that works and the claim a fix may
+   not make.
+3. **The demo cube exports reflections at kMax 0.9 while the ACOM plan is
+   built at 1.2** — one `tools/` line, and it is why the [001] winner is 5°
+   off. Gate D is DONE and **my own diagnosis was refuted**: the cause is not
+   the intensity power but a bank predicting rings the data cannot contain.
+   Cheap, and it makes the cube a faithful ACOM fixture.
+4. **26 of 200 ACOM templates do not recover themselves at an off-grid
+   in-plane rotation**, by up to 9.3° — found by that refuter, in shipped code,
+   independent of the above. A real orientation is never on the grid. Gate D.
+5. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.
-3. **The [001] ACOM winner is a template 3-5° off axis** — Gate D not yet done.
-   An ideal [111] hexagon picks its exact template; [001] does not.
-4. **R-Q rotation reads "measured" -67.5°** on a cube with no physical rotation
-   — seen on the demo cube, never diagnosed.
-5. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
+6. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
    this session at 5 GB.
 
 ## Owed to the owner

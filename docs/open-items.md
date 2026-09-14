@@ -163,19 +163,123 @@ one by exclusion, and the map's phase counts cannot separate them; the
 evidence line now distinguishes them but nothing else does. The matrix fraction
 on the demo cube moves 51 % → 74 % because of it.
 
-### The [001] winner is a template 3–5° off axis — added 2026-09-14
-**Science.** On the demo cube's [001] grain (noise-free, exactly on axis) the
-ACOM matcher returns template 165 or 173, 5.0° or 3.2° from [001], reliability
-0.40–0.43, although template 0 IS [001] (`sampleFundamentalZone` seeds the
-three vertices). The app printed the same: FZ Euler Φ = 5.0° at a grain-A
-position, reliability 0.51 (owner's screenshot, 2026-09-14 18:05). Pinned by
-`tools/acom-groundtruth/demo-cube.py` (build → run.sh → score: A 5.0/3.2/5.0°,
-B 7.0/31.8/3.6°, C 2.6/2.6/1.6°). **Refuter, same evening:** an ideal
-continuous-coordinate [111] hexagon picks template 2 exactly (0°, reliability
-0.39); an ideal [001] net still picks 173 (3.2°) — so it is [001]-specific,
-not a general on-axis bias, and not the cube's integer peaks. Not diagnosed:
-candidates are the flat Ewald weighting and the radial kernel near the pole.
-Gate D before any change; the map's colours are not in question.
+### R–Q rotation reports "Measured" from a field that is pure shot noise — added 2026-09-14
+**Science, Gate D done, no fix. Diagnosis survived an independent refuter that
+corrected two of its numbers.** On the demo cube, built with the axes aligned,
+Measure R–Q Rotation reported **−67.5°** and the row read "Measured".
+`RotationCalibration.solve` minimises the mean |curl| of the CoM field, which
+is meaningful only for a near-phase object — its own header says so. The demo
+cube is Bragg disks on a flat background and has no potential, so there is
+nothing for the objective to find.
+**Established, and it is stronger than "the curve is flat":**
+- The measured CoM field IS Poisson shot noise. Predicted from the counts
+  themselves: sd 0.01023/0.01020 px; measured 0.01046/0.00968 (ratio 1.02/0.95).
+- **A theorem, not a fit.** Writing the rotated curl as
+  `sinθ·div + cosθ·curl` of the unrotated field, over statistically independent
+  scan positions var(div) = var(curl) and cov(div, curl) ≡ 0 for ANY
+  per-position covariance, so `E[objective(θ)]` is exactly θ-independent. No
+  mechanism can produce a preferred angle here, whatever the noise anisotropy.
+- The winning curve's depth is `(max − min)/mean` = **0.0134**, which sits at
+  the **40th percentile of a noise-only null** (300 realisations: mean 0.0161,
+  p95 0.0299). Under that null the argmin is uniform over the half circle and
+  the transpose flag is a **51.7 % coin flip** — and `transposeQR` is written
+  with provenance `.measuredInApp` and consumed by strain, ACOM and DPC.
+- The 0.1° refinement digit is **float32 round-off**: over −69…−67 the float32
+  objective spans 1×10⁻⁵ relative, the accumulation floor of 9 604 `Float`
+  adds. float64 picks −67.6, a sequential float32 sum −68.0, the app −67.5.
+- The **divergence** variant, which the app also exposes, returns **−82.0° with
+  transpose TRUE** on the same field. Two objectives, incompatible answers.
+**Refuted along the way:** the per-position origin map cannot explain it (the
+fitted plane's total variation across the scan is 3×10⁻⁵ px, and re-solving
+with it subtracted is identical); no grain-boundary mechanism exists (the
+recipe-mean field is 0.05 % of the variance, and the boundaries are
+axis-aligned, so a step would pull toward 0°/90°); and **the quadrant spread of
+151° proves little** — the noise-only null's p90 is 151.1°, and a genuine field
+still scatters 65°, so split-half disagreement is a weak test in both
+directions and must not headline this.
+**What a fix may NOT claim.** A depth test cannot certify a measurement: a real
+thick specimen gives a deep, sharp, reproducible minimum at an angle that need
+not be the detector rotation. It can only catch THIS failure, no signal at all.
+The honest test is non-parametric and needs no constant: permute the scan
+positions of the CoM field, re-run the same grid, and refuse if the real
+curve's depth is not clear of the permuted null. `contrast × √N_interior` is a
+cheaper fallback (1.5–1.7 under the null at every scan size tried, 16 for a
+solvable field). The transpose flag must be governed by the same test.
+`RotationCalibration.Result` already carries both objective curves, so no new
+stored state is needed. Gate D for the fix; this entry is the diagnosis only.
+
+### The ACOM bank predicts rings the demo cube cannot contain, and the matcher rationally infers a tilt — added 2026-09-14
+**Science, Gate D done, MY DIAGNOSIS WAS REFUTED, no fix.** Observation: on the
+demo cube's grain A — pure aluminium, noise-free, exactly on [001] — the matcher
+returns a template 3.2–5.0° away although template 0 IS [001]. The app printed
+FZ Euler Φ = 5.0° at reliability 0.51.
+**What I claimed and what refuted it.** I diagnosed py4DSTEM's
+`power_intensity` of 0.25 flattening the weight between "the two rings" of
+Al [001]. **Al [001] inside kMax 1.2 has FOUR rings** — {200} 0.4939, {220}
+0.6985, {400} 0.9878, {420} 1.1044, all exactly excited. Power is a modulator,
+not the cause: with complete data every power from 0.10 to 1.00 returns
+template 0 exactly; with the cube's data every power from 0.10 to 0.75 is
+wrong. My earlier kMax sweep could not have found this, because its floor of
+1.00 sits above {400} at 0.98778 and never entered the decisive region.
+**The cause.** `tools/demo-dataset/export_reflections.swift` exports spots at
+`kMax = 0.9`; the app's plan is built at `kMax = 1.2`
+(`AppState.swift:5232`). So the bank predicts two rings the data physically
+cannot contain, and at power 0.25 **50.3 % of the exact template's weight sits
+in those phantom rings**. Missing OUTER reflections are the kinematic signature
+of a tilt, so the matcher infers one — correctly, given what it was told.
+Measured: plan kMax 0.9 → **0.000°**; a complete four-ring plant at kMax 1.2 →
+**0.000°**; drop {420} → 3.18°; drop {420} and {400} → 5.03°, the shipped case;
+drop an INNER ring instead → 0.000°. Ring count is not the discriminator,
+completeness is: [111] one ring → 0.000°, [011] seven rings → 0.000°, and a
+one-ring [111] pattern against a three-ring bank → 2.609°.
+**Inherited, not a port bug.** A transcription of py4DSTEM's own
+`orientation_plan` + `match_single_pattern` at the pinned commit picks the same
+template 165 at 5.027° on the same plant, and template 0 at kMax 0.9.
+**Not a noise effect:** Poisson doses from 30 to 10 000 counts give 5.027° on
+the truncated plant and 0.000° on the complete one, at every dose.
+**Two consequences worth acting on.** The demo cube is not a faithful ACOM
+fixture while its export kMax and the plan's disagree — that is the cheap fix
+and it is a `tools/` change, not a `Core/` one. And this will bite real data
+whenever detection misses the weak outer disks the bank predicts, which is the
+ordinary case at low dose.
+**Also measured:** the reliability metric is blind to this by construction —
+`selectOrientation`'s 10° distinct-orientation floor excludes the true [001]
+(5° away) from ever being the runner-up, so no error under 10° can lower
+reliability. And the unmatched direct beam depresses the reported ACOM score by
+about 26 % (0.640 against 0.862 with it removed), changing no verdict.
+
+### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
+**Science, live, in shipped code, found by the refuter of the entry above.**
+Feed every template its own exact spots back in. At an in-plane rotation that
+lands on the 2.8125° azimuthal grid, 0 of 200 fail and the self-score is
+exactly 1.0000. At an off-grid rotation, **26 of 200 fail to recover
+themselves, by 1.7° to 9.3°**. Confirmed in the Swift harness on a perfect,
+complete, noise-free Al [011] pattern: rotation 0.0000° → template 1 at 0.000°,
+score 1.00000; rotation 2.8125° → template 1 at 0.000°; **rotation 1.4000° →
+template 160 at 1.836°**. Independent of the entry above, which is
+rotation-invariant.
+**Mechanism named, not yet proven:** py4DSTEM interpolates each spot linearly
+between the two adjacent in-plane bins; the port rounds to the nearest of 128
+and then blurs by a fixed 1.5-bin Gaussian
+(`OrientationPlan.buildPolar`). A real orientation is not on the grid, so this
+is the ordinary case, not an edge case. Gate D owed before any change.
+
+### py4DSTEM's `power_radial` is absent from the port, with no DEVIATION note — added 2026-09-14
+**Code hygiene with a science edge; CLAUDE.md makes the note a hard rule.**
+`grep -r "power_radial\|powerRadial\|radialPower" mac4DSTEM/` returns nothing,
+yet it sits in the same expression as the `power_intensity` the port does
+implement (`crystal_ACOM.py:809/816`), multiplying template weights by shell
+radius — which up-weights exactly the outer rings the entry above is about.
+`OrientationPlan.swift` carries one DEVIATION note (the sg sign); four more are
+owed, all found 2026-09-14: `corr_kernel_size` is py4DSTEM's |sg| membership
+cutoff and the experimental image's σ, with **no radial spreading of templates
+at all**, where the port spreads both; py4DSTEM's radial axis is discrete
+shells at the crystal's unique |g|, the port's is 32 uniform bins over
+[0, kMax]; the port subtracts a per-ring mean where py4DSTEM's equivalent is
+commented out; and the azimuthal deposition differs as the entry above says.
+An existing item, "ACOM omits py4DSTEM's `power_radial` weighting
+(2026-08-28)", already names the first of these — this entry is the measured
+list around it.
 
 ### The zone-axis fit's chance floor does not mark the case it was built for — added 2026-09-14
 **Known, scoped, partly addressed.** `ZoneAxisFit` now carries
