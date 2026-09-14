@@ -11,6 +11,7 @@
 //
 
 import XCTest
+import CoreML
 import DSTEMCore
 @testable import mac4DSTEM
 
@@ -223,6 +224,19 @@ final class LearnedDiskDetectorTests: XCTestCase {
     // MARK: 3. The whole learned path reproduces Python's picks and accepted peaks
 
     func testLearnedPathMatchesPythonReference() async throws {
+        // A same-RUNTIME claim, and the gate says so: the fixture's heatmaps were
+        // produced on the Neural Engine, and off it the picks near the threshold
+        // round differently. Measured 2026-09-14: on GitHub's virtualised macos-26
+        // runner (no Neural Engine) this test failed deterministically on two runs
+        // of the same commit, and on the owner's Mac forced to `.cpuAndGPU` it
+        // failed the same way. Skipping where there is no Neural Engine is the
+        // truthful gate; loosening the 98 % bars to fit a CPU rounding would not be.
+        let hasNeuralEngine = MLComputeDevice.allComputeDevices.contains {
+            if case .neuralEngine = $0 { return true } else { return false }
+        }
+        try XCTSkipUnless(hasNeuralEngine,
+                          "no Neural Engine on this machine: the Python reference is a same-runtime "
+                          + "fixture and is not reproduced off the ANE (open-items.md, 2026-09-14)")
         let f = try LearnedSwiftFixture.load()
         let e = f.expected
         let det = try f.fittedDetector()

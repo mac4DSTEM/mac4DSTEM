@@ -236,8 +236,21 @@ The `macos-26` runner carries Xcode 26.6, and its type checker times out on
 in reasonable time") while the owner's Xcode 27.0 compiles it; the last three
 runs on `main` (3c4b82c, 9b9949b, 6cb31a3) failed there and nobody read them.
 Found by the PR #1 auto-fix. The closure became a typed method on the
-`ai-analysis` branch; whether Xcode 26.6 stops there is CI's to say. Every
-green gate recorded in `status.md` is a LOCAL run on Xcode 27.
+`ai-analysis` branch, and Xcode 26.6 got through: the suite then ran on the
+runner, 637 / 1 / 4 of 642. Every green gate recorded in `status.md` is a
+LOCAL run on Xcode 27.
+
+### The learned-detector parity fixture is a same-runtime claim, and CI has no Neural Engine — added 2026-09-14
+**Verification debt.** `testLearnedPathMatchesPythonReference` failed on both
+runner jobs of 05ba82a and passed here. Gate D: predicted and measured, the
+same test fails on the owner's Mac with the model forced to `.cpuAndGPU` —
+the fixture's heatmaps are Neural Engine numbers and the near-threshold picks
+round differently off it. The test now skips where `MLComputeDevice` lists no
+Neural Engine, saying so; the 98 % bars were NOT loosened. Two residuals: the
+failing assertion's numbers were surfaced by neither `-quiet` log nor the
+xcresult query tried, so HOW far off the CPU path lands is unmeasured; and
+the gate itself has had no refuter. A CPU-written second fixture would turn
+the skip back into a check. Owner: whether CI should ever verify this path.
 
 ### The published v2.5.1 artefact is universal, and Intel users get a broken app
 **Not a v3.0.0 blocker — a live defect in what users can download today**
