@@ -246,11 +246,17 @@ runner jobs of 05ba82a and passed here. Gate D: predicted and measured, the
 same test fails on the owner's Mac with the model forced to `.cpuAndGPU` —
 the fixture's heatmaps are Neural Engine numbers and the near-threshold picks
 round differently off it. The test now skips where `MLComputeDevice` lists no
-Neural Engine, saying so; the 98 % bars were NOT loosened. Two residuals: the
-failing assertion's numbers were surfaced by neither `-quiet` log nor the
-xcresult query tried, so HOW far off the CPU path lands is unmeasured; and
-the gate itself has had no refuter. A CPU-written second fixture would turn
-the skip back into a check. Owner: whether CI should ever verify this path.
+Neural Engine, saying so; the 98 % bars were NOT loosened. **Refuted-and-held
+2026-09-14:** an independent refuter measured the CPU paths — `.cpuAndGPU`
+raw picks 346/354 (97.7 %) with 8 extras (2.26 %), `.cpuOnly` 341/354 with 14;
+only the two pick bars fail, accepted counts and positions pass — and
+confirmed the gate runs (and fails) here when the app is forced off the ANE.
+Two corrections: the fixture records compute units `"all"`, not the Neural
+Engine by name; and the probe is hardware PRESENCE, so a Neural Engine that
+Core ML declines to use (thermal, an unsupported op) leaves the test running
+and failing rather than skipping — acceptable, but not what the skip message
+implies. Residual: a CPU-written second fixture would turn the skip back into
+a check, at the cost of per-path bars. Owner: whether CI should verify this.
 
 ### The published v2.5.1 artefact is universal, and Intel users get a broken app
 **Not a v3.0.0 blocker — a live defect in what users can download today**

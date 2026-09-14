@@ -224,13 +224,18 @@ final class LearnedDiskDetectorTests: XCTestCase {
     // MARK: 3. The whole learned path reproduces Python's picks and accepted peaks
 
     func testLearnedPathMatchesPythonReference() async throws {
-        // A same-RUNTIME claim, and the gate says so: the fixture's heatmaps were
-        // produced on the Neural Engine, and off it the picks near the threshold
-        // round differently. Measured 2026-09-14: on GitHub's virtualised macos-26
-        // runner (no Neural Engine) this test failed deterministically on two runs
-        // of the same commit, and on the owner's Mac forced to `.cpuAndGPU` it
-        // failed the same way. Skipping where there is no Neural Engine is the
-        // truthful gate; loosening the 98 % bars to fit a CPU rounding would not be.
+        // A same-RUNTIME claim, and the gate says so: the fixture was written with
+        // compute units "all" (expected.json) on a Mac with a Neural Engine, and
+        // off it the picks near the threshold round differently. Measured
+        // 2026-09-14, and re-measured by a refuter: on GitHub's virtualised
+        // macos-26 runner (no Neural Engine) this test failed on two runs of the
+        // same commit; here, forced to `.cpuAndGPU`, raw picks land at 346/354
+        // (97.7 %) with 8 extras (2.26 %), and at `.cpuOnly` 341/354 with 14 —
+        // the two 98 % / 2 % bars, and only those; accepted counts and positions
+        // still pass. Skipping where there is no Neural Engine is the truthful
+        // gate; loosening the bars to fit a CPU rounding would not be. What it
+        // does NOT see: a Neural Engine that is present but not used — the probe
+        // is hardware presence, not the unit that executed (open-items.md).
         let hasNeuralEngine = MLComputeDevice.allComputeDevices.contains {
             if case .neuralEngine = $0 { return true } else { return false }
         }
