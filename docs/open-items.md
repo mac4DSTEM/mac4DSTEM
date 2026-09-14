@@ -127,6 +127,20 @@ With β″ [010] as the only candidate: β″ **96 = every end-on position**, ma
 5 096, everything else refused, the [011] grain included — so the false label
 depends on which candidate is present, not on the grain.
 
+### The [001] winner is a template 3–5° off axis — added 2026-09-14
+**Science.** On the demo cube's [001] grain (noise-free, exactly on axis) the
+ACOM matcher returns template 165 or 173, 5.0° or 3.2° from [001], reliability
+0.40–0.43, although template 0 IS [001] (`sampleFundamentalZone` seeds the
+three vertices). The app printed the same: FZ Euler Φ = 5.0° at a grain-A
+position, reliability 0.51 (owner's screenshot, 2026-09-14 18:05). Pinned by
+`tools/acom-groundtruth/demo-cube.py` (build → run.sh → score: A 5.0/3.2/5.0°,
+B 7.0/31.8/3.6°, C 2.6/2.6/1.6°). **Refuter, same evening:** an ideal
+continuous-coordinate [111] hexagon picks template 2 exactly (0°, reliability
+0.39); an ideal [001] net still picks 173 (3.2°) — so it is [001]-specific,
+not a general on-axis bias, and not the cube's integer peaks. Not diagnosed:
+candidates are the flat Ewald weighting and the radial kernel near the pole.
+Gate D before any change; the map's colours are not in question.
+
 ### The zone-axis fit has no chance floor — added 2026-09-14
 **Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
 tolerance (0.44 px on `060_STEM SI_…bin_4`) Find Matrix Zone Axis returned a

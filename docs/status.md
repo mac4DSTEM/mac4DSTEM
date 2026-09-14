@@ -82,7 +82,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | GitHub CI on `ai-analysis` (181cf99, both runs) | **Green on the runner, 2026-09-14** — the first green CI since the v3.0.0 cut, and it covers every source change of the day: unit **637 / 0 / 5 = 642** (the parity test skips there: no Neural Engine, `open-items.md`), scientific **46 harnesses, zero FAIL**, core and inventory exit 0, on both the push and the pull-request run. Runner is `macos-26` with Xcode 26.6; two fixes got it there, both on the branch (`ContentView`'s importer closure as a method; the parity gate, refuted-and-held). Commits after 181cf99 are docs only (`git diff --stat 181cf99..HEAD -- mac4DSTEM/ mac4DSTEMTests/ tools/` empty at closeout). Closeout `inventory` exit 0 (`inventory-closeout-20260914.log`): AppState + ResultExport **7405 = HEAD^**, live markdown **6 138** — up from 6 076 at the day's start: three closed items moved to the archive, five findings recorded, two decisions written, the CI and merge paragraphs; nothing live was found stale enough to delete. |
 | `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line); the C7 session-1 tree re-ran the one harness it touched, `disk-detector`, exit 0 (`disk-detector-fixture-c7.log`), not the full set (< 1 GB free; the Swift changes are outside every harness's source list). Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-09, after the review fixes** (`inventory-final-20260909.log`); AppState + ResultExport **7509**, equal to HEAD. Six checks were added that day and the gate was red on arrival: it caught the untracked model spec, the dead link to the archived v2.5 plan, the missing licence texts, and — three times — this file's own prose, which is the check working: a doc may not write a repo path it does not have, not even to describe one. Metric renamed: `AppState.swift type-scope decls` **166**, not the old "stored properties 491", which counted function locals. **Markdown went UP, and the reason is stated as the rule requires: live 5 054 → 5 133 (+79), cold-start 965 → 1 037 (+72). The +72 is this handoff and the three open items the review left standing; the register itself is 192 archive lines that replace a 2 014-line file outside the repo. Nothing was deleted to pay for it because nothing live was found stale enough to delete — the next session that touches these files owes the trim.** |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-14 evening, the demo-cube review tree** (`inventory-closeout-20260914.log`): gated 48, diagnostic 13; AppState + ResultExport **7405**, equal to HEAD; live markdown **6 193, equal to HEAD** — not down: the closed audit paragraph moved to the archive paid exactly for the review paragraph and the one new open item, and nothing live was stale enough to delete; cold-start set 1 529. Previous: 2026-09-09 (`inventory-final-20260909.log`) |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
@@ -189,41 +189,10 @@ CIF; the zone-axis field accepting `[010]`, `0 1 0` and `0-12`; the phase list
 reading as the legend after a run; the `Evidence` line following the cursor;
 and that "not indexed" is visibly hatched rather than a colour.
 
-**Audited 2026-09-14, unattended, by three independent readers and a
-refuter; nothing seen on screen.** The AI Analysis room only. Fixed, each
-with a test broken first on a clean bundle: `Crystal.reflections` now tiles
-each index by `ceil(kMax·|aᵢ|)` — py4DSTEM's shortest-direction bound loses
-reflections on oblique cells (48 at β = 115°, 198 at 125° on the β″ shape;
-none for Al or the shipped β″, sets identical) and is an inline `DEVIATION`;
-`tools/phase-vector-matching` builds its own in-plane frame, so the L3
-blind spot is closed — a handedness flip in `detectorBasis` now fails A4 and
-P2 (measured, 2 of 27 red) where it passed 27 of 27; the embedding suite pins
-`coordinates` against its own reference (both Gate B mutations red);
-`explainedVariance` is clamped at 0; `phaseSignature` follows the list order
-because colours do; the zone-axis fit carries the dataset-epoch and
-slot-identity guards its sibling had. Recorded, not fixed: three precipitate
-findings (dark ridges register through their flanks; a negative peak
-collapses an object to 1 × 1; a NaN neighbour passes the maximum test) and a
-grouping-name fallback outside the scope — `open-items.md`. Could NOT be
-faulted by reading or probing: the PCA maths, binning, k-means seeding and
-empty-cluster handling, the matcher's prune, score, chance guard and
-refusals, the zone-axis parser on every spelling tried, the Evidence stride,
-the hatch, and every `validation: "none"` label. Phase mapping is still
-UNVALIDATED; step 3 has still not run. **Gate B ran** (a fresh refuter,
-70 tool uses, byte copies instead of `git restore`): the tiling fix was
-re-derived from this repo's own matrix helpers and checked on triclinic,
-hexagonal and β = 170° cells, with byte-identical sets to the old code on
-every shipped cell; of its four frame mutations, the true mirror and the
-swapped projection failed A4 and P2, a negated e1 passed because it is a
-rotation, and a flipped `rotate` sign failed P5c only — as the Al [001]
-symmetry predicts. Two of its claims were tested rather than taken: the
-slot-identity guard did match on a reusable model id and now requires
-`isMatrix` too; the per-component basis rescale it called invisible to the
-coordinates assertion turned the eigenpair test red (`pvm-run6-mutE.log`),
-because λ there is computed from the published row. Live markdown is UP
-(6 076 → 6 087) and the reason is stated as the rule requires: three closed
-entries moved to the archive and four new findings were recorded; nothing
-live was found stale enough to delete. Committed 2026-09-14; the owner pushes.
+**Audited 2026-09-14, unattended:** the AI Analysis room only; four defects
+fixed with tests broken first, four findings recorded, Gate B run. Record:
+[`archive/v3/ai-analysis-audit-2026-09-14.md`](archive/v3/ai-analysis-audit-2026-09-14.md).
+Phase mapping is still UNVALIDATED; step 3 has still not run.
 
 **A demo cube with known truth exists (2026-09-14, built by a delegated
 agent, verified by a scratch probe on the repo's own Core).**
@@ -239,6 +208,28 @@ vacuum 100 % no data; and the [011] grain **100 % falsely β″ [001]** — a re
 finding, `open-items.md`. It is our own truth through our own code: a check
 that the pipeline does what it says, not step 3. Not yet opened in the app.
 
+**The demo cube was driven 2026-09-14 (owner, Bragg disks → Strain →
+Orientation; three screenshots) and reviewed the same evening against
+`truth.json`; nothing wrong was found, and one reading of mine was.** Disks:
+90 363 peaks, median 9 per pattern, which is the cube's spot count. Strain
+(whole-scan mean, automatic basis): the stripe at columns 20–27 reads
++0.0154 ε_xx against a planted +1.5 %, the matrix 0, the 800 stripe positions
+rejected from the reference (4 600/5 400 inliers), the [011] and [111] grains
+masked — a single-basis map cannot index them, and it says so rather than
+drawing numbers. ACOM (200 templates, CPU, Q scale from the file): the map
+is RIGHT — grain A red, the [011] grain green, the [111] grain blue, which
+is the TSL key the colour function is pinned to (orix goldens,
+`tools/acom-orientation-test`). I first read the panel's key as "green = 111"
+and opened a Gate D on it; the matcher outside the app, on the cube's own
+peaks (`tools/acom-groundtruth/demo-cube.py`, new, the driver main.swift
+always promised), returned ⟨101⟩ for the [011] grain and ⟨111⟩ for the
+[111] grain, the legend code paints [101] green, and the refuter reproduced
+the harness byte for byte. The one residual is real and recorded:
+`open-items.md` "The [001] winner is a template 3–5° off axis". The
+R–Q rotation "measured" −67.5° on this cube is still the recorded item;
+ε_xx of an isotropic dilation does not see it.
+
+
 **NEXT, in order** (rewritten at the end of 2026-09-14; `/pickup` takes 1).
 1. **A second matrix grain is labelled as a candidate phase** — `open-items.md`,
    Gate D, then the fix, then Gate B. The demo cube is the fixture: Al [001]
@@ -247,9 +238,7 @@ that the pipeline does what it says, not step 3. Not yet opened in the app.
    confirmed it); the fit must refuse or flag a multi-ring annulus. Gate B.
 3. **The zone-axis fit's chance floor**, and the Prepare panel's missing
    "clear calibration" control — both `open-items.md`, both small.
-4. **ACOM and strain on the demo cube** (owner, minutes): three IPF colours
-   and the +1.5 % stripe have not been looked at.
-5. **Step 3** when ~8 GB is free — still the merge condition; then the
+4. **Step 3** when ~8 GB is free — still the merge condition; then the
    fast-forward merge as the paragraph above says.
 
 **Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
@@ -275,12 +264,9 @@ merge button, which adds a merge commit. Conditions, in order: step 3 inside
 Thronsen's band; one on-screen drive of phase mapping; then the docs commit
 that retires this paragraph and the board's push line. Auto-merge is off.
 
-**A trap paid this session.** `tools/run-tests.sh` was edited **while a gate
-was running**; the running `inventory` re-read the half-written file and died
-with `parse error near ';;'` on a line that was fine before and after. It read
-as a failure of the tree. Do not edit the gate script, or any source it
-compiles, while a gate is in flight — the same rule `/adversarial-review`
-already states for committing during a refuter's mutation window.
+**A trap paid 2026-09-14:** `tools/run-tests.sh` edited while `inventory` was
+running died with `parse error near ';;'` on a line that was fine before and
+after. Never edit the gate script, or a source it compiles, while a gate runs.
 
 ## Owed to the owner
 
