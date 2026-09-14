@@ -163,7 +163,7 @@ one by exclusion, and the map's phase counts cannot separate them; the
 evidence line now distinguishes them but nothing else does. The matrix fraction
 on the demo cube moves 51 % → 74 % because of it.
 
-### R–Q rotation reports "Measured" from a field that is pure shot noise — added 2026-09-14
+### R–Q rotation reported "Measured" from pure shot noise — FIXED 2026-09-15
 **Science, Gate D done, no fix. Diagnosis survived an independent refuter that
 corrected two of its numbers.** On the demo cube, built with the axes aligned,
 Measure R–Q Rotation reported **−67.5°** and the row read "Measured".
@@ -197,16 +197,27 @@ axis-aligned, so a step would pull toward 0°/90°); and **the quadrant spread o
 151° proves little** — the noise-only null's p90 is 151.1°, and a genuine field
 still scatters 65°, so split-half disagreement is a weak test in both
 directions and must not headline this.
-**What a fix may NOT claim.** A depth test cannot certify a measurement: a real
-thick specimen gives a deep, sharp, reproducible minimum at an angle that need
-not be the detector rotation. It can only catch THIS failure, no signal at all.
-The honest test is non-parametric and needs no constant: permute the scan
-positions of the CoM field, re-run the same grid, and refuse if the real
-curve's depth is not clear of the permuted null. `contrast × √N_interior` is a
-cheaper fallback (1.5–1.7 under the null at every scan size tried, 16 for a
-solvable field). The transpose flag must be governed by the same test.
-`RotationCalibration.Result` already carries both objective curves, so no new
-stored state is needed. Gate D for the fix; this entry is the diagnosis only.
+**FIXED 2026-09-15 with a permutation null, which is the one test that needs no
+constant.** `solve` now shuffles the scan positions of the CoM field fifteen
+times — carrying each position's (cx, cy) together, so only the spatial
+arrangement is destroyed — reruns the same grid, and reports the winning
+curve's depth against those fifteen. `carriesRotation` requires the real depth
+to beat **every** shuffle; `refusalMessage` carries the sentence, so the
+refusal and the test that produces it cannot drift. Deterministic by a fixed
+seed: a refusal that flickers is worse than none. AppState writes neither the
+angle nor `transposeQR` when it refuses, which was the sharper half — the flag
+was a 51.7 % coin flip and strain, ACOM and DPC consume it.
+**Measured on the demo cube with the shipped rule and seed:** real depth
+0.01341 against shuffled depths 0.00854–0.02472, so it **refuses**, which is
+correct. Three tests, three mutations, each red: the null deleted, the null
+compared against the shuffles' mean instead of all of them, and the comparison
+inverted (which refuses a planted 30° rotation and is the failure that would
+matter most).
+**What this does NOT claim, and the code says so too.** It cannot certify a
+measurement. A thick or strongly diffracting specimen gives a deep, sharp,
+reproducible minimum at an angle that need not be the detector rotation. It
+catches one failure — no signal at all — which is the one that reached the
+owner. **Unverified on screen.**
 
 ### The ACOM bank predicts rings the demo cube cannot contain, and the matcher rationally infers a tilt — added 2026-09-14
 **Science, Gate D done, MY DIAGNOSIS WAS REFUTED, no fix.** Observation: on the
@@ -237,11 +248,29 @@ one-ring [111] pattern against a three-ring bank → 2.609°.
 template 165 at 5.027° on the same plant, and template 0 at kMax 0.9.
 **Not a noise effect:** Poisson doses from 30 to 10 000 counts give 5.027° on
 the truncated plant and 0.000° on the complete one, at every dose.
-**Two consequences worth acting on.** The demo cube is not a faithful ACOM
-fixture while its export kMax and the plan's disagree — that is the cheap fix
-and it is a `tools/` change, not a `Core/` one. And this will bite real data
-whenever detection misses the weak outer disks the bank predicts, which is the
-ordinary case at low dose.
+**AND THE OBVIOUS FIX WAS REFUTED TOO (2026-09-15).** The app builds the bank
+at a hardcoded `kMax: 1.2` (`AppState.swift:5232`) with no reference to the
+detector, whose inscribed reach here is only 64 × 0.012 = **0.768 Å⁻¹** — so
+{400} and {420} are past the detector edge and no exporter setting could supply
+them. Predicted: building the bank at the detector's reach returns grain A to
+0.00°. **It does not.** On the cube's own DETECTED peaks, bank kMax swept from
+0.768 to 1.20:
+
+| bank kMax | grain A | grain B | grain C |
+|---|---|---|---|
+| 0.768 (the reach) | 2.20 / 3.18 / 6.71° | 0.00 / 6.50 / 6.06° | 5.47 / 5.47 / 1.64° |
+| 1.20 (shipped) | 5.03 / 3.18 / 5.03° | 7.02 / 31.78 / 3.65° | 2.61 / 2.61 / 1.64° |
+
+No kMax is best for every grain, and grain C gets **worse** at the reach. The
+refuter's 0.000° was on an IDEAL plant; on real detected peaks the offset is
+dominated by the peak set, not the bank — which is the existing item "the
+Al-Mg-Si cube's peak set is not clean enough", now with a second witness. Note
+also that 200 templates over the cubic fundamental zone is ~1.7° of sampling,
+so an offset under about 2° is resolution, not error.
+**So: do not change the plan's kMax to chase this number.** The design argument
+for deriving it from the detector still stands on its own (at the owner's real
+1.46 Å⁻¹ reach the bank throws away every reflection between 1.2 and 1.46), but
+it is a separate change needing its own Gate D, and it is not the fix for this.
 **Also measured:** the reliability metric is blind to this by construction —
 `selectOrientation`'s 10° distinct-orientation floor excludes the true [001]
 (5° away) from ever being the runner-up, so no error under 10° can lower
@@ -258,11 +287,28 @@ complete, noise-free Al [011] pattern: rotation 0.0000° → template 1 at 0.000
 score 1.00000; rotation 2.8125° → template 1 at 0.000°; **rotation 1.4000° →
 template 160 at 1.836°**. Independent of the entry above, which is
 rotation-invariant.
-**Mechanism named, not yet proven:** py4DSTEM interpolates each spot linearly
-between the two adjacent in-plane bins; the port rounds to the nearest of 128
-and then blurs by a fixed 1.5-bin Gaussian
-(`OrientationPlan.buildPolar`). A real orientation is not on the grid, so this
-is the ordinary case, not an edge case. Gate D owed before any change.
+**Reproduced harder, 2026-09-15, and the obvious fix was REFUTED.** An
+analytic complete noise-free Al [011] net swept across one azimuthal bin in
+0.2° steps: **13 of 15 rotations return the wrong zone axis**, by 1.84° or
+3.56°, and only the two grid-aligned rotations are right. The wrong template
+scores HIGHER (0.7318 against 0.7205), so the rounding is not losing a tie, it
+is creating one.
+**The fix that does not work:** depositing the azimuth linearly between the two
+adjacent bins — which is what py4DSTEM does, and which makes the deposited
+centroid exact — takes it from 13 of 15 wrong to **15 of 15 wrong**, breaking
+the rotation that used to be right. Reverted, not tuned. So the rounding is not
+the mechanism, or not the only one.
+**What the numbers now suggest, untested:** the discrimination between zone
+axes this close is marginal whatever the deposition. 200 templates over the
+cubic fundamental zone is ~1.7° of sampling; the winners here sit 1.8–3.6° from
+the truth with scores within 1.5 % of each other; and raising the bank to 1 000
+templates made an earlier [001] case WORSE, not better (3.98° against 5.03°).
+The next hypothesis to test is therefore that the polar correlation at 32 × 128
+bins cannot resolve a zone axis better than a few degrees on a sparse cubic
+pattern — i.e. that this is the method's resolution and not a defect at all.
+That is a different experiment: compare the TRUE template's score against the
+winner's across many orientations, rather than chasing the winner. Gate D owed
+before any change; two hypotheses are already spent.
 
 ### py4DSTEM's `power_radial` is absent from the port, with no DEVIATION note — added 2026-09-14
 **Code hygiene with a science edge; CLAUDE.md makes the note a hard rule.**

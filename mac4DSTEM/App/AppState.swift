@@ -2388,16 +2388,13 @@ final class AppState {
         } else {
             calibrationSession.acceleratingVoltage = nil
         }
-        // The strain product dies BEFORE the calibration reset, not with the other
-        // scan-indexed products further down: `activate` suspends on reader awaits
-        // between here and those clears, the export menu item is reachable during a
-        // suspension, and `currentResultPersistenceMetadata` derives the strain
-        // frame keys from the LIVE calibration — so an uncleared map would export
-        // the previous dataset's scan-frame pixels under this reset's "rotation
-        // not calibrated" claim (Gate B finding 3, 2026-08-25).
+        // Strain dies BEFORE the calibration reset: `activate` suspends on reader
+        // awaits in between, the export menu is reachable during a suspension, and
+        // the strain frame keys come from the LIVE calibration — an uncleared map
+        // would export the previous dataset's scan-frame pixels under this reset's
+        // "rotation not calibrated" claim (Gate B finding 3, 2026-08-25). The group
+        // and phase maps are scan-indexed for the same reason.
         strain.clear()
-        // Same reasoning again: a group map is scan-indexed, so dataset A's
-        // groups must not survive into dataset B's Results slot.
         diffractionGroups.clear()
         phaseMapping.clear()
         clearCalibration()
@@ -4210,6 +4207,9 @@ final class AppState {
             guard let result else {
                 presentComputeFailure(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
+            }
+            if let refusal = result.refusalMessage {   // written only if real
+                lastRotationResult = result; presentComputeFailure(SimpleError(refusal)); return
             }
             calibrationSession.calibration.rotationRad = result.rotationRad
             calibrationSession.calibration.transposeQR = result.transpose

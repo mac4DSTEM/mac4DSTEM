@@ -524,3 +524,84 @@ final class CalibrationReReferenceTests: XCTestCase {
         XCTAssertEqual(outcome.calibration.recordedOriginY, 6)
     }
 }
+
+/// The permutation null on the R–Q rotation fit (2026-09-14/15). Gate D record:
+/// `docs/open-items.md`, "R–Q rotation reports Measured from a field that is
+/// pure shot noise". The app told the owner it had measured −67.5° on a cube
+/// built with the axes aligned; the field it fitted was Poisson noise.
+final class RotationSignificanceTests: XCTestCase {
+
+    /// A field with a genuine rotation must still be measured. Mutation this
+    /// names: a null that is too strict, or `carriesRotation` inverted — either
+    /// one would refuse every real dataset, which is worse than the defect.
+    func testARealRotationIsStillMeasured() throws {
+        let planted = 30.0 * Double.pi / 180
+        let field = Self.phaseObjectField(width: 40, height: 40, rotatedBy: planted)
+        let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+        XCTAssertTrue(result.carriesRotation,
+                      "a planted 30° rotation on a phase-object field was refused: "
+                      + "depth \(result.depth), shuffled max \(result.shuffledDepths.max() ?? 0)")
+        XCTAssertNil(result.refusalMessage)
+        // and it is the right angle, up to the method's own 180° ambiguity
+        let deg = Double(result.rotationRad) * 180 / .pi
+        let error = min(abs(deg + 30), abs(deg + 30 - 180), abs(deg + 30 + 180))
+        XCTAssertLessThan(error, 2.0, "recovered \(deg)°, expected −30° (mod 180)")
+    }
+
+    /// Mutation this names: deleting the null, or comparing against the mean of
+    /// the shuffles rather than all of them. Either restores the defect.
+    func testAFieldOfPureNoiseIsRefused() throws {
+        let field = Self.noiseField(width: 40, height: 40)
+        let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+        XCTAssertFalse(result.carriesRotation,
+                       "a field of pure noise was reported as a rotation: depth "
+                       + "\(result.depth), shuffled max \(result.shuffledDepths.max() ?? 0)")
+        let refusal = try XCTUnwrap(result.refusalMessage)
+        XCTAssertTrue(refusal.contains("no measurable"),
+                      "the refusal must say what it refused: \(refusal)")
+    }
+
+    /// The null must not move between runs. A refusal that flickers is worse
+    /// than none, because the user cannot tell which answer to believe.
+    func testTheNullIsDeterministic() throws {
+        let field = Self.noiseField(width: 32, height: 32)
+        let first = try XCTUnwrap(RotationCalibration.solve(com: field, width: 32, height: 32))
+        let second = try XCTUnwrap(RotationCalibration.solve(com: field, width: 32, height: 32))
+        XCTAssertEqual(first.shuffledDepths, second.shuffledDepths,
+                       "the permutation null is not reproducible")
+        XCTAssertEqual(first.carriesRotation, second.carriesRotation)
+    }
+
+    // MARK: Fixtures
+
+    /// The gradient of a smooth scalar potential, rotated — what the method is
+    /// built for. Interleaved (x, y) per scan position, as `solve` expects.
+    private static func phaseObjectField(width: Int, height: Int,
+                                         rotatedBy theta: Double) -> [Float] {
+        var out = [Float](repeating: 0, count: width * height * 2)
+        let c = cos(theta), s = sin(theta)
+        for y in 0..<height {
+            for x in 0..<width {
+                // ∂/∂x and ∂/∂y of sin(x/6)·cos(y/5), analytically.
+                let gx = cos(Double(x) / 6) * cos(Double(y) / 5) / 6
+                let gy = -sin(Double(x) / 6) * sin(Double(y) / 5) / 5
+                let i = (y * width + x) * 2
+                out[i] = Float(c * gx - s * gy)
+                out[i + 1] = Float(s * gx + c * gy)
+            }
+        }
+        return out
+    }
+
+    /// Deterministic white noise at the scale the demo cube actually showed
+    /// (sd ≈ 0.010 detector pixels), with no spatial structure at all.
+    private static func noiseField(width: Int, height: Int) -> [Float] {
+        var state: UInt64 = 0xDEADBEEF12345678
+        func next() -> Float {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            let u = Double((state &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53)
+            return Float((u - 0.5) * 0.02)
+        }
+        return (0..<(width * height * 2)).map { _ in next() }
+    }
+}
