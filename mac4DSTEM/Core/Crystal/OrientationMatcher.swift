@@ -216,6 +216,41 @@ package nonisolated final class OrientationMatcher {
         )
     }
 
+    /// Every template's score for one pattern, in bank order. DIAGNOSTIC:
+    /// `match` reduces these to a winner and a runner-up, which is all the app
+    /// needs, and all a caller could see until 2026-09-15 — so seven
+    /// hypotheses about why the winner is sometimes the wrong zone axis were
+    /// tested without anyone measuring how far apart the candidates are.
+    package func templateScores(peaks: [BraggPeak], originX: Float, originY: Float,
+                                invAngstromPerPixel: Double) -> [Float] {
+        guard prepareExperimentalFFT(
+            peaks: peaks, originX: originX, originY: originY,
+            invAngstromPerPixel: invAngstromPerPixel
+        ) else { return [] }
+        let na = geo.nAzimuthal, nr = geo.nRadial
+        let invScale = 1 / Float(na)
+        var out = [Float](repeating: 0, count: plan.count)
+        for t in 0..<plan.count {
+            let templateOffset = t * nr * na
+            var corr = [Float](repeating: 0, count: na)
+            var corrI = [Float](repeating: 0, count: na)
+            for r in 0..<nr {
+                for a in 0..<na {
+                    let i = templateOffset + r * na + a
+                    let er = expRe[r * na + a], ei = expIm[r * na + a]
+                    let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
+                    corr[a] += er * tr + ei * ti
+                    corrI[a] += er * ti - ei * tr
+                }
+            }
+            fft.transform(re: &corr, im: &corrI, forward: false)
+            var localBest: Float = -.greatestFiniteMagnitude
+            for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
+            out[t] = localBest * invScale
+        }
+        return out
+    }
+
     /// Prepare a copy for a Metal batch. The CPU and GPU paths therefore share
     /// exactly the same polar deposition, normalization, and forward FFT.
     package func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,

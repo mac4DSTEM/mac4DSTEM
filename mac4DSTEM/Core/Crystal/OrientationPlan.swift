@@ -108,6 +108,7 @@ package nonisolated struct OrientationPlan {
                          symmetry: ACOMCrystalSymmetry = .cubic,
                          wavelengthAngstrom: Double? = nil,
                          intensityPower: Double = 0.25,
+                         radialPower: Double = 0,
                          radialKernelInvAngstrom: Double = 0.08,
                          distinctOrientationDeg: Double = 10,
                          cancellation: AnalysisCancellationToken? = nil) -> OrientationPlan? {
@@ -134,7 +135,8 @@ package nonisolated struct OrientationPlan {
             let spots = project(reflections: reflections, zoneAxis: n,
                                 sgWidth: sgWidth, sgMax: sgMax,
                                 wavelengthAngstrom: wavelengthAngstrom,
-                                intensityPower: intensityPower)
+                                intensityPower: intensityPower,
+                                radialPower: radialPower)
             var polar = buildPolar(spots: spots, geometry: geo,
                                    azimBlurBins: azimBlurBins,
                                    radialKernelInvAngstrom: radialKernelInvAngstrom)
@@ -185,7 +187,8 @@ package nonisolated struct OrientationPlan {
     package static func project(reflections: [Reflection], zoneAxis n: SIMD3<Double>,
                         sgWidth: Double, sgMax: Double,
                         wavelengthAngstrom: Double? = nil,
-                        intensityPower: Double = 0.25)
+                        intensityPower: Double = 0.25,
+                        radialPower: Double = 0)
         -> [(r: Double, azim: Double, weight: Double)] {
         // In-plane basis is shared with the stored orientation matrix so the
         // Euler result cannot reconstruct a subtly different reference axis.
@@ -202,10 +205,29 @@ package nonisolated struct OrientationPlan {
             // py4DSTEM raises the excited intensity as a whole, not the
             // structure factor alone: power(struct_factor * Ig, power_intensity).
             let excited = refl.intensity * exp(-(sg / sgWidth) * (sg / sgWidth))
-            let w = intensityPower == 1 ? excited : pow(excited, intensityPower)
+            var w = intensityPower == 1 ? excited : pow(excited, intensityPower)
             let x = simd_dot(refl.g, e1)
             let y = simd_dot(refl.g, e2)
-            spots.append((r: (x * x + y * y).squareRoot(), azim: atan2(y, x), weight: w))
+            let radius = (x * x + y * y).squareRoot()
+            // DEVIATION from py4DSTEM, now measured rather than accidental.
+            // They multiply each template spot by its shell radius to the
+            // `power_radial`, default **1.0** (`crystal_ACOM.py:32`, applied
+            // at :810 and :818). This port omitted the factor entirely, which
+            // is power_radial = 0, and `open-items.md` has carried that as an
+            // untested omission since 2026-08-28.
+            //
+            // MEASURED 2026-09-15 with `tools/acom-groundtruth/orientation-accuracy.py`
+            // over 136 planted patterns, as excess orientation error beyond
+            // what the bank's own sampling forces, summed over 8 zone axes:
+            //   power_radial 0 (shipped) 18.79°   0.5 → 20.45°
+            //   1.0 (py4DSTEM's default) 25.53°   2.0 → 29.09°
+            // Their default is WORSE here, and it breaks ⟨100⟩, which this
+            // port recovers exactly (0.00° → 2.20°). So the omission stays,
+            // deliberately, and the parameter exists so the claim stays
+            // reproducible instead of becoming folklore. Parity with
+            // py4DSTEM on this factor would be parity with a worse answer.
+            if radialPower != 0 { w *= pow(radius, radialPower) }
+            spots.append((r: radius, azim: atan2(y, x), weight: w))
         }
         return spots
     }

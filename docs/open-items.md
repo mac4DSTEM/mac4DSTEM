@@ -307,12 +307,27 @@ probably the same cause; it is separated because this one is measured against
 planted truth rather than against the templates themselves, and because it
 gives the size. It also explains the demo cube's grain B, which is ⟨011⟩ and
 came back 7.0° and 3.6° off.
-**Cause not established. Three hypotheses are already spent** — radial binning,
-the bank's kMax, and the azimuthal rounding (whose obvious fix made it worse,
-recorded above). The next one to test is the azimuthal FFT correlation itself:
-it searches 128 discrete shifts, so a specimen between two shifts is never
-aligned with any template, and whether that degrades the true axis more than a
-neighbour is exactly what has not been measured. Gate D before any change.
+**THE SCORE PREFERS THE WRONG ORIENTATION — it is not the search.** Measured
+2026-09-15 by exposing every template's score (`OrientationMatcher.templateScores`,
+diagnostic): at its worst rotation each failing axis has the winner beating the
+best available bank entry by a real margin — ⟨013⟩ 0.6 %, ⟨011⟩ 3.5 %, ⟨122⟩
+4.9 %, ⟨123⟩ 10.0 %. The search finds the true maximum of the score; the score
+is simply higher on the wrong template. That is why every knob failed, and it
+means the fix is in what the score measures, not in how finely it is sampled.
+**EIGHT HYPOTHESES ARE SPENT, each refuted by its own experiment and each
+recorded so nobody retries it:** radial binning; the bank's kMax; the intensity
+power; the azimuthal deposition rounding (its py4DSTEM-matching fix improves
+how OFTEN but not how BADLY, and makes two axes worse); the azimuthal blur
+(reducing it makes three axes worse); more azimuthal bins (fixes most cases at
+512–1024, so resolution is a factor but not the mechanism); parabolic
+interpolation of the correlation peak (changes almost nothing — which is what
+proved the sampling is not at fault); and py4DSTEM's own `power_radial`, whose
+default is measurably worse.
+**What is left, untested:** the whole-image L2 normalisation. Templates are
+unit-normalised over the entire polar image and correlated against an
+unnormalised experimental one, so a template covering more of the image pays
+for coverage the data may not have — which is a scoring effect of exactly the
+size observed. That is the next Gate D, and it is the last cheap idea.
 
 ### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
 **Science, live, in shipped code, found by the refuter of the entry above.**
@@ -851,16 +866,25 @@ detector centre. Latent app-side risk: a genuinely off-centre beam with
 scale it with fit quality; or have the campaign adopt the app's origin
 gating. Full diff in the archive.
 
-### ACOM omits py4DSTEM's `power_radial` weighting (2026-08-28)
-`orientation_plan` applies `power_radial=1.0` to the template side
-(`crystal_ACOM.py:32,810` in the pinned source); `OrientationPlan.buildPolar`
-doesn't, so outer shells are under-weighted by ~r relative to py4DSTEM.
-Untested materiality — apparatus exists (`tools/acom-groundtruth`) but the
-Python driver that built prior test inputs wasn't retained. Also
-un-DEVIATION-noted (hard rule violation): the app subtracts each ring's mean
-where py4DSTEM leaves that line commented out. Owner: whoever next touches
-ACOM weighting.
+### ACOM omits py4DSTEM's `power_radial` — MEASURED 2026-09-15, omission kept
+**Was: "untested materiality — apparatus exists but the measurement has not
+been made." It has now been made, and the omission is right.** py4DSTEM
+multiplies each template spot by its shell radius to `power_radial`, default
+**1.0** (`crystal_ACOM.py:32`, applied at :810/:818); this port omitted the
+factor, which is 0. Measured over 136 planted patterns with
+`tools/acom-groundtruth/orientation-accuracy.py`, as excess orientation error
+beyond the bank's own sampling floor, summed over 8 zone axes:
 
+| `power_radial` | 0 (shipped) | 0.5 | 1.0 (py4DSTEM) | 2.0 |
+|---|---|---|---|---|
+| total excess | **18.79°** | 20.45° | 25.53° | 29.09° |
+
+Their default is worse, and it breaks ⟨100⟩, which this port recovers exactly
+(0.00° → 2.20°). The factor now exists as a parameter defaulting to 0 with an
+inline `DEVIATION` note carrying these numbers, so the choice is documented
+rather than accidental — CLAUDE.md requires the note, and the note now cites a
+measurement instead of an opinion. **Parity here would be parity with a worse
+answer.** Nothing shipped changed: the default reproduces every previous run.
 
 ### No automated visual baseline (2026-08-17)
 Every acceptance run is numeric-only; the owner driving the app is the only

@@ -51,6 +51,22 @@ private struct MatchInput: Codable {
     /// Optional: minimum zone-axis separation (deg) for the reliability
     /// runner-up. Absent = the plan's default.
     let distinctOrientationDeg: Double?
+    /// Optional polar geometry. Absent = the plan's shipped 32 x 128. Exposed
+    /// 2026-09-15 to test whether the azimuthal correlation's 128 discrete
+    /// shifts are what costs a planted zone axis its own template.
+    let nRadial: Int?
+    let nAzimuthal: Int?
+    /// Optional: the azimuthal blur in bins. Absent = the shipped 1.5. Exposed
+    /// 2026-09-15 to test whether azimuthal SMEARING, rather than the number
+    /// of correlation shifts, is what costs a planted zone axis its template.
+    let azimBlurBins: Double?
+    /// Optional: emit every template's score for every pattern. The question
+    /// "which knob moves the winner" was asked seven times before anyone asked
+    /// "how far apart are the candidates at all" — this answers the second.
+    let reportAllScores: Bool?
+    /// Optional: py4DSTEM's `power_radial` (their default 1.0). Absent = 0,
+    /// which is what this port has always done by omitting the factor.
+    let radialPower: Double?
     let patterns: [[InputPeak]]
 }
 
@@ -65,6 +81,8 @@ private struct MatchOutputResult: Codable {
     let orientationMatrixRowMajor: [[Double]]
     /// 1 − second/best, as the app reports it to the user.
     let reliability: Double
+    /// Every template's score, when `reportAllScores` asked for it.
+    let allScores: [Double]?
 }
 
 private struct GeometryOutput: Codable {
@@ -123,9 +141,12 @@ struct ACOMGroundTruth {
         // same kMax/zoneAxisCount/symmetry, default nRadial/nAzimuthal (32/128).
         guard let plan = OrientationPlan.generate(
             crystal: crystal, kMax: input.kMaxInvAngstrom,
-            zoneAxisCount: input.zoneAxisCount, symmetry: symmetry,
+            nRadial: input.nRadial ?? 32, nAzimuthal: input.nAzimuthal ?? 128,
+            zoneAxisCount: input.zoneAxisCount,
+            azimBlurBins: input.azimBlurBins ?? 1.5, symmetry: symmetry,
             wavelengthAngstrom: input.wavelengthAngstrom,
             intensityPower: input.intensityPower ?? 1,
+            radialPower: input.radialPower ?? 0,
             radialKernelInvAngstrom: input.radialKernelInvAngstrom ?? 0,
             distinctOrientationDeg: input.distinctOrientationDeg ?? 10
         ) else {
@@ -168,6 +189,12 @@ struct ACOMGroundTruth {
                 ]
             }
 
+            let everyScore = (input.reportAllScores ?? false)
+                ? matcher.templateScores(peaks: peaks, originX: Float(input.originX),
+                                         originY: Float(input.originY),
+                                         invAngstromPerPixel: input.invAngstromPerPixel)
+                    .map(Double.init)
+                : nil
             results.append(MatchOutputResult(
                 templateIndex: result.templateIndex,
                 score: Double(result.score),
@@ -176,7 +203,8 @@ struct ACOMGroundTruth {
                 zoneAxis: zoneAxis,
                 orientationMatrixRowMajor: matrixRowMajor,
                 reliability: result.score > 0
-                    ? Double(1 - result.secondScore / result.score) : 0
+                    ? Double(1 - result.secondScore / result.score) : 0,
+                allScores: everyScore
             ))
         }
 
