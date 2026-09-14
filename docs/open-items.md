@@ -277,6 +277,43 @@ it is a separate change needing its own Gate D, and it is not the fix for this.
 reliability. And the unmatched direct beam depresses the reported ACOM score by
 about 26 % (0.640 against 0.862 with it removed), changing no verdict.
 
+### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
+**Science, live, no fix, cause not established.** The app has never had a
+number for how accurately it orients. `tools/acom-groundtruth/orientation-accuracy.py`
+(new, diagnostic) plants known zone axes — reflections from the fcc rule by
+hand, the zone by `g·n = 0`, the 2D frame by Gram-Schmidt here, so the plant
+shares nothing with the code it gates — and sweeps the in-plane rotation across
+two azimuthal bins. 136 patterns, Al, shipped settings.
+**The bank is a Fibonacci sampling of the fundamental zone, not a list of
+low-index axes**, so part of any error is the distance to the nearest entry the
+bank actually holds. That floor is measured from the bank the harness reports
+and subtracted; what is left is the defect.
+
+| planted | spots | floor | worst | **beyond the floor** |
+|---|---|---|---|---|
+| ⟨100⟩ ⟨111⟩ ⟨012⟩ ⟨112⟩ | 6–20 | 0.00–1.09° | = floor | **0.00°** |
+| ⟨011⟩ | 22 | **0.00** | 1.88° | **1.88°** |
+| ⟨123⟩ | 8 | 0.97 | 3.50° | **2.53°** |
+| ⟨122⟩ | 6 | 0.79 | 13.61° | **12.82°** |
+
+So the matcher is exactly as good as its bank allows on half the axes tried,
+and on the others it returns an answer up to **12.8° further away than it had
+to** — on ⟨011⟩, which is a seeded vertex of the bank and therefore present
+exactly. **Which answer you get depends on the in-plane rotation**: ⟨122⟩
+alternates 0.8° (the floor) and 13.6° as the specimen turns, and ⟨011⟩ is right
+at 3 of 17 rotations and 1.88° off at the other 14.
+**This is the same family as the self-recovery failure recorded above** and
+probably the same cause; it is separated because this one is measured against
+planted truth rather than against the templates themselves, and because it
+gives the size. It also explains the demo cube's grain B, which is ⟨011⟩ and
+came back 7.0° and 3.6° off.
+**Cause not established. Three hypotheses are already spent** — radial binning,
+the bank's kMax, and the azimuthal rounding (whose obvious fix made it worse,
+recorded above). The next one to test is the azimuthal FFT correlation itself:
+it searches 128 discrete shifts, so a specimen between two shifts is never
+aligned with any template, and whether that degrades the true axis more than a
+neighbour is exactly what has not been measured. Gate D before any change.
+
 ### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
 **Science, live, in shipped code, found by the refuter of the entry above.**
 Feed every template its own exact spots back in. At an in-plane rotation that

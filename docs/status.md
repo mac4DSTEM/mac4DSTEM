@@ -205,9 +205,13 @@ A worktree agent branches from where the worktree was cut — this session's was
    off. Gate D is DONE and **my own diagnosis was refuted**: the cause is not
    the intensity power but a bank predicting rings the data cannot contain.
    Cheap, and it makes the cube a faithful ACOM fixture.
-4. **26 of 200 ACOM templates do not recover themselves at an off-grid
-   in-plane rotation**, by up to 9.3° — found by that refuter, in shipped code,
-   independent of the above. A real orientation is never on the grid. Gate D.
+4. **ACOM returns a zone axis up to 12.8° beyond what its own bank forces** —
+   measured 2026-09-15 against planted truth by
+   `tools/acom-groundtruth/orientation-accuracy.py`, after subtracting the
+   bank's sampling floor. Which answer you get depends on the in-plane
+   rotation. ⟨011⟩ is a seeded vertex and is still 1.88° off at 14 of 17
+   rotations; ⟨122⟩ alternates between the floor and 13.6°. Four hypotheses
+   spent; the untested one is the 128-shift azimuthal correlation. Gate D.
 5. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.
