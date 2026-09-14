@@ -246,7 +246,9 @@ of `origin/main` and `refs/tags/v3.0.0` resolves there — so the push, tag and
 release steps the previous paragraph listed as owed were done on 2026-09-11.
 What is unpushed is everything since: `origin/main` sits at `6cb31a3`, **32
 commits behind** local `main` (the AI port, phase mapping, and this audit).
-The owner pushes.
+**Pushed 2026-09-14 to the remote branch `ai-analysis`** (`main:ai-analysis`,
+the owner's decision after the audit: the AI room stays off the public `main`
+until step 3 has run). `origin/main` stays at v3.0.0.
 
 **A trap paid this session.** `tools/run-tests.sh` was edited **while a gate
 was running**; the running `inventory` re-read the half-written file and died
