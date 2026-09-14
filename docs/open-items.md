@@ -112,9 +112,29 @@ would have been right — the stated cost), 12 grains fitted isotropic, a
 9-azimuth spotty single ring fitted isotropic, a nanocrystalline halo fitted
 isotropic. Marked `DEVIATION`: py4DSTEM's `fit_ellipse_1D` has no guard at all
 and answers degeneracy with `constrain_degenerate_ellipse` instead.
-**Owed: the flag.** A sparse legitimate ring is now refused outright; the
-owner wants a flag path for it later. Also still open from that run: R–Q
-rotation reads "measured" −67.5° on a cube with no physical rotation.
+**OWED: THE FLAG, and this is what it has to answer** (owner, 2026-09-14:
+"refuse it for now, add the flag later"). A sparse legitimate ring — one
+radius, too few azimuths — is now refused outright, and he wants it fitted and
+marked instead. The pieces:
+- **Where the refusal is:** `EllipseCalibration.fit1D`, the
+  `occupiedCount >= angularBinCount * 5 / 6` guard. A flag path fits anyway
+  below that bound and marks the result; it does not weaken the bound for the
+  multi-radius case, which must stay refused (`grains_3_one_annulus`).
+- **What carries the mark:** `EllipseCalibrationFit` has no field for it, and
+  `CalibrationValueProvenance` (`Core/Data/Calibration.swift:49`) is what the
+  Prepare row's status word comes from. A fourth status beside Measured /
+  Manual / From file is the smallest shape that reaches the user.
+- **The decision a session may not make alone:** whether the flag REPLACES the
+  refusal for a single-radius annulus, or sits behind an explicit "fit anyway"
+  after one. The first is silent, the second is a click. Ask before building.
+- **Gate:** Gate D applies. A flagged ellipse becomes usable downstream, so the
+  change decides whether degenerate distortion reaches strain and ACOM —
+  that moves a scientific number even though the fit itself is unchanged.
+- **The fixture already exists:** `spotty_ring_6_azimuths` is the legitimate
+  case (expect `refuse` today, expect flag-and-fit after), and
+  `grains_3_one_annulus` is the control that must stay refused.
+Also still open from that run: R–Q rotation reads "measured" −67.5° on a cube
+with no physical rotation.
 
 ### A second matrix grain is labelled as a candidate phase — FIXED 2026-09-14
 **Science. Gate D done, Gate B done and two of its findings fixed.** With Al

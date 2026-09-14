@@ -85,7 +85,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — the three Gate D items the drives found are fixed, unseen on screen
+## Handoff — two of the drives' three defects are fixed, one is refused with a flag owed, none is seen on screen
 
 **State.** The AI Analysis room holds two tasks: diffraction grouping (PCA +
 k-means, 2026-09-11) and phase mapping (vector matching, 2026-09-12). Steps 1,
@@ -177,8 +177,13 @@ A worktree agent branches from where the worktree was cut — this session's was
 
 **NEXT, in order** (rewritten 2026-09-14 evening; `/pickup` takes 1).
 1. **The ellipse fit's flag** — the refusal landed; a sparse legitimate ring is
-   now refused outright and the owner wants it flagged instead. Needs a place
-   in the UI to carry "this fit is degenerate" without it reading as a number.
+   now refused outright and the owner wants it flagged instead.
+   `open-items.md` carries the spec: where the guard is, what carries the mark,
+   the fixture that already exists, and Gate D. **It opens with one question
+   only the owner answers** — does the flag REPLACE the refusal for a
+   single-radius annulus, or sit behind an explicit "fit anyway" after one? An
+   unattended session should put that question in its report and take 2
+   meanwhile, rather than guess; `/pickup` says which it took and why.
 2. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.
