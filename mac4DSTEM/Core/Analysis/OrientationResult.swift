@@ -618,6 +618,22 @@ package nonisolated struct OrientationMap {
         set { results[y * width + x] = newValue }
     }
 
+    /// The Euler angles at a scan position, formatted for a read-out, or nil
+    /// when the position is outside the map or carries no match.
+    ///
+    /// In Core rather than in `AppState` because it is a pure function of the
+    /// map and a coordinate, so it can be tested directly — and because the
+    /// bounds check and the `templateIndex >= 0` check are the interesting
+    /// part: an unindexed position has an `euler` of (0, 0, 0), which would
+    /// render as a perfectly plausible "0.0°, 0.0°, 0.0°".
+    package func eulerText(x: Int, y: Int) -> String? {
+        guard x >= 0, x < width, y >= 0, y < height else { return nil }
+        let result = self[x, y]
+        guard result.templateIndex >= 0 else { return nil }
+        let degrees = result.euler.degrees
+        return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
+    }
+
     package var reliabilityImage: FloatImage {
         FloatImage(width: width, height: height, pixels: results.map { $0.reliability })
     }

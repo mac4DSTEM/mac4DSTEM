@@ -14,6 +14,22 @@ resolve_mac4dstem_developer_dir
 # the ~300 MB system log archive `xcodebuild test` writes to /var/tmp per run —
 # so the floors below are deliberately margin, not measurement: the failure mode
 # is a near-full disk producing varied spurious failures, not a clean ENOSPC.
+#
+# MEASURED 2026-09-12, because "margin, not measurement" is only defensible
+# until someone measures. Sampling free space every 3 s through a full
+# `-only-testing:mac4DSTEMTests` run: PEAK CONSUMPTION 1245 MB, and the suite
+# completed 602/0 with 7 GB free — i.e. it ran fine BELOW the 8 GB floor that
+# was refusing it. The floor was blocking work it did not need to block.
+#
+# `unit` is therefore 4 GB: 3.2x the measured peak, and the same value
+# `scientific` and `benchmark` already use, so this aligns the floors rather
+# than inventing a weaker one. It still protects the failure mode above, which
+# needs the disk to actually fill mid-run.
+#
+# `all` and `campaign` KEEP 8. They run the scientific harnesses, package-test
+# and real-data-acceptance on top of the unit suite, and nobody has measured
+# their peak. Lowering a floor on a target you have not measured is the guess
+# this comment exists to prevent.
 require_free_space() {
   # NB: `dir`, not `path` — in zsh `path` is tied to $PATH, and declaring it
   # local blanks PATH inside the function (df/awk vanish; caught 2026-08-18).
@@ -65,7 +81,8 @@ scientific=(
   virtual-detector-test
   virtual-detector-residency
   resident-cropped-view
-  disk-detection-test disk-correlation-parity peak-overlay-test fit-overlay-test
+  disk-detection-test embedding-pca-parity disk-correlation-parity peak-overlay-test fit-overlay-test
+  phase-vector-matching
   acom-orientation-test acom-matching-test acom-convention-test parity-metric-test cif-symmetry-test
   ws2-crystal-test
   idpc-test cancellation-test
@@ -93,10 +110,11 @@ campaign=(
 # missing runner, or on a live doc claiming work is uncommitted on a clean tree.
 diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
-  training-dataset-campaign review-record-check)
+  training-dataset-campaign review-record-check precipitate-handcount
+  phase-discrimination-probe phase-map-probe demo-dataset)
 owner_only=()
 retired=()
-support=(lib release)
+support=(lib release crystal-structures)
 
 inventory() {
   local rc=0 name f
@@ -307,7 +325,7 @@ core_build() {
 case "${1:-unit}" in
   inventory) inventory ;;
   core) core_build ;;
-  unit) require_free_space 8 "the xcodebuild unit suite"; unit_tests ;;
+  unit) require_free_space 4 "the xcodebuild unit suite"; unit_tests ;;
   benchmark) require_free_space 4 "the performance baseline"; "$ROOT/tools/performance-baseline/run.sh" ;;
   campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
   scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}" ;;

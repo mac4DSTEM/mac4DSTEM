@@ -37,13 +37,50 @@ final class ActivityLog {
         self.now = now
     }
 
+    /// Set by `AppState.showReadout` for the one write that follows it.
+    ///
+    /// A READOUT IS NOT AN EVENT. The status line has two jobs — reporting
+    /// what happened, and showing where you are — and only the first belongs
+    /// in a log. Measured on the owner's screen 2026-09-12: every click on the
+    /// scan image wrote "Pattern x 154, y 152 from <filename>" here, the
+    /// dedupe below never fired because the coordinates differ every time, and
+    /// on a 330 × 330 scan there are 108 900 of them against a 300-line
+    /// capacity. Cursor movement was evicting the run's real events — the
+    /// detection, the import, the phase map — from the record kept to explain
+    /// them.
+    ///
+    /// A one-shot flag and not a `isEvent:` parameter on `record`, because the
+    /// caller is `statusText.didSet` and a `didSet` cannot see who wrote to it.
+    @ObservationIgnored private var suppressNextRecord = false
+
+    /// The next `record` is a readout and is dropped. Consumed either way, so
+    /// a suppressed write cannot leak into the one after it.
+    func suppressNextRecordOnce() { suppressNextRecord = true }
+
     /// Record one status event.
     ///
-    /// Two things never reach the log. Progress spam — every "… 42 %" tick of
-    /// an operation — because it would bury the events worth reading. And an
-    /// immediate repeat of the last message, because a status written twice is
-    /// one thing happening, not two.
+    /// Three things never reach the log. A readout, per
+    /// `suppressNextRecordOnce` above — **which is how progress is kept out
+    /// now**, because `AppState.updateCancellableOperation` is the one funnel
+    /// every operation's progress passes through and it calls `showReadout`.
+    /// An immediate repeat of the last message, because a status written twice
+    /// is one thing happening, not two. And any message ending in "%", which
+    /// is the backstop the funnel replaced.
+    ///
+    /// **That suffix rule was never sufficient and the owner's screenshot
+    /// showed it**, 2026-09-12: `SystemMonitor.scanProgressStatus` returns
+    /// "Computing virtual detector… 100,980 / 108,900 patterns · 1.54 GB of
+    /// 1.66 GB", which ends in "GB", so a whole-cube pass wrote a line here
+    /// every tick and buried the run's real events. Filtering progress by what
+    /// a string happens to end with is a rule the next status message can
+    /// break without anyone noticing; the funnel cannot be broken that way.
+    /// The suffix rule is kept as a second line of defence and is no longer
+    /// the reason any status string carries a percentage — they have all
+    /// dropped theirs, because the progress bar beside them draws it.
     func record(_ message: String) {
+        let suppressed = suppressNextRecord
+        suppressNextRecord = false
+        guard !suppressed else { return }
         guard !message.isEmpty, !message.hasSuffix("%") else { return }
         if messages.last?.hasSuffix(message) == true { return }
         messages.append("\(Self.clock.string(from: now()))  \(message)")
@@ -66,5 +103,18 @@ final class ActivityLog {
     /// nothing" at each call site.
     static func scrollTarget(forCount count: Int) -> Int? {
         count > 0 ? count - 1 : nil
+    }
+}
+
+extension AppState {
+    /// Show something in the status line WITHOUT recording it as an event.
+    ///
+    /// For a readout — where the cursor is, which pattern is on screen. It
+    /// lives beside `ActivityLog` rather than in `AppState.swift` because the
+    /// rule it encodes is the log's: this file is what decides what counts as
+    /// an event, so it owns the one way of saying "this is not one".
+    func showReadout(_ text: String) {
+        activityLog.suppressNextRecordOnce()
+        statusText = text
     }
 }

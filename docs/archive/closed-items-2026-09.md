@@ -548,3 +548,140 @@ which in zsh is a special parameter aliased to `$?`.
 
 **What it exposed.** v2.5.1 shipped universal on 2026-09-04 with arm64-only
 HDF5 — the live entry in `open-items.md`.
+
+
+## Closed 2026-09-11 — the embedding's non-finite crash
+
+### One non-finite detector pixel killed the process — FIXED
+Found by Gate B at step 8 of the AI port, fixed the same session before the
+engine was wired, so it never reached a user. The original entry, verbatim:
+
+> ### One non-finite detector pixel kills the process — blocks wiring
+> `Core/Analysis/DiffractionEmbedding.swift`, found by Gate B 2026-09-11 and
+> reproduced independently. Chain, each link executed: a NaN or +Inf detector
+> pixel → NaN binned entry → NaN covariance → **`dsyevd_` returns `info == 0`**
+> at the shipped default (`binnedSize` 16 → `dims` 256; at `dims` 16 it returns 0
+> components, so the apparent guard is dimension-dependent) → NaN basis →
+> `totalVariance > 0` is false so `explainedVariance` publishes **0.0 for every
+> component**, a plausible-looking "0 % explained" rather than an error → NaN
+> coordinates → `kMeans` :629-646: `minDistances` start at `.infinity`,
+> `dist < minDistances[i]` is false for NaN so they stay infinite, `total <= 0`
+> does not catch it, and **`Double.random(in: 0..<.infinity)` traps**. Verified
+> standalone: exit **133** (SIGTRAP) and under `-O` the process prints nothing at
+> all — stdout never flushes, so it dies with no message. `-Inf` alone is safe
+> (`embed`'s `max(buf, 0)` clamps it; NaN and +Inf are not clamped).
+> `DPC.swift`, `DiskDetection.swift` and `FitOverlays.swift` all guard `.isFinite`
+> on their inputs; this file guards only LAPACK's workspace query. **Do not wire
+> diffraction grouping until this is fixed** — wiring is what makes it reachable.
+
+**The fix, with Gate D.** Two guards, both pinned by fixtures that were broken
+before they were trusted:
+1. `compute()` refuses after forming the covariance —
+   `guard totalVariance.isFinite, covariance.allSatisfy(\.isFinite)` — with the
+   typed `EmbeddingError.invalidDataset` the caller already handles. Mutation
+   `guard true`: `testNonFiniteDetectorValuesAreRefusedNotPublishedAndNever‐
+   Trap` goes red, and informatively — it publishes a result instead of
+   trapping, so the test catches "published instead of refused".
+2. `kMeans` takes `if !total.isFinite || total <= 0`, so an infinite total falls
+   into the deterministic-by-index branch instead of
+   `Double.random(in: 0..<.infinity)`. Mutation back to `total <= 0`:
+   `testKMeansNeverTrapsOnNonFiniteCoordinates` goes red.
+
+`kMeans` was widened from `private` to `package` to make guard 2 testable at
+all — the same reason and the same precedent as `symmetricEigenTop` in the same
+file. `compute` refuses upstream, so guard 2 is unreachable through the public
+path, and an unreachable guard with no fixture is one nobody can prove works.
+
+**What did NOT change, checked rather than assumed:** `-Inf` was always safe
+(`embed` clamps with `max(buf, 0)`) and still is — a separate fixture pins that
+a `-Inf` pixel still produces a full result with finite, non-negative explained
+variance, so the guard has not over-fired and turned working datasets into
+refusals.
+
+## The phase-mapping gate shares its in-plane frame with the code — closed 2026-09-14
+
+### ~~The phase-mapping gate shares its in-plane frame with the code~~ — **CLOSED 2026-09-14**
+
+**Verification debt.** `tools/phase-vector-matching` generates its synthetic
+patterns through `ACOMOrientation.detectorBasis`, the same call
+`PhaseReferenceLibrary.projectedVectors` makes — so a handedness flip there
+(`simd_cross(e1, n)` for `simd_cross(n, e1)`) mirrors both sides and **all 27
+checks stay green**, measured by Gate B 2026-09-12. This is the L3 trap. An
+x/y swap or a y flip on the experimental side alone IS caught (P2 falls to
+31.8 %); only the shared frame is blind. `tools/acom-convention-test` builds
+its own frame from a seed and does cover it, but nothing links the two gates
+except this entry. Remedy: generate Part B's peaks from a harness-built frame,
+as acom-convention-test does — β″ [010] is a chiral net, so P2 would then pin
+the handedness.
+
+**Closure.** `tools/phase-vector-matching` now projects Part B's peaks through `harnessFrame`, a seeded right-handed pair built the way `acom-convention-test` builds its own, and A4 compares the two projections up to one rotation per zone. Under the handedness mutation named above, A4 (worst |Δq| 2.209 Å⁻¹) and P2 (32.4 % labelled β″) went red; the unmutated tree passes 27/27. The link between the two gates is now code in both.
+
+## `Crystal.reflections` under-tiles oblique monoclinic cells — closed 2026-09-14
+
+### ~~`Crystal.reflections` under-tiles oblique monoclinic cells~~ — **CLOSED 2026-09-14**
+
+**Science, Gate D owed.** `numTile = ceil(kMax / kMin)` with kMin the shortest
+of ten reciprocal test directions, but the true bound is `|h| ≤ kMax·a`. For a
+b-unique monoclinic, kMin ≤ a* = 1/(a sin β), so the tiling can fall short and
+reflections are **silently missing**. Measured by Gate B on a β″-shaped cell
+(a = 15.16, b = 4.05, c = 6.74): β = 105.3° (the shipped β″) loses **0** at
+either kMax; β = 110° loses 6 at kMax 1.6; β = 115° loses 48; β = 125° loses
+198. Pre-existing `Crystal` code, but phase mapping is the first feature to
+drive it with arbitrary imported cells — which its own header says is the case
+it exists for. Not urgent: β″ itself is unaffected.
+
+**Closure.** Gate D 2026-09-14: the diagnosis (the shortest reciprocal direction can be longer than 1/|aᵢ|, so `ceil(kMax/kMin)` is not a bound on the index) predicted that a superset check would find misses at β = 115° and 125° and none for fcc Al or the shipped β″; `testReflectionsCoverEveryLatticePointInsideKMaxOnObliqueCells` went red on the old code and green with the per-axis bound `ceil(kMax·|aᵢ|)`, which is exact because h = g·a₁. Al (282) and β″ (3458 at tolerance 1e-9) sets are unchanged. py4DSTEM carries the same bound; the fix is an inline `DEVIATION`. Red again under the reverted bound on 2026-09-14 (mutation run).
+
+## The embedding suite says almost nothing about `coordinates` — closed 2026-09-14
+
+### ~~The embedding suite says almost nothing about `coordinates`~~ — **CLOSED 2026-09-14**
+Same Gate B. `coordinates` is the array BOTH exported quantities (cosine
+similarity, k-means groups) are built from, and
+`grep -n "\.coordinates" mac4DSTEMTests/DiffractionEmbeddingTests.swift`
+returns exactly ONE line: an `allSatisfy(\.isFinite)` check. Two mutations
+leave all 7 tests green while moving every exported number: dropping the
+mean-centring in the projection (PC1 score moves 77 %; cosine similarity
+-0.5946 → -0.0406) and reversing the projection column order (the column an
+export labels "PC1" carries PC8). The k-means and cosine tests are invariant
+under an additive offset, a column permutation and a uniform scale, which is
+why both sail through. Fix: `testPublishedBasisAreEigenpairsOfTheMeanCentred‐
+Covariance` already owns an independent `referenceBinnedVector` — assert
+`coordinates[p*k+c] == dot(referenceBinnedVector(p) - mean, basis[c])` for
+several (p, c). Proof obligation: BOTH mutations must go red, not just the
+mean-centring one.
+
+**Closure.** `testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance` now asserts `coordinates[p·k + c] == (x_p − mean)·basis[c]` at every seventh position and every component against its own `referenceBinnedVector`. Both named mutations were run on 2026-09-14 and both turned it red (see `docs/status.md`).
+
+## The grouping fallback name uses the requested k, the product the actual one — closed 2026-09-14
+
+### ~~The grouping fallback name uses the requested k, the product the actual one~~ — **CLOSED 2026-09-14**
+`Support/ResultMetadata.swift` names diffraction groups from
+`lastRunSettings?.groups ?? settings.groups`; `AppState+DiffractionGroups`
+publishes with `result.groupCount`, which `DiffractionEmbedding.compute`
+clamps to the position count. The two differ only when k exceeded the scan,
+and only if the fallback is reached with no published product — no such path
+was found by reading, so this may be dead. Outside the 2026-09-14 audit's
+scope; left for the session that touches that file.
+
+**Closure.** `Support/ResultMetadata.swift` now names the fallback from `result?.groupCount` first, the same number the publish path uses, with the requested k only when no result exists. Compiled by the targeted runs of 2026-09-14; no test, because no path reaching the fallback with a stale result was found.
+
+## Phase mapping has never been driven — closed 2026-09-14
+
+### ~~Phase mapping has never been driven~~ — **CLOSED 2026-09-14**
+
+**Verification debt.** The owner drove it on `060_STEM SI_…bin_4` (Xcode 27
+build of `fc32140`). Seen and right: a phase from a CIF; Find Matrix Zone
+Axis returning the ⟨110⟩ family tied at 38 % after "Scale to This Detector"
+(the probe measured 39 %); the resolution line 0.44 · 0.44 · 0.22 px and its
+warning; a run of β″ [001] against Al ⟨110⟩ giving matrix 2 099, β″ 27, not
+indexed 106 774 with the hatch, the legend as the phase list, the Evidence line
+following the cursor, and "unvalidated" in both places. **One defect, fixed
+on the branch, unseen since:** the zone-axis field kept "0 0 1" after the fit
+wrote [0 −1 1] into the slot (`f78122e`). **One observation, not fixed:**
+before scaling, the fit returned a ⟨112⟩ family at 8 % — chance level at a
+0.44 px tolerance (39 % × 0.19) — and the panel presented it like any other
+answer; the zone-axis fit has no chance floor of its own. Still to see: ⌘5
+landing on grouping; a phase from the built-in menu; remove-and-re-add
+marking the run stale; the fixed field following the fit.
+
+**Closure.** The owner drove the rest the same afternoon on the rebuilt `f78122e`: aluminium from the built-in menu, β″ from the CIF at [010], the fitted axis showing in the field, a run of β″ [010] against Al ⟨110⟩ (matrix 2 099, β″ 280 = 0.3 % against a 3.9 % chance level, not indexed 106 521), Show Match Distance, remove-and-re-add reading stale, and ⌘5 landing on grouping. What the drive found and did not fix is the chance-floor entry that replaces this one.

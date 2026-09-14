@@ -110,22 +110,23 @@ package nonisolated struct Crystal: Sendable {
     /// All reflections with |g| ≤ kMax and |F| above `tolerance`, sorted by
     /// increasing |g|. Mirrors calculate_structure_factors.
     package func reflections(kMax: Double, tolerance: Double = 1e-4) -> [Reflection] {
-        // Shortest reciprocal-lattice direction, to bound the hkl tiling.
-        let testDirs: [SIMD3<Double>] = [
-            latInv[0], latInv[1], latInv[2],
-            latInv[0] + latInv[1], latInv[0] + latInv[2], latInv[1] + latInv[2],
-            latInv[0] + latInv[1] + latInv[2],
-            latInv[0] - latInv[1] + latInv[2],
-            latInv[0] + latInv[1] - latInv[2],
-            latInv[0] - latInv[1] - latInv[2],
-        ]
-        let kMin = testDirs.map { length($0) }.filter { $0 > 1e-9 }.min() ?? kMax
-        let numTile = Int((kMax / kMin).rounded(.up))
+        // DEVIATION (2026-09-14, Gate D): py4DSTEM bounds every index by
+        // ceil(k_max / k_leng_min), the shortest of ten reciprocal test
+        // directions. The exact bound is per index — h = g·a₁ because
+        // aᵢ·bⱼ* = δᵢⱼ, so |h| ≤ kMax·|a₁| — and for an oblique cell the
+        // shortest reciprocal direction can be LONGER than 1/|a₁| (b-unique
+        // monoclinic: a* = 1/(a sin β)), so py4DSTEM's tile falls short and
+        // reflections go missing with no signal. Measured on the β″-shaped
+        // cell at kMax 1.6: 0 lost at β = 105.3°, 6 at 110°, 48 at 115°, 198
+        // at 125°. The per-axis bound is complete for every cell and returns
+        // the identical set wherever the old one was complete; the filter on
+        // |g| below is what actually decides membership.
+        let tile = latReal.map { max(0, Int((kMax * length($0)).rounded(.up))) }
 
         var out: [Reflection] = []
-        for h in -numTile...numTile {
-            for k in -numTile...numTile {
-                for l in -numTile...numTile {
+        for h in -tile[0]...tile[0] {
+            for k in -tile[1]...tile[1] {
+                for l in -tile[2]...tile[2] {
                     if h == 0 && k == 0 && l == 0 { continue }
                     // g = h·a* + k·b* + l·c*
                     let g = Double(h) * latInv[0] + Double(k) * latInv[1] + Double(l) * latInv[2]
@@ -247,6 +248,57 @@ package nonisolated struct Crystal: Sendable {
     package static var iron: Crystal     { bcc(a: 2.8665, z: 26) }
     package static var silicon: Crystal  { diamond(a: 5.4309, z: 14) }
     package static var magnesium: Crystal { hcp(a: 3.2094, c: 5.2108, z: 12) }
+
+    /// β″ (Mg₅Si₆), the hardening precipitate of Al-Mg-Si alloys — the
+    /// canonical experimental refinement:
+    /// S. J. Andersen, H. W. Zandbergen, J. Jansen, C. Traeholt, U. Tundal,
+    /// O. Reiso, "The crystal structure of the β″ phase in Al-Mg-Si alloys",
+    /// Acta Materialia 46(9), 3283-3298 (1998),
+    /// doi:10.1016/S1359-6454(97)00493-X. Cell from the abstract; coordinates
+    /// from Table 3, SET 3 — the C2/m refinement, R = 3.16 % over 377
+    /// reflections from seven data sets. Sets 1 and 2 are the exit-wave
+    /// extraction and the Cm refinement and are deliberately not used.
+    ///
+    /// Deliberately NOT Materials Project mp-31404, the same phase under a
+    /// compatible licence: it is DFT-relaxed, and relaxed volumes run a few
+    /// percent high — roughly 1 % on d-spacings, which is a systematic error
+    /// in exactly the quantity vector matching scores on. The Crystallography
+    /// Open Database has no Mg₅Si₆ entry (checked 2026-09-11).
+    ///
+    /// The six published sites are expanded here under C2/m (No. 12, unique
+    /// axis b) rather than stored pre-expanded, so the expansion can be read.
+    /// It MUST give Mg₁₀Si₁₂ = 2 × Mg₅Si₆ = 22 atoms, the cell content the
+    /// paper states; `tools/phase-vector-matching` asserts the count, because
+    /// sources disagree on the axis setting (some publish a = 15.16,
+    /// b = 6.74, c = 4.05 with γ = 105.3° instead) and a misread coordinate
+    /// would otherwise show up only as a wrong phase map.
+    ///
+    /// The orientation relationship comes from the same paper and is what
+    /// vector matching leans on: β″ is coherent along its NEEDLE direction —
+    /// its b-axis — with a ⟨100⟩ Al direction, and b = 4.05 Å is Al's own
+    /// lattice parameter. So [010] is the zone axis to sample on ⟨100⟩Al data.
+    package static var betaDoublePrime: Crystal {
+        // Wyckoff 4i (x, 0, z) under C2/m: (x,0,z), (−x,0,−z) and the
+        // C-centred pair. The 2a site at the origin collapses to two.
+        func fourI(_ z: Int, _ x: Double, _ zc: Double) -> [AtomSite] {
+            [SIMD3(x, 0, zc), SIMD3(-x, 0, -zc),
+             SIMD3(x + 0.5, 0.5, zc), SIMD3(-x + 0.5, 0.5, -zc)]
+                .map { AtomSite(z: z, fractional: $0) }
+        }
+        let mg = 12, si = 14
+        var sites: [AtomSite] = [
+            AtomSite(z: mg, fractional: [0, 0, 0]),          // Mg1, 2a
+            AtomSite(z: mg, fractional: [0.5, 0.5, 0]),
+        ]
+        sites += fourI(mg, 0.3459, 0.089)                    // Mg2
+        sites += fourI(mg, 0.430,  0.652)                    // Mg3
+        sites += fourI(si, 0.0565, 0.649)                    // Si1
+        sites += fourI(si, 0.1885, 0.224)                    // Si2
+        sites += fourI(si, 0.2171, 0.617)                    // Si3
+        return Crystal(a: 15.16, b: 4.05, c: 6.74,
+                       alphaDeg: 90, betaDeg: 105.3, gammaDeg: 90,
+                       sites: sites)
+    }
 
     /// 2H tungsten disulfide, P6₃/mmc (#194) — the literature refinement:
     /// W. J. Schutte, J. L. de Boer, F. Jellinek, "Crystal structures of

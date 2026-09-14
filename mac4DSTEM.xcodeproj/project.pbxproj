@@ -51,7 +51,7 @@
 		100000000000000000000120 /* mac4DSTEMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000001 /* DiskDetector */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiskDetector; path = Models/DiskDetector; sourceTree = "<group>"; };
-		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Licenses; path = Licenses; sourceTree = "<group>"; };
+		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Licenses; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000005 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000007 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -60,8 +60,8 @@
 		300000000000000000000001 /* Exceptions for "mac4DSTEM" folder in "mac4DSTEM" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
 				Core/Analysis/DatasetPreview.swift,
+				Core/Analysis/DiffractionEmbedding.swift,
 				Core/Analysis/DiskDetection.swift,
 				Core/Analysis/DPC.swift,
 				Core/Analysis/EllipseCalibration.swift,
@@ -74,6 +74,9 @@
 				Core/Analysis/ParallaxDepthSectioning.swift,
 				Core/Analysis/ParallaxPreprocessing.swift,
 				Core/Analysis/ParallaxSubpixelReconstruction.swift,
+				Core/Analysis/Precipitates/PrecipitateReflections.swift,
+				Core/Analysis/Precipitates/PrecipitateSegmentation.swift,
+				Core/Analysis/Precipitates/PrecipitateStatistics.swift,
 				Core/Analysis/ProbeKernel.swift,
 				Core/Analysis/PtychographyPreparation.swift,
 				Core/Analysis/QCalibration.swift,
@@ -94,6 +97,9 @@
 				Core/Crystal/CrystalModel.swift,
 				Core/Crystal/OrientationMatcher.swift,
 				Core/Crystal/OrientationPlan.swift,
+				Core/Crystal/PhaseMapPresentation.swift,
+				Core/Crystal/PhaseReferenceLibrary.swift,
+				Core/Crystal/PhaseVectorMatching.swift,
 				Core/Crystal/ScatteringFactors.swift,
 				Core/Data/BraggVectorEMDWriter.swift,
 				Core/Data/Calibration.swift,
@@ -116,15 +122,18 @@
 				Core/ML/LearnedDiskDetection.swift,
 				Core/ML/LearnedDiskDetector.swift,
 				Core/Workflow/AnalysisOperationController.swift,
+				Info.plist,
 				Session/ACOMSession.swift,
 				Session/ACOMWorkflow.swift,
 				Session/CalibrationSession.swift,
 				Session/DatasetResidency.swift,
+				Session/DiffractionGroupsProduct.swift,
 				Session/DiskCentreLabels.swift,
 				Session/FitOverlayPresentation.swift,
 				Session/LearnedDetection.swift,
 				Session/LoadedView.swift,
 				Session/OperationCenter.swift,
+				Session/PhaseMappingProduct.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
 				Session/ReplayPlan.swift,
@@ -340,8 +349,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
 				APPLETVOS_DEPLOYMENT_TARGET = 27.0;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -411,8 +420,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
 				APPLETVOS_DEPLOYMENT_TARGET = 27.0;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;

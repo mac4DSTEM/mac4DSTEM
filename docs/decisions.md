@@ -886,3 +886,397 @@ whether to withdraw or annotate that download is the owner's call.
 is not covering the release. `package-test` was green while the archive could
 not compile, because it used the concrete-machine destination; it now uses the
 release destination and the release pin.
+
+**2026-09-11 — the AI pipeline is ported onto `main`, reversing "leave"
+(owner, in chat).** The 2026-09-08 entry above ("C8: the four pure engines
+stay on the branch") is superseded, not silently overridden. Its stated
+reason — 1 400 lines of dead Core sitting in a tree about to become
+v3.0.0 — lapsed when v3.0.0 shipped. Its condition, that the engines
+re-enter *with* their product and UI layers, is kept: the three decisions
+below are the design session it demanded. The port is by hand-applied
+forward port, never a rebase or merge: `ml/disk-detector` is 27 ahead and
+45 behind, merge base 2026-09-06. The branch stays at `origin` as the
+record; nothing is deleted. Plan and evidence:
+`archive/2026-09-11-ai-port-analysis.md`.
+
+**2026-09-11 — the AI work gets a sixth workspace, "AI Analysis" (owner,
+in chat).** `WorkspaceArea` gains a sixth case. Considered and rejected:
+mounting the two Sections in Imaging and Map, which is smaller and was the
+analysis's recommendation. Why the owner overruled it: the five rooms are
+named by outcome (D1, 2026-09-01), and precipitate density and
+diffraction-pattern grouping are neither "form virtual images" nor "strain
+and orientation" nor "phase" — a Form section inside a room whose own
+subtitle describes something else hides the one capability that has no
+py4DSTEM equivalent. Discoverability was the deciding argument. The name
+states the method rather than the outcome, against D1; the owner chose it
+knowing that. Costs, all accepted: eight files, the five-title pin in
+`ProductWorkflowTests`'s `testPrimaryNavigationUsesUserOutcomes` updated
+deliberately, and `Results` moves off Cmd-5 (shortcuts are hand-written
+literals at `mac4DSTEMApp.swift:145-149`). A ninth site both the analysis and
+this entry's first draft missed: the `WorkspaceArea` switch at
+`AppState.swift:1331`, which is exhaustive with no default.
+
+**2026-09-11 — precipitates ship only if the pre-registered baseline is
+built and beaten (owner, in chat).** `docs/ai-ml/precipitates.md` §6
+(open it with `git show`; it is not on `main`) demands a baseline — threshold plus connected components with
+the ridge filter disabled — that the ridge filter must beat on both the
+synthetic fixture and an Al-Si-Mg hand count, "or it does not ship". It
+was never written and the hand count was never made. The owner declined
+both the waiver and the fixture-only variant. It is a live comparison, not
+a formality: the segmentation's own doc comment records the ridge mask
+running ~2x the drawn bar, so `area` — which reaches the export through
+`arealDensity` — is systematically inflated in a way a plain threshold is
+not. This is step 4 of the plan and it may end the precipitate half. The
+hand count is owed by the owner; everything around it is not.
+
+**2026-09-11 — `.unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"])` is
+accepted in `Package.swift` (owner, in chat).** `DiffractionEmbedding`
+needs `__LAPACK_int`, which only exists behind Apple's new Accelerate
+LAPACK interface; verified empirically, `dsyevd_` alone compiles without
+the macro but `__LAPACK_int` is a hard error. The cost is that SwiftPM
+will refuse to resolve DSTEMCore as a versioned remote dependency for as
+long as the flag is there — nothing consumes it that way today, and it is
+an `XCLocalSwiftPackageReference "."`. Considered and not taken: Apple's
+deprecated legacy interface (keeps publishability, adopts a deprecated
+API, needs its own proof the eigenvalues are unchanged), and a C shim
+target using `cSettings: [.define(...)]` (keeps both, unverified, would
+need a spike). If publishing DSTEMCore ever matters, the shim is the path
+back. **Landing the flag silently breaks two harnesses** —
+`tools/bragg-spacing-probe/run.sh` and
+`tools/training-dataset-campaign/run.sh` compile `Core/**` themselves with
+a bare `swiftc` and are classed `diagnostic`, so no gate reports it. Their
+two swiftc lines get the flag in the same commit as `Package.swift`.
+
+**2026-09-11 (second round) — how the unattended port behaves where it cannot
+be scored (owner, in chat, before an unattended run).** Four answers, given
+together with the run's shape in front of him:
+
+1. **The Al-Si-Mg hand count is not made** ("no time"). Step 4 computes the
+   baseline comparison and commits **the full metric table, explicitly
+   UNSCORED**, under `archive/v3/`. No winner is declared. Precipitates are
+   **not wired**: steps 5-7 do not happen this run.
+2. **"Beats" means recall and precision, and a tie passes.** Consequence,
+   stated to him before he chose: on the synthetic fixture both arms detect
+   all six needles (amplitude 200 on sigma≈2 noise is a >70-sigma signal
+   against a 3-sigma threshold), so the fixture half is a **tie, and therefore
+   a pass**. The fixture cannot discriminate the arms at all — it contains no
+   touching needles, no faint needles and no elongated background, which are
+   the failure modes the ridge filter exists for. Sharpening it now would be
+   re-registering after peeking and is refused. **The real-data half is the
+   only half that can decide, and it is unscored.** One hand count on the
+   frozen target unlocks steps 5-7 with no other work owed.
+3. **If precipitates never ship, the AI Analysis room ships anyway**, for
+   diffraction grouping alone, and the run continues to steps 8-9. The
+   embedding half shares only step 1 and step 2 with the precipitate half.
+4. **One commit per step; never push.**
+5. **Exit 69 is recoverable: delete `~/Library/Developer/Xcode/DerivedData`
+   and retry, once per refusal.** Asked again after free space fell to exactly
+   8 GB mid-session against `run-tests.sh`'s hard 8 GB floor (`have < need`, so
+   8 passes and 7 refuses) while `tools/free-space.sh` reclaims 0 bytes. The
+   cache is ~921 MB of regenerable build product outside the repo; the cost is
+   one slower rebuild. **Not** authorised, and so never done: thinning the
+   Time Machine local snapshot made 18:38 today, which is probably the larger
+   consumer. A refusal is always reported as a disk event, never as a test
+   failure.
+
+**Correction the same session, to a claim this file and `status.md` both
+carried.** The port analysis says twice (§3 step 1, §5) that step 1 "creates
+the headroom every later step spends". It does not. `tools/run-tests.sh:135`
+measures each commit against its *immediate* predecessor — `HEAD` while a
+budgeted file is dirty, `HEAD^` when clean — so every commit must be <= the one
+before it and a saving is never bankable. What step 1 does buy is permanent and
+different: the new `AnalysisMode` cases land in `ProductWorkflow.swift`, outside
+both budgeted files. Step 6 still pays for itself inside its own commit, and
+step 9 has no lever named yet.
+
+**2026-09-11 — precipitate density is measured by CLASSIFYING diffraction
+patterns, not by segmenting a virtual image (owner, in chat: "i approve").**
+Supersedes `v3-plan.md`:64 ("per-object, real-space segmentation", 2026-08-06,
+re-requested 2026-08-26) and stands in for the §1.5 design session, which was
+skipped when the 2026-09-11 port reversed the 2026-09-08 "leave" decision — the
+design session existed to question exactly these contracts, and porting to the
+branch's design dropped it.
+
+Why, and the owner reached it himself: the shipped route collapses each
+diffraction pattern — 4096 numbers on the Al-Si-Mg cube — to ONE number, the
+aperture sum, before any decision is made, and every later step tries to
+recover structure already discarded. His two arguments, both correct: a virtual
+dark-field image is *as an image* worse than HAADF, because a small aperture
+collects few electrons; and the 4D dataset is far richer than any image formed
+from it.
+
+Three measured failures this session are all downstream of that one choice: a
+shape filter deleted the end-on needle variant (17 counted where there were 35,
+low by 2.1x); the ridge filter's own pre-registered baseline came out a TIE,
+with both arms reporting every round particle the ridge filter exists to
+reject; and the route has no upstream counterpart, so no parity harness is
+possible for it — established 2026-09-11 and unchanged.
+
+The decisive argument is verifiable rather than aesthetic:
+`References/py4DSTEM-dev/py4DSTEM/process/classification/` already ships
+`Featurization` (PCA, ICA, NMF, GMM, `spatial_separation`, `consensus`) and
+`BraggVectorClassification` (NMF refine, split, merge) — including
+`spatial_separation`, which is the segmentation step done on CLASSES rather
+than pixels. **So the classification route can have a py4DSTEM parity harness
+and the image route provably cannot.** The owner's own library carries the
+method papers (Thronsen 2024 on SPED phase mapping of precipitates; Vogl 2024
+on classifying fine beta-precipitates in AA6061; Ånes 2018; Bruefach 2023).
+
+Pre-registered before any code in `docs/v3-precipitate-classification.md`, with
+a symmetric ship gate: the new route must beat the image route on the owner's
+adjudicated count, a tie passing, **or it does not ship and the image route
+stands**. Five decisions are recorded there as still owed, including PCA vs NMF
+and whether this retires the ridge filter.
+
+**2026-09-11 — the AI work is NOT consolidated into one folder (owner asked;
+explained and declined).** Only ONE file in the repository imports CoreML
+(`Core/ML/LearnedDiskDetector.swift`); `DiffractionEmbedding` and
+`Precipitates/*` call themselves "classical" in their own headers and are PCA,
+k-means and image processing. `Core/` is organised by subject —
+Analysis/Data/Crystal/Compute/Workflow — with `ML/` earning its place as the
+repo's only strict framework boundary. An `AI/` folder would group by
+technique, which is the mistake D1 (2026-09-01) forbade when it renamed Bragg
+to "Strain & ACOM", and would mislabel two files that are not AI. One known
+wrinkle, left alone deliberately: `Core/ML/LearnedDiskDetection.swift` is
+orchestration and imports no CoreML, so it would strictly belong in `Analysis/`
+beside `DiskDetection` — splitting two files about one feature costs more
+cohesion than the taxonomy gains.
+
+**2026-09-11 — the `docs/ai-ml/` design brief is ported to `main`; it should
+have been ported at step 3 and was not.** The handoff listed
+`docs/ai-ml/{README,precipitates}.md` under "what is unmerged and wanted", and
+the port repointed every source citation to `ml/disk-detector:docs/ai-ml/…`
+instead of bringing the documents across. The app therefore cited a design
+brief that was not in the repository, and the inventory gate could not see it
+because that gate judges truth docs, not `.swift` sources. Both files are now
+under `docs/ai-ml/` and all nine citing files are repointed to plain paths the
+gate can check.
+
+**What that miss cost, and the owner caught it, not a gate.** README §5 is
+"Thickness and the path to number density" — PACBED foil-thickness estimation
+and the explicit chain to a VOLUMETRIC number density, which is the owner's
+actual goal; areal is a way-station. §6 is "Diffraction clustering, similarity
+and discovery", which the 2026-09-11 classification pre-registration partly
+reinvented. **No code was lost — thickness was never implemented on either
+branch, and `precipitates.md`:15 marks volumetric density a v1 non-goal — but
+the design was, and writing a pre-registration without reading it was the
+error.**
+
+**2026-09-11 — PCA stays for now (owner, in chat).** NMF remains a named
+comparison, not a prerequisite. For: a diffraction pattern is a non-negative
+SUM of contributions and NMF models exactly that, while a negative PCA
+coefficient means "subtract this pattern", which photon counts cannot do; NMF
+components are indexable patterns rather than signed difference-patterns.
+Against: NMF is non-convex with a random start, so runs differ unless seeded,
+and it has no explained-variance equivalent for choosing a component count. PCA
+is deterministic, fast and already gated.
+
+**2026-09-11 — class identification should be TEMPLATE-MATCHED, not
+unsupervised (owner's objection; recommendation recorded, not yet approved).**
+He asked: "the user has to check by hand anyway what each class really is — can
+we feed information beforehand? maybe we are running into slop here." He is
+right that it is slop: k-means returns k *unlabelled* groups and nothing makes
+them "matrix + 3 variants" rather than "thin + thick + bent + oxide". Since the
+β″ structure is known, the classes can be labelled by matching against
+predicted diffraction from an imported CIF — and **the app already owns that
+engine**: `Core/Crystal/{CIFImport,CrystalModel,OrientationMatcher,Orientation‐
+Plan,ScatteringFactors}.swift`, what ACOM runs on. Pointing an existing engine
+at a second structure, not a new capability. Clustering becomes the fallback
+for what templates do not explain. Owner owes a β″ CIF or agreement to fetch.
+
+**2026-09-11 — the ridge filter is PARKED, not retired (owner: "maybe it has to
+go, or come back later — maybe we were too fast").** A third option was not
+visible when the question was first put: it is fixable.
+`PrecipitateSegmentation.swift:389` computes both Hessian curvatures and keeps
+only the most negative (`max(0, -lambdaMin)`), so a round blob — curved
+downward in every direction — scores at least as high as a needle. It does not
+measure elongation; it measures "is this a bump", which is exactly why its own
+pre-registered baseline came out a TIE with both arms reporting every round
+particle. Elongation selectivity requires comparing the two curvatures. It
+should not be retired on a tie it lost for a correctable reason: if
+classification wins, it is moot; if classification loses, fix the comparison and
+re-run the baseline.
+
+**2026-09-11 — class identification is TEMPLATE-MATCHED and MATERIAL-GENERAL
+(owner, in chat: "yes that is a great idea! … more versatile for different
+samples not just al").** Approves the recommendation recorded above. Identity
+comes from an imported CIF, never a hardcoded Al-Mg-Si assumption — which also
+discharges `docs/ai-ml/README.md` §2's standing requirement to "derive
+everything from the data, not from Al-Si-Mg-specific constants".
+
+**What that makes it: multi-phase identification**, already ranked immediately
+before precipitates in `v3-plan.md`:20. Two blockers, measured rather than
+assumed: `Core/Crystal/OrientationMatcher.swift:324` hardcodes `phaseID: 0`
+(the field exists, one phase is ever written), and `ACOMCrystalSymmetry`
+(`Core/Analysis/OrientationResult.swift:489`) covers cubic, hexagonal and
+identity only, so monoclinic β″ falls back to "Unreduced".
+
+**One hypothesis, explicitly untested, that would de-risk the second:** point
+groups are needed to REPORT an orientation, not to decide WHICH PHASE a pattern
+is — so `.identity` may cost search time rather than correctness, and
+`v3-plan.md`:22's "multi-phase needs point-group coverage" may apply to the
+orientation half alone. **Test it before relying on it.** Multi-phase for
+precipitates also does not need grain segmentation; the plan pairs those for
+polycrystal work and a precipitate is not a grain.
+
+**2026-09-12 — the `unit` free-space floor drops 8 GB → 4 GB, on a
+measurement (owner asked: "lower the floor to 6 GB?").** Not to 6, and not by
+guess. Sampling free space every 3 s through a full
+`-only-testing:mac4DSTEMTests` run measured **peak consumption 1245 MB**, and
+the suite completed **602 passed / 0 failed with 7 GB free** — below the floor
+that had been refusing to start it. The floor was blocking work it did not need
+to block, and `run-tests.sh`'s own comment already admitted the floors were
+"deliberately margin, not measurement".
+
+4 GB is 3.2x the measured peak and is the value `scientific` and `benchmark`
+already use, so this aligns the floors rather than inventing a weaker one. The
+failure mode the floor exists for — a near-full disk producing varied spurious
+failures, three different failure sets in three runs on 2026-08-06 — needs the
+disk to actually fill during a run, which 4 GB against a 1.2 GB peak prevents.
+
+**`all` and `campaign` keep 8 GB.** They add the scientific harnesses,
+package-test and real-data-acceptance on top of the unit suite and nobody has
+measured their peak. Lowering an unmeasured floor is exactly the guess this
+change is refusing to make.
+
+**What was NOT done, and why.** Moving `References/training_dataset` (7.1 GB)
+off the internal disk would free far more, and nothing gated depends on it —
+`real-data-acceptance` skips cleanly when it is absent and every other consumer
+is `diagnostic`. It was not proposed as a destination because the only mounted
+volume is the Time Machine backup drive, and working data does not belong on a
+backup destination.
+
+## 2026-09-12 — vector matching lands unvalidated, deliberately
+
+The owner asked whether step 3 of `v3-vector-matching-plan.md` — scoring
+against Thronsen et al.'s published ground truth — could be deferred and done
+later. It can, and it was, on one condition: **the output is labelled
+unvalidated everywhere it appears.** It is, in four places — `validation:
+"none"` in every product's provenance, the task's guidance line, a banner above
+the panel's legend, and the run's own status line.
+
+The precedent is this repo's: the precipitate engines are on `main` unwired
+with their ship gate openly unmet, and that has held up. The cost of deferring
+is rework risk, not correctness — if step 3 later fails, steps 1 and 2 need
+fixing and anything built on them was premature. That is bounded, and it would
+be found before anything is published. The blocker is disk, not licence: their
+`datasetA` is ~7.4 GB against a machine that ended the session at 5.7 GB free,
+and the owner has already deleted everything he is willing to delete.
+
+## 2026-09-12 — β″ becomes a built-in structure, not an import-only CIF
+
+The same reasoning as WS₂ on 2026-08-31: an `.imported` model does not survive
+into a new session, so a recipe recorded against an imported CIF cannot replay.
+A built-in entry is what makes an Al-Mg-Si workflow reproducible at all. The
+values are Andersen et al., *Acta Materialia* 46(9) 3283 (1998), Table 3 set 3
+— experimental, and deliberately not Materials Project mp-31404, which is the
+same phase under a compatible licence but DFT-relaxed, and relaxed volumes run
+a few percent high in exactly the quantity this method matches on.
+
+The C2/m expansion is written out in source rather than stored pre-expanded, so
+it can be read, and it is asserted at Mg₁₀Si₁₂ = 22 atoms — the cell content
+the paper states. Sources disagree on the axis setting (some publish a = 15.16,
+b = 6.74, c = 4.05 with γ = 105.3°), which is what makes that assertion worth
+having.
+
+## 2026-09-12 — the matrix is stated by the user, never inferred
+
+Which phase is the bulk is knowledge about the specimen, not about the data.
+`PhaseDefinition.Role` carries it, exactly one phase may be the matrix, and a
+library without one is refused rather than defaulting to the first in the list
+— because a default there would make the verdict depend on the order the user
+happened to add phases. This is also what makes "assign the matrix by
+exclusion" possible, which is the part of Thronsen et al.'s method that lets a
+precipitate be found without the matrix competing with it for the label.
+
+## 2026-09-12 — an in-plane angle is reported modulo the projected symmetry
+
+The gated harness demonstrates it on fcc [001]: 13.7° and 283.7° produce the
+same spots, so no method that looks at spots can separate them. The matcher's
+in-plane rotation is therefore recorded as
+`matrix_in_plane_deg_mod_symmetry`, is shown in the panel as "(mod symmetry)",
+and is never presented as an absolute orientation. The first version of the
+harness check asserted the ANGLE and failed at 89.7° — the test was wrong, not
+the code, and the check is now on the vector set with a sign-flipped plant
+shown not to satisfy it.
+
+## 2026-09-12 — the chance guard stays although it is inert at shipped settings
+
+Gate B refuted the claim first made for it: removing it changes nothing at the
+shipped settings, because its bar crosses `minimumMatchedVectors` only above
+~45 surviving vectors per pattern and real SPED patterns here carry ~7. The
+99.2 % → 5.5 % collapse credited to it is the matched-vector floor's.
+
+It is kept rather than deleted, and the reason is not sentiment: a fixed
+`maximumVectorsPerEntry` bounds a library's SIZE, and nothing else bounds what
+that size costs on a pattern rich enough for the size to matter. The guard is
+the only thing that scales with the pattern. What changed is the honesty of the
+record — the gate now prints the three conditions apart, and the source names
+the threshold at which the guard starts to bind, so the wrong one cannot be
+credited again.
+
+## 2026-09-12 — completeness is a chance-level test, not a fraction
+
+A minimum matched FRACTION is the obvious guard against a phase explaining one
+vector in ten beating one explaining nine. It was implemented, and it failed on
+real geometry: the reference library is capped at `maximumVectorsPerEntry`, so
+a pattern showing more spots than the library holds can never reach any
+fraction — the harness's β″ positions went to 0 % indexed while being perfectly
+matched. What replaced it has a number behind it: an entry must beat its own
+`chanceMatchFraction` expectation by 5×. Removing it takes random-vector
+accuracy from 99.2 % to 5.5 %, which is the measurement that says it is
+load-bearing.
+
+## 2026-09-12 — throughput leaves the status strip, which narrows a 2026-09-04 decision
+
+On 2026-09-04 the owner asked for elapsed, throughput and ETA beside the
+progress bar rather than "only one tab away" in the inspector. On 2026-09-12 he
+called the same strip not "simple, stupid, macOS". Both are right, and the
+resolution keeps the half that carries the decision.
+
+**Elapsed and ETA stay in the strip. Throughput does not.** Three reasons, in
+descending weight. Apple's own chrome carries units-per-second nowhere — the
+HIG asks a progress indicator for "a description that provides additional
+context", and rate belongs to Activity Monitor. It was the longest token in the
+line by a wide margin: the widest string the formatter could produce with it is
+180.9 pt against 113.6 without, so it alone was most of a 190 pt reservation in
+a bar now called cluttered. And it is the one of the three a user can infer
+from what remains — the bar and the elapsed time give it — whereas neither
+elapsed nor ETA is derivable from anything else on screen.
+
+It survives in Info › Performance, which is where it was before 2026-09-04. The
+part of that decision this does NOT reverse is the part that mattered: the
+numbers a user waits on are still beside the bar they are waiting at.
+
+## 2026-09-12 — a readout is not an event
+
+`ActivityLog` now has a one-shot suppression, and the scan-position line uses
+it. The rule it encodes: the status line has two jobs — reporting what
+happened, and showing where you are — and only the first belongs in a log.
+
+Measured, on the owner's screen: every click on the scan image wrote
+"Pattern x 154, y 152 from <filename>" through `statusText.didSet`, the
+consecutive-repeat rule never fired because the coordinates differ every time,
+and a 330 × 330 scan offers 108 900 of them against a 300-line capacity. Cursor
+movement was evicting the run's real events — the detection, the import, the
+phase map — from the record kept to explain them. The filename went too: it is
+in the window subtitle, the sidebar and the toolbar, and repeating it in a line
+that truncates is what truncated it.
+
+## 2026-09-14 — `Crystal.reflections` deviates from py4DSTEM's tile bound, and a gate owns its own frame
+
+py4DSTEM bounds every Miller index by `ceil(k_max / k_leng_min)`, the shortest
+of ten reciprocal directions. That is not a bound on an index: `h = g·a₁`, so
+`|h| ≤ kMax·|a₁|`, and on an oblique cell the shortest reciprocal direction can
+be longer than `1/|a₁|`. Measured on the β″ shape at kMax 1.6: 6 reflections
+lost at β = 110°, 48 at 115°, 198 at 125°, with no signal. The port now tiles
+each index by `ceil(kMax·|aᵢ|)` and says so inline as a `DEVIATION`; every
+shipped cell returns the identical set, and the deviation exists because phase
+mapping is the first feature to hand this function arbitrary imported cells.
+Parity with py4DSTEM on an oblique cell would now be parity with a defect.
+
+The second rule this session sets: a harness may not take its in-plane frame
+from the code it gates. `tools/phase-vector-matching` shared
+`ACOMOrientation.detectorBasis` with `PhaseReferenceLibrary`, so a handedness
+flip mirrored both and 27 of 27 checks stayed green. It builds its own seeded
+frame now, as `acom-convention-test` always did, and the flip fails two checks.

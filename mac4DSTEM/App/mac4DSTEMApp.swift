@@ -146,7 +146,11 @@ private struct DatasetCommands: Commands {
             workspaceCommand(.image, key: "2")
             workspaceCommand(.map, key: "3")
             workspaceCommand(.reconstruct, key: "4")
-            workspaceCommand(.results, key: "5")
+            workspaceCommand(.aiAnalysis, key: "5")
+            // Results moves to 6. The owner accepted this when he chose the
+            // sixth room (docs/decisions.md, 2026-09-11): the rooms are ordered
+            // by the pipeline, and Results is last.
+            workspaceCommand(.results, key: "6")
         }
     }
 

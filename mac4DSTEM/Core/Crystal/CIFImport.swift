@@ -803,11 +803,33 @@ package nonisolated enum CIFImport {
             && angleMatches(alphaDeg, 90) && angleMatches(betaDeg, 90) && angleMatches(gammaDeg, 120)
         if isHexagonal { return .hexagonal }
 
-        let detail = String(
-            format: "a=%.4g, b=%.4g, c=%.4g Å, α=%.4g°, β=%.4g°, γ=%.4g°",
-            a, b, c, alphaDeg, betaDeg, gammaDeg
-        )
-        throw CIFImportError.unsupportedPointGroup(detail)
+        // Everything else loads as `.identity` — "Unreduced" — rather than
+        // being refused at the door (2026-09-11).
+        //
+        // The header above argues against admitting these, and it is right
+        // about the thing it names: coercing a monoclinic cell onto `.cubic`
+        // WOULD fabricate an IPF colour key and a fundamental-zone sampling
+        // that do not correspond to the crystal. `.identity` fabricates
+        // neither — `OrientationResult.swift` introduces it as exactly "the
+        // safe fallback for future non-cubic structures until their point
+        // groups are implemented".
+        //
+        // What makes it safe is NOT this line. It is that
+        // `CrystalModel.validationIssues` refuses such a model for orientation
+        // mapping, so `AppState.resolvedACOMModel` returns nil and the user is
+        // told why. Without that, `ACOMCrystalSymmetry.identity.ipfColor`
+        // returns |x|,|y|,|z| as RGB — not a wrong IPF key but no key at all,
+        // wearing the look of one. The two changes are one change; neither is
+        // correct alone.
+        //
+        // Why admit them at all: phase IDENTIFICATION needs a structure, not a
+        // point group. Template generation is symmetry-agnostic (measured
+        // 2026-09-11: `Crystal` builds the general triclinic metric tensor and
+        // symmetry is read only in zone-axis sampling and orientation
+        // reporting). β″ in Al-Mg-Si is monoclinic C2/m, so refusing here
+        // blocked the phase mapping in `docs/v3-vector-matching-plan.md`
+        // before it could start.
+        return .identity
     }
 
     /// The cell metric alone does not determine the point group: a *trigonal*

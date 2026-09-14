@@ -25,12 +25,15 @@ final class StatusBarMetricsTests: XCTestCase {
             OperationMetricsFormat.line(elapsedOnly, for: "Disk detection"), "53 s"
         )
 
+        // Throughput left this line on 2026-09-12 and is the inspector's
+        // alone. A measured rate must NOT appear here, which is what these two
+        // now pin: the first is the case that used to print a rate and no ETA,
+        // and it must now print neither.
         let noETA = AnalysisOperationMetrics(
             elapsed: 150, unitsPerSecond: 78.8, eta: nil
         )
         XCTAssertEqual(
-            OperationMetricsFormat.line(noETA, for: "Disk detection"),
-            "2:30 · 78.8 positions/s"
+            OperationMetricsFormat.line(noETA, for: "Disk detection"), "2:30"
         )
 
         let full = AnalysisOperationMetrics(
@@ -38,25 +41,29 @@ final class StatusBarMetricsTests: XCTestCase {
         )
         XCTAssertEqual(
             OperationMetricsFormat.line(full, for: "Disk detection"),
-            "2:30 · 78.8 positions/s · ETA 2:35"
+            "2:30 · ETA 2:35"
         )
+        XCTAssertFalse(OperationMetricsFormat.line(full, for: "Disk detection")
+                        .contains("/s"))
     }
 
     /// The virtual detector walks patterns; everything else walks scan
-    /// positions. The status bar must not disagree with the inspector about
-    /// which, so both take the unit from the same place.
+    /// positions. The INSPECTOR must still get that right — it is the only
+    /// surface that prints a rate now — so the unit rule is pinned on
+    /// `throughput(_:for:)` directly rather than through the status line,
+    /// which stopped carrying it on 2026-09-12.
     func testTheThroughputUnitFollowsTheOperation() {
-        let metrics = AnalysisOperationMetrics(
-            elapsed: 10, unitsPerSecond: 12.0, eta: nil
-        )
-        XCTAssertEqual(
-            OperationMetricsFormat.line(metrics, for: "Virtual detector"),
-            "10 s · 12.0 patterns/s"
-        )
-        XCTAssertEqual(
-            OperationMetricsFormat.line(metrics, for: nil),
-            "10 s · 12.0 positions/s"
-        )
+        XCTAssertEqual(OperationMetricsFormat.throughput(12.0, for: "Virtual detector"),
+                       "12.0 patterns/s")
+        XCTAssertEqual(OperationMetricsFormat.throughput(12.0, for: nil),
+                       "12.0 positions/s")
+        XCTAssertEqual(OperationMetricsFormat.throughput(12.0, for: "Disk detection"),
+                       "12.0 positions/s")
+        // And the status line ignores the operation entirely now, which is
+        // what keeps its width bounded by the sweep below.
+        let metrics = AnalysisOperationMetrics(elapsed: 10, unitsPerSecond: 12.0, eta: nil)
+        XCTAssertEqual(OperationMetricsFormat.line(metrics, for: "Virtual detector"),
+                       OperationMetricsFormat.line(metrics, for: nil))
     }
 
     /// A rate of zero reads as a stall and an ETA the run cannot estimate is
@@ -73,18 +80,24 @@ final class StatusBarMetricsTests: XCTestCase {
 
     // MARK: - The slot it says it in
 
-    /// The bound this test defends: up to an hour elapsed, up to an hour of
-    /// ETA, up to 999.9 units per second, in either unit. A longer run
-    /// truncates inside the slot, which is safe — what is not safe is the
-    /// slot changing size, and it cannot, because the width is a constant.
+    /// The bound this test defends: **a hundred hours** in both fields.
+    ///
+    /// The sweep deliberately runs past an hour, and that is the point. The
+    /// version of this test that stood until 2026-09-12 stopped at 59:59 in
+    /// each field, which was enough while throughput dominated the width — and
+    /// would have been exactly the wrong bound afterwards, because with the
+    /// rate gone the two DURATIONS are what grows the string, and
+    /// `duration(_:)` keeps counting minutes rather than growing an hours
+    /// field. Narrowing the sweep to fit a smaller constant would be fitting
+    /// the gate to the answer.
     func testTheReservedSlotFitsTheLongestLineTheFormatterProduces() {
         let font = statusBarFont()
         var widest = (line: "", width: CGFloat(0))
 
         for operation in ["Disk detection", "Virtual detector"] {
-            for elapsed in [0.0, 53, 150, 59 * 60 + 59] as [TimeInterval] {
+            for elapsed in [0.0, 53, 150, 59 * 60 + 59, 5999 * 60 + 59] as [TimeInterval] {
                 for rate in [nil, 0.1, 78.8, 999.9] as [Double?] {
-                    for eta in [nil, 5, 155, 59 * 60 + 59] as [TimeInterval?] {
+                    for eta in [nil, 5, 155, 59 * 60 + 59, 5999 * 60 + 59] as [TimeInterval?] {
                         let line = OperationMetricsFormat.line(
                             AnalysisOperationMetrics(
                                 elapsed: elapsed, unitsPerSecond: rate, eta: eta
@@ -100,43 +113,23 @@ final class StatusBarMetricsTests: XCTestCase {
         }
 
         XCTAssertLessThanOrEqual(
-            widest.width, LayoutPolicy.operationMetricsWidth,
+            widest.width, LayoutPolicy.operationReadoutWidth,
             """
             The widest line the formatter can produce inside the documented \
             bound is "\(widest.line)" at \(widest.width) pt, which does not \
-            fit LayoutPolicy.operationMetricsWidth \
-            (\(LayoutPolicy.operationMetricsWidth) pt). Widen the constant — \
+            fit LayoutPolicy.operationReadoutWidth \
+            (\(LayoutPolicy.operationReadoutWidth) pt). Widen the constant — \
             do NOT let the text size itself.
             """
         )
     }
 
-    /// The companion slot beside it: the bare `Int(progress * 100) %` label.
-    /// It wraps its digit onto its own line the instant the row is tight
-    /// (observed ~1080 pt window width) unless it is reserved a width, the
-    /// same failure `operationMetricsWidth` exists to prevent next to it.
-    func testTheReservedPercentSlotFitsTheLongestLineTheFormatterProduces() {
-        let font = statusBarFont()
-        var widest = (line: "", width: CGFloat(0))
-
-        for percent in 0...100 {
-            let line = "\(percent) %"
-            let width = (line as NSString)
-                .size(withAttributes: [.font: font]).width
-            if width > widest.width { widest = (line, width) }
-        }
-
-        XCTAssertLessThanOrEqual(
-            widest.width, LayoutPolicy.progressPercentWidth,
-            """
-            The widest percentage the formatter can produce is \
-            "\(widest.line)" at \(widest.width) pt, which does not fit \
-            LayoutPolicy.progressPercentWidth \
-            (\(LayoutPolicy.progressPercentWidth) pt). Widen the constant — \
-            do NOT let the text size itself.
-            """
-        )
-    }
+    /// The percent slot's test stood here and is DELETED with the slot it
+    /// measured, 2026-09-12. The label is gone: a numeric percentage beside a
+    /// progress bar is the same fact drawn twice, `ProgressView` has no
+    /// percentage API and the HIG never asks for one. The number reaches
+    /// VoiceOver on the bar's `.accessibilityValue` instead, where it cannot
+    /// wrap — which also closes the wrap defect this test was written for.
 
     /// `.caption2.monospacedDigit()`, which is what the status bar draws in.
     /// Measured rather than assumed: the constant above is only defensible

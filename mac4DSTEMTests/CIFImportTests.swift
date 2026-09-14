@@ -158,7 +158,7 @@ final class CIFImportTests: XCTestCase {
 
     // MARK: - Rejected point group
 
-    func testOrthorhombicCellIsRejectedAsUnsupportedPointGroup() {
+    func testOrthorhombicCellImportsUnreducedAndRefusesOrientationMapping() throws {
         let cif = """
         data_orthorhombic
         _cell_length_a 5.0
@@ -175,11 +175,39 @@ final class CIFImportTests: XCTestCase {
         _atom_site_fract_z
         Fe1 Fe 0 0 0
         """
-        XCTAssertThrowsError(try CIFImport.crystalModel(from: cif, fileBaseName: "ortho")) { error in
-            guard case .unsupportedPointGroup = error as? CIFImportError else {
-                return XCTFail("expected .unsupportedPointGroup, got \(error)")
-            }
-        }
+        // BEHAVIOUR CHANGED 2026-09-11, deliberately. This cell used to be
+        // refused at import. It now loads as `.identity` — "Unreduced" — so a
+        // structure the app cannot orientation-map can still be used for phase
+        // IDENTIFICATION, which needs a cell and a basis and no point group.
+        // β″ in Al-Mg-Si is monoclinic C2/m, and refusing here blocked the
+        // phase mapping in docs/v3-vector-matching-plan.md before it started.
+        //
+        // Both halves are asserted, because admitting the model without the
+        // refusal below would let `identity.ipfColor` draw |x|,|y|,|z| as RGB —
+        // not a wrong IPF key, but no key at all wearing the look of one.
+        let model = try CIFImport.crystalModel(from: cif, fileBaseName: "ortho")
+        XCTAssertEqual(model.symmetry, .identity, "an orthorhombic cell imports as Unreduced")
+        XCTAssertEqual(model.crystal.a, 5.0, accuracy: 1e-9, "the cell is read, not coerced")
+        XCTAssertEqual(model.crystal.c, 7.0, accuracy: 1e-9)
+
+        // The crystal is VALID. What it cannot do is orientation mapping, and
+        // those are deliberately different properties: a first attempt recorded
+        // this as a validation issue, which made `CIFImport.crystalModel` throw
+        // `.invalidModel` — so the structure never loaded at all and the change
+        // achieved nothing. Caught by probe before it shipped.
+        XCTAssertTrue(model.isUsable, "the cell, basis and structure factors are all fine")
+        XCTAssertTrue(model.validationIssues.isEmpty)
+        XCTAssertFalse(
+            model.supportsOrientationMapping,
+            "AppState.resolvedACOMModel gates on this, so ACOM must not accept the model"
+        )
+        XCTAssertNotNil(
+            model.orientationMappingIssue,
+            "the refusal must carry a reason for acomModelSelectionIssue to surface"
+        )
+        // And the half that makes admitting it worthwhile at all: phase
+        // identification needs reflections, and gets them.
+        XCTAssertFalse(model.crystal.reflections(kMax: 1.6).isEmpty)
     }
 
     // MARK: - Element with no scattering factor

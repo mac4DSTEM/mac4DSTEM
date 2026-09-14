@@ -67,7 +67,13 @@ is its own product").
   get wrong; the most plausible second Neural Engine feature (§3a). **Precipitate density**
   (2026-08-26): count over a calibrated extent — the denominator must be the
   area actually analysed; areal is not volumetric without foil thickness.
-  → v3 design session (§1.5).
+  **Superseded 2026-09-11 (owner): the route is no longer real-space image
+  segmentation.** Density comes from classifying each scan position by its FULL
+  diffraction pattern, then separating classes spatially — the information the
+  instrument recorded, and the only route with a py4DSTEM parity harness.
+  Pre-registered in
+  [`v3-precipitate-classification.md`](v3-precipitate-classification.md), which
+  also supersedes the §1.5 design session skipped during the AI port.
 - **EDX correlation** (2026-08-26) — a data-model change before a feature: a
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.

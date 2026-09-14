@@ -15,6 +15,191 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
+
+### Step 3 has not run: no external validation exists — added 2026-09-12
+
+**Science.** Vector-matched phase mapping ships with `validation: "none"` in
+every product's provenance. Scoring it against Thronsen et al.'s published
+ground truth needs their preprocessed `datasetA`, ~7.4 GB, against a machine
+that ended 2026-09-12 at 5.7 GB free. Their `ground_truth.hspy` is 37 kB and
+its HyperSpy schema is already among `H5Reader`'s candidate paths, so the only
+obstacle is size. Acceptance is pre-registered in
+`docs/v3-vector-matching-plan.md` §3: the mislabelled fraction must land inside
+the band their four methods occupy. **Until it runs, a phase fraction off this
+map is not a measurement.** Owner: needs an external drive or ~8 GB freed.
+
+### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
+
+**Science.** On `060_STEM SI_…bin_4`, only **39 %** of detected vectors are
+explained by the best-fitting Al orientation at one-pixel tolerance, on a
+specimen whose matrix is aluminium. Measured by `tools/phase-map-probe` with a
+synthetic 2.5 px kernel and default spacing on a 4×-binned 64 px detector, so
+this is a statement about the DETECTION, not the matcher. The app's own path —
+a measured probe kernel, a fitted origin map, the ellipse — is what the probe
+skips. Evidence: `docs/archive/v3/phase-mapping-2026-09-12.md` §"Step 4".
+Not blocking: the matcher refuses (99.0 % "not indexed") rather than inventing.
+
+### The β″ zone axis for ⟨110⟩Al data is not chosen — added 2026-09-12
+
+**Known, scoped.** β″ is coherent along its b-axis with a ⟨100⟩Al direction, so
+with the beam on ⟨110⟩Al — which is where this cube sits, measured — no variant
+is viewed down its needle axis and a [010]β″ library cannot match. Which β″
+zone axes a ⟨110⟩Al beam DOES present is a crystallographic question nobody has
+answered here; until it is, the UI lets the user type one and the method
+refuses when it is wrong, which is the correct behaviour but not the answer.
+
+### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12
+
+**Known, scoped.** Measured by Gate B on the harness's own plant: halving
+`notIndexedAboveInvAngstrom` (0.010 → 0.005) takes β″ from 100 % to 0 %, and
+doubling `pairRadiusInvAngstrom` (0.020 → 0.040) does the same. The header
+calls 0.02 a budget that "covers those with room"; the room is a factor of two,
+in one direction, on noise-free synthetic data. **The second half closed
+2026-09-14:** `testMatrixRemovalAndCandidateScoringReadTheirOwnRadii` sets the
+two radii 0.005 / 0.020 and displaces every vector by 0.012; reading the pair
+radius in matrix removal, or the matrix tolerance in scoring, each turned it
+red (21/1 twice), 22/22 green unmutated. The cliff itself remains as stated.
+
+### A stale DerivedData test bundle fakes both a pass and a surviving mutation — added 2026-09-12
+
+**Code hygiene, and it is a trap not a defect.** Twice on 2026-09-12 a newly
+added test method was **not discovered by XCTest at all**: eight of nine cases
+ran, the ninth never appeared, and the suite reported success. An `XCTFail`
+planted in its first line never fired. In the same state a real mutation of the
+code under test "survived" — which reads exactly like a blind spot in the test
+and sends you looking for a missing assertion that is not missing.
+
+The cause was a stale test bundle:
+`Testing failed: … Failed to create a bundle instance representing …`. After
+`rm -rf ~/Library/Developer/Xcode/DerivedData` the method was discovered
+immediately and the same mutation turned the suite red.
+
+**The rule this buys:** reconcile the case count against `func test` **per
+file** when adding tests, not only for the whole suite — `cases: 8 declared: 9`
+is the signature. And a mutation that survives on an incremental build is not
+evidence until it survives on a clean one. **A third time, 2026-09-14,** in a
+session-scratch `-derivedDataPath`: the run after adding one test method ran
+20 of 21 in `PhaseVectorMatchingTests`, dropping a pre-existing method the
+previous run had listed, with `-quiet` saying nothing; wiped, the same tree
+ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`. This is the same family as the
+2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
+0: the harness reporting success while doing nothing.
+
+### The ellipse fit measures a 10 % ellipse on an isotropic multi-grain detector — added 2026-09-14
+**Science, Gate D owed — hypothesis with its experiment attached.** On the
+demo cube (three Al grains, detector rendered isotropic by construction) the
+owner's Fit Detector Ellipse reported a = 43.68, b = 39.72, θ = 122.5°, and
+everything downstream followed: Find Matrix Zone Axis returned a ⟨221⟩
+family at 19 % where the ellipse-free probe got ⟨100⟩ at 44.6 %, and the map
+came back matrix 0. Diagnosis: the mean pattern of a multi-grain scan has
+spots at several true radii inside the fitting annulus and the fit draws one
+ellipse through the mixture; a 10 % stretch is 4 px at Al {200} on this
+detector, above the 1.67 px tolerance. Refuting observation: clear the
+ellipse and re-run the fit — if ⟨221⟩ persists, the cause is elsewhere.
+Prediction, written first: ⟨100⟩ near 25–45 %. **Run by the owner the same
+evening: ⟨100⟩ family tied at 38 %, 0.0177 Å⁻¹.** The diagnosis stands; the
+fix is the fit's, not the matcher's — it must see that its annulus holds more
+than one ring (a residual test, or a refusal) before calling a 10 % ellipse
+"Measured". Gate D done, Gate B and the fix owed. Also seen: R–Q rotation
+"measured" −67.5° on a cube with no physical rotation; not applied by phase
+mapping, relevant to ACOM. **And a UI gap found on the way:** a measured
+calibration cannot be cleared in the app — the owner had to reload the file
+to get "Not set" back. Known, scoped; the Prepare panel owes a clear control.
+
+### A second matrix grain is labelled as a candidate phase, not refused — added 2026-09-14
+**Science.** Found by the synthetic demo cube (`tools/demo-dataset`, output
+under gitignored `References/demo-dataset/`): with Al [001] fitted as the one
+matrix and β″ [010] + β″ [001] as candidates at shipped defaults, the Al [011]
+grain — 2 250 positions of pure aluminium on another zone axis — came back
+**100 % "indexed β″ [001]"**, while the Al [111] grain came back not indexed.
+The file header names the single-matrix-grain limit; this is the limit
+producing a false LABEL rather than a refusal, because [011]Al's net lands
+inside β″ [001]'s references at a 1 px pair radius and nothing asks whether
+the matrix itself explains those vectors better. Remedy candidates: score the
+matrix's other zone axes as a candidate of last resort, or require the winner
+to beat a matrix-family entry; both are Gate D. Truth for the experiment is
+`truth.json`; the probe's confusion is in the 2026-09-14 status entry. **Seen
+on screen by the owner the same evening** with the ellipse cleared: matrix
+51 %, needles β″ [001], the [011] grain solid β″, the [111] grain refused,
+the end-on squares refused because [010] was not in the list — as the probe said.
+With β″ [010] as the only candidate: β″ **96 = every end-on position**, matrix
+5 096, everything else refused, the [011] grain included — so the false label
+depends on which candidate is present, not on the grain.
+
+### The zone-axis fit has no chance floor — added 2026-09-14
+**Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
+tolerance (0.44 px on `060_STEM SI_…bin_4`) Find Matrix Zone Axis returned a
+⟨112⟩ family at 8 %, tied exactly, and the panel presented it like any other
+answer. It is chance: the same sweep at one pixel gives ⟨110⟩ at 38 %, and
+0.44² ≈ 0.19 of a pixel's area times 39 % is 7.5 %. `fitZoneAxis` ranks by
+explained fraction with no chance expectation beside it, unlike `classify`.
+Remedy: print the chance-level fraction next to each fit, or refuse below it —
+a Core change, Gate D of its own. The drive itself is closed: every item of the
+2026-09-12 "never driven" entry was seen on 2026-09-14, including the field
+fix `f78122e` and ⌘5; the record is `docs/archive/closed-items-2026-09.md`.
+### Contiguous invalid regions fabricate precipitates — blocks wiring
+`PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite
+median. That survives scattered NaN and **not** a large contiguous invalid
+region — the shape `Core/Analysis/StrainMapping.swift:81` actually writes. The
+imputed region is a synthetic constant with ~0 ridge response; past a share of
+the frame it dominates the median *and* the MAD of `filtered` and collapses the
+robust threshold until background noise clears it. Measured on a six-needle
+fixture with a masked column band (truth is 6 at every step): 6 objects to 18 %
+masked, then **9 at 25 %, 23 at 31 %, 25 at 37 %** — eighteen fabricated
+objects at 31 %, each carrying an area and a length, and `area` reaches an
+export through `arealDensity`. `valid[i] = false` cannot help: every fabricated
+object lies wholly in valid territory. **Do not wire this engine to a product
+until this is resolved.** Gate D of its own; the obvious remedy (threshold
+statistics over the finite subset) silently breaks the caller-validity contract
+at `PrecipitateSegmentation.swift:104-107` unless it excludes non-finite rather
+than invalid pixels. Owner: whether to fix or to refuse above a bound.
+
+### Non-finite pixels ON a feature erase it silently
+Same engine, same guard, different placement — and `StrainMap.component()`
+writes NaN where indexing failed, which is *on* the second phase. Marking a
+needle's own pixels invalid deletes it from the result with no signal: 1 needle
+marked → 5 objects, 6 marked (126 px, 0.77 % of the scan) → **0 objects**.
+Worse at partial coverage: 7 invalid pixels (0.04 %) leave a reassuring count
+of 6 while one needle reads **21.6 px instead of 8.2** — wrong by 2.6x. No
+imputation strategy recovers this; the information is gone from the input. The
+honest fix is to report the imputed count, not to hide it. Owner: report or
+refuse.
+
+### The robust-sigma constant and the fill statistic are unpinned
+Pre-existing, inherited with the port, found by Gate B. `1.4826 * mad`
+(`PrecipitateSegmentation.swift:305`) can be changed to `3.0 * mad` — a +102 %
+error in the constant that gives `Settings.thresholdSigmas` its documented
+meaning — with every test green, moving mask footprints **-22 %**,
+`meanIntensity` **-36 %** and one object's orientation by **23°**. Separately
+`medianOf(finite)` can become the arithmetic mean with every test green. Both
+are one-token mutants. Fix: one fixture asserting `robustThreshold` lands near
+`median + 3 x sigma_known` on known Gaussian noise, and one assertion that
+distinguishes median from mean. Not blocking — the engine is unwired.
+
+### Dark-contrast ridges register through their flanks — added 2026-09-14
+Found by the 2026-09-14 audit (an independent reader; script not retained).
+`ridgeMeasure` (`PrecipitateSegmentation.swift`) keeps only the negative
+Hessian eigenvalue and its comment says a dark ridge "never registers". A
+dark stripe's smoothed cross-section has two negative-curvature shoulders,
+which DO register and close into one ring-shaped object: a −200 dark 40 × 30
+stripe on a bright field, `.needles`, gave one object with the right centroid
+and `lengthPx` 53.96, `widthPx` 45.0 — the flank spacing, not the stripe.
+Every needle fixture in `PrecipitateTests` is bright. Owner: decide whether
+dark contrast is in scope; if it is, the measure needs the sign made explicit
+and a dark fixture. Not blocking — unwired.
+
+### A negative peak collapses an object to 1 × 1, and NaN next to a maximum passes — added 2026-09-14
+Same audit, both unreproduced through the public surface. `PrecipitateSegmentation`
+takes `half = 0.5 × peak` for the length/width extent; with `peak < 0` no
+member clears it and the object ships as `lengthPx = widthPx = 1`, silently.
+`.needles` drops it on the length floor; `.particles` has none. Reaching it
+needs a component whose maximum is negative, which the threshold seems to
+prevent unless `thresholdSigmas ≤ 0`, which nothing validates. And
+`PrecipitateReflections.find` checks `isFinite` on the candidate only; a NaN
+neighbour compares false, so a pixel beside a dead detector pixel can be a
+local maximum. No fixture holds a NaN in the max pattern. Not blocking.
+
 ## Repository review 2026-09-09 — added 2026-09-09
 
 ### 119 unverified defect claims, and the adversarial pass that never ran
@@ -82,6 +267,34 @@ while SwiftUI tries to DERIVE a label, and these are exactly the controls whose
 label never resolves. Treat as one Gate D, not two fixes.
 
 ## Verification debt — added 2026-09-08
+
+### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
+The `macos-26` runner carries Xcode 26.6, and its type checker times out on
+`ContentView`'s file-importer closure ("unable to type-check this expression
+in reasonable time") while the owner's Xcode 27.0 compiles it; the last three
+runs on `main` (3c4b82c, 9b9949b, 6cb31a3) failed there and nobody read them.
+Found by the PR #1 auto-fix. The closure became a typed method on the
+`ai-analysis` branch, and Xcode 26.6 got through: the suite then ran on the
+runner, 637 / 1 / 4 of 642. Every green gate recorded in `status.md` is a
+LOCAL run on Xcode 27.
+
+### The learned-detector parity fixture is a same-runtime claim, and CI has no Neural Engine — added 2026-09-14
+**Verification debt.** `testLearnedPathMatchesPythonReference` failed on both
+runner jobs of 05ba82a and passed here. Gate D: predicted and measured, the
+same test fails on the owner's Mac with the model forced to `.cpuAndGPU` —
+the fixture's heatmaps are Neural Engine numbers and the near-threshold picks
+round differently off it. The test now skips where `MLComputeDevice` lists no
+Neural Engine, saying so; the 98 % bars were NOT loosened. **Refuted-and-held
+2026-09-14:** an independent refuter measured the CPU paths — `.cpuAndGPU`
+raw picks 346/354 (97.7 %) with 8 extras (2.26 %), `.cpuOnly` 341/354 with 14;
+only the two pick bars fail, accepted counts and positions pass — and
+confirmed the gate runs (and fails) here when the app is forced off the ANE.
+Two corrections: the fixture records compute units `"all"`, not the Neural
+Engine by name; and the probe is hardware PRESENCE, so a Neural Engine that
+Core ML declines to use (thermal, an unsupported op) leaves the test running
+and failing rather than skipping — acceptable, but not what the skip message
+implies. Residual: a CPU-written second fixture would turn the skip back into
+a check, at the cost of per-path bars. Owner: whether CI should verify this.
 
 ### The published v2.5.1 artefact is universal, and Intel users get a broken app
 **Not a v3.0.0 blocker — a live defect in what users can download today**
@@ -622,6 +835,15 @@ the old inline progress bar was removed there precisely because it squeezed
 this label to "C…", so a fix must not reintroduce a width contender in that
 slot. Exact symptom still the owner's to pin down (style vs size vs
 placement) before anyone changes it.
+
+**Amended 2026-09-12.** The status bar's own Cancel was a `.controlSize(.mini)`
+version of the same mistake and is now a borderless `xmark.circle.fill`, so
+this toolbar item is the ONLY Cancel left with a rendering complaint against
+it. What that fix established and this entry can now use: `.mini` sets a 9 pt
+label (measured) and a `Text`-labelled button is a flexible child that a tight
+row squeezes — the `C…` collapse was reproduced at 1080 pt. The remedy that
+worked there is the same glyph-plus-`.help()` pair; the owner's call on whether
+the toolbar wants it is still owed, and is now a smaller question than it was.
 
 
 ### Sidecar/session UX residuals (2026-09-02)
