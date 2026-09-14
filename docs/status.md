@@ -206,12 +206,12 @@ A worktree agent branches from where the worktree was cut — this session's was
    the intensity power but a bank predicting rings the data cannot contain.
    Cheap, and it makes the cube a faithful ACOM fixture.
 4. **ACOM returns a zone axis up to 12.8° beyond what its own bank forces** —
-   measured 2026-09-15 against planted truth by
+   measured against planted truth by
    `tools/acom-groundtruth/orientation-accuracy.py`, after subtracting the
-   bank's sampling floor. Which answer you get depends on the in-plane
-   rotation. ⟨011⟩ is a seeded vertex and is still 1.88° off at 14 of 17
-   rotations; ⟨122⟩ alternates between the floor and 13.6°. Four hypotheses
-   spent; the untested one is the 128-shift azimuthal correlation. Gate D.
+   bank's own sampling floor. **The cause is the score, not the search**: the
+   winner genuinely outscores the best available entry by 0.6–10 %. Eight
+   hypotheses are spent and recorded; the one cheap idea left is the
+   whole-image L2 normalisation. Gate D.
 5. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.

@@ -685,3 +685,124 @@ landing on grouping; a phase from the built-in menu; remove-and-re-add
 marking the run stale; the fixed field following the fit.
 
 **Closure.** The owner drove the rest the same afternoon on the rebuilt `f78122e`: aluminium from the built-in menu, β″ from the CIF at [010], the fitted axis showing in the field, a run of β″ [010] against Al ⟨110⟩ (matrix 2 099, β″ 280 = 0.3 % against a 3.9 % chance level, not indexed 106 521), Show Match Distance, remove-and-re-add reading stale, and ⌘5 landing on grouping. What the drive found and did not fix is the chance-floor entry that replaces this one.
+
+---
+
+## A second matrix grain is labelled as a candidate phase — closed 2026-09-14
+
+**Closure:** Fixed by `classify` step 5, the matrix challenge, with the rotation derived per position. Gated by Part E of `tools/phase-vector-matching`. Three remedies were refuted on the way and are recorded inside. What stays live is only the presentation residual.
+
+### A second matrix grain is labelled as a candidate phase — FIXED 2026-09-14
+**Science. Gate D done, Gate B done and two of its findings fixed.** With Al
+[001] the matrix and β″ [010] + β″ [001] candidates, the demo cube's Al [011]
+grain — 2 250 positions of pure aluminium — came back **100 % β″ [001]**,
+because nothing asked whether the MATRIX explains the surviving vectors. β″
+[001] covers 10 of the 16 [011]Al reflections at 0.0059 Å⁻¹; Al [011] covers
+all 16 at 0.0000 and was never in the competition. Fix: `classify` step 5, the
+matrix offered every low-index orientation with the in-plane rotation derived
+at the position. Measured at shipped defaults (`tools/phase-map-probe --truth`,
+`probe-rework-20260914.log`): grain B 100 % → **0 %**; end-on 96/96 and needles
+108/108 unchanged; grain A matrix 99.0 %; indexed total exactly the 204 planted
+precipitate positions. Gated by `tools/phase-vector-matching` Part E, whose C1a
+reproduces the defect so C1b cannot be vacuous.
+**Three refutations, all paid:** the first remedy took one rotation per axis
+from `fitZoneAxis`, a whole-scan fit that carried [-1 1 0] at 100° where the
+grain needs 130° and matched nothing. The second seeded rotations on the three
+LONGEST vectors — backwards, because spurious maxima sit farther out than real
+reflections: three of them took the catch rate 100 % → 0 %, now gated as C2.
+The third required only "at least as many" matched vectors, which let a
+49-axis search steal **26.5 % of three-vector precipitates** at 0.004 Å⁻¹ of
+jitter; "strictly more" makes a fully explained precipitate impossible to erase
+by construction, gated as C3 (0 of 500).
+**Residual:** a `.matrix` verdict from the challenge is drawn the same grey as
+one by exclusion, and the map's phase counts cannot separate them; the
+evidence line now distinguishes them but nothing else does. The matrix fraction
+on the demo cube moves 51 % → 74 % because of it.
+
+---
+
+## R–Q rotation reported "Measured" from pure shot noise — closed 2026-09-15
+
+**Closure:** Fixed by a permutation null in `RotationCalibration.solve`: shuffle the scan positions, rerun the grid, refuse unless the real curve beats every shuffle. Neither the angle nor the coin-flip `transposeQR` is written on a refusal.
+
+### R–Q rotation reported "Measured" from pure shot noise — FIXED 2026-09-15
+**Science, Gate D done, no fix. Diagnosis survived an independent refuter that
+corrected two of its numbers.** On the demo cube, built with the axes aligned,
+Measure R–Q Rotation reported **−67.5°** and the row read "Measured".
+`RotationCalibration.solve` minimises the mean |curl| of the CoM field, which
+is meaningful only for a near-phase object — its own header says so. The demo
+cube is Bragg disks on a flat background and has no potential, so there is
+nothing for the objective to find.
+**Established, and it is stronger than "the curve is flat":**
+- The measured CoM field IS Poisson shot noise. Predicted from the counts
+  themselves: sd 0.01023/0.01020 px; measured 0.01046/0.00968 (ratio 1.02/0.95).
+- **A theorem, not a fit.** Writing the rotated curl as
+  `sinθ·div + cosθ·curl` of the unrotated field, over statistically independent
+  scan positions var(div) = var(curl) and cov(div, curl) ≡ 0 for ANY
+  per-position covariance, so `E[objective(θ)]` is exactly θ-independent. No
+  mechanism can produce a preferred angle here, whatever the noise anisotropy.
+- The winning curve's depth is `(max − min)/mean` = **0.0134**, which sits at
+  the **40th percentile of a noise-only null** (300 realisations: mean 0.0161,
+  p95 0.0299). Under that null the argmin is uniform over the half circle and
+  the transpose flag is a **51.7 % coin flip** — and `transposeQR` is written
+  with provenance `.measuredInApp` and consumed by strain, ACOM and DPC.
+- The 0.1° refinement digit is **float32 round-off**: over −69…−67 the float32
+  objective spans 1×10⁻⁵ relative, the accumulation floor of 9 604 `Float`
+  adds. float64 picks −67.6, a sequential float32 sum −68.0, the app −67.5.
+- The **divergence** variant, which the app also exposes, returns **−82.0° with
+  transpose TRUE** on the same field. Two objectives, incompatible answers.
+**Refuted along the way:** the per-position origin map cannot explain it (the
+fitted plane's total variation across the scan is 3×10⁻⁵ px, and re-solving
+with it subtracted is identical); no grain-boundary mechanism exists (the
+recipe-mean field is 0.05 % of the variance, and the boundaries are
+axis-aligned, so a step would pull toward 0°/90°); and **the quadrant spread of
+151° proves little** — the noise-only null's p90 is 151.1°, and a genuine field
+still scatters 65°, so split-half disagreement is a weak test in both
+directions and must not headline this.
+**FIXED 2026-09-15 with a permutation null, which is the one test that needs no
+constant.** `solve` now shuffles the scan positions of the CoM field fifteen
+times — carrying each position's (cx, cy) together, so only the spatial
+arrangement is destroyed — reruns the same grid, and reports the winning
+curve's depth against those fifteen. `carriesRotation` requires the real depth
+to beat **every** shuffle; `refusalMessage` carries the sentence, so the
+refusal and the test that produces it cannot drift. Deterministic by a fixed
+seed: a refusal that flickers is worse than none. AppState writes neither the
+angle nor `transposeQR` when it refuses, which was the sharper half — the flag
+was a 51.7 % coin flip and strain, ACOM and DPC consume it.
+**Measured on the demo cube with the shipped rule and seed:** real depth
+0.01341 against shuffled depths 0.00854–0.02472, so it **refuses**, which is
+correct. Three tests, three mutations, each red: the null deleted, the null
+compared against the shuffles' mean instead of all of them, and the comparison
+inverted (which refuses a planted 30° rotation and is the failure that would
+matter most).
+**What this does NOT claim, and the code says so too.** It cannot certify a
+measurement. A thick or strongly diffracting specimen gives a deep, sharp,
+reproducible minimum at an angle that need not be the detector rotation. It
+catches one failure — no signal at all — which is the one that reached the
+owner. **Unverified on screen.**
+
+---
+
+## ACOM omits py4DSTEM's `power_radial` — closed 2026-09-15
+
+**Closure:** Measured and settled: py4DSTEM's own default is worse here (25.53° of excess orientation error against the port's 18.79°, summed over 8 axes) and breaks ⟨100⟩. The omission is kept, now as an explicit parameter with a `DEVIATION` note carrying the numbers.
+
+### ACOM omits py4DSTEM's `power_radial` — MEASURED 2026-09-15, omission kept
+**Was: "untested materiality — apparatus exists but the measurement has not
+been made." It has now been made, and the omission is right.** py4DSTEM
+multiplies each template spot by its shell radius to `power_radial`, default
+**1.0** (`crystal_ACOM.py:32`, applied at :810/:818); this port omitted the
+factor, which is 0. Measured over 136 planted patterns with
+`tools/acom-groundtruth/orientation-accuracy.py`, as excess orientation error
+beyond the bank's own sampling floor, summed over 8 zone axes:
+
+| `power_radial` | 0 (shipped) | 0.5 | 1.0 (py4DSTEM) | 2.0 |
+|---|---|---|---|---|
+| total excess | **18.79°** | 20.45° | 25.53° | 29.09° |
+
+Their default is worse, and it breaks ⟨100⟩, which this port recovers exactly
+(0.00° → 2.20°). The factor now exists as a parameter defaulting to 0 with an
+inline `DEVIATION` note carrying these numbers, so the choice is documented
+rather than accidental — CLAUDE.md requires the note, and the note now cites a
+measurement instead of an opinion. **Parity here would be parity with a worse
+answer.** Nothing shipped changed: the default reproduces every previous run.

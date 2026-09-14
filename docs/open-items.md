@@ -136,150 +136,36 @@ marked instead. The pieces:
 Also still open from that run: R–Q rotation reads "measured" −67.5° on a cube
 with no physical rotation.
 
-### A second matrix grain is labelled as a candidate phase — FIXED 2026-09-14
-**Science. Gate D done, Gate B done and two of its findings fixed.** With Al
-[001] the matrix and β″ [010] + β″ [001] candidates, the demo cube's Al [011]
-grain — 2 250 positions of pure aluminium — came back **100 % β″ [001]**,
-because nothing asked whether the MATRIX explains the surviving vectors. β″
-[001] covers 10 of the 16 [011]Al reflections at 0.0059 Å⁻¹; Al [011] covers
-all 16 at 0.0000 and was never in the competition. Fix: `classify` step 5, the
-matrix offered every low-index orientation with the in-plane rotation derived
-at the position. Measured at shipped defaults (`tools/phase-map-probe --truth`,
-`probe-rework-20260914.log`): grain B 100 % → **0 %**; end-on 96/96 and needles
-108/108 unchanged; grain A matrix 99.0 %; indexed total exactly the 204 planted
-precipitate positions. Gated by `tools/phase-vector-matching` Part E, whose C1a
-reproduces the defect so C1b cannot be vacuous.
-**Three refutations, all paid:** the first remedy took one rotation per axis
-from `fitZoneAxis`, a whole-scan fit that carried [-1 1 0] at 100° where the
-grain needs 130° and matched nothing. The second seeded rotations on the three
-LONGEST vectors — backwards, because spurious maxima sit farther out than real
-reflections: three of them took the catch rate 100 % → 0 %, now gated as C2.
-The third required only "at least as many" matched vectors, which let a
-49-axis search steal **26.5 % of three-vector precipitates** at 0.004 Å⁻¹ of
-jitter; "strictly more" makes a fully explained precipitate impossible to erase
-by construction, gated as C3 (0 of 500).
-**Residual:** a `.matrix` verdict from the challenge is drawn the same grey as
-one by exclusion, and the map's phase counts cannot separate them; the
-evidence line now distinguishes them but nothing else does. The matrix fraction
-on the demo cube moves 51 % → 74 % because of it.
+### A challenged matrix verdict is drawn like one by exclusion — added 2026-09-15
+**Presentation, live; the science is closed** (`archive/closed-items-2026-09.md`,
+"A second matrix grain…"). A position the matrix takes back through `classify`
+step 5 gets the same neutral grey as one where removal left too little to
+index, and `PhaseMap.phaseCounts` cannot separate the two. The evidence line
+does distinguish them; nothing else does. The demo cube's matrix fraction moves
+51 % → 74 % because of it, which is correct but unexplained on screen. Owner:
+presentation only, so no Gate D.
 
-### R–Q rotation reported "Measured" from pure shot noise — FIXED 2026-09-15
-**Science, Gate D done, no fix. Diagnosis survived an independent refuter that
-corrected two of its numbers.** On the demo cube, built with the axes aligned,
-Measure R–Q Rotation reported **−67.5°** and the row read "Measured".
-`RotationCalibration.solve` minimises the mean |curl| of the CoM field, which
-is meaningful only for a near-phase object — its own header says so. The demo
-cube is Bragg disks on a flat background and has no potential, so there is
-nothing for the objective to find.
-**Established, and it is stronger than "the curve is flat":**
-- The measured CoM field IS Poisson shot noise. Predicted from the counts
-  themselves: sd 0.01023/0.01020 px; measured 0.01046/0.00968 (ratio 1.02/0.95).
-- **A theorem, not a fit.** Writing the rotated curl as
-  `sinθ·div + cosθ·curl` of the unrotated field, over statistically independent
-  scan positions var(div) = var(curl) and cov(div, curl) ≡ 0 for ANY
-  per-position covariance, so `E[objective(θ)]` is exactly θ-independent. No
-  mechanism can produce a preferred angle here, whatever the noise anisotropy.
-- The winning curve's depth is `(max − min)/mean` = **0.0134**, which sits at
-  the **40th percentile of a noise-only null** (300 realisations: mean 0.0161,
-  p95 0.0299). Under that null the argmin is uniform over the half circle and
-  the transpose flag is a **51.7 % coin flip** — and `transposeQR` is written
-  with provenance `.measuredInApp` and consumed by strain, ACOM and DPC.
-- The 0.1° refinement digit is **float32 round-off**: over −69…−67 the float32
-  objective spans 1×10⁻⁵ relative, the accumulation floor of 9 604 `Float`
-  adds. float64 picks −67.6, a sequential float32 sum −68.0, the app −67.5.
-- The **divergence** variant, which the app also exposes, returns **−82.0° with
-  transpose TRUE** on the same field. Two objectives, incompatible answers.
-**Refuted along the way:** the per-position origin map cannot explain it (the
-fitted plane's total variation across the scan is 3×10⁻⁵ px, and re-solving
-with it subtracted is identical); no grain-boundary mechanism exists (the
-recipe-mean field is 0.05 % of the variance, and the boundaries are
-axis-aligned, so a step would pull toward 0°/90°); and **the quadrant spread of
-151° proves little** — the noise-only null's p90 is 151.1°, and a genuine field
-still scatters 65°, so split-half disagreement is a weak test in both
-directions and must not headline this.
-**FIXED 2026-09-15 with a permutation null, which is the one test that needs no
-constant.** `solve` now shuffles the scan positions of the CoM field fifteen
-times — carrying each position's (cx, cy) together, so only the spatial
-arrangement is destroyed — reruns the same grid, and reports the winning
-curve's depth against those fifteen. `carriesRotation` requires the real depth
-to beat **every** shuffle; `refusalMessage` carries the sentence, so the
-refusal and the test that produces it cannot drift. Deterministic by a fixed
-seed: a refusal that flickers is worse than none. AppState writes neither the
-angle nor `transposeQR` when it refuses, which was the sharper half — the flag
-was a 51.7 % coin flip and strain, ACOM and DPC consume it.
-**Measured on the demo cube with the shipped rule and seed:** real depth
-0.01341 against shuffled depths 0.00854–0.02472, so it **refuses**, which is
-correct. Three tests, three mutations, each red: the null deleted, the null
-compared against the shuffles' mean instead of all of them, and the comparison
-inverted (which refuses a planted 30° rotation and is the failure that would
-matter most).
-**What this does NOT claim, and the code says so too.** It cannot certify a
-measurement. A thick or strongly diffracting specimen gives a deep, sharp,
-reproducible minimum at an angle that need not be the detector rotation. It
-catches one failure — no signal at all — which is the one that reached the
-owner. **Unverified on screen.**
-
-### The ACOM bank predicts rings the demo cube cannot contain, and the matcher rationally infers a tilt — added 2026-09-14
-**Science, Gate D done, MY DIAGNOSIS WAS REFUTED, no fix.** Observation: on the
-demo cube's grain A — pure aluminium, noise-free, exactly on [001] — the matcher
-returns a template 3.2–5.0° away although template 0 IS [001]. The app printed
-FZ Euler Φ = 5.0° at reliability 0.51.
-**What I claimed and what refuted it.** I diagnosed py4DSTEM's
-`power_intensity` of 0.25 flattening the weight between "the two rings" of
-Al [001]. **Al [001] inside kMax 1.2 has FOUR rings** — {200} 0.4939, {220}
-0.6985, {400} 0.9878, {420} 1.1044, all exactly excited. Power is a modulator,
-not the cause: with complete data every power from 0.10 to 1.00 returns
-template 0 exactly; with the cube's data every power from 0.10 to 0.75 is
-wrong. My earlier kMax sweep could not have found this, because its floor of
-1.00 sits above {400} at 0.98778 and never entered the decisive region.
-**The cause.** `tools/demo-dataset/export_reflections.swift` exports spots at
-`kMax = 0.9`; the app's plan is built at `kMax = 1.2`
-(`AppState.swift:5232`). So the bank predicts two rings the data physically
-cannot contain, and at power 0.25 **50.3 % of the exact template's weight sits
-in those phantom rings**. Missing OUTER reflections are the kinematic signature
-of a tilt, so the matcher infers one — correctly, given what it was told.
-Measured: plan kMax 0.9 → **0.000°**; a complete four-ring plant at kMax 1.2 →
-**0.000°**; drop {420} → 3.18°; drop {420} and {400} → 5.03°, the shipped case;
-drop an INNER ring instead → 0.000°. Ring count is not the discriminator,
-completeness is: [111] one ring → 0.000°, [011] seven rings → 0.000°, and a
-one-ring [111] pattern against a three-ring bank → 2.609°.
-**Inherited, not a port bug.** A transcription of py4DSTEM's own
-`orientation_plan` + `match_single_pattern` at the pinned commit picks the same
-template 165 at 5.027° on the same plant, and template 0 at kMax 0.9.
-**Not a noise effect:** Poisson doses from 30 to 10 000 counts give 5.027° on
-the truncated plant and 0.000° on the complete one, at every dose.
-**AND THE OBVIOUS FIX WAS REFUTED TOO (2026-09-15).** The app builds the bank
-at a hardcoded `kMax: 1.2` (`AppState.swift:5232`) with no reference to the
-detector, whose inscribed reach here is only 64 × 0.012 = **0.768 Å⁻¹** — so
-{400} and {420} are past the detector edge and no exporter setting could supply
-them. Predicted: building the bank at the detector's reach returns grain A to
-0.00°. **It does not.** On the cube's own DETECTED peaks, bank kMax swept from
-0.768 to 1.20:
-
-| bank kMax | grain A | grain B | grain C |
-|---|---|---|---|
-| 0.768 (the reach) | 2.20 / 3.18 / 6.71° | 0.00 / 6.50 / 6.06° | 5.47 / 5.47 / 1.64° |
-| 1.20 (shipped) | 5.03 / 3.18 / 5.03° | 7.02 / 31.78 / 3.65° | 2.61 / 2.61 / 1.64° |
-
-No kMax is best for every grain, and grain C gets **worse** at the reach. The
-refuter's 0.000° was on an IDEAL plant; on real detected peaks the offset is
-dominated by the peak set, not the bank — which is the existing item "the
-Al-Mg-Si cube's peak set is not clean enough", now with a second witness. Note
-also that 200 templates over the cubic fundamental zone is ~1.7° of sampling,
-so an offset under about 2° is resolution, not error.
-**So: do not change the plan's kMax to chase this number.** The design argument
-for deriving it from the detector still stands on its own (at the owner's real
-1.46 Å⁻¹ reach the bank throws away every reflection between 1.2 and 1.46), but
-it is a separate change needing its own Gate D, and it is not the fix for this.
-**Also measured:** the reliability metric is blind to this by construction —
-`selectOrientation`'s 10° distinct-orientation floor excludes the true [001]
-(5° away) from ever being the runner-up, so no error under 10° can lower
-reliability. And the unmatched direct beam depresses the reported ACOM score by
-about 26 % (0.640 against 0.862 with it removed), changing no verdict.
+### The rotation refusal has not been seen on screen — added 2026-09-15
+**Verification debt.** `RotationCalibration`'s permutation null refuses on the
+demo cube (measured: depth 0.01341 against shuffled 0.00854–0.02472), and the
+refusal is a new user-facing sentence in Prepare. Nobody has looked at it.
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
-**Science, live, no fix, cause not established.** The app has never had a
-number for how accurately it orients. `tools/acom-groundtruth/orientation-accuracy.py`
+**Science, live, no fix, cause narrowed to the score itself. One entry for the
+whole investigation** — the separate "bank predicts rings the demo cube cannot
+contain" entry is folded in here.
+**Where it started.** The demo cube's grain A is aluminium exactly on [001] and
+the matcher returned a template 3–5° away. An independent refuter established
+that the cube's exporter writes reflections at kMax 0.9
+(`tools/demo-dataset/export_reflections.swift`) while the bank is built at 1.2
+(`AppState.swift`), so the bank predicts two rings the data cannot contain —
+and on an IDEAL complete plant the offset is 0.000°. That is inherited from
+py4DSTEM, not a port bug: a transcription of theirs picks the same template.
+**But it is not the whole story**, because on the cube's own detected peaks no
+bank kMax fixes it (0.768, the detector's own reach, leaves grain A at 2.2–6.7°
+and makes grain C worse), and the same offsets appear on axes with no phantom
+rings at all. So the app has never had a number for how accurately it orients,
+and this is that number. `tools/acom-groundtruth/orientation-accuracy.py`
 (new, diagnostic) plants known zone axes — reflections from the fcc rule by
 hand, the zone by `g·n = 0`, the 2D frame by Gram-Schmidt here, so the plant
 shares nothing with the code it gates — and sweeps the in-plane rotation across
@@ -498,20 +384,38 @@ front window trips it, so it blocks any automated driving rig and it crashed the
 owner's own session twice on 2026-09-08.
 
 
-### Reading an accessibility label crashes the app
-Two crash reports, 2026-09-08 22:41:36 and 22:47:48, identical faulting stack
-(`~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-09-08-2241*.ips`,
-`-2247*.ips`): `EXC_BAD_ACCESS`, `KERN_PROTECTION_FAILURE` at a stack guard
-page — a stack overflow in
-`AccessibilityNode.accessibilityLabel()` → `labelsToResolve` →
-`resolvedRole(forPlatformElement:)` → AppKit `_accessibilityFindRoleFromProtocol`.
-Triggered both times by an AX client resolving labels on the front window.
-**VoiceOver does exactly this**, as do Accessibility Inspector and any UI
-automation, so a VoiceOver user very likely cannot use the app at all. Not yet
-narrowed to a view; the recursion is in SwiftUI's own machinery, so the trigger
-is probably one view's accessibility modifiers, not app logic. Repro: walk the
-window's AX tree resolving `AXTitle`/`AXDescription`. Owner: Gate D — cause not
-established, and this is a crash. Blocks a credible accessibility claim at 3.0.0.
+### Reading an accessibility label crashes the app — evidence aged off 2026-09-15, suspect named
+**Known, a crash, Gate D owed, and now partly un-reproducible.** Two crash
+reports of 2026-09-08 showed `EXC_BAD_ACCESS` at a stack guard page — a stack
+overflow — in `AccessibilityNode.accessibilityLabel()` → `labelsToResolve` →
+`resolvedRole(forPlatformElement:)` → AppKit `_accessibilityFindRoleFromProtocol`,
+both times while an AX client resolved labels on the front window. VoiceOver
+does exactly that, so a VoiceOver user very likely cannot use the app at all.
+**The `.ips` files are GONE** (checked 2026-09-15: zero mac4DSTEM reports left
+in `~/Library/Logs/DiagnosticReports`). macOS ages them out, so the stack quoted
+above is now the whole surviving record and nobody can re-read the originals.
+Anything wanted from them has to be re-captured by reproducing the crash.
+**Suspect, from reading — NOT established.** The app has exactly two
+`.accessibilityRepresentation` sites, `UI/HistogramView.swift:66` and
+`UI/PaneOverlays.swift:439`, and both layer it on top of an element that has
+already been given its own identity:
+`.accessibilityElement(children: .ignore)` → `.accessibilityLabel` →
+`.accessibilityValue` → `.accessibilityRepresentation { … }`. A representation
+REPLACES those, so they are dead weight in the ordinary path — but they are
+still in the chain the framework walks while resolving a role, which is exactly
+where the reported recursion sits. The histogram's representation is the
+stronger suspect of the two: its two sliders have mutually dependent ranges
+(`lo`'s upper bound is `hi`'s value and vice versa), so resolving one can
+invalidate the other. This repo already has form here — `UI/WorkspaceView.swift:581`
+carries a note about a `.combine` that made a button unreachable.
+**The experiment, two minutes, owner:** open Accessibility Inspector, point it
+at the app's front window, and walk the tree with the inspection pointer while
+an Imaging pane with its histogram and a virtual-detector overlay are both on
+screen. If it crashes there, comment out the two `.accessibilityRepresentation`
+blocks and walk it again — if it then survives, the cause is established and
+the fix is to stop layering a representation over a hand-built element. A
+crash report saved out of `~/Library/Logs/DiagnosticReports` the same day
+belongs in `docs/archive/`, since this item has now lost its evidence once.
 
 ### In-body controls report no accessibility label — the same bug
 `Compute Mean / Max`, `Fit Detector Ellipse`, the two image-pane buttons and
@@ -578,7 +482,9 @@ the two defects point in opposite directions and neither is evidence of the
 other. **Not established:** the runtime behaviour above is derived from Mach-O
 headers and source; no mac4DSTEM build has ever been run on Intel hardware, and
 nobody has reported it. v3.0.0 is arm64 alone and gated, so this ends with
-v2.5.1. **Owner decision owed:** withdraw or annotate the v2.5.1 download.
+v2.5.1 — **verified 2026-09-15**: the project now carries `ARCHS = arm64` in
+both configurations and `a9a0437` carried none, so nothing built from here can
+repeat it. **Owner decision owed:** withdraw or annotate the v2.5.1 download.
 
 ### Owed on screen from C4(c) and C7, after the 2026-09-09 drive
 Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh,
@@ -865,26 +771,6 @@ detector centre. Latent app-side risk: a genuinely off-centre beam with
 (science changes, own Gate B): floor `minRadius` at the probe radius or
 scale it with fit quality; or have the campaign adopt the app's origin
 gating. Full diff in the archive.
-
-### ACOM omits py4DSTEM's `power_radial` — MEASURED 2026-09-15, omission kept
-**Was: "untested materiality — apparatus exists but the measurement has not
-been made." It has now been made, and the omission is right.** py4DSTEM
-multiplies each template spot by its shell radius to `power_radial`, default
-**1.0** (`crystal_ACOM.py:32`, applied at :810/:818); this port omitted the
-factor, which is 0. Measured over 136 planted patterns with
-`tools/acom-groundtruth/orientation-accuracy.py`, as excess orientation error
-beyond the bank's own sampling floor, summed over 8 zone axes:
-
-| `power_radial` | 0 (shipped) | 0.5 | 1.0 (py4DSTEM) | 2.0 |
-|---|---|---|---|---|
-| total excess | **18.79°** | 20.45° | 25.53° | 29.09° |
-
-Their default is worse, and it breaks ⟨100⟩, which this port recovers exactly
-(0.00° → 2.20°). The factor now exists as a parameter defaulting to 0 with an
-inline `DEVIATION` note carrying these numbers, so the choice is documented
-rather than accidental — CLAUDE.md requires the note, and the note now cites a
-measurement instead of an opinion. **Parity here would be parity with a worse
-answer.** Nothing shipped changed: the default reproduces every previous run.
 
 ### No automated visual baseline (2026-08-17)
 Every acceptance run is numeric-only; the owner driving the app is the only
