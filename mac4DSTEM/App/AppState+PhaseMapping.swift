@@ -311,6 +311,7 @@ extension AppState {
             "Matrix zone axis",
             status: "Fitting \(slot.model.displayName) against every low-index zone axis…")
         defer { finishCancellableOperation(cancellation) }
+        let epoch = datasetEpoch
 
         let fits = await Task.detached(priority: .userInitiated) {
             PhaseVectorMatcher.fitZoneAxis(
@@ -322,11 +323,23 @@ extension AppState {
         }.value
 
         guard !cancellation.isCancelled else { return .cancelled }
+        // The same two guards `runPhaseMapping` has: a fit against the peaks
+        // of a dataset that is no longer open is not a fit for this one, and
+        // the phase list is editable while the sweep runs, so the slot at
+        // `matrixIndex` must still be the phase that was fitted.
+        guard epoch == datasetEpoch else {
+            return .failed("The dataset changed while the zone axis was being fitted.")
+        }
         guard let winner = fits.first else {
             return .failed("No low-index zone axis of \(slot.model.displayName) "
                            + "presents any reflection this detector can reach.")
         }
-        guard phaseMapping.phases.indices.contains(matrixIndex) else { return .cancelled }
+        // `id` is the model's, so the same crystal at two zone axes shares
+        // it; requiring `isMatrix` too pins the one slot that can be the
+        // matrix (Gate B, 2026-09-14).
+        guard phaseMapping.phases.indices.contains(matrixIndex),
+              phaseMapping.phases[matrixIndex].id == slot.id,
+              phaseMapping.phases[matrixIndex].isMatrix else { return .cancelled }
         phaseMapping.phases[matrixIndex].u = winner.zoneAxis.x
         phaseMapping.phases[matrixIndex].v = winner.zoneAxis.y
         phaseMapping.phases[matrixIndex].w = winner.zoneAxis.z

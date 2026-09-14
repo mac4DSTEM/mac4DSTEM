@@ -17,6 +17,87 @@ import DSTEMSession
 
 final class PhaseVectorMatchingTests: XCTestCase {
 
+    // MARK: Staleness follows the list order
+
+    /// Mutation: `phaseSignature` sorting its slots, the form that stood
+    /// until 2026-09-14. Colours are by list position, so a list whose
+    /// positions changed no longer reads as the legend of the last run —
+    /// and a sorted signature let `isStale` stay false through exactly that.
+    func testPhaseSignatureFollowsTheListOrderBecauseTheColoursDo() {
+        let models = CrystalModelLibrary.models
+        XCTAssertGreaterThanOrEqual(models.count, 3)
+        let a = PhaseMappingSlot(model: models[0], isMatrix: true, u: 0, v: 0, w: 1)
+        let b = PhaseMappingSlot(model: models[1], isMatrix: false, u: 0, v: 0, w: 1)
+        let c = PhaseMappingSlot(model: models[2], isMatrix: false, u: 0, v: 1, w: 0)
+        let product = PhaseMappingProduct()
+        product.phases = [a, b, c]
+        let original = product.phaseSignature
+        product.phases = [a, c, b]
+        XCTAssertNotEqual(product.phaseSignature, original,
+                          "b moved from position 1 to 2 and would be drawn in a different colour")
+        let before = PhaseMapPresentation.color(phaseIndex: 1, matrixPhaseIndex: 0)
+        let after = PhaseMapPresentation.color(phaseIndex: 2, matrixPhaseIndex: 0)
+        XCTAssertTrue(before != after, "the premise: colour is by position")
+        product.phases = [a, b, c]
+        XCTAssertEqual(product.phaseSignature, original)
+    }
+
+    // MARK: The reciprocal lattice the library is built from
+
+    /// Every lattice point inside kMax, enumerated over a tile far larger than
+    /// any bound the code could pick. Ground truth is the lattice itself: a
+    /// one-atom P1 cell has no extinction and `f_e > 0`, so every one of these
+    /// must be returned; an fcc cell must return exactly the all-even /
+    /// all-odd subset.
+    private func latticePoints(_ crystal: Crystal, kMax: Double, tile: Int = 48) -> Set<SIMD3<Int>> {
+        var out = Set<SIMD3<Int>>()
+        for h in -tile...tile { for k in -tile...tile { for l in -tile...tile {
+            if h == 0 && k == 0 && l == 0 { continue }
+            let g = Double(h) * crystal.latInv[0] + Double(k) * crystal.latInv[1]
+                + Double(l) * crystal.latInv[2]
+            if simd_length(g) <= kMax { out.insert(SIMD3(h, k, l)) }
+        } } }
+        return out
+    }
+
+    /// Mutation: the tile bound `ceil(kMax / kMin)` that stood until
+    /// 2026-09-14 (and still stands in py4DSTEM). The exact bound on an index
+    /// is |h| = |g·a₁| ≤ kMax·|a₁|, and for a b-unique monoclinic cell
+    /// 1/kMin ≤ a·sin β < a, so the old tile fell short as β left 90° and
+    /// reflections went missing with no signal. Gate B measured 6 lost at
+    /// β = 110°, 48 at 115°, 198 at 125° on the β″-shaped cell (open-items,
+    /// 2026-09-12); this pins the 125° case against the lattice and the
+    /// shipped cells against their own extinction rules, so a bound that
+    /// over-tiles is not caught here — only one that under-tiles.
+    func testReflectionsCoverEveryLatticePointInsideKMaxOnObliqueCells() {
+        let kMax = 1.6
+        for betaDeg in [105.3, 115.0, 125.0] {
+            let cell = Crystal(a: 15.16, b: 4.05, c: 6.74, betaDeg: betaDeg,
+                               sites: [AtomSite(z: 13, fractional: SIMD3(0, 0, 0))])
+            let expected = latticePoints(cell, kMax: kMax)
+            let got = Set(cell.reflections(kMax: kMax).map { SIMD3($0.h, $0.k, $0.l) })
+            XCTAssertEqual(got.count, expected.count,
+                           "β = \(betaDeg)°: \(expected.subtracting(got).count) lattice points "
+                           + "inside kMax are missing, e.g. \(expected.subtracting(got).prefix(3))")
+            XCTAssertTrue(got.isSubset(of: expected), "β = \(betaDeg)°: a reflection outside kMax")
+        }
+        // The shipped cells, against their space groups: fcc keeps hkl of one
+        // parity; β″ (C2/m) keeps h + k even. Both must be complete AND exact.
+        let al = Crystal.fcc(a: 4.05, z: 13)
+        let alExpected = latticePoints(al, kMax: kMax).filter {
+            ($0.x & 1) == ($0.y & 1) && ($0.y & 1) == ($0.z & 1)
+        }
+        let alGot = Set(al.reflections(kMax: kMax).map { SIMD3($0.h, $0.k, $0.l) })
+        XCTAssertEqual(alGot, alExpected)
+        // Tolerance 1e-9, not the default 1e-4: 38 allowed β″ reflections are
+        // accidentally weak enough to fall under the default (measured
+        // 2026-09-14), and this asserts the LATTICE, not the intensity cut.
+        let beta = Crystal.betaDoublePrime
+        let betaExpected = latticePoints(beta, kMax: kMax).filter { ($0.x + $0.y) & 1 == 0 }
+        let betaGot = Set(beta.reflections(kMax: kMax, tolerance: 1e-9).map { SIMD3($0.h, $0.k, $0.l) })
+        XCTAssertEqual(betaGot, betaExpected)
+    }
+
     // MARK: The library
 
     /// Mutation: `cartesianZoneAxis` returning `SIMD3(Double(uvw.x), ...)`

@@ -110,22 +110,23 @@ package nonisolated struct Crystal: Sendable {
     /// All reflections with |g| ≤ kMax and |F| above `tolerance`, sorted by
     /// increasing |g|. Mirrors calculate_structure_factors.
     package func reflections(kMax: Double, tolerance: Double = 1e-4) -> [Reflection] {
-        // Shortest reciprocal-lattice direction, to bound the hkl tiling.
-        let testDirs: [SIMD3<Double>] = [
-            latInv[0], latInv[1], latInv[2],
-            latInv[0] + latInv[1], latInv[0] + latInv[2], latInv[1] + latInv[2],
-            latInv[0] + latInv[1] + latInv[2],
-            latInv[0] - latInv[1] + latInv[2],
-            latInv[0] + latInv[1] - latInv[2],
-            latInv[0] - latInv[1] - latInv[2],
-        ]
-        let kMin = testDirs.map { length($0) }.filter { $0 > 1e-9 }.min() ?? kMax
-        let numTile = Int((kMax / kMin).rounded(.up))
+        // DEVIATION (2026-09-14, Gate D): py4DSTEM bounds every index by
+        // ceil(k_max / k_leng_min), the shortest of ten reciprocal test
+        // directions. The exact bound is per index — h = g·a₁ because
+        // aᵢ·bⱼ* = δᵢⱼ, so |h| ≤ kMax·|a₁| — and for an oblique cell the
+        // shortest reciprocal direction can be LONGER than 1/|a₁| (b-unique
+        // monoclinic: a* = 1/(a sin β)), so py4DSTEM's tile falls short and
+        // reflections go missing with no signal. Measured on the β″-shaped
+        // cell at kMax 1.6: 0 lost at β = 105.3°, 6 at 110°, 48 at 115°, 198
+        // at 125°. The per-axis bound is complete for every cell and returns
+        // the identical set wherever the old one was complete; the filter on
+        // |g| below is what actually decides membership.
+        let tile = latReal.map { max(0, Int((kMax * length($0)).rounded(.up))) }
 
         var out: [Reflection] = []
-        for h in -numTile...numTile {
-            for k in -numTile...numTile {
-                for l in -numTile...numTile {
+        for h in -tile[0]...tile[0] {
+            for k in -tile[1]...tile[1] {
+                for l in -tile[2]...tile[2] {
                     if h == 0 && k == 0 && l == 0 { continue }
                     // g = h·a* + k·b* + l·c*
                     let g = Double(h) * latInv[0] + Double(k) * latInv[1] + Double(l) * latInv[2]

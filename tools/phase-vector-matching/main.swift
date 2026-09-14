@@ -14,18 +14,21 @@
 //     file (`harnessProject`) straight off `Crystal`, never through
 //     `PhaseReferenceLibrary`, and Part A asserts the two agree.
 //
-//     **HOW FAR THAT INDEPENDENCE GOES, corrected 2026-09-12 after Gate B.**
-//     It is independent in the SELECTION and the SCALING, and it catches a
-//     frame error local to `projectedVectors` — an x/y swap or a y flip on the
-//     experimental side drives P2 to 31.8 % and fails P5a and P5b. It is NOT
-//     independent in the in-plane frame: both sides call
-//     `ACOMOrientation.detectorBasis`, so a handedness flip there (e2 =
-//     cross(e1, n) instead of cross(n, e1)) mirrors both together and every
-//     gated check stays green. That is the L3 trap, still open here. What
-//     covers it is `tools/acom-convention-test`, which builds its own frame
-//     from a seed and never passes positions through production
-//     `project()`/`detectorBasis()` — a separate gate, not this one, and the
-//     link between them is prose rather than code (`open-items.md`).
+//     **HOW FAR THAT INDEPENDENCE GOES.** Selection, scaling AND — since
+//     2026-09-14 — the in-plane frame: `harnessFrame` builds its own
+//     right-handed pair about the beam from a seed, the way
+//     `tools/acom-convention-test` does, and Part B's peaks never pass
+//     through `ACOMOrientation.detectorBasis`. Until then both sides shared
+//     that call, so a handedness flip there (e2 = cross(e1, n) for
+//     cross(n, e1)) mirrored both together and all 27 checks stayed green —
+//     the L3 trap, measured by Gate B 2026-09-12. Now the harness frame is
+//     a pure rotation of the production frame ONLY if production is
+//     right-handed; β″ [010] is an oblique (chiral) net, so under the flip
+//     A4 cannot find one rotation that maps every pair and P2 collapses.
+//     Measured 2026-09-14 under exactly that mutation: A4 and P2 both red.
+//     Which handedness is PHYSICALLY right is still acom-convention-test's
+//     question, pinned against py4DSTEM; this gate pins that phase mapping
+//     shares ACOM's answer rather than mirroring it.
 //
 //  PRE-REGISTERED PASS CRITERIA (written before the first run):
 //    P1  ≥ 95 % of matrix-only positions verdict .matrix
@@ -92,23 +95,43 @@ struct Rng {
 ///
 /// A zone axis is a real-space direction, so the beam is `u·a₁ + v·a₂ + w·a₃`.
 /// A reflection belongs to the zero-order Laue zone when `g·n ≈ 0`; the
-/// in-plane components are `g` projected on any orthonormal pair spanning the
-/// plane ⊥ n. The pair used is the app's own `ACOMOrientation.detectorBasis`,
-/// deliberately: the aim is to check the SELECTION and the SCALING
-/// independently, not to invent a second in-plane frame that would make every
-/// comparison fail for a reason that is not a defect.
-func harnessProject(_ crystal: Crystal, zone uvw: SIMD3<Int>, kMax: Double,
-                    sgMax: Double) -> [(h: Int, k: Int, l: Int, q: SIMD2<Double>, weight: Double)] {
+/// in-plane components are `g` projected on an orthonormal pair spanning the
+/// plane ⊥ n — `harnessFrame`'s pair, built here and NOT the production
+/// `detectorBasis`, so the two frames agree only up to a rotation about n
+/// and only if both have the same handedness (file header).
+func harnessBeam(_ crystal: Crystal, zone uvw: SIMD3<Int>) -> SIMD3<Double> {
     let r = Double(uvw.x) * crystal.latReal[0]
         + Double(uvw.y) * crystal.latReal[1]
         + Double(uvw.z) * crystal.latReal[2]
-    let n = r / simd_length(r)
-    let basis = ACOMOrientation.detectorBasis(zoneAxis: n)
+    return r / simd_length(r)
+}
+
+/// A right-handed (f1, f2, n) with a seed that differs from production's on
+/// purpose: the same construction as `tools/acom-convention-test`.
+func harnessFrame(_ n: SIMD3<Double>) -> (f1: SIMD3<Double>, f2: SIMD3<Double>) {
+    let seed: SIMD3<Double> = abs(n.z) < 0.8 ? [0, 0, 1] : [1, 0, 0]
+    let f1 = simd_normalize(seed - simd_dot(seed, n) * n)
+    return (f1, simd_cross(n, f1))
+}
+
+/// The in-plane angle of the harness frame's f1 as PRODUCTION's frame sees
+/// it, degrees. A plant at θ in the harness frame is θ − this in production's,
+/// which is what a fitted in-plane rotation must be compared against.
+func frameOffsetDeg(_ n: SIMD3<Double>) -> Double {
+    let e = ACOMOrientation.detectorBasis(zoneAxis: n)
+    let f1 = harnessFrame(n).f1
+    return atan2(simd_dot(f1, e.columns.1), simd_dot(f1, e.columns.0)) * 180 / .pi
+}
+
+func harnessProject(_ crystal: Crystal, zone uvw: SIMD3<Int>, kMax: Double,
+                    sgMax: Double) -> [(h: Int, k: Int, l: Int, q: SIMD2<Double>, weight: Double)] {
+    let n = harnessBeam(crystal, zone: uvw)
+    let frame = harnessFrame(n)
     var out: [(h: Int, k: Int, l: Int, q: SIMD2<Double>, weight: Double)] = []
     for refl in crystal.reflections(kMax: kMax) {
         let sg = simd_dot(refl.g, n)
         if abs(sg) > sgMax { continue }
-        let q = SIMD2(simd_dot(refl.g, basis.columns.0), simd_dot(refl.g, basis.columns.1))
+        let q = SIMD2(simd_dot(refl.g, frame.f1), simd_dot(refl.g, frame.f2))
         let len = simd_length(q)
         if !(len > 1e-9) || len > kMax { continue }
         out.append((refl.h, refl.k, refl.l, q, refl.intensity))
@@ -259,7 +282,11 @@ enum Harness {
           misorientationDeg > 10,
           String(format: "%.2f° from the naive (0,0,1)", misorientationDeg))
 
-    // A4 — the library's projection agrees with the independent one written above.
+    // A4 — the library's projection agrees with the independent one written above,
+    // up to ONE rotation about the beam per zone — the rotation between the two
+    // frames, taken from the outermost shared reflection and then required of
+    // every other. A mirrored production frame has no such rotation on the
+    // oblique β″ [010] net, which is what makes this the handedness check.
     // This is what stops Part B from testing the code against itself.
     var worstParity = 0.0
     var parityPairs = 0
@@ -268,15 +295,23 @@ enum Harness {
         let theirs = PhaseReferenceLibrary.projectedVectors(
             reflections: crystal.reflections(kMax: kMax), crystal: crystal,
             zoneAxis: zone, settings: settings)
+        var pairs: [(SIMD2<Double>, SIMD2<Double>)] = []
         for t in theirs {
             guard let m = mine.first(where: { $0.h == t.h && $0.k == t.k && $0.l == t.l }) else {
                 worstParity = .infinity; continue
             }
-            worstParity = max(worstParity, simd_distance(m.q, t.q))
+            pairs.append((m.q, t.q))
+        }
+        guard let anchor = pairs.max(by: { simd_length($0.1) < simd_length($1.1) }) else {
+            worstParity = .infinity; continue
+        }
+        let phi = atan2(anchor.0.y, anchor.0.x) - atan2(anchor.1.y, anchor.1.x)
+        for (m, t) in pairs {
+            worstParity = max(worstParity, simd_distance(m, rotated(t, phi)))
             parityPairs += 1
         }
     }
-    check("A4 library projection == the harness's independent projection",
+    check("A4 library projection == the harness's independent projection, up to one rotation per zone",
           worstParity < 1e-12,
           String(format: "worst |Δq| %.3e Å⁻¹ over %d shared reflections", worstParity, parityPairs))
 
@@ -426,6 +461,11 @@ enum Harness {
     // meaningful modulo the projected symmetry of the phase, and must never be
     // presented as an absolute orientation.
     let fittedRotation = library.entries[map.matrixEntryIndex].inPlaneRotationRad * 180 / .pi
+    // The plant is 13.7° in the HARNESS frame; production's frame differs by a
+    // rotation about the beam, so the angle a production entry should carry
+    // is 13.7° − that offset. (The vector-set checks below need no such
+    // conversion: both sets are detector positions.)
+    let plantedInProductionDeg = 13.7 - frameOffsetDeg(harnessBeam(al, zone: SIMD3(0, 0, 1)))
     let fittedSet = library.entries[map.matrixEntryIndex].vectors.map(\.q)
     func setDistance(_ planted: [SIMD2<Double>]) -> Double {
         var worst = 0.0
@@ -445,15 +485,15 @@ enum Harness {
     check("P5a the fitted matrix entry reproduces the planted vector set",
           plantedDistance < 0.01,
           String(format: "worst nearest-neighbour %.5f Å⁻¹; fitted angle %.1f°, planted 13.7° "
-                 + "(equal modulo the 4-fold projected symmetry: %.1f°)",
-                 plantedDistance, fittedRotation,
-                 (fittedRotation - 13.7).truncatingRemainder(dividingBy: 90)))
+                 + "= %.1f° in production's frame (equal modulo the 4-fold projected symmetry: %.1f°)",
+                 plantedDistance, fittedRotation, plantedInProductionDeg,
+                 (fittedRotation - plantedInProductionDeg).truncatingRemainder(dividingBy: 90)))
     let flipped = harnessProject(al, zone: SIMD3(0, 0, 1), kMax: kMax, sgMax: sgMax)
         .map { rotated($0.q, -plantedMatrixRotation) }
     let flippedDistance = setDistance(flipped)
     // Gate B finding 11: the modulo line was PRINTED and not asserted, so a
     // transposed rotation printed 62.3° instead of 0.3° and still passed.
-    var modulo = abs((fittedRotation - 13.7).truncatingRemainder(dividingBy: 90))
+    var modulo = abs((fittedRotation - plantedInProductionDeg).truncatingRemainder(dividingBy: 90))
     modulo = min(modulo, 90 - modulo)
     check("P5c and the angle reconciles modulo the projected symmetry",
           modulo <= settings.inPlaneStepDeg,

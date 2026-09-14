@@ -78,6 +78,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | Gate | Result |
 |---|---|
 | `run-tests.sh unit` | **571 passed / 0 failed / 2 skipped, 573 cases — 2026-09-09**, inside the green `all` run; reconciled against 573 `func test` in source. The second skip is new and benign: `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes` does `XCTSkipUnless(fileExists)` and WS2's sidecar was deleted by the owner on 2026-09-09, so the gate quietly lost that one case — restore a WS2 sidecar to get it back. |
+| `run-tests.sh unit` (its own xcodebuild line) | **640 passed / 0 failed / 2 skipped, 642 cases — 2026-09-14** (`unit-20260914.log`, `GATE_EXIT=0` on its own line), reconciled against 642 `func test` in source. Run as the script's own command to a temp `DerivedData`, because the 4 GB preflight refused at 1.4 GB free — five `xcodebuild test` runs had filled the clang module cache; that cache and the repo's `.build` were deleted (both regenerable) to make room. Before it, the seven classes of the two touched test files ran on a wiped scratch bundle (46/46, `pvm-run3.log`), then four mutation runs turned exactly the assertions they named red (43/3, 45/1, 45/1) — the incremental run before the wipe had silently run 20 of 21, the stale-bundle trap a third time. `tools/phase-vector-matching` 27/27 (`pvm-harness-1.log`); 25/27 under the handedness mutation (`pvm-harness-mut.log`). `inventory` exit 0 (`inventory-final-20260914.log`), AppState + ResultExport **7405**, equal to HEAD. **`run-tests.sh scientific`: 46 harnesses, exit 0, zero `FAIL` lines — 2026-09-14 on the committed tree** (`scientific-20260914.log`, `GATE_EXIT=0` on its own line), after the four harnesses that drive `Crystal.reflections` had each passed on it alone (`*-head-20260914.log`). **`core` and `all` not run**; 7.5 GB free at the end, the unit run's temp bundle having been the missing space. |
 | `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line); the C7 session-1 tree re-ran the one harness it touched, `disk-detector`, exit 0 (`disk-detector-fixture-c7.log`), not the full set (< 1 GB free; the Swift changes are outside every harness's source list). Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
 | `run-tests.sh inventory` | **exit 0 — 2026-09-09, after the review fixes** (`inventory-final-20260909.log`); AppState + ResultExport **7509**, equal to HEAD. Six checks were added that day and the gate was red on arrival: it caught the untracked model spec, the dead link to the archived v2.5 plan, the missing licence texts, and — three times — this file's own prose, which is the check working: a doc may not write a repo path it does not have, not even to describe one. Metric renamed: `AppState.swift type-scope decls` **166**, not the old "stored properties 491", which counted function locals. **Markdown went UP, and the reason is stated as the rule requires: live 5 054 → 5 133 (+79), cold-start 965 → 1 037 (+72). The +72 is this handoff and the three open items the review left standing; the register itself is 192 archive lines that replace a 2 014-line file outside the repo. Nothing was deleted to pay for it because nothing live was found stale enough to delete — the next session that touches these files owes the trim.** |
@@ -187,6 +188,42 @@ CIF; the zone-axis field accepting `[010]`, `0 1 0` and `0-12`; the phase list
 reading as the legend after a run; the `Evidence` line following the cursor;
 and that "not indexed" is visibly hatched rather than a colour.
 
+**Audited 2026-09-14, unattended, by three independent readers and a
+refuter; nothing seen on screen.** The AI Analysis room only. Fixed, each
+with a test broken first on a clean bundle: `Crystal.reflections` now tiles
+each index by `ceil(kMax·|aᵢ|)` — py4DSTEM's shortest-direction bound loses
+reflections on oblique cells (48 at β = 115°, 198 at 125° on the β″ shape;
+none for Al or the shipped β″, sets identical) and is an inline `DEVIATION`;
+`tools/phase-vector-matching` builds its own in-plane frame, so the L3
+blind spot is closed — a handedness flip in `detectorBasis` now fails A4 and
+P2 (measured, 2 of 27 red) where it passed 27 of 27; the embedding suite pins
+`coordinates` against its own reference (both Gate B mutations red);
+`explainedVariance` is clamped at 0; `phaseSignature` follows the list order
+because colours do; the zone-axis fit carries the dataset-epoch and
+slot-identity guards its sibling had. Recorded, not fixed: three precipitate
+findings (dark ridges register through their flanks; a negative peak
+collapses an object to 1 × 1; a NaN neighbour passes the maximum test) and a
+grouping-name fallback outside the scope — `open-items.md`. Could NOT be
+faulted by reading or probing: the PCA maths, binning, k-means seeding and
+empty-cluster handling, the matcher's prune, score, chance guard and
+refusals, the zone-axis parser on every spelling tried, the Evidence stride,
+the hatch, and every `validation: "none"` label. Phase mapping is still
+UNVALIDATED; step 3 has still not run. **Gate B ran** (a fresh refuter,
+70 tool uses, byte copies instead of `git restore`): the tiling fix was
+re-derived from this repo's own matrix helpers and checked on triclinic,
+hexagonal and β = 170° cells, with byte-identical sets to the old code on
+every shipped cell; of its four frame mutations, the true mirror and the
+swapped projection failed A4 and P2, a negated e1 passed because it is a
+rotation, and a flipped `rotate` sign failed P5c only — as the Al [001]
+symmetry predicts. Two of its claims were tested rather than taken: the
+slot-identity guard did match on a reusable model id and now requires
+`isMatrix` too; the per-component basis rescale it called invisible to the
+coordinates assertion turned the eigenpair test red (`pvm-run6-mutE.log`),
+because λ there is computed from the published row. Live markdown is UP
+(6 076 → 6 087) and the reason is stated as the rule requires: three closed
+entries moved to the archive and four new findings were recorded; nothing
+live was found stale enough to delete. Committed 2026-09-14; the owner pushes.
+
 **NEXT, in order.**
 1. **Drive it** (owner). Nothing else here is blocked on code.
 2. **Step 3, when there is room** — an external drive, or ~8 GB freed. Their
@@ -204,11 +241,12 @@ step 4 of that programme and unlocks steps 5-7
 candidates marked at
 [`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)).
 
-**Also still the owner's alone, from the v3.0.0 cut:** push `main`, tag
-`v3.0.0` and push the tag (GitHub Desktop does not push tags), upload
-`build/release/mac4DSTEM-3.0.0.dmg` to the GitHub release, and paste the
-prepared Intel note at the top of the **v2.5.1** release's notes (his decision
-2026-09-11: annotate, do not withdraw). Detail in the archived closeout.
+**Corrected 2026-09-14:** v3.0.0 IS on the remote — `9b9949b` is an ancestor
+of `origin/main` and `refs/tags/v3.0.0` resolves there — so the push, tag and
+release steps the previous paragraph listed as owed were done on 2026-09-11.
+What is unpushed is everything since: `origin/main` sits at `6cb31a3`, **32
+commits behind** local `main` (the AI port, phase mapping, and this audit).
+The owner pushes.
 
 **A trap paid this session.** `tools/run-tests.sh` was edited **while a gate
 was running**; the running `inventory` re-read the half-written file and died

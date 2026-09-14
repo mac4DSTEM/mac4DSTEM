@@ -150,10 +150,16 @@ package final class PhaseMappingProduct {
         package var peakCount: Int
     }
 
-    /// Identity of the current phase list, order-independent: reordering the
-    /// list does not change the science, so it must not make a result stale.
+    /// Identity of the current phase list, ORDER-DEPENDENT. The science does
+    /// not depend on the order, but the colour a phase is drawn in does:
+    /// `PhaseMapPresentation.color` is by list position, the legend keeps the
+    /// positions of the run and the phase list shows the current ones. With a
+    /// sorted signature, removing a phase and adding it back at the end left
+    /// `isStale` false while the list swatch and the legend swatch for that
+    /// phase disagreed (found 2026-09-14). A moved phase now reads as stale,
+    /// which is the truthful state: the list no longer reads as the legend.
     package var phaseSignature: String {
-        phases.map(\.signature).sorted().joined(separator: ";")
+        phases.map(\.signature).joined(separator: ";")
     }
 
     package var isStale: Bool {

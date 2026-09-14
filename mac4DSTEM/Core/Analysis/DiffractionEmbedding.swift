@@ -306,7 +306,10 @@ package nonisolated enum DiffractionEmbedding {
         }
         var explainedVariance = [Float](repeating: 0, count: actualComponents)
         for c in 0..<actualComponents {
-            explainedVariance[c] = totalVariance > 0 ? Float(eigenvalues[c] / totalVariance) : 0
+            // Clamped at 0: past the covariance's rank LAPACK returns the null
+            // eigenvalues as tiny NEGATIVE numbers (−1e-16 measured), and the
+            // contract on `explainedVariance` is 0...1.
+            explainedVariance[c] = totalVariance > 0 ? Float(max(0, eigenvalues[c] / totalVariance)) : 0
         }
         let meanFloat = mean.map(Float.init)
         progress?(statsWeight + eigenWeight)

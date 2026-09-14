@@ -644,6 +644,28 @@ final class DiffractionEmbeddingTests: XCTestCase {
             )
             previous = lambda
         }
+
+        // The COORDINATES, which both exported quantities are built from and
+        // which nothing else here pins: coordinates[p·k + c] must be the
+        // mean-centred reference vector dotted with the published basis row.
+        // Mutations: dropping the mean-centring in the projection (PC1 moves
+        // 77 %, cosine similarity −0.59 → −0.04) and reversing the column
+        // order (the column exported as PC1 carries PC8) — both left every
+        // other test green (Gate B, 2026-09-11). Both verified red 2026-09-14.
+        let k = result.componentCount
+        let scale = trace.squareRoot()
+        for p in Swift.stride(from: 0, to: positions, by: 7) {
+            for c in 0..<k {
+                var expected = 0.0
+                for i in 0..<dims {
+                    expected += (vectors[p][i] - mean[i]) * Double(result.basis[c * dims + i])
+                }
+                XCTAssertEqual(
+                    Double(result.coordinates[p * k + c]), expected, accuracy: 1e-4 * scale,
+                    "coordinates[\(p)·k + \(c)] is not (x − mean)·basis[\(c)]"
+                )
+            }
+        }
     }
 
     /// The test's own copy of `DiffractionEmbedding.embed` — log1p, per-pattern

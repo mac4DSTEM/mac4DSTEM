@@ -597,3 +597,57 @@ path, and an unreachable guard with no fixture is one nobody can prove works.
 a `-Inf` pixel still produces a full result with finite, non-negative explained
 variance, so the guard has not over-fired and turned working datasets into
 refusals.
+
+## The phase-mapping gate shares its in-plane frame with the code — closed 2026-09-14
+
+### ~~The phase-mapping gate shares its in-plane frame with the code~~ — **CLOSED 2026-09-14**
+
+**Verification debt.** `tools/phase-vector-matching` generates its synthetic
+patterns through `ACOMOrientation.detectorBasis`, the same call
+`PhaseReferenceLibrary.projectedVectors` makes — so a handedness flip there
+(`simd_cross(e1, n)` for `simd_cross(n, e1)`) mirrors both sides and **all 27
+checks stay green**, measured by Gate B 2026-09-12. This is the L3 trap. An
+x/y swap or a y flip on the experimental side alone IS caught (P2 falls to
+31.8 %); only the shared frame is blind. `tools/acom-convention-test` builds
+its own frame from a seed and does cover it, but nothing links the two gates
+except this entry. Remedy: generate Part B's peaks from a harness-built frame,
+as acom-convention-test does — β″ [010] is a chiral net, so P2 would then pin
+the handedness.
+
+**Closure.** `tools/phase-vector-matching` now projects Part B's peaks through `harnessFrame`, a seeded right-handed pair built the way `acom-convention-test` builds its own, and A4 compares the two projections up to one rotation per zone. Under the handedness mutation named above, A4 (worst |Δq| 2.209 Å⁻¹) and P2 (32.4 % labelled β″) went red; the unmutated tree passes 27/27. The link between the two gates is now code in both.
+
+## `Crystal.reflections` under-tiles oblique monoclinic cells — closed 2026-09-14
+
+### ~~`Crystal.reflections` under-tiles oblique monoclinic cells~~ — **CLOSED 2026-09-14**
+
+**Science, Gate D owed.** `numTile = ceil(kMax / kMin)` with kMin the shortest
+of ten reciprocal test directions, but the true bound is `|h| ≤ kMax·a`. For a
+b-unique monoclinic, kMin ≤ a* = 1/(a sin β), so the tiling can fall short and
+reflections are **silently missing**. Measured by Gate B on a β″-shaped cell
+(a = 15.16, b = 4.05, c = 6.74): β = 105.3° (the shipped β″) loses **0** at
+either kMax; β = 110° loses 6 at kMax 1.6; β = 115° loses 48; β = 125° loses
+198. Pre-existing `Crystal` code, but phase mapping is the first feature to
+drive it with arbitrary imported cells — which its own header says is the case
+it exists for. Not urgent: β″ itself is unaffected.
+
+**Closure.** Gate D 2026-09-14: the diagnosis (the shortest reciprocal direction can be longer than 1/|aᵢ|, so `ceil(kMax/kMin)` is not a bound on the index) predicted that a superset check would find misses at β = 115° and 125° and none for fcc Al or the shipped β″; `testReflectionsCoverEveryLatticePointInsideKMaxOnObliqueCells` went red on the old code and green with the per-axis bound `ceil(kMax·|aᵢ|)`, which is exact because h = g·a₁. Al (282) and β″ (3458 at tolerance 1e-9) sets are unchanged. py4DSTEM carries the same bound; the fix is an inline `DEVIATION`. Red again under the reverted bound on 2026-09-14 (mutation run).
+
+## The embedding suite says almost nothing about `coordinates` — closed 2026-09-14
+
+### ~~The embedding suite says almost nothing about `coordinates`~~ — **CLOSED 2026-09-14**
+Same Gate B. `coordinates` is the array BOTH exported quantities (cosine
+similarity, k-means groups) are built from, and
+`grep -n "\.coordinates" mac4DSTEMTests/DiffractionEmbeddingTests.swift`
+returns exactly ONE line: an `allSatisfy(\.isFinite)` check. Two mutations
+leave all 7 tests green while moving every exported number: dropping the
+mean-centring in the projection (PC1 score moves 77 %; cosine similarity
+-0.5946 → -0.0406) and reversing the projection column order (the column an
+export labels "PC1" carries PC8). The k-means and cosine tests are invariant
+under an additive offset, a column permutation and a uniform scale, which is
+why both sail through. Fix: `testPublishedBasisAreEigenpairsOfTheMeanCentred‐
+Covariance` already owns an independent `referenceBinnedVector` — assert
+`coordinates[p*k+c] == dot(referenceBinnedVector(p) - mean, basis[c])` for
+several (p, c). Proof obligation: BOTH mutations must go red, not just the
+mean-centring one.
+
+**Closure.** `testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance` now asserts `coordinates[p·k + c] == (x_p − mean)·basis[c]` at every seventh position and every component against its own `referenceBinnedVector`. Both named mutations were run on 2026-09-14 and both turned it red (see `docs/status.md`).

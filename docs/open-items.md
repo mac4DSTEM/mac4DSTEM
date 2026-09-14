@@ -49,32 +49,6 @@ zone axes a ⟨110⟩Al beam DOES present is a crystallographic question nobody 
 answered here; until it is, the UI lets the user type one and the method
 refuses when it is wrong, which is the correct behaviour but not the answer.
 
-### The phase-mapping gate shares its in-plane frame with the code — added 2026-09-12
-
-**Verification debt.** `tools/phase-vector-matching` generates its synthetic
-patterns through `ACOMOrientation.detectorBasis`, the same call
-`PhaseReferenceLibrary.projectedVectors` makes — so a handedness flip there
-(`simd_cross(e1, n)` for `simd_cross(n, e1)`) mirrors both sides and **all 27
-checks stay green**, measured by Gate B 2026-09-12. This is the L3 trap. An
-x/y swap or a y flip on the experimental side alone IS caught (P2 falls to
-31.8 %); only the shared frame is blind. `tools/acom-convention-test` builds
-its own frame from a seed and does cover it, but nothing links the two gates
-except this entry. Remedy: generate Part B's peaks from a harness-built frame,
-as acom-convention-test does — β″ [010] is a chiral net, so P2 would then pin
-the handedness.
-
-### `Crystal.reflections` under-tiles oblique monoclinic cells — added 2026-09-12
-
-**Science, Gate D owed.** `numTile = ceil(kMax / kMin)` with kMin the shortest
-of ten reciprocal test directions, but the true bound is `|h| ≤ kMax·a`. For a
-b-unique monoclinic, kMin ≤ a* = 1/(a sin β), so the tiling can fall short and
-reflections are **silently missing**. Measured by Gate B on a β″-shaped cell
-(a = 15.16, b = 4.05, c = 6.74): β = 105.3° (the shipped β″) loses **0** at
-either kMax; β = 110° loses 6 at kMax 1.6; β = 115° loses 48; β = 125° loses
-198. Pre-existing `Crystal` code, but phase mapping is the first feature to
-drive it with arbitrary imported cells — which its own header says is the case
-it exists for. Not urgent: β″ itself is unaffected.
-
 ### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12
 
 **Known, scoped.** Measured by Gate B on the harness's own plant: halving
@@ -104,7 +78,11 @@ immediately and the same mutation turned the suite red.
 **The rule this buys:** reconcile the case count against `func test` **per
 file** when adding tests, not only for the whole suite — `cases: 8 declared: 9`
 is the signature. And a mutation that survives on an incremental build is not
-evidence until it survives on a clean one. This is the same family as the
+evidence until it survives on a clean one. **A third time, 2026-09-14,** in a
+session-scratch `-derivedDataPath`: the run after adding one test method ran
+20 of 21 in `PhaseVectorMatchingTests`, dropping a pre-existing method the
+previous run had listed, with `-quiet` saying nothing; wiped, the same tree
+ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`. This is the same family as the
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
@@ -115,7 +93,10 @@ owner's eye: the new task row and that ⌘5 still lands on grouping; adding a
 phase from the built-in menu and from a CIF; the zone-axis field accepting
 `[010]`, `0 1 0` and `0-12`; the phase list reading as the legend after a run;
 the `Evidence` line following the cursor; and that "not indexed" is visibly
-hatched rather than a colour. Closes when he reports.
+hatched rather than a colour. Also, since 2026-09-14: removing a phase and
+adding it back marks the run stale (the phase would be drawn in another
+colour), and the matrix zone-axis fit refuses if the dataset changed under it.
+Closes when he reports.
 
 ## Precipitate engines, landed unwired 2026-09-11 — added 2026-09-11
 
@@ -147,22 +128,6 @@ imputation strategy recovers this; the information is gone from the input. The
 honest fix is to report the imputed count, not to hide it. Owner: report or
 refuse.
 
-### The embedding suite says almost nothing about `coordinates`
-Same Gate B. `coordinates` is the array BOTH exported quantities (cosine
-similarity, k-means groups) are built from, and
-`grep -n "\.coordinates" mac4DSTEMTests/DiffractionEmbeddingTests.swift`
-returns exactly ONE line: an `allSatisfy(\.isFinite)` check. Two mutations
-leave all 7 tests green while moving every exported number: dropping the
-mean-centring in the projection (PC1 score moves 77 %; cosine similarity
--0.5946 → -0.0406) and reversing the projection column order (the column an
-export labels "PC1" carries PC8). The k-means and cosine tests are invariant
-under an additive offset, a column permutation and a uniform scale, which is
-why both sail through. Fix: `testPublishedBasisAreEigenpairsOfTheMeanCentred‐
-Covariance` already owns an independent `referenceBinnedVector` — assert
-`coordinates[p*k+c] == dot(referenceBinnedVector(p) - mean, basis[c])` for
-several (p, c). Proof obligation: BOTH mutations must go red, not just the
-mean-centring one.
-
 ### The robust-sigma constant and the fill statistic are unpinned
 Pre-existing, inherited with the port, found by Gate B. `1.4826 * mad`
 (`PrecipitateSegmentation.swift:305`) can be changed to `3.0 * mad` — a +102 %
@@ -173,6 +138,29 @@ meaning — with every test green, moving mask footprints **-22 %**,
 are one-token mutants. Fix: one fixture asserting `robustThreshold` lands near
 `median + 3 x sigma_known` on known Gaussian noise, and one assertion that
 distinguishes median from mean. Not blocking — the engine is unwired.
+
+### Dark-contrast ridges register through their flanks — added 2026-09-14
+Found by the 2026-09-14 audit (an independent reader; script not retained).
+`ridgeMeasure` (`PrecipitateSegmentation.swift`) keeps only the negative
+Hessian eigenvalue and its comment says a dark ridge "never registers". A
+dark stripe's smoothed cross-section has two negative-curvature shoulders,
+which DO register and close into one ring-shaped object: a −200 dark 40 × 30
+stripe on a bright field, `.needles`, gave one object with the right centroid
+and `lengthPx` 53.96, `widthPx` 45.0 — the flank spacing, not the stripe.
+Every needle fixture in `PrecipitateTests` is bright. Owner: decide whether
+dark contrast is in scope; if it is, the measure needs the sign made explicit
+and a dark fixture. Not blocking — unwired.
+
+### A negative peak collapses an object to 1 × 1, and NaN next to a maximum passes — added 2026-09-14
+Same audit, both unreproduced through the public surface. `PrecipitateSegmentation`
+takes `half = 0.5 × peak` for the length/width extent; with `peak < 0` no
+member clears it and the object ships as `lengthPx = widthPx = 1`, silently.
+`.needles` drops it on the length floor; `.particles` has none. Reaching it
+needs a component whose maximum is negative, which the threshold seems to
+prevent unless `thresholdSigmas ≤ 0`, which nothing validates. And
+`PrecipitateReflections.find` checks `isFinite` on the candidate only; a NaN
+neighbour compares false, so a pixel beside a dead detector pixel can be a
+local maximum. No fixture holds a NaN in the max pattern. Not blocking.
 
 ## Repository review 2026-09-09 — added 2026-09-09
 
@@ -633,6 +621,15 @@ probe placement before the windowed path is quoted as measured.
 Investigation owed; nobody has measured it since.
 
 ## Known, scoped, not blocking
+
+### The grouping fallback name uses the requested k, the product the actual one (2026-09-14)
+`Support/ResultMetadata.swift` names diffraction groups from
+`lastRunSettings?.groups ?? settings.groups`; `AppState+DiffractionGroups`
+publishes with `result.groupCount`, which `DiffractionEmbedding.compute`
+clamps to the position count. The two differ only when k exceeded the scan,
+and only if the fallback is reached with no published product — no such path
+was found by reading, so this may be dead. Outside the 2026-09-14 audit's
+scope; left for the session that touches that file.
 
 ### Parallax and ptychography are unrunnable on the owner's Mac (2026-09-11)
 Owner drive, `051_STEM_SI_preprocessed_unfiltered_bin_4_20260629.h5` — a

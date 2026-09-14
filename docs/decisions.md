@@ -1262,3 +1262,21 @@ movement was evicting the run's real events — the detection, the import, the
 phase map — from the record kept to explain them. The filename went too: it is
 in the window subtitle, the sidebar and the toolbar, and repeating it in a line
 that truncates is what truncated it.
+
+## 2026-09-14 — `Crystal.reflections` deviates from py4DSTEM's tile bound, and a gate owns its own frame
+
+py4DSTEM bounds every Miller index by `ceil(k_max / k_leng_min)`, the shortest
+of ten reciprocal directions. That is not a bound on an index: `h = g·a₁`, so
+`|h| ≤ kMax·|a₁|`, and on an oblique cell the shortest reciprocal direction can
+be longer than `1/|a₁|`. Measured on the β″ shape at kMax 1.6: 6 reflections
+lost at β = 110°, 48 at 115°, 198 at 125°, with no signal. The port now tiles
+each index by `ceil(kMax·|aᵢ|)` and says so inline as a `DEVIATION`; every
+shipped cell returns the identical set, and the deviation exists because phase
+mapping is the first feature to hand this function arbitrary imported cells.
+Parity with py4DSTEM on an oblique cell would now be parity with a defect.
+
+The second rule this session sets: a harness may not take its in-plane frame
+from the code it gates. `tools/phase-vector-matching` shared
+`ACOMOrientation.detectorBasis` with `PhaseReferenceLibrary`, so a handedness
+flip mirrored both and 27 of 27 checks stayed green. It builds its own seeded
+frame now, as `acom-convention-test` always did, and the flip fails two checks.
