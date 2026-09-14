@@ -140,6 +140,15 @@ label never resolves. Treat as one Gate D, not two fixes.
 
 ## Verification debt — added 2026-09-08
 
+### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
+The `macos-26` runner carries Xcode 26.6, and its type checker times out on
+`ContentView`'s file-importer closure ("unable to type-check this expression
+in reasonable time") while the owner's Xcode 27.0 compiles it; the last three
+runs on `main` (3c4b82c, 9b9949b, 6cb31a3) failed there and nobody read them.
+Found by the PR #1 auto-fix. The closure became a typed method on the
+`ai-analysis` branch; whether Xcode 26.6 stops there is CI's to say. Every
+green gate recorded in `status.md` is a LOCAL run on Xcode 27.
+
 ### The published v2.5.1 artefact is universal, and Intel users get a broken app
 **Not a v3.0.0 blocker — a live defect in what users can download today**
 (found 2026-09-11 while closing the archive blocker, which is now fixed;
