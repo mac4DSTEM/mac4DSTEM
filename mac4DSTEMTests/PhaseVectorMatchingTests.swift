@@ -1064,6 +1064,121 @@ final class ZoneAxisFitTests: XCTestCase {
         XCTAssertLessThan(try XCTUnwrap(other).matchedVectors, winner.matchedVectors)
     }
 
+    /// The chance floor (2026-09-14). A percentage alone cannot be read: at a
+    /// tight tolerance every axis explains a few percent of ANY vectors, and
+    /// the panel presented a ⟨112⟩ family at 8 % the way it presents a real
+    /// fit. `chanceMatchedVectors` is what separates them, and the two halves
+    /// of this test are the two cases the owner cannot tell apart on screen.
+    ///
+    /// Mutations this names: computing the chance expectation at a fixed
+    /// radius instead of each pattern's own reach; dropping the
+    /// `chanceMatchMultiple` factor from `isAboveChance`; or returning zero
+    /// chance, which would mark everything informative.
+    func testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot() throws {
+        let al = Crystal.aluminum
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 1.2
+        let settings = PhaseVectorSettings()
+        let scale = 0.008
+        let originX: Float = 128, originY: Float = 128
+
+        // Half one: aluminium's own ⟨110⟩ projection, as the recovery test
+        // plants it. This must read as information.
+        let base = PhaseReferenceLibrary.projectedVectors(
+            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            zoneAxis: SIMD3(1, 1, 0), settings: reference)
+        let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
+        let plantedPeaks: [[BraggPeak]] = (0..<64).map { _ in
+            [BraggPeak(x: originX, y: originY, intensity: 10)]
+                + turned.map { v in
+                    BraggPeak(x: originX + Float(v.q.x / scale),
+                              y: originY + Float(v.q.y / scale), intensity: 1)
+                }
+        }
+        let plantedFits = PhaseVectorMatcher.fitZoneAxis(
+            bragg: BraggVectors(scanWidth: 8, scanHeight: 8, peaks: plantedPeaks),
+            crystal: al, referenceSettings: reference, settings: settings,
+            originX: originX, originY: originY, invAngstromPerPixel: scale,
+            inPlaneStepDeg: 2)
+        let plantedWinner = try XCTUnwrap(plantedFits.first)
+        XCTAssertTrue(plantedWinner.isAboveChance(multiple: settings.chanceMatchMultiple),
+                      "a perfectly planted ⟨110⟩ was marked as chance: "
+                      + "\(plantedWinner.matchedVectors) matched against "
+                      + "\(plantedWinner.chanceMatchedVectors) expected")
+        XCTAssertGreaterThan(plantedWinner.chanceMatchedVectors, 0,
+                             "the chance expectation is identically zero, so nothing "
+                             + "could ever be marked at chance")
+
+        // Half two: the same number of vectors pointing nowhere in
+        // particular, drawn uniformly over the disc the data reaches — which
+        // is the model `chanceMatchFraction` states for itself. Whatever axis
+        // wins on these must NOT read as information.
+        var seed: UInt64 = 0x9E3779B97F4A7C15
+        func next() -> Double {                     // deterministic; no shared RNG state
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Double(seed >> 11) / Double(UInt64(1) << 53)
+        }
+        let reach = turned.map { simd_length($0.q) }.max() ?? 0.8
+        func sweep(_ peaks: [[BraggPeak]]) -> PhaseVectorMatcher.ZoneAxisFit? {
+            PhaseVectorMatcher.fitZoneAxis(
+                bragg: BraggVectors(scanWidth: 8, scanHeight: 8, peaks: peaks),
+                crystal: al, referenceSettings: reference, settings: settings,
+                originX: originX, originY: originY, invAngstromPerPixel: scale,
+                inPlaneStepDeg: 2).first
+        }
+        let uniformPeaks: [[BraggPeak]] = (0..<64).map { _ in
+            [BraggPeak(x: originX, y: originY, intensity: 10)]
+                + turned.map { _ in
+                    // sqrt keeps the draw uniform per unit AREA, not per radius.
+                    let r = reach * next().squareRoot(), a = next() * 2 * .pi
+                    return BraggPeak(x: originX + Float(r * cos(a) / scale),
+                                     y: originY + Float(r * sin(a) / scale), intensity: 1)
+                }
+        }
+        let uniformWinner = try XCTUnwrap(sweep(uniformPeaks))
+        // The model's calibration, asserted rather than printed, because
+        // `docs/open-items.md` quotes it: 14 matched of 1 379 against 11.4
+        // expected. A band, not the number, so a change to the sampling is a
+        // failure and a change to the last digit is not.
+        XCTAssertEqual(Double(uniformWinner.matchedVectors),
+                       uniformWinner.chanceMatchedVectors, accuracy: 6.0,
+                       "the uniform-disc model no longer predicts what uniform vectors do: "
+                       + "\(uniformWinner.matchedVectors) matched of "
+                       + "\(uniformWinner.totalVectors), \(uniformWinner.chanceMatchedVectors) expected")
+        XCTAssertFalse(uniformWinner.isAboveChance(multiple: settings.chanceMatchMultiple),
+                       "vectors pointing nowhere produced a fit presented as information: "
+                       + "\(uniformWinner.matchedVectors) matched, "
+                       + "\(uniformWinner.chanceMatchedVectors) expected by chance")
+
+        // MEASURED LIMIT, printed not asserted: vectors confined to the rings
+        // the references occupy beat the disc model, because the model spreads
+        // its area over the whole disc while the peaks sit where the
+        // references are. `chanceMatchFraction`'s own comment says this
+        // understatement is known; these two lines are what it costs here.
+        let ringPeaks: [[BraggPeak]] = (0..<64).map { _ in
+            [BraggPeak(x: originX, y: originY, intensity: 10)]
+                + turned.map { v in
+                    let r = simd_length(v.q), a = next() * 2 * .pi
+                    return BraggPeak(x: originX + Float(r * cos(a) / scale),
+                                     y: originY + Float(r * sin(a) / scale), intensity: 1)
+                }
+        }
+        let ringWinner = try XCTUnwrap(sweep(ringPeaks))
+        // AND THE LIMIT, asserted too: 63 matched against 10.7 expected. The
+        // model spreads its area over the whole disc while these vectors sit
+        // where the references are, so it understates chance about sixfold —
+        // and the guard therefore reads them as information. This assertion
+        // exists to fail if that ever stops being true, in either direction.
+        XCTAssertGreaterThan(Double(ringWinner.matchedVectors),
+                             4 * ringWinner.chanceMatchedVectors,
+                             "the disc model no longer understates ring-concentrated vectors: "
+                             + "\(ringWinner.matchedVectors) matched, "
+                             + "\(ringWinner.chanceMatchedVectors) expected")
+        XCTAssertTrue(ringWinner.isAboveChance(multiple: settings.chanceMatchMultiple),
+                      "ring-concentrated vectors are no longer read as information; "
+                      + "open-items.md's measured limit needs rewriting")
+    }
+
     /// Mutation: the `pairs > 0` guard dropped, or an axis with no reachable
     /// reflection admitted — it would divide by zero or report a perfect fit
     /// for a direction that presents nothing.
@@ -1086,5 +1201,185 @@ final class ZoneAxisFitTests: XCTestCase {
             XCTAssertTrue(fit.meanDistance.isFinite, "an unranked axis leaked a NaN")
             XCTAssertGreaterThan(fit.totalVectors, 0)
         }
+    }
+}
+
+/// The matrix's last word before a position may be called a precipitate
+/// (`PhaseVectorMatcher.challengeByMatrix`, 2026-09-14). Gate D record:
+/// `docs/open-items.md`, "A second matrix grain is labelled as a candidate
+/// phase". The defect these pin cost 2 250 positions of pure aluminium a
+/// 100 % confident β″ label on the demo cube.
+final class MatrixChallengeTests: XCTestCase {
+
+    /// Mutation this names: deleting the step-5 block in `classify`, or
+    /// passing an empty `matrixChallenge` from `map`. Both restore the defect
+    /// exactly — the second assertion here is the defect, kept as the control.
+    ///
+    /// The planted rotation is 37.3°, deliberately NOT a multiple of the 2°
+    /// library step. MEASURED, not assumed: snapping the derived rotation to
+    /// that grid does NOT turn this test red — 0.7° at |q| ≤ 0.8 Å⁻¹ is
+    /// 0.0098 Å⁻¹, still inside the 0.02 pair radius, so the verdict survives
+    /// at a worse distance. The grid mutation is caught by
+    /// `testAMatrixOrientationExplainingLessDoesNotWin`, which compares the
+    /// distance rather than the verdict.
+    func testAMatrixGrainOnAnotherZoneAxisIsNotLabelledAsACandidate() throws {
+        let library = try challengeLibrary()
+        let planted = matrixVectorsOnAnotherAxis(library, degrees: 37.3)
+        XCTAssertGreaterThanOrEqual(planted.count, 4,
+                                    "the fixture planted too few vectors to decide anything")
+        let settings = PhaseVectorSettings()
+        let bases = PhaseVectorMatcher.matrixChallengeBases(library: library)
+        XCTAssertFalse(bases.isEmpty, "the challenge pool is empty; nothing was tested")
+
+        // The control: without the challenge this IS the defect.
+        let unchallenged = PhaseVectorMatcher.classify(
+            vectors: planted, library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 256))
+        XCTAssertEqual(unchallenged.verdict, .indexed,
+                       "the fixture no longer reproduces the defect it was built for, "
+                       + "so the challenged case below proves nothing")
+
+        let challenged = PhaseVectorMatcher.classify(
+            vectors: planted, library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 256),
+            matrixChallenge: bases)
+        XCTAssertEqual(challenged.verdict, .matrix,
+                       "aluminium on a second zone axis was labelled a candidate phase")
+        XCTAssertEqual(Int(challenged.phaseIndex), library.matrixPhaseIndex)
+    }
+
+    /// Mutation this names: relaxing `candidate.matched > winner.matched` to
+    /// `>=`. That single character is what makes a precipitate impossible to
+    /// erase — a candidate explaining every surviving vector cannot be beaten
+    /// on count — and Gate B measured what `>=` costs before it was tightened:
+    /// **26.5 % of three-vector precipitates taken by the matrix** at
+    /// 0.004 Å⁻¹ of jitter, a third of a detector pixel on the demo cube.
+    ///
+    /// THE JITTER IS THE POINT. The first version of this test planted a
+    /// candidate entry's own vectors verbatim, so the winner's mean distance
+    /// was exactly 0 and `candidate.score < winner.score` could never hold for
+    /// any challenger — it passed under every loosening of the guard it
+    /// claimed to hold. A real measurement is never exact.
+    func testTheChallengeDoesNotTakeATruePrecipitate() throws {
+        let library = try challengeLibrary()
+        let candidate = library.entries[library.candidateEntryIndices[0]]
+        let bases = PhaseVectorMatcher.matrixChallengeBases(library: library)
+        let settings = PhaseVectorSettings()
+
+        // Deterministic jitter, well inside the pair radius: a real peak is
+        // measured, not looked up.
+        var seed: UInt64 = 0xD1B54A32D192ED03
+        func jitter() -> Double {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return (Double(seed >> 11) / Double(UInt64(1) << 53) - 0.5) * 0.008
+        }
+        // Sparse, because sparse is the case that was being stolen: the file
+        // header names "a thin precipitate showing two spots", and
+        // `minimumMatchedVectors` admits three.
+        for count in [3, 4, 5, 6] {
+            let planted = candidate.vectors.prefix(count).map {
+                $0.q + SIMD2(jitter(), jitter())
+            }
+            let result = PhaseVectorMatcher.classify(
+                vectors: Array(planted), library: library, settings: settings,
+                matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices,
+                scratch: PhaseVectorMatcher.Scratch(capacity: 256),
+                matrixChallenge: bases)
+            XCTAssertEqual(result.verdict, .indexed,
+                           "a \(count)-vector precipitate was taken by the matrix")
+            XCTAssertNotEqual(Int(result.phaseIndex), library.matrixPhaseIndex,
+                              "a \(count)-vector precipitate was relabelled as the matrix")
+        }
+    }
+
+    /// Mutation this names: dropping `candidate.matched >= winner.matched`, or
+    /// turning `candidate.score < winner.score` into `<=`. The rule is that a
+    /// challenger must explain AT LEAST AS MUCH of the pattern, not merely
+    /// explain a corner of it more precisely.
+    func testAMatrixOrientationExplainingLessDoesNotWin() throws {
+        let library = try challengeLibrary()
+        let planted = matrixVectorsOnAnotherAxis(library, degrees: 37.3)
+        let bases = PhaseVectorMatcher.matrixChallengeBases(library: library)
+        let settings = PhaseVectorSettings()
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 256)
+
+        // ONE named orientation, not the whole pool: the pool holds six
+        // ⟨011⟩ variants and 49 axes in all, and a boundary asserted against
+        // all of them would be decided by whichever one happens to win.
+        // Restricting it to the planted axis makes "the challenger's numbers"
+        // exact.
+        // The planted axis itself, up to sign — NOT the ⟨011⟩ family, which
+        // has six members in `lowIndexZoneAxes` and would reintroduce the same
+        // first-versus-best ambiguity.
+        let oneBase = bases.filter {
+            $0.zoneAxis == SIMD3(0, 1, 1) || $0.zoneAxis == SIMD3(0, -1, -1)
+        }
+        XCTAssertEqual(oneBase.count, 1, "expected exactly one [011] base in the pool")
+
+        // What that orientation can actually do here, measured rather than
+        // assumed, so the comparisons below sit exactly on its boundary.
+        guard let best = PhaseVectorMatcher.challengeByMatrix(
+            surviving: planted, bases: oneBase, settings: settings,
+            accessibleRadius: 1.0, beating: (matched: 0, score: .infinity),
+            scratch: scratch) else {
+            return XCTFail("the matrix explains every planted vector exactly and still lost")
+        }
+        XCTAssertEqual(best.matched, planted.count,
+                       "the planted grain was not fully explained by its own orientation")
+
+        // ON the boundary: a winner the challenger merely TIES on count is not
+        // beaten, because the rule is strictly more. This is the assertion that
+        // makes a fully explained precipitate safe, and it is what turns
+        // `>` into `>=` red.
+        XCTAssertNil(PhaseVectorMatcher.challengeByMatrix(
+            surviving: planted, bases: oneBase, settings: settings,
+            accessibleRadius: 1.0, beating: (matched: best.matched, score: 1.0),
+            scratch: scratch),
+            "a challenger that merely tied the winner's count took the position")
+
+        // And a winner it explains more than, it takes.
+        XCTAssertNotNil(PhaseVectorMatcher.challengeByMatrix(
+            surviving: planted, bases: oneBase, settings: settings,
+            accessibleRadius: 1.0, beating: (matched: best.matched - 1, score: 1.0),
+            scratch: scratch),
+            "a challenger explaining one more vector than the winner did not take it")
+
+        // The distance half of the rule, at its own boundary.
+        XCTAssertNil(PhaseVectorMatcher.challengeByMatrix(
+            surviving: planted, bases: oneBase, settings: settings,
+            accessibleRadius: 1.0, beating: (matched: best.matched - 1, score: best.score),
+            scratch: scratch),
+            "a challenger tied the winner's distance and took the position anyway")
+    }
+
+    // MARK: Fixtures
+
+    /// Al as the matrix on [001], β″ [001] as the candidate — the pair that
+    /// produced the false label, because β″ is coherent with Al and its [001]
+    /// net covers most of Al's [011] net.
+    private func challengeLibrary() throws -> PhaseReferenceLibrary {
+        var settings = PhaseReferenceSettings()
+        settings.kMaxInvAngstrom = 0.8
+        settings.inPlaneStepDeg = 2
+        return try PhaseReferenceLibrary.build(phases: [
+            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                            role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+                            role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
+        ], settings: settings)
+    }
+
+    /// The matrix crystal's [011] net — a second aluminium grain, the case the
+    /// library has no entry for because the user named one zone axis.
+    private func matrixVectorsOnAnotherAxis(_ library: PhaseReferenceLibrary,
+                                            degrees: Double) -> [SIMD2<Double>] {
+        let crystal = library.phases[library.matrixPhaseIndex].crystal
+        let reflections = crystal.reflections(kMax: library.settings.kMaxInvAngstrom)
+        let base = PhaseReferenceLibrary.projectedVectors(
+            reflections: reflections, crystal: crystal,
+            zoneAxis: SIMD3(0, 1, 1), settings: library.settings)
+        return PhaseReferenceLibrary.rotate(base, by: degrees * .pi / 180).map(\.q)
     }
 }

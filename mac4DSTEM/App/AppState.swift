@@ -2350,7 +2350,7 @@ final class AppState {
         patternDisplayRangeHi = 1
         patternGamma = 1
         lastRotationResult = nil
-        calibrationSession.lastEllipseFit = nil
+        calibrationSession.lastEllipseFit = nil   // before activate suspends (GB3)
         parallaxPreprocess = nil
         parallaxAlignment = nil
         singleslicePtychography = nil
@@ -2388,26 +2388,19 @@ final class AppState {
         } else {
             calibrationSession.acceleratingVoltage = nil
         }
-        // The strain product dies BEFORE the calibration reset, not with the
-        // other scan-indexed products further down: `activate` suspends on
-        // reader awaits between here and those clears, the export menu item is
-        // reachable during a suspension, and `currentResultPersistenceMetadata`
-        // derives the strain frame keys from the LIVE calibration — so an
-        // uncleared map would export the previous dataset's scan-frame pixels
-        // under this reset's "rotation not calibrated" claim (Gate B finding 3,
-        // 2026-08-25).
+        // The strain product dies BEFORE the calibration reset, not with the other
+        // scan-indexed products further down: `activate` suspends on reader awaits
+        // between here and those clears, the export menu item is reachable during a
+        // suspension, and `currentResultPersistenceMetadata` derives the strain
+        // frame keys from the LIVE calibration — so an uncleared map would export
+        // the previous dataset's scan-frame pixels under this reset's "rotation
+        // not calibrated" claim (Gate B finding 3, 2026-08-25).
         strain.clear()
         // Same reasoning again: a group map is scan-indexed, so dataset A's
         // groups must not survive into dataset B's Results slot.
         diffractionGroups.clear()
         phaseMapping.clear()
-        // Same reasoning as `strain.clear()` above, one layer simpler: a Q
-        // estimate and its self-check verdict describe dataset A's shells and
-        // must not survive into dataset B's panel. // v2 S13
-        qCalibration.clear()
-        calibrationSession.calibration = Calibration()
-        calibrationSession.provenance = CalibrationProvenance()
-        clearSupersededFittedOrigin()
+        clearCalibration()
         // A DM4 whose axis units cannot be trusted opens WITHOUT its pixel
         // sizes, and the reason goes to the log — the status line is what the
         // log records — so the empty readiness rows are explained, not mute.
@@ -2727,13 +2720,7 @@ final class AppState {
         descriptor = nil
         datasets = []
         datasetPreview = nil
-        calibrationSession.calibration = Calibration()
-        calibrationSession.provenance = CalibrationProvenance()
-        // Every path that resets the calibration resets the Q run with it: an
-        // estimate outlives the dataset it describes otherwise. The two are
-        // adjacent here on purpose, so a third reset path is hard to add
-        // without noticing. // v2 S13
-        qCalibration.clear()
+        clearCalibration()
         // A cancelled open must not be remembered — the release owner's call,
         // 2026-08-18: you cancelled because it was the wrong file, so promoting
         // it to the top of Recents is precisely backwards. `openFileAsync` also
@@ -3085,6 +3072,19 @@ final class AppState {
     private func clearSupersededFittedOrigin() {
         supersededFittedOrigin = nil
         canRestoreFittedOrigin = false
+    }
+
+    /// The ONE path that resets the calibration — activation, a cancelled load,
+    /// Prepare's Clear Calibration; a reset spelled out elsewhere is the mistake
+    /// this prevents (v2 S13). NOT `datasetEpoch` (the cube is unchanged) and not
+    /// the strain/phase maps, which are left to rerun — but it DOES discard the
+    /// orientation map and parallax, and the confirmation dialog says so.
+    func clearCalibration() {
+        calibrationSession.clear()
+        qCalibration.clear()
+        clearSupersededFittedOrigin()
+        parallaxPreprocess = nil; parallaxAlignment = nil
+        acomSession.invalidateResult()
     }
 
     /// Undo a manual center that displaced fitted origin maps: reinstate the

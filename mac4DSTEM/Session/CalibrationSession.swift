@@ -25,6 +25,27 @@ package final class CalibrationSession {
 
     package init() {}
 
+    /// Discard every calibration value and its provenance — the five readiness
+    /// rows go back to "Not set" — together with the ellipse fit that produced
+    /// one of them. Deliberately NOT the accelerating voltage, the origin-fit
+    /// function or the ellipse fit radii: those are acquisition facts and fit
+    /// settings, not measurements of this dataset, and `AppState.activate`
+    /// reads the voltage off the file *before* it resets the calibration.
+    /// `AppState.clearCalibration()` is the caller — a clear reaches further
+    /// than this type owns (the Q run, the superseded origin, parallax).
+    package func clear() {
+        calibration = Calibration()
+        provenance = CalibrationProvenance()
+        lastEllipseFit = nil
+    }
+
+    /// Is there anything for a clear control to remove? `.unusable` counts: an
+    /// origin that failed its own fit gate is present, and clearing it is
+    /// exactly what a user does about it.
+    package var hasAnyCalibrationValue: Bool {
+        lastEllipseFit != nil || readiness.items.contains { $0.status != .missing }
+    }
+
     /// The per-item readiness report, one owner (Core computes it).
     package var readiness: CalibrationReadinessReport {
         CalibrationReadinessReport.make(calibration: calibration, provenance: provenance)

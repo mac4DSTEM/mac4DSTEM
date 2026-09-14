@@ -203,6 +203,19 @@ package nonisolated enum PhaseMapPresentation {
         case .noData:
             return "No peaks at this position."
         case .matrix:
+            // TWO ROUTES REACH THIS VERDICT and they are different facts about
+            // the specimen, so they may not share a sentence. Removal leaves
+            // too little to index (`matchedCount == 0`), or an orientation of
+            // the matrix crystal explained the pattern better than any
+            // candidate did (`classify` step 5). Gate B caught the second
+            // narrated as the first: a challenged position read "0 of 8
+            // vectors are the matrix's, and 8 is too few to index" when the
+            // matrix had in fact matched 6 of them.
+            if result.matchedCount > 0 {
+                return "\(name(Int32(map.matrixPhaseIndex))) — on another orientation: it "
+                    + "accounts for \(result.matchedCount) of \(result.survivingCount) "
+                    + "vectors here, closer than any candidate phase."
+            }
             return "\(name(Int32(map.matrixPhaseIndex))) — "
                 + "\(result.removedCount) of \(result.removedCount + result.survivingCount) "
                 + "vectors are the matrix's, and \(result.survivingCount) is too few to index."

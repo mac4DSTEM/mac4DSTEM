@@ -29,6 +29,10 @@ struct PrepareSettings: View {
     // returning to Prepare does not reopen a wall of py4DSTEM kwargs.
     @SceneStorage("prepare.settings.advancedCorrection.isExpanded") private var showsDiagnostics = false
     @SceneStorage("prepare.settings.ellipseCorrection.isExpanded") private var showsEllipse = false
+    /// Destructive, so it asks first — the same pattern as "Reset Recommended
+    /// Settings" and "Reset Alignment". Plain `@State`: a half-open dialog is
+    /// not worth remembering across a window.
+    @State private var showsClearConfirmation = false
 
     /// core-data-05 (S22a ride-along): the excluded-fraction disclosure obeys
     /// the shared policy floor, not the retired 0.5% — readiness and the
@@ -110,6 +114,40 @@ struct PrepareSettings: View {
                 )
                 .accessibilityIdentifier("calibration.acceleratingVoltage")
             }
+
+            // The open item this closes: a measured calibration could not be
+            // taken back in the app — a wrong ellipse fit or a mistyped scale
+            // meant reloading the file. Offered only when there is something
+            // to remove, as "Reset Alignment" and "Restore Fitted Origin" are:
+            // a control that would do nothing is not a control.
+            if session.hasAnyCalibrationValue {
+                Button {
+                    showsClearConfirmation = true
+                } label: {
+                    Label("Clear Calibration", systemImage: "xmark.circle")
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.clear")
+                .help("Returns every calibration above to Not set, without reloading the file.")
+            }
+        }
+        .confirmationDialog(
+            "Clear all calibration values?",
+            isPresented: $showsClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Calibration", role: .destructive) {
+                appState.clearCalibration()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Origin & probe, ellipse distortion, R–Q rotation and the Q and R "
+               + "pixel scales all go back to Not set, whether they were measured "
+               + "here or came from the file. The accelerating voltage stays, and "
+               + "the data is not reloaded. The orientation map and any parallax "
+               + "alignment are discarded because they were computed against these "
+               + "values; strain and phase maps are kept, and should be rerun after "
+               + "you recalibrate.")
         }
 
         // Diagnostic and fitting controls that supplement the single readiness

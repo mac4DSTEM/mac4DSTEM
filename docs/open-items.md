@@ -86,46 +86,60 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
-### The ellipse fit measures a 10 % ellipse on an isotropic multi-grain detector — added 2026-09-14
-**Science, Gate D owed — hypothesis with its experiment attached.** On the
-demo cube (three Al grains, detector rendered isotropic by construction) the
-owner's Fit Detector Ellipse reported a = 43.68, b = 39.72, θ = 122.5°, and
-everything downstream followed: Find Matrix Zone Axis returned a ⟨221⟩
-family at 19 % where the ellipse-free probe got ⟨100⟩ at 44.6 %, and the map
-came back matrix 0. Diagnosis: the mean pattern of a multi-grain scan has
-spots at several true radii inside the fitting annulus and the fit draws one
-ellipse through the mixture; a 10 % stretch is 4 px at Al {200} on this
-detector, above the 1.67 px tolerance. Refuting observation: clear the
-ellipse and re-run the fit — if ⟨221⟩ persists, the cause is elsewhere.
-Prediction, written first: ⟨100⟩ near 25–45 %. **Run by the owner the same
-evening: ⟨100⟩ family tied at 38 %, 0.0177 Å⁻¹.** The diagnosis stands; the
-fix is the fit's, not the matcher's — it must see that its annulus holds more
-than one ring (a residual test, or a refusal) before calling a 10 % ellipse
-"Measured". Gate D done, Gate B and the fix owed. Also seen: R–Q rotation
-"measured" −67.5° on a cube with no physical rotation; not applied by phase
-mapping, relevant to ACOM. **And a UI gap found on the way:** a measured
-calibration cannot be cleared in the app — the owner had to reload the file
-to get "Not set" back. Known, scoped; the Prepare panel owes a clear control.
+### The ellipse fit measures a 10 % ellipse on an isotropic detector — OPEN, two remedies refuted 2026-09-14
+**Science, Gate D done by the owner's experiment; a fix was written, refuted by
+Gate B and REVERTED.** The fit reported a = 43.68, b = 39.72 on a detector that
+is isotropic by construction. Measured on a synthetic three-grain annulus: the
+fit returns a/b = **1.84** with a profile residual of 0.081 and 16 of 36 angular
+bins, passing every check it has. Three remedies were tried; all three fail:
+- **Empty-arc guard** — the grains are well spread, largest gap 60°. Refuted.
+- **On-ellipse residual** (median |ρ−1|) — legitimate broad rings reach 0.088
+  and the defect 0.310, but the many-grain cases fall to 0.046-0.050. Refuted.
+- **Azimuthal contrast** (90th-percentile bin over median, bar at 4) — shipped,
+  then reverted the same session. Gate B measured it wrong in BOTH directions:
+  it refuses legitimate nanocrystalline data (an amorphous halo with sharp
+  crystallite reflections on it, contrast 6.6-29.5, where the fit is exactly
+  right at a/b = 1.000), and it stops working on the very case it targets as
+  the specimen gets more polycrystalline — 3 grains contrast 2 120 (refused),
+  6 grains 3.17 (**fits, reporting 26.6 % distortion**), 12 grains 1.13 (fits,
+  27.5 %). It is a bright-bin-count test in disguise.
+**The one measurement that still looks promising and was NOT tried:** the
+existing `normalizedResidual`, already computed and already gated at 0.22, reads
+≤ 0.039 on every legitimate ring and 0.081-0.165 on every fiction — but it also
+refuses the nanocrystalline halo (0.083-0.108), so it inherits the same
+over-refusal and needs its own Gate D. **Do not reach for a refusal again
+without a fixture that contains a legitimate SPOTTY single-radius ring**, which
+is what every attempt so far has lacked: py4DSTEM's own `fit_ellipse_1D` is
+documented for "a Bragg vector map" and this repo's `py4dstem-pipelines.md`
+says "an isolated ring of Bragg peaks", so refusing spots refuses a documented
+use. Owner: pick the behaviour (refuse, flag, or leave) before the next attempt.
 
-### A second matrix grain is labelled as a candidate phase, not refused — added 2026-09-14
-**Science.** Found by the synthetic demo cube (`tools/demo-dataset`, output
-under gitignored `References/demo-dataset/`): with Al [001] fitted as the one
-matrix and β″ [010] + β″ [001] as candidates at shipped defaults, the Al [011]
-grain — 2 250 positions of pure aluminium on another zone axis — came back
-**100 % "indexed β″ [001]"**, while the Al [111] grain came back not indexed.
-The file header names the single-matrix-grain limit; this is the limit
-producing a false LABEL rather than a refusal, because [011]Al's net lands
-inside β″ [001]'s references at a 1 px pair radius and nothing asks whether
-the matrix itself explains those vectors better. Remedy candidates: score the
-matrix's other zone axes as a candidate of last resort, or require the winner
-to beat a matrix-family entry; both are Gate D. Truth for the experiment is
-`truth.json`; the probe's confusion is in the 2026-09-14 status entry. **Seen
-on screen by the owner the same evening** with the ellipse cleared: matrix
-51 %, needles β″ [001], the [011] grain solid β″, the [111] grain refused,
-the end-on squares refused because [010] was not in the list — as the probe said.
-With β″ [010] as the only candidate: β″ **96 = every end-on position**, matrix
-5 096, everything else refused, the [011] grain included — so the false label
-depends on which candidate is present, not on the grain.
+### A second matrix grain is labelled as a candidate phase — FIXED 2026-09-14
+**Science. Gate D done, Gate B done and two of its findings fixed.** With Al
+[001] the matrix and β″ [010] + β″ [001] candidates, the demo cube's Al [011]
+grain — 2 250 positions of pure aluminium — came back **100 % β″ [001]**,
+because nothing asked whether the MATRIX explains the surviving vectors. β″
+[001] covers 10 of the 16 [011]Al reflections at 0.0059 Å⁻¹; Al [011] covers
+all 16 at 0.0000 and was never in the competition. Fix: `classify` step 5, the
+matrix offered every low-index orientation with the in-plane rotation derived
+at the position. Measured at shipped defaults (`tools/phase-map-probe --truth`,
+`probe-rework-20260914.log`): grain B 100 % → **0 %**; end-on 96/96 and needles
+108/108 unchanged; grain A matrix 99.0 %; indexed total exactly the 204 planted
+precipitate positions. Gated by `tools/phase-vector-matching` Part E, whose C1a
+reproduces the defect so C1b cannot be vacuous.
+**Three refutations, all paid:** the first remedy took one rotation per axis
+from `fitZoneAxis`, a whole-scan fit that carried [-1 1 0] at 100° where the
+grain needs 130° and matched nothing. The second seeded rotations on the three
+LONGEST vectors — backwards, because spurious maxima sit farther out than real
+reflections: three of them took the catch rate 100 % → 0 %, now gated as C2.
+The third required only "at least as many" matched vectors, which let a
+49-axis search steal **26.5 % of three-vector precipitates** at 0.004 Å⁻¹ of
+jitter; "strictly more" makes a fully explained precipitate impossible to erase
+by construction, gated as C3 (0 of 500).
+**Residual:** a `.matrix` verdict from the challenge is drawn the same grey as
+one by exclusion, and the map's phase counts cannot separate them; the
+evidence line now distinguishes them but nothing else does. The matrix fraction
+on the demo cube moves 51 % → 74 % because of it.
 
 ### The [001] winner is a template 3–5° off axis — added 2026-09-14
 **Science.** On the demo cube's [001] grain (noise-free, exactly on axis) the
@@ -141,17 +155,26 @@ not a general on-axis bias, and not the cube's integer peaks. Not diagnosed:
 candidates are the flat Ewald weighting and the radial kernel near the pole.
 Gate D before any change; the map's colours are not in question.
 
-### The zone-axis fit has no chance floor — added 2026-09-14
-**Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
-tolerance (0.44 px on `060_STEM SI_…bin_4`) Find Matrix Zone Axis returned a
-⟨112⟩ family at 8 %, tied exactly, and the panel presented it like any other
-answer. It is chance: the same sweep at one pixel gives ⟨110⟩ at 38 %, and
-0.44² ≈ 0.19 of a pixel's area times 39 % is 7.5 %. `fitZoneAxis` ranks by
-explained fraction with no chance expectation beside it, unlike `classify`.
-Remedy: print the chance-level fraction next to each fit, or refuse below it —
-a Core change, Gate D of its own. The drive itself is closed: every item of the
-2026-09-12 "never driven" entry was seen on 2026-09-14, including the field
-fix `f78122e` and ⌘5; the record is `docs/archive/closed-items-2026-09.md`.
+### The zone-axis fit's chance floor does not mark the case it was built for — added 2026-09-14
+**Known, scoped, partly addressed.** `ZoneAxisFit` now carries
+`chanceMatchedVectors` from the same `chanceMatchFraction` the matcher's guard
+uses, and the panel marks a row "at chance". **It does not mark the ⟨112⟩ at
+8 % that motivated it.** Measured by Gate B at the app's default reference
+settings: aluminium's ⟨112⟩ entries carry 12-16 reference vectors, not the 48
+the cap allows, so the expectation is 0.37-1.3 % and 8 % clears five times it.
+The mark fires only while each pattern's second-largest |u| stays under about
+0.55-0.63 Å⁻¹, and Al {220} alone is at 0.699. Reproduced on an owner-like
+sample: ⟨211⟩ explained 2.32 % against 0.369 % chance, ratio 6.29, no mark.
+**A second measured limit:** the uniform-disc model is well calibrated on
+vectors drawn uniformly over the disc (14 matched of 1 379 against 11.4
+expected) and understates chance about sixfold for vectors confined to the
+radii the references occupy (63 of 1 408 against 10.7) — which is what real
+spurious peaks look like. Both numbers are asserted in
+`ZoneAxisFitTests.testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot`, so a
+reader reproduces them by running that class. What the change bought is the
+number itself, reported instead of absent. The threshold that would catch the
+owner's case is not established: Gate D owed.
+
 ### Contiguous invalid regions fabricate precipitates — blocks wiring
 `PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite
 median. That survives scattered NaN and **not** a large contiguous invalid

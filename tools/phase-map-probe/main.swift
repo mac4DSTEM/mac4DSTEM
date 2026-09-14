@@ -33,6 +33,44 @@
 import Foundation
 import simd
 
+/// `truth.json` as written by `tools/demo-dataset/run.sh`: which grain, which
+/// precipitate, at every scan position. Only the fields the scoring needs.
+struct TruthMap {
+    /// One name per position, in row-major scan order.
+    let className: [String]
+    /// The order classes are printed in, so a missing class still shows a row.
+    static let classes = ["Al [001] grain A", "Al [011] grain B", "Al [111] grain C",
+                          "β″ [010] end-on", "β″ [001] needle", "vacuum"]
+
+    init?(path: String) {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let grain = root["grain_label_map"] as? [[Int]],
+              let precipitate = root["precipitate_map"] as? [[Int]],
+              grain.count == precipitate.count, let width = grain.first?.count
+        else { return nil }
+        var names: [String] = []
+        names.reserveCapacity(grain.count * width)
+        for row in grain.indices {
+            guard grain[row].count == width, precipitate[row].count == width else { return nil }
+            for column in 0..<width {
+                // The precipitate map wins where both are set: a precipitate
+                // sits INSIDE a grain, and the pattern there carries both.
+                switch (grain[row][column], precipitate[row][column]) {
+                case (_, 1): names.append("β″ [010] end-on")
+                case (_, 2): names.append("β″ [001] needle")
+                case (0, _): names.append("Al [001] grain A")
+                case (1, _): names.append("Al [011] grain B")
+                case (2, _): names.append("Al [111] grain C")
+                case (3, _): names.append("vacuum")
+                default: names.append("unknown")
+                }
+            }
+        }
+        className = names
+    }
+}
+
 @main
 enum Probe {
     static func main() async {
@@ -40,11 +78,37 @@ enum Probe {
         guard args.count > 3,
               let probeRadius = Float(args[2]),
               let qPerPixel = Double(args[3]) else {
-            print("usage: probe <datacube.h5> <probe-radius-px> <inv-angstrom-per-pixel> [scan-stride]")
+            print("usage: probe <datacube.h5> <probe-radius-px> <inv-angstrom-per-pixel> "
+                  + "[scan-stride] [out.ppm] [--truth truth.json]")
             exit(2)
         }
         let path = args[1]
-        let stride = args.count > 4 ? (Int(args[4]) ?? 3) : 3
+
+        // TRUTH MODE (added 2026-09-14, Gate D for "a second matrix grain is
+        // labelled as a candidate phase"). With `--truth`, the probe stops
+        // asking what a dataset can carry and starts asking whether the
+        // matcher is RIGHT, because the demo cube
+        // (`tools/demo-dataset/run.sh`) knows the answer at every position.
+        // It then runs the demo cube's own phase list at the app's shipped
+        // defaults — no probe-specific tuning — and prints a confusion matrix
+        // against `truth.json`. Every other mode is unchanged.
+        var truthPath: String?
+        var positional: [String] = []
+        var index = 4
+        while index < args.count {
+            if args[index] == "--truth", index + 1 < args.count {
+                truthPath = args[index + 1]; index += 2
+            } else {
+                positional.append(args[index]); index += 1
+            }
+        }
+        let truth = truthPath.flatMap(TruthMap.init(path:))
+        if truthPath != nil, truth == nil {
+            print("could not read truth map at \(truthPath!)"); exit(1)
+        }
+        // Truth mode scores every position; a stride would compare the map
+        // against truth on a subsample and call it a measurement of the map.
+        let stride = truth != nil ? 1 : (positional.first.flatMap(Int.init) ?? 3)
 
         guard let reader = try? H5Reader(path: path),
               let primary = try? await reader.discoverPrimaryDataset() else {
@@ -61,19 +125,41 @@ enum Probe {
         referenceSettings.inPlaneStepDeg = 2
 
         var matchSettings = PhaseVectorSettings()
-        // One detector pixel, rounded up: nothing smaller can be measured
-        // here, so nothing smaller may be demanded.
-        matchSettings.pairRadiusInvAngstrom = max(0.02, qPerPixel)
-        matchSettings.matrixToleranceInvAngstrom = matchSettings.pairRadiusInvAngstrom
-        matchSettings.notIndexedAboveInvAngstrom = matchSettings.pairRadiusInvAngstrom / 2
-        matchSettings.directBeamRadiusInvAngstrom = 3 * qPerPixel
+        if truth == nil {
+            // One detector pixel, rounded up: nothing smaller can be measured
+            // here, so nothing smaller may be demanded.
+            matchSettings.pairRadiusInvAngstrom = max(0.02, qPerPixel)
+            matchSettings.matrixToleranceInvAngstrom = matchSettings.pairRadiusInvAngstrom
+            matchSettings.notIndexedAboveInvAngstrom = matchSettings.pairRadiusInvAngstrom / 2
+            matchSettings.directBeamRadiusInvAngstrom = 3 * qPerPixel
+        }
+        // In truth mode every setting is the app's shipped default, untouched
+        // above: the question is what a user gets, not what a tuned probe can
+        // get. On a 0.012 Å⁻¹ detector the shipped 0.15 Å⁻¹ direct-beam radius
+        // is 12.5 px, which excludes the 3 px direct disk and nothing else —
+        // the nearest Al reflection is at 41 px.
 
-        let phases = [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
-                            role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
-            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
-                            role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
-        ]
+        // Two β″ entries as two PHASES, not one phase with two axes: that is
+        // what the app's phase list makes when the owner adds β″ twice, and
+        // `bestPerPhase` keeps one winner per phase, so the shape of the
+        // competition depends on it.
+        let phases = truth != nil
+            ? [
+                PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                                role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+                PhaseDefinition(id: "beta010", displayName: "β″[010]",
+                                crystal: .betaDoublePrime,
+                                role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
+                PhaseDefinition(id: "beta001", displayName: "β″[001]",
+                                crystal: .betaDoublePrime,
+                                role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
+            ]
+            : [
+                PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                                role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+                PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+                                role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
+            ]
         let library: PhaseReferenceLibrary
         do {
             library = try PhaseReferenceLibrary.build(phases: phases, settings: referenceSettings)
@@ -271,9 +357,120 @@ enum Probe {
             let triple: [UInt8] = [image.rgba[base], image.rgba[base + 1], image.rgba[base + 2]]
             ppm.append(contentsOf: triple)
         }
-        let out = (args.count > 5 ? args[5] : "phase-map.ppm")
+        let out = positional.count > 1 ? positional[1] : "phase-map.ppm"
         try? ppm.write(to: URL(fileURLWithPath: out))
         print("\nwrote \(out)  (\(image.width) x \(image.height))")
+        // If a position is still labelled where truth says matrix, say what
+        // the matrix COULD have done there — the question the 2026-09-14 Gate D
+        // turned on, and the one a reader asks next.
+        if let truth, truth.className.count == map.results.count,
+           let probe = truth.className.indices.first(where: {
+               truth.className[$0] == "Al [011] grain B"
+                   && map.results[$0].verdict == .indexed
+           }) {
+            print("\n== A grain-B position is still labelled: position \(probe) ==")
+            let vectors = PhaseVectorMatcher.experimentalVectors(
+                peaks: bragg.peaks[probe], originX: originX, originY: originY,
+                invAngstromPerPixel: qPerPixel,
+                directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom)
+            let matrixEntry = map.matrixEntryIndex >= 0
+                ? library.entries[map.matrixEntryIndex] : nil
+            var surviving: [SIMD2<Double>] = []
+            for u in vectors {
+                if let m = matrixEntry,
+                   m.vectors.contains(where: {
+                       simd_distance($0.q, u) <= matchSettings.matrixToleranceInvAngstrom
+                   }) { continue }
+                surviving.append(u)
+            }
+            let r = map.results[probe]
+            print("  \(vectors.count) vectors, \(surviving.count) survive matrix removal; "
+                  + "winner \(map.phaseNames[Int(r.phaseIndex)]) "
+                  + "matched \(r.matchedCount) at \(String(format: "%.4f", r.score))")
+            let scratch = PhaseVectorMatcher.Scratch(capacity: 64)
+            let bases = PhaseVectorMatcher.matrixChallengeBases(library: library)
+            var free: (SIMD3<Int>, Double, Int, Double) = (SIMD3(0, 0, 0), 0, 0, .infinity)
+            for base in bases {
+                for theta in PhaseReferenceLibrary.inPlaneSteps(library.settings) {
+                    let entry = PhaseOrientationReference(
+                        phaseIndex: 0, zoneAxis: base.zoneAxis, inPlaneRotationRad: theta,
+                        vectors: PhaseReferenceLibrary.rotate(base.vectors, by: theta))
+                    guard let s = PhaseVectorMatcher.score(
+                        vectors: surviving, against: entry,
+                        pairRadius: matchSettings.pairRadiusInvAngstrom, scratch: scratch)
+                    else { continue }
+                    if s.matched > free.2 || (s.matched == free.2 && s.score < free.3) {
+                        free = (base.zoneAxis, theta * 180 / .pi, s.matched, s.score)
+                    }
+                }
+            }
+            print(String(format: "  best matrix orientation here, searched free over %d axes: "
+                         + "[%d %d %d] at %5.1f°  matched %2d  mean %.4f",
+                         bases.count, free.0.x, free.0.y, free.0.z, free.1, free.2, free.3))
+        }
+
+        if let truth {
+            print("\n== Against truth ==")
+            guard truth.className.count == map.results.count else {
+                print("  truth has \(truth.className.count) positions, the map has "
+                      + "\(map.results.count) — refusing to score a mismatch")
+                exit(1)
+            }
+            func observed(_ result: PhaseVectorResult) -> String {
+                switch result.verdict {
+                case .noData: return "no data"
+                case .matrix: return "matrix"
+                case .notIndexed: return "not indexed"
+                case .indexed:
+                    let i = Int(result.phaseIndex)
+                    return map.phaseNames.indices.contains(i) ? map.phaseNames[i] : "indexed"
+                }
+            }
+            var table: [String: [String: Int]] = [:]
+            var columns: Set<String> = []
+            for (index, result) in map.results.enumerated() {
+                let label = observed(result)
+                columns.insert(label)
+                table[truth.className[index], default: [:]][label, default: 0] += 1
+            }
+            let order = ["matrix", "β″[010]", "β″[001]", "not indexed", "no data"]
+            let printed = order.filter { columns.contains($0) }
+                + columns.subtracting(order).sorted()
+            print("  " + String(repeating: " ", count: 18)
+                  + printed.map { String(format: "%13@", $0 as NSString) }.joined()
+                  + "      total")
+            for name in TruthMap.classes {
+                guard let row = table[name] else { continue }
+                let total = row.values.reduce(0, +)
+                let cells = printed.map { column -> String in
+                    let count = row[column] ?? 0
+                    return count == 0 ? String(format: "%13@", "·" as NSString)
+                        : String(format: "%8d%4.0f%%", count,
+                                 100 * Double(count) / Double(max(1, total)))
+                }
+                print(String(format: "  %-18@", name as NSString)
+                      + cells.joined() + String(format: "%11d", total))
+            }
+            // The pre-registered numbers, printed as numbers so the prediction
+            // can be checked without arithmetic in the reader's head.
+            func fraction(_ truthClass: String, _ observedLabels: [String]) -> Double {
+                guard let row = table[truthClass] else { return .nan }
+                let total = row.values.reduce(0, +)
+                let hit = observedLabels.reduce(0) { $0 + (row[$1] ?? 0) }
+                return total > 0 ? 100 * Double(hit) / Double(total) : .nan
+            }
+            print(String(format: "\n  grain B labelled β″          %5.1f %%  (prediction: < 5)",
+                         fraction("Al [011] grain B", ["β″[010]", "β″[001]"])))
+            print(String(format: "  end-on recall as β″[010]     %5.1f %%  (prediction: ≥ 95)",
+                         fraction("β″ [010] end-on", ["β″[010]"])))
+            print(String(format: "  needle recall as β″[001]     %5.1f %%  (prediction: ≥ 95)",
+                         fraction("β″ [001] needle", ["β″[001]"])))
+            print(String(format: "  grain A as matrix            %5.1f %%  (prediction: ≥ 95)",
+                         fraction("Al [001] grain A", ["matrix"])))
+            print(String(format: "  vacuum as no data            %5.1f %%  (prediction: 100)",
+                         fraction("vacuum", ["no data"])))
+        }
+
         for row in PhaseMapPresentation.legend(map) {
             print(String(format: "  legend %-16@ rgb(%3d,%3d,%3d)%@ %5.1f %%",
                          row.label as NSString, Int(row.color.r), Int(row.color.g),

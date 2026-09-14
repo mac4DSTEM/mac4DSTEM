@@ -77,196 +77,115 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **571 passed / 0 failed / 2 skipped, 573 cases — 2026-09-09**, inside the green `all` run; reconciled against 573 `func test` in source. The second skip is new and benign: `TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes` does `XCTSkipUnless(fileExists)` and WS2's sidecar was deleted by the owner on 2026-09-09, so the gate quietly lost that one case — restore a WS2 sidecar to get it back. |
-| `run-tests.sh unit` (its own xcodebuild line) | **640 passed / 0 failed / 2 skipped, 642 cases — 2026-09-14** (`unit-20260914.log`, `GATE_EXIT=0` on its own line), reconciled against 642 `func test` in source. Run as the script's own command to a temp `DerivedData`, because the 4 GB preflight refused at 1.4 GB free — five `xcodebuild test` runs had filled the clang module cache; that cache and the repo's `.build` were deleted (both regenerable) to make room. Before it, the seven classes of the two touched test files ran on a wiped scratch bundle (46/46, `pvm-run3.log`), then four mutation runs turned exactly the assertions they named red (43/3, 45/1, 45/1) — the incremental run before the wipe had silently run 20 of 21, the stale-bundle trap a third time. `tools/phase-vector-matching` 27/27 (`pvm-harness-1.log`); 25/27 under the handedness mutation (`pvm-harness-mut.log`). `inventory` exit 0 (`inventory-final-20260914.log`), AppState + ResultExport **7405**, equal to HEAD. **`run-tests.sh scientific`: 46 harnesses, exit 0, zero `FAIL` lines — 2026-09-14 on the committed tree** (`scientific-20260914.log`, `GATE_EXIT=0` on its own line), after the four harnesses that drive `Crystal.reflections` had each passed on it alone (`*-head-20260914.log`). **`core` and `all` not run**; 7.5 GB free at the end, the unit run's temp bundle having been the missing space. |
+| `run-tests.sh unit` | **649 passed / 0 failed / 1 skipped — 2026-09-14 evening** (`unit-final-20260914.log`, `UNIT_EXIT=0` on its own line in `gates-final-20260914.txt`), reconciled exactly against **650** `func test` in source: 643 at HEAD plus the 7 this session added. The one skip is `BookmarkResolutionLatencyTests.testClickingARecentOnAnUnmountedVolumeKeepsTheEntry` |
 | GitHub CI on `ai-analysis` (181cf99, both runs) | **Green on the runner, 2026-09-14** — the first green CI since the v3.0.0 cut, and it covers every source change of the day: unit **637 / 0 / 5 = 642** (the parity test skips there: no Neural Engine, `open-items.md`), scientific **46 harnesses, zero FAIL**, core and inventory exit 0, on both the push and the pull-request run. Runner is `macos-26` with Xcode 26.6; two fixes got it there, both on the branch (`ContentView`'s importer closure as a method; the parity gate, refuted-and-held). Commits after 181cf99 are docs only (`git diff --stat 181cf99..HEAD -- mac4DSTEM/ mac4DSTEMTests/ tools/` empty at closeout). Closeout `inventory` exit 0 (`inventory-closeout-20260914.log`): AppState + ResultExport **7405 = HEAD^**, live markdown **6 138** — up from 6 076 at the day's start: three closed items moved to the archive, five findings recorded, two decisions written, the CI and merge paragraphs; nothing live was found stale enough to delete. |
-| `run-tests.sh scientific` | **44 harnesses, exit 0 — 2026-09-08 morning, `main` with `disk-detector` gated** (`scientific-c6-main-20260908.log`, `GATE_EXIT=0` on its own line); the C7 session-1 tree re-ran the one harness it touched, `disk-detector`, exit 0 (`disk-detector-fixture-c7.log`), not the full set (< 1 GB free; the Swift changes are outside every harness's source list). Previous: 43/exit 0 three times on 2026-09-07 (`scientific-{before,after,final}-20260907.log`). |
+| `run-tests.sh scientific` | **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-14 evening** (`scientific-final-20260914.log`, `SCI_EXIT=0` on its own line). `phase-vector-matching` is now **32 gated checks**, up from 27: Part E gates the matrix challenge, which Gate B found the gate had never exercised |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-14 evening, the demo-cube review tree** (`inventory-closeout-20260914.log`): gated 48, diagnostic 13; AppState + ResultExport **7405**, equal to HEAD; live markdown **6 193, equal to HEAD** — not down: the closed audit paragraph moved to the archive paid exactly for the review paragraph and the one new open item, and nothing live was stale enough to delete; cold-start set 1 529. Previous: 2026-09-09 (`inventory-final-20260909.log`) |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-14 evening** (`inventory-final-20260914.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic 13; AppState + ResultExport **7 405, equal to HEAD**; live markdown **6 167, down from 6 193**; cold-start set 1 471, down from 1 531 |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — vector-matched phase mapping is live in AI Analysis, and unvalidated
+## Handoff — the three Gate D items the drives found are fixed, unseen on screen
 
-**State.** The AI Analysis room now holds **two** tasks: diffraction grouping
-(PCA + k-means, landed 2026-09-11) and **phase mapping** (vector matching,
-landed 2026-09-12). Steps 1, 2, 4 and 5 of
-[`v3-vector-matching-plan.md`](v3-vector-matching-plan.md) are done; **step 3,
-the validation, is deliberately deferred**. Full record:
-[`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md).
-The earlier AI-port handoff this replaces is
-[`archive/v3/ai-port-2026-09-11.md`](archive/v3/ai-port-2026-09-11.md), and the
-v3.0.0 closeout it sat beside is
-[`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md).
-
-**UNVALIDATED, and the app says so in four places.** Step 3 — scoring against
-Thronsen et al.'s published ground truth — needs their ~7.4 GB preprocessed
-`datasetA` against a machine that ended this session at 5.7 GB free. The owner
-chose to land the rest labelled rather than block on a download. Every product
-carries `validation: "none"` in provenance, the task's guidance line says it,
-the panel repeats it above the legend, and the run's status line ends
-"— unvalidated". **A phase fraction read off this map is not a measurement.**
-The precedent is this repo's own: the precipitate engines are on `main`
-unwired with their ship gate openly unmet.
-
-**What is live.** `PhaseReferenceLibrary` (reference vectors for a phase at a
-beam direction and an in-plane rotation, from any CIF or a built-in),
-`PhaseVectorMatcher` (matrix removal in vector space, a mean-distance score
-over unique references, and an explicit "not indexed"), `PhaseMapPresentation`
-(an Okabe-Ito phase map, a distance companion, and one line of evidence per
-position), and β″ (Mg₅Si₆) as a built-in `Crystal` from Andersen et al. 1998.
-Method: **Thronsen et al., Ultramicroscopy 255 (2024) 113861, CC BY 4.0** — the
-paper only. Their repository has **no licence** and nothing from it is here.
-
-**The 2026-09-11 refutation is answered.** On a pattern containing only
-aluminium, with gold and aluminium both candidates, the template route returned
-GOLD at contrast −0.008. Vector matching returns aluminium **200/200**, contrast
-**+0.00618 Å⁻¹**, and at 2 px of position noise it **refuses** 136 of 200 rather
-than guessing.
-
-**Two pre-registered criteria failed on the first run and both were real.**
-Random-vector positions were labelled β″ 100 % of the time, because a β″ entry's
-130 reference vectors covered a THIRD of the plane at the pair radius first
-chosen — fixed by a density cap and a pair radius derived from a stated error
-budget, with `chanceMatchFraction` now reporting the coverage. And the fitted
-in-plane rotation came out 284.0° against a planted 13.7° — that was the TEST
-being wrong, because an fcc [001] projection is 4-fold symmetric. **An in-plane
-angle from this matcher is meaningful only modulo the projected symmetry**, and
-is never presented as an absolute orientation.
-
-**Step 4, on `060_STEM SI_…bin_4`, and what it actually says.** The probe
-(`tools/phase-map-probe`, diagnostic) reports three numbers before drawing
-anything, and they are the result:
-- **β″ IS resolvable on this detector** — the pre-registered prediction that
-  a* = 1.50 px would make it unresolvable was WRONG. C2/m's h + k even
-  extinguishes odd h in the k = 0 zone, so the closest kept pair is 2a* =
-  **2.99 px**. The extinction is itself a check on the structure.
-- **The specimen is on ⟨110⟩Al, not ⟨100⟩** — every low-index axis fitted, and
-  all five sampled ⟨110⟩ equivalents tie at 39.0 %, exactly as cubic symmetry
-  requires.
-- **So the [010]β″ library was probably the wrong one.** β″ is coherent along
-  its b-axis with ⟨100⟩Al, so on a ⟨110⟩Al beam no variant is viewed down its
-  needle axis. The run returned 99.0 % "not indexed".
-- **But that conclusion is over-determined, and Gate B caught it.** At
-  0.045741 Å⁻¹ per pixel, **half a detector pixel is 0.0229 Å⁻¹ — larger than
-  the whole 0.02 Å⁻¹ pair radius** — so at default settings nothing on this
-  cube could be indexed for any library at any zone axis. The crystallography
-  may be right; this measurement does not isolate it.
-
-**And the honest limit:** only 39 % of detected vectors are explained by the
-best Al orientation at one-pixel tolerance. On an aluminium matrix that is a
-statement about the PEAK SET, not the matcher — a synthetic 2.5 px kernel on a
-4×-binned 64 px detector finds maxima that are not all Bragg disks. Phase
-mapping on this cube needs the app's own calibrated detection (a measured probe
-kernel, a fitted origin map, the ellipse), which is the path the UI takes and
-the probe does not.
-
-**Gate B ran and was not a formality: 13 mutations, 11 survived.** Four
-defects fixed in Core, each with a regression test broken first — the β″ C2/m
-expansion was pinned by nothing (an I-centred cell passed every check while
-changing half of β″'s reference vectors); `gcd(0, 0)` returned 1, so `[0 0 2]`
-never reduced and the zone-axis list held 50 entries for 49 directions; one
-distant spurious peak widened the chance expectation enough to turn refusals
-into labels (10 false positives in 1024 random patterns); and the chance-match
-percentage shown to the user was computed at a different radius from the one
-the guard used. Four more assertions added, each verified to fail under the
-mutation it names. **One of its remedies was broken before it was trusted and
-rejected** — restricting `chanceMatchFraction`'s numerator made the guard
-weaker in exactly the case it exists for, and the new test caught it. **And one
-claim of mine was refuted and is corrected rather than defended:** the
-"99.2 % → 5.5 %" collapse credited to the chance guard is entirely the
-matched-vector floor — removing the guard alone changes nothing at shipped
-settings, because it binds only above ~45 surviving vectors per pattern and the
-real cube's median is 7. Full list:
-[`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md)
-§"Gate B".
-
-**UNSEEN ON SCREEN.** No part of phase mapping has been driven. That is the
-owner's (`CLAUDE.md`; Track B retired 2026-09-03), and a defect he finds enters
-through `/diagnose`. Worth his eye: the new task row under AI Analysis and that
-⌘5 still lands on grouping; adding a phase from the built-in menu and from a
-CIF; the zone-axis field accepting `[010]`, `0 1 0` and `0-12`; the phase list
-reading as the legend after a run; the `Evidence` line following the cursor;
-and that "not indexed" is visibly hatched rather than a colour.
-
-**Audited 2026-09-14, unattended:** the AI Analysis room only; four defects
-fixed with tests broken first, four findings recorded, Gate B run. Record:
+**State.** The AI Analysis room holds two tasks: diffraction grouping (PCA +
+k-means, 2026-09-11) and phase mapping (vector matching, 2026-09-12). Steps 1,
+2, 4 and 5 of [`v3-vector-matching-plan.md`](v3-vector-matching-plan.md) are
+done; **step 3, the validation, is deliberately deferred** — it needs Thronsen
+et al.'s ~7.4 GB `datasetA` and this machine has 5 GB free. Every product
+carries `validation: "none"`, the panel repeats it, and **a phase fraction read
+off this map is not a measurement.** Records:
+[`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md),
+[`archive/v3/ai-port-2026-09-11.md`](archive/v3/ai-port-2026-09-11.md),
+[`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md),
 [`archive/v3/ai-analysis-audit-2026-09-14.md`](archive/v3/ai-analysis-audit-2026-09-14.md).
-Phase mapping is still UNVALIDATED; step 3 has still not run.
 
-**A demo cube with known truth exists (2026-09-14, built by a delegated
-agent, verified by a scratch probe on the repo's own Core).**
-`tools/demo-dataset/run.sh` writes `References/demo-dataset/AlMgSi_demo.h5`
-(100 × 100 scan at 0.5 nm, 128 × 128 detector at 0.012 Å⁻¹, 169 MiB,
-py4DSTEM calibration the reader accepts) with three Al grains on [001]/[011]/
-[111], a +1.5 % strained stripe, a vacuum corner, six end-on β″ [010]
-cross-sections and three β″ [001] needles, plus `truth.json` and `truth.png`.
-Through detection, the per-grain zone-axis fit and `PhaseVectorMatcher.map`
-at shipped defaults: grains fit ⟨100⟩/⟨110⟩/⟨111⟩; plain Al **97.7 %
-matrix**; end-on precipitates **100 % β″ [010]**; needles **100 % β″ [001]**;
-vacuum 100 % no data; and the [011] grain **100 % falsely β″ [001]** — a real
-finding, `open-items.md`. It is our own truth through our own code: a check
-that the pipeline does what it says, not step 3. Not yet opened in the app.
+**A demo cube with known truth** (`tools/demo-dataset/run.sh` →
+gitignored `References/demo-dataset/`): 100 × 100 scan, 128 × 128 detector at
+0.012 Å⁻¹, three Al grains on [001]/[011]/[111], a +1.5 % stripe, a vacuum
+corner, 96 end-on β″ [010] and 108 β″ [001] needle positions, with
+`truth.json`. The owner drove Bragg disks, Strain and Orientation on it on
+2026-09-14 and all three were right: the stripe reads +0.0154 against a planted
++1.5 %, and the IPF map colours the three grains as the TSL key says.
 
-**The demo cube was driven 2026-09-14 (owner, Bragg disks → Strain →
-Orientation; three screenshots) and reviewed the same evening against
-`truth.json`; nothing wrong was found, and one reading of mine was.** Disks:
-90 363 peaks, median 9 per pattern, which is the cube's spot count. Strain
-(whole-scan mean, automatic basis): the stripe at columns 20–27 reads
-+0.0154 ε_xx against a planted +1.5 %, the matrix 0, the 800 stripe positions
-rejected from the reference (4 600/5 400 inliers), the [011] and [111] grains
-masked — a single-basis map cannot index them, and it says so rather than
-drawing numbers. ACOM (200 templates, CPU, Q scale from the file): the map
-is RIGHT — grain A red, the [011] grain green, the [111] grain blue, which
-is the TSL key the colour function is pinned to (orix goldens,
-`tools/acom-orientation-test`). I first read the panel's key as "green = 111"
-and opened a Gate D on it; the matcher outside the app, on the cube's own
-peaks (`tools/acom-groundtruth/demo-cube.py`, new, the driver main.swift
-always promised), returned ⟨101⟩ for the [011] grain and ⟨111⟩ for the
-[111] grain, the legend code paints [101] green, and the refuter reproduced
-the harness byte for byte. The one residual is real and recorded:
-`open-items.md` "The [001] winner is a template 3–5° off axis". The
-R–Q rotation "measured" −67.5° on this cube is still the recorded item;
-ε_xx of an isotropic dilation does not see it.
+**2026-09-14 evening: the four queue items were taken, Gate B ran on all of
+them, and it changed the answer on two.** Nothing is verified on screen.
 
+1. **A second matrix grain was labelled as a candidate phase — FIXED.**
+   `classify` never asked whether the MATRIX explains the surviving vectors, so
+   2 250 positions of pure aluminium on [011] came back 100 % β″ [001]. The
+   matrix is now offered every low-index orientation before a candidate label is
+   allowed, with the in-plane rotation **derived at the position**. Grain B
+   **100 % → 0 %**, precipitate recall unchanged at 96/96 and 108/108, indexed
+   total exactly the 204 planted precipitate positions. **Three remedies were
+   refuted before this one stood:** a whole-scan rotation fit (carried [-1 1 0]
+   at 100° where the grain needs 130°); seeding rotations on the three longest
+   vectors (spurious maxima sit farther out — three of them took the catch rate
+   to 0 %); and requiring only "at least as many" matched vectors (a 49-axis
+   search then stole 26.5 % of three-vector precipitates). It is gated by a new
+   Part E in `tools/phase-vector-matching`, whose first check reproduces the
+   defect so the second cannot be vacuous.
+2. **The ellipse fit's 10 % ellipse — STILL OPEN, and better understood.** A
+   refusal on azimuthal contrast was written, gated, and then **reverted the
+   same session**: Gate B measured it refusing legitimate nanocrystalline data
+   where the fit is exactly right, and failing on the target case as the
+   specimen becomes more polycrystalline (3 grains refused, 6 grains fits and
+   reports 26.6 % distortion). Three remedies are now refuted with numbers, and
+   `open-items.md` names the one measurement that still looks promising and the
+   fixture every attempt has lacked.
+3. **The zone-axis chance floor — PARTLY.** The expectation is now computed from
+   the same definition the matcher's guard uses and shown in the panel. **It
+   does not mark the ⟨112⟩ at 8 % that motivated it:** Al's ⟨112⟩ entries carry
+   12-16 vectors, not the 48 the cap allows, so 8 % clears five times chance.
+   Said plainly in `open-items.md` rather than claimed as fixed.
+4. **The Prepare panel's Clear Calibration — LANDED.** Written by a delegated
+   agent in an isolated worktree. Gate B found its confirmation dialog false
+   ("maps you have already computed are kept" — the orientation map and parallax
+   are discarded); the dialog now says what actually happens.
 
-**NEXT, in order** (rewritten at the end of 2026-09-14; `/pickup` takes 1).
-1. **A second matrix grain is labelled as a candidate phase** — `open-items.md`,
-   Gate D, then the fix, then Gate B. The demo cube is the fixture: Al [001]
-   matrix, β″ [001] candidate, the [011] grain must come back refused.
-2. **The ellipse fit's ring check** — Gate D is done (the owner's experiment
-   confirmed it); the fit must refuse or flag a multi-ring annulus. Gate B.
-3. **The zone-axis fit's chance floor**, and the Prepare panel's missing
-   "clear calibration" control — both `open-items.md`, both small.
-4. **Step 3** when ~8 GB is free — still the merge condition; then the
-   fast-forward merge as the paragraph above says.
+**UNSEEN ON SCREEN, and the owner's to see.** **Driving was attempted this
+session and the app-control grant was declined,** so nothing here has been
+looked at. Three things changed what the app draws: the "at chance" marker and
+its caption under Find Matrix Zone Axis; the Clear Calibration button and its
+dialog; and the evidence line for a matrix verdict reached by the challenge,
+which used to say "0 of 8 vectors are the matrix's, and 8 is too few to index"
+for a position where the matrix had matched 6 of them. Also worth his eye: a
+phase map of the demo cube now shows the [011] grain as matrix rather than β″,
+and the matrix fraction moves 51 % → 74 % because of it.
 
 **Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
-remain deliberately **not wired**; one hand count on the frozen region completes
-step 4 of that programme and unlocks steps 5-7
+remain deliberately not wired
 ([`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md),
-candidates marked at
 [`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)).
 
-**Corrected 2026-09-14:** v3.0.0 IS on the remote — `9b9949b` is an ancestor
-of `origin/main` and `refs/tags/v3.0.0` resolves there — so the push, tag and
-release steps the previous paragraph listed as owed were done on 2026-09-11.
-What is unpushed is everything since: `origin/main` sits at `6cb31a3`, **32
-commits behind** local `main` (the AI port, phase mapping, and this audit).
-**Pushed 2026-09-14 to the remote branch `ai-analysis`** (`main:ai-analysis`,
-the owner's decision after the audit: the AI room stays off the public `main`
-until step 3 has run). `origin/main` stays at v3.0.0. **Merging it, when step
-3 says so:** the PR is [mac4DSTEM/mac4DSTEM#1](https://github.com/mac4DSTEM/mac4DSTEM/pull/1),
-green on both runs of `181cf99` (unit, scientific, core, inventory); `main`
-has not moved since the branch point, so the merge is a fast-forward and
-keeps `main` linear — `git push origin ai-analysis:main`, never GitHub's
-merge button, which adds a merge commit. Conditions, in order: step 3 inside
-Thronsen's band; one on-screen drive of phase mapping; then the docs commit
-that retires this paragraph and the board's push line. Auto-merge is off.
+**The branch.** v3.0.0 is on the remote and `refs/tags/v3.0.0` resolves there.
+Everything since is on the remote branch `ai-analysis`
+([PR #1](https://github.com/mac4DSTEM/mac4DSTEM/pull/1)); `origin/main` stays at
+v3.0.0 until step 3 has run. The merge is a fast-forward —
+`git push origin ai-analysis:main`, never GitHub's merge button. Conditions, in
+order: step 3 inside Thronsen's band; one on-screen drive of phase mapping; then
+the docs commit that retires this paragraph. Auto-merge is off. The owner
+pushes.
 
 **A trap paid 2026-09-14:** `tools/run-tests.sh` edited while `inventory` was
 running died with `parse error near ';;'` on a line that was fine before and
 after. Never edit the gate script, or a source it compiles, while a gate runs.
+A worktree agent branches from where the worktree was cut — this session's was
+33 commits behind, and its patch needed a three-way apply.
+
+**NEXT, in order** (rewritten 2026-09-14 evening; `/pickup` takes 1).
+1. **The ellipse fit's 10 % ellipse** — still the defect that poisons everything
+   downstream, and now the best-characterised item in the file: three remedies
+   refuted with numbers, one untried lead, and a named gap in the fixtures. The
+   owner picks refuse / flag / leave before the next attempt.
+2. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
+   carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
+   threshold would catch it.
+3. **The [001] ACOM winner is a template 3-5° off axis** — Gate D not yet done.
+   An ideal [111] hexagon picks its exact template; [001] does not.
+4. **R-Q rotation reads "measured" -67.5°** on a cube with no physical rotation
+   — seen on the demo cube, never diagnosed.
+5. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
+   this session at 5 GB.
 
 ## Owed to the owner
 

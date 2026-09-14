@@ -760,6 +760,94 @@ enum Harness {
     } catch { check("N5b an oversized library is refused", false, "\(error)") }
 
     // ============================================================================
+    print("\n== Part E — the matrix challenges a candidate label (2026-09-14)")
+    // ============================================================================
+    //
+    // WHY THIS PART EXISTS. The challenge shipped with a DEFAULT-EMPTY
+    // `matrixChallenge:` argument, and this harness — the gate for the
+    // matcher's invariants — called `classify` without it. Gate B caught that
+    // every number in Part B measured the OLD path while the new one was
+    // gated by nothing at all. Vectors here come from `harnessProject`, the
+    // harness's own projection, never from the library under test.
+
+    // β″ on [001], NOT the [010] Part B plants: [001] is the entry that shares
+    // a sublattice with Al ⟨110⟩ and therefore the one that produced the false
+    // label. A library with the wrong candidate cannot reproduce the defect,
+    // and a check that cannot reproduce the defect proves nothing.
+    var challengeSettings = settings
+    challengeSettings.inPlaneStepDeg = 2
+    let challengeLibrary = try PhaseReferenceLibrary.build(phases: [
+        PhaseDefinition(id: "al", displayName: "Al", crystal: al,
+                        role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+        PhaseDefinition(id: "beta001", displayName: "β″[001]", crystal: beta,
+                        role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
+    ], settings: challengeSettings)
+    let challengeBases = PhaseVectorMatcher.matrixChallengeBases(library: challengeLibrary)
+    check("C0 the challenge pool covers the low-index directions",
+          challengeBases.count >= 40,
+          "\(challengeBases.count) matrix orientations for \(PhaseReferenceLibrary.lowIndexZoneAxes.count) axes")
+
+    // A SECOND MATRIX GRAIN: the matrix crystal on a zone axis the user did
+    // not name, at a rotation that is not a multiple of the library step.
+    let secondGrain = harnessProject(al, zone: SIMD3(0, 1, 1), kMax: kMax, sgMax: sgMax)
+        .map { rotated($0.q, 41.3 * Double.pi / 180) }
+    let challengeScratch = PhaseVectorMatcher.Scratch(
+        capacity: max(challengeBases.map(\.vectors.count).max() ?? 1,
+                      challengeLibrary.entries.map(\.vectors.count).max() ?? 1))
+    func verdict(_ vectors: [SIMD2<Double>], challenged: Bool) -> PhaseVerdict {
+        PhaseVectorMatcher.classify(
+            vectors: vectors, library: challengeLibrary, settings: matchSettings,
+            matrixEntry: nil,
+            candidateEntryIndices: challengeLibrary.candidateEntryIndices,
+            scratch: challengeScratch,
+            matrixChallenge: challenged ? challengeBases : []).verdict
+    }
+    check("C1a without the challenge a second matrix grain IS mislabelled (the defect)",
+          verdict(secondGrain, challenged: false) == .indexed,
+          "verdict \(verdict(secondGrain, challenged: false))")
+    check("C1b with it, the matrix takes the position back",
+          verdict(secondGrain, challenged: true) == .matrix,
+          "verdict \(verdict(secondGrain, challenged: true))")
+
+    // AND IT MUST SURVIVE SPURIOUS PEAKS FARTHER OUT THAN ANY REFLECTION.
+    // The first implementation seeded its rotations on the three LONGEST
+    // vectors; three spurious maxima beyond the outermost real one took the
+    // catch rate from 100 % to 0 % (Gate B, 2026-09-14).
+    var spurious = secondGrain
+    let beyond = (secondGrain.map { simd_length($0) }.max() ?? 0.5) * 1.35
+    for i in 0..<3 {
+        let a = Double(i) * 2.0
+        spurious.append(SIMD2(beyond * cos(a), beyond * sin(a)))
+    }
+    check("C2 spurious peaks beyond every reflection do not blind the challenge",
+          verdict(spurious, challenged: true) == .matrix,
+          "verdict \(verdict(spurious, challenged: true)) with 3 peaks at \(String(format: "%.3f", beyond)) Å⁻¹")
+
+    // AND IT MUST NOT ERASE A SPARSE PRECIPITATE. Jittered, because an exact
+    // plant makes the winner's distance 0 and the comparison vacuous — Gate B
+    // caught the first version of this check that way. The jitter is Gaussian
+    // at 0.004 Å⁻¹, a third of a detector pixel on the demo cube and inside
+    // the pair radius's own stated measurement budget; at that jitter, with
+    // "at least as many" instead of "strictly more", 26.5 % of three-vector
+    // precipitates were taken by the matrix.
+    let betaOnOhOne = harnessProject(beta, zone: SIMD3(0, 0, 1), kMax: kMax, sgMax: sgMax)
+        .map { rotated($0.q, 37.2 * Double.pi / 180) }
+    var jitterRng = Rng()
+    var stolen = 0, trials = 0
+    for count in [3, 3, 4, 5, 6] {
+        for _ in 0..<100 {
+            let planted = betaOnOhOne.prefix(count).map { q -> SIMD2<Double> in
+                q + SIMD2(jitterRng.gaussian() * 0.004, jitterRng.gaussian() * 0.004)
+            }
+            trials += 1
+            if verdict(Array(planted), challenged: true) == .matrix { stolen += 1 }
+        }
+    }
+    check("C3 a sparse jittered precipitate is never taken by the matrix",
+          stolen == 0,
+          "\(stolen) of \(trials) three-to-six-vector precipitates relabelled")
+
+    // ============================================================================
     print("\nphase-vector-matching: \(checks) gated checks, \(failures.count) failed")
     if !failures.isEmpty {
         for f in failures { FileHandle.standardError.write("  FAILED: \(f)\n".data(using: .utf8)!) }

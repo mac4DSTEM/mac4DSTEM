@@ -389,9 +389,38 @@ package nonisolated enum PhaseVectorMatcher {
         package let totalVectors: Int
         /// Mean |u − v| over the pairs it made, Å⁻¹.
         package let meanDistance: Double
+        /// How many of `totalVectors` an entry this dense would match by
+        /// accident, summed over the sampled patterns at each pattern's own
+        /// reach. The number that says whether `matchedVectors` is evidence.
+        ///
+        /// WHY IT IS HERE (2026-09-14). Without it the sweep presented a
+        /// ⟨112⟩ family at 8 % exactly the way it presents a ⟨110⟩ family at
+        /// 38 %, and the owner read a coin toss as a fit. It is computed from
+        /// the same `chanceMatchFraction` the matcher's own guard uses, so
+        /// there is one definition of chance in this file rather than two.
+        ///
+        /// **IT DOES NOT MARK THAT MOTIVATING CASE, and saying so is the
+        /// point** (Gate B, 2026-09-14). At the app's default reference
+        /// settings aluminium's ⟨112⟩ entries carry 12 to 16 vectors, not the
+        /// 48 the cap allows, so the expectation is 0.37–1.3 % and 8 % clears
+        /// five times it. The mark fires only while each pattern's
+        /// second-largest |u| stays under about 0.55–0.63 Å⁻¹, and Al {220}
+        /// alone is at 0.699. What this buys is the number itself, reported
+        /// instead of absent; the threshold that would catch the owner's case
+        /// is not established and is an open item.
+        package let chanceMatchedVectors: Double
 
         package var explainedFraction: Double {
             totalVectors > 0 ? Double(matchedVectors) / Double(totalVectors) : 0
+        }
+        /// The same fraction chance alone would explain.
+        package var chanceFraction: Double {
+            totalVectors > 0 ? chanceMatchedVectors / Double(totalVectors) : 0
+        }
+        /// Does this fit carry information, by the matcher's own standard?
+        /// `multiple` is `PhaseVectorSettings.chanceMatchMultiple`.
+        package func isAboveChance(multiple: Double) -> Bool {
+            Double(matchedVectors) >= multiple * chanceMatchedVectors
         }
         package var inPlaneDegrees: Double { inPlaneRotationRad * 180 / .pi }
     }
@@ -445,6 +474,20 @@ package nonisolated enum PhaseVectorMatcher {
         guard !sample.isEmpty else { return [] }
         let totalVectors = sample.reduce(0) { $0 + $1.count }
 
+        // Each pattern's own reach, for the chance expectation: the
+        // SECOND-largest |u|, the same rule `classify` uses and for the same
+        // measured reason — with `max`, one spurious maximum far out inflates
+        // the area and weakens the estimate for every other vector.
+        let reach: [Double] = sample.map { vectors in
+            var largest = 0.0, second = 0.0
+            for u in vectors {
+                let r = simd_length(u)
+                if r > largest { second = largest; largest = r }
+                else if r > second { second = r }
+            }
+            return second > 0 ? second : largest
+        }
+
         var reference = referenceSettings
         reference.inPlaneStepDeg = inPlaneStepDeg
         let reflections = crystal.reflections(kMax: reference.kMaxInvAngstrom)
@@ -458,6 +501,16 @@ package nonisolated enum PhaseVectorMatcher {
                 reflections: reflections, crystal: crystal,
                 zoneAxis: axis, settings: reference)
             guard !base.isEmpty else { continue }
+            // Constant across this axis's rotations: rotating an entry moves
+            // its references, it does not change how many there are.
+            let unrotated = PhaseOrientationReference(
+                phaseIndex: 0, zoneAxis: axis, inPlaneRotationRad: 0, vectors: base)
+            var chanceMatched = 0.0
+            for (index, vectors) in sample.enumerated() {
+                chanceMatched += unrotated.chanceMatchFraction(
+                    pairRadius: settings.matrixToleranceInvAngstrom,
+                    accessibleRadius: reach[index]) * Double(vectors.count)
+            }
             var best: ZoneAxisFit?
             for theta in rotations {
                 let entry = PhaseOrientationReference(
@@ -476,7 +529,8 @@ package nonisolated enum PhaseVectorMatcher {
                 guard pairs > 0 else { continue }
                 let fit = ZoneAxisFit(zoneAxis: axis, inPlaneRotationRad: theta,
                                       matchedVectors: matched, totalVectors: totalVectors,
-                                      meanDistance: total / Double(pairs))
+                                      meanDistance: total / Double(pairs),
+                                      chanceMatchedVectors: chanceMatched)
                 if best == nil || fit.matchedVectors > best!.matchedVectors
                     || (fit.matchedVectors == best!.matchedVectors
                         && fit.meanDistance < best!.meanDistance) {
@@ -571,7 +625,8 @@ package nonisolated enum PhaseVectorMatcher {
                                  settings: PhaseVectorSettings,
                                  matrixEntry: PhaseOrientationReference?,
                                  candidateEntryIndices: [Int],
-                                 scratch: Scratch) -> PhaseVectorResult {
+                                 scratch: Scratch,
+                                 matrixChallenge: [PhaseOrientationReference] = []) -> PhaseVectorResult {
         var result = PhaseVectorResult()
         guard !vectors.isEmpty else { return result }
 
@@ -664,10 +719,198 @@ package nonisolated enum PhaseVectorMatcher {
             }
         }
 
+        // 5 — the matrix gets the last word.
+        //
+        // WHY, and what it fixes (2026-09-14, Gate D). Steps 1-4 ask only
+        // which CANDIDATE explains the surviving vectors best. They never ask
+        // whether those vectors are unexplained at all. At a position where
+        // the matrix crystal is present on a zone axis other than the fitted
+        // one, step 1 removes almost nothing and the whole pattern is offered
+        // to the candidates — and a candidate coherent with the matrix wins by
+        // default, because nothing else is in the competition. Measured on the
+        // demo cube: 2 250 positions of pure aluminium on [011] came back
+        // 100 % "β″ [001]". β″ [001] covers 10 of the 16 [011]Al reflections
+        // at 0.0059 Å⁻¹; Al [011] covers all 16 at 0.0000 Å⁻¹, and was never
+        // asked.
+        //
+        // So before a position may be called a candidate phase, the matrix
+        // crystal is offered every low-index zone axis
+        // (`matrixChallengeBases`, the fixed 49-direction list — NOT a list
+        // the scan selects, and it ignores any zone axis the user restricted
+        // the matrix phase to), scored by the same rule and held to the same
+        // eligibility as any candidate.
+        //
+        // THE RULE: the challenger must explain STRICTLY MORE vectors, at a
+        // smaller mean distance. See `challengeByMatrix` for why "strictly
+        // more" rather than "at least as many" — it is what makes a fully
+        // explained precipitate impossible to erase.
+        //
+        // THE IN-PLANE ROTATION IS DERIVED HERE, NOT FITTED FOR THE SCAN, and
+        // that correction is the whole reason this comment is long. The first
+        // implementation took one rotation per axis from `fitZoneAxis` — a
+        // whole-scan fit — and the fixture refuted it the same evening: at a
+        // grain-B position the pool carried [-1 1 0] at 100°, matching NOTHING,
+        // while the same axis at 130° matches 8 of 8 at 0.0001 Å⁻¹. A
+        // whole-scan fit ranks a rotation by matches summed over every grain,
+        // so a rotation picking up scattered matches everywhere outranks the
+        // one that fits the grain exactly. A grain's rotation is a property of
+        // the GRAIN, and must be asked at the position.
+        //
+        // Searching 180 rotations × 49 axes per position would cost more than
+        // the whole map. Instead the rotations that can possibly win are
+        // enumerated: if an orientation explains this pattern, it puts each
+        // reference under an observed vector of the same length, so taking the
+        // longest few observed vectors and every reference of matching length
+        // gives every rotation worth testing — exactly, not on a 2° grid.
+        if !matrixChallenge.isEmpty,
+           let challenged = challengeByMatrix(
+               surviving: surviving, bases: matrixChallenge, settings: settings,
+               accessibleRadius: accessibleRadius,
+               beating: (matched: winner.value.matched, score: winner.value.score),
+               scratch: scratch) {
+            result.verdict = .matrix
+            result.phaseIndex = Int32(library.matrixPhaseIndex)
+            result.entryIndex = -1
+            // The CHALLENGER's numbers, not the rejected candidate's: they are
+            // the ones that describe the verdict given. Gate B caught the first
+            // version discarding them while a comment claimed the verdict could
+            // be inspected.
+            result.score = Float(challenged.score)
+            result.matchedCount = Int32(challenged.matched)
+            return result
+        }
+
         result.verdict = .indexed
         result.phaseIndex = Int32(winner.key)
         result.entryIndex = Int32(winner.value.entryIndex)
         return result
+    }
+
+    /// The MATRIX crystal projected down every low-index zone axis, unrotated —
+    /// the pool `classify` challenges a candidate label with. One entry per
+    /// axis (49 at the shipped list), built once per scan; the in-plane
+    /// rotation is derived at each position by `challengeByMatrix`, because a
+    /// grain's rotation is a property of the grain and not of the scan.
+    package static func matrixChallengeBases(
+        library: PhaseReferenceLibrary
+    ) -> [PhaseOrientationReference] {
+        guard library.phases.indices.contains(library.matrixPhaseIndex) else { return [] }
+        let crystal = library.phases[library.matrixPhaseIndex].crystal
+        let reflections = crystal.reflections(kMax: library.settings.kMaxInvAngstrom)
+        guard !reflections.isEmpty else { return [] }
+        var out: [PhaseOrientationReference] = []
+        out.reserveCapacity(PhaseReferenceLibrary.lowIndexZoneAxes.count)
+        for axis in PhaseReferenceLibrary.lowIndexZoneAxes {
+            let base = PhaseReferenceLibrary.projectedVectors(
+                reflections: reflections, crystal: crystal,
+                zoneAxis: axis, settings: library.settings)
+            guard !base.isEmpty else { continue }
+            out.append(PhaseOrientationReference(
+                phaseIndex: library.matrixPhaseIndex, zoneAxis: axis,
+                inPlaneRotationRad: 0, vectors: base))
+        }
+        return out
+    }
+
+    /// Does any orientation of the matrix crystal explain `surviving` at least
+    /// as well as the winning candidate does? Returns the orientation that
+    /// does, or nil.
+    ///
+    /// THE RULE, and why it is what it is. A challenger must explain STRICTLY
+    /// MORE of the pattern than the winning candidate, at a smaller mean
+    /// distance, having cleared the same floors a candidate clears.
+    ///
+    /// "Strictly more" is not fussiness; it is what makes the guard unable to
+    /// erase a precipitate. A candidate that already explains every surviving
+    /// vector cannot be beaten on count by anything, so a genuine precipitate
+    /// pattern is safe BY CONSTRUCTION. The first version required only "at
+    /// least as many", and Gate B measured what that costs: with a sparse
+    /// precipitate of 3 to 6 vectors and 0.004 Å⁻¹ of jitter — a third of a
+    /// detector pixel on the demo cube, inside this file's own stated
+    /// measurement budget — a 49-axis search found a coincidental matrix fit
+    /// with the same count and a smaller distance, and took 26.5 % of
+    /// three-vector precipitates. A second matrix grain is the opposite case:
+    /// the candidate explains part of it and the matrix explains all of it.
+    ///
+    /// Rotations are enumerated, not searched on a grid: an orientation that
+    /// explains the pattern must put some reference of matching length under
+    /// each observed vector, so every rotation worth testing is
+    /// `angle(u) − angle(v)` for an observed `u` and a reference `v` with
+    /// `||u| − |v||` inside the pair radius, taken over every surviving
+    /// vector. The enumerated angle is exact only for a zero-distance match —
+    /// its error is about `asin(ρ/|u|)` — and that error biases toward keeping
+    /// the candidate label, which is the safe direction.
+    package static func challengeByMatrix(
+        surviving: [SIMD2<Double>],
+        bases: [PhaseOrientationReference],
+        settings: PhaseVectorSettings,
+        accessibleRadius: Double,
+        beating winner: (matched: Int, score: Double),
+        scratch: Scratch
+    ) -> (entry: PhaseOrientationReference, score: Double, matched: Int)? {
+        guard !surviving.isEmpty, !bases.isEmpty else { return nil }
+        let radius = settings.pairRadiusInvAngstrom
+        // EVERY surviving vector seeds a rotation, not a chosen few. The first
+        // version took the three LONGEST, on the reasoning that an angle is
+        // most precise far out — and Gate B measured that backwards: spurious
+        // maxima are typically FARTHER out than any real reflection, so the
+        // longest-three rule hands the seeds to exactly them. With three
+        // spurious peaks beyond the outermost real one, the catch rate for a
+        // second matrix grain went from 100 % to 0 % (2026-09-14, 200 trials
+        // per scenario). Seeding on all of them removes the failure mode and
+        // the arbitrary constant with it; the cost is linear in the vector
+        // count, measured at ~1.6 µs per surviving vector per challenged
+        // position.
+        //
+        // The BEST qualifying orientation is returned, not the first. The
+        // numbers it carries reach the result and the user, so "whichever
+        // zone axis came first in the list" is not good enough for them.
+        var best: (entry: PhaseOrientationReference, score: Double, matched: Int)?
+        var rotated = surviving
+        for base in bases {
+            let chance = base.chanceMatchFraction(
+                pairRadius: radius, accessibleRadius: accessibleRadius)
+                * Double(surviving.count)
+            for u in surviving {
+                let uLength = simd_length(u)
+                guard uLength > 0 else { continue }
+                let uAngle = atan2(u.y, u.x)
+                for v in base.vectors where abs(v.length - uLength) <= radius {
+                    // Rotating the references by θ puts v under u; scoring the
+                    // observations rotated by −θ against the unrotated base is
+                    // the same comparison and rotates 8 vectors instead of 48.
+                    let theta = uAngle - atan2(v.q.y, v.q.x)
+                    let c = cos(theta), s = sin(theta)
+                    for i in surviving.indices {
+                        rotated[i] = SIMD2(surviving[i].x * c + surviving[i].y * s,
+                                           -surviving[i].x * s + surviving[i].y * c)
+                    }
+                    guard let candidate = score(vectors: rotated, against: base,
+                                                pairRadius: radius, scratch: scratch)
+                    else { continue }
+                    guard candidate.matched > winner.matched,
+                          candidate.score < winner.score,
+                          candidate.matched >= settings.minimumMatchedVectors,
+                          Double(candidate.matched) >= settings.chanceMatchMultiple * chance
+                    else { continue }
+                    if let current = best,
+                       current.matched > candidate.matched
+                        || (current.matched == candidate.matched
+                            && current.score <= candidate.score) { continue }
+                    // Rotated, because the entry claims `theta`: a
+                    // `PhaseOrientationReference`'s vectors are defined to be
+                    // the ones AFTER its in-plane rotation, and handing back
+                    // the unrotated base with a non-zero angle would be a trap
+                    // for the next caller.
+                    best = (PhaseOrientationReference(
+                        phaseIndex: base.phaseIndex, zoneAxis: base.zoneAxis,
+                        inPlaneRotationRad: theta,
+                        vectors: PhaseReferenceLibrary.rotate(base.vectors, by: theta)),
+                        candidate.score, candidate.matched)
+                }
+            }
+        }
+        return best
     }
 
     // MARK: The whole scan
@@ -693,6 +936,10 @@ package nonisolated enum PhaseVectorMatcher {
         let matrixEntry = fitted.map { library.entries[$0] }
         let candidates = library.candidateEntryIndices
         guard !candidates.isEmpty else { return nil }
+
+        // Built once for the scan, scored only at positions that would
+        // otherwise be labelled — see `classify` step 5 for what it is for.
+        let challenge = matrixChallengeBases(library: library)
 
         var map = PhaseMap(width: bragg.scanWidth, height: bragg.scanHeight,
                            matrixEntryIndex: fitted ?? -1,
@@ -722,7 +969,7 @@ package nonisolated enum PhaseVectorMatcher {
                     ptr.value[position] = classify(
                         vectors: vectors, library: library, settings: settings,
                         matrixEntry: matrixEntry, candidateEntryIndices: candidates,
-                        scratch: scratch
+                        scratch: scratch, matrixChallenge: challenge
                     )
                     pending += 1
                     if progress != nil && pending >= progressBatch {

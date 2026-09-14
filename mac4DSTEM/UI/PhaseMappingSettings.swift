@@ -75,19 +75,41 @@ struct PhaseMappingSections: View {
                 .disabled(appState.isBusy || appState.braggVectors == nil)
                 .accessibilityIdentifier("phaseMapping.findZoneAxis")
 
+                // A percentage alone cannot be read: at a tight tolerance an
+                // axis explains a few percent of ANY vectors, and the panel
+                // showed that the same way it shows a real fit (the owner's
+                // ⟨112⟩ at 8 %, 2026-09-14). Each row now says whether it
+                // beats chance by the matcher's own multiple.
                 ForEach(Array(product.zoneAxisFits.enumerated()), id: \.offset) { rank, fit in
+                    let informative = fit.isAboveChance(
+                        multiple: appState.phaseMapping.matching.chanceMatchMultiple)
                     LabeledContent {
-                        Text(String(format: "%.0f %% · %.4f Å⁻¹",
-                                    100 * fit.explainedFraction, fit.meanDistance))
-                            .monospacedDigit()
-                            .foregroundStyle(rank == 0 ? .primary : .secondary)
+                        HStack(spacing: 6) {
+                            Text(String(format: "%.0f %% · %.4f Å⁻¹",
+                                        100 * fit.explainedFraction, fit.meanDistance))
+                                .monospacedDigit()
+                                .foregroundStyle(rank == 0 ? .primary : .secondary)
+                            if !informative {
+                                Text("at chance").foregroundStyle(.orange)
+                            }
+                        }
                     } label: {
                         Text("[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)]")
                             .monospacedDigit()
                             .foregroundStyle(rank == 0 ? .primary : .secondary)
                     }
                 }
-                if product.zoneAxisFits.count > 1 {
+                if let top = product.zoneAxisFits.first,
+                   !top.isAboveChance(
+                       multiple: appState.phaseMapping.matching.chanceMatchMultiple) {
+                    Text(String(format: "No axis beats chance here. A reference set "
+                                + "this dense could match up to about %.1f %% of vectors "
+                                + "pointing nowhere in particular, and the best axis "
+                                + "explains %.1f %%. Treat the ranking as undecided.",
+                                100 * top.chanceFraction, 100 * top.explainedFraction))
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else if product.zoneAxisFits.count > 1 {
                     Text("Symmetry-equivalent axes should tie exactly. They are "
                          + "shown so a fit can be told from a coin toss.")
                         .font(.caption2)

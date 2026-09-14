@@ -1280,3 +1280,35 @@ from the code it gates. `tools/phase-vector-matching` shared
 `ACOMOrientation.detectorBasis` with `PhaseReferenceLibrary`, so a handedness
 flip mirrored both and 27 of 27 checks stayed green. It builds its own seeded
 frame now, as `acom-convention-test` always did, and the flip fails two checks.
+
+## 2026-09-14 — Two verdicts a user reads: the matrix gets the last word, and a spotty annulus is refused rather than flagged
+
+**A grain of the matrix phase on another orientation is reported as `.matrix`,
+not "not indexed".** The alternative was tempting: matrix removal never ran for
+that position, so the label means something operationally different from the
+`.matrix` a removed pattern earns. It is still the truthful answer to the
+question a phase map asks. The crystal there IS aluminium, a phase fraction
+computed over that map is right only if it counts as aluminium, and a
+hatched "unknown" over a quarter of the scan would be a worse lie than a
+neutral grey. The evidence line carries the numbers either way.
+
+**A Bragg-spot annulus makes the ellipse fit REFUSE, not warn — TAKEN, THEN
+WITHDRAWN THE SAME SESSION.** The reasoning for refusing over warning still
+stands: a warning next to a number is read as a number, and the owner's own run
+carried a = 43.68, b = 39.72 downstream into a zone-axis fit and a phase map
+before anything questioned it. What did not stand is the test. The shipped
+statistic — the 90th-percentile azimuthal bin at 4× the median — was measured
+by Gate B to be wrong in both directions: it refuses an amorphous halo carrying
+sharp crystallite reflections, where the fit is exactly right at a/b = 1.000,
+and it stops firing on the multi-grain case it was written for as the specimen
+gets more polycrystalline (3 grains refused, 6 grains fitted and reporting
+26.6 % distortion). It is a bright-bin-count test wearing a percentile's
+clothes. The guard and its fixtures were reverted rather than tuned, because
+the calibration that chose 4 had no legitimate SPOTTY single-radius ring in it,
+and a bar placed between two clusters with the intermediate population
+unsampled is a tuned number however it is described. The decision the next
+attempt needs from the owner is which behaviour he wants at all — refuse, flag,
+or leave — and `open-items.md` carries the three refuted remedies, the one
+untried lead, and the fixture that is missing. Recording the withdrawal here
+rather than deleting the paragraph: the argument for refusing over warning is
+worth keeping, and so is the evidence that a good argument is not a test.
