@@ -55,11 +55,11 @@ refuses when it is wrong, which is the correct behaviour but not the answer.
 `notIndexedAboveInvAngstrom` (0.010 → 0.005) takes β″ from 100 % to 0 %, and
 doubling `pairRadiusInvAngstrom` (0.020 → 0.040) does the same. The header
 calls 0.02 a budget that "covers those with room"; the room is a factor of two,
-in one direction, on noise-free synthetic data. Separately, the two settings
-are both 0.02, so conflating `matrixToleranceInvAngstrom` with
-`pairRadiusInvAngstrom` is invisible to every check — Gate B's mutation E
-produced a log identical to the baseline. A fixture with the two deliberately
-different would close the second half.
+in one direction, on noise-free synthetic data. **The second half closed
+2026-09-14:** `testMatrixRemovalAndCandidateScoringReadTheirOwnRadii` sets the
+two radii 0.005 / 0.020 and displaces every vector by 0.012; reading the pair
+radius in matrix removal, or the matrix tolerance in scoring, each turned it
+red (21/1 twice), 22/22 green unmutated. The cliff itself remains as stated.
 
 ### A stale DerivedData test bundle fakes both a pass and a surviving mutation — added 2026-09-12
 
@@ -649,15 +649,6 @@ probe placement before the windowed path is quoted as measured.
 Investigation owed; nobody has measured it since.
 
 ## Known, scoped, not blocking
-
-### The grouping fallback name uses the requested k, the product the actual one (2026-09-14)
-`Support/ResultMetadata.swift` names diffraction groups from
-`lastRunSettings?.groups ?? settings.groups`; `AppState+DiffractionGroups`
-publishes with `result.groupCount`, which `DiffractionEmbedding.compute`
-clamps to the position count. The two differ only when k exceeded the scan,
-and only if the fallback is reached with no published product — no such path
-was found by reading, so this may be dead. Outside the 2026-09-14 audit's
-scope; left for the session that touches that file.
 
 ### Parallax and ptychography are unrunnable on the owner's Mac (2026-09-11)
 Owner drive, `051_STEM_SI_preprocessed_unfiltered_bin_4_20260629.h5` — a

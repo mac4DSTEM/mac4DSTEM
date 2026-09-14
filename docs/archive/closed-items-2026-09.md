@@ -651,3 +651,16 @@ several (p, c). Proof obligation: BOTH mutations must go red, not just the
 mean-centring one.
 
 **Closure.** `testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance` now asserts `coordinates[p·k + c] == (x_p − mean)·basis[c]` at every seventh position and every component against its own `referenceBinnedVector`. Both named mutations were run on 2026-09-14 and both turned it red (see `docs/status.md`).
+
+## The grouping fallback name uses the requested k, the product the actual one — closed 2026-09-14
+
+### ~~The grouping fallback name uses the requested k, the product the actual one~~ — **CLOSED 2026-09-14**
+`Support/ResultMetadata.swift` names diffraction groups from
+`lastRunSettings?.groups ?? settings.groups`; `AppState+DiffractionGroups`
+publishes with `result.groupCount`, which `DiffractionEmbedding.compute`
+clamps to the position count. The two differ only when k exceeded the scan,
+and only if the fallback is reached with no published product — no such path
+was found by reading, so this may be dead. Outside the 2026-09-14 audit's
+scope; left for the session that touches that file.
+
+**Closure.** `Support/ResultMetadata.swift` now names the fallback from `result?.groupCount` first, the same number the publish path uses, with the requested k only when no result exists. Compiled by the targeted runs of 2026-09-14; no test, because no path reaching the fallback with a stale result was found.

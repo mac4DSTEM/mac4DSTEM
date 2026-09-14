@@ -585,6 +585,35 @@ final class PhaseVectorMatchingTests: XCTestCase {
                           "shortest interatomic contact \(shortest) Å — the cell is not bonded")
     }
 
+    /// Mutation: `classify` reading `pairRadiusInvAngstrom` for the matrix
+    /// removal, or `matrixToleranceInvAngstrom` for the candidate scoring.
+    /// Both ship at 0.02, so the conflation was invisible to every check
+    /// (Gate B mutation E, 2026-09-12) — this fixture sets them 0.005 and
+    /// 0.020 and displaces every vector by 0.012, between the two.
+    func testMatrixRemovalAndCandidateScoringReadTheirOwnRadii() throws {
+        let library = try smallLibrary()
+        var settings = PhaseVectorSettings()
+        settings.matrixToleranceInvAngstrom = 0.005
+        settings.pairRadiusInvAngstrom = 0.020
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 256)
+        let matrixEntry = library.entries[library.matrixEntryIndices[0]]
+        let candidate = library.entries[library.candidateEntryIndices[0]]
+        let d = SIMD2(0.012, 0.0)
+        let offMatrix = matrixEntry.vectors.prefix(6).map { $0.q + d }
+        let offCandidate = candidate.vectors.prefix(10).map { $0.q + d }
+        let result = PhaseVectorMatcher.classify(
+            vectors: offMatrix + offCandidate, library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(result.removedCount, 0,
+                       "a vector 0.012 off the matrix, with a 0.005 tolerance, was removed: "
+                       + "matrix removal read the pair radius")
+        XCTAssertEqual(result.survivingCount, 16)
+        XCTAssertGreaterThanOrEqual(result.matchedCount, 3,
+                                    "candidate vectors 0.012 off, within a 0.020 pair radius, "
+                                    + "were not matched: scoring read the matrix tolerance")
+    }
+
     // MARK: Fixtures
 
     private func coarseSettings() -> PhaseReferenceSettings {

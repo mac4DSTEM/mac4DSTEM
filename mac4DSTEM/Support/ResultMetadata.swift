@@ -79,8 +79,12 @@ extension AppState {
             // and in the sidecar (the owner's drive, `drive-groups` defect 5).
             // Same kind, name and units the run itself publishes
             // (`AppState+DiffractionGroups.runDiffractionGroups`), through the
-            // same helper, so the fallback and the real product cannot drift.
-            let k = diffractionGroups.lastRunSettings?.groups
+            // same helper AND from the same number: the run's ACTUAL group
+            // count, which `DiffractionEmbedding.compute` clamps to the
+            // position count — the requested k is only the fallback when no
+            // result exists (audit 2026-09-14).
+            let k = diffractionGroups.result?.groupCount
+                ?? diffractionGroups.lastRunSettings?.groups
                 ?? diffractionGroups.settings.groups
             return ("diffraction_groups",
                     DiffractionGroupsProduct.groupMapDisplayName(groups: k),
