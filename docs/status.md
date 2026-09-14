@@ -225,8 +225,24 @@ because λ there is computed from the published row. Live markdown is UP
 entries moved to the archive and four new findings were recorded; nothing
 live was found stale enough to delete. Committed 2026-09-14; the owner pushes.
 
+**A demo cube with known truth exists (2026-09-14, built by a delegated
+agent, verified by a scratch probe on the repo's own Core).**
+`tools/demo-dataset/run.sh` writes `References/demo-dataset/AlMgSi_demo.h5`
+(100 × 100 scan at 0.5 nm, 128 × 128 detector at 0.012 Å⁻¹, 169 MiB,
+py4DSTEM calibration the reader accepts) with three Al grains on [001]/[011]/
+[111], a +1.5 % strained stripe, a vacuum corner, six end-on β″ [010]
+cross-sections and three β″ [001] needles, plus `truth.json` and `truth.png`.
+Through detection, the per-grain zone-axis fit and `PhaseVectorMatcher.map`
+at shipped defaults: grains fit ⟨100⟩/⟨110⟩/⟨111⟩; plain Al **97.7 %
+matrix**; end-on precipitates **100 % β″ [010]**; needles **100 % β″ [001]**;
+vacuum 100 % no data; and the [011] grain **100 % falsely β″ [001]** — a real
+finding, `open-items.md`. It is our own truth through our own code: a check
+that the pipeline does what it says, not step 3. Not yet opened in the app.
+
 **NEXT, in order.**
-1. **Drive it** (owner). Nothing else here is blocked on code.
+1. **Open the demo cube in the app** (owner): virtual ADF, disks, ACOM on
+   three grains, strain on the stripe, phase mapping with Al [001] as matrix
+   and β″ at [010] and [001]. The drive of the real cube is done (2026-09-14).
 2. **Step 3, when there is room** — an external drive, or ~8 GB freed. Their
    `ground_truth.hspy` is 37 kB and its HyperSpy schema
    (`/Experiments/__unnamed__/data`) is already among `H5Reader`'s candidate

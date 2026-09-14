@@ -86,6 +86,20 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
+### A second matrix grain is labelled as a candidate phase, not refused — added 2026-09-14
+**Science.** Found by the synthetic demo cube (`tools/demo-dataset`, output
+under gitignored `References/demo-dataset/`): with Al [001] fitted as the one
+matrix and β″ [010] + β″ [001] as candidates at shipped defaults, the Al [011]
+grain — 2 250 positions of pure aluminium on another zone axis — came back
+**100 % "indexed β″ [001]"**, while the Al [111] grain came back not indexed.
+The file header names the single-matrix-grain limit; this is the limit
+producing a false LABEL rather than a refusal, because [011]Al's net lands
+inside β″ [001]'s references at a 1 px pair radius and nothing asks whether
+the matrix itself explains those vectors better. Remedy candidates: score the
+matrix's other zone axes as a candidate of last resort, or require the winner
+to beat a matrix-family entry; both are Gate D. Truth for the experiment is
+`truth.json`; the probe's confusion is in the 2026-09-14 status entry.
+
 ### The zone-axis fit has no chance floor — added 2026-09-14
 **Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
 tolerance (0.44 px on `060_STEM SI_…bin_4`) Find Matrix Zone Axis returned a
