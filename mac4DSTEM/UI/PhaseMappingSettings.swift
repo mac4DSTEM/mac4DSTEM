@@ -375,6 +375,16 @@ struct PhaseMappingSections: View {
             }
             }
             .onAppear { if draft.isEmpty { draft = "\(slot.u) \(slot.v) \(slot.w)" } }
+            // The axis can change UNDER the field — Find Matrix Zone Axis writes
+            // the fitted [u v w] into the slot — and a draft filled once on
+            // appear kept showing "0 0 1" beside a row that said "zone [0 -1 1]"
+            // (owner's drive, 2026-09-14). Refresh only when the field's own
+            // text no longer means the slot's axis, so "0-12" stays as typed.
+            .onChange(of: slot.zoneAxis) { _, axis in
+                if PhaseMappingSlot.parseZoneAxis(draft) != axis {
+                    draft = "\(axis.x) \(axis.y) \(axis.z)"
+                }
+            }
         }
 
         private var color: Color {
