@@ -239,17 +239,18 @@ vacuum 100 % no data; and the [011] grain **100 % falsely β″ [001]** — a re
 finding, `open-items.md`. It is our own truth through our own code: a check
 that the pipeline does what it says, not step 3. Not yet opened in the app.
 
-**NEXT, in order.**
-1. **Open the demo cube in the app** (owner): virtual ADF, disks, ACOM on
-   three grains, strain on the stripe, phase mapping with Al [001] as matrix
-   and β″ at [010] and [001]. The drive of the real cube is done (2026-09-14).
-2. **Step 3, when there is room** — an external drive, or ~8 GB freed. Their
-   `ground_truth.hspy` is 37 kB and its HyperSpy schema
-   (`/Experiments/__unnamed__/data`) is already among `H5Reader`'s candidate
-   paths, so the only obstacle is `datasetA`'s size. Acceptance is
-   pre-registered in the plan: land inside the band their four methods occupy.
-3. **Then Al-Mg-Si properly** — through the app, on a ⟨110⟩Al-appropriate β″
-   zone axis, with a measured probe kernel and a fitted origin.
+**NEXT, in order** (rewritten at the end of 2026-09-14; `/pickup` takes 1).
+1. **A second matrix grain is labelled as a candidate phase** — `open-items.md`,
+   Gate D, then the fix, then Gate B. The demo cube is the fixture: Al [001]
+   matrix, β″ [001] candidate, the [011] grain must come back refused.
+2. **The ellipse fit's ring check** — Gate D is done (the owner's experiment
+   confirmed it); the fit must refuse or flag a multi-ring annulus. Gate B.
+3. **The zone-axis fit's chance floor**, and the Prepare panel's missing
+   "clear calibration" control — both `open-items.md`, both small.
+4. **ACOM and strain on the demo cube** (owner, minutes): three IPF colours
+   and the +1.5 % stripe have not been looked at.
+5. **Step 3** when ~8 GB is free — still the merge condition; then the
+   fast-forward merge as the paragraph above says.
 
 **Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
 remain deliberately **not wired**; one hand count on the frozen region completes

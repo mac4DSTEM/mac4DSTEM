@@ -123,6 +123,9 @@ to beat a matrix-family entry; both are Gate D. Truth for the experiment is
 on screen by the owner the same evening** with the ellipse cleared: matrix
 51 %, needles β″ [001], the [011] grain solid β″, the [111] grain refused,
 the end-on squares refused because [010] was not in the list — as the probe said.
+With β″ [010] as the only candidate: β″ **96 = every end-on position**, matrix
+5 096, everything else refused, the [011] grain included — so the false label
+depends on which candidate is present, not on the grain.
 
 ### The zone-axis fit has no chance floor — added 2026-09-14
 **Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
