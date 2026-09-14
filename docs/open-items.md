@@ -86,22 +86,17 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
-### Phase mapping, driven 2026-09-14 — what is left to see — amended 2026-09-14
-
-**Verification debt.** The owner drove it on `060_STEM SI_…bin_4` (Xcode 27
-build of `fc32140`). Seen and right: a phase from a CIF; Find Matrix Zone
-Axis returning the ⟨110⟩ family tied at 38 % after "Scale to This Detector"
-(the probe measured 39 %); the resolution line 0.44 · 0.44 · 0.22 px and its
-warning; a run of β″ [001] against Al ⟨110⟩ giving matrix 2 099, β″ 27, not
-indexed 106 774 with the hatch, the legend as the phase list, the Evidence line
-following the cursor, and "unvalidated" in both places. **One defect, fixed
-on the branch, unseen since:** the zone-axis field kept "0 0 1" after the fit
-wrote [0 −1 1] into the slot (`f78122e`). **One observation, not fixed:**
-before scaling, the fit returned a ⟨112⟩ family at 8 % — chance level at a
-0.44 px tolerance (39 % × 0.19) — and the panel presented it like any other
-answer; the zone-axis fit has no chance floor of its own. Still to see: ⌘5
-landing on grouping; a phase from the built-in menu; remove-and-re-add
-marking the run stale; the fixed field following the fit.
+### The zone-axis fit has no chance floor — added 2026-09-14
+**Known, scoped.** Seen on the owner's drive: at the shipped 0.020 Å⁻¹ matrix
+tolerance (0.44 px on `060_STEM SI_…bin_4`) Find Matrix Zone Axis returned a
+⟨112⟩ family at 8 %, tied exactly, and the panel presented it like any other
+answer. It is chance: the same sweep at one pixel gives ⟨110⟩ at 38 %, and
+0.44² ≈ 0.19 of a pixel's area times 39 % is 7.5 %. `fitZoneAxis` ranks by
+explained fraction with no chance expectation beside it, unlike `classify`.
+Remedy: print the chance-level fraction next to each fit, or refuse below it —
+a Core change, Gate D of its own. The drive itself is closed: every item of the
+2026-09-12 "never driven" entry was seen on 2026-09-14, including the field
+fix `f78122e` and ⌘5; the record is `docs/archive/closed-items-2026-09.md`.
 ### Contiguous invalid regions fabricate precipitates — blocks wiring
 `PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite
 median. That survives scattered NaN and **not** a large contiguous invalid

@@ -664,3 +664,24 @@ was found by reading, so this may be dead. Outside the 2026-09-14 audit's
 scope; left for the session that touches that file.
 
 **Closure.** `Support/ResultMetadata.swift` now names the fallback from `result?.groupCount` first, the same number the publish path uses, with the requested k only when no result exists. Compiled by the targeted runs of 2026-09-14; no test, because no path reaching the fallback with a stale result was found.
+
+## Phase mapping has never been driven — closed 2026-09-14
+
+### ~~Phase mapping has never been driven~~ — **CLOSED 2026-09-14**
+
+**Verification debt.** The owner drove it on `060_STEM SI_…bin_4` (Xcode 27
+build of `fc32140`). Seen and right: a phase from a CIF; Find Matrix Zone
+Axis returning the ⟨110⟩ family tied at 38 % after "Scale to This Detector"
+(the probe measured 39 %); the resolution line 0.44 · 0.44 · 0.22 px and its
+warning; a run of β″ [001] against Al ⟨110⟩ giving matrix 2 099, β″ 27, not
+indexed 106 774 with the hatch, the legend as the phase list, the Evidence line
+following the cursor, and "unvalidated" in both places. **One defect, fixed
+on the branch, unseen since:** the zone-axis field kept "0 0 1" after the fit
+wrote [0 −1 1] into the slot (`f78122e`). **One observation, not fixed:**
+before scaling, the fit returned a ⟨112⟩ family at 8 % — chance level at a
+0.44 px tolerance (39 % × 0.19) — and the panel presented it like any other
+answer; the zone-axis fit has no chance floor of its own. Still to see: ⌘5
+landing on grouping; a phase from the built-in menu; remove-and-re-add
+marking the run stale; the fixed field following the fit.
+
+**Closure.** The owner drove the rest the same afternoon on the rebuilt `f78122e`: aluminium from the built-in menu, β″ from the CIF at [010], the fitted axis showing in the field, a run of β″ [010] against Al ⟨110⟩ (matrix 2 099, β″ 280 = 0.3 % against a 3.9 % chance level, not indexed 106 521), Show Match Distance, remove-and-re-add reading stale, and ⌘5 landing on grouping. What the drive found and did not fix is the chance-floor entry that replaces this one.
