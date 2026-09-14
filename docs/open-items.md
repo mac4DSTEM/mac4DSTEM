@@ -86,20 +86,22 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
-### Phase mapping has never been driven — added 2026-09-12
+### Phase mapping, driven 2026-09-14 — what is left to see — amended 2026-09-14
 
-**Verification debt.** No part of the task has been seen on screen. Worth the
-owner's eye: the new task row and that ⌘5 still lands on grouping; adding a
-phase from the built-in menu and from a CIF; the zone-axis field accepting
-`[010]`, `0 1 0` and `0-12`; the phase list reading as the legend after a run;
-the `Evidence` line following the cursor; and that "not indexed" is visibly
-hatched rather than a colour. Also, since 2026-09-14: removing a phase and
-adding it back marks the run stale (the phase would be drawn in another
-colour), and the matrix zone-axis fit refuses if the dataset changed under it.
-Closes when he reports.
-
-## Precipitate engines, landed unwired 2026-09-11 — added 2026-09-11
-
+**Verification debt.** The owner drove it on `060_STEM SI_…bin_4` (Xcode 27
+build of `fc32140`). Seen and right: a phase from a CIF; Find Matrix Zone
+Axis returning the ⟨110⟩ family tied at 38 % after "Scale to This Detector"
+(the probe measured 39 %); the resolution line 0.44 · 0.44 · 0.22 px and its
+warning; a run of β″ [001] against Al ⟨110⟩ giving matrix 2 099, β″ 27, not
+indexed 106 774 with the hatch, the legend as the phase list, the Evidence line
+following the cursor, and "unvalidated" in both places. **One defect, fixed
+on the branch, unseen since:** the zone-axis field kept "0 0 1" after the fit
+wrote [0 −1 1] into the slot (`f78122e`). **One observation, not fixed:**
+before scaling, the fit returned a ⟨112⟩ family at 8 % — chance level at a
+0.44 px tolerance (39 % × 0.19) — and the panel presented it like any other
+answer; the zone-axis fit has no chance floor of its own. Still to see: ⌘5
+landing on grouping; a phase from the built-in menu; remove-and-re-add
+marking the run stale; the fixed field following the fit.
 ### Contiguous invalid regions fabricate precipitates — blocks wiring
 `PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite
 median. That survives scattered NaN and **not** a large contiguous invalid
