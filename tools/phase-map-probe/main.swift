@@ -93,10 +93,24 @@ enum Probe {
         // defaults — no probe-specific tuning — and prints a confusion matrix
         // against `truth.json`. Every other mode is unchanged.
         var truthPath: String?
+        var thronsenPath: String?   // step 3: their ground truth, their metric (thronsen.swift)
+        // Step 3's two user-side settings, both stated in the record: the
+        // detection threshold a user would raise on seeing 22 peaks on an Al
+        // pattern (shipped 0.005), and the dataset's own mask radius, which
+        // the app has no setting for (the mask edge at 0.70 Å⁻¹ is a ring of
+        // maxima no phase explains).
+        var minRelative: Float?
+        var reachInvAngstrom: Double?
         var positional: [String] = []
         var index = 4
         while index < args.count {
-            if args[index] == "--truth", index + 1 < args.count {
+            if args[index] == "--thronsen", index + 1 < args.count {
+                thronsenPath = args[index + 1]; index += 2
+            } else if args[index] == "--min-relative", index + 1 < args.count {
+                minRelative = Float(args[index + 1]); index += 2
+            } else if args[index] == "--reach", index + 1 < args.count {
+                reachInvAngstrom = Double(args[index + 1]); index += 2
+            } else if args[index] == "--truth", index + 1 < args.count {
                 truthPath = args[index + 1]; index += 2
             } else {
                 positional.append(args[index]); index += 1
@@ -106,9 +120,13 @@ enum Probe {
         if truthPath != nil, truth == nil {
             print("could not read truth map at \(truthPath!)"); exit(1)
         }
+        let thronsen = thronsenPath.flatMap(Thronsen.Truth.init(path:))
+        if thronsenPath != nil, thronsen == nil {
+            print("could not read Thronsen labels at \(thronsenPath!)"); exit(1)
+        }
         // Truth mode scores every position; a stride would compare the map
         // against truth on a subsample and call it a measurement of the map.
-        let stride = truth != nil ? 1 : (positional.first.flatMap(Int.init) ?? 3)
+        let stride = (truth != nil || thronsen != nil) ? 1 : (positional.first.flatMap(Int.init) ?? 3)
 
         guard let reader = try? H5Reader(path: path),
               let primary = try? await reader.discoverPrimaryDataset() else {
@@ -121,11 +139,11 @@ enum Probe {
 
         // ---- The resolution budget, before anything is matched -------------
         var referenceSettings = PhaseReferenceSettings()
-        referenceSettings.kMaxInvAngstrom = reach
+        referenceSettings.kMaxInvAngstrom = thronsen != nil ? Thronsen.kMaxInvAngstrom : reach
         referenceSettings.inPlaneStepDeg = 2
 
         var matchSettings = PhaseVectorSettings()
-        if truth == nil {
+        if truth == nil && thronsen == nil {
             // One detector pixel, rounded up: nothing smaller can be measured
             // here, so nothing smaller may be demanded.
             matchSettings.pairRadiusInvAngstrom = max(0.02, qPerPixel)
@@ -143,7 +161,7 @@ enum Probe {
         // what the app's phase list makes when the owner adds β″ twice, and
         // `bestPerPhase` keeps one winner per phase, so the shape of the
         // competition depends on it.
-        let phases = truth != nil
+        let phases = thronsen != nil ? Thronsen.phases : truth != nil
             ? [
                 PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
                                 role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
@@ -201,6 +219,10 @@ enum Probe {
         var params = DiskDetectionParams()
         params.minPeakSpacing = max(3, probeRadius.rounded())
         params.edgeBoundary = 2
+        if let minRelative {
+            params.minRelativeIntensity = minRelative
+            print(String(format: "detection: min relative intensity %.3f (shipped 0.005)", minRelative))
+        }
 
         let rows = Swift.stride(from: 0, to: primary.ry, by: stride).map { $0 }
         let cols = Swift.stride(from: 0, to: primary.rx, by: stride).map { $0 }
@@ -227,8 +249,6 @@ enum Probe {
         print("read \(read) patterns, \(total) peaks, median "
               + "\(counts.sorted()[counts.count / 2]), range "
               + "\(counts.min() ?? 0)–\(counts.max() ?? 0)")
-
-        let bragg = BraggVectors(scanWidth: cols.count, scanHeight: rows.count, peaks: peaks)
 
         // THE ORIGIN IS MEASURED, not assumed to be the detector centre.
         // Half a pixel here is 0.023 Å⁻¹, which is half the pair radius on
@@ -264,6 +284,24 @@ enum Probe {
                       + (Double(originY) - cy) * (Double(originY) - cy)).squareRoot(),
                      ((Double(originX) - cx) * (Double(originX) - cx)
                       + (Double(originY) - cy) * (Double(originY) - cy)).squareRoot() * qPerPixel))
+
+        if let reachInvAngstrom {
+            // Everything at or beyond the dataset's own mask radius is the
+            // mask's edge, not a reflection; the app has no such setting.
+            var dropped = 0
+            for i in peaks.indices {
+                let before = peaks[i].count
+                peaks[i].removeAll {
+                    Double(((($0.x - originX) * ($0.x - originX)
+                             + ($0.y - originY) * ($0.y - originY)).squareRoot())) * qPerPixel
+                        >= reachInvAngstrom
+                }
+                dropped += before - peaks[i].count
+            }
+            print(String(format: "reach: dropped %d peaks at or beyond %.3f Å⁻¹ (the dataset's mask radius)",
+                         dropped, reachInvAngstrom))
+        }
+        let bragg = BraggVectors(scanWidth: cols.count, scanHeight: rows.count, peaks: peaks)
 
         // WHICH ZONE AXIS IS THE MATRIX ON? Asked rather than assumed: a phase
         // map built on the wrong matrix orientation removes nothing and calls
@@ -469,6 +507,46 @@ enum Probe {
                          fraction("Al [001] grain A", ["matrix"])))
             print(String(format: "  vacuum as no data            %5.1f %%  (prediction: 100)",
                          fraction("vacuum", ["no data"])))
+        }
+
+        if let thronsen {
+            print("\n== Against Thronsen et al.'s ground truth, by their metric ==")
+            guard thronsen.labels.count == map.results.count else {
+                print("  truth has \(thronsen.labels.count) positions, the map has "
+                      + "\(map.results.count) — refusing to score a mismatch")
+                exit(1)
+            }
+            var table: [Int: [Int: Int]] = [:]
+            var mislabelled = 0
+            for (index, result) in map.results.enumerated() {
+                let ours = Thronsen.label(of: result, phaseNames: map.phaseNames)
+                let theirs = thronsen.labels[index]
+                table[theirs, default: [:]][ours, default: 0] += 1
+                if ours != theirs { mislabelled += 1 }
+            }
+            let columns = [0, 1, 2, 3, -1]
+            let name: (Int) -> String = { $0 == -1 ? "not indexed" : (thronsen.classes[$0] ?? "\($0)") }
+            print("  " + String(repeating: " ", count: 16)
+                  + columns.map { String(format: "%14@", name($0) as NSString) }.joined() + "      total")
+            for theirs in [0, 1, 2, 3, 4] {
+                guard let row = table[theirs] else { continue }
+                let total = row.values.reduce(0, +)
+                let cells = columns.map { column -> String in
+                    let count = row[column] ?? 0
+                    return count == 0 ? String(format: "%14@", "·" as NSString)
+                        : String(format: "%9d%4.0f%%", count, 100 * Double(count) / Double(max(1, total)))
+                }
+                print(String(format: "  %-16@", name(theirs) as NSString) + cells.joined()
+                      + String(format: "%11d", total))
+            }
+            let fraction = 100 * Double(mislabelled) / Double(map.results.count)
+            print(String(format: "\n  mislabelled %d of %d positions = %.2f %%", mislabelled,
+                         map.results.count, fraction))
+            print("  their four methods on the full 512 × 512: vector matching 1.54 %, template matching 1.75 %, "
+                  + "NMF 1.50 %, ANN 0.96 % (reproduced from their published maps, 2026-09-15)")
+            print("  pre-registered acceptance (v3-vector-matching-plan.md step 3): inside their band, "
+                  + "which is 0.96–1.75 %")
+            print(fraction <= 1.75 ? "  VERDICT: inside the band" : "  VERDICT: OUTSIDE the band — the implementation is wrong, not the method")
         }
 
         for row in PhaseMapPresentation.legend(map) {

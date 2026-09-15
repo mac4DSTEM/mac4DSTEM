@@ -17,17 +17,44 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
-### Step 3 has not run: no external validation exists — added 2026-09-12
-
-**Science.** Vector-matched phase mapping ships with `validation: "none"` in
-every product's provenance. Scoring it against Thronsen et al.'s published
-ground truth needs their preprocessed `datasetA`, ~7.4 GB, against a machine
-that ended 2026-09-12 at 5.7 GB free. Their `ground_truth.hspy` is 37 kB and
-its HyperSpy schema is already among `H5Reader`'s candidate paths, so the only
-obstacle is size. Acceptance is pre-registered in
-`docs/v3-vector-matching-plan.md` §3: the mislabelled fraction must land inside
-the band their four methods occupy. **Until it runs, a phase fraction off this
-map is not a measurement.** Owner: needs an external drive or ~8 GB freed.
+### Step 3 ran on a stride-3 subsample and is OUTSIDE their band — measured 2026-09-15/16
+**Science, live; the pre-registered verdict, not softened.** Their 7.4 GB
+`datasetA_preprocessed.hspy` was streamed from Zenodo by HTTP range requests
+and every third scan row and column written as uint16
+(`References/thronsen-datasetA/datasetA_stride3.h5`, 171 × 171, 0.51 GB;
+`truth_stride3.json`), and `tools/phase-map-probe --thronsen` runs the
+shipped matcher on it and scores by THEIR metric (their four published maps
+reproduce at 0.96–1.75 % mislabelled with it). **Result: OUTSIDE their band at every setting tried.** Shipped defaults
+98.26 %; a 10 % threshold 26.40 %; 1 / 2 / 3 / 5 % with the reach 25.91 /
+26.18 / 26.24 / 26.32 % (`thronsen-*-20260915.log`). The floor is the
+precipitate fraction itself: Al positions are matrix 100 %, but T1 goes to
+matrix at 94 % and θ′ face-on at 100 %, because along [001]Al each variant
+leaves at most two reflections that are not Al's inside the 0.70 Å⁻¹ mask
+(T1: the two-thirds-{220} spots; θ′ face-on: (110) at 0.35), under
+`minimumMatchedVectors = 3` and the matrix's last word. θ′ edge-on, with
+four (011)-type spots at 0.30 Å⁻¹ per variant, is the only precipitate the
+matcher indexes (15–22 %). Their vector matching reached 1.54 % on the same
+data by classifying the vectors left after Al removal with no such minimum.
+**What Gate D found on the way, all measured:**
+- At the shipped detection threshold (0.5 %) the app finds a median of 22
+  peaks where an Al [001] pattern inside their 0.70 Å⁻¹ mask has four: their
+  direct beam is a flat plateau of ties at the maximum, and the mask edge is
+  a ring of maxima no phase explains. Nothing is called matrix: 98.3 %
+  mislabelled. At 10 % everything is called matrix (99.7 %) and 26.4 % is
+  mislabelled — exactly the precipitate fraction — because T1's reflections
+  are 1–5 % of the plateau maximum. The app has no outer-reach setting; the
+  probe's `--reach` stands in for the one a masked dataset needs.
+- **The T1 reference is wrong in detail.** Along [001]Al the data's T1
+  signature is spots at two thirds of {220}Al (0.465–0.477 Å⁻¹ at the {220}
+  azimuths) plus intensity on the {200} spots; the [0 -4 1] projection of
+  their c = 14.145 Å cell also predicts reflections at 0.233 and 0.367 Å⁻¹
+  that the data does not show at all (median 0 % of the maximum at T1
+  positions). At 0.5 % the matcher still indexed T1 at 94 % precision, at
+  6 % recall.
+**Owner:** the acceptance stands as failed until the T1 reference matches the
+observed signature and the detection threshold has a rule rather than a
+sweep; a phase fraction off this map is still not a measurement, and every
+product still says `validation: "none"`.
 
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 

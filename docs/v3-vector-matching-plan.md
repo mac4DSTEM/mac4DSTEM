@@ -1,6 +1,8 @@
 # Vector-matching phase mapping — the plan, 2026-09-11
 
-> **Where it stands, 2026-09-12.** Steps **0, 1, 2, 4 and 5 are done**; step 3
+> **Where it stands, 2026-09-16.** Steps **0, 1, 2, 4 and 5 are done**; step 3
+> **ran on a subsample and failed its pre-registered acceptance** (26 %
+> mislabelled against a 0.96–1.75 % band; §3). Before that: step 3
 > is **deferred on disk, not abandoned**, and everything the app produces is
 > labelled unvalidated until it runs. The record of what landed, what two
 > pre-registered predictions got wrong, and what the Al-Mg-Si cube actually
@@ -88,28 +90,35 @@ Three parts, each small:
 Gate D applies: the output is a phase label that reaches an export. Gate B
 applies: it is new Core that moves a scientific number.
 
-### 3 — Validate against their published ground truth  ← **DEFERRED 2026-09-12, on disk**
-Not abandoned and not skipped: their `datasetA` is ~7.4 GB against a machine
-at 5.7 GB free, and the owner has deleted everything he is willing to delete.
-The decision and its condition are in `decisions.md` (2026-09-12): the rest
-lands **labelled unvalidated** in four places, and no density or phase fraction
-leaves the app as a quantitative claim until this passes. `ground_truth.hspy`
-is 37 kB and its HyperSpy schema (`/Experiments/__unnamed__/data`) is already
-among `H5Reader`'s candidate paths, so the only obstacle is size.
+### 3 — Validate against their published ground truth  ← **RAN 2026-09-15/16 on a stride-3 subsample; OUTSIDE their band**
+Their `datasetA_preprocessed.hspy` (7.4 GB, float32 512 × 512 × 128 × 128)
+does not fit this machine, so `tools/thronsen-dataset` streams it from Zenodo
+by HTTP range requests and writes every third scan row and column as uint16
+(`References/thronsen-datasetA/datasetA_stride3.h5`, 171 × 171 positions,
+0.51 GB, one pattern per chunk) with the ground truth subsampled the same way.
+29 241 positions put a standard error near 0.07 % on a fraction near 1.5 %,
+so the band can be read from the subsample.
 
-- Author `Al`, `T1`, `θ′` CIFs from the paper's Table 2, attributed CC BY 4.0.
-- Fetch their Zenodo dataset — **licence checked 2026-09-11: Creative Commons
-  Attribution 4.0 International**, so this is usable today with attribution.
-  The record is 451 GB in total, but the parts that matter are small:
-  `ground_truth.hspy` is **37.3 kB** and the preprocessed `datasetA` is ~7.4 GB.
-- Run our matcher; compare to their ground truth by their own metric.
-- **Acceptance, pre-registered here:** our mislabelled fraction must land within
-  the band their four methods occupy (they report 98.5 % ± 0.5 % and say the
-  differences between methods are not significant). Landing outside that band
-  means our implementation is wrong, not that the method is.
-
-This is the first acceptance test in the precipitate programme that does not
-depend on the owner's eye.
+- **Their metric, reproduced first on their own maps:** vector matching
+  **1.54 %**, template matching **1.75 %**, NMF **1.50 %**, ANN **0.96 %**
+  (`count_nonzero(map − truth) / 512²`, all classes). The band is
+  0.96–1.75 %. Labels: 0 Al, 1 θ′ edge-on, 2 θ′ face-on, 3 T1, 4 disagreement.
+- **Our result (`tools/phase-map-probe --thronsen`): 25.9–26.4 % at every
+  detection threshold from 1 to 10 % with the mask reach; 98.3 % at the
+  shipped 0.5 %.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
+  the matrix because along [001]Al each variant leaves at most two
+  non-Al reflections inside their 0.70 Å⁻¹ mask, under the matcher's
+  `minimumMatchedVectors = 3` and the matrix's last word. By the
+  pre-registration this means **our implementation is wrong for this
+  geometry, not the method** — the decision it opens is whether a candidate
+  may be indexed on one or two characteristic reflections, and at what
+  false-positive cost, measured on this instrument.
+- The crystals are the published structures (their Table 2) built directly
+  in `tools/phase-map-probe/thronsen.swift`. The T1 reference is wrong in
+  detail: the data's T1 signature along [001]Al is spots at two thirds of
+  {220}Al plus intensity on {200}, and the [0 -4 1] projection of the
+  14.145 Å cell also predicts 0.233 and 0.367 Å⁻¹ reflections the data does
+  not show. `open-items.md` carries the whole record.
 
 ### 4 — Apply to Al-Mg-Si  *(the actual goal)*  — **RUN 2026-09-12, and it refused**
 `tools/phase-map-probe` (diagnostic). Three results, and the refusal is the
@@ -188,6 +197,8 @@ Stated now so it is not discovered later. Their implementation:
    landed at `ee2221c`.
 2. ~~A β″ CIF~~ — **resolved 2026-09-11.** Generated from Andersen et al. 1998,
    verified against the published cell content. No decision needed.
-3. **Zenodo download** — **deferred 2026-09-12**, a disk question only
-   (CC BY 4.0, checked). Reopens when there is an external drive or ~8 GB free.
-   Blocks step 3 and nothing else.
+3. ~~**Zenodo download**~~ — **resolved 2026-09-15**: streamed and
+   subsampled, no disk needed (`tools/thronsen-dataset`).
+4. **Step 3 failed its acceptance** — may a candidate phase be indexed on
+   one or two characteristic reflections after matrix removal, and at what
+   false-positive cost? The instrument to measure it is checked in.

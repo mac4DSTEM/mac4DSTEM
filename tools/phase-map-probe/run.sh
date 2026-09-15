@@ -28,7 +28,7 @@ done
 xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
 xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/probe" \
-  main.swift \
+  main.swift thronsen.swift \
   "${MAC4DSTEM_SOURCES[@]}" \
   "${MAC4DSTEM_ISOLATION_FLAGS[@]}" \
   -framework Accelerate -framework Metal -framework MetalKit \
