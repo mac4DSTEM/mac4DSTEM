@@ -211,12 +211,13 @@ A worktree agent branches from where the worktree was cut — this session's was
 33 commits behind, and its patch needed a three-way apply.
 
 **NEXT, in order** (rewritten 2026-09-15 late night; `/pickup` takes 1).
-1. **Step 3 ran and failed its acceptance — the merge condition is not met
-   and the decision is the owner's:** may a candidate be indexed on one or
-   two characteristic reflections after matrix removal (T1 along [001]Al has
-   no more inside their mask), and at what false-positive cost? Measure on
-   `tools/thronsen-dataset` before deciding; also fix the T1 reference to the
-   observed signature (two thirds of {220}Al). `open-items.md`, plan §3.
+1. **Step 3 ran and failed its acceptance — the merge condition is not met.**
+   The count rule alone was measured (min 2 or 1: T1 recall 28–30 %, Al still
+   100 %, 19 % mislabelled); the lever is the matrix challenge's free
+   rotation absorbing T1 pairs within the pair radius of Al {200}. Three
+   decisions are the owner's (`open-items.md`, plan §3), each measurable on
+   `tools/thronsen-dataset`: an orientation-aware challenge, a two-vector
+   minimum for a ±g pair, a threshold relative to the strongest Bragg peak.
 2. **Disk**: the unit gate's preflight refuses below 4 GB and the gate's own
    line was run directly all night (gate table); the machine ended near 3 GB.
 Done this night and no longer queued: the ellipse flag, the ACOM accuracy

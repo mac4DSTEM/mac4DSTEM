@@ -199,6 +199,12 @@ Stated now so it is not discovered later. Their implementation:
    verified against the published cell content. No decision needed.
 3. ~~**Zenodo download**~~ — **resolved 2026-09-15**: streamed and
    subsampled, no disk needed (`tools/thronsen-dataset`).
-4. **Step 3 failed its acceptance** — may a candidate phase be indexed on
-   one or two characteristic reflections after matrix removal, and at what
-   false-positive cost? The instrument to measure it is checked in.
+4. **Step 3 failed its acceptance** — measured further on 2026-09-16: a
+   two- or one-vector minimum alone lifts T1 recall only to 28–30 % (Al
+   stays 100 %) because the free-rotation matrix challenge absorbs T1 pairs
+   whose radius sits within the pair radius of Al {200}. Three decisions:
+   an orientation-aware challenge (the fitted matrix orientation and its
+   symmetry equivalents only), a two-vector minimum for a ±g pair at a
+   characteristic radius, and a detection threshold relative to the
+   strongest Bragg peak rather than a saturated plateau. Each is measurable
+   on `tools/thronsen-dataset` before it lands.

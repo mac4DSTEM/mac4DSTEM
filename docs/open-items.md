@@ -51,10 +51,30 @@ data by classifying the vectors left after Al removal with no such minimum.
   that the data does not show at all (median 0 % of the maximum at T1
   positions). At 0.5 % the matcher still indexed T1 at 94 % precision, at
   6 % recall.
-**Owner:** the acceptance stands as failed until the T1 reference matches the
-observed signature and the detection threshold has a rule rather than a
-sweep; a phase fraction off this map is still not a measurement, and every
-product still says `validation: "none"`.
+**The rule, measured (2026-09-16, `--min-matched`):** with
+`minimumMatchedVectors` 2 or 1 at a 1 % threshold the Al class stays 100 %,
+θ′ edge-on rises to 46–61 %, and T1 only to 28–30 %: mislabelled **19.7 /
+19.2 %** (2 % threshold: 24.6 / 24.4 %). Per position a T1 pattern carries
+the ±g pair of one variant (median 2 in the two-thirds-{220} band at 1 %,
+none on Al positions), so the count was never the whole obstacle. **The
+lever is the matrix challenge's free rotation:** two of the four T1
+variants put their pair at 0.476 Å⁻¹, within the 0.02 pair radius of Al
+{200} at 0.494, and a challenge that tries every Al orientation at any
+in-plane rotation explains such a pair as well as T1 does and wins the tie —
+only the pair's azimuth relative to the ACTUAL matrix orientation (45° off
+the {200} spots) says it is not aluminium. Prediction if that is the
+mechanism: a challenge restricted to the fitted matrix orientation and its
+symmetry equivalents recovers the absorbed half of T1 (recall toward 50–60 %
+at 1 %), and the remainder is the threshold. Face-on θ′ is a separate limit:
+its (110) spots sit at 0.5 % of the plateau maximum, the noise floor of a
+relative threshold. The T1 reference's extra predicted reflections
+(0.233, 0.367) cost nothing here and are not the lever.
+**Owner:** three decisions — an orientation-aware matrix challenge, a
+two-vector minimum for a ±g pair at a characteristic radius, and a detection
+threshold relative to the strongest Bragg peak rather than a saturated
+plateau; each measurable on `tools/thronsen-dataset` before it lands. Until
+then a phase fraction off this map is not a measurement and every product
+still says `validation: "none"`.
 
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 

@@ -101,6 +101,7 @@ enum Probe {
         // maxima no phase explains).
         var minRelative: Float?
         var reachInvAngstrom: Double?
+        var minMatched: Int?        // the rule step 3 turned on: `minimumMatchedVectors`
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -110,6 +111,8 @@ enum Probe {
                 minRelative = Float(args[index + 1]); index += 2
             } else if args[index] == "--reach", index + 1 < args.count {
                 reachInvAngstrom = Double(args[index + 1]); index += 2
+            } else if args[index] == "--min-matched", index + 1 < args.count {
+                minMatched = Int(args[index + 1]); index += 2
             } else if args[index] == "--truth", index + 1 < args.count {
                 truthPath = args[index + 1]; index += 2
             } else {
@@ -143,6 +146,10 @@ enum Probe {
         referenceSettings.inPlaneStepDeg = 2
 
         var matchSettings = PhaseVectorSettings()
+        if let minMatched {
+            matchSettings.minimumMatchedVectors = minMatched
+            print("matching: minimumMatchedVectors \(minMatched) (shipped 3)")
+        }
         if truth == nil && thronsen == nil {
             // One detector pixel, rounded up: nothing smaller can be measured
             // here, so nothing smaller may be demanded.
