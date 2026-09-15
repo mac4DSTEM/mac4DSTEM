@@ -154,10 +154,21 @@ updated", pinned by a test.
 **Also owed:** the refusal is a 264-character sentence routed to `statusText`
 alone, not an alert, and the diagnostics panel still says "the marker is the
 chosen minimum" beside an angle that was deliberately not written
-(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.** And the Gate B
-numbers above (60–80 %, 6 of 6, 50 of 200 seeds) come from a scratch probe
-that was not checked in; only the unit fixture's own count is reproducible
-(review 2026-09-15).
+(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.**
+**The Gate B numbers above came from a scratch probe that was never checked
+in. `tools/rotation-null-probe` (diagnostic, 2026-09-15 night) is the
+instrument now, with its own generators, and it does NOT reproduce all of
+them** (`rotation-probe-final-20260915.log`): white noise sd 0.010 at 40 × 40
+certifies **10 of 200**, the 1-in-16 design rate, not 50; 3 × 3 box-smoothed
+noise certifies **19 of 60 at 40 × 40 and 26 of 60 at 100 × 100** (32–43 %,
+not 60–80 %); a per-row drift spanning 0.05 px over noise sd 0.010 is
+certified **0 of 6** (depth 0.4–0.9× the shuffles), so the recorded 6 of 6 at
+6–20× used a larger drift than the entry states; a 0.05 px specimen edge is
+certified **6 of 6** at 1.4–2.1×; planted 30° at sd 0.03 is certified 60 of
+60 with 8 over 5° and one 63.7° out; 0 of 60 real rotations refused. The
+qualitative claim stands — structure without rotation is certified, and a
+certified angle can be 60° out — and the rates in the bullets above are the
+scratch probe's, superseded by the harness's where they differ.
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
 **Science, live, no fix, cause narrowed to the score itself. One entry for the
