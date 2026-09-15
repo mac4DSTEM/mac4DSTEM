@@ -105,6 +105,10 @@ enum Probe {
         var referenceOutsidePx: Float?   // decision 3: the relative reference excludes the direct beam
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
+        // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
+        // edge-on positions whose winner sits near 22°/67° to the matrix, not at
+        // the OR's {0, 90}? (docs/open-items.md, step 3, "Next instrument".)
+        var dumpEdgeOnCount: Int?
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -124,6 +128,12 @@ enum Probe {
                 noiseFloor = true; index += 1
             } else if args[index] == "--or" {
                 orientationRelationship = true; index += 1
+            } else if args[index] == "--dump-edge-on" {
+                if index + 1 < args.count, let n = Int(args[index + 1]) {
+                    dumpEdgeOnCount = n; index += 2
+                } else {
+                    dumpEdgeOnCount = 12; index += 1
+                }
             } else {
                 positional.append(args[index]); index += 1
             }
@@ -584,6 +594,162 @@ enum Probe {
                               + bins.map { String(format: "%5.0f%%", 100 * Double($0) / Double(total)) }.joined(separator: " ")
                               + "  n=\(total)")
                     }
+                }
+            }
+            // WHAT ARE THE OFF-OR SURVIVORS, 2026-09-15 evening (docs/open-items.md,
+            // step 3, "Next instrument: dump the survivors and both entries'
+            // matched sets at a handful of such positions"). Half of the
+            // correctly-labelled edge-on positions win with an entry whose
+            // folded angle sits near 22° or 67°, not at the OR's {0, 90}; under
+            // the OR filter those positions go "not indexed" (the OR-rotated
+            // net does not explain their spots either), so this asks what the
+            // matrix-removal survivors at those positions actually are: the
+            // winner W (library.entries[result.entryIndex]), and the OR entry O
+            // — same phase, same zone axis as W, its folded angle closest to 0
+            // or 90 — checked against the SAME survivors.
+            if let dumpEdgeOnCount {
+                if map.matrixEntryIndex < 0 {
+                    print("\n  --dump-edge-on: no matrix entry fitted; skipping")
+                } else {
+                    let matrixEntry = library.entries[map.matrixEntryIndex]
+                    let matrixDeg = matrixEntry.inPlaneRotationRad * 180 / .pi
+                    func foldedAngle(of entryIndex: Int) -> Double {
+                        let deg = library.entries[entryIndex].inPlaneRotationRad * 180 / .pi - matrixDeg
+                        var folded = deg.truncatingRemainder(dividingBy: 90)
+                        if folded < 0 { folded += 90 }
+                        return folded
+                    }
+
+                    struct EdgeOnDump {
+                        let position: Int
+                        let survivors: [SIMD2<Double>]
+                        let wIndex: Int
+                        let oIndex: Int?
+                        let wScore: (score: Double, matched: Int, uniqueReferences: Int)?
+                        let oScore: (score: Double, matched: Int, uniqueReferences: Int)?
+                    }
+                    let scratch = PhaseVectorMatcher.Scratch(capacity: 64)
+                    func dumpAt(_ position: Int, entryIndex: Int) -> EdgeOnDump {
+                        let vectors = PhaseVectorMatcher.experimentalVectors(
+                            peaks: bragg.peaks[position], originX: originX, originY: originY,
+                            invAngstromPerPixel: qPerPixel,
+                            directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                            maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                        let survivors = vectors.filter {
+                            PhaseVectorMatcher.nearest($0, in: matrixEntry.vectors,
+                                                       radius: matchSettings.matrixToleranceInvAngstrom) == nil
+                        }
+                        let w = library.entries[entryIndex]
+                        var bestO: (index: Int, metric: Double)?
+                        for (i, e) in library.entries.enumerated()
+                        where e.phaseIndex == w.phaseIndex && e.zoneAxis == w.zoneAxis {
+                            let f = foldedAngle(of: i)
+                            let metric = min(f, 90 - f)
+                            if bestO == nil || metric < bestO!.metric { bestO = (i, metric) }
+                        }
+                        let wScore = PhaseVectorMatcher.score(
+                            vectors: survivors, against: w,
+                            pairRadius: matchSettings.pairRadiusInvAngstrom, scratch: scratch)
+                        let oScore = bestO.flatMap {
+                            PhaseVectorMatcher.score(
+                                vectors: survivors, against: library.entries[$0.index],
+                                pairRadius: matchSettings.pairRadiusInvAngstrom, scratch: scratch)
+                        }
+                        return EdgeOnDump(position: position, survivors: survivors, wIndex: entryIndex,
+                                          oIndex: bestO?.index, wScore: wScore, oScore: oScore)
+                    }
+
+                    var offOR: [EdgeOnDump] = []
+                    var onOR: [EdgeOnDump] = []
+                    for (index, result) in map.results.enumerated()
+                    where thronsen.labels[index] == 1 && result.verdict == .indexed
+                        && Thronsen.label(of: result, phaseNames: map.phaseNames) == 1
+                        && result.entryIndex >= 0 {
+                        let folded = foldedAngle(of: Int(result.entryIndex))
+                        if (folded >= 15 && folded < 30) || (folded >= 60 && folded < 75) {
+                            offOR.append(dumpAt(index, entryIndex: Int(result.entryIndex)))
+                        } else if folded < 5 || folded >= 85 {
+                            onOR.append(dumpAt(index, entryIndex: Int(result.entryIndex)))
+                        }
+                    }
+
+                    func printBlock(_ d: EdgeOnDump) {
+                        let wDeg = library.entries[d.wIndex].inPlaneRotationRad * 180 / .pi
+                        let wFolded = foldedAngle(of: d.wIndex)
+                        let oDeg = d.oIndex.map { library.entries[$0].inPlaneRotationRad * 180 / .pi } ?? .nan
+                        let oFolded = d.oIndex.map { foldedAngle(of: $0) } ?? .nan
+                        print(String(format: "\n  position %5d  matrix %6.1f°  W %6.1f° (folded %5.1f°)  O %6.1f° (folded %5.1f°)  survivors %d",
+                                     d.position, matrixDeg, wDeg, wFolded, oDeg, oFolded, d.survivors.count))
+                        let w = library.entries[d.wIndex]
+                        let o = d.oIndex.map { library.entries[$0] }
+                        for u in d.survivors {
+                            let len = simd_length(u)
+                            var az = atan2(u.y, u.x) * 180 / .pi - matrixDeg
+                            az = az.truncatingRemainder(dividingBy: 360)
+                            if az < 0 { az += 360 }
+                            func label(_ entry: PhaseOrientationReference?) -> String {
+                                guard let entry,
+                                      let hit = PhaseVectorMatcher.nearest(
+                                          u, in: entry.vectors, radius: matchSettings.pairRadiusInvAngstrom)
+                                else { return "—" }
+                                let v = entry.vectors[hit.index]
+                                return String(format: "(%d %d %d) d=%.3f", v.h, v.k, v.l, 1 / v.length)
+                            }
+                            print(String(format: "    |q| %.4f  az %6.1f°   W: %-16@   O: %-16@",
+                                         len, az, label(w) as NSString, label(o) as NSString))
+                        }
+                        func scoreLine(_ tag: String, _ s: (score: Double, matched: Int, uniqueReferences: Int)?) -> String {
+                            guard let s else { return "\(tag): no match" }
+                            return String(format: "%@: matched %d mean %.4f", tag as NSString, s.matched, s.score)
+                        }
+                        print("    " + scoreLine("W", d.wScore) + "    " + scoreLine("O", d.oScore))
+                    }
+
+                    print("\n  == --dump-edge-on: correctly-labelled θ′ edge-on positions, off vs. on the OR ==")
+                    print("  -- off-OR (folded in [15,30) ∪ [60,75)): first \(min(dumpEdgeOnCount, offOR.count)) of \(offOR.count) --")
+                    for d in offOR.prefix(dumpEdgeOnCount) { printBlock(d) }
+                    let half = max(1, dumpEdgeOnCount / 2)
+                    print("\n  -- on-OR (folded in [0,5) ∪ [85,90)): first \(min(half, onOR.count)) of \(onOR.count) --")
+                    for d in onOR.prefix(half) { printBlock(d) }
+
+                    func aggregate(_ label: String, _ ds: [EdgeOnDump]) {
+                        guard !ds.isEmpty else { print("\n  \(label): no positions"); return }
+                        let counts = ds.map { $0.survivors.count }.sorted()
+                        let median = counts[counts.count / 2]
+                        let wFracs = ds.compactMap { d -> Double? in
+                            guard !d.survivors.isEmpty else { return nil }
+                            return Double(d.wScore?.matched ?? 0) / Double(d.survivors.count)
+                        }
+                        let oFracs = ds.compactMap { d -> Double? in
+                            guard !d.survivors.isEmpty else { return nil }
+                            return Double(d.oScore?.matched ?? 0) / Double(d.survivors.count)
+                        }
+                        let meanW = wFracs.isEmpty ? Double.nan : wFracs.reduce(0, +) / Double(wFracs.count)
+                        let meanO = oFracs.isEmpty ? Double.nan : oFracs.reduce(0, +) / Double(oFracs.count)
+                        print(String(format: "\n  %@: n=%d  median survivors %d  mean matched-fraction W %.2f  O %.2f",
+                                     label as NSString, ds.count, median, meanW, meanO))
+
+                        var qBins = [Int](repeating: 0, count: 11)   // 0.15 .. 0.70 Å⁻¹, 0.05 Å⁻¹ steps
+                        var azBins = [Int](repeating: 0, count: 18)  // [0, 90), 5° steps
+                        var total = 0
+                        for d in ds {
+                            for u in d.survivors {
+                                total += 1
+                                let len = simd_length(u)
+                                if len >= 0.15, len < 0.70 { qBins[min(10, Int((len - 0.15) / 0.05))] += 1 }
+                                var az = atan2(u.y, u.x) * 180 / .pi - matrixDeg
+                                az = az.truncatingRemainder(dividingBy: 90)
+                                if az < 0 { az += 90 }
+                                azBins[min(17, Int(az / 5))] += 1
+                            }
+                        }
+                        print("    survivor |q| histogram, 0.05 Å⁻¹ bins from 0.15 Å⁻¹ (n=\(total)):")
+                        print("    " + qBins.map { String(format: "%4d", $0) }.joined())
+                        print("    survivor azimuth histogram relative to matrix, folded to [0, 90), 5° bins:")
+                        print("    " + azBins.map { String(format: "%4d", $0) }.joined())
+                    }
+                    aggregate("off-OR (all)", offOR)
+                    aggregate("on-OR (all)", onOR)
                 }
             }
             // WHERE THE VECTORS WENT, per truth class: how many survived

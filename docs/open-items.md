@@ -127,13 +127,26 @@ exact multiple of 90° in the library's frame (the list was right). What
 fits the clusters is a **partial self-coincidence of the θ′[100] net**: a
 rotation of 70° or 110° maps 4 of its 16 non-Al-coincident vectors — the
 (011)/(022) family at ±55° and ±125° — onto each other within the pair
-radius, and 110° folds to 20°, 70° to 70°. Those positions go "not indexed"
-under the constraint, so the OR-rotated net does not explain them either:
-their surviving spots sit at rotated azimuths for a reason not yet seen.
-Next instrument: dump the survivors and both entries' matched sets at a
-handful of such positions (`tools/phase-map-probe`). Also recorded: a
-phase filtered to no entries vanishes from the map silently, and every
-phase empty refuses the map (unreachable while no phase lists angles).
+radius, and 110° folds to 20°, 70° to 70°. **The survivor dump settled it
+(`tools/phase-map-probe --dump-edge-on`, `thronsen-rel0.002-dump-20260915.log`,
+110 off-OR positions):** at those positions the OR-consistent entry matches
+6–11 of ~20 survivors (mean matched fraction 0.20) and the free winner
+matches **2** (0.12) — a Friedel pair of the (011) family, admitted by the
+morning's pair floor, at a mean distance of 0.003–0.009 Å⁻¹; the honest
+6–11-vector fit sits at 0.010–0.016 Å⁻¹ and falls over
+`notIndexedAboveInvAngstrom` (0.01, half a pixel here), which is why the
+constraint sent them to "not indexed". The best entry per phase is chosen
+by mean distance alone, so a sparse lucky pair beats a dense fit, and the
+label is right for the wrong reason. The correct on-OR fits sit at
+0.0099 — on the cliff. A many-vector fit under strain and sub-pixel jitter
+has a mean residual of half to three-quarters of the pair radius by
+construction; a cliff at half a pixel rejects exactly those. This is the
+2026-09-12 "two thresholds near a cliff" item with its first measured
+instance. Next: pre-registered, the cliff at 0.75 and 1.0 pair radii,
+free and with the OR, plus the demo cube as the second dataset. Also
+recorded: a phase filtered to no entries vanishes from the map silently,
+and every phase empty refuses the map (unreachable while no phase lists
+angles).
 That, and T1's last 22 %, are what remains. Until the band is reached a
 phase fraction off this map is not a measurement and every product still
 says `validation: "none"`.
