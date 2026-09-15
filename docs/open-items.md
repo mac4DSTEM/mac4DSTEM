@@ -372,12 +372,25 @@ so the bar-to-1 mutation "survived" a test that had not run; the mutation
 was demonstrated instead on a scratch harness with the same generator
 (27 of 43 wrong axes clear a bar of 1, 0 clear 2, `chance/`), and the fresh
 `unit` gate is what discovers the test.
-**Residuals:** the 2× bar rests on three synthetic plants, not on the owner's
-cube (not on this machine); a two-grain scan has two true families and the
-median rises with them — untested; the disc model still understates chance
-about sixfold for ring-confined vectors (the kept assertion in
-`testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot`). **Unverified on
-screen.** The 2026-09-14 entry is in `archive/closed-items-2026-09.md`.
+**Gate B (2026-09-15 late night) narrowed it and found the gap that mattered:**
+- **"Find Matrix Zone Axis" wrote the winner into the phase model regardless
+  of either null** — the marks were presentational only. Now a winner that is
+  informative by neither rule is shown and not written, with the reason.
+- **The bar is not a clean separator for every truth.** ⟨111⟩, ⟨012⟩, ⟨210⟩
+  plants: true 2.7–2.8×, worst wrong 1.0–2.0×. A ⟨122⟩ plant: true 2.8× and
+  the ⟨100⟩ family 2.7–2.9×, sometimes above the truth — both rows read as
+  informative and the tie caption is the honest thing. A two-grain scan left
+  both true families at 5×; degradation to 92 % missing never made the sweep
+  rule bind before the disc rule.
+- **Fewer than five axes had no median** — with two, the ratio saturated at
+  1; unreachable from the app (the sweep is always all 49) and now inert
+  below five, pinned by `testATinySweepHasNoMedianNull`. The four mutations
+  of the rule are each killed by the sweep test's own assertions; the gated
+  `phase-vector-matching` harness never constructs a `ZoneAxisFit`.
+**Residuals:** the bar rests on synthetic plants, not on the owner's cube
+(not on this machine); the disc model still understates chance about sixfold
+for ring-confined vectors. **Unverified on screen.** The 2026-09-14 entry is
+in `archive/closed-items-2026-09.md`.
 
 ### Contiguous invalid regions fabricate precipitates — blocks wiring
 `PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite
@@ -642,44 +655,25 @@ ptychography product. Feature is `Advanced` and refuses on the owner's cube for
 memory, so a smaller cube reaches it first. **Owner: Gate D — a scale bar is a
 scientific number, and the cause is not yet established.**
 
-### HDF5 is entered from two unserialised paths, and a second window is not the worst of it — sharpened 2026-09-15
-**Known, a latent crash, unowned.** Reviewed by reading 2026-09-15; the earlier
-framing ("two dataset windows") understates it and points the owner at a guard
-that would not fix it.
-**What serialises HDF5 today: two mechanisms, neither global.** `H5Reader` is a
-`package actor` (`Core/Data/H5Reader.swift:254`), so it serialises calls to ONE
-INSTANCE. `BraggVectorEMDWriter` is a `nonisolated enum`
-(`Core/Data/BraggVectorEMDWriter.swift:292`) whose every static method is
-nonisolated and whose HDF5 handle comes from a **separate type with its own
-`dlopen`** (`HDF5WriteLibrary`, `:2605`, `:2769`). Nothing guards the writer at
-all. Both resolve to the same process image.
-**So a SINGLE window can race it.** `AppState` runs `loadSession` on
-`Task.detached` (`AppState.swift:1423`, `:2797`) — nonisolated writer code on a
-background thread — while `preloadResidentCube` (`:2671`) is driving
-`reader.readScanTile` on the reader actor. That is the 2026-08-19 crash
-(`EXC_BAD_ACCESS` in `H5SL_search`, reproduced under lldb within a few dozen
-iterations), and **the cheap guard the owner was offered — refuse a second
-load, or disable ⌘N — does not address it.** Two windows make it likelier, not
-possible.
-**Thread-safety is not established programmatically.** `H5is_library_threadsafe`
-is called nowhere; `NOTICE:60-69` records the binary's provenance and SHA-256
-but says nothing about threading. The `Threadsafety: OFF` conclusion rests on
-one `nm` inspection and a two-thread probe from 2026-08-19 that was never
-checked in. That absence is itself a finding: nothing would notice if a future
-Homebrew rebuild changed it either way.
-**The fix is named in the code twice, independently** —
-`App/mac4DSTEMApp.swift:64` and `mac4DSTEMTests/DatasetLoadCancellationTests.swift:141`
-both say "the real fix is one actor owning the library handle". Structurally
-that means collapsing `HDF5Library` and `HDF5WriteLibrary` behind one
-process-wide actor every reader instance and every writer static routes
-through. It cannot live on `AppState` (C5). It is a real refactor of the load
-path, not an afternoon.
-**Nothing would catch a regression.** `ConcurrentOpenRefusalTests`
-(`DatasetLoadCancellationTests.swift:127`) tests the reentrancy guard against a
-nonexistent path and never touches libhdf5, and says so itself at `:138`;
-`DatasetResidencyTests` uses a fake actor. The lldb repro exists in no runnable
-form. **Owner:** this is the largest live crash risk in the app and the cheap
-guard does not close it.
+### HDF5 runs under one lock now — what that costs and what is still open — fixed 2026-09-15 late night
+**Known, a crash closed, a cost accepted.** Every logical HDF5 operation —
+each `H5Reader` public method, its open and close, and every
+`BraggVectorEMDWriter` entry point — takes `HDF5Serial` (HDF5Types.swift), a
+process-wide recursive lock: the thread-safe HDF5 build done from outside,
+around operations instead of API calls. The tile-streaming export releases
+it before each `await` on the source actor and re-takes it per tile, so the
+one path that nests reader inside writer cannot deadlock on it. Instrument:
+`tools/hdf5-race-probe` — before, serial 200/200 and concurrent SIGBUS in
+the first twenty; after, concurrent **3 of 3 complete** (`hdf5-race-after-
+20260915.log`). No Gate D (the cause is the probe's reproducing
+observation); no independent refuter yet — **Gate B owed** on the lock's
+placement (a public method that reaches the library without taking it).
+**Costs:** a caller blocks its thread for the length of one operation (a
+sidecar write can be seconds); the two `dlopen`s stay two; no unit test can
+crash-test this, the probe is diagnostic. **The "refuse a second open"
+guard stays** as belt and braces. Thread-safety is still asserted by one
+2026-08-19 `nm` inspection; `H5is_library_threadsafe` is still called
+nowhere.
 
 ### The Quantitative badge consults no origin gate at all (2026-09-11)
 `AppState.quantitativeStatus(for:units:)` decides the badge from a product's

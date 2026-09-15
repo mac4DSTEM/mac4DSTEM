@@ -1259,6 +1259,33 @@ final class ZoneAxisFitTests: XCTestCase {
         }
     }
 
+    /// Gate B (2026-09-15 night): with two candidate axes the "median" was
+    /// the top axis's own fraction, so its ratio saturated at exactly 1 and
+    /// a perfect fit could never clear the bar. Below five axes the sweep
+    /// rule is inert. Mutation this names: the `>= 5` guard dropped.
+    func testATinySweepHasNoMedianNull() throws {
+        let al = Crystal.aluminum
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 1.2
+        let scale = 0.008
+        let base = PhaseReferenceLibrary.projectedVectors(
+            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            zoneAxis: SIMD3(1, 1, 0), settings: reference)
+        let peaks: [[BraggPeak]] = (0..<16).map { _ in
+            [BraggPeak(x: 128, y: 128, intensity: 10)] + base.map {
+                BraggPeak(x: 128 + Float($0.q.x / scale), y: 128 + Float($0.q.y / scale), intensity: 1)
+            }
+        }
+        let fits = PhaseVectorMatcher.fitZoneAxis(
+            bragg: BraggVectors(scanWidth: 4, scanHeight: 4, peaks: peaks),
+            crystal: al, referenceSettings: reference, settings: PhaseVectorSettings(),
+            originX: 128, originY: 128, invAngstromPerPixel: scale,
+            candidateAxes: [SIMD3(1, 1, 0), SIMD3(0, 0, 1)], inPlaneStepDeg: 2)
+        let winner = try XCTUnwrap(fits.first)
+        XCTAssertEqual(winner.sweepMedianFraction, 0, "two axes are not a null")
+        XCTAssertTrue(winner.isAboveSweep, "a perfect ⟨110⟩ fit failed a sweep of two: ratio \(winner.sweepRatio)")
+    }
+
     /// Mutation: the `pairs > 0` guard dropped, or an axis with no reachable
     /// reflection admitted — it would divide by zero or report a perfect fit
     /// for a direction that presents nothing.

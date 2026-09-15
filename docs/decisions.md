@@ -1402,3 +1402,19 @@ with the three plants that set it; the disc rule stays for the case it was
 built for (random vectors, where the median is ~0.5 % and no null). A row
 that fails only the second reads "no better than a wrong axis", not "at
 chance", because it is not chance.
+
+## 2026-09-15 (late night) — HDF5 is serialised by a lock around operations, not by an actor
+
+The recorded fix was "one actor owning the library handle". Measured against
+the code, that meant turning 145 synchronous call sites of the writer's
+statics — most of them in harnesses and tests — into awaits, for no gain in
+safety over what HDF5's own thread-safe build does: a global mutex around
+every API call. So the lock is that mutex, taken at the boundary of every
+logical operation (an open, a tile read, a sidecar write) rather than every
+call, recursive so nested entries do not deadlock, and never held across an
+`await`. The one path that nests a reader inside a writer — the tile-streaming
+export — releases it before each read. `tools/hdf5-race-probe` is the
+acceptance: SIGBUS on the first attempt before, three completions of three
+after. The price is a blocked thread for the length of one operation, stated
+in the entry; the price of the actor would have been a rewrite nobody could
+gate tonight.

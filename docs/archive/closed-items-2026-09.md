@@ -955,3 +955,54 @@ reader reproduces them by running that class. What the change bought is the
 number itself, reported instead of absent. The threshold that would catch the
 owner's case is not established: Gate D owed.
 
+---
+
+## HDF5 is entered from two unserialised paths — closed 2026-09-15 late night
+
+**Closure:** one process-wide recursive lock around every logical HDF5 operation (`HDF5Serial`), released across the export's awaits; `tools/hdf5-race-probe` goes from SIGBUS on the first attempt to three completions of three. The residuals are the live entry in [`../open-items.md`](../open-items.md). The sharpened 2026-09-15 text follows.
+
+### HDF5 is entered from two unserialised paths, and a second window is not the worst of it — sharpened 2026-09-15
+**Known, a latent crash, unowned.** Reviewed by reading 2026-09-15; the earlier
+framing ("two dataset windows") understates it and points the owner at a guard
+that would not fix it.
+**What serialises HDF5 today: two mechanisms, neither global.** `H5Reader` is a
+`package actor` (`Core/Data/H5Reader.swift:254`), so it serialises calls to ONE
+INSTANCE. `BraggVectorEMDWriter` is a `nonisolated enum`
+(`Core/Data/BraggVectorEMDWriter.swift:292`) whose every static method is
+nonisolated and whose HDF5 handle comes from a **separate type with its own
+`dlopen`** (`HDF5WriteLibrary`, `:2605`, `:2769`). Nothing guards the writer at
+all. Both resolve to the same process image.
+**So a SINGLE window can race it.** `AppState` runs `loadSession` on
+`Task.detached` (`AppState.swift:1423`, `:2797`) — nonisolated writer code on a
+background thread — while `preloadResidentCube` (`:2671`) is driving
+`reader.readScanTile` on the reader actor. That is the 2026-08-19 crash
+(`EXC_BAD_ACCESS` in `H5SL_search`, reproduced under lldb within a few dozen
+iterations), and **the cheap guard the owner was offered — refuse a second
+load, or disable ⌘N — does not address it.** Two windows make it likelier, not
+possible.
+**Thread-safety is not established programmatically.** `H5is_library_threadsafe`
+is called nowhere; `NOTICE:60-69` records the binary's provenance and SHA-256
+but says nothing about threading. The `Threadsafety: OFF` conclusion rests on
+one `nm` inspection and a two-thread probe from 2026-08-19 that was never
+checked in. That absence is itself a finding: nothing would notice if a future
+Homebrew rebuild changed it either way.
+**The fix is named in the code twice, independently** —
+`App/mac4DSTEMApp.swift:64` and `mac4DSTEMTests/DatasetLoadCancellationTests.swift:141`
+both say "the real fix is one actor owning the library handle". Structurally
+that means collapsing `HDF5Library` and `HDF5WriteLibrary` behind one
+process-wide actor every reader instance and every writer static routes
+through. It cannot live on `AppState` (C5). It is a real refactor of the load
+path, not an afternoon.
+**The race is reproducible now (2026-09-15 late night):**
+`tools/hdf5-race-probe` (diagnostic, classified 2026-09-15)
+reads the demo cube through `H5Reader` while a detached task calls
+`BraggVectorEMDWriter.loadInventory` on a copied sidecar — serial completes
+200 and 200, concurrent dies with SIGBUS inside the first twenty
+(`hdf5-race-20260915.log`). It is the instrument the refactor fails against.
+**Nothing else would catch a regression.** `ConcurrentOpenRefusalTests`
+(`DatasetLoadCancellationTests.swift:127`) tests the reentrancy guard against a
+nonexistent path and never touches libhdf5, and says so itself at `:138`;
+`DatasetResidencyTests` uses a fake actor. The lldb repro exists in no runnable
+form. **Owner:** this is the largest live crash risk in the app and the cheap
+guard does not close it.
+

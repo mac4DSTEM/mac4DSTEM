@@ -111,7 +111,8 @@ campaign=(
 diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
   training-dataset-campaign review-record-check precipitate-handcount
-  phase-discrimination-probe phase-map-probe demo-dataset rotation-null-probe)
+  phase-discrimination-probe phase-map-probe demo-dataset rotation-null-probe
+  hdf5-race-probe)
 owner_only=()
 retired=()
 support=(lib release crystal-structures)

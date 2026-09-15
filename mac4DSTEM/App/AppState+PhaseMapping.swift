@@ -340,10 +340,21 @@ extension AppState {
         guard phaseMapping.phases.indices.contains(matrixIndex),
               phaseMapping.phases[matrixIndex].id == slot.id,
               phaseMapping.phases[matrixIndex].isMatrix else { return .cancelled }
+        // The marks on the panel used to be the only thing the two nulls
+        // reached: the winner was written into the phase model regardless
+        // (Gate B, 2026-09-15 night). A winner that is no better than a
+        // wrong axis, or than chance, is shown and not written.
+        phaseMapping.zoneAxisFits = Array(fits.prefix(3))
+        guard winner.isInformative(multiple: matching.chanceMatchMultiple) else {
+            return .failed("No zone axis stands out for \(slot.model.displayName): the best, "
+                           + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
+                           + String(format: "explains %.0f %% where the median axis explains %.0f %%",
+                                    100 * winner.explainedFraction, 100 * winner.sweepMedianFraction)
+                           + " — the matrix axis is not changed. The ranking is in the Phases panel.")
+        }
         phaseMapping.phases[matrixIndex].u = winner.zoneAxis.x
         phaseMapping.phases[matrixIndex].v = winner.zoneAxis.y
         phaseMapping.phases[matrixIndex].w = winner.zoneAxis.z
-        phaseMapping.zoneAxisFits = Array(fits.prefix(3))
 
         statusText = "\(slot.model.displayName) best fits "
             + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "

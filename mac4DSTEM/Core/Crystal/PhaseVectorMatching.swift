@@ -422,11 +422,29 @@ package nonisolated enum PhaseVectorMatcher {
         /// expectation. That is why the owner's ⟨112⟩ at 8 % could never be
         /// marked by `chanceMatchedVectors`: it was not chance, it was the
         /// true axis's reflections seen through a wrong projection. Against
-        /// the sweep's median the true families sat at 4.8–6.8× and every
+        /// the sweep's median those true families sat at 4.8–6.8× and every
         /// wrong family at 0.7–1.6×; the bar is placed at 2×. On vectors
         /// pointing nowhere the sweep median is ~0.5 % and the disc rule is
         /// what refuses; the two rules cover different failures and both
         /// must pass.
+        ///
+        /// WHAT THE BAR IS NOT (Gate B, 2026-09-15 night): a clean separator
+        /// for every truth. ⟨111⟩, ⟨012⟩ and ⟨210⟩ plants put the true family
+        /// at 2.7–2.8× and the worst wrong at 1.0–2.0×; a ⟨122⟩ plant puts
+        /// the true family at 2.8× and the ⟨100⟩ family at 2.7–2.9× — a
+        /// wrong family clearing the bar, sometimes above the truth. A
+        /// high-index truth with few reflections shares too much with a
+        /// low-index axis for a ratio to tell them apart; both rows then
+        /// read as informative and the tie caption is the honest thing on
+        /// screen. Heavier degradation (to 92 % missing, 15 spurious) never
+        /// made the sweep rule bind before the disc rule; a two-grain scan
+        /// left both true families at 5×. DEVIATION: py4DSTEM's zone-axis
+        /// tools have no sweep null and no informativeness verdict.
+        ///
+        /// Fewer than five axes in the sweep is no null at all — with two,
+        /// the "median" is the top axis's own fraction and the ratio
+        /// saturates at 1 — so the median is reported as 0 (ratio infinite,
+        /// the sweep rule inert) below that count.
         package let sweepMedianFraction: Double
         /// Explained fraction relative to the sweep's median axis.
         package var sweepRatio: Double {
@@ -572,7 +590,7 @@ package nonisolated enum PhaseVectorMatcher {
             }
         }
         let fractions = winners.map { Double($0.matched) / Double(totalVectors) }.sorted()
-        let sweepMedian = fractions.isEmpty ? 0 : fractions[fractions.count / 2]
+        let sweepMedian = fractions.count >= 5 ? fractions[fractions.count / 2] : 0
         var out = winners.map {
             ZoneAxisFit(zoneAxis: $0.axis, inPlaneRotationRad: $0.theta,
                         matchedVectors: $0.matched, totalVectors: totalVectors,
