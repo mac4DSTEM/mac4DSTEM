@@ -154,9 +154,10 @@ correlation length, and `tools/rotation-null-probe` measured 15 → 32 → 52 �
 sd ≈ 0.010 on 100 × 100 (measured 2026-09-14); the probe's `A-100` row
 certifies **2 of 60** such fields, so "Measured −67.5°" recurs about once in
 thirty, not every time. The cube itself has not been re-run through the app.
-**Still owed:** the 264-character refusal routed to `statusText` alone, the
-inspector's "the marker is the chosen minimum" beside an angle not written
-(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.** The Gate B narrative
+**Presentation fixed 2026-09-15 late night, unverified on screen:** the full
+refusal sentence sits in the inspector's Rotation diagnostics in orange, the
+caption there says the marker is the minimum the fit found and was not
+written, and the status bar carries one line pointing at the section. The Gate B narrative
 (2026-09-15 morning) is in `archive/closed-items-2026-09.md`.
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15

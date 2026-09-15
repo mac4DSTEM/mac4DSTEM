@@ -719,8 +719,20 @@ private struct InspectorDiagnosticsSections: View {
         if let rotation = appState.lastRotationResult {
             Section("Rotation diagnostics") {
                 RotationCurveView(result: rotation)
-                Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
-                    .font(.caption2).foregroundStyle(.tertiary)
+                // A refused fit still draws its curves — the marker is then
+                // the minimum the fit FOUND, not a value that was written, and
+                // the caption said the opposite until 2026-09-15 night. The
+                // refusal sentence lives here in full; the status bar carries
+                // one line and points at this section.
+                if let refusal = rotation.refusalMessage {
+                    Text(refusal)
+                        .font(.caption).foregroundStyle(.orange)
+                    Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the minimum the fit found; it was not written.")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                } else {
+                    Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
             }
         }
     }

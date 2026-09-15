@@ -4206,8 +4206,8 @@ final class AppState {
                 presentComputeFailure(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
             }
-            if let refusal = calibrationSession.applyRotation(result) {
-                lastRotationResult = result; presentComputeFailure(SimpleError(refusal)); return
+            if calibrationSession.applyRotation(result) != nil {   // the full refusal is in Rotation diagnostics
+                lastRotationResult = result; presentComputeFailure(SimpleError("R–Q rotation not updated: the field does not beat its own null. The reason is under Rotation diagnostics in the inspector.")); return
             }
             parallaxPreprocess = nil
             parallaxAlignment = nil
