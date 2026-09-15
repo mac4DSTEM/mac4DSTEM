@@ -224,7 +224,9 @@ A worktree agent branches from where the worktree was cut — this session's was
    before anyone read the polar images. **A decision is owed:** linear
    azimuthal deposition fixes the demonstrated case and cuts wrong answers from
    40 to 28 of 136, but makes two currently-exact axes sometimes wrong and does
-   not touch the 12.8° worst case. Reverted pending the owner. `open-items.md`.
+   not touch the 12.8° worst case. Reverted pending the owner. **And a lever
+   nobody should pull:** raising the bank to 1 000 templates makes ACOM worse
+   under both schemes (48 wrong against 40 shipped). `open-items.md`.
 5. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.

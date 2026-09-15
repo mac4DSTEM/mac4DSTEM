@@ -275,10 +275,31 @@ converge on shift 57 and it **wins this case**, 0.56852 against 0.56114.
 It cuts wrong answers by 30 % and matches py4DSTEM, removing an undocumented
 deviation. It also makes ⟨012⟩ and ⟨112⟩ — exact at every rotation today —
 wrong at 2 and 4 rotations, and it does **not** touch the headline 12.82° on
-⟨122⟩. Reverted, not shipped: a change that makes an always-right axis
-sometimes wrong is not one to land unreviewed, and it does not fix the worst
-case. **Owner: take it, leave it, or ask for the ⟨012⟩/⟨112⟩ regression to be
-understood first.**
+⟨122⟩.
+**The regression was chased and is NOT what it looked like.** It clusters at
+HALF-bin rotations (⟨012⟩ at 1.40° and 4.20°, against a 2.8125° bin), which
+looks exactly like the amplitude error of splitting a spot 50/50 between two
+bins. So the azimuth was deposited instead as a **Gaussian centred on the exact
+fractional bin** — what the radial axis already does, with the separate blur
+pass subsumed — which preserves phase AND shape. It gives the same answer:
+30 wrong of 136, and ⟨012⟩ and ⟨112⟩ still regress by the same amounts. The
+shape hypothesis is refuted; both variants are reverted.
+**And that experiment was run, and refutes the explanation.** The pattern
+suggested the regression was the bank's own coarseness — every regressing axis
+had a non-zero sampling floor, every zero-floor axis improved — so the sweep was
+re-run at **1 000 templates**, where the floors shrink. Linear deposition gets
+WORSE, not better: **68 wrong of 136 against the shipped 48**, and ⟨111⟩, exact
+at every rotation under both schemes at 200 templates, becomes wrong at 10 of
+17. The bank-coarseness explanation is dead.
+**A second thing fell out of it, and it is worth more than the hypothesis it
+killed: MORE TEMPLATES MAKE ACOM WORSE.** Shipped deposition at 1 000 templates
+is 48 wrong and 20.83° of excess against 40 wrong and 18.79° at 200. Raising
+the bank is the obvious thing a user or a future session would reach for, and
+it is the wrong lever — recorded here so nobody spends a day on it.
+**Owner: the deposition fix stands as a trade with no explanation for its own
+regression** (30 % fewer wrong answers at 200 templates, two exact axes made
+sometimes-wrong, worst case untouched). Take it, leave it, or send it back for
+a mechanism. Eleven hypotheses are now spent and every one is written down.
 **NINE HYPOTHESES WERE SPENT BEFORE THE PICTURES. The whole-image L2
 normalisation was the last of them and it is refuted too:** per-ring L2 on both sides makes the total worse
 (⟨122⟩ 12.82° → 12.93°, ⟨112⟩ 0.00° → 2.51°, ⟨013⟩ 1.56° → 2.93°). Reverted.
