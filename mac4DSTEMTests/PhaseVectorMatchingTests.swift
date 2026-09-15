@@ -305,6 +305,27 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertEqual(vectors[1].y, -0.2, accuracy: 1e-9)
     }
 
+    /// The outer reach (`maximumVectorInvAngstrom`, 2026-09-16): a vector at
+    /// or beyond it is dropped, 0 keeps everything. Mutations: `<` to `<=`
+    /// (the vector AT the reach survives), the guard dropped (both survive).
+    func testTheOuterReachDropsVectorsAtAndBeyondIt() {
+        let peaks = [
+            BraggPeak(x: 128, y: 128, intensity: 100),
+            BraggPeak(x: 148, y: 128, intensity: 5),        // 0.20 Å⁻¹
+            BraggPeak(x: 168, y: 128, intensity: 5),        // 0.40 Å⁻¹, at the reach
+            BraggPeak(x: 128, y: 178, intensity: 5),        // 0.50 Å⁻¹, beyond it
+        ]
+        func vectors(reach: Double) -> [SIMD2<Double>] {
+            PhaseVectorMatcher.experimentalVectors(
+                peaks: peaks, originX: 128, originY: 128, invAngstromPerPixel: 0.01,
+                directBeamRadiusInvAngstrom: 0.05, maximumVectorInvAngstrom: reach)
+        }
+        XCTAssertEqual(vectors(reach: 0).count, 3, "0 is not a reach")
+        let capped = vectors(reach: 0.4)
+        XCTAssertEqual(capped.count, 1, "the vector at the reach or beyond survived: \(capped)")
+        XCTAssertEqual(capped.first?.x ?? 0, 0.2, accuracy: 1e-9)
+    }
+
     /// Mutation: the `bestD <= radius` test dropped, so `nearest` always
     /// returns its closest vector however far away it is — which turns every
     /// pattern into a match for every phase.
@@ -1459,6 +1480,53 @@ final class MatrixChallengeTests: XCTestCase {
             accessibleRadius: 1.0, beating: (matched: best.matched - 1, score: best.score),
             scratch: scratch),
             "a challenger tied the winner's distance and took the position anyway")
+    }
+
+    /// THE FRIEDEL-PAIR FLOOR (2026-09-16, Thronsen step 3). A candidate that
+    /// explains exactly the two survivors u and −u is indexed; two survivors
+    /// that are not a pair are not enough. Mutations this names: the
+    /// `containsFriedelPair` clause dropped (the pair case goes not indexed),
+    /// or the floor applied to any two survivors (the control goes indexed
+    /// — its two survivors both match the candidate, so it is the floor and
+    /// nothing else that keeps it out).
+    func testAFriedelPairAloneIndexesACandidateAndTwoStraySurvivorsDoNot() throws {
+        let library = try challengeLibrary()
+        let settings = PhaseVectorSettings()
+        let candidate = library.entries[library.candidateEntryIndices[0]]
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 64)
+        // A reference vector of the candidate that no matrix vector sits on,
+        // and its Friedel partner.
+        let matrix = library.entries[library.matrixEntryIndices[0]]
+        let own = try XCTUnwrap(candidate.vectors.first { v in
+            !matrix.vectors.contains { simd_distance($0.q, v.q) < 2 * settings.pairRadiusInvAngstrom }
+                && candidate.vectors.contains { simd_distance($0.q, -v.q) < 1e-6 }
+        }, "the candidate has no Friedel pair clear of the matrix")
+        let pair = [own.q, -own.q]
+        let indexed = PhaseVectorMatcher.classify(
+            vectors: pair, library: library, settings: settings, matrixEntry: matrix,
+            candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        XCTAssertEqual(indexed.verdict, .indexed,
+                       "a Friedel pair of the candidate's own reflections was not indexed: \(indexed.verdict)")
+        XCTAssertEqual(Int(indexed.phaseIndex), candidate.phaseIndex)
+
+        // Two survivors that are NOT a pair but are both the candidate's own
+        // reflections, clear of the matrix, no shorter than `own` (so the
+        // chance guard passes as it did for the pair): two matched of two,
+        // which only the pair floor could admit. A stray that matches one
+        // reference cannot tell the floor from the count (Gate B 2026-09-16).
+        let other = try XCTUnwrap(candidate.vectors.first { v in
+            simd_length(v.q) >= simd_length(own.q) - 1e-9
+                && simd_distance(v.q, own.q) > 2 * settings.pairRadiusInvAngstrom
+                && simd_distance(v.q, -own.q) > 2 * settings.pairRadiusInvAngstrom
+                && !matrix.vectors.contains { simd_distance($0.q, v.q) < 2 * settings.pairRadiusInvAngstrom }
+        }, "the candidate has no second reflection clear of the matrix")
+        let stray = [own.q, other.q]
+        XCTAssertFalse(PhaseVectorMatcher.containsFriedelPair(stray, radius: settings.pairRadiusInvAngstrom))
+        let control = PhaseVectorMatcher.classify(
+            vectors: stray, library: library, settings: settings, matrixEntry: matrix,
+            candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        XCTAssertNotEqual(control.verdict, .indexed,
+                          "two stray survivors were indexed as a candidate under the pair floor")
     }
 
     // MARK: Fixtures

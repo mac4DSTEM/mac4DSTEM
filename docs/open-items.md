@@ -51,30 +51,41 @@ data by classifying the vectors left after Al removal with no such minimum.
   that the data does not show at all (median 0 % of the maximum at T1
   positions). At 0.5 % the matcher still indexed T1 at 94 % precision, at
   6 % recall.
-**The rule, measured (2026-09-16, `--min-matched`):** with
-`minimumMatchedVectors` 2 or 1 at a 1 % threshold the Al class stays 100 %,
-θ′ edge-on rises to 46–61 %, and T1 only to 28–30 %: mislabelled **19.7 /
-19.2 %** (2 % threshold: 24.6 / 24.4 %). Per position a T1 pattern carries
-the ±g pair of one variant (median 2 in the two-thirds-{220} band at 1 %,
-none on Al positions), so the count was never the whole obstacle. **The
-lever is the matrix challenge's free rotation:** two of the four T1
-variants put their pair at 0.476 Å⁻¹, within the 0.02 pair radius of Al
-{200} at 0.494, and a challenge that tries every Al orientation at any
-in-plane rotation explains such a pair as well as T1 does and wins the tie —
-only the pair's azimuth relative to the ACTUAL matrix orientation (45° off
-the {200} spots) says it is not aluminium. Prediction if that is the
-mechanism: a challenge restricted to the fitted matrix orientation and its
-symmetry equivalents recovers the absorbed half of T1 (recall toward 50–60 %
-at 1 %), and the remainder is the threshold. Face-on θ′ is a separate limit:
-its (110) spots sit at 0.5 % of the plateau maximum, the noise floor of a
-relative threshold. The T1 reference's extra predicted reflections
-(0.233, 0.367) cost nothing here and are not the lever.
-**Owner:** three decisions — an orientation-aware matrix challenge, a
-two-vector minimum for a ±g pair at a characteristic radius, and a detection
-threshold relative to the strongest Bragg peak rather than a saturated
-plateau; each measurable on `tools/thronsen-dataset` before it lands. Until
-then a phase fraction off this map is not a measurement and every product
-still says `validation: "none"`.
+**The rule, measured (2026-09-16, `--min-matched`), and a claim of mine
+refuted on the way:** with the candidate floor at 2 and the shipped 0.5 %
+threshold the Al class stays 100 % (28 errors of 21 494), T1 recall goes
+6 % → **59 %**, θ′ edge-on 54 %: mislabelled **12.97 %** (at 1 %: 19.7 %).
+I first wrote that the matrix challenge's free rotation was absorbing the T1
+pairs; re-reading the code refuted it — the challenge must explain STRICTLY
+more than the candidate and cannot take a two-of-two pair — and the survivor
+histogram the probe now prints settles it: every T1 position still labelled
+matrix has **zero** survivors after matrix removal (63.5 % at 1 %, 35 % at
+0.5 %), so the pair fell below DETECTION, whose threshold is relative to a
+saturated direct-beam plateau. Face-on θ′ is the same limit harder: 93 % of
+its positions have no survivors at 0.5 %. **Landed, all three, each measured (`thronsen-*-b-20260916.log`):** the
+Friedel-pair floor (`friedelPairMinimumMatchedVectors`: a candidate may
+clear 2 when the survivors hold u and −u); the matcher's outer reach
+(`maximumVectorInvAngstrom`, "Ignore peaks beyond" in Phase mapping; without
+it every Al position is "not indexed" and 86 % is mislabelled); and a
+relative-threshold reference that excludes the direct beam
+(`relativeReferenceMinimumRadiusPx`, "Reference outside" in Advanced
+detection, default 0). **With the first two at shipped defaults: 13.24 %
+mislabelled, Al 100 % (28 of 21 494), T1 58 %, θ′ edge-on 45 %, face-on
+1 %.** The third only rescales the threshold on this data: against the
+brightest Bragg peak, 0.5 % floods the Al class with noise (32 % "not
+indexed", 30.6 % total) and 2 % lands at 13.14 % — the same 59 % of T1 —
+so the remaining loss is noise separation, not the reference; it lands as
+a parameter that moves nothing until set. **Gate B (2026-09-16) on the
+three:** the pair floor is a no-op where 5 × chance exceeds two (a
+48-vector entry below ≈ 0.3 Å⁻¹ accessible radius) and the matrix
+challenge cannot reach a two-of-two winner, so a second matrix grain whose
+residual is exactly a candidate's pair would be labelled that candidate —
+not seen on the dataset, not tested, recorded in the setting's note; the
+detection reference is measured from the brightest maximum, not the array
+centre, since the refuter showed descan defeats the centre. The T1 reference's extra predicted
+reflections (0.233, 0.367) cost nothing and are not a lever. Until the
+band is reached a phase fraction off this map is not a measurement and every
+product still says `validation: "none"`.
 
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 
@@ -150,8 +161,10 @@ refuted statistics is in `archive/closed-items-2026-09.md`). Residuals:
   ring of large disks. Recorded as the cost fixture `overlap_bins_2radii`.
 - **The 1.10 bound's value is unpinned**: 1.06 passes, 1.59 refuses, nothing
   between is tested; an unweighted per-sector mean survives every fixture too.
-- **Unverified on screen:** the button, its caption, the orange "Fit anyway"
-  status word, the caption under Correction.
+- **Seen on screen 2026-09-16** (`archive/v3/drive-2026-09-16.md`): the
+  refusal, the offer, two correct one-ring refusals on the demo cube (its
+  {111}/{200} pair is the fcc case the bound exists for), the marked row in
+  orange and the caption under Correction.
 Also still open from the 2026-09-14 run: R–Q rotation reads "measured" −67.5°
 on a cube with no physical rotation (the rotation entry below).
 
@@ -201,10 +214,13 @@ correlation length, and `tools/rotation-null-probe` measured 15 → 32 → 52 �
 sd ≈ 0.010 on 100 × 100 (measured 2026-09-14); the probe's `A-100` row
 certifies **2 of 60** such fields, so "Measured −67.5°" recurs about once in
 thirty, not every time. The cube itself has not been re-run through the app.
-**Presentation fixed 2026-09-15 late night, unverified on screen:** the full
-refusal sentence sits in the inspector's Rotation diagnostics in orange, the
-caption there says the marker is the minimum the fit found and was not
-written, and the status bar carries one line pointing at the section. The Gate B narrative
+**Presentation fixed 2026-09-15 late night and SEEN on screen 2026-09-16**
+(`archive/v3/drive-2026-09-16.md`): the full refusal sits in the inspector's
+Rotation diagnostics in orange, the caption says the marker is the minimum
+the fit found and was not written, the status bar carries one line pointing
+there. The drive also read a stale word — the sentence still said
+"shuffling the scan positions" — fixed the same morning to name the
+surrogate, pinned by the test. The Gate B narrative
 (2026-09-15 morning) is in `archive/closed-items-2026-09.md`.
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15

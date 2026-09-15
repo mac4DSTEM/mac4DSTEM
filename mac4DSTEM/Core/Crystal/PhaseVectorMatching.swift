@@ -44,6 +44,13 @@ import simd
 package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// Peaks within this of the pattern origin are the direct beam. Å⁻¹.
     package var directBeamRadiusInvAngstrom: Double = 0.15
+    /// Peaks beyond this are not reflections: the data's own reach — a
+    /// detector edge, or a mask. 0 means the detector is the limit. Å⁻¹.
+    /// MEASURED (Thronsen step 3, 2026-09-16): their patterns are masked
+    /// beyond 0.70 Å⁻¹, the mask edge is a ring of maxima no phase explains,
+    /// and without this every Al position came back "not indexed" (86 %
+    /// mislabelled against 13 % with it at the same settings).
+    package var maximumVectorInvAngstrom: Double = 0
     /// An experimental vector this close to a matrix reference vector is the
     /// matrix's, and is removed. Their image-space DoG masking, done where the
     /// app already works. Å⁻¹.
@@ -67,6 +74,22 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// An entry must account for at least this many surviving vectors. Three,
     /// not two: two points fix a lattice only if you already know which two.
     package var minimumMatchedVectors: Int = 3
+    /// … except when the survivors hold a Friedel pair — u and −u within the
+    /// pair radius — which IS knowing which two: one lattice row, and the
+    /// matrix removal has already said it is not the matrix's. Two, then.
+    /// MEASURED on Thronsen et al.'s dataset A (step 3, 2026-09-16,
+    /// `tools/thronsen-dataset`): along [001]Al a T1 variant leaves exactly
+    /// that pair and nothing else inside their mask; with a floor of three
+    /// T1 recall was 6 %, with two 59 %, and the Al class paid 28 positions
+    /// of 21 494 (0.13 %). Two limits, both from Gate B (2026-09-16): the
+    /// chance guard still applies, and for a 48-vector entry it admits a pair
+    /// only when the accessible radius is above ≈ 0.3 Å⁻¹ (below that the
+    /// floor is silently a no-op — recall lost, not safety); and the matrix
+    /// challenge cannot reach a two-of-two winner (it must explain strictly
+    /// more than two from two), so a second matrix grain whose residual is
+    /// exactly a candidate's pair is labelled that candidate. Not seen on
+    /// the dataset; not tested.
+    package var friedelPairMinimumMatchedVectors: Int = 2
     /// … and must beat CHANCE by this multiple.
     ///
     /// THIS IS THE DEVIATION from the published mean-distance score, and it is
@@ -289,7 +312,8 @@ package nonisolated enum PhaseVectorMatcher {
     package static func experimentalVectors(peaks: [BraggPeak],
                                             originX: Float, originY: Float,
                                             invAngstromPerPixel: Double,
-                                            directBeamRadiusInvAngstrom: Double)
+                                            directBeamRadiusInvAngstrom: Double,
+                                            maximumVectorInvAngstrom: Double = 0)
         -> [SIMD2<Double>] {
         var out: [SIMD2<Double>] = []
         out.reserveCapacity(peaks.count)
@@ -297,7 +321,8 @@ package nonisolated enum PhaseVectorMatcher {
             let q = SIMD2(Double(p.x - originX) * invAngstromPerPixel,
                           Double(p.y - originY) * invAngstromPerPixel)
             let len = simd_length(q)
-            guard len.isFinite, len > directBeamRadiusInvAngstrom else { continue }
+            guard len.isFinite, len > directBeamRadiusInvAngstrom,
+                  maximumVectorInvAngstrom <= 0 || len < maximumVectorInvAngstrom else { continue }
             out.append(q)
         }
         return out
@@ -375,6 +400,20 @@ package nonisolated enum PhaseVectorMatcher {
         var sum = 0.0
         for i in scratch.touched { sum += scratch.bestPerRef[i] }
         return (sum / Double(scratch.touched.count), matched, scratch.touched.count)
+    }
+
+    /// Do `vectors` hold a Friedel pair — some u and v with |u + v| within
+    /// `radius`? A ±g pair is one reciprocal-lattice row, the smallest thing
+    /// that is evidence of a lattice rather than of two coincidences.
+    package static func containsFriedelPair(_ vectors: [SIMD2<Double>], radius: Double) -> Bool {
+        guard vectors.count >= 2 else { return false }
+        for i in 0..<(vectors.count - 1) {
+            for j in (i + 1)..<vectors.count
+            where simd_length(vectors[i] + vectors[j]) <= radius && simd_length(vectors[i]) > radius {
+                return true
+            }
+        }
+        return false
     }
 
     // MARK: Which zone axis is the specimen on?
@@ -517,7 +556,8 @@ package nonisolated enum PhaseVectorMatcher {
             let v = experimentalVectors(
                 peaks: bragg.peaks[index], originX: originX, originY: originY,
                 invAngstromPerPixel: invAngstromPerPixel,
-                directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom)
+                directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom,
+                maximumVectorInvAngstrom: settings.maximumVectorInvAngstrom)
             if !v.isEmpty { sample.append(v) }
             index += step
         }
@@ -638,7 +678,8 @@ package nonisolated enum PhaseVectorMatcher {
             let v = experimentalVectors(
                 peaks: bragg.peaks[index], originX: originX, originY: originY,
                 invAngstromPerPixel: invAngstromPerPixel,
-                directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom
+                directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom,
+                maximumVectorInvAngstrom: settings.maximumVectorInvAngstrom
             )
             if !v.isEmpty { sample.append(v) }
             index += stride
@@ -732,6 +773,12 @@ package nonisolated enum PhaseVectorMatcher {
         }
         if accessibleRadius <= 0 { accessibleRadius = largest }
         var bestPerPhase: [Int: (entryIndex: Int, score: Double, matched: Int)] = [:]
+        // The floor a candidate must clear: `minimumMatchedVectors`, or the
+        // Friedel-pair floor when the survivors hold u and −u (see the
+        // setting's note). Computed once per pattern, not per entry.
+        let matchedFloor = containsFriedelPair(surviving, radius: settings.pairRadiusInvAngstrom)
+            ? min(settings.minimumMatchedVectors, settings.friedelPairMinimumMatchedVectors)
+            : settings.minimumMatchedVectors
         for entryIndex in candidateEntryIndices {
             let entry = library.entries[entryIndex]
             guard let s = score(vectors: surviving, against: entry,
@@ -740,7 +787,7 @@ package nonisolated enum PhaseVectorMatcher {
             let chance = entry.chanceMatchFraction(
                 pairRadius: settings.pairRadiusInvAngstrom,
                 accessibleRadius: accessibleRadius) * Double(surviving.count)
-            guard s.matched >= settings.minimumMatchedVectors,
+            guard s.matched >= matchedFloor,
                   Double(s.matched) >= settings.chanceMatchMultiple * chance
             else { continue }
             let current = bestPerPhase[entry.phaseIndex]
@@ -1022,7 +1069,8 @@ package nonisolated enum PhaseVectorMatcher {
                     let vectors = experimentalVectors(
                         peaks: bragg.peaks[position], originX: originX, originY: originY,
                         invAngstromPerPixel: invAngstromPerPixel,
-                        directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom
+                        directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: settings.maximumVectorInvAngstrom
                     )
                     ptr.value[position] = classify(
                         vectors: vectors, library: library, settings: settings,

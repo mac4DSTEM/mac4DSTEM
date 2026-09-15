@@ -1418,3 +1418,46 @@ acceptance: SIGBUS on the first attempt before, three completions of three
 after. The price is a blocked thread for the length of one operation, stated
 in the entry; the price of the actor would have been a rewrite nobody could
 gate tonight.
+
+## 2026-09-16 — the three decisions step 3 turned on, taken and measured
+
+Step 3 failed its acceptance and the owner said take the decisions. Each was
+measured on `tools/thronsen-dataset` before it landed, and one claim of
+mine died on the way: the matrix challenge's free rotation was NOT
+absorbing the T1 pairs — the challenge must explain strictly more than the
+candidate and cannot take a two-of-two pair; the survivor histogram showed
+the lost T1 positions had no survivors at all. So the three are:
+
+1. **A Friedel-pair floor.** A candidate may clear two matched vectors when
+   the survivors hold u and −u within the pair radius — one lattice row,
+   which IS knowing which two — and three otherwise. T1 recall 6 % → 59 % at
+   the shipped threshold, the Al class paying 28 positions of 21 494.
+2. **An outer reach in the matcher** (`maximumVectorInvAngstrom`, 0 = the
+   detector): a masked or cropped pattern ends before the detector does and
+   its edge is a ring of maxima no phase explains. Without it every Al
+   position of Thronsen's data came back "not indexed" (86 % mislabelled).
+3. **A relative-threshold reference that excludes the direct beam**
+   (`relativeReferenceMinimumRadiusPx`, 0 = py4DSTEM's rule): "0.5 % of the
+   maximum" was 0.5 % of a saturated plateau there, and T1's reflections
+   at 1–5 % of it were kept only at 0.2 %. Against the brightest Bragg peak
+   the same fraction means the same thing on every pattern. Default 0, so no
+   shipped number moves until a user sets it. The radius is measured from
+   the brightest maximum — the beam wherever descan put it — not from the
+   array centre, which the refuter showed a descanned beam defeats; a
+   saturated plateau is a field of tied maxima, so the radius to set is
+   the plateau's diameter, the bound on how far apart two of them can be.
+
+What they bought, measured on the stride-3 subsample: 26.4 % → **13.24 %**
+mislabelled at shipped defaults with the first two (Al 100 %, T1 58 %), the
+third rescaling the threshold rather than separating T1's weakest pairs
+from noise (2 % against the Bragg reference: 13.14 %). Still outside their
+0.96–1.75 %, and the products still say `validation: "none"`; what remains
+is detection at the noise floor, not the matcher.
+
+Gate B on the three (a Sonnet refuter with its own 20 000-trial harness on
+byte copies) held the numbers and overturned one sentence of mine: the pair
+floor is not "safe against a second grain by construction" — the challenge
+cannot reach a two-of-two winner at all, which is the opposite claim. The
+floor's noise cost at two survivors is 0.015 %; the chance guard silences it
+below ≈ 0.3 Å⁻¹ accessible radius on a dense entry. Both are in the
+setting's note now, and the untested second-grain case is in `open-items.md`.

@@ -97,11 +97,14 @@ package enum RotationCalibration {
             // a session sidecar, the file, or typed by hand — survives, and
             // strain, ACOM and DPC go on using it. Gate B found the original
             // sentence claiming a state the code does not establish.
-            return "This scan's centre-of-mass field is spatially featureless: "
-                + "shuffling the scan positions gives an equally good answer, so there "
-                + "is nothing here for a curl-based fit to lock onto. The rotation is "
-                + "not updated. Try a thicker or more amorphous region, or a larger "
-                + "scan."
+            // "surrogates", not "shuffling": the null changed on 2026-09-15
+            // night and the sentence did not, and the drive of 2026-09-16
+            // read the stale word on screen.
+            return "This scan's centre-of-mass field carries no rotation its own "
+                + "structure does not explain: surrogates with the same spectrum and "
+                + "random phases fit it as well, so there is nothing here for a "
+                + "curl-based fit to lock onto. The rotation is not updated. Try a "
+                + "thicker or more amorphous region, or a larger scan."
         }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

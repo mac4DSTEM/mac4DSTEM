@@ -102,6 +102,7 @@ enum Probe {
         var minRelative: Float?
         var reachInvAngstrom: Double?
         var minMatched: Int?        // the rule step 3 turned on: `minimumMatchedVectors`
+        var referenceOutsidePx: Float?   // decision 3: the relative reference excludes the direct beam
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -113,6 +114,8 @@ enum Probe {
                 reachInvAngstrom = Double(args[index + 1]); index += 2
             } else if args[index] == "--min-matched", index + 1 < args.count {
                 minMatched = Int(args[index + 1]); index += 2
+            } else if args[index] == "--reference-outside", index + 1 < args.count {
+                referenceOutsidePx = Float(args[index + 1]); index += 2
             } else if args[index] == "--truth", index + 1 < args.count {
                 truthPath = args[index + 1]; index += 2
             } else {
@@ -145,7 +148,7 @@ enum Probe {
         referenceSettings.kMaxInvAngstrom = thronsen != nil ? Thronsen.kMaxInvAngstrom : reach
         referenceSettings.inPlaneStepDeg = 2
 
-        var matchSettings = PhaseVectorSettings()
+        var matchSettings = PhaseVectorSettings()   // `var`: the reach and the floor are set below
         if let minMatched {
             matchSettings.minimumMatchedVectors = minMatched
             print("matching: minimumMatchedVectors \(minMatched) (shipped 3)")
@@ -230,6 +233,10 @@ enum Probe {
             params.minRelativeIntensity = minRelative
             print(String(format: "detection: min relative intensity %.3f (shipped 0.005)", minRelative))
         }
+        if let referenceOutsidePx {
+            params.relativeReferenceMinimumRadiusPx = referenceOutsidePx
+            print(String(format: "detection: relative reference is the brightest maximum outside %.1f px of the centre", referenceOutsidePx))
+        }
 
         let rows = Swift.stride(from: 0, to: primary.ry, by: stride).map { $0 }
         let cols = Swift.stride(from: 0, to: primary.rx, by: stride).map { $0 }
@@ -293,20 +300,12 @@ enum Probe {
                       + (Double(originY) - cy) * (Double(originY) - cy)).squareRoot() * qPerPixel))
 
         if let reachInvAngstrom {
-            // Everything at or beyond the dataset's own mask radius is the
-            // mask's edge, not a reflection; the app has no such setting.
-            var dropped = 0
-            for i in peaks.indices {
-                let before = peaks[i].count
-                peaks[i].removeAll {
-                    Double(((($0.x - originX) * ($0.x - originX)
-                             + ($0.y - originY) * ($0.y - originY)).squareRoot())) * qPerPixel
-                        >= reachInvAngstrom
-                }
-                dropped += before - peaks[i].count
-            }
-            print(String(format: "reach: dropped %d peaks at or beyond %.3f Å⁻¹ (the dataset's mask radius)",
-                         dropped, reachInvAngstrom))
+            // The dataset's own mask radius, through the app's own setting
+            // (`maximumVectorInvAngstrom`, 2026-09-16): everything at or
+            // beyond it is the mask's edge, not a reflection.
+            matchSettings.maximumVectorInvAngstrom = reachInvAngstrom
+            print(String(format: "reach: peaks at or beyond %.3f Å⁻¹ are ignored (the dataset's mask radius)",
+                         reachInvAngstrom))
         }
         let bragg = BraggVectors(scanWidth: cols.count, scanHeight: rows.count, peaks: peaks)
 
@@ -332,7 +331,8 @@ enum Probe {
                 .map { PhaseVectorMatcher.experimentalVectors(
                     peaks: peaks[$0], originX: originX, originY: originY,
                     invAngstromPerPixel: qPerPixel,
-                    directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom) }
+                    directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                    maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom) }
                 .filter { !$0.isEmpty }
             for entryIndex in sweep.matrixEntryIndices {
                 let entry = sweep.entries[entryIndex]
@@ -417,7 +417,8 @@ enum Probe {
             let vectors = PhaseVectorMatcher.experimentalVectors(
                 peaks: bragg.peaks[probe], originX: originX, originY: originY,
                 invAngstromPerPixel: qPerPixel,
-                directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom)
+                directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
             let matrixEntry = map.matrixEntryIndex >= 0
                 ? library.entries[map.matrixEntryIndex] : nil
             var surviving: [SIMD2<Double>] = []
@@ -545,6 +546,25 @@ enum Probe {
                 }
                 print(String(format: "  %-16@", name(theirs) as NSString) + cells.joined()
                       + String(format: "%11d", total))
+            }
+            // WHERE THE VECTORS WENT, per truth class: how many survived
+            // matrix removal at each position, and how many were detected at
+            // all. A precipitate that reaches the matrix verdict with fewer
+            // than two survivors was lost at detection or removal, not at the
+            // challenge (which must explain STRICTLY more than the candidate).
+            print("\n  survivors after matrix removal, per truth class (columns: 0 1 2 3 4+ | detected vectors median):")
+            for theirs in [0, 1, 2, 3] {
+                var hist = [0, 0, 0, 0, 0]; var detected: [Int] = []
+                for (index, result) in map.results.enumerated() where thronsen.labels[index] == theirs {
+                    hist[min(4, Int(result.survivingCount))] += 1
+                    detected.append(Int(result.survivingCount + result.removedCount))
+                }
+                let total = hist.reduce(0, +)
+                guard total > 0 else { continue }
+                let medianDetected = detected.sorted()[detected.count / 2]
+                print(String(format: "  %-14@ ", name(theirs) as NSString)
+                      + hist.map { String(format: "%5.1f%%", 100 * Double($0) / Double(total)) }.joined(separator: " ")
+                      + " | \(medianDetected)")
             }
             let fraction = 100 * Double(mislabelled) / Double(map.results.count)
             print(String(format: "\n  mislabelled %d of %d positions = %.2f %%", mislabelled,

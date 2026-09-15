@@ -171,4 +171,58 @@ final class DiskDetectionContractTests: XCTestCase {
         // Without parameters (older call sites) the generic warning survives.
         XCTAssertFalse(DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70).warnings.isEmpty)
     }
+
+    /// Decision 3 of 2026-09-16 (Thronsen step 3): a saturated direct beam is
+    /// the wrong reference for "fraction of the maximum". A 64 × 64 pattern
+    /// with a flat central plateau at 1.0, one Bragg-sized spot at 0.05 and
+    /// two weak spots at 0.003: at the shipped 0.5 % against the plateau the
+    /// weak spots are 0.3 % and are dropped; against the brightest maximum
+    /// outside 10 px of the centre they are 6 % and kept. Mutations this
+    /// names: the parameter ignored (the second count equals the first), or
+    /// the filter applied to the wrong list (the plateau still sets the
+    /// scale).
+    func testTheRelativeReferenceCanExcludeTheDirectBeam() throws {
+        let q = 64
+        var pixels = [Float](repeating: 0, count: q * q)
+        func stamp(_ cx: Int, _ cy: Int, _ value: Float, radius: Float) {
+            for y in 0..<q { for x in 0..<q {
+                let d = Float((x - cx) * (x - cx) + (y - cy) * (y - cy)).squareRoot()
+                if d <= radius { pixels[y * q + x] = max(pixels[y * q + x], value) }
+            } }
+        }
+        // The plateau sits 22 px off the array centre: a reference measured
+        // from the centre instead of the brightest maximum keeps a plateau
+        // point 19 px from the centre as the reference and the weak spots
+        // die — the mutation Gate B named on 2026-09-16. It is also 32 px
+        // from the weak spots: closer, its correlation halo erases them as
+        // candidates altogether (measured at 12 px, 2026-09-16).
+        stamp(44, 50, 1.0, radius: 6)        // the saturated, descanned plateau
+        stamp(50, 32, 0.05, radius: 2.5)     // the brightest Bragg disk
+        stamp(14, 32, 0.003, radius: 2.5)    // two weak reflections
+        stamp(32, 12, 0.003, radius: 2.5)
+        let kernel = try XCTUnwrap(ProbeKernel.synthetic(radius: 2.5, qy: q, qx: q))
+        let detector = try XCTUnwrap(DiskDetector(kernel: kernel))
+        var params = DiskDetectionParams()
+        params.minPeakSpacing = 4
+        params.edgeBoundary = 2
+        params.minRelativeIntensity = 0.005
+
+        func weak(_ peaks: [BraggPeak]) -> Int {
+            peaks.filter { hypot($0.x - 14, $0.y - 32) < 4 || hypot($0.x - 32, $0.y - 12) < 4 }.count
+        }
+        let againstPlateau = detector.detect(pattern: pixels, params: params)
+        XCTAssertEqual(weak(againstPlateau), 0,
+                       "a 0.3 % spot survived a 0.5 % threshold against the plateau")
+
+        // The radius covers the plateau's diameter (12 px): the brightest
+        // maximum is one point on a flat top, its tied maxima spread 6.5 px.
+        params.relativeReferenceMinimumRadiusPx = 14
+        let againstBragg = detector.detect(pattern: pixels, params: params)
+        XCTAssertEqual(weak(againstBragg), 2,
+                       "the weak reflections were not kept against the Bragg reference: "
+                       + "\(againstBragg.map { ($0.x, $0.y, $0.intensity) })")
+        // And the plateau itself is still detected either way — the reference
+        // changed, not the candidates.
+        XCTAssertTrue(againstBragg.contains { hypot($0.x - 44, $0.y - 50) < 6 })
+    }
 }

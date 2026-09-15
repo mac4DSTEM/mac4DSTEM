@@ -168,6 +168,12 @@ struct PhaseMappingSections: View {
             parameterField("Not indexed above",
                            value: $product.matching.notIndexedAboveInvAngstrom,
                            units: "Å⁻¹", format: "%.3f")
+            // The data's reach: a masked or cropped pattern ends before the
+            // detector does, and its edge is a ring of maxima no phase
+            // explains (Thronsen step 3, 2026-09-16). 0 = the detector.
+            parameterField("Ignore peaks beyond",
+                           value: $product.matching.maximumVectorInvAngstrom,
+                           units: "Å⁻¹ (0 = detector)", format: "%.2f")
 
             // These are set in Å⁻¹ and met on a pixel grid, and until
             // 2026-09-12 nothing on screen joined the two. On the owner's own

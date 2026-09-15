@@ -545,7 +545,8 @@ enum Harness {
             let v = PhaseVectorMatcher.experimentalVectors(
                 peaks: p, originX: originX, originY: originY,
                 invAngstromPerPixel: invAngstromPerPixel,
-                directBeamRadiusInvAngstrom: s.directBeamRadiusInvAngstrom)
+                directBeamRadiusInvAngstrom: s.directBeamRadiusInvAngstrom,
+                maximumVectorInvAngstrom: s.maximumVectorInvAngstrom)
             // No matrix entry: nothing should be removed, the pattern IS aluminium.
             let result = PhaseVectorMatcher.classify(
                 vectors: v, library: library, settings: s, matrixEntry: nil,

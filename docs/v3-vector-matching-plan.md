@@ -105,7 +105,7 @@ so the band can be read from the subsample.
   0.96–1.75 %. Labels: 0 Al, 1 θ′ edge-on, 2 θ′ face-on, 3 T1, 4 disagreement.
 - **Our result (`tools/phase-map-probe --thronsen`): 25.9–26.4 % at every
   detection threshold from 1 to 10 % with the mask reach; 98.3 % at the
-  shipped 0.5 %.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
+  shipped 0.5 %; 13.24 % after the three decisions of 2026-09-16.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
   the matrix because along [001]Al each variant leaves at most two
   non-Al reflections inside their 0.70 Å⁻¹ mask, under the matcher's
   `minimumMatchedVectors = 3` and the matrix's last word. By the
@@ -199,12 +199,11 @@ Stated now so it is not discovered later. Their implementation:
    verified against the published cell content. No decision needed.
 3. ~~**Zenodo download**~~ — **resolved 2026-09-15**: streamed and
    subsampled, no disk needed (`tools/thronsen-dataset`).
-4. **Step 3 failed its acceptance** — measured further on 2026-09-16: a
-   two- or one-vector minimum alone lifts T1 recall only to 28–30 % (Al
-   stays 100 %) because the free-rotation matrix challenge absorbs T1 pairs
-   whose radius sits within the pair radius of Al {200}. Three decisions:
-   an orientation-aware challenge (the fitted matrix orientation and its
-   symmetry equivalents only), a two-vector minimum for a ±g pair at a
-   characteristic radius, and a detection threshold relative to the
-   strongest Bragg peak rather than a saturated plateau. Each is measurable
-   on `tools/thronsen-dataset` before it lands.
+4. ~~**Step 3 failed its acceptance**~~ — the three decisions were taken
+   2026-09-16 (`decisions.md`): the Friedel-pair floor, the matcher's outer
+   reach, and a relative reference that excludes the direct beam. 26.4 % →
+   13.24 % at shipped defaults; still outside the band. The "free-rotation
+   challenge" mechanism written here the same morning was refuted before it
+   landed (the challenge cannot take a two-of-two pair). What remains is
+   detection at the noise floor: T1's weakest pairs and face-on θ′'s (110)
+   spots sit where a relative threshold cannot separate them from noise.

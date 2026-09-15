@@ -113,14 +113,16 @@ final class ReplayPlanTests: XCTestCase {
     /// record → parse round trip returns the parameters it was given.
     func testClassicalReplayParametersRoundTripThroughThePlanner() throws {
         let kernel = try XCTUnwrap(ProbeKernel.synthetic(radius: 4, qy: 32, qx: 32))
-        let params = DiskDetectionParams(
+        var params = DiskDetectionParams(
             corrPower: 0.5, sigmaDP: 1, sigmaCC: 2.5, subpixel: .multicorr, upsampleFactor: 8,
             minAbsoluteIntensity: 0.25, minRelativeIntensity: 0.01, relativeToPeak: 1,
             minPeakSpacing: 12, edgeBoundary: 3, maxNumPeaks: 42)
+        params.relativeReferenceMinimumRadiusPx = 7   // non-zero, so the round trip is not vacuous
         let recorded = params.replayParameters(kernel: kernel)
         XCTAssertEqual(Set(recorded.keys), [
             "corr_power", "sigma_dp", "sigma_cc", "subpixel", "upsample_factor",
             "min_absolute_intensity", "min_relative_intensity", "relative_to_peak",
+            "relative_reference_minimum_radius_px",
             "min_peak_spacing", "edge_boundary", "max_peaks",
             "kernel_source", "kernel_mode", "kernel_probe_path",
         ])
