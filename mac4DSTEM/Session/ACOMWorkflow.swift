@@ -35,7 +35,10 @@ package enum ACOMQualityPreset: String, CaseIterable, Identifiable {
         switch self {
         case .fast: "96 templates · rapid screening"
         case .balanced: "200 templates · recommended"
-        case .best: "400 templates · finest angular sampling"
+        // Not "finest": measured 2026-09-15, a larger bank oriented WORSE
+        // (48 wrong of 136 at 1 000 templates against 40 at 200), so more
+        // templates are a cost, not a quality. `open-items.md`, ACOM.
+        case .best: "400 templates · finer bank; not measured to orient better"
         }
     }
 }

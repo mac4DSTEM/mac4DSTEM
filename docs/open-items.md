@@ -294,9 +294,10 @@ find what the winner has that the truth does not. The score is a number over
 those two pictures; nine attempts to guess the difference have failed, and the
 pictures are three lines of harness away (`plan.templates` and the matcher's
 `expRe`/`expIm` are already `package`). Until someone does that, a fix is a
-guess. The honest statement for a user today is that ACOM's orientation is
-good to a few degrees and occasionally much worse, and that nothing in the app
-says so.
+guess. The honest statement for a user — good to a few degrees on most axes,
+up to 12.8° off on some, more templates measured worse — is on the ACOM panel
+since 2026-09-15 (a static caption with its date and scope, unverified on
+screen); the "Best" preset no longer calls 400 templates the finest sampling.
 
 ### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
 **Science, live, in shipped code, found by the refuter of the entry above.**
