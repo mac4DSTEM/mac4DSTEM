@@ -216,13 +216,15 @@ A worktree agent branches from where the worktree was cut — this session's was
    off. Gate D is DONE and **my own diagnosis was refuted**: the cause is not
    the intensity power but a bank predicting rings the data cannot contain.
    Cheap, and it makes the cube a faithful ACOM fixture.
-4. **ACOM returns a zone axis up to 12.8° beyond what its own bank forces** —
-   measured against planted truth by
-   `tools/acom-groundtruth/orientation-accuracy.py`, after subtracting the
-   bank's own sampling floor. **The cause is the score, not the search**: the
-   winner genuinely outscores the best available entry by 0.6–10 %. Eight
-   hypotheses are spent and recorded; the one cheap idea left is the
-   whole-image L2 normalisation. Gate D.
+4. **ACOM returns a zone axis up to 12.8° beyond what its own bank forces, and
+   the mechanism is now found.** The true template's inner and outer ring
+   groups peak one azimuthal bin apart, so no single shift aligns both, and the
+   score — a max over shift of the SUM across rings — charges the truth for a
+   misalignment the rounding introduced. Nine hypotheses were spent guessing
+   before anyone read the polar images. **A decision is owed:** linear
+   azimuthal deposition fixes the demonstrated case and cuts wrong answers from
+   40 to 28 of 136, but makes two currently-exact axes sometimes wrong and does
+   not touch the 12.8° worst case. Reverted pending the owner. `open-items.md`.
 5. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.

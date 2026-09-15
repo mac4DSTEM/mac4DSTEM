@@ -243,8 +243,44 @@ how OFTEN but not how BADLY, and makes two axes worse); the azimuthal blur
 interpolation of the correlation peak (changes almost nothing — which is what
 proved the sampling is not at fault); and py4DSTEM's own `power_radial`, whose
 default is measurably worse.
-**NINE HYPOTHESES SPENT. The whole-image L2 normalisation was the last cheap
-idea and it is refuted too:** per-ring L2 on both sides makes the total worse
+**THE MECHANISM IS FOUND (2026-09-15), by looking at the pictures instead of
+guessing.** `OrientationMatcher.experimentalPolarImage` and the harness's
+`dumpTemplates` now expose the experimental polar image and any template's, so
+the inner product the score computes can be read. For a ⟨122⟩ plant at 0.35°
+where the matcher is 13.6° wrong, the per-ring correlation peaks are:
+
+| | rings 15–22 peak at shift | rings 25–31 peak at shift |
+|---|---|---|
+| the TRUE template | 57 | **58** |
+| the winner | 13 | 13 |
+
+**The true template's inner and outer ring groups disagree by one azimuthal
+bin, so no single shift aligns both.** The score is `max over shift of the SUM
+across rings`, so the truth is charged for a misalignment it did not have: at
+57 the outer group is a bin off, at 58 the inner group is. The winner's rings
+all agree, and wins by 4.88 % while being 13.6° wrong. The cause is the
+azimuthal ROUNDING, acting on the RELATIVE phase between ring groups rather
+than on any ring alone — which is why every hypothesis that looked at one ring,
+one knob or one statistic missed it.
+**Demonstrated:** with linear azimuthal deposition the true template's rings
+converge on shift 57 and it **wins this case**, 0.56852 against 0.56114.
+**But it is not a clean fix, and that is the owner's call.** Across the full
+136-pattern sweep, against the bank's own floor:
+
+| | wrong answers | total worst-case excess |
+|---|---|---|
+| shipped (rounding) | 40 / 136 | 18.79° |
+| linear deposition | **28 / 136** | 20.10° |
+
+It cuts wrong answers by 30 % and matches py4DSTEM, removing an undocumented
+deviation. It also makes ⟨012⟩ and ⟨112⟩ — exact at every rotation today —
+wrong at 2 and 4 rotations, and it does **not** touch the headline 12.82° on
+⟨122⟩. Reverted, not shipped: a change that makes an always-right axis
+sometimes wrong is not one to land unreviewed, and it does not fix the worst
+case. **Owner: take it, leave it, or ask for the ⟨012⟩/⟨112⟩ regression to be
+understood first.**
+**NINE HYPOTHESES WERE SPENT BEFORE THE PICTURES. The whole-image L2
+normalisation was the last of them and it is refuted too:** per-ring L2 on both sides makes the total worse
 (⟨122⟩ 12.82° → 12.93°, ⟨112⟩ 0.00° → 2.51°, ⟨013⟩ 1.56° → 2.93°). Reverted.
 **So the next step is not another knob, and anyone who reaches for one should
 read this list first.** What has never been done is to LOOK at the two polar

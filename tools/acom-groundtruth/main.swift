@@ -67,6 +67,11 @@ private struct MatchInput: Codable {
     /// Optional: py4DSTEM's `power_radial` (their default 1.0). Absent = 0,
     /// which is what this port has always done by omitting the factor.
     let radialPower: Double?
+    /// Optional: for pattern 0, emit the experimental polar image and the
+    /// polar images of the two templates named here. The score is a number
+    /// over these pictures, and nine hypotheses were tested without anyone
+    /// looking at them (2026-09-15).
+    let dumpTemplates: [Int]?
     let patterns: [[InputPeak]]
 }
 
@@ -100,6 +105,10 @@ private struct MatchOutput: Codable {
     /// correlation have two identical maxima 180° apart — the argmax then has
     /// no information to choose between them.
     let templatePiAsymmetry: [Double]
+    /// Present when `dumpTemplates` asked. `experimental` and each entry of
+    /// `templates` are nRadial x nAzimuthal, row-major, ring 0 first.
+    let experimentalPolar: [Double]?
+    let dumpedTemplates: [[Double]]?
     let results: [MatchOutputResult]
 }
 
@@ -208,6 +217,22 @@ struct ACOMGroundTruth {
             ))
         }
 
+        var experimentalPolar: [Double]?
+        var dumpedTemplates: [[Double]]?
+        if let wanted = input.dumpTemplates, let first = input.patterns.first {
+            let peaks = first.map {
+                BraggPeak(x: Float($0.x), y: Float($0.y), intensity: Float($0.intensity))
+            }
+            if let fft = matcher.experimentalPolarImage(
+                peaks: peaks, originX: Float(input.originX), originY: Float(input.originY),
+                invAngstromPerPixel: input.invAngstromPerPixel) {
+                experimentalPolar = fft.map(Double.init)
+            }
+            dumpedTemplates = wanted.compactMap { index in
+                plan.templates.indices.contains(index)
+                    ? plan.templates[index].map(Double.init) : nil
+            }
+        }
         let output = MatchOutput(
             templateCount: plan.count,
             zoneAxes: plan.zoneAxes.map { [$0.x, $0.y, $0.z] },
@@ -229,6 +254,8 @@ struct ACOMGroundTruth {
                 }
                 return total > 0 ? difference / total : 0
             },
+            experimentalPolar: experimentalPolar,
+            dumpedTemplates: dumpedTemplates,
             results: results
         )
         let encoder = JSONEncoder()

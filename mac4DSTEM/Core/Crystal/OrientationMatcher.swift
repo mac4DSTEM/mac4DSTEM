@@ -216,6 +216,31 @@ package nonisolated final class OrientationMatcher {
         )
     }
 
+    /// The experimental polar image for one pattern, after exactly the
+    /// deposition, blur, per-ring mean subtraction and normalisation the
+    /// matcher uses. DIAGNOSTIC: the score is an inner product over this
+    /// picture and a template's, and until 2026-09-15 nothing could look at
+    /// either, which is why nine hypotheses about the score were guesses.
+    package func experimentalPolarImage(peaks: [BraggPeak], originX: Float,
+                                        originY: Float,
+                                        invAngstromPerPixel: Double) -> [Float]? {
+        var spots: [(r: Double, azim: Double, weight: Double)] = []
+        let power = plan.intensityPower
+        for p in peaks {
+            let dx = Double(p.x - originX), dy = Double(p.y - originY)
+            let r = (dx * dx + dy * dy).squareRoot() * invAngstromPerPixel
+            let intensity = Double(max(p.intensity, 0))
+            spots.append((r: r, azim: atan2(dy, dx),
+                          weight: power == 1 ? intensity : pow(intensity, power)))
+        }
+        guard !spots.isEmpty else { return nil }
+        var polar = OrientationPlan.buildPolar(
+            spots: spots, geometry: geo, azimBlurBins: 1.5,
+            radialKernelInvAngstrom: plan.radialKernelInvAngstrom)
+        OrientationPlan.normalizeUnit(&polar)
+        return polar
+    }
+
     /// Every template's score for one pattern, in bank order. DIAGNOSTIC:
     /// `match` reduces these to a winner and a runner-up, which is all the app
     /// needs, and all a caller could see until 2026-09-15 — so seven
