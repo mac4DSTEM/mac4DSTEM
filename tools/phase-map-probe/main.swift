@@ -103,6 +103,7 @@ enum Probe {
         var reachInvAngstrom: Double?
         var minMatched: Int?        // the rule step 3 turned on: `minimumMatchedVectors`
         var referenceOutsidePx: Float?   // decision 3: the relative reference excludes the direct beam
+        var notIndexedAbove: Double?
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
@@ -118,6 +119,10 @@ enum Probe {
                 minRelative = Float(args[index + 1]); index += 2
             } else if args[index] == "--reach", index + 1 < args.count {
                 reachInvAngstrom = Double(args[index + 1]); index += 2
+            } else if args[index] == "--not-indexed-above", index + 1 < args.count {
+                // The verdict cliff as an absolute Å⁻¹ value (shipped 0.015, 0.75
+                // a pixel); the cliff pre-registration of 2026-09-15 evening.
+                notIndexedAbove = Double(args[index + 1]); index += 2
             } else if args[index] == "--min-matched", index + 1 < args.count {
                 minMatched = Int(args[index + 1]); index += 2
             } else if args[index] == "--reference-outside", index + 1 < args.count {
@@ -173,12 +178,16 @@ enum Probe {
             matchSettings.minimumMatchedVectors = minMatched
             print("matching: minimumMatchedVectors \(minMatched) (shipped 3)")
         }
+        if let notIndexedAbove {
+            matchSettings.notIndexedAboveInvAngstrom = notIndexedAbove
+            print(String(format: "matching: not indexed above %.4f Å⁻¹ (shipped 0.015)", notIndexedAbove))
+        }
         if truth == nil && thronsen == nil {
             // One detector pixel, rounded up: nothing smaller can be measured
             // here, so nothing smaller may be demanded.
             matchSettings.pairRadiusInvAngstrom = max(0.02, qPerPixel)
             matchSettings.matrixToleranceInvAngstrom = matchSettings.pairRadiusInvAngstrom
-            matchSettings.notIndexedAboveInvAngstrom = matchSettings.pairRadiusInvAngstrom / 2
+            matchSettings.notIndexedAboveInvAngstrom = matchSettings.pairRadiusInvAngstrom * 0.75
             matchSettings.directBeamRadiusInvAngstrom = 3 * qPerPixel
         }
         // In truth mode every setting is the app's shipped default, untouched

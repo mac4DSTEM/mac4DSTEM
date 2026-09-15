@@ -1488,3 +1488,22 @@ not, the two frames differing by a multiple of 90° here). A control that a
 user would set to the textbook OR and lose recall to is not a feature; the
 probe carries the flag until those positions are explained.
 
+## 2026-09-15 — the verdict cliff is three quarters of the pair radius, and the OR earns its control
+
+The `notIndexedAboveInvAngstrom` default moves 0.01 → 0.015 and its
+detector scaling 0.5 → 0.75 px, because the survivor dump measured the
+half-pixel cliff rejecting honest 6–11-vector fits (mean residual 0.5–0.8
+pair radii under strain) while admitting a lucky two-vector pair, and the
+pre-registered runs on both datasets showed no cost: the demo cube identical
+at 0.5, 0.75 and 1.0 (every class saturated at 0 or 100 %, so it proves
+only that the cliff plays no part there); Thronsen's Al unchanged; 0.75
+and 1.0 seven positions apart (6.64 / 7.96 % against 6.61 / 7.94 %). Not 1.0: a mean of distances each within the pair
+radius is within it, so the refusal would never fire and the setting — and
+the 2026-09-12 test that pins the distinction — would be dead. With the
+cliff moved, the orientation relationship passes every clause of its own
+pre-registration (edge-on 69 % vs 71 % free, face-on 52 %, face-on → edge-on
+0, T1 80 %, total 6.64 % vs 7.96 %), so it gets a control — but in its
+intuitive form, a pair of parallel planes per phase from which Core derives
+the angles in its own frame, not a list of library-frame degrees. That form
+is the next increment; until it lands, no phase lists angles.
+

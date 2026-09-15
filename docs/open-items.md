@@ -140,10 +140,15 @@ by mean distance alone, so a sparse lucky pair beats a dense fit, and the
 label is right for the wrong reason. The correct on-OR fits sit at
 0.0099 — on the cliff. A many-vector fit under strain and sub-pixel jitter
 has a mean residual of half to three-quarters of the pair radius by
-construction; a cliff at half a pixel rejects exactly those. This is the
-2026-09-12 "two thresholds near a cliff" item with its first measured
-instance. Next: pre-registered, the cliff at 0.75 and 1.0 pair radii,
-free and with the OR, plus the demo cube as the second dataset. Also
+construction; a cliff at half a pixel rejects exactly those. **The cliff
+moved to 0.75 of the pair radius (pre-registered, measured on both
+datasets, its own item below): Thronsen at 0.2 % is now 7.96 % free and
+6.64 % with the OR** (edge-on 69 %, face-on 52 %, face-on → edge-on 0,
+T1 80 %, Al 99.6 %), and the orientation relationship now passes every
+clause of its pre-registration. What remains: the OR's user-facing form
+(a pair of parallel planes, not angles in the library's frame), and
+detection at the noise floor for T1's last 20 % and face-on's 38 % still
+read as Al. Also
 recorded: a phase filtered to no entries vanishes from the map silently,
 and every phase empty refuses the map (unreachable while no phase lists
 angles).
@@ -171,17 +176,25 @@ zone axes a ⟨110⟩Al beam DOES present is a crystallographic question nobody 
 answered here; until it is, the UI lets the user type one and the method
 refuses when it is wrong, which is the correct behaviour but not the answer.
 
-### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12
+### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12, the cliff moved 2026-09-15
 
-**Known, scoped.** Measured by Gate B on the harness's own plant: halving
-`notIndexedAboveInvAngstrom` (0.010 → 0.005) takes β″ from 100 % to 0 %, and
-doubling `pairRadiusInvAngstrom` (0.020 → 0.040) does the same. The header
-calls 0.02 a budget that "covers those with room"; the room is a factor of two,
-in one direction, on noise-free synthetic data. **The second half closed
-2026-09-14:** `testMatrixRemovalAndCandidateScoringReadTheirOwnRadii` sets the
-two radii 0.005 / 0.020 and displaces every vector by 0.012; reading the pair
-radius in matrix removal, or the matrix tolerance in scoring, each turned it
-red (21/1 twice), 22/22 green unmutated. The cliff itself remains as stated.
+**Closed as a defect, kept as a caution.** Measured by Gate B on the
+harness's own plant: halving `notIndexedAboveInvAngstrom` (0.010 → 0.005)
+took β″ from 100 % to 0 %, and doubling `pairRadiusInvAngstrom` did the
+same. The second half closed 2026-09-14 (the two radii read their own
+values, tested). **The cliff's first measured instance on real data,
+2026-09-15 (step 3 entry):** at half a pixel it rejected honest 6–11-vector
+θ′ fits at 0.010–0.016 Å⁻¹ while a lucky two-vector pair passed. Moved to
+0.75 of the pair radius (0.015; `scaledToDetector` 0.75 px), pre-registered
+and measured on both datasets: Thronsen 7.96 % free / 6.64 % with the OR at
+0.75 and 7.94 / 6.61 at 1.0 (seven positions), Al unchanged; the demo cube identical at 0.5,
+0.75 and 1.0 (`demo-cliff*-20260915.log`, `thronsen-cliff*-20260915.log`).
+Not 1.0, where it could never fire. What remains a caution: the best entry
+per phase is still chosen by mean distance alone, so a sparse precise match
+outranks a dense one — **across phases too** (Gate B 2026-09-15: a two-vector
+match at 0.004 beats a ten-vector match of another phase at 0.012) — a
+count-aware score is not built, and the pair floor makes two-vector matches
+admissible.
 
 ### A stale DerivedData test bundle fakes both a pass and a surviving mutation — added 2026-09-12
 

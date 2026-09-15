@@ -3,7 +3,8 @@
 > **Where it stands, 2026-09-15.** Steps **0, 1, 2, 4 and 5 are done**; step 3
 > **ran on a subsample and failed its pre-registered acceptance** (26 %
 > mislabelled against a 0.96–1.75 % band; 13.24 % after three decisions,
-> 8.75 % at a 0.2 % detection threshold; §3). Before that: step 3
+> 8.75 % at a 0.2 % detection threshold, 6.64 % with the verdict cliff at
+> 0.75 pair radii and the orientation relationship on; §3). Before that: step 3
 > is **deferred on disk, not abandoned**, and everything the app produces is
 > labelled unvalidated until it runs. The record of what landed, what two
 > pre-registered predictions got wrong, and what the Al-Mg-Si cube actually
@@ -107,7 +108,9 @@ so the band can be read from the subsample.
 - **Our result (`tools/phase-map-probe --thronsen`): 25.9–26.4 % at every
   detection threshold from 1 to 10 % with the mask reach; 98.3 % at the
   shipped 0.5 %; 13.24 % after the three decisions of 2026-09-15; 8.75 %
-  at a 0.2 % detection threshold (12.22 % at 0.3 %), the default unchanged.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
+  at a 0.2 % detection threshold (12.22 % at 0.3 %), the default unchanged;
+  7.96 % with the verdict cliff at 0.75 pair radii and 6.64 % with the
+  orientation relationship on as well.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
   the matrix because along [001]Al each variant leaves at most two
   non-Al reflections inside their 0.70 Å⁻¹ mask, under the matcher's
   `minimumMatchedVectors = 3` and the matrix's last word. By the

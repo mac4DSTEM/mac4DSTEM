@@ -128,10 +128,19 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// exactly the case a fixed `maximumVectorsPerEntry` cannot see.
     package var chanceMatchMultiple: Double = 5
     /// Best mean distance above this → "not indexed" rather than a forced
-    /// label. Å⁻¹. Well under `pairRadiusInvAngstrom`: the pair radius says
-    /// what could be the same reflection, this says what is close enough to
-    /// call it.
-    package var notIndexedAboveInvAngstrom: Double = 0.01
+    /// label. Å⁻¹. Under `pairRadiusInvAngstrom`: the pair radius says what
+    /// could be the same reflection, this says what is close enough to call
+    /// it. THREE QUARTERS of the pair radius, not half (MEASURED 2026-09-15,
+    /// Thronsen step 3): a correct 6–11-vector fit under strain and
+    /// sub-pixel jitter has a mean residual of 0.5–0.8 pair radii, so at
+    /// half it fell over the cliff while a lucky two-vector pair passed;
+    /// at 0.75 and at 1.0 both datasets read the same (Thronsen 7.96 %
+    /// free / 6.64 % with the OR at 0.75, 7.94 / 6.61 at 1.0, seven
+    /// positions apart; the demo cube identical at all three), Al and the
+    /// demo cube's false labels unchanged. Not 1.0:
+    /// a mean of distances each within the pair radius is within it, so
+    /// the refusal would never fire and the setting would be dead.
+    package var notIndexedAboveInvAngstrom: Double = 0.015
     /// The winner must beat the best entry of every OTHER candidate phase by
     /// this margin, else "not indexed". 0 disables the requirement. This is
     /// the contrast margin the 2026-09-11 refutation asked for; it is off by
@@ -194,14 +203,15 @@ package nonisolated struct PhaseVectorResolution: Sendable, Equatable {
     }
 
     /// The same settings expressed on this detector: one pixel for the two
-    /// tolerances, half a pixel for the verdict distance — the shipped ratio
-    /// (0.02 / 0.02 / 0.01), carried onto the grid the data is on.
+    /// tolerances, three quarters of a pixel for the verdict distance — the
+    /// shipped ratio (0.02 / 0.02 / 0.015, measured 2026-09-15), carried
+    /// onto the grid the data is on.
     package func scaledToDetector(_ settings: PhaseVectorSettings) -> PhaseVectorSettings {
         guard invAngstromPerPixel > 0 else { return settings }
         var out = settings
         out.pairRadiusInvAngstrom = invAngstromPerPixel
         out.matrixToleranceInvAngstrom = invAngstromPerPixel
-        out.notIndexedAboveInvAngstrom = invAngstromPerPixel / 2
+        out.notIndexedAboveInvAngstrom = invAngstromPerPixel * 0.75
         out.directBeamRadiusInvAngstrom = max(settings.directBeamRadiusInvAngstrom,
                                               3 * invAngstromPerPixel)
         return out

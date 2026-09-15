@@ -399,7 +399,8 @@ final class PhaseVectorMatchingTests: XCTestCase {
 
     /// Mutation: the `notIndexedAboveInvAngstrom` comparison inverted or
     /// removed, so an unexplained pattern is forced into whichever phase
-    /// happened to score least badly. The refusal IS the feature.
+    /// happened to score least badly. The refusal IS the feature. Also: the
+    /// score's mean replaced by its max (case 1b).
     ///
     /// TWO CASES, and the first version of this test had only the second.
     /// Vectors pointing nowhere are refused by the ELIGIBILITY guards
@@ -415,24 +416,40 @@ final class PhaseVectorMatchingTests: XCTestCase {
         let scratch = PhaseVectorMatcher.Scratch(capacity: 256)
 
         // Case 1 — eligible, but too far to call. Every vector is a real β″
-        // reference displaced by 0.015 Å⁻¹: inside the 0.020 pair radius, above
-        // the 0.010 not-indexed distance.
+        // reference displaced by 0.018 Å⁻¹: inside the 0.020 pair radius, above
+        // the 0.015 not-indexed distance (0.75 of the radius since 2026-09-15).
         let entry = library.entries[library.candidateEntryIndices[0]]
-        XCTAssertGreaterThan(settings.pairRadiusInvAngstrom, 0.015)
-        XCTAssertLessThan(settings.notIndexedAboveInvAngstrom, 0.015)
-        let displaced = entry.vectors.prefix(10).map { $0.q + SIMD2(0.015, 0) }
+        XCTAssertGreaterThan(settings.pairRadiusInvAngstrom, 0.018)
+        XCTAssertLessThan(settings.notIndexedAboveInvAngstrom, 0.018)
+        let displaced = entry.vectors.prefix(10).map { $0.q + SIMD2(0.018, 0) }
         let nearMiss = PhaseVectorMatcher.classify(
             vectors: Array(displaced), library: library, settings: settings,
             matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices,
             scratch: scratch)
         XCTAssertEqual(nearMiss.verdict, .notIndexed,
-                       "a pattern 0.015 Å⁻¹ off every reference was called a phase")
+                       "a pattern 0.018 Å⁻¹ off every reference was called a phase")
         XCTAssertGreaterThan(nearMiss.matchedCount, 0,
                              "the near-miss case never reached the threshold")
         XCTAssertTrue(nearMiss.score.isFinite,
                       "a refused position must still carry the numbers behind the refusal")
         XCTAssertEqual(nearMiss.phaseIndex, -1)
         XCTAssertEqual(nearMiss.entryIndex, -1)
+
+        // Case 1b — NON-uniform residuals (Gate B 2026-09-15: every case above
+        // displaces every vector identically, so a `max` or a median in place
+        // of the mean was invisible). Half the vectors 0.012 off, half 0.017
+        // off: mean 0.0145 is under the 0.015 verdict distance, the largest is
+        // over it. The mean is the rule, so this is called.
+        let mixed = entry.vectors.prefix(10).enumerated().map { i, v in
+            v.q + SIMD2(i < 5 ? 0.012 : 0.017, 0)
+        }
+        let called = PhaseVectorMatcher.classify(
+            vectors: Array(mixed), library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(called.verdict, .indexed,
+                       "a pattern whose MEAN residual is under the verdict distance was refused "
+                       + "-- mutation: the score is not the mean (max or median)")
 
         // Case 2 — vectors on a ring no phase has a reflection near. Refused
         // by the eligibility guards, which is a different mechanism.
@@ -1020,7 +1037,7 @@ final class PhaseVectorResolutionTests: XCTestCase {
                                                invAngstromPerPixel: 0.045741477608680726)
         XCTAssertEqual(resolution.pairRadiusPixels, 0.437, accuracy: 0.001)
         XCTAssertEqual(resolution.matrixRemovalPixels, 0.437, accuracy: 0.001)
-        XCTAssertEqual(resolution.notIndexedAbovePixels, 0.219, accuracy: 0.001)
+        XCTAssertEqual(resolution.notIndexedAbovePixels, 0.328, accuracy: 0.001)
         // A finer detector meets the same settings comfortably, which is what
         // makes the number worth showing rather than the setting worth banning.
         let fine = PhaseVectorResolution(settings: PhaseVectorSettings(),
@@ -1046,10 +1063,11 @@ final class PhaseVectorResolutionTests: XCTestCase {
     }
 
     /// Mutation: `scaledToDetector` setting the verdict distance equal to the
-    /// pair radius rather than half of it. The pair radius says what COULD be
-    /// the same reflection; the verdict distance says what is close enough to
-    /// call — equal values collapse the distinction and index everything the
-    /// pair radius admits.
+    /// pair radius rather than three quarters of it (half until 2026-09-15,
+    /// when the half was measured to reject honest many-vector fits). The
+    /// pair radius says what COULD be the same reflection; the verdict
+    /// distance says what is close enough to call — equal values collapse
+    /// the distinction and index everything the pair radius admits.
     func testScalingToTheDetectorKeepsTheShippedRatio() {
         let scale = 0.045741477608680726
         let scaled = PhaseVectorResolution(settings: PhaseVectorSettings(),
@@ -1057,7 +1075,7 @@ final class PhaseVectorResolutionTests: XCTestCase {
             .scaledToDetector(PhaseVectorSettings())
         XCTAssertEqual(scaled.pairRadiusInvAngstrom, scale, accuracy: 1e-12)
         XCTAssertEqual(scaled.matrixToleranceInvAngstrom, scale, accuracy: 1e-12)
-        XCTAssertEqual(scaled.notIndexedAboveInvAngstrom, scale / 2, accuracy: 1e-12)
+        XCTAssertEqual(scaled.notIndexedAboveInvAngstrom, scale * 0.75, accuracy: 1e-12)
         XCTAssertLessThan(scaled.notIndexedAboveInvAngstrom, scaled.pairRadiusInvAngstrom)
         // The direct beam is only ever widened, never narrowed: a user who set
         // it wide for a big probe must not have it cut by a scaling action.
