@@ -258,7 +258,17 @@ package nonisolated final class FFT2D: @unchecked Sendable {
         guard nx > 0, ny > 0 else { return nil }
         self.nx = nx
         self.ny = ny
-        let isRadix2 = nx & (nx - 1) == 0 && ny & (ny - 1) == 0
+        // The one-call vDSP 2D path is taken only for power-of-two sizes of
+        // at least 16 on BOTH axes. MEASURED 2026-09-15 night (Gate B on the
+        // rotation null, which is the first caller with scan-sized inputs):
+        // `vDSP_fft2d_zip` returns garbage — forward→inverse off by O(1),
+        // the DC bin zero for a non-zero-mean field — for nx = 8 or 4 with
+        // ny ≥ 8 (8×8, 8×16, 8×32, 8×64, 4×8), while 16×8, 64×8, 8×4, 4×4
+        // and everything ≥ 16×16 round-trip to 1e-7. The axis-wise path
+        // below round-trips every one of those shapes to 1e-7, so small
+        // power-of-two sizes go there; ptychography's detector-sized
+        // transforms are unaffected.
+        let isRadix2 = nx & (nx - 1) == 0 && ny & (ny - 1) == 0 && nx >= 16 && ny >= 16
         log2x = isRadix2 ? vDSP_Length(log2(Double(nx))) : 0
         log2y = isRadix2 ? vDSP_Length(log2(Double(ny))) : 0
         if isRadix2 {

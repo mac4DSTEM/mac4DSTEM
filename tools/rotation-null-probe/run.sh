@@ -48,6 +48,7 @@ mac4dstem_sources "$ROOT" calibration
 # runners share.
 MAC4DSTEM_SOURCES+=(
   "$ROOT/mac4DSTEM/Core/Compute/AnalysisCancellationToken.swift"
+  "$ROOT/mac4DSTEM/Core/Compute/FFT2D.swift"
   "$ROOT/mac4DSTEM/Core/Analysis/RotationCalibration.swift"
 )
 

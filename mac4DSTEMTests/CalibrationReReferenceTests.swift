@@ -569,6 +569,45 @@ final class RotationSignificanceTests: XCTestCase {
                        "the refusal claims a state the code does not establish")
     }
 
+    /// THE FAILURE GATE B FOUND, pinned (2026-09-15 night). A rotation-free
+    /// field with spatial structure — white noise smoothed by a 7 × 7 box,
+    /// longer than probe overlap produces — was certified 65 % of the time by
+    /// the shuffle null (`tools/rotation-null-probe`, box 7). The
+    /// phase-randomised surrogate null keeps the field's correlation length,
+    /// so structure alone no longer beats it. Six fixed seeds, each a
+    /// deterministic refusal under the new null (seed 16 was certified — the
+    /// 1-in-16 lottery the entry records — and was swapped for 17; the rate
+    /// claim lives in the probe, this pins six fields). Under the old null the
+    /// same six seeds were scanned and four of them certified, so restoring
+    /// the shuffle turns this red.
+    func testAStructuredRotationFreeFieldIsRefused() throws {
+        for seed in [11, 12, 13, 14, 15, 17] as [UInt64] {
+            let field = Self.smoothedNoiseField(width: 40, height: 40, radius: 3, seed: seed)
+            let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+            XCTAssertFalse(result.carriesRotation,
+                           "seed \(seed): a rotation-free field with a 7-px correlation length "
+                           + "was certified: depth \(result.depth), null max "
+                           + "\(result.shuffledDepths.max() ?? 0)")
+        }
+    }
+
+    /// The surrogate must be a REAL field: Gate B (2026-09-15 night) dropped
+    /// the Hermitian pairing so each bin got an independent phase, and every
+    /// pinned test stayed green because the noiseless planted rotation's
+    /// depth dwarfs even a garbage null — while the probe's noisy planted
+    /// rotation fell from 60 of 60 certified to 16. Three seeds at sd 0.03:
+    /// under that mutation the chance that all three certify is about 2 %.
+    func testANoisyPlantedRotationIsStillCertified() throws {
+        for seed in [3, 4, 5] as [UInt64] {
+            let field = Self.noisyPhaseObjectField(width: 40, height: 40, rotatedBy: 30 * .pi / 180,
+                                                   noiseSd: 0.03, seed: seed)
+            let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+            XCTAssertTrue(result.carriesRotation,
+                          "seed \(seed): a planted 30° under sd 0.03 was refused: depth "
+                          + "\(result.depth), null max \(result.shuffledDepths.max() ?? 0)")
+        }
+    }
+
     /// The null must not move between runs. A refusal that flickers is worse
     /// than none, because the user cannot tell which answer to believe.
     func testTheNullIsDeterministic() throws {
@@ -775,6 +814,48 @@ final class RotationSignificanceTests: XCTestCase {
                 let i = (y * width + x) * 2
                 out[i] = Float(c * gx - s * gy)
                 out[i + 1] = Float(s * gx + c * gy)
+            }
+        }
+        return out
+    }
+
+    /// The phase-object gradient field with white noise of `noiseSd` on both
+    /// channels, seeded.
+    private static func noisyPhaseObjectField(width: Int, height: Int, rotatedBy theta: Double,
+                                              noiseSd: Double, seed: UInt64) -> [Float] {
+        var state: UInt64 = 0xB16B00B5DEADBEEF &+ seed &* 0x9E3779B97F4A7C15
+        func next() -> Double {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            return Double((state &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53)
+        }
+        func gauss() -> Double { sqrt(-2 * log(max(1e-12, next()))) * cos(2 * .pi * next()) }
+        var out = phaseObjectField(width: width, height: height, rotatedBy: theta)
+        for i in out.indices { out[i] += Float(gauss() * noiseSd) }
+        return out
+    }
+
+    /// White noise (sd ≈ 0.010 px) smoothed by a (2·radius + 1)² box, each
+    /// channel independently: spatial structure with no rotation in it.
+    private static func smoothedNoiseField(width: Int, height: Int, radius: Int, seed: UInt64) -> [Float] {
+        var state: UInt64 = 0xC0FFEE0000000000 &+ seed &* 0x9E3779B97F4A7C15
+        func next() -> Float {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            let u = Double((state &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53)
+            return Float((u - 0.5) * 0.035)
+        }
+        let white = (0..<(width * height * 2)).map { _ in next() }
+        var out = [Float](repeating: 0, count: white.count)
+        for y in 0..<height {
+            for x in 0..<width {
+                var sx: Float = 0, sy: Float = 0, count: Float = 0
+                for dy in -radius...radius where y + dy >= 0 && y + dy < height {
+                    for dx in -radius...radius where x + dx >= 0 && x + dx < width {
+                        let i = ((y + dy) * width + (x + dx)) * 2
+                        sx += white[i]; sy += white[i + 1]; count += 1
+                    }
+                }
+                out[(y * width + x) * 2] = sx / count
+                out[(y * width + x) * 2 + 1] = sy / count
             }
         }
         return out

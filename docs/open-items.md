@@ -117,58 +117,47 @@ does distinguish them; nothing else does. The demo cube's matrix fraction moves
 51 % → 74 % because of it, which is correct but unexplained on screen. Owner:
 presentation only, so no Gate D.
 
-### The rotation null is a whiteness test, not a rotation test — Gate B 2026-09-15
-**Science, live. The guard shipped, Gate B narrowed it, and "FIXED" was wrong.**
-`RotationCalibration.solve`'s permutation null catches the failure that reached
-the owner — a spatially WHITE centre-of-mass field reported as "Measured
-−67.5°" — and refuses no genuine rotation (0 of 60 at every noise level through
-sd 0.05, and the cost is invisible: 0.12 s at 100 × 100). What it does not do:
-- **A rotation-free field with spatial structure is certified.** Box-smoothed
-  noise at a correlation length of two scan pixels beats all fifteen shuffles
-  60–80 % of the time, and **probe overlap alone produces that correlation** on
-  ordinary data. A per-row descan drift and a specimen edge were each certified
-  6 of 6 at 6–20× the shuffled depth, with arbitrary angles.
-- **Passing implies nothing about accuracy.** A planted 30° at noise sd 0.03 is
-  certified 60 of 60 while 9 are more than 5° out and one is 61° out.
-- **The verdict is seed-conditional.** Fifteen shuffles with "beat every one" is
-  a rank test at a 1-in-16 design rate; the unit suite's own noise fixture is
-  certified under **50 of 200 seeds**, and the demo cube's refusal (depth
-  0.01341 inside shuffled 0.00854–0.02472) is the same lottery. A real fix
-  needs a statistic, not a rank.
-**Gate B left four mutations alive. ALL FOUR ARE SETTLED (2026-09-15).**
-Deleting the guard left the whole suite green, because every test lived in Core
-and none constructed a session; the decision moved to
-`CalibrationSession.applyRotation(_:)`, testable without a dataset, and
-`AppState` shrank by three lines. `shuffleCount` 15 → 6 and taking the LOSING
-transpose curve's depth are both pinned now, the second recomputed in the test
-from the curves the result already carries. A refusal that also CLEARS — what
-the old sentence wrongly claimed — is pinned too. The fourth was not a defect
-but an unfounded claim: shuffling `cx` and `cy` independently barely moves the
-certification rate (7 of 60 against 3 of 60), so the comment calling the
-pairing load-bearing is corrected rather than pinned.
-**Fixed the same day:** the refusal sentence claimed "the rotation is left as
-Not set", which the code never establishes — it declines to write and never
-clears, so an earlier fit, a session restore, a manual entry or a value from
-the file survives while strain, ACOM and DPC keep consuming it. Now "not
-updated", pinned by a test.
-**Also owed:** the refusal is a 264-character sentence routed to `statusText`
-alone, not an alert, and the diagnostics panel still says "the marker is the
-chosen minimum" beside an angle that was deliberately not written
-(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.**
-**The Gate B numbers above came from a scratch probe that was never checked
-in. `tools/rotation-null-probe` (diagnostic, 2026-09-15 night) is the
-instrument now, with its own generators, and it does NOT reproduce all of
-them** (`rotation-probe-final-20260915.log`): white noise sd 0.010 at 40 × 40
-certifies **10 of 200**, the 1-in-16 design rate, not 50; 3 × 3 box-smoothed
-noise certifies **19 of 60 at 40 × 40 and 26 of 60 at 100 × 100** (32–43 %,
-not 60–80 %); a per-row drift spanning 0.05 px over noise sd 0.010 is
-certified **0 of 6** (depth 0.4–0.9× the shuffles), so the recorded 6 of 6 at
-6–20× used a larger drift than the entry states; a 0.05 px specimen edge is
-certified **6 of 6** at 1.4–2.1×; planted 30° at sd 0.03 is certified 60 of
-60 with 8 over 5° and one 63.7° out; 0 of 60 real rotations refused. The
-qualitative claim stands — structure without rotation is certified, and a
-certified angle can be 60° out — and the rates in the bullets above are the
-scratch probe's, superseded by the harness's where they differ.
+### The rotation null keeps the field's structure now — what it still cannot do — Gate D 2026-09-15 night
+**Science, live, narrowed again.** `RotationCalibration.solve`'s null is a
+phase-randomised surrogate per channel (each channel's amplitude spectrum
+kept, phases randomised, Hermitian pairs opposite), not a shuffle of the scan
+positions. Gate D: the diagnosis "the shuffle null is calibrated for white
+fields" predicted certification of a rotation-free field rising with its
+correlation length, and `tools/rotation-null-probe` measured 15 → 32 → 52 →
+65 % for box 1/3/5/7 (`rotation-probe-gateD-before-20260915.log`). After:
+7 → 8 → 5 → **17 %** (`…-after-…`); white noise 8 %; planted 30° still 60 of
+60; a per-row drift 0 of 6. Pinned by `testAStructuredRotationFreeFieldIsRefused`.
+**Two predictions missed, both recorded as limits, not fixed:**
+- **Localised features are under-certified.** A 0.05 px two-channel step
+  edge, predicted to stay certified because it IS a rotated gradient, is
+  refused 6 of 6: a spectrum-preserving surrogate delocalises a step into a
+  field-wide wave, so the null's depth exceeds the real field's. A real
+  rotation carried mainly by one grain boundary may be refused.
+- **Power drops at the highest noise:** planted 30° at sd 0.05 is refused
+  3 of 12 (0 of 48 at sd ≤ 0.03), against 0 of 60 under the shuffle null.
+- **Box 7 on a 40-px field certifies 10 of 60**, not 1 in 16 — Gate B
+  wrapped the same field periodically and got 5 of 60: the excess is the
+  periodic surrogate meeting a non-periodic field, not the rank test.
+- **Gate B found `FFT2D`'s one-call vDSP path returning garbage for nx = 8
+  or 4 with ny ≥ 8** (round trip off by O(1), DC bin zero) — pre-existing,
+  first reached by this null on scan-sized inputs; small power-of-two shapes
+  now take the axis-wise path, pinned by
+  `FFT2DArbitraryLengthTests.testSmallPowerOfTwoShapesRoundTripLikeTheLargeOnes`.
+- **Gate B's four mutations all passed the pinned tests**: dropping the
+  Hermitian pairing was catastrophic in the probe (60 → 16 of 60) and
+  invisible to a noiseless fixture, so `testANoisyPlantedRotationIsStillCertified`
+  now pins sd 0.03; same-phase channels and a cx-only surrogate are
+  unfalsified by any current measurement and recorded as such.
+- **A 1-D field is refused by design** (a striped specimen and a descan ramp
+  are the same field; no cross-channel relation to destroy).
+**The owner's own case class:** the demo cube's field is shot noise at
+sd ≈ 0.010 on 100 × 100 (measured 2026-09-14); the probe's `A-100` row
+certifies **2 of 60** such fields, so "Measured −67.5°" recurs about once in
+thirty, not every time. The cube itself has not been re-run through the app.
+**Still owed:** the 264-character refusal routed to `statusText` alone, the
+inspector's "the marker is the chosen minimum" beside an angle not written
+(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.** The Gate B narrative
+(2026-09-15 morning) is in `archive/closed-items-2026-09.md`.
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
 **Science, live, no fix, cause narrowed to the score itself. One entry for the
@@ -361,25 +350,33 @@ An existing item, "ACOM omits py4DSTEM's `power_radial` weighting
 (2026-08-28)", already names the first of these — this entry is the measured
 list around it.
 
-### The zone-axis fit's chance floor does not mark the case it was built for — added 2026-09-14
-**Known, scoped, partly addressed.** `ZoneAxisFit` now carries
-`chanceMatchedVectors` from the same `chanceMatchFraction` the matcher's guard
-uses, and the panel marks a row "at chance". **It does not mark the ⟨112⟩ at
-8 % that motivated it.** Measured by Gate B at the app's default reference
-settings: aluminium's ⟨112⟩ entries carry 12-16 reference vectors, not the 48
-the cap allows, so the expectation is 0.37-1.3 % and 8 % clears five times it.
-The mark fires only while each pattern's second-largest |u| stays under about
-0.55-0.63 Å⁻¹, and Al {220} alone is at 0.699. Reproduced on an owner-like
-sample: ⟨211⟩ explained 2.32 % against 0.369 % chance, ratio 6.29, no mark.
-**A second measured limit:** the uniform-disc model is well calibrated on
-vectors drawn uniformly over the disc (14 matched of 1 379 against 11.4
-expected) and understates chance about sixfold for vectors confined to the
-radii the references occupy (63 of 1 408 against 10.7) — which is what real
-spurious peaks look like. Both numbers are asserted in
-`ZoneAxisFitTests.testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot`, so a
-reader reproduces them by running that class. What the change bought is the
-number itself, reported instead of absent. The threshold that would catch the
-owner's case is not established: Gate D owed.
+### The zone-axis sweep marks a wrong axis against its own median — Gate D 2026-09-15 night, residuals
+**Science, narrowed.** Gate D found why the disc-chance floor could never mark
+the owner's ⟨112⟩ at 8 %: on a real crystal a wrong axis explains 11–25 % of
+the vectors through SHARED reflections, not chance — measured on planted
+⟨110⟩, ⟨112⟩ and ⟨001⟩ aluminium at 2° steps with 30 % of spots missing,
+0.004 Å⁻¹ jitter and three spurious peaks per pattern, where every one of
+the 49 axes cleared five times disc chance and the median wrong axis sat at
+11–16 % (`chance/run1.log`). So `ZoneAxisFit` carries a second null, the
+sweep's median explained fraction: true families sat at 4.8–6.8× it, wrong
+families at 0.7–1.6×, the bar is 2×, and a row under it reads "no better
+than a wrong axis". The disc rule stays for vectors pointing nowhere (sweep
+median ~0.5 %, where the median is no null). Pinned by
+`testAWrongAxisThatSharesReflectionsIsMarkedBelowTheSweep`, whose control
+asserts the defect (⟨112⟩ clears disc chance) beside the fix.
+**Trap paid, recorded here because it faked a surviving mutation:** the
+filtered `xcodebuild test` runs used to check this test never DISCOVERED it
+(22 cases both times, the new name absent — the stale-bundle trap above),
+so the bar-to-1 mutation "survived" a test that had not run; the mutation
+was demonstrated instead on a scratch harness with the same generator
+(27 of 43 wrong axes clear a bar of 1, 0 clear 2, `chance/`), and the fresh
+`unit` gate is what discovers the test.
+**Residuals:** the 2× bar rests on three synthetic plants, not on the owner's
+cube (not on this machine); a two-grain scan has two true families and the
+median rises with them — untested; the disc model still understates chance
+about sixfold for ring-confined vectors (the kept assertion in
+`testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot`). **Unverified on
+screen.** The 2026-09-14 entry is in `archive/closed-items-2026-09.md`.
 
 ### Contiguous invalid regions fabricate precipitates — blocks wiring
 `PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite

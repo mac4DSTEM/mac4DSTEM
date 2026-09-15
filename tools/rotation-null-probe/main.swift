@@ -64,15 +64,16 @@ func whiteNoiseField(width: Int, height: Int, sd: Double, seed: UInt64) -> [Floa
 /// 3×3 box mean of a field, each channel independently, clamped at the
 /// border (averaged over whatever neighbors exist rather than wrapping or
 /// zero-padding). Correlation length ≈ 2 scan px.
-func boxSmoothed(_ field: [Float], width: Int, height: Int) -> [Float] {
+func boxSmoothed(_ field: [Float], width: Int, height: Int, radius: Int = 1) -> [Float] {
+    if radius == 0 { return field }
     var out = [Float](repeating: 0, count: field.count)
     for y in 0..<height {
         for x in 0..<width {
             var sumX: Float = 0, sumY: Float = 0, count: Float = 0
-            for dy in -1...1 {
+            for dy in -radius...radius {
                 let ny = y + dy
                 guard ny >= 0, ny < height else { continue }
-                for dx in -1...1 {
+                for dx in -radius...radius {
                     let nx = x + dx
                     guard nx >= 0, nx < width else { continue }
                     let i = (ny * width + nx) * 2
@@ -173,8 +174,8 @@ func tableRow(_ exp: String, _ n: Int, _ measured: String, _ claim: String) -> S
 
 /// A. White noise, sd 0.010, 40×40, 200 seeds → how many certify.
 /// Recorded claim: under 50 of 200.
-func experimentA(seedOffset: UInt64) -> String {
-    let width = 40, height = 40, sd = 0.010, n = 200
+func experimentA(seedOffset: UInt64, size: Int = 40, label: String = "A", n: Int = 200) -> String {
+    let width = size, height = size, sd = 0.010
     var certified = 0
     for i in 0..<n {
         let seed: UInt64 = 0xA000_0000_0000_0000 &+ seedOffset &+ UInt64(i)
@@ -184,19 +185,19 @@ func experimentA(seedOffset: UInt64) -> String {
     }
     let pct = Double(certified) / Double(n) * 100
     let measured = "\(certified)/\(n) certified (\(fmt(pct))%)"
-    return tableRow("A", n, measured, "<50/200 (<25%)")
+    return tableRow(label, n, measured, label == "A" ? "<50/200 (<25%)" : "the demo cube's field class (shot noise, 100x100): ~1/16")
 }
 
 /// B. Box-smoothed noise, no rotation, two sizes, 60 seeds each → certified
 /// count and the spread of returned angles. Recorded claim: 60–80%.
-func experimentB(size: Int, label: String) -> String {
+func experimentB(size: Int, label: String, radius: Int = 1, claim: String = "60-80% certified") -> String {
     let sd = 0.010, n = 60
     var certified = 0
     var angles: [Double] = []
     for i in 0..<n {
         let seed: UInt64 = 0xB000_0000_0000_0000 &+ UInt64(size) &* 1_000_000 &+ UInt64(i)
         let base = whiteNoiseField(width: size, height: size, sd: sd, seed: seed)
-        let field = boxSmoothed(base, width: size, height: size)
+        let field = boxSmoothed(base, width: size, height: size, radius: radius)
         guard let r = RotationCalibration.solve(com: field, width: size, height: size) else { continue }
         if r.carriesRotation {
             certified += 1
@@ -206,7 +207,7 @@ func experimentB(size: Int, label: String) -> String {
     let pct = Double(certified) / Double(n) * 100
     let angleRange = angles.isEmpty ? "n/a" : "[\(fmt(angles.min()!)), \(fmt(angles.max()!))]deg"
     let measured = "\(certified)/\(n) certified (\(fmt(pct))%), certified-angle range \(angleRange)"
-    return tableRow("B-\(label)", n, measured, "60-80% certified")
+    return tableRow("B-\(label)", n, measured, claim)
 }
 
 /// C. Per-row descan drift, 100×100, 6 seeds → certified count, returned
@@ -320,8 +321,20 @@ print("")
 print(padRight("EXP", 7) + padRight("N", 7) + padRight("MEASURED", 96) + "| RECORDED CLAIM")
 print(String(repeating: "-", count: 150))
 print(experimentA(seedOffset: seedOffsetA))
+// The owner's own case class: the demo cube's descan-corrected CoM field is
+// Poisson shot noise at sd ≈ 0.010 on a 100 × 100 scan (measured
+// 2026-09-14, 0.01046). Its certification rate is what "Measured −67.5°"
+// from that cube would recur at.
+print(experimentA(seedOffset: seedOffsetA, size: 100, label: "A-100", n: 60))
 print(experimentB(size: 40, label: "40"))
 print(experimentB(size: 100, label: "100"))
+// Gate D 2026-09-15 night: the diagnosis says the shuffle null is calibrated
+// for exchangeable (white) samples, so the certification rate of a
+// rotation-free field should RISE with its correlation length. Box 1 is white
+// (design rate 1/16); box 5 and 7 are longer than probe overlap produces.
+print(experimentB(size: 40, label: "40-box1", radius: 0, claim: "Gate D: ~1/16 (white)"))
+print(experimentB(size: 40, label: "40-box5", radius: 2, claim: "Gate D: above box3 if the null is a whiteness test"))
+print(experimentB(size: 40, label: "40-box7", radius: 3, claim: "Gate D: above box5"))
 print(experimentC())
 print(experimentD())
 print(experimentE(plantedDeg: plantedDegE))

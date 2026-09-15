@@ -869,3 +869,89 @@ marked instead. The pieces:
 - **The fixture already exists:** `spotty_ring_6_azimuths` is the legitimate
   case (expect `refuse` today, expect flag-and-fit after), and
   `grains_3_one_annulus` is the control that must stay refused.
+
+---
+
+## The rotation null is a whiteness test — narrowed again 2026-09-15 night
+
+**Closure of THIS entry only:** the shuffle null it describes was replaced the same night by a phase-randomised surrogate null (Gate D, `tools/rotation-null-probe` before/after). What the new null still cannot do is the live entry in [`../open-items.md`](../open-items.md). The text below is the morning's Gate B record, kept for its measurements — note that the probe later reproduced its claim but not its rates.
+
+### The rotation null is a whiteness test, not a rotation test — Gate B 2026-09-15
+**Science, live. The guard shipped, Gate B narrowed it, and "FIXED" was wrong.**
+`RotationCalibration.solve`'s permutation null catches the failure that reached
+the owner — a spatially WHITE centre-of-mass field reported as "Measured
+−67.5°" — and refuses no genuine rotation (0 of 60 at every noise level through
+sd 0.05, and the cost is invisible: 0.12 s at 100 × 100). What it does not do:
+- **A rotation-free field with spatial structure is certified.** Box-smoothed
+  noise at a correlation length of two scan pixels beats all fifteen shuffles
+  60–80 % of the time, and **probe overlap alone produces that correlation** on
+  ordinary data. A per-row descan drift and a specimen edge were each certified
+  6 of 6 at 6–20× the shuffled depth, with arbitrary angles.
+- **Passing implies nothing about accuracy.** A planted 30° at noise sd 0.03 is
+  certified 60 of 60 while 9 are more than 5° out and one is 61° out.
+- **The verdict is seed-conditional.** Fifteen shuffles with "beat every one" is
+  a rank test at a 1-in-16 design rate; the unit suite's own noise fixture is
+  certified under **50 of 200 seeds**, and the demo cube's refusal (depth
+  0.01341 inside shuffled 0.00854–0.02472) is the same lottery. A real fix
+  needs a statistic, not a rank.
+**Gate B left four mutations alive. ALL FOUR ARE SETTLED (2026-09-15).**
+Deleting the guard left the whole suite green, because every test lived in Core
+and none constructed a session; the decision moved to
+`CalibrationSession.applyRotation(_:)`, testable without a dataset, and
+`AppState` shrank by three lines. `shuffleCount` 15 → 6 and taking the LOSING
+transpose curve's depth are both pinned now, the second recomputed in the test
+from the curves the result already carries. A refusal that also CLEARS — what
+the old sentence wrongly claimed — is pinned too. The fourth was not a defect
+but an unfounded claim: shuffling `cx` and `cy` independently barely moves the
+certification rate (7 of 60 against 3 of 60), so the comment calling the
+pairing load-bearing is corrected rather than pinned.
+**Fixed the same day:** the refusal sentence claimed "the rotation is left as
+Not set", which the code never establishes — it declines to write and never
+clears, so an earlier fit, a session restore, a manual entry or a value from
+the file survives while strain, ACOM and DPC keep consuming it. Now "not
+updated", pinned by a test.
+**Also owed:** the refusal is a 264-character sentence routed to `statusText`
+alone, not an alert, and the diagnostics panel still says "the marker is the
+chosen minimum" beside an angle that was deliberately not written
+(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.**
+**The Gate B numbers above came from a scratch probe that was never checked
+in. `tools/rotation-null-probe` (diagnostic, 2026-09-15 night) is the
+instrument now, with its own generators, and it does NOT reproduce all of
+them** (`rotation-probe-final-20260915.log`): white noise sd 0.010 at 40 × 40
+certifies **10 of 200**, the 1-in-16 design rate, not 50; 3 × 3 box-smoothed
+noise certifies **19 of 60 at 40 × 40 and 26 of 60 at 100 × 100** (32–43 %,
+not 60–80 %); a per-row drift spanning 0.05 px over noise sd 0.010 is
+certified **0 of 6** (depth 0.4–0.9× the shuffles), so the recorded 6 of 6 at
+6–20× used a larger drift than the entry states; a 0.05 px specimen edge is
+certified **6 of 6** at 1.4–2.1×; planted 30° at sd 0.03 is certified 60 of
+60 with 8 over 5° and one 63.7° out; 0 of 60 real rotations refused. The
+qualitative claim stands — structure without rotation is certified, and a
+certified angle can be 60° out — and the rates in the bullets above are the
+scratch probe's, superseded by the harness's where they differ.
+
+---
+
+## The zone-axis fit's chance floor does not mark the case it was built for — narrowed 2026-09-15 night
+
+**Closure:** the case is marked now, by a second null (the sweep's own median) rather than by a threshold on the disc model; the Gate D record and residuals are the live entry in [`../open-items.md`](../open-items.md). The 2026-09-14 text follows.
+
+### The zone-axis fit's chance floor does not mark the case it was built for — added 2026-09-14
+**Known, scoped, partly addressed.** `ZoneAxisFit` now carries
+`chanceMatchedVectors` from the same `chanceMatchFraction` the matcher's guard
+uses, and the panel marks a row "at chance". **It does not mark the ⟨112⟩ at
+8 % that motivated it.** Measured by Gate B at the app's default reference
+settings: aluminium's ⟨112⟩ entries carry 12-16 reference vectors, not the 48
+the cap allows, so the expectation is 0.37-1.3 % and 8 % clears five times it.
+The mark fires only while each pattern's second-largest |u| stays under about
+0.55-0.63 Å⁻¹, and Al {220} alone is at 0.699. Reproduced on an owner-like
+sample: ⟨211⟩ explained 2.32 % against 0.369 % chance, ratio 6.29, no mark.
+**A second measured limit:** the uniform-disc model is well calibrated on
+vectors drawn uniformly over the disc (14 matched of 1 379 against 11.4
+expected) and understates chance about sixfold for vectors confined to the
+radii the references occupy (63 of 1 408 against 10.7) — which is what real
+spurious peaks look like. Both numbers are asserted in
+`ZoneAxisFitTests.testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot`, so a
+reader reproduces them by running that class. What the change bought is the
+number itself, reported instead of absent. The threshold that would catch the
+owner's case is not established: Gate D owed.
+

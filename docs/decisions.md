@@ -1365,3 +1365,40 @@ live crash risk and the fix is named, but a load-path refactor that nothing
 can catch a regression on, done unattended with no screen, is the wrong
 night for it. Its precondition is a runnable reproduction — the 2026-08-19
 lldb race in harness form — which is the next thing that item needs.
+
+## 2026-09-15 (night) — the rotation null keeps the field's structure
+
+The morning's permutation null shuffled scan positions, which is a test of
+whether the centre-of-mass field is spatially white — Gate B measured it, and
+`tools/rotation-null-probe` then reproduced the mechanism: a rotation-free
+field's certification rate rose with its correlation length (15 → 65 % from
+box 1 to box 7). The null now draws phase-randomised surrogates of each
+channel: the amplitude spectrum, hence the correlation length, anisotropy and
+mean, is kept; only the phases are randomised, independently per channel,
+which destroys exactly the cross-channel gradient relation a rotation is.
+The rank test over fifteen of them (Theiler et al. 1992) is then exact by
+construction, so "a statistic, not a rank" turned out to be the wrong
+diagnosis of the morning: the rank was fine, the null was not.
+
+Chosen over a block bootstrap because a block size is a constant to defend
+and a spectrum is not. Accepted costs, all measured before the change was
+kept: localised features are under-certified (a step edge, which is a rotated
+gradient, is refused), power drops at noise sd 0.05 (3 of 12 refused), and a
+1-D field is refused because a striped specimen and a descan ramp are the
+same field. An empty null (no FFT plan) refuses rather than certifies.
+
+## 2026-09-15 (night) — the zone-axis sweep is its own null
+
+The chance floor of 2026-09-14 modelled chance as vectors pointing nowhere,
+and its open item asked what threshold on that model would catch the owner's
+⟨112⟩ at 8 %. Gate D answered: none. On a real crystal a wrong axis explains
+11–25 % of the vectors through reflections it shares with the true one, so
+every one of 49 axes clears five times disc chance on a clean plant. The
+question the owner was asking — is this axis better than a wrong one? — has
+the sweep itself as its null: the median axis of the sweep is a wrong axis by
+construction, and an informative family stands 4.8–6.8× above it where a
+wrong family stands 0.7–1.6×. The bar is 2×, a measured constant recorded
+with the three plants that set it; the disc rule stays for the case it was
+built for (random vectors, where the median is ~0.5 % and no null). A row
+that fails only the second reads "no better than a wrong axis", not "at
+chance", because it is not chance.

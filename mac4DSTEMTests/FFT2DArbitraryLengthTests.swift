@@ -253,4 +253,26 @@ final class FFT2DArbitraryLengthTests: XCTestCase {
             XCTAssertEqual(results[w], serialRe + serialIm, "worker \(w) diverged")
         }
     }
+
+    /// The one-call vDSP 2D path returned garbage for nx = 8 or 4 with
+    /// ny ≥ 8 — forward→inverse off by O(1), the DC bin zero — found by Gate B
+    /// on the rotation null (2026-09-15 night), the first caller with
+    /// scan-sized inputs. Small power-of-two shapes now take the axis-wise
+    /// path. Mutation this names: the `nx >= 16 && ny >= 16` clause dropped
+    /// from `isRadix2` — 8×8 and 4×8 then fail here at 1e0, not 1e-4.
+    func testSmallPowerOfTwoShapesRoundTripLikeTheLargeOnes() throws {
+        for (nx, ny) in [(8, 8), (8, 16), (4, 8), (8, 64), (16, 8), (4, 4), (2, 8), (16, 16), (32, 32)] {
+            let fft = try XCTUnwrap(FFT2D(nx: nx, ny: ny), "no plan for \(nx)×\(ny)")
+            var re = (0..<(nx * ny)).map { Float(sin(Double($0) * 0.37) + 0.5) }
+            let original = re
+            var im = [Float](repeating: 0, count: nx * ny)
+            fft.transform(re: &re, im: &im, forward: true)
+            XCTAssertEqual(re[0], original.reduce(0, +), accuracy: 1e-3 * Float(nx * ny),
+                           "\(nx)×\(ny): the DC bin is not the sum")
+            fft.transform(re: &re, im: &im, forward: false, scaleInverse: true)
+            let maxDiff = zip(re, original).map { abs($0 - $1) }.max() ?? .infinity
+            XCTAssertLessThan(maxDiff, 1e-4, "\(nx)×\(ny): round trip off by \(maxDiff)")
+            XCTAssertLessThan(im.map(abs).max() ?? .infinity, 1e-4, "\(nx)×\(ny): imaginary residue")
+        }
+    }
 }

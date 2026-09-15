@@ -39,6 +39,9 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Step | State | What it left behind |
 |---|---|---|
+| `FFT2D` returned garbage for 8- and 4-wide power-of-two transforms | fixed 2026-09-15 night, **no Gate D** (one trigger — a number could move — but the cause is proven by a reproducing observation: a forward→inverse round trip off by O(1) at 8×8, 8×16, 8×32, 8×64 and 4×8 on the one-call vDSP path, 1e-7 on the axis-wise path, `fft8/`). Found by the rotation null's refuter, the first caller with scan-sized inputs; ptychography's detector-sized transforms were never on the failing shapes. Pinned by a shape-sweep round-trip test | `FFT2D.init` routes power-of-two sizes under 16 to the axis-wise path |
+| The zone-axis sweep marks a wrong axis against its own median | done 2026-09-15 night, **Gate D** (both triggers: which axis is presented as informative is a scientific verdict, and the cause was established by experiment — on three planted crystals every one of 49 axes cleared five times disc chance, the median wrong axis explaining 11–16 % through shared reflections). `ZoneAxisFit` carries the sweep's median as a second null; true families 4.8–6.8× it, wrong ≤ 1.6×, bar 2×. One new test whose control asserts the defect beside the fix, broken first. **Gate B owed** on the bar. **Unverified on screen** (the "no better than a wrong axis" mark and its caption) | `PhaseVectorMatcher.fitZoneAxis`, `ZoneAxisFit.isInformative`, the Phases panel rows |
+| R–Q rotation: the null keeps the field's structure | done 2026-09-15 night, **Gate D** (both triggers: whether a rotation is written is a scientific decision, and the cause was established by experiment — certification of a rotation-free field rose with its correlation length, 15 → 65 %, as the diagnosis predicted). The shuffle null is replaced by phase-randomised surrogates per channel; after: 7 / 8 / 5 / 17 % at box 1/3/5/7, planted 30° still 60 of 60, drift 0 of 6. Two predictions missed and recorded as limits (localised features under-certified; 3 of 12 refused at sd 0.05). **Gate B done**: the diagnosis confirmed on a periodic field, the box-7 excess shown to be the periodic surrogate on a non-periodic field (5 of 60 wrapped), the FFT2D fault found, and four mutations that all passed the pinned tests — the unpaired-phase one now pinned by a noisy planted rotation (sd 0.03), the other three recorded as unfalsified. Two new tests, each broken first by the mutation it names (one on a scratch harness, see the entry's trap note). The demo cube's field class certifies 2 of 60. **Unverified on screen.** | `RotationCalibration.solve`'s null; `FFT2D` joins the probe's compile list; `decisions.md` 2026-09-15 night |
 | The rotation null's Gate B numbers have an instrument | done 2026-09-15 night, **no Gate D** (neither trigger: a diagnostic harness that measures and asserts nothing; no number in the app moves). `tools/rotation-null-probe` builds six field families with its own seeded generators and prints measured against recorded. It reproduces the qualitative claim and disagrees on three rates — the disagreement is recorded in `open-items.md`, not smoothed over. Sanity: a changed seed moves A, a changed planted angle moves E | `tools/rotation-null-probe/{run.sh,main.swift}`, classified `diagnostic` |
 | ACOM states its measured accuracy, and "Best" stops claiming the finest sampling | done 2026-09-15 night, **no Gate D** (neither trigger: two strings on the ACOM panel; the numbers come from `open-items.md`'s dated table and no scientific number moves). A static caption under the Quality picker gives the aluminium figure with its date and scope and says other phases are unmeasured; the 400-template preset's detail no longer reads "finest angular sampling", which the 1 000-template measurement contradicts. **Unverified on screen.** Gate: `unit` on the tree, see the gate table | `MapSettings.swift` ACOM section, `ACOMQualityPreset.detail` |
 | Clicking an Imaging pane selects it again | done 2026-09-11, **no Gate D** (neither trigger: presentation only, and the cause was established from `decisions.md` and `archive/consolidation-plan.md` §4(5), not guessed). **Driven and confirmed by the owner the same day** — he reports it good; the three gesture-composition checks named in the request (detector drag, scan scrub, ROI handles) were put to him and he reported no problem. Reverses two recorded decisions: 2026-09-04 retired the pane focus model and C4(c) cut the click path as review finding #5. Reversed because the review's premise was wrong about the platform — selection driving the inspector is the Xcode/Keynote idiom, and the confusion it was blamed for (nothing showing WHAT was selected) had already been fixed by the accent outline the owner asked for in the same week | `SelectsPaneOnClick` in `UI/ImagePanes.swift` — a `simultaneousGesture(TapGesture())` on each pane so it composes with the detector drag, the scan scrub and the ROI handles rather than swallowing them, and a tap rather than a zero-distance drag so a drag passing over a pane cannot steal the selection. Writes `activePane` directly, the idiom the ROI handles already use, keeping it out of `AppState`'s measured budget |
@@ -79,11 +82,11 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **659 passed / 0 failed / 1 skipped = 660 — 2026-09-15 night, the corrected ACOM-caption tree** (`unit-acom2-20260915.log`, `UNIT_EXIT=0` on its own line, 660 result lines all parseable; same count on `unit-acom-20260915.log` before the correction). Previous, the same night on the ellipse-flag tree, same count (`unit-flag-20260915.log`, `UNIT_EXIT=0` on its own line), reconciled **exactly** against 660 `func test` declared in source (the 656 of the day plus the four `RotationSignificanceTests` for the ellipse decision). The chopped-line hazard struck again and was reconciled by name, not explained away: 660 result lines, 659 of them parseable as `Test case '…' (passed|skipped) on`, and the one that is not begins mid-name (`efineCapsAtMaxNumPeaks()' passed on`) — `testRefineCapsAtMaxNumPeaks`, the only declared test missing from the parsed set, passed. Previous: 655 / 0 / 1 = 656 the same day (`unit-p4-20260915.log`) |
+| `run-tests.sh unit` | **664 passed / 0 failed / 0 skipped = 664 — 2026-09-15 late night** (`unit-full2-20260915.log`, `XCODEBUILD_TEST_EXIT=0` on its own line), reconciled exactly against 664 `func test` in source, the four tests added for the rotation null, the FFT2D fault and the sweep median all discovered and passed. **This is the gate's own `xcodebuild test` line run directly** (the documented fallback): the script's preflight refused at 3 GB (`unit-rot-20260915.log`, exit 69), and the shared DerivedData's test bundle was deleted first because a filtered incremental run had silently not discovered a new test (the stale-bundle trap, `open-items.md`). The previous skip (the unmounted-volume bookmark test) passed this time. Earlier the same night, through the script: 659 / 0 / 1 = 660 on the ACOM-caption tree (`unit-acom2-20260915.log`) and on the ellipse-flag tree (`unit-flag-20260915.log`, one result line chopped mid-name and reconciled) |
 | GitHub CI on `ai-analysis` (181cf99, both runs) | **Green on the runner, 2026-09-14** — the first green CI since the v3.0.0 cut, and it covers every source change of the day: unit **637 / 0 / 5 = 642** (the parity test skips there: no Neural Engine, `open-items.md`), scientific **46 harnesses, zero FAIL**, core and inventory exit 0, on both the push and the pull-request run. Runner is `macos-26` with Xcode 26.6; two fixes got it there, both on the branch (`ContentView`'s importer closure as a method; the parity gate, refuted-and-held). Commits after 181cf99 are docs only (`git diff --stat 181cf99..HEAD -- mac4DSTEM/ mac4DSTEMTests/ tools/` empty at closeout). Closeout `inventory` exit 0 (`inventory-closeout-20260914.log`): AppState + ResultExport **7405 = HEAD^**, live markdown **6 138** — up from 6 076 at the day's start: three closed items moved to the archive, five findings recorded, two decisions written, the CI and merge paragraphs; nothing live was found stale enough to delete. |
-| `run-tests.sh scientific` | **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-15 night** (`sci-flag-20260915.log`, `SCI_EXIT=0` on its own line), on the tree with the Fit Anyway path. `ellipse-calibration-test` now 28 PASS lines: the 8 spot patterns on both paths (three fixtures new: a 6 % elliptic sparse ring, the two-radii blind spot, the four-spot degeneracy anyway) plus the off-centre seed check. Previous: same day, `sci-final2-20260915.log`, 46 harnesses |
+| `run-tests.sh scientific` | **Not re-run after the rotation, FFT2D and sweep-median changes — the disk was at 2.3 GB against the 4 GB preflight.** The two harnesses those changes reach were run alone: `phase-vector-matching` **32 gated checks, 0 failed** (`pvm-chance-20260915.log`), and the diagnostic `rotation-null-probe` (`rotation-probe-final2-20260915.log`); no other gated harness compiles `RotationCalibration`, and `FFT2D`'s ptychography callers were never on the failing shapes. Last full run: **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-15 night** (`sci-flag-20260915.log`, `SCI_EXIT=0` on its own line), on the tree with the Fit Anyway path. `ellipse-calibration-test` now 28 PASS lines: the 8 spot patterns on both paths (three fixtures new: a 6 % elliptic sparse ring, the two-radii blind spot, the four-spot degeneracy anyway) plus the off-centre seed check. Previous: same day, `sci-final2-20260915.log`, 46 harnesses |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-15 night** (`inv-probe-20260915.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic **14** (`rotation-null-probe` joined); AppState + ResultExport **7 400 = HEAD** after the ellipse commit took it two below (`inv-flag2-20260915.log`, the ellipse decision moved to `CalibrationSession`). Live markdown 6 473 against 6 406 at the previous closeout: the 2026-09-14 handoff narrative moved to the archive, the closed ellipse entry moved with it, and the night's own records (a decision paragraph, the residual entry, the kMax refutation) are what is added. Previous: `inv-ap2-20260915.log`, 7 402 |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-15 late night** (`inv-late-20260915.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic **14** (`rotation-null-probe` joined); AppState + ResultExport **7 400 = HEAD**, two below where the night started (the ellipse decision moved to `CalibrationSession`). Live markdown 6 513 against 6 406 at the previous closeout — three Gate D records (the rotation null, the chance floor, the FFT2D fault) and two decision paragraphs, against two narratives and two closed entries moved to the archive; the reason is stated rather than trimmed: the 2026-09-14 handoff narrative moved to the archive, the closed ellipse entry moved with it, and the night's own records (a decision paragraph, the residual entry, the kMax refutation) are what is added. Previous: `inv-ap2-20260915.log`, 7 402 |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
@@ -109,7 +112,17 @@ corner, 96 end-on β″ [010] and 108 β″ [001] needle positions, with
 2026-09-14 and all three were right: the stripe reads +0.0154 against a planted
 +1.5 %, and the IPF map colours the three grains as the TSL key says.
 
-**2026-09-15 night, unattended.** Queue item 1 was taken, its one open
+**2026-09-15 night, second pass (the owner said keep going).** R–Q rotation
+taken under Gate D: the shuffle null was a whiteness test, the probe proved it
+by the rate rising with correlation length, and the null is now a
+phase-randomised surrogate that keeps the structure. Then the ACOM accuracy
+caption, the rotation probe, and the corrections a peer session and the
+read-only review found. **The unit gate's preflight refused at 3 GB (exit
+69) for the rotation tree; the gate's own `xcodebuild test` line was run
+directly to a retained log instead** (the documented fallback), see the gate
+table.
+
+**2026-09-15 night, first pass.** Queue item 1 was taken, its one open
 question answered on the record (`decisions.md` 2026-09-15: the flag follows
 an explicit click), and the change built by two Sonnet slices, reviewed here,
 refuted by an independent agent and gated. **Item 3 was refuted before it was
@@ -184,32 +197,25 @@ after. Never edit the gate script, or a source it compiles, while a gate runs.
 A worktree agent branches from where the worktree was cut — this session's was
 33 commits behind, and its patch needed a three-way apply.
 
-**NEXT, in order** (rewritten 2026-09-15 night; `/pickup` takes 1).
-1. **R–Q rotation** — **NARROWED, not fixed.** A permutation null now catches a
-   spatially white field, which is the failure that reached the owner, and
-   refuses no genuine rotation. Gate B measured what it misses: a rotation-free
-   field with any spatial structure is certified 60–80 % of the time, and probe
-   overlap alone produces that structure. The verdict is also seed-conditional.
-   A real fix needs a statistic, not a rank; Gate D from the top. The
-   checked-in probe exists since 2026-09-15 night (`tools/rotation-null-probe`)
-   and reproduces the claim, not every rate. `open-items.md`.
-2. **The ACOM score defect itself** — the deposition trade is **left**
-   (`decisions.md` 2026-09-15): a change that helps at 200 templates and hurts
-   at 1 000 has no mechanism. The panel now states the measured accuracy
-   (2026-09-15 night, the UI table). Eleven hypotheses are written down in
-   `open-items.md`; read them before forming a twelfth.
-3. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
-   carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
-   threshold would catch it.
-4. **The HDF5 one-actor refactor stays recorded** (`decisions.md` 2026-09-15);
+**NEXT, in order** (rewritten 2026-09-15 late night; `/pickup` takes 1).
+1. **Gate B on the zone-axis sweep's 2× bar** — the change landed with its
+   Gate D and one test; the refuter has not run. Attack: a two-grain scan
+   (two true families raise the median), the owner's cube if it is on the
+   machine, and the bar itself. `open-items.md`.
+2. **The rotation refusal's presentation** — a 264-character sentence in
+   `statusText` alone, and the inspector caption "the marker is the chosen
+   minimum" beside an angle that was not written
+   (`UI/WorkspaceInspector.swift:722`). Presentation only, no Gate D.
+3. **The HDF5 one-actor refactor stays recorded** (`decisions.md` 2026-09-15);
    its precondition is a runnable reproduction of the 2026-08-19 race, as a
    diagnostic harness, so the fix has something to fail against.
-5. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
-   this session at 4 GB.
-Refuted and dropped 2026-09-15: "the demo cube exports reflections at kMax 0.9
-while the plan is built at 1.2 — one `tools/` line and why the [001] winner is
-5° off". At grain A's rotation none of the added reflections reaches the
-detector; the geometry is in the ACOM entry.
+4. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
+   this session at about 2 GB; the unit gate's preflight refuses below 4 and
+   the gate's own line was run directly (gate table).
+Done this night and no longer queued: the ellipse flag, the ACOM accuracy
+caption, the rotation-null probe, the rotation null itself (surrogates),
+the chance floor (sweep median), and the FFT2D small-shape fault. Refuted
+and dropped: the demo cube's export kMax (geometry, ACOM entry).
 
 ## Owed to the owner
 
