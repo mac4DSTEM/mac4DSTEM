@@ -1179,6 +1179,86 @@ final class ZoneAxisFitTests: XCTestCase {
                       + "open-items.md's measured limit needs rewriting")
     }
 
+    /// THE OWNER'S CASE, pinned (Gate D, 2026-09-15 night): a wrong axis on a
+    /// real crystal explains a large share of the vectors through SHARED
+    /// reflections, clears the disc-chance rule by a wide margin, and used to
+    /// be presented exactly like the true one. A ⟨110⟩ plant degraded the way
+    /// data is (30 % of spots missing, 0.004 Å⁻¹ jitter, three spurious peaks
+    /// per pattern): the ⟨112⟩ family explains ~16 % — five times the
+    /// chance rule allows, so `isAboveChance` is TRUE, which is the defect
+    /// and is asserted as the control — while it sits at ~1.2× the sweep's
+    /// median, under the 2× bar. The true family sits at ~6×. Mutations this
+    /// names: `informativeSweepRatio` lowered to 1 (every wrong axis passes),
+    /// the median computed over the top few instead of the sweep, or
+    /// `isInformative` dropping either rule.
+    func testAWrongAxisThatSharesReflectionsIsMarkedBelowTheSweep() throws {
+        let al = Crystal.aluminum
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 1.2
+        let settings = PhaseVectorSettings()
+        let scale = 0.008
+        let originX: Float = 128, originY: Float = 128
+        var seed: UInt64 = 0x2545F4914F6CDD1D
+        func next() -> Double {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Double(seed >> 11) / Double(UInt64(1) << 53)
+        }
+        func gauss() -> Double {
+            sqrt(-2 * log(max(1e-12, next()))) * cos(2 * .pi * next())
+        }
+        let base = PhaseReferenceLibrary.projectedVectors(
+            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            zoneAxis: SIMD3(1, 1, 0), settings: reference)
+        let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
+        let reach = turned.map { simd_length($0.q) }.max() ?? 0.8
+        let peaks: [[BraggPeak]] = (0..<64).map { _ in
+            var out = [BraggPeak(x: originX, y: originY, intensity: 10)]
+            for v in turned where next() >= 0.3 {
+                out.append(BraggPeak(x: originX + Float((v.q.x + gauss() * 0.004) / scale),
+                                     y: originY + Float((v.q.y + gauss() * 0.004) / scale),
+                                     intensity: 1))
+            }
+            for _ in 0..<3 {
+                let r = reach * next().squareRoot(), a = next() * 2 * .pi
+                out.append(BraggPeak(x: originX + Float(r * cos(a) / scale),
+                                     y: originY + Float(r * sin(a) / scale), intensity: 1))
+            }
+            return out
+        }
+        let fits = PhaseVectorMatcher.fitZoneAxis(
+            bragg: BraggVectors(scanWidth: 8, scanHeight: 8, peaks: peaks),
+            crystal: al, referenceSettings: reference, settings: settings,
+            originX: originX, originY: originY, invAngstromPerPixel: scale,
+            inPlaneStepDeg: 2)
+        let winner = try XCTUnwrap(fits.first)
+        XCTAssertEqual(Set([abs(winner.zoneAxis.x), abs(winner.zoneAxis.y), abs(winner.zoneAxis.z)]),
+                       Set([0, 1]), "the ⟨110⟩ plant was not won by a ⟨110⟩: \(winner.zoneAxis)")
+        XCTAssertTrue(winner.isInformative(multiple: settings.chanceMatchMultiple),
+                      "the true axis was marked: \(winner.explainedFraction) against a sweep "
+                      + "median of \(winner.sweepMedianFraction)")
+        XCTAssertGreaterThan(winner.sweepRatio, 4, "the true family no longer stands out")
+
+        let wrong112 = try XCTUnwrap(fits.first {
+            Set([abs($0.zoneAxis.x), abs($0.zoneAxis.y), abs($0.zoneAxis.z)]) == Set([1, 1, 2])
+        })
+        // The control: the disc rule alone reads it as information.
+        XCTAssertTrue(wrong112.isAboveChance(multiple: settings.chanceMatchMultiple),
+                      "the defect this test pins no longer reproduces: ⟨112⟩ at "
+                      + "\(wrong112.explainedFraction) is under 5× disc chance")
+        XCTAssertGreaterThan(wrong112.explainedFraction, 0.05,
+                             "⟨112⟩ explains too little for this to be the owner's case")
+        // The fix: against the sweep it is a wrong axis.
+        XCTAssertFalse(wrong112.isAboveSweep,
+                       "⟨112⟩ at \(wrong112.explainedFraction) is \(wrong112.sweepRatio)× the "
+                       + "sweep median of \(wrong112.sweepMedianFraction) and was not marked")
+        XCTAssertFalse(wrong112.isInformative(multiple: settings.chanceMatchMultiple))
+        // And every axis under 30 % is a wrong one here; none may stand out.
+        for fit in fits where fit.explainedFraction < 0.3 {
+            XCTAssertFalse(fit.isAboveSweep, "\(fit.zoneAxis) at \(fit.explainedFraction) "
+                           + "stands out at \(fit.sweepRatio)× the median")
+        }
+    }
+
     /// Mutation: the `pairs > 0` guard dropped, or an axis with no reachable
     /// reflection admitted — it would divide by zero or report a perfect fit
     /// for a direction that presents nothing.

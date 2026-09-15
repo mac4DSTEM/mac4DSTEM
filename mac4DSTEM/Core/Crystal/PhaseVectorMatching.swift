@@ -406,9 +406,41 @@ package nonisolated enum PhaseVectorMatcher {
         /// five times it. The mark fires only while each pattern's
         /// second-largest |u| stays under about 0.55–0.63 Å⁻¹, and Al {220}
         /// alone is at 0.699. What this buys is the number itself, reported
-        /// instead of absent; the threshold that would catch the owner's case
-        /// is not established and is an open item.
+        /// instead of absent. The owner's case is caught by the SECOND null
+        /// below, `sweepMedianFraction`, not by a threshold on this one.
         package let chanceMatchedVectors: Double
+        /// The sweep's own null (Gate D, 2026-09-15 night): the explained
+        /// fraction of the MEDIAN axis in the sweep this fit came from.
+        ///
+        /// WHY A SECOND NULL. On a real crystal every wrong axis explains a
+        /// large share of the vectors by SHARED reflections, not by chance:
+        /// measured on planted aluminium at 2° steps with 30 % of spots
+        /// missing, 0.004 Å⁻¹ of jitter and three spurious peaks per
+        /// pattern, the median wrong axis explains 11–16 % (⟨110⟩, ⟨112⟩
+        /// and ⟨001⟩ plants) and the worst wrong family up to 25 %, while
+        /// every one of the 49 axes clears five times the disc-chance
+        /// expectation. That is why the owner's ⟨112⟩ at 8 % could never be
+        /// marked by `chanceMatchedVectors`: it was not chance, it was the
+        /// true axis's reflections seen through a wrong projection. Against
+        /// the sweep's median the true families sat at 4.8–6.8× and every
+        /// wrong family at 0.7–1.6×; the bar is placed at 2×. On vectors
+        /// pointing nowhere the sweep median is ~0.5 % and the disc rule is
+        /// what refuses; the two rules cover different failures and both
+        /// must pass.
+        package let sweepMedianFraction: Double
+        /// Explained fraction relative to the sweep's median axis.
+        package var sweepRatio: Double {
+            sweepMedianFraction > 0 ? explainedFraction / sweepMedianFraction : .infinity
+        }
+        /// Below this ratio an axis explains no more than a wrong axis does
+        /// on the same data (measured: wrong ≤ 1.6×, true ≥ 4.8×).
+        package static let informativeSweepRatio = 2.0
+        package var isAboveSweep: Bool { sweepRatio >= Self.informativeSweepRatio }
+        /// Both nulls: chance vectors (the disc model) and wrong axes on a
+        /// real crystal (the sweep median).
+        package func isInformative(multiple: Double) -> Bool {
+            isAboveChance(multiple: multiple) && isAboveSweep
+        }
 
         package var explainedFraction: Double {
             totalVectors > 0 ? Double(matchedVectors) / Double(totalVectors) : 0
@@ -494,7 +526,9 @@ package nonisolated enum PhaseVectorMatcher {
         let rotations = PhaseReferenceLibrary.inPlaneSteps(reference)
         let scratch = Scratch(capacity: max(1, reference.maximumVectorsPerEntry))
 
-        var out: [ZoneAxisFit] = []
+        // Every axis's best rotation first; the sweep median is known only
+        // once all of them are, and each fit carries it.
+        var winners: [(axis: SIMD3<Int>, theta: Double, matched: Int, meanDistance: Double, chance: Double)] = []
         for axis in candidateAxes {
             if cancellation?.isCancelled == true { break }
             let base = PhaseReferenceLibrary.projectedVectors(
@@ -511,7 +545,7 @@ package nonisolated enum PhaseVectorMatcher {
                     pairRadius: settings.matrixToleranceInvAngstrom,
                     accessibleRadius: reach[index]) * Double(vectors.count)
             }
-            var best: ZoneAxisFit?
+            var best: (theta: Double, matched: Int, meanDistance: Double)?
             for theta in rotations {
                 let entry = PhaseOrientationReference(
                     phaseIndex: 0, zoneAxis: axis, inPlaneRotationRad: theta,
@@ -527,17 +561,23 @@ package nonisolated enum PhaseVectorMatcher {
                     pairs += sc.uniqueReferences
                 }
                 guard pairs > 0 else { continue }
-                let fit = ZoneAxisFit(zoneAxis: axis, inPlaneRotationRad: theta,
-                                      matchedVectors: matched, totalVectors: totalVectors,
-                                      meanDistance: total / Double(pairs),
-                                      chanceMatchedVectors: chanceMatched)
-                if best == nil || fit.matchedVectors > best!.matchedVectors
-                    || (fit.matchedVectors == best!.matchedVectors
-                        && fit.meanDistance < best!.meanDistance) {
-                    best = fit
+                let meanDistance = total / Double(pairs)
+                if best == nil || matched > best!.matched
+                    || (matched == best!.matched && meanDistance < best!.meanDistance) {
+                    best = (theta, matched, meanDistance)
                 }
             }
-            if let best { out.append(best) }
+            if let best {
+                winners.append((axis, best.theta, best.matched, best.meanDistance, chanceMatched))
+            }
+        }
+        let fractions = winners.map { Double($0.matched) / Double(totalVectors) }.sorted()
+        let sweepMedian = fractions.isEmpty ? 0 : fractions[fractions.count / 2]
+        var out = winners.map {
+            ZoneAxisFit(zoneAxis: $0.axis, inPlaneRotationRad: $0.theta,
+                        matchedVectors: $0.matched, totalVectors: totalVectors,
+                        meanDistance: $0.meanDistance, chanceMatchedVectors: $0.chance,
+                        sweepMedianFraction: sweepMedian)
         }
         out.sort {
             $0.matchedVectors != $1.matchedVectors

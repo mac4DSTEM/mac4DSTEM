@@ -78,10 +78,13 @@ struct PhaseMappingSections: View {
                 // A percentage alone cannot be read: at a tight tolerance an
                 // axis explains a few percent of ANY vectors, and the panel
                 // showed that the same way it shows a real fit (the owner's
-                // ⟨112⟩ at 8 %, 2026-09-14). Each row now says whether it
-                // beats chance by the matcher's own multiple.
+                // ⟨112⟩ at 8 %, 2026-09-14). Each row says whether it beats
+                // chance by the matcher's own multiple AND whether it explains
+                // more than a wrong axis does on this data (the sweep's
+                // median, Gate D 2026-09-15 night) — the second is what marks
+                // the ⟨112⟩, which shares reflections with the true axis.
                 ForEach(Array(product.zoneAxisFits.enumerated()), id: \.offset) { rank, fit in
-                    let informative = fit.isAboveChance(
+                    let aboveChance = fit.isAboveChance(
                         multiple: appState.phaseMapping.matching.chanceMatchMultiple)
                     LabeledContent {
                         HStack(spacing: 6) {
@@ -89,8 +92,10 @@ struct PhaseMappingSections: View {
                                         100 * fit.explainedFraction, fit.meanDistance))
                                 .monospacedDigit()
                                 .foregroundStyle(rank == 0 ? .primary : .secondary)
-                            if !informative {
+                            if !aboveChance {
                                 Text("at chance").foregroundStyle(.orange)
+                            } else if !fit.isAboveSweep {
+                                Text("no better than a wrong axis").foregroundStyle(.orange)
                             }
                         }
                     } label: {
@@ -107,6 +112,14 @@ struct PhaseMappingSections: View {
                                 + "pointing nowhere in particular, and the best axis "
                                 + "explains %.1f %%. Treat the ranking as undecided.",
                                 100 * top.chanceFraction, 100 * top.explainedFraction))
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else if let top = product.zoneAxisFits.first, !top.isAboveSweep {
+                    Text(String(format: "No axis stands out here. The best explains "
+                                + "%.0f %% and the median axis %.0f %%; on a real crystal "
+                                + "a wrong axis explains that much through shared "
+                                + "reflections. Treat the ranking as undecided.",
+                                100 * top.explainedFraction, 100 * top.sweepMedianFraction))
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 } else if product.zoneAxisFits.count > 1 {
