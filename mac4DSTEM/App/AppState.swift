@@ -4208,12 +4208,9 @@ final class AppState {
                 presentComputeFailure(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
             }
-            if let refusal = result.refusalMessage {   // written only if real
+            if let refusal = calibrationSession.applyRotation(result) {
                 lastRotationResult = result; presentComputeFailure(SimpleError(refusal)); return
             }
-            calibrationSession.calibration.rotationRad = result.rotationRad
-            calibrationSession.calibration.transposeQR = result.transpose
-            calibrationSession.provenance.rotation = .measuredInApp
             parallaxPreprocess = nil
             parallaxAlignment = nil
             lastRotationResult = result

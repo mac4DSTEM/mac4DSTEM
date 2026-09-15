@@ -25,6 +25,27 @@ package final class CalibrationSession {
 
     package init() {}
 
+    /// Take an R–Q rotation fit, or say why not. Returns nil when the fit was
+    /// written; the refusal sentence when it was not.
+    ///
+    /// THIS LIVES HERE RATHER THAN IN `AppState` so it can be tested at the
+    /// boundary where it is enforced. Gate B, 2026-09-15: deleting the guard
+    /// from `AppState.calibrateRotation` left the whole suite green, because
+    /// every test of it lived in Core and none constructed a session — the one
+    /// line that decides whether a refused rotation reaches strain, ACOM and
+    /// DPC was the one line nothing covered.
+    ///
+    /// It writes `transposeQR` with the angle deliberately: the flag rides
+    /// with the fit, and a refusal that kept one and dropped the other would
+    /// leave the axes swapped against an angle that never applied.
+    package func applyRotation(_ result: RotationCalibration.Result) -> String? {
+        if let refusal = result.refusalMessage { return refusal }
+        calibration.rotationRad = result.rotationRad
+        calibration.transposeQR = result.transpose
+        provenance.rotation = .measuredInApp
+        return nil
+    }
+
     /// Discard every calibration value and its provenance — the five readiness
     /// rows go back to "Not set" — together with the ellipse fit that produced
     /// one of them. Deliberately NOT the accelerating voltage, the origin-fit

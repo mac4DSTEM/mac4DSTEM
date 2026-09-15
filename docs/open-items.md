@@ -163,13 +163,17 @@ sd 0.05, and the cost is invisible: 0.12 s at 100 × 100). What it does not do:
   certified under **50 of 200 seeds**, and the demo cube's refusal (depth
   0.01341 inside shuffled 0.00854–0.02472) is the same lottery. A real fix
   needs a statistic, not a rank.
-**Four surviving mutations, all recorded:** deleting the AppState guard
-entirely leaves the suite green (the three tests live in Core and never
-construct an `AppState`, so **the guard is untested where it is enforced** —
-this is the one to close first); `shuffleCount` 15 → 6 is green, so the suite
-pins only ≥ 6; shuffling `cx` and `cy` independently is green, so "carrying
-each position's pair together" is not load-bearing as claimed; and taking the
-LOSING transpose curve's depth is green.
+**Four surviving mutations. THE FIRST IS CLOSED (2026-09-15):** deleting the
+guard left the whole suite green, because every test lived in Core and none
+constructed a session. The decision moved to
+`CalibrationSession.applyRotation(_:)` — testable without a dataset, and
+`AppState` shrank by three lines — with two tests that pin it, and the
+mutation that survived Gate B now turns both red. A third mutation is pinned
+too: a refusal that also CLEARS, which is what the old sentence claimed.
+**Three still survive:** `shuffleCount` 15 → 6 is green, so the suite pins only
+≥ 6; shuffling `cx` and `cy` independently is green, so "carrying each
+position's pair together" is not load-bearing as claimed; and taking the LOSING
+transpose curve's depth is green.
 **Fixed the same day:** the refusal sentence claimed "the rotation is left as
 Not set", which the code never establishes — it declines to write and never
 clears, so an earlier fit, a session restore, a manual entry or a value from

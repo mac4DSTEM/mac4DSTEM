@@ -580,6 +580,56 @@ final class RotationSignificanceTests: XCTestCase {
         XCTAssertEqual(first.carriesRotation, second.carriesRotation)
     }
 
+    /// THE MUTATION THIS CLOSES, and it is the one that mattered: Gate B
+    /// deleted the guard from `AppState.calibrateRotation` and the entire
+    /// suite stayed green, because every test lived in Core and none
+    /// constructed a session. The line deciding whether a refused rotation
+    /// reaches strain, ACOM and DPC was the line nothing covered.
+    func testARefusedFitWritesNothingAndAKeptOneWrites() {
+        let session = CalibrationSession()
+
+        // A fit the field does not support: nothing may be written.
+        let refused = Self.result(depth: .nan, shuffled: [])
+        let message = session.applyRotation(refused)
+        XCTAssertNotNil(message, "a refused fit was accepted")
+        XCTAssertNil(session.calibration.rotationRad)
+        XCTAssertNil(session.calibration.transposeQR)
+        XCTAssertNil(session.provenance.rotation)
+
+        // One it does: angle, transpose and provenance all land together.
+        let kept = Self.result(depth: 1.0, shuffled: [0.1, 0.2])
+        XCTAssertNil(session.applyRotation(kept), "a good fit was refused")
+        XCTAssertEqual(session.calibration.rotationRad, kept.rotationRad)
+        XCTAssertEqual(session.calibration.transposeQR, kept.transpose)
+        XCTAssertEqual(session.provenance.rotation, .measuredInApp)
+    }
+
+    /// And the behaviour the refusal sentence had to be corrected to describe:
+    /// a refusal declines to write, it does NOT clear. An earlier value stands,
+    /// which is why the message says "not updated" rather than "Not set".
+    func testARefusalLeavesAnEarlierRotationStanding() {
+        let session = CalibrationSession()
+        XCTAssertNil(session.applyRotation(Self.result(depth: 1.0, shuffled: [0.1])))
+        let kept = session.calibration.rotationRad
+
+        let message = session.applyRotation(Self.result(depth: .nan, shuffled: []))
+        XCTAssertNotNil(message)
+        XCTAssertEqual(session.calibration.rotationRad, kept,
+                       "the refusal cleared a rotation it only meant to decline")
+        XCTAssertEqual(session.provenance.rotation, .measuredInApp,
+                       "the refusal changed the provenance of a value it did not touch")
+        XCTAssertTrue(try XCTUnwrap(message).contains("not updated"),
+                      "the sentence must describe what actually happened")
+    }
+
+    private static func result(depth: Float,
+                               shuffled: [Float]) -> RotationCalibration.Result {
+        RotationCalibration.Result(
+            rotationRad: 0.5236, transpose: true, objective: 0.01,
+            anglesDeg: [0], objectiveCurve: [0.01], objectiveCurveTransposed: [0.02],
+            depth: depth, shuffledDepths: shuffled)
+    }
+
     // MARK: Fixtures
 
     /// The gradient of a smooth scalar potential, rotated — what the method is
