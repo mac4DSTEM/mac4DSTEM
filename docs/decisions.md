@@ -1333,3 +1333,35 @@ It costs a legitimate sparse ring, and the message says what to do instead
 owner wants is for exactly that case and is owed. Marked `DEVIATION`:
 py4DSTEM's `fit_ellipse_1D` has no guard and answers degeneracy by adding a
 constraint, which this app has no place to disclose.
+
+## 2026-09-15 — the ellipse flag sits behind a click, and "fit anyway" still refuses more than one ring
+
+The owner asked for the sparse legitimate ring to be fitted and marked instead
+of refused, and left one question open: does the mark replace the refusal, or
+follow an explicit "fit anyway"? Answered here, unattended, on the record:
+**it follows the click.** A three-grain annulus and a sparse single ring are
+the same measurement to the fitter; only the person who placed the annulus
+knows which it is. A silent mark on a value that is auto-applied would let a
+68 % "ellipse" back into strain with a word beside it, which is the defect the
+refusal closed. So the refusal stays the default, the Prepare panel offers
+"Fit Anyway" only when a retry could succeed (12–29 of 36 sectors), and the
+result is marked `Fit anyway` in orange on the readiness row.
+
+What the click does NOT buy: several rings in one annulus. The anyway path
+checks, about the fitted centre, that the per-sector mean radius of the strong
+signal spans less than 10 % — no STEM camera is that elliptical, and the
+closest common ring pair (fcc {111}/{200}) is 15.5 % apart — and refuses with
+the radii named. The bound's exact value is unpinned by the fixtures (1.06
+passes, 1.59 refuses); hcp {100}/{002} at 6 % sits inside it and is the
+user's responsibility under "fit anyway". Marked `DEVIATION`: py4DSTEM has no
+such path.
+
+Also decided the same night, on the previous session's two open trades:
+**the ACOM linear-deposition change is left**, not taken — a change that cuts
+wrong answers at 200 templates and adds them at 1 000 is not explained by its
+own story, and a fix without a mechanism has been this repo's failure mode
+three times. **The HDF5 one-actor refactor stays recorded**: it is the largest
+live crash risk and the fix is named, but a load-path refactor that nothing
+can catch a regression on, done unattended with no screen, is the wrong
+night for it. Its precondition is a runnable reproduction — the 2026-08-19
+lldb race in harness form — which is the next thing that item needs.

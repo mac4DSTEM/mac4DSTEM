@@ -48,9 +48,14 @@ package nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
     /// Populated when profile refinement was attempted but the conic fallback
     /// was retained. This is diagnostic provenance, not a scientific failure.
     package let profileFallbackReason: String?
+    /// True only when this fit was accepted below the angular-coverage
+    /// degeneracy bound because the caller asserted the annulus holds one
+    /// ring (`acceptSparseCoverage`). Inert (false) whenever coverage was
+    /// already full. 2026-09-15.
+    package let sparseCoverage: Bool
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(centerQX: Double, centerQY: Double, a: Double, b: Double, theta: Double, normalizedResidual: Double, conicResidual: Double, sampleCount: Int, occupiedAngularBins: Int, model: EllipseCalibrationModel, profile: EllipseProfileParameters?, profileFallbackReason: String?) {
+    package nonisolated init(centerQX: Double, centerQY: Double, a: Double, b: Double, theta: Double, normalizedResidual: Double, conicResidual: Double, sampleCount: Int, occupiedAngularBins: Int, model: EllipseCalibrationModel, profile: EllipseProfileParameters?, profileFallbackReason: String?, sparseCoverage: Bool = false) {
         self.centerQX = centerQX
         self.centerQY = centerQY
         self.a = a
@@ -63,14 +68,23 @@ package nonisolated struct EllipseCalibrationFit: Sendable, Equatable {
         self.model = model
         self.profile = profile
         self.profileFallbackReason = profileFallbackReason
+        self.sparseCoverage = sparseCoverage
     }
 }
 
 package nonisolated enum EllipseCalibration {
+    /// Azimuthal bins the coverage checks below divide the annulus into, and
+    /// the two bounds read against them: full coverage needed by default, and
+    /// the restored pre-2026-09-14 floor below which even "fit anyway" refuses.
+    package static let angularBinCount = 36
+    package static let degeneracyBoundBins = angularBinCount * 5 / 6
+    package static let sparseFloorBins = angularBinCount / 3
+
     package enum FitError: LocalizedError, Equatable {
         case invalidInput(String)
         case insufficientSignal
         case insufficientAngularCoverage(Int)
+        case moreThanOneRing(minRadius: Double, maxRadius: Double)
         case didNotConverge
         case invalidEllipse
         case excessiveResidual(Double)
@@ -82,10 +96,15 @@ package nonisolated enum EllipseCalibration {
             case .insufficientSignal:
                 return "Cannot fit detector ellipse: the selected annulus has no resolved ring signal."
             case .insufficientAngularCoverage(let bins):
-                return "Cannot fit detector ellipse: ring signal covers only \(bins) of 36 "
-                    + "angular bins. An ellipse fitted to spots is decided by where the "
+                return "Cannot fit detector ellipse: ring signal covers only \(bins) of "
+                    + "\(EllipseCalibration.angularBinCount) angular bins. An ellipse fitted to spots is decided by where the "
                     + "grains happen to be as much as by the detector — select an annulus "
                     + "holding one continuous ring, or use an amorphous standard."
+            case .moreThanOneRing(let minRadius, let maxRadius):
+                return String(format: "Cannot fit anyway: the strong signal in this annulus "
+                    + "lies at radii from %.1f to %.1f px, more than one ring apart — no "
+                    + "detector is that elliptical. Narrow the annulus to one ring.",
+                    minRadius, maxRadius)
             case .didNotConverge:
                 return "Detector ellipse fitting did not converge."
             case .invalidEllipse:
@@ -105,7 +124,8 @@ package nonisolated enum EllipseCalibration {
         centerQY: Double,
         innerRadius: Double,
         outerRadius: Double,
-        maximumResidual: Double = 0.2
+        maximumResidual: Double = 0.2,
+        acceptSparseCoverage: Bool = false
     ) throws -> EllipseCalibrationFit {
         guard pattern.qy > 2, pattern.qx > 2,
               pattern.pixels.count == pattern.qy * pattern.qx,
@@ -181,7 +201,19 @@ package nonisolated enum EllipseCalibration {
         // message says what to do instead. What it buys is that a 10 %
         // distortion measured from the arrangement of three grains can no
         // longer reach a strain map.
-        let angularBinCount = 36
+        //
+        // THE ANYWAY PATH (2026-09-15). The owner decided a caller may assert,
+        // per annulus, "this holds exactly one ring" (`acceptSparseCoverage`)
+        // and get the fit anyway, MARKED `sparseCoverage`. That re-admits the
+        // legitimate sparse case the bound above costs, down to a restored
+        // pre-2026-09-14 floor of one third of the bins: fewer than that still
+        // refuses outright, because no per-bin check can rescue coverage this
+        // thin. Above the floor, an accepted fit is checked for exactly what
+        // the coverage bound cannot tell apart — several grains at different
+        // radii in one annulus — by the per-azimuthal-bin radius check below
+        // the fit. Full coverage (>= five sixths of the bins) makes the flag
+        // and that check inert: the default path is unchanged either way.
+        let angularBinCount = EllipseCalibration.angularBinCount
         let strongThreshold = minimum + 0.2 * dynamicRange
         var occupied = [Bool](repeating: false, count: angularBinCount)
         for sample in samples where sample.value >= strongThreshold {
@@ -191,8 +223,19 @@ package nonisolated enum EllipseCalibration {
             occupied[index] = true
         }
         let occupiedCount = occupied.filter { $0 }.count
-        guard occupiedCount >= angularBinCount * 5 / 6 else {
-            throw FitError.insufficientAngularCoverage(occupiedCount)
+        let degeneracyBound = EllipseCalibration.degeneracyBoundBins
+        let sparseCoverage: Bool
+        if acceptSparseCoverage {
+            // Pre-2026-09-14 rule, restored ONLY for the anyway path.
+            guard occupiedCount >= EllipseCalibration.sparseFloorBins else {
+                throw FitError.insufficientAngularCoverage(occupiedCount)
+            }
+            sparseCoverage = occupiedCount < degeneracyBound
+        } else {
+            guard occupiedCount >= degeneracyBound else {
+                throw FitError.insufficientAngularCoverage(occupiedCount)
+            }
+            sparseCoverage = false
         }
 
         let initialRadius = (innerRadius + outerRadius) / 2
@@ -281,12 +324,52 @@ package nonisolated enum EllipseCalibration {
         guard residual.isFinite, residual <= maximumResidual else {
             throw FitError.excessiveResidual(residual)
         }
+
+        // ONE-RING CHECK (2026-09-15), sparse path only, after every guard
+        // above has passed. The coverage bound exists because it cannot tell
+        // a single distorted ring from several grains at different radii in
+        // one annulus; once the caller has asserted "one ring" and bypassed
+        // it, this catches the one thing that assertion does not make true.
+        // About the FITTED centre, take the intensity-weighted mean radius of
+        // the strong samples in each of the 36 azimuthal bins, and compare the
+        // largest such mean to the smallest over the bins that hold any. A
+        // ratio past 1.10 is more ellipticity than any STEM camera distortion
+        // this calibration targets — py4DSTEM's own worked examples run a few
+        // percent — and less than the closest common ring pair, fcc
+        // {111}/{200} at 15.5%; hcp {100}/{002} at 6% is inside the bound and
+        // is the caller's responsibility under "fit anyway".
+        // DEVIATION: py4DSTEM `fit_ellipse_1D` has no such path; its answer to
+        // degeneracy is `constrain_degenerate_ellipse`, not a refusal.
+        if sparseCoverage {
+            var weightedRadius = [Double](repeating: 0, count: angularBinCount)
+            var weight = [Double](repeating: 0, count: angularBinCount)
+            for sample in samples where sample.value >= strongThreshold {
+                let dx = sample.x - parameters[0], dy = sample.y - parameters[1]
+                var angle = atan2(dy, dx)
+                if angle < 0 { angle += 2 * .pi }
+                let index = min(angularBinCount - 1, Int(angle / (2 * .pi) * Double(angularBinCount)))
+                weightedRadius[index] += hypot(dx, dy) * sample.value
+                weight[index] += sample.value
+            }
+            var minMeanRadius = Double.greatestFiniteMagnitude
+            var maxMeanRadius = -Double.greatestFiniteMagnitude
+            for index in 0..<angularBinCount where weight[index] > 0 {
+                let meanRadius = weightedRadius[index] / weight[index]
+                minMeanRadius = min(minMeanRadius, meanRadius)
+                maxMeanRadius = max(maxMeanRadius, meanRadius)
+            }
+            if minMeanRadius > 0, maxMeanRadius / minMeanRadius > 1.10 {
+                throw FitError.moreThanOneRing(minRadius: minMeanRadius, maxRadius: maxMeanRadius)
+            }
+        }
+
         return EllipseCalibrationFit(
             centerQX: parameters[0], centerQY: parameters[1],
             a: ellipse.a, b: ellipse.b, theta: ellipse.theta,
             normalizedResidual: residual, conicResidual: residual,
             sampleCount: samples.count, occupiedAngularBins: occupiedCount,
-            model: .conic, profile: nil, profileFallbackReason: nil
+            model: .conic, profile: nil, profileFallbackReason: nil,
+            sparseCoverage: sparseCoverage
         )
     }
 
@@ -300,7 +383,8 @@ package nonisolated enum EllipseCalibration {
         innerRadius: Double,
         outerRadius: Double,
         maximumConicResidual: Double = 0.2,
-        maximumProfileResidual: Double = 0.22
+        maximumProfileResidual: Double = 0.22,
+        acceptSparseCoverage: Bool = false
     ) throws -> EllipseCalibrationFit {
         // A broad/asymmetric ring can legitimately exceed the strict conic
         // publication residual while still providing a useful profile seed.
@@ -308,7 +392,8 @@ package nonisolated enum EllipseCalibration {
             pattern: pattern,
             centerQX: centerQX, centerQY: centerQY,
             innerRadius: innerRadius, outerRadius: outerRadius,
-            maximumResidual: max(0.4, maximumConicResidual)
+            maximumResidual: max(0.4, maximumConicResidual),
+            acceptSparseCoverage: acceptSparseCoverage
         )
         do {
             return try fitAmorphousRing(
@@ -327,7 +412,8 @@ package nonisolated enum EllipseCalibration {
                 sampleCount: conic.sampleCount,
                 occupiedAngularBins: conic.occupiedAngularBins,
                 model: .conic, profile: nil,
-                profileFallbackReason: error.localizedDescription
+                profileFallbackReason: error.localizedDescription,
+                sparseCoverage: conic.sparseCoverage
             )
         }
     }
@@ -570,7 +656,8 @@ package nonisolated enum EllipseCalibration {
                 centralSigma: parameters[2], innerSigma: parameters[3],
                 outerSigma: parameters[4], background: parameters[5]
             ),
-            profileFallbackReason: nil
+            profileFallbackReason: nil,
+            sparseCoverage: initial.sparseCoverage
         )
     }
 

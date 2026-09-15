@@ -815,3 +815,57 @@ inline `DEVIATION` note carrying these numbers, so the choice is documented
 rather than accidental — CLAUDE.md requires the note, and the note now cites a
 measurement instead of an opinion. **Parity here would be parity with a worse
 answer.** Nothing shipped changed: the default reproduces every previous run.
+
+---
+
+## The ellipse fit measures a 10 % ellipse on an isotropic detector — closed 2026-09-15
+
+**Closure:** The refusal stands as the default; the flag the owner asked for landed behind an explicit "Fit Anyway" button (`decisions.md` 2026-09-15). `fit1D(acceptSparseCoverage:)` fits between 12 and 29 of 36 sectors, marks the result `sparseCoverage`, and refuses several rings in one annulus by a per-sector radius bound of 10 % about the fitted centre; `CalibrationSession.applyEllipseFit` stamps `CalibrationValueProvenance.fitAnyway`. Gated by `tools/ellipse-calibration-test` (anyway loop, a 6 % elliptic sparse ring recovered to 0.07 px, the off-centre seed check) and four `RotationSignificanceTests`. Gate B: five mutations, two caught by the fixture, one (seed centre) caught by a check added for it, one (unweighted mean) surviving and recorded, one provably equivalent; one confirmed blind spot recorded as the cost fixture `overlap_bins_2radii`. Residuals live in `../open-items.md`.
+
+### The ellipse fit measures a 10 % ellipse on an isotropic detector — REFUSED 2026-09-14, flag owed
+**Science, Gate D done by the owner's experiment; refusal landed on his
+decision ("refuse it for now, add the flag later").** The fit reported
+a = 43.68, b = 39.72 on a detector isotropic by construction, and everything
+downstream followed. **Four statistics were measured and three refuted:**
+- *Azimuthal contrast* (90th-percentile bin over median) — shipped, reverted,
+  then refuted again by a new fixture: a LEGITIMATE six-azimuth ring whose fit
+  is exactly right reads 81, against the defect's 2 777. No bar separates them.
+- *The fit's own `normalizedResidual`* — inverted: the legitimate spotty ring
+  reads 0.149 and the defect 0.082.
+- *Radial multiplicity* on the fitted ellipse — blind, because the ellipse the
+  defect produces threads the three radii so every sample sits on it (1.000).
+**Why none of them works, and it is not a missing idea:** a three-grain
+annulus and a legitimate six-azimuth ring occupy the same 12 of 36 bins and
+differ in nothing a statistic can read — only in the answer. An ellipse has
+five free parameters; spots at a dozen azimuths determine it no better than
+the three radii they lie on. They are the same measurement.
+**So the guard is a degeneracy bound**, not a separation: `fit1D`'s coverage
+requirement goes from a third of the azimuthal bins to five sixths. Measured
+across a fixture sweep now in `tools/ellipse-calibration-test` (7 new gated
+checks, every pattern circular by construction so a reported a/b is a defect):
+3 grains refused (it was reporting a/b 1.685), 6 grains refused (its answer
+would have been right — the stated cost), 12 grains fitted isotropic, a
+9-azimuth spotty single ring fitted isotropic, a nanocrystalline halo fitted
+isotropic. Marked `DEVIATION`: py4DSTEM's `fit_ellipse_1D` has no guard at all
+and answers degeneracy with `constrain_degenerate_ellipse` instead.
+**OWED: THE FLAG, and this is what it has to answer** (owner, 2026-09-14:
+"refuse it for now, add the flag later"). A sparse legitimate ring — one
+radius, too few azimuths — is now refused outright, and he wants it fitted and
+marked instead. The pieces:
+- **Where the refusal is:** `EllipseCalibration.fit1D`, the
+  `occupiedCount >= angularBinCount * 5 / 6` guard. A flag path fits anyway
+  below that bound and marks the result; it does not weaken the bound for the
+  multi-radius case, which must stay refused (`grains_3_one_annulus`).
+- **What carries the mark:** `EllipseCalibrationFit` has no field for it, and
+  `CalibrationValueProvenance` (`Core/Data/Calibration.swift:49`) is what the
+  Prepare row's status word comes from. A fourth status beside Measured /
+  Manual / From file is the smallest shape that reaches the user.
+- **The decision a session may not make alone:** whether the flag REPLACES the
+  refusal for a single-radius annulus, or sits behind an explicit "fit anyway"
+  after one. The first is silent, the second is a click. Ask before building.
+- **Gate:** Gate D applies. A flagged ellipse becomes usable downstream, so the
+  change decides whether degenerate distortion reaches strain and ACOM —
+  that moves a scientific number even though the fit itself is unchanged.
+- **The fixture already exists:** `spotty_ring_6_azimuths` is the legitimate
+  case (expect `refuse` today, expect flag-and-fit after), and
+  `grains_3_one_annulus` is the control that must stay refused.

@@ -86,55 +86,27 @@ ran 46 of 46. Count by class, with the suffix `grep -o "()' passed on 'My Mac"`.
 2026-09-08 finding that `-only-testing` with a file name runs nothing and exits
 0: the harness reporting success while doing nothing.
 
-### The ellipse fit measures a 10 % ellipse on an isotropic detector — REFUSED 2026-09-14, flag owed
-**Science, Gate D done by the owner's experiment; refusal landed on his
-decision ("refuse it for now, add the flag later").** The fit reported
-a = 43.68, b = 39.72 on a detector isotropic by construction, and everything
-downstream followed. **Four statistics were measured and three refuted:**
-- *Azimuthal contrast* (90th-percentile bin over median) — shipped, reverted,
-  then refuted again by a new fixture: a LEGITIMATE six-azimuth ring whose fit
-  is exactly right reads 81, against the defect's 2 777. No bar separates them.
-- *The fit's own `normalizedResidual`* — inverted: the legitimate spotty ring
-  reads 0.149 and the defect 0.082.
-- *Radial multiplicity* on the fitted ellipse — blind, because the ellipse the
-  defect produces threads the three radii so every sample sits on it (1.000).
-**Why none of them works, and it is not a missing idea:** a three-grain
-annulus and a legitimate six-azimuth ring occupy the same 12 of 36 bins and
-differ in nothing a statistic can read — only in the answer. An ellipse has
-five free parameters; spots at a dozen azimuths determine it no better than
-the three radii they lie on. They are the same measurement.
-**So the guard is a degeneracy bound**, not a separation: `fit1D`'s coverage
-requirement goes from a third of the azimuthal bins to five sixths. Measured
-across a fixture sweep now in `tools/ellipse-calibration-test` (7 new gated
-checks, every pattern circular by construction so a reported a/b is a defect):
-3 grains refused (it was reporting a/b 1.685), 6 grains refused (its answer
-would have been right — the stated cost), 12 grains fitted isotropic, a
-9-azimuth spotty single ring fitted isotropic, a nanocrystalline halo fitted
-isotropic. Marked `DEVIATION`: py4DSTEM's `fit_ellipse_1D` has no guard at all
-and answers degeneracy with `constrain_degenerate_ellipse` instead.
-**OWED: THE FLAG, and this is what it has to answer** (owner, 2026-09-14:
-"refuse it for now, add the flag later"). A sparse legitimate ring — one
-radius, too few azimuths — is now refused outright, and he wants it fitted and
-marked instead. The pieces:
-- **Where the refusal is:** `EllipseCalibration.fit1D`, the
-  `occupiedCount >= angularBinCount * 5 / 6` guard. A flag path fits anyway
-  below that bound and marks the result; it does not weaken the bound for the
-  multi-radius case, which must stay refused (`grains_3_one_annulus`).
-- **What carries the mark:** `EllipseCalibrationFit` has no field for it, and
-  `CalibrationValueProvenance` (`Core/Data/Calibration.swift:49`) is what the
-  Prepare row's status word comes from. A fourth status beside Measured /
-  Manual / From file is the smallest shape that reaches the user.
-- **The decision a session may not make alone:** whether the flag REPLACES the
-  refusal for a single-radius annulus, or sits behind an explicit "fit anyway"
-  after one. The first is silent, the second is a click. Ask before building.
-- **Gate:** Gate D applies. A flagged ellipse becomes usable downstream, so the
-  change decides whether degenerate distortion reaches strain and ACOM —
-  that moves a scientific number even though the fit itself is unchanged.
-- **The fixture already exists:** `spotty_ring_6_azimuths` is the legitimate
-  case (expect `refuse` today, expect flag-and-fit after), and
-  `grains_3_one_annulus` is the control that must stay refused.
-Also still open from that run: R–Q rotation reads "measured" −67.5° on a cube
-with no physical rotation.
+### The ellipse "Fit anyway" mark: what it does not yet do — added 2026-09-15
+**Known, scoped.** The flag the owner asked for landed 2026-09-15 behind an
+explicit "Fit Anyway" button (`decisions.md`; the closed entry with the four
+refuted statistics is in `archive/closed-items-2026-09.md`). Residuals:
+- **The mark does not survive a session round trip.** `PixelCalibration`
+  carries a/b/θ and nothing else, so a restored fit-anyway ellipse reads "From
+  session". The sidecar wire format is the owner's (plan §8); a field there is
+  a format decision, not a fix. Exports carry no ellipse provenance at all
+  (pre-existing: `ResultExport` names the origin fit and rotation, never the
+  ellipse).
+- **Two radii sharing every azimuth pass the one-ring check** — Gate B built
+  it: rings at 40 and 50 px at the same six azimuths blend to a marked,
+  isotropic fit at 48.5 px, a radius that is neither ring's. The check reads
+  between sectors; no cheap statistic separates within-sector mixing from one
+  ring of large disks. Recorded as the cost fixture `overlap_bins_2radii`.
+- **The 1.10 bound's value is unpinned**: 1.06 passes, 1.59 refuses, nothing
+  between is tested; an unweighted per-sector mean survives every fixture too.
+- **Unverified on screen:** the button, its caption, the orange "Fit anyway"
+  status word, the caption under Correction.
+Also still open from the 2026-09-14 run: R–Q rotation reads "measured" −67.5°
+on a cube with no physical rotation (the rotation entry below).
 
 ### A challenged matrix verdict is drawn like one by exclusion — added 2026-09-15
 **Presentation, live; the science is closed** (`archive/closed-items-2026-09.md`,
@@ -179,10 +151,13 @@ Not set", which the code never establishes — it declines to write and never
 clears, so an earlier fit, a session restore, a manual entry or a value from
 the file survives while strain, ACOM and DPC keep consuming it. Now "not
 updated", pinned by a test.
-**Also owed:** the refusal is a 300-character sentence routed to `statusText`
+**Also owed:** the refusal is a 264-character sentence routed to `statusText`
 alone, not an alert, and the diagnostics panel still says "the marker is the
 chosen minimum" beside an angle that was deliberately not written
-(`UI/WorkspaceInspector.swift:719`). **Unverified on screen.**
+(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.** And the Gate B
+numbers above (60–80 %, 6 of 6, 50 of 200 seeds) come from a scratch probe
+that was not checked in; only the unit fixture's own count is reproducible
+(review 2026-09-15).
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
 **Science, live, no fix, cause narrowed to the score itself. One entry for the
@@ -195,6 +170,14 @@ that the cube's exporter writes reflections at kMax 0.9
 (`AppState.swift`), so the bank predicts two rings the data cannot contain —
 and on an IDEAL complete plant the offset is 0.000°. That is inherited from
 py4DSTEM, not a port bug: a transcription of theirs picks the same template.
+**The "one `tools/` line" (export at 1.2) is refuted by geometry, 2026-09-15:**
+a scratch build of the exporter at kMax 1.2 adds twelve Al [001] reflections
+({400} at 0.988, {420} at 1.104 Å⁻¹), and at grain A's 12° rotation none of
+them lands on the 128-px detector (half-width 0.762, corner 1.086 Å⁻¹). It
+would add two {400} spots in grain B's corners and four weak β″ [010] spots,
+nothing on [001], so it cannot move the [001] result and is not taken; the
+bank predicting rings past the detector's edge is every real detector's
+situation, and the matcher's to handle.
 **But it is not the whole story**, because on the cube's own detected peaks no
 bank kMax fixes it (0.768, the detector's own reach, leaves grain A at 2.2–6.7°
 and makes grain C worse), and the same offsets appear on axes with no phantom

@@ -261,6 +261,23 @@ struct PrepareSettings: View {
             .disabled(appState.isBusy)
             .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
 
+            // Offered only while the last fit was refused for coverage between
+            // the sparse floor and the degeneracy bound — a "fit anyway" retry
+            // could succeed on the caller's assertion that the annulus holds
+            // one ring (`CalibrationSession.refuseEllipseFit`, 2026-09-15).
+            if let offeredBins = session.ellipseFitAnywayOffer {
+                Button {
+                    Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
+                } label: {
+                    Label("Fit Anyway", systemImage: "exclamationmark.triangle")
+                }
+                .disabled(appState.isBusy)
+                .help("Only \(offeredBins) of 36 sectors carry ring signal, so an ellipse is underdetermined: spots from a few grains fit one as well as a distorted detector does. Fit anyway only if this annulus holds exactly one ring. The result is marked “Fit anyway” and is used by strain and ACOM.")
+                Text("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if calibration.hasEllipse,
                let a = calibration.ellipseA,
                let b = calibration.ellipseB,
@@ -270,6 +287,11 @@ struct PrepareSettings: View {
                     value: String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
                 )
                 .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
+                if session.provenance.ellipse == .fitAnyway {
+                    Text("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if let fit = session.lastEllipseFit {
                     LabeledContent("Model", value: fit.model.rawValue)
                     LabeledContent(
@@ -302,9 +324,12 @@ struct PrepareSettings: View {
     /// followed by its warning and its action.
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
+        // Ready and green, EXCEPT "fit anyway": the value is used same as any
+        // other, but the assertion behind it is the user's, not the fit's.
+        let isWarning = item.status == .ready(.fitAnyway)
         LabeledContent {
             Text(item.status.displayName)
-                .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
+                .foregroundStyle(item.status.isReady && !isWarning ? Color.secondary : Color.orange)
                 .fixedSize()
         } label: {
             Label {

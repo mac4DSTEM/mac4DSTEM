@@ -86,6 +86,10 @@ package enum ACOMQScaleProvenance: String, Sendable {
         case .measuredInApp: self = .measuredInApp
         case .manual, nil: self = .manual
         case .mixed: self = .mixed
+        // "Fit anyway" is a mark on the ELLIPSE's provenance, not a statement
+        // about the Q scale it never touches — a Q measured in the app is
+        // still simply measured.
+        case .fitAnyway: self = .measuredInApp
         }
     }
 }

@@ -4085,7 +4085,7 @@ final class AppState {
     /// when one is visible, otherwise from the scan-mean diffraction pattern.
     /// The fitter owns the qx=row/qy=column convention; this method performs
     /// the single app x/y swap at its boundary.
-    func calibrateEllipse() async {
+    func calibrateEllipse(acceptSparseCoverage: Bool = false) async {
         guard let descriptor else { return }
         let detectorPattern: DiffractionPattern
         let sourceName: String
@@ -4138,18 +4138,14 @@ final class AppState {
                 try EllipseCalibration.fitBestAvailable(
                     pattern: detectorPattern,
                     centerQX: centerQX, centerQY: centerQY,
-                    innerRadius: inner, outerRadius: outer
+                    innerRadius: inner, outerRadius: outer, acceptSparseCoverage: acceptSparseCoverage
                 )
             }.value
             guard epoch == datasetEpoch, !cancellation.isCancelled else {
                 statusText = "Ellipse calibration cancelled"
                 return
             }
-            calibrationSession.calibration.ellipseA = fit.a
-            calibrationSession.calibration.ellipseB = fit.b
-            calibrationSession.calibration.ellipseTheta = fit.theta
-            calibrationSession.provenance.ellipse = .measuredInApp
-            calibrationSession.lastEllipseFit = fit
+            calibrationSession.applyEllipseFit(fit)
             progress = 1
 
             // A displayed Bragg map can be reprojected immediately because
@@ -4158,15 +4154,17 @@ final class AppState {
             if navigation.analysisMode == .disks, let vectors = braggVectors {
                 showBraggMap(vectors, descriptor: descriptor)
             }
-            statusText = String(
-                format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
-                fit.model.rawValue,
-                fit.a, fit.b, fit.theta * 180 / .pi,
-                fit.normalizedResidual, sourceName
-            )
+            statusText = fit.sparseCoverage
+                ? String(format: "Ellipse fitted anyway on %d/36 sectors · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@) — marked Fit anyway",
+                         fit.occupiedAngularBins, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
+                : String(format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
+                         fit.model.rawValue, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
         } catch {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
-            else { presentComputeFailure(error) }
+            else {
+                calibrationSession.refuseEllipseFit(error)
+                presentComputeFailure(error)
+            }
         }
     }
 

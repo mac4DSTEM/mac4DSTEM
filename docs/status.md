@@ -77,15 +77,15 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Gate | Result |
 |---|---|
-| `run-tests.sh unit` | **655 passed / 0 failed / 1 skipped = 656 — 2026-09-15** (`unit-p4-20260915.log`, `UNIT_EXIT=0` on its own line), reconciled **exactly** against 656 `func test` in source, with 656 unique test-case names reported and none duplicated. **Counted by parsing `Test case '…' (passed|failed|skipped) on`, not by `grep -c`** — a `grep -c` of the passed lines returns 654 here, one short, which is the documented chopped-line hazard (`development-process.md`) and is how a reader would talk themselves into explaining a gap that is not there |
+| `run-tests.sh unit` | **659 passed / 0 failed / 1 skipped = 660 — 2026-09-15 night** (`unit-flag-20260915.log`, `UNIT_EXIT=0` on its own line), reconciled **exactly** against 660 `func test` declared in source (the 656 of the day plus the four `RotationSignificanceTests` for the ellipse decision). The chopped-line hazard struck again and was reconciled by name, not explained away: 660 result lines, 659 of them parseable as `Test case '…' (passed|skipped) on`, and the one that is not begins mid-name (`efineCapsAtMaxNumPeaks()' passed on`) — `testRefineCapsAtMaxNumPeaks`, the only declared test missing from the parsed set, passed. Previous: 655 / 0 / 1 = 656 the same day (`unit-p4-20260915.log`) |
 | GitHub CI on `ai-analysis` (181cf99, both runs) | **Green on the runner, 2026-09-14** — the first green CI since the v3.0.0 cut, and it covers every source change of the day: unit **637 / 0 / 5 = 642** (the parity test skips there: no Neural Engine, `open-items.md`), scientific **46 harnesses, zero FAIL**, core and inventory exit 0, on both the push and the pull-request run. Runner is `macos-26` with Xcode 26.6; two fixes got it there, both on the branch (`ContentView`'s importer closure as a method; the parity gate, refuted-and-held). Commits after 181cf99 are docs only (`git diff --stat 181cf99..HEAD -- mac4DSTEM/ mac4DSTEMTests/ tools/` empty at closeout). Closeout `inventory` exit 0 (`inventory-closeout-20260914.log`): AppState + ResultExport **7405 = HEAD^**, live markdown **6 138** — up from 6 076 at the day's start: three closed items moved to the archive, five findings recorded, two decisions written, the CI and merge paragraphs; nothing live was found stale enough to delete. |
-| `run-tests.sh scientific` | **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-15** (`sci-final2-20260915.log`, `SCI_EXIT=0` on its own line). `phase-vector-matching` 32 gated checks, `ellipse-calibration-test` 7 spot-pattern checks |
+| `run-tests.sh scientific` | **46 harnesses, zero `FAIL` lines, exit 0 — 2026-09-15 night** (`sci-flag-20260915.log`, `SCI_EXIT=0` on its own line), on the tree with the Fit Anyway path. `ellipse-calibration-test` now 28 PASS lines: the 8 spot patterns on both paths (three fixtures new: a 6 % elliptic sparse ring, the two-radii blind spot, the four-spot degeneracy anyway) plus the off-centre seed check. Previous: same day, `sci-final2-20260915.log`, 46 harnesses |
 | `run-tests.sh core` (both packages) | **exit 0 — 2026-09-08, the C7 session-4 tree** with `Session/DiskCentreLabels.swift` (`s4/core-final.log`). Previous: session 3, same day (`s3/core-c7s3-20260908.log`) |
-| `run-tests.sh inventory` | **exit 0 — 2026-09-15** (`inv-ap2-20260915.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic 13; AppState + ResultExport **7 402, three lines BELOW where the session started** — the rotation decision moved to `CalibrationSession`. Live markdown 6 406 against 6 193 at the start; the reason is nine refuted ACOM hypotheses and two Gate B records |
+| `run-tests.sh inventory` | **exit 0 — 2026-09-15 night** (`inv-flag2-20260915.log`, `INV_EXIT=0` on its own line): gated 48, diagnostic 13; AppState + ResultExport **7 400, two lines below HEAD** — the ellipse decision moved to `CalibrationSession`. Live markdown 6 458 against 6 406 at the previous closeout: the 2026-09-14 handoff narrative moved to the archive, the closed ellipse entry moved with it, and the night's own records (a decision paragraph, the residual entry, the kMax refutation) are what is added. Previous: `inv-ap2-20260915.log`, 7 402 |
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — two of the drives' three defects are fixed, one is refused with a flag owed, none is seen on screen
+## Handoff — the ellipse flag landed behind a click, item 3 was refuted by geometry, two decisions were taken on the record, none of it seen on screen
 
 **State.** The AI Analysis room holds two tasks: diffraction grouping (PCA +
 k-means, 2026-09-11) and phase mapping (vector matching, 2026-09-12). Steps 1,
@@ -107,58 +107,44 @@ corner, 96 end-on β″ [010] and 108 β″ [001] needle positions, with
 2026-09-14 and all three were right: the stripe reads +0.0154 against a planted
 +1.5 %, and the IPF map colours the three grains as the TSL key says.
 
-**2026-09-14 evening: the four queue items were taken, Gate B ran on all of
-them, and it changed the answer on two.** Nothing is verified on screen.
+**2026-09-15 night, unattended.** Queue item 1 was taken, its one open
+question answered on the record (`decisions.md` 2026-09-15: the flag follows
+an explicit click), and the change built by two Sonnet slices, reviewed here,
+refuted by an independent agent and gated. **Item 3 was refuted before it was
+built** — see NEXT. The previous session's four code commits were reviewed
+read-only: the null and the session boundary do what the docs say; two doc
+nits corrected; its Gate B rotation numbers rest on a scratch probe that was
+never checked in (now said in the entry).
 
-1. **A second matrix grain was labelled as a candidate phase — FIXED.**
-   `classify` never asked whether the MATRIX explains the surviving vectors, so
-   2 250 positions of pure aluminium on [011] came back 100 % β″ [001]. The
-   matrix is now offered every low-index orientation before a candidate label is
-   allowed, with the in-plane rotation **derived at the position**. Grain B
-   **100 % → 0 %**, precipitate recall unchanged at 96/96 and 108/108, indexed
-   total exactly the 204 planted precipitate positions. **Three remedies were
-   refuted before this one stood:** a whole-scan rotation fit (carried [-1 1 0]
-   at 100° where the grain needs 130°); seeding rotations on the three longest
-   vectors (spurious maxima sit farther out — three of them took the catch rate
-   to 0 %); and requiring only "at least as many" matched vectors (a 49-axis
-   search then stole 26.5 % of three-vector precipitates). It is gated by a new
-   Part E in `tools/phase-vector-matching`, whose first check reproduces the
-   defect so the second cannot be vacuous.
-2. **The ellipse fit's 10 % ellipse — REFUSED, on the owner's decision.** Four
-   statistics were measured; three were refuted, including the azimuthal
-   contrast that had shipped earlier the same session. The reason none works is
-   not a missing idea: a three-grain annulus and a legitimate six-azimuth ring
-   occupy the same 12 of 36 bins and differ in nothing a statistic can read,
-   only in the answer. The guard is therefore a **degeneracy bound** — `fit1D`
-   needs five sixths of the azimuthal bins, not a third — and it refuses the
-   sparse legitimate case too, which is stated rather than hidden. Seven new
-   gated checks, every fixture circular by construction so a reported a/b is a
-   defect: 3 grains refused (a/b 1.685), 12 grains and two spotty rings fitted
-   isotropic. **A flag for the sparse case is owed**, at the owner's direction.
-3. **The zone-axis chance floor — PARTLY.** The expectation is now computed from
-   the same definition the matcher's guard uses and shown in the panel. **It
-   does not mark the ⟨112⟩ at 8 % that motivated it:** Al's ⟨112⟩ entries carry
-   12-16 vectors, not the 48 the cap allows, so 8 % clears five times chance.
-   Said plainly in `open-items.md` rather than claimed as fixed.
-4. **The Prepare panel's Clear Calibration — LANDED.** Written by a delegated
-   agent in an isolated worktree. Gate B found its confirmation dialog false
-   ("maps you have already computed are kept" — the orientation map and parallax
-   are discarded); the dialog now says what actually happens.
+**The ellipse "Fit Anyway" path.** `fit1D(acceptSparseCoverage:)` fits
+between 12 and 29 of 36 sectors and marks the result; below 12 it still
+refuses; at 30+ the flag is inert and the default path is unchanged (the
+refuter found no input that differs). An accepted sparse fit is then checked,
+about the fitted centre, for more than one ring — a per-sector mean radius
+spread past 10 % refuses with the radii named (3 grains: 36.6–58.2 px). A
+planted 6 % ellipse at six azimuths is recovered to 0.07 px and 0.0002 rad.
+`CalibrationSession.applyEllipseFit`/`refuseEllipseFit` own the decision (the
+`applyRotation` model; `AppState` −2 lines); the Prepare panel offers "Fit
+Anyway" only while a retry could succeed, and the readiness row shows "Fit
+anyway" in orange. **Gate B:** of five mutations two were caught by the
+fixture, one (seed centre for fitted centre) survived and now has a check
+built for it, one (unweighted mean) survives and is recorded, one is provably
+equivalent. **One confirmed blind spot**, recorded as a cost fixture: two
+radii sharing every azimuth blend past the check. **Two residuals** are in
+`open-items.md`: the mark does not survive a sidecar round trip, and exports
+carry no ellipse provenance at all.
 
-**Overnight 2026-09-14/15, diagnosis only, nothing in `Core/` touched.** Two
-Gate D diagnoses ran with their experiments and independent refuters. The R–Q
-rotation one survived, with two of its numbers corrected and one of its
-arguments demoted. **The ACOM one was refuted outright:** I blamed py4DSTEM's
-intensity power, and the cause is that the demo cube exports reflections at
-kMax 0.9 while the plan is built at 1.2, so the bank predicts rings the data
-cannot contain and the matcher rationally infers a tilt. That refuter also
-found a separate live defect — 26 of 200 templates fail to recover themselves
-at an off-grid rotation — and four undocumented py4DSTEM deviations. Nothing
-was fixed, by choice: a fix is not a thing to leave unreviewed.
+**2026-09-14 evening and the 2026-09-14/15 diagnoses** (four queue items
+taken, Gate B on all, two Gate D records, one refuted outright): the narrative
+moved to [`archive/v3/ai-analysis-audit-2026-09-14.md`](archive/v3/ai-analysis-audit-2026-09-14.md)
+on 2026-09-15; what is still live is in `open-items.md`.
 
-**UNSEEN ON SCREEN, and the owner's to see.** **Driving was attempted this
-session and the app-control grant was declined,** so nothing here has been
-looked at. Three things changed what the app draws: the "at chance" marker and
+**UNSEEN ON SCREEN, and the owner's to see.** App control was declined on
+2026-09-14 and not re-requested, so nothing here has been looked at. From
+2026-09-15: the "Fit Anyway" button and its caption under Fit Ellipse (only
+after a coverage refusal between 12 and 29 sectors), the orange "Fit anyway"
+status word on the Ellipse readiness row, and the caption under Correction.
+From 2026-09-14, three things changed what the app draws: the "at chance" marker and
 its caption under Find Matrix Zone Axis; the Clear Calibration button and its
 dialog; and the evidence line for a matrix verdict reached by the challenge,
 which used to say "0 of 8 vectors are the matrix's, and 8 is too few to index"
@@ -195,43 +181,33 @@ after. Never edit the gate script, or a source it compiles, while a gate runs.
 A worktree agent branches from where the worktree was cut — this session's was
 33 commits behind, and its patch needed a three-way apply.
 
-**NEXT, in order** (rewritten 2026-09-14 night; `/pickup` takes 1).
-1. **The ellipse fit's flag** — the refusal landed; a sparse legitimate ring is
-   now refused outright and the owner wants it flagged instead.
-   `open-items.md` carries the spec: where the guard is, what carries the mark,
-   the fixture that already exists, and Gate D. **It opens with one question
-   only the owner answers** — does the flag REPLACE the refusal for a
-   single-radius annulus, or sit behind an explicit "fit anyway" after one? An
-   unattended session should put that question in its report and take 2
-   meanwhile, rather than guess; `/pickup` says which it took and why.
-2. **R–Q rotation** — **NARROWED, not fixed.** A permutation null now catches a
+**NEXT, in order** (rewritten 2026-09-15 night; `/pickup` takes 1).
+1. **R–Q rotation** — **NARROWED, not fixed.** A permutation null now catches a
    spatially white field, which is the failure that reached the owner, and
    refuses no genuine rotation. Gate B measured what it misses: a rotation-free
    field with any spatial structure is certified 60–80 % of the time, and probe
    overlap alone produces that structure. The verdict is also seed-conditional.
-   Four mutations survive, one of which deletes the guard entirely. Its false
-   sentence is fixed. `open-items.md`.
-3. **The demo cube exports reflections at kMax 0.9 while the ACOM plan is
-   built at 1.2** — one `tools/` line, and it is why the [001] winner is 5°
-   off. Gate D is DONE and **my own diagnosis was refuted**: the cause is not
-   the intensity power but a bank predicting rings the data cannot contain.
-   Cheap, and it makes the cube a faithful ACOM fixture.
-4. **ACOM returns a zone axis up to 12.8° beyond what its own bank forces, and
-   the mechanism is now found.** The true template's inner and outer ring
-   groups peak one azimuthal bin apart, so no single shift aligns both, and the
-   score — a max over shift of the SUM across rings — charges the truth for a
-   misalignment the rounding introduced. Nine hypotheses were spent guessing
-   before anyone read the polar images. **A decision is owed:** linear
-   azimuthal deposition fixes the demonstrated case and cuts wrong answers from
-   40 to 28 of 136, but makes two currently-exact axes sometimes wrong and does
-   not touch the 12.8° worst case. Reverted pending the owner. **And a lever
-   nobody should pull:** raising the bank to 1 000 templates makes ACOM worse
-   under both schemes (48 wrong against 40 shipped). `open-items.md`.
-5. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
+   A real fix needs a statistic, not a rank; Gate D from the top, and the first
+   deliverable is a checked-in probe for the numbers above. `open-items.md`.
+2. **ACOM says nothing about its own accuracy** — the honest line for a user
+   is "good to a few degrees on most axes, up to 13° off on some", measured by
+   `tools/acom-groundtruth/orientation-accuracy.py`. Presentation only, no
+   Gate D; a caption on the Orientation panel. The deposition trade itself is
+   **left** (`decisions.md` 2026-09-15): a change that helps at 200 templates
+   and hurts at 1 000 has no mechanism. Eleven hypotheses are written down in
+   `open-items.md`; read them before forming a twelfth.
+3. **The chance floor does not mark its own motivating case** — Al ⟨112⟩ entries
    carry 12-16 vectors, so 8 % clears five times chance. Gate D owed on what
    threshold would catch it.
-6. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
-   this session at 5 GB.
+4. **The HDF5 one-actor refactor stays recorded** (`decisions.md` 2026-09-15);
+   its precondition is a runnable reproduction of the 2026-08-19 race, as a
+   diagnostic harness, so the fix has something to fail against.
+5. **Step 3** when ~8 GB is free — still the merge condition. The machine ended
+   this session at 4 GB.
+Refuted and dropped 2026-09-15: "the demo cube exports reflections at kMax 0.9
+while the plan is built at 1.2 — one `tools/` line and why the [001] winner is
+5° off". At grain A's rotation none of the added reflections reaches the
+detector; the geometry is in the ACOM entry.
 
 ## Owed to the owner
 

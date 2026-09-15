@@ -633,6 +633,106 @@ final class RotationSignificanceTests: XCTestCase {
         XCTAssertEqual(session.provenance.rotation, .measuredInApp)
     }
 
+    /// `applyEllipseFit`/`refuseEllipseFit`: the ellipse's version of the two
+    /// tests above, at the same boundary and for the same reason (Gate B,
+    /// 2026-09-15) — the "fit anyway" decision lives in `CalibrationSession`
+    /// precisely so a test can reach it without an `AppState`.
+    func testAFullCoverageEllipseFitIsMeasuredInApp() {
+        let session = CalibrationSession()
+        let fit = Self.ellipseFit(sparseCoverage: false, occupiedAngularBins: 34)
+        session.applyEllipseFit(fit)
+
+        XCTAssertEqual(session.calibration.ellipseA, fit.a)
+        XCTAssertEqual(session.calibration.ellipseB, fit.b)
+        XCTAssertEqual(session.calibration.ellipseTheta, fit.theta)
+        XCTAssertEqual(session.provenance.ellipse, .measuredInApp)
+        let item = session.readiness.items.first { $0.kind == .ellipse }
+        XCTAssertEqual(item?.status, .ready(.measuredInApp))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+    }
+
+    func testASparseEllipseFitIsMarkedFitAnywayAndReady() {
+        let session = CalibrationSession()
+        let fit = Self.ellipseFit(sparseCoverage: true, occupiedAngularBins: 20)
+        session.applyEllipseFit(fit)
+
+        XCTAssertEqual(session.provenance.ellipse, .fitAnyway)
+        XCTAssertEqual(session.provenance.ellipse?.stateLabel, "Fit anyway")
+        let item = session.readiness.items.first { $0.kind == .ellipse }
+        XCTAssertEqual(item?.status, .ready(.fitAnyway))
+        XCTAssertEqual(item?.status.isReady, true)
+        XCTAssertEqual(item?.status.displayName, "Fit anyway")
+        XCTAssertEqual(session.lastEllipseFit, fit)
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+    }
+
+    /// The offer exists ONLY in the band a retry could rescue: below the
+    /// sparse floor `fit1D` refuses outright regardless of `acceptSparseCoverage`,
+    /// and at/above the degeneracy bound the original call would not have been
+    /// refused for coverage in the first place — belt and braces on that last
+    /// one, since it should be unreachable from the fitter itself.
+    func testACoverageRefusalOffersFitAnywayOnlyBetweenTheFloorAndTheBound() {
+        let session = CalibrationSession()
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(12))
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 12)
+        XCTAssertFalse(session.calibration.hasEllipse)
+        XCTAssertNil(session.provenance.ellipse)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(29))
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 29)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(8))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(30))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.moreThanOneRing(minRadius: 36.6, maxRadius: 58.2))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.invalidEllipse)
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        // Moving the annulus retires the offer: the caption named the old one.
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(18))
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 18)
+        session.ellipseFitOuterRadius += 5
+        XCTAssertNil(session.ellipseFitAnywayOffer, "a changed annulus kept a stale offer")
+    }
+
+    func testARefusalLeavesAnEarlierEllipseStandingAndASuccessClearsTheOffer() {
+        let session = CalibrationSession()
+        let full = Self.ellipseFit(sparseCoverage: false, occupiedAngularBins: 34)
+        session.applyEllipseFit(full)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(12))
+        XCTAssertEqual(session.calibration.ellipseA, full.a,
+                       "the refusal cleared an ellipse it only meant to decline")
+        XCTAssertEqual(session.provenance.ellipse, .measuredInApp)
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 12)
+
+        let sparse = Self.ellipseFit(sparseCoverage: true, occupiedAngularBins: 20)
+        session.applyEllipseFit(sparse)
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+        XCTAssertEqual(session.provenance.ellipse, .fitAnyway)
+
+        session.clear()
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+        XCTAssertNil(session.lastEllipseFit)
+        XCTAssertFalse(session.calibration.hasEllipse)
+    }
+
+    private static func ellipseFit(sparseCoverage: Bool, occupiedAngularBins: Int) -> EllipseCalibrationFit {
+        EllipseCalibrationFit(
+            centerQX: 12, centerQY: 11, a: 43.68, b: 39.72, theta: 0.4,
+            normalizedResidual: 0.08, conicResidual: 0.08,
+            sampleCount: 900, occupiedAngularBins: occupiedAngularBins,
+            model: .conic, profile: nil, profileFallbackReason: nil,
+            sparseCoverage: sparseCoverage
+        )
+    }
+
     /// And the behaviour the refusal sentence had to be corrected to describe:
     /// a refusal declines to write, it does NOT clear. An earlier value stands,
     /// which is why the message says "not updated" rather than "Not set".
