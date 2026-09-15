@@ -732,10 +732,10 @@ private struct ACOMSections: View {
             // aluminium patterns, 2026-09-15 (`tools/acom-groundtruth`); no
             // other phase has been measured. Static on purpose: a number with
             // its date and its scope, not a promise.
-            Text("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 12.8° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
+            Text("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .help("136 planted patterns across nine zone axes and two azimuthal bins of in-plane rotation, scored against the bank's own nearest entry (tools/acom-groundtruth/orientation-accuracy.py, 2026-09-15). The score prefers a wrong template when the true one's ring groups straddle an azimuthal bin; the mechanism is recorded in docs/open-items.md.")
+                .help("136 planted patterns across nine zone axes and two azimuthal bins of in-plane rotation (tools/acom-groundtruth/orientation-accuracy.py, 2026-09-15). The angles are the total error against the planted axis; the bank's own sampling accounts for at most 0.8° of the 13.6°, and the rest is the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin — the mechanism is recorded in docs/open-items.md.")
 
             scopeControls
 
