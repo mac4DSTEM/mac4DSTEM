@@ -1419,7 +1419,7 @@ after. The price is a blocked thread for the length of one operation, stated
 in the entry; the price of the actor would have been a rewrite nobody could
 gate tonight.
 
-## 2026-09-16 — the three decisions step 3 turned on, taken and measured
+## 2026-09-15 — the three decisions step 3 turned on, taken and measured
 
 Step 3 failed its acceptance and the owner said take the decisions. Each was
 measured on `tools/thronsen-dataset` before it landed, and one claim of
@@ -1462,7 +1462,7 @@ floor's noise cost at two survivors is 0.015 %; the chance guard silences it
 below ≈ 0.3 Å⁻¹ accessible radius on a dense entry. Both are in the
 setting's note now, and the untested second-grain case is in `open-items.md`.
 
-## 2026-09-16 — the detection default stays py4DSTEM's 0.5 %
+## 2026-09-15 — the detection default stays py4DSTEM's 0.5 %
 
 Measured on Thronsen's dataset A (`open-items.md`, step 3): a relative
 threshold of 0.2 % of the beam takes the map from 13.24 % to 8.75 %

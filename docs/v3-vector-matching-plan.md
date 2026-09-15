@@ -1,6 +1,6 @@
 # Vector-matching phase mapping — the plan, 2026-09-11
 
-> **Where it stands, 2026-09-16.** Steps **0, 1, 2, 4 and 5 are done**; step 3
+> **Where it stands, 2026-09-15.** Steps **0, 1, 2, 4 and 5 are done**; step 3
 > **ran on a subsample and failed its pre-registered acceptance** (26 %
 > mislabelled against a 0.96–1.75 % band; 13.24 % after three decisions,
 > 8.75 % at a 0.2 % detection threshold; §3). Before that: step 3
@@ -91,7 +91,7 @@ Three parts, each small:
 Gate D applies: the output is a phase label that reaches an export. Gate B
 applies: it is new Core that moves a scientific number.
 
-### 3 — Validate against their published ground truth  ← **RAN 2026-09-15/16 on a stride-3 subsample; OUTSIDE their band**
+### 3 — Validate against their published ground truth  ← **RAN 2026-09-15 on a stride-3 subsample; OUTSIDE their band**
 Their `datasetA_preprocessed.hspy` (7.4 GB, float32 512 × 512 × 128 × 128)
 does not fit this machine, so `tools/thronsen-dataset` streams it from Zenodo
 by HTTP range requests and writes every third scan row and column as uint16
@@ -106,7 +106,7 @@ so the band can be read from the subsample.
   0.96–1.75 %. Labels: 0 Al, 1 θ′ edge-on, 2 θ′ face-on, 3 T1, 4 disagreement.
 - **Our result (`tools/phase-map-probe --thronsen`): 25.9–26.4 % at every
   detection threshold from 1 to 10 % with the mask reach; 98.3 % at the
-  shipped 0.5 %; 13.24 % after the three decisions of 2026-09-16; 8.75 %
+  shipped 0.5 %; 13.24 % after the three decisions of 2026-09-15; 8.75 %
   at a 0.2 % detection threshold (12.22 % at 0.3 %), the default unchanged.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
   the matrix because along [001]Al each variant leaves at most two
   non-Al reflections inside their 0.70 Å⁻¹ mask, under the matcher's
@@ -202,7 +202,7 @@ Stated now so it is not discovered later. Their implementation:
 3. ~~**Zenodo download**~~ — **resolved 2026-09-15**: streamed and
    subsampled, no disk needed (`tools/thronsen-dataset`).
 4. ~~**Step 3 failed its acceptance**~~ — the three decisions were taken
-   2026-09-16 (`decisions.md`): the Friedel-pair floor, the matcher's outer
+   2026-09-15 (`decisions.md`): the Friedel-pair floor, the matcher's outer
    reach, and a relative reference that excludes the direct beam. 26.4 % →
    13.24 % at shipped defaults; still outside the band. The "free-rotation
    challenge" mechanism written here the same morning was refuted before it

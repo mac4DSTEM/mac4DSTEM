@@ -56,7 +56,7 @@ Done means the repo tells the next reader the truth. In order:
    and claims need evidence here.
 7. Republish the owner's living v2 board (owner request, 2026-08-26): the
    artifact titled **"mac4DSTEM v2 Board"**. Do not hardcode its address —
-   the URL form changed on 2026-09-16 and a stale form would fork a second
+   the URL form changed on 2026-09-15 and a stale form would fork a second
    board, which is the failure this step exists to prevent. Find it with the
    Artifact tool's `action: "list"`, match the title, and pass that row's
    URL as `url` on publish. Update the session rail, workstream fractions,
