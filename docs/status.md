@@ -95,7 +95,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — the ellipse flag landed behind a click, item 3 was refuted by geometry, two decisions were taken on the record, none of it seen on screen
+## Handoff — step 3 ran and failed its band, its three decisions are in and refuted, the night's changes were driven and seen
 
 **State.** The AI Analysis room holds two tasks: diffraction grouping (PCA +
 k-means, 2026-09-11) and phase mapping (vector matching, 2026-09-12). Steps 1,
@@ -168,28 +168,24 @@ taken, Gate B on all, two Gate D records, one refuted outright): the narrative
 moved to [`archive/v3/ai-analysis-audit-2026-09-14.md`](archive/v3/ai-analysis-audit-2026-09-14.md)
 on 2026-09-15; what is still live is in `open-items.md`.
 
-**UNSEEN ON SCREEN, and the owner's to see.** App control was declined on
-2026-09-14 and not re-requested, so nothing here has been looked at. From
-2026-09-15: the "Fit Anyway" button and its caption under Fit Ellipse (only
-after a coverage refusal between 12 and 29 sectors), the orange "Fit anyway"
-status word on the Ellipse readiness row, the caption under Correction, and
-the ACOM accuracy caption under the Quality picker with the reworded "Best"
-detail. From 2026-09-14, three things changed what the app draws: the "at chance" marker and
-its caption under Find Matrix Zone Axis; the Clear Calibration button and its
-dialog; and the evidence line for a matrix verdict reached by the challenge,
-which used to say "0 of 8 vectors are the matrix's, and 8 is too few to index"
-for a position where the matrix had matched 6 of them. Also worth his eye: a
-phase map of the demo cube now shows the [011] grain as matrix rather than β″,
-and the matrix fraction moves 51 % → 74 % because of it.
+**SEEN ON SCREEN on 2026-09-16** (`archive/v3/drive-2026-09-16.md`, with
+the owner off the machine): the "Fit Anyway" button and its caption, the
+orange "Fit anyway" status word, the caption under Correction, the ACOM
+accuracy caption, and the R–Q rotation refusal with its reason under
+Rotation diagnostics — one wording defect found by looking and fixed.
+**Still the owner's to see:** the "at chance" marker and its caption under
+Find Matrix Zone Axis and the Phases panel's "no better than a wrong axis"
+mark (no phase map was driven); the Clear Calibration button and its dialog;
+the evidence line for a matrix verdict reached by the challenge; the two
+new rows "Ignore peaks beyond" (Phase mapping) and "Reference outside"
+(Advanced detection); a phase map of the demo cube, whose [011] grain is
+now matrix rather than β″ (matrix fraction 51 % → 74 %); the HDF5 lock under
+an export racing a session load; anything in light appearance.
 
-**The largest live crash risk, sharpened 2026-09-15 and unowned.** HDF5 is
-entered from two unserialised paths: `H5Reader` is a per-instance actor, and
-`BraggVectorEMDWriter` is a nonisolated enum with its own `dlopen` and no guard
-at all. `AppState` runs `loadSession` detached while the reader actor may be
-mid-read, so **one window is enough** — the "refuse a second window" guard the
-owner was offered does not close it. The fix is named in the app's own source
-twice: one actor owning the library handle. Nothing would catch a regression.
-`open-items.md`.
+**The HDF5 crash risk is closed by a lock, not an actor** (2026-09-15,
+UI table): `HDF5Serial` at every logical operation, `tools/hdf5-race-probe`
+the acceptance (concurrent 3 of 3 on all three entry points); the one-actor
+rewrite was rejected on 145 synchronous writer call sites (`decisions.md`).
 
 **Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
 remain deliberately not wired
