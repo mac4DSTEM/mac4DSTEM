@@ -1482,8 +1482,9 @@ taken for edge-on at 45°) and it removes that confusion entirely. It ships
 with no phase listing angles and no control in the Phase mapping panel,
 because its own pre-registered refuting observation fired: with θ′ at
 {0, 90, 180, 270} it cuts half of the correct edge-on matches, which sit
-near 22° and 67° — because, as Gate B found, the angle compared is the
-library's per-entry frame and not a lab angle. A control that a user would
-set to the textbook OR and lose recall to is not a feature; the probe
-carries the flag until both nets are expressed in one frame.
+near 22° and 67° for a reason still open (a 70°/110° partial
+self-coincidence of the net fits the numbers; the frame Gate B raised does
+not, the two frames differing by a multiple of 90° here). A control that a
+user would set to the textbook OR and lose recall to is not a feature; the
+probe carries the flag until those positions are explained.
 

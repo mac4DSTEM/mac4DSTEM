@@ -160,10 +160,11 @@ package nonisolated struct PhaseDefinition: Sendable {
     /// entry's in-plane frame comes from `ACOMOrientation.detectorBasis`,
     /// whose first axis depends on which branch the zone axis falls on, so
     /// the same listed value is a different physical angle for a [100] zone
-    /// than for a [001] zone against a [001] matrix. Measure the offset on
-    /// data (`tools/phase-map-probe`'s winner-angle table) before listing;
-    /// on Thronsen's dataset A the textbook {0, 90} held for θ′ face-on and
-    /// not for edge-on (`docs/open-items.md`).
+    /// than for a [001] zone against a [001] matrix — compute both frames
+    /// from `detectorBasis` before listing (for θ′[100] against Al[001] the
+    /// offset is an exact multiple of 90°, so the textbook list is right in
+    /// this frame; why half of Thronsen's edge-on matches still sit at
+    /// 22°/67° is open in `docs/open-items.md`).
     package let inPlaneDegreesRelativeToMatrix: [Double]?
 
     package nonisolated init(id: String, displayName: String, crystal: Crystal,

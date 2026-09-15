@@ -117,16 +117,23 @@ refuting observation fired: edge-on correct 50 → 31 %** (not indexed
 67° to the matrix (5° bins, control log), which a {0, 90} list cuts. So the
 constraint is right for face-on and wrong-as-listed for edge-on; the
 capability lands inert (nil everywhere, a test broken four ways), no panel
-control until the edge-on angles have a frame: **Gate B found why they
-sit at 22°/67°** — an entry's in-plane frame is `ACOMOrientation.detectorBasis`'s,
-whose first axis takes a different branch for a [100] zone than for [001],
-so the listed angle is the library's, not a lab angle; face-on [001] shares
-the matrix's frame and edge-on [100] does not. The next instrument is a
-common frame: express both nets' in-plane axes in the lab frame before
-subtracting, then the textbook OR should hold for edge-on too — measured on
-`tools/phase-map-probe --or` first. Also recorded: a phase filtered to no
-entries vanishes from the map silently, and every phase empty refuses the
-map (unreachable while no phase lists angles).
+control until the 22°/67° edge-on matches are explained. **Gate B raised the
+frame** — an entry's in-plane axes come from `ACOMOrientation.detectorBasis`,
+which branches on the zone axis, so a listed angle is the library's, not a
+lab angle — and that caveat is real and recorded on the field, but it is
+**not the cause here**: computed from the code's own rule, edge-on [100] has
+x̂ = c, ŷ = −b and Al [001] has x̂ = b, ŷ = −a, so (002)θ′ ∥ ⟨200⟩Al is an
+exact multiple of 90° in the library's frame (the list was right). What
+fits the clusters is a **partial self-coincidence of the θ′[100] net**: a
+rotation of 70° or 110° maps 4 of its 16 non-Al-coincident vectors — the
+(011)/(022) family at ±55° and ±125° — onto each other within the pair
+radius, and 110° folds to 20°, 70° to 70°. Those positions go "not indexed"
+under the constraint, so the OR-rotated net does not explain them either:
+their surviving spots sit at rotated azimuths for a reason not yet seen.
+Next instrument: dump the survivors and both entries' matched sets at a
+handful of such positions (`tools/phase-map-probe`). Also recorded: a
+phase filtered to no entries vanishes from the map silently, and every
+phase empty refuses the map (unreachable while no phase lists angles).
 That, and T1's last 22 %, are what remains. Until the band is reached a
 phase fraction off this map is not a measurement and every product still
 says `validation: "none"`.
