@@ -103,6 +103,7 @@ enum Probe {
         var reachInvAngstrom: Double?
         var minMatched: Int?        // the rule step 3 turned on: `minimumMatchedVectors`
         var referenceOutsidePx: Float?   // decision 3: the relative reference excludes the direct beam
+        var noiseFloor = false      // the noise-floor-prereg.md experiment; only meaningful with --thronsen
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -118,6 +119,8 @@ enum Probe {
                 referenceOutsidePx = Float(args[index + 1]); index += 2
             } else if args[index] == "--truth", index + 1 < args.count {
                 truthPath = args[index + 1]; index += 2
+            } else if args[index] == "--noise-floor" {
+                noiseFloor = true; index += 1
             } else {
                 positional.append(args[index]); index += 1
             }
@@ -129,6 +132,10 @@ enum Probe {
         let thronsen = thronsenPath.flatMap(Thronsen.Truth.init(path:))
         if thronsenPath != nil, thronsen == nil {
             print("could not read Thronsen labels at \(thronsenPath!)"); exit(1)
+        }
+        if noiseFloor, thronsen == nil {
+            print("--noise-floor only means anything with --thronsen; ignoring")
+            noiseFloor = false
         }
         // Truth mode scores every position; a stride would compare the map
         // against truth on a subsample and call it a measurement of the map.
@@ -235,7 +242,7 @@ enum Probe {
         }
         if let referenceOutsidePx {
             params.relativeReferenceMinimumRadiusPx = referenceOutsidePx
-            print(String(format: "detection: relative reference is the brightest maximum outside %.1f px of the centre", referenceOutsidePx))
+            print(String(format: "detection: relative reference is the brightest maximum outside %.1f px of the brightest maximum", referenceOutsidePx))
         }
 
         let rows = Swift.stride(from: 0, to: primary.ry, by: stride).map { $0 }
@@ -566,6 +573,212 @@ enum Probe {
                       + hist.map { String(format: "%5.1f%%", 100 * Double($0) / Double(total)) }.joined(separator: " ")
                       + " | \(medianDetected)")
             }
+            // ---- Noise floor (Gate D record: docs/open-items.md, step 3 entry) ----
+            // Does a per-pattern local significance z = (I − median) /
+            // (1.4826·MAD) over a pattern's non-beam, non-Al correlation
+            // maxima separate true Friedel pairs (T1, θ′) from noise pairs
+            // (Al), where a fraction-of-the-maximum threshold cannot?
+            if noiseFloor {
+                print("\n== Noise floor: z vs. fraction-of-beam, on non-beam non-Al correlation maxima ==")
+                if map.matrixEntryIndex < 0 {
+                    print("  no matrix entry fitted; skipping")
+                } else {
+                    let matrixVectors = library.entries[map.matrixEntryIndex].vectors
+
+                    // Sample: every θ′/T1 position, plus up to 3000 Al
+                    // positions by even stride over the Al positions.
+                    // Disagreement (label 4) is skipped.
+                    var byClass: [Int: [Int]] = [:]
+                    for (position, label) in thronsen.labels.enumerated() where label != 4 {
+                        byClass[label, default: []].append(position)
+                    }
+                    var classSampled: [Int: [Int]] = [:]
+                    for label in [1, 2, 3] { classSampled[label] = byClass[label] ?? [] }
+                    let al0 = byClass[0] ?? []
+                    if al0.count > 3000 {
+                        let strideN = max(1, al0.count / 3000)
+                        classSampled[0] = Array(Swift.stride(from: 0, to: al0.count, by: strideN)
+                            .prefix(3000).map { al0[$0] })
+                    } else {
+                        classSampled[0] = al0
+                    }
+                    let sampled = classSampled.values.flatMap { $0 }.sorted()
+
+                    struct Outcome {
+                        var noStatistic = false
+                        var bestZ: Double?          // best pair chosen to maximize z
+                        var bestZFraction: Double?   // that same pair's fraction-of-beam
+                        var bestZLength: Double?     // that same pair's mean |q|, Å⁻¹
+                        var bestFraction: Double?    // best pair chosen to maximize fraction, separately
+                    }
+                    var outcome: [Int: Outcome] = [:]
+                    outcome.reserveCapacity(sampled.count)
+                    var noPeaks = 0
+
+                    for position in sampled {
+                        let ry = position / cols.count
+                        let rx = position % cols.count
+                        guard let pattern = try? await reader.readPattern(view, ry: ry, rx: rx) else { continue }
+                        // A copy of the map's own params with the thresholds
+                        // opened up: the question is what the field of
+                        // correlation maxima looks like, not what a fraction
+                        // rule already kept.
+                        var noiseParams = params
+                        noiseParams.minRelativeIntensity = 0
+                        noiseParams.minAbsoluteIntensity = 0
+                        noiseParams.maxNumPeaks = 200
+                        let detected = detector.detect(pattern: pattern, params: noiseParams)
+                        guard let beam = detected.first else { noPeaks += 1; continue }
+                        let beamIntensity = Double(beam.intensity)
+
+                        // Same frame and cuts as `experimentalVectors`, with
+                        // intensity carried alongside.
+                        var fieldMaxima: [(q: SIMD2<Double>, intensity: Double)] = []
+                        fieldMaxima.reserveCapacity(detected.count)
+                        for p in detected {
+                            let q = SIMD2(Double(p.x - originX) * qPerPixel, Double(p.y - originY) * qPerPixel)
+                            let len = simd_length(q)
+                            guard len.isFinite, len > matchSettings.directBeamRadiusInvAngstrom,
+                                  matchSettings.maximumVectorInvAngstrom <= 0
+                                      || len < matchSettings.maximumVectorInvAngstrom
+                            else { continue }
+                            fieldMaxima.append((q, Double(p.intensity)))
+                        }
+                        // Al exclusion: the same rule as matrix removal.
+                        let remaining = fieldMaxima.filter { m in
+                            !matrixVectors.contains { simd_distance($0.q, m.q) <= matchSettings.matrixToleranceInvAngstrom }
+                        }
+
+                        var o = Outcome()
+                        guard remaining.count >= 8 else {
+                            o.noStatistic = true; outcome[position] = o; continue
+                        }
+                        let sortedIntensity = remaining.map(\.intensity).sorted()
+                        let median = sortedIntensity[sortedIntensity.count / 2]
+                        let mad = remaining.map { abs($0.intensity - median) }.sorted()[remaining.count / 2]
+                        guard mad > 0 else {
+                            o.noStatistic = true; outcome[position] = o; continue
+                        }
+                        func z(_ intensity: Double) -> Double { (intensity - median) / (1.4826 * mad) }
+
+                        var bestByZ: (z: Double, fraction: Double, length: Double)?
+                        var bestByFraction: Double?
+                        let count = remaining.count
+                        for i in 0..<count {
+                            for j in (i + 1)..<count {
+                                guard simd_length(remaining[i].q + remaining[j].q)
+                                        <= matchSettings.pairRadiusInvAngstrom else { continue }
+                                let pairZ = min(z(remaining[i].intensity), z(remaining[j].intensity))
+                                let pairFraction = min(remaining[i].intensity, remaining[j].intensity) / beamIntensity
+                                let pairLength = (simd_length(remaining[i].q) + simd_length(remaining[j].q)) / 2
+                                if bestByZ == nil || pairZ > bestByZ!.z {
+                                    bestByZ = (pairZ, pairFraction, pairLength)
+                                }
+                                if bestByFraction == nil || pairFraction > bestByFraction! {
+                                    bestByFraction = pairFraction
+                                }
+                            }
+                        }
+                        o.bestZ = bestByZ?.z
+                        o.bestZFraction = bestByZ?.fraction
+                        o.bestZLength = bestByZ?.length
+                        o.bestFraction = bestByFraction
+                        outcome[position] = o
+                    }
+                    if noPeaks > 0 { print("  \(noPeaks) sampled positions had no detected peaks at all") }
+
+                    func percentiles(_ values: [Double], _ ps: [Double]) -> [Double] {
+                        guard !values.isEmpty else { return ps.map { _ in .nan } }
+                        let sorted = values.sorted()
+                        return ps.map { p in
+                            let idx = min(sorted.count - 1, max(0, Int((p / 100) * Double(sorted.count))))
+                            return sorted[idx]
+                        }
+                    }
+                    print("\n  per class (N sampled | no-statistic | with a pair | z p10/25/50/75/90 | fraction p10/25/50/75/90):")
+                    for classLabel in [0, 1, 2, 3] {
+                        let positions = classSampled[classLabel] ?? []
+                        guard !positions.isEmpty else { continue }
+                        let nNoStat = positions.filter { outcome[$0]?.noStatistic == true }.count
+                        let zValues = positions.compactMap { outcome[$0]?.bestZ }
+                        let fractionValues = positions.compactMap { outcome[$0]?.bestFraction }
+                        let zP = percentiles(zValues, [10, 25, 50, 75, 90])
+                        let fP = percentiles(fractionValues, [10, 25, 50, 75, 90])
+                        print(String(format: "  %-14@ %5d %5d %5d  z[%@]  f[%@]",
+                                     name(classLabel) as NSString, positions.count, nNoStat, zValues.count,
+                                     zP.map { String(format: "%.1f", $0) }.joined(separator: " ") as NSString,
+                                     fP.map { String(format: "%.4f", $0) }.joined(separator: " ") as NSString))
+                    }
+                    if let t1Positions = classSampled[3] {
+                        let lengths = t1Positions.compactMap { outcome[$0]?.bestZLength }.sorted()
+                        if !lengths.isEmpty {
+                            print(String(format: "\n  T1 median best-pair (by z) length: %.4f Å⁻¹ (0.454 / 0.479 expected)",
+                                         lengths[lengths.count / 2]))
+                        }
+                    }
+
+                    let zThresholds: [Double] = [2, 3, 4, 5, 6, 8, 10, 15, 20]
+                    let fractionThresholds: [Double] = [0.001, 0.002, 0.003, 0.005, 0.01, 0.02]
+                    func recallAtOrAbove(_ label: Int, z threshold: Double) -> Double {
+                        let positions = classSampled[label] ?? []
+                        guard !positions.isEmpty else { return .nan }
+                        let hit = positions.filter { (outcome[$0]?.bestZ ?? -.infinity) >= threshold }.count
+                        return 100 * Double(hit) / Double(positions.count)
+                    }
+                    func recallAtOrAbove(_ label: Int, fraction threshold: Double) -> Double {
+                        let positions = classSampled[label] ?? []
+                        guard !positions.isEmpty else { return .nan }
+                        let hit = positions.filter { (outcome[$0]?.bestFraction ?? -.infinity) >= threshold }.count
+                        return 100 * Double(hit) / Double(positions.count)
+                    }
+
+                    print("\n  z-threshold sweep (%% of a class's sampled positions with a best-pair z ≥ threshold; Al = false-positive rate):")
+                    print("  " + String(repeating: " ", count: 14) + zThresholds.map { String(format: "%7.0f", $0) }.joined())
+                    for classLabel in [0, 1, 2, 3] where !(classSampled[classLabel] ?? []).isEmpty {
+                        let row = zThresholds.map { String(format: "%6.2f%%", recallAtOrAbove(classLabel, z: $0)) }
+                        print(String(format: "  %-14@", name(classLabel) as NSString) + row.joined())
+                    }
+                    print("\n  fraction-of-beam threshold sweep (same positions):")
+                    print("  " + String(repeating: " ", count: 14) + fractionThresholds.map { String(format: "%7.3f", $0) }.joined())
+                    for classLabel in [0, 1, 2, 3] where !(classSampled[classLabel] ?? []).isEmpty {
+                        let row = fractionThresholds.map { String(format: "%6.2f%%", recallAtOrAbove(classLabel, fraction: $0)) }
+                        print(String(format: "  %-14@", name(classLabel) as NSString) + row.joined())
+                    }
+
+                    let zClean = zThresholds.first { recallAtOrAbove(0, z: $0) <= 0.1 }
+                    let fractionClean = fractionThresholds.first { recallAtOrAbove(0, fraction: $0) <= 0.1 }
+                    print("")
+                    if let zClean {
+                        print(String(format: "  smallest swept z with Al ≤ 0.1%%: z ≥ %.0f, Al %.2f%%, T1 recall %.1f%%",
+                                     zClean, recallAtOrAbove(0, z: zClean), recallAtOrAbove(3, z: zClean)))
+                    } else {
+                        print(String(format: "  no swept z gets Al ≤ 0.1%% (best swept: z ≥ %.0f, Al %.2f%%)",
+                                     zThresholds.last!, recallAtOrAbove(0, z: zThresholds.last!)))
+                    }
+                    if let fractionClean {
+                        print(String(format: "  smallest swept fraction with Al ≤ 0.1%%: f ≥ %.3f, Al %.2f%%, T1 recall %.1f%%",
+                                     fractionClean, recallAtOrAbove(0, fraction: fractionClean),
+                                     recallAtOrAbove(3, fraction: fractionClean)))
+                    } else {
+                        print(String(format: "  no swept fraction gets Al ≤ 0.1%% (best swept: f ≥ %.3f, Al %.2f%%)",
+                                     fractionThresholds.last!, recallAtOrAbove(0, fraction: fractionThresholds.last!)))
+                    }
+                    let t1RecallAtZClean = zClean.map { recallAtOrAbove(3, z: $0) }
+                    switch t1RecallAtZClean {
+                    case .some(let recall) where recall >= 80:
+                        print("\nNOISE-FLOOR VERDICT: prediction met")
+                    case .some(let recall) where recall <= 60:
+                        print("\nNOISE-FLOOR VERDICT: refuted")
+                    case .some:
+                        print("\nNOISE-FLOOR VERDICT: between")
+                    case .none:
+                        // No swept z ever gets Al to ≤ 0.1 %: the instrument
+                        // never separates the classes within the range tested.
+                        print("\nNOISE-FLOOR VERDICT: refuted")
+                    }
+                }
+            }
+
             let fraction = 100 * Double(mislabelled) / Double(map.results.count)
             print(String(format: "\n  mislabelled %d of %d positions = %.2f %%", mislabelled,
                          map.results.count, fraction))

@@ -1461,3 +1461,15 @@ cannot reach a two-of-two winner at all, which is the opposite claim. The
 floor's noise cost at two survivors is 0.015 %; the chance guard silences it
 below ≈ 0.3 Å⁻¹ accessible radius on a dense entry. Both are in the
 setting's note now, and the untested second-grain case is in `open-items.md`.
+
+## 2026-09-16 — the detection default stays py4DSTEM's 0.5 %
+
+Measured on Thronsen's dataset A (`open-items.md`, step 3): a relative
+threshold of 0.2 % of the beam takes the map from 13.24 % to 8.75 %
+mislabelled, and a per-pattern significance statistic, pre-registered as the
+next instrument, was refuted on the same positions. The shipped default
+does not move. It is py4DSTEM's rule, pinned by the parity harness, and a
+threshold that is right for one saturated-plateau dataset is not a default;
+the setting is the user's, the probe reports what each value does, and the
+validation run names its value. The owner may overrule by one number.
+

@@ -83,9 +83,26 @@ residual is exactly a candidate's pair would be labelled that candidate —
 not seen on the dataset, not tested, recorded in the setting's note; the
 detection reference is measured from the brightest maximum, not the array
 centre, since the refuter showed descan defeats the centre. The T1 reference's extra predicted
-reflections (0.233, 0.367) cost nothing and are not a lever. Until the
-band is reached a phase fraction off this map is not a measurement and every
-product still says `validation: "none"`.
+reflections (0.233, 0.367) cost nothing and are not a lever. **Gate D on
+"detection at the noise floor" (2026-09-16, pre-registered before the run).**
+Diagnosis: the relative threshold is a fraction of a maximum, not a noise
+statistic. Instrument: a per-pattern z = (I − median)/(1.4826·MAD) over the
+non-beam, non-Al correlation maxima, pairs scored by the weaker member.
+Prediction: ≥ 80 % of T1 positions keep a pair at the z where ≤ 0.1 % of Al
+positions do; refuting observation: ≤ 60 %. **Refuted** — 57.6 % at z ≥ 5
+(`tools/phase-map-probe --noise-floor`, `thronsen-noise-20260916.log`; face-on
+θ′ alone separates by z, 81 % at 0.1 % Al). The same positions answered a
+question I had not asked: a fraction of the beam at **0.2 %** keeps 80 % of
+T1 pairs at 0.07 % Al, where the shipped 0.5 % keeps 59 %. Through the whole
+pipeline (`thronsen-rel0.002/0.003-friedel-20260916.log`): **0.5 % → 13.24 %,
+0.3 % → 12.22 %, 0.2 % → 8.75 %** (Al 99.6 %, T1 78 %). The default stays
+py4DSTEM's 0.5 % (`decisions.md`); the number is the setting's. New at 0.2 %:
+θ′ **face-on is labelled edge-on at 38 %** — the candidates' in-plane
+rotation is free, so an edge-on variant rotated 45° puts its (002) at
+0.345 Å⁻¹ on face-on's (110) at 0.350, inside the pair radius; the known
+orientation relationship to the matrix is not enforced. That, and T1's last
+22 %, are what remains. Until the band is reached a phase fraction off this
+map is not a measurement and every product still says `validation: "none"`.
 
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 

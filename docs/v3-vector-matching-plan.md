@@ -2,7 +2,8 @@
 
 > **Where it stands, 2026-09-16.** Steps **0, 1, 2, 4 and 5 are done**; step 3
 > **ran on a subsample and failed its pre-registered acceptance** (26 %
-> mislabelled against a 0.96–1.75 % band; §3). Before that: step 3
+> mislabelled against a 0.96–1.75 % band; 13.24 % after three decisions,
+> 8.75 % at a 0.2 % detection threshold; §3). Before that: step 3
 > is **deferred on disk, not abandoned**, and everything the app produces is
 > labelled unvalidated until it runs. The record of what landed, what two
 > pre-registered predictions got wrong, and what the Al-Mg-Si cube actually
@@ -105,7 +106,8 @@ so the band can be read from the subsample.
   0.96–1.75 %. Labels: 0 Al, 1 θ′ edge-on, 2 θ′ face-on, 3 T1, 4 disagreement.
 - **Our result (`tools/phase-map-probe --thronsen`): 25.9–26.4 % at every
   detection threshold from 1 to 10 % with the mask reach; 98.3 % at the
-  shipped 0.5 %; 13.24 % after the three decisions of 2026-09-16.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
+  shipped 0.5 %; 13.24 % after the three decisions of 2026-09-16; 8.75 %
+  at a 0.2 % detection threshold (12.22 % at 0.3 %), the default unchanged.** The Al class is matrix at 100 %; T1 and θ′ face-on go to
   the matrix because along [001]Al each variant leaves at most two
   non-Al reflections inside their 0.70 Å⁻¹ mask, under the matcher's
   `minimumMatchedVectors = 3` and the matrix's last word. By the
@@ -204,6 +206,8 @@ Stated now so it is not discovered later. Their implementation:
    reach, and a relative reference that excludes the direct beam. 26.4 % →
    13.24 % at shipped defaults; still outside the band. The "free-rotation
    challenge" mechanism written here the same morning was refuted before it
-   landed (the challenge cannot take a two-of-two pair). What remains is
-   detection at the noise floor: T1's weakest pairs and face-on θ′'s (110)
-   spots sit where a relative threshold cannot separate them from noise.
+   landed (the challenge cannot take a two-of-two pair). "Detection at
+   the noise floor" was then measured (Gate D, `open-items.md`): a local
+   significance was refuted, the threshold itself is the lever (8.75 % at
+   0.2 %), and the next residual is θ′ face-on taken for edge-on under a
+   free in-plane rotation — the orientation relationship is not enforced.
