@@ -54,13 +54,15 @@ Done means the repo tells the next reader the truth. In order:
    up calling a claim unreproduced that S19 had reproduced.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
-7. Republish the owner's living v2 board (owner request, 2026-08-26):
-   artifact `https://claude.ai/code/artifact/02ef433e-3888-4afc-9292-aba62912e5d9`
-   ("mac4DSTEM v2 Board"). Update the session rail, workstream fractions,
+7. Republish the owner's living v2 board (owner request, 2026-08-26): the
+   artifact titled **"mac4DSTEM v2 Board"**. Do not hardcode its address —
+   the URL form changed on 2026-09-16 and a stale form would fork a second
+   board, which is the failure this step exists to prevent. Find it with the
+   Artifact tool's `action: "list"`, match the title, and pass that row's
+   URL as `url` on publish. Update the session rail, workstream fractions,
    the dated test-claim table, and the what's-next queue from
-   `docs/status.md` (its table, gate table and handoff) — same honesty bar as the docs: every number
-   dated to its own run. From a fresh conversation, pass that address as
-   the Artifact tool's `url` (publishing without it forks a new artifact).
+   `docs/status.md` (its table, gate table and handoff) — same honesty bar
+   as the docs: every number dated to its own run.
 8. One sentence on the skills themselves: did any skill misfire, get
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's
