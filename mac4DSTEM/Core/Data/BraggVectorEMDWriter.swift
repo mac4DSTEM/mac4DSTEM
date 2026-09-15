@@ -403,6 +403,7 @@ package nonisolated enum BraggVectorEMDWriter {
         maps: [ScalarResultMap], calibration: PixelCalibration, to destination: URL,
         cancellation: AnalysisCancellationToken? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard !maps.isEmpty else {
             throw WriterError.invalidDimensions("a scientific bundle needs at least one field")
         }
@@ -486,6 +487,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         try validate(vectors: vectors, qWidth: qWidth, qHeight: qHeight)
         try publish(vectors: vectors, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
@@ -602,6 +604,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard map.width > 0, map.height > 0,
               map.pixels.count == map.width * map.height,
               map.pixelSizeRow == nil
@@ -639,6 +642,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard map.width > 0, map.height > 0,
               map.rgba.count == map.width * map.height * 4 else {
             throw WriterError.invalidDimensions("the RGBA result map is inconsistent")
@@ -677,6 +681,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard qWidth > 0, qHeight > 0 else {
             throw WriterError.invalidDimensions("the diffraction shape must be positive")
         }
@@ -707,6 +712,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard qWidth > 0, qHeight > 0,
               FileManager.default.fileExists(atPath: destination.path) else {
             throw WriterError.invalidDimensions("the session sidecar does not exist")
@@ -753,6 +759,7 @@ package nonisolated enum BraggVectorEMDWriter {
         from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> SessionSidecarSnapshot {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else {
             return SessionSidecarSnapshot(
                 inventory: .empty, calibration: nil, currentResult: nil,
@@ -902,6 +909,7 @@ package nonisolated enum BraggVectorEMDWriter {
     /// `SessionSidecarSnapshot`: this attribute is read on dataset
     /// activation only, never alongside a result restore.
     package static func loadDiskCentreLabelsJSON(from url: URL) throws -> String? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let h5 = try HDF5WriteLibrary.load()
         let fileID = url.path.withCString {
@@ -1525,11 +1533,18 @@ package nonisolated enum BraggVectorEMDWriter {
         hdf5 h5: HDF5WriteLibrary
     ) async throws {
         let descriptor = view.descriptor
+        // The setup below creates handles the tile loop uses, so it cannot be
+        // one closure under `HDF5Serial.run`; the lock is taken explicitly
+        // here and released before the loop's first `await` on the source.
+        // Every handle is closed under the lock again at exit.
+        HDF5Serial.acquire()
+        var setupLocked = true
+        defer { if setupLocked { HDF5Serial.release() } }
         let fileID = url.path.withCString {
             h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
         }
         guard fileID >= 0 else { throw WriterError.hdf5("creating the calibrated datacube") }
-        defer { _ = h5.h5fclose(fileID) }
+        defer { HDF5Serial.run { _ = h5.h5fclose(fileID) } }
 
         try writeStringAttribute("emd_group_type", value: "file", on: fileID, hdf5: h5)
         try writeScalarAttribute("version_major", value: Int32(1), type: h5.nativeInt,
@@ -1541,7 +1556,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try writeStringAttribute("authoring_user", value: "", on: fileID, hdf5: h5)
 
         let root = try createGroup("datacube_root", in: fileID, hdf5: h5)
-        defer { _ = h5.h5gclose(root) }
+        defer { HDF5Serial.run { _ = h5.h5gclose(root) } }
         try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
         // Provenance the reduced file carries about itself (v2 S10): where its
         // pixels came from, and the recipe of the analyses run on this data —
@@ -1556,7 +1571,7 @@ package nonisolated enum BraggVectorEMDWriter {
             try writeStringAttribute(replayRecordAttribute, value: json, on: root, hdf5: h5)
         }
         let cube = try createGroup("datacube", in: root, hdf5: h5)
-        defer { _ = h5.h5gclose(cube) }
+        defer { HDF5Serial.run { _ = h5.h5gclose(cube) } }
         try writeNodeAttributes(groupType: "array", pythonClass: "DataCube", on: cube, hdf5: h5)
 
         let dimensions = outputShape.map(hsize_t.init)
@@ -1564,10 +1579,10 @@ package nonisolated enum BraggVectorEMDWriter {
             h5.h5screateSimple(4, $0.baseAddress, nil)
         }
         guard fileSpace >= 0 else { throw WriterError.hdf5("creating the datacube dataspace") }
-        defer { _ = h5.h5sclose(fileSpace) }
+        defer { HDF5Serial.run { _ = h5.h5sclose(fileSpace) } }
         let creation = h5.h5pcreate(h5.datasetCreatePropertyClass)
         guard creation >= 0 else { throw WriterError.hdf5("creating the chunk property list") }
-        defer { _ = h5.h5pclose(creation) }
+        defer { HDF5Serial.run { _ = h5.h5pclose(creation) } }
         let chunk = [hsize_t(1), hsize_t(1), dimensions[2], dimensions[3]]
         guard chunk.withUnsafeBufferPointer({
             h5.h5psetChunk(creation, 4, $0.baseAddress)
@@ -1577,7 +1592,7 @@ package nonisolated enum BraggVectorEMDWriter {
                           creation, h5DefaultProperty)
         }
         guard dataset >= 0 else { throw WriterError.hdf5("creating the datacube dataset") }
-        defer { _ = h5.h5dclose(dataset) }
+        defer { HDF5Serial.run { _ = h5.h5dclose(dataset) } }
         try writeStringAttribute("units", value: "pixel intensity", on: dataset, hdf5: h5)
 
         let rStep = calibration.rSize ?? 1
@@ -1596,6 +1611,8 @@ package nonisolated enum BraggVectorEMDWriter {
         try writeDoubleVectorDataset("dim3", values: linearDimension(count: outputShape[3], step: qStep), name: "Qy",
                                      units: qUnits, in: cube, hdf5: h5)
         try writeCalibration(calibration, targetPath: "/datacube", in: root, hdf5: h5)
+        HDF5Serial.release()
+        setupLocked = false
 
         let outQY = outputShape[2], outQX = outputShape[3]
         let sourcePatternCount = descriptor.qy * descriptor.qx
@@ -1626,29 +1643,34 @@ package nonisolated enum BraggVectorEMDWriter {
                 }
             }
 
-            let targetSpace = h5.h5dgetSpace(dataset)
-            guard targetSpace >= 0 else { throw WriterError.hdf5("opening the output dataspace") }
-            defer { _ = h5.h5sclose(targetSpace) }
-            let start = [hsize_t(sourceY - options.scanY.lowerBound), 0, 0, 0]
-            let count = [hsize_t(endY - sourceY), hsize_t(options.scanX.count),
-                         hsize_t(outQY), hsize_t(outQX)]
-            let selected = start.withUnsafeBufferPointer { starts in
-                count.withUnsafeBufferPointer { counts in
-                    h5.h5sselectHyperslab(targetSpace, h5SelectSet, starts.baseAddress,
-                                          nil, counts.baseAddress, nil)
+            // One tile's write is one operation under the lock; the read of
+            // the next tile from the source actor happens outside it.
+            do {
+                HDF5Serial.acquire(); defer { HDF5Serial.release() }
+                let targetSpace = h5.h5dgetSpace(dataset)
+                guard targetSpace >= 0 else { throw WriterError.hdf5("opening the output dataspace") }
+                defer { _ = h5.h5sclose(targetSpace) }
+                let start = [hsize_t(sourceY - options.scanY.lowerBound), 0, 0, 0]
+                let count = [hsize_t(endY - sourceY), hsize_t(options.scanX.count),
+                             hsize_t(outQY), hsize_t(outQX)]
+                let selected = start.withUnsafeBufferPointer { starts in
+                    count.withUnsafeBufferPointer { counts in
+                        h5.h5sselectHyperslab(targetSpace, h5SelectSet, starts.baseAddress,
+                                              nil, counts.baseAddress, nil)
+                    }
                 }
+                guard selected >= 0 else { throw WriterError.hdf5("selecting the output tile") }
+                let memorySpace = count.withUnsafeBufferPointer {
+                    h5.h5screateSimple(4, $0.baseAddress, nil)
+                }
+                guard memorySpace >= 0 else { throw WriterError.hdf5("creating the output tile dataspace") }
+                let wrote = output.withUnsafeBytes {
+                    h5.h5dwrite(dataset, h5.nativeFloat, memorySpace, targetSpace,
+                                h5DefaultProperty, $0.baseAddress)
+                }
+                _ = h5.h5sclose(memorySpace)
+                guard wrote >= 0 else { throw WriterError.hdf5("writing the output tile") }
             }
-            guard selected >= 0 else { throw WriterError.hdf5("selecting the output tile") }
-            let memorySpace = count.withUnsafeBufferPointer {
-                h5.h5screateSimple(4, $0.baseAddress, nil)
-            }
-            guard memorySpace >= 0 else { throw WriterError.hdf5("creating the output tile dataspace") }
-            let wrote = output.withUnsafeBytes {
-                h5.h5dwrite(dataset, h5.nativeFloat, memorySpace, targetSpace,
-                            h5DefaultProperty, $0.baseAddress)
-            }
-            _ = h5.h5sclose(memorySpace)
-            guard wrote >= 0 else { throw WriterError.hdf5("writing the output tile") }
             sourceY = endY
             progress?(Double(sourceY - options.scanY.lowerBound) / Double(options.scanY.count))
         }
