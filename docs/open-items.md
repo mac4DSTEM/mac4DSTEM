@@ -145,10 +145,40 @@ does distinguish them; nothing else does. The demo cube's matrix fraction moves
 51 % → 74 % because of it, which is correct but unexplained on screen. Owner:
 presentation only, so no Gate D.
 
-### The rotation refusal has not been seen on screen — added 2026-09-15
-**Verification debt.** `RotationCalibration`'s permutation null refuses on the
-demo cube (measured: depth 0.01341 against shuffled 0.00854–0.02472), and the
-refusal is a new user-facing sentence in Prepare. Nobody has looked at it.
+### The rotation null is a whiteness test, not a rotation test — Gate B 2026-09-15
+**Science, live. The guard shipped, Gate B narrowed it, and "FIXED" was wrong.**
+`RotationCalibration.solve`'s permutation null catches the failure that reached
+the owner — a spatially WHITE centre-of-mass field reported as "Measured
+−67.5°" — and refuses no genuine rotation (0 of 60 at every noise level through
+sd 0.05, and the cost is invisible: 0.12 s at 100 × 100). What it does not do:
+- **A rotation-free field with spatial structure is certified.** Box-smoothed
+  noise at a correlation length of two scan pixels beats all fifteen shuffles
+  60–80 % of the time, and **probe overlap alone produces that correlation** on
+  ordinary data. A per-row descan drift and a specimen edge were each certified
+  6 of 6 at 6–20× the shuffled depth, with arbitrary angles.
+- **Passing implies nothing about accuracy.** A planted 30° at noise sd 0.03 is
+  certified 60 of 60 while 9 are more than 5° out and one is 61° out.
+- **The verdict is seed-conditional.** Fifteen shuffles with "beat every one" is
+  a rank test at a 1-in-16 design rate; the unit suite's own noise fixture is
+  certified under **50 of 200 seeds**, and the demo cube's refusal (depth
+  0.01341 inside shuffled 0.00854–0.02472) is the same lottery. A real fix
+  needs a statistic, not a rank.
+**Four surviving mutations, all recorded:** deleting the AppState guard
+entirely leaves the suite green (the three tests live in Core and never
+construct an `AppState`, so **the guard is untested where it is enforced** —
+this is the one to close first); `shuffleCount` 15 → 6 is green, so the suite
+pins only ≥ 6; shuffling `cx` and `cy` independently is green, so "carrying
+each position's pair together" is not load-bearing as claimed; and taking the
+LOSING transpose curve's depth is green.
+**Fixed the same day:** the refusal sentence claimed "the rotation is left as
+Not set", which the code never establishes — it declines to write and never
+clears, so an earlier fit, a session restore, a manual entry or a value from
+the file survives while strain, ACOM and DPC keep consuming it. Now "not
+updated", pinned by a test.
+**Also owed:** the refusal is a 300-character sentence routed to `statusText`
+alone, not an alert, and the diagnostics panel still says "the marker is the
+chosen minimum" beside an angle that was deliberately not written
+(`UI/WorkspaceInspector.swift:719`). **Unverified on screen.**
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
 **Science, live, no fix, cause narrowed to the score itself. One entry for the

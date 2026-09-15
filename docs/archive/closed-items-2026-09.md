@@ -725,6 +725,15 @@ on the demo cube moves 51 % → 74 % because of it.
 
 **Closure:** Fixed by a permutation null in `RotationCalibration.solve`: shuffle the scan positions, rerun the grid, refuse unless the real curve beats every shuffle. Neither the angle nor the coin-flip `transposeQR` is written on a refusal.
 
+**REOPENED THE SAME DAY.** Gate B measured the null to be a test of whether the
+field is spatially WHITE, not whether it carries a rotation: a rotation-free
+field with any spatial correlation — which probe overlap alone produces — is
+certified 60–80 % of the time, the verdict is seed-conditional, and four
+mutations survive including one that deletes the guard entirely. The narrowed
+item is live again in [`../open-items.md`](../open-items.md), "The rotation null
+is a whiteness test, not a rotation test". This closure stands only for the
+specific failure it names: pure shot noise.
+
 ### R–Q rotation reported "Measured" from pure shot noise — FIXED 2026-09-15
 **Science, Gate D done, no fix. Diagnosis survived an independent refuter that
 corrected two of its numbers.** On the demo cube, built with the axes aligned,

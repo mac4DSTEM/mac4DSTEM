@@ -46,8 +46,14 @@ package enum RotationCalibration {
         package let depth: Float
         /// The same depth, measured on scan-position-shuffled copies of the
         /// same field. Shuffling destroys the spatial arrangement and keeps
-        /// everything else — the noise level, the dose, the scan size — so a
-        /// real curl-free direction beats these and noise does not.
+        /// the noise level, the dose and the scan size — so a field with
+        /// spatial structure beats these and a spatially WHITE field does not.
+        ///
+        /// That is the honest statement of what the null tests, and it is
+        /// narrower than "does this carry a rotation". Gate B, 2026-09-15:
+        /// box-smoothed noise with NO rotation at a correlation length of two
+        /// scan pixels beats all fifteen shuffles 60–80 % of the time, and
+        /// probe overlap alone produces that correlation on ordinary data.
         package let shuffledDepths: [Float]
 
         /// Did this field carry a rotation at all?
@@ -59,13 +65,23 @@ package enum RotationCalibration {
         /// frequency at fixed signal-to-noise. The shuffle carries the
         /// dataset's own scale with it and needs no constant to defend.
         ///
-        /// WHAT THIS CANNOT DO, stated because the opposite is temptingly
-        /// easy to claim: it does not certify a measurement. A thick or
-        /// strongly diffracting specimen gives a deep, sharp, reproducible
-        /// minimum at an angle that need not be the detector rotation. This
-        /// catches ONE failure — that there is no signal at all — which on
-        /// 2026-09-14 was reported to the owner as "Measured −67.5°" from a
-        /// field that was pure Poisson shot noise.
+        /// WHAT THIS CANNOT DO, measured rather than guessed (Gate B,
+        /// 2026-09-15). It catches one failure: that the field is spatially
+        /// WHITE, which on 2026-09-14 was reported to the owner as
+        /// "Measured −67.5°" from pure Poisson shot noise. It does NOT:
+        /// - catch a rotation-free field that merely has structure — a
+        ///   per-row descan drift and a specimen edge were both certified
+        ///   6 of 6, at 6–20× the shuffled depth, with arbitrary angles;
+        /// - imply the angle is accurate. Planted 30° plus noise at sd 0.03
+        ///   is certified 60 of 60 while 9 of those are more than 5° out and
+        ///   one is 61° out.
+        /// It does not refuse real rotations: 0 of 60 at every noise level
+        /// through sd 0.05.
+        ///
+        /// AND THE VERDICT IS SEED-CONDITIONAL. Fifteen shuffles with
+        /// "beat every one" is a rank test at a 1-in-16 design rate; the
+        /// unit suite's own noise fixture is certified under 50 of 200 seeds.
+        /// A deeper fix needs a statistic, not a rank.
         package var carriesRotation: Bool {
             guard depth.isFinite, !shuffledDepths.isEmpty else { return false }
             return shuffledDepths.allSatisfy { depth > $0 }
@@ -76,12 +92,16 @@ package enum RotationCalibration {
         /// that produces it cannot drift apart.
         package var refusalMessage: String? {
             guard !carriesRotation else { return nil }
-            return "The scan's centre-of-mass field carries no measurable R–Q rotation: "
-                + "shuffling the scan positions gives an equally good answer, so this is "
-                + "the shape of noise rather than of a rotation. The rotation is left as "
-                + "Not set. A curl-based fit needs a specimen that behaves like a phase "
-                + "object over the scan — try a thicker or more amorphous region, or a "
-                + "larger scan."
+            // "not updated", NOT "left as Not set": this declines to write and
+            // never clears, so a rotation already there — from an earlier fit,
+            // a session sidecar, the file, or typed by hand — survives, and
+            // strain, ACOM and DPC go on using it. Gate B found the original
+            // sentence claiming a state the code does not establish.
+            return "This scan's centre-of-mass field is spatially featureless: "
+                + "shuffling the scan positions gives an equally good answer, so there "
+                + "is nothing here for a curl-based fit to lock onto. The rotation is "
+                + "not updated. Try a thicker or more amorphous region, or a larger "
+                + "scan."
         }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

@@ -557,8 +557,16 @@ final class RotationSignificanceTests: XCTestCase {
                        "a field of pure noise was reported as a rotation: depth "
                        + "\(result.depth), shuffled max \(result.shuffledDepths.max() ?? 0)")
         let refusal = try XCTUnwrap(result.refusalMessage)
-        XCTAssertTrue(refusal.contains("no measurable"),
+        XCTAssertTrue(refusal.contains("spatially featureless"),
                       "the refusal must say what it refused: \(refusal)")
+        // Gate B, 2026-09-15: the sentence used to claim "the rotation is left
+        // as Not set", which the code never establishes — it declines to write
+        // and never clears. A refusal that misdescribes the state it leaves is
+        // worse than none, so the wording is pinned here.
+        XCTAssertTrue(refusal.contains("not updated"),
+                      "the refusal must not claim to have cleared anything: \(refusal)")
+        XCTAssertFalse(refusal.contains("Not set"),
+                       "the refusal claims a state the code does not establish")
     }
 
     /// The null must not move between runs. A refusal that flickers is worse
