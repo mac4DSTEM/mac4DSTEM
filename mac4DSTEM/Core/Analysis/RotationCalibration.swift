@@ -98,7 +98,7 @@ package enum RotationCalibration {
             // strain, ACOM and DPC go on using it. Gate B found the original
             // sentence claiming a state the code does not establish.
             // "surrogates", not "shuffling": the null changed on 2026-09-15
-            // night and the sentence did not, and the drive of 2026-09-16
+            // night and the sentence did not, and the drive of 2026-09-15
             // read the stale word on screen.
             return "This scan's centre-of-mass field carries no rotation its own "
                 + "structure does not explain: surrogates with the same spectrum and "

@@ -172,7 +172,7 @@ final class DiskDetectionContractTests: XCTestCase {
         XCTAssertFalse(DiskDetectionScanSummary(vectors: beamOnly, maximumPeaks: 70).warnings.isEmpty)
     }
 
-    /// Decision 3 of 2026-09-16 (Thronsen step 3): a saturated direct beam is
+    /// Decision 3 of 2026-09-15 (Thronsen step 3): a saturated direct beam is
     /// the wrong reference for "fraction of the maximum". A 64 × 64 pattern
     /// with a flat central plateau at 1.0, one Bragg-sized spot at 0.05 and
     /// two weak spots at 0.003: at the shipped 0.5 % against the plateau the
@@ -193,9 +193,9 @@ final class DiskDetectionContractTests: XCTestCase {
         // The plateau sits 22 px off the array centre: a reference measured
         // from the centre instead of the brightest maximum keeps a plateau
         // point 19 px from the centre as the reference and the weak spots
-        // die — the mutation Gate B named on 2026-09-16. It is also 32 px
+        // die — the mutation Gate B named on 2026-09-15. It is also 32 px
         // from the weak spots: closer, its correlation halo erases them as
-        // candidates altogether (measured at 12 px, 2026-09-16).
+        // candidates altogether (measured at 12 px, 2026-09-15).
         stamp(44, 50, 1.0, radius: 6)        // the saturated, descanned plateau
         stamp(50, 32, 0.05, radius: 2.5)     // the brightest Bragg disk
         stamp(14, 32, 0.003, radius: 2.5)    // two weak reflections

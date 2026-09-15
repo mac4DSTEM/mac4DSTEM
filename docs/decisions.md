@@ -1473,3 +1473,17 @@ threshold that is right for one saturated-plateau dataset is not a default;
 the setting is the user's, the probe reports what each value does, and the
 validation run names its value. The owner may overrule by one number.
 
+## 2026-09-15 — the orientation relationship lands inert, without a panel control
+
+A per-phase list of allowed in-plane angles relative to the fitted matrix
+(`PhaseDefinition.inPlaneDegreesRelativeToMatrix`, nil = free) is in Core
+with its test, because the mechanism it addresses was measured (face-on θ′
+taken for edge-on at 45°) and it removes that confusion entirely. It ships
+with no phase listing angles and no control in the Phase mapping panel,
+because its own pre-registered refuting observation fired: with θ′ at
+{0, 90, 180, 270} it cuts half of the correct edge-on matches, which sit
+near 22° and 67° — because, as Gate B found, the angle compared is the
+library's per-entry frame and not a lab angle. A control that a user would
+set to the textbook OR and lose recall to is not a feature; the probe
+carries the flag until both nets are expressed in one frame.
+

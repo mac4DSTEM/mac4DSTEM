@@ -386,7 +386,7 @@ private struct AdvancedDiskDetectionSection: View {
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
-            // Decision 3 of 2026-09-16 (Thronsen step 3): on a pattern whose
+            // Decision 3 of 2026-09-15 (Thronsen step 3): on a pattern whose
             // direct beam saturates, "0.5 % of the maximum" is 0.5 % of a
             // plateau. The reference can exclude the beam; 0 keeps py4DSTEM's
             // rule and nothing shipped moves.

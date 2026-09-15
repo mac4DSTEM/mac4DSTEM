@@ -343,7 +343,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     /// anywhere, which is the direct beam). A saturated plateau is a field
     /// of tied maxima and "the brightest" is one point on it, so the radius
     /// should cover the plateau's diameter, the bound on how far apart two
-    /// of its maxima can be (measured 2026-09-16 on a 12-px plateau: 6.5 px). MEASURED (Thronsen step 3, 2026-09-16):
+    /// of its maxima can be (measured 2026-09-15 on a 12-px plateau: 6.5 px). MEASURED (Thronsen step 3, 2026-09-15):
     /// their preprocessed patterns carry a saturated direct-beam plateau, so
     /// "0.5 % of the maximum" was 0.5 % of a plateau and the T1 reflections
     /// at 1–5 % of it were kept only at 0.2 %; against the brightest Bragg
@@ -918,7 +918,7 @@ package nonisolated final class DiskDetector {
         // among those at least `relativeReferenceMinimumRadiusPx` from the
         // BRIGHTEST maximum when that is set. The brightest is the direct
         // beam in any pattern that needs this rule, wherever descan put it;
-        // the array centre is not (Gate B 2026-09-16: measured from the
+        // the array centre is not (Gate B 2026-09-15: measured from the
         // centre, a descanned beam stayed the reference and low-angle spots
         // near the centre lost their eligibility).
         let references: [BraggPeak]

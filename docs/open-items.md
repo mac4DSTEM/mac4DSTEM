@@ -100,9 +100,36 @@ py4DSTEM's 0.5 % (`decisions.md`); the number is the setting's. New at 0.2 %:
 θ′ **face-on is labelled edge-on at 38 %** — the candidates' in-plane
 rotation is free, so an edge-on variant rotated 45° puts its (002) at
 0.345 Å⁻¹ on face-on's (110) at 0.350, inside the pair radius; the known
-orientation relationship to the matrix is not enforced. That, and T1's last
-22 %, are what remains. Until the band is reached a phase fraction off this
-map is not a measurement and every product still says `validation: "none"`.
+orientation relationship to the matrix is not enforced. **Gate D on the
+orientation relationship (2026-09-15 evening, pre-registered before the
+build).** Mechanism measured first: face-on positions labelled edge-on take
+the edge-on entry at 45° to the matrix (84 % in the 45–60° bin,
+`thronsen-rel0.002-angles-20260915.log`). Instrument:
+`PhaseDefinition.inPlaneDegreesRelativeToMatrix` (nil = free) and a ±10°
+filter on candidate entries once the matrix is fitted
+(`PhaseVectorSettings.orientationRelationshipToleranceDeg`); the probe's
+`--or` gives θ′ {0, 90, 180, 270} and T1 the measured clusters. Prediction:
+face-on → edge-on below 5 %, face-on correct above 50 %, edge-on within
+5 points, T1 within 2, total below 8.75 %. **Result: 8.75 → 7.89 %, face-on →
+edge-on 38 → 0 %, face-on correct 13 → 47 %, T1 78 → 78 % — and the
+refuting observation fired: edge-on correct 50 → 31 %** (not indexed
+42 → 60 %), because half of the correct edge-on matches sit near 22° and
+67° to the matrix (5° bins, control log), which a {0, 90} list cuts. So the
+constraint is right for face-on and wrong-as-listed for edge-on; the
+capability lands inert (nil everywhere, a test broken four ways), no panel
+control until the edge-on angles have a frame: **Gate B found why they
+sit at 22°/67°** — an entry's in-plane frame is `ACOMOrientation.detectorBasis`'s,
+whose first axis takes a different branch for a [100] zone than for [001],
+so the listed angle is the library's, not a lab angle; face-on [001] shares
+the matrix's frame and edge-on [100] does not. The next instrument is a
+common frame: express both nets' in-plane axes in the lab frame before
+subtracting, then the textbook OR should hold for edge-on too — measured on
+`tools/phase-map-probe --or` first. Also recorded: a phase filtered to no
+entries vanishes from the map silently, and every phase empty refuses the
+map (unreachable while no phase lists angles).
+That, and T1's last 22 %, are what remains. Until the band is reached a
+phase fraction off this map is not a measurement and every product still
+says `validation: "none"`.
 
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 

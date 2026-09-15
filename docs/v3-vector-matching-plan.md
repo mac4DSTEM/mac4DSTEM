@@ -210,4 +210,7 @@ Stated now so it is not discovered later. Their implementation:
    the noise floor" was then measured (Gate D, `open-items.md`): a local
    significance was refuted, the threshold itself is the lever (8.75 % at
    0.2 %), and the next residual is θ′ face-on taken for edge-on under a
-   free in-plane rotation — the orientation relationship is not enforced.
+   free in-plane rotation. An orientation-relationship filter was built
+   and measured (7.89 %; face-on → edge-on gone; edge-on recall 50 → 31 %,
+   the refuting observation) — inert until the edge-on angles are
+   diagnosed (`open-items.md`).

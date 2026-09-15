@@ -305,7 +305,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertEqual(vectors[1].y, -0.2, accuracy: 1e-9)
     }
 
-    /// The outer reach (`maximumVectorInvAngstrom`, 2026-09-16): a vector at
+    /// The outer reach (`maximumVectorInvAngstrom`, 2026-09-15): a vector at
     /// or beyond it is dropped, 0 keeps everything. Mutations: `<` to `<=`
     /// (the vector AT the reach survives), the guard dropped (both survive).
     func testTheOuterReachDropsVectorsAtAndBeyondIt() {
@@ -633,6 +633,124 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(result.matchedCount, 3,
                                     "candidate vectors 0.012 off, within a 0.020 pair radius, "
                                     + "were not matched: scoring read the matrix tolerance")
+    }
+
+    /// The orientation relationship (2026-09-15; the Gate D record is the
+    /// step 3 entry of `docs/open-items.md`):
+    /// `PhaseDefinition.inPlaneDegreesRelativeToMatrix` restricts a candidate
+    /// to listed angles relative to the fitted matrix entry, once one is
+    /// fitted. Mutations this names: the tolerance comparison flipped (`>=`
+    /// instead of `<`, so a distance exactly at the boundary — or beyond it —
+    /// is wrongly accepted); the modulo dropped (359° no longer folds onto a
+    /// listed 0°); the `map` filter skipped when a phase carries a list (a
+    /// candidate 45° off is scored and indexed regardless of its list); an
+    /// empty list treated as "nothing allowed" (the map is refused instead
+    /// of free); the matrix angle ignored (`matrixRad: 0` at the call site).
+    func testTheOrientationRelationshipKeepsOnlyListedInPlaneAngles() throws {
+        // --- 1. `inPlaneAngleAllowed` at the boundaries -------------------
+        XCTAssertTrue(PhaseVectorMatcher.inPlaneAngleAllowed(
+            candidateRad: 95 * .pi / 180, matrixRad: 0,
+            allowedDeg: [90], toleranceDeg: 10),
+            "95°, 5° from a listed 90°, was not allowed at tolerance 10")
+        XCTAssertFalse(PhaseVectorMatcher.inPlaneAngleAllowed(
+            candidateRad: 101 * .pi / 180, matrixRad: 0,
+            allowedDeg: [90], toleranceDeg: 10),
+            "101°, 11° from the listed 90°, was allowed at tolerance 10 "
+            + "-- mutation: the comparison is not strict (>= vs <)")
+        XCTAssertTrue(PhaseVectorMatcher.inPlaneAngleAllowed(
+            candidateRad: 359 * .pi / 180, matrixRad: 0,
+            allowedDeg: [0], toleranceDeg: 10),
+            "359° was not folded onto a listed 0° -- mutation: the modulo dropped")
+        XCTAssertTrue(PhaseVectorMatcher.inPlaneAngleAllowed(
+            candidateRad: 95 * .pi / 180, matrixRad: 90 * .pi / 180,
+            allowedDeg: [0], toleranceDeg: 10),
+            "a candidate 5° past a matrix at 90° was not 5° from a listed 0° "
+            + "-- mutation: the matrix angle ignored")
+
+        // --- 2. `map` end to end: a 45°-rotated entry, with and without a
+        // list. The free sweep would index it; the constraint must not.
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 0.8
+        reference.inPlaneStepDeg = 45
+        let matrixPhase = PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                                          role: .matrix, zoneAxes: [SIMD3(0, 0, 1)])
+        func candidatePhase(list: [Double]?) -> PhaseDefinition {
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+                            role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
+                            inPlaneDegreesRelativeToMatrix: list)
+        }
+        let constrained = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, candidatePhase(list: [0])], settings: reference)
+        let free = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, candidatePhase(list: nil)], settings: reference)
+
+        let matrixIndex = try XCTUnwrap(constrained.matrixEntryIndices.first {
+            constrained.entries[$0].inPlaneRotationRad.magnitude < 1e-9
+        }, "no matrix entry at 0° in the fixture")
+        let rotated45 = try XCTUnwrap(constrained.candidateEntryIndices.first { index in
+            let deg = constrained.entries[index].inPlaneRotationRad * 180 / .pi
+            return abs(deg - 45) < 1e-6
+        }, "no candidate entry at 45° -- the fixture's inPlaneStepDeg is not 45")
+        let vectors = constrained.entries[rotated45].vectors
+        XCTAssertGreaterThanOrEqual(vectors.count, 3,
+                                    "the 45° candidate entry has too few vectors to test")
+
+        var settings = PhaseVectorSettings()
+        settings.directBeamRadiusInvAngstrom = 0
+        settings.orientationRelationshipToleranceDeg = 10
+        let scale = 0.008
+        let peaks: [BraggPeak] = vectors.map {
+            BraggPeak(x: Float($0.q.x / scale), y: Float($0.q.y / scale), intensity: 1)
+        }
+        let bragg = BraggVectors(scanWidth: 1, scanHeight: 1, peaks: [peaks])
+
+        let constrainedMap = try XCTUnwrap(PhaseVectorMatcher.map(
+            bragg: bragg, library: constrained, settings: settings,
+            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex))
+        XCTAssertNotEqual(constrainedMap.results[0].verdict, .indexed,
+                          "a candidate entry 45° from the matrix, outside its listed [0], "
+                          + "was indexed anyway")
+
+        let freeMap = try XCTUnwrap(PhaseVectorMatcher.map(
+            bragg: bragg, library: free, settings: settings,
+            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex))
+        XCTAssertEqual(freeMap.results[0].verdict, .indexed,
+                       "without a list the free sweep should still index the planted 45° entry")
+        XCTAssertEqual(Int(freeMap.results[0].phaseIndex), free.entries[rotated45].phaseIndex,
+                       "the free run did not recover the planted candidate phase")
+
+        // An empty list is free, like nil — not "nothing allowed", which
+        // would empty the candidate set and refuse the whole map.
+        let emptyList = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, candidatePhase(list: [])], settings: reference)
+        let emptyMap = try XCTUnwrap(PhaseVectorMatcher.map(
+            bragg: bragg, library: emptyList, settings: settings,
+            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex),
+            "an empty angle list refused the map")
+        XCTAssertEqual(emptyMap.results[0].verdict, .indexed,
+                       "an empty angle list did not behave like no list")
+
+        // --- 3. The matrix at a NONZERO angle (Gate B 2026-09-15: every
+        // assertion above fits the matrix at 0°, so a filter that ignored
+        // the matrix angle passed them all). Matrix at 45°, the same 45°
+        // candidate entry: 0° apart, so a list of [0] must index it and a
+        // list of [45] must not.
+        let matrixAt45 = try XCTUnwrap(constrained.matrixEntryIndices.first {
+            abs(constrained.entries[$0].inPlaneRotationRad * 180 / .pi - 45) < 1e-6
+        }, "no matrix entry at 45° in the fixture")
+        let alignedMap = try XCTUnwrap(PhaseVectorMatcher.map(
+            bragg: bragg, library: constrained, settings: settings,
+            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixAt45))
+        XCTAssertEqual(alignedMap.results[0].verdict, .indexed,
+                       "with the matrix at 45° the 45° candidate is 0° apart and listed, "
+                       + "yet was not indexed -- mutation: the matrix angle ignored")
+        let offset = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, candidatePhase(list: [45])], settings: reference)
+        let offsetMap = try XCTUnwrap(PhaseVectorMatcher.map(
+            bragg: bragg, library: offset, settings: settings,
+            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixAt45))
+        XCTAssertNotEqual(offsetMap.results[0].verdict, .indexed,
+                          "with the matrix at 45° a listed [45] admitted a candidate 0° apart")
     }
 
     // MARK: Fixtures
@@ -1482,7 +1600,7 @@ final class MatrixChallengeTests: XCTestCase {
             "a challenger tied the winner's distance and took the position anyway")
     }
 
-    /// THE FRIEDEL-PAIR FLOOR (2026-09-16, Thronsen step 3). A candidate that
+    /// THE FRIEDEL-PAIR FLOOR (2026-09-15, Thronsen step 3). A candidate that
     /// explains exactly the two survivors u and −u is indexed; two survivors
     /// that are not a pair are not enough. Mutations this names: the
     /// `containsFriedelPair` clause dropped (the pair case goes not indexed),
@@ -1513,7 +1631,7 @@ final class MatrixChallengeTests: XCTestCase {
         // reflections, clear of the matrix, no shorter than `own` (so the
         // chance guard passes as it did for the pair): two matched of two,
         // which only the pair floor could admit. A stray that matches one
-        // reference cannot tell the floor from the count (Gate B 2026-09-16).
+        // reference cannot tell the floor from the count (Gate B 2026-09-15).
         let other = try XCTUnwrap(candidate.vectors.first { v in
             simd_length(v.q) >= simd_length(own.q) - 1e-9
                 && simd_distance(v.q, own.q) > 2 * settings.pairRadiusInvAngstrom

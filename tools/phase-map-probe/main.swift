@@ -103,7 +103,8 @@ enum Probe {
         var reachInvAngstrom: Double?
         var minMatched: Int?        // the rule step 3 turned on: `minimumMatchedVectors`
         var referenceOutsidePx: Float?   // decision 3: the relative reference excludes the direct beam
-        var noiseFloor = false      // the noise-floor-prereg.md experiment; only meaningful with --thronsen
+        var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
+        var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -121,6 +122,8 @@ enum Probe {
                 truthPath = args[index + 1]; index += 2
             } else if args[index] == "--noise-floor" {
                 noiseFloor = true; index += 1
+            } else if args[index] == "--or" {
+                orientationRelationship = true; index += 1
             } else {
                 positional.append(args[index]); index += 1
             }
@@ -178,7 +181,7 @@ enum Probe {
         // what the app's phase list makes when the owner adds β″ twice, and
         // `bestPerPhase` keeps one winner per phase, so the shape of the
         // competition depends on it.
-        let phases = thronsen != nil ? Thronsen.phases : truth != nil
+        let phases = thronsen != nil ? Thronsen.phases(constrained: orientationRelationship) : truth != nil
             ? [
                 PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
                                 role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
@@ -308,7 +311,7 @@ enum Probe {
 
         if let reachInvAngstrom {
             // The dataset's own mask radius, through the app's own setting
-            // (`maximumVectorInvAngstrom`, 2026-09-16): everything at or
+            // (`maximumVectorInvAngstrom`, 2026-09-15): everything at or
             // beyond it is the mask's edge, not a reflection.
             matchSettings.maximumVectorInvAngstrom = reachInvAngstrom
             print(String(format: "reach: peaks at or beyond %.3f Å⁻¹ are ignored (the dataset's mask radius)",
@@ -553,6 +556,35 @@ enum Probe {
                 }
                 print(String(format: "  %-16@", name(theirs) as NSString) + cells.joined()
                       + String(format: "%11d", total))
+            }
+            // WHICH ROTATION WON, per truth → label cell: the winner's
+            // in-plane angle relative to the matrix entry's, folded to
+            // [0, 90) by Al's four-fold axis. The OR question (2026-09-15):
+            // a θ′ variant taken for the other one at 45° is the free
+            // in-plane rotation putting edge-on (002) at 0.345 Å⁻¹ on
+            // face-on (110) at 0.350; at 0° it is something else.
+            if map.matrixEntryIndex >= 0 {
+                let matrixDeg = library.entries[map.matrixEntryIndex].inPlaneRotationRad * 180 / .pi
+                print("\n  winner's in-plane angle relative to the matrix, folded to [0, 90), 5° bins from 0 (truth → label, n ≥ 10):")
+                for theirs in [1, 2, 3] {
+                    for ours in [1, 2, 3] {
+                        var bins = [Int](repeating: 0, count: 18)
+                        for (index, result) in map.results.enumerated()
+                        where thronsen.labels[index] == theirs && result.verdict == .indexed
+                            && Thronsen.label(of: result, phaseNames: map.phaseNames) == ours
+                            && result.entryIndex >= 0 {
+                            let deg = library.entries[Int(result.entryIndex)].inPlaneRotationRad * 180 / .pi - matrixDeg
+                            var folded = deg.truncatingRemainder(dividingBy: 90)
+                            if folded < 0 { folded += 90 }
+                            bins[min(17, Int(folded / 5))] += 1
+                        }
+                        let total = bins.reduce(0, +)
+                        guard total >= 10 else { continue }
+                        print(String(format: "  %-11@ → %-11@ ", name(theirs) as NSString, name(ours) as NSString)
+                              + bins.map { String(format: "%5.0f%%", 100 * Double($0) / Double(total)) }.joined(separator: " ")
+                              + "  n=\(total)")
+                    }
+                }
             }
             // WHERE THE VECTORS WENT, per truth class: how many survived
             // matrix removal at each position, and how many were detected at

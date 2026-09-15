@@ -170,7 +170,7 @@ struct PhaseMappingSections: View {
                            units: "Å⁻¹", format: "%.3f")
             // The data's reach: a masked or cropped pattern ends before the
             // detector does, and its edge is a ring of maxima no phase
-            // explains (Thronsen step 3, 2026-09-16). 0 = the detector.
+            // explains (Thronsen step 3, 2026-09-15). 0 = the detector.
             parameterField("Ignore peaks beyond",
                            value: $product.matching.maximumVectorInvAngstrom,
                            units: "Å⁻¹ (0 = detector)", format: "%.2f")

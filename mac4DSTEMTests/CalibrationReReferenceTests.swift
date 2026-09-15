@@ -559,7 +559,7 @@ final class RotationSignificanceTests: XCTestCase {
         let refusal = try XCTUnwrap(result.refusalMessage)
         XCTAssertTrue(refusal.contains("surrogates with the same spectrum"),
                       "the refusal must name the null it lost to — the surrogate, not the "
-                      + "shuffle the 2026-09-16 drive still read on screen: \(refusal)")
+                      + "shuffle the 2026-09-15 drive still read on screen: \(refusal)")
         // Gate B, 2026-09-15: the sentence used to claim "the rotation is left
         // as Not set", which the code never establishes — it declines to write
         // and never clears. A refusal that misdescribes the state it leaves is

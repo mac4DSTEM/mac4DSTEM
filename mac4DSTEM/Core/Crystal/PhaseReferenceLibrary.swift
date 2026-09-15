@@ -151,14 +151,30 @@ package nonisolated struct PhaseDefinition: Sendable {
     /// Beam directions to sample, as lattice indices. Empty means the caller
     /// wants `PhaseReferenceLibrary.lowIndexZoneAxes` for this phase.
     package let zoneAxes: [SIMD3<Int>]
+    /// The in-plane angles, degrees, a candidate entry of this phase may
+    /// take relative to the fitted matrix entry (candidate minus matrix, mod
+    /// 360, ±`PhaseVectorSettings.orientationRelationshipToleranceDeg`).
+    /// nil, or an empty list, is free — today's behaviour. The caller lists
+    /// every symmetry-equivalent variant explicitly; Core knows no symmetry.
+    /// THE ANGLE IS THE LIBRARY'S, NOT A LAB ANGLE (Gate B 2026-09-15): each
+    /// entry's in-plane frame comes from `ACOMOrientation.detectorBasis`,
+    /// whose first axis depends on which branch the zone axis falls on, so
+    /// the same listed value is a different physical angle for a [100] zone
+    /// than for a [001] zone against a [001] matrix. Measure the offset on
+    /// data (`tools/phase-map-probe`'s winner-angle table) before listing;
+    /// on Thronsen's dataset A the textbook {0, 90} held for θ′ face-on and
+    /// not for edge-on (`docs/open-items.md`).
+    package let inPlaneDegreesRelativeToMatrix: [Double]?
 
     package nonisolated init(id: String, displayName: String, crystal: Crystal,
-                             role: Role, zoneAxes: [SIMD3<Int>]) {
+                             role: Role, zoneAxes: [SIMD3<Int>],
+                             inPlaneDegreesRelativeToMatrix: [Double]? = nil) {
         self.id = id
         self.displayName = displayName
         self.crystal = crystal
         self.role = role
         self.zoneAxes = zoneAxes
+        self.inPlaneDegreesRelativeToMatrix = inPlaneDegreesRelativeToMatrix
     }
 }
 

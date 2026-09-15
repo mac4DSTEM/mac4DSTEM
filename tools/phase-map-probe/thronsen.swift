@@ -68,16 +68,29 @@ enum Thronsen {
             AtomSite(z: 29, fractional: [0.500000, 0.000000, 0.750000])
         ])
 
-    static let phases: [PhaseDefinition] = [
-        PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
-                        role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
-        PhaseDefinition(id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
-                        role: .candidate, zoneAxes: [SIMD3(1, 0, 0)]),
-        PhaseDefinition(id: "theta-face", displayName: "θ′ face-on", crystal: thetaPrime,
-                        role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
-        PhaseDefinition(id: "t1", displayName: "T1", crystal: t1,
-                        role: .candidate, zoneAxes: [SIMD3(0, -4, 1)]),
-    ]
+    /// `constrained: false` is byte-for-byte today's behaviour (every phase
+    /// free). `constrained: true` (`--or`) attaches the orientation
+    /// relationship: edge-on and face-on θ′ at Al's four-fold {0, 90, 180,
+    /// 270}; T1 at the measured winner-angle clusters — MEASURED from the
+    /// 2026-09-15 winner-angle table, not yet derived from the OR itself.
+    static func phases(constrained: Bool) -> [PhaseDefinition] {
+        let thetaAngles: [Double]? = constrained ? [0, 90, 180, 270] : nil
+        let t1Angles: [Double]? = constrained
+            ? [25, 65, 115, 155, 205, 245, 295, 335] : nil
+        return [
+            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                            role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+            PhaseDefinition(id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
+                            role: .candidate, zoneAxes: [SIMD3(1, 0, 0)],
+                            inPlaneDegreesRelativeToMatrix: thetaAngles),
+            PhaseDefinition(id: "theta-face", displayName: "θ′ face-on", crystal: thetaPrime,
+                            role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
+                            inPlaneDegreesRelativeToMatrix: thetaAngles),
+            PhaseDefinition(id: "t1", displayName: "T1", crystal: t1,
+                            role: .candidate, zoneAxes: [SIMD3(0, -4, 1)],
+                            inPlaneDegreesRelativeToMatrix: t1Angles),
+        ]
+    }
 
     /// Their reflection cutoff: the preprocessed patterns are masked beyond
     /// 0.700 Å⁻¹ (`Preprocessing/Masks/Diffraction/_sig_cutoff`), so a

@@ -757,7 +757,7 @@ package enum ReplayPlanner {
             params.minAbsoluteIntensity = minAbs
             params.minRelativeIntensity = minRel
             params.relativeToPeak = relativeTo
-            // Absent on every sidecar before 2026-09-16, and 0 is that
+            // Absent on every sidecar before 2026-09-15, and 0 is that
             // rule (the brightest maximum anywhere), so absence replays.
             if let raw = p["relative_reference_minimum_radius_px"] {
                 guard let radius = finiteFloat(raw), radius >= 0 else {

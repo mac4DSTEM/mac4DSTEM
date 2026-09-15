@@ -46,7 +46,7 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     package var directBeamRadiusInvAngstrom: Double = 0.15
     /// Peaks beyond this are not reflections: the data's own reach — a
     /// detector edge, or a mask. 0 means the detector is the limit. Å⁻¹.
-    /// MEASURED (Thronsen step 3, 2026-09-16): their patterns are masked
+    /// MEASURED (Thronsen step 3, 2026-09-15): their patterns are masked
     /// beyond 0.70 Å⁻¹, the mask edge is a ring of maxima no phase explains,
     /// and without this every Al position came back "not indexed" (86 %
     /// mislabelled against 13 % with it at the same settings).
@@ -77,11 +77,11 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// … except when the survivors hold a Friedel pair — u and −u within the
     /// pair radius — which IS knowing which two: one lattice row, and the
     /// matrix removal has already said it is not the matrix's. Two, then.
-    /// MEASURED on Thronsen et al.'s dataset A (step 3, 2026-09-16,
+    /// MEASURED on Thronsen et al.'s dataset A (step 3, 2026-09-15,
     /// `tools/thronsen-dataset`): along [001]Al a T1 variant leaves exactly
     /// that pair and nothing else inside their mask; with a floor of three
     /// T1 recall was 6 %, with two 59 %, and the Al class paid 28 positions
-    /// of 21 494 (0.13 %). Two limits, both from Gate B (2026-09-16): the
+    /// of 21 494 (0.13 %). Two limits, both from Gate B (2026-09-15): the
     /// chance guard still applies, and for a 48-vector entry it admits a pair
     /// only when the accessible radius is above ≈ 0.3 Å⁻¹ (below that the
     /// floor is silently a no-op — recall lost, not safety); and the matrix
@@ -138,6 +138,17 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// default because a margin that is not measured on the data at hand is a
     /// guess, and `tools/phase-vector-matching` is where it gets measured.
     package var minimumPhaseContrastInvAngstrom: Double = 0
+    /// A candidate entry whose phase lists allowed in-plane angles
+    /// (`PhaseDefinition.inPlaneDegreesRelativeToMatrix`) is scored only when
+    /// its angle relative to the fitted matrix entry falls within this many
+    /// degrees of a listed value. MEASURED 2026-09-15 (Thronsen step 3):
+    /// correct face-on matches land within ±15° of the orientation
+    /// relationship and the confusing ones — face-on taken for edge-on —
+    /// at 45°; but half of the correct edge-on matches sit near 22° and
+    /// 67°, which a {0, 90} list at this tolerance cuts (edge-on recall
+    /// 50 → 31 %). Open in `docs/open-items.md`; no phase lists angles by
+    /// default.
+    package var orientationRelationshipToleranceDeg: Double = 10
 
     package nonisolated init() {}
 }
@@ -1018,6 +1029,28 @@ package nonisolated enum PhaseVectorMatcher {
         return best
     }
 
+    // MARK: The orientation relationship
+
+    /// Whether a candidate entry's in-plane rotation is consistent with one
+    /// of `allowedDeg` relative to the fitted matrix entry, within
+    /// `toleranceDeg`. Both rotations arrive in radians; the comparison is
+    /// done in degrees, modulo 360, because a difference near 0/360 is one
+    /// wrap apart, not far apart.
+    package static func inPlaneAngleAllowed(candidateRad: Double, matrixRad: Double,
+                                            allowedDeg: [Double], toleranceDeg: Double) -> Bool {
+        var d = (candidateRad - matrixRad) * 180 / .pi
+        d = d.truncatingRemainder(dividingBy: 360)
+        if d < 0 { d += 360 }
+        for allowed in allowedDeg {
+            var target = allowed.truncatingRemainder(dividingBy: 360)
+            if target < 0 { target += 360 }
+            let diff = abs(d - target)
+            let distance = min(diff, 360 - diff)
+            if distance < toleranceDeg { return true }
+        }
+        return false
+    }
+
     // MARK: The whole scan
 
     package static func map(bragg: BraggVectors,
@@ -1039,7 +1072,28 @@ package nonisolated enum PhaseVectorMatcher {
         guard cancellation?.isCancelled != true else { return nil }
 
         let matrixEntry = fitted.map { library.entries[$0] }
-        let candidates = library.candidateEntryIndices
+        // The orientation relationship (2026-09-15): once the matrix is
+        // fitted, a candidate entry whose phase lists allowed in-plane
+        // angles is scored only near one of them — this is what keeps a θ′
+        // edge-on entry, rotated 45° so its (002) at 0.345 Å⁻¹ sits on
+        // face-on's (110) at 0.350, from being offered as face-on. A phase
+        // with no list (nil) stays free, so the default (no matrix, or no
+        // list anywhere) moves nothing.
+        let candidates: [Int]
+        if let matrixEntry {
+            candidates = library.candidateEntryIndices.filter { index in
+                let entry = library.entries[index]
+                // nil and an empty list both mean free: an empty list would
+                // otherwise empty the candidate set and refuse the whole map.
+                guard let allowed = library.phases[entry.phaseIndex].inPlaneDegreesRelativeToMatrix,
+                      !allowed.isEmpty else { return true }
+                return Self.inPlaneAngleAllowed(
+                    candidateRad: entry.inPlaneRotationRad, matrixRad: matrixEntry.inPlaneRotationRad,
+                    allowedDeg: allowed, toleranceDeg: settings.orientationRelationshipToleranceDeg)
+            }
+        } else {
+            candidates = library.candidateEntryIndices
+        }
         guard !candidates.isEmpty else { return nil }
 
         // Built once for the scan, scored only at positions that would
