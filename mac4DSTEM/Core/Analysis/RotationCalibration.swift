@@ -203,10 +203,16 @@ package enum RotationCalibration {
             }
         }
 
-        // THE NULL. Shuffle the scan positions — carrying each position's
-        // (cx, cy) together, so only the spatial arrangement is destroyed —
-        // and run the same grid. Deterministic by a fixed seed: a refusal that
-        // flickers between runs is worse than no refusal at all.
+        // THE NULL. Shuffle the scan positions and run the same grid.
+        // Deterministic by a fixed seed: a refusal that flickers between runs
+        // is worse than no refusal at all.
+        //
+        // Each position's (cx, cy) travels together, which is the honest thing
+        // to destroy — only the spatial arrangement — but it is NOT what makes
+        // the test work, and an earlier comment here claimed it was. Gate B
+        // shuffled the two components independently and the certification rate
+        // barely moved (7 of 60 against 3 of 60 on white fields), because the
+        // shuffled cloud is symmetrised either way.
         func depth(_ c: [Float]) -> Float {
             guard let lo = c.min(), let hi = c.max(), !c.isEmpty else { return .nan }
             let mean = c.reduce(0, +) / Float(c.count)

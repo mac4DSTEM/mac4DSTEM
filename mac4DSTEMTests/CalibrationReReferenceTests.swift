@@ -580,6 +580,35 @@ final class RotationSignificanceTests: XCTestCase {
         XCTAssertEqual(first.carriesRotation, second.carriesRotation)
     }
 
+    /// The three mutations Gate B left alive on 2026-09-15, pinned here.
+    /// None is about the science; each is about a claim the code makes that
+    /// nothing checked.
+    func testTheNullReportsFifteenShufflesOfTheWinningCurve() throws {
+        let field = Self.noiseField(width: 40, height: 40)
+        let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+
+        // (1) `shuffleCount` 15 → 6 was green. Fifteen is a 1-in-16 design
+        // rate; six is 1-in-7, more than double the false-certification rate,
+        // and nothing noticed.
+        XCTAssertEqual(result.shuffledDepths.count, 15,
+                       "the null's size is what sets its false-certification rate")
+
+        // (2) `depth` is the WINNING curve's, not the losing one's — taking the
+        // loser was green, and the comment arguing for the winner was the only
+        // thing saying so. Recomputed here from the curves the result carries.
+        func depth(_ c: [Float]) -> Float {
+            guard let lo = c.min(), let hi = c.max() else { return .nan }
+            let mean = c.reduce(0, +) / Float(c.count)
+            return mean != 0 ? (hi - lo) / abs(mean) : .nan
+        }
+        let winning = result.transpose ? result.objectiveCurveTransposed : result.objectiveCurve
+        let losing = result.transpose ? result.objectiveCurve : result.objectiveCurveTransposed
+        XCTAssertEqual(result.depth, depth(winning), accuracy: 1e-6,
+                       "depth was not measured on the curve the answer came from")
+        // and the two must differ, or the assertion above is vacuous
+        XCTAssertNotEqual(depth(winning), depth(losing), accuracy: 1e-9)
+    }
+
     /// THE MUTATION THIS CLOSES, and it is the one that mattered: Gate B
     /// deleted the guard from `AppState.calibrateRotation` and the entire
     /// suite stayed green, because every test lived in Core and none
