@@ -566,7 +566,7 @@ package nonisolated enum BraggVectorEMDWriter {
             if !published { try? fm.removeItem(at: temporary) }
             if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
         }
-        let h5 = try HDF5WriteLibrary.load()
+        let h5 = try HDF5Serial.run { try HDF5WriteLibrary.load() }   // H5open is an API call too
         try await writeCalibratedDataCubeFile(
             at: temporary, source: source, view: view,
             calibration: try transformedCalibration(calibration, descriptor: descriptor,
@@ -857,6 +857,7 @@ package nonisolated enum BraggVectorEMDWriter {
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> ScalarResultMap? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
@@ -881,6 +882,7 @@ package nonisolated enum BraggVectorEMDWriter {
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> RGBAResultMap? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }

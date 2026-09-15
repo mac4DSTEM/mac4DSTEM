@@ -666,8 +666,18 @@ one path that nests reader inside writer cannot deadlock on it. Instrument:
 `tools/hdf5-race-probe` — before, serial 200/200 and concurrent SIGBUS in
 the first twenty; after, concurrent **3 of 3 complete** (`hdf5-race-after-
 20260915.log`). No Gate D (the cause is the probe's reproducing
-observation); no independent refuter yet — **Gate B owed** on the lock's
-placement (a public method that reaches the library without taking it).
+observation). **Gate B ran and found the claim "every call" false as
+shipped:** `loadResultMap(id:)` and `loadRGBAResultMap(id:)` open the file
+themselves, took nothing, and a probe variant driving them crashed
+concurrently on the first attempt (SIGSEGV) while the inventory path — the
+only one the probe drove — completed. Both are locked now, so is the
+export's own `HDF5WriteLibrary.load()` (`H5open` is an API call too), the
+probe alternates all three entry points (`hdf5-race-after2-20260915.log`,
+3 of 3), and the audit rule is written on the lock: every
+`HDF5WriteLibrary.load()` / `HDF5Library.load()` site sits under it. The
+refuter also found `HDF5Serial` inheriting the project's main-actor default
+(a Swift 6 error in waiting) — now `nonisolated`; no lock held across an
+await; no deadlock path; no measurable cost (2.39 s → 2.28 s serial).
 **Costs:** a caller blocks its thread for the length of one operation (a
 sidecar write can be seconds); the two `dlopen`s stay two; no unit test can
 crash-test this, the probe is diagnostic. **The "refuse a second open"

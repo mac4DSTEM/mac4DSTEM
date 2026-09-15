@@ -96,12 +96,24 @@ enum Probe {
         // carrying the session root group: it reads the inventory only, so
         // it exercises the writer's HDF5 entry point on the smallest
         // dependency.
+        // Two writer entry points, alternating: `loadInventory` (through the
+        // locked `loadSession`) and `loadRGBAResultMap(id:)` / `loadResultMap(id:)`,
+        // which open the file THEMSELVES — Gate B (2026-09-15 late night)
+        // found them unlocked and crashing while the inventory path already
+        // completed, so a probe that drove only the inventory said nothing
+        // about them. The id is whatever result the sidecar lists first;
+        // a kind mismatch returns nil and still opened the file.
         nonisolated func writerLoop() -> Int {
             var completed = 0
-            for _ in 0..<iterations {
-                guard (try? BraggVectorEMDWriter.loadInventory(from: sidecarURL)) != nil else {
-                    continue
+            let firstResultID = (try? BraggVectorEMDWriter.loadInventory(from: sidecarURL))?.results.first?.id
+            for iteration in 0..<iterations {
+                let ok: Bool
+                switch iteration % 3 {
+                case 0: ok = (try? BraggVectorEMDWriter.loadInventory(from: sidecarURL)) != nil
+                case 1: ok = firstResultID.map { (try? BraggVectorEMDWriter.loadRGBAResultMap(id: $0, from: sidecarURL)) != nil } ?? false
+                default: ok = firstResultID.map { (try? BraggVectorEMDWriter.loadResultMap(id: $0, from: sidecarURL)) != nil } ?? false
                 }
+                guard ok || iteration % 3 != 0 else { continue }
                 completed += 1
                 if completed % 20 == 0 { print(",", terminator: ""); fflush(stdout) }
             }
