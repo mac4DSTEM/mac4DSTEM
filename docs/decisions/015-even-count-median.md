@@ -25,7 +25,7 @@ drifted invisibly behind an `UNPINNED:` line nobody was reading.
 
 The `median` implementations in `EllipseCalibration`, `OriginCalibration`,
 `ParallaxAlignment`, `QCalibration`, `StrainMapping` (kept deliberately
-separate — see `docs/audit/REPORT.md` §3.2 item 9); `expected.json`'s
+separate — see `docs/archive/audit-2026-09-16/REPORT.md` §3.2 item 9); `expected.json`'s
 bullseye pin.
 
 ## Sources

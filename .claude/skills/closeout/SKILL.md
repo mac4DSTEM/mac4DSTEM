@@ -40,7 +40,7 @@ Done means the repo tells the next reader the truth. In order:
    every session, so its length taxes all of them.
    **Write findings, not narratives** — the file's own header carries the
    format rule adopted 2026-08-28: what is wrong, the evidence, the trap, the
-   owner, the live residual; ≤ 20 lines. Refuted hypotheses and the story of
+   owner, the live residual; ≤ 12 lines (the file's own rule, and CLAUDE.md's). Refuted hypotheses and the story of
    how the diagnosis converged go to the dated archive with a pointer.
    **Run `tools/run-tests.sh inventory` and paste its output into the
    closeout message.** It must exit 0 (every `tools/` runner classified, no

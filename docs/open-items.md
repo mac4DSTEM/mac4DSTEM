@@ -261,6 +261,18 @@ Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
 
 ## Verification debt — added 2026-09-08
 
+### `RotationCalibration.swift` has no gated parity harness — found by the 2026-09-16 audit
+`Core/Analysis/RotationCalibration.swift` (314 lines, two `DEVIATION` notes,
+the R–Q rotation solve) is compiled by no `scientific` harness: no
+`tools/lib/sources.manifest` group lists it, so the only coverage is
+`mac4DSTEMTests/CalibrationReReferenceTests.swift` (synthetic CoM fields) and
+the diagnostic `tools/rotation-null-probe`. Evidence:
+`docs/archive/audit-2026-09-16/REPORT.md` §3.1 (the 11 Core files with zero
+harness coverage; the other ten are readers, ML, presentation or workflow).
+Trap: a py4DSTEM port whose parity is asserted by nothing is exactly the class
+the 2026-09-09 review found in `PtychographyPreparation`. Owner: the session
+that next touches rotation; before any refactor there, not after.
+
 ### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
 The `macos-26` runner carries Xcode 26.6, and its type checker times out on
 `ContentView`'s file-importer closure ("unable to type-check this expression
@@ -739,6 +751,17 @@ at runtime — but it would defeat any future UI test that addresses a readiness
 row by identifier. The old app had the same collision. Owner: unclaimed.
 
 ## Code hygiene
+
+### The audit's refactor list, rows 4–13, is the open hygiene queue — 2026-09-16
+Rows 1–3 and 10 landed in `e415929`. Still open, in the audit's order:
+a shared harness helper (row 4, Gate B on the helper — a shared `fail` can
+green 46 harnesses at once), one `AppState` seam per session (row 5),
+`Support/ResultExport.swift` and `Core/Data/BraggVectorEMDWriter.swift` splits
+only with byte-identical output evidence and a refuter (rows 6–7), the small
+identical Core helpers (row 8), and the >1 000-line harness mains (row 12).
+**Row 9 is a do-not:** five different `median` bodies in Core stay separate
+until a Gate D shows they should agree (ADR 015). Evidence and blast radii:
+`docs/archive/audit-2026-09-16/REPORT.md` §3.2. Owner: whoever picks a row.
 
 ### `tools/free-space.sh` still spells shared path knowledge three times (2026-09-04)
 Fixed 2026-09-04, the misreporting half: it prints the two volumes the

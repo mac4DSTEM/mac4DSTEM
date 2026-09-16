@@ -39,6 +39,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 029 | Working methods | 08-31, 09-02/07/16 | live |
 | 030 | Lessons promoted from the archive | 08-25–09-16 | live |
 | 031 | v3 sequencing | 08-28, 09-03 | live |
+| 032 | Docs consolidation and the ADR layout | 09-16, 09-17 | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of
