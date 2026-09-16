@@ -685,8 +685,19 @@ package nonisolated enum PhaseVectorMatcher {
     ///
     /// Chosen by total matched vectors, tie-broken by lower mean distance. Not
     /// by mean distance alone: an entry matching one vector at 0.001 Å⁻¹ would
-    /// win over one matching nine at 0.01, which is the same completeness trap
-    /// `minimumMatchedFraction` closes on the candidate side.
+    /// win over one matching nine at 0.01.
+    ///
+    /// This sentence used to end "…the same completeness trap
+    /// `minimumMatchedFraction` closes on the candidate side". **There is no
+    /// such symbol and there never was** (`grep -rn` over every `.swift` and
+    /// `.md`, introduced with this comment in `cee63e6`; corrected
+    /// 2026-09-16). The candidate side is guarded by `minimumMatchedVectors`
+    /// and `chanceMatchMultiple`, which are floors on COUNT, not on the
+    /// fraction of an entry's accessible vectors that matched — a different
+    /// quantity, and not the one the sentence claimed. So the trap IS open on
+    /// the candidate side: the cross-phase winner below is still chosen by mean
+    /// distance alone, and a 2-vector Friedel pair at 0.004 beats a 10-vector
+    /// match at 0.012. That is measured, not hypothetical (`open-items.md`).
     package static func fitMatrixOrientation(bragg: BraggVectors,
                                              library: PhaseReferenceLibrary,
                                              settings: PhaseVectorSettings,

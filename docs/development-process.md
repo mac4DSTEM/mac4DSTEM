@@ -61,6 +61,31 @@ implementation, and an independent capable scientific reviewer. Use available
 configured models; do not claim a prescribed model ran when it was unavailable.
 Additional reviewers need different evidence or questions, not extra votes.
 
+## A threshold is not a result until it is measured on every dataset it will touch
+
+Adopted 2026-09-16, after making the same mistake twice in one session.
+
+A number chosen for a guard — a fraction, a bar, a cliff — is a property of the
+DATASET AND THE SETTINGS it was measured under, never of the method, until it
+has been measured on every dataset the guard will run on. Two failures the same
+day: a matrix fall-back pre-registered at `f = 0.8` without measuring what the
+matrix actually explains at the positions it targeted (about 0.29, so the gate
+could not open and the run tested the threshold rather than the hypothesis);
+and a "partly explained" bar measured properly on one dataset at 0.90, where it
+flags 51 of 61 wrong calls, which then marked 46 % of a second dataset whose
+every acceptance clause passes.
+
+So: measure the quantity's distribution first, on both datasets, and only then
+choose the number — or ship the quantity and let the reader judge, which is
+what was done in the end. A pre-registration whose threshold is unmeasured is a
+test of the threshold, not of the idea.
+
+And the corollary, from the same session: **do not infer a mechanism from a
+null result.** "The fall-back changed nothing, therefore the refusals come from
+the cliff" was written into a commit message and refuted by the next
+measurement — 98 % of them came from the path the fall-back had patched, which
+had simply never fired.
+
 ## Separate evidence levels
 
 Use explicit labels: **reported**, **source-confirmed**, **reproduced**,

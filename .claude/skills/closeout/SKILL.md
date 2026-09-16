@@ -67,6 +67,9 @@ Done means the repo tells the next reader the truth. In order:
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's
    commit. Friction nobody records is friction the next session repeats.
-9. Do not commit unless the user asked. If they did: linear `main`,
-   descriptive message, and the docs updated in the same commit as the code
-   they describe.
+9. **Commit** (rule changed by the owner 2026-09-16; this step used to say
+   "do not commit unless the user asked"). Land the work as coherent commits
+   with the gate numbers in the message, and the docs in the same commit as
+   the code they describe. **Pushing is still the owner's** — ask if it should
+   go out. `main` is linear by preference, not by rule, since the 2026-09-16
+   merge split put a cherry-pick on it.

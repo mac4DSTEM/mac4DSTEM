@@ -17,6 +17,36 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
+### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
+
+Full narratives, tables and logs:
+[`archive/v3/step3-2026-09-16.md`](archive/v3/step3-2026-09-16.md). What stays
+live from that day:
+
+- **Step 3 is at 4.21 %** (0.1 % detection threshold, shipped 70-peak cap)
+  against the band 0.96–1.75 %. Al 98.11 %, θ′ edge-on 70 %, face-on 99.6 %,
+  T1 89 %. No default moved — py4DSTEM's 0.5 % still ships.
+- **The error is 83 % refusals** at that threshold: 1024 of 1230, of which T1
+  617 and Al 354, and **98 % of them arrive because no candidate cleared the
+  guards**, not by the verdict cliff (worth ~30 positions).
+- **Closed as levers, do not re-open without new evidence:** the 70-peak cap
+  (0.6 % of positions at it; cap 70 vs 200 differ by seven positions), the
+  phase-contrast margin (it only converts a verdict to `.notIndexed`, which
+  their metric counts as mislabelled, so it can only raise the number), and
+  the detection threshold below 0.1 % (0.05 % gives 75.67 %).
+- **`matrixFallbackExplainedFraction` ships at 0** by owner decision: at 0.33
+  it reaches 3.13 %, but 600 of the 915 improved positions are T1 moving from
+  "not indexed" to "Al" — wrong either way — so the score improves and the map
+  does not. Turning it on overstates the matrix phase fraction by ~2 % of the
+  map.
+- **`medianMatrixExplainedFraction` is on screen and UNVERIFIED** — a "Matrix
+  evidence" row under the Phases legend. Nobody has looked at it.
+- **The matrix is still a verdict by exclusion**
+  (`PhaseVectorMatching.swift`, `surviving.count < minimumVectors`), and the
+  cross-phase winner is still chosen by mean distance alone with no
+  completeness guard. Both are open; the next increment is the T1 reference,
+  which is 617 of the 1024 refusals and is already known wrong in detail.
+
 ### Step 3 ran on a stride-3 subsample and is OUTSIDE their band — measured 2026-09-15
 **Science, live; the pre-registered verdict, not softened.** Their 7.4 GB
 `datasetA_preprocessed.hspy` was streamed from Zenodo by HTTP range requests
@@ -175,318 +205,6 @@ That, and T1's last 22 %, are what remains. Until the band is reached a
 phase fraction off this map is not a measurement and every product still
 says `validation: "none"`.
 
-### The 70-peak cap is NOT what costs — REFUTED by its own control, 2026-09-16
-
-**Science, live; Gate D, the record written before the run.** Two facts read
-out of the code, not argued:
-
-1. `DiskDetectionParams.maxNumPeaks` is **70**, and the cap is applied at
-   DETECTION (`DiskDetection.swift:812-821`: `accepted.sort { $0.score >
-   $1.score }`, then `break` at the cap; the tail is cut again at :956-959).
-   It keeps the strongest by net score, so what it drops is the weakest — on
-   this data the precipitate reflections, 1–5 % of a saturated beam plateau.
-2. The probe raises the cap to 200 **inside `--noise-floor` only**
-   (`main.swift`). The main detection path leaves it at 70. So the instrument
-   that concluded "0.2 % keeps 80 % of T1 pairs at 0.07 % Al" ran at 200,
-   while every full-pipeline number that followed it — 13.24 %, 12.22 %,
-   8.75 %, 7.96 %, 6.64 % — was measured at 70. No run has reported whether
-   the cap was binding.
-
-**The mechanism is arithmetic.** On this cube (0.01904 Å⁻¹/px, probe radius
-2 px, so `minPeakSpacing = max(3, 2) = 3 px`) the matcher's outer reach,
-0.68 Å⁻¹, is a circle of radius **35.7 px**; its circumference is 224 px,
-which holds up to **74 maxima** at 3 px spacing — more than the whole cap.
-The data's own mask edge at 0.70 Å⁻¹ holds up to 76. `--reach` discards
-those vectors, but it discards them in `experimentalVectors`, i.e. AFTER
-detection has spent the cap on them, and they are brighter than any
-precipitate reflection. Lower the threshold and the ring fills first.
-
-**Instrument:** `tools/thronsen-dataset/run.sh probe` with a new
-`--max-peaks` on the diagnostic probe only (no Core change); the probe now
-prints the fraction of positions sitting at the cap. Cells: `--min-relative`
-{0.002, 0.001, 0.0005} × cap {70, 200}, `--or` throughout.
-**Control, read first:** (0.002, 70) must reproduce **6.64 %** with Al
-99.6 %, edge-on 68 %, face-on 52 %, T1 80 %; if it does not, nothing else in
-the table is read until that is explained.
-**Prediction:** (0.002, 200) alone improves on 6.64 % — the cap was already
-binding — and the minimum over the raised-cap cells is below **6.0 %** with
-Al at or above 99 %.
-**Refuting observation:** no cell improves on 6.64 % while holding Al at or
-above 99 %; or the control's own cap fraction shows the cap never bound at
-0.2 %, which refutes the mechanism outright. Either sends the next increment
-to the detector kernel and the T1 reference.
-**Stated before the result so it is not claimed as a lever afterwards:** if
-the cap was binding, every step-3 figure back to 13.24 % was measured under a
-binding cap — that is a correction to the record, not a gain. And the fix
-this points at is not a bigger cap but applying the reach and the direct beam
-BEFORE the cap, so the budget is spent on peaks the matcher will use. That is
-a Core change to `DiskDetection`, is **not** in this increment, and would be
-pre-registered separately under Gate D and Gate B.
-
-**RESULT — the cap is refuted, and the sweep it was bundled with found the
-largest single gain step 3 has had.** Four runs, all on
-`datasetA_stride3.h5` with `--or` and the tree's shipped cliff:
-
-| `--min-relative` | cap | mislabelled | Al | θ′ edge-on | θ′ face-on | T1 | Al zero-survivor |
-|---|---|---|---|---|---|---|---|
-| 0.002 (control) | 70 | **6.64 %** | 99.56 % | 68 % | 52 % | 80 % | 98.4 % |
-| 0.001 | 200 | **4.18 %** | 98.11 % | 72 % | 99.6 % | 89 % | 91.3 % |
-| 0.001 | 70 (shipped) | **4.21 %** | 98.11 % | 70 % | 99.6 % | 89 % | 91.3 % |
-| 0.0005 | 200 | **75.67 %** | 0.04 % | 72 % | 93 % | 93 % | 0.0 % |
-
-Logs: `thronsen-cap70-ctrl-`, `thronsen-rel0.001-cap200-`, `-cap70-`,
-`thronsen-rel0.0005-cap200-20260916.log`.
-
-**The control reproduced the record exactly — 1942 of 29 241 = 6.64 % — so
-the instrument is sound.**
-
-**The cap mechanism is refuted, three times over.** At 0.2 % the detector
-finds a median of **23** peaks and only **189 of 29 241 positions (0.6 %)**
-sit at the cap; 74 maxima are geometrically possible on the reach ring and
-about 23 occur, so the ring does not fill. And at 0.1 % the shipped cap of 70
-and a cap of 200 differ by **seven positions** (4.21 vs 4.18 %). The cap was
-never binding at any recorded step-3 figure and raising it is not a lever.
-The refuting clause was written before the run and it fired.
-
-**The threshold is, and my own reading of it was wrong.** This entry first
-said "0.2 % is already near its optimum"; it is not. **0.1 % takes step 3
-from 6.64 % to 4.21 % at the shipped cap** — the largest single gain since
-the three decisions of 2026-09-15 — and θ′ face-on goes 52 % → **99.6 %**
-(966 of 970), T1 80 % → 89 %. **No default moves**: py4DSTEM's 0.5 % remains
-the shipped default by the 2026-09-15 decision, and 4.21 % is this
-instrument's number at a stated per-dataset setting.
-
-**The pre-registered prediction is met on the total and MISSED on its own Al
-clause.** It said "below 6.0 % with Al at or above 99 %". The total is 4.21 %,
-but Al is **98.11 %**, below the 99 % I wrote. Recorded as a miss rather than
-rounded away: 407 Al positions of 21 494 are lost to buy 2.4 points of total.
-Whether that trade is acceptable is a judgement about this metric, which
-counts every class equally while Al is 73 % of the map.
-
-**Below 0.1 % is a cliff, not a slope.** 0.05 % gives 75.67 %. Between the
-two the Al class goes from 98.11 % to 0.04 % for a factor of two in
-threshold. A setting that good at 0.001 and catastrophic at 0.0005 is not a
-default anyone should ship; it is evidence about the code, and the next entry
-says what of.
-
-**The mechanism of the cliff, measured across all four runs.** Al's accuracy
-tracks its zero-survivor fraction almost exactly — 98.4 → 99.56, 91.3 →
-98.11, 0.0 → 0.04. That is the `surviving.count < minimumVectors` branch at
-`PhaseVectorMatching.swift:769` and nothing else. See the next entry.
-
-**What the runs also settle about the residual at 0.2 %** (the decomposition
-that motivated all of this, reconciled to the printed 1942): 1058 (54.5 %) a
-precipitate called matrix, of which 1038 are exactly the ≤ 1-survivor
-positions; 806 (41.5 %) not indexed; 76 (3.9 %) genuine cross-phase
-confusion. The identity is exact — (18.4 + 19.5) % × 970 = 367.7 face-on
-positions with ≤ 1 survivor against **367** labelled Al, and
-(4.6 + 5.9) % × 6358 = 667.6 against **671**.
-
-**And it answers the owner's standing question 4** ("may a candidate be
-indexed on one or two characteristic reflections, and at what false-positive
-cost?") with a bound rather than an opinion — at 0.2 %, granting it
-*perfectly* gives 1942 − 564 + 236 = 1614 = **5.52 %**, worth about 1.1
-points at its theoretical maximum. At 0.1 % the question largely dissolves:
-face-on has no zero- or one-survivor positions left at all. **It should be
-decided on its merits for real specimens, not as a step-3 lever.**
-
-**Measured on the demo cube too, before the number is claimed**
-(`demo-rel0.002/0.001-20260916.log`, 100 × 100, its own `truth.json`): the
-two thresholds are **identical** and every clause of the demo
-pre-registration holds at both — grain A matrix 100 %, grain B labelled β″
-0.0 %, end-on recall 100 %, needle recall 100 %, vacuum as no-data 100 %,
-median 9 peaks at both. So 0.1 % buys 2.4 points on Thronsen and costs the
-demo cube nothing. (The demo cube is a weak test of a detection threshold —
-its planted reflections are far above any noise floor — which is itself worth
-saying rather than reading its agreement as strong confirmation.)
-
-**Where this sends the next increment**, by the stopping rule
-(`decisions.md` 2026-09-16): the matrix-by-exclusion branch, which is what
-the cliff is made of and what caps every future detection improvement. The
-cap is closed; the threshold is measured and is a setting, not a code change.
-
-### The matrix fall-back reaches 3.13 %, and I am recommending AGAINST shipping it — 2026-09-16
-
-**Gate D, written before the run.** Diagnosis, already established by the entry
-below and not re-argued: `PhaseVectorMatching.swift` sends a position to
-`.notIndexed` whenever no candidate phase clears its guards
-(`guard !bestPerPhase.isEmpty else { result.verdict = .notIndexed }`), even
-when the matrix orientation already explained most of that position's vectors.
-The matrix can only be reached by exclusion (`surviving.count <
-minimumVectors`) or by challenging a candidate that has already won. There is
-no path from "no candidate fits" back to "this is matrix". Measured cost: 806
-positions at a 0.2 % detection threshold (41.5 % of the error), 18 445 of
-21 494 Al positions at 0.05 %.
-
-**Instrument:** `PhaseVectorSettings.matrixFallbackExplainedFraction`, **0 by
-default so nothing ships changed** — when no candidate clears and the matrix
-explained at least that fraction of the position's vectors
-(`removedCount / vectors.count`), the verdict is matrix rather than a refusal.
-Driven by `tools/phase-map-probe --matrix-fallback f`.
-
-**Control, read first:** `f = 0` at 0.1 % and cap 70 must reproduce **4.21 %**
-(Al 98.11 %, edge-on 70 %, face-on 99.6 %, T1 89 %). Anything else and the
-table is not read.
-
-**Prediction.** At 0.1 %: the total falls below **4.21 %** and Al rises above
-**99 %**, while θ′ face-on and T1 recall each fall by no more than **2
-points**. At 0.05 %, where the precipitates are already near-solved and the map
-is destroyed by 18 445 refusals, the total falls below **20 %** from 75.67 %.
-
-**Refuting observation.** Face-on or T1 recall falls by more than 2 points —
-i.e. the fall-back is buying Al back by swallowing real precipitates — or the
-total does not improve at 0.1 %. Either refutes "the refusal is what costs" and
-sends the next increment to the detector kernel with the matrix verdict left
-as it is.
-
-**RESULT: the fall-back never fired, at either threshold, and the instrument
-has been removed.** 0.1 % with `f = 0.8` gave **1230 of 29 241 = 4.21 %** with
-every class byte-identical to the control
-(`thronsen-fallback0.8-rel0.001-20260916.log`); 0.05 % gave **22 128 = 75.67 %**,
-Al still 9 correct and 18 445 not-indexed
-(`thronsen-fallback0.8-rel0.0005-20260916.log`). Identical, not merely similar.
-
-**Part of that is a flaw in this pre-registration, and saying so is the
-point.** `f = 0.8` was chosen without first measuring what fraction the matrix
-actually explains at refused positions. At 0.05 % Al has a median of **14**
-detected vectors and its [001] pattern has four reflections inside the 0.70 Å⁻¹
-mask, so the explained fraction there is about **0.29** — the gate could not
-have opened at 0.8 whatever the verdict logic did. The measurement that should
-have come first is the distribution of `removedCount / vectors.count` at the
-positions that end not-indexed. **A pre-registration whose threshold is
-unmeasured is not a test of its hypothesis; it is a test of the threshold.**
-
-**What the pair of runs does establish.** There are three paths to
-`.notIndexed` and only one was instrumented: no candidate cleared
-(`bestPerPhase.isEmpty`), the winner's score over the verdict cliff, and the
-phase-contrast margin. Since the fall-back changed nothing, the refusals are
-NOT arriving by the first path — they arrive with a candidate already chosen
-and then rejected, which is the **cliff**. That relocates the target.
-
-**And it re-weights the whole residual.** At 0.1 % the error is no longer
-mostly "a precipitate called matrix"; it is **not-indexed, 1024 of 1230 = 83 %**
-— T1 617, Al 354, edge-on 49, face-on 4 — against 61 precipitates called matrix
-and 143 genuine cross-phase confusions. The 54 %/41 % split measured at 0.2 %
-does not survive the threshold change, and any plan resting on it is stale.
-
-**The instrument was removed rather than left inert.** A setting that provably
-never fires, kept "in case", is the same defect as
-`minimumMatchedFraction` recorded below: code asserting a capability that does
-nothing. `PhaseVectorMatching.swift` and `tools/phase-map-probe` are back to
-their committed state; this entry is the record.
-
-**Next, by the stopping rule (`decisions.md` 2026-09-16), revised by this
-result:** the verdict cliff's contribution to the 1024 not-indexed positions,
-measured first as a distribution — the winner's score against
-`notIndexedAboveInvAngstrom` at every refused position — before any rule is
-changed. T1 alone is 617 of them and its reference is already known to be wrong
-in detail, so the T1 reference and the cliff should be measured together.
-
-**CORRECTION, and it is mine.** The commit that recorded the f = 0.8 run
-concluded "the refusals do not arrive by the empty-candidate path… they arrive
-by the verdict cliff". **That is wrong**, and the next measurement says so
-(`thronsen-whynotindexed-20260916.log`). Of the 1024 not-indexed positions at
-0.1 %, the refusal path splits:
-
-| truth | refused | nothing cleared | cliff-refused | score/cliff p25–p75 |
-|---|---|---|---|---|
-| Al | 354 | **347 (98 %)** | 7 | 1.05–1.17 |
-| T1 | 617 | **604 (98 %)** | 13 | 1.04–1.14 |
-| θ′ edge-on | 49 | 40 (82 %) | 9 | 1.07–1.19 |
-| θ′ face-on | 4 | 3 (75 %) | 1 | 1.01 |
-
-**98 % arrive by exactly the path the fall-back patched.** It did nothing
-because 0.8 was too high, not because the path was wrong. The verdict cliff is
-worth about **30 positions**, all sitting at 1.01–1.19 × the cliff, and is not
-a lever. I inferred a mechanism from a null result instead of measuring it, and
-the measurement that settles it cost one run.
-
-**The threshold, measured rather than guessed**
-(`thronsen-explained-20260916.log`), as the explained fraction
-`removed / detected` where nothing cleared: Al p10–p90 **0.33–0.67** (median
-0.67), T1 **0.50–0.67** (median 0.67), θ′ edge-on **0.18–0.33**, face-on
-0.44–0.67. **Al and T1 overlap almost exactly**, so no threshold separates
-them — which is the finding, not an obstacle.
-
-**RESULT at f = 0.33** (`thronsen-fallback0.33-20260916.log`): **915 of 29 241
-= 3.13 %**, from 4.21 %. Al 21 087 → **21 402** correct (99.57 %), not-indexed
-across the whole map down to **0.3 %**. The demo cube is **unchanged** — all
-three grains, both precipitate classes and vacuum at 100 %, every clause held
-(`demo-fallback0.33-20260916.log`).
-
-**Why I am recommending against a non-zero default anyway, and the arithmetic
-that makes the case.** The 1.08-point gain is two different things added
-together:
-
-- **315 positions of real gain** — Al positions that ARE matrix and were being
-  refused. Legitimate, and worth having.
-- **600 positions of metric-neutral shuffle** — T1 positions that go from
-  "not indexed" to "Al". They were counted wrong before and are counted wrong
-  now (T1 → Al rises 39 → 639, T1 not-indexed falls 617 → 17). **The score
-  improves; the map does not.**
-
-That second part is the problem. The map stops saying "I do not know" about
-600 T1 positions and starts positively claiming they are aluminium. **The
-deliverable of this whole feature is a phase fraction**, and this silently
-overstates the matrix fraction by ~2 % of the map — in the one direction a
-microscopist would not catch, because matrix is the expected answer. It also
-contradicts the standard this repo set for itself in `8369fbf`, that a refusal
-reads as a refusal.
-
-**So: the setting lands at 0, the number is recorded, and the owner rules.**
-If he wants it on, the honest form is probably a separate verdict — "matrix by
-exclusion" drawn and counted apart from "matrix by fit" — rather than folding
-both into one colour and one fraction. That is a bigger change than a
-threshold and would need its own pre-registration, the demo cube, and Gate B.
-
-**Stated before the result.** A fall-back that works is NOT licence to ship a
-non-zero default: it changes what "matrix" means on every dataset, so it would
-need the demo cube, a Gate B refuter, and a decision from the owner about the
-default before any number moves. This increment ends at the measurement.
-
-### The matrix explained fraction is reported; the bar that was going to gate it is REFUTED by the demo cube — 2026-09-16
-
-**Owner's decision (2026-09-16): keep the fall-back off, ship the separate
-verdict instead.** What shipped is the *quantity*, not a verdict split, and the
-reason is a measurement that went against the design.
-
-**What was built first.** `.matrix` is returned by two mechanisms — too little
-survived removal, or the matrix won the challenge — and neither says how much
-the matrix EXPLAINED. Measured on Thronsen at a 0.1 % threshold
-(`thronsen-matrixevidence2-20260916.log`), the explained fraction behind a
-matrix verdict does separate right from wrong: truth-Al p10–p90 all **1.00**
-with 1 466 of 21 087 (**7.0 %**) under 0.90; truth-θ′-edge-on 0.21–0.27,
-**100 %** under; truth-T1 0.80–1.00, **74 %** under. A 0.90 bar flags 51 of the
-61 wrong matrix calls. So a stippled "partly explained" appearance and a legend
-row were built on it, with a test broken three ways.
-
-**Then the demo cube refuted the bar, which is what the demo cube is for.** At
-its shipped threshold it flagged **46 % of a map whose every acceptance clause
-passes at 100 %** (`demo-partial-20260916.log`; Thronsen flagged 5.2 %). The
-explained fraction falls as detection admits more noise, so a bar meaning "weak
-evidence" on one dataset means "ordinary" on another. **Hatching half a correct
-map is worse than no mark**, and a threshold measured on one dataset at one
-setting and presented as a property of the method is the same error as the
-`f = 0.8` fall-back earlier the same day — twice in one session, which is the
-lesson.
-
-**What ships:** `PhaseMapPresentation.explainedFraction(_:)` and
-`medianMatrixExplainedFraction(_:)` — the quantity, reported, with **no
-threshold anywhere**. Phase counts are untouched, so no fraction moves in
-either direction; the map's colours are unchanged; Thronsen stays at **4.21 %**
-because no label changed (`thronsen-partial-20260916.log`), the demo cube holds
-every clause, and `phase-vector-matching` is 32/0.
-
-**Wired into the panel 2026-09-16, and UNVERIFIED ON SCREEN.** A "Matrix
-evidence" row under the Phases legend reports the median as a percentage of
-vectors, with a caption saying what near-100 % and well-below mean and that
-there is deliberately no threshold. Builds clean, `unit` exit 0
-(`unit-panel-20260916.log`). **Nobody has looked at it** — it is a drawing
-change and the assistant did not drive the app, so by `CLAUDE.md` it is stated
-unverified until the owner sees it. The per-position evidence line already
-distinguished the two routes and already stated "N of M vectors are the
-matrix's"; this is the map-level number that was missing.
-
 ### The matrix is a verdict by exclusion, so it fails exactly when detection improves — MEASURED 2026-09-16, Gate D target
 
 **Science, live.** `PhaseVectorMatching.swift:769-773`:
@@ -539,40 +257,6 @@ moves. This entry is the diagnosis's starting point, not its conclusion.
 **Distinct from** "A challenged matrix verdict is drawn like one by
 exclusion" below, which is presentation — two matrix verdicts drawn the same
 grey. This one is the verdict itself.
-
-### The phase-contrast margin cannot lower the step-3 number — REFUTED BY MECHANISM 2026-09-16
-
-`minimumPhaseContrastInvAngstrom` (`PhaseVectorMatching.swift:149`, the
-refusal at :840) was built in answer to a refutation and still defaults to 0,
-so it reads like an unmeasured lever. It is not one for step 3, and no run was
-spent on it: the setting only ever converts a verdict to `.notIndexed`, and
-`tools/phase-map-probe/thronsen.swift:127-129` maps `.notIndexed` to −1,
-"which counts as mislabelled against every class". A refusal therefore leaves
-a wrong position wrong and turns a right position wrong. It can only raise the
-mislabelled fraction. It may still be a correct guard for a user; it is not a
-step-3 lever, and the NEXT list should not carry it as one.
-
-### `minimumMatchedFraction` does not exist — added 2026-09-16
-
-`PhaseVectorMatching.swift:682` explains why the matrix fit is chosen by
-matched count and only then by distance: "Not by mean distance alone: an entry
-matching one vector at 0.001 Å⁻¹ would win over one matching nine at 0.01,
-which is the same completeness trap `minimumMatchedFraction` closes on the
-candidate side." **`minimumMatchedFraction` occurs nowhere in the repo except
-that sentence** (`grep -rn` over all `.swift` and `.md`; introduced with the
-comment in `cee63e6`). The candidate side is guarded by
-`minimumMatchedVectors` and `chanceMatchMultiple`, which are floors on COUNT,
-not on the fraction of an entry's accessible vectors that matched — a
-different quantity, and not the one the comment claims. The cross-phase winner
-at :834 is still `bestPerPhase.sorted { $0.value.score < $1.value.score }`,
-mean distance alone, which is exactly the trap the sentence says is closed.
-The measured instance is already on the record: at the 110 off-OR edge-on
-positions the honest entry matches 6–11 of ~20 survivors (matched fraction
-0.20) and loses to a two-vector Friedel pair (0.12). **No number moves from
-this entry** — the comment is wrong, not the code — but the comment must not
-be left asserting a protection that is not there, and a real
-`minimumMatchedFraction` is a candidate instrument once the detection levers
-are spent.
 
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 
@@ -719,145 +403,31 @@ surrogate, pinned by the test. The Gate B narrative
 (2026-09-15 morning) is in `archive/closed-items-2026-09.md`.
 
 ### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
-**Science, live, no fix, cause narrowed to the score itself. One entry for the
-whole investigation** — the separate "bank predicts rings the demo cube cannot
-contain" entry is folded in here.
-**Where it started.** The demo cube's grain A is aluminium exactly on [001] and
-the matcher returned a template 3–5° away. An independent refuter established
-that the cube's exporter writes reflections at kMax 0.9
-(`tools/demo-dataset/export_reflections.swift`) while the bank is built at 1.2
-(`AppState.swift`), so the bank predicts two rings the data cannot contain —
-and on an IDEAL complete plant the offset is 0.000°. That is inherited from
-py4DSTEM, not a port bug: a transcription of theirs picks the same template.
-**The "one `tools/` line" (export at 1.2) is refuted by geometry, 2026-09-15:**
-a scratch build of the exporter at kMax 1.2 adds twelve Al [001] reflections
-({400} at 0.988, {420} at 1.104 Å⁻¹), and at grain A's 12° rotation none of
-them lands on the 128-px detector (half-width 0.762, corner 1.086 Å⁻¹). It
-would add two {400} spots in grain B's corners and four weak β″ [010] spots,
-nothing on [001], so it cannot move the [001] result and is not taken; the
-bank predicting rings past the detector's edge is every real detector's
-situation, and the matcher's to handle.
-**But it is not the whole story**, because on the cube's own detected peaks no
-bank kMax fixes it (0.768, the detector's own reach, leaves grain A at 2.2–6.7°
-and makes grain C worse), and the same offsets appear on axes with no phantom
-rings at all. So the app has never had a number for how accurately it orients,
-and this is that number. `tools/acom-groundtruth/orientation-accuracy.py`
-(new, diagnostic) plants known zone axes — reflections from the fcc rule by
-hand, the zone by `g·n = 0`, the 2D frame by Gram-Schmidt here, so the plant
-shares nothing with the code it gates — and sweeps the in-plane rotation across
-two azimuthal bins. 136 patterns, Al, shipped settings.
-**The bank is a Fibonacci sampling of the fundamental zone, not a list of
-low-index axes**, so part of any error is the distance to the nearest entry the
-bank actually holds. That floor is measured from the bank the harness reports
-and subtracted; what is left is the defect.
 
-| planted | spots | floor | worst | **beyond the floor** |
-|---|---|---|---|---|
-| ⟨100⟩ ⟨111⟩ ⟨012⟩ ⟨112⟩ | 6–20 | 0.00–1.09° | = floor | **0.00°** |
-| ⟨011⟩ | 22 | **0.00** | 1.88° | **1.88°** |
-| ⟨123⟩ | 8 | 0.97 | 3.50° | **2.53°** |
-| ⟨122⟩ | 6 | 0.79 | 13.61° | **12.82°** |
+**Science, live, no fix; the cause is narrowed to the SCORE, not the search.**
+The matcher returns a template up to 12.8° beyond what its bank's own sampling
+forces, worst on ⟨122⟩; the winner outscores the truth by 0.6–10 %. Exact on
+about half the axes.
 
-So the matcher is exactly as good as its bank allows on half the axes tried,
-and on the others it returns an answer up to **12.8° further away than it had
-to** — on ⟨011⟩, which is a seeded vertex of the bank and therefore present
-exactly. **Which answer you get depends on the in-plane rotation**: ⟨122⟩
-alternates 0.8° (the floor) and 13.6° as the specimen turns, and ⟨011⟩ is right
-at 3 of 17 rotations and 1.88° off at the other 14.
-**This is the same family as the self-recovery failure recorded above** and
-probably the same cause; it is separated because this one is measured against
-planted truth rather than against the templates themselves, and because it
-gives the size. It also explains the demo cube's grain B, which is ⟨011⟩ and
-came back 7.0° and 3.6° off.
-**THE SCORE PREFERS THE WRONG ORIENTATION — it is not the search.** Measured
-2026-09-15 by exposing every template's score (`OrientationMatcher.templateScores`,
-diagnostic): at its worst rotation each failing axis has the winner beating the
-best available bank entry by a real margin — ⟨013⟩ 0.6 %, ⟨011⟩ 3.5 %, ⟨122⟩
-4.9 %, ⟨123⟩ 10.0 %. The search finds the true maximum of the score; the score
-is simply higher on the wrong template. That is why every knob failed, and it
-means the fix is in what the score measures, not in how finely it is sampled.
-**EIGHT HYPOTHESES ARE SPENT, each refuted by its own experiment and each
-recorded so nobody retries it:** radial binning; the bank's kMax; the intensity
-power; the azimuthal deposition rounding (its py4DSTEM-matching fix improves
-how OFTEN but not how BADLY, and makes two axes worse); the azimuthal blur
-(reducing it makes three axes worse); more azimuthal bins (fixes most cases at
-512–1024, so resolution is a factor but not the mechanism); parabolic
-interpolation of the correlation peak (changes almost nothing — which is what
-proved the sampling is not at fault); and py4DSTEM's own `power_radial`, whose
-default is measurably worse.
-**THE MECHANISM IS FOUND (2026-09-15), by looking at the pictures instead of
-guessing.** `OrientationMatcher.experimentalPolarImage` and the harness's
-`dumpTemplates` now expose the experimental polar image and any template's, so
-the inner product the score computes can be read. For a ⟨122⟩ plant at 0.35°
-where the matcher is 13.6° wrong, the per-ring correlation peaks are:
+**Do not start a tenth hypothesis.** Nine are refuted and listed with their
+measurements in
+[`archive/v3/acom-zone-axis-2026-09-15.md`](archive/v3/acom-zone-axis-2026-09-15.md),
+including the two most tempting: exporting the demo cube at kMax 1.2 (refuted
+by geometry — the added reflections miss the detector) and per-ring L2
+normalisation (refuted by measurement — ⟨122⟩ 12.82° → 12.93°, ⟨112⟩ 0.00° →
+2.51°; reverted).
 
-| | rings 15–22 peak at shift | rings 25–31 peak at shift |
-|---|---|---|
-| the TRUE template | 57 | **58** |
-| the winner | 13 | 13 |
+**The one experiment that has never been run**, and the only one worth doing
+next: dump the experimental polar image and BOTH templates — the winner's and
+the true axis's — for a failing ⟨122⟩ case, and look at what the winner has
+that the truth does not. `plan.templates`, `expRe` and `expIm` are already
+`package`, so it is about three lines of harness. Nine attempts to guess the
+difference have failed; a fix without those pictures is a guess.
 
-**The true template's inner and outer ring groups disagree by one azimuthal
-bin, so no single shift aligns both.** The score is `max over shift of the SUM
-across rings`, so the truth is charged for a misalignment it did not have: at
-57 the outer group is a bin off, at 58 the inner group is. The winner's rings
-all agree, and wins by 4.88 % while being 13.6° wrong. The cause is the
-azimuthal ROUNDING, acting on the RELATIVE phase between ring groups rather
-than on any ring alone — which is why every hypothesis that looked at one ring,
-one knob or one statistic missed it.
-**Demonstrated:** with linear azimuthal deposition the true template's rings
-converge on shift 57 and it **wins this case**, 0.56852 against 0.56114.
-**But it is not a clean fix, and that is the owner's call.** Across the full
-136-pattern sweep, against the bank's own floor:
-
-| | wrong answers | total worst-case excess |
-|---|---|---|
-| shipped (rounding) | 40 / 136 | 18.79° |
-| linear deposition | **28 / 136** | 20.10° |
-
-It cuts wrong answers by 30 % and matches py4DSTEM, removing an undocumented
-deviation. It also makes ⟨012⟩ and ⟨112⟩ — exact at every rotation today —
-wrong at 2 and 4 rotations, and it does **not** touch the headline 12.82° on
-⟨122⟩.
-**The regression was chased and is NOT what it looked like.** It clusters at
-HALF-bin rotations (⟨012⟩ at 1.40° and 4.20°, against a 2.8125° bin), which
-looks exactly like the amplitude error of splitting a spot 50/50 between two
-bins. So the azimuth was deposited instead as a **Gaussian centred on the exact
-fractional bin** — what the radial axis already does, with the separate blur
-pass subsumed — which preserves phase AND shape. It gives the same answer:
-30 wrong of 136, and ⟨012⟩ and ⟨112⟩ still regress by the same amounts. The
-shape hypothesis is refuted; both variants are reverted.
-**And that experiment was run, and refutes the explanation.** The pattern
-suggested the regression was the bank's own coarseness — every regressing axis
-had a non-zero sampling floor, every zero-floor axis improved — so the sweep was
-re-run at **1 000 templates**, where the floors shrink. Linear deposition gets
-WORSE, not better: **68 wrong of 136 against the shipped 48**, and ⟨111⟩, exact
-at every rotation under both schemes at 200 templates, becomes wrong at 10 of
-17. The bank-coarseness explanation is dead.
-**A second thing fell out of it, and it is worth more than the hypothesis it
-killed: MORE TEMPLATES MAKE ACOM WORSE.** Shipped deposition at 1 000 templates
-is 48 wrong and 20.83° of excess against 40 wrong and 18.79° at 200. Raising
-the bank is the obvious thing a user or a future session would reach for, and
-it is the wrong lever — recorded here so nobody spends a day on it.
-**Owner: the deposition fix stands as a trade with no explanation for its own
-regression** (30 % fewer wrong answers at 200 templates, two exact axes made
-sometimes-wrong, worst case untouched). Take it, leave it, or send it back for
-a mechanism. Eleven hypotheses are now spent and every one is written down.
-**NINE HYPOTHESES WERE SPENT BEFORE THE PICTURES. The whole-image L2
-normalisation was the last of them and it is refuted too:** per-ring L2 on both sides makes the total worse
-(⟨122⟩ 12.82° → 12.93°, ⟨112⟩ 0.00° → 2.51°, ⟨013⟩ 1.56° → 2.93°). Reverted.
-**So the next step is not another knob, and anyone who reaches for one should
-read this list first.** What has never been done is to LOOK at the two polar
-images for a failing case: dump the experimental image and both templates —
-the winner's and the true axis's — for ⟨122⟩ at a rotation where it fails, and
-find what the winner has that the truth does not. The score is a number over
-those two pictures; nine attempts to guess the difference have failed, and the
-pictures are three lines of harness away (`plan.templates` and the matcher's
-`expRe`/`expIm` are already `package`). Until someone does that, a fix is a
-guess. The honest statement for a user — good to a few degrees on most axes,
-up to 13.6° off on ⟨122⟩ (the total, floor included: a user cannot subtract
-the bank's spacing), more templates measured worse — is on the ACOM panel
-since 2026-09-15 (a static caption with its date and scope, unverified on
-screen); the "Best" preset no longer calls 400 templates the finest sampling.
+**Shipped honesty:** the ACOM panel carries a dated caption — good to a few
+degrees on most axes, up to 13.6° off on ⟨122⟩ including the bank's own floor,
+more templates measured worse — and "Best" no longer claims to be the finest
+sampling. Unverified on screen.
 
 ### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
 **Science, live, in shipped code, found by the refuter of the entry above.**

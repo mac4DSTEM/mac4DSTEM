@@ -101,204 +101,80 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 | `tools/package-test/run.sh` | **exit 0 — 2026-09-08, the C7 session-1 tree** (`inventory-c7-final-20260908.log`): gated 46, diagnostic 9; `AppState` + `ResultExport` 7 531 (unchanged); live markdown up from 4 693 — the runtime's decisions, the plan's C7 line and one open item, against a shorter handoff; the reason is stated here. |
 | `run-tests.sh all` | **exit 0 — 2026-09-11, the v3.0.0 cut gate on the frozen tree** (`all-v3cut-20260911.log`, `GATE_EXIT=0` on its own line), **46 harnesses, zero `FAIL` lines, unit 573 passed / 0 failed / 2 skipped = 575**, reconciled against **575** `func test` in source. Covers everything this session landed: the architecture pin and its fixture, the GPL/NOTICE resources, the Finder URL handler, the concurrent-open guard and its two new tests. `package-test` now prints six PASS lines, two of them new — the GPL text inside the bundle, and `arm64` alone on the executable and all three dylibs, *built the way the archive builds*. `inventory` exit 0 the same day (`inventory-final.log`): **AppState + ResultExport 7509, exactly equal to HEAD**, so C5 was paid rather than waived — the guard was compressed to two lines and two duplicate blank lines collapsed to cover it. Live markdown **4962**, down. **Reconciliation trap, and the recorded fix for it is itself wrong:** this file has said since 2026-09-09 to "count `^Test case '` lines by status". That undercounts — here by exactly one, `QCalibrationOriginGateTests.testUnusableOriginRefusesQCalibrationAndSetsNoScale`, whose result line xcodebuild glued onto the end of the preceding line so that it begins neither with `Test case '` nor with anything anchorable. Count the **suffix** instead: `grep -o "()' passed on 'My Mac"`. Reading the anchored count would have reported 572/575 and sent the next session hunting a test that had in fact passed. **Three refusals on the way here, all exit 69 at the 8 GB floor**, and the background wrapper printed "exit code 0" for every one of them — read `GATE_EXIT`, never the caller. Space came from Xcode's `DerivedData`, `tools/free-space.sh --clear`, and this session's own scratch archives. Previous: exit 0 earlier the same day on the arch fix (`all-arch-fix-20260911.log`), 46 harnesses, superseded because source changed under it. |
 
-## Handoff — step 3 ran and failed its band, its three decisions are in and refuted, the night's changes were driven and seen
+## Handoff — the merge is split and main is public again, step 3 is at 4.21 %, and CI is still red on one test
 
-**State.** The AI Analysis room holds two tasks: diffraction grouping (PCA +
-k-means, 2026-09-11) and phase mapping (vector matching, 2026-09-12). Steps 1,
-2, 4 and 5 of [`v3-vector-matching-plan.md`](v3-vector-matching-plan.md) are
-done; **step 3, the validation, is deliberately deferred** — it needs Thronsen
-et al.'s ~7.4 GB `datasetA` and this machine has 5 GB free. Every product
-carries `validation: "none"`, the panel repeats it, and **a phase fraction read
-off this map is not a measurement.** Records:
-[`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md),
-[`archive/v3/ai-port-2026-09-11.md`](archive/v3/ai-port-2026-09-11.md),
-[`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md),
-[`archive/v3/ai-analysis-audit-2026-09-14.md`](archive/v3/ai-analysis-audit-2026-09-14.md).
+**Read this first.** The 2026-09-16 session changed the shape of the project,
+not just its numbers. Three of `CLAUDE.md`'s rules were overruled by the owner
+(C5's hard form, who may claim an on-screen check, and "commit only when
+asked"), and **the merge was split**: `origin/main` moved from v3.0.0 to
+`d64f5d8` for the first time since 2026-09-11. Phase mapping stays behind the
+band on `ai-analysis`.
 
-**Step 3 ran (2026-09-15) and the three decisions it turned on are in.**
-The Thronsen validation streams from Zenodo in fifty minutes
-(`tools/thronsen-dataset`). It **failed** its pre-registered acceptance at
-26 % and stands at **13.24 %** after the Friedel-pair floor, the matcher's
-outer reach and a direct-beam-excluded detection reference — against their
-0.96–1.75 %. `validation: "none"` stays on every product and the branch
-does not merge. **The night's changes were driven and seen on screen this
-morning** (`archive/v3/drive-2026-09-15.md`).
+**Where step 3 is.** **4.21 %** against the band 0.96–1.75 %, at a 0.1 %
+detection threshold with the shipped 70-peak cap
+(`thronsen-rel0.001-cap70-20260916.log`). Al 98.11 %, θ′ edge-on 70 %, face-on
+**99.6 %** (from 52 %), T1 89 %. The sequence is 98.26 → 26.4 → 13.24 → 8.75 →
+7.96 → 6.64 → **4.21**. No shipped default moved; py4DSTEM's 0.5 % still
+ships, so this is the setting's number on this instrument. The demo cube is
+identical at 0.2 % and 0.1 %, every clause holding.
 
-**A demo cube with known truth** (`tools/demo-dataset/run.sh` →
-gitignored `References/demo-dataset/`): 100 × 100 scan, 128 × 128 detector at
-0.012 Å⁻¹, three Al grains on [001]/[011]/[111], a +1.5 % stripe, a vacuum
-corner, 96 end-on β″ [010] and 108 β″ [001] needle positions, with
-`truth.json`. The owner drove Bragg disks, Strain and Orientation on it on
-2026-09-14 and all three were right: the stripe reads +0.0154 against a planted
-+1.5 %, and the IPF map colours the three grains as the TSL key says.
+**What is closed as a lever** (`open-items.md`, full record in
+[`archive/v3/step3-2026-09-16.md`](archive/v3/step3-2026-09-16.md)): the
+70-peak cap, the phase-contrast margin, and any threshold below 0.1 %. Do not
+re-open them without new evidence.
 
-**2026-09-15 night, second pass (the owner said keep going).** R–Q rotation
-taken under Gate D: the shuffle null was a whiteness test, the probe proved it
-by the rate rising with correlation length, and the null is now a
-phase-randomised surrogate that keeps the structure. Then the ACOM accuracy
-caption, the rotation probe, and the corrections a peer session and the
-read-only review found. **The unit gate's preflight refused at 3 GB (exit
-69) for the rotation tree; the gate's own `xcodebuild test` line was run
-directly to a retained log instead** (the documented fallback), see the gate
-table.
+**What the next increment is.** The error at 0.1 % is **83 % refusals** (1024
+of 1230), **98 % of which arrive because no candidate cleared the guards**.
+T1 is 617 of them and **its reference is already known wrong in detail** — the
+[0 -4 1] projection predicts 0.233 and 0.367 Å⁻¹ reflections the data does not
+show. The T1 reference is the next thing to measure, and it is the largest
+single block of remaining error.
 
-**2026-09-15 night, first pass.** Queue item 1 was taken, its one open
-question answered on the record (`decisions.md` 2026-09-15: the flag follows
-an explicit click), and the change built by two Sonnet slices, reviewed here,
-refuted by an independent agent and gated. **Item 3 was refuted before it was
-built** — see NEXT. The previous session's four code commits were reviewed
-read-only: the null and the session boundary do what the docs say; two doc
-nits corrected; its Gate B rotation numbers rest on a scratch probe that was
-never checked in (now said in the entry).
+**Two mistakes this session made, both the same mistake.** A threshold measured
+on one dataset at one setting is not a property of the method. `f = 0.8` was
+pre-registered without measuring what the matrix explains at refused positions
+(~0.29, so the gate could never open); then a 0.90 bar measured properly on
+Thronsen marked 46 % of a demo cube whose every clause passes. **Measure the
+quantity on every dataset the mark will appear on, before the mark exists.**
+Also recorded: a conclusion inferred from a null result ("therefore it is the
+cliff") was wrong and the next measurement said so.
 
-**The ellipse "Fit Anyway" path.** `fit1D(acceptSparseCoverage:)` fits
-between 12 and 29 of 36 sectors and marks the result; below 12 it still
-refuses; at 30+ the flag is inert and the default path is unchanged (the
-refuter found no input that differs). An accepted sparse fit is then checked,
-about the fitted centre, for more than one ring — a per-sector mean radius
-spread past 10 % refuses with the radii named (3 grains: 36.6–58.2 px). A
-planted 6 % ellipse at six azimuths is recovered to 0.07 px and 0.0002 rad.
-`CalibrationSession.applyEllipseFit`/`refuseEllipseFit` own the decision (the
-`applyRotation` model; `AppState` −2 lines); the Prepare panel offers "Fit
-Anyway" only while a retry could succeed, and the readiness row shows "Fit
-anyway" in orange. **Gate B:** of five mutations two were caught by the
-fixture, one (seed centre for fitted centre) survived and now has a check
-built for it, one (unweighted mean) survives and is recorded, one is provably
-equivalent. **One confirmed blind spot**, recorded as a cost fixture: two
-radii sharing every azimuth blend past the check. **Two residuals** are in
-`open-items.md`: the mark does not survive a sidecar round trip, and exports
-carry no ellipse provenance at all.
+**CI is still red on `main`, on ONE test.** Run 35141027836: `scientific`,
+`core` and `inventory` all **pass**; `unit` fails on
+`LearnedDiskDetectorTests.testLearnedPathMatchesPythonReference` — the parity
+fixture needs a Neural Engine the runner does not have. Two fixes made CI green
+on the branch and **only one was carried across in the split**. The other is
+prepared as local branch **`split/ci-parity-skip`** (1 commit, fast-forward
+from `origin/main`, `LearnedDiskDetectorTests.swift` + `open-items.md` only,
+clean cherry-pick of `d2aae44`). **It is not gated locally**: worktree unit
+gates fail here on local-package resolution, and the owner's checkout was not
+borrowed a second time. Either borrow it, or let CI be the gate.
 
-**2026-09-14 evening and the 2026-09-14/15 diagnoses** (four queue items
-taken, Gate B on all, two Gate D records, one refuted outright): the narrative
-moved to [`archive/v3/ai-analysis-audit-2026-09-14.md`](archive/v3/ai-analysis-audit-2026-09-14.md)
-on 2026-09-15; what is still live is in `open-items.md`.
+**On screen and owed.** The Phases panel has a new **"Matrix evidence"** row
+reporting the median explained fraction behind matrix verdicts, with a caption
+saying there is deliberately no threshold. **Nobody has looked at it.** It is
+stated unverified until the owner drives it. Everything else owed on screen
+from 2026-09-15 is unchanged.
 
-**SEEN ON SCREEN on 2026-09-15** (`archive/v3/drive-2026-09-15.md`, with
-the owner off the machine): the "Fit Anyway" button and its caption, the
-orange "Fit anyway" status word, the caption under Correction, the ACOM
-accuracy caption, and the R–Q rotation refusal with its reason under
-Rotation diagnostics — one wording defect found by looking and fixed.
-**Still the owner's to see:** the "at chance" marker and its caption under
-Find Matrix Zone Axis and the Phases panel's "no better than a wrong axis"
-mark (no phase map was driven); the Clear Calibration button and its dialog;
-the evidence line for a matrix verdict reached by the challenge; the two
-new rows "Ignore peaks beyond" (Phase mapping) and "Reference outside"
-(Advanced detection); a phase map of the demo cube, whose [011] grain is
-now matrix rather than β″ (matrix fraction 51 % → 74 %); the HDF5 lock under
-an export racing a session load; anything in light appearance.
+**The branch.** `ai-analysis` is 52+ commits ahead of `origin/ai-analysis` and
+carries a merge of `origin/main` (`42597d8`) that changes no content — `git
+diff --stat HEAD` on the resolved merge was empty — so PR #1 is mergeable
+again. A peer session advised keeping both sides of the three docs conflicts;
+that would have duplicated three paragraphs and reverted one, and was not done.
 
-**The HDF5 crash risk is closed by a lock, not an actor** (2026-09-15,
-UI table): `HDF5Serial` at every logical operation, `tools/hdf5-race-probe`
-the acceptance (concurrent 3 of 3 on all three entry points); the one-actor
-rewrite was rejected on 145 synchronous writer call sites (`decisions.md`).
+**Stale, found at closeout and not yet fixed:** `ROADMAP.md` still says
+"v2.5.1 is the current release" and "v3.0.0 is prepared and not yet cut". It
+predates the v3.0.0 release of 2026-09-11.
 
-**Still owed by the owner, unchanged:** the Al-Si-Mg hand count. Precipitates
-remain deliberately not wired
-([`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md),
-[`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)).
-
-**The branch — the merge is SPLIT (owner, 2026-09-16).** v3.0.0 is on the
-remote and `refs/tags/v3.0.0` resolves there. Everything since is on
-`ai-analysis` ([PR #1](https://github.com/mac4DSTEM/mac4DSTEM/pull/1)).
-
-The 90 commits since v3.0.0 were held behind step 3's band, and 69 of them have
-nothing to do with phase mapping. They no longer wait. Local branch
-**`split/no-phase-mapping`**, 27 commits, fast-forward from `origin/main`,
-**zero** phase-mapping files touched (verified by path:
-`PhaseVectorMatching`, `PhaseReferenceLibrary`, `PhaseMappingProduct`,
-`AppState+PhaseMapping`, `PhaseMappingSettings`, `tools/phase-map-probe`).
-26 of the 27 are the contiguous clean prefix — phase mapping first appears at
-commit 27 of 90 — and the 27th is `05ba82a` cherry-picked, the fix for the
-red CI unit job, which touches only `ContentView.swift` and `open-items.md`
-and applied with zero conflicts.
-
-**The cost of that cherry-pick, stated rather than discovered later:** it makes
-`split/no-phase-mapping` a *sibling* of `ai-analysis`, not an ancestor, so the
-later phase-mapping merge will **not** be a fast-forward. `main` is now linear
-by preference, not by rule (`CLAUDE.md`). Dropping the cherry-pick restores
-the pure-ancestor shape at 26 commits and leaves CI red; keeping CI green was
-judged worth more.
-
-**Phase mapping stays behind the band on `ai-analysis`**, unchanged: step 3
-inside 0.96–1.75 %, then one on-screen drive of phase mapping, then the docs
-commit that retires this paragraph. Every phase-mapping product still carries
-`validation: "none"`.
-
-**Gated on its own tree, 2026-09-16, and push-ready.** `unit` **exit 0**
-(`unit-split-main-20260916.log`); `scientific` **45 harnesses started, 45
-finished, zero `FAIL`, exit 0** (`sci-split-20260916.log`, `SCI_SPLIT_EXIT=0`
-on its own line) — 45 rather than 46 because `phase-vector-matching` is not on
-this branch; `inventory` **exit 0** (`inv-split-20260916.log`), gated 47,
-diagnostic 11, live markdown 6 198. Auto-merge is off. The owner pushes, or
-hands over the push when asked.
-
-**Two things about HOW that gate was run, because both cost time and one was a
-mistake.** The unit gate was first run in a detached worktree and failed at
-**exit 65 with 598 errors** — `App/`, `UI/` and `Support/` could not see types
-from the local `Package.swift` (`FourDDataSource`, `DiffractionPattern`,
-`AnalysisCancellationToken`). That is the worktree, not the branch: the same
-tree passes in the main checkout. **Worktree builds through the `.xcodeproj`
-are not a gate in this repo** — `scientific`, which compiles harnesses with
-`swiftc` from the source manifest, runs in a worktree fine, and did here
-(with `References/` symlinked to the main checkout's 3.3 GB copy rather than
-re-fetched, the disk being at 6 GB). The mistake: the unit gate was then run by
-switching the MAIN checkout to the split branch while the owner had the app and
-Xcode open on it. Nothing was lost — he was on an `ai-analysis` build, and the
-split branch does not even contain `PhaseMappingSettings.swift`,
-`AppState+PhaseMapping.swift` or `PhaseVectorMatching.swift`, so it could not
-have produced what he was looking at — but **do not gate a branch by switching
-the checkout somebody is working in.** Use a worktree, or ask.
-
-**A trap paid 2026-09-14:** `tools/run-tests.sh` edited while `inventory` was
-running died with `parse error near ';;'` on a line that was fine before and
-after. Never edit the gate script, or a source it compiles, while a gate runs.
-A worktree agent branches from where the worktree was cut — this session's was
-33 commits behind, and its patch needed a three-way apply.
-
-**NEXT, in order** (rewritten 2026-09-15 late night; `/pickup` takes 1).
-1. **Step 3 is at 4.21 % against a band of 0.96–1.75 % — the best number it
-   has had, and still outside; the merge condition is not met.** The
-   sequence, each measured before it landed: 98.26 → 26.4 → 13.24 → 8.75 →
-   7.96 → 6.64 → **4.21 %** (2026-09-16, detection threshold 0.1 % at the
-   shipped 70-peak cap, `thronsen-rel0.001-cap70-20260916.log`). Per class:
-   Al 98.11 %, θ′ edge-on 70 %, θ′ face-on **99.6 %** (966 of 970, from
-   52 %), T1 89 % (from 80 %). **No default moved** — py4DSTEM's 0.5 %
-   remains shipped by the 2026-09-15 decision; 4.21 % is this instrument's
-   number at a stated per-dataset setting. The demo cube is identical at
-   0.2 % and 0.1 %, all five clauses holding.
-   **Two things were refuted by their own pre-registered clauses**
-   (`open-items.md`, 2026-09-16), at a cost of four runs: the 70-peak cap
-   (0.6 % of positions at it; cap 70 and cap 200 differ by seven positions)
-   and the phase-contrast margin (it only converts a verdict to
-   `.notIndexed`, which their metric counts as mislabelled against every
-   class, so it can only raise the number). Both should come off any future
-   lever list.
-   **NEXT, and it is a Gate D target with the diagnosis started, not a fix:**
-   the matrix is a verdict **by exclusion** — `surviving.count <
-   minimumVectors` at `PhaseVectorMatching.swift:769`, so a position is
-   called matrix when almost nothing survives, never because the matrix
-   explains it. Al's accuracy tracks its zero-survivor fraction across every
-   run (98.4 → 99.56, 91.3 → 98.11, 0.0 → 0.04), and at a 0.05 % threshold
-   the precipitates are nearly solved (face-on 93 %, T1 93 %, no class with
-   zero survivors) while the map is destroyed anyway at 75.67 %, because
-   18 445 Al positions go not-indexed. **Every detection improvement makes
-   this worse, so the detector kernel cannot be evaluated honestly until it
-   is addressed.** It is also 41.5 % of the remaining error at 0.2 %.
-   **Stopping rule, set before the measurements (2026-09-16, overrule on
-   sight, `decisions.md`):** if step 3 is still above 3 % after the matrix
-   verdict, the kernel and the T1 reference, the pre-registration is
-   revisited rather than the knobs — hold the band, or replace the merge
-   condition with "the result is recorded and no phase fraction is called a
-   measurement until the band is reached", or split the merge so the 85
-   commits that are not phase mapping stop waiting on it. **(c) is worth an
-   answer regardless of the band.**
-2. **Disk**: the unit gate's preflight refuses below 4 GB and the gate's own
-   line was run directly all night (gate table); the machine ended near 3 GB.
-Done this night and no longer queued: the ellipse flag, the ACOM accuracy
-caption, the rotation-null probe, the rotation null itself (surrogates),
-the chance floor (sweep median), and the FFT2D small-shape fault. Refuted
-and dropped: the demo cube's export kMax (geometry, ACOM entry).
+**NEXT, in order.**
+1. **The T1 reference** — 617 of 1024 refusals, already diagnosed wrong in
+   detail. Measure before changing, on both datasets.
+2. **The cross-phase winner is chosen by mean distance alone**, with no
+   completeness guard; the comment that claimed `minimumMatchedFraction`
+   closed that trap was corrected on 2026-09-16 — the symbol never existed.
+3. **`split/ci-parity-skip`** to `main`, to finish what the split started.
+4. The detector kernel, last, because every detection improvement makes the
+   matrix-by-exclusion problem worse until that verdict is fixed.
 
 ## Owed to the owner
 
