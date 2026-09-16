@@ -39,6 +39,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and
 
 | Step | State | What it left behind |
 |---|---|---|
+| The peak cap and the phase-contrast margin refuted; the detection threshold measured, and step 3 reaches 4.21 % | done 2026-09-16, **Gate D** (pre-registered before the run, `open-items.md`; no shipped default moves, so no science number moves). Four runs on Thronsen's stride-3 subsample with `--or` and the shipped cliff: control (0.2 %, cap 70) reproduced the record **exactly** at 1942 of 29 241 = 6.64 %, so the instrument is sound; **0.1 % at the shipped cap 70 → 4.21 %** (`thronsen-rel0.001-cap70-20260916.log`), Al 98.11 %, edge-on 70 %, face-on 52 → **99.6 %**, T1 80 → 89 %; cap 200 at the same threshold differs by seven positions (4.18 %); 0.05 % collapses to 75.67 %. The cap is **refuted** — 0.6 % of positions sit at it, the reach ring geometrically holds 74 maxima and about 23 occur. The phase-contrast margin is **refuted by mechanism without a run**: it only converts a verdict to `.notIndexed`, which their metric counts as mislabelled against every class. My own pre-registered Al clause (≥ 99 %) was **missed** at 98.11 % and is recorded as a miss. The demo cube is identical at both thresholds, all five clauses holding (`demo-rel0.002/0.001-20260916.log`). Left open and diagnosed, not fixed: the matrix is a verdict by exclusion (`PhaseVectorMatching.swift:769`), which is what the 0.05 % cliff is made of | `tools/phase-map-probe --max-peaks` (new, diagnostic) and its cap-binding line; the threshold print widened to %.5f after `%.3f` logged 0.0005 as "0.001"; three entries in `open-items.md` |
 | The orientation relationship in its own form: parallel planes or directions per phase, a field in the panel | done 2026-09-15 evening, **pre-registered feature** (`v3-vector-matching-plan.md` §3; the pre-registration and its five clauses in `open-items.md`). `LatticeVector` (plane or direction, Cartesian in the crystal's frame), `OrientationRelationship` (candidate ∥ matrix), `PhaseDefinition.orientationRelationships` (empty = free) replace the never-exposed angle list; `PhaseVectorMatcher.projectedAzimuth` and `orientationConsistent` derive the allowed angle per entry pair from both zones' own `detectorBasis` frames, modulo 180°. Measured (`thronsen-orform-20260915.log`): **6.64 %**, edge-on 68 %, face-on 52 %, face-on → edge-on 0, T1 80 %, Al 99.6 % — all five clauses held, one position from the angle-list control. Session: `PhaseMappingSlot.orientationRelationshipText` parsed the way an OR is written ("(002) ∥ (200), (002) ∥ (020)"; `[uvw]` for directions), in the slot's signature and the run's provenance (`orientation_relationships`); UI: one "Parallel to matrix" field under a candidate slot's zone axis with an orange caption when malformed. Two tests, broken four and three ways. **Gate B** → see the row's end. **On screen** → see the drive note below | `PhaseReferenceLibrary.swift`, `PhaseVectorMatching.swift`, `PhaseMappingProduct.swift`, `AppState+PhaseMapping.swift`, `PhaseMappingSettings.swift`, `tools/phase-map-probe --or` (pairs) |
 | The verdict cliff moved from half to three quarters of the pair radius: 7.89 → 6.64 % with the OR, 8.75 → 7.96 % free | done 2026-09-15 evening, **Gate D** (pre-registered from the survivor dump's mechanism, `open-items.md`): `notIndexedAboveInvAngstrom` 0.01 → 0.015 and `scaledToDetector` 0.5 → 0.75 px. Measured on both datasets before the number moved (`thronsen-cliff0.015/0.02-or/free-20260915.log`, `demo-cliff0.01/0.015/0.02-20260915.log`): the demo cube identical at all three cliffs (grain B 0 % β″, needle and end-on 100 %, grain A matrix 100 %); Thronsen with the OR edge-on 31 → 69 %, face-on 47 → 52 %, T1 80 %, Al 99.6 % unchanged, **6.64 %** (free 7.96 %); at 1.0 pair radii 6.61 / 7.94 %, seven positions apart — the refuter caught me quoting the 1.0 numbers for the shipped 0.75. **The orientation relationship now passes all five clauses of its pre-registration** (edge-on 69 vs 71 % free). Gate B also confirmed the cross-phase flip (a 2-vector match at 0.004 beats a 10-vector match of another phase at 0.012) and a blind spot: the cliff tests displaced every vector identically, so a `max` in place of the mean survived — closed with a non-uniform case, broken. Three tests re-pinned (0.018 displacement, 0.328 px, 0.75) and broken (`cliff/mut-*.log`). **Gate B** owed → see the row's end | `PhaseVectorSettings.notIndexedAboveInvAngstrom`, `PhaseVectorResolution.scaledToDetector`, `tools/phase-map-probe --not-indexed-above` |
 | The edge-on survivors dumped: the cliff, not the frame | done 2026-09-15 evening, **Gate D** (the mechanism of the 22°/67° edge-on winners was open; established by a reproducing observation on 110 positions, `tools/phase-map-probe --dump-edge-on`, `thronsen-rel0.002-dump-20260915.log`). At those positions the OR-consistent entry matches 6–11 of ~20 survivors and the free winner matches 2 — a Friedel pair admitted by the morning's floor at a mean distance under the 0.01 Å⁻¹ cliff, while the dense fit sits at 0.010–0.016 and goes over it; correct on-OR fits sit at 0.0099. The best entry is chosen by mean distance alone. So the label is right for the wrong reason, and the OR constraint lost recall to the cliff, not to the frame. **No code changed**; the next increment is pre-registered (cliff at 0.75 and 1.0 pair radii, both datasets) | `tools/phase-map-probe --dump-edge-on N` (diagnostic); the step 3 entry in `open-items.md` |
@@ -213,23 +214,42 @@ A worktree agent branches from where the worktree was cut — this session's was
 33 commits behind, and its patch needed a three-way apply.
 
 **NEXT, in order** (rewritten 2026-09-15 late night; `/pickup` takes 1).
-1. **Step 3 is at 8.75 % (0.2 % threshold) / 13.24 % (shipped), outside
-   the band; the merge condition is not met.** The noise-aware criterion was
-   built as an instrument and **refuted** (Gate D, `open-items.md`); the
-   lever it found is the threshold itself. What remains: θ′ face-on labelled
-   edge-on at 38 % because a candidate's in-plane rotation is free and the
-   orientation relationship to the matrix is not enforced (edge-on (002) at
-   0.345 Å⁻¹ lands on face-on (110) at 0.350 when rotated 45°); and T1's
-   last 22 %. The OR constraint is built and inert (7.89 % with it, but it
-   cuts real edge-on matches near 22°/67° — refuted in part, `open-items.md`).
-   The cliff moved to 0.75 of the pair radius (measured on both datasets):
-   6.64 % with the OR, 7.96 % free, and the OR is now stated in the panel
-   as parallel planes. Next: detection at the noise floor — T1's last 20 %
-   and the 38 % of face-on still read as Al have no survivors after matrix
-   removal at 0.2 %; the significance instrument was refuted, so the next
-   candidates are the detector kernel (a measured probe kernel instead of
-   the synthetic disc) and the reference rank, each measured on
-   `tools/phase-map-probe` before it lands.
+1. **Step 3 is at 4.21 % against a band of 0.96–1.75 % — the best number it
+   has had, and still outside; the merge condition is not met.** The
+   sequence, each measured before it landed: 98.26 → 26.4 → 13.24 → 8.75 →
+   7.96 → 6.64 → **4.21 %** (2026-09-16, detection threshold 0.1 % at the
+   shipped 70-peak cap, `thronsen-rel0.001-cap70-20260916.log`). Per class:
+   Al 98.11 %, θ′ edge-on 70 %, θ′ face-on **99.6 %** (966 of 970, from
+   52 %), T1 89 % (from 80 %). **No default moved** — py4DSTEM's 0.5 %
+   remains shipped by the 2026-09-15 decision; 4.21 % is this instrument's
+   number at a stated per-dataset setting. The demo cube is identical at
+   0.2 % and 0.1 %, all five clauses holding.
+   **Two things were refuted by their own pre-registered clauses**
+   (`open-items.md`, 2026-09-16), at a cost of four runs: the 70-peak cap
+   (0.6 % of positions at it; cap 70 and cap 200 differ by seven positions)
+   and the phase-contrast margin (it only converts a verdict to
+   `.notIndexed`, which their metric counts as mislabelled against every
+   class, so it can only raise the number). Both should come off any future
+   lever list.
+   **NEXT, and it is a Gate D target with the diagnosis started, not a fix:**
+   the matrix is a verdict **by exclusion** — `surviving.count <
+   minimumVectors` at `PhaseVectorMatching.swift:769`, so a position is
+   called matrix when almost nothing survives, never because the matrix
+   explains it. Al's accuracy tracks its zero-survivor fraction across every
+   run (98.4 → 99.56, 91.3 → 98.11, 0.0 → 0.04), and at a 0.05 % threshold
+   the precipitates are nearly solved (face-on 93 %, T1 93 %, no class with
+   zero survivors) while the map is destroyed anyway at 75.67 %, because
+   18 445 Al positions go not-indexed. **Every detection improvement makes
+   this worse, so the detector kernel cannot be evaluated honestly until it
+   is addressed.** It is also 41.5 % of the remaining error at 0.2 %.
+   **Stopping rule, set before the measurements (2026-09-16, overrule on
+   sight, `decisions.md`):** if step 3 is still above 3 % after the matrix
+   verdict, the kernel and the T1 reference, the pre-registration is
+   revisited rather than the knobs — hold the band, or replace the merge
+   condition with "the result is recorded and no phase fraction is called a
+   measurement until the band is reached", or split the merge so the 85
+   commits that are not phase mapping stop waiting on it. **(c) is worth an
+   answer regardless of the band.**
 2. **Disk**: the unit gate's preflight refuses below 4 GB and the gate's own
    line was run directly all night (gate table); the machine ended near 3 GB.
 Done this night and no longer queued: the ellipse flag, the ACOM accuracy

@@ -104,6 +104,14 @@ enum Probe {
         var minMatched: Int?        // the rule step 3 turned on: `minimumMatchedVectors`
         var referenceOutsidePx: Float?   // decision 3: the relative reference excludes the direct beam
         var notIndexedAbove: Double?
+        // 2026-09-16: the cap is applied at DETECTION and keeps the strongest
+        // by net score, so what it drops is the weakest — here the precipitate
+        // reflections at 1–5 % of a saturated beam. On this cube the outer
+        // reach alone (0.68 Å⁻¹ = 35.7 px, 224 px of circumference at a 3 px
+        // minimum spacing) can hold 74 maxima, more than the whole cap, and
+        // `--reach` discards them only AFTER detection has spent it on them.
+        // `--noise-floor` already raises this to 200; the pipeline never did.
+        var maxPeaks: Int?
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
@@ -123,6 +131,8 @@ enum Probe {
                 // The verdict cliff as an absolute Å⁻¹ value (shipped 0.015, 0.75
                 // a pixel); the cliff pre-registration of 2026-09-15 evening.
                 notIndexedAbove = Double(args[index + 1]); index += 2
+            } else if args[index] == "--max-peaks", index + 1 < args.count {
+                maxPeaks = Int(args[index + 1]); index += 2
             } else if args[index] == "--min-matched", index + 1 < args.count {
                 minMatched = Int(args[index + 1]); index += 2
             } else if args[index] == "--reference-outside", index + 1 < args.count {
@@ -258,9 +268,15 @@ enum Probe {
         var params = DiskDetectionParams()
         params.minPeakSpacing = max(3, probeRadius.rounded())
         params.edgeBoundary = 2
+        if let maxPeaks {
+            params.maxNumPeaks = maxPeaks
+            print("detection: max peaks \(maxPeaks) (shipped 70)")
+        }
         if let minRelative {
             params.minRelativeIntensity = minRelative
-            print(String(format: "detection: min relative intensity %.3f (shipped 0.005)", minRelative))
+            // %.3f printed 0.0005 as "0.001" — a log that misstates the setting it
+            // was run at is worse than no log (2026-09-16).
+            print(String(format: "detection: min relative intensity %.5f (shipped 0.005)", minRelative))
         }
         if let referenceOutsidePx {
             params.relativeReferenceMinimumRadiusPx = referenceOutsidePx
@@ -292,6 +308,13 @@ enum Probe {
         print("read \(read) patterns, \(total) peaks, median "
               + "\(counts.sorted()[counts.count / 2]), range "
               + "\(counts.min() ?? 0)–\(counts.max() ?? 0)")
+        // Whether the cap BOUND is the whole question of the 2026-09-16
+        // pre-registration, so it is printed, not left to be inferred from
+        // the range. A position at the cap had its weakest peaks cut.
+        let atCap = counts.filter { $0 >= params.maxNumPeaks }.count
+        print(String(format: "peak cap %d: %d of %d positions at it (%.1f %%)",
+                     params.maxNumPeaks, atCap, counts.count,
+                     100 * Double(atCap) / Double(max(1, counts.count))))
 
         // THE ORIGIN IS MEASURED, not assumed to be the detector centre.
         // Half a pixel here is 0.023 Å⁻¹, which is half the pair radius on

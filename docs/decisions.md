@@ -1521,3 +1521,28 @@ pair whose vector is not in an entry's zone does not apply to that entry —
 recorded, not hidden: the panel says "applied once the matrix orientation
 is fitted", and the run's provenance carries the pairs.
 
+## 2026-09-16 — step 3 gets a stopping rule, set before the measurements
+
+Taken by the assistant with the owner away and delegated to decide and record
+("overrule on sight"). Step 3 has improved six times and is still outside the
+band: 98.26 → 26.4 → 13.24 → 8.75 → 7.96 → 6.64 %, against 0.96–1.75 %. Al is
+already 99.6 % correct, so the remaining gap is entirely three minority
+classes at 52–80 % that would have to reach about 93 %.
+
+The rule: measure the peak cap, then the detector kernel, then the T1
+reference — each pre-registered, each on `tools/phase-map-probe` before it
+lands. **If step 3 is still above 3 % after those three, the pre-registration
+is revisited rather than the knobs.** The reason to fix this now is that the
+alternative is indefinite knob-turning justified by the last improvement,
+which is how a band gets chased rather than tested.
+
+What "revisited" may mean, so the choice is not invented under pressure
+later: (a) hold the band and keep the branch unmerged; (b) replace the merge
+condition with "the result is recorded, every product keeps
+`validation: \"none\"`, and no phase fraction is called a measurement until
+the band is reached"; (c) split the merge, so the commits that are not phase
+mapping stop waiting on it. **(c) is worth an answer regardless of the band**
+— 85 commits sit behind a condition that may take weeks, most of them
+nothing to do with phase mapping, and one of them is the typed method that
+would turn GitHub CI green on `main` for the first time since the v3.0.0 cut.
+

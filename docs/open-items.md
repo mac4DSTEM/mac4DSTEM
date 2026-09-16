@@ -175,6 +175,223 @@ That, and T1's last 22 %, are what remains. Until the band is reached a
 phase fraction off this map is not a measurement and every product still
 says `validation: "none"`.
 
+### The 70-peak cap is NOT what costs — REFUTED by its own control, 2026-09-16
+
+**Science, live; Gate D, the record written before the run.** Two facts read
+out of the code, not argued:
+
+1. `DiskDetectionParams.maxNumPeaks` is **70**, and the cap is applied at
+   DETECTION (`DiskDetection.swift:812-821`: `accepted.sort { $0.score >
+   $1.score }`, then `break` at the cap; the tail is cut again at :956-959).
+   It keeps the strongest by net score, so what it drops is the weakest — on
+   this data the precipitate reflections, 1–5 % of a saturated beam plateau.
+2. The probe raises the cap to 200 **inside `--noise-floor` only**
+   (`main.swift`). The main detection path leaves it at 70. So the instrument
+   that concluded "0.2 % keeps 80 % of T1 pairs at 0.07 % Al" ran at 200,
+   while every full-pipeline number that followed it — 13.24 %, 12.22 %,
+   8.75 %, 7.96 %, 6.64 % — was measured at 70. No run has reported whether
+   the cap was binding.
+
+**The mechanism is arithmetic.** On this cube (0.01904 Å⁻¹/px, probe radius
+2 px, so `minPeakSpacing = max(3, 2) = 3 px`) the matcher's outer reach,
+0.68 Å⁻¹, is a circle of radius **35.7 px**; its circumference is 224 px,
+which holds up to **74 maxima** at 3 px spacing — more than the whole cap.
+The data's own mask edge at 0.70 Å⁻¹ holds up to 76. `--reach` discards
+those vectors, but it discards them in `experimentalVectors`, i.e. AFTER
+detection has spent the cap on them, and they are brighter than any
+precipitate reflection. Lower the threshold and the ring fills first.
+
+**Instrument:** `tools/thronsen-dataset/run.sh probe` with a new
+`--max-peaks` on the diagnostic probe only (no Core change); the probe now
+prints the fraction of positions sitting at the cap. Cells: `--min-relative`
+{0.002, 0.001, 0.0005} × cap {70, 200}, `--or` throughout.
+**Control, read first:** (0.002, 70) must reproduce **6.64 %** with Al
+99.6 %, edge-on 68 %, face-on 52 %, T1 80 %; if it does not, nothing else in
+the table is read until that is explained.
+**Prediction:** (0.002, 200) alone improves on 6.64 % — the cap was already
+binding — and the minimum over the raised-cap cells is below **6.0 %** with
+Al at or above 99 %.
+**Refuting observation:** no cell improves on 6.64 % while holding Al at or
+above 99 %; or the control's own cap fraction shows the cap never bound at
+0.2 %, which refutes the mechanism outright. Either sends the next increment
+to the detector kernel and the T1 reference.
+**Stated before the result so it is not claimed as a lever afterwards:** if
+the cap was binding, every step-3 figure back to 13.24 % was measured under a
+binding cap — that is a correction to the record, not a gain. And the fix
+this points at is not a bigger cap but applying the reach and the direct beam
+BEFORE the cap, so the budget is spent on peaks the matcher will use. That is
+a Core change to `DiskDetection`, is **not** in this increment, and would be
+pre-registered separately under Gate D and Gate B.
+
+**RESULT — the cap is refuted, and the sweep it was bundled with found the
+largest single gain step 3 has had.** Four runs, all on
+`datasetA_stride3.h5` with `--or` and the tree's shipped cliff:
+
+| `--min-relative` | cap | mislabelled | Al | θ′ edge-on | θ′ face-on | T1 | Al zero-survivor |
+|---|---|---|---|---|---|---|---|
+| 0.002 (control) | 70 | **6.64 %** | 99.56 % | 68 % | 52 % | 80 % | 98.4 % |
+| 0.001 | 200 | **4.18 %** | 98.11 % | 72 % | 99.6 % | 89 % | 91.3 % |
+| 0.001 | 70 (shipped) | **4.21 %** | 98.11 % | 70 % | 99.6 % | 89 % | 91.3 % |
+| 0.0005 | 200 | **75.67 %** | 0.04 % | 72 % | 93 % | 93 % | 0.0 % |
+
+Logs: `thronsen-cap70-ctrl-`, `thronsen-rel0.001-cap200-`, `-cap70-`,
+`thronsen-rel0.0005-cap200-20260916.log`.
+
+**The control reproduced the record exactly — 1942 of 29 241 = 6.64 % — so
+the instrument is sound.**
+
+**The cap mechanism is refuted, three times over.** At 0.2 % the detector
+finds a median of **23** peaks and only **189 of 29 241 positions (0.6 %)**
+sit at the cap; 74 maxima are geometrically possible on the reach ring and
+about 23 occur, so the ring does not fill. And at 0.1 % the shipped cap of 70
+and a cap of 200 differ by **seven positions** (4.21 vs 4.18 %). The cap was
+never binding at any recorded step-3 figure and raising it is not a lever.
+The refuting clause was written before the run and it fired.
+
+**The threshold is, and my own reading of it was wrong.** This entry first
+said "0.2 % is already near its optimum"; it is not. **0.1 % takes step 3
+from 6.64 % to 4.21 % at the shipped cap** — the largest single gain since
+the three decisions of 2026-09-15 — and θ′ face-on goes 52 % → **99.6 %**
+(966 of 970), T1 80 % → 89 %. **No default moves**: py4DSTEM's 0.5 % remains
+the shipped default by the 2026-09-15 decision, and 4.21 % is this
+instrument's number at a stated per-dataset setting.
+
+**The pre-registered prediction is met on the total and MISSED on its own Al
+clause.** It said "below 6.0 % with Al at or above 99 %". The total is 4.21 %,
+but Al is **98.11 %**, below the 99 % I wrote. Recorded as a miss rather than
+rounded away: 407 Al positions of 21 494 are lost to buy 2.4 points of total.
+Whether that trade is acceptable is a judgement about this metric, which
+counts every class equally while Al is 73 % of the map.
+
+**Below 0.1 % is a cliff, not a slope.** 0.05 % gives 75.67 %. Between the
+two the Al class goes from 98.11 % to 0.04 % for a factor of two in
+threshold. A setting that good at 0.001 and catastrophic at 0.0005 is not a
+default anyone should ship; it is evidence about the code, and the next entry
+says what of.
+
+**The mechanism of the cliff, measured across all four runs.** Al's accuracy
+tracks its zero-survivor fraction almost exactly — 98.4 → 99.56, 91.3 →
+98.11, 0.0 → 0.04. That is the `surviving.count < minimumVectors` branch at
+`PhaseVectorMatching.swift:769` and nothing else. See the next entry.
+
+**What the runs also settle about the residual at 0.2 %** (the decomposition
+that motivated all of this, reconciled to the printed 1942): 1058 (54.5 %) a
+precipitate called matrix, of which 1038 are exactly the ≤ 1-survivor
+positions; 806 (41.5 %) not indexed; 76 (3.9 %) genuine cross-phase
+confusion. The identity is exact — (18.4 + 19.5) % × 970 = 367.7 face-on
+positions with ≤ 1 survivor against **367** labelled Al, and
+(4.6 + 5.9) % × 6358 = 667.6 against **671**.
+
+**And it answers the owner's standing question 4** ("may a candidate be
+indexed on one or two characteristic reflections, and at what false-positive
+cost?") with a bound rather than an opinion — at 0.2 %, granting it
+*perfectly* gives 1942 − 564 + 236 = 1614 = **5.52 %**, worth about 1.1
+points at its theoretical maximum. At 0.1 % the question largely dissolves:
+face-on has no zero- or one-survivor positions left at all. **It should be
+decided on its merits for real specimens, not as a step-3 lever.**
+
+**Measured on the demo cube too, before the number is claimed**
+(`demo-rel0.002/0.001-20260916.log`, 100 × 100, its own `truth.json`): the
+two thresholds are **identical** and every clause of the demo
+pre-registration holds at both — grain A matrix 100 %, grain B labelled β″
+0.0 %, end-on recall 100 %, needle recall 100 %, vacuum as no-data 100 %,
+median 9 peaks at both. So 0.1 % buys 2.4 points on Thronsen and costs the
+demo cube nothing. (The demo cube is a weak test of a detection threshold —
+its planted reflections are far above any noise floor — which is itself worth
+saying rather than reading its agreement as strong confirmation.)
+
+**Where this sends the next increment**, by the stopping rule
+(`decisions.md` 2026-09-16): the matrix-by-exclusion branch, which is what
+the cliff is made of and what caps every future detection improvement. The
+cap is closed; the threshold is measured and is a setting, not a code change.
+
+### The matrix is a verdict by exclusion, so it fails exactly when detection improves — MEASURED 2026-09-16, Gate D target
+
+**Science, live.** `PhaseVectorMatching.swift:769-773`:
+
+```swift
+// 2 — the matrix, by exclusion.
+if surviving.count < settings.minimumVectors {
+    result.verdict = .matrix
+```
+
+`minimumVectors` is **2**. So a position is called matrix when *almost
+nothing survives matrix removal* — never because the matrix entry actually
+explains the pattern. The matrix is scored on its merits in exactly one
+place, `challengeByMatrix` (:890), and only as a challenge to a candidate
+that has already won; when no candidate clears the guards there is no path
+back to a matrix verdict at all, and the position becomes `.notIndexed`.
+
+**The cost is measured, at two thresholds (2026-09-16):**
+
+| detection threshold | Al called Al | Al not indexed | total mislabelled |
+|---|---|---|---|
+| 0.2 % (shipped record) | 21 400 of 21 494 | 86 | **6.64 %** |
+| 0.05 % | **9** of 21 494 | **18 445** | **75.67 %** |
+
+At 0.05 % the precipitates are very nearly solved — θ′ face-on 52 → **93 %**,
+T1 80 → **93 %**, and no position in any class has zero survivors any more —
+and the map is destroyed anyway, because 99.5 % of Al positions retain 4+
+noise survivors and so never reach the by-exclusion branch. The same
+behaviour costs **806 positions at 0.2 %, 41.5 % of the whole error**, which
+is the share of step 3 nobody has probed.
+
+**Why this is the next increment and not the detector kernel:** every
+detection improvement makes this worse, not better. A better kernel that
+finds the weak (110) and two-thirds-{220} reflections also finds more noise
+maxima on Al, and each one pushes an Al position past `minimumVectors` and
+out of the only branch that can call it matrix. The kernel cannot be
+evaluated honestly until the matrix verdict stops being a fall-through.
+
+**Not yet diagnosed, and therefore not yet a fix.** What is established is
+the branch and its measured cost. What is NOT established is why the
+candidate guards let 3 040 Al positions be labelled a precipitate at 0.05 %
+while refusing 18 445 others, or what a positive matrix verdict should be
+scored against (the matrix entry competes on the SURVIVORS, which it by
+construction does not explain — so it would have to be scored on the full
+vector set, which is a different comparison from every other phase's). Gate D
+before any edit: diagnosis, refuting observation, prediction, then the
+experiment — on `tools/phase-map-probe`, on both datasets, before a number
+moves. This entry is the diagnosis's starting point, not its conclusion.
+
+**Distinct from** "A challenged matrix verdict is drawn like one by
+exclusion" below, which is presentation — two matrix verdicts drawn the same
+grey. This one is the verdict itself.
+
+### The phase-contrast margin cannot lower the step-3 number — REFUTED BY MECHANISM 2026-09-16
+
+`minimumPhaseContrastInvAngstrom` (`PhaseVectorMatching.swift:149`, the
+refusal at :840) was built in answer to a refutation and still defaults to 0,
+so it reads like an unmeasured lever. It is not one for step 3, and no run was
+spent on it: the setting only ever converts a verdict to `.notIndexed`, and
+`tools/phase-map-probe/thronsen.swift:127-129` maps `.notIndexed` to −1,
+"which counts as mislabelled against every class". A refusal therefore leaves
+a wrong position wrong and turns a right position wrong. It can only raise the
+mislabelled fraction. It may still be a correct guard for a user; it is not a
+step-3 lever, and the NEXT list should not carry it as one.
+
+### `minimumMatchedFraction` does not exist — added 2026-09-16
+
+`PhaseVectorMatching.swift:682` explains why the matrix fit is chosen by
+matched count and only then by distance: "Not by mean distance alone: an entry
+matching one vector at 0.001 Å⁻¹ would win over one matching nine at 0.01,
+which is the same completeness trap `minimumMatchedFraction` closes on the
+candidate side." **`minimumMatchedFraction` occurs nowhere in the repo except
+that sentence** (`grep -rn` over all `.swift` and `.md`; introduced with the
+comment in `cee63e6`). The candidate side is guarded by
+`minimumMatchedVectors` and `chanceMatchMultiple`, which are floors on COUNT,
+not on the fraction of an entry's accessible vectors that matched — a
+different quantity, and not the one the comment claims. The cross-phase winner
+at :834 is still `bestPerPhase.sorted { $0.value.score < $1.value.score }`,
+mean distance alone, which is exactly the trap the sentence says is closed.
+The measured instance is already on the record: at the 110 off-OR edge-on
+positions the honest entry matches 6–11 of ~20 survivors (matched fraction
+0.20) and loses to a two-vector Friedel pair (0.12). **No number moves from
+this entry** — the comment is wrong, not the code — but the comment must not
+be left asserting a protection that is not there, and a real
+`minimumMatchedFraction` is a candidate instrument once the detection levers
+are spent.
+
 ### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
 
 **Science.** On `060_STEM SI_…bin_4`, only **39 %** of detected vectors are
