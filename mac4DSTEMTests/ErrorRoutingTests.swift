@@ -30,6 +30,27 @@ final class ErrorRoutingTests: XCTestCase {
     /// A data-source failure surfacing through a compute catch block
     /// (corrupted or vanished file mid-scan) invalidates the session and must
     /// escalate to the modal path even when routed via presentComputeFailure.
+    /// The "could not remember access" reports name the failure, not just its
+    /// human summary. 2026-09-17: a code-signature abort surfaced only as "The
+    /// file couldn't be opened"; domain, code and the underlying error (where
+    /// the real -67034 lived) must all survive. (`AppState.errorDetail`.)
+    func testErrorDetailNamesDomainCodeAndUnderlyingCause() {
+        let underlying = NSError(domain: NSOSStatusErrorDomain, code: -67034)
+        let error = NSError(
+            domain: NSCocoaErrorDomain, code: 256,
+            userInfo: [
+                NSLocalizedDescriptionKey: "The file couldn\u{2019}t be opened.",
+                NSUnderlyingErrorKey: underlying,
+            ])
+        let detail = AppState.errorDetail(error)
+        XCTAssertTrue(detail.contains(NSCocoaErrorDomain), "the error domain must be named: \(detail)")
+        XCTAssertTrue(detail.contains("256"), "the error code must be named: \(detail)")
+        XCTAssertTrue(detail.contains("-67034"),
+                      "the underlying code, the real cause, must survive: \(detail)")
+        XCTAssertTrue(detail.contains("couldn\u{2019}t be opened"),
+                      "the human summary stays too: \(detail)")
+    }
+
     func testDataSourceFailureEscalatesToModal() {
         let state = AppState()
         state.presentComputeFailure(H5Error.readFailed("/data"))

@@ -162,8 +162,25 @@ extension AppState {
         } catch {
             statusText = "Saved \(what); choose the sidecar again after relaunch"
             errorMessage = "\(what) was saved to \(url.lastPathComponent), but mac4DSTEM could not "
-                + "remember access for a future launch: \(error.localizedDescription)"
+                + "remember access for a future launch: \(Self.errorDetail(error))"
         }
+    }
+
+    /// Error text that names the failure, not just restates its human summary:
+    /// the domain and code, plus the underlying error where the real cause
+    /// hides. The sidecar-grant and recent-file "could not remember access"
+    /// reports read identically to a real sandbox denial without this. The
+    /// cause of one such report (2026-09-17, `docs/open-items.md`) was
+    /// `errSecCSStaticCodeChanged` (-67034), which a bare `localizedDescription`
+    /// ("The file couldn't be opened") never showed. Same shape as
+    /// `Core/ML/LearnedDiskDetector.swift`'s runtime-error text.
+    static func errorDetail(_ error: Error) -> String {
+        let ns = error as NSError
+        var text = "\(ns.domain) \(ns.code): \(ns.localizedDescription)"
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
+            text += " (underlying: \(underlying.domain) \(underlying.code))"
+        }
+        return text
     }
 
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {

@@ -23,9 +23,11 @@ unified log (`docs/archive/audit-2026-09-16/sidecar-bookmark-cdhash-20260917.log
 returned -67034 `errSecCSStaticCodeChanged` because the ad-hoc Debug bundle in DerivedData was rebuilt under
 the running instance. **Confirmed a dev artifact, not a product bug**: after a fresh build nobody rebuilt under,
 Save persisted and the sidecar restored (owner reproduction, log 00:47:43). H1 (sandbox extension) and H3
-(wrong URL) refuted; no Gate D (mechanism proven by a reproducing observation). **Live residual (product):**
-`rememberSidecarGrant` surfaces only `error.localizedDescription`, so a code-signature abort reads identically
-to a real sandbox denial (`Support/ResultExport.swift:163-166`) — include the error domain/code. Not urgent.
+(wrong URL) refuted; no Gate D (mechanism proven by a reproducing observation). **Residual FIXED 2026-09-17:** `AppState.errorDetail` names the domain, code and underlying error
+(where -67034 lives); applied to the sidecar-grant and the recent-file "could not remember access"
+messages. Test `ErrorRoutingTests.testErrorDetailNamesDomainCodeAndUnderlyingCause`, broken first
+(bare `localizedDescription` → red on domain/code/underlying, `bf2-mut-20260917.log` exit 65; real
+and final exit 0). Item closed.
 
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 

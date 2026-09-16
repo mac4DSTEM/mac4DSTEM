@@ -2102,7 +2102,7 @@ final class AppState {
             )
             WorkspaceRecoveryStore.saveRecovery(recoveryRecord!)
         } catch {
-            statusText = "Loaded data, but recent-file access could not be remembered: \(error.localizedDescription)"
+            statusText = "Loaded data, but recent-file access could not be remembered: \(Self.errorDetail(error))"
         }
     }
 
