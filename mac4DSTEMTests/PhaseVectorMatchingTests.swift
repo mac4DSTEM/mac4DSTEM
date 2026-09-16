@@ -397,6 +397,63 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertEqual(Int(result.survivingCount), 0)
     }
 
+    /// Mutation: the fall-back firing at its default of 0; the fraction
+    /// compared with `>` so a position exactly at the bar is lost;
+    /// `survivingCount` used in place of `removedCount`, which inverts it.
+    ///
+    /// The fall-back exists because a position is otherwise called matrix only
+    /// by EXCLUSION, never because the matrix explains it, so improving
+    /// detection turns matrix positions into refusals (measured 2026-09-16,
+    /// `open-items.md`). It ships OFF, and this test pins that first: the
+    /// default must be a refusal, because a silent matrix verdict overstates
+    /// the phase fraction this feature exists to report.
+    func testTheMatrixFallBackIsOffByDefaultAndFiresOnlyAboveItsFraction() throws {
+        let library = try smallLibrary()
+        let matrixEntry = library.entries[library.matrixEntryIndices[0]]
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 64)
+        // Six vectors the matrix explains, plus three on a ring no phase has a
+        // reflection near: too many survive for the by-exclusion branch, and
+        // nothing clears the candidate guards. Explained fraction 6 / 9 = 0.667.
+        let explained = matrixEntry.vectors.prefix(6).map(\.q)
+        let unexplainable = (0..<3).map { i -> SIMD2<Double> in
+            let a = Double(i) * .pi / 4
+            return SIMD2(0.313 * cos(a), 0.313 * sin(a))
+        }
+        let vectors = Array(explained) + unexplainable
+
+        var settings = PhaseVectorSettings()
+        XCTAssertEqual(settings.matrixFallbackExplainedFraction, 0,
+                       "the fall-back must ship off -- it converts an honest refusal "
+                       + "into a positive matrix claim")
+        let refused = PhaseVectorMatcher.classify(
+            vectors: vectors, library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(refused.verdict, .notIndexed,
+                       "at the default the position must be refused, not called matrix")
+        XCTAssertEqual(Int(refused.removedCount), 6)
+        XCTAssertEqual(Int(refused.survivingCount), 3)
+
+        settings.matrixFallbackExplainedFraction = 0.5
+        let taken = PhaseVectorMatcher.classify(
+            vectors: vectors, library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(taken.verdict, .matrix,
+                       "0.667 explained is above the 0.5 bar, so the matrix takes it")
+        XCTAssertEqual(Int(taken.phaseIndex), library.matrixPhaseIndex)
+        XCTAssertEqual(Int(taken.entryIndex), -1)
+
+        settings.matrixFallbackExplainedFraction = 0.8
+        let stillRefused = PhaseVectorMatcher.classify(
+            vectors: vectors, library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(stillRefused.verdict, .notIndexed,
+                       "0.667 explained is below the 0.8 bar -- the fraction must be compared, "
+                       + "not merely tested for being armed")
+    }
+
     /// Mutation: the `notIndexedAboveInvAngstrom` comparison inverted or
     /// removed, so an unexplained pattern is forced into whichever phase
     /// happened to score least badly. The refusal IS the feature. Also: the
