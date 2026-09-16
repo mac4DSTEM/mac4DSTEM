@@ -1145,3 +1145,34 @@ off the internal disk would free far more, and nothing gated depends on it —
 is `diagnostic`. It was not proposed as a destination because the only mounted
 volume is the Time Machine backup drive, and working data does not belong on a
 backup destination.
+
+## 2026-09-16 — three rules overruled by the owner, and the merge is split
+
+**The merge is split.** 69 of the 90 commits since v3.0.0 have nothing to do
+with phase mapping and were waiting on a band that may take weeks.
+`split/no-phase-mapping` carries 27 of them to `main`; phase mapping stays on
+`ai-analysis` behind the band. The 27th is the CI fix, cherry-picked, which
+costs the fast-forward shape of the later merge — taken knowingly, because a
+red CI job on the public `main` is worse than a non-linear history.
+
+**C5's hard form is overruled.** `AppState.swift` + `Support/ResultExport.swift`
+were forbidden to net positive lines in a commit. The owner's words: this
+should be possible, but we should be cautious about the repo growing. So
+`inventory` now **reports** the delta and no longer fails on it, and a commit
+that grows them says why no other home would do. The measurement stays because
+unmeasured growth is how those files reached 5 461 and 1 939 lines; the block
+goes because it was pushing state into worse homes to keep a count down.
+
+**On-screen verification may be claimed by the assistant** when it actually
+drove the app and is sure, superseding "the owner drives" from Track B's
+retirement. The owner attached a condition — the assistant needs to drive the
+app better — so the rule is written as a bar rather than a permission: name
+the build, say what was clicked, say what was seen, and if it was not driven,
+say it is unverified. An assumed screen is worse than an admitted gap.
+
+**Commit freely; pushing stays the owner's**, who may hand over a push when
+asked. "Commit only when asked" is retired.
+
+Recorded by the assistant at the owner's instruction, same session. The owner
+also asked to revisit the development process as a whole for v4.0; that is not
+this entry.

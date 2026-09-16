@@ -40,10 +40,14 @@ feature is pre-registered and built.
 
 - Views describe UI only; loading, parsing and compute live in `Core/`.
   `AppState` is the single source of truth until the plan's stores replace it.
-- No new stored state in `AppState`: a feature names its owner first.
-  `AppState.swift` + `Support/ResultExport.swift` never net positive lines in
-  a commit; `inventory` measures it (C5, 2026-09-07). Extractions follow the
-  plan's §4 order, one at a time, each with a green boundary and a reopen test.
+- New stored state in `AppState` names its owner first. The hard "never net
+  positive lines" form of C5 is **overruled (owner, 2026-09-16)**: growth is
+  allowed where it is the honest place for the state. `inventory` still
+  measures `AppState.swift` + `Support/ResultExport.swift` and now **reports**
+  the delta instead of failing on it — the caution is real, the block is not.
+  A commit that grows them says in its message why no other home would do.
+  Extractions still follow the plan's §4 order, one at a time, each with a
+  green boundary and a reopen test.
 - **Gate D applies when a change can move a scientific number, or when the
   cause of a defect is not yet established** — not to every change in `Core/`.
   Diagnosis, refuting observation, predicted outcome, then the experiment,
@@ -75,16 +79,25 @@ feature is pre-registered and built.
 - Port deviations from py4DSTEM get an inline `DEVIATION` note.
 - Don't add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch; use
   `tools/run-tests.sh unit` for unsigned XCTest work.
-- On-screen verification is the owner driving the app (Track B retired
-  2026-09-03). A drawing change is stated as unverified on screen until the
-  owner has seen it; a bug report enters through `/diagnose`, never as an
-  app change made to satisfy a checklist.
+- On-screen verification may be claimed by the assistant **when it actually
+  drove the app and is sure** (owner, 2026-09-16; supersedes "the owner drives"
+  from Track B's retirement, 2026-09-03). The bar is evidence, not permission:
+  name the build, say what was clicked, and say what was seen. **If it was not
+  driven, it is stated as unverified on screen** — an assumed screen is worse
+  than an admitted gap. Driving skill is a known weakness, so a claim that
+  rests on a screenshot nobody could reproduce is not a claim. A bug report
+  still enters through `/diagnose`, never as an app change made to satisfy a
+  checklist.
 - Docs are part of done. Update `docs/status.md` and `docs/open-items.md` in
   the same commit as the code. Every session nets negative markdown lines or
   says why. No new file without saying why an existing home would not do.
   `AGENTS.md` is generated: run `tools/sync-agents-md.sh` after editing this.
-- Commit only when asked; never push — the owner pushes (2026-09-07). Linear
-  `main`.
+- **Commit freely** (owner, 2026-09-16, superseding "commit only when asked",
+  2026-09-07): land work as coherent commits with the gate numbers in the
+  message. **Pushing stays the owner's** — ask if it should be pushed, and he
+  may hand it over for that push. `main` is linear by preference, not by rule:
+  the 2026-09-16 merge split puts a cherry-picked commit on `main`, so the
+  later phase-mapping merge will not be a fast-forward.
 
 ## Build / test
 
