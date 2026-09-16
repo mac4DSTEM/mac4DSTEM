@@ -263,6 +263,28 @@ struct PhaseMappingSections: View {
                 }
             }
 
+            // How much of the matrix fraction above rests on a full
+            // explanation. A matrix verdict is reached both when almost
+            // nothing survived removal and when the matrix out-fitted every
+            // candidate, and the fraction above says neither. Reported, NOT
+            // thresholded: a 0.90 bar measured on one dataset marked 46 % of
+            // another whose every acceptance clause passes (2026-09-16,
+            // `open-items.md`), so the number is given and the reader judges.
+            if let explained = PhaseMapPresentation.medianMatrixExplainedFraction(map) {
+                LabeledContent("Matrix evidence") {
+                    Text(String(format: "%.0f %% of vectors, median", 100 * explained))
+                        .monospacedDigit()
+                }
+                Text("How much of each matrix position's detected signal the matrix "
+                     + "itself accounts for. Near 100 % the matrix explains the pattern; "
+                     + "well below it, the position is matrix because nothing else fitted, "
+                     + "not because the matrix did. There is no threshold here — the "
+                     + "number falls as detection admits more noise, so read it against "
+                     + "this dataset's own settings.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if let diagnosis = appState.phaseMappingDiagnosis {
                 // A map that found nothing is a result about the SETTINGS, and
                 // on screen it looks exactly like a result about the specimen.

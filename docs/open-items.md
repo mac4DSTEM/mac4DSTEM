@@ -477,14 +477,15 @@ either direction; the map's colours are unchanged; Thronsen stays at **4.21 %**
 because no label changed (`thronsen-partial-20260916.log`), the demo cube holds
 every clause, and `phase-vector-matching` is 32/0.
 
-**What is still open, and it is the honest remainder.** The per-position
-evidence line already distinguishes the two routes and already states "N of M
-vectors are the matrix's". The map-level summary now exists in Core but **is
-not on screen** — nothing in the panel yet reports the median explained
-fraction, so a user reading a matrix fraction still cannot see how much of it
-rests on a full explanation without clicking position by position. That wiring,
-and the owner's drive of it, is the next increment. Until then this is a Core
-quantity with no reader.
+**Wired into the panel 2026-09-16, and UNVERIFIED ON SCREEN.** A "Matrix
+evidence" row under the Phases legend reports the median as a percentage of
+vectors, with a caption saying what near-100 % and well-below mean and that
+there is deliberately no threshold. Builds clean, `unit` exit 0
+(`unit-panel-20260916.log`). **Nobody has looked at it** — it is a drawing
+change and the assistant did not drive the app, so by `CLAUDE.md` it is stated
+unverified until the owner sees it. The per-position evidence line already
+distinguished the two routes and already stated "N of M vectors are the
+matrix's"; this is the map-level number that was missing.
 
 ### The matrix is a verdict by exclusion, so it fails exactly when detection improves — MEASURED 2026-09-16, Gate D target
 
