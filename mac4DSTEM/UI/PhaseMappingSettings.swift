@@ -381,6 +381,7 @@ struct PhaseMappingSections: View {
         let index: Int
         let slot: PhaseMappingSlot
         @State private var draft = ""
+        @State private var orientationDraft = ""
 
         var body: some View {
             @Bindable var product = appState.phaseMapping
@@ -414,8 +415,22 @@ struct PhaseMappingSections: View {
                 Text("A zone axis is three integers, like 0 1 0.")
                     .font(.caption2).foregroundStyle(.orange)
             }
+            if !slot.isMatrix {
+                orientationRelationshipField
+                if !orientationDraft.isEmpty,
+                   PhaseMappingSlot.parseOrientationRelationships(orientationDraft) == nil {
+                    Text("A relationship is pairs like (002) ∥ (200); planes in "
+                         + "parentheses, directions in square brackets.")
+                        .font(.caption2).foregroundStyle(.orange)
+                }
             }
-            .onAppear { if draft.isEmpty { draft = "\(slot.u) \(slot.v) \(slot.w)" } }
+            }
+            .onAppear {
+                if draft.isEmpty { draft = "\(slot.u) \(slot.v) \(slot.w)" }
+                if orientationDraft.isEmpty {
+                    orientationDraft = slot.orientationRelationshipText
+                }
+            }
             // The axis can change UNDER the field — Find Matrix Zone Axis writes
             // the fitted [u v w] into the slot — and a draft filled once on
             // appear kept showing "0 0 1" beside a row that said "zone [0 -1 1]"
@@ -425,6 +440,12 @@ struct PhaseMappingSections: View {
                 if PhaseMappingSlot.parseZoneAxis(draft) != axis {
                     draft = "\(axis.x) \(axis.y) \(axis.z)"
                 }
+            }
+            // Same reasoning as the zone axis: refresh only when the slot's
+            // text no longer matches what the draft holds, so a keystroke
+            // mid-typo is never clobbered by this view's own last write.
+            .onChange(of: slot.orientationRelationshipText) { _, text in
+                if orientationDraft != text { orientationDraft = text }
             }
         }
 
@@ -457,6 +478,32 @@ struct PhaseMappingSections: View {
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
             }
+        }
+
+        /// The orientation relationship to the matrix, in the form a paper
+        /// states it — pairs of parallel lattice vectors. Kept as free text
+        /// like the zone axis field, and for the same reason: a malformed
+        /// entry stays visible with its own caption rather than silently
+        /// reverting, and the last valid parse (here, the empty list) is what
+        /// the run actually uses.
+        private var orientationRelationshipField: some View {
+            @Bindable var product = appState.phaseMapping
+            return LabeledContent("Parallel to matrix") {
+                TextField("(002) ∥ (200), (002) ∥ (020)", text: Binding(
+                    get: { orientationDraft },
+                    set: { text in
+                        orientationDraft = text
+                        guard index < product.phases.count else { return }
+                        product.phases[index].orientationRelationshipText = text
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+            }
+            .help("This phase's plane (hkl) or direction [uvw] that lies parallel "
+                  + "to the matrix's, as an orientation relationship is written; "
+                  + "list each variant. Empty = any in-plane rotation. Applied "
+                  + "once the matrix orientation is fitted.")
         }
     }
 

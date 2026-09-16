@@ -215,5 +215,7 @@ Stated now so it is not discovered later. Their implementation:
    0.2 %), and the next residual is θ′ face-on taken for edge-on under a
    free in-plane rotation. An orientation-relationship filter was built
    and measured (7.89 %; face-on → edge-on gone; edge-on recall 50 → 31 %,
-   the refuting observation) — inert until the edge-on angles are
-   diagnosed (`open-items.md`).
+   the refuting observation at the half-pixel cliff). With the cliff at
+   0.75 pair radii it passed all five clauses, and it landed in its own
+   form — parallel planes or directions per phase, a field in the panel —
+   at 6.64 % (`open-items.md`).

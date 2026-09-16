@@ -1507,3 +1507,17 @@ intuitive form, a pair of parallel planes per phase from which Core derives
 the angles in its own frame, not a list of library-frame degrees. That form
 is the next increment; until it lands, no phase lists angles.
 
+## 2026-09-15 — the orientation relationship is stated as parallel vectors, and gets its control
+
+The list of library-frame degrees (`inPlaneDegreesRelativeToMatrix`) is
+gone; a phase states pairs of parallel lattice vectors, planes or
+directions, and Core derives the angle per entry pair from both zones' own
+frames. This is how an OR is written, it is frame-free by construction, and
+it reproduced the angle list within one position on Thronsen's data (all
+five pre-registered clauses held). So the control lands: one field per
+candidate slot, parsed as written, empty = free. The comparison is modulo
+180° because the flat-Ewald ZOLZ the library builds is centrosymmetric. A
+pair whose vector is not in an entry's zone does not apply to that entry —
+recorded, not hidden: the panel says "applied once the matrix orientation
+is fitted", and the run's provenance carries the pairs.
+

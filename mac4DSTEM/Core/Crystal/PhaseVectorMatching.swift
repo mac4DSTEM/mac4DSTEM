@@ -147,10 +147,10 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// default because a margin that is not measured on the data at hand is a
     /// guess, and `tools/phase-vector-matching` is where it gets measured.
     package var minimumPhaseContrastInvAngstrom: Double = 0
-    /// A candidate entry whose phase lists allowed in-plane angles
-    /// (`PhaseDefinition.inPlaneDegreesRelativeToMatrix`) is scored only when
-    /// its angle relative to the fitted matrix entry falls within this many
-    /// degrees of a listed value. MEASURED 2026-09-15 (Thronsen step 3):
+    /// A candidate entry whose phase lists an orientation relationship
+    /// (`PhaseDefinition.orientationRelationships`) is scored only when its
+    /// derived azimuth agrees with a listed pair's, relative to the fitted
+    /// matrix entry, within this many degrees. MEASURED 2026-09-15 (Thronsen step 3):
     /// correct face-on matches land within ±15° of the orientation
     /// relationship and the confusing ones — face-on taken for edge-on —
     /// at 45°; but half of the correct edge-on matches sit near 22° and
@@ -1041,24 +1041,74 @@ package nonisolated enum PhaseVectorMatcher {
 
     // MARK: The orientation relationship
 
-    /// Whether a candidate entry's in-plane rotation is consistent with one
-    /// of `allowedDeg` relative to the fitted matrix entry, within
-    /// `toleranceDeg`. Both rotations arrive in radians; the comparison is
-    /// done in degrees, modulo 360, because a difference near 0/360 is one
-    /// wrap apart, not far apart.
-    package static func inPlaneAngleAllowed(candidateRad: Double, matrixRad: Double,
-                                            allowedDeg: [Double], toleranceDeg: Double) -> Bool {
-        var d = (candidateRad - matrixRad) * 180 / .pi
-        d = d.truncatingRemainder(dividingBy: 360)
-        if d < 0 { d += 360 }
-        for allowed in allowedDeg {
-            var target = allowed.truncatingRemainder(dividingBy: 360)
-            if target < 0 { target += 360 }
-            let diff = abs(d - target)
-            let distance = min(diff, 360 - diff)
+    /// The in-plane azimuth, radians, of a Cartesian vector projected into
+    /// an entry's detector frame (`ACOMOrientation.detectorBasis` of its
+    /// zone axis, then the entry's own in-plane rotation) — nil when the
+    /// vector is not in the zone (|v·n̂| > 1e-6·|v|, `n̂` the unit zone axis)
+    /// or is zero.
+    package static func projectedAzimuth(of v: SIMD3<Double>, zoneAxis n: SIMD3<Double>,
+                                         inPlaneRotationRad: Double) -> Double? {
+        let vLen = simd_length(v)
+        guard vLen.isFinite, vLen > 1e-12 else { return nil }
+        let nLen = simd_length(n)
+        guard nLen.isFinite, nLen > 1e-12 else { return nil }
+        let nHat = n / nLen
+        guard abs(simd_dot(v, nHat)) <= 1e-6 * vLen else { return nil }
+
+        let basis = ACOMOrientation.detectorBasis(zoneAxis: nHat)
+        let x0 = simd_dot(v, basis.columns.0)
+        let y0 = simd_dot(v, basis.columns.1)
+        let c = cos(inPlaneRotationRad), s = sin(inPlaneRotationRad)
+        // The library's own rotate convention (`PhaseReferenceLibrary.rotate`):
+        // x' = c·x − s·y, y' = s·x + c·y, i.e. azimuth + θ.
+        let x = c * x0 - s * y0
+        let y = s * x0 + c * y0
+        return atan2(y, x)
+    }
+
+    /// Is a candidate entry consistent with any listed relationship, given
+    /// the fitted matrix entry?
+    ///
+    /// For each pair: the candidate's azimuth (its vector in the candidate
+    /// crystal, projected through the candidate entry's own zone and
+    /// rotation) minus the matrix's azimuth (likewise, through the matrix
+    /// entry's own zone and rotation) must be within `toleranceDeg` of 0
+    /// modulo 180° (see `PhaseDefinition.orientationRelationships` for why
+    /// 180 and not 360). A pair whose vector is not in the respective zone
+    /// does not apply to this (candidate, matrix) pair of entries; if no
+    /// listed pair applies, the entry is free (true). An empty list is free.
+    package static func orientationConsistent(candidate: PhaseOrientationReference,
+                                               candidateCrystal: Crystal,
+                                               matrix: PhaseOrientationReference,
+                                               matrixCrystal: Crystal,
+                                               relationships: [OrientationRelationship],
+                                               toleranceDeg: Double) -> Bool {
+        guard !relationships.isEmpty else { return true }
+        guard let candidateZone = PhaseReferenceLibrary.cartesianZoneAxis(
+                candidate.zoneAxis, crystal: candidateCrystal),
+              let matrixZone = PhaseReferenceLibrary.cartesianZoneAxis(
+                matrix.zoneAxis, crystal: matrixCrystal)
+        else { return true } // a degenerate zone axis never reaches an entry; defensive.
+
+        var anyApplicable = false
+        for relationship in relationships {
+            let candidateVector = relationship.candidate.cartesian(in: candidateCrystal)
+            let matrixVector = relationship.matrix.cartesian(in: matrixCrystal)
+            guard let candidateAz = projectedAzimuth(
+                    of: candidateVector, zoneAxis: candidateZone,
+                    inPlaneRotationRad: candidate.inPlaneRotationRad),
+                  let matrixAz = projectedAzimuth(
+                    of: matrixVector, zoneAxis: matrixZone,
+                    inPlaneRotationRad: matrix.inPlaneRotationRad)
+            else { continue }
+            anyApplicable = true
+            var d = (candidateAz - matrixAz) * 180 / .pi
+            d = d.truncatingRemainder(dividingBy: 180)
+            if d < 0 { d += 180 }
+            let distance = min(d, 180 - d)
             if distance < toleranceDeg { return true }
         }
-        return false
+        return !anyApplicable
     }
 
     // MARK: The whole scan
@@ -1083,23 +1133,26 @@ package nonisolated enum PhaseVectorMatcher {
 
         let matrixEntry = fitted.map { library.entries[$0] }
         // The orientation relationship (2026-09-15): once the matrix is
-        // fitted, a candidate entry whose phase lists allowed in-plane
-        // angles is scored only near one of them — this is what keeps a θ′
-        // edge-on entry, rotated 45° so its (002) at 0.345 Å⁻¹ sits on
+        // fitted, a candidate entry whose phase lists an orientation
+        // relationship is scored only when the relationship's derived
+        // azimuth agrees with the fitted matrix entry's — this is what keeps
+        // a θ′ edge-on entry, rotated 45° so its (002) at 0.345 Å⁻¹ sits on
         // face-on's (110) at 0.350, from being offered as face-on. A phase
-        // with no list (nil) stays free, so the default (no matrix, or no
+        // with an empty list stays free, so the default (no matrix, or no
         // list anywhere) moves nothing.
         let candidates: [Int]
         if let matrixEntry {
+            let matrixCrystal = library.phases[library.matrixPhaseIndex].crystal
             candidates = library.candidateEntryIndices.filter { index in
                 let entry = library.entries[index]
-                // nil and an empty list both mean free: an empty list would
-                // otherwise empty the candidate set and refuse the whole map.
-                guard let allowed = library.phases[entry.phaseIndex].inPlaneDegreesRelativeToMatrix,
-                      !allowed.isEmpty else { return true }
-                return Self.inPlaneAngleAllowed(
-                    candidateRad: entry.inPlaneRotationRad, matrixRad: matrixEntry.inPlaneRotationRad,
-                    allowedDeg: allowed, toleranceDeg: settings.orientationRelationshipToleranceDeg)
+                let relationships = library.phases[entry.phaseIndex].orientationRelationships
+                // An empty list means free: it would otherwise empty the
+                // candidate set and refuse the whole map.
+                guard !relationships.isEmpty else { return true }
+                return Self.orientationConsistent(
+                    candidate: entry, candidateCrystal: library.phases[entry.phaseIndex].crystal,
+                    matrix: matrixEntry, matrixCrystal: matrixCrystal,
+                    relationships: relationships, toleranceDeg: settings.orientationRelationshipToleranceDeg)
             }
         } else {
             candidates = library.candidateEntryIndices

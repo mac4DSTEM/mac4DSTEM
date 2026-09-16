@@ -652,122 +652,302 @@ final class PhaseVectorMatchingTests: XCTestCase {
                                     + "were not matched: scoring read the matrix tolerance")
     }
 
-    /// The orientation relationship (2026-09-15; the Gate D record is the
-    /// step 3 entry of `docs/open-items.md`):
-    /// `PhaseDefinition.inPlaneDegreesRelativeToMatrix` restricts a candidate
-    /// to listed angles relative to the fitted matrix entry, once one is
-    /// fitted. Mutations this names: the tolerance comparison flipped (`>=`
-    /// instead of `<`, so a distance exactly at the boundary — or beyond it —
-    /// is wrongly accepted); the modulo dropped (359° no longer folds onto a
-    /// listed 0°); the `map` filter skipped when a phase carries a list (a
-    /// candidate 45° off is scored and indexed regardless of its list); an
-    /// empty list treated as "nothing allowed" (the map is refused instead
-    /// of free); the matrix angle ignored (`matrixRad: 0` at the call site).
-    func testTheOrientationRelationshipKeepsOnlyListedInPlaneAngles() throws {
-        // --- 1. `inPlaneAngleAllowed` at the boundaries -------------------
-        XCTAssertTrue(PhaseVectorMatcher.inPlaneAngleAllowed(
-            candidateRad: 95 * .pi / 180, matrixRad: 0,
-            allowedDeg: [90], toleranceDeg: 10),
-            "95°, 5° from a listed 90°, was not allowed at tolerance 10")
-        XCTAssertFalse(PhaseVectorMatcher.inPlaneAngleAllowed(
-            candidateRad: 101 * .pi / 180, matrixRad: 0,
-            allowedDeg: [90], toleranceDeg: 10),
-            "101°, 11° from the listed 90°, was allowed at tolerance 10 "
-            + "-- mutation: the comparison is not strict (>= vs <)")
-        XCTAssertTrue(PhaseVectorMatcher.inPlaneAngleAllowed(
-            candidateRad: 359 * .pi / 180, matrixRad: 0,
-            allowedDeg: [0], toleranceDeg: 10),
-            "359° was not folded onto a listed 0° -- mutation: the modulo dropped")
-        XCTAssertTrue(PhaseVectorMatcher.inPlaneAngleAllowed(
-            candidateRad: 95 * .pi / 180, matrixRad: 90 * .pi / 180,
-            allowedDeg: [0], toleranceDeg: 10),
-            "a candidate 5° past a matrix at 90° was not 5° from a listed 0° "
-            + "-- mutation: the matrix angle ignored")
+    /// The orientation relationship, stated as parallel lattice vectors
+    /// (2026-09-15, replacing a library-frame degree list; the Gate D record
+    /// is the step 3 entry of `docs/open-items.md`):
+    /// `PhaseDefinition.orientationRelationships` restricts a candidate
+    /// entry to ones whose DERIVED azimuth (`PhaseVectorMatcher.
+    /// projectedAzimuth`, from each entry's own zone and rotation) agrees
+    /// with a listed pair's, relative to the fitted matrix entry. Mutations
+    /// this names: the 180° fold dropped (a candidate 180° from the listed
+    /// pair — equally valid, since a flat-Ewald ZOLZ excites g and −g alike
+    /// — refused); the matrix azimuth ignored (as if `matrixRad` were
+    /// always 0); the candidate zone's own `detectorBasis` replaced by the
+    /// matrix's; a pair whose vector is not in an entry's own zone treated
+    /// as applying to it anyway instead of being skipped.
+    func testTheOrientationRelationshipIsStatedAsParallelVectorsAndDerivedPerZone() throws {
+        // --- 1. `LatticeVector.cartesian` ---------------------------------
+        let al = Crystal.aluminum
+        let g200 = LatticeVector.plane(SIMD3(2, 0, 0)).cartesian(in: al)
+        XCTAssertEqual(simd_length(g200), 2 / al.a, accuracy: 1e-9,
+                       "(200)Al should have |g| = 2/a")
+        let d100 = LatticeVector.direction(SIMD3(1, 0, 0)).cartesian(in: al)
+        XCTAssertEqual(simd_length(d100 - SIMD3(al.a, 0, 0)), 0, accuracy: 1e-9,
+                       "[100]Al should be a·x̂")
 
-        // --- 2. `map` end to end: a 45°-rotated entry, with and without a
-        // list. The free sweep would index it; the constraint must not.
+        // --- 2. `projectedAzimuth` -----------------------------------------
+        let zoneAxis001 = try XCTUnwrap(
+            PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(0, 0, 1), crystal: al),
+            "Al [001] should not be degenerate")
+        let basis = ACOMOrientation.detectorBasis(zoneAxis: zoneAxis001)
+        let expectedAzimuth200 = atan2(simd_dot(g200, basis.columns.1),
+                                       simd_dot(g200, basis.columns.0))
+        let azimuth200 = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
+            of: g200, zoneAxis: zoneAxis001, inPlaneRotationRad: 0),
+            "(200) is in the [001] zone and must project")
+        XCTAssertEqual(azimuth200, expectedAzimuth200, accuracy: 1e-9,
+                       "the (200) azimuth must come from the entry's own detectorBasis, "
+                       + "not a hardcoded angle")
+
+        let g002 = LatticeVector.plane(SIMD3(0, 0, 2)).cartesian(in: al)
+        XCTAssertNil(PhaseVectorMatcher.projectedAzimuth(
+            of: g002, zoneAxis: zoneAxis001, inPlaneRotationRad: 0),
+            "(002) lies along the [001] zone axis -- not in the zone, must not project")
+
+        let theta = 30 * Double.pi / 180
+        let rotatedAzimuth = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
+            of: g200, zoneAxis: zoneAxis001, inPlaneRotationRad: theta))
+        var advance = (rotatedAzimuth - azimuth200).truncatingRemainder(dividingBy: 2 * .pi)
+        if advance < 0 { advance += 2 * .pi }
+        XCTAssertEqual(advance, theta, accuracy: 1e-9,
+                       "rotating the entry by θ should advance its azimuth by +θ")
+
+        // --- 3. `orientationConsistent` on its own, with the expected
+        // answer computed independently of the function under test --------
+        //
+        // 3a. Candidate and matrix share the SAME crystal, zone axis and
+        // relationship vector, so the azimuth difference `orientationConsistent`
+        // must compare is EXACTLY (candidate rotation − matrix rotation), no
+        // crystal geometry to derive by hand.
+        let sameGeometryRelationship = OrientationRelationship(
+            candidate: .plane(SIMD3(2, 0, 0)), matrix: .plane(SIMD3(2, 0, 0)))
+        func sameZoneEntry(rotationDeg: Double) -> PhaseOrientationReference {
+            PhaseOrientationReference(phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1),
+                                      inPlaneRotationRad: rotationDeg * .pi / 180, vectors: [])
+        }
+        XCTAssertTrue(PhaseVectorMatcher.orientationConsistent(
+            candidate: sameZoneEntry(rotationDeg: 8), candidateCrystal: al,
+            matrix: sameZoneEntry(rotationDeg: 0), matrixCrystal: al,
+            relationships: [sameGeometryRelationship], toleranceDeg: 10),
+            "8° apart, within tolerance 10, was refused")
+        XCTAssertFalse(PhaseVectorMatcher.orientationConsistent(
+            candidate: sameZoneEntry(rotationDeg: 12), candidateCrystal: al,
+            matrix: sameZoneEntry(rotationDeg: 0), matrixCrystal: al,
+            relationships: [sameGeometryRelationship], toleranceDeg: 10),
+            "12° apart, outside tolerance 10, was allowed")
+        XCTAssertTrue(PhaseVectorMatcher.orientationConsistent(
+            candidate: sameZoneEntry(rotationDeg: 171), candidateCrystal: al,
+            matrix: sameZoneEntry(rotationDeg: 0), matrixCrystal: al,
+            relationships: [sameGeometryRelationship], toleranceDeg: 10),
+            "171° apart folds to 9° from 180° -- mutation: the 180° fold dropped")
+        XCTAssertFalse(PhaseVectorMatcher.orientationConsistent(
+            candidate: sameZoneEntry(rotationDeg: 169), candidateCrystal: al,
+            matrix: sameZoneEntry(rotationDeg: 0), matrixCrystal: al,
+            relationships: [sameGeometryRelationship], toleranceDeg: 10),
+            "169° apart folds to 11° from 180°, outside tolerance")
+        XCTAssertTrue(PhaseVectorMatcher.orientationConsistent(
+            candidate: sameZoneEntry(rotationDeg: 95), candidateCrystal: al,
+            matrix: sameZoneEntry(rotationDeg: 90), matrixCrystal: al,
+            relationships: [sameGeometryRelationship], toleranceDeg: 10),
+            "a candidate 5° past a matrix at 90° was refused "
+            + "-- mutation: the matrix azimuth ignored")
+
+        // 3b. Candidate and matrix now use DIFFERENT zone axes (still the
+        // same crystal, to keep this arithmetic rather than crystallographic):
+        // the expected offset is computed by calling `projectedAzimuth`
+        // directly -- already verified in part 2 above -- not by calling
+        // `orientationConsistent` and trusting whatever it says.
+        let zoneAxis100 = try XCTUnwrap(
+            PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(1, 0, 0), crystal: al))
+        let candidateVectorB = LatticeVector.plane(SIMD3(0, 2, 0)).cartesian(in: al)
+        let matrixVectorB = LatticeVector.plane(SIMD3(2, 0, 0)).cartesian(in: al)
+        let az0cB = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
+            of: candidateVectorB, zoneAxis: zoneAxis100, inPlaneRotationRad: 0)) * 180 / .pi
+        let az0mB = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
+            of: matrixVectorB, zoneAxis: zoneAxis001, inPlaneRotationRad: 0)) * 180 / .pi
+        let differentZoneRelationship = OrientationRelationship(
+            candidate: .plane(SIMD3(0, 2, 0)), matrix: .plane(SIMD3(2, 0, 0)))
+        let thetaMB = 20.0
+        // Solved so the TRUE azimuth difference is exactly 0: if the
+        // candidate's own [100] basis were replaced by the matrix's [001]
+        // basis, az0cB would be wrong and this would stop landing at 0.
+        let thetaCB = (thetaMB + az0mB - az0cB).truncatingRemainder(dividingBy: 360)
+        XCTAssertTrue(PhaseVectorMatcher.orientationConsistent(
+            candidate: PhaseOrientationReference(phaseIndex: 0, zoneAxis: SIMD3(1, 0, 0),
+                                                 inPlaneRotationRad: thetaCB * .pi / 180, vectors: []),
+            candidateCrystal: al,
+            matrix: PhaseOrientationReference(phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1),
+                                              inPlaneRotationRad: thetaMB * .pi / 180, vectors: []),
+            matrixCrystal: al,
+            relationships: [differentZoneRelationship], toleranceDeg: 10),
+            "the exact azimuth match (solved from projectedAzimuth's own frames) was refused "
+            + "-- mutation: the candidate zone's own detectorBasis replaced by the matrix's")
+        XCTAssertFalse(PhaseVectorMatcher.orientationConsistent(
+            candidate: PhaseOrientationReference(phaseIndex: 0, zoneAxis: SIMD3(1, 0, 0),
+                                                 inPlaneRotationRad: (thetaCB + 45) * .pi / 180, vectors: []),
+            candidateCrystal: al,
+            matrix: PhaseOrientationReference(phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1),
+                                              inPlaneRotationRad: thetaMB * .pi / 180, vectors: []),
+            matrixCrystal: al,
+            relationships: [differentZoneRelationship], toleranceDeg: 10),
+            "45° off the exact match was allowed")
+
+        // --- 4. `map` end to end: θ′ edge-on [100] as candidate on Al
+        // [001] matrix, inPlaneStepDeg = 45, the relationship
+        // (002)θ′ ∥ (200)Al. The candidate entry AT the OR angle must be
+        // indexed; a neighbour 45° off must not -- and the same holds with
+        // the matrix fitted away from 0°, because a grain's rotation is not
+        // always 0 (Gate B 2026-09-15: a previous test fit the matrix at 0°
+        // throughout and so never caught the matrix azimuth being ignored).
+        // This is an INTEGRATION check that the pieces compose through
+        // `map`; the mutations above are what part 3 independently catches.
+        let thetaPrime = Crystal(a: 4.04, b: 4.04, c: 5.80, sites: [
+            AtomSite(z: 13, fractional: [0.000000, 0.000000, 0.000000]),
+            AtomSite(z: 13, fractional: [0.500000, 0.500000, 0.500000]),
+            AtomSite(z: 13, fractional: [0.000000, 0.000000, 0.500000]),
+            AtomSite(z: 13, fractional: [0.500000, 0.500000, 0.000000]),
+            AtomSite(z: 29, fractional: [0.000000, 0.500000, 0.250000]),
+            AtomSite(z: 29, fractional: [0.500000, 0.000000, 0.750000]),
+        ])
         var reference = PhaseReferenceSettings()
         reference.kMaxInvAngstrom = 0.8
         reference.inPlaneStepDeg = 45
-        let matrixPhase = PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+        let relationship = OrientationRelationship(
+            candidate: .plane(SIMD3(0, 0, 2)), matrix: .plane(SIMD3(2, 0, 0)))
+        let matrixPhase = PhaseDefinition(id: "al", displayName: "Al", crystal: al,
                                           role: .matrix, zoneAxes: [SIMD3(0, 0, 1)])
-        func candidatePhase(list: [Double]?) -> PhaseDefinition {
-            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
-                            role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
-                            inPlaneDegreesRelativeToMatrix: list)
+        let candidatePhase = PhaseDefinition(
+            id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
+            role: .candidate, zoneAxes: [SIMD3(1, 0, 0)],
+            orientationRelationships: [relationship])
+        let library = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, candidatePhase], settings: reference)
+
+        var fixtureSettings = PhaseVectorSettings()
+        fixtureSettings.directBeamRadiusInvAngstrom = 0
+        fixtureSettings.orientationRelationshipToleranceDeg = 10
+        let scale = 0.005
+
+        func braggFor(entryIndex: Int, in aLibrary: PhaseReferenceLibrary) -> BraggVectors {
+            let peaks: [BraggPeak] = aLibrary.entries[entryIndex].vectors.map {
+                BraggPeak(x: Float($0.q.x / scale), y: Float($0.q.y / scale), intensity: 1)
+            }
+            return BraggVectors(scanWidth: 1, scanHeight: 1, peaks: [peaks])
         }
-        let constrained = try PhaseReferenceLibrary.build(
-            phases: [matrixPhase, candidatePhase(list: [0])], settings: reference)
-        let free = try PhaseReferenceLibrary.build(
-            phases: [matrixPhase, candidatePhase(list: nil)], settings: reference)
 
-        let matrixIndex = try XCTUnwrap(constrained.matrixEntryIndices.first {
-            constrained.entries[$0].inPlaneRotationRad.magnitude < 1e-9
-        }, "no matrix entry at 0° in the fixture")
-        let rotated45 = try XCTUnwrap(constrained.candidateEntryIndices.first { index in
-            let deg = constrained.entries[index].inPlaneRotationRad * 180 / .pi
-            return abs(deg - 45) < 1e-6
-        }, "no candidate entry at 45° -- the fixture's inPlaneStepDeg is not 45")
-        let vectors = constrained.entries[rotated45].vectors
-        XCTAssertGreaterThanOrEqual(vectors.count, 3,
-                                    "the 45° candidate entry has too few vectors to test")
+        func check(matrixDeg: Double) throws {
+            let matrixIndex = try XCTUnwrap(library.matrixEntryIndices.first {
+                abs(library.entries[$0].inPlaneRotationRad * 180 / .pi - matrixDeg) < 1e-6
+            }, "no matrix entry at \(matrixDeg)° in the fixture")
+            let matrixEntry = library.entries[matrixIndex]
 
-        var settings = PhaseVectorSettings()
-        settings.directBeamRadiusInvAngstrom = 0
-        settings.orientationRelationshipToleranceDeg = 10
-        let scale = 0.008
-        let peaks: [BraggPeak] = vectors.map {
-            BraggPeak(x: Float($0.q.x / scale), y: Float($0.q.y / scale), intensity: 1)
+            let passing = library.candidateEntryIndices.filter { index in
+                PhaseVectorMatcher.orientationConsistent(
+                    candidate: library.entries[index], candidateCrystal: thetaPrime,
+                    matrix: matrixEntry, matrixCrystal: al,
+                    relationships: [relationship], toleranceDeg: 10)
+            }
+            let hit = try XCTUnwrap(passing.first,
+                "no candidate rotation of the 45° sweep satisfies the OR at matrix \(matrixDeg)°")
+            let hitDeg = library.entries[hit].inPlaneRotationRad * 180 / .pi
+            let miss = try XCTUnwrap(library.candidateEntryIndices.first { index in
+                guard !passing.contains(index) else { return false }
+                let deg = library.entries[index].inPlaneRotationRad * 180 / .pi
+                let delta = abs(deg - hitDeg).truncatingRemainder(dividingBy: 360)
+                let wrapped = min(delta, 360 - delta)
+                return wrapped > 44 && wrapped < 46
+            }, "no 45°-off, non-passing neighbour of the OR entry at matrix \(matrixDeg)°")
+
+            let hitMap = try XCTUnwrap(PhaseVectorMatcher.map(
+                bragg: braggFor(entryIndex: hit, in: library), library: library, settings: fixtureSettings,
+                originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex))
+            XCTAssertEqual(hitMap.results[0].verdict, .indexed,
+                           "the candidate entry AT the OR angle (matrix \(matrixDeg)°) was not indexed")
+
+            let missMap = try XCTUnwrap(PhaseVectorMatcher.map(
+                bragg: braggFor(entryIndex: miss, in: library), library: library, settings: fixtureSettings,
+                originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex))
+            XCTAssertNotEqual(missMap.results[0].verdict, .indexed,
+                              "the candidate entry 45° off the OR angle (matrix \(matrixDeg)°) "
+                              + "was indexed anyway")
         }
-        let bragg = BraggVectors(scanWidth: 1, scanHeight: 1, peaks: [peaks])
+        try check(matrixDeg: 0)
+        try check(matrixDeg: 45)
 
-        let constrainedMap = try XCTUnwrap(PhaseVectorMatcher.map(
-            bragg: bragg, library: constrained, settings: settings,
-            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex))
-        XCTAssertNotEqual(constrainedMap.results[0].verdict, .indexed,
-                          "a candidate entry 45° from the matrix, outside its listed [0], "
-                          + "was indexed anyway")
-
+        // --- 5. An empty list is free -------------------------------------
+        let freePhase = PhaseDefinition(
+            id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
+            role: .candidate, zoneAxes: [SIMD3(1, 0, 0)], orientationRelationships: [])
+        let freeLibrary = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, freePhase], settings: reference)
+        let freeMatrixIndex = try XCTUnwrap(freeLibrary.matrixEntryIndices.first {
+            freeLibrary.entries[$0].inPlaneRotationRad.magnitude < 1e-9
+        })
+        // Any grid rotation will do -- 45°, which the constrained sweep
+        // above found to be off the OR angle at matrix 0°.
+        let freeCandidateIndex = try XCTUnwrap(freeLibrary.candidateEntryIndices.first {
+            abs(freeLibrary.entries[$0].inPlaneRotationRad * 180 / .pi - 45) < 1e-6
+        })
         let freeMap = try XCTUnwrap(PhaseVectorMatcher.map(
-            bragg: bragg, library: free, settings: settings,
-            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex))
+            bragg: braggFor(entryIndex: freeCandidateIndex, in: freeLibrary), library: freeLibrary,
+            settings: fixtureSettings, originX: 0, originY: 0, invAngstromPerPixel: scale,
+            matrixEntryIndex: freeMatrixIndex))
         XCTAssertEqual(freeMap.results[0].verdict, .indexed,
-                       "without a list the free sweep should still index the planted 45° entry")
-        XCTAssertEqual(Int(freeMap.results[0].phaseIndex), free.entries[rotated45].phaseIndex,
-                       "the free run did not recover the planted candidate phase")
+                       "an empty orientation-relationship list should not constrain the map")
 
-        // An empty list is free, like nil — not "nothing allowed", which
-        // would empty the candidate set and refuse the whole map.
-        let emptyList = try PhaseReferenceLibrary.build(
-            phases: [matrixPhase, candidatePhase(list: [])], settings: reference)
-        let emptyMap = try XCTUnwrap(PhaseVectorMatcher.map(
-            bragg: bragg, library: emptyList, settings: settings,
-            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixIndex),
-            "an empty angle list refused the map")
-        XCTAssertEqual(emptyMap.results[0].verdict, .indexed,
-                       "an empty angle list did not behave like no list")
+        // --- 6. A pair whose vector is not in the entry's zone does not
+        // constrain it: (200)θ′ lies exactly along the [100] zone axis, so
+        // it can never be projected, and the phase must stay free rather
+        // than refusing every entry.
+        let outOfZoneRelationship = OrientationRelationship(
+            candidate: .plane(SIMD3(2, 0, 0)), matrix: .plane(SIMD3(2, 0, 0)))
+        let outOfZonePhase = PhaseDefinition(
+            id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
+            role: .candidate, zoneAxes: [SIMD3(1, 0, 0)],
+            orientationRelationships: [outOfZoneRelationship])
+        let outOfZoneLibrary = try PhaseReferenceLibrary.build(
+            phases: [matrixPhase, outOfZonePhase], settings: reference)
+        let outOfZoneMatrixIndex = try XCTUnwrap(outOfZoneLibrary.matrixEntryIndices.first {
+            outOfZoneLibrary.entries[$0].inPlaneRotationRad.magnitude < 1e-9
+        })
+        let outOfZoneCandidateIndex = try XCTUnwrap(outOfZoneLibrary.candidateEntryIndices.first {
+            abs(outOfZoneLibrary.entries[$0].inPlaneRotationRad * 180 / .pi - 45) < 1e-6
+        })
+        let outOfZoneMap = try XCTUnwrap(PhaseVectorMatcher.map(
+            bragg: braggFor(entryIndex: outOfZoneCandidateIndex, in: outOfZoneLibrary), library: outOfZoneLibrary,
+            settings: fixtureSettings, originX: 0, originY: 0, invAngstromPerPixel: scale,
+            matrixEntryIndex: outOfZoneMatrixIndex))
+        XCTAssertEqual(outOfZoneMap.results[0].verdict, .indexed,
+                       "a relationship pair not in either zone must not constrain the entry")
 
-        // --- 3. The matrix at a NONZERO angle (Gate B 2026-09-15: every
-        // assertion above fits the matrix at 0°, so a filter that ignored
-        // the matrix angle passed them all). Matrix at 45°, the same 45°
-        // candidate entry: 0° apart, so a list of [0] must index it and a
-        // list of [45] must not.
-        let matrixAt45 = try XCTUnwrap(constrained.matrixEntryIndices.first {
-            abs(constrained.entries[$0].inPlaneRotationRad * 180 / .pi - 45) < 1e-6
-        }, "no matrix entry at 45° in the fixture")
-        let alignedMap = try XCTUnwrap(PhaseVectorMatcher.map(
-            bragg: bragg, library: constrained, settings: settings,
-            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixAt45))
-        XCTAssertEqual(alignedMap.results[0].verdict, .indexed,
-                       "with the matrix at 45° the 45° candidate is 0° apart and listed, "
-                       + "yet was not indexed -- mutation: the matrix angle ignored")
-        let offset = try PhaseReferenceLibrary.build(
-            phases: [matrixPhase, candidatePhase(list: [45])], settings: reference)
-        let offsetMap = try XCTUnwrap(PhaseVectorMatcher.map(
-            bragg: bragg, library: offset, settings: settings,
-            originX: 0, originY: 0, invAngstromPerPixel: scale, matrixEntryIndex: matrixAt45))
-        XCTAssertNotEqual(offsetMap.results[0].verdict, .indexed,
-                          "with the matrix at 45° a listed [45] admitted a candidate 0° apart")
+        // --- Gate B 2026-09-15: every plane above has the same azimuth in
+        // either crystal (orthogonal cells, (h00)-type), so the two crystals
+        // SWAPPED inside `orientationConsistent` was invisible. A hexagonal
+        // candidate's (110) sits 60° from a in the basal plane, a cubic
+        // matrix's 45°, so the derived offset is 15° one way and −15° the
+        // other; the swap flips its sign. (The exact-tolerance boundary is
+        // real-valued after atan2 and is not pinned: `<` vs `<=` differ only
+        // at equality, which no fixture reaches exactly.)
+        let hexagonal = Crystal(a: 4.94775, b: 4.94775, c: 14.14499,
+                                alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
+                                sites: [AtomSite(z: 13, fractional: SIMD3(0, 0, 0))])
+        let cubic = Crystal.aluminum
+        let basal = SIMD3<Int>(0, 0, 1)
+        let up = SIMD3<Double>(0, 0, 1)           // both cells carry c along z
+        let azHex = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
+            of: LatticeVector.plane(SIMD3(1, 1, 0)).cartesian(in: hexagonal),
+            zoneAxis: up, inPlaneRotationRad: 0))
+        let azCubic = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
+            of: LatticeVector.plane(SIMD3(1, 1, 0)).cartesian(in: cubic),
+            zoneAxis: up, inPlaneRotationRad: 0))
+        let derivedOffset = azCubic - azHex
+        XCTAssertGreaterThan(abs(derivedOffset) * 180 / .pi, 12,
+                             "the two (110) azimuths must differ by more than the tolerance for this to bite")
+        let oneOneZero = [OrientationRelationship(candidate: .plane(SIMD3(1, 1, 0)),
+                                                  matrix: .plane(SIMD3(1, 1, 0)))]
+        func hexCandidate(at rad: Double) -> PhaseOrientationReference {
+            PhaseOrientationReference(phaseIndex: 1, zoneAxis: basal, inPlaneRotationRad: rad, vectors: [])
+        }
+        let cubicMatrix = PhaseOrientationReference(phaseIndex: 0, zoneAxis: basal,
+                                                    inPlaneRotationRad: 0, vectors: [])
+        XCTAssertTrue(PhaseVectorMatcher.orientationConsistent(
+            candidate: hexCandidate(at: derivedOffset), candidateCrystal: hexagonal,
+            matrix: cubicMatrix, matrixCrystal: cubic, relationships: oneOneZero, toleranceDeg: 10),
+            "the offset derived from the two crystals was not accepted")
+        XCTAssertFalse(PhaseVectorMatcher.orientationConsistent(
+            candidate: hexCandidate(at: -derivedOffset), candidateCrystal: hexagonal,
+            matrix: cubicMatrix, matrixCrystal: cubic, relationships: oneOneZero, toleranceDeg: 10),
+            "the offset with its sign flipped was accepted -- mutation: the two crystals swapped")
     }
 
     // MARK: Fixtures
@@ -927,6 +1107,54 @@ final class ZoneAxisParsingTests: XCTestCase {
             XCTAssertNil(PhaseMappingSlot.parseZoneAxis(text),
                          "\(text) was accepted as a zone axis")
         }
+    }
+
+    /// The orientation-relationship field's parser: pairs "A ∥ B" separated by
+    /// "," or ";", A this phase's vector and B the matrix's, each a plane
+    /// "(hkl)" (parens optional) or a direction "[uvw]" (brackets required).
+    ///
+    /// Mutations named here because each is a plausible wrong shortcut:
+    /// - only the first pair parsed and the rest of the list silently dropped
+    ///   (a `split` that stops after one, or a loop with an early `return`);
+    /// - a bracketed "[uvw]" read as a plane instead of a direction (the
+    ///   bracket/paren dispatch collapsed to one case);
+    /// - empty text returning `nil` (a refusal) instead of `[]` (free — no
+    ///   constraint), which would make every existing phase's empty field an
+    ///   error the day this shipped.
+    func testAnOrientationRelationshipParsesTheWayItIsWritten() {
+        let twoPairs = PhaseMappingSlot.parseOrientationRelationships(
+            "(002) ∥ (200), (002) ∥ (020)")
+        XCTAssertEqual(twoPairs, [
+            OrientationRelationship(candidate: .plane(SIMD3(0, 0, 2)),
+                                    matrix: .plane(SIMD3(2, 0, 0))),
+            OrientationRelationship(candidate: .plane(SIMD3(0, 0, 2)),
+                                    matrix: .plane(SIMD3(0, 2, 0))),
+        ])
+
+        XCTAssertEqual(PhaseMappingSlot.parseOrientationRelationships("002 || 200"), [
+            OrientationRelationship(candidate: .plane(SIMD3(0, 0, 2)),
+                                    matrix: .plane(SIMD3(2, 0, 0))),
+        ])
+
+        XCTAssertEqual(PhaseMappingSlot.parseOrientationRelationships("[210] // (220)"), [
+            OrientationRelationship(candidate: .direction(SIMD3(2, 1, 0)),
+                                    matrix: .plane(SIMD3(2, 2, 0))),
+        ])
+
+        XCTAssertEqual(PhaseMappingSlot.parseOrientationRelationships(""), [])
+        XCTAssertEqual(PhaseMappingSlot.parseOrientationRelationships("  "), [])
+
+        for text in ["(002) ∥", "abc ∥ (200)", "(002) (200)"] {
+            XCTAssertNil(PhaseMappingSlot.parseOrientationRelationships(text),
+                         "\(text) was accepted as an orientation relationship")
+        }
+
+        var slot = PhaseMappingSlot(model: CrystalModelLibrary.models[0], isMatrix: false,
+                                    u: 0, v: 0, w: 1)
+        let before = slot.signature
+        slot.orientationRelationshipText = "(002) ∥ (200)"
+        XCTAssertNotEqual(slot.signature, before,
+                          "the signature did not change when the OR text did")
     }
 }
 

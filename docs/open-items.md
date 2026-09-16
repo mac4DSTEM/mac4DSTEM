@@ -145,10 +145,29 @@ moved to 0.75 of the pair radius (pre-registered, measured on both
 datasets, its own item below): Thronsen at 0.2 % is now 7.96 % free and
 6.64 % with the OR** (edge-on 69 %, face-on 52 %, face-on → edge-on 0,
 T1 80 %, Al 99.6 %), and the orientation relationship now passes every
-clause of its pre-registration. What remains: the OR's user-facing form
-(a pair of parallel planes, not angles in the library's frame), and
-detection at the noise floor for T1's last 20 % and face-on's 38 % still
-read as Al. Also
+clause of its pre-registration. **The OR in its own form landed the same
+evening** (pre-registered, `thronsen-orform-20260915.log`): a phase states
+pairs of parallel lattice vectors — planes (hkl) or directions [uvw] — and
+Core derives the allowed in-plane angle per (matrix entry, candidate entry)
+from both zones' own frames, modulo 180° (a flat-Ewald ZOLZ is
+centrosymmetric); a pair whose vector is not in the entry's zone does not
+apply. θ′ edge-on "(002) ∥ (200), (002) ∥ (020)", face-on "(200) ∥ (200),
+(200) ∥ (020)", T1 free: **6.64 %**, edge-on 68 %, face-on 52 %, face-on →
+edge-on 0, T1 80 %, Al 99.6 % — every clause held, within one position of
+the library-frame angle list it replaces. The field sits under a candidate
+slot's zone axis in Phase mapping ("Parallel to matrix") and the pairs are
+in the run's provenance. T1's OR is written in real-space directions
+([1-10]Al ∥ [10-10]T1) and is not yet stated for its [0 -4 1] zone — it
+stays free. **Gate B on the form** confirmed the frame identity (0.0° at
+every rotation), the exactness of the 180° fold under the flat Ewald
+sphere, and ~9–10 surviving entries per variant at 10°; it found that a
+matrix fitted on a zone the pairs were not written for narrows a
+two-variant relationship to whichever variant is still in that zone, or
+frees it, with nothing shown — recorded here, not hidden; and two test
+blind spots, one closed (the crystals swapped inside the derivation, now
+a hexagonal-against-cubic (110) case), one recorded (the exact tolerance
+boundary is real-valued and not pinned). What remains: detection at the
+noise floor for T1's last 20 % and the 38 % of face-on still read as Al. Also
 recorded: a phase filtered to no entries vanishes from the map silently,
 and every phase empty refuses the map (unreachable while no phase lists
 angles).

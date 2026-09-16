@@ -70,25 +70,35 @@ enum Thronsen {
 
     /// `constrained: false` is byte-for-byte today's behaviour (every phase
     /// free). `constrained: true` (`--or`) attaches the orientation
-    /// relationship: edge-on and face-on θ′ at Al's four-fold {0, 90, 180,
-    /// 270}; T1 at the measured winner-angle clusters — MEASURED from the
-    /// 2026-09-15 winner-angle table, not yet derived from the OR itself.
+    /// relationship stated in its own form (2026-09-15): θ′ edge-on and
+    /// face-on both list their two symmetry-equivalent variants against
+    /// Al's {200} in the [001] zone — Core derives the allowed azimuth per
+    /// entry, so no library-frame degree list is carried by hand any more.
+    /// T1 lists nothing (free): the paper states T1's relationship in
+    /// REAL-SPACE directions, `(0001)T1 ∥ (111)Al, [1-10]Al ∥ [10-10]T1`,
+    /// which is not yet derived into this form — the angle-list run that
+    /// preceded this one placed T1 at the measured winner-angle clusters
+    /// instead, which is not a derivation and does not carry over.
     static func phases(constrained: Bool) -> [PhaseDefinition] {
-        let thetaAngles: [Double]? = constrained ? [0, 90, 180, 270] : nil
-        let t1Angles: [Double]? = constrained
-            ? [25, 65, 115, 155, 205, 245, 295, 335] : nil
+        let thetaRelationships: [OrientationRelationship] = constrained ? [
+            OrientationRelationship(candidate: .plane(SIMD3(0, 0, 2)), matrix: .plane(SIMD3(2, 0, 0))),
+            OrientationRelationship(candidate: .plane(SIMD3(0, 0, 2)), matrix: .plane(SIMD3(0, 2, 0))),
+        ] : []
+        let thetaFaceRelationships: [OrientationRelationship] = constrained ? [
+            OrientationRelationship(candidate: .plane(SIMD3(2, 0, 0)), matrix: .plane(SIMD3(2, 0, 0))),
+            OrientationRelationship(candidate: .plane(SIMD3(2, 0, 0)), matrix: .plane(SIMD3(0, 2, 0))),
+        ] : []
         return [
             PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
             PhaseDefinition(id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
                             role: .candidate, zoneAxes: [SIMD3(1, 0, 0)],
-                            inPlaneDegreesRelativeToMatrix: thetaAngles),
+                            orientationRelationships: thetaRelationships),
             PhaseDefinition(id: "theta-face", displayName: "θ′ face-on", crystal: thetaPrime,
                             role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
-                            inPlaneDegreesRelativeToMatrix: thetaAngles),
+                            orientationRelationships: thetaFaceRelationships),
             PhaseDefinition(id: "t1", displayName: "T1", crystal: t1,
-                            role: .candidate, zoneAxes: [SIMD3(0, -4, 1)],
-                            inPlaneDegreesRelativeToMatrix: t1Angles),
+                            role: .candidate, zoneAxes: [SIMD3(0, -4, 1)]),
         ]
     }
 

@@ -127,6 +127,50 @@ package nonisolated struct PhaseOrientationReference: Sendable {
     }
 }
 
+// MARK: - The orientation relationship, stated the way a crystallographer writes it
+
+/// A lattice vector named the way a crystallographer names it: a plane
+/// "(hkl)" — a reciprocal vector, `h·a* + k·b* + l·c*` — or a direction
+/// "[uvw]" — a real one, `u·a + v·b + w·c`. Both come out as Cartesian
+/// vectors in the crystal's own frame (`Crystal.latInv` rows for a plane,
+/// `Crystal.latReal` rows for a direction), which is all the projection
+/// (`PhaseVectorMatcher.projectedAzimuth`) needs — it never sees `hkl` or
+/// `uvw` again.
+package nonisolated enum LatticeVector: Sendable, Equatable {
+    case plane(SIMD3<Int>)
+    case direction(SIMD3<Int>)
+
+    /// This vector's Cartesian form in `crystal`'s own frame. Not normalised
+    /// — `projectedAzimuth` only needs its direction, and the caller never
+    /// reads its length.
+    package func cartesian(in crystal: Crystal) -> SIMD3<Double> {
+        switch self {
+        case .plane(let hkl):
+            return Double(hkl.x) * crystal.latInv[0]
+                + Double(hkl.y) * crystal.latInv[1]
+                + Double(hkl.z) * crystal.latInv[2]
+        case .direction(let uvw):
+            return Double(uvw.x) * crystal.latReal[0]
+                + Double(uvw.y) * crystal.latReal[1]
+                + Double(uvw.z) * crystal.latReal[2]
+        }
+    }
+}
+
+/// One statement of an orientation relationship: this phase's vector is
+/// parallel to the matrix's — the way a paper states it, e.g.
+/// "(002)θ′ ∥ (200)Al". List every symmetry-equivalent variant explicitly;
+/// Core knows no symmetry.
+package nonisolated struct OrientationRelationship: Sendable, Equatable {
+    package let candidate: LatticeVector
+    package let matrix: LatticeVector
+
+    package nonisolated init(candidate: LatticeVector, matrix: LatticeVector) {
+        self.candidate = candidate
+        self.matrix = matrix
+    }
+}
+
 // MARK: - A phase as the library sees it
 
 /// One phase in the library: a structure, a name, and whether it is the matrix.
@@ -151,31 +195,34 @@ package nonisolated struct PhaseDefinition: Sendable {
     /// Beam directions to sample, as lattice indices. Empty means the caller
     /// wants `PhaseReferenceLibrary.lowIndexZoneAxes` for this phase.
     package let zoneAxes: [SIMD3<Int>]
-    /// The in-plane angles, degrees, a candidate entry of this phase may
-    /// take relative to the fitted matrix entry (candidate minus matrix, mod
-    /// 360, ±`PhaseVectorSettings.orientationRelationshipToleranceDeg`).
-    /// nil, or an empty list, is free — today's behaviour. The caller lists
-    /// every symmetry-equivalent variant explicitly; Core knows no symmetry.
-    /// THE ANGLE IS THE LIBRARY'S, NOT A LAB ANGLE (Gate B 2026-09-15): each
-    /// entry's in-plane frame comes from `ACOMOrientation.detectorBasis`,
-    /// whose first axis depends on which branch the zone axis falls on, so
-    /// the same listed value is a different physical angle for a [100] zone
-    /// than for a [001] zone against a [001] matrix — compute both frames
-    /// from `detectorBasis` before listing (for θ′[100] against Al[001] the
-    /// offset is an exact multiple of 90°, so the textbook list is right in
-    /// this frame; why half of Thronsen's edge-on matches still sit at
-    /// 22°/67° is open in `docs/open-items.md`).
-    package let inPlaneDegreesRelativeToMatrix: [Double]?
+    /// The orientation relationship this phase is stated to have with the
+    /// matrix, as pairs of parallel lattice vectors — "(002) ∥ (200)", not a
+    /// pre-computed angle. Empty is free — today's behaviour, and the caller
+    /// lists every symmetry-equivalent variant explicitly; Core knows no
+    /// symmetry.
+    ///
+    /// DERIVED, PER ENTRY (2026-09-15, replacing a library-frame degree
+    /// list): each pair's candidate and matrix vectors are projected into
+    /// their OWN entry's detector frame (`ACOMOrientation.detectorBasis` of
+    /// that entry's zone axis, then that entry's own in-plane rotation) and
+    /// compared as azimuths — so the same statement is checked against
+    /// every zone axis and rotation a phase samples, rather than one library
+    /// frame the caller had to work out by hand. The comparison is modulo
+    /// 180°: a ZOLZ under the flat Ewald sphere this file already uses (see
+    /// `projectedVectors`) is centrosymmetric, g and −g both excited, so a
+    /// plane and its negative are indistinguishable and "parallel" only
+    /// means so up to sign.
+    package let orientationRelationships: [OrientationRelationship]
 
     package nonisolated init(id: String, displayName: String, crystal: Crystal,
                              role: Role, zoneAxes: [SIMD3<Int>],
-                             inPlaneDegreesRelativeToMatrix: [Double]? = nil) {
+                             orientationRelationships: [OrientationRelationship] = []) {
         self.id = id
         self.displayName = displayName
         self.crystal = crystal
         self.role = role
         self.zoneAxes = zoneAxes
-        self.inPlaneDegreesRelativeToMatrix = inPlaneDegreesRelativeToMatrix
+        self.orientationRelationships = orientationRelationships
     }
 }
 

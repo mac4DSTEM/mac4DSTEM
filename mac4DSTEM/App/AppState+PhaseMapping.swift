@@ -37,7 +37,8 @@ extension AppState {
                 id: slot.model.id, displayName: slot.model.displayName,
                 crystal: slot.model.crystal,
                 role: slot.isMatrix ? .matrix : .candidate,
-                zoneAxes: [slot.zoneAxis]
+                zoneAxes: [slot.zoneAxis],
+                orientationRelationships: slot.isMatrix ? [] : slot.orientationRelationships
             )
         }
     }
@@ -240,6 +241,12 @@ extension AppState {
             // harness demonstrates on fcc [001] (P5a).
             out["matrix_in_plane_deg_mod_symmetry"] =
                 String(format: "%.1f", run.matrixInPlaneDegrees)
+        }
+        let orientationStatements = phaseMapping.phases
+            .filter { !$0.isMatrix && !$0.orientationRelationshipText.isEmpty }
+            .map { "\($0.model.displayName): \($0.orientationRelationshipText)" }
+        if !orientationStatements.isEmpty {
+            out["orientation_relationships"] = orientationStatements.joined(separator: " | ")
         }
         for (index, name) in map.phaseNames.enumerated() {
             let counts = map.phaseCounts
