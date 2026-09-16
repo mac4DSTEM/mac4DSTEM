@@ -24,18 +24,9 @@ one.
 
 ## Building
 
-macOS 26 or later on Apple Silicon, and a **full Xcode** — the Command Line
-Tools alone cannot build this project.
-
-```sh
-xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
-```
-
-```sh
-tools/run-tests.sh unit          # fast XCTest suite
-tools/run-tests.sh scientific    # py4DSTEM-parity harnesses
-tools/run-tests.sh all           # the acceptance gate
-```
+Xcode 26 or later (development is on 27.0, CI on macos-26) on Apple Silicon,
+and a **full Xcode** — the Command Line Tools alone cannot build this project.
+Build and test commands: `CLAUDE.md` § Build / test.
 
 Everything under `tools/` resolves its own toolchain via
 `tools/lib/developer-dir.sh`: an explicit `DEVELOPER_DIR` wins, then whatever
@@ -45,53 +36,17 @@ harnesses also need a Python with NumPy and py4DSTEM installed; set
 
 ## Where code goes
 
-The Xcode project uses synchronized folder groups, so **placement is wiring** —
-a file added under `mac4DSTEM/` joins the app target automatically, and `.metal`
-files route to the Metal compile phase on their own.
-
-| Adding | Goes under |
-|---|---|
-| Window/workflow state, app entry | `mac4DSTEM/App/` |
-| Readers, calibration model, product model | `mac4DSTEM/Core/Data/` |
-| Session/selection state, its seams | `mac4DSTEM/Session/` |
-| Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
-| Export, bridging header | `mac4DSTEM/Support/` |
-| GPU engine, FFTs, cancellation | `mac4DSTEM/Core/Compute/` |
-| Analysis algorithms | `mac4DSTEM/Core/Analysis/` |
-| Crystal models, ACOM matching | `mac4DSTEM/Core/Crystal/` |
-| SwiftUI views and controls | `mac4DSTEM/UI/` |
-| Metal kernels | `mac4DSTEM/Shaders/` |
-| Unit / workflow-contract tests | `mac4DSTEMTests/` |
-| Parity or packaging harnesses | `tools/<name>/` |
+The Xcode project uses synchronized folder groups, so **placement is
+wiring** — a file added under `mac4DSTEM/` joins the app target
+automatically. Layering, ownership and where a new file goes: `docs/architecture.md`.
 
 ## The rules that actually matter
 
-- **Views describe UI only.** Loading, parsing and compute live in `Core/`.
-  `AppState` is the single source of truth *until the planned per-responsibility
-  owners replace it* — but no new stored state goes into it: a change names its
-  owner first, and a change that touches `AppState` moves one responsibility out
-  of it. Splitting into `extension AppState { }` does not count.
-- **A change to `Core/` or to anything science-affecting needs a parity fixture
-  in `tools/`**, and a review that tries to *refute* it rather than confirm it.
-  A green build is not evidence of parity. This is not ceremony: fixes here
-  have three times passed every test written for them and still been wrong.
-- **A test written for your own fix proves nothing until you have watched it
-  fail without the fix.**
-- **Departures from py4DSTEM get an inline `DEVIATION` note** giving the reason
-  and citing the corresponding location in the pinned py4DSTEM 0.14.19 source.
-  That source is **not in the repository**: run `tools/lib/fetch-py4dstem.sh` to
-  clone it at the pinned commit into the gitignored `References/py4DSTEM-dev/`.
-- **Metal parameter structs in `MetalEngine.swift` must stay byte-for-byte
-  identical** to the matching `.metal` structs — all 4-byte fields.
-- **Acceptance is evaluation only.** Never change app code to make an
-  acceptance step pass. If the app blocks the pipeline, that is a finding, not a
-  bug to paper over. Acceptance means `tools/run-tests.sh` plus the owner
-  driving the app on screen. The scripted visual checklist (Track B) was retired
-  2026-09-03 and is archived at
-  `docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`; the XCUITest QC
-  playthrough was retired 2026-08-17 and its target deleted 2026-09-02.
-- **Never widen a gate that fails silently.** A check that degrades to a
-  warning nobody reads is worse than no check.
+The full set is `CLAUDE.md` § Hard rules — Gate D (diagnosis before a fix,
+independent refuter after), Gate B for anything science-affecting, inline
+`DEVIATION` notes against the pinned py4DSTEM source, Metal struct
+byte-identity, and never widening a gate that fails silently. Read it before
+touching `Core/`.
 
 ## Scope
 

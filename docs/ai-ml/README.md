@@ -102,10 +102,8 @@ of matrix disks** (at 7–10 px of the 64, where the matrix disks sit at
 annulus of 4–10 px about the beam shows both needle families, a 2.5-px
 circle on ONE of those reflections shows one family only, so the families
 are separable by the reflection they diffract into. Reproduced from the
-cube (every second scan position) in
-`docs/images/precipitates-al-simg-near-beam-2026-09-07.png`:
-
-![Al-Si-Mg needles: max pattern, annulus, one reflection](../images/precipitates-al-simg-near-beam-2026-09-07.png)
+cube (every second scan position) in an image that is not in the tree
+(`docs/images/` holds only `strain-map-workspace.png`).
 
 What it decides for the design: the segmentation stack's most informative
 channels are **one dark-field image per near-beam reflection** (each
@@ -207,7 +205,7 @@ does not imply a top-level source folder containing every layer.
 | Home | Responsibility | State |
 |---|---|---|
 | `docs/ai-ml/README.md` | This brief and future specification index | Created for this request |
-| `docs/ai-ml/<feature>.md` | One active feature's scope, inputs, state owner, validation and decisions | Create only when that feature starts; first is `docs/ai-ml/precipitates.md` (design only, unscheduled) |
+| `docs/ai-ml/<feature>.md` | One active feature's scope, inputs, state owner, validation and decisions | Create only when that feature starts; the first attempt's real-space route is superseded and archived at `docs/archive/v3/precipitates-real-space-route-2026-09-07.md`, current design is `docs/v3-precipitate-classification.md` |
 | `docs/v3-plan.md` | Cross-feature sequence and existing disk-detector pre-registration | Existing; link rather than duplicate |
 | `docs/status.md`, `docs/open-items.md`, `docs/decisions.md` | Live progress, defects/debt, durable decisions respectively | Existing authorities |
 | `docs/archive/` | Completed investigation and superseded evidence narratives | Existing |
@@ -263,8 +261,10 @@ Broad enthusiasm for the direction does not settle these choices.
 The discussion also clarified GitHub Desktop's “Preview Pull Request”: a
 published feature branch is uploaded work, not merged or released work. A PR
 proposes integration and supports review; merging incorporates the changes.
-Follow the existing branch/integration rules, linear main, and commit/push only
-when asked. Today's request is for this documentation, not a PR or app change.
+Follow the existing branch/integration rules and linear main; commit freely
+as coherent commits with gate numbers in the message, but pushing stays the
+owner's (owner, 2026-09-16). Today's request is for this documentation, not a
+PR or app change.
 
 ## 11. Literature and platform references discussed
 

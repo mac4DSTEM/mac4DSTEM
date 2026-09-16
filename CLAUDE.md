@@ -1,95 +1,41 @@
 # CLAUDE.md — start here
 
-mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple
-Silicon, validated against py4DSTEM at one pinned upstream commit
-(`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`).
-**v2.5.1 is the released artefact (2026-09-04); v3.0.0 is prepared and not yet
-cut.** The consolidation plan **exited 2026-09-11**
-(`docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature
-freeze it carried lapsed with it. Rules only here; status and history elsewhere.
+mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple Silicon, validated against py4DSTEM at one pinned upstream commit (`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`).
+**v3.0.0 was released 2026-09-11**, version/build 3.0.0 / 6. The consolidation plan **exited 2026-09-11** (`docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature freeze it carried lapsed with it. Rules only here; status and history elsewhere.
 
-## Read, in this order (2451 lines on 2026-09-11, after the plan was archived)
+## Read, in this order
 
 1. `docs/status.md` — what is live now, one table. Every session starts here.
-2. `docs/v3-plan.md` — the feature plan (draft): the themes, the 2026-08-28
-   decisions, how a feature is pre-registered and built.
+2. `ROADMAP.md` — the feature plan: themes, priorities, and how a v3 feature is pre-registered and built (§6).
 3. `docs/open-items.md` — live defects and debts only, ≤ 12 lines each.
-4. `docs/development-process.md` — how work is done, gated and recorded.
-5. `docs/architecture.md` — layering, ownership, where files go.
-6. `docs/decisions.md` — append-only; why things are the way they are.
-
-History is `docs/archive/` (the v2 chronology under `docs/archive/v2/`).
-Consult it for *why*, never for what to do next. Reference docs that are
-neither status nor history: `docs/releasing.md`, `docs/dm4-format.md`,
-`docs/q-calibration-design.md`, `docs/py4dstem-pipelines.md`.
+4. `docs/architecture.md` — layering, ownership, where files go.
+5. `docs/decisions.md` — the ADR index; one row per decision, the record itself in `docs/decisions/`.
 
 Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 `/diagnose` is Gate D; `/adversarial-review` is Gate B; `/closeout`.
-A feature target is no longer refused — `docs/v3-plan.md` §6 says how a v3
-feature is pre-registered and built.
 
 ## Hard rules
 
-- Views describe UI only; loading, parsing and compute live in `Core/`.
-  `AppState` is the single source of truth until the plan's stores replace it.
-- New stored state in `AppState` names its owner first. The hard "never net
-  positive lines" form of C5 is **overruled (owner, 2026-09-16)**: growth is
-  allowed where it is the honest place for the state. `inventory` still
-  measures `AppState.swift` + `Support/ResultExport.swift` and now **reports**
-  the delta instead of failing on it — the caution is real, the block is not.
-  A commit that grows them says in its message why no other home would do.
-  Extractions still follow the plan's §4 order, one at a time, each with a
-  green boundary and a reopen test.
-- **Gate D applies when a change can move a scientific number, or when the
-  cause of a defect is not yet established** — not to every change in `Core/`.
-  Diagnosis, refuting observation, predicted outcome, then the experiment,
-  before the fix; an independent refuter after; a fixture. The model that
-  wrote the change never approves it alone. Review the diagnosis, not the diff.
-  The refuter stays because this repo has shipped three confident wrong
-  diagnoses that passed every test written for them; a model that forms a
-  hypothesis writes tests that confirm it.
-- **What does NOT need Gate D**, and saying so is the point (2026-09-04): pure
-  placement and presentation changes, renames, docs, tooling, and defects whose
-  mechanism is already proven by a reproducing observation. State which of the
-  two triggers applies, or say that neither does and proceed.
-- Break every new test before trusting it. Do not drive the app during the
-  unit gate. Quote test numbers only from a dated run, named by its log;
-  `tools/run-tests.sh` is the only thing that knows the harness count. A log
-  name is a name, not a path — session logs are gitignored and not retained
-  (2026-09-09: all 24 cited `scratchpad/` paths were already gone). Evidence a
-  reader must open is committed under `docs/archive/`; the inventory gate fails
-  on a repo-rooted path a truth doc cites and does not have.
-  **Never read a gate's exit code through a pipe** — `run-tests.sh … | tail`
-  reports `tail`'s status, not the gate's. Redirect to a log, `echo $?` on
-  its own line, then grep the log. This has swallowed a failing gate three
-  times (S4, S8, and twice in one session on 2026-09-04).
+- Views describe UI only; loading, parsing and compute live in `Core/`. `AppState` is the single source of truth until the plan's stores replace it.
+- New stored state in `AppState` names its owner first; `inventory` now reports (not blocks) growth of `AppState.swift` + `Support/ResultExport.swift`, and a commit that grows them says why no other home would do.
+- **Gate D** applies when a change can move a scientific number, or the cause of a defect is not yet established — not every change in `Core/`. Diagnosis, refuting observation, predicted outcome, experiment, then the fix; an independent refuter after; a fixture; the model that wrote the change never approves it alone — review the diagnosis, not the diff.
+- **What does NOT need Gate D**: placement/presentation changes, renames, docs, tooling, and defects whose mechanism a reproducing observation already proves. State which trigger applies, or that neither does.
+- Break every new test before trusting it — confirm it goes red on the mutation it claims to catch; do not drive the app during the unit gate.
+- Never widen a gate that fails silently. Cost a UI change (rows/pt) before designing it, and open the app periodically — minutes of driving have found defects a green suite could not, which can be green about the wrong thing.
+- Quote test numbers only from a dated run named by its log, not a path (session logs are gitignored, not retained); evidence a reader must open is committed under `docs/archive/`.
+- Never read a gate's exit code through a pipe or backgrounded wrapper — redirect to a log, `echo $?` on its own line, grep the log's own exit line; count tests by method name and reconcile against the expected delta.
+- A lost session resumes from its own scratchpad, never from memory.
+- A threshold (a fraction, a bar, a cliff) is a property of the dataset and settings it was measured under, not of the method, until measured on every dataset it will touch — measure the distribution first, or ship the quantity and let the reader judge. Never infer a mechanism from a null result.
 - No claim a reader cannot reproduce. The repo is public.
-- Do NOT set `ResidencyAdmission.measuredWorkingSetFraction` — nil by
-  decision; `.automatic` residency was dropped, not tuned.
-- Metal parameter structs in `MetalEngine.swift` stay byte-identical to the
-  matching `.metal` structs (all 4-byte fields).
+- Do NOT set `ResidencyAdmission.measuredWorkingSetFraction` — nil by decision; `.automatic` residency was dropped, not tuned.
+- Metal parameter structs in `MetalEngine.swift` stay byte-identical to the matching `.metal` structs (all 4-byte fields).
 - Port deviations from py4DSTEM get an inline `DEVIATION` note.
-- Don't add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch; use
-  `tools/run-tests.sh unit` for unsigned XCTest work.
-- On-screen verification may be claimed by the assistant **when it actually
-  drove the app and is sure** (owner, 2026-09-16; supersedes "the owner drives"
-  from Track B's retirement, 2026-09-03). The bar is evidence, not permission:
-  name the build, say what was clicked, and say what was seen. **If it was not
-  driven, it is stated as unverified on screen** — an assumed screen is worse
-  than an admitted gap. Driving skill is a known weakness, so a claim that
-  rests on a screenshot nobody could reproduce is not a claim. A bug report
-  still enters through `/diagnose`, never as an app change made to satisfy a
-  checklist.
-- Docs are part of done. Update `docs/status.md` and `docs/open-items.md` in
-  the same commit as the code. Every session nets negative markdown lines or
-  says why. No new file without saying why an existing home would not do.
-  `AGENTS.md` is generated: run `tools/sync-agents-md.sh` after editing this.
-- **Commit freely** (owner, 2026-09-16, superseding "commit only when asked",
-  2026-09-07): land work as coherent commits with the gate numbers in the
-  message. **Pushing stays the owner's** — ask if it should be pushed, and he
-  may hand it over for that push. `main` is linear by preference, not by rule:
-  the 2026-09-16 merge split puts a cherry-picked commit on `main`, so the
-  later phase-mapping merge will not be a fast-forward.
+- Don't add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch; use `tools/run-tests.sh unit` for unsigned XCTest work.
+- On-screen verification may be claimed only when it actually drove the app and is sure — name the build, say what was clicked, what was seen; otherwise it is stated as unverified on screen.
+- Docs are part of done: update `docs/status.md` and `docs/open-items.md` in the same commit as the code, net negative markdown lines or say why, and run `tools/sync-agents-md.sh` after editing this file.
+- Commit freely: land work as coherent commits with the gate numbers in the message. Pushing stays the owner's — ask before any push.
+- Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
+- What code already enforces: `run-tests.sh core` holds the layering; `run-tests.sh inventory` holds the UI contract greps, harness manifest, tools classification, NOTICE hashes, AGENTS sync and the size report.
 
 ## Build / test
 

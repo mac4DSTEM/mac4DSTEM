@@ -1,3 +1,5 @@
+> History, not guidance. Moved verbatim from `docs/development-process.md` on 2026-09-16 (docs consolidation); the live replacement is `CLAUDE.md` and `docs/decisions/029-working-methods.md`.
+
 # Development process
 
 The operating model since v2.5 step 1 (2026-09-02); drafted 2026-08-31 from

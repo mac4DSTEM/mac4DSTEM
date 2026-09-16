@@ -12,7 +12,7 @@
 
 How Thronsen et al. (Ultramicroscopy 255 (2024) 113861, **CC BY 4.0**) gets
 incorporated. Method choice and its reasoning:
-[`v3-phase-mapping-method-choice.md`](v3-phase-mapping-method-choice.md).
+[`docs/decisions/021-phase-mapping-decisions.md`](decisions/021-phase-mapping-decisions.md).
 
 ## What we take, and what we may not
 

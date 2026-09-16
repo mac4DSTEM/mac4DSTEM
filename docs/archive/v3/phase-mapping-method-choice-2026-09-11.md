@@ -1,3 +1,5 @@
+> History, not guidance. Moved verbatim from `docs/v3-phase-mapping-method-choice.md` on 2026-09-16 (docs consolidation); the live replacement is `docs/decisions/021-phase-mapping-decisions.md`.
+
 # Which of Thronsen et al.'s four methods fits mac4DSTEM — evaluated 2026-09-11
 
 Read from the paper (Ultramicroscopy 255 (2024) 113861, CC BY 4.0) at the

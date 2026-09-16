@@ -1,126 +1,92 @@
-# mac4DSTEM stabilization roadmap
+# mac4DSTEM roadmap
 
-The feature plan is [`docs/v3-plan.md`](docs/v3-plan.md); live status is
-[`docs/status.md`](docs/status.md); the v1 and v2 contracts are archived under
-`docs/archive/v2/`. This roadmap is
-intentionally short: completed implementation history belongs in Git, and a passing
-workflow is not automatically a validated scientific claim.
+Imported 2026-09-03 from the "mac4DSTEM v3 Themes" artifact of 2026-08-28
+(seven parallel surveys of the pinned py4DSTEM source against `Core/`: 166
+findings, 45 high-value gaps, 77 absent, 54 partial, 7 absent by recorded
+decision; the ranking is a recommendation, sizes are rough). The first v3
+feature to land bumped the version to v3.0.0, released 2026-09-11
+(`docs/releasing.md` § Releases).
 
-## Phase status (2026-09-11)
+## Decided 2026-08-28
 
-**v2.5.1 (2026-09-04) is the current release** — macOS 14 or later, and the
-first artefact able to claim `run-tests.sh all` exit 0; v1.0.0 (2026-08-06)
-preceded it. v2.0.0 was named on 2026-09-02, never built, and superseded by
-v2.5.0 the same week; v2.5.0's artefact carries an enforced macOS 26 floor,
-which is why v2.5.1 exists.
+Recorded in full at `docs/decisions/031-v3-sequencing.md`.
 
-**v3.0.0 is prepared and not yet cut.** It is the first release with a
-machine-learned feature — Bragg disks found by a Core ML model on the Neural
-Engine, which beats the classical detector on a frozen hand-labelled test set
-(0.667 / 0.840 against 0.487 / 0.485) and runs 1.44–1.64x faster. What it does
-and what it does NOT yet do is `CHANGELOG.md`, including a "Known limitations"
-section. The consolidation train that preceded it closed on 2026-09-11 with its
-own §7 checked line by line
-([`docs/archive/consolidation-plan.md`](docs/archive/consolidation-plan.md),
-gates C0–C8), and the feature freeze it carried lapsed with it. Live status is
-[`docs/status.md`](docs/status.md); the v2.5 train is archived in
-[`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md). The three
-priorities below are standing — they are how work is judged, not a task list.
+1. **v3 is a sequence, not a bet.** Order comes from two scarce resources —
+   one Gate B campaign in flight, the owner's driving time — plus dependencies.
+2. **Grain segmentation and multi-phase ship together** — segment the
+   grains, then identify each one's phase.
+3. **The notebook exports the recipe as py4DSTEM code, no comparison** — a
+   translation, with an inline `DEVIATION` note at each step.
+4. **Materials Project as an importer that embeds** the fetched structure in
+   the session sidecar with its provenance, so recipes reproduce offline.
+5. **Precipitates enter v3 as a design session, implementation unscheduled**
+   — a per-object result, its export/sidecar life, and what density refuses without a denominator.
+6. **A run layer (`AnalysisRunner` with an injected host)** is the recorded
+   next consolidation item, unscheduled; run functions stay on `AppState`.
 
-## Version policy
+## Parity themes
 
-Semver is about **compatibility**. v2 was a major because a v1.0.0 build
-silently misreads a crop-carrying sidecar rather than refusing it. The
-consolidation shipped as v2.5.x; a landed science-number change cuts v2.6.0;
-v3 is reserved for the feature plan ([`docs/decisions.md`](docs/decisions.md),
-2026-09-02).
+Ranked by value to a working microscopist.
 
-## Current baseline
+| # | Theme | Absent today | Size · depends on |
+|---|---|---|---|
+| 1 | **Calibration foundation** — everything else stands on it | vacuum probe from a separate scan (the largest detection-side gap; blocks samples with no vacuum in frame and is the real fix for the MgO disk-radius finding); beamstop-tolerant origin (`get_origin_friedel`; blocks Medipix/EMPAD beamstop data); an origin validity mask (owed by the 2026-08-28 admit-with-fraction decision — `OriginMaps` records no excluded positions); the discarded CoM beam centre in `probeSize` | small · after the origin-fit items in `open-items.md` |
+| 2 | **Amorphous and nanocrystalline** — a modality the app lacks | polar / polar-elliptical transform (gates the rest); radial profile I(q); pair distribution function (scattering factors already ported); radial variance / fluctuation microscopy | large · polar transform first |
+| 3 | **Strain where disk detection fails** — the peak-finding path finds no basis on three of four training datasets (`py4dstem-pipelines.md` §9.2/§10.3) | whole-pattern fitting; user-supplied reference lattice (absolute strain); strain from the ACOM solution | medium–large · — |
+| 4 | **From maps to the numbers a paper reports** | grain segmentation (size distribution, boundary misorientation, twin fraction); multi-phase identification (which phase is where); full point-group coverage | medium · point-group coverage first |
+| 5 | **Interoperability** | read a native py4DSTEM EMD (probe, Bragg vectors, calibration); the notebook export | medium · pinned py4DSTEM env exists |
+| 6 | **Detector realism** | per-position detector shift (the origin map exists); arbitrary detector masks (the GPU path takes a weight image); hot-pixel filtering; ARINA reader, MIB packed modes | small each · — |
+| 7 | **Phase-contrast depth** | direct ptychography (SSB / OBF / WDD); mixed-state; probe-position correction | large · — |
 
-- Native macOS workflow: Prepare / Imaging / Strain & ACOM / Phase / Results,
-  with rehearse-on-a-view → promote-to-the-full-cube replay.
-- Source-locked py4DSTEM 0.14.19 scientific/interoperability harnesses.
-- Real-data operational acceptance for the current local manifest.
-- Hardened, sandboxed, self-contained Release package audit.
-- Explicit calibration provenance and task-specific readiness.
-- Explicit ACOM material selection and physical versus Exploratory Q-scale semantics.
+## Beyond py4DSTEM — the differentiators
 
-The aggregate repository claim is only the result of:
+All requested by the owner; all out of v2 by the 2026-08-18 decision ("each
+is its own product").
 
-```sh
-tools/run-tests.sh all
-```
+- **Needle-shaped precipitate pipeline** (2026-08-06, re-requested
+  2026-08-26) — per-object, real-space segmentation driving per-object
+  analysis and a calibrated-area density; a per-object result is not a map,
+  which is the expensive part to get wrong. **Superseded 2026-09-11**: the
+  route is no longer real-space segmentation but classifying each scan
+  position by its full diffraction pattern
+  (`docs/v3-precipitate-classification.md`, `docs/decisions/019-precipitates-by-classification.md`).
+- **EDX correlation** (2026-08-26) — a data-model change before a feature: a
+  second signal with its own reader and units, registered onto the scan grid
+  with the transform recorded. Unclaimed.
+- **Live acquisition · copilot** — named, nothing designed. Unclaimed.
+- **Learned disk candidates** (owner, 2026-09-05; Core ML on the Neural
+  Engine, 2026-09-07) — the first ML feature.
 
-Earlier whole-codebase reviews are in `docs/archive/` (2026-07-19,
-2026-08-31); the repo now reviews itself with `tools/run-tests.sh inventory`.
+**Learned disk candidates — pre-registration.** A second `DetectorClass`
+beside the classical one: a Core ML U-Net paints a disk-centre heatmap on
+the Neural Engine, and the existing correlation/centroid refinement measures
+each candidate to sub-pixel; opt-in, off by default. **Verdict (step 3):
+passed 2026-09-08** — on the frozen hand-labelled test set the net finds the
+same real disks with far fewer inventions (256 px: 0.667 / 0.840 against the
+classical 0.487 / 0.485). Full pre-registration:
+[`docs/archive/v3/learned-detector-preregistration-2026-09-07.md`](docs/archive/v3/learned-detector-preregistration-2026-09-07.md).
 
-## Priority 1 — scientific interpretation
+## Leave alone; where the app is ahead
 
-1. Keep every result's material model, scale, units, interpretation status, quality,
-   and validity attached through display, comparison, export, save, and reopen.
-2. Add material-specific ground-truth fixtures before claiming validation on a new
-   material or point group.
-3. Admit any new phase—including WS₂—only through the generic model contract with an
-   explicit lattice, atomic basis, symmetry reduction, structure factors,
-   expected-orientation fixture, and fit-overlay acceptance. Until then the UI must
-   reject that model as unsupported rather than infer it from the dataset.
-4. Treat py4DSTEM parity, numerical self-consistency, operational real-data execution,
-   and independent experimental validation as separate levels of evidence.
-5. Direction after v2: propagate uncertainty, not just validity — a
-   quantitative result should carry an error bar derived from the fit
-   residuals that already exist, under the constraints recorded in
-   [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md) (#29 first; a wrongly
-   modelled interval is a precise wrong claim).
+Not chased: py4DSTEM's visualization layer, `utils/` helpers for their own
+sake, `.automatic` residency (needs a second machine). Ahead of py4DSTEM and
+part of the product story: the load-specification and promote workflow,
+provenance that survives export and reopen, refusals that name what failed,
+the session sidecar as a sharing unit.
 
-## Priority 2 — product clarity
+## Open questions for the next pass
 
-1. Show only the requirements and controls relevant to the selected task.
-2. Keep normal controls compact and place numerical tuning in native disclosure panels.
-3. Use persistent result labels—Quantitative, Relative, Exploratory, or Categorical—
-   instead of relying on units or transient guidance text.
-4. Prefer visible quality diagnostics and fit overlays over success-only status text.
+1. One theme done properly, or several started? Themes 1 and 2 are different
+   bets — finish what exists, or open a new user base.
+2. Which front-of-queue item leads? Gate B capacity is one at a time; the
+   calibration foundation clears live defects and the validity mask is owed.
+3. Does the notebook change who the app is for (results checkable without a
+   Mac — a distribution argument)?
 
-## Priority 3 — incremental architecture
+## How a v3 feature is done
 
-1. Keep `AppState` as the window-level coordinator while extracting cohesive domain
-   models, views, persistence components, and controllers behind narrow APIs.
-2. Extract only at a green test boundary; do not widen scientific-state mutation access
-   merely to reduce line counts. **From 2026-08-17 this is a binding per-stage
-   rule, not an aspiration:** every L-stage that touches `AppState` extracts one
-   seam before it lands, the extracted type is itself `@Observable`, and
-   splitting the file into `extension AppState { }` does not count (rule in
-   `CLAUDE.md`; the target ownership model is `docs/architecture.md`).
-3. Continue splitting large UI sections into task-owned views and separate rendering,
-   session persistence, and HDF5 binding code when those areas next change.
-4. Retire frozen-v1 result adapters only after typed `DisplayedProduct` persistence has
-   complete compatibility coverage.
-
-## Release-owner actions
-
-- **No release is pending.** The next one is a v2.5.x patch for a driven bug,
-  v2.6.0 for a landed science-number change, or v3.0 for the first feature
-  (`docs/status.md`). When one is cut: build, sign, notarize and staple
-  (`tools/release/`, `docs/releasing.md`). The declared floor is macOS 14
-  (`docs/decisions.md`, 2026-09-04): compile-verified below 26, never executed
-  there.
-- Real acquisitions from at least two instruments before promoting MIB/EMPAD
-  readers from Preview.
-
-## Scope rule
-
-**v1 (frozen):** a feature had to close a correctness, reliability,
-interoperability, accessibility, or release gap in
-[`docs/archive/v2/v1-scope.md`](docs/archive/v2/v1-scope.md), or it was post-v1.
-
-**v2.5 (2026-09-02/03):** [`docs/archive/v2/v2.5-plan.md`](docs/archive/v2/v2.5-plan.md) — no new
-science until the ownership seams land; every session nets negative markdown.
-
-**v3:** [`docs/v3-plan.md`](docs/v3-plan.md) — a dependency-ordered feature sequence,
-draft; the first feature to land bumps the version to v3.0.
-
-**v2 (2026-08-18 → 2026-09-02; named v2.0.0, never built):** [`docs/archive/v2/v2-release.md`](docs/archive/v2/v2-release.md) was a
-release contract again — a claim, five workstreams, a **cut line** naming in
-advance which workstreams are severable (so a schedule problem can never argue
-for thinning a review gate instead), and the standing **refusal rule**:
-*nothing ships that can fabricate a scientific result, no gate is widened to
-make something pass, and no claim stands that a reader cannot reproduce.*
+Each feature is pre-registered the way the train's steps were (plan §9–§11 of
+the archived v2.5 plan are the models): what it touches and which owner holds
+its state, the tests written before, the decisions owed to the owner. Built on
+the packages and sessions, one Gate B campaign at a time, `/pickup` with the
+feature named.

@@ -3,7 +3,7 @@
 What the app is made of, how the layers depend on each other, where a new
 file goes, and where the consolidation is taking the ownership model. Product
 scope is `README.md` and `CHANGELOG.md`; live status is `status.md`; the
-sequence of the consolidation is `archive/v2/v2.5-plan.md`; the feature plan is `v3-plan.md`.
+sequence of the consolidation is `archive/v2/v2.5-plan.md`; the feature plan is `ROADMAP.md`.
 
 ## Layers and the dependency rule
 
@@ -22,13 +22,30 @@ Shaders/, Support/           Metal kernels; export, bridging header     app targ
 
 The rule that matters is direction: each layer knows nothing above it.
 Since 2026-09-03 this is a module boundary, not a convention: `Package.swift`
-builds `Core/` as `DSTEMCore` and `Session/` as `DSTEMSession`; the app
-target depends on both products and excludes those folders from its own
-synchronized group; their declarations use the `package` access level (the
-app and test targets set `SWIFT_PACKAGE_NAME = mac4dstem`).
-`tools/run-tests.sh core` builds the packages alone, also in CI. A new type
-in either package must be `package` and, if constructed from App, carry an
-explicit `package init`.
+builds `Core/` as `DSTEMCore` and `Session/` as `DSTEMSession`, standalone
+SwiftPM targets whose own comment states the purpose: `swift build` fails the
+moment `Core/` reaches upward into `App/`, `UI/` or `Support/` — run as
+`tools/run-tests.sh core`. The Xcode app target compiles the *same* files
+directly, via an explicit exception list in `project.pbxproj` enumerating
+every `Core/`/`Session/` file, so package and app target never drift apart
+file-for-file. Declarations use the `package` access level throughout (app
+and test targets set `SWIFT_PACKAGE_NAME = mac4dstem`); a file compiled into
+both the app target and a standalone `tools/` harness guards the imports
+with `#if canImport(DSTEMCore) import DSTEMCore import DSTEMSession #endif`
+(56 files today). `tools/run-tests.sh inventory` backs the UI half: it greps
+`UI/*.swift` for `import AppKit` and for
+`HSplitView`/`VSplitView`/`NSSplitView`/`NSSplitViewController` and fails if
+any appear — the app once aborted at launch in AppKit's update-constraints guard.
+Both packages share one Swift 6 concurrency configuration:
+`.defaultIsolation(MainActor.self)` — every type is MainActor-isolated by
+default, so GPU dispatch and CPU-heavy work must be explicitly marked
+`nonisolated` to run off the main thread. A real defect from missing this:
+`Core/ML/LearnedDiskDetection.swift`, an extension member without
+`nonisolated` that silently inherited `@MainActor` and pinned every progress
+callback to the main thread. Bare `swiftc` (most `tools/` harnesses) defaults
+to *non*isolated, so a harness without matching isolation flags cannot see
+this class of defect — a narrowed, not closed, blind spot per
+`tools/lib/sources.manifest`: **the Xcode app build is the only real gate for actor isolation**.
 
 ## What it does, by subsystem
 
@@ -38,58 +55,94 @@ only from an explicit primary action, runs detached with live progress and
 Cancel, and reports in the permanent status footer.
 
 **Data and display.** HDF5 (`.h5`/`.hdf5`/`.emd` — py4DSTEM, Gatan, HyperSpy
-and arbitrary EMD layouts via link traversal), Gatan DM3/DM4 (`dm4-format.md`),
-Preview-tier EMPAD RAW/XML and Merlin MIB. HDF5 is loaded at runtime via
-`dlopen` (see HDF5 notes). Open with options: scan crop, detector crop,
-detector bin; streaming residency bounds peak memory independent of scan size.
-GPU-rendered viewers with colormap LUTs on each pane's colorbar chip, log
-scaling, per-view contrast and gamma, calibrated 1-2-5 scale bars.
+and arbitrary EMD layouts via link traversal), Gatan DM3/DM4
+(`dm4-format.md`), Preview-tier EMPAD RAW/XML and Merlin MIB, loaded at
+runtime via `dlopen` (HDF5 notes, below). Open with options: scan crop,
+detector crop, detector bin; streaming residency bounds peak memory
+independent of scan size. GPU-rendered viewers with colormap LUTs, log
+scaling, per-view contrast/gamma, calibrated 1-2-5 scale bars.
 
 **Virtual imaging and diffraction.** BF/ADF/HAADF presets, draggable annular
 aperture, rectangle and point detectors, and the reciprocal operation:
 real-space ROIs drive selected-area diffraction.
-
 **Calibration.** Origin (py4DSTEM `get_probe_size` → `get_origin` →
-`fit_origin`, probe measured on the mean pattern), R–Q rotation via CoM-curl
-minimisation with explicit 180° flip, elliptical distortion (conic and
-11-parameter amorphous-ring), Q calibration against a known crystal
-(`q-calibration-design.md`). Every value carries provenance; a fit that fails
-its gate reports "not quantitative" rather than a number. Session calibration
-from a different frame is re-referenced or refused (`SessionCalibrationFramePolicy`).
+`fit_origin`), R–Q rotation via CoM-curl minimisation with explicit 180°
+flip, elliptical distortion (conic and 11-parameter amorphous-ring), Q
+calibration against a known crystal (`q-calibration-design.md`). Every value
+carries provenance; a fit that fails its gate reports "not quantitative"
+rather than a number. Calibration from a different frame is re-referenced or
+refused (`SessionCalibrationFramePolicy`).
 
 **DPC / iDPC.** Four views off one cached CoM field; iDPC is quantitative
 projected phase only when origin, rotation and both samplings are present.
-
-**Bragg disk detection.** Port of `find_Bragg_disks` with synthetic or measured
-probe kernel, hybrid cross-correlation, and pixel / parabolic / DFT-upsampled
-subpixel refinement. `FFT2D` is an exact Bluestein transform for any detector
-length. Staleness tracking keeps changed settings from silently feeding strain
-or ACOM.
+**Bragg disk detection.** Port of `find_Bragg_disks` with synthetic or
+measured probe kernel, hybrid cross-correlation, and pixel / parabolic /
+DFT-upsampled subpixel refinement; `FFT2D` is an exact Bluestein transform
+for any detector length. Staleness tracking keeps changed settings from
+silently feeding strain or ACOM.
 
 **Strain mapping.** py4DSTEM `process/strain`: consensus or manual g₁/g₂,
 robust local lattice fits, component-median reference, εxx/εyy/εxy/θ with
 unfittable positions as explicit no-data.
-
 **ACOM orientation mapping.** Polar-correlation template matching against a
 validated `CrystalModel` catalogue (cubic presets, HCP magnesium, 2H-WS₂,
-custom cubic, imported CIF through the same validation). CPU and Metal
-backends with parity gating, reliability, IPF-Z maps, Bunge Euler output.
-Physical matching requires calibrated Q sampling; otherwise **Exploratory**.
-Point-group coverage is cubic and hexagonal only, by decision: CIFs outside
-them are refused, not coerced.
-
+custom cubic, imported CIF). CPU and Metal backends with parity gating,
+reliability, IPF-Z maps, Bunge Euler output. Physical matching requires
+calibrated Q sampling; otherwise **Exploratory**. Point-group coverage is
+cubic and hexagonal only, by decision: CIFs outside them are refused.
 **Parallax and ptychography.** Staged parallax (calibrated virtual-BF
 preprocessing → alignment → aberration fitting → CTF correction → subpixel
 upsampling → depth sectioning) and a single-slice iterative ptychography
 engine, each memory-bounded, cancellable and source-locked to py4DSTEM.
 
 **Sessions, recipes, export.** A `<source>.mac4dstem.h5` sidecar holds named
-results, calibration, BraggVectors and the replay record; every sidecar names
-the oldest reader that interprets it without misreading. A rehearsal on a
-view records a recipe; promote replays it on the full cube, re-referencing
-detector-pixel parameters into the source frame and refusing by name what it
-cannot re-express. Exports: PNG as displayed, Bragg peaks CSV, py4DSTEM
-`BraggVectors`, calibrated reduced `DataCube` carrying the recipe.
+results, calibration, BraggVectors and the replay record; every sidecar
+names the oldest reader that interprets it without misreading. A rehearsal
+on a view records a recipe; promote replays it on the full cube,
+re-referencing detector-pixel parameters into the source frame and refusing
+by name what it cannot re-express. Exports: PNG as displayed, Bragg peaks
+CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
+
+## Data flow: file → screen
+
+1. **Open.** `AppState` picks a reader by extension (`.dm4`/`.dm3` →
+   `DM4Reader`, `.mib`/`.raw`/`.xml` → `VendorRawReaders`, default →
+   `H5Reader`; `Core/Data/`). Every reader conforms to `package protocol
+   FourDDataSource: Actor`, so file I/O is off the main actor.
+2. **Discover.** `reader.discoverPrimaryDataset()` returns a
+   `DatasetDescriptor` describing the file's shape/dtype at full extent.
+3. **Specify the view.** `LoadSpecification` records what part of the file
+   is actually loaded — its own header: "a load is a view, not a new
+   dataset". A `LoadView` pairs a descriptor with a specification.
+4. **Decode / stream.** `package actor FourDArray` wraps the reader +
+   `LoadView`, keeps an LRU pattern cache, and can go "resident" via
+   `ResidentCube`, gated by `Session/DatasetResidency.swift` ("nothing
+   outside may set `isResident`").
+5. **Compute.** Per-mode analysis in `Core/Analysis/` and `Core/Crystal/`.
+   Some paths run pure CPU (Accelerate/vDSP `FFT2D`); others dispatch to
+   `Core/Compute/MetalEngine.swift`, whose GPU calls are **synchronous and
+   blocking** (`commit()` + `waitUntilCompleted()` — call only from a
+   background `Task`); its parameter structs stay byte-identical to their
+   `.metal` twins (Developer notes, below).
+6. **Publish.** A result becomes a `DisplayedProduct` — pixel payload, a
+   `ProductDomain`, a `ProductQuantitativeStatus`, sampling, a flat
+   `provenance: [String:String]` and overlays, so UI never infers semantics
+   from a display title. `AppState` holds the live one as
+   `publishedProduct`, written by one choke point, `publishProduct(...)`.
+7. **Record the recipe.** `Session/SessionReplay.swift` records completed
+   runs into a `SessionReplayRecord` — one step per analysis kind, in
+   first-run order, not a keystroke log. `Session/ReplayPlan.swift` parses a
+   recorded step back into typed parameters for replay/promote; it lives in
+   `Session/` because its output vocabulary is App-level workflow state.
+8. **Show.** `UI/` renders `appState.publishedProduct` via
+   `@Environment(AppState.self)` (`ContentView.swift`) through the one
+   SwiftUI↔Metal bridge, `UI/MetalImageView.swift`; a `contentVersion` gates re-upload.
+9. **Export / persist.** `Support/ResultExport.swift` writes PNG, CSV of
+   Bragg peaks, and py4DSTEM/EMD-compatible HDF5
+   (`Core/Data/BraggVectorEMDWriter.swift`). Sidecar-rewriting entry points
+   call `gates.sidecarRewriteRefusal()` first (`Session/SessionGates.swift`);
+   provenance is composed once per fact, snapshotted at compute time, not
+   read live off current calibration.
 
 ## Project structure and where files go
 
@@ -119,6 +172,14 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 locally staged representative datasets; multi-GB acceptance data on the
 owner's machines; the py4DSTEM source at the pinned commit that `DEVIATION`
 notes cite (fetched on demand, not tracked since 2026-09-03).
+A new `Core/Data` file must also join the right group in
+`tools/lib/sources.manifest` or an existing standalone harness silently
+stops compiling against it (Tools and harnesses, below). Apple-Silicon-only
+code is guarded with `#if !arch(arm64) #error(...)`, not a silent `#if
+arch(arm64)`, so a bare `#if` cannot ship a broken x86_64 slice
+(`Core/ML/LearnedDiskDetector.swift`). `UI/PaneOverlays.swift` is the one
+file where ad hoc drawing geometry is expected — "none of it sizes text for
+a form," per its header.
 
 ## Ownership today and where it is going
 
@@ -129,86 +190,31 @@ already exist (`DatasetResidency`, `SessionGates`, `WorkspaceNavigation`,
 `StrainProduct`, `ReplayRun`, `QCalibrationRun`, `SessionCalibrationFramePolicy`,
 `FitOverlayPresentation` — C5's first extraction, 2026-09-07: the diffraction
 pane's fit overlays as a value over a snapshot).
-
-The target (`archive/v2/v2.5-plan.md` §4): three local packages — `DSTEMCore` (Data,
-Compute, Analysis, Crystal, Shaders), `DSTEMSession` (calibration, products,
-recipes and replay, operation lifecycle) and the app; `ScientificProduct` as
-an immutable value owning pixels, axes, units, frame, calibration snapshot,
+The target (`archive/v2/v2.5-plan.md` §4): `ScientificProduct` as an
+immutable value owning pixels, axes, units, frame, calibration snapshot,
 validity and provenance, with `ProductPresentation` separate; narrow
 per-analysis controllers; a typed task registry that is also the recipe
 vocabulary, so live runs and replay share one execution path; `AppState`
 reduced to composition and window coordination.
-
 Rules while migrating: no new stored state in `AppState`; a feature names its
-owner first; `AppState.swift` + `Support/ResultExport.swift` never net
-positive lines in a commit (`inventory` measures it against HEAD, or HEAD^ on
-a clean tree — C5, 2026-09-07); adapters carry an expiry condition; numerical
-code is split only at scientifically meaningful boundaries.
+owner first; adapters carry an expiry condition; numerical code is split only
+at scientifically meaningful boundaries. `AppState.swift` +
+`Support/ResultExport.swift` are size-tracked by `inventory` against the
+previous commit (`HEAD^` on a clean tree, `HEAD` on a dirty one — C5,
+2026-09-07): the hard "never net positive lines" form of that rule is
+**overruled (owner, 2026-09-16)** — `inventory` now reports the delta instead
+of failing on it, since growth is allowed where one of these two files is the
+honest home for the state; the caution is real, the block is not. A commit
+that grows them says in its message why no other home would do. Extractions
+still follow the plan's §4 order above, one at a time, each with a green
+boundary and a reopen test.
 
-## Presentation contract (owner decision 2026-09-03) — SUPERSEDED
-
-**Read "The UI contract" below instead.** This section is kept because that
-contract is this one "with AppKit removed and the shape re-cut", and its
-amendments to rules 2 and 5 are still in force and still worth their reasons.
-Nothing here describes the shipping app: rule 1's window was deleted on
-2026-09-04, and `ColumnSplitController` does not exist in the tree.
-
-The app should feel and behave like it shipped with macOS. That is a
-contract, not taste, and it is checkable:
-
-1. ~~**Structure is fixed, content is fluid.** The window is a toolbar over
-   three AppKit columns (`ColumnSplitController`)~~ — **dead**; the AppKit
-   shell went in `d5786e2` and the class with it. The part that survives is
-   in rule 6 of the UI contract, and this: columns have bounds, nothing
-   inside a column sizes itself, a control is as wide as its content, images
-   are capped, spare width is margin.
-2. **Navigation is a source list, settings are forms.** *(Amended
-   2026-09-04; the original rule said every group of controls is a `Form`,
-   which is a category error — a grouped `Form` is System Settings' detail
-   pane, it has no `selection:` parameter, and applying it to navigation left
-   the app with no `List` anywhere and no way to draw a selection.)*
-   Navigation is `List(selection:)` with `.listStyle(.sidebar)`. Controls are
-   a grouped `Form` with `LabeledContent`, `Picker`, `Toggle`, `TextField`,
-   `Slider`, `Button` as system controls; no hand-built rows with a `Spacer`
-   between a label and its value. The two containers are **not**
-   interchangeable: `LabeledContent` stacks a multi-element label vertically
-   only inside a `Form`, so a row written for one crushes onto one line in
-   the other.
-3. **System materials only.** No `.background(...)` colours or tints, no
-   custom bars, no opacity washes, no drawn separators: the toolbar, the
-   sidebar, the inspector, the footer and the log strip take the system's
-   appearance (Liquid Glass on macOS 26) from their containers. The only
-   custom drawing is scientific: the Metal image panes, overlays, scale
-   bars, histograms, and the small task and workspace glyphs, which are
-   SF Symbols or symbol images so they render in the system's styles.
-4. **No fixed frames except the science.** `.frame(width:)`/`minWidth:`
-   are allowed only on image panes and their floors. Thumbnails cap their
-   height by rule, not by a number per site.
-5. **Every column survives its whole range.** Each sidebar and inspector
-   is measured in the hosted layout tests at the column's minimum, ideal
-   and maximum width. *(Amended 2026-09-04; the original rule said
-   "wrapped text is fine, truncation and overflow are findings", which is
-   backwards for a fixed-width column — unbounded wrapping is what made the
-   old column a wall — and its gate cannot see the case anyway, because
-   `controls(_:)` collects `NSControl`s and no SwiftUI `Text` is one.)*
-   **Overflow is a finding; truncation is a choice.** A long value truncates
-   the way Finder truncates a filename and Xcode truncates with a tooltip;
-   text that must be read in full is short by construction or lives on
-   `.help`. A gate that cannot see text cannot hold a rule about text.
-
-The contract covers every surface — the window, its sheets, panels and
-alerts — not only the columns. Deviations are recorded in `open-items.md`
-with the reason. *(The rework this section was written for finished on
-2026-09-03 and its window was deleted the next day; see the archive,
-`archive/v2/ui-rework-2026-09-03.md`.)*
-
-## The UI contract (owner decision, 2026-09-04)
+## The UI contract
 
 `UI/` was rebuilt from scratch in SwiftUI in 2026-09-04's migration; the
 AppKit-hosted window it replaced was deleted the same day, so there is one UI
-again and no flag selects it. It is the presentation contract above with
-AppKit removed and the shape re-cut, and it is the surface that ports to iOS.
-Six rules, the first three enforced by `run-tests.sh inventory`:
+again and no flag selects it. Six rules, the first three enforced by
+`run-tests.sh inventory`:
 
 1. **SwiftUI only.** No `NSSplitViewController`, no hosted AppKit shell, no
    `NSEvent` monitors, no `NSCursor`, no AppKit layout, no `import AppKit`.
@@ -237,23 +243,26 @@ Six rules, the first three enforced by `run-tests.sh inventory`:
    and the displayed product are. There is no workspace header: the window
    title carries the task and the toolbar carries the one action that runs
    it. Readiness has exactly one home, the Settings tab's first section.
-
-The migration's `UI2` type prefix is gone (owner, 2026-09-04). Five names are
-not bare strips, and the reasons are worth keeping: `LayoutPolicy` (a bare
-`Metrics` says nothing, and `*Policy` is this repo's own idiom),
-`WorkspaceRoute` and `WorkspaceView` (`Route` and `Workspace` are too generic
-to grep), `ProductComparisonView` (`ProductComparison` is taken by
-`Core/Data/DisplayedProduct.swift`) and `PatternFitOverlay` (a bare
-`FitOverlay` sits one letter from Core's `FitOverlays`). Everything else took
-the name the retirement freed.
+- **Navigation is a source list, settings are forms, and the two containers
+  are not interchangeable.** Rule 1's `List(selection:)`/`.listStyle(.sidebar)`
+  carries navigation; controls are a grouped `Form` with `LabeledContent`,
+  `Picker`, `Toggle`, `TextField`, `Slider`, `Button` as system controls, no
+  hand-built rows with a `Spacer` between a label and its value.
+  `LabeledContent` stacks a multi-element label vertically only inside a
+  `Form`, so a row written for one crushes onto one line in the other.
+- **Overflow is a finding; truncation is a choice.** A long value truncates
+  the way Finder truncates a filename and Xcode truncates with a tooltip;
+  text that must be read in full is short by construction or lives on
+  `.help`. A gate that cannot see text (`controls(_:)` collects `NSControl`s,
+  and no SwiftUI `Text` is one) cannot hold a rule about text.
 
 ## Requirements, build, test
 
 - macOS 14+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 14.0` in every
   build configuration and `.macOS(.v14)` in `Package.swift`, lowered from 26
   on 2026-09-04 (`decisions.md`); 14–25 is compile-verified and has never
-  been executed here. Xcode 26 (synchronized folders, Metal toolchain).
-  No separately installed HDF5.
+  been executed here. Xcode 26 or later — development is on 27.0, CI on
+  macos-26. No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`
@@ -264,6 +273,35 @@ the name the retirement freed.
   and reporting through `/diagnose` (the checklist was retired 2026-09-03).
 - Never add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch.
 
+## Tools and harnesses
+
+`tools/run-tests.sh {unit|scientific|core|inventory|benchmark|campaign|all}`
+is the one discoverable entry point over ~70 directories. Every directory
+must appear in exactly one of five arrays at the top of that script —
+`scientific` (CI-gated), `diagnostic` (needs gitignored/machine-local data,
+never gated), `owner_only`, `retired`, `support` (`lib`, `release`,
+`crystal-structures`) — plus `real-data-acceptance`/`package-test`, gated
+only under `all`; `inventory` fails on any directory not classified.
+Most harnesses are zsh `run.sh` scripts that compile a handful of production
+`Core/` sources with `xcrun swiftc`, sourcing `tools/lib/sources.manifest`
+first for a dependency-closed file list per named group (see "Project
+structure", above). One needing the bundled HDF5 dylibs copies and
+ad-hoc-codesigns them first, since the repo's signed copies won't validate
+for an unsigned tool; one needing GPU kernels compiles `Shaders/*.metal` to a
+`default.metallib` by hand. `tools/package-test/run.sh` runs a full
+`xcodebuild -configuration Release` at the release archive's own
+destination/architecture pin, because a prior gate on a generic destination
+once stayed green an hour before an archive build failed.
+`tools/free-space.sh` is the disk-space preflight remedy: `run-tests.sh`
+refuses to start `unit`/`scientific`/`benchmark` below 4 GB free and
+`all`/`campaign` below 8 GB (exit 69), reporting (or, with `--clear`,
+deleting) known regenerable build debris only, never `References/`. Not
+every harness is Swift: `tools/disk-detector/` is a Python
+training/export/evaluation pipeline with its own frozen, gitignored
+hand-labelled test set; `tools/comparator-test/` mutation-tests
+`tools/real-data-acceptance/compare.py` itself, since a comparator that
+quietly stopped checking something looks like a passing gate.
+
 ## HDF5 notes
 
 `H5Reader` and the session writer `dlopen` `libhdf5.dylib` and bind every
@@ -272,18 +310,20 @@ symbol via `dlsym`, searching `MAC4DSTEM_HDF5_PATH` (harnesses), the bundle's
 signs `libhdf5`, `libsz.2`, `libaec.0`; App Sandbox with user-selected
 read/write and app-scoped bookmarks. Release enables Hardened Runtime; local
 Debug builds leave it off so macOS accepts the separately signed closure.
-Distribution always uses hardened Release (`releasing.md`).
+Distribution always uses hardened Release (`releasing.md`). HDF5 access is
+serialised process-wide by a lock, not an actor: `HDF5Serial`
+(`Core/Data/HDF5Types.swift`) is acquired and released around every
+`H5Reader` public method's body, recursive so a nested entry does not
+deadlock and never held across an `await`.
 
 ## Known limitations
 
 - Tiles are expanded to float32; native-dtype kernels would cut bandwidth.
   The app always streams; the resident path is reachable only from harnesses.
 - Metal commands cannot be interrupted after submission: Cancel discards the
-  cancelled run's result immediately while the in-flight command finishes.
-  A streaming pass waits out at most one tile; the read, not the check, is
-  where the noticeable moment lives.
-- Session rehydration is pixel and metadata level; transient arrays are not
-  reconstructed.
+  cancelled run's result immediately while the in-flight command finishes;
+  a streaming pass waits out at most one tile.
+- Session rehydration is pixel and metadata level; transient arrays are not reconstructed.
 - Origin coarse search deviates from py4DSTEM (binned block-sum argmax); the
   probe-size fallback can look usable where py4DSTEM would return NaN
   (`open-items.md`).
@@ -296,7 +336,7 @@ Distribution always uses hardened Release (`releasing.md`).
 ## Developer notes
 
 - One `@main` in `App/mac4DSTEMApp.swift`; the root view is
-  `UI/ContentView.swift`. See "The UI contract" below.
+  `UI/ContentView.swift`. See "The UI contract" above.
 - Swift 5 language mode, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`;
   blocking compute types are `nonisolated` and run via `Task.detached`;
   readers are actors; long analyses guard publication with dataset epoch and

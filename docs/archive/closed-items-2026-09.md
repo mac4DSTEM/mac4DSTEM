@@ -1006,3 +1006,99 @@ nonexistent path and never touches libhdf5, and says so itself at `:138`;
 form. **Owner:** this is the largest live crash risk in the app and the cheap
 guard does not close it.
 
+## Closed at the 2026-09-16 consolidation
+
+### The zone-axis sweep marks a wrong axis against its own median — Gate D 2026-09-15 night, residuals — closed part
+
+**Science, narrowed.** Gate D found why the disc-chance floor could never mark
+the owner's ⟨112⟩ at 8 %: on a real crystal a wrong axis explains 11–25 % of
+the vectors through SHARED reflections, not chance — measured on planted
+⟨110⟩, ⟨112⟩ and ⟨001⟩ aluminium at 2° steps with 30 % of spots missing,
+0.004 Å⁻¹ jitter and three spurious peaks per pattern, where every one of
+the 49 axes cleared five times disc chance and the median wrong axis sat at
+11–16 % (`chance/run1.log`). So `ZoneAxisFit` carries a second null, the
+sweep's median explained fraction: true families sat at 4.8–6.8× it, wrong
+families at 0.7–1.6×, the bar is 2×, and a row under it reads "no better
+than a wrong axis". The disc rule stays for vectors pointing nowhere (sweep
+median ~0.5 %, where the median is no null). Pinned by
+`testAWrongAxisThatSharesReflectionsIsMarkedBelowTheSweep`, whose control
+asserts the defect (⟨112⟩ clears disc chance) beside the fix.
+**Trap paid, recorded here because it faked a surviving mutation:** the
+filtered `xcodebuild test` runs used to check this test never DISCOVERED it
+(22 cases both times, the new name absent — the stale-bundle trap above),
+so the bar-to-1 mutation "survived" a test that had not run; the mutation
+was demonstrated instead on a scratch harness with the same generator
+(27 of 43 wrong axes clear a bar of 1, 0 clear 2, `chance/`), and the fresh
+`unit` gate is what discovers the test.
+**Gate B (2026-09-15 late night) narrowed it and found the gap that mattered:**
+- **"Find Matrix Zone Axis" wrote the winner into the phase model regardless
+  of either null** — the marks were presentational only. Now a winner that is
+  informative by neither rule is shown and not written, with the reason.
+- **The bar is not a clean separator for every truth.** ⟨111⟩, ⟨012⟩, ⟨210⟩
+  plants: true 2.7–2.8×, worst wrong 1.0–2.0×. A ⟨122⟩ plant: true 2.8× and
+  the ⟨100⟩ family 2.7–2.9×, sometimes above the truth — both rows read as
+  informative and the tie caption is the honest thing. A two-grain scan left
+  both true families at 5×; degradation to 92 % missing never made the sweep
+  rule bind before the disc rule.
+- **Fewer than five axes had no median** — with two, the ratio saturated at
+  1; unreachable from the app (the sweep is always all 49) and now inert
+  below five, pinned by `testATinySweepHasNoMedianNull`. The four mutations
+  of the rule are each killed by the sweep test's own assertions; the gated
+  `phase-vector-matching` harness never constructs a `ZoneAxisFit`.
+
+*The residual stays live in `docs/open-items.md`.*
+
+### HDF5 runs under one lock now — what that costs and what is still open — fixed 2026-09-15 late night — closed part
+
+**Known, a crash closed, a cost accepted.** Every logical HDF5 operation —
+each `H5Reader` public method, its open and close, and every
+`BraggVectorEMDWriter` entry point — takes `HDF5Serial` (HDF5Types.swift), a
+process-wide recursive lock: the thread-safe HDF5 build done from outside,
+around operations instead of API calls. The tile-streaming export releases
+it before each `await` on the source actor and re-takes it per tile, so the
+one path that nests reader inside writer cannot deadlock on it. Instrument:
+`tools/hdf5-race-probe` — before, serial 200/200 and concurrent SIGBUS in
+the first twenty; after, concurrent **3 of 3 complete** (`hdf5-race-after-
+20260915.log`). No Gate D (the cause is the probe's reproducing
+observation). **Gate B ran and found the claim "every call" false as
+shipped:** `loadResultMap(id:)` and `loadRGBAResultMap(id:)` open the file
+themselves, took nothing, and a probe variant driving them crashed
+concurrently on the first attempt (SIGSEGV) while the inventory path — the
+only one the probe drove — completed. Both are locked now, so is the
+export's own `HDF5WriteLibrary.load()` (`H5open` is an API call too), the
+probe alternates all three entry points (`hdf5-race-after2-20260915.log`,
+3 of 3), and the audit rule is written on the lock: every
+`HDF5WriteLibrary.load()` / `HDF5Library.load()` site sits under it. The
+refuter also found `HDF5Serial` inheriting the project's main-actor default
+(a Swift 6 error in waiting) — now `nonisolated`; no lock held across an
+await; no deadlock path; no measurable cost (2.39 s → 2.28 s serial).
+
+*The residual stays live in `docs/open-items.md`.*
+
+### Origin-fit gate has two unresolved holes (2026-09-05) — closed part
+
+(a) closed 2026-09-05: `probeSize` refuses (nil, `probeNotMeasurable`) when
+no finite pixel is above zero or no mass clears the threshold; non-finite
+pixels are skipped at every step; the median matches `np.median` for even n
+(`ProbeSizeTests`; the refuter's +inf escape closed, two mutants caught).
+
+*The residual stays live in `docs/open-items.md`.*
+
+### The sidecar reader has D003's missing guard too — not fixed (2026-09-09) — closed part
+
+Left alone deliberately: the owner scoped this
+session to D002 and D003 only.
+
+*The residual stays live in `docs/open-items.md`.*
+
+### Manual Q and R pixel scale cannot be corrected once entered — fixed in code, drive owed (2026-09-04) — closed part
+
+**Code fix 2026-09-05** (second cut; the first locked a restored
+session value and an imported Q, and committed two red tests against
+itself): `PrepareSettings.shouldShowManualScaleEditor` keeps R editable
+always and Q editable for every provenance except measured-in-app, with the
+hover text naming the value an entry replaces; Prepare and ExportSheet share
+it, three unit tests pin it.
+
+*The residual stays live in `docs/open-items.md`.*
+

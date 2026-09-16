@@ -33,8 +33,8 @@ Done means the repo tells the next reader the truth. In order:
 3. If the session changed what the app draws: say so, and state the work as
    unverified on screen until the owner has driven it.
 4. Update the step's row in `docs/status.md` (state, commit, what deviated)
-   and the dated gate table. One paragraph in `docs/decisions.md` if a
-   decision was made.
+   and the dated gate table. A new file in `docs/decisions/` and a row in
+   `docs/decisions.md` if a decision was made.
 5. Update `docs/open-items.md` — add, amend, or delete. Closed items move
    to `docs/archive/` immediately (§1 discipline); the file is loaded by
    every session, so its length taxes all of them.

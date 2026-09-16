@@ -1,3 +1,5 @@
+> History, not guidance. Moved verbatim from `docs/ai-ml/precipitates.md` on 2026-09-16 (docs consolidation); the live replacement is `docs/v3-precipitate-classification.md`, which superseded this route on 2026-09-11.
+
 # Precipitate segmentation and counting — feature specification
 
 Status: v1 code on the branch `ml/disk-detector` (2026-09-07 night:
