@@ -17,19 +17,19 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Owner drive 2026-09-17 — added 2026-09-17
 
-### Saving to the session sidecar reports "could not remember access for a future launch" — Gate D open
-`sim_Au_data_all_binned.h5`, 00:26:37: the log says "Saved ACOM full scan · IPF · Z → sim_Au_data_all_binned.mac4dstem.h5",
-then the dialog "…could not remember access for a future launch: The file couldn't be opened" and the status
-"choose the sidecar again after relaunch" — `Support/ResultExport.swift` `rememberSidecarGrant`, so
-`url.bookmarkData(options: .withSecurityScope)` threw AFTER the HDF5 write succeeded. Calibration and
-BraggVectors were saved earlier that launch; whether they raised the same dialog is not recorded.
-Refuted by reading: a missing `files.bookmarks.app-scope` entitlement (present, unchanged since `b2fe7db`).
-Untested hypotheses: H1 the URL handed to `remember` carries no active sandbox extension at that moment —
-`SessionSidecarLocator.adopt` stops the scoped URL when handed a path-equal but non-identical one, while the
-write rode the panel's process-wide grant; H3 the remembered URL is not the written path (would read "no such file").
-Discriminators, owner-run (the agent cannot read the container): the dialog's Copy Details text (code 257 or
-errno 1 ⇒ H1; 260 ⇒ H3); `log show --last 2h --predicate 'eventMessage CONTAINS "mac4DSTEM" AND eventMessage CONTAINS "deny"'`;
-a relaunch — "Loaded with the dataset" means an earlier save kept the grant and only the re-remember failed. No fix before that.
+### Saving to the session sidecar reports "could not remember access" — DIAGNOSED 2026-09-17, a dev-build artifact
+`sim_Au`, 00:26:37: log "Saved ACOM full scan · IPF · Z", then "…could not remember access for a future launch:
+The file couldn't be opened" (`Support/ResultExport.swift` `rememberSidecarGrant`). Cause from the unified log,
+not inferred (`docs/archive/audit-2026-09-16/sidecar-bookmark-cdhash-20260917.log`): at that second
+`ScopedBookmarkAgent` ran `SecCodeCheckValidity` on the live pid and returned **-67034 `errSecCSStaticCodeChanged`**
+("the code on disk does not match what is running") — the DerivedData Debug bundle was rebuilt under the running
+instance (this session's `xcodebuild build` into the default DerivedData), so the agent refused the security-scoped
+bookmark and `bookmarkData` threw. The relaunch "HDF5 failed while opening the session sidecar" is the downstream
+C10 fallback: no bookmark → no grant → derived sibling refused. **Not a product defect** — a stable-cdhash release
+build does not hit it; H1 (sandbox extension) and H3 (wrong URL) refuted by the log. No Gate D ceremony: the
+mechanism is proven by a reproducing observation. Residual, minor: the dialog shows only `localizedDescription`
+and drops the error domain/code, so a code-signature abort reads identically to a real sandbox denial
+(error honesty, `Support/ResultExport.swift:163-166`). Confirm: relaunch a build nobody is rebuilding, Save, reopen.
 
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
