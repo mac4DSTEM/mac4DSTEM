@@ -305,6 +305,88 @@ saying rather than reading its agreement as strong confirmation.)
 the cliff is made of and what caps every future detection improvement. The
 cap is closed; the threshold is measured and is a setting, not a code change.
 
+### The matrix fall-back — REFUTED 2026-09-16, and the pre-registration was partly at fault
+
+**Gate D, written before the run.** Diagnosis, already established by the entry
+below and not re-argued: `PhaseVectorMatching.swift` sends a position to
+`.notIndexed` whenever no candidate phase clears its guards
+(`guard !bestPerPhase.isEmpty else { result.verdict = .notIndexed }`), even
+when the matrix orientation already explained most of that position's vectors.
+The matrix can only be reached by exclusion (`surviving.count <
+minimumVectors`) or by challenging a candidate that has already won. There is
+no path from "no candidate fits" back to "this is matrix". Measured cost: 806
+positions at a 0.2 % detection threshold (41.5 % of the error), 18 445 of
+21 494 Al positions at 0.05 %.
+
+**Instrument:** `PhaseVectorSettings.matrixFallbackExplainedFraction`, **0 by
+default so nothing ships changed** — when no candidate clears and the matrix
+explained at least that fraction of the position's vectors
+(`removedCount / vectors.count`), the verdict is matrix rather than a refusal.
+Driven by `tools/phase-map-probe --matrix-fallback f`.
+
+**Control, read first:** `f = 0` at 0.1 % and cap 70 must reproduce **4.21 %**
+(Al 98.11 %, edge-on 70 %, face-on 99.6 %, T1 89 %). Anything else and the
+table is not read.
+
+**Prediction.** At 0.1 %: the total falls below **4.21 %** and Al rises above
+**99 %**, while θ′ face-on and T1 recall each fall by no more than **2
+points**. At 0.05 %, where the precipitates are already near-solved and the map
+is destroyed by 18 445 refusals, the total falls below **20 %** from 75.67 %.
+
+**Refuting observation.** Face-on or T1 recall falls by more than 2 points —
+i.e. the fall-back is buying Al back by swallowing real precipitates — or the
+total does not improve at 0.1 %. Either refutes "the refusal is what costs" and
+sends the next increment to the detector kernel with the matrix verdict left
+as it is.
+
+**RESULT: the fall-back never fired, at either threshold, and the instrument
+has been removed.** 0.1 % with `f = 0.8` gave **1230 of 29 241 = 4.21 %** with
+every class byte-identical to the control
+(`thronsen-fallback0.8-rel0.001-20260916.log`); 0.05 % gave **22 128 = 75.67 %**,
+Al still 9 correct and 18 445 not-indexed
+(`thronsen-fallback0.8-rel0.0005-20260916.log`). Identical, not merely similar.
+
+**Part of that is a flaw in this pre-registration, and saying so is the
+point.** `f = 0.8` was chosen without first measuring what fraction the matrix
+actually explains at refused positions. At 0.05 % Al has a median of **14**
+detected vectors and its [001] pattern has four reflections inside the 0.70 Å⁻¹
+mask, so the explained fraction there is about **0.29** — the gate could not
+have opened at 0.8 whatever the verdict logic did. The measurement that should
+have come first is the distribution of `removedCount / vectors.count` at the
+positions that end not-indexed. **A pre-registration whose threshold is
+unmeasured is not a test of its hypothesis; it is a test of the threshold.**
+
+**What the pair of runs does establish.** There are three paths to
+`.notIndexed` and only one was instrumented: no candidate cleared
+(`bestPerPhase.isEmpty`), the winner's score over the verdict cliff, and the
+phase-contrast margin. Since the fall-back changed nothing, the refusals are
+NOT arriving by the first path — they arrive with a candidate already chosen
+and then rejected, which is the **cliff**. That relocates the target.
+
+**And it re-weights the whole residual.** At 0.1 % the error is no longer
+mostly "a precipitate called matrix"; it is **not-indexed, 1024 of 1230 = 83 %**
+— T1 617, Al 354, edge-on 49, face-on 4 — against 61 precipitates called matrix
+and 143 genuine cross-phase confusions. The 54 %/41 % split measured at 0.2 %
+does not survive the threshold change, and any plan resting on it is stale.
+
+**The instrument was removed rather than left inert.** A setting that provably
+never fires, kept "in case", is the same defect as
+`minimumMatchedFraction` recorded below: code asserting a capability that does
+nothing. `PhaseVectorMatching.swift` and `tools/phase-map-probe` are back to
+their committed state; this entry is the record.
+
+**Next, by the stopping rule (`decisions.md` 2026-09-16), revised by this
+result:** the verdict cliff's contribution to the 1024 not-indexed positions,
+measured first as a distribution — the winner's score against
+`notIndexedAboveInvAngstrom` at every refused position — before any rule is
+changed. T1 alone is 617 of them and its reference is already known to be wrong
+in detail, so the T1 reference and the cliff should be measured together.
+
+**Stated before the result.** A fall-back that works is NOT licence to ship a
+non-zero default: it changes what "matrix" means on every dataset, so it would
+need the demo cube, a Gate B refuter, and a decision from the owner about the
+default before any number moves. This increment ends at the measurement.
+
 ### The matrix is a verdict by exclusion, so it fails exactly when detection improves — MEASURED 2026-09-16, Gate D target
 
 **Science, live.** `PhaseVectorMatching.swift:769-773`:
