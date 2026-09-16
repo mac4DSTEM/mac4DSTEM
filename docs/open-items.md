@@ -17,19 +17,15 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Owner drive 2026-09-17 — added 2026-09-17
 
-### Saving to the session sidecar reports "could not remember access" — DIAGNOSED 2026-09-17, a dev-build artifact
-`sim_Au`, 00:26:37: log "Saved ACOM full scan · IPF · Z", then "…could not remember access for a future launch:
-The file couldn't be opened" (`Support/ResultExport.swift` `rememberSidecarGrant`). Cause from the unified log,
-not inferred (`docs/archive/audit-2026-09-16/sidecar-bookmark-cdhash-20260917.log`): at that second
-`ScopedBookmarkAgent` ran `SecCodeCheckValidity` on the live pid and returned **-67034 `errSecCSStaticCodeChanged`**
-("the code on disk does not match what is running") — the DerivedData Debug bundle was rebuilt under the running
-instance (this session's `xcodebuild build` into the default DerivedData), so the agent refused the security-scoped
-bookmark and `bookmarkData` threw. The relaunch "HDF5 failed while opening the session sidecar" is the downstream
-C10 fallback: no bookmark → no grant → derived sibling refused. **Not a product defect** — a stable-cdhash release
-build does not hit it; H1 (sandbox extension) and H3 (wrong URL) refuted by the log. No Gate D ceremony: the
-mechanism is proven by a reproducing observation. Residual, minor: the dialog shows only `localizedDescription`
-and drops the error domain/code, so a code-signature abort reads identically to a real sandbox denial
-(error honesty, `Support/ResultExport.swift:163-166`). Confirm: relaunch a build nobody is rebuilding, Save, reopen.
+### Sidecar save "could not remember access" was a dev cdhash mismatch; the live residual is the message — CONFIRMED 2026-09-17
+2026-09-17 00:26:37: bookmarking the just-saved sidecar threw "The file couldn't be opened". Cause, from the
+unified log (`docs/archive/audit-2026-09-16/sidecar-bookmark-cdhash-20260917.log`): `ScopedBookmarkAgent`
+returned -67034 `errSecCSStaticCodeChanged` because the ad-hoc Debug bundle in DerivedData was rebuilt under
+the running instance. **Confirmed a dev artifact, not a product bug**: after a fresh build nobody rebuilt under,
+Save persisted and the sidecar restored (owner reproduction, log 00:47:43). H1 (sandbox extension) and H3
+(wrong URL) refuted; no Gate D (mechanism proven by a reproducing observation). **Live residual (product):**
+`rememberSidecarGrant` surfaces only `error.localizedDescription`, so a code-signature abort reads identically
+to a real sandbox denial (`Support/ResultExport.swift:163-166`) — include the error domain/code. Not urgent.
 
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
