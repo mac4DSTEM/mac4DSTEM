@@ -225,10 +225,30 @@ inside 0.96–1.75 %, then one on-screen drive of phase mapping, then the docs
 commit that retires this paragraph. Every phase-mapping product still carries
 `validation: "none"`.
 
-**Not pushed, and not gated on its own tree yet** — `unit` and `scientific`
-are owed on `split/no-phase-mapping` itself before it goes out; a gate on
-`ai-analysis` is not a gate on this tree. Auto-merge is off. The owner
-pushes, or hands over the push when asked.
+**Gated on its own tree, 2026-09-16, and push-ready.** `unit` **exit 0**
+(`unit-split-main-20260916.log`); `scientific` **45 harnesses started, 45
+finished, zero `FAIL`, exit 0** (`sci-split-20260916.log`, `SCI_SPLIT_EXIT=0`
+on its own line) — 45 rather than 46 because `phase-vector-matching` is not on
+this branch; `inventory` **exit 0** (`inv-split-20260916.log`), gated 47,
+diagnostic 11, live markdown 6 198. Auto-merge is off. The owner pushes, or
+hands over the push when asked.
+
+**Two things about HOW that gate was run, because both cost time and one was a
+mistake.** The unit gate was first run in a detached worktree and failed at
+**exit 65 with 598 errors** — `App/`, `UI/` and `Support/` could not see types
+from the local `Package.swift` (`FourDDataSource`, `DiffractionPattern`,
+`AnalysisCancellationToken`). That is the worktree, not the branch: the same
+tree passes in the main checkout. **Worktree builds through the `.xcodeproj`
+are not a gate in this repo** — `scientific`, which compiles harnesses with
+`swiftc` from the source manifest, runs in a worktree fine, and did here
+(with `References/` symlinked to the main checkout's 3.3 GB copy rather than
+re-fetched, the disk being at 6 GB). The mistake: the unit gate was then run by
+switching the MAIN checkout to the split branch while the owner had the app and
+Xcode open on it. Nothing was lost — he was on an `ai-analysis` build, and the
+split branch does not even contain `PhaseMappingSettings.swift`,
+`AppState+PhaseMapping.swift` or `PhaseVectorMatching.swift`, so it could not
+have produced what he was looking at — but **do not gate a branch by switching
+the checkout somebody is working in.** Use a worktree, or ask.
 
 **A trap paid 2026-09-14:** `tools/run-tests.sh` edited while `inventory` was
 running died with `parse error near ';;'` on a line that was fine before and
