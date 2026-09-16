@@ -490,12 +490,6 @@ final class AppState {
         acomSession.backend == .automatic ? .cpu : acomSession.backend
     }
 
-    var acomBackendSummary: String {
-        acomSession.backend == .automatic
-            ? "Automatic · \(effectiveACOMBackend.rawValue)"
-            : effectiveACOMBackend.rawValue
-    }
-
     private var acomScanSelection: ACOMScanSelection {
         switch acomSession.scope {
         case .preview:

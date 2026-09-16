@@ -22,14 +22,6 @@ enum ColormapKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Compact menu label used when both pane palettes share the sidebar row.
-    var shortDisplayName: String {
-        switch self {
-        case .rdbu: return "RdBu"
-        default: return displayName
-        }
-    }
-
     /// Diverging maps are meant for symmetric data such as strain or DPC.
     var isDiverging: Bool { self == .rdbu }
 }

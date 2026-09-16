@@ -3,7 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-/// v2 S8's seam (`App/StrainProduct.swift`): the one owner of the strain
+/// v2 S8's seam (`Session/StrainProduct.swift`): the one owner of the strain
 /// product and its run controls. These pin the seam's contracts — publish
 /// reconciles the failure state and adopts an automatic basis, a failed
 /// re-run keeps the product on screen, activation clears the product but not

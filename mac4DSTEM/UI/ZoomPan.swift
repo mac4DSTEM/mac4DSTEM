@@ -35,8 +35,6 @@ struct ZoomPan: Equatable {
     /// never collapse to nothing.
     var drawZoom: CGFloat { max(Self.minimumZoom, effectiveZoom) }
 
-    var isZoomedIn: Bool { effectiveZoom > 1.01 }
-
     mutating func reset() { self = ZoomPan() }
 
     static func clampZoom(_ zoom: CGFloat) -> CGFloat {

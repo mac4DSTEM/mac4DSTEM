@@ -1,6 +1,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
+// MUST match ACOMMetalParams in OrientationMatcher.swift (all 4-byte fields).
 struct ACOMParams {
     uint positions;
     uint templates;

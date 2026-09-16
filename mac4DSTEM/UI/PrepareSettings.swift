@@ -366,74 +366,9 @@ struct PrepareSettings: View {
         if !item.status.isReady || Self.shouldShowManualScaleEditor(
             for: item.kind, status: item.status
         ) {
-            readinessAction(for: item.kind, status: item.status)
-        }
-    }
-
-    @ViewBuilder
-    private func readinessAction(for kind: CalibrationReadinessKind, status: CalibrationReadinessStatus) -> some View {
-        switch kind {
-        case .originProbe:
-            Button("Measure Origin & Probe") {
-                Task { await appState.calibrateOrigin() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.originProbe")
-        case .ellipse:
-            Button("Fit Detector Ellipse") {
-                Task { await appState.calibrateEllipse() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.ellipse")
-        case .rotation:
-            Button("Measure R–Q Rotation") {
-                Task { await appState.calibrateRotation() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.rotation")
-        case .qScale:
-            if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
-                Button("Calibrate from Selected Material") {
-                    Task { await appState.calibrateQFromCrystal() }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(appState.isBusy)
-                .accessibilityIdentifier("calibration.action.qCrystal")
-                .help("Selected ACOM phase model: \(model.displayName)")
-                manualScaleRows(
-                    value: appState.manualQPixelSize,
-                    units: appState.manualQPixelUnits,
-                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                    identifier: "calibration.action.qManual",
-                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: "Or enter the reciprocal pixel size by hand."),
-                    onChange: appState.setManualQPixelSize,
-                    onUnitChange: appState.setManualQPixelUnits
-                )
-            } else {
-                // Why the crystal route is unavailable is guidance about a
-                // path you cannot take yet: on hover and in the hint.
-                manualScaleRows(
-                    value: appState.manualQPixelSize,
-                    units: appState.manualQPixelUnits,
-                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                    identifier: "calibration.action.qManual",
-                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: qScaleUnavailableReason),
-                    onChange: appState.setManualQPixelSize,
-                    onUnitChange: appState.setManualQPixelUnits
-                )
-            }
-        case .rScale:
-            // R scale is the one calibration with no measurement path in the
-            // app; the field is the only control offered, and the sentence
-            // is on hover.
-            manualScaleRows(
-                value: appState.manualRPixelSize,
-                units: appState.manualRPixelUnits,
-                unitOptions: CalibrationUnitConversion.editableRealUnits,
-                identifier: "calibration.action.rManual",
-                help: PrepareSettings.manualScaleHelp(status: status, otherwise: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters."),
-                onChange: appState.setManualRPixelSize,
-                onUnitChange: appState.setManualRPixelUnits
+            CalibrationReadinessRow.action(
+                appState: appState, kind: item.kind, status: item.status,
+                qScaleUnavailableReason: qScaleUnavailableReason
             )
         }
     }
@@ -511,34 +446,6 @@ struct PrepareSettings: View {
         } else {
             return "Choose a phase model to calibrate Q from a known crystal."
         }
-    }
-
-    /// The manual scale as two rows — the value, then its unit per pixel —
-    /// because value, unit menu and suffix together do not fit the column's
-    /// minimum width.
-    @ViewBuilder
-    private func manualScaleRows(
-        value: Double?, units: String, unitOptions: [String], identifier: String,
-        help: String,
-        onChange: @escaping (Double) -> Void,
-        onUnitChange: @escaping (String) -> Void
-    ) -> some View {
-        LabeledContent("Manual") {
-            NumericField(
-                "Manual scale",
-                value: Binding(get: { value ?? 0 }, set: onChange),
-                format: .number.precision(.fractionLength(0...6))
-            )
-            .accessibilityIdentifier(identifier)
-        }
-        .help(help)
-        .accessibilityHint(help)
-        Picker("Unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
-            ForEach(unitOptions, id: \.self) { unit in
-                Text(unit).tag(unit)
-            }
-        }
-        .accessibilityIdentifier(identifier + ".units")
     }
 }
 
