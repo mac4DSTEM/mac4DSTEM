@@ -2965,7 +2965,7 @@ final class AppState {
     }
 
     private func loadCurrentPattern() async {
-        guard let descriptor, let fourD else { return }
+        guard descriptor != nil, let fourD else { return }
 
         do {
             let epoch = datasetEpoch

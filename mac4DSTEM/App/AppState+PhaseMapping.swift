@@ -69,6 +69,7 @@ extension AppState {
     }
 
     /// Map every scan position to a phase, or to "not indexed".
+    @discardableResult
     func runPhaseMapping() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
         if let refusal = phaseMapping.runRefusal { return .failed(refusal) }

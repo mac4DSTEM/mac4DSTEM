@@ -15,6 +15,22 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Owner drive 2026-09-17 — added 2026-09-17
+
+### Saving to the session sidecar reports "could not remember access for a future launch" — Gate D open
+`sim_Au_data_all_binned.h5`, 00:26:37: the log says "Saved ACOM full scan · IPF · Z → sim_Au_data_all_binned.mac4dstem.h5",
+then the dialog "…could not remember access for a future launch: The file couldn't be opened" and the status
+"choose the sidecar again after relaunch" — `Support/ResultExport.swift` `rememberSidecarGrant`, so
+`url.bookmarkData(options: .withSecurityScope)` threw AFTER the HDF5 write succeeded. Calibration and
+BraggVectors were saved earlier that launch; whether they raised the same dialog is not recorded.
+Refuted by reading: a missing `files.bookmarks.app-scope` entitlement (present, unchanged since `b2fe7db`).
+Untested hypotheses: H1 the URL handed to `remember` carries no active sandbox extension at that moment —
+`SessionSidecarLocator.adopt` stops the scoped URL when handed a path-equal but non-identical one, while the
+write rode the panel's process-wide grant; H3 the remembered URL is not the written path (would read "no such file").
+Discriminators, owner-run (the agent cannot read the container): the dialog's Copy Details text (code 257 or
+errno 1 ⇒ H1; 260 ⇒ H3); `log show --last 2h --predicate 'eventMessage CONTAINS "mac4DSTEM" AND eventMessage CONTAINS "deny"'`;
+a relaunch — "Loaded with the dataset" means an earlier save kept the grant and only the re-remember failed. No fix before that.
+
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
 ### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
@@ -751,6 +767,18 @@ at runtime — but it would defeat any future UI test that addresses a readiness
 row by identifier. The old app had the same collision. Owner: unclaimed.
 
 ## Code hygiene
+
+### Three Swift 6 isolation warnings in `App/AppState+PhaseMapping.swift` — found 2026-09-17
+A cold `xcodebuild build` at `a960665` printed three warnings there (the audit's E3 cold build, `docs/archive/audit-2026-09-16/code-metrics.md` §E; again in `build-B-20260917.log`):
+line 112 `reference to captured var 'self' in concurrently-executing code`, lines 127 and
+328 `main actor-isolated property 'invAngstromPerPixel' cannot be accessed from outside
+of the actor` — all "an error in the Swift 6 language mode". The two trivial
+`#NoUsage` warnings that sat beside them in `App/AppState.swift` were fixed the same day.
+Trap: this is the class `Core/ML/LearnedDiskDetection.swift` documents — an isolation
+annotation moves work between threads, so the fix is not a `nonisolated` sprinkled to
+silence the compiler; establish first where the phase-mapping progress closure and the
+scale read actually run (`/diagnose`), then fix, then re-read the build log.
+Owner: the next phase-mapping session.
 
 ### The audit's refactor list, rows 4–13, is the open hygiene queue — 2026-09-16
 Rows 1–3 and 10 landed in `e415929`. Still open, in the audit's order:
