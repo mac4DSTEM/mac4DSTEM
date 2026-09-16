@@ -305,7 +305,7 @@ saying rather than reading its agreement as strong confirmation.)
 the cliff is made of and what caps every future detection improvement. The
 cap is closed; the threshold is measured and is a setting, not a code change.
 
-### The matrix fall-back — REFUTED 2026-09-16, and the pre-registration was partly at fault
+### The matrix fall-back reaches 3.13 %, and I am recommending AGAINST shipping it — 2026-09-16
 
 **Gate D, written before the run.** Diagnosis, already established by the entry
 below and not re-argued: `PhaseVectorMatching.swift` sends a position to
@@ -381,6 +381,63 @@ measured first as a distribution — the winner's score against
 `notIndexedAboveInvAngstrom` at every refused position — before any rule is
 changed. T1 alone is 617 of them and its reference is already known to be wrong
 in detail, so the T1 reference and the cliff should be measured together.
+
+**CORRECTION, and it is mine.** The commit that recorded the f = 0.8 run
+concluded "the refusals do not arrive by the empty-candidate path… they arrive
+by the verdict cliff". **That is wrong**, and the next measurement says so
+(`thronsen-whynotindexed-20260916.log`). Of the 1024 not-indexed positions at
+0.1 %, the refusal path splits:
+
+| truth | refused | nothing cleared | cliff-refused | score/cliff p25–p75 |
+|---|---|---|---|---|
+| Al | 354 | **347 (98 %)** | 7 | 1.05–1.17 |
+| T1 | 617 | **604 (98 %)** | 13 | 1.04–1.14 |
+| θ′ edge-on | 49 | 40 (82 %) | 9 | 1.07–1.19 |
+| θ′ face-on | 4 | 3 (75 %) | 1 | 1.01 |
+
+**98 % arrive by exactly the path the fall-back patched.** It did nothing
+because 0.8 was too high, not because the path was wrong. The verdict cliff is
+worth about **30 positions**, all sitting at 1.01–1.19 × the cliff, and is not
+a lever. I inferred a mechanism from a null result instead of measuring it, and
+the measurement that settles it cost one run.
+
+**The threshold, measured rather than guessed**
+(`thronsen-explained-20260916.log`), as the explained fraction
+`removed / detected` where nothing cleared: Al p10–p90 **0.33–0.67** (median
+0.67), T1 **0.50–0.67** (median 0.67), θ′ edge-on **0.18–0.33**, face-on
+0.44–0.67. **Al and T1 overlap almost exactly**, so no threshold separates
+them — which is the finding, not an obstacle.
+
+**RESULT at f = 0.33** (`thronsen-fallback0.33-20260916.log`): **915 of 29 241
+= 3.13 %**, from 4.21 %. Al 21 087 → **21 402** correct (99.57 %), not-indexed
+across the whole map down to **0.3 %**. The demo cube is **unchanged** — all
+three grains, both precipitate classes and vacuum at 100 %, every clause held
+(`demo-fallback0.33-20260916.log`).
+
+**Why I am recommending against a non-zero default anyway, and the arithmetic
+that makes the case.** The 1.08-point gain is two different things added
+together:
+
+- **315 positions of real gain** — Al positions that ARE matrix and were being
+  refused. Legitimate, and worth having.
+- **600 positions of metric-neutral shuffle** — T1 positions that go from
+  "not indexed" to "Al". They were counted wrong before and are counted wrong
+  now (T1 → Al rises 39 → 639, T1 not-indexed falls 617 → 17). **The score
+  improves; the map does not.**
+
+That second part is the problem. The map stops saying "I do not know" about
+600 T1 positions and starts positively claiming they are aluminium. **The
+deliverable of this whole feature is a phase fraction**, and this silently
+overstates the matrix fraction by ~2 % of the map — in the one direction a
+microscopist would not catch, because matrix is the expected answer. It also
+contradicts the standard this repo set for itself in `8369fbf`, that a refusal
+reads as a refusal.
+
+**So: the setting lands at 0, the number is recorded, and the owner rules.**
+If he wants it on, the honest form is probably a separate verdict — "matrix by
+exclusion" drawn and counted apart from "matrix by fit" — rather than folding
+both into one colour and one fraction. That is a bigger change than a
+threshold and would need its own pre-registration, the demo cube, and Gate B.
 
 **Stated before the result.** A fall-back that works is NOT licence to ship a
 non-zero default: it changes what "matrix" means on every dataset, so it would

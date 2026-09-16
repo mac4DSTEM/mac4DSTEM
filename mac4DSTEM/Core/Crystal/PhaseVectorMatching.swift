@@ -71,6 +71,13 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     package var pairRadiusInvAngstrom: Double = 0.02
     /// Fewer surviving vectors than this → the matrix, by exclusion.
     package var minimumVectors: Int = 2
+
+    /// When NO candidate phase clears its guards, fall back to the matrix
+    /// verdict if the matrix already explained at least this fraction of the
+    /// position's detected vectors. 0 disables it — the shipped default, and
+    /// nothing moves until the owner rules on the objection recorded with it.
+    /// Measured 2026-09-16; see `open-items.md`.
+    package var matrixFallbackExplainedFraction: Double = 0
     /// An entry must account for at least this many surviving vectors. Three,
     /// not two: two points fix a lattice only if you already know which two.
     package var minimumMatchedVectors: Int = 3
@@ -817,6 +824,14 @@ package nonisolated enum PhaseVectorMatcher {
             }
         }
         guard !bestPerPhase.isEmpty else {
+            if settings.matrixFallbackExplainedFraction > 0, !vectors.isEmpty,
+               Double(result.removedCount) / Double(vectors.count)
+                   >= settings.matrixFallbackExplainedFraction {
+                result.verdict = .matrix
+                result.phaseIndex = Int32(library.matrixPhaseIndex)
+                result.entryIndex = -1
+                return result
+            }
             result.verdict = .notIndexed
             return result
         }

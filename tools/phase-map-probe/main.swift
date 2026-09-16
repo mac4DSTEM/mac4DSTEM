@@ -112,6 +112,7 @@ enum Probe {
         // `--reach` discards them only AFTER detection has spent it on them.
         // `--noise-floor` already raises this to 200; the pipeline never did.
         var maxPeaks: Int?
+        var matrixFallback: Double?
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
@@ -131,6 +132,8 @@ enum Probe {
                 // The verdict cliff as an absolute Å⁻¹ value (shipped 0.015, 0.75
                 // a pixel); the cliff pre-registration of 2026-09-15 evening.
                 notIndexedAbove = Double(args[index + 1]); index += 2
+            } else if args[index] == "--matrix-fallback", index + 1 < args.count {
+                matrixFallback = Double(args[index + 1]); index += 2
             } else if args[index] == "--max-peaks", index + 1 < args.count {
                 maxPeaks = Int(args[index + 1]); index += 2
             } else if args[index] == "--min-matched", index + 1 < args.count {
@@ -187,6 +190,10 @@ enum Probe {
         if let minMatched {
             matchSettings.minimumMatchedVectors = minMatched
             print("matching: minimumMatchedVectors \(minMatched) (shipped 3)")
+        }
+        if let matrixFallback {
+            matchSettings.matrixFallbackExplainedFraction = matrixFallback
+            print(String(format: "matching: matrix fallback at %.2f explained (shipped 0 = off)", matrixFallback))
         }
         if let notIndexedAbove {
             matchSettings.notIndexedAboveInvAngstrom = notIndexedAbove
@@ -803,6 +810,71 @@ enum Probe {
                       + hist.map { String(format: "%5.1f%%", 100 * Double($0) / Double(total)) }.joined(separator: " ")
                       + " | \(medianDetected)")
             }
+            // ---- WHY the not-indexed positions were refused (2026-09-16) ----
+            // At a 0.1 % detection threshold "not indexed" is 83 % of the whole
+            // error (1024 of 1230), so the refusal, not the label, is what
+            // costs. There are three paths to it and they are told apart by
+            // what the result carries: the matcher records the winner's numbers
+            // on a refusal, so `score > 0` means a candidate WAS chosen and
+            // then rejected by the verdict cliff, while `score == 0` means
+            // nothing cleared the guards at all. For the cliff group the
+            // question is how far over it they sit: just over is a threshold,
+            // far over is a reference that does not fit.
+            let cliff = matchSettings.notIndexedAboveInvAngstrom
+            print(String(format: "\n  why not indexed, per truth class (cliff = %.4f Å⁻¹):", cliff))
+            print("  class            n   nothing-cleared  cliff-refused | score/cliff of the cliff group: p25 p50 p75  median matched")
+            for theirs in [0, 1, 2, 3] {
+                var nothing = 0
+                var ratios: [Double] = []
+                var matched: [Int] = []
+                for (index, result) in map.results.enumerated()
+                where thronsen.labels[index] == theirs && result.verdict == .notIndexed {
+                    let sc = Double(result.score)
+                    if !(sc > 0) { nothing += 1; continue }
+                    ratios.append(sc / max(cliff, .leastNormalMagnitude))
+                    matched.append(Int(result.matchedCount))
+                }
+                let n = nothing + ratios.count
+                guard n > 0 else { continue }
+                let sorted = ratios.sorted()
+                func q(_ f: Double) -> String {
+                    guard !sorted.isEmpty else { return "  -  " }
+                    return String(format: "%5.2f", sorted[min(sorted.count - 1, Int(f * Double(sorted.count)))])
+                }
+                let medMatched = matched.isEmpty ? 0 : matched.sorted()[matched.count / 2]
+                print(String(format: "  %-14@ %5d   %6d (%3.0f%%)   %6d (%3.0f%%) | ",
+                             name(theirs) as NSString, n,
+                             nothing, 100 * Double(nothing) / Double(n),
+                             ratios.count, 100 * Double(ratios.count) / Double(n))
+                      + "\(q(0.25)) \(q(0.50)) \(q(0.75))        \(medMatched)")
+            }
+
+            // What fraction did the MATRIX explain at the positions where
+            // nothing cleared? This is the measurement that should have come
+            // before the 2026-09-16 matrix fall-back pre-registration, whose
+            // f = 0.8 was a guess and never opened. If Al's explained fraction
+            // sits above the precipitates', a fall-back can separate them; if
+            // they overlap, it cannot, and the number is the answer either way.
+            print("\n  explained fraction (removed / detected) where NOTHING cleared, per truth class:")
+            print("  class            n    p10   p25   p50   p75   p90")
+            for theirs in [0, 1, 2, 3] {
+                var fracs: [Double] = []
+                for (index, result) in map.results.enumerated()
+                where thronsen.labels[index] == theirs && result.verdict == .notIndexed
+                    && !(Double(result.score) > 0) {
+                    let detected = Double(result.survivingCount + result.removedCount)
+                    guard detected > 0 else { continue }
+                    fracs.append(Double(result.removedCount) / detected)
+                }
+                guard !fracs.isEmpty else { continue }
+                let sorted = fracs.sorted()
+                func q(_ f: Double) -> String {
+                    String(format: "%5.2f", sorted[min(sorted.count - 1, Int(f * Double(sorted.count)))])
+                }
+                print(String(format: "  %-14@ %5d  ", name(theirs) as NSString, fracs.count)
+                      + [0.10, 0.25, 0.50, 0.75, 0.90].map(q).joined(separator: " "))
+            }
+
             // ---- Noise floor (Gate D record: docs/open-items.md, step 3 entry) ----
             // Does a per-pattern local significance z = (I − median) /
             // (1.4826·MAD) over a pattern's non-beam, non-Al correlation
