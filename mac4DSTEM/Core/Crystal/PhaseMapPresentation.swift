@@ -44,6 +44,37 @@ package nonisolated enum PhaseMapPresentation {
     /// The two greys of the "not indexed" hatch.
     package static let notIndexedColors: (RGB, RGB) = ((168, 168, 172), (208, 208, 212))
 
+    /// How much of this position's detected signal the matrix explained, or
+    /// nil where the question does not apply (nothing detected).
+    package static func explainedFraction(_ r: PhaseVectorResult) -> Double? {
+        let detected = Int(r.survivingCount) + Int(r.removedCount)
+        guard detected > 0 else { return nil }
+        return Double(r.removedCount) / Double(detected)
+    }
+
+    /// The median explained fraction behind this map's matrix verdicts, or nil
+    /// if it has none — the one honest summary of how much the matrix actually
+    /// accounted for, reported rather than thresholded.
+    ///
+    /// NO BAR, AND THE REASON IS MEASURED (2026-09-16). A fixed bar was built
+    /// at 0.90, chosen from Thronsen's stride-3 subsample at a 0.1 % detection
+    /// threshold, where it flagged 51 of the 61 wrong matrix calls and 7 % of
+    /// the right ones. The demo cube, at its shipped threshold, then flagged
+    /// **46 % of a map whose every acceptance clause passes at 100 %**
+    /// (`demo-partial-20260916.log`). The explained fraction falls as detection
+    /// admits more noise, so a bar that means "weak evidence" on one dataset
+    /// means "ordinary" on another, and hatching half a correct map is worse
+    /// than no mark at all. The quantity is real and is reported; the
+    /// threshold was a guess dressed as a measurement and is gone.
+    package static func medianMatrixExplainedFraction(_ map: PhaseMap) -> Double? {
+        let fracs = map.results
+            .filter { $0.verdict == .matrix }
+            .compactMap(explainedFraction)
+            .sorted()
+        guard !fracs.isEmpty else { return nil }
+        return fracs[fracs.count / 2]
+    }
+
     /// Colour for a phase. The matrix keeps `matrixColor` whatever its index,
     /// so adding a phase before it in the list cannot recolour the map.
     package static func color(phaseIndex: Int, matrixPhaseIndex: Int) -> RGB {

@@ -444,6 +444,48 @@ non-zero default: it changes what "matrix" means on every dataset, so it would
 need the demo cube, a Gate B refuter, and a decision from the owner about the
 default before any number moves. This increment ends at the measurement.
 
+### The matrix explained fraction is reported; the bar that was going to gate it is REFUTED by the demo cube — 2026-09-16
+
+**Owner's decision (2026-09-16): keep the fall-back off, ship the separate
+verdict instead.** What shipped is the *quantity*, not a verdict split, and the
+reason is a measurement that went against the design.
+
+**What was built first.** `.matrix` is returned by two mechanisms — too little
+survived removal, or the matrix won the challenge — and neither says how much
+the matrix EXPLAINED. Measured on Thronsen at a 0.1 % threshold
+(`thronsen-matrixevidence2-20260916.log`), the explained fraction behind a
+matrix verdict does separate right from wrong: truth-Al p10–p90 all **1.00**
+with 1 466 of 21 087 (**7.0 %**) under 0.90; truth-θ′-edge-on 0.21–0.27,
+**100 %** under; truth-T1 0.80–1.00, **74 %** under. A 0.90 bar flags 51 of the
+61 wrong matrix calls. So a stippled "partly explained" appearance and a legend
+row were built on it, with a test broken three ways.
+
+**Then the demo cube refuted the bar, which is what the demo cube is for.** At
+its shipped threshold it flagged **46 % of a map whose every acceptance clause
+passes at 100 %** (`demo-partial-20260916.log`; Thronsen flagged 5.2 %). The
+explained fraction falls as detection admits more noise, so a bar meaning "weak
+evidence" on one dataset means "ordinary" on another. **Hatching half a correct
+map is worse than no mark**, and a threshold measured on one dataset at one
+setting and presented as a property of the method is the same error as the
+`f = 0.8` fall-back earlier the same day — twice in one session, which is the
+lesson.
+
+**What ships:** `PhaseMapPresentation.explainedFraction(_:)` and
+`medianMatrixExplainedFraction(_:)` — the quantity, reported, with **no
+threshold anywhere**. Phase counts are untouched, so no fraction moves in
+either direction; the map's colours are unchanged; Thronsen stays at **4.21 %**
+because no label changed (`thronsen-partial-20260916.log`), the demo cube holds
+every clause, and `phase-vector-matching` is 32/0.
+
+**What is still open, and it is the honest remainder.** The per-position
+evidence line already distinguishes the two routes and already states "N of M
+vectors are the matrix's". The map-level summary now exists in Core but **is
+not on screen** — nothing in the panel yet reports the median explained
+fraction, so a user reading a matrix fraction still cannot see how much of it
+rests on a full explanation without clicking position by position. That wiring,
+and the owner's drive of it, is the next increment. Until then this is a Core
+quantity with no reader.
+
 ### The matrix is a verdict by exclusion, so it fails exactly when detection improves — MEASURED 2026-09-16, Gate D target
 
 **Science, live.** `PhaseVectorMatching.swift:769-773`:

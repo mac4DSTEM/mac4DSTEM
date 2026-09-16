@@ -1073,6 +1073,48 @@ final class PhaseMapPresentationTests: XCTestCase {
         XCTAssertGreaterThan(Set(greys).count, 1, "the not-indexed hatch is a flat fill")
     }
 
+    /// Mutation: `survivingCount` used for `removedCount`, which inverts the
+    /// fraction; the median taken over every position rather than the matrix
+    /// ones; a fully-explained position reported as partial.
+    ///
+    /// A matrix verdict is returned both when almost nothing survived removal
+    /// and when the matrix won the challenge, and neither says how much the
+    /// matrix EXPLAINED. This reports that, and deliberately does NOT threshold
+    /// it: a 0.90 bar measured on Thronsen flagged 46 % of the demo cube, whose
+    /// every acceptance clause passes (2026-09-16, `open-items.md`).
+    func testTheMatrixExplainedFractionIsReportedAndNotThresholded() {
+        var map = PhaseMap(width: 3, height: 1, matrixEntryIndex: 0,
+                           phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+        // 0: fully explained (4 of 4). 1: partial (1 of 4). 2: indexed.
+        map.results[0].verdict = .matrix; map.results[0].phaseIndex = 0
+        map.results[0].removedCount = 4; map.results[0].survivingCount = 0
+        map.results[1].verdict = .matrix; map.results[1].phaseIndex = 0
+        map.results[1].removedCount = 1; map.results[1].survivingCount = 3
+        map.results[2].verdict = .indexed; map.results[2].phaseIndex = 1
+        map.results[2].removedCount = 0; map.results[2].survivingCount = 9
+
+        XCTAssertEqual(PhaseMapPresentation.explainedFraction(map.results[0]), 1.0)
+        XCTAssertEqual(PhaseMapPresentation.explainedFraction(map.results[1]), 0.25)
+
+        // The median is over the MATRIX positions only: the indexed position's
+        // 0.0 must not drag it down, or the number answers a different question.
+        XCTAssertEqual(PhaseMapPresentation.medianMatrixExplainedFraction(map) ?? -1,
+                       1.0, accuracy: 1e-9,
+                       "the median must be taken over matrix verdicts alone")
+
+        // Both are still matrix: reporting the evidence must not move the
+        // phase fraction, in either direction.
+        XCTAssertEqual(map.phaseCounts[0], 2)
+        XCTAssertFalse(PhaseMapPresentation.legend(map).contains { $0.label.contains("partly") },
+                       "the refuted 0.90 bar must not come back as a legend row")
+
+        // A map with no matrix positions has no such number to report.
+        var none = PhaseMap(width: 1, height: 1, matrixEntryIndex: 0,
+                            phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+        none.results[0].verdict = .notIndexed
+        XCTAssertNil(PhaseMapPresentation.medianMatrixExplainedFraction(none))
+    }
+
     /// Mutation: `distanceImage` writing 0 rather than NaN at a matrix or
     /// no-data position. Zero reads as a PERFECT match — the most misleading
     /// value available — and would drag every colour scale to it.

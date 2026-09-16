@@ -875,6 +875,48 @@ enum Probe {
                       + [0.10, 0.25, 0.50, 0.75, 0.90].map(q).joined(separator: " "))
             }
 
+            // How much evidence stands behind a MATRIX verdict? (2026-09-16.)
+            // `.matrix` is returned by two mechanisms — too little survived
+            // removal, or the matrix won the challenge — but the distinction
+            // that matters to a reader is not the mechanism, it is whether the
+            // matrix actually EXPLAINED anything. Four detected vectors all
+            // removed is a positive identification; one detected vector
+            // removed is an assumption. Both are drawn the same grey today and
+            // both are counted in the matrix phase fraction.
+            print("\n  evidence behind each MATRIX verdict, per truth class (detected vectors, all removed):")
+            print("  class            n     0-1     2-3     4-5      6+   | median detected  median removed-fraction")
+            for theirs in [0, 1, 2, 3] {
+                var bins = [0, 0, 0, 0]
+                var detectedAll: [Int] = []
+                var fracs: [Double] = []
+                for (index, result) in map.results.enumerated()
+                where thronsen.labels[index] == theirs && result.verdict == .matrix {
+                    let detected = Int(result.survivingCount + result.removedCount)
+                    detectedAll.append(detected)
+                    if detected <= 1 { bins[0] += 1 } else if detected <= 3 { bins[1] += 1 }
+                    else if detected <= 5 { bins[2] += 1 } else { bins[3] += 1 }
+                    if detected > 0 { fracs.append(Double(result.removedCount) / Double(detected)) }
+                }
+                let n = detectedAll.count
+                guard n > 0 else { continue }
+                let medDet = detectedAll.sorted()[n / 2]
+                let sortedFracs = fracs.sorted()
+                func q(_ f: Double) -> String {
+                    guard !sortedFracs.isEmpty else { return " -  " }
+                    return String(format: "%.2f", sortedFracs[min(sortedFracs.count - 1, Int(f * Double(sortedFracs.count)))])
+                }
+                // The BAR is chosen from these, not guessed: the 2026-09-16
+                // fall-back was pre-registered at f = 0.8 without measuring and
+                // could never have fired.
+                let below90 = sortedFracs.filter { $0 < 0.9 }.count
+                print(String(format: "  %-14@ %5d  ", name(theirs) as NSString, n)
+                      + bins.map { String(format: "%4d(%2.0f%%)", $0, 100 * Double($0) / Double(n)) }.joined(separator: " ")
+                      + String(format: "  |      %3d   ", medDet)
+                      + "p10 \(q(0.10)) p25 \(q(0.25)) p50 \(q(0.50)) p75 \(q(0.75)) p90 \(q(0.90))"
+                      + String(format: "  | under 0.90: %d (%.1f %%)", below90,
+                               100 * Double(below90) / Double(max(1, sortedFracs.count))))
+            }
+
             // ---- Noise floor (Gate D record: docs/open-items.md, step 3 entry) ----
             // Does a per-pattern local significance z = (I − median) /
             // (1.4826·MAD) over a pattern's non-beam, non-Al correlation
