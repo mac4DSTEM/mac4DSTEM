@@ -198,14 +198,37 @@ remain deliberately not wired
 ([`archive/v3/precipitate-baseline-2026-09-11.md`](archive/v3/precipitate-baseline-2026-09-11.md),
 [`archive/v3/precipitate-handcount-2026-09-11.md`](archive/v3/precipitate-handcount-2026-09-11.md)).
 
-**The branch.** v3.0.0 is on the remote and `refs/tags/v3.0.0` resolves there.
-Everything since is on the remote branch `ai-analysis`
-([PR #1](https://github.com/mac4DSTEM/mac4DSTEM/pull/1)); `origin/main` stays at
-v3.0.0 until step 3 has run. The merge is a fast-forward —
-`git push origin ai-analysis:main`, never GitHub's merge button. Conditions, in
-order: step 3 inside Thronsen's band; one on-screen drive of phase mapping; then
-the docs commit that retires this paragraph. Auto-merge is off. The owner
-pushes.
+**The branch — the merge is SPLIT (owner, 2026-09-16).** v3.0.0 is on the
+remote and `refs/tags/v3.0.0` resolves there. Everything since is on
+`ai-analysis` ([PR #1](https://github.com/mac4DSTEM/mac4DSTEM/pull/1)).
+
+The 90 commits since v3.0.0 were held behind step 3's band, and 69 of them have
+nothing to do with phase mapping. They no longer wait. Local branch
+**`split/no-phase-mapping`**, 27 commits, fast-forward from `origin/main`,
+**zero** phase-mapping files touched (verified by path:
+`PhaseVectorMatching`, `PhaseReferenceLibrary`, `PhaseMappingProduct`,
+`AppState+PhaseMapping`, `PhaseMappingSettings`, `tools/phase-map-probe`).
+26 of the 27 are the contiguous clean prefix — phase mapping first appears at
+commit 27 of 90 — and the 27th is `05ba82a` cherry-picked, the fix for the
+red CI unit job, which touches only `ContentView.swift` and `open-items.md`
+and applied with zero conflicts.
+
+**The cost of that cherry-pick, stated rather than discovered later:** it makes
+`split/no-phase-mapping` a *sibling* of `ai-analysis`, not an ancestor, so the
+later phase-mapping merge will **not** be a fast-forward. `main` is now linear
+by preference, not by rule (`CLAUDE.md`). Dropping the cherry-pick restores
+the pure-ancestor shape at 26 commits and leaves CI red; keeping CI green was
+judged worth more.
+
+**Phase mapping stays behind the band on `ai-analysis`**, unchanged: step 3
+inside 0.96–1.75 %, then one on-screen drive of phase mapping, then the docs
+commit that retires this paragraph. Every phase-mapping product still carries
+`validation: "none"`.
+
+**Not pushed, and not gated on its own tree yet** — `unit` and `scientific`
+are owed on `split/no-phase-mapping` itself before it goes out; a gate on
+`ai-analysis` is not a gate on this tree. Auto-merge is off. The owner
+pushes, or hands over the push when asked.
 
 **A trap paid 2026-09-14:** `tools/run-tests.sh` edited while `inventory` was
 running died with `parse error near ';;'` on a line that was fine before and

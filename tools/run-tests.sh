@@ -166,7 +166,14 @@ inventory() {
     done
     printf "  %-36s %7s   (%s at %s)\n" "AppState + ResultExport lines" "$heavy_now" "$heavy_base" "$base_ref"
     if (( heavy_now > heavy_base )); then
-      echo "  ^ AppState.swift + ResultExport.swift grew by $(( heavy_now - heavy_base )) lines (C5: they never net positive)"; rc=1
+      # C5's hard form was OVERRULED by the owner on 2026-09-16: growth is
+      # allowed where these files are the honest home for the state. The
+      # measurement stays because the caution is real and unmeasured growth is
+      # how the two files reached 5 461 and 1 939 lines in the first place —
+      # but it REPORTS now, it does not fail. A commit that grows them says in
+      # its message why no other home would do.
+      echo "  ^ AppState.swift + ResultExport.swift grew by $(( heavy_now - heavy_base )) lines"
+      echo "    (C5 reports, it no longer fails — owner 2026-09-16. Say in the commit message why no other home would do.)"
     fi
   fi
   printf "  %-36s %7s\n" "UI/ Swift lines" "$(cat "$ROOT"/mac4DSTEM/UI/*.swift | wc -l | tr -d ' ')"
