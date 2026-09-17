@@ -97,6 +97,7 @@ scientific=(
   scientific-bundle-test
   disk-detector
   rotation-parity-test
+  friedel-origin-test
 )
 campaign=(
   parallax-preprocessing-test parallax-alignment-test parallax-aberration-test

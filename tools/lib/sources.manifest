@@ -258,6 +258,16 @@ mac4dstem_sources() {
           "$core/Analysis/RotationCalibration.swift"
         )
         ;;
+      friedel)
+        # The Friedel-symmetry origin finder alone (tools/friedel-origin-test):
+        # FriedelOrigin takes no Calibration.swift type, only FFT2D (which links
+        # against AnalysisCancellationToken, same as the rotation group above).
+        want+=(
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Analysis/FriedelOrigin.swift"
+        )
+        ;;
       parallax)
         # The whole parallax chain; each parallax-*-test compiles all of it.
         mac4dstem_sources "$repo" calibration
@@ -365,7 +375,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse rotation parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse rotation friedel parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
         exit 64
         ;;
     esac
