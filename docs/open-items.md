@@ -62,7 +62,7 @@ schedule WITHOUT the repeat, so the green test agrees with the port by construct
 catch this — add the `num_iter_at_min_bin` hstack to its contract list. **Science, Gate D before
 any `ParallaxAlignment` change.** Owner: unclaimed.
 
-## T1 [0 -4 1]: the not-indexed pairs are one real Friedel family rejected on tolerance — measured 2026-09-17, Gate D on the origin residual owed
+## T1 [0 -4 1]: the not-indexed pairs are per-peak detection noise, not origin or reference — measured 2026-09-17
 
 The earlier question — "do the two observed T1 spots form a Friedel pair, or two different-length
 families 0.454/0.479?" — is **resolved by direct measurement** (independently refuted). Three ways:
@@ -89,17 +89,18 @@ families 0.454/0.479?" — is **resolved by direct measurement** (independently 
    Consistent with the 59 % recall the floor-2 exception already buys — centred pairs pass, these
    marginal ones fall just outside.
 
-**Gate D, not established:** the CAUSE of the off-antiparallel residual and the fix. The probe's
-single global origin (0.363 px off centre) explains at most `|u+v|` ≤ 0.014 — below the measured
-0.021–0.043, which imply per-position shifts of 0.5–1.1 px (per-position beam wander OR per-peak
-sub-pixel noise, not distinguished). Crucially the probe used ONE global origin and never applied
-the app's per-position origin collapse (`BraggVectors.calibrated(with:referenceOrigin:)`, from
-`OriginCalibration`/`DiskDetection` fitted origins) — so these 252 may be partly a probe artifact
-the app already removes. **Decisive experiment before any fix:** re-run the T1 not-indexed positions
-with per-position fitted origins; measure (a) does `|u+v|` collapse below 0.02, (b) does `classify`
-label them T1 with score < the shipped 0.015 cliff. Loosening the pair floor alone is NOT the fix —
-even at floor 2 the 0.015 `notIndexedAboveInvAngstrom` cliff blocks ~1/3 (`|u+v|`/2 > 0.015),
-recovering at most ~half on marginal matches. Owner: assign the per-position-origin experiment.
+**Gate D experiment RUN 2026-09-17** (`phase-map-probe --t1-origin-experiment`; sanity: `classify`
+with the global origin reproduces all 252 not-indexed): a per-position direct-beam COM origin
+(independent of the T1 spots) sits **0.04 px (0.0007 Å⁻¹) median from the global origin** — the beam
+is stable, not wandering — and leaves the best surviving-pair `|u+v|` essentially unchanged
+(0.0266 → 0.0261 Å⁻¹), recovering only **24 of 252 (10 %)** as T1. **So the off-antiparallel residual
+is NOT a common-mode origin error; it is per-PEAK centroid noise on the two weak {200} spots**
+(~0.5–1 px each), refuting the origin hypothesis — per-position origin is not the fix. When a pair
+does clear 0.02 it correctly indexes as T1 (24/24), so reference and matcher are sound; the limit is
+detection precision on weak reflections. Remaining levers, each its own Gate D: reduce per-peak noise
+(better centroiding of the weak spots), loosen the pair-antiparallel tolerance (recovers ~half at
+rising Al-false-positive and 0.015-cliff cost), or accept a detection-limited T1 recall. Owner:
+which lever, if any.
 
 ## resultexport-split, prepared and parked — added 2026-09-17
 

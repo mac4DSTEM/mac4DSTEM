@@ -114,6 +114,7 @@ enum Probe {
         var maxPeaks: Int?
         var matrixFallback: Double?
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
+        var t1OriginExperiment = false   // Gate D (docs/open-items.md, T1 entry): re-run the not-indexed T1 positions with a PER-POSITION direct-beam origin; only with --thronsen
         var completenessGuard = false   // item K: PhaseVectorSettings.completenessAwareCrossPhaseRanking, off-by-default candidate
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
@@ -147,6 +148,8 @@ enum Probe {
                 completenessGuard = true; index += 1
             } else if args[index] == "--noise-floor" {
                 noiseFloor = true; index += 1
+            } else if args[index] == "--t1-origin-experiment" {
+                t1OriginExperiment = true; index += 1
             } else if args[index] == "--or" {
                 orientationRelationship = true; index += 1
             } else if args[index] == "--dump-edge-on" {
@@ -890,11 +893,11 @@ enum Probe {
             // difference between "can index" and "can never". Recompute the
             // SHIPPED survivors at every not-indexed position and ask directly —
             // read-only, no science number moves.
-            // CAVEAT: this uses the probe's single GLOBAL origin and does NOT
-            // apply per-position origin collapse (BraggVectors.calibrated(with:
-            // referenceOrigin:)), so an off-antiparallel |u+v| seen here may be a
-            // global-origin artifact — the per-position-origin re-run is the
-            // Gate D owed (docs/open-items.md, T1 entry).
+            // NOTE: this uses the probe's single GLOBAL origin. The
+            // --t1-origin-experiment block below RE-RAN these positions with a
+            // per-position direct-beam origin and found it moves 0.04 px and
+            // recovers only 10 %, so the off-antiparallel |u+v| here is per-peak
+            // centroid noise, NOT a global-origin artifact (docs/open-items.md).
             do {
                 let scratch = PhaseVectorMatcher.Scratch(capacity: 64)
                 let matrixEntry = map.matrixEntryIndex >= 0 ? library.entries[map.matrixEntryIndex] : nil
@@ -988,6 +991,116 @@ enum Probe {
                       + "p10 \(q(0.10)) p25 \(q(0.25)) p50 \(q(0.50)) p75 \(q(0.75)) p90 \(q(0.90))"
                       + String(format: "  | under 0.90: %d (%.1f %%)", below90,
                                100 * Double(below90) / Double(max(1, sortedFracs.count))))
+            }
+
+            // ---- Gate D EXPERIMENT: per-position direct-beam origin on the
+            // not-indexed T1 positions (docs/open-items.md, T1 entry) ----
+            // The matcher uses ONE global origin; per-position origin collapse
+            // is the caller's job (PhaseVectorMatching.swift:349). This re-reads
+            // each not-indexed T1 pattern, computes its OWN direct-beam COM
+            // origin (the same radius-6 COM the probe computes globally,
+            // main.swift:347-359), rebuilds survivors and RE-RUNS `classify`
+            // with that origin — deciding common-mode origin vs per-peak noise,
+            // and whether a per-position origin already indexes T1. The
+            // per-position origin is from the DIRECT BEAM, independent of the
+            // T1 reflections, so it is not circular. Read-only measurement.
+            if t1OriginExperiment {
+                print("\n== Gate D: per-position direct-beam origin on not-indexed T1 ==")
+                let scratch = PhaseVectorMatcher.Scratch(
+                    capacity: library.entries.map(\.vectors.count).max() ?? 1)
+                let matrixEntry = map.matrixEntryIndex >= 0 ? library.entries[map.matrixEntryIndex] : nil
+                let candidates = library.candidateEntryIndices
+                let challenge = PhaseVectorMatcher.matrixChallengeBases(library: library)
+                let t1PhaseIndex = map.phaseNames.firstIndex(of: "T1") ?? -1
+                let cxG = Double(primary.qx - 1) / 2, cyG = Double(primary.qy - 1) / 2
+                let radius = matchSettings.pairRadiusInvAngstrom
+
+                func survivors(_ index: Int, _ ox: Float, _ oy: Float) -> [SIMD2<Double>] {
+                    let v = PhaseVectorMatcher.experimentalVectors(
+                        peaks: peaks[index], originX: ox, originY: oy,
+                        invAngstromPerPixel: qPerPixel,
+                        directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                    guard let m = matrixEntry else { return v }
+                    return v.filter { u in
+                        !m.vectors.contains { simd_distance($0.q, u) <= matchSettings.matrixToleranceInvAngstrom } }
+                }
+                func bestPairResidual(_ v: [SIMD2<Double>]) -> Double? {
+                    var best: Double?
+                    for i in 0..<v.count where simd_length(v[i]) > radius {
+                        for j in (i + 1)..<v.count {
+                            let s = simd_length(v[i] + v[j])
+                            if best == nil || s < best! { best = s }
+                        }
+                    }
+                    return best
+                }
+                func classify(_ index: Int, _ ox: Float, _ oy: Float) -> PhaseVectorResult {
+                    let v = PhaseVectorMatcher.experimentalVectors(
+                        peaks: peaks[index], originX: ox, originY: oy,
+                        invAngstromPerPixel: qPerPixel,
+                        directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                    return PhaseVectorMatcher.classify(
+                        vectors: v, library: library, settings: matchSettings,
+                        matrixEntry: matrixEntry, candidateEntryIndices: candidates,
+                        scratch: scratch, matrixChallenge: challenge)
+                }
+
+                var n = 0, sanityNotIndexed = 0
+                var shift: [Double] = [], uvGlobal: [Double] = [], uvPerPos: [Double] = []
+                var pairGlobal = 0, pairPerPos = 0
+                var vIndexedT1 = 0, vIndexedOther = 0, vNotIndexed = 0, vMatrix = 0
+                for (index, result) in map.results.enumerated()
+                where thronsen.labels[index] == 3 && result.verdict == .notIndexed {
+                    let ry = index / cols.count, rx = index % cols.count
+                    guard let pattern = try? await reader.readPattern(view, ry: ry, rx: rx) else { continue }
+                    var s = 0.0, sx = 0.0, sy = 0.0
+                    for y in 0..<primary.qy {
+                        for x in 0..<primary.qx {
+                            let r = ((Double(y) - cyG) * (Double(y) - cyG)
+                                     + (Double(x) - cxG) * (Double(x) - cxG)).squareRoot()
+                            guard r <= 6 else { continue }
+                            let w = Double(pattern[y * primary.qx + x])
+                            s += w; sy += w * Double(y); sx += w * Double(x)
+                        }
+                    }
+                    guard s > 0 else { continue }
+                    let pOX = Float(sx / s), pOY = Float(sy / s)
+                    n += 1
+                    shift.append(((Double(pOX) - Double(originX)) * (Double(pOX) - Double(originX))
+                                  + (Double(pOY) - Double(originY)) * (Double(pOY) - Double(originY))).squareRoot() * qPerPixel)
+
+                    let survG = survivors(index, originX, originY)
+                    let survP = survivors(index, pOX, pOY)
+                    if let r = bestPairResidual(survG) { uvGlobal.append(r) }
+                    if let r = bestPairResidual(survP) { uvPerPos.append(r) }
+                    if PhaseVectorMatcher.containsFriedelPair(survG, radius: radius) { pairGlobal += 1 }
+                    if PhaseVectorMatcher.containsFriedelPair(survP, radius: radius) { pairPerPos += 1 }
+
+                    if classify(index, originX, originY).verdict == .notIndexed { sanityNotIndexed += 1 }
+                    let rP = classify(index, pOX, pOY)
+                    switch rP.verdict {
+                    case .indexed where Int(rP.phaseIndex) == t1PhaseIndex: vIndexedT1 += 1
+                    case .indexed: vIndexedOther += 1
+                    case .notIndexed: vNotIndexed += 1
+                    case .matrix: vMatrix += 1
+                    case .noData: break
+                    }
+                }
+                func med(_ a: [Double]) -> Double { a.isEmpty ? .nan : a.sorted()[a.count / 2] }
+                print(String(format: "  N = %d not-indexed T1 positions (sanity: classify(global) still not-indexed %d/%d)",
+                             n, sanityNotIndexed, n))
+                print(String(format: "  per-position origin shift from the global origin: median %.4f Å⁻¹ = %.2f px",
+                             med(shift), med(shift) / qPerPixel))
+                print(String(format: "  best surviving-pair |u+v|: global median %.4f  →  per-position median %.4f Å⁻¹  (pair radius %.4f)",
+                             med(uvGlobal), med(uvPerPos), radius))
+                print(String(format: "  hold ±pair (containsFriedelPair): global %d (%.0f%%)  →  per-position %d (%.0f%%)",
+                             pairGlobal, 100 * Double(pairGlobal) / Double(max(1, n)),
+                             pairPerPos, 100 * Double(pairPerPos) / Double(max(1, n))))
+                print(String(format: "  verdict with per-position origin: T1 %d (%.0f%%)  other-phase %d  not-indexed %d  matrix %d",
+                             vIndexedT1, 100 * Double(vIndexedT1) / Double(max(1, n)),
+                             vIndexedOther, vNotIndexed, vMatrix))
             }
 
             // ---- Noise floor (Gate D record: docs/open-items.md, step 3 entry) ----
