@@ -189,7 +189,9 @@ recovery; `ContentView` reconstructs workflow rules from it. Extracted seams
 already exist (`DatasetResidency`, `SessionGates`, `WorkspaceNavigation`,
 `StrainProduct`, `ReplayRun`, `QCalibrationRun`, `SessionCalibrationFramePolicy`,
 `FitOverlayPresentation` — C5's first extraction, 2026-09-07: the diffraction
-pane's fit overlays as a value over a snapshot).
+pane's fit overlays as a value over a snapshot — `PtychographySettings`,
+2026-09-17: the single-slice ptychography input controls, the result stays
+on `AppState` like `StrainProduct`'s split between controls and map).
 The target (`archive/v2/v2.5-plan.md` §4): `ScientificProduct` as an
 immutable value owning pixels, axes, units, frame, calibration snapshot,
 validity and provenance, with `ProductPresentation` separate; narrow

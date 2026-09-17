@@ -1132,12 +1132,55 @@ final class PhaseSplitTests: XCTestCase {
     func testSwitchingPhaseTaskNeverClearsAnotherTasksState() {
         let state = AppState()
         state.changeMode(.singleslicePtychography)
-        let other = SingleslicePtychographyMethod.allCases.first { $0 != state.ptychographyMethod }!
-        state.ptychographyMethod = other
+        let other = SingleslicePtychographyMethod.allCases.first { $0 != state.ptychography.method }!
+        state.ptychography.method = other
         state.changeMode(.ptychography)
-        XCTAssertEqual(state.ptychographyMethod, other)
+        XCTAssertEqual(state.ptychography.method, other)
         state.changeMode(.dpc)
         state.changeMode(.singleslicePtychography)
-        XCTAssertEqual(state.ptychographyMethod, other)
+        XCTAssertEqual(state.ptychography.method, other)
+    }
+
+    /// The seam's own contract (`App/PtychographySettings.swift`'s header):
+    /// `AppState` holds it as `ptychography` without forwarding properties —
+    /// the same contract `StrainProductTests.testAppStateHoldsTheSeamWithoutForwardingProperties`
+    /// pins for `strain`.
+    func testAppStateHoldsThePtychographySeamWithoutForwardingProperties() {
+        // @Observable underscores stored properties, so strip the prefix
+        // before matching — without this the filter can never match and the
+        // test is vacuous.
+        let names = Mirror(reflecting: AppState()).children.compactMap { child in
+            child.label.map { $0.hasPrefix("_") ? String($0.dropFirst()) : $0 }
+        }
+        XCTAssertTrue(names.contains("ptychography"), "the facade holds the seam")
+        let forwarded = names.filter { $0.hasPrefix("ptychography") && $0 != "ptychography" }
+        XCTAssertTrue(
+            forwarded.isEmpty,
+            "no ptychography* stored property may shadow the seam: \(forwarded)"
+        )
+    }
+
+    /// Settings survive a dataset reopen; only the published result is
+    /// cleared (`AppState.activate` nils `singleslicePtychography` and
+    /// leaves `ptychography` untouched — pre-existing behavior, unchanged by
+    /// the seam extraction). `openDemoFixture` drives the same `activate`
+    /// path the file-open pipeline does, with no disk I/O. This is the
+    /// seam's save/reopen contract: `ptychography` is a stable `let`
+    /// reference constructed once with `AppState` itself, never recreated by
+    /// a dataset change — a regression that reconstructed it fresh on each
+    /// `activate` would silently discard the user's edited settings on
+    /// every reopen, and this is the test that would catch it.
+    func testPtychographySettingsSurviveADatasetReopen() async throws {
+        let state = AppState()
+        await state.openDemoFixture()
+        state.ptychography.iterations = 42
+        state.ptychography.method = .differenceMapAlternatingProjections
+        state.ptychography.stepSize = 0.75
+
+        await state.openDemoFixture()
+
+        XCTAssertEqual(state.ptychography.iterations, 42)
+        XCTAssertEqual(state.ptychography.method, .differenceMapAlternatingProjections)
+        XCTAssertEqual(state.ptychography.stepSize, 0.75)
     }
 }

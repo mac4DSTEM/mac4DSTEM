@@ -332,18 +332,7 @@ final class AppState {
     private(set) var parallaxSubpixel: ParallaxSubpixelResult?
     private(set) var parallaxDepth: ParallaxDepthResult?
     private(set) var singleslicePtychography: SingleslicePtychographyResult?
-    var ptychographyIterations = 8
-    var ptychographyMethod: SingleslicePtychographyMethod = .gradientDescent
-    var ptychographyStepSize: Float = 0.5
-    var ptychographyProjectionParameter: Float = 1
-    var ptychographyNormalizationMinimum: Float = 1
-    var ptychographyFixProbe = false
-    var ptychographyConstrainObjectAmplitude = false
-    var ptychographyPurePhaseObject = false
-    var ptychographyFixProbeCenterOfMass = false
-    var ptychographyConstrainProbeAmplitude = false
-    var ptychographyProbeAmplitudeRadius: Float = 0.5
-    var ptychographyProbeAmplitudeWidth: Float = 0.05
+    let ptychography = PtychographySettings()
     var parallaxKDEUpsampleFactor: Double = 0
     var parallaxKDESigmaPixels: Double = 0.125
     var parallaxKDELowpass = false
@@ -3805,7 +3794,7 @@ final class AppState {
         let epoch = datasetEpoch
         let token = beginCancellableOperation(
             "Single-slice ptychography", status: "Preparing diffraction amplitudes…",
-            totalUnits: descriptor.ry + max(1, ptychographyIterations)
+            totalUnits: descriptor.ry + max(1, ptychography.iterations)
         )
         defer { finishCancellableOperation(token) }
         do {
@@ -3823,18 +3812,18 @@ final class AppState {
                 progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
-            options.method = ptychographyMethod
-            options.iterations = ptychographyIterations
-            options.stepSize = ptychographyStepSize
-            options.projectionParameter = ptychographyProjectionParameter
-            options.normalizationMinimum = ptychographyNormalizationMinimum
-            options.fixProbe = ptychographyFixProbe
-            options.constrainObjectAmplitude = ptychographyConstrainObjectAmplitude
-            options.purePhaseObject = ptychographyPurePhaseObject
-            options.fixProbeCenterOfMass = ptychographyFixProbeCenterOfMass
-            options.constrainProbeAmplitude = ptychographyConstrainProbeAmplitude
-            options.probeAmplitudeRelativeRadius = ptychographyProbeAmplitudeRadius
-            options.probeAmplitudeRelativeWidth = ptychographyProbeAmplitudeWidth
+            options.method = ptychography.method
+            options.iterations = ptychography.iterations
+            options.stepSize = ptychography.stepSize
+            options.projectionParameter = ptychography.projectionParameter
+            options.normalizationMinimum = ptychography.normalizationMinimum
+            options.fixProbe = ptychography.fixProbe
+            options.constrainObjectAmplitude = ptychography.constrainObjectAmplitude
+            options.purePhaseObject = ptychography.purePhaseObject
+            options.fixProbeCenterOfMass = ptychography.fixProbeCenterOfMass
+            options.constrainProbeAmplitude = ptychography.constrainProbeAmplitude
+            options.probeAmplitudeRelativeRadius = ptychography.probeAmplitudeRadius
+            options.probeAmplitudeRelativeWidth = ptychography.probeAmplitudeWidth
             let reconstructProgress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(

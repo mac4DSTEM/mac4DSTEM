@@ -837,11 +837,15 @@ Rows 1–3 and 10 landed in `e415929`. **Row 8's `axisDelta` pair closed 2026-09
 — `nextPow2`, `positiveModulo`, `wrapped`, `checkCancellation`, `finiteDouble` and
 `admits` are still open within that row, deliberately: `nextPow2` was excluded on purpose
 (merging FFT1D/FFT2D forces FFT1D into ~5 dependency-closed manifest groups, the silent-
-compile-break the manifest guards). Still open otherwise, in the audit's order: a shared
-harness helper (row 4, Gate B on the helper — a shared `fail` can green 46 harnesses at
-once), one `AppState` seam per session (row 5), `Support/ResultExport.swift` and
-`Core/Data/BraggVectorEMDWriter.swift` splits only with byte-identical output evidence and
-a refuter (rows 6–7), and the >1 000-line harness mains (row 12).
+compile-break the manifest guards). **Row 5's PtychographySettings extraction landed
+2026-09-17** (`App/PtychographySettings.swift`, the seam's own contract test —
+`AppState` holds it without forwarding properties — and a settings-survive-a-dataset-
+reopen test, both broken-first; `docs/status.md`). Still open otherwise, in the audit's
+order: a shared harness helper (row 4, Gate B on the helper — a shared `fail` can green
+46 harnesses at once), the NEXT `AppState` seam (row 5 continues — one per session),
+`Support/ResultExport.swift` and `Core/Data/BraggVectorEMDWriter.swift` splits only with
+byte-identical output evidence and a refuter (rows 6–7), and the >1 000-line harness
+mains (row 12).
 **Row 9 is a do-not:** five different `median` bodies in Core stay separate
 until a Gate D shows they should agree (ADR 015). Evidence and blast radii:
 `docs/archive/audit-2026-09-16/REPORT.md` §3.2. Owner: whoever picks a row.

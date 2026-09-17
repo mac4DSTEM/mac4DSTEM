@@ -948,40 +948,40 @@ extension AppState {
             parallaxDepthInformationLimit = value
         }
         if let value = plan.depthInformationPower { parallaxDepthInformationPower = value }
-        if let value = plan.ptychographyIterations { ptychographyIterations = value }
+        if let value = plan.ptychographyIterations { ptychography.iterations = value }
         if let value = plan.ptychographyMethod {
             switch value {
-            case "gradient-descent": ptychographyMethod = .gradientDescent
+            case "gradient-descent": ptychography.method = .gradientDescent
             case "difference-map_alternating-projections":
-                ptychographyMethod = .differenceMapAlternatingProjections
+                ptychography.method = .differenceMapAlternatingProjections
             default: break
             }
         }
-        if let value = plan.ptychographyStepSize { ptychographyStepSize = value }
+        if let value = plan.ptychographyStepSize { ptychography.stepSize = value }
         if let value = plan.ptychographyProjectionParameter {
-            ptychographyProjectionParameter = value
+            ptychography.projectionParameter = value
         }
         if let value = plan.ptychographyNormalizationMinimum {
-            ptychographyNormalizationMinimum = value
+            ptychography.normalizationMinimum = value
         }
-        if let value = plan.ptychographyFixProbe { ptychographyFixProbe = value }
+        if let value = plan.ptychographyFixProbe { ptychography.fixProbe = value }
         if let value = plan.ptychographyConstrainObjectAmplitude {
-            ptychographyConstrainObjectAmplitude = value
+            ptychography.constrainObjectAmplitude = value
         }
         if let value = plan.ptychographyPurePhaseObject {
-            ptychographyPurePhaseObject = value
+            ptychography.purePhaseObject = value
         }
         if let value = plan.ptychographyFixProbeCenterOfMass {
-            ptychographyFixProbeCenterOfMass = value
+            ptychography.fixProbeCenterOfMass = value
         }
         if let value = plan.ptychographyConstrainProbeAmplitude {
-            ptychographyConstrainProbeAmplitude = value
+            ptychography.constrainProbeAmplitude = value
         }
         if let value = plan.ptychographyProbeAmplitudeRadius {
-            ptychographyProbeAmplitudeRadius = value
+            ptychography.probeAmplitudeRadius = value
         }
         if let value = plan.ptychographyProbeAmplitudeWidth {
-            ptychographyProbeAmplitudeWidth = value
+            ptychography.probeAmplitudeWidth = value
         }
         statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct."
     }
