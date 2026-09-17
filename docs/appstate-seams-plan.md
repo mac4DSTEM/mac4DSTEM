@@ -84,6 +84,35 @@ AppState re-derives (see `StrainProduct.onPresentationChange`).
 - Morning report = the log section below plus the status table; nothing is
   pushed.
 
+## Models and tokens (standing directive: lower tier wherever it can)
+
+- **Night session (seams 1–4):** run the session itself on **Sonnet 5**, in
+  **auto** permission mode (it must not wait for approvals), default effort.
+  The session is the orchestrator: it reads this plan, spawns **one Sonnet
+  subagent per seam**, runs the gates itself with shell commands, and writes
+  the docs and the commit. It never spawns Opus or Fable, never runs two
+  seams at once, and never re-reads `AppState.swift` end to end — the
+  property names and readers are listed here on purpose.
+- **Subagent brief per seam** (the orchestrator pastes it): the seam's section
+  of this plan verbatim, the rules section, the scratchpad path for backups,
+  the scratch build command
+  (`/usr/bin/xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM
+  -destination 'platform=macOS' -derivedDataPath build/prepush/DerivedData
+  CODE_SIGNING_ALLOWED=NO -quiet build`), and the instruction to return a
+  ≤ 40-line report: files touched, widenings left, readers repointed, the
+  byte-diff command and result, build exit. The subagent does **not** run the
+  unit gate, edit docs, or commit — the orchestrator does, after reading the
+  report and re-running the build itself.
+- **Budget:** ≈ 150k tokens per seam subagent (2026-09-18's two agents cost
+  105k and 222k for comparable work), ≈ 50k per seam for the orchestrator,
+  so ≈ 800k for the night. If a seam's subagent passes 250k it is stopped
+  and the seam restored — a stop condition like the others.
+- **Morning sessions (seams 5–7):** **Opus 5**, auto mode, the owner present;
+  the session does the work itself (no subagents — these are judgment
+  seams), stops at the decision points named in each section, and asks in
+  chat. Seam 7's Gate B-lite reader is a **Sonnet** subagent that receives
+  the diagnosis, not the diff.
+
 ## The seams
 
 ### 1. `PhaseContrastProduct` — Parallax and single-slice ptychography
