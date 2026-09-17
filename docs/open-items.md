@@ -115,6 +115,54 @@ a changed reference without that reading.** Owner: which two (or more) of the fo
 groups near 0.45-0.49 the observed data's 0.454/0.479 correspond to, and whether they are a
 Friedel pair at `[0,-4,1]`.
 
+## resultexport-split, prepared and parked — added 2026-09-17
+
+Audit 3.2 row 6 (`docs/archive/audit-2026-09-16/REPORT.md`): `Support/ResultExport.swift`
+(1 939 lines before this session, 12 of 27 funcs untested) split by export kind, in small
+green-boundary commits, each verified before the next. **One landed, self-verified — NOT
+Gate B-reviewed, per this item's own rule (STOP before self-approval).**
+
+**Landed:** `Support/ResultExport+Rendering.swift` — the pure rendering helpers
+(`captionTextHeight`, `publicationFigure`, `applyColormap`, `burnScaleBar`, `cgImage`,
+`savePNG`, `writePNG`, `pngProperties`), zero AppState instance-state dependency (every
+function `static`/`nonisolated static`; the one that needs a live `AppState` takes it as an
+explicit parameter). Verified: the moved body is line-for-line identical to the original
+except three `private` → internal-visibility widenings the split requires (`applyColormap`,
+`cgImage`, `savePNG` — still called from the original file, `private` no longer reaches
+across files) — checked by diffing the extracted range against the pre-split backup, not
+asserted. Build exit 0, zero warnings (`itemI-build2.log`). The 6 rendering/provenance unit
+tests that exercise this code pass (`itemI-rendering-tests.log`). The four named parity
+harnesses (bragg-export, preprocessing-export, reduced-export, scientific-bundle) also
+pass (`itemI-parity-harnesses.log`) but — stated plainly — **do not exercise this file at
+all**: they source the manifest's `export` group, which is `Core/Data/BraggVectorEMDWriter.swift`
+and its dependencies, never `Support/`. That is exactly why this piece was chosen first: it
+carries no HDF5/wire-format risk, so there was nothing for those harnesses to catch either
+way. `inventory`: AppState + ResultExport **7045 (was 7314 at HEAD)**, the moved 269 lines
+exactly accounted for. unit 689/0/2=691 (`unit-itemI-final.log`).
+
+**NOT attempted — the actual wire-format-risk portion, left for the owner's session with
+Gate B support:**
+- `saveCurrentResultToSessionSidecar`, `selectSavedSessionResult`, `loadSavedSessionResult`,
+  `applySelectedSavedControls`, `removeSavedSessionResult`, `saveSessionSidecarAs`,
+  `adoptSessionSidecar`, `saveCalibrationToSessionSidecar` → a candidate
+  `ResultExport+SessionSidecar.swift`.
+- `exportScientificBundle`, `scientificBundleMaps`, `scientificBundleOmissions` → a candidate
+  `ResultExport+ScientificBundle.swift`.
+- `exportCalibratedDataCube`, `exportResultImage`, `exportedImageProvenanceRecord`,
+  `orientedRGBA`, `exportDiffractionImage`, `exportDiskCentreLabels`, `toggleDiskCentre` →
+  candidate `ResultExport+Image.swift` / `+DataCube.swift`.
+- `sessionPixelCalibration` (with `originFitProvenance`/`strainFrameProvenance`, read from
+  both the scientific-bundle and session-sidecar paths — **must stay single-sourced in ONE
+  new file**, not duplicated, per this item's own rule) → a candidate `ResultExport+Provenance.swift`.
+
+Each of those DOES interact with HDF5 writing and the four named harnesses genuinely
+exercise it — that is where a transcription error could silently corrupt what py4DSTEM
+reads back, and why it is parked rather than rushed. Same method as the landed piece
+(exact-range extraction, diff against a pristine backup, private→internal only where a
+cross-file call requires it, full unit + the four harnesses + inventory each step), but
+each step needs its own Gate B refuter, not a self-review. Owner: assign a session, or
+authorize continuing here with a refuter available.
+
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
 ### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
@@ -898,8 +946,9 @@ reopen test, both broken-first; `docs/status.md`). Still open otherwise, in the 
 order: a shared harness helper (row 4, Gate B on the helper — a shared `fail` can green
 46 harnesses at once), the NEXT `AppState` seam (row 5 continues — one per session),
 `Support/ResultExport.swift` and `Core/Data/BraggVectorEMDWriter.swift` splits only with
-byte-identical output evidence and a refuter (rows 6–7), and the >1 000-line harness
-mains (row 12).
+byte-identical output evidence and a refuter (rows 6–7 — **row 6 started 2026-09-17**, see
+"resultexport-split, prepared and parked" below), and the >1 000-line harness mains
+(row 12).
 **Row 9 is a do-not:** five different `median` bodies in Core stay separate
 until a Gate D shows they should agree (ADR 015). Evidence and blast radii:
 `docs/archive/audit-2026-09-16/REPORT.md` §3.2. Owner: whoever picks a row.
