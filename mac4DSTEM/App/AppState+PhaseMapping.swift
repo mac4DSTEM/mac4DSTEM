@@ -92,7 +92,7 @@ extension AppState {
         } catch let failure as PhaseReferenceLibrary.Failure {
             return .failed(Self.phaseLibraryFailureMessage(failure))
         } catch {
-            return .failed(error.localizedDescription)
+            return .failed(Self.errorDetail(error))
         }
 
         let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)

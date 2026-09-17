@@ -141,7 +141,7 @@ package final class LearnedDetectionSession {
             unavailableReason = nil
             return loaded
         } catch {
-            unavailableReason = error.localizedDescription
+            unavailableReason = sessionErrorDetail(error)
             throw error
         }
     }
@@ -169,7 +169,7 @@ package final class LearnedDetectionSession {
         do {
             return .success(try await prepare(assetURL: assetURL))
         } catch {
-            return .failure("The learned detector could not be prepared: \(error.localizedDescription)")
+            return .failure("The learned detector could not be prepared: \(sessionErrorDetail(error))")
         }
     }
 
@@ -220,7 +220,7 @@ package final class LearnedDetectionSession {
         do {
             _ = try await prepare(assetURL: assetURL)
         } catch {
-            return unavailableReason ?? error.localizedDescription
+            return unavailableReason ?? sessionErrorDetail(error)
         }
         guard assetSHA256 == recorded.learnedModelSHA256 else {
             let have = String((assetSHA256 ?? "").prefix(8))

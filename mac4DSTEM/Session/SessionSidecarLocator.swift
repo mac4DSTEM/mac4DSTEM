@@ -61,6 +61,23 @@ import Foundation
 import DSTEMCore
 #endif
 
+/// Domain, code and underlying error, not just the localized text. A bare
+/// `localizedDescription` reads identically to a real sandbox denial — the
+/// trap that motivated this (docs/open-items.md, "could not remember
+/// access", 2026-09-17). Lives in `Session/`, not `App/AppState`, because
+/// `AppState.errorDetail` (`Support/ResultExport.swift`) calls this same
+/// function rather than duplicating it, and `Session/` may not depend on
+/// `App/` (architecture.md's layering rule) while `App/` may depend on
+/// `Session/`.
+package nonisolated func sessionErrorDetail(_ error: Error) -> String {
+    let ns = error as NSError
+    var text = "\(ns.domain) \(ns.code): \(ns.localizedDescription)"
+    if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
+        text += " (underlying: \(underlying.domain) \(underlying.code))"
+    }
+    return text
+}
+
 @Observable
 package final class SessionSidecarLocator {
 
@@ -401,7 +418,7 @@ extension SessionSidecarLocator {
             let removal = replacedDestination
                 ? " The file previously at the chosen destination was removed before the copy failed."
                 : ""
-            return .failed(error.localizedDescription + removal)
+            return .failed(sessionErrorDetail(error) + removal)
         }
     }
 }

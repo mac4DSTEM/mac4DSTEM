@@ -1527,8 +1527,8 @@ final class AppState {
                         if accessed { url.stopAccessingSecurityScopedResource() }
                         return
                     }
-                    pending.previewFailure = error.localizedDescription
-                    statusText = "Preview unavailable: \(error.localizedDescription)"
+                    pending.previewFailure = Self.errorDetail(error)
+                    statusText = "Preview unavailable: \(Self.errorDetail(error))"
                 }
                 pending.fetchDefaultSingleDP()
                 pendingLoad = pending
@@ -2192,8 +2192,8 @@ final class AppState {
     /// write): raises the window-modal "Something went wrong" alert in
     /// addition to the status bar + log.
     func present(_ error: Error) {
-        errorMessage = error.localizedDescription
-        statusText = "Error: \(error.localizedDescription)"
+        errorMessage = Self.errorDetail(error)
+        statusText = "Error: \(Self.errorDetail(error))"
     }
 
     /// Recoverable compute failure (an analysis step that did not converge or
@@ -2209,7 +2209,7 @@ final class AppState {
             present(error)
             return
         }
-        statusText = "Error: \(error.localizedDescription)"
+        statusText = "Error: \(Self.errorDetail(error))"
     }
 
     private func openFileAsync(url: URL) async {
@@ -2537,7 +2537,7 @@ final class AppState {
             }
         } catch {
             if labelsEpoch == datasetEpoch {
-                statusText = "Could not restore disk-centre labels: \(error.localizedDescription)"
+                statusText = "Could not restore disk-centre labels: \(Self.errorDetail(error))"
             }
         }
         braggVectors = nil
@@ -2646,7 +2646,7 @@ final class AppState {
         case .success(let preview): datasetPreview = preview
         case .failure(let error):
             if !(error is CancellationError) {
-                statusText = "Preview unavailable: \(error.localizedDescription)"
+                statusText = "Preview unavailable: \(Self.errorDetail(error))"
             }
         }
     }
@@ -2820,9 +2820,9 @@ final class AppState {
             // opens as a dataset with no results and no reason
             // (Gate B-lite F7). // v2 S5
             sessionSidecar.noteUnreadable(
-                "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
+                "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
             )
-            statusText = "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
+            statusText = "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
             return nil
         }
     }

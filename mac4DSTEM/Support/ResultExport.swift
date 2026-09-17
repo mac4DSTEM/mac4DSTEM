@@ -24,7 +24,7 @@ extension AppState {
             guard isCurrent() else { return nil }
             sessionInventory = inventory
             return nil
-        } catch { return error.localizedDescription }
+        } catch { return Self.errorDetail(error) }
     }
 
     /// Export a calibrated, optionally cropped/Q-binned py4DSTEM DataCube.
@@ -173,15 +173,12 @@ extension AppState {
     /// cause of one such report (2026-09-17, `docs/open-items.md`) was
     /// `errSecCSStaticCodeChanged` (-67034), which a bare `localizedDescription`
     /// ("The file couldn't be opened") never showed. Same shape as
-    /// `Core/ML/LearnedDiskDetector.swift`'s runtime-error text.
-    static func errorDetail(_ error: Error) -> String {
-        let ns = error as NSError
-        var text = "\(ns.domain) \(ns.code): \(ns.localizedDescription)"
-        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
-            text += " (underlying: \(underlying.domain) \(underlying.code))"
-        }
-        return text
-    }
+    /// `Core/ML/LearnedDiskDetector.swift`'s runtime-error text. Delegates to
+    /// `Session/SessionSidecarLocator.swift`'s `sessionErrorDetail` — that
+    /// file needs the identical formatting and `Session/` may not depend on
+    /// `App/`, so the canonical body lives there and this is the `App/`-side
+    /// name every existing call site already uses.
+    static func errorDetail(_ error: Error) -> String { sessionErrorDetail(error) }
 
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
         if let granted = sessionSidecar.grant(for: descriptor) { return granted }
