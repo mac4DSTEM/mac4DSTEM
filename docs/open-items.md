@@ -770,18 +770,6 @@ row by identifier. The old app had the same collision. Owner: unclaimed.
 
 ## Code hygiene
 
-### Three Swift 6 isolation warnings in `App/AppState+PhaseMapping.swift` — found 2026-09-17
-A cold `xcodebuild build` at `a960665` printed three warnings there (the audit's E3 cold build, `docs/archive/audit-2026-09-16/code-metrics.md` §E; again in `build-B-20260917.log`):
-line 112 `reference to captured var 'self' in concurrently-executing code`, lines 127 and
-328 `main actor-isolated property 'invAngstromPerPixel' cannot be accessed from outside
-of the actor` — all "an error in the Swift 6 language mode". The two trivial
-`#NoUsage` warnings that sat beside them in `App/AppState.swift` were fixed the same day.
-Trap: this is the class `Core/ML/LearnedDiskDetection.swift` documents — an isolation
-annotation moves work between threads, so the fix is not a `nonisolated` sprinkled to
-silence the compiler; establish first where the phase-mapping progress closure and the
-scale read actually run (`/diagnose`), then fix, then re-read the build log.
-Owner: the next phase-mapping session.
-
 ### The audit's refactor list, rows 4–13, is the open hygiene queue — 2026-09-16
 Rows 1–3 and 10 landed in `e415929`. Still open, in the audit's order:
 a shared harness helper (row 4, Gate B on the helper — a shared `fail` can

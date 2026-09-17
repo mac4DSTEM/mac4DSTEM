@@ -8,6 +8,35 @@ last stood in the live file, with a closure note. **History, not guidance.**
 
 ---
 
+## Three Swift 6 isolation warnings in `App/AppState+PhaseMapping.swift` — closed 2026-09-17
+
+### ~~Three Swift 6 isolation warnings in `App/AppState+PhaseMapping.swift`~~ — **CLOSED 2026-09-17**
+
+> A cold `xcodebuild build` printed three warnings: line 112 `reference to captured var
+> 'self' in concurrently-executing code`, lines 127 and 328 `main actor-isolated property
+> 'invAngstromPerPixel' cannot be accessed from outside of the actor`.
+
+**Closure.** Reproduced first with a fresh cold build to a scratch `-derivedDataPath`
+(`build-itemB-cold.log`, exit 0, all three warnings present at the exact lines).
+Mechanism, not guessed: `ACOMScaleSemantics` (`Session/ACOMWorkflow.swift`) is
+MainActor-isolated by the module's default isolation despite being `Sendable`, so
+`scale.invAngstromPerPixel` read inside `Task.detached` crosses the actor boundary —
+fixed by extracting the `Double` on the main actor before the detach, the same
+"byte-identical value, not the isolated carrier" pattern `AppState.swift:4698`'s disk-
+detection progress closure already uses for `learnedRef`/`learnedThreshold`. The
+`self`-capture warning at line 112 was the SAME closure missing the explicit
+`[weak self]` the working twin at `AppState.swift:4700` puts on its own nested `Task`
+— without it, the inner `Task { @MainActor in }` implicitly re-captures the outer
+closure's weak `self` rather than taking its own; adding `[weak self]` to the inner
+closure (matching the twin exactly) closed it. Neither Gate D trigger applies: no
+scientific number moves, and the mechanism was proven by the compiler's own diagnostic
+plus a working in-repo precedent, not inferred. `runPhaseMapping` and
+`findMatrixZoneAxis` both fixed, three sites. A fresh build afterwards
+(`build-itemB-after.log`) shows zero warnings anywhere in `mac4DSTEM/`, not only the
+three named ones. `run-tests.sh unit` exit 0 the same tree (`unit-itemB.log`).
+
+---
+
 ## `RotationCalibration.swift` has no gated parity harness — closed 2026-09-17
 
 ### ~~`RotationCalibration.swift` has no gated parity harness~~ — **CLOSED 2026-09-17**

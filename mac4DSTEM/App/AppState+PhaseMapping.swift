@@ -98,6 +98,13 @@ extension AppState {
         let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
         let origin = calibrated.origin.point
         let scale = acomScaleSemantics
+        // Read on the main actor, before the detach below (AppState.swift's
+        // disk-detection progress closure and learnedRef/learnedThreshold
+        // extraction are the same pattern): ACOMScaleSemantics is
+        // MainActor-isolated by the module's default isolation, so its
+        // member access cannot cross into Task.detached — only the plain
+        // Double can.
+        let invAngstromPerPixel = scale.invAngstromPerPixel
 
         let cancellation = beginCancellableOperation(
             "Phase mapping",
@@ -109,7 +116,7 @@ extension AppState {
         let epoch = datasetEpoch
 
         let progress: @Sendable (Double) -> Void = { [weak self] fraction in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self, self.isCurrentOperation(cancellation) else { return }
                 self.updateCancellableOperation(
                     cancellation, progress: fraction,
@@ -125,7 +132,7 @@ extension AppState {
             PhaseVectorMatcher.map(
                 bragg: vectors, library: library, settings: matchSettings,
                 originX: origin.x, originY: origin.y,
-                invAngstromPerPixel: scale.invAngstromPerPixel,
+                invAngstromPerPixel: invAngstromPerPixel,
                 cancellation: cancellation, progress: progress
             )
         }.value
@@ -310,6 +317,9 @@ extension AppState {
         let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
         let origin = calibrated.origin.point
         let scale = acomScaleSemantics
+        // Read on the main actor, before the detach below — same reason as
+        // runPhaseMapping's invAngstromPerPixel extraction, above.
+        let invAngstromPerPixel = scale.invAngstromPerPixel
         let reference = phaseMapping.reference
         let matching = phaseMapping.matching
         let crystal = slot.model.crystal
@@ -326,7 +336,7 @@ extension AppState {
                 bragg: vectors, crystal: crystal,
                 referenceSettings: reference, settings: matching,
                 originX: origin.x, originY: origin.y,
-                invAngstromPerPixel: scale.invAngstromPerPixel,
+                invAngstromPerPixel: invAngstromPerPixel,
                 cancellation: cancellation)
         }.value
 
