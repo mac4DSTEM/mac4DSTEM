@@ -38,6 +38,17 @@ Ranked by value to a working microscopist.
 | 6 | **Detector realism** | per-position detector shift (the origin map exists); arbitrary detector masks (the GPU path takes a weight image); hot-pixel filtering; ARINA reader, MIB packed modes | small each · — |
 | 7 | **Phase-contrast depth** | direct ptychography (SSB / OBF / WDD); mixed-state; probe-position correction | large · — |
 
+**Calibration foundation (theme 1) — pre-registration, v3.1.** Sequenced
+least-risk first (Gate B capacity is one campaign at a time). The **origin
+validity mask leads** (owner, 2026-09-17): surface the per-position `kept` mask
+the robust origin fit already computes and discards, completing the 2026-08-28
+admit-with-fraction decision from a scalar to a spatial map — disclosure only,
+no shipped number moves, a unit gate. Then the discarded CoM centre in
+`probeSize` (Gate D); `get_origin_friedel` (port, Gate D); the vacuum probe from
+a separate scan (largest, its own pre-registration). Full registration:
+[`docs/v3.1-calibration-preregistration.md`](docs/v3.1-calibration-preregistration.md),
+decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
+
 ## Beyond py4DSTEM — the differentiators
 
 All requested by the owner; all out of v2 by the 2026-08-18 decision ("each
